@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "goldenshare"
+version = "0.1.0"
+description = "PostgreSQL + Tushare market data foundation"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "alembic>=1.14.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.6.0",
+  "psycopg[binary]>=3.2.0",
+  "requests>=2.32.0",
+  "sqlalchemy>=2.0.36",
+  "tushare>=1.4.20",
+  "typer>=0.15.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+goldenshare = "src.cli:app"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

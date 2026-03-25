@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from datetime import date
+
+from src.services.history_backfill_service import HistoryBackfillService
+
+
+def test_backfill_equity_series_emits_progress(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.security.get_active_equities.return_value = [
+        mocker.Mock(ts_code="000001.SZ"),
+        mocker.Mock(ts_code="000002.SZ"),
+    ]
+    progress = mocker.Mock()
+
+    sync_service_1 = mocker.Mock()
+    sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
+    sync_service_2 = mocker.Mock()
+    sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+
+    summary = service.backfill_equity_series(
+        resource="daily",
+        start_date=date(2010, 1, 1),
+        end_date=date(2026, 3, 24),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 2
+    assert summary.rows_fetched == 30
+    assert summary.rows_written == 30
+    assert build_sync_service.call_count == 2
+    assert progress.call_args_list[0].args[0] == "daily: 1/2 ts_code=000001.SZ fetched=10 written=10"
+    assert progress.call_args_list[1].args[0] == "daily: 2/2 ts_code=000002.SZ fetched=20 written=20"
+
+
+def test_backfill_by_trade_dates_emits_progress(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 20), date(2026, 3, 21)]
+    progress = mocker.Mock()
+
+    sync_service_1 = mocker.Mock()
+    sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=5, rows_written=5)
+    sync_service_2 = mocker.Mock()
+    sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=6, rows_written=6)
+    mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+
+    summary = service.backfill_by_trade_dates(
+        resource="daily_basic",
+        start_date=date(2026, 3, 20),
+        end_date=date(2026, 3, 21),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 2
+    assert summary.rows_fetched == 11
+    assert summary.rows_written == 11
+    assert progress.call_args_list[0].args[0] == "daily_basic: 1/2 trade_date=2026-03-20 fetched=5 written=5"
+    assert progress.call_args_list[1].args[0] == "daily_basic: 2/2 trade_date=2026-03-21 fetched=6 written=6"
+
+
+def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 24)]
+    progress = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=113, rows_written=113)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_by_trade_dates(
+        resource="limit_list_d",
+        start_date=date(2026, 3, 24),
+        end_date=date(2026, 3, 24),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 113
+    assert summary.rows_written == 113
+    build_sync_service.assert_called_once_with("limit_list_d", session)
+    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 24))
+    assert progress.call_args_list[0].args[0] == "limit_list_d: 1/1 trade_date=2026-03-24 fetched=113 written=113"

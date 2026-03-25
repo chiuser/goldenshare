@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import date
+
+from sqlalchemy.orm import Session
+
+from src.config.settings import get_settings
+from src.dao.factory import DAOFactory
+from src.services.sync.registry import build_sync_service
+
+
+@dataclass
+class BackfillSummary:
+    resource: str
+    units_processed: int
+    rows_fetched: int
+    rows_written: int
+
+
+class HistoryBackfillService:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.dao = DAOFactory(session)
+        self.settings = get_settings()
+
+    def backfill_trade_calendar(self, start_date: date, end_date: date, exchange: str | None = None) -> BackfillSummary:
+        service = build_sync_service("trade_cal", self.session)
+        result = service.run_full(
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            exchange=exchange or self.settings.default_exchange,
+        )
+        return BackfillSummary("trade_cal", 1, result.rows_fetched, result.rows_written)
+
+    def backfill_equity_series(
+        self,
+        resource: str,
+        start_date: date,
+        end_date: date,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        if resource not in {"daily", "adj_factor"}:
+            raise ValueError("equity series backfill only supports daily and adj_factor")
+        securities = sorted(self.dao.security.get_active_equities(), key=lambda item: item.ts_code)
+        if offset:
+            securities = securities[offset:]
+        if limit is not None:
+            securities = securities[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(securities)
+        for index, security in enumerate(securities, start=1):
+            service = build_sync_service(resource, self.session)
+            result = service.run_full(
+                ts_code=security.ts_code,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+            )
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index}/{total} ts_code={security.ts_code} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
+
+    def backfill_by_trade_dates(
+        self,
+        resource: str,
+        start_date: date,
+        end_date: date,
+        exchange: str | None = None,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        if resource not in {"daily_basic", "moneyflow", "limit_list_d"}:
+            raise ValueError("trade-date backfill only supports daily_basic, moneyflow, and limit_list_d")
+        exchange_name = exchange or self.settings.default_exchange
+        trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
+        if offset:
+            trade_dates = trade_dates[offset:]
+        if limit is not None:
+            trade_dates = trade_dates[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(trade_dates)
+        for index, trade_date in enumerate(trade_dates, start=1):
+            service = build_sync_service(resource, self.session)
+            result = service.run_incremental(trade_date=trade_date)
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+
+    def backfill_low_frequency_by_security(
+        self,
+        resource: str,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        if resource not in {"dividend", "stk_holdernumber"}:
+            raise ValueError("low-frequency backfill only supports dividend and stk_holdernumber")
+        securities = sorted(self.dao.security.get_active_equities(), key=lambda item: item.ts_code)
+        if offset:
+            securities = securities[offset:]
+        if limit is not None:
+            securities = securities[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(securities)
+        for index, security in enumerate(securities, start=1):
+            service = build_sync_service(resource, self.session)
+            result = service.run_full(ts_code=security.ts_code)
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index}/{total} ts_code={security.ts_code} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
