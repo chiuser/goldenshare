@@ -27,6 +27,7 @@ class Security(TimestampMixin, Base):
     cnspell: Mapped[str | None] = mapped_column(String(32))
     market: Mapped[str | None] = mapped_column(String(32))
     exchange: Mapped[str | None] = mapped_column(String(16))
+    curr_type: Mapped[str | None] = mapped_column(String(16))
     list_status: Mapped[str | None] = mapped_column(String(8))
     list_date: Mapped[date | None] = mapped_column(Date)
     delist_date: Mapped[date | None] = mapped_column(Date)

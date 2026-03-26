@@ -56,13 +56,14 @@ def init_db() -> None:
 def sync_history(
     resources: list[str] = typer.Option(..., "--resources", "-r"),
     ts_code: str | None = typer.Option(None),
+    index_code: str | None = typer.Option(None, "--index-code", help="For index_weight, maps to Tushare index_code."),
     start_date: str | None = typer.Option(None),
     end_date: str | None = typer.Option(None),
 ) -> None:
     with SessionLocal() as session:
         for resource in resources:
             service = build_sync_service(resource, session)
-            kwargs = {"ts_code": ts_code, "start_date": start_date, "end_date": end_date}
+            kwargs = {"ts_code": ts_code, "index_code": index_code, "start_date": start_date, "end_date": end_date}
             service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
 
 
@@ -111,7 +112,11 @@ def backfill_trade_cal(
 
 @app.command("backfill-equity-series")
 def backfill_equity_series(
-    resource: str = typer.Option(..., help="daily or adj_factor"),
+    resource: str = typer.Option(
+        ...,
+        help="daily, adj_factor, stk_period_bar_week, stk_period_bar_month, "
+        "stk_period_bar_adj_week, or stk_period_bar_adj_month",
+    ),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     offset: int = typer.Option(0),
@@ -132,7 +137,10 @@ def backfill_equity_series(
 
 @app.command("backfill-by-trade-date")
 def backfill_by_trade_date(
-    resource: str = typer.Option(..., help="daily_basic, moneyflow, or limit_list_d"),
+    resource: str = typer.Option(
+        ...,
+        help="daily_basic, moneyflow, or limit_list_d",
+    ),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     exchange: str | None = typer.Option(None),

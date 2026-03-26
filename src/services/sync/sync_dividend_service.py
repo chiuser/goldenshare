@@ -5,6 +5,7 @@ from typing import Any
 
 from src.services.sync.fields import DIVIDEND_FIELDS
 from src.services.sync.resource_sync import HttpResourceSyncService
+from src.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.utils import coerce_row
 
 
@@ -34,12 +35,12 @@ class SyncDividendService(HttpResourceSyncService):
         normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
         raw_dao = getattr(self.dao, self.raw_dao_name)
         core_dao = getattr(self.dao, self.core_dao_name)
-        raw_dao.bulk_upsert(normalized)
-
+        raw_rows = [{**row, "row_key_hash": build_dividend_row_key_hash(row)} for row in normalized]
+        raw_dao.bulk_upsert(raw_rows, conflict_columns=["row_key_hash"])
+        required_fields = ("ts_code", "end_date", "ann_date", "div_proc")
         valid_core_rows = []
         skipped = 0
         sample_missing = None
-        required_fields = ("ts_code", "ann_date", "record_date", "ex_date")
         for row in normalized:
             missing = [field for field in required_fields if row.get(field) is None]
             if missing:
@@ -47,21 +48,27 @@ class SyncDividendService(HttpResourceSyncService):
                 if sample_missing is None:
                     sample_missing = (missing, row)
                 continue
-            valid_core_rows.append(row)
+            valid_core_rows.append(
+                {
+                    **row,
+                    "row_key_hash": build_dividend_row_key_hash(row),
+                    "event_key_hash": build_dividend_event_key_hash(row),
+                }
+            )
 
-        written = core_dao.bulk_upsert(valid_core_rows)
+        written = core_dao.bulk_upsert(valid_core_rows, conflict_columns=["row_key_hash"])
         message = None
         if skipped:
-            message = f"skipped {skipped} rows missing required core dividend keys"
+            message = f"skipped {skipped} core dividend rows missing required business keys"
             if sample_missing is not None:
                 missing, row = sample_missing
                 self.logger.debug(
-                    "Sample skipped core.equity_dividend row due to missing required fields %s: ts_code=%s ann_date=%s record_date=%s ex_date=%s",
+                    "Sample skipped core.equity_dividend row due to missing required fields %s: ts_code=%s end_date=%s ann_date=%s div_proc=%s",
                     ",".join(missing),
                     row.get("ts_code"),
+                    row.get("end_date"),
                     row.get("ann_date"),
-                    row.get("record_date"),
-                    row.get("ex_date"),
+                    row.get("div_proc"),
                 )
             self.logger.warning(message)
         return len(rows), written, trade_date, message

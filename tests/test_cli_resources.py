@@ -1,0 +1,43 @@
+from typer.testing import CliRunner
+
+from src.cli import app
+
+
+def test_list_resources_includes_extended_resources() -> None:
+    result = CliRunner().invoke(app, ["list-resources"])
+
+    assert result.exit_code == 0
+    assert "stk_period_bar_week" in result.stdout
+    assert "index_weight" in result.stdout
+
+
+def test_sync_history_accepts_index_code_alias(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+    service = mocker.Mock()
+    mocker.patch("src.cli.build_sync_service", return_value=service)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "sync-history",
+            "--resources",
+            "index_weight",
+            "--index-code",
+            "000300.SH",
+            "--start-date",
+            "2020-01-01",
+            "--end-date",
+            "2020-01-31",
+        ],
+    )
+
+    assert result.exit_code == 0
+    service.run_full.assert_called_once_with(
+        index_code="000300.SH",
+        start_date="2020-01-01",
+        end_date="2020-01-31",
+    )

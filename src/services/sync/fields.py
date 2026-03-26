@@ -120,5 +120,79 @@ LIMIT_LIST_FIELDS = [
     "limit_times",
     "limit",
 ]
-FUND_DAILY_FIELDS = DAILY_FIELDS
-INDEX_DAILY_FIELDS = DAILY_FIELDS
+FUND_DAILY_FIELDS = ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"]
+INDEX_DAILY_FIELDS = ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"]
+
+STK_PERIOD_BAR_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "end_date",
+    "freq",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "vol",
+    "amount",
+    "change",
+    "pct_chg",
+]
+
+STK_PERIOD_BAR_ADJ_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "end_date",
+    "freq",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "open_qfq",
+    "high_qfq",
+    "low_qfq",
+    "close_qfq",
+    "open_hfq",
+    "high_hfq",
+    "low_hfq",
+    "close_hfq",
+    "vol",
+    "amount",
+    "change",
+    "pct_chg",
+]
+
+INDEX_BASIC_FIELDS = [
+    "ts_code",
+    "name",
+    "fullname",
+    "market",
+    "publisher",
+    "index_type",
+    "category",
+    "base_date",
+    "base_point",
+    "list_date",
+    "weight_rule",
+    "desc",
+    "exp_date",
+]
+
+INDEX_WEEKLY_FIELDS = ["ts_code", "trade_date", "close", "open", "high", "low", "pre_close", "change", "pct_chg", "vol", "amount"]
+INDEX_MONTHLY_FIELDS = ["ts_code", "trade_date", "close", "open", "high", "low", "pre_close", "change", "pct_chg", "vol", "amount"]
+INDEX_WEIGHT_FIELDS = ["index_code", "con_code", "trade_date", "weight"]
+INDEX_DAILY_BASIC_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "total_mv",
+    "float_mv",
+    "total_share",
+    "float_share",
+    "free_share",
+    "turnover_rate",
+    "turnover_rate_f",
+    "pe",
+    "pe_ttm",
+    "pb",
+]

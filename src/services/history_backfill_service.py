@@ -43,8 +43,20 @@ class HistoryBackfillService:
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
     ) -> BackfillSummary:
-        if resource not in {"daily", "adj_factor"}:
-            raise ValueError("equity series backfill only supports daily and adj_factor")
+        equity_series_resources = {
+            "daily",
+            "adj_factor",
+            "stk_period_bar_week",
+            "stk_period_bar_month",
+            "stk_period_bar_adj_week",
+            "stk_period_bar_adj_month",
+        }
+        if resource not in equity_series_resources:
+            raise ValueError(
+                "equity series backfill only supports daily, adj_factor, "
+                "stk_period_bar_week, stk_period_bar_month, "
+                "stk_period_bar_adj_week, and stk_period_bar_adj_month"
+            )
         securities = sorted(self.dao.security.get_active_equities(), key=lambda item: item.ts_code)
         if offset:
             securities = securities[offset:]
@@ -79,8 +91,15 @@ class HistoryBackfillService:
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
     ) -> BackfillSummary:
-        if resource not in {"daily_basic", "moneyflow", "limit_list_d"}:
-            raise ValueError("trade-date backfill only supports daily_basic, moneyflow, and limit_list_d")
+        trade_date_resources = {
+            "daily_basic",
+            "moneyflow",
+            "limit_list_d",
+        }
+        if resource not in trade_date_resources:
+            raise ValueError(
+                "trade-date backfill only supports daily_basic, moneyflow, and limit_list_d"
+            )
         exchange_name = exchange or self.settings.default_exchange
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
         if offset:
