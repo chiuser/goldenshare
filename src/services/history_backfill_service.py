@@ -121,6 +121,38 @@ class HistoryBackfillService:
                 )
         return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
 
+    def backfill_fund_series(
+        self,
+        start_date: date,
+        end_date: date,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        etfs = sorted(self.dao.etf_basic.get_active_etfs(), key=lambda e: e.ts_code)
+        if offset:
+            etfs = etfs[offset:]
+        if limit is not None:
+            etfs = etfs[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(etfs)
+        for index, etf in enumerate(etfs, start=1):
+            service = build_sync_service("fund_daily", self.session)
+            result = service.run_full(
+                ts_code=etf.ts_code,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+            )
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"fund_daily: {index}/{total} ts_code={etf.ts_code} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary("fund_daily", len(etfs), rows_fetched, rows_written)
+
     def backfill_low_frequency_by_security(
         self,
         resource: str,

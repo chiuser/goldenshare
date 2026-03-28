@@ -7,6 +7,7 @@ from src.models.core.equity_holder_number import EquityHolderNumber
 from src.models.core.equity_limit_list import EquityLimitList
 from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
+from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
@@ -25,6 +26,7 @@ from src.models.raw.raw_block_trade import RawBlockTrade
 from src.models.raw.raw_daily import RawDaily
 from src.models.raw.raw_daily_basic import RawDailyBasic
 from src.models.raw.raw_dividend import RawDividend
+from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_index_basic import RawIndexBasic
@@ -51,6 +53,7 @@ __all__ = [
     "EquityLimitList",
     "EquityMoneyflow",
     "EquityTopList",
+    "EtfBasic",
     "FundDailyBar",
     "IndexBasic",
     "IndexDailyBasic",
@@ -63,6 +66,7 @@ __all__ = [
     "RawDaily",
     "RawDailyBasic",
     "RawDividend",
+    "RawEtfBasic",
     "RawFundDaily",
     "RawHolderNumber",
     "RawIndexBasic",

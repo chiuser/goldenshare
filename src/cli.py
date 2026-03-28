@@ -161,6 +161,25 @@ def backfill_by_trade_date(
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
 
 
+@app.command("backfill-fund-series")
+def backfill_fund_series(
+    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    offset: int = typer.Option(0),
+    limit: int | None = typer.Option(None),
+) -> None:
+    with SessionLocal() as session:
+        service = HistoryBackfillService(session)
+        summary = service.backfill_fund_series(
+            start_date=date.fromisoformat(start_date),
+            end_date=date.fromisoformat(end_date),
+            offset=offset,
+            limit=limit,
+            progress=typer.echo,
+        )
+        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+
+
 @app.command("backfill-low-frequency")
 def backfill_low_frequency(
     resource: str = typer.Option(..., help="dividend or stk_holdernumber"),

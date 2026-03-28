@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from src.dao.etf_basic_dao import EtfBasicDAO
 from src.dao.equity_adj_factor_dao import EquityAdjFactorDAO
 from src.dao.equity_daily_bar_dao import EquityDailyBarDAO
 from src.dao.equity_daily_basic_dao import EquityDailyBasicDAO
@@ -25,6 +26,7 @@ from src.models.core.equity_dividend import EquityDividend
 from src.models.core.equity_holder_number import EquityHolderNumber
 from src.models.core.equity_limit_list import EquityLimitList
 from src.models.core.equity_top_list import EquityTopList
+from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
@@ -37,6 +39,7 @@ from src.models.raw.raw_block_trade import RawBlockTrade
 from src.models.raw.raw_daily import RawDaily
 from src.models.raw.raw_daily_basic import RawDailyBasic
 from src.models.raw.raw_dividend import RawDividend
+from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_index_basic import RawIndexBasic
@@ -68,6 +71,7 @@ class DAOFactory:
         self.equity_top_list = GenericDAO(session, EquityTopList)
         self.equity_block_trade = GenericDAO(session, EquityBlockTrade)
         self.equity_dividend = EquityDividendDAO(session)
+        self.etf_basic = EtfBasicDAO(session)
         self.fund_daily_bar = GenericDAO(session, FundDailyBar)
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
@@ -90,6 +94,7 @@ class DAOFactory:
         self.raw_top_list = GenericDAO(session, RawTopList)
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)
         self.raw_dividend = RawDividendDAO(session)
+        self.raw_etf_basic = GenericDAO(session, RawEtfBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)
         self.raw_stk_period_bar = GenericDAO(session, RawStkPeriodBar)
         self.raw_stk_period_bar_adj = GenericDAO(session, RawStkPeriodBarAdj)

@@ -7,6 +7,7 @@ from src.services.sync.sync_block_trade_service import SyncBlockTradeService
 from src.services.sync.sync_daily_basic_service import SyncDailyBasicService
 from src.services.sync.sync_dividend_service import SyncDividendService
 from src.services.sync.sync_equity_daily_service import SyncEquityDailyService
+from src.services.sync.sync_etf_basic_service import SyncEtfBasicService
 from src.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.services.sync.sync_holdernumber_service import SyncHolderNumberService
 from src.services.sync.sync_index_basic_service import SyncIndexBasicService
@@ -36,6 +37,7 @@ SYNC_SERVICE_REGISTRY = {
     "top_list": SyncTopListService,
     "block_trade": SyncBlockTradeService,
     "dividend": SyncDividendService,
+    "etf_basic": SyncEtfBasicService,
     "fund_daily": SyncFundDailyService,
     "index_daily": SyncIndexDailyService,
     "index_basic": SyncIndexBasicService,
