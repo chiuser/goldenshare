@@ -10,23 +10,29 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "alembic>=1.14.0",
+  "bcrypt>=4.3.0",
+  "fastapi>=0.116.0",
   "pydantic>=2.10.0",
   "pydantic-settings>=2.6.0",
+  "PyJWT>=2.10.1",
   "psycopg[binary]>=3.2.0",
   "requests>=2.32.0",
   "sqlalchemy>=2.0.36",
   "tushare>=1.4.20",
   "typer>=0.15.1",
+  "uvicorn>=0.35.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "httpx>=0.28.1",
   "pytest>=8.3.0",
   "pytest-mock>=3.14.0",
 ]
 
 [project.scripts]
 goldenshare = "src.cli:app"
+goldenshare-web = "src.web.run:main"
 
 [tool.setuptools]
 packages = ["src"]

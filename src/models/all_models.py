@@ -1,3 +1,4 @@
+from src.models.app.app_user import AppUser
 from src.models.core.equity_adj_factor import EquityAdjFactor
 from src.models.core.equity_block_trade import EquityBlockTrade
 from src.models.core.equity_daily_bar import EquityDailyBar
@@ -44,6 +45,7 @@ from src.models.raw.raw_top_list import RawTopList
 from src.models.raw.raw_trade_cal import RawTradeCal
 
 __all__ = [
+    "AppUser",
     "EquityAdjFactor",
     "EquityBlockTrade",
     "EquityDailyBar",

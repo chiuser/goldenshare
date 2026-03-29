@@ -279,3 +279,64 @@ goldenshare init-db
 ```bash
 python3 -m src.scripts.backfill_holdernumber_hashes
 ```
+
+## Web 平台一期
+
+Web 平台一期当前只包含平台基础设施，不包含业务页面和业务 API。
+
+建议先准备一份 Web 环境文件：
+
+```bash
+cp .env.web.example .env.web.local
+```
+
+这里的“local”指本地运行 Web 服务的开发场景，不强制要求连接本地数据库。
+如果你的开发方式是“本地 Web + 远程数据库”，可以直接把远程数据库连接写入 `.env.web.local`。
+
+本地开发启动前设置：
+
+```bash
+export GOLDENSHARE_ENV_FILE=.env.web.local
+```
+
+初始化或升级数据库：
+
+```bash
+goldenshare init-db
+```
+
+创建一个用于平台验证的管理员账号：
+
+```bash
+python3 -m src.web.scripts.create_user --username admin --password your_password --admin
+```
+
+启动 Web：
+
+```bash
+python3 -m src.web.run
+```
+
+或者直接使用安装后的命令：
+
+```bash
+goldenshare-web
+```
+
+启动后可访问：
+
+- `/api/docs`
+- `/api/health`
+- `/platform-check`
+
+平台回归测试：
+
+```bash
+pytest tests/web
+```
+
+说明：
+
+- `.env.web.example` 是 Web 平台环境变量模板
+- `scripts/goldenshare-web.service` 提供了一个 systemd 部署样例
+- `tests/web` 和 `/platform-check` 是平台防腐层，后续新增 Web 功能或修改平台能力时都必须回归验证

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Goldenshare Platform Check</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 32px; background: #f6f7fb; color: #1f2937; }
+    h1 { margin-bottom: 8px; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08); }
+    .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    input { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; min-width: 220px; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; }
+    pre { background: #111827; color: #e5e7eb; padding: 16px; border-radius: 8px; overflow: auto; }
+    .muted { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <h1>Goldenshare Platform Check</h1>
+  <p class="muted">用于验证平台基础链路，不包含业务能力。</p>
+
+  <section class="card">
+    <h2>Health</h2>
+    <div class="row">
+      <button id="btn-health">检查 /api/health</button>
+      <span id="health-request-id" class="muted"></span>
+    </div>
+    <pre id="health-output">等待检查...</pre>
+  </section>
+
+  <section class="card">
+    <h2>Login</h2>
+    <div class="row">
+      <input id="username" placeholder="username" />
+      <input id="password" type="password" placeholder="password" />
+      <button id="btn-login">登录</button>
+    </div>
+    <pre id="login-output">尚未登录</pre>
+  </section>
+
+  <section class="card">
+    <h2>Current User</h2>
+    <div class="row">
+      <button id="btn-me">检查 /api/v1/auth/me</button>
+      <button id="btn-admin">检查 /api/v1/admin/ping</button>
+    </div>
+    <pre id="me-output">等待请求...</pre>
+  </section>
+
+  <script src="/static/platform-check.js"></script>
+</body>
+</html>
