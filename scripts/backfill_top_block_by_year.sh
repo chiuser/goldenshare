@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-START_YEAR="${START_YEAR:-2026}"
-END_YEAR="${END_YEAR:-2026}"
+START_YEAR="${START_YEAR:-2025}"
+END_YEAR="${END_YEAR:-2025}"
 
 for year in $(seq "$START_YEAR" "$END_YEAR"); do
   echo "==== YEAR $year ===="

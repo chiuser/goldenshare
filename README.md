@@ -80,9 +80,11 @@ goldenshare sync-daily --trade-date 2026-03-24 --resources top_list --resources 
 确认 smoke 正常后，再开始历史回补，例如：
 
 ```bash
+goldenshare sync-history --resources etf_basic
 goldenshare backfill-trade-cal --start-date 2010-01-01 --end-date 2026-03-24
 goldenshare backfill-equity-series --resource daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource adj_factor --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-fund-series --resource fund_daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource daily_basic --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource moneyflow --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource limit_list_d --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
@@ -90,12 +92,19 @@ goldenshare backfill-equity-series --resource stk_period_bar_week --start-date 2
 goldenshare backfill-equity-series --resource stk_period_bar_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_adj_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_adj_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 ```
 
 说明：
 - `backfill-*` 命令现在会输出逐单位进度，例如按证券或按交易日打印 `fetched/written`
 - `limit_list_d` 按 Tushare 文档应从 `2020-01-01` 起回补，早于这个时间通常会空跑
 - `stk_period_bar_week` / `stk_period_bar_month` / `stk_period_bar_adj_week` / `stk_period_bar_adj_month` 的历史回补统一走按 `ts_code` 纵向扫
+- `fund_daily` 的历史回补走 `backfill-fund-series`，会从 `core.etf_basic` 读取 ETF/Fund 代码后按 `ts_code` 纵向扫；建议先执行 `goldenshare sync-history --resources etf_basic`
+- `backfill-fund-series` 当前会默认跳过 `.OF` 结尾代码，因为基于现有数据库回补结果，`.OF` 代码在 `fund_daily` 中没有返回数据；命令会优先遍历 `*.SH` / `*.SZ` 等场内代码
+- `backfill-index-series` 会从 `core.index_basic` 读取指数代码池，并按资源语义自动使用 `ts_code` 或 `index_code` 做纵向历史回补
 
 ## top_list reason_hash 切换顺序
 
@@ -136,13 +145,19 @@ goldenshare sync-daily --trade-date 2026-03-24 --resources top_list --resources 
 确认无误后，再执行历史同步：
 
 ```bash
+goldenshare sync-history --resources etf_basic
 goldenshare backfill-trade-cal --start-date 2010-01-01 --end-date 2026-03-24
 goldenshare backfill-equity-series --resource daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource adj_factor --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-fund-series --resource fund_daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_adj_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-equity-series --resource stk_period_bar_adj_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource daily_basic --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource moneyflow --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-by-trade-date --resource limit_list_d --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
@@ -170,10 +185,29 @@ goldenshare sync-history --resources index_weight --index-code 000300.SH --start
 
 为了兼容现有风格，`--ts-code` 仍可继续使用，但对 `index_weight` 来说它会被当作 `index_code` 处理。
 
-指数扩展资源的历史回补也建议优先按代码维度执行，而不是按 `trade_date` 横向扫：
+指数扩展资源的历史回补现在可以直接使用：
+
+```bash
+goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
+goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
+goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
+goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
+```
+
+它会从 `core.index_basic` 读取指数代码池，然后按资源类型选择参数：
 
 - `index_weekly` / `index_monthly` / `index_daily_basic`：按 `ts_code`
 - `index_weight`：按 `index_code`
+
+`fund_daily` 的历史回补与股票纵向回补分开，使用：
+
+```bash
+goldenshare sync-history --resources etf_basic
+goldenshare backfill-fund-series --resource fund_daily --start-date 2024-01-01 --end-date 2026-03-29 --offset 0 --limit 100
+```
+
+其中 `backfill-fund-series` 会从 `core.etf_basic` 中读取 ETF/Fund 代码，并对每个 `ts_code` 调用 `fund_daily` 做分段历史写入。
+当前实现会默认排除 `.OF` 结尾代码，以减少已经验证为空的无效请求。
 
 ## dividend 说明
 

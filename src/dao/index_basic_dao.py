@@ -20,3 +20,7 @@ class IndexBasicDAO(BaseDAO[IndexBasic]):
     def list_by_market(self, market: str) -> list[IndexBasic]:
         stmt = select(IndexBasic).where(IndexBasic.market == market)
         return list(self.session.scalars(stmt))
+
+    def get_active_indexes(self) -> list[IndexBasic]:
+        stmt = select(IndexBasic)
+        return list(self.session.scalars(stmt))

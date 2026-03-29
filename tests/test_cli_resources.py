@@ -7,6 +7,7 @@ def test_list_resources_includes_extended_resources() -> None:
     result = CliRunner().invoke(app, ["list-resources"])
 
     assert result.exit_code == 0
+    assert "etf_basic" in result.stdout
     assert "stk_period_bar_week" in result.stdout
     assert "index_weight" in result.stdout
 

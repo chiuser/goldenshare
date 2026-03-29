@@ -196,3 +196,20 @@ INDEX_DAILY_BASIC_FIELDS = [
     "pe_ttm",
     "pb",
 ]
+
+ETF_BASIC_FIELDS = [
+    "ts_code",
+    "csname",
+    "extname",
+    "cname",
+    "index_code",
+    "index_name",
+    "setup_date",
+    "list_date",
+    "list_status",
+    "exchange",
+    "mgr_name",
+    "custod_name",
+    "mgt_fee",
+    "etf_type",
+]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from src.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
 from src.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
 from src.services.sync.sync_index_weight_service import build_index_weight_params
 from src.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
@@ -72,3 +73,34 @@ def test_index_daily_basic_accepts_sparse_trade_date_queries() -> None:
 
 def test_index_daily_basic_service_fields_are_explicit() -> None:
     assert SyncIndexDailyBasicService.fields
+
+
+def test_etf_basic_builds_default_full_sync_params() -> None:
+    params = build_etf_basic_params("FULL")
+
+    assert params == {}
+
+
+def test_etf_basic_builds_filtered_params() -> None:
+    params = build_etf_basic_params(
+        "FULL",
+        ts_code="510300.SH",
+        index_code="000300.SH",
+        list_date="2026-03-29",
+        exchange="SSE",
+        mgr="华泰柏瑞基金",
+        list_status="L",
+    )
+
+    assert params == {
+        "list_status": "L",
+        "ts_code": "510300.SH",
+        "index_code": "000300.SH",
+        "list_date": "20260329",
+        "exchange": "SSE",
+        "mgr": "华泰柏瑞基金",
+    }
+
+
+def test_etf_basic_service_fields_are_explicit() -> None:
+    assert SyncEtfBasicService.fields

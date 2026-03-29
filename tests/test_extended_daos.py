@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
+from src.dao.factory import DAOFactory
+from src.dao.etf_basic_dao import EtfBasicDAO
+from src.dao.index_basic_dao import IndexBasicDAO
 from src.dao.index_weight_dao import IndexWeightDAO
 from src.dao.stk_period_bar_dao import StkPeriodBarDAO
 
@@ -39,3 +42,45 @@ def test_index_weight_dao_get_latest_weights_loads_latest_batch(mocker) -> None:
     assert len(rows) == 2
     assert session.scalar.call_count == 1
     assert session.scalars.call_count == 1
+
+
+def test_index_basic_dao_get_active_indexes_loads_rows(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = iter([mocker.Mock(ts_code="000001.SH"), mocker.Mock(ts_code="000300.SH")])
+    dao = IndexBasicDAO(session)
+
+    rows = dao.get_active_indexes()
+
+    assert len(rows) == 2
+    session.scalars.assert_called_once()
+
+
+def test_dao_factory_exposes_etf_basic_daos(mocker) -> None:
+    session = mocker.Mock()
+
+    dao = DAOFactory(session)
+
+    assert dao.raw_etf_basic.model.__name__ == "RawEtfBasic"
+    assert isinstance(dao.etf_basic, EtfBasicDAO)
+
+
+def test_etf_basic_dao_get_active_etfs_queries_supported_statuses(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = iter([mocker.Mock(ts_code="510300.SH"), mocker.Mock(ts_code="159915.SZ")])
+    dao = EtfBasicDAO(session)
+
+    rows = dao.get_active_etfs()
+
+    assert len(rows) == 2
+    session.scalars.assert_called_once()
+
+
+def test_etf_basic_dao_get_fund_daily_candidates_excludes_of_suffix(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = iter([mocker.Mock(ts_code="510300.SH"), mocker.Mock(ts_code="159915.SZ")])
+    dao = EtfBasicDAO(session)
+
+    rows = dao.get_fund_daily_candidates()
+
+    assert len(rows) == 2
+    session.scalars.assert_called_once()

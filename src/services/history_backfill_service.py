@@ -149,3 +149,87 @@ class HistoryBackfillService:
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
         return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
+
+    def backfill_fund_series(
+        self,
+        resource: str,
+        start_date: date,
+        end_date: date,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        if resource not in {"fund_daily"}:
+            raise ValueError("fund series backfill only supports fund_daily")
+        funds = sorted(self.dao.etf_basic.get_fund_daily_candidates(), key=lambda item: item.ts_code)
+        if offset:
+            funds = funds[offset:]
+        if limit is not None:
+            funds = funds[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(funds)
+        for index, fund in enumerate(funds, start=1):
+            service = build_sync_service(resource, self.session)
+            result = service.run_full(
+                ts_code=fund.ts_code,
+                start_date=start_date.isoformat(),
+                end_date=end_date.isoformat(),
+            )
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index}/{total} ts_code={fund.ts_code} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary(resource, len(funds), rows_fetched, rows_written)
+
+    def backfill_index_series(
+        self,
+        resource: str,
+        start_date: date,
+        end_date: date,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> BackfillSummary:
+        supported_resources = {
+            "index_weekly",
+            "index_monthly",
+            "index_daily_basic",
+            "index_weight",
+        }
+        if resource not in supported_resources:
+            raise ValueError(
+                "index series backfill only supports index_weekly, index_monthly, index_daily_basic, and index_weight"
+            )
+        indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
+        if offset:
+            indexes = indexes[offset:]
+        if limit is not None:
+            indexes = indexes[:limit]
+        rows_fetched = 0
+        rows_written = 0
+        total = len(indexes)
+        for index_number, index_item in enumerate(indexes, start=1):
+            service = build_sync_service(resource, self.session)
+            kwargs = {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            }
+            code_label = "ts_code"
+            if resource == "index_weight":
+                kwargs["index_code"] = index_item.ts_code
+                code_label = "index_code"
+            else:
+                kwargs["ts_code"] = index_item.ts_code
+            result = service.run_full(**kwargs)
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index_number}/{total} {code_label}={index_item.ts_code} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        return BackfillSummary(resource, len(indexes), rows_fetched, rows_written)

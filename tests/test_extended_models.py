@@ -1,3 +1,4 @@
+from src.models.core.etf_basic import EtfBasic
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
@@ -29,6 +30,13 @@ def test_stk_period_bar_adj_primary_key_and_indexes() -> None:
 
 
 def test_index_supplement_models_match_expected_keys() -> None:
+    assert [column.name for column in EtfBasic.__table__.primary_key.columns] == ["ts_code"]
+    assert {index.name for index in EtfBasic.__table__.indexes} == {
+        "idx_etf_basic_index_code",
+        "idx_etf_basic_exchange",
+        "idx_etf_basic_mgr_name",
+        "idx_etf_basic_list_status",
+    }
     assert [column.name for column in IndexBasic.__table__.primary_key.columns] == ["ts_code"]
     assert [column.name for column in IndexWeeklyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]

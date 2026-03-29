@@ -176,3 +176,45 @@ def backfill_low_frequency(
             progress=typer.echo,
         )
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+
+
+@app.command("backfill-fund-series")
+def backfill_fund_series(
+    resource: str = typer.Option(..., help="fund_daily"),
+    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    offset: int = typer.Option(0),
+    limit: int | None = typer.Option(None),
+) -> None:
+    with SessionLocal() as session:
+        service = HistoryBackfillService(session)
+        summary = service.backfill_fund_series(
+            resource=resource,
+            start_date=date.fromisoformat(start_date),
+            end_date=date.fromisoformat(end_date),
+            offset=offset,
+            limit=limit,
+            progress=typer.echo,
+        )
+        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+
+
+@app.command("backfill-index-series")
+def backfill_index_series(
+    resource: str = typer.Option(..., help="index_weekly, index_monthly, index_daily_basic, or index_weight"),
+    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    offset: int = typer.Option(0),
+    limit: int | None = typer.Option(None),
+) -> None:
+    with SessionLocal() as session:
+        service = HistoryBackfillService(session)
+        summary = service.backfill_index_series(
+            resource=resource,
+            start_date=date.fromisoformat(start_date),
+            end_date=date.fromisoformat(end_date),
+            offset=offset,
+            limit=limit,
+            progress=typer.echo,
+        )
+        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
