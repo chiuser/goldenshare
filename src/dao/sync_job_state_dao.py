@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,7 @@ class SyncJobStateDAO(BaseDAO[SyncJobState]):
             "job_name": job_name,
             "target_table": target_table,
             "last_success_date": last_success_date,
-            "last_success_at": datetime.utcnow(),
+            "last_success_at": datetime.now(timezone.utc),
             "last_cursor": last_cursor,
         }
         if state is None:
@@ -35,7 +35,7 @@ class SyncJobStateDAO(BaseDAO[SyncJobState]):
                 {
                     "job_name": job_name,
                     "target_table": target_table,
-                    "last_success_at": datetime.utcnow(),
+                    "last_success_at": datetime.now(timezone.utc),
                     "full_sync_done": True,
                 }
             ]

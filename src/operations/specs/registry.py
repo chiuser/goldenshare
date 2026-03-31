@@ -1,0 +1,430 @@
+from __future__ import annotations
+
+from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.operations.specs.job_spec import JobSpec, ParameterSpec
+from src.operations.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
+from src.services.sync.registry import SYNC_SERVICE_REGISTRY
+
+
+TRADE_DATE_PARAM = ParameterSpec(
+    key="trade_date",
+    display_name="交易日期",
+    param_type="date",
+    description="指定单个交易日执行增量同步。",
+)
+START_DATE_PARAM = ParameterSpec(
+    key="start_date",
+    display_name="开始日期",
+    param_type="date",
+    description="历史回补或区间同步的开始日期。",
+)
+END_DATE_PARAM = ParameterSpec(
+    key="end_date",
+    display_name="结束日期",
+    param_type="date",
+    description="历史回补或区间同步的结束日期。",
+)
+EXCHANGE_PARAM = ParameterSpec(
+    key="exchange",
+    display_name="交易所",
+    param_type="enum",
+    description="用于交易日历或按交易日回补的交易所参数。",
+    options=("SSE", "SZSE"),
+)
+TS_CODE_PARAM = ParameterSpec(
+    key="ts_code",
+    display_name="证券代码",
+    param_type="string",
+    description="用于按单证券或单指数执行同步。",
+)
+INDEX_CODE_PARAM = ParameterSpec(
+    key="index_code",
+    display_name="指数代码",
+    param_type="string",
+    description="用于指数成分权重等按 index_code 执行的任务。",
+)
+OFFSET_PARAM = ParameterSpec(
+    key="offset",
+    display_name="起始偏移",
+    param_type="integer",
+    description="用于分段回补时跳过前 N 个执行单元。",
+)
+LIMIT_PARAM = ParameterSpec(
+    key="limit",
+    display_name="处理上限",
+    param_type="integer",
+    description="用于限制单次回补的执行单元数量。",
+)
+
+
+DAILY_SYNC_RESOURCES = (
+    "daily",
+    "adj_factor",
+    "daily_basic",
+    "moneyflow",
+    "limit_list_d",
+    "top_list",
+    "block_trade",
+    "fund_daily",
+    "index_daily",
+)
+
+SCHEDULED_FULL_REFRESH_RESOURCES = {
+    "stock_basic",
+    "trade_cal",
+    "etf_basic",
+    "index_basic",
+}
+
+SECURITY_RANGE_RESOURCES = {
+    "daily",
+    "adj_factor",
+    "fund_daily",
+    "index_daily",
+    "index_daily_basic",
+    "index_weekly",
+    "index_monthly",
+    "stk_period_bar_week",
+    "stk_period_bar_month",
+    "stk_period_bar_adj_week",
+    "stk_period_bar_adj_month",
+}
+
+TRADE_DATE_RANGE_RESOURCES = {
+    "daily_basic",
+    "moneyflow",
+    "top_list",
+    "block_trade",
+    "limit_list_d",
+}
+
+CODE_ONLY_RESOURCES = {
+    "dividend",
+    "stk_holdernumber",
+    "stock_basic",
+    "index_basic",
+}
+
+
+def _service_target_table(resource: str) -> str:
+    return SYNC_SERVICE_REGISTRY[resource].target_table
+
+
+def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
+    if resource == "trade_cal":
+        return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
+    if resource == "index_weight":
+        return (INDEX_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
+    if resource in SECURITY_RANGE_RESOURCES:
+        return (TS_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
+    if resource in TRADE_DATE_RANGE_RESOURCES:
+        return (START_DATE_PARAM, END_DATE_PARAM)
+    if resource in CODE_ONLY_RESOURCES:
+        return (TS_CODE_PARAM,) if resource in {"dividend", "stk_holdernumber"} else ()
+    if resource == "etf_basic":
+        return (TS_CODE_PARAM, INDEX_CODE_PARAM, EXCHANGE_PARAM)
+    return ()
+
+
+def _sync_history_job_spec(resource: str) -> JobSpec:
+    schedule_enabled = resource in SCHEDULED_FULL_REFRESH_RESOURCES
+    display_name = f"历史同步 / {resource}"
+    return JobSpec(
+        key=f"sync_history.{resource}",
+        display_name=display_name,
+        category="sync_history",
+        description=f"执行资源 {resource} 的全量或定向历史同步。",
+        strategy_type="full_refresh",
+        executor_kind="sync_service",
+        target_tables=(_service_target_table(resource),),
+        supported_params=_history_params_for_resource(resource),
+        supports_manual_run=True,
+        supports_schedule=schedule_enabled,
+        supports_retry=True,
+    )
+
+
+def _sync_daily_job_spec(resource: str) -> JobSpec:
+    return JobSpec(
+        key=f"sync_daily.{resource}",
+        display_name=f"日常同步 / {resource}",
+        category="sync_daily",
+        description=f"针对资源 {resource} 执行按交易日增量同步。",
+        strategy_type="incremental_by_date",
+        executor_kind="sync_service",
+        target_tables=(_service_target_table(resource),),
+        supported_params=(TRADE_DATE_PARAM,),
+        supports_manual_run=True,
+        supports_schedule=True,
+        supports_retry=True,
+    )
+
+
+def _backfill_job_spec(
+    *,
+    prefix: str,
+    resource: str,
+    display_name: str,
+    description: str,
+    strategy_type: str,
+    supported_params: tuple[ParameterSpec, ...],
+) -> JobSpec:
+    return JobSpec(
+        key=f"{prefix}.{resource}",
+        display_name=display_name,
+        category=prefix,
+        description=description,
+        strategy_type=strategy_type,  # type: ignore[arg-type]
+        executor_kind="history_backfill_service",
+        target_tables=(_service_target_table(resource),),
+        supported_params=supported_params,
+        supports_manual_run=True,
+        supports_schedule=False,
+        supports_retry=True,
+    )
+
+
+JOB_SPEC_REGISTRY: dict[str, JobSpec] = {}
+
+for _resource in sorted(SYNC_SERVICE_REGISTRY):
+    JOB_SPEC_REGISTRY[f"sync_history.{_resource}"] = _sync_history_job_spec(_resource)
+
+for _resource in DAILY_SYNC_RESOURCES:
+    JOB_SPEC_REGISTRY[f"sync_daily.{_resource}"] = _sync_daily_job_spec(_resource)
+
+JOB_SPEC_REGISTRY["backfill_trade_cal.trade_cal"] = JobSpec(
+    key="backfill_trade_cal.trade_cal",
+    display_name="交易日历回补 / trade_cal",
+    category="backfill_trade_cal",
+    description="按日期区间回补交易日历。",
+    strategy_type="backfill_by_trade_date",
+    executor_kind="history_backfill_service",
+    target_tables=(_service_target_table("trade_cal"),),
+    supported_params=(START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM),
+    supports_manual_run=True,
+    supports_schedule=False,
+    supports_retry=True,
+)
+
+for _resource in (
+    "daily",
+    "adj_factor",
+    "stk_period_bar_week",
+    "stk_period_bar_month",
+    "stk_period_bar_adj_week",
+    "stk_period_bar_adj_month",
+):
+    JOB_SPEC_REGISTRY[f"backfill_equity_series.{_resource}"] = _backfill_job_spec(
+        prefix="backfill_equity_series",
+        resource=_resource,
+        display_name=f"股票纵向回补 / {_resource}",
+        description=f"从股票代码池读取证券列表，按证券纵向回补资源 {_resource}。",
+        strategy_type="backfill_by_security",
+        supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+    )
+
+for _resource in ("daily_basic", "moneyflow", "limit_list_d"):
+    JOB_SPEC_REGISTRY[f"backfill_by_trade_date.{_resource}"] = _backfill_job_spec(
+        prefix="backfill_by_trade_date",
+        resource=_resource,
+        display_name=f"按交易日回补 / {_resource}",
+        description=f"按开市日期区间回补资源 {_resource}。",
+        strategy_type="backfill_by_trade_date",
+        supported_params=(START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+    )
+
+for _resource in ("dividend", "stk_holdernumber"):
+    JOB_SPEC_REGISTRY[f"backfill_low_frequency.{_resource}"] = _backfill_job_spec(
+        prefix="backfill_low_frequency",
+        resource=_resource,
+        display_name=f"低频事件回补 / {_resource}",
+        description=f"从股票代码池读取证券列表，回补资源 {_resource}。",
+        strategy_type="backfill_low_frequency",
+        supported_params=(OFFSET_PARAM, LIMIT_PARAM),
+    )
+
+JOB_SPEC_REGISTRY["backfill_fund_series.fund_daily"] = _backfill_job_spec(
+    prefix="backfill_fund_series",
+    resource="fund_daily",
+    display_name="基金纵向回补 / fund_daily",
+    description="从 ETF/Fund 代码池读取候选代码，按证券纵向回补基金日线。",
+    strategy_type="backfill_by_security",
+    supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+)
+
+for _resource in ("index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
+    JOB_SPEC_REGISTRY[f"backfill_index_series.{_resource}"] = _backfill_job_spec(
+        prefix="backfill_index_series",
+        resource=_resource,
+        display_name=f"指数纵向回补 / {_resource}",
+        description=f"从指数代码池读取指数列表，纵向回补资源 {_resource}。",
+        strategy_type="backfill_by_security",
+        supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+    )
+
+JOB_SPEC_REGISTRY["maintenance.rebuild_dm"] = JobSpec(
+    key="maintenance.rebuild_dm",
+    display_name="维护动作 / rebuild_dm",
+    category="maintenance",
+    description="刷新数据集市中的物化视图。",
+    strategy_type="maintenance_action",
+    executor_kind="maintenance",
+    target_tables=("dm.equity_daily_snapshot",),
+    supports_manual_run=True,
+    supports_schedule=True,
+    supports_retry=True,
+)
+
+
+WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
+    "reference_data_refresh": WorkflowSpec(
+        key="reference_data_refresh",
+        display_name="基础主数据刷新",
+        description="刷新股票、交易日历、ETF 与指数基础信息。",
+        steps=(
+            WorkflowStepSpec("stock_basic", "sync_history.stock_basic", "股票主数据"),
+            WorkflowStepSpec("trade_cal", "sync_history.trade_cal", "交易日历"),
+            WorkflowStepSpec("etf_basic", "sync_history.etf_basic", "ETF 基本信息"),
+            WorkflowStepSpec("index_basic", "sync_history.index_basic", "指数基本信息"),
+        ),
+        supports_schedule=True,
+        supports_manual_run=True,
+    ),
+    "daily_market_close_sync": WorkflowSpec(
+        key="daily_market_close_sync",
+        display_name="每日收盘后同步",
+        description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日同步工作流。",
+        steps=(
+            WorkflowStepSpec("daily", "sync_daily.daily", "股票日线"),
+            WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
+            WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
+            WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
+            WorkflowStepSpec("limit_list", "sync_daily.limit_list_d", "涨跌停榜"),
+            WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
+            WorkflowStepSpec("block_trade", "sync_daily.block_trade", "大宗交易"),
+            WorkflowStepSpec("fund_daily", "sync_daily.fund_daily", "基金日线"),
+            WorkflowStepSpec("index_daily", "sync_daily.index_daily", "指数日线"),
+        ),
+        default_schedule_policy="trading_day_close",
+        supports_schedule=True,
+        supports_manual_run=True,
+    ),
+    "index_extension_backfill": WorkflowSpec(
+        key="index_extension_backfill",
+        display_name="指数扩展数据补齐",
+        description="批量回补指数周线、月线、日指标和成分权重。",
+        steps=(
+            WorkflowStepSpec("index_weekly", "backfill_index_series.index_weekly", "指数周线"),
+            WorkflowStepSpec("index_monthly", "backfill_index_series.index_monthly", "指数月线"),
+            WorkflowStepSpec("index_daily_basic", "backfill_index_series.index_daily_basic", "指数日指标"),
+            WorkflowStepSpec("index_weight", "backfill_index_series.index_weight", "指数权重"),
+        ),
+        supports_manual_run=True,
+    ),
+}
+
+
+DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
+    "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference", None),
+    "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
+    "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
+    "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
+    "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
+    "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
+    "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
+    "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),
+    "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),
+    "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),
+    "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),
+    "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly", "trade_date"),
+    "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly", "trade_date"),
+    "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly", "trade_date"),
+    "stk_period_bar_adj_month": ("股票复权月线", "equity", "股票", "monthly", "trade_date"),
+    "fund_daily": ("基金日线", "fund", "ETF/Fund", "daily", "trade_date"),
+    "index_daily": ("指数日线", "index", "指数", "daily", "trade_date"),
+    "index_weekly": ("指数周线", "index", "指数", "weekly", "trade_date"),
+    "index_monthly": ("指数月线", "index", "指数", "monthly", "trade_date"),
+    "index_daily_basic": ("指数日指标", "index", "指数", "daily", "trade_date"),
+    "index_weight": ("指数成分权重", "index", "指数", "monthly", "trade_date"),
+    "dividend": ("分红送转", "event", "低频事件", "event", None),
+    "stk_holdernumber": ("股东户数", "event", "低频事件", "event", None),
+}
+
+
+DATASET_FRESHNESS_SPEC_REGISTRY: dict[str, DatasetFreshnessSpec] = {}
+DATASET_FRESHNESS_BY_JOB_NAME: dict[str, DatasetFreshnessSpec] = {}
+
+
+def _primary_execution_spec_key_for_resource(resource: str) -> str | None:
+    sync_daily_key = f"sync_daily.{resource}"
+    if sync_daily_key in JOB_SPEC_REGISTRY:
+        return sync_daily_key
+    sync_history_key = f"sync_history.{resource}"
+    if sync_history_key in JOB_SPEC_REGISTRY:
+        return sync_history_key
+    return None
+
+for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
+    if _resource not in DATASET_FRESHNESS_METADATA:
+        continue
+    _display_name, _domain_key, _domain_display_name, _cadence, _observed_date_column = DATASET_FRESHNESS_METADATA[_resource]
+    _spec = DatasetFreshnessSpec(
+        dataset_key=_resource,
+        resource_key=_resource,
+        job_name=_service_cls.job_name,
+        display_name=_display_name,
+        domain_key=_domain_key,
+        domain_display_name=_domain_display_name,
+        target_table=_service_cls.target_table,
+        cadence=_cadence,  # type: ignore[arg-type]
+        observed_date_column=_observed_date_column,
+        primary_execution_spec_key=_primary_execution_spec_key_for_resource(_resource),
+    )
+    DATASET_FRESHNESS_SPEC_REGISTRY[_resource] = _spec
+    DATASET_FRESHNESS_BY_JOB_NAME[_spec.job_name] = _spec
+
+
+def list_job_specs() -> list[JobSpec]:
+    return [JOB_SPEC_REGISTRY[key] for key in sorted(JOB_SPEC_REGISTRY)]
+
+
+def get_job_spec(key: str) -> JobSpec | None:
+    return JOB_SPEC_REGISTRY.get(key)
+
+
+def list_workflow_specs() -> list[WorkflowSpec]:
+    return [WORKFLOW_SPEC_REGISTRY[key] for key in sorted(WORKFLOW_SPEC_REGISTRY)]
+
+
+def get_workflow_spec(key: str) -> WorkflowSpec | None:
+    return WORKFLOW_SPEC_REGISTRY.get(key)
+
+
+def get_ops_spec(spec_type: str, spec_key: str) -> JobSpec | WorkflowSpec | None:
+    if spec_type == "job":
+        return get_job_spec(spec_key)
+    if spec_type == "workflow":
+        return get_workflow_spec(spec_key)
+    return None
+
+
+def get_ops_spec_display_name(spec_type: str, spec_key: str) -> str | None:
+    spec = get_ops_spec(spec_type, spec_key)
+    return spec.display_name if spec is not None else None
+
+
+def ops_spec_supports_schedule(spec_type: str, spec_key: str) -> bool:
+    spec = get_ops_spec(spec_type, spec_key)
+    return bool(spec is not None and getattr(spec, "supports_schedule", False))
+
+
+def list_dataset_freshness_specs() -> list[DatasetFreshnessSpec]:
+    return [DATASET_FRESHNESS_SPEC_REGISTRY[key] for key in sorted(DATASET_FRESHNESS_SPEC_REGISTRY)]
+
+
+def get_dataset_freshness_spec(resource_key: str) -> DatasetFreshnessSpec | None:
+    return DATASET_FRESHNESS_SPEC_REGISTRY.get(resource_key)
+
+
+def get_dataset_freshness_spec_by_job_name(job_name: str) -> DatasetFreshnessSpec | None:
+    return DATASET_FRESHNESS_BY_JOB_NAME.get(job_name)

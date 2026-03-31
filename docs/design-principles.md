@@ -117,6 +117,65 @@ Rules:
 
 The web layer is designed as a long-term application platform, not a thin temporary adapter.
 
+## Frontend Platform Principle
+
+Frontend technology and component-system choices must be made for the whole `goldenshare` product, not only for the currently active subsystem.
+
+Rules:
+
+- do not optimize the main frontend stack only for the current operations console
+- evaluate frontend choices against the long-term product shape, including market workbench, opportunity discovery, plan tracking, training, and operations
+- avoid introducing multiple unrelated primary component systems early unless there is a very strong boundary and an explicit long-term ownership model
+- prefer a frontend foundation that can serve both dense professional market views and structured admin/control views
+
+Implication:
+
+- the operations system is an important subsystem, but it is not the design center of the whole product
+- a component system that is ideal only for enterprise backoffice use may be suboptimal as the main foundation of `goldenshare`
+
+Reference:
+
+- see `docs/frontend-technology-and-component-selection.md` for the current frontend platform selection analysis
+- see `docs/frontend-application-phase1.md` for the first frontend application architecture
+
+## UI Copy and Interaction Language Principle
+
+User-facing pages must be understandable to someone who is new to the system.
+
+Rules:
+
+- write interface copy as if the reader is capable but unfamiliar with our internal architecture
+- prefer plain task language over internal implementation language
+- do not expose raw internal terms such as `execution`, `spec_key`, `job_name`, `scheduler tick`, or underscored status values as primary UI copy unless they are clearly explained
+- visible page copy should default to Chinese; internal English identifiers belong in code, logs, or secondary diagnostic views, not in the main reading path
+- button labels should describe what the action does for the user, not what internal mechanism is triggered
+- helper text should first explain why a section exists and when to use it, and only then mention system details if needed
+- when internal terms must be shown for diagnostics, pair them with a clearer user-facing label or explanation
+- reusable explanation patterns should be implemented as shared components, not improvised inline on each page; prefer progressive disclosure such as help-tip or tooltip patterns over large blocks of explanatory text inside dense control surfaces
+
+Implication:
+
+- the default reader for control surfaces should be treated as someone who can learn the system quickly, but should not need source-code knowledge to operate it
+- a page is not considered "done" if it only makes sense to people who already know the backend object model
+
+## Operations Frontend Information Architecture Principle
+
+The operations frontend must be organized around the user's jobs-to-be-done, not around internal runtime objects.
+
+Rules:
+
+- primary navigation should reflect user tasks such as checking today’s status, managing automatic runs, starting manual sync, reviewing task history, and checking data status
+- internal entities such as `execution`, `schedule`, `worker`, `queue`, and `spec` may exist in the backend, but should not be the main mental model presented in the primary UI
+- a primary action should complete within the current context whenever reasonably possible; do not require users to jump across pages to finish a single operational intent
+- "retry" in the UI should mean "restart this task now" unless the UI clearly says it will only queue the task
+- overview pages should emphasize current state, risks, and next steps; low-level runtime controls belong in dedicated advanced areas, not in the main dashboard surface
+- task-detail pages should lead with a user-readable problem summary and recommended next action before exposing raw logs or structured payloads
+
+Implication:
+
+- the operations frontend is a workflow product, not a raw control panel for backend machinery
+- backend object models can remain implementation details as long as the frontend wraps them in user-facing task language
+
 Recommended structure:
 
 - `src/web/api`: routers and API entrypoints
@@ -197,6 +256,67 @@ This does not mean:
 - the web layer becomes the new data foundation
 
 The BFF layer must remain disciplined and layered.
+
+## Operations System Principles
+
+`goldenshare` is expected to grow an operations system over time.
+
+This operations system covers:
+
+- scheduling
+- manual execution
+- retries and replays
+- execution monitoring
+- data freshness tracking
+- operational overview and audit history
+
+Rules:
+
+- treat operations pages as views over control-plane domain objects, not as isolated page-specific tools
+- design control-plane objects first, then build pages and APIs around them
+- prefer explicit domain objects such as job spec, workflow spec, schedule, execution, step, event, freshness snapshot, and config revision
+- keep the operations system independent from any external repository's scheduler or file layout
+- use external projects only as references for interaction patterns and page affordances
+
+### Unified Control Plane Rule
+
+Scheduled runs, manual runs, retries, replays, and maintenance actions must converge on a unified execution model.
+
+Rules:
+
+- every meaningful execution should create a structured execution record
+- execution state should be queryable through structured `ops` data, not inferred primarily from raw text logs
+- logs are supporting evidence, not the primary control-plane state model
+- avoid building separate hidden execution paths for different triggers
+
+### Execution Ownership Rule
+
+The web layer may create, inspect, and control execution requests, but it must not be the long-running execution owner.
+
+Rules:
+
+- long-running operational work should be performed by scheduler and worker style runtime components
+- web requests should create control-plane records or action requests, then return promptly
+- existing sync services and CLI commands are executor primitives, not the long-term primary control plane
+- do not make the operations UI depend on in-request shell execution as its normal execution model
+
+### Operations Access Control Rule
+
+The operations system is an administrative control surface.
+
+Rules:
+
+- operations pages and operations APIs should default to admin-only access in the first phase
+- do not expose scheduling, execution, cancellation, or operational state mutation to normal authenticated users
+- read access and write access for operations should remain converged on the admin role until a real multi-role requirement exists
+- avoid introducing partial role abstractions only for theoretical future flexibility
+
+The current `app_user.is_admin` model is acceptable for the first operations phase because it matches the current permission boundary:
+
+- normal authenticated users
+- administrators
+
+If future product requirements introduce multiple privileged roles, evolve deliberately to structured role tables instead of inventing page-specific flags.
 
 ## API Contract Principles
 
@@ -300,6 +420,8 @@ The following should be treated as anti-patterns:
 - changing foundational schemas to satisfy one page quickly
 - creating duplicate mirror tables just to reduce adapter work
 - coupling admin UI to local log-file parsing as the primary long-term design
+- coupling operations UI directly to ad hoc shell command execution as the primary long-term design
+- using page-specific status derivation when a structured `ops` state model should exist
 - allowing one page's temporary needs to redefine system-wide naming
 
 ## Platform Verification Principles

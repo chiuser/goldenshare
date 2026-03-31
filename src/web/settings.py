@@ -6,6 +6,8 @@ from src.config.settings import Settings, get_settings
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 
 
 def get_web_settings() -> Settings:

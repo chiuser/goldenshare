@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     web_debug: bool = Field(default=False, alias="WEB_DEBUG")
     web_log_level: str = Field(default="INFO", alias="WEB_LOG_LEVEL")
     web_cors_origins: str = Field(default="", alias="WEB_CORS_ORIGINS")
+    frontend_dev_server_url: str = Field(default="", alias="FRONTEND_DEV_SERVER_URL")
     jwt_secret: str = Field(default="", alias="JWT_SECRET")
     jwt_expire_minutes: int = Field(default=480, alias="JWT_EXPIRE_MINUTES")
     platform_check_enabled: bool = Field(default=True, alias="PLATFORM_CHECK_ENABLED")

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from src.config.logging import configure_logging
 from src.config.settings import get_settings
 from src.db import SessionLocal
+from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.services.history_backfill_service import HistoryBackfillService
 from src.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
@@ -218,3 +219,42 @@ def backfill_index_series(
             progress=typer.echo,
         )
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+
+
+@app.command("ops-scheduler-tick")
+def ops_scheduler_tick(
+    limit: int = typer.Option(100, min=1, max=1000, help="Maximum due schedules to enqueue in one tick."),
+) -> None:
+    with SessionLocal() as session:
+        executions = OperationsScheduler().run_once(session, limit=limit)
+        for execution in executions:
+            typer.echo(
+                "scheduled "
+                f"execution#{execution.id} "
+                f"schedule_id={execution.schedule_id} "
+                f"spec={execution.spec_type}:{execution.spec_key} "
+                f"status={execution.status}"
+            )
+        typer.echo(f"ops-scheduler-tick: scheduled={len(executions)}")
+
+
+@app.command("ops-worker-run")
+def ops_worker_run(
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued executions to consume in one run."),
+) -> None:
+    with SessionLocal() as session:
+        worker = OperationsWorker()
+        processed = 0
+        for _ in range(limit):
+            execution = worker.run_next(session)
+            if execution is None:
+                break
+            processed += 1
+            typer.echo(
+                "processed "
+                f"execution#{execution.id} "
+                f"status={execution.status} "
+                f"rows_fetched={execution.rows_fetched} "
+                f"rows_written={execution.rows_written}"
+            )
+        typer.echo(f"ops-worker-run: processed={processed}")

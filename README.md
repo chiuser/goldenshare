@@ -11,6 +11,12 @@ PostgreSQL + Tushare 行情/选股系统第一期数据底座。
 - Pydantic
 - Typer
 - Tushare
+- React
+- TypeScript
+- Vite
+- Mantine
+- TanStack Query
+- TanStack Router
 
 ## 快速开始
 
@@ -33,6 +39,81 @@ goldenshare sync-daily --resources daily_basic --resources moneyflow --resources
 ## 环境变量
 
 见 `.env.example`。
+
+Web 环境相关变量见 `.env.web.example`。
+
+## 前端应用一期
+
+仓库现在已经接入了新的前端应用骨架，位置在 [frontend/package.json](/Users/congming/github/goldenshare/frontend/package.json) 所在目录。
+
+这套前端应用当前先挂在 `/app`，目的是：
+
+- 先把未来长期使用的前端技术栈搭起来
+- 不立即破坏已上线的 `/platform-check` 和 `/ops`
+- 让运维系统成为第一批迁移试验田
+
+相关设计文档：
+
+- [frontend-technology-and-component-selection.md](/Users/congming/github/goldenshare/docs/frontend-technology-and-component-selection.md)
+- [frontend-application-phase1.md](/Users/congming/github/goldenshare/docs/frontend-application-phase1.md)
+
+### 本地开发
+
+1. 启动后端 Web：
+
+```bash
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.web.run
+```
+
+2. 启动前端 dev server：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. 浏览器访问：
+
+```text
+http://127.0.0.1:5173/app/
+```
+
+说明：
+
+- `vite.config.ts` 已经把 `/api` 代理到 `http://127.0.0.1:8000`
+- `.env.web.example` 里也预留了 `FRONTEND_DEV_SERVER_URL`
+
+### 构建并由 FastAPI 托管
+
+如果你希望直接由 FastAPI 托管前端构建产物，可以执行：
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+然后启动后端：
+
+```bash
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.web.run
+```
+
+此时访问：
+
+```text
+http://127.0.0.1:8000/app
+```
+
+### 前端验证命令
+
+```bash
+cd frontend
+npm run typecheck
+npm run test
+npm run build
+```
 
 ## 数据库升级方式
 

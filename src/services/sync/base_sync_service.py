@@ -27,7 +27,8 @@ class BaseSyncService(ABC):
         return self._run("INCREMENTAL", trade_date=trade_date, **kwargs)
 
     def _run(self, run_type: str, **kwargs: Any) -> SyncResult:
-        log = self.dao.sync_run_log.start_log(self.job_name, run_type)
+        execution_id = kwargs.pop("execution_id", None)
+        log = self.dao.sync_run_log.start_log(self.job_name, run_type, execution_id=execution_id)
         try:
             fetched, written, result_date, message = self.execute(run_type=run_type, **kwargs)
             self.dao.sync_run_log.finish_log(log, "SUCCESS", fetched, written, message)
