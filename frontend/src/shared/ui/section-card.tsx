@@ -17,7 +17,7 @@ export function SectionCard({ title, description, action, children }: SectionCar
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" gap="md">
           <Group gap={8} align="center">
-            <Text fw={700}>{title}</Text>
+            <Text fw={800} size="lg" lh={1.2}>{title}</Text>
             {description ? <HelpTip label={description} maxWidth={360} /> : null}
           </Group>
           {action}

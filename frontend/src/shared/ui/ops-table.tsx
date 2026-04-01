@@ -1,19 +1,60 @@
 import { Group, Table, Text, type GroupProps, type TableProps, type TextProps } from "@mantine/core";
 import type { PropsWithChildren } from "react";
 
-const headerCellStyle = { textAlign: "center" as const, fontSize: "1rem" };
-const bodyCellStyle = { textAlign: "center" as const };
+type CellAlign = "left" | "center" | "right";
+
+function resolveAlign(align: CellAlign | undefined) {
+  return align ?? "center";
+}
 
 export function OpsTable(props: TableProps) {
-  return <Table highlightOnHover striped {...props} />;
+  return (
+    <Table
+      highlightOnHover
+      striped
+      horizontalSpacing="md"
+      verticalSpacing="sm"
+      {...props}
+    />
+  );
 }
 
-export function OpsTableHeaderCell({ children }: PropsWithChildren) {
-  return <Table.Th style={headerCellStyle}>{children}</Table.Th>;
+export function OpsTableHeaderCell({
+  children,
+  align,
+  width,
+}: PropsWithChildren<{ align?: CellAlign; width?: string | number }>) {
+  return (
+    <Table.Th
+      style={{
+        textAlign: resolveAlign(align),
+        fontSize: "1rem",
+        fontWeight: 700,
+        width,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </Table.Th>
+  );
 }
 
-export function OpsTableCell({ children }: PropsWithChildren) {
-  return <Table.Td style={bodyCellStyle}>{children}</Table.Td>;
+export function OpsTableCell({
+  children,
+  align,
+  width,
+}: PropsWithChildren<{ align?: CellAlign; width?: string | number }>) {
+  return (
+    <Table.Td
+      style={{
+        textAlign: resolveAlign(align),
+        width,
+        verticalAlign: "middle",
+      }}
+    >
+      {children}
+    </Table.Td>
+  );
 }
 
 export function OpsTableCellText({ children, ...props }: PropsWithChildren<TextProps>) {

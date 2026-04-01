@@ -21,7 +21,6 @@ import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } f
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
-import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -171,15 +170,19 @@ export function OpsTasksPage() {
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="任务记录"
-        description="在这里看最近跑了什么、结果怎么样，以及失败后应该怎么继续处理。"
-        action={
-          <Button component={Link} to="/ops/manual-sync">
+      <Group justify="space-between" align="center">
+        <Text c="dimmed" size="sm">
+          在这里看最近跑了什么、结果怎么样，再决定是查看详情、停止处理，还是重新提交。
+        </Text>
+        <Group gap="xs">
+          <Button component={Link} to="/ops/data-status" size="sm" variant="light" color="brand">
+            查看数据状态
+          </Button>
+          <Button component={Link} to="/ops/manual-sync" size="sm">
             去手动同步
           </Button>
-        }
-      />
+        </Group>
+      </Group>
 
       {(catalogQuery.isLoading || executionsQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || executionsQuery.error ? (
@@ -190,23 +193,25 @@ export function OpsTasksPage() {
         </Alert>
       ) : null}
 
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="当前结果集" value={stats.total} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="等待处理" value={stats.queued} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="正在处理" value={stats.running} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="已完成" value={stats.success} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
-          <StatCard label="执行失败" value={stats.failed} hint="失败任务可以重新提交。系统会继续处理新的任务请求，你只需要回到详情页关注结果。" />
-        </Grid.Col>
-      </Grid>
+      <SectionCard title="任务概览" description="先看当前任务分布，再按状态筛选处理。">
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="当前结果集" value={stats.total} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="等待处理" value={stats.queued} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="正在处理" value={stats.running} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="已完成" value={stats.success} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
+            <StatCard label="执行失败" value={stats.failed} hint="失败任务可以重新提交。" />
+          </Grid.Col>
+        </Grid>
+      </SectionCard>
 
       <SectionCard title="筛选任务" description="先按状态、发起方式或任务名称筛一遍，再进入详情处理。">
         <Grid align="end">
@@ -231,10 +236,10 @@ export function OpsTasksPage() {
               label="发起方式"
               clearable
               data={[
-                { value: "manual", label: "手动发起" },
-                { value: "scheduled", label: "自动运行" },
+                { value: "manual", label: "手动" },
+                { value: "scheduled", label: "自动" },
                 { value: "retry", label: "重新提交" },
-                { value: "system", label: "系统内部触发" },
+                { value: "system", label: "系统触发" },
               ]}
               value={filters.trigger_source}
               onChange={(value) => setFilters((current) => ({ ...current, trigger_source: value }))}
@@ -250,10 +255,21 @@ export function OpsTasksPage() {
               onChange={(value) => setFilters((current) => ({ ...current, spec_key: value }))}
             />
           </Grid.Col>
+          <Grid.Col span={{ base: 12 }}>
+            <Group justify="flex-end" gap="xs">
+              <Button
+                variant="light"
+                color="brand"
+                onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}
+              >
+                清空筛选
+              </Button>
+            </Group>
+          </Grid.Col>
         </Grid>
       </SectionCard>
 
-      <SectionCard title="任务列表" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
+      <SectionCard title="任务记录" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
         {(executionsQuery.data?.items?.length ?? 0) > 0 ? (
           <Stack gap="lg">
             {lastAction ? (
@@ -261,7 +277,6 @@ export function OpsTasksPage() {
                 title="最近一次任务操作"
                 rows={[
                   { label: "任务名称", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
-                  { label: "任务编号", value: `#${lastAction.id}` },
                   { label: "当前状态", value: formatStatusLabel(lastAction.status) },
                   { label: "处理结果", value: buildResultSummary(lastAction) },
                 ]}
@@ -271,41 +286,40 @@ export function OpsTasksPage() {
             <OpsTable>
               <Table.Thead>
                 <Table.Tr>
-                  <OpsTableHeaderCell>任务名称</OpsTableHeaderCell>
-                  <OpsTableHeaderCell>发起方式</OpsTableHeaderCell>
-                  <OpsTableHeaderCell>提交时间</OpsTableHeaderCell>
-                  <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
-                  <OpsTableHeaderCell>结果摘要</OpsTableHeaderCell>
-                  <OpsTableHeaderCell>操作</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left" width="34%">任务名称</OpsTableHeaderCell>
+                  <OpsTableHeaderCell width="14%">发起方式</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left" width="24%">提交时间</OpsTableHeaderCell>
+                  <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
+                  <OpsTableHeaderCell width="16%">操作</OpsTableHeaderCell>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {(executionsQuery.data?.items || []).map((item) => (
                   <Table.Tr key={item.id}>
-                    <OpsTableCell>
+                    <OpsTableCell align="left" width="34%">
                       <Stack gap={2}>
-                        <OpsTableCellText fw={600}>{`#${item.id} ${formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}`}</OpsTableCellText>
+                        <OpsTableCellText fw={600} size="sm">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
                       </Stack>
                     </OpsTableCell>
-                    <OpsTableCell>
-                      <OpsTableCellText>{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
+                    <OpsTableCell width="14%">
+                      <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
                     </OpsTableCell>
-                    <OpsTableCell>
-                      <OpsTableCellText>{formatDateTimeLabel(item.requested_at)}</OpsTableCellText>
+                    <OpsTableCell align="left" width="24%">
+                      <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                        {formatDateTimeLabel(item.requested_at)}
+                      </OpsTableCellText>
                     </OpsTableCell>
-                    <OpsTableCell>
+                    <OpsTableCell width="12%">
                       <StatusBadge value={item.status} />
                     </OpsTableCell>
-                    <OpsTableCell>
-                      <OpsTableCellText lineClamp={2}>{buildResultSummary(item)}</OpsTableCellText>
-                    </OpsTableCell>
-                    <OpsTableCell>
+                    <OpsTableCell width="16%">
                       <OpsTableActionGroup>
                         <Button
                           component="a"
                           href={`/app/ops/tasks/${item.id}`}
                           size="xs"
                           variant="light"
+                          color="brand"
                         >
                           查看详情
                         </Button>
@@ -315,6 +329,7 @@ export function OpsTasksPage() {
                             onClick={() => retryMutation.mutate(item.id)}
                             size="xs"
                             variant="light"
+                            color="brand"
                           >
                             重新提交
                           </Button>

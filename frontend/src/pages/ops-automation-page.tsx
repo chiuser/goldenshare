@@ -1,7 +1,6 @@
 import {
   Accordion,
   Alert,
-  Anchor,
   Badge,
   Button,
   Drawer,
@@ -38,7 +37,7 @@ import {
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
-import { PageHeader } from "../shared/ui/page-header";
+import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -249,11 +248,12 @@ export function OpsAutomationPage() {
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="自动运行"
-        description="把系统要自动执行的任务安排好，平时只需要看结果，不需要手动盯着跑。"
-        action={<Button onClick={openCreate}>新建自动任务</Button>}
-      />
+      <Group justify="space-between" align="center">
+        <Text c="dimmed" size="sm">
+          把系统要自动执行的任务安排好，平时只需要看结果，不需要手动盯着跑。
+        </Text>
+        <Button onClick={openCreate}>新建自动任务</Button>
+      </Group>
 
       {(catalogQuery.isLoading || schedulesQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || schedulesQuery.error ? (
@@ -264,23 +264,25 @@ export function OpsAutomationPage() {
         </Alert>
       ) : null}
 
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="自动任务总数" value={summary.total} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="启用中" value={summary.active} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-          <StatCard label="已暂停" value={summary.paused} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <StatCard label="单次执行" value={summary.once} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <StatCard label="按周期执行" value={summary.cron} hint="按周期执行需要填写周期规则。" />
-        </Grid.Col>
-      </Grid>
+      <SectionCard title="自动运行概览" description="先看自动任务的整体分布，再选择左侧具体任务继续处理。">
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="自动任务总数" value={summary.total} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="启用中" value={summary.active} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="已暂停" value={summary.paused} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard label="单次执行" value={summary.once} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard label="按周期执行" value={summary.cron} hint="按周期执行需要填写周期规则。" />
+          </Grid.Col>
+        </Grid>
+      </SectionCard>
 
       <Grid align="stretch">
         <Grid.Col span={{ base: 12, xl: 7 }}>
@@ -289,14 +291,14 @@ export function OpsAutomationPage() {
             description="这里列出系统会自动运行的任务。点中一条后，可以在右侧查看详情和修改。"
           >
             {(schedulesQuery.data?.items?.length ?? 0) > 0 ? (
-              <Table highlightOnHover striped>
+              <OpsTable>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>任务名称</Table.Th>
-                    <Table.Th>执行对象</Table.Th>
-                    <Table.Th>当前状态</Table.Th>
-                    <Table.Th>执行方式</Table.Th>
-                    <Table.Th>下次运行</Table.Th>
+                    <OpsTableHeaderCell align="left" width="26%">任务名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="28%">执行对象</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="14%">当前状态</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="12%">执行方式</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="20%">下次运行</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -306,20 +308,30 @@ export function OpsAutomationPage() {
                       onClick={() => setSelectedScheduleId(item.id)}
                       style={{
                         cursor: "pointer",
-                        background: selectedScheduleId === item.id ? "rgba(0, 169, 187, 0.08)" : undefined,
+                        background: selectedScheduleId === item.id ? "rgba(72, 149, 239, 0.10)" : undefined,
                       }}
                     >
-                      <Table.Td>{item.display_name}</Table.Td>
-                      <Table.Td>{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</Table.Td>
-                      <Table.Td>
+                      <OpsTableCell align="left" width="26%">
+                        <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell align="left" width="28%">
+                        <OpsTableCellText size="xs">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell width="14%">
                         <StatusBadge value={item.status} />
-                      </Table.Td>
-                      <Table.Td>{formatScheduleTypeLabel(item.schedule_type)}</Table.Td>
-                      <Table.Td>{formatDateTimeLabel(item.next_run_at)}</Table.Td>
+                      </OpsTableCell>
+                      <OpsTableCell width="12%">
+                        <OpsTableCellText size="xs">{formatScheduleTypeLabel(item.schedule_type)}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell align="left" width="20%">
+                        <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                          {formatDateTimeLabel(item.next_run_at)}
+                        </OpsTableCellText>
+                      </OpsTableCell>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
-              </Table>
+              </OpsTable>
             ) : (
               <EmptyState
                 title="还没有自动任务"
@@ -334,15 +346,15 @@ export function OpsAutomationPage() {
           <Stack gap="lg">
             <SectionCard
               title="任务详情"
-              description="这里展示当前自动任务的执行对象、运行时间和最近结果。"
+              description="先看当前状态和运行时间，再决定是修改、暂停，还是恢复自动运行。"
               action={
                 detailQuery.data ? (
                   <Group gap="xs">
-                    <Button variant="light" onClick={openEdit}>
+                    <Button variant="light" color="brand" onClick={openEdit}>
                       修改
                     </Button>
                     <Button
-                      color={detailQuery.data.status === "active" ? "orange" : "green"}
+                      color={detailQuery.data.status === "active" ? "orange" : "brand"}
                       onClick={() =>
                         toggleMutation.mutate(detailQuery.data?.status === "active" ? "pause" : "resume")
                       }
@@ -355,20 +367,78 @@ export function OpsAutomationPage() {
             >
               {detailQuery.isLoading ? <Loader size="sm" /> : null}
               {detailQuery.data ? (
-                <Stack gap="sm">
-                  <Text fw={700}>{detailQuery.data.display_name}</Text>
+                <Stack gap="md">
+                  <Text fw={800} size="lg">{detailQuery.data.display_name}</Text>
                   <Group gap="xs">
                     <StatusBadge value={detailQuery.data.status} />
                     <Badge variant="light">{formatScheduleTypeLabel(detailQuery.data.schedule_type)}</Badge>
                     <Badge variant="light">{formatTimezoneLabel(detailQuery.data.timezone)}</Badge>
                   </Group>
-                  <Text size="sm">执行对象：{formatSpecDisplayLabel(detailQuery.data.spec_key, detailQuery.data.spec_display_name)}</Text>
-                  <Text size="sm">下次运行：{formatDateTimeLabel(detailQuery.data.next_run_at)}</Text>
-                  <Text size="sm">上次触发：{formatDateTimeLabel(detailQuery.data.last_triggered_at)}</Text>
-                  <Text size="sm">周期规则：{detailQuery.data.cron_expr || "未设置"}</Text>
-                  <Anchor component="a" href={`/app/ops/manual-sync?from_schedule_id=${detailQuery.data.id}`} size="sm">
+                  <Grid gutter="sm">
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Stack
+                        gap={4}
+                        p="sm"
+                        bg="var(--mantine-color-gray-0)"
+                        bd="1px solid var(--mantine-color-gray-2)"
+                        style={{ borderRadius: "var(--mantine-radius-md)" }}
+                      >
+                        <Text c="dimmed" size="xs">执行对象</Text>
+                        <Text size="sm">{formatSpecDisplayLabel(detailQuery.data.spec_key, detailQuery.data.spec_display_name)}</Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Stack
+                        gap={4}
+                        p="sm"
+                        bg="var(--mantine-color-gray-0)"
+                        bd="1px solid var(--mantine-color-gray-2)"
+                        style={{ borderRadius: "var(--mantine-radius-md)" }}
+                      >
+                        <Text c="dimmed" size="xs">下次运行</Text>
+                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
+                          {formatDateTimeLabel(detailQuery.data.next_run_at)}
+                        </Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Stack
+                        gap={4}
+                        p="sm"
+                        bg="var(--mantine-color-gray-0)"
+                        bd="1px solid var(--mantine-color-gray-2)"
+                        style={{ borderRadius: "var(--mantine-radius-md)" }}
+                      >
+                        <Text c="dimmed" size="xs">上次触发</Text>
+                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
+                          {formatDateTimeLabel(detailQuery.data.last_triggered_at)}
+                        </Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Stack
+                        gap={4}
+                        p="sm"
+                        bg="var(--mantine-color-gray-0)"
+                        bd="1px solid var(--mantine-color-gray-2)"
+                        style={{ borderRadius: "var(--mantine-radius-md)" }}
+                      >
+                        <Text c="dimmed" size="xs">周期规则</Text>
+                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
+                          {detailQuery.data.cron_expr || "未设置"}
+                        </Text>
+                      </Stack>
+                    </Grid.Col>
+                  </Grid>
+                  <Button
+                    component="a"
+                    href={`/app/ops/manual-sync?from_schedule_id=${detailQuery.data.id}`}
+                    size="sm"
+                    variant="light"
+                    color="brand"
+                  >
                     按当前配置手动执行一次
-                  </Anchor>
+                  </Button>
                 </Stack>
               ) : (
                 <EmptyState title="请先选择一条自动任务" description="点左侧列表中的任务后，这里会显示它的详细设置。" />
@@ -387,18 +457,36 @@ export function OpsAutomationPage() {
               />
             ) : null}
 
-            <SectionCard title="最近变更" description="这里只记录自动任务配置的变更历史，方便回看是谁改了什么。">
+            <SectionCard title="最近变更" description="记录自动任务配置最近几次调整，方便快速回看。">
               {revisionsQuery.data?.items?.length ? (
-                <Stack gap="sm">
-                  {revisionsQuery.data.items.slice(0, 5).map((item) => (
-                    <Stack key={item.id} gap={2}>
-                      <Text fw={600}>{formatRevisionActionLabel(item.action)}</Text>
-                      <Text c="dimmed" size="sm">
-                        {item.changed_by_username || "系统"} · {formatDateTimeLabel(item.changed_at)}
-                      </Text>
-                    </Stack>
-                  ))}
-                </Stack>
+                <OpsTable>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <OpsTableHeaderCell align="left" width="34%">变更动作</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="26%">操作人</OpsTableHeaderCell>
+                      <OpsTableHeaderCell align="left" width="40%">变更时间</OpsTableHeaderCell>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {revisionsQuery.data.items.slice(0, 5).map((item) => (
+                      <Table.Tr key={item.id}>
+                        <OpsTableCell align="left" width="34%">
+                          <OpsTableCellText fw={600} size="sm">
+                            {formatRevisionActionLabel(item.action)}
+                          </OpsTableCellText>
+                        </OpsTableCell>
+                        <OpsTableCell align="left" width="26%">
+                          <OpsTableCellText size="xs">{item.changed_by_username || "系统"}</OpsTableCellText>
+                        </OpsTableCell>
+                        <OpsTableCell align="left" width="40%">
+                          <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">
+                            {formatDateTimeLabel(item.changed_at)}
+                          </OpsTableCellText>
+                        </OpsTableCell>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </OpsTable>
               ) : (
                 <Text c="dimmed" size="sm">
                   当前还没有变更记录。

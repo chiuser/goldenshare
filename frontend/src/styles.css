@@ -73,9 +73,9 @@ code {
   width: 44px;
   height: 44px;
   object-fit: contain;
-  border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(58, 12, 163, 0.16);
-  background: rgba(255, 255, 255, 0.72);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .login-brand-logo {

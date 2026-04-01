@@ -28,7 +28,6 @@ import { formatCategoryLabel, formatResourceLabel, formatSpecDisplayLabel } from
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { DateField } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
-import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 
 type ManualSpecType = "job" | "workflow";
@@ -502,10 +501,9 @@ export function OpsManualSyncPage() {
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="手动同步"
-        description="这里只做一件事：维护你选中的数据。至于是补一天、补一段时间，还是直接刷新一次，由系统根据你的输入自动决定。"
-      />
+      <Text c="dimmed" size="sm">
+        这里只做一件事：维护你选中的数据。至于是补一天、补一段时间，还是直接刷新一次，由系统根据你的输入自动决定。
+      </Text>
 
       {(catalogQuery.isLoading || prefillExecutionQuery.isLoading || prefillScheduleQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || prefillExecutionQuery.error || prefillScheduleQuery.error ? (
@@ -682,7 +680,10 @@ export function OpsManualSyncPage() {
                     </Accordion.Item>
                   </Accordion>
 
-                  <Group justify="flex-end">
+                  <Group justify="space-between" align="center">
+                    <Text c="dimmed" size="sm">
+                      提交后会直接跳到任务详情页，后续进度会自动刷新。
+                    </Text>
                     <Button
                       variant="light"
                       onClick={() => setDraft(buildEmptyDraft())}
@@ -709,19 +710,19 @@ export function OpsManualSyncPage() {
 
         <Grid.Col span={{ base: 12, xl: 4 }}>
           <Stack gap="lg">
-            <SectionCard title="这页适合做什么" description="把最常见的手动维护动作固定下来，减少你去猜系统内部流程。">
+            <SectionCard title="常见用途" description="把最常见的手动维护动作固定下来，减少你去猜系统内部流程。">
               <Stack gap="sm">
-                <Badge variant="light" size="lg">补今天没跑出来的数据</Badge>
-                <Badge variant="light" size="lg">补一段时间的历史数据</Badge>
-                <Badge variant="light" size="lg">重新维护刚才失败的数据</Badge>
-                <Badge variant="light" size="lg">按自动任务配置手动跑一次</Badge>
+                <Badge variant="light" size="lg" color="brand">补今天没跑出来的数据</Badge>
+                <Badge variant="light" size="lg" color="brand">补一段时间的历史数据</Badge>
+                <Badge variant="light" size="lg" color="brand">重新维护刚才失败的数据</Badge>
+                <Badge variant="light" size="lg" color="brand">按自动任务配置手动跑一次</Badge>
               </Stack>
             </SectionCard>
 
-            <SectionCard title="最近带入的上下文" description="如果你是从任务记录或自动运行页跳过来的，这里会自动带入原来的条件。">
+            <SectionCard title="已带入条件" description="如果你是从任务记录或自动运行页跳过来的，这里会自动带入原来的条件。">
               <Stack gap="sm">
-                <Text size="sm">来自任务记录：{prefillExecutionId ? `#${prefillExecutionId}` : "无"}</Text>
-                <Text size="sm">来自自动任务：{prefillScheduleId ? `#${prefillScheduleId}` : "无"}</Text>
+                <Text size="sm">来自任务记录：{prefillExecutionId || "无"}</Text>
+                <Text size="sm">来自自动任务：{prefillScheduleId || "无"}</Text>
                 <Text size="sm">当前已选数据：{selectedAction ? selectedAction.displayName : "未选择"}</Text>
               </Stack>
             </SectionCard>

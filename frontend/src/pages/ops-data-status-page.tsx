@@ -1,11 +1,10 @@
-import { Alert, Button, Grid, Loader, Stack, Table } from "@mantine/core";
+import { Alert, Button, Grid, Loader, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
 import type { OpsFreshnessResponse } from "../shared/api/types";
 import { formatDateLabel } from "../shared/date-format";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
-import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -32,6 +31,10 @@ function formatDateRangeLabel(earliestDate: string | null, latestDate: string | 
   return formatDateLabel(latestDate);
 }
 
+function formatFailureLabel(summary: string | null) {
+  return summary || "无";
+}
+
 export function OpsDataStatusPage() {
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness"],
@@ -40,10 +43,9 @@ export function OpsDataStatusPage() {
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="数据状态"
-        description="这里直接回答“数据是不是最新”。有业务日期的数据会显示覆盖范围；没有业务日期的数据会显示最近一次同步日期。"
-      />
+      <Text c="dimmed" size="sm">
+        有业务日期的数据会显示覆盖范围；没有业务日期的数据会显示最近一次同步日期。
+      </Text>
 
       {freshnessQuery.isLoading ? <Loader size="sm" /> : null}
       {freshnessQuery.error ? (
@@ -54,66 +56,74 @@ export function OpsDataStatusPage() {
 
       {freshnessQuery.data ? (
         <>
-          <Grid>
-            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-              <StatCard label="数据集总数" value={freshnessQuery.data.summary.total_datasets} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-              <StatCard label="状态正常" value={freshnessQuery.data.summary.fresh_datasets} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-              <StatCard label="需要关注" value={freshnessQuery.data.summary.lagging_datasets} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-              <StatCard label="严重滞后 / 未知" value={freshnessQuery.data.summary.stale_datasets + freshnessQuery.data.summary.unknown_datasets} />
-            </Grid.Col>
-          </Grid>
+          <SectionCard
+            title="状态概览"
+            description="先看整体分布，再往下看各模块的数据覆盖范围和异常情况。"
+          >
+            <Grid>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="数据集总数" value={freshnessQuery.data.summary.total_datasets} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="状态正常" value={freshnessQuery.data.summary.fresh_datasets} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="需要关注" value={freshnessQuery.data.summary.lagging_datasets} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="严重滞后 / 未知" value={freshnessQuery.data.summary.stale_datasets + freshnessQuery.data.summary.unknown_datasets} />
+              </Grid.Col>
+            </Grid>
+          </SectionCard>
 
           {freshnessQuery.data.groups.map((group) => (
             <SectionCard
               key={group.domain_key}
               title={group.domain_display_name}
-              description="先看最新日期和当前状态，再决定去任务记录还是直接手动同步。"
+              description="先看日期范围和当前状态，再决定是否立即处理。"
             >
               <OpsTable>
                 <Table.Thead>
                   <Table.Tr>
-                    <OpsTableHeaderCell>数据名称</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>日期范围</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>更新频率</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>最近异常</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>操作</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="22%">数据名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="24%">日期范围</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="12%">更新频率</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="14%">当前状态</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="18%">最近异常</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="10%">操作</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {group.items.map((item) => (
                     <Table.Tr key={item.dataset_key}>
-                      <OpsTableCell>
-                        <OpsTableCellText fw={600}>{item.display_name}</OpsTableCellText>
+                      <OpsTableCell align="left" width="22%">
+                        <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
                       </OpsTableCell>
-                      <OpsTableCell>
-                        <OpsTableCellText>{formatDateRangeLabel(item.earliest_business_date, item.latest_business_date, item.last_sync_date)}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell>
-                        <OpsTableCellText>{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell>
-                        <StatusBadge value={item.freshness_status} />
-                      </OpsTableCell>
-                      <OpsTableCell>
-                        <OpsTableCellText lineClamp={2}>
-                          {item.recent_failure_summary || "当前没有异常摘要"}
+                      <OpsTableCell align="left" width="24%">
+                        <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                          {formatDateRangeLabel(item.earliest_business_date, item.latest_business_date, item.last_sync_date)}
                         </OpsTableCellText>
                       </OpsTableCell>
-                      <OpsTableCell>
+                      <OpsTableCell width="12%">
+                        <OpsTableCellText size="xs">{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell width="14%">
+                        <StatusBadge value={item.freshness_status} />
+                      </OpsTableCell>
+                      <OpsTableCell align="left" width="18%">
+                        <OpsTableCellText lineClamp={1} size="xs" c={item.recent_failure_summary ? "var(--gs-magenta)" : "dimmed"}>
+                          {formatFailureLabel(item.recent_failure_summary)}
+                        </OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell width="10%">
                         <OpsTableActionGroup>
                           {item.primary_execution_spec_key ? (
                             <Button
                               component="a"
                               href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
                               size="xs"
-                              variant="default"
+                              variant="light"
+                              color="brand"
                             >
                               去处理
                             </Button>

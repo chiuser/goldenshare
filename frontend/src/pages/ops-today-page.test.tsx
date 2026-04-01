@@ -48,7 +48,9 @@ vi.mock("../shared/api/client", () => ({
         freshness_status: "lagging",
         lag_days: 1,
         expected_business_date: "2026-04-01",
+        earliest_business_date: "2020-01-01",
         latest_business_date: "2026-03-31",
+        last_sync_date: "2026-03-31",
         primary_execution_spec_key: "sync_daily.daily",
       },
     ],
@@ -77,5 +79,6 @@ describe("今日运行页", () => {
     expect(links.some((link) => link.getAttribute("href") === "/app/ops/manual-sync?spec_key=sync_daily.daily&spec_type=job")).toBe(true);
     expect(screen.queryByText("需要优先处理的问题")).not.toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看全部任务" })).toBeInTheDocument();
+    expect(await screen.findByText("日期范围 / 最近同步日期")).toBeInTheDocument();
   });
 });

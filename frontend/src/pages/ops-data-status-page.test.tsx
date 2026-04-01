@@ -75,7 +75,7 @@ describe("数据状态页", () => {
 
     renderPage();
 
-    expect(await screen.findByText("数据状态")).toBeInTheDocument();
+    expect(await screen.findByText("有业务日期的数据会显示覆盖范围；没有业务日期的数据会显示最近一次同步日期。")).toBeInTheDocument();
     expect(await screen.findByText("日期范围")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "去处理" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "查看任务" })).not.toBeInTheDocument();

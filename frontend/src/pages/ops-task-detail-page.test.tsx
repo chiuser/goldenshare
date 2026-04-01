@@ -123,12 +123,13 @@ describe("任务详情页", () => {
       </MantineProvider>,
     );
 
-    expect(await screen.findByText("任务详情")).toBeInTheDocument();
+    expect(await screen.findByText("先看当前状态和进展，再决定是继续等待、重新提交，还是展开技术细节排查。")).toBeInTheDocument();
     expect(await screen.findByText("本次处理范围")).toBeInTheDocument();
     expect((await screen.findAllByText("当前进展")).length).toBeGreaterThan(0);
     expect(await screen.findByText("建议下一步")).toBeInTheDocument();
-    expect(await screen.findByText("查看技术细节")).toBeInTheDocument();
-    expect(await screen.findByText("651/5814（11%）")).toBeInTheDocument();
+    expect(await screen.findByText("技术细节")).toBeInTheDocument();
+    expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
+    expect(await screen.findByText("11%")).toBeInTheDocument();
     expect((await screen.findAllByText("正在拉取 2026-03-23 到 2026-03-30 的股票日线数据")).length).toBeGreaterThan(0);
   });
 });

@@ -94,7 +94,7 @@ describe("任务记录页", () => {
     expect(within(statCard as HTMLElement).getByRole("heading", { level: 3, name: "1" })).toBeInTheDocument();
   });
 
-  it("有结构化进度时，优先展示当前进展而不是旧的汇总文案", async () => {
+  it("任务列表会隐藏结果摘要列，给主要信息留出空间", async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -127,7 +127,8 @@ describe("任务记录页", () => {
     );
 
     expect(await screen.findByText("任务记录")).toBeInTheDocument();
-    expect(await screen.findByText("当前进展 651/5814（11%）")).toBeInTheDocument();
-    expect(screen.queryByText("正在汇总")).not.toBeInTheDocument();
+    expect(screen.queryByText("结果摘要")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
+    expect((await screen.findAllByText("手动")).length).toBeGreaterThan(0);
   });
 });

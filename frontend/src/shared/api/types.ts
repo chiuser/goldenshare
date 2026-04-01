@@ -51,8 +51,10 @@ export interface OpsOverviewResponse {
     display_name: string;
     freshness_status: string;
     lag_days: number | null;
+    earliest_business_date: string | null;
     expected_business_date: string | null;
     latest_business_date: string | null;
+    last_sync_date: string | null;
     primary_execution_spec_key: string | null;
   }>;
   recent_executions: Array<{

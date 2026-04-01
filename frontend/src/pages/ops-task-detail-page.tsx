@@ -34,7 +34,6 @@ import {
   formatTriggerSourceLabel,
   formatUnitKindLabel,
 } from "../shared/ops-display";
-import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
@@ -206,65 +205,6 @@ function buildLatestUpdate(
   };
 }
 
-function buildProgressCards(
-  detail: ExecutionDetailResponse,
-  steps: ExecutionStepsResponse["items"],
-  events: ExecutionEventsResponse["items"],
-  logs: ExecutionLogsResponse["items"],
-) {
-  const latestLogWithCounts = [...logs]
-    .reverse()
-    .find((item) => (item.rows_fetched ?? 0) > 0 || (item.rows_written ?? 0) > 0);
-  const latestStepWithCounts = [...steps]
-    .reverse()
-    .find((item) => (item.rows_fetched ?? 0) > 0 || (item.rows_written ?? 0) > 0);
-
-  const fetchedCount =
-    (detail.rows_fetched ?? 0) > 0
-      ? detail.rows_fetched
-      : latestLogWithCounts?.rows_fetched ?? latestStepWithCounts?.rows_fetched ?? detail.rows_fetched;
-  const writtenCount =
-    (detail.rows_written ?? 0) > 0
-      ? detail.rows_written
-      : latestLogWithCounts?.rows_written ?? latestStepWithCounts?.rows_written ?? detail.rows_written;
-
-  const finishedStepCount = steps.filter((item) => item.status === "success").length;
-  const progressValue =
-    detail.progress_current !== null && detail.progress_current !== undefined && detail.progress_total
-      ? `${detail.progress_current}/${detail.progress_total}（${detail.progress_percent ?? 0}%）`
-      : steps.length
-        ? `${finishedStepCount}/${steps.length}`
-        : "刚开始";
-  const progressHint =
-    detail.progress_message ||
-    (steps.length ? "已经记录到的处理步骤数量" : "步骤明细会随着处理过程逐步出现");
-  return [
-    {
-      label: "当前进展",
-      value: progressValue,
-      hint: progressHint,
-    },
-    {
-      label: "最近更新",
-      value: buildLatestUpdate(detail, events, logs, steps).time,
-      hint: buildLatestUpdate(detail, events, logs, steps).message,
-    },
-    {
-      label: "当前结果",
-      value:
-        (fetchedCount ?? 0) > 0 || (writtenCount ?? 0) > 0
-          ? `${fetchedCount ?? 0}/${writtenCount ?? 0}`
-          : detail.status === "running"
-            ? "处理中"
-            : "暂无结果",
-      hint:
-        (fetchedCount ?? 0) > 0 || (writtenCount ?? 0) > 0
-          ? "显示当前已读取 / 已写入的记录数量"
-          : "如果这里暂时没有数字，通常只是后台还没产出可展示的阶段性结果。",
-    },
-  ];
-}
-
 function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
   const progressEvent = [...events]
     .reverse()
@@ -427,19 +367,19 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   }, [logStatus, logs]);
 
   const latestUpdate = detail ? buildLatestUpdate(detail, events, logs, steps) : null;
-  const progressCards = detail ? buildProgressCards(detail, steps, events, logs) : [];
 
   return (
     <Stack gap="lg">
-      <PageHeader
-        title="任务详情"
-        description="先看这次处理现在做到哪儿了，再决定是继续等待、重新提交，还是查看更细的技术记录。"
-        action={
-          <Button variant="light" component="a" href="/app/ops/tasks">
-            返回任务记录
-          </Button>
-        }
-      />
+      <Group justify="space-between" align="flex-start">
+        <Stack gap={4}>
+          <Text c="dimmed" size="sm">
+            先看当前状态和进展，再决定是继续等待、重新提交，还是展开技术细节排查。
+          </Text>
+        </Stack>
+        <Button variant="light" component="a" href="/app/ops/tasks">
+          返回任务记录
+        </Button>
+      </Group>
 
       {(detailQuery.isLoading || stepsQuery.isLoading || eventsQuery.isLoading || logsQuery.isLoading) ? <Loader size="sm" /> : null}
       {detailQuery.error ? (
@@ -452,7 +392,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
         <>
           <SectionCard
             title={formatSpecDisplayLabel(detail.spec_key, detail.spec_display_name)}
-            description="这里先告诉你这次任务是否正常、正在处理什么，以及你现在最常用的处理动作。"
+            description="这里先告诉你这次任务现在是什么状态，以及你最常用的处理动作。"
             action={
               <Group gap="xs">
                 <Button component="a" href={`/app/ops/manual-sync?from_execution_id=${detail.id}`} variant="light">
@@ -474,94 +414,144 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             <Alert color={buildStatusHeadline(detail).color} title={buildStatusHeadline(detail).title}>
               {buildStatusHeadline(detail).description}
             </Alert>
-            <Grid>
-              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-                <Stack gap={4}>
-                  <Text c="dimmed" size="sm">当前状态</Text>
-                  <StatusBadge value={detail.status} />
-                </Stack>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-                <Stack gap={4}>
-                  <Text c="dimmed" size="sm">发起方式</Text>
-                  <Text>{formatTriggerSourceLabel(detail.trigger_source)}</Text>
-                </Stack>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-                <Stack gap={4}>
-                  <Text c="dimmed" size="sm">提交时间</Text>
-                  <Text>{formatDateTimeLabel(detail.requested_at)}</Text>
-                </Stack>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-                <Stack gap={4}>
-                  <Text c="dimmed" size="sm">当前结果</Text>
-                  <Text>{liveResult?.value || "暂无结果"}</Text>
-                  <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
-                </Stack>
-              </Grid.Col>
-            </Grid>
+            <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md" verticalSpacing="md">
+              <Stack
+                gap={4}
+                p="md"
+                bg="var(--mantine-color-gray-0)"
+                bd="1px solid var(--mantine-color-gray-2)"
+                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+              >
+                <Text c="dimmed" size="sm">当前状态</Text>
+                <StatusBadge value={detail.status} />
+              </Stack>
+              <Stack
+                gap={4}
+                p="md"
+                bg="var(--mantine-color-gray-0)"
+                bd="1px solid var(--mantine-color-gray-2)"
+                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+              >
+                <Text c="dimmed" size="sm">发起方式</Text>
+                <Text fw={600}>{formatTriggerSourceLabel(detail.trigger_source)}</Text>
+              </Stack>
+              <Stack
+                gap={4}
+                p="md"
+                bg="var(--mantine-color-gray-0)"
+                bd="1px solid var(--mantine-color-gray-2)"
+                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+              >
+                <Text c="dimmed" size="sm">提交时间</Text>
+                <Text ff="monospace">{formatDateTimeLabel(detail.requested_at)}</Text>
+              </Stack>
+              <Stack
+                gap={4}
+                p="md"
+                bg="var(--mantine-color-gray-0)"
+                bd="1px solid var(--mantine-color-gray-2)"
+                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+              >
+                <Text c="dimmed" size="sm">当前结果</Text>
+                <Text fw={700}>{liveResult?.value || "暂无结果"}</Text>
+                <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
+              </Stack>
+            </SimpleGrid>
           </SectionCard>
 
-          <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg" verticalSpacing="lg">
-            <SectionCard title="本次处理范围" description="这里展示这次任务实际会处理哪些日期、代码或交易所。">
-              <Stack gap="sm">
-                {buildScopeItems(detail).map((item) => (
-                  <Stack gap={2} key={item.label}>
-                    <Text c="dimmed" size="sm">{item.label}</Text>
-                    <Text>{item.value}</Text>
-                  </Stack>
-                ))}
-              </Stack>
-            </SectionCard>
+          <Grid gutter="lg">
+            <Grid.Col span={{ base: 12, lg: 7 }}>
+              <SectionCard title="当前进展" description="这里只保留最关键的进展信息，帮助你快速判断任务是不是在正常推进。">
+                <Stack gap="md">
+                  {latestUpdate ? (
+                    <Alert color={detail.status === "failed" ? "red" : "blue"} title={`最近更新：${latestUpdate.label}`}>
+                      <Text size="sm">{latestUpdate.message}</Text>
+                      <Text size="xs" c="dimmed" mt={6}>{latestUpdate.time}</Text>
+                    </Alert>
+                  ) : null}
+                  {progressSnapshot ? (
+                    <Stack
+                      gap={8}
+                      p="md"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                    >
+                      <Group justify="space-between" align="end">
+                        <Stack gap={2}>
+                          <Text c="dimmed" size="sm">阶段性进度</Text>
+                          <Text fw={700} size="xl">{progressSnapshot.current} / {progressSnapshot.total}</Text>
+                        </Stack>
+                        <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">{progressSnapshot.percent}%</Text>
+                      </Group>
+                      <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
+                      <Text size="sm">{progressSnapshot.message}</Text>
+                      <Text size="sm" c="dimmed">
+                        最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
+                      </Text>
+                    </Stack>
+                  ) : (
+                    <Alert color={detail.status === "failed" ? "red" : "blue"} title="还在等待可展示的阶段性进展">
+                      系统已经开始处理，但目前还没有写回更细的阶段性数字。页面会自动刷新。
+                    </Alert>
+                  )}
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                    <Stack
+                      gap={4}
+                      p="md"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                    >
+                      <Text c="dimmed" size="sm">当前结果</Text>
+                      <Text fw={700}>{liveResult?.value || "暂无结果"}</Text>
+                      <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
+                    </Stack>
+                    <Stack
+                      gap={4}
+                      p="md"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                    >
+                      <Text c="dimmed" size="sm">最近更新</Text>
+                      <Text fw={700}>{latestUpdate?.time || "刚刚"}</Text>
+                      <Text size="sm" c="dimmed">{latestUpdate?.message || "系统正在等待新的处理进展。"}</Text>
+                    </Stack>
+                  </SimpleGrid>
+                </Stack>
+              </SectionCard>
+            </Grid.Col>
 
-            <SectionCard title="当前进展" description="这里只保留最关键的进展信息，帮助你快速判断任务是不是在正常推进。">
+            <Grid.Col span={{ base: 12, lg: 5 }}>
               <Stack gap="md">
-                {latestUpdate ? (
-                  <Alert color={detail.status === "failed" ? "red" : "blue"} title={`最近更新：${latestUpdate.label}`}>
-                    <Text size="sm">{latestUpdate.message}</Text>
-                    <Text size="xs" c="dimmed" mt={6}>{latestUpdate.time}</Text>
-                  </Alert>
-                ) : null}
-                {progressSnapshot ? (
-                  <Stack gap={6}>
-                    <Group justify="space-between" align="end">
-                      <Stack gap={2}>
-                        <Text c="dimmed" size="sm">阶段性进度</Text>
-                        <Text fw={700}>{progressSnapshot.current} / {progressSnapshot.total}</Text>
+                <SectionCard title="本次处理范围" description="这里展示这次任务实际会处理哪些日期、代码或交易所。">
+                  <Stack gap="sm">
+                    {buildScopeItems(detail).map((item) => (
+                      <Stack gap={2} key={item.label}>
+                        <Text c="dimmed" size="sm">{item.label}</Text>
+                        <Text>{item.value}</Text>
                       </Stack>
-                      <Text size="sm" c="dimmed">{progressSnapshot.percent}%</Text>
-                    </Group>
-                    <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
-                    <Text size="sm" c="dimmed">
-                      最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
-                    </Text>
+                    ))}
                   </Stack>
-                ) : null}
-                {progressCards.map((item) => (
-                  <Stack key={item.label} gap={2}>
-                    <Text c="dimmed" size="sm">{item.label}</Text>
-                    <Text fw={600}>{item.value}</Text>
-                    <Text size="sm" c="dimmed">{item.hint}</Text>
-                  </Stack>
-                ))}
-              </Stack>
-            </SectionCard>
+                </SectionCard>
 
-            <SectionCard title="建议下一步" description="不要先钻进原始日志。先看这里给出的下一步建议，再决定要不要继续排查。">
-              <Stack gap="sm">
-                <Text>{buildActionSuggestion(detail)}</Text>
-                {detail.status === "failed" ? (
-                  <Alert color="red" title="问题摘要">
-                    {detail.summary_message || detail.error_message || "系统已经记录到失败，但还没有生成更具体的摘要。你可以展开技术细节查看原始日志。"}
-                  </Alert>
-                ) : null}
+                <SectionCard title="建议下一步" description="不要先钻进原始日志。先看这里给出的下一步建议，再决定要不要继续排查。">
+                  <Stack gap="sm">
+                    <Text>{buildActionSuggestion(detail)}</Text>
+                    {detail.status === "failed" ? (
+                      <Alert color="red" title="问题摘要">
+                        {detail.summary_message || detail.error_message || "系统已经记录到失败，但还没有生成更具体的摘要。你可以展开技术细节查看原始日志。"}
+                      </Alert>
+                    ) : null}
+                  </Stack>
+                </SectionCard>
               </Stack>
-            </SectionCard>
-          </SimpleGrid>
+            </Grid.Col>
+          </Grid>
 
           <SectionCard
-            title="查看技术细节"
+            title="技术细节"
             description="只有在需要进一步排查时再展开这里。默认不需要先读这些技术信息。"
           >
             <Accordion variant="separated" defaultValue={null}>

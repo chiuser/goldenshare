@@ -212,7 +212,7 @@ describe("手动同步页", () => {
   it("用维护动作抽象底层逻辑，并隐藏内部参数", async () => {
     renderPage();
 
-    expect(await screen.findByText("手动同步")).toBeInTheDocument();
+    expect(await screen.findByText("这里只做一件事：维护你选中的数据。至于是补一天、补一段时间，还是直接刷新一次，由系统根据你的输入自动决定。")).toBeInTheDocument();
     expect(await screen.findByText("维护股票日线")).toBeInTheDocument();
     expect(await screen.findByText("开始同步")).toBeInTheDocument();
     expect(screen.getByText("只处理一天")).toBeInTheDocument();

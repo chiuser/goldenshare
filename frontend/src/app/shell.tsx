@@ -26,11 +26,11 @@ import type { PropsWithChildren } from "react";
 
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 const opsLinks = [
+  { to: "/ops/data-status", label: "数据状态", icon: IconActivityHeartbeat },
   { to: "/ops/today", label: "今日运行", icon: IconGauge },
   { to: "/ops/automation", label: "自动运行", icon: IconCalendarTime },
   { to: "/ops/manual-sync", label: "手动同步", icon: IconPlayerPlay },
   { to: "/ops/tasks", label: "任务记录", icon: IconListDetails },
-  { to: "/ops/data-status", label: "数据状态", icon: IconActivityHeartbeat },
 ];
 
 export function OpsShell(_props: PropsWithChildren) {
