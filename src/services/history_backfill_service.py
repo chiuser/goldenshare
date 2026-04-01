@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.config.settings import get_settings
 from src.dao.factory import DAOFactory
+from src.operations.services import SyncJobStateReconciliationService
 from src.services.sync.registry import build_sync_service
 
 
@@ -24,14 +25,23 @@ class HistoryBackfillService:
         self.session = session
         self.dao = DAOFactory(session)
         self.settings = get_settings()
+        self.sync_job_state_reconciliation = SyncJobStateReconciliationService()
 
-    def backfill_trade_calendar(self, start_date: date, end_date: date, exchange: str | None = None) -> BackfillSummary:
+    def backfill_trade_calendar(
+        self,
+        start_date: date,
+        end_date: date,
+        exchange: str | None = None,
+        execution_id: int | None = None,
+    ) -> BackfillSummary:
         service = build_sync_service("trade_cal", self.session)
         result = service.run_full(
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
             exchange=exchange or self.settings.default_exchange,
+            execution_id=execution_id,
         )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, "trade_cal")
         return BackfillSummary("trade_cal", 1, result.rows_fetched, result.rows_written)
 
     def backfill_equity_series(
@@ -42,6 +52,7 @@ class HistoryBackfillService:
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
     ) -> BackfillSummary:
         equity_series_resources = {
             "daily",
@@ -71,6 +82,7 @@ class HistoryBackfillService:
                 ts_code=security.ts_code,
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
+                execution_id=execution_id,
             )
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
@@ -79,6 +91,7 @@ class HistoryBackfillService:
                     f"{resource}: {index}/{total} ts_code={security.ts_code} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
 
     def backfill_by_trade_dates(
@@ -90,6 +103,7 @@ class HistoryBackfillService:
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
     ) -> BackfillSummary:
         trade_date_resources = {
             "daily_basic",
@@ -111,7 +125,7 @@ class HistoryBackfillService:
         total = len(trade_dates)
         for index, trade_date in enumerate(trade_dates, start=1):
             service = build_sync_service(resource, self.session)
-            result = service.run_incremental(trade_date=trade_date)
+            result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
@@ -119,6 +133,7 @@ class HistoryBackfillService:
                     f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
 
     def backfill_low_frequency_by_security(
@@ -127,6 +142,7 @@ class HistoryBackfillService:
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
     ) -> BackfillSummary:
         if resource not in {"dividend", "stk_holdernumber"}:
             raise ValueError("low-frequency backfill only supports dividend and stk_holdernumber")
@@ -140,7 +156,7 @@ class HistoryBackfillService:
         total = len(securities)
         for index, security in enumerate(securities, start=1):
             service = build_sync_service(resource, self.session)
-            result = service.run_full(ts_code=security.ts_code)
+            result = service.run_full(ts_code=security.ts_code, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
@@ -158,6 +174,7 @@ class HistoryBackfillService:
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
     ) -> BackfillSummary:
         if resource not in {"fund_daily"}:
             raise ValueError("fund series backfill only supports fund_daily")
@@ -175,6 +192,7 @@ class HistoryBackfillService:
                 ts_code=fund.ts_code,
                 start_date=start_date.isoformat(),
                 end_date=end_date.isoformat(),
+                execution_id=execution_id,
             )
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
@@ -183,6 +201,7 @@ class HistoryBackfillService:
                     f"{resource}: {index}/{total} ts_code={fund.ts_code} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(funds), rows_fetched, rows_written)
 
     def backfill_index_series(
@@ -193,8 +212,10 @@ class HistoryBackfillService:
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
     ) -> BackfillSummary:
         supported_resources = {
+            "index_daily",
             "index_weekly",
             "index_monthly",
             "index_daily_basic",
@@ -202,7 +223,7 @@ class HistoryBackfillService:
         }
         if resource not in supported_resources:
             raise ValueError(
-                "index series backfill only supports index_weekly, index_monthly, index_daily_basic, and index_weight"
+                "index series backfill only supports index_daily, index_weekly, index_monthly, index_daily_basic, and index_weight"
             )
         indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
         if offset:
@@ -224,6 +245,7 @@ class HistoryBackfillService:
                 code_label = "index_code"
             else:
                 kwargs["ts_code"] = index_item.ts_code
+            kwargs["execution_id"] = execution_id
             result = service.run_full(**kwargs)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
@@ -232,4 +254,5 @@ class HistoryBackfillService:
                     f"{resource}: {index_number}/{total} {code_label}={index_item.ts_code} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(indexes), rows_fetched, rows_written)

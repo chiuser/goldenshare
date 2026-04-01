@@ -53,6 +53,7 @@ export interface OpsOverviewResponse {
     lag_days: number | null;
     expected_business_date: string | null;
     latest_business_date: string | null;
+    primary_execution_spec_key: string | null;
   }>;
   recent_executions: Array<{
     id: number;
@@ -91,6 +92,7 @@ export interface OpsFreshnessResponse {
       cadence: string;
       target_table: string;
       state_business_date: string | null;
+      earliest_business_date: string | null;
       observed_business_date: string | null;
       latest_business_date: string | null;
       business_date_source: string;
@@ -174,6 +176,11 @@ export interface ExecutionListResponse {
     ended_at: string | null;
     rows_fetched: number;
     rows_written: number;
+    progress_current: number | null;
+    progress_total: number | null;
+    progress_percent: number | null;
+    progress_message: string | null;
+    last_progress_at: string | null;
     summary_message: string | null;
   }>;
   total: number;
@@ -197,6 +204,11 @@ export interface ExecutionDetailResponse {
   summary_message: string | null;
   rows_fetched: number;
   rows_written: number;
+  progress_current: number | null;
+  progress_total: number | null;
+  progress_percent: number | null;
+  progress_message: string | null;
+  last_progress_at: string | null;
   cancel_requested_at: string | null;
   canceled_at: string | null;
   error_code: string | null;

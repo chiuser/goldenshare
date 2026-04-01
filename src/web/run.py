@@ -6,6 +6,7 @@ import os
 import uvicorn
 
 from src.config.settings import get_settings
+from src.db import reset_db
 from src.web.settings import get_web_settings
 
 
@@ -23,7 +24,9 @@ def main() -> None:
     args = _parse_args()
     if args.env_file:
         os.environ["GOLDENSHARE_ENV_FILE"] = args.env_file
-        get_settings.cache_clear()
+
+    get_settings.cache_clear()
+    reset_db()
 
     settings = get_web_settings()
     reload_flag = settings.web_debug

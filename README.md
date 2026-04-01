@@ -410,6 +410,19 @@ goldenshare-web
 - `/api/health`
 - `/platform-check`
 
+如果要让运维系统里的自动任务和手动同步任务真正跑起来，还需要单独启动调度器和执行器：
+
+```bash
+goldenshare ops-scheduler-serve
+goldenshare ops-worker-serve
+```
+
+推荐把三类进程分开运行：
+
+- Web：页面和 API
+- Scheduler：扫描自动任务，生成任务请求
+- Worker：消费任务请求，真正执行同步 / 回补 / 维护
+
 平台回归测试：
 
 ```bash
@@ -420,4 +433,6 @@ pytest tests/web
 
 - `.env.web.example` 是 Web 平台环境变量模板
 - `scripts/goldenshare-web.service` 提供了一个 systemd 部署样例
+- `scripts/goldenshare-ops-scheduler.service` 提供了调度器部署样例
+- `scripts/goldenshare-ops-worker.service` 提供了执行器部署样例
 - `tests/web` 和 `/platform-check` 是平台防腐层，后续新增 Web 功能或修改平台能力时都必须回归验证

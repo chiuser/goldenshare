@@ -15,6 +15,7 @@ class DatasetFreshnessItem(BaseModel):
     target_table: str
     cadence: str
     state_business_date: date | None = None
+    earliest_business_date: date | None = None
     observed_business_date: date | None = None
     latest_business_date: date | None = None
     business_date_source: str = "none"

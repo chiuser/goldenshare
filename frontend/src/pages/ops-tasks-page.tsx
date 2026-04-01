@@ -1,11 +1,9 @@
 import {
   Alert,
-  Anchor,
   Button,
   Grid,
   Group,
   Loader,
-  Paper,
   Select,
   Stack,
   Table,
@@ -14,40 +12,41 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type { ExecutionDetailResponse, ExecutionListResponse, OpsCatalogResponse } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
-import { formatSpecDisplayLabel, formatTriggerSourceLabel } from "../shared/ops-display";
-import { usePersistentState } from "../shared/hooks/use-persistent-state";
+import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
+import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
-
-const FILTERS_KEY = "goldenshare.frontend.ops.tasks.filters";
+function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
+  if (!data?.items?.length) {
+    return false;
+  }
+  return data.items.some((item) => item.status === "queued" || item.status === "running") ? 3000 : false;
+}
 
 export function OpsTasksPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const appliedSearchRef = useRef(false);
-  const [filters, setFilters] = usePersistentState<{
+  const [filters, setFilters] = useState<{
     status: string | null;
     trigger_source: string | null;
     spec_key: string | null;
-  }>(FILTERS_KEY, {
+  }>({
     status: null,
     trigger_source: null,
     spec_key: null,
   });
-  const [lastAction, setLastAction] = usePersistentState<ExecutionDetailResponse | null>(
-    "goldenshare.frontend.ops.tasks.last-action",
-    null,
-  );
+  const [lastAction, setLastAction] = useState<ExecutionDetailResponse | null>(null);
 
   useEffect(() => {
     if (appliedSearchRef.current) return;
@@ -56,12 +55,11 @@ export function OpsTasksPage() {
     const status = search.get("status");
     const triggerSource = search.get("trigger_source");
     const specKey = search.get("spec_key");
-    if (!status && !triggerSource && !specKey) return;
-    setFilters((current) => ({
-      status: status ?? current.status,
-      trigger_source: triggerSource ?? current.trigger_source,
-      spec_key: specKey ?? current.spec_key,
-    }));
+    setFilters({
+      status,
+      trigger_source: triggerSource,
+      spec_key: specKey,
+    });
   }, [setFilters]);
 
   const filterQueryString = useMemo(() => {
@@ -81,6 +79,7 @@ export function OpsTasksPage() {
     queryKey: ["ops", "executions", filterQueryString],
     queryFn: () =>
       apiRequest<ExecutionListResponse>(`/api/v1/ops/executions${filterQueryString ? `?${filterQueryString}` : ""}`),
+    refetchInterval: (query) => buildExecutionsRefetchInterval(query.state.data),
   });
 
   const specOptions = useMemo(() => {
@@ -109,34 +108,17 @@ export function OpsTasksPage() {
     };
   }, [executionsQuery.data?.items]);
 
-  const retryNowMutation = useMutation({
+  const retryMutation = useMutation({
     mutationFn: (executionId: number) =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry-now`, {
+      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry`, {
         method: "POST",
       }),
     onSuccess: async (data) => {
       setLastAction(data);
       notifications.show({
         color: "green",
-        title: "任务已经重新开始",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
-      await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
-    },
-  });
-
-  const runNowMutation = useMutation({
-    mutationFn: (executionId: number) =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/run-now`, {
-        method: "POST",
-      }),
-    onSuccess: async (data) => {
-      setLastAction(data);
-      notifications.show({
-        color: "green",
-        title: "任务已经开始处理",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
+        title: "任务已重新提交",
+        message: "系统已经收到新的任务请求。",
       });
       await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
       await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
@@ -158,6 +140,34 @@ export function OpsTasksPage() {
       await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
     },
   });
+
+  function buildResultSummary(item: ExecutionListResponse["items"][number]) {
+    if (
+      item.progress_current !== null &&
+      item.progress_current !== undefined &&
+      item.progress_total !== null &&
+      item.progress_total !== undefined &&
+      item.progress_total > 0
+    ) {
+      return `当前进展 ${item.progress_current}/${item.progress_total}（${item.progress_percent ?? 0}%）`;
+    }
+    if (item.progress_message && (item.status === "queued" || item.status === "running")) {
+      return item.progress_message;
+    }
+    if (item.summary_message) {
+      return item.summary_message;
+    }
+    if (item.progress_message) {
+      return item.progress_message;
+    }
+    if (item.status === "queued") {
+      return "系统已经收到这次任务，正在等待开始处理。";
+    }
+    if (item.status === "running") {
+      return "任务正在处理中，新的进展会陆续更新。";
+    }
+    return `当前状态：${formatStatusLabel(item.status)}`;
+  }
 
   return (
     <Stack gap="lg">
@@ -194,7 +204,7 @@ export function OpsTasksPage() {
           <StatCard label="已完成" value={stats.success} />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
-          <StatCard label="执行失败" value={stats.failed} hint="失败任务通常优先使用“重新执行”，这样会立刻开始，不需要再去别的页面点第二次。" />
+          <StatCard label="执行失败" value={stats.failed} hint="失败任务可以重新提交。系统会继续处理新的任务请求，你只需要回到详情页关注结果。" />
         </Grid.Col>
       </Grid>
 
@@ -223,7 +233,7 @@ export function OpsTasksPage() {
               data={[
                 { value: "manual", label: "手动发起" },
                 { value: "scheduled", label: "自动运行" },
-                { value: "retry", label: "重新执行" },
+                { value: "retry", label: "重新提交" },
                 { value: "system", label: "系统内部触发" },
               ]}
               value={filters.trigger_source}
@@ -243,105 +253,102 @@ export function OpsTasksPage() {
         </Grid>
       </SectionCard>
 
-      <Grid align="stretch">
-        <Grid.Col span={{ base: 12, xl: 8 }}>
-          <SectionCard title="任务列表" description="默认动作尽量闭环：失败任务优先“重新执行”，等待中的任务优先“立即开始”。">
-            {(executionsQuery.data?.items?.length ?? 0) > 0 ? (
-              <Table highlightOnHover striped>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>任务名称</Table.Th>
-                    <Table.Th>发起方式</Table.Th>
-                    <Table.Th>提交时间</Table.Th>
-                    <Table.Th>当前状态</Table.Th>
-                    <Table.Th>结果摘要</Table.Th>
-                    <Table.Th>操作</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {(executionsQuery.data?.items || []).map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>
-                        <Stack gap={2}>
-                          <Text fw={600}>{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</Text>
-                          <Text c="dimmed" size="xs">#{item.id}</Text>
-                        </Stack>
-                      </Table.Td>
-                      <Table.Td>{formatTriggerSourceLabel(item.trigger_source)}</Table.Td>
-                      <Table.Td>{formatDateTimeLabel(item.requested_at)}</Table.Td>
-                      <Table.Td>
-                        <StatusBadge value={item.status} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" lineClamp={2}>{item.summary_message || "暂无结果摘要"}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Stack gap={6}>
-                          <Anchor component="a" href={`/app/ops/tasks/${item.id}`} size="sm">
-                            查看详情
-                          </Anchor>
-                          {item.status === "failed" ? (
-                            <Anchor component="button" type="button" onClick={() => retryNowMutation.mutate(item.id)} size="sm">
-                              重新执行
-                            </Anchor>
-                          ) : null}
-                          {item.status === "queued" ? (
-                            <Anchor component="button" type="button" onClick={() => runNowMutation.mutate(item.id)} size="sm">
-                              立即开始
-                            </Anchor>
-                          ) : null}
-                          {item.status === "queued" || item.status === "running" ? (
-                            <Anchor component="button" type="button" onClick={() => cancelMutation.mutate(item.id)} size="sm">
-                              停止处理
-                            </Anchor>
-                          ) : null}
-                          <Anchor component="a" href={`/app/ops/manual-sync?from_execution_id=${item.id}`} size="sm">
-                            复制参数
-                          </Anchor>
-                        </Stack>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            ) : (
-              <EmptyState
-                title="当前筛选下没有任务记录"
-                description="可以清空筛选后再看，或者直接去“手动同步”发起新的任务。"
-                action={
-                  <Button variant="light" onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}>
-                    清空筛选
-                  </Button>
-                }
-              />
-            )}
-          </SectionCard>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, xl: 4 }}>
+      <SectionCard title="任务列表" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
+        {(executionsQuery.data?.items?.length ?? 0) > 0 ? (
           <Stack gap="lg">
-            <SectionCard title="使用提醒" description="这套页面按用户动作设计，不需要记住内部运行机制。">
-              <Stack gap="sm">
-                <Text size="sm">失败任务：直接点“重新执行”，会立刻开始。</Text>
-                <Text size="sm">等待中的任务：直接点“立即开始”，不用再去别的页面。</Text>
-                <Text size="sm">想改参数：点“复制参数”，会带着原参数跳到手动同步页。</Text>
-              </Stack>
-            </SectionCard>
-
             {lastAction ? (
               <ActionSummaryCard
                 title="最近一次任务操作"
                 rows={[
                   { label: "任务名称", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
                   { label: "任务编号", value: `#${lastAction.id}` },
-                  { label: "当前状态", value: lastAction.status },
-                  { label: "处理结果", value: lastAction.summary_message || "暂无摘要" },
+                  { label: "当前状态", value: formatStatusLabel(lastAction.status) },
+                  { label: "处理结果", value: buildResultSummary(lastAction) },
                 ]}
               />
             ) : null}
+
+            <OpsTable>
+              <Table.Thead>
+                <Table.Tr>
+                  <OpsTableHeaderCell>任务名称</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>发起方式</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>提交时间</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>结果摘要</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>操作</OpsTableHeaderCell>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {(executionsQuery.data?.items || []).map((item) => (
+                  <Table.Tr key={item.id}>
+                    <OpsTableCell>
+                      <Stack gap={2}>
+                        <OpsTableCellText fw={600}>{`#${item.id} ${formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}`}</OpsTableCellText>
+                      </Stack>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText>{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText>{formatDateTimeLabel(item.requested_at)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <StatusBadge value={item.status} />
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText lineClamp={2}>{buildResultSummary(item)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableActionGroup>
+                        <Button
+                          component="a"
+                          href={`/app/ops/tasks/${item.id}`}
+                          size="xs"
+                          variant="light"
+                        >
+                          查看详情
+                        </Button>
+                        {item.status === "failed" ? (
+                          <Button
+                            type="button"
+                            onClick={() => retryMutation.mutate(item.id)}
+                            size="xs"
+                            variant="light"
+                          >
+                            重新提交
+                          </Button>
+                        ) : null}
+                        {item.status === "queued" || item.status === "running" ? (
+                          <Button
+                            type="button"
+                            onClick={() => cancelMutation.mutate(item.id)}
+                            size="xs"
+                            variant="light"
+                            color="red"
+                          >
+                            停止处理
+                          </Button>
+                        ) : null}
+                      </OpsTableActionGroup>
+                    </OpsTableCell>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </OpsTable>
           </Stack>
-        </Grid.Col>
-      </Grid>
+        ) : (
+          <EmptyState
+            title="当前筛选下没有任务记录"
+            description="可以清空筛选后再看，或者直接去“手动同步”发起新的任务。"
+            action={
+              <Button variant="light" onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}>
+                清空筛选
+              </Button>
+            }
+          />
+        )}
+      </SectionCard>
     </Stack>
   );
 }

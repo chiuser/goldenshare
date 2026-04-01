@@ -1,15 +1,17 @@
 import {
+  Accordion,
   Alert,
-  Anchor,
   Badge,
   Button,
   Grid,
   Group,
   Loader,
+  Progress,
+  ScrollArea,
   Select,
+  SimpleGrid,
   Stack,
   Table,
-  Tabs,
   Text,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -36,109 +38,365 @@ import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
+function buildRefetchInterval(status: string | undefined) {
+  return status === "queued" || status === "running" ? 3000 : false;
+}
 
-function buildIssueSummary(detail: ExecutionDetailResponse) {
-  if (detail.status === "success") {
-    return {
-      title: "这项任务已经处理完成",
-      description: detail.summary_message || "当前没有发现需要继续处理的问题。",
-      color: "teal" as const,
-    };
+function sortByTimeDesc<T extends { occurred_at?: string; started_at?: string }>(items: T[]) {
+  return [...items].sort((left, right) => {
+    const leftTime = new Date(left.occurred_at || left.started_at || 0).getTime();
+    const rightTime = new Date(right.occurred_at || right.started_at || 0).getTime();
+    return rightTime - leftTime;
+  });
+}
+
+function formatParamLabel(key: string): string {
+  const labelMap: Record<string, string> = {
+    start_date: "开始日期",
+    end_date: "结束日期",
+    trade_date: "处理日期",
+    ts_code: "证券代码",
+    index_code: "指数代码",
+    exchange: "交易所",
+    resource: "数据类型",
+  };
+  return labelMap[key] || key;
+}
+
+function formatParamValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "未填写";
   }
+  if (Array.isArray(value)) {
+    return value.join("、");
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function buildScopeItems(detail: ExecutionDetailResponse) {
+  const params = detail.params_json || {};
+  const preferredOrder = ["trade_date", "start_date", "end_date", "ts_code", "index_code", "exchange"];
+  const keys = preferredOrder.filter((key) => key in params);
+  const extras = Object.keys(params).filter((key) => !preferredOrder.includes(key));
+  const orderedKeys = [...keys, ...extras];
+  if (!orderedKeys.length) {
+    return [
+      {
+        label: "处理范围",
+        value: "这次任务没有额外参数，系统会按默认方式处理。",
+      },
+    ];
+  }
+  return orderedKeys.map((key) => ({
+    label: formatParamLabel(key),
+    value: formatParamValue(params[key]),
+  }));
+}
+
+function buildStatusHeadline(detail: ExecutionDetailResponse) {
   if (detail.status === "queued") {
     return {
-      title: "这项任务还在等待处理",
-      description: "你可以直接点击“立即开始”，不需要再去别的页面。",
+      title: "任务已经提交",
+      description: "系统已经收到你的请求，正在准备开始处理。页面会自动刷新。",
       color: "blue" as const,
     };
   }
   if (detail.status === "running") {
     return {
-      title: "这项任务正在处理",
-      description: "如果你怀疑卡住了，可以先看步骤进度和底层日志，再决定要不要停止。",
+      title: "任务正在处理中",
+      description: "系统正在处理你这次同步请求。你可以留在这里等待，也可以稍后回来查看结果。",
       color: "blue" as const,
+    };
+  }
+  if (detail.status === "success") {
+    return {
+      title: "任务已经处理完成",
+      description: detail.summary_message || "这次处理已经顺利完成。",
+      color: "teal" as const,
     };
   }
   if (detail.status === "failed") {
     return {
-      title: "这项任务执行失败",
-      description: detail.summary_message || detail.error_message || "请先看下方的错误详情和底层日志，再决定是否重新执行。",
+      title: "任务处理失败",
+      description: detail.summary_message || detail.error_message || "请先查看问题摘要，再决定是否重新提交。",
       color: "red" as const,
     };
   }
   if (detail.status === "canceled") {
     return {
-      title: "这项任务已经停止",
-      description: "如果还需要继续处理，可以重新执行，或者复制参数后调整再发起。",
+      title: "任务已经停止",
+      description: "这次处理已经被停止。如果还需要继续，可以重新提交。",
       color: "yellow" as const,
     };
   }
   return {
-    title: "这项任务已经结束",
-    description: detail.summary_message || "可以查看下方过程记录了解更多细节。",
+    title: "任务已结束",
+    description: detail.summary_message || "可以查看下方结果和处理记录。",
     color: "gray" as const,
+  };
+}
+
+function buildActionSuggestion(detail: ExecutionDetailResponse) {
+  if (detail.status === "queued") {
+    return "系统正在安排开始处理。现在不用重复提交，等待几秒后页面会自动刷新。";
+  }
+  if (detail.status === "running") {
+    return "先观察当前进展。如果长时间没有变化，再展开技术细节查看原始日志。";
+  }
+  if (detail.status === "success") {
+    return "这次处理已经完成。如果还要处理别的日期范围，可以返回手动同步页继续发起。";
+  }
+  if (detail.status === "failed") {
+    return "先看问题摘要和最近更新，再决定是重新提交，还是复制原参数后调整再发起。";
+  }
+  if (detail.status === "canceled") {
+    return "如果还需要继续处理，建议复制原参数重新发起，避免遗漏处理范围。";
+  }
+  return "可以继续查看详细过程，确认这次任务的实际结果。";
+}
+
+function buildLatestUpdate(
+  detail: ExecutionDetailResponse,
+  events: ExecutionEventsResponse["items"],
+  logs: ExecutionLogsResponse["items"],
+  steps: ExecutionStepsResponse["items"],
+) {
+  if (detail.last_progress_at || detail.progress_message) {
+    return {
+      time: detail.last_progress_at ? formatDateTimeLabel(detail.last_progress_at) : "刚刚",
+      label: "最近进展",
+      message: detail.progress_message || "系统刚刚写入了新的处理进展。",
+    };
+  }
+
+  const latestEvent = sortByTimeDesc(events)[0];
+  if (latestEvent) {
+    return {
+      time: formatDateTimeLabel(latestEvent.occurred_at),
+      label: formatEventTypeLabel(latestEvent.event_type),
+      message: latestEvent.message || "系统已经记录了新的处理进展。",
+    };
+  }
+
+  const latestLog = sortByTimeDesc(logs)[0];
+  if (latestLog) {
+    return {
+      time: formatDateTimeLabel(latestLog.started_at),
+      label: "底层同步",
+      message: latestLog.message || `${latestLog.job_name} 正在处理`,
+    };
+  }
+
+  const latestStep = [...steps].sort((left, right) => right.sequence_no - left.sequence_no)[0];
+  if (latestStep) {
+    return {
+      time: latestStep.started_at ? formatDateTimeLabel(latestStep.started_at) : "刚刚",
+      label: "当前步骤",
+      message: latestStep.message || `${latestStep.display_name} ${latestStep.status === "running" ? "正在执行" : "已经更新状态"}`,
+    };
+  }
+
+  return {
+    time: formatDateTimeLabel(detail.requested_at),
+    label: "任务创建",
+    message: detail.status === "queued" ? "系统已经收到请求，正在准备开始。" : "系统正在等待新的处理进展。",
+  };
+}
+
+function buildProgressCards(
+  detail: ExecutionDetailResponse,
+  steps: ExecutionStepsResponse["items"],
+  events: ExecutionEventsResponse["items"],
+  logs: ExecutionLogsResponse["items"],
+) {
+  const latestLogWithCounts = [...logs]
+    .reverse()
+    .find((item) => (item.rows_fetched ?? 0) > 0 || (item.rows_written ?? 0) > 0);
+  const latestStepWithCounts = [...steps]
+    .reverse()
+    .find((item) => (item.rows_fetched ?? 0) > 0 || (item.rows_written ?? 0) > 0);
+
+  const fetchedCount =
+    (detail.rows_fetched ?? 0) > 0
+      ? detail.rows_fetched
+      : latestLogWithCounts?.rows_fetched ?? latestStepWithCounts?.rows_fetched ?? detail.rows_fetched;
+  const writtenCount =
+    (detail.rows_written ?? 0) > 0
+      ? detail.rows_written
+      : latestLogWithCounts?.rows_written ?? latestStepWithCounts?.rows_written ?? detail.rows_written;
+
+  const finishedStepCount = steps.filter((item) => item.status === "success").length;
+  const progressValue =
+    detail.progress_current !== null && detail.progress_current !== undefined && detail.progress_total
+      ? `${detail.progress_current}/${detail.progress_total}（${detail.progress_percent ?? 0}%）`
+      : steps.length
+        ? `${finishedStepCount}/${steps.length}`
+        : "刚开始";
+  const progressHint =
+    detail.progress_message ||
+    (steps.length ? "已经记录到的处理步骤数量" : "步骤明细会随着处理过程逐步出现");
+  return [
+    {
+      label: "当前进展",
+      value: progressValue,
+      hint: progressHint,
+    },
+    {
+      label: "最近更新",
+      value: buildLatestUpdate(detail, events, logs, steps).time,
+      hint: buildLatestUpdate(detail, events, logs, steps).message,
+    },
+    {
+      label: "当前结果",
+      value:
+        (fetchedCount ?? 0) > 0 || (writtenCount ?? 0) > 0
+          ? `${fetchedCount ?? 0}/${writtenCount ?? 0}`
+          : detail.status === "running"
+            ? "处理中"
+            : "暂无结果",
+      hint:
+        (fetchedCount ?? 0) > 0 || (writtenCount ?? 0) > 0
+          ? "显示当前已读取 / 已写入的记录数量"
+          : "如果这里暂时没有数字，通常只是后台还没产出可展示的阶段性结果。",
+    },
+  ];
+}
+
+function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
+  const progressEvent = [...events]
+    .reverse()
+    .find((item) => item.event_type === "step_progress" && (item.payload_json?.progress_message || item.message));
+  if (!progressEvent) {
+    return null;
+  }
+
+  const progressMessage = String(progressEvent.payload_json?.progress_message || progressEvent.message || "");
+  const match = progressMessage.match(/(\d+)\s*\/\s*(\d+)/);
+  if (!match) {
+    return null;
+  }
+
+  const current = Number(match[1]);
+  const total = Number(match[2]);
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+    return null;
+  }
+
+  return {
+    current,
+    total,
+    percent: Math.max(0, Math.min(100, Math.round((current / total) * 100))),
+    message: progressMessage,
+    occurredAt: progressEvent.occurred_at,
+  };
+}
+
+function buildStructuredProgressSnapshot(
+  detail: ExecutionDetailResponse,
+  events: ExecutionEventsResponse["items"],
+) {
+  if (
+    detail.progress_current !== null &&
+    detail.progress_current !== undefined &&
+    detail.progress_total !== null &&
+    detail.progress_total !== undefined &&
+    detail.progress_total > 0
+  ) {
+    return {
+      current: detail.progress_current,
+      total: detail.progress_total,
+      percent: detail.progress_percent ?? Math.round((detail.progress_current / detail.progress_total) * 100),
+      message: detail.progress_message || "系统正在持续更新当前进展。",
+      occurredAt: detail.last_progress_at,
+    };
+  }
+  return extractProgressSnapshot(events);
+}
+
+function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsResponse["items"]) {
+  if (detail.rows_fetched > 0 || detail.rows_written > 0) {
+    return {
+      value: `${detail.rows_fetched}/${detail.rows_written}`,
+      hint: "这是当前已经汇总到任务上的读取 / 写入数量。",
+    };
+  }
+
+  const liveFetched = logs.reduce((sum, item) => sum + (item.rows_fetched || 0), 0);
+  const liveWritten = logs.reduce((sum, item) => sum + (item.rows_written || 0), 0);
+  if (liveFetched > 0 || liveWritten > 0) {
+    return {
+      value: `${liveFetched}/${liveWritten}`,
+      hint: "这是根据已经写回的底层同步日志汇总出的阶段性结果。",
+    };
+  }
+
+  if (detail.status === "queued") {
+    return {
+      value: "等待开始",
+      hint: "任务已经提交，但还没进入实际处理阶段。",
+    };
+  }
+
+  if (detail.status === "running") {
+    return {
+      value: "处理中",
+      hint: "任务已经开始处理，但目前还没有可展示的阶段性结果。",
+    };
+  }
+
+  return {
+    value: "暂无结果",
+    hint: "这次任务还没有留下可汇总的处理结果。",
   };
 }
 
 export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [eventLevel, setEventLevel] = useState<string | null>(null);
   const [logStatus, setLogStatus] = useState<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ["ops", "execution", executionId],
     queryFn: () => apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}`),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "queued" || status === "running" ? 3000 : false;
-    },
+    refetchInterval: (query) => buildRefetchInterval(query.state.data?.status),
   });
+
+  const activeStatus = detailQuery.data?.status;
 
   const stepsQuery = useQuery({
     queryKey: ["ops", "execution", executionId, "steps"],
     queryFn: () => apiRequest<ExecutionStepsResponse>(`/api/v1/ops/executions/${executionId}/steps`),
+    refetchInterval: buildRefetchInterval(activeStatus),
   });
 
   const eventsQuery = useQuery({
     queryKey: ["ops", "execution", executionId, "events"],
     queryFn: () => apiRequest<ExecutionEventsResponse>(`/api/v1/ops/executions/${executionId}/events`),
+    refetchInterval: buildRefetchInterval(activeStatus),
   });
 
   const logsQuery = useQuery({
     queryKey: ["ops", "execution", executionId, "logs"],
     queryFn: () => apiRequest<ExecutionLogsResponse>(`/api/v1/ops/executions/${executionId}/logs`),
+    refetchInterval: buildRefetchInterval(activeStatus),
   });
 
-  const retryNowMutation = useMutation({
+  const retryMutation = useMutation({
     mutationFn: () =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry-now`, {
+      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry`, {
         method: "POST",
       }),
     onSuccess: async (data) => {
       notifications.show({
         color: "green",
-        title: "任务已经重新开始",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
+        title: "任务已重新提交",
+        message: "系统已经收到新的任务请求。",
       });
       await queryClient.invalidateQueries({ queryKey: ["ops"] });
       await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
-    },
-  });
-
-  const runNowMutation = useMutation({
-    mutationFn: () =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/run-now`, {
-        method: "POST",
-      }),
-    onSuccess: async (data) => {
-      notifications.show({
-        color: "green",
-        title: "任务已经开始处理",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["ops"] });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "execution", executionId] });
     },
   });
 
@@ -150,7 +408,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
     onSuccess: async () => {
       notifications.show({
         color: "green",
-        title: "已请求停止当前任务",
+        title: "已经请求停止当前任务",
         message: `任务 #${executionId}`,
       });
       await queryClient.invalidateQueries({ queryKey: ["ops", "execution", executionId] });
@@ -158,24 +416,24 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
     },
   });
 
-  const filteredEvents = useMemo(() => {
-    const items = eventsQuery.data?.items || [];
-    return eventLevel ? items.filter((item) => item.level.toLowerCase() === eventLevel) : items;
-  }, [eventLevel, eventsQuery.data?.items]);
-
-  const filteredLogs = useMemo(() => {
-    const items = logsQuery.data?.items || [];
-    return logStatus ? items.filter((item) => item.status.toLowerCase() === logStatus) : items;
-  }, [logStatus, logsQuery.data?.items]);
-
   const detail = detailQuery.data;
-  const issueSummary = detail ? buildIssueSummary(detail) : null;
+  const steps = stepsQuery.data?.items || [];
+  const events = eventsQuery.data?.items || [];
+  const logs = logsQuery.data?.items || [];
+  const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
+  const liveResult = detail ? buildLiveResult(detail, logs) : null;
+  const filteredLogs = useMemo(() => {
+    return logStatus ? logs.filter((item) => item.status.toLowerCase() === logStatus) : logs;
+  }, [logStatus, logs]);
+
+  const latestUpdate = detail ? buildLatestUpdate(detail, events, logs, steps) : null;
+  const progressCards = detail ? buildProgressCards(detail, steps, events, logs) : [];
 
   return (
     <Stack gap="lg">
       <PageHeader
         title="任务详情"
-        description="先看这项任务现在是什么状态，再决定是继续等待、重新执行，还是复制参数重新发起。"
+        description="先看这次处理现在做到哪儿了，再决定是继续等待、重新提交，还是查看更细的技术记录。"
         action={
           <Button variant="light" component="a" href="/app/ops/tasks">
             返回任务记录
@@ -192,28 +450,17 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
 
       {detail ? (
         <>
-          {issueSummary ? (
-            <Alert color={issueSummary.color} title={issueSummary.title}>
-              {issueSummary.description}
-            </Alert>
-          ) : null}
-
           <SectionCard
             title={formatSpecDisplayLabel(detail.spec_key, detail.spec_display_name)}
-            description="这里展示这项任务的基本信息和你现在最常用的几个处理动作。"
+            description="这里先告诉你这次任务是否正常、正在处理什么，以及你现在最常用的处理动作。"
             action={
               <Group gap="xs">
                 <Button component="a" href={`/app/ops/manual-sync?from_execution_id=${detail.id}`} variant="light">
                   复制参数
                 </Button>
                 {detail.status === "failed" ? (
-                  <Button onClick={() => retryNowMutation.mutate()} loading={retryNowMutation.isPending}>
-                    重新执行
-                  </Button>
-                ) : null}
-                {detail.status === "queued" ? (
-                  <Button onClick={() => runNowMutation.mutate()} loading={runNowMutation.isPending}>
-                    立即开始
+                  <Button onClick={() => retryMutation.mutate()} loading={retryMutation.isPending}>
+                    重新提交
                   </Button>
                 ) : null}
                 {(detail.status === "queued" || detail.status === "running") ? (
@@ -224,6 +471,9 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               </Group>
             }
           >
+            <Alert color={buildStatusHeadline(detail).color} title={buildStatusHeadline(detail).title}>
+              {buildStatusHeadline(detail).description}
+            </Alert>
             <Grid>
               <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
                 <Stack gap={4}>
@@ -245,143 +495,206 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
                 <Stack gap={4}>
-                  <Text c="dimmed" size="sm">处理结果</Text>
-                  <Text>{detail.rows_fetched}/{detail.rows_written}</Text>
+                  <Text c="dimmed" size="sm">当前结果</Text>
+                  <Text>{liveResult?.value || "暂无结果"}</Text>
+                  <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
                 </Stack>
               </Grid.Col>
             </Grid>
-            <Stack gap={4}>
-              <Text c="dimmed" size="sm">结果摘要</Text>
-              <Text>{detail.summary_message || "暂无结果摘要"}</Text>
-            </Stack>
-            <Stack gap={4}>
-              <Text c="dimmed" size="sm">执行参数</Text>
-              <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{JSON.stringify(detail.params_json || {}, null, 2)}</pre>
-            </Stack>
           </SectionCard>
 
-          <Tabs defaultValue="steps">
-            <Tabs.List>
-              <Tabs.Tab value="steps">处理过程</Tabs.Tab>
-              <Tabs.Tab value="events">事件记录</Tabs.Tab>
-              <Tabs.Tab value="logs">底层日志</Tabs.Tab>
-            </Tabs.List>
+          <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg" verticalSpacing="lg">
+            <SectionCard title="本次处理范围" description="这里展示这次任务实际会处理哪些日期、代码或交易所。">
+              <Stack gap="sm">
+                {buildScopeItems(detail).map((item) => (
+                  <Stack gap={2} key={item.label}>
+                    <Text c="dimmed" size="sm">{item.label}</Text>
+                    <Text>{item.value}</Text>
+                  </Stack>
+                ))}
+              </Stack>
+            </SectionCard>
 
-            <Tabs.Panel value="steps" pt="md">
-              <SectionCard title="处理过程" description="先看每一步做到哪儿了，再决定是否需要继续排查。">
-                <Table highlightOnHover striped>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>步骤</Table.Th>
-                      <Table.Th>执行单元</Table.Th>
-                      <Table.Th>当前状态</Table.Th>
-                      <Table.Th>处理结果</Table.Th>
-                      <Table.Th>说明</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {(stepsQuery.data?.items || []).map((item) => (
-                      <Table.Tr key={item.id}>
-                        <Table.Td>{item.display_name}</Table.Td>
-                        <Table.Td>{item.unit_kind ? `${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "—"}` : "—"}</Table.Td>
-                        <Table.Td><StatusBadge value={item.status} /></Table.Td>
-                        <Table.Td>{item.rows_fetched}/{item.rows_written}</Table.Td>
-                        <Table.Td>{item.message || "—"}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </SectionCard>
-            </Tabs.Panel>
+            <SectionCard title="当前进展" description="这里只保留最关键的进展信息，帮助你快速判断任务是不是在正常推进。">
+              <Stack gap="md">
+                {latestUpdate ? (
+                  <Alert color={detail.status === "failed" ? "red" : "blue"} title={`最近更新：${latestUpdate.label}`}>
+                    <Text size="sm">{latestUpdate.message}</Text>
+                    <Text size="xs" c="dimmed" mt={6}>{latestUpdate.time}</Text>
+                  </Alert>
+                ) : null}
+                {progressSnapshot ? (
+                  <Stack gap={6}>
+                    <Group justify="space-between" align="end">
+                      <Stack gap={2}>
+                        <Text c="dimmed" size="sm">阶段性进度</Text>
+                        <Text fw={700}>{progressSnapshot.current} / {progressSnapshot.total}</Text>
+                      </Stack>
+                      <Text size="sm" c="dimmed">{progressSnapshot.percent}%</Text>
+                    </Group>
+                    <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
+                    <Text size="sm" c="dimmed">
+                      最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
+                    </Text>
+                  </Stack>
+                ) : null}
+                {progressCards.map((item) => (
+                  <Stack key={item.label} gap={2}>
+                    <Text c="dimmed" size="sm">{item.label}</Text>
+                    <Text fw={600}>{item.value}</Text>
+                    <Text size="sm" c="dimmed">{item.hint}</Text>
+                  </Stack>
+                ))}
+              </Stack>
+            </SectionCard>
 
-            <Tabs.Panel value="events" pt="md">
-              <SectionCard
-                title="事件记录"
-                description="这里保留结构化事件，方便判断任务是在哪个阶段开始出问题的。"
-                action={
-                  <Select
-                    clearable
-                    placeholder="筛选事件级别"
-                    data={[
-                      { value: "info", label: "提示" },
-                      { value: "warning", label: "警告" },
-                      { value: "error", label: "错误" },
-                    ]}
-                    value={eventLevel}
-                    onChange={setEventLevel}
-                    w={180}
-                  />
-                }
-              >
-                <Table highlightOnHover striped>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>时间</Table.Th>
-                      <Table.Th>事件</Table.Th>
-                      <Table.Th>说明</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {filteredEvents.map((item) => (
-                      <Table.Tr key={item.id}>
-                        <Table.Td>{formatDateTimeLabel(item.occurred_at)}</Table.Td>
-                        <Table.Td>
-                          <Group gap="xs">
-                            <Badge variant="light">{formatEventTypeLabel(item.event_type)}</Badge>
-                            <StatusBadge value={item.level} />
-                          </Group>
-                        </Table.Td>
-                        <Table.Td>{item.message || JSON.stringify(item.payload_json || {})}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </SectionCard>
-            </Tabs.Panel>
+            <SectionCard title="建议下一步" description="不要先钻进原始日志。先看这里给出的下一步建议，再决定要不要继续排查。">
+              <Stack gap="sm">
+                <Text>{buildActionSuggestion(detail)}</Text>
+                {detail.status === "failed" ? (
+                  <Alert color="red" title="问题摘要">
+                    {detail.summary_message || detail.error_message || "系统已经记录到失败，但还没有生成更具体的摘要。你可以展开技术细节查看原始日志。"}
+                  </Alert>
+                ) : null}
+              </Stack>
+            </SectionCard>
+          </SimpleGrid>
 
-            <Tabs.Panel value="logs" pt="md">
-              <SectionCard
-                title="底层日志"
-                description="当任务失败原因还不清楚时，可以在这里查看底层同步日志。"
-                action={
-                  <Select
-                    clearable
-                    placeholder="筛选日志状态"
-                    data={[
-                      { value: "success", label: "执行成功" },
-                      { value: "failed", label: "执行失败" },
-                    ]}
-                    value={logStatus}
-                    onChange={setLogStatus}
-                    w={180}
-                  />
-                }
-              >
-                <Table highlightOnHover striped>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>开始时间</Table.Th>
-                      <Table.Th>底层任务</Table.Th>
-                      <Table.Th>运行方式</Table.Th>
-                      <Table.Th>状态</Table.Th>
-                      <Table.Th>说明</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {filteredLogs.map((item) => (
-                      <Table.Tr key={item.id}>
-                        <Table.Td>{formatDateTimeLabel(item.started_at)}</Table.Td>
-                        <Table.Td>{item.job_name}</Table.Td>
-                        <Table.Td>{formatRunTypeLabel(item.run_type)}</Table.Td>
-                        <Table.Td><StatusBadge value={item.status} /></Table.Td>
-                        <Table.Td>{item.message || "—"}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </SectionCard>
-            </Tabs.Panel>
-          </Tabs>
+          <SectionCard
+            title="查看技术细节"
+            description="只有在需要进一步排查时再展开这里。默认不需要先读这些技术信息。"
+          >
+            <Accordion variant="separated" defaultValue={null}>
+              <Accordion.Item value="updates">
+                <Accordion.Control>详细处理记录</Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="md">
+                    <Alert color={activeStatus === "queued" || activeStatus === "running" ? "blue" : "gray"} title="这部分用于排查处理过程">
+                      {activeStatus === "queued" || activeStatus === "running"
+                        ? "如果这里内容还不多，通常只是任务刚开始。页面会自动刷新，不需要手动反复点。"
+                        : "这里保留更细的处理记录，方便排查。"}
+                    </Alert>
+                    <Text fw={600}>系统更新</Text>
+                    <ScrollArea h={260} type="auto" offsetScrollbars>
+                      {events.length ? (
+                        <Table highlightOnHover striped>
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th>时间</Table.Th>
+                              <Table.Th>更新内容</Table.Th>
+                              <Table.Th>说明</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {sortByTimeDesc(events).map((item) => (
+                              <Table.Tr key={item.id}>
+                                <Table.Td>{formatDateTimeLabel(item.occurred_at)}</Table.Td>
+                                <Table.Td>
+                                  <Group gap="xs">
+                                    <Badge variant="light">{formatEventTypeLabel(item.event_type)}</Badge>
+                                    <StatusBadge value={item.level} />
+                                  </Group>
+                                </Table.Td>
+                                <Table.Td>{item.message || "系统记录了一次新的处理更新。"}</Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      ) : (
+                        <Text c="dimmed" size="sm">暂时还没有更细的系统更新记录。</Text>
+                      )}
+                    </ScrollArea>
+
+                    <Text fw={600}>步骤明细</Text>
+                    <ScrollArea h={260} type="auto" offsetScrollbars>
+                      {steps.length ? (
+                        <Table highlightOnHover striped>
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th>步骤名称</Table.Th>
+                              <Table.Th>当前状态</Table.Th>
+                              <Table.Th>处理对象</Table.Th>
+                              <Table.Th>最近说明</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {steps.map((item) => (
+                              <Table.Tr key={item.id}>
+                                <Table.Td>{item.display_name}</Table.Td>
+                                <Table.Td><StatusBadge value={item.status} /></Table.Td>
+                                <Table.Td>
+                                  {item.unit_kind
+                                    ? `${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`
+                                    : "当前没有拆到更细的处理对象"}
+                                </Table.Td>
+                                <Table.Td>{item.message || "系统还没有写入更细的步骤说明。"}</Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      ) : (
+                        <Text c="dimmed" size="sm">暂时还没有步骤明细。通常说明任务刚开始，或者这类任务本身不会拆成更多步骤。</Text>
+                      )}
+                    </ScrollArea>
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+
+              <Accordion.Item value="logs">
+                <Accordion.Control>原始日志</Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                      <Text size="sm" c="dimmed">当问题摘要还不够清楚时，再看原始日志。</Text>
+                      <Select
+                        clearable
+                        placeholder="筛选日志状态"
+                        data={[
+                          { value: "success", label: "执行成功" },
+                          { value: "failed", label: "执行失败" },
+                        ]}
+                        value={logStatus}
+                        onChange={setLogStatus}
+                        w={180}
+                      />
+                    </Group>
+                    <ScrollArea h={320} type="auto" offsetScrollbars>
+                      {filteredLogs.length ? (
+                        <Table highlightOnHover striped>
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th>开始时间</Table.Th>
+                              <Table.Th>底层任务</Table.Th>
+                              <Table.Th>运行方式</Table.Th>
+                              <Table.Th>状态</Table.Th>
+                              <Table.Th>说明</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {sortByTimeDesc(filteredLogs).map((item) => (
+                              <Table.Tr key={item.id}>
+                                <Table.Td>{formatDateTimeLabel(item.started_at)}</Table.Td>
+                                <Table.Td>{item.job_name}</Table.Td>
+                                <Table.Td>{formatRunTypeLabel(item.run_type)}</Table.Td>
+                                <Table.Td><StatusBadge value={item.status} /></Table.Td>
+                                <Table.Td>{item.message || "这条日志没有留下额外说明。"}</Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      ) : (
+                        <Alert color={activeStatus === "queued" || activeStatus === "running" ? "blue" : "gray"} title="原始日志暂时还没有内容">
+                          {activeStatus === "queued" || activeStatus === "running"
+                            ? "如果任务刚开始，原始日志可能还没来得及写进来。页面会自动刷新。"
+                            : "这次任务没有留下可展示的原始日志。"}
+                        </Alert>
+                      )}
+                    </ScrollArea>
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
+          </SectionCard>
         </>
       ) : null}
     </Stack>

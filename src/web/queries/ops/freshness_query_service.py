@@ -74,7 +74,7 @@ class OpsFreshnessQueryService:
         states = list(session.scalars(select(SyncJobState)))
         state_by_job_name = {state.job_name: state for state in states}
         failures_by_job_name = self._latest_failures_by_job_name(session)
-        observed_business_dates = self._latest_observed_business_dates(session)
+        observed_business_ranges = self._observed_business_date_ranges(session)
 
         items = [
             self._build_item(
@@ -83,7 +83,7 @@ class OpsFreshnessQueryService:
                 latest_open_date=latest_open_date,
                 reference_date=reference_date,
                 recent_failure=failures_by_job_name.get(spec.job_name),
-                observed_business_date=observed_business_dates.get(spec.dataset_key),
+                observed_business_range=observed_business_ranges.get(spec.dataset_key),
             )
             for spec in list_dataset_freshness_specs()
         ]
@@ -96,7 +96,7 @@ class OpsFreshnessQueryService:
                     latest_open_date=latest_open_date,
                     reference_date=reference_date,
                     recent_failure=failures_by_job_name.get(job_name),
-                    observed_business_date=None,
+                    observed_business_range=None,
                 )
             )
 
@@ -123,10 +123,12 @@ class OpsFreshnessQueryService:
         latest_open_date: date,
         reference_date: date,
         recent_failure: FailureSnapshot | None,
-        observed_business_date: date | None,
+        observed_business_range: tuple[date | None, date | None] | None,
     ) -> DatasetFreshnessItem:
         latest_success_at = self._normalize_datetime(state.last_success_at) if state is not None else None
         state_business_date = state.last_success_date if state is not None else None
+        earliest_business_date = observed_business_range[0] if observed_business_range else None
+        observed_business_date = observed_business_range[1] if observed_business_range else None
         latest_business_date = self._choose_latest_business_date(state_business_date, observed_business_date)
         business_date_source = self._business_date_source(
             state_business_date=state_business_date,
@@ -150,6 +152,7 @@ class OpsFreshnessQueryService:
             target_table=spec.target_table,
             cadence=spec.cadence,
             state_business_date=state_business_date,
+            earliest_business_date=earliest_business_date,
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
             business_date_source=business_date_source,
@@ -314,20 +317,24 @@ class OpsFreshnessQueryService:
         return failures
 
     @staticmethod
-    def _latest_observed_business_dates(session: Session) -> dict[str, date | None]:
-        observed: dict[str, date | None] = {}
+    def _observed_business_date_ranges(session: Session) -> dict[str, tuple[date | None, date | None]]:
+        observed: dict[str, tuple[date | None, date | None]] = {}
         for spec in list_dataset_freshness_specs():
             if not spec.observed_date_column:
                 continue
             model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
             if model is None or not hasattr(model, spec.observed_date_column):
-                observed[spec.dataset_key] = None
+                observed[spec.dataset_key] = (None, None)
                 continue
             try:
-                observed_raw = session.scalar(select(func.max(getattr(model, spec.observed_date_column))))
-                observed[spec.dataset_key] = OpsFreshnessQueryService._normalize_observed_date(observed_raw)
+                column = getattr(model, spec.observed_date_column)
+                earliest_raw, latest_raw = session.execute(select(func.min(column), func.max(column))).one()
+                observed[spec.dataset_key] = (
+                    OpsFreshnessQueryService._normalize_observed_date(earliest_raw),
+                    OpsFreshnessQueryService._normalize_observed_date(latest_raw),
+                )
             except SQLAlchemyError:
-                observed[spec.dataset_key] = None
+                observed[spec.dataset_key] = (None, None)
         return observed
 
     @staticmethod

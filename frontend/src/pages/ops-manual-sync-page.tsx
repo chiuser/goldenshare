@@ -24,15 +24,38 @@ import type {
   OpsCatalogResponse,
   ScheduleDetailResponse,
 } from "../shared/api/types";
-import { formatCategoryLabel, formatSpecDisplayLabel } from "../shared/ops-display";
+import { formatCategoryLabel, formatResourceLabel, formatSpecDisplayLabel } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
+import { DateField } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 
-
 type ManualSpecType = "job" | "workflow";
-type RunMode = "now" | "queue";
+type DateMode = "single_day" | "date_range";
+
+type CatalogJobSpec = OpsCatalogResponse["job_specs"][number];
+type CatalogWorkflowSpec = OpsCatalogResponse["workflow_specs"][number];
+type CatalogParamSpec = NonNullable<CatalogJobSpec["supported_params"]>[number];
+
+type ManualAction = {
+  id: string;
+  type: "job" | "workflow";
+  categoryLabel: string;
+  displayName: string;
+  description: string;
+  syncDailySpecKey: string | null;
+  backfillSpecKey: string | null;
+  directSpecKey: string | null;
+  workflowKey: string | null;
+  supportedParams: CatalogParamSpec[];
+  supportsSingleDay: boolean;
+  supportsDateRange: boolean;
+};
+
+const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
+const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
+const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic"]);
 
 function parseJsonOrThrow(label: string, raw: string) {
   const normalized = raw.trim() || "{}";
@@ -45,37 +68,258 @@ function parseJsonOrThrow(label: string, raw: string) {
 
 function buildEmptyDraft() {
   return {
-    spec_type: "job" as ManualSpecType,
-    spec_key: "",
-    category_key: "all",
-    run_mode: "now" as RunMode,
+    action_id: "",
+    date_mode: "single_day" as DateMode,
+    selected_date: "",
+    start_date: "",
+    end_date: "",
     field_values: {} as Record<string, string>,
     extra_params_json: "{}",
   };
 }
 
-function mergeParams(
-  fieldValues: Record<string, string>,
-  supportedParams: NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>,
+function normalizeParamOptions(options: string[] | undefined) {
+  return Array.isArray(options) ? options : [];
+}
+
+function filterVisibleParams(params: CatalogParamSpec[]) {
+  return params.filter((param) => !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key));
+}
+
+function extractResourceKey(specKey: string) {
+  const parts = specKey.split(".");
+  return parts.length >= 2 ? parts[1] : specKey;
+}
+
+function isSingleDay(resource: ManualAction, draft: ReturnType<typeof buildEmptyDraft>) {
+  if (resource.supportsSingleDay && resource.supportsDateRange) {
+    return draft.date_mode === "single_day";
+  }
+  if (resource.supportsSingleDay) {
+    return true;
+  }
+  return false;
+}
+
+function buildManualActions(catalog: OpsCatalogResponse | undefined) {
+  if (!catalog) {
+    return [];
+  }
+
+  const resourceMap = new Map<
+    string,
+    {
+      resourceKey: string;
+      category: string;
+      description: string;
+      syncDailySpec: CatalogJobSpec | null;
+      backfillSpec: CatalogJobSpec | null;
+      directSpec: CatalogJobSpec | null;
+      supportedParams: CatalogParamSpec[];
+    }
+  >();
+
+  for (const job of catalog.job_specs.filter((item) => item.supports_manual_run !== false)) {
+    const prefix = job.key.split(".", 1)[0];
+    const resourceKey = extractResourceKey(job.key);
+
+    if (prefix === "maintenance") {
+      continue;
+    }
+
+    if (prefix === "sync_history" && !REFERENCE_RESOURCES.has(resourceKey) && job.strategy_type !== "full_refresh") {
+      continue;
+    }
+
+    const current = resourceMap.get(resourceKey) || {
+      resourceKey,
+      category: job.category,
+      description: job.description,
+      syncDailySpec: null,
+      backfillSpec: null,
+      directSpec: null,
+      supportedParams: [],
+    };
+
+    const visibleParams = filterVisibleParams(job.supported_params || []);
+    const dedupedParams = new Map(current.supportedParams.map((param) => [param.key, param]));
+    for (const param of visibleParams) {
+      if (!dedupedParams.has(param.key)) {
+        dedupedParams.set(param.key, param);
+      }
+    }
+    current.supportedParams = Array.from(dedupedParams.values());
+
+    if (prefix === "sync_daily") {
+      current.syncDailySpec = job;
+    } else if (prefix.startsWith("backfill_")) {
+      current.backfillSpec = job;
+    } else {
+      current.directSpec = job;
+    }
+
+    if (current.category === "sync_history" && job.category !== "sync_history") {
+      current.category = job.category;
+    }
+    if (!current.description || current.description === current.directSpec?.description) {
+      current.description = job.description;
+    }
+    resourceMap.set(resourceKey, current);
+  }
+
+  const actions: ManualAction[] = Array.from(resourceMap.values()).map((item) => ({
+    id: `job:${item.resourceKey}`,
+    type: "job",
+    categoryLabel: formatCategoryLabel(item.category),
+    displayName: `维护${formatResourceLabel(item.resourceKey)}`,
+    description: item.description,
+    syncDailySpecKey: item.syncDailySpec?.key || null,
+    backfillSpecKey: item.backfillSpec?.key || null,
+    directSpecKey: item.directSpec?.key || null,
+    workflowKey: null,
+    supportedParams: item.supportedParams,
+    supportsSingleDay: Boolean(item.syncDailySpec),
+    supportsDateRange: Boolean(item.backfillSpec),
+  }));
+
+  for (const workflow of catalog.workflow_specs.filter((item) => item.supports_manual_run !== false)) {
+    actions.push({
+      id: `workflow:${workflow.key}`,
+      type: "workflow",
+      categoryLabel: "工作流",
+      displayName: workflow.display_name,
+      description: workflow.description,
+      syncDailySpecKey: null,
+      backfillSpecKey: null,
+      directSpecKey: null,
+      workflowKey: workflow.key,
+      supportedParams: [],
+      supportsSingleDay: false,
+      supportsDateRange: false,
+    });
+  }
+
+  return actions.sort((left, right) => left.displayName.localeCompare(right.displayName, "zh-CN"));
+}
+
+function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
+  if (!paramsJson) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(paramsJson).map(([key, value]) => [key, String(value ?? "")]));
+}
+
+function buildDraftFromParams(
+  current: ReturnType<typeof buildEmptyDraft>,
+  actionId: string,
+  paramsJson: Record<string, unknown> | undefined,
+) {
+  const fieldValues = buildFieldValues(paramsJson);
+  const tradeDate = typeof paramsJson?.trade_date === "string" ? paramsJson.trade_date : "";
+  const startDate = typeof paramsJson?.start_date === "string" ? paramsJson.start_date : "";
+  const endDate = typeof paramsJson?.end_date === "string" ? paramsJson.end_date : "";
+  const dateMode: DateMode = tradeDate || (startDate && endDate && startDate === endDate) ? "single_day" : "date_range";
+  return {
+    ...current,
+    action_id: actionId,
+    date_mode: dateMode,
+    selected_date: tradeDate || startDate || current.selected_date,
+    start_date: startDate,
+    end_date: endDate,
+    field_values: fieldValues,
+    extra_params_json: JSON.stringify(paramsJson || {}, null, 2),
+  };
+}
+
+function resolveExecutionTarget(
+  action: ManualAction,
+  draft: ReturnType<typeof buildEmptyDraft>,
   extraJson: string,
 ) {
   const params = parseJsonOrThrow("高级参数", extraJson);
-  for (const param of supportedParams) {
-    const rawValue = fieldValues[param.key];
+
+  for (const param of action.supportedParams) {
+    const rawValue = draft.field_values[param.key];
     if (rawValue === undefined || rawValue === null || rawValue === "") {
       continue;
     }
-    if (param.param_type === "integer") {
-      params[param.key] = Number(rawValue);
-      continue;
-    }
-    params[param.key] = rawValue;
+    params[param.key] = param.param_type === "integer" ? Number(rawValue) : rawValue;
   }
-  return params;
-}
 
-function normalizeParamOptions(options: string[] | undefined) {
-  return Array.isArray(options) ? options : [];
+  if (action.type === "workflow" && action.workflowKey) {
+    return {
+      spec_type: "workflow" as ManualSpecType,
+      spec_key: action.workflowKey,
+      params_json: params,
+    };
+  }
+
+  if (action.supportsSingleDay && action.supportsDateRange) {
+    if (draft.date_mode === "single_day") {
+      if (!draft.selected_date) {
+        throw new Error("请选择要处理的日期。");
+      }
+      if (!action.syncDailySpecKey) {
+        throw new Error("当前任务暂不支持按单日直接执行。");
+      }
+      return {
+        spec_type: "job" as ManualSpecType,
+        spec_key: action.syncDailySpecKey,
+        params_json: { ...params, trade_date: draft.selected_date },
+      };
+    }
+    if (!draft.start_date || !draft.end_date) {
+      throw new Error("请选择开始日期和结束日期。");
+    }
+    if (!action.backfillSpecKey) {
+      throw new Error("当前任务暂不支持按日期区间补数据。");
+    }
+    return {
+      spec_type: "job" as ManualSpecType,
+      spec_key: action.backfillSpecKey,
+      params_json: { ...params, start_date: draft.start_date, end_date: draft.end_date },
+    };
+  }
+
+  if (action.supportsSingleDay) {
+    if (!draft.selected_date) {
+      throw new Error("请选择要处理的日期。");
+    }
+    if (!action.syncDailySpecKey) {
+      throw new Error("当前任务暂不支持按单日直接执行。");
+    }
+    return {
+      spec_type: "job" as ManualSpecType,
+      spec_key: action.syncDailySpecKey,
+      params_json: { ...params, trade_date: draft.selected_date },
+    };
+  }
+
+  if (action.supportsDateRange) {
+    const startDate = draft.start_date || draft.selected_date;
+    const endDate = draft.end_date || draft.selected_date;
+    if (!startDate || !endDate) {
+      throw new Error("请选择开始日期和结束日期。");
+    }
+    if (!action.backfillSpecKey) {
+      throw new Error("当前任务暂不支持按日期区间补数据。");
+    }
+    return {
+      spec_type: "job" as ManualSpecType,
+      spec_key: action.backfillSpecKey,
+      params_json: { ...params, start_date: startDate, end_date: endDate },
+    };
+  }
+
+  if (!action.directSpecKey) {
+    throw new Error("当前任务还没有绑定可执行能力。");
+  }
+
+  return {
+    spec_type: "job" as ManualSpecType,
+    spec_key: action.directSpecKey,
+    params_json: params,
+  };
 }
 
 export function OpsManualSyncPage() {
@@ -105,163 +349,104 @@ export function OpsManualSyncPage() {
     enabled: Boolean(prefillScheduleId),
   });
 
-  const groupedJobSpecs = useMemo(() => {
-    const catalog = catalogQuery.data;
-    if (!catalog) return [];
-    const groups = new Map<string, Array<{ value: string; label: string }>>();
-    for (const item of catalog.job_specs.filter((job) => job.supports_manual_run !== false)) {
-      const key = item.category || "other";
-      const group = groups.get(key) || [];
-      group.push({
-        value: `job:${item.key}`,
-        label: formatSpecDisplayLabel(item.key, item.display_name),
-      });
-      groups.set(key, group);
-    }
-    for (const item of catalog.workflow_specs.filter((workflow) => workflow.supports_manual_run !== false)) {
-      const key = "workflow";
-      const group = groups.get(key) || [];
-      group.push({
-        value: `workflow:${item.key}`,
-        label: formatSpecDisplayLabel(item.key, item.display_name),
-      });
-      groups.set(key, group);
-    }
-    return Array.from(groups.entries()).map(([group, items]) => ({
-      group,
-      title: group === "workflow" ? "工作流" : formatCategoryLabel(group),
-      items,
-    }));
-  }, [catalogQuery.data]);
+  const manualActions = useMemo(() => buildManualActions(catalogQuery.data), [catalogQuery.data]);
 
-  const flatSpecOptions = useMemo(
+  const actionOptions = useMemo(
     () =>
-      groupedJobSpecs.flatMap((group) =>
-        group.items.map((item) => ({
-          value: item.value,
-          label: `【${group.title}】${item.label}`,
-        })),
-      ),
-    [groupedJobSpecs],
+      manualActions.map((action) => ({
+        value: action.id,
+        label: `${action.displayName}（${action.categoryLabel}）`,
+      })),
+    [manualActions],
   );
 
-  const selectedSpec = useMemo(() => {
-    const catalog = catalogQuery.data;
-    if (!catalog || !draft.spec_key) return null;
-    if (draft.spec_type === "job") {
-      const job = catalog.job_specs.find((item) => item.key === draft.spec_key);
-      if (!job) return null;
-      return {
-        type: "job" as const,
-        key: job.key,
-        display_name: formatSpecDisplayLabel(job.key, job.display_name),
-        description: job.description,
-        supported_params: job.supported_params || [],
-        category: formatCategoryLabel(job.category),
-      };
-    }
-    const workflow = catalog.workflow_specs.find((item) => item.key === draft.spec_key);
-    if (!workflow) return null;
-    return {
-      type: "workflow" as const,
-      key: workflow.key,
-      display_name: formatSpecDisplayLabel(workflow.key, workflow.display_name),
-      description: workflow.description,
-      supported_params: [],
-      category: "工作流",
-    };
-  }, [catalogQuery.data, draft.spec_key, draft.spec_type]);
+  const selectedAction = useMemo(
+    () => manualActions.find((item) => item.id === draft.action_id) || null,
+    [draft.action_id, manualActions],
+  );
 
   useEffect(() => {
-    if (prefillExecutionQuery.data) {
-      setDraft((current) => ({
-        ...current,
-        spec_type: prefillExecutionQuery.data.spec_type as ManualSpecType,
-        spec_key: prefillExecutionQuery.data.spec_key,
-        field_values: Object.fromEntries(
-          Object.entries(prefillExecutionQuery.data.params_json || {}).map(([key, value]) => [key, String(value ?? "")]),
-        ),
-        extra_params_json: JSON.stringify(prefillExecutionQuery.data.params_json || {}, null, 2),
-      }));
+    if (!manualActions.length) {
       return;
     }
-    if (prefillScheduleQuery.data) {
-      setDraft((current) => ({
-        ...current,
-        spec_type: prefillScheduleQuery.data.spec_type as ManualSpecType,
-        spec_key: prefillScheduleQuery.data.spec_key,
-        field_values: Object.fromEntries(
-          Object.entries(prefillScheduleQuery.data.params_json || {}).map(([key, value]) => [key, String(value ?? "")]),
-        ),
-        extra_params_json: JSON.stringify(prefillScheduleQuery.data.params_json || {}, null, 2),
-      }));
+    if (draft.action_id && manualActions.some((item) => item.id === draft.action_id)) {
       return;
     }
-    if (prefillSpecKey) {
-      setDraft((current) => ({
-        ...current,
-        spec_type: (prefillSpecType as ManualSpecType) || current.spec_type,
-        spec_key: prefillSpecKey,
-      }));
+    if (!prefillSpecKey) {
+      return;
     }
-  }, [
-    prefillExecutionQuery.data,
-    prefillScheduleQuery.data,
-    prefillSpecKey,
-    prefillSpecType,
-    setDraft,
-  ]);
+    const prefixedJob = manualActions.find(
+      (item) =>
+        item.type === "job" &&
+        [item.syncDailySpecKey, item.backfillSpecKey, item.directSpecKey].includes(prefillSpecKey),
+    );
+    if (prefixedJob) {
+      setDraft((current) => ({ ...current, action_id: prefixedJob.id }));
+      return;
+    }
+    if (prefillSpecType === "workflow") {
+      const workflowAction = manualActions.find((item) => item.workflowKey === prefillSpecKey);
+      if (workflowAction) {
+        setDraft((current) => ({ ...current, action_id: workflowAction.id }));
+      }
+    }
+  }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft]);
 
-  const createQueuedMutation = useMutation({
-    mutationFn: () =>
-      apiRequest<ExecutionDetailResponse>("/api/v1/ops/executions", {
+  useEffect(() => {
+    if (!manualActions.length || !prefillExecutionQuery.data) {
+      return;
+    }
+    const action = manualActions.find(
+      (item) =>
+        item.type === prefillExecutionQuery.data.spec_type &&
+        (
+          item.workflowKey === prefillExecutionQuery.data.spec_key ||
+          item.syncDailySpecKey === prefillExecutionQuery.data.spec_key ||
+          item.backfillSpecKey === prefillExecutionQuery.data.spec_key ||
+          item.directSpecKey === prefillExecutionQuery.data.spec_key
+        ),
+    );
+    if (!action) {
+      return;
+    }
+    setDraft((current) => buildDraftFromParams(current, action.id, prefillExecutionQuery.data.params_json));
+  }, [manualActions, prefillExecutionQuery.data, setDraft]);
+
+  useEffect(() => {
+    if (!manualActions.length || !prefillScheduleQuery.data) {
+      return;
+    }
+    const action = manualActions.find(
+      (item) =>
+        item.type === prefillScheduleQuery.data.spec_type &&
+        (
+          item.workflowKey === prefillScheduleQuery.data.spec_key ||
+          item.syncDailySpecKey === prefillScheduleQuery.data.spec_key ||
+          item.backfillSpecKey === prefillScheduleQuery.data.spec_key ||
+          item.directSpecKey === prefillScheduleQuery.data.spec_key
+        ),
+    );
+    if (!action) {
+      return;
+    }
+    setDraft((current) => buildDraftFromParams(current, action.id, prefillScheduleQuery.data.params_json));
+  }, [manualActions, prefillScheduleQuery.data, setDraft]);
+
+  const createExecutionMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedAction) {
+        throw new Error("请先选择要维护的数据。");
+      }
+      return apiRequest<ExecutionDetailResponse>("/api/v1/ops/executions", {
         method: "POST",
-        body: {
-          spec_type: draft.spec_type,
-          spec_key: draft.spec_key,
-          params_json: mergeParams(
-            draft.field_values,
-            selectedSpec?.type === "job" ? selectedSpec.supported_params : [],
-            draft.extra_params_json,
-          ),
-        },
-      }),
+        body: resolveExecutionTarget(selectedAction, draft, draft.extra_params_json),
+      });
+    },
     onSuccess: async (data) => {
       notifications.show({
         color: "green",
-        title: "任务已加入等待列表",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
-      });
-      await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
-    },
-    onError: (error) => {
-      notifications.show({
-        color: "red",
-        title: "创建任务失败",
-        message: error instanceof Error ? error.message : "未知错误",
-      });
-    },
-  });
-
-  const createAndRunMutation = useMutation({
-    mutationFn: () =>
-      apiRequest<ExecutionDetailResponse>("/api/v1/ops/executions/run-now", {
-        method: "POST",
-        body: {
-          spec_type: draft.spec_type,
-          spec_key: draft.spec_key,
-          params_json: mergeParams(
-            draft.field_values,
-            selectedSpec?.type === "job" ? selectedSpec.supported_params : [],
-            draft.extra_params_json,
-          ),
-        },
-      }),
-    onSuccess: async (data) => {
-      notifications.show({
-        color: "green",
-        title: "任务已经开始处理",
-        message: `${formatSpecDisplayLabel(data.spec_key, data.spec_display_name)} #${data.id}`,
+        title: "任务已提交",
+        message: "系统已经收到这次同步请求，正在为你打开任务详情页。",
       });
       await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
     },
@@ -278,7 +463,7 @@ export function OpsManualSyncPage() {
     <Stack gap="lg">
       <PageHeader
         title="手动同步"
-        description="当你需要补数据、重跑失败任务或立即执行一次时，从这里发起最直接。"
+        description="这里只做一件事：维护你选中的数据。至于是补一天、补一段时间，还是直接刷新一次，由系统根据你的输入自动决定。"
       />
 
       {(catalogQuery.isLoading || prefillExecutionQuery.isLoading || prefillScheduleQuery.isLoading) ? <Loader size="sm" /> : null}
@@ -293,60 +478,104 @@ export function OpsManualSyncPage() {
       <Grid align="stretch">
         <Grid.Col span={{ base: 12, xl: 8 }}>
           <SectionCard
-            title="发起一次手动同步"
-            description="先选要处理的数据，再填处理范围。默认会立即开始，不需要再去别的页面点第二次。"
+            title="发起一次手动维护"
+            description="选中要维护的数据后，只需要给出时间范围和必要条件，系统会自动挑选合适的底层执行方式。"
           >
             <Stack gap="lg">
               <Stack gap="xs">
-                <Text fw={700}>第一步：选择要处理的数据</Text>
+                <Text fw={700}>第一步：选择要维护的数据</Text>
                 <Select
                   searchable
-                  placeholder="搜索任务模板，例如：股票日线、分红送转、指数周线"
-                  data={flatSpecOptions}
-                  value={draft.spec_key ? `${draft.spec_type}:${draft.spec_key}` : null}
-                  onChange={(value) => {
-                    const [specType, specKey] = (value || "job:").split(":");
+                  placeholder="例如：股票日线、分红送转、指数周线、交易日历"
+                  data={actionOptions}
+                  value={draft.action_id || null}
+                  onChange={(value) =>
                     setDraft((current) => ({
                       ...current,
-                      spec_type: specType as ManualSpecType,
-                      spec_key: specKey || "",
-                    }));
-                  }}
+                      action_id: value || "",
+                    }))
+                  }
                 />
               </Stack>
 
-              {selectedSpec ? (
+              {selectedAction ? (
                 <>
-                  <Alert color="blue" variant="light" title={selectedSpec.display_name}>
+                  <Alert color="blue" variant="light" title={selectedAction.displayName}>
                     <Stack gap={4}>
-                      <Text size="sm">所属类型：{selectedSpec.category}</Text>
-                      {selectedSpec.description ? <Text size="sm">{selectedSpec.description}</Text> : null}
+                      <Text size="sm">所属类型：{selectedAction.categoryLabel}</Text>
+                      {selectedAction.description ? <Text size="sm">{selectedAction.description}</Text> : null}
                     </Stack>
                   </Alert>
 
-                  <Stack gap="xs">
-                    <Text fw={700}>第二步：选择处理方式</Text>
-                    <SimpleGrid cols={{ base: 1, md: 2 }}>
-                      <Button
-                        variant={draft.run_mode === "now" ? "filled" : "light"}
-                        onClick={() => setDraft((current) => ({ ...current, run_mode: "now" }))}
-                      >
-                        立即开始
-                      </Button>
-                      <Button
-                        variant={draft.run_mode === "queue" ? "filled" : "light"}
-                        onClick={() => setDraft((current) => ({ ...current, run_mode: "queue" }))}
-                      >
-                        加入等待列表
-                      </Button>
-                    </SimpleGrid>
-                  </Stack>
+                  {(selectedAction.supportsSingleDay || selectedAction.supportsDateRange) ? (
+                    <Stack gap="xs">
+                      <Text fw={700}>第二步：选择时间范围</Text>
+
+                      {(selectedAction.supportsSingleDay && selectedAction.supportsDateRange) ? (
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                          <Button
+                            variant={draft.date_mode === "single_day" ? "filled" : "light"}
+                            onClick={() => setDraft((current) => ({ ...current, date_mode: "single_day" }))}
+                          >
+                            只处理一天
+                          </Button>
+                          <Button
+                            variant={draft.date_mode === "date_range" ? "filled" : "light"}
+                            onClick={() => setDraft((current) => ({ ...current, date_mode: "date_range" }))}
+                          >
+                            处理一个时间区间
+                          </Button>
+                        </SimpleGrid>
+                      ) : null}
+
+                      {isSingleDay(selectedAction, draft) ? (
+                        <DateField
+                          label="选择日期"
+                          placeholder="请选择日期"
+                          value={draft.selected_date}
+                          onChange={(value) =>
+                            setDraft((current) => ({
+                              ...current,
+                              selected_date: value,
+                              start_date: value,
+                              end_date: value,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                          <DateField
+                            label="开始日期"
+                            placeholder="请选择开始日期"
+                            value={draft.start_date}
+                            onChange={(value) =>
+                              setDraft((current) => ({
+                                ...current,
+                                start_date: value,
+                              }))
+                            }
+                          />
+                          <DateField
+                            label="结束日期"
+                            placeholder="请选择结束日期"
+                            value={draft.end_date}
+                            onChange={(value) =>
+                              setDraft((current) => ({
+                                ...current,
+                                end_date: value,
+                              }))
+                            }
+                          />
+                        </SimpleGrid>
+                      )}
+                    </Stack>
+                  ) : null}
 
                   <Stack gap="xs">
-                    <Text fw={700}>第三步：填写处理范围</Text>
-                    {selectedSpec.type === "job" && selectedSpec.supported_params.length ? (
+                    <Text fw={700}>第三步：补充范围条件</Text>
+                    {selectedAction.supportedParams.length ? (
                       <Grid>
-                        {selectedSpec.supported_params.map((param) => (
+                        {selectedAction.supportedParams.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
                             {param.param_type === "enum" ? (
                               <Select
@@ -381,8 +610,8 @@ export function OpsManualSyncPage() {
                         ))}
                       </Grid>
                     ) : (
-                      <Alert color="gray" variant="light" title="这个任务没有固定的常用参数">
-                        你可以直接使用默认参数，或者在“高级设置”里填写完整参数。
+                      <Alert color="gray" variant="light" title="这个任务没有额外筛选条件">
+                        直接点击“开始同步”就可以了。
                       </Alert>
                     )}
                   </Stack>
@@ -393,7 +622,7 @@ export function OpsManualSyncPage() {
                       <Accordion.Panel>
                         <JsonInput
                           label="高级参数"
-                          description="如果这个任务需要更复杂的参数，可以直接在这里填写。与上面的常用参数重复时，以这里为准。"
+                          description="只有在常用条件不够用时才需要填写。与上面的条件重复时，以这里为准。"
                           autosize
                           minRows={8}
                           value={draft.extra_params_json}
@@ -411,19 +640,18 @@ export function OpsManualSyncPage() {
                       清空当前表单
                     </Button>
                     <Button
-                      loading={createQueuedMutation.isPending || createAndRunMutation.isPending}
-                      onClick={() =>
-                        draft.run_mode === "now"
-                          ? createAndRunMutation.mutate()
-                          : createQueuedMutation.mutate()
-                      }
+                      loading={createExecutionMutation.isPending}
+                      onClick={() => createExecutionMutation.mutate()}
                     >
-                      {draft.run_mode === "now" ? "开始同步" : "加入等待列表"}
+                      开始同步
                     </Button>
                   </Group>
                 </>
               ) : (
-                <EmptyState title="先选择一个要处理的任务" description="选中之后，我会显示这个任务常用的处理参数，尽量不用你直接写 JSON。" />
+                <EmptyState
+                  title="先选择一类要维护的数据"
+                  description="选中之后，我会自动显示合适的日期控件和常用筛选条件，不会把底层执行方式直接丢给你。"
+                />
               )}
             </Stack>
           </SectionCard>
@@ -431,20 +659,20 @@ export function OpsManualSyncPage() {
 
         <Grid.Col span={{ base: 12, xl: 4 }}>
           <Stack gap="lg">
-            <SectionCard title="这页适合做什么" description="先把最常见的几类手动操作固定下来，避免每次都从任务记录里猜下一步。">
+            <SectionCard title="这页适合做什么" description="把最常见的手动维护动作固定下来，减少你去猜系统内部流程。">
               <Stack gap="sm">
                 <Badge variant="light" size="lg">补今天没跑出来的数据</Badge>
-                <Badge variant="light" size="lg">重新执行刚才失败的任务</Badge>
-                <Badge variant="light" size="lg">按日期范围补历史数据</Badge>
-                <Badge variant="light" size="lg">按当前自动任务配置手动跑一次</Badge>
+                <Badge variant="light" size="lg">补一段时间的历史数据</Badge>
+                <Badge variant="light" size="lg">重新维护刚才失败的数据</Badge>
+                <Badge variant="light" size="lg">按自动任务配置手动跑一次</Badge>
               </Stack>
             </SectionCard>
 
-            <SectionCard title="最近带入的上下文" description="如果你是从任务记录或自动运行页跳过来的，这里会自动带入原来的参数。">
+            <SectionCard title="最近带入的上下文" description="如果你是从任务记录或自动运行页跳过来的，这里会自动带入原来的条件。">
               <Stack gap="sm">
                 <Text size="sm">来自任务记录：{prefillExecutionId ? `#${prefillExecutionId}` : "无"}</Text>
                 <Text size="sm">来自自动任务：{prefillScheduleId ? `#${prefillScheduleId}` : "无"}</Text>
-                <Text size="sm">当前执行方式：{draft.run_mode === "now" ? "立即开始" : "加入等待列表"}</Text>
+                <Text size="sm">当前已选数据：{selectedAction ? selectedAction.displayName : "未选择"}</Text>
               </Stack>
             </SectionCard>
           </Stack>

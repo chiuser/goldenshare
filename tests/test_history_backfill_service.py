@@ -60,6 +60,7 @@ def test_backfill_equity_series_supports_period_resources(mocker) -> None:
         ts_code="000001.SZ",
         start_date="2010-01-01",
         end_date="2026-03-24",
+        execution_id=None,
     )
 
 
@@ -112,7 +113,10 @@ def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
     assert summary.rows_fetched == 113
     assert summary.rows_written == 113
     build_sync_service.assert_called_once_with("limit_list_d", session)
-    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 24))
+    sync_service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 24),
+        execution_id=None,
+    )
     assert progress.call_args_list[0].args[0] == "limit_list_d: 1/1 trade_date=2026-03-24 fetched=113 written=113"
 
 
@@ -140,8 +144,14 @@ def test_backfill_by_trade_dates_emits_progress_for_incremental_resources(mocker
     )
 
     assert summary.units_processed == 2
-    sync_service_1.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 20))
-    sync_service_2.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 21))
+    sync_service_1.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 20),
+        execution_id=None,
+    )
+    sync_service_2.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 21),
+        execution_id=None,
+    )
     assert progress.call_args_list[0].args[0] == "limit_list_d: 1/2 trade_date=2026-03-20 fetched=10 written=10"
 
 
@@ -239,8 +249,40 @@ def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> N
         ts_code="000001.SH",
         start_date="2020-01-01",
         end_date="2026-03-29",
+        execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "index_weekly: 1/2 ts_code=000001.SH fetched=10 written=10"
+
+
+def test_backfill_index_series_supports_index_daily(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.index_basic.get_active_indexes.return_value = [mocker.Mock(ts_code="000001.SH")]
+    progress = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_full.return_value = mocker.Mock(rows_fetched=15, rows_written=15)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_index_series(
+        resource="index_daily",
+        start_date=date(2020, 1, 1),
+        end_date=date(2026, 3, 29),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 15
+    assert summary.rows_written == 15
+    build_sync_service.assert_called_once_with("index_daily", session)
+    sync_service.run_full.assert_called_once_with(
+        ts_code="000001.SH",
+        start_date="2020-01-01",
+        end_date="2026-03-29",
+        execution_id=None,
+    )
+    assert progress.call_args_list[0].args[0] == "index_daily: 1/1 ts_code=000001.SH fetched=15 written=15"
 
 
 def test_backfill_index_series_uses_index_code_for_index_weight(mocker) -> None:
@@ -269,6 +311,7 @@ def test_backfill_index_series_uses_index_code_for_index_weight(mocker) -> None:
         index_code="000300.SH",
         start_date="2020-01-01",
         end_date="2026-03-29",
+        execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "index_weight: 1/1 index_code=000300.SH fetched=300 written=300"
 
@@ -284,6 +327,6 @@ def test_backfill_index_series_rejects_unsupported_resources(mocker) -> None:
             end_date=date(2026, 3, 29),
         )
     except ValueError as exc:
-        assert "index_weight" in str(exc)
+        assert "index_daily" in str(exc)
     else:
         raise AssertionError("expected ValueError")

@@ -1,9 +1,10 @@
-import { Alert, Anchor, Grid, Loader, Stack, Table, Text } from "@mantine/core";
+import { Alert, Button, Grid, Loader, Stack, Table } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
 import type { OpsFreshnessResponse } from "../shared/api/types";
 import { formatDateLabel } from "../shared/date-format";
+import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -18,6 +19,16 @@ const cadenceLabelMap: Record<string, string> = {
   event: "事件驱动",
 };
 
+function formatDateRangeLabel(earliestDate: string | null, latestDate: string | null) {
+  if (earliestDate && latestDate) {
+    if (earliestDate === latestDate) {
+      return formatDateLabel(latestDate);
+    }
+    return `${formatDateLabel(earliestDate)} ~ ${formatDateLabel(latestDate)}`;
+  }
+  return formatDateLabel(latestDate);
+}
+
 export function OpsDataStatusPage() {
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness"],
@@ -28,7 +39,7 @@ export function OpsDataStatusPage() {
     <Stack gap="lg">
       <PageHeader
         title="数据状态"
-        description="这里直接回答“数据是不是最新”。如果有问题，优先提供下一步处理入口。"
+        description="这里直接回答“数据是不是最新”。日期范围表示当前数据覆盖到的起止区间，但不代表中间一定没有缺口。"
       />
 
       {freshnessQuery.isLoading ? <Loader size="sm" /> : null}
@@ -61,67 +72,67 @@ export function OpsDataStatusPage() {
               title={group.domain_display_name}
               description="先看最新日期和当前状态，再决定去任务记录还是直接手动同步。"
             >
-              <Table highlightOnHover striped>
+              <OpsTable>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>数据名称</Table.Th>
-                    <Table.Th>最新日期</Table.Th>
-                    <Table.Th>更新频率</Table.Th>
-                    <Table.Th>当前状态</Table.Th>
-                    <Table.Th>最近异常</Table.Th>
-                    <Table.Th>操作</Table.Th>
+                    <OpsTableHeaderCell>数据名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>日期范围</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>更新频率</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>最近异常</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>操作</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {group.items.map((item) => (
                     <Table.Tr key={item.dataset_key}>
-                      <Table.Td>
-                        <Stack gap={2}>
-                          <Text fw={600}>{item.display_name}</Text>
-                          {item.freshness_note ? (
-                            <Text size="xs" c="dimmed">
-                              {item.freshness_note}
-                            </Text>
-                          ) : null}
-                        </Stack>
-                      </Table.Td>
-                      <Table.Td>{formatDateLabel(item.latest_business_date)}</Table.Td>
-                      <Table.Td>{cadenceLabelMap[item.cadence] || "未定义"}</Table.Td>
-                      <Table.Td>
+                      <OpsTableCell>
+                        <OpsTableCellText fw={600}>{item.display_name}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell>
+                        <OpsTableCellText>{formatDateRangeLabel(item.earliest_business_date, item.latest_business_date)}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell>
+                        <OpsTableCellText>{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell>
                         <StatusBadge value={item.freshness_status} />
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" lineClamp={2}>
+                      </OpsTableCell>
+                      <OpsTableCell>
+                        <OpsTableCellText lineClamp={2}>
                           {item.recent_failure_summary || "当前没有异常摘要"}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Stack gap={4}>
+                        </OpsTableCellText>
+                      </OpsTableCell>
+                      <OpsTableCell>
+                        <OpsTableActionGroup>
                           {item.primary_execution_spec_key ? (
-                            <Anchor
+                            <Button
+                              component="a"
                               href={`/app/ops/tasks?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}`}
-                              size="sm"
+                              size="xs"
+                              variant="light"
                             >
                               查看任务
-                            </Anchor>
+                            </Button>
                           ) : (
-                            <Text c="dimmed" size="sm">—</Text>
+                            <OpsTableCellText c="dimmed">—</OpsTableCellText>
                           )}
                           {item.primary_execution_spec_key ? (
-                            <Anchor
+                            <Button
                               component="a"
                               href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
-                              size="sm"
+                              size="xs"
+                              variant="default"
                             >
                               去处理
-                            </Anchor>
+                            </Button>
                           ) : null}
-                        </Stack>
-                      </Table.Td>
+                        </OpsTableActionGroup>
+                      </OpsTableCell>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
-              </Table>
+              </OpsTable>
             </SectionCard>
           ))}
         </>

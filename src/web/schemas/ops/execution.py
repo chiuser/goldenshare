@@ -25,6 +25,11 @@ class ExecutionListItem(BaseModel):
     ended_at: datetime | None = None
     rows_fetched: int
     rows_written: int
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_percent: int | None = None
+    progress_message: str | None = None
+    last_progress_at: datetime | None = None
     summary_message: str | None = None
     error_code: str | None = None
 
@@ -90,6 +95,11 @@ class ExecutionDetailResponse(BaseModel):
     summary_message: str | None = None
     rows_fetched: int
     rows_written: int
+    progress_current: int | None = None
+    progress_total: int | None = None
+    progress_percent: int | None = None
+    progress_message: str | None = None
+    last_progress_at: datetime | None = None
     cancel_requested_at: datetime | None = None
     canceled_at: datetime | None = None
     error_code: str | None = None

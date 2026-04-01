@@ -1,5 +1,5 @@
 const statusLabelMap: Record<string, string> = {
-  queued: "等待执行",
+  queued: "等待开始",
   running: "执行中",
   success: "执行成功",
   failed: "执行失败",
@@ -18,10 +18,10 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const triggerSourceLabelMap: Record<string, string> = {
-  manual: "手动发起",
-  scheduled: "按调度自动发起",
-  retry: "失败后重试",
-  system: "系统内部触发",
+  manual: "手动",
+  scheduled: "自动",
+  retry: "重新提交",
+  system: "系统触发",
 };
 
 const scheduleTypeLabelMap: Record<string, string> = {
@@ -74,7 +74,7 @@ const revisionActionLabelMap: Record<string, string> = {
 
 const eventTypeLabelMap: Record<string, string> = {
   created: "已创建",
-  queued: "已进入等待队列",
+  queued: "已提交",
   cancel_requested: "已请求取消",
   canceled: "已取消",
   started: "开始执行",

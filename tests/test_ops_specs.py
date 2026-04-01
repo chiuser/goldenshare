@@ -6,6 +6,7 @@ from src.operations.specs.registry import JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGIS
 def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stock_basic" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
+    assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_weekly" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_dm" in JOB_SPEC_REGISTRY
 

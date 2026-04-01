@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,7 +34,34 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
 
+def _load_env_file_values(env_file: str) -> dict[str, str]:
+    path = Path(env_file)
+    if not path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     env_file = os.environ.get("GOLDENSHARE_ENV_FILE", ".env").strip() or ".env"
-    return Settings(_env_file=env_file, _env_file_encoding="utf-8")
+    env_values = _load_env_file_values(env_file)
+    keyword_values: dict[str, str] = {}
+    overridden_env: dict[str, str] = {}
+    for field_name, field in Settings.model_fields.items():
+        alias = field.alias or field_name
+        if alias in env_values:
+            keyword_values[alias] = env_values[alias]
+            if alias in os.environ:
+                overridden_env[alias] = os.environ.pop(alias)
+    try:
+        return Settings(_env_file=None, **keyword_values)
+    finally:
+        os.environ.update(overridden_env)

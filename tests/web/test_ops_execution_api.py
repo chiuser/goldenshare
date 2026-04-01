@@ -73,6 +73,11 @@ def test_ops_execution_detail_returns_steps_and_events(
         spec_key="backfill_index_series.index_weight",
         status="running",
         params_json={"start_date": "2020-01-01", "end_date": "2026-03-30"},
+        progress_current=651,
+        progress_total=5814,
+        progress_percent=11,
+        progress_message="daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
+        last_progress_at=datetime(2026, 3, 30, 12, 5, tzinfo=timezone.utc),
         summary_message="执行中",
     )
     step = job_execution_step_factory(
@@ -109,6 +114,10 @@ def test_ops_execution_detail_returns_steps_and_events(
     assert payload["requested_by_username"] == "admin"
     assert payload["spec_display_name"] == "指数纵向回补 / index_weight"
     assert payload["params_json"]["start_date"] == "2020-01-01"
+    assert payload["progress_current"] == 651
+    assert payload["progress_total"] == 5814
+    assert payload["progress_percent"] == 11
+    assert payload["progress_message"] == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
     assert len(payload["steps"]) == 1
     assert payload["steps"][0]["step_key"] == "index_weight"
     assert len(payload["events"]) == 2
@@ -189,7 +198,7 @@ def test_ops_execution_retry_creates_new_execution(app_client, user_factory, job
     assert payload["params_json"] == {"exchange": "SSE"}
 
 
-def test_ops_execution_retry_now_runs_execution_immediately(app_client, user_factory, job_execution_factory, mocker) -> None:
+def test_ops_execution_retry_now_keeps_backward_compatible_path_but_only_requeues(app_client, user_factory, job_execution_factory, mocker) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     existing = job_execution_factory(
         spec_type="job",
@@ -198,7 +207,7 @@ def test_ops_execution_retry_now_runs_execution_immediately(app_client, user_fac
         requested_by_user_id=admin.id,
     )
     mocker.patch(
-        "src.web.api.v1.ops.executions.OpsExecutionCommandService.retry_execution_and_run",
+        "src.web.api.v1.ops.executions.OpsExecutionCommandService.retry_execution",
         return_value=existing.id + 1,
     )
     mocker.patch(
@@ -211,16 +220,21 @@ def test_ops_execution_retry_now_runs_execution_immediately(app_client, user_fac
             spec_display_name="股票基础信息",
             schedule_display_name=None,
             trigger_source="retry",
-            status="running",
+            status="queued",
             requested_by_username="admin",
             requested_at=datetime.now(timezone.utc),
-            queued_at=None,
-            started_at=datetime.now(timezone.utc),
+            queued_at=datetime.now(timezone.utc),
+            started_at=None,
             ended_at=None,
             params_json={},
-            summary_message="任务已经开始处理",
+            summary_message="任务已提交",
             rows_fetched=0,
             rows_written=0,
+            progress_current=None,
+            progress_total=None,
+            progress_percent=None,
+            progress_message=None,
+            last_progress_at=None,
             cancel_requested_at=None,
             canceled_at=None,
             error_code=None,
@@ -241,20 +255,16 @@ def test_ops_execution_retry_now_runs_execution_immediately(app_client, user_fac
     payload = response.json()
     assert payload["id"] != existing.id
     assert payload["trigger_source"] == "retry"
-    assert payload["status"] == "running"
+    assert payload["status"] == "queued"
 
 
-def test_ops_execution_run_now_starts_queued_execution(app_client, user_factory, job_execution_factory, mocker) -> None:
+def test_ops_execution_run_now_returns_current_execution_without_starting_it(app_client, user_factory, job_execution_factory, mocker) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
         spec_type="job",
         spec_key="sync_history.stock_basic",
         status="queued",
         requested_by_user_id=admin.id,
-    )
-    mocker.patch(
-        "src.web.api.v1.ops.executions.OpsExecutionCommandService.run_execution_now",
-        return_value=execution.id,
     )
     mocker.patch(
         "src.web.api.v1.ops.executions.ExecutionQueryService.get_execution_detail",
@@ -266,16 +276,21 @@ def test_ops_execution_run_now_starts_queued_execution(app_client, user_factory,
             spec_display_name="股票基础信息",
             schedule_display_name=None,
             trigger_source="manual",
-            status="running",
+            status="queued",
             requested_by_username="admin",
             requested_at=datetime.now(timezone.utc),
-            queued_at=None,
-            started_at=datetime.now(timezone.utc),
+            queued_at=datetime.now(timezone.utc),
+            started_at=None,
             ended_at=None,
             params_json={},
-            summary_message="任务已经开始处理",
+            summary_message="任务已提交",
             rows_fetched=0,
             rows_written=0,
+            progress_current=None,
+            progress_total=None,
+            progress_percent=None,
+            progress_message=None,
+            last_progress_at=None,
             cancel_requested_at=None,
             canceled_at=None,
             error_code=None,
@@ -295,13 +310,13 @@ def test_ops_execution_run_now_starts_queued_execution(app_client, user_factory,
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"] == execution.id
-    assert payload["status"] == "running"
+    assert payload["status"] == "queued"
 
 
-def test_ops_execution_create_run_now_executes_immediately(app_client, user_factory, mocker) -> None:
+def test_ops_execution_create_run_now_keeps_backward_compatible_path_but_only_creates_queued_execution(app_client, user_factory, mocker) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     mocker.patch(
-        "src.web.api.v1.ops.executions.OpsExecutionCommandService.create_manual_execution_and_run",
+        "src.web.api.v1.ops.executions.OpsExecutionCommandService.create_manual_execution",
         return_value=88,
     )
     mocker.patch(
@@ -314,16 +329,21 @@ def test_ops_execution_create_run_now_executes_immediately(app_client, user_fact
             spec_display_name="股票基础信息",
             schedule_display_name=None,
             trigger_source="manual",
-            status="running",
+            status="queued",
             requested_by_username="admin",
             requested_at=datetime.now(timezone.utc),
-            queued_at=None,
-            started_at=datetime.now(timezone.utc),
+            queued_at=datetime.now(timezone.utc),
+            started_at=None,
             ended_at=None,
             params_json={},
-            summary_message="任务已经开始处理",
+            summary_message="任务已提交",
             rows_fetched=0,
             rows_written=0,
+            progress_current=None,
+            progress_total=None,
+            progress_percent=None,
+            progress_message=None,
+            last_progress_at=None,
             cancel_requested_at=None,
             canceled_at=None,
             error_code=None,
@@ -348,7 +368,7 @@ def test_ops_execution_create_run_now_executes_immediately(app_client, user_fact
     assert response.status_code == 200
     payload = response.json()
     assert payload["spec_key"] == "sync_history.stock_basic"
-    assert payload["status"] == "running"
+    assert payload["status"] == "queued"
 
 
 def test_ops_execution_cancel_marks_cancel_requested(app_client, user_factory, job_execution_factory) -> None:

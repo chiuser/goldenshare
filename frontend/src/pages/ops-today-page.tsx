@@ -1,4 +1,4 @@
-import { Alert, Anchor, Grid, Group, Loader, Stack, Table, Text } from "@mantine/core";
+import { Alert, Button, Grid, Loader, Stack, Table, Text } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
@@ -6,6 +6,7 @@ import { apiRequest } from "../shared/api/client";
 import type { OpsOverviewResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { formatSpecDisplayLabel, formatTriggerSourceLabel } from "../shared/ops-display";
+import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -19,39 +20,6 @@ export function OpsTodayPage() {
   });
 
   const overview = overviewQuery.data;
-
-  const priorityItems = (() => {
-    if (!overview) return [];
-    const items: Array<{
-      key: string;
-      title: string;
-      description: string;
-      href: string;
-      actionLabel: string;
-    }> = [];
-
-    for (const item of overview.recent_failures.slice(0, 2)) {
-      items.push({
-        key: `failed-${item.id}`,
-        title: formatSpecDisplayLabel(item.spec_key, item.spec_display_name),
-        description: `最近一次执行失败，发起方式：${formatTriggerSourceLabel(item.trigger_source)}。`,
-        href: `/app/ops/tasks/${item.id}`,
-        actionLabel: "查看详情",
-      });
-    }
-
-    for (const item of overview.lagging_datasets.slice(0, 2)) {
-      items.push({
-        key: `dataset-${item.dataset_key}`,
-        title: item.display_name,
-        description: `最新业务日 ${formatDateLabel(item.latest_business_date)}，建议尽快检查。`,
-        href: `/app/ops/data-status`,
-        actionLabel: "去处理",
-      });
-    }
-
-    return items.slice(0, 4);
-  })();
 
   return (
     <Stack gap="lg">
@@ -94,127 +62,114 @@ export function OpsTodayPage() {
             </Grid.Col>
           </Grid>
 
-          <Grid align="stretch">
-            <Grid.Col span={{ base: 12, xl: 5 }}>
-              <SectionCard
-                title="需要优先处理的问题"
-                description="优先展示最近失败的任务和当前滞后的数据，方便第一时间处理。"
-              >
-                {priorityItems.length ? (
-                  <Stack gap="sm">
-                    {priorityItems.map((item) => (
-                      <Group key={item.key} justify="space-between" align="flex-start" gap="md">
-                        <Stack gap={2}>
-                          <Text fw={600}>{item.title}</Text>
-                          <Text c="dimmed" size="sm">
-                            {item.description}
-                          </Text>
-                        </Stack>
-                        <Anchor component="a" href={item.href} size="sm">
-                          {item.actionLabel}
-                        </Anchor>
-                      </Group>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Alert color="teal" variant="light" title="今天暂时没有需要优先处理的问题">
-                    当前没有发现新的失败任务，也没有明显滞后的关键数据。
-                  </Alert>
-                )}
-              </SectionCard>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, xl: 7 }}>
-              <SectionCard
-                title="需要关注的数据"
-                description="这里显示当前不是“正常”状态的数据，方便快速判断要不要补同步。"
-                action={
-                  <Anchor component={Link} to="/ops/data-status" size="sm">
-                    查看全部
-                  </Anchor>
-                }
-              >
-                <Table highlightOnHover striped>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>数据名称</Table.Th>
-                      <Table.Th>最新日期</Table.Th>
-                      <Table.Th>当前状态</Table.Th>
-                      <Table.Th>操作</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {overview.lagging_datasets.slice(0, 5).map((item) => (
-                      <Table.Tr key={item.dataset_key}>
-                        <Table.Td>{item.display_name}</Table.Td>
-                        <Table.Td>{formatDateLabel(item.latest_business_date)}</Table.Td>
-                        <Table.Td>
-                          <StatusBadge value={item.freshness_status} />
-                        </Table.Td>
-                        <Table.Td>
-                          <Anchor component={Link} to="/ops/data-status" size="sm">
-                            去处理
-                          </Anchor>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                    {!overview.lagging_datasets.length ? (
-                      <Table.Tr>
-                        <Table.Td colSpan={4}>
-                          <Text c="dimmed" size="sm">
-                            当前没有需要关注的数据。
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ) : null}
-                  </Table.Tbody>
-                </Table>
-              </SectionCard>
-            </Grid.Col>
-          </Grid>
-
           <SectionCard
             title="最近任务记录"
             description="展示最近发起或完成的任务，方便快速进入任务详情页继续处理。"
             action={
-              <Group gap="md">
-                <Anchor component={Link} to="/ops/manual-sync" size="sm">
-                  去手动同步
-                </Anchor>
-                <Anchor component={Link} to="/ops/tasks" size="sm">
-                  查看全部任务
-                </Anchor>
-              </Group>
+              <Button component={Link} to="/ops/tasks" size="xs" variant="light">
+                查看全部任务
+              </Button>
             }
           >
-            <Table highlightOnHover striped>
+            <OpsTable>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>任务名称</Table.Th>
-                  <Table.Th>发起方式</Table.Th>
-                  <Table.Th>开始时间</Table.Th>
-                  <Table.Th>当前状态</Table.Th>
-                  <Table.Th>操作</Table.Th>
+                  <OpsTableHeaderCell>任务名称</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>发起方式</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>开始时间</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>操作</OpsTableHeaderCell>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {overview.recent_executions.slice(0, 8).map((item) => (
                   <Table.Tr key={item.id}>
-                    <Table.Td>{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</Table.Td>
-                    <Table.Td>{formatTriggerSourceLabel(item.trigger_source)}</Table.Td>
-                    <Table.Td>{formatDateTimeLabel(item.requested_at)}</Table.Td>
-                    <Table.Td>
+                    <OpsTableCell>
+                      <OpsTableCellText fw={600}>{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText>{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText>{formatDateTimeLabel(item.requested_at)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
                       <StatusBadge value={item.status} />
-                    </Table.Td>
-                    <Table.Td>
-                      <Anchor component="a" href={`/app/ops/tasks/${item.id}`} size="sm">
-                        查看详情
-                      </Anchor>
-                    </Table.Td>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableActionGroup>
+                        <Button component="a" href={`/app/ops/tasks/${item.id}`} size="xs" variant="light">
+                          查看详情
+                        </Button>
+                      </OpsTableActionGroup>
+                    </OpsTableCell>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
-            </Table>
+            </OpsTable>
+          </SectionCard>
+
+          <SectionCard
+            title="需要关注的数据"
+            description="这里显示当前不是“正常”状态的数据，方便快速判断要不要补同步。"
+            action={
+              <Button component={Link} to="/ops/data-status" size="xs" variant="light">
+                查看全部数据
+              </Button>
+            }
+          >
+            <OpsTable>
+              <Table.Thead>
+                <Table.Tr>
+                  <OpsTableHeaderCell>数据名称</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>最新日期</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>当前状态</OpsTableHeaderCell>
+                  <OpsTableHeaderCell>操作</OpsTableHeaderCell>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {overview.lagging_datasets.slice(0, 5).map((item) => (
+                  <Table.Tr key={item.dataset_key}>
+                    <OpsTableCell>
+                      <OpsTableCellText fw={600}>{item.display_name}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableCellText>{formatDateLabel(item.latest_business_date)}</OpsTableCellText>
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <StatusBadge value={item.freshness_status} />
+                    </OpsTableCell>
+                    <OpsTableCell>
+                      <OpsTableActionGroup>
+                        {item.primary_execution_spec_key ? (
+                          <Button
+                            component="a"
+                            href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
+                            size="xs"
+                            variant="light"
+                          >
+                            去处理
+                          </Button>
+                        ) : (
+                          <Button component={Link} to="/ops/tasks" size="xs" variant="light">
+                            去处理
+                          </Button>
+                        )}
+                      </OpsTableActionGroup>
+                    </OpsTableCell>
+                  </Table.Tr>
+                ))}
+                {!overview.lagging_datasets.length ? (
+                  <Table.Tr>
+                    <Table.Td colSpan={4}>
+                      <Text c="dimmed" size="sm">
+                        当前没有需要关注的数据。
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ) : null}
+              </Table.Tbody>
+            </OpsTable>
           </SectionCard>
         </>
       ) : null}

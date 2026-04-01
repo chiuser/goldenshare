@@ -120,7 +120,8 @@ def test_ops_freshness_uses_observed_table_date_when_newer_than_job_state(
         last_success_date=date(2025, 12, 31),
         last_success_at=datetime(2026, 3, 29, 7, 14, 12, tzinfo=timezone.utc),
     )
-    equity_block_trade_factory(trade_date=date(2026, 3, 26))
+    equity_block_trade_factory(trade_date=date(2020, 1, 1))
+    equity_block_trade_factory(trade_date=date(2026, 3, 26), ts_code="000002.SZ", buyer="buyer-2", seller="seller-2", price="11.00", vol="1200.00")
 
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -134,6 +135,7 @@ def test_ops_freshness_uses_observed_table_date_when_newer_than_job_state(
         for group in payload["groups"]
     }
     assert grouped["equity"]["block_trade"]["latest_business_date"] == "2026-03-26"
+    assert grouped["equity"]["block_trade"]["earliest_business_date"] == "2020-01-01"
     assert grouped["equity"]["block_trade"]["business_date_source"] == "observed"
     assert grouped["equity"]["block_trade"]["freshness_note"] == "已按真实目标表的业务日期修正，状态表记录偏旧。"
     assert grouped["equity"]["block_trade"]["state_business_date"] == "2025-12-31"

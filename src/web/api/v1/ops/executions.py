@@ -101,7 +101,7 @@ def create_ops_execution_and_run_now(
     user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
 ) -> ExecutionDetailResponse:
-    execution_id = OpsExecutionCommandService().create_manual_execution_and_run(
+    execution_id = OpsExecutionCommandService().create_manual_execution(
         session,
         user=user,
         spec_type=body.spec_type,
@@ -127,11 +127,7 @@ def retry_ops_execution_and_run_now(
     user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
 ) -> ExecutionDetailResponse:
-    new_execution_id = OpsExecutionCommandService().retry_execution_and_run(
-        session,
-        user=user,
-        execution_id=execution_id,
-    )
+    new_execution_id = OpsExecutionCommandService().retry_execution(session, user=user, execution_id=execution_id)
     return ExecutionQueryService().get_execution_detail(session, new_execution_id)
 
 
@@ -141,8 +137,7 @@ def run_ops_execution_now(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
 ) -> ExecutionDetailResponse:
-    result_execution_id = OpsExecutionCommandService().run_execution_now(session, execution_id=execution_id)
-    return ExecutionQueryService().get_execution_detail(session, result_execution_id)
+    return ExecutionQueryService().get_execution_detail(session, execution_id)
 
 
 @router.post("/{execution_id}/cancel", response_model=ExecutionDetailResponse)

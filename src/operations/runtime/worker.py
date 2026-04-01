@@ -51,6 +51,8 @@ class OperationsWorker:
 
         execution.status = "running"
         execution.started_at = datetime.now(timezone.utc)
+        execution.progress_message = "系统已经开始处理这次任务。"
+        execution.last_progress_at = execution.started_at
         session.add(
             JobExecutionEvent(
                 execution_id=execution.id,
@@ -84,6 +86,11 @@ class OperationsWorker:
         execution.summary_message = outcome.summary_message
         execution.error_code = outcome.error_code
         execution.error_message = outcome.error_message
+        if outcome.status == "success" and execution.progress_total is not None:
+            execution.progress_current = execution.progress_total
+            execution.progress_percent = 100
+        execution.progress_message = outcome.summary_message or execution.progress_message
+        execution.last_progress_at = execution.ended_at
         final_event_type = "succeeded"
         level = "INFO"
         if outcome.status == "failed":

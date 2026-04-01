@@ -181,13 +181,15 @@ class OperationsDispatcher:
         normalized = self._normalize_dates(params)
 
         def on_progress(message: str) -> None:
+            progress_payload = self._build_progress_payload(message)
+            self._update_execution_progress(session, execution.id, progress_payload)
             self._event(
                 session,
                 execution.id,
                 "step_progress",
                 step_id=step_id,
                 message=message,
-                payload_json={"progress_message": message},
+                payload_json=progress_payload,
             )
             session.commit()
 
@@ -197,6 +199,7 @@ class OperationsDispatcher:
                 self._require_date(normalized, "start_date"),
                 self._require_date(normalized, "end_date"),
                 exchange=normalized.get("exchange"),
+                execution_id=execution.id,
             )
         elif job_spec.category == "backfill_equity_series":
             summary = service.backfill_equity_series(
@@ -206,6 +209,7 @@ class OperationsDispatcher:
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
+                execution_id=execution.id,
             )
         elif job_spec.category == "backfill_by_trade_date":
             summary = service.backfill_by_trade_dates(
@@ -216,6 +220,7 @@ class OperationsDispatcher:
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
+                execution_id=execution.id,
             )
         elif job_spec.category == "backfill_low_frequency":
             summary = service.backfill_low_frequency_by_security(
@@ -223,6 +228,7 @@ class OperationsDispatcher:
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
+                execution_id=execution.id,
             )
         elif job_spec.category == "backfill_fund_series":
             summary = service.backfill_fund_series(
@@ -232,6 +238,7 @@ class OperationsDispatcher:
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
+                execution_id=execution.id,
             )
         elif job_spec.category == "backfill_index_series":
             summary = service.backfill_index_series(
@@ -241,6 +248,7 @@ class OperationsDispatcher:
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
+                execution_id=execution.id,
             )
         else:
             raise ValueError(f"Unsupported backfill category: {job_spec.category}")
@@ -296,6 +304,40 @@ class OperationsDispatcher:
                 occurred_at=datetime.now(timezone.utc),
             )
         )
+
+    def _update_execution_progress(self, session: Session, execution_id: int, payload_json: dict[str, Any]) -> None:
+        execution = session.get(JobExecution, execution_id)
+        if execution is None:
+            return
+        execution.progress_message = str(payload_json.get("progress_message") or execution.progress_message or "")
+        execution.last_progress_at = datetime.now(timezone.utc)
+
+        current = self._optional_int(payload_json.get("progress_current"))
+        total = self._optional_int(payload_json.get("progress_total"))
+        percent = self._optional_int(payload_json.get("progress_percent"))
+
+        if current is not None:
+            execution.progress_current = current
+        if total is not None:
+            execution.progress_total = total
+        if percent is not None:
+            execution.progress_percent = max(0, min(100, percent))
+
+    @staticmethod
+    def _build_progress_payload(message: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {"progress_message": message}
+        import re
+
+        match = re.search(r"(\d+)\s*/\s*(\d+)", message)
+        if not match:
+            return payload
+
+        current = int(match.group(1))
+        total = int(match.group(2))
+        payload["progress_current"] = current
+        payload["progress_total"] = total
+        payload["progress_percent"] = 0 if total <= 0 else round(current / total * 100)
+        return payload
 
     @staticmethod
     def _parse_date(value: Any) -> date:

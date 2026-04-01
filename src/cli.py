@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from src.config.logging import configure_logging
 from src.config.settings import get_settings
 from src.db import SessionLocal
 from src.operations.runtime import OperationsScheduler, OperationsWorker
+from src.operations.services import OperationsExecutionReconciliationService, SyncJobStateReconciliationService
 from src.services.history_backfill_service import HistoryBackfillService
 from src.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
@@ -62,10 +64,13 @@ def sync_history(
     end_date: str | None = typer.Option(None),
 ) -> None:
     with SessionLocal() as session:
+        reconciliation_service = SyncJobStateReconciliationService()
         for resource in resources:
             service = build_sync_service(resource, session)
             kwargs = {"ts_code": ts_code, "index_code": index_code, "start_date": start_date, "end_date": end_date}
-            service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
+            result = service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
+            if result.trade_date is None:
+                reconciliation_service.refresh_resource_state_from_observed(session, resource)
 
 
 @app.command("sync-daily")
@@ -202,7 +207,7 @@ def backfill_fund_series(
 
 @app.command("backfill-index-series")
 def backfill_index_series(
-    resource: str = typer.Option(..., help="index_weekly, index_monthly, index_daily_basic, or index_weight"),
+    resource: str = typer.Option(..., help="index_daily, index_weekly, index_monthly, index_daily_basic, or index_weight"),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     offset: int = typer.Option(0),
@@ -258,3 +263,97 @@ def ops_worker_run(
                 f"rows_written={execution.rows_written}"
             )
         typer.echo(f"ops-worker-run: processed={processed}")
+
+
+@app.command("ops-scheduler-serve")
+def ops_scheduler_serve(
+    limit: int = typer.Option(100, min=1, max=1000, help="Maximum due schedules to enqueue per cycle."),
+    sleep_seconds: float = typer.Option(30.0, min=1.0, help="Seconds to sleep between scheduler cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    cycles = 0
+    while True:
+        with SessionLocal() as session:
+            executions = OperationsScheduler().run_once(session, limit=limit)
+            typer.echo(f"ops-scheduler-serve: scheduled={len(executions)}")
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        time.sleep(sleep_seconds)
+
+
+@app.command("ops-worker-serve")
+def ops_worker_serve(
+    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued executions to consume per cycle."),
+    sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    cycles = 0
+    while True:
+        with SessionLocal() as session:
+            worker = OperationsWorker()
+            processed = 0
+            for _ in range(limit):
+                execution = worker.run_next(session)
+                if execution is None:
+                    break
+                processed += 1
+            typer.echo(f"ops-worker-serve: processed={processed}")
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        time.sleep(sleep_seconds)
+
+
+@app.command("ops-reconcile-executions")
+def ops_reconcile_executions(
+    stale_for_minutes: int = typer.Option(30, min=1, help="Treat queued/running executions without activity for this many minutes as stale."),
+    limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect."),
+    apply: bool = typer.Option(False, "--apply", help="Actually repair stale execution statuses. Without this flag, only preview."),
+) -> None:
+    with SessionLocal() as session:
+        service = OperationsExecutionReconciliationService()
+        if apply:
+            reconciled = service.reconcile_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
+            for item in reconciled:
+                typer.echo(
+                    f"reconciled execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
+                )
+            typer.echo(f"ops-reconcile-executions: reconciled={len(reconciled)}")
+            return
+
+        previews = service.preview_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
+        for item in previews:
+            typer.echo(
+                f"stale execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
+            )
+        typer.echo(f"ops-reconcile-executions: stale={len(previews)}")
+
+
+@app.command("ops-reconcile-sync-job-state")
+def ops_reconcile_sync_job_state(
+    apply: bool = typer.Option(False, "--apply", help="Actually repair stale sync_job_state rows. Without this flag, only preview."),
+) -> None:
+    with SessionLocal() as session:
+        service = SyncJobStateReconciliationService()
+        if apply:
+            reconciled = service.reconcile_stale_sync_job_states(session)
+            for item in reconciled:
+                typer.echo(
+                    "reconciled "
+                    f"{item.job_name} "
+                    f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
+                    f"target_table={item.target_table}"
+                )
+            typer.echo(f"ops-reconcile-sync-job-state: reconciled={len(reconciled)}")
+            return
+
+        previews = service.preview_stale_sync_job_states(session)
+        for item in previews:
+            typer.echo(
+                "stale "
+                f"{item.job_name} "
+                f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
+                f"target_table={item.target_table}"
+            )
+        typer.echo(f"ops-reconcile-sync-job-state: stale={len(previews)}")

@@ -252,7 +252,7 @@ JOB_SPEC_REGISTRY["backfill_fund_series.fund_daily"] = _backfill_job_spec(
     supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
 )
 
-for _resource in ("index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
+for _resource in ("index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
     JOB_SPEC_REGISTRY[f"backfill_index_series.{_resource}"] = _backfill_job_spec(
         prefix="backfill_index_series",
         resource=_resource,
@@ -312,8 +312,9 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
     "index_extension_backfill": WorkflowSpec(
         key="index_extension_backfill",
         display_name="指数扩展数据补齐",
-        description="批量回补指数周线、月线、日指标和成分权重。",
+        description="批量回补指数日线、周线、月线、日指标和成分权重。",
         steps=(
+            WorkflowStepSpec("index_daily", "backfill_index_series.index_daily", "指数日线"),
             WorkflowStepSpec("index_weekly", "backfill_index_series.index_weekly", "指数周线"),
             WorkflowStepSpec("index_monthly", "backfill_index_series.index_monthly", "指数月线"),
             WorkflowStepSpec("index_daily_basic", "backfill_index_series.index_daily_basic", "指数日指标"),

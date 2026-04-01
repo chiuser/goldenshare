@@ -19,6 +19,27 @@ The market data foundation remains the system of record for ingestion, normaliza
 
 The web application is an application layer and BFF layer on top of the foundation. It is not allowed to reshape the data foundation around temporary page needs.
 
+## Data Foundation Execution Boundary
+
+Data-running capability belongs to the data foundation.
+
+Rules:
+
+- synchronization, backfill, scheduling, execution, retry, cancellation, progress tracking, logs, and freshness calculation belong to the foundation layer
+- the web layer may create task requests, query task state, and display results, but must not directly execute heavy data jobs
+- if a page needs a new sync or maintenance mode, implement it in the data foundation first, then expose it through a stable control interface
+- the web layer must not introduce direct execution shortcuts simply because a page currently needs them
+- if a data interface naturally supports a date range, the foundation implementation should provide both single-day execution and historical backfill capability from the start; do not ship a date-ranged dataset with only one of those modes
+- when a new dataset is introduced, its operational capability must be introduced at the same time: it should be schedulable, manually triggerable, and observable through the operations system instead of existing as an unmanaged foundation-only table
+
+Implication:
+
+- web lifecycle and task lifecycle must be decoupled
+- restarting the web service must not interrupt running data jobs
+- page interaction is not an excuse to bypass foundation boundaries
+- datasets with date-driven update semantics should not require later retrofitting just to gain basic single-day sync or backfill support
+- “data exists in the foundation” is not considered sufficient completion for a new dataset; the operational surface is part of the delivery definition
+
 ## External Reference Rule
 
 External projects may be used as references for:
@@ -158,6 +179,22 @@ Implication:
 - the default reader for control surfaces should be treated as someone who can learn the system quickly, but should not need source-code knowledge to operate it
 - a page is not considered "done" if it only makes sense to people who already know the backend object model
 
+## Shared Frontend Component Principle
+
+Common interaction patterns must be implemented as shared components instead of repeated page-local improvisation.
+
+Rules:
+
+- repeated UI patterns such as help tips, section cards, status badges, empty states, action summaries, and date selectors should converge into reusable shared components
+- when a repeated pattern is discovered during page iteration, prefer extracting it into the shared UI layer instead of duplicating slightly different versions
+- design and behavior of shared components become part of the frontend standard library and should be covered by tests when practical
+- pages should consume shared components by default unless there is a clear reason to create a specialized variant
+
+Implication:
+
+- interaction quality and visual consistency should improve over time as pages reuse the same building blocks
+- common fixes such as tooltip help, date input behavior, or status display should be solved once and inherited everywhere
+
 ## Operations Frontend Information Architecture Principle
 
 The operations frontend must be organized around the user's jobs-to-be-done, not around internal runtime objects.
@@ -170,6 +207,9 @@ Rules:
 - "retry" in the UI should mean "restart this task now" unless the UI clearly says it will only queue the task
 - overview pages should emphasize current state, risks, and next steps; low-level runtime controls belong in dedicated advanced areas, not in the main dashboard surface
 - task-detail pages should lead with a user-readable problem summary and recommended next action before exposing raw logs or structured payloads
+- manual-sync pages must be organized around the data the user wants to maintain, not around backend strategy names such as daily sync, history sync, or backfill
+- frontend forms must not expose internal batching controls such as offset and limit unless the product explicitly targets expert maintenance workflows
+- date-related inputs should use shared date components with consistent formatting and interaction, not free-form text entry
 
 Implication:
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.operations.runtime import DispatchOutcome, OperationsScheduler, OperationsWorker
+from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
 
 
 class StubDispatcher:
@@ -75,6 +75,29 @@ def test_worker_claims_queued_execution_and_marks_success(db_session, job_execut
     assert result.rows_fetched == 10
     assert result.rows_written == 8
     assert dispatcher.calls == [execution.id]
+
+
+def test_dispatcher_progress_snapshot_updates_execution_fields(db_session, job_execution_factory) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="backfill_equity_series.daily",
+        status="running",
+    )
+
+    dispatcher = OperationsDispatcher()
+    dispatcher._update_execution_progress(
+        db_session,
+        execution.id,
+        dispatcher._build_progress_payload("daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"),
+    )
+    db_session.commit()
+    db_session.refresh(execution)
+
+    assert execution.progress_current == 651
+    assert execution.progress_total == 5814
+    assert execution.progress_percent == 11
+    assert execution.progress_message == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
+    assert execution.last_progress_at is not None
 
 
 def test_worker_cancels_queued_execution_before_dispatch(db_session, job_execution_factory) -> None:
