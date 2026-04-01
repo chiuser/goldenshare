@@ -8,6 +8,7 @@ ParameterType = Literal["string", "date", "integer", "boolean", "enum"]
 StrategyType = Literal[
     "full_refresh",
     "incremental_by_date",
+    "backfill_by_date_range",
     "backfill_by_trade_date",
     "backfill_by_security",
     "backfill_low_frequency",

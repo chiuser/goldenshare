@@ -213,3 +213,52 @@ ETF_BASIC_FIELDS = [
     "mgt_fee",
     "etf_type",
 ]
+
+THS_INDEX_FIELDS = ["ts_code", "name", "count", "exchange", "list_date", "type"]
+THS_MEMBER_FIELDS = ["ts_code", "con_code", "con_name", "weight", "in_date", "out_date", "is_new"]
+THS_DAILY_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "close",
+    "open",
+    "high",
+    "low",
+    "pre_close",
+    "avg_price",
+    "change",
+    "pct_change",
+    "vol",
+    "turnover_rate",
+    "total_mv",
+    "float_mv",
+]
+DC_INDEX_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "name",
+    "leading",
+    "leading_code",
+    "pct_change",
+    "leading_pct",
+    "total_mv",
+    "turnover_rate",
+    "up_num",
+    "down_num",
+    "idx_type",
+    "level",
+]
+DC_MEMBER_FIELDS = ["trade_date", "ts_code", "con_code", "name"]
+DC_DAILY_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "close",
+    "open",
+    "high",
+    "low",
+    "change",
+    "pct_change",
+    "vol",
+    "amount",
+    "swing",
+    "turnover_rate",
+]

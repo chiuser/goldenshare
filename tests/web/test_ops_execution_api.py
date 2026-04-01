@@ -174,6 +174,28 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
     assert [event["event_type"] for event in payload["events"]] == ["created", "queued"]
 
 
+def test_ops_execution_create_supports_sync_history_ths_member_without_optional_filters(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/executions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "spec_type": "job",
+            "spec_key": "sync_history.ths_member",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["spec_key"] == "sync_history.ths_member"
+    assert payload["status"] == "queued"
+    assert payload["params_json"] == {}
+
+
 def test_ops_execution_retry_creates_new_execution(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     existing = job_execution_factory(

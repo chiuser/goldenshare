@@ -8,3 +8,7 @@ def test_registry_contains_required_resources() -> None:
     assert "fund_daily" in SYNC_SERVICE_REGISTRY
     assert "stk_period_bar_week" in SYNC_SERVICE_REGISTRY
     assert "index_weight" in SYNC_SERVICE_REGISTRY
+    assert "ths_daily" in SYNC_SERVICE_REGISTRY
+    assert "dc_index" in SYNC_SERVICE_REGISTRY
+    assert "dc_member" in SYNC_SERVICE_REGISTRY
+    assert "dc_daily" in SYNC_SERVICE_REGISTRY

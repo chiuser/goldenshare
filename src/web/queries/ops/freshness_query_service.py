@@ -11,18 +11,29 @@ from src.models.core.equity_adj_factor import EquityAdjFactor
 from src.models.core.equity_block_trade import EquityBlockTrade
 from src.models.core.equity_daily_bar import EquityDailyBar
 from src.models.core.equity_daily_basic import EquityDailyBasic
+from src.models.core.equity_dividend import EquityDividend
+from src.models.core.equity_holder_number import EquityHolderNumber
 from src.models.core.equity_limit_list import EquityLimitList
 from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
+from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_index import DcIndex
+from src.models.core.dc_member import DcMember
+from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_bar import IndexDailyBar
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
 from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.trade_calendar import TradeCalendar
+from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_index import ThsIndex
+from src.models.core.ths_member import ThsMember
 from src.models.ops.sync_job_state import SyncJobState
 from src.models.ops.sync_run_log import SyncRunLog
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec_by_job_name, list_dataset_freshness_specs
@@ -42,7 +53,10 @@ ON_CONFLICT_RE = re.compile(
 )
 
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
+    "core.security": Security,
     "core.trade_calendar": TradeCalendar,
+    "core.etf_basic": EtfBasic,
+    "core.index_basic": IndexBasic,
     "core.equity_daily_bar": EquityDailyBar,
     "core.equity_adj_factor": EquityAdjFactor,
     "core.equity_daily_basic": EquityDailyBasic,
@@ -50,6 +64,8 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.equity_top_list": EquityTopList,
     "core.equity_block_trade": EquityBlockTrade,
     "core.equity_limit_list": EquityLimitList,
+    "core.equity_dividend": EquityDividend,
+    "core.equity_holder_number": EquityHolderNumber,
     "core.stk_period_bar": StkPeriodBar,
     "core.stk_period_bar_adj": StkPeriodBarAdj,
     "core.fund_daily_bar": FundDailyBar,
@@ -58,6 +74,12 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.index_monthly_bar": IndexMonthlyBar,
     "core.index_daily_basic": IndexDailyBasic,
     "core.index_weight": IndexWeight,
+    "core.ths_index": ThsIndex,
+    "core.ths_member": ThsMember,
+    "core.ths_daily": ThsDaily,
+    "core.dc_index": DcIndex,
+    "core.dc_member": DcMember,
+    "core.dc_daily": DcDaily,
 }
 
 
@@ -74,7 +96,7 @@ class OpsFreshnessQueryService:
         states = list(session.scalars(select(SyncJobState)))
         state_by_job_name = {state.job_name: state for state in states}
         failures_by_job_name = self._latest_failures_by_job_name(session)
-        observed_business_ranges = self._observed_business_date_ranges(session)
+        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(session)
 
         items = [
             self._build_item(
@@ -84,6 +106,7 @@ class OpsFreshnessQueryService:
                 reference_date=reference_date,
                 recent_failure=failures_by_job_name.get(spec.job_name),
                 observed_business_range=observed_business_ranges.get(spec.dataset_key),
+                observed_sync_date=observed_sync_dates.get(spec.dataset_key),
             )
             for spec in list_dataset_freshness_specs()
         ]
@@ -97,6 +120,7 @@ class OpsFreshnessQueryService:
                     reference_date=reference_date,
                     recent_failure=failures_by_job_name.get(job_name),
                     observed_business_range=None,
+                    observed_sync_date=observed_sync_dates.get(self._fallback_spec_for_state(state).dataset_key),
                 )
             )
 
@@ -124,8 +148,14 @@ class OpsFreshnessQueryService:
         reference_date: date,
         recent_failure: FailureSnapshot | None,
         observed_business_range: tuple[date | None, date | None] | None,
+        observed_sync_date: date | None,
     ) -> DatasetFreshnessItem:
         latest_success_at = self._normalize_datetime(state.last_success_at) if state is not None else None
+        state_sync_date = latest_success_at.date() if latest_success_at is not None else None
+        if state_sync_date and observed_sync_date:
+            last_sync_date = max(state_sync_date, observed_sync_date)
+        else:
+            last_sync_date = observed_sync_date or state_sync_date
         state_business_date = state.last_success_date if state is not None else None
         earliest_business_date = observed_business_range[0] if observed_business_range else None
         observed_business_date = observed_business_range[1] if observed_business_range else None
@@ -162,6 +192,7 @@ class OpsFreshnessQueryService:
                 business_date_source=business_date_source,
             ),
             latest_success_at=latest_success_at,
+            last_sync_date=last_sync_date,
             expected_business_date=expected_business_date,
             lag_days=lag_days,
             freshness_status=freshness_status,
@@ -317,25 +348,40 @@ class OpsFreshnessQueryService:
         return failures
 
     @staticmethod
-    def _observed_business_date_ranges(session: Session) -> dict[str, tuple[date | None, date | None]]:
-        observed: dict[str, tuple[date | None, date | None]] = {}
+    def _observed_dataset_snapshots(
+        session: Session,
+    ) -> tuple[dict[str, tuple[date | None, date | None]], dict[str, date | None]]:
+        observed_ranges: dict[str, tuple[date | None, date | None]] = {}
+        observed_sync_dates: dict[str, date | None] = {}
         for spec in list_dataset_freshness_specs():
-            if not spec.observed_date_column:
-                continue
             model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
-            if model is None or not hasattr(model, spec.observed_date_column):
-                observed[spec.dataset_key] = (None, None)
+            if model is None:
+                continue
+            if spec.observed_date_column:
+                if not hasattr(model, spec.observed_date_column):
+                    observed_ranges[spec.dataset_key] = (None, None)
+                    observed_sync_dates[spec.dataset_key] = None
+                    continue
+                try:
+                    column = getattr(model, spec.observed_date_column)
+                    earliest_raw, latest_raw = session.execute(select(func.min(column), func.max(column))).one()
+                    normalized_earliest = OpsFreshnessQueryService._normalize_observed_date(earliest_raw)
+                    normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
+                    observed_ranges[spec.dataset_key] = (normalized_earliest, normalized_latest)
+                    observed_sync_dates[spec.dataset_key] = normalized_latest
+                except SQLAlchemyError:
+                    observed_ranges[spec.dataset_key] = (None, None)
+                    observed_sync_dates[spec.dataset_key] = None
                 continue
             try:
-                column = getattr(model, spec.observed_date_column)
-                earliest_raw, latest_raw = session.execute(select(func.min(column), func.max(column))).one()
-                observed[spec.dataset_key] = (
-                    OpsFreshnessQueryService._normalize_observed_date(earliest_raw),
-                    OpsFreshnessQueryService._normalize_observed_date(latest_raw),
-                )
+                if not hasattr(model, "updated_at"):
+                    observed_sync_dates[spec.dataset_key] = None
+                    continue
+                latest_updated_at = session.scalar(select(func.max(getattr(model, "updated_at"))))
+                observed_sync_dates[spec.dataset_key] = OpsFreshnessQueryService._normalize_observed_date(latest_updated_at)
             except SQLAlchemyError:
-                observed[spec.dataset_key] = (None, None)
-        return observed
+                observed_sync_dates[spec.dataset_key] = None
+        return observed_ranges, observed_sync_dates
 
     @staticmethod
     def _normalize_observed_date(value: object) -> date | None:

@@ -21,6 +21,7 @@ class DatasetFreshnessItem(BaseModel):
     business_date_source: str = "none"
     freshness_note: str | None = None
     latest_success_at: datetime | None = None
+    last_sync_date: date | None = None
     expected_business_date: date | None = None
     lag_days: int | None = None
     freshness_status: str

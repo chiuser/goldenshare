@@ -17,6 +17,7 @@ from src.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, get_web_settings
 settings = get_web_settings()
 FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
+FRONTEND_BRAND_DIR = FRONTEND_DIST_DIR / "brand"
 
 app = FastAPI(
     title="Goldenshare Web",
@@ -37,6 +38,8 @@ if settings.web_cors_origins.strip():
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="web-static")
 if FRONTEND_ASSETS_DIR.exists():
     app.mount("/app/assets", StaticFiles(directory=str(FRONTEND_ASSETS_DIR)), name="frontend-assets")
+if FRONTEND_BRAND_DIR.exists():
+    app.mount("/app/brand", StaticFiles(directory=str(FRONTEND_BRAND_DIR)), name="frontend-brand")
 install_exception_handlers(app)
 app.include_router(api_router)
 

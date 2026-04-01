@@ -19,12 +19,15 @@ const cadenceLabelMap: Record<string, string> = {
   event: "事件驱动",
 };
 
-function formatDateRangeLabel(earliestDate: string | null, latestDate: string | null) {
+function formatDateRangeLabel(earliestDate: string | null, latestDate: string | null, lastSyncDate: string | null) {
   if (earliestDate && latestDate) {
     if (earliestDate === latestDate) {
       return formatDateLabel(latestDate);
     }
     return `${formatDateLabel(earliestDate)} ~ ${formatDateLabel(latestDate)}`;
+  }
+  if (lastSyncDate) {
+    return formatDateLabel(lastSyncDate);
   }
   return formatDateLabel(latestDate);
 }
@@ -39,7 +42,7 @@ export function OpsDataStatusPage() {
     <Stack gap="lg">
       <PageHeader
         title="数据状态"
-        description="这里直接回答“数据是不是最新”。日期范围表示当前数据覆盖到的起止区间，但不代表中间一定没有缺口。"
+        description="这里直接回答“数据是不是最新”。有业务日期的数据会显示覆盖范围；没有业务日期的数据会显示最近一次同步日期。"
       />
 
       {freshnessQuery.isLoading ? <Loader size="sm" /> : null}
@@ -90,7 +93,7 @@ export function OpsDataStatusPage() {
                         <OpsTableCellText fw={600}>{item.display_name}</OpsTableCellText>
                       </OpsTableCell>
                       <OpsTableCell>
-                        <OpsTableCellText>{formatDateRangeLabel(item.earliest_business_date, item.latest_business_date)}</OpsTableCellText>
+                        <OpsTableCellText>{formatDateRangeLabel(item.earliest_business_date, item.latest_business_date, item.last_sync_date)}</OpsTableCellText>
                       </OpsTableCell>
                       <OpsTableCell>
                         <OpsTableCellText>{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
@@ -108,25 +111,13 @@ export function OpsDataStatusPage() {
                           {item.primary_execution_spec_key ? (
                             <Button
                               component="a"
-                              href={`/app/ops/tasks?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}`}
-                              size="xs"
-                              variant="light"
-                            >
-                              查看任务
-                            </Button>
-                          ) : (
-                            <OpsTableCellText c="dimmed">—</OpsTableCellText>
-                          )}
-                          {item.primary_execution_spec_key ? (
-                            <Button
-                              component="a"
                               href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
                               size="xs"
                               variant="default"
                             >
                               去处理
                             </Button>
-                          ) : null}
+                          ) : <OpsTableCellText c="dimmed">—</OpsTableCellText>}
                         </OpsTableActionGroup>
                       </OpsTableCell>
                     </Table.Tr>

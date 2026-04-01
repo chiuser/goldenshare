@@ -56,6 +56,11 @@ export function OpsShell(_props: PropsWithChildren) {
         <Group justify="space-between" h="100%">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
+            <img
+              src="/app/brand/logo-icon.png"
+              alt="财势乾坤图标"
+              className="app-brand-mark"
+            />
             <Stack gap={0}>
               <Text fw={800} size="xl">
                 财势乾坤
@@ -66,7 +71,7 @@ export function OpsShell(_props: PropsWithChildren) {
             </Stack>
           </Group>
           <Group gap="sm">
-            <Badge radius="xl" size="lg" color="cyan">
+            <Badge radius="xl" size="lg" color="brand" variant="filled">
               运行管理
             </Badge>
             <Stack gap={0} align="flex-end">
@@ -95,7 +100,8 @@ export function OpsShell(_props: PropsWithChildren) {
                 label={link.label}
                 leftSection={<link.icon size={18} />}
                 active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
-                variant="filled"
+                variant="light"
+                color="brand"
               />
             ))}
           </Stack>
@@ -108,7 +114,8 @@ export function OpsShell(_props: PropsWithChildren) {
               label="平台检查"
               leftSection={<IconShieldLock size={18} />}
               active={location.pathname === "/platform-check"}
-              variant="filled"
+              variant="light"
+              color="brand"
             />
             <NavLink
               label="当前重点：先看今日运行，再处理任务记录里的失败项。"

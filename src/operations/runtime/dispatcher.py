@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
 from src.models.ops.job_execution_step import JobExecutionStep
+from src.operations.runtime.errors import ExecutionCanceledError
 from src.operations.specs import get_job_spec, get_workflow_spec
 from src.services.history_backfill_service import HistoryBackfillService
 from src.services.sync.registry import build_sync_service
@@ -60,6 +61,19 @@ class OperationsDispatcher:
                 rows_fetched=rows_fetched,
                 rows_written=rows_written,
                 summary_message=summary_message,
+            )
+        except ExecutionCanceledError as exc:
+            session.rollback()
+            step = session.get(JobExecutionStep, step.id)
+            if step is not None:
+                step.status = "canceled"
+                step.ended_at = datetime.now(timezone.utc)
+                step.message = str(exc)
+            self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=str(exc), level="WARNING")
+            session.commit()
+            return DispatchOutcome(
+                status="canceled",
+                summary_message=str(exc),
             )
         except Exception as exc:
             session.rollback()
@@ -123,6 +137,21 @@ class OperationsDispatcher:
                 total_written += rows_written
                 completed += 1
                 last_message = summary_message
+            except ExecutionCanceledError as exc:
+                session.rollback()
+                step = session.get(JobExecutionStep, step.id)
+                if step is not None:
+                    step.status = "canceled"
+                    step.ended_at = datetime.now(timezone.utc)
+                    step.message = str(exc)
+                self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=str(exc), level="WARNING")
+                session.commit()
+                return DispatchOutcome(
+                    status="canceled",
+                    rows_fetched=total_fetched,
+                    rows_written=total_written,
+                    summary_message=str(exc),
+                )
             except Exception as exc:
                 session.rollback()
                 step = session.get(JobExecutionStep, step.id)
@@ -217,6 +246,9 @@ class OperationsDispatcher:
                 start_date=self._require_date(normalized, "start_date"),
                 end_date=self._require_date(normalized, "end_date"),
                 exchange=normalized.get("exchange"),
+                ts_code=normalized.get("ts_code"),
+                con_code=normalized.get("con_code"),
+                idx_type=normalized.get("idx_type"),
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,

@@ -4,9 +4,15 @@ from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
 from src.models.core.index_weekly_bar import IndexWeeklyBar
 from src.models.core.index_weight import IndexWeight
+from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_index import DcIndex
+from src.models.core.dc_member import DcMember
 from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_index import ThsIndex
+from src.models.core.ths_member import ThsMember
 
 
 def test_security_includes_curr_type() -> None:
@@ -42,3 +48,12 @@ def test_index_supplement_models_match_expected_keys() -> None:
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexWeight.__table__.primary_key.columns] == ["index_code", "trade_date", "con_code"]
     assert [column.name for column in IndexDailyBasic.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+
+
+def test_board_dataset_models_match_expected_keys() -> None:
+    assert [column.name for column in ThsIndex.__table__.primary_key.columns] == ["ts_code"]
+    assert [column.name for column in ThsMember.__table__.primary_key.columns] == ["ts_code", "con_code"]
+    assert [column.name for column in ThsDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in DcIndex.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in DcMember.__table__.primary_key.columns] == ["trade_date", "ts_code", "con_code"]
+    assert [column.name for column in DcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]

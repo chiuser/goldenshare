@@ -39,6 +39,14 @@ export function LoginPage() {
     >
       <Paper className="glass-card" radius="xl" p={36} miw={360} maw={460}>
         <Stack gap="xl">
+          <Stack gap="md" align="center">
+            <img
+              src="/app/brand/logo-full.png"
+              alt="财势乾坤"
+              className="login-brand-logo"
+            />
+          </Stack>
+
           <Stack gap={6}>
             <Text c="dimmed" fw={700} size="sm" tt="uppercase">
               财势乾坤前端平台

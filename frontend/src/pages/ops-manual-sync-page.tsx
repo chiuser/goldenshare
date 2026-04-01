@@ -53,6 +53,11 @@ type ManualAction = {
   supportsDateRange: boolean;
 };
 
+type ActionGuidance = {
+  title: string;
+  lines: string[];
+};
+
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic"]);
@@ -80,6 +85,16 @@ function buildEmptyDraft() {
 
 function normalizeParamOptions(options: string[] | undefined) {
   return Array.isArray(options) ? options : [];
+}
+
+function matchesActionSpec(action: ManualAction, specType: string | null, specKey: string | null) {
+  if (!specKey) {
+    return false;
+  }
+  if (specType === "workflow") {
+    return action.workflowKey === specKey;
+  }
+  return [action.syncDailySpecKey, action.backfillSpecKey, action.directSpecKey].includes(specKey);
 }
 
 function filterVisibleParams(params: CatalogParamSpec[]) {
@@ -231,6 +246,39 @@ function buildDraftFromParams(
   };
 }
 
+function buildDraftForActionSelection(actionId: string) {
+  const draft = buildEmptyDraft();
+  return {
+    ...draft,
+    action_id: actionId,
+  };
+}
+
+function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
+  if (!action) {
+    return null;
+  }
+  if (action.id === "job:ths_member") {
+    return {
+      title: "执行方式说明",
+      lines: [
+        "系统会先刷新“同花顺概念和行业指数”，再按板块代码逐个同步板块成分。",
+        "如果你不填写板块代码，就会按全部板块依次处理。",
+      ],
+    };
+  }
+  if (action.id === "job:dc_member") {
+    return {
+      title: "执行方式说明",
+      lines: [
+        "系统会先刷新你所选日期的“东方财富概念板块”，再按板块代码逐个同步板块成分。",
+        "如果你不填写板块代码，就会按该日期下全部板块依次处理。",
+      ],
+    };
+  }
+  return null;
+}
+
 function resolveExecutionTarget(
   action: ManualAction,
   draft: ReturnType<typeof buildEmptyDraft>,
@@ -364,31 +412,24 @@ export function OpsManualSyncPage() {
     () => manualActions.find((item) => item.id === draft.action_id) || null,
     [draft.action_id, manualActions],
   );
+  const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
 
   useEffect(() => {
     if (!manualActions.length) {
       return;
     }
-    if (draft.action_id && manualActions.some((item) => item.id === draft.action_id)) {
-      return;
-    }
     if (!prefillSpecKey) {
-      return;
-    }
-    const prefixedJob = manualActions.find(
-      (item) =>
-        item.type === "job" &&
-        [item.syncDailySpecKey, item.backfillSpecKey, item.directSpecKey].includes(prefillSpecKey),
-    );
-    if (prefixedJob) {
-      setDraft((current) => ({ ...current, action_id: prefixedJob.id }));
-      return;
-    }
-    if (prefillSpecType === "workflow") {
-      const workflowAction = manualActions.find((item) => item.workflowKey === prefillSpecKey);
-      if (workflowAction) {
-        setDraft((current) => ({ ...current, action_id: workflowAction.id }));
+      if (draft.action_id && manualActions.some((item) => item.id === draft.action_id)) {
+        return;
       }
+      return;
+    }
+    const prefilledAction = manualActions.find((item) => matchesActionSpec(item, prefillSpecType, prefillSpecKey));
+    if (prefilledAction) {
+      if (draft.action_id !== prefilledAction.id) {
+        setDraft(() => buildDraftForActionSelection(prefilledAction.id));
+      }
+      return;
     }
   }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft]);
 
@@ -490,10 +531,7 @@ export function OpsManualSyncPage() {
                   data={actionOptions}
                   value={draft.action_id || null}
                   onChange={(value) =>
-                    setDraft((current) => ({
-                      ...current,
-                      action_id: value || "",
-                    }))
+                    setDraft(() => (value ? buildDraftForActionSelection(value) : buildEmptyDraft()))
                   }
                 />
               </Stack>
@@ -506,6 +544,18 @@ export function OpsManualSyncPage() {
                       {selectedAction.description ? <Text size="sm">{selectedAction.description}</Text> : null}
                     </Stack>
                   </Alert>
+
+                  {actionGuidance ? (
+                    <Alert color="teal" variant="light" title={actionGuidance.title}>
+                      <Stack gap={4}>
+                        {actionGuidance.lines.map((line) => (
+                          <Text size="sm" key={line}>
+                            {line}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </Alert>
+                  ) : null}
 
                   {(selectedAction.supportsSingleDay || selectedAction.supportsDateRange) ? (
                     <Stack gap="xs">

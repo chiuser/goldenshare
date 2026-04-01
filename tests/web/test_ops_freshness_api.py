@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.web.queries.ops.freshness_query_service import OpsFreshnessQueryService
+
 
 def test_ops_freshness_rejects_non_admin(app_client, user_factory) -> None:
     user_factory(username="user", password="secret", is_admin=False)
@@ -152,3 +155,31 @@ def test_ops_freshness_marks_unsynced_dataset_as_unknown(app_client, user_factor
     assert response.status_code == 200
     payload = response.json()
     assert payload["summary"]["unknown_datasets"] > 0
+
+
+def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="ths_member",
+        resource_key="ths_member",
+        job_name="sync_ths_member",
+        display_name="同花顺板块成分",
+        domain_key="board",
+        domain_display_name="板块",
+        target_table="core.ths_member",
+        cadence="reference",
+        observed_date_column=None,
+        primary_execution_spec_key="sync_history.ths_member",
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=None,
+        latest_open_date=date(2026, 4, 1),
+        reference_date=date(2026, 4, 1),
+        recent_failure=None,
+        observed_business_range=None,
+        observed_sync_date=date(2026, 4, 1),
+    )
+
+    assert item.last_sync_date == date(2026, 4, 1)

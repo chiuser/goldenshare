@@ -43,6 +43,24 @@ INDEX_CODE_PARAM = ParameterSpec(
     param_type="string",
     description="用于指数成分权重等按 index_code 执行的任务。",
 )
+CON_CODE_PARAM = ParameterSpec(
+    key="con_code",
+    display_name="板块代码",
+    param_type="string",
+    description="用于按板块代码或概念代码精确同步。",
+)
+THS_TYPE_PARAM = ParameterSpec(
+    key="type",
+    display_name="指数类型",
+    param_type="string",
+    description="用于区分同花顺概念或行业指数类型。",
+)
+IDX_TYPE_PARAM = ParameterSpec(
+    key="idx_type",
+    display_name="板块类型",
+    param_type="string",
+    description="用于区分东方财富板块类型。",
+)
 OFFSET_PARAM = ParameterSpec(
     key="offset",
     display_name="起始偏移",
@@ -67,6 +85,10 @@ DAILY_SYNC_RESOURCES = (
     "block_trade",
     "fund_daily",
     "index_daily",
+    "ths_daily",
+    "dc_index",
+    "dc_member",
+    "dc_daily",
 )
 
 SCHEDULED_FULL_REFRESH_RESOURCES = {
@@ -96,6 +118,13 @@ TRADE_DATE_RANGE_RESOURCES = {
     "top_list",
     "block_trade",
     "limit_list_d",
+    "dc_member",
+}
+
+DIRECT_DATE_RANGE_RESOURCES = {
+    "ths_daily",
+    "dc_index",
+    "dc_daily",
 }
 
 CODE_ONLY_RESOURCES = {
@@ -103,6 +132,8 @@ CODE_ONLY_RESOURCES = {
     "stk_holdernumber",
     "stock_basic",
     "index_basic",
+    "ths_index",
+    "ths_member",
 }
 
 
@@ -115,8 +146,18 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "index_weight":
         return (INDEX_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
+    if resource == "ths_index":
+        return (TS_CODE_PARAM, EXCHANGE_PARAM, THS_TYPE_PARAM)
+    if resource == "ths_member":
+        return (TS_CODE_PARAM, CON_CODE_PARAM)
     if resource in SECURITY_RANGE_RESOURCES:
         return (TS_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
+    if resource == "dc_index":
+        return (TS_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM, IDX_TYPE_PARAM)
+    if resource == "dc_daily":
+        return (TS_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM, IDX_TYPE_PARAM)
+    if resource == "dc_member":
+        return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource in CODE_ONLY_RESOURCES:
@@ -145,6 +186,14 @@ def _sync_history_job_spec(resource: str) -> JobSpec:
 
 
 def _sync_daily_job_spec(resource: str) -> JobSpec:
+    supported_params = (TRADE_DATE_PARAM,)
+    if resource in {"ths_daily", "dc_index", "dc_daily"}:
+        extras: tuple[ParameterSpec, ...] = (TS_CODE_PARAM,)
+        if resource in {"dc_index", "dc_daily"}:
+            extras = (TS_CODE_PARAM, IDX_TYPE_PARAM)
+        supported_params = (TRADE_DATE_PARAM, *extras)
+    elif resource == "dc_member":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     return JobSpec(
         key=f"sync_daily.{resource}",
         display_name=f"日常同步 / {resource}",
@@ -153,7 +202,7 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         strategy_type="incremental_by_date",
         executor_kind="sync_service",
         target_tables=(_service_target_table(resource),),
-        supported_params=(TRADE_DATE_PARAM,),
+        supported_params=supported_params,
         supports_manual_run=True,
         supports_schedule=True,
         supports_retry=True,
@@ -233,6 +282,33 @@ for _resource in ("daily_basic", "moneyflow", "limit_list_d"):
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
+JOB_SPEC_REGISTRY["backfill_by_trade_date.dc_member"] = _backfill_job_spec(
+    prefix="backfill_by_trade_date",
+    resource="dc_member",
+    display_name="按交易日回补 / dc_member",
+    description="按交易日区间回补东方财富板块成分。",
+    strategy_type="backfill_by_trade_date",
+    supported_params=(START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM),
+)
+
+for _resource in ("ths_daily", "dc_index", "dc_daily"):
+    _extra_params: tuple[ParameterSpec, ...] = (TS_CODE_PARAM,)
+    if _resource in {"dc_index", "dc_daily"}:
+        _extra_params = (TS_CODE_PARAM, IDX_TYPE_PARAM)
+    JOB_SPEC_REGISTRY[f"backfill_by_date_range.{_resource}"] = JobSpec(
+        key=f"backfill_by_date_range.{_resource}",
+        display_name=f"按日期区间回补 / {_resource}",
+        category="backfill_by_date_range",
+        description=f"直接按日期区间回补资源 {_resource}。",
+        strategy_type="backfill_by_date_range",
+        executor_kind="sync_service",
+        target_tables=(_service_target_table(_resource),),
+        supported_params=(START_DATE_PARAM, END_DATE_PARAM, *_extra_params),
+        supports_manual_run=True,
+        supports_schedule=False,
+        supports_retry=True,
+    )
+
 for _resource in ("dividend", "stk_holdernumber"):
     JOB_SPEC_REGISTRY[f"backfill_low_frequency.{_resource}"] = _backfill_job_spec(
         prefix="backfill_low_frequency",
@@ -304,8 +380,23 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("block_trade", "sync_daily.block_trade", "大宗交易"),
             WorkflowStepSpec("fund_daily", "sync_daily.fund_daily", "基金日线"),
             WorkflowStepSpec("index_daily", "sync_daily.index_daily", "指数日线"),
+            WorkflowStepSpec("ths_daily", "sync_daily.ths_daily", "同花顺板块行情"),
+            WorkflowStepSpec("dc_index", "sync_daily.dc_index", "东方财富概念板块"),
+            WorkflowStepSpec("dc_member", "sync_daily.dc_member", "东方财富板块成分"),
+            WorkflowStepSpec("dc_daily", "sync_daily.dc_daily", "东方财富板块行情"),
         ),
         default_schedule_policy="trading_day_close",
+        supports_schedule=True,
+        supports_manual_run=True,
+    ),
+    "board_reference_refresh": WorkflowSpec(
+        key="board_reference_refresh",
+        display_name="板块主数据刷新",
+        description="刷新同花顺板块主数据与同花顺板块成分。",
+        steps=(
+            WorkflowStepSpec("ths_index", "sync_history.ths_index", "同花顺概念和行业指数"),
+            WorkflowStepSpec("ths_member", "sync_history.ths_member", "同花顺板块成分"),
+        ),
         supports_schedule=True,
         supports_manual_run=True,
     ),
@@ -347,6 +438,12 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "index_monthly": ("指数月线", "index", "指数", "monthly", "trade_date"),
     "index_daily_basic": ("指数日指标", "index", "指数", "daily", "trade_date"),
     "index_weight": ("指数成分权重", "index", "指数", "monthly", "trade_date"),
+    "ths_index": ("同花顺概念和行业指数", "board", "板块", "reference", None),
+    "ths_member": ("同花顺板块成分", "board", "板块", "reference", None),
+    "ths_daily": ("同花顺板块行情", "board", "板块", "daily", "trade_date"),
+    "dc_index": ("东方财富概念板块", "board", "板块", "daily", "trade_date"),
+    "dc_member": ("东方财富板块成分", "board", "板块", "daily", "trade_date"),
+    "dc_daily": ("东方财富板块行情", "board", "板块", "daily", "trade_date"),
     "dividend": ("分红送转", "event", "低频事件", "event", None),
     "stk_holdernumber": ("股东户数", "event", "低频事件", "event", None),
 }

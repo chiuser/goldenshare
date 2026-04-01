@@ -4,11 +4,22 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --gs-rose: #f72585;
+  --gs-magenta: #b5179e;
+  --gs-violet: #7209b7;
+  --gs-purple: #560bad;
+  --gs-deep-purple: #480ca8;
+  --gs-indigo: #3a0ca3;
+  --gs-electric: #3f37c9;
+  --gs-royal: #4361ee;
+  --gs-sky: #4895ef;
+  --gs-cyan: #4cc9f0;
   background:
-    radial-gradient(circle at top left, rgba(196, 212, 255, 0.45), transparent 28%),
-    radial-gradient(circle at top right, rgba(255, 225, 188, 0.45), transparent 30%),
-    linear-gradient(180deg, #f7f5ef 0%, #eef2f7 100%);
-  color: #1c2430;
+    radial-gradient(circle at top left, rgba(247, 37, 133, 0.18), transparent 26%),
+    radial-gradient(circle at 78% 0%, rgba(76, 201, 240, 0.18), transparent 30%),
+    radial-gradient(circle at 50% 18%, rgba(63, 55, 201, 0.14), transparent 32%),
+    linear-gradient(180deg, #f7f4ff 0%, #edf4ff 52%, #f8fbff 100%);
+  color: #1e2242;
 }
 
 body {
@@ -45,14 +56,31 @@ code {
 .app-gradient-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(196, 212, 255, 0.4), transparent 25%),
-    radial-gradient(circle at top right, rgba(255, 229, 196, 0.4), transparent 26%),
-    linear-gradient(180deg, #f7f5ef 0%, #eef2f7 100%);
+    radial-gradient(circle at top left, rgba(247, 37, 133, 0.16), transparent 22%),
+    radial-gradient(circle at top right, rgba(76, 201, 240, 0.18), transparent 26%),
+    radial-gradient(circle at 48% 8%, rgba(63, 55, 201, 0.14), transparent 30%),
+    linear-gradient(180deg, #f7f4ff 0%, #edf4ff 54%, #f9fbff 100%);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(28, 36, 48, 0.08);
-  box-shadow: 0 24px 60px rgba(44, 60, 88, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(63, 55, 201, 0.08);
+  box-shadow: 0 24px 64px rgba(58, 12, 163, 0.1);
+}
+
+.app-brand-mark {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(58, 12, 163, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.login-brand-logo {
+  width: min(280px, 72vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 32px rgba(58, 12, 163, 0.16));
 }

@@ -28,6 +28,9 @@ from src.models.core.equity_limit_list import EquityLimitList
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_index import DcIndex
+from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_daily_bar import IndexDailyBar
@@ -42,6 +45,9 @@ from src.models.raw.raw_dividend import RawDividend
 from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
+from src.models.raw.raw_dc_daily import RawDcDaily
+from src.models.raw.raw_dc_index import RawDcIndex
+from src.models.raw.raw_dc_member import RawDcMember
 from src.models.raw.raw_index_basic import RawIndexBasic
 from src.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.models.raw.raw_index_daily import RawIndexDaily
@@ -57,6 +63,12 @@ from src.models.raw.raw_top_list import RawTopList
 from src.models.raw.raw_trade_cal import RawTradeCal
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_index import ThsIndex
+from src.models.core.ths_member import ThsMember
+from src.models.raw.raw_ths_daily import RawThsDaily
+from src.models.raw.raw_ths_index import RawThsIndex
+from src.models.raw.raw_ths_member import RawThsMember
 
 
 class DAOFactory:
@@ -81,6 +93,12 @@ class DAOFactory:
         self.index_monthly_bar = IndexMonthlyBarDAO(session)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
+        self.ths_index = GenericDAO(session, ThsIndex)
+        self.ths_member = GenericDAO(session, ThsMember)
+        self.ths_daily = GenericDAO(session, ThsDaily)
+        self.dc_index = GenericDAO(session, DcIndex)
+        self.dc_member = GenericDAO(session, DcMember)
+        self.dc_daily = GenericDAO(session, DcDaily)
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.sync_job_state = SyncJobStateDAO(session)
         self.sync_run_log = SyncRunLogDAO(session)
@@ -104,5 +122,11 @@ class DAOFactory:
         self.raw_index_monthly_bar = GenericDAO(session, RawIndexMonthlyBar)
         self.raw_index_weight = GenericDAO(session, RawIndexWeight)
         self.raw_index_daily_basic = GenericDAO(session, RawIndexDailyBasic)
+        self.raw_ths_index = GenericDAO(session, RawThsIndex)
+        self.raw_ths_member = GenericDAO(session, RawThsMember)
+        self.raw_ths_daily = GenericDAO(session, RawThsDaily)
+        self.raw_dc_index = GenericDAO(session, RawDcIndex)
+        self.raw_dc_member = GenericDAO(session, RawDcMember)
+        self.raw_dc_daily = GenericDAO(session, RawDcDaily)
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)

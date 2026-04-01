@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from src.services.sync.sync_adj_factor_service import SyncAdjFactorService
 from src.services.sync.sync_block_trade_service import SyncBlockTradeService
+from src.services.sync.sync_dc_daily_service import SyncDcDailyService
+from src.services.sync.sync_dc_index_service import SyncDcIndexService
+from src.services.sync.sync_dc_member_service import SyncDcMemberService
 from src.services.sync.sync_daily_basic_service import SyncDailyBasicService
 from src.services.sync.sync_dividend_service import SyncDividendService
 from src.services.sync.sync_etf_basic_service import SyncEtfBasicService
@@ -25,6 +28,9 @@ from src.services.sync.sync_stk_period_bar_month_service import SyncStkPeriodBar
 from src.services.sync.sync_stk_period_bar_week_service import SyncStkPeriodBarWeekService
 from src.services.sync.sync_top_list_service import SyncTopListService
 from src.services.sync.sync_trade_calendar_service import SyncTradeCalendarService
+from src.services.sync.sync_ths_daily_service import SyncThsDailyService
+from src.services.sync.sync_ths_index_service import SyncThsIndexService
+from src.services.sync.sync_ths_member_service import SyncThsMemberService
 
 
 SYNC_SERVICE_REGISTRY = {
@@ -45,6 +51,12 @@ SYNC_SERVICE_REGISTRY = {
     "index_monthly": SyncIndexMonthlyService,
     "index_weight": SyncIndexWeightService,
     "index_daily_basic": SyncIndexDailyBasicService,
+    "ths_index": SyncThsIndexService,
+    "ths_member": SyncThsMemberService,
+    "ths_daily": SyncThsDailyService,
+    "dc_index": SyncDcIndexService,
+    "dc_member": SyncDcMemberService,
+    "dc_daily": SyncDcDailyService,
     "stk_holdernumber": SyncHolderNumberService,
     "limit_list_d": SyncLimitListService,
     "stk_period_bar_week": SyncStkPeriodBarWeekService,

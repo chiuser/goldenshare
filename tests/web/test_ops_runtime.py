@@ -117,3 +117,20 @@ def test_worker_cancels_queued_execution_before_dispatch(db_session, job_executi
     assert result.id == execution.id
     assert result.status == "canceled"
     assert dispatcher.calls == []
+
+
+def test_worker_marks_running_execution_canceled_when_dispatcher_returns_canceled(db_session, job_execution_factory) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        status="queued",
+        requested_at=datetime(2026, 3, 30, 11, 0, tzinfo=timezone.utc),
+    )
+    dispatcher = StubDispatcher(DispatchOutcome(status="canceled", summary_message="任务已收到停止请求，正在结束处理。"))
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.id == execution.id
+    assert result.status == "canceled"
+    assert result.summary_message == "任务已收到停止请求，正在结束处理。"

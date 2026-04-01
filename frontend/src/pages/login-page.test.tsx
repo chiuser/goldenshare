@@ -31,6 +31,7 @@ describe("LoginPage", () => {
     );
 
     expect(screen.getByText("登录前端应用")).toBeInTheDocument();
+    expect(screen.getByAltText("财势乾坤")).toBeInTheDocument();
     expect(screen.getByLabelText("用户名")).toBeInTheDocument();
     expect(screen.getByLabelText("密码")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "进入应用" })).toBeInTheDocument();

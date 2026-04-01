@@ -15,6 +15,40 @@ vi.mock("../shared/api/client", () => ({
       return {
         job_specs: [
           {
+            key: "sync_history.ths_member",
+            display_name: "历史同步 / ths_member",
+            category: "sync_history",
+            description: "刷新同花顺板块成分。",
+            strategy_type: "full_refresh",
+            executor_kind: "sync_service",
+            target_tables: ["core.ths_member"],
+            supports_manual_run: true,
+            supports_schedule: true,
+            supports_retry: true,
+            schedule_binding_count: 0,
+            active_schedule_count: 0,
+            supported_params: [
+              {
+                key: "ts_code",
+                display_name: "板块代码",
+                param_type: "string",
+                description: "按指定板块定向同步。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+              {
+                key: "con_code",
+                display_name: "成分代码",
+                param_type: "string",
+                description: "按指定成分代码定向同步。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+            ],
+          },
+          {
             key: "sync_daily.daily",
             display_name: "日常同步 / daily",
             category: "sync_daily",
@@ -158,6 +192,22 @@ function renderPage() {
   );
 }
 
+function renderPageWithPersistedDraft() {
+  window.localStorage.setItem(
+    "goldenshare.frontend.ops.manual-sync.draft",
+    JSON.stringify({
+      action_id: "job:stock_basic",
+      date_mode: "single_day",
+      selected_date: "",
+      start_date: "",
+      end_date: "",
+      field_values: { exchange: "SSE" },
+      extra_params_json: "{\"exchange\":\"SSE\"}",
+    }),
+  );
+  renderPage();
+}
+
 describe("手动同步页", () => {
   it("用维护动作抽象底层逻辑，并隐藏内部参数", async () => {
     renderPage();
@@ -171,5 +221,48 @@ describe("手动同步页", () => {
     expect(screen.queryByText("处理上限")).not.toBeInTheDocument();
     expect(screen.queryByText("日常同步 / daily")).not.toBeInTheDocument();
     expect(screen.queryByText("股票纵向回补 / daily")).not.toBeInTheDocument();
+  });
+
+  it("显式上下文会覆盖本地草稿，正确预选要处理的数据", async () => {
+    renderPageWithPersistedDraft();
+
+    expect(await screen.findByText("维护股票日线")).toBeInTheDocument();
+    expect(screen.queryByText("维护股票基础信息")).not.toBeInTheDocument();
+  });
+
+  it("板块成分任务会展示先板块后成分的执行说明", async () => {
+    window.history.replaceState({}, "", "/app/ops/manual-sync?spec_key=sync_history.ths_member&spec_type=job");
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const rootRoute = createRootRoute({
+      component: () => <OpsManualSyncPage />,
+    });
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/manual-sync",
+      component: () => <OpsManualSyncPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/manual-sync?spec_key=sync_history.ths_member&spec_type=job"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByText("维护同花顺板块成分")).toBeInTheDocument();
+    expect(screen.getByText("系统会先刷新“同花顺概念和行业指数”，再按板块代码逐个同步板块成分。")).toBeInTheDocument();
   });
 });

@@ -97,6 +97,7 @@ export interface OpsFreshnessResponse {
       latest_business_date: string | null;
       business_date_source: string;
       freshness_note: string | null;
+      last_sync_date: string | null;
       expected_business_date: string | null;
       lag_days: number | null;
       freshness_status: string;

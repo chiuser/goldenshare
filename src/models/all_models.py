@@ -10,6 +10,9 @@ from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_index import DcIndex
+from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_daily_bar import IndexDailyBar
@@ -19,6 +22,9 @@ from src.models.core.index_weekly_bar import IndexWeeklyBar
 from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_index import ThsIndex
+from src.models.core.ths_member import ThsMember
 from src.models.core.trade_calendar import TradeCalendar
 from src.models.ops.config_revision import ConfigRevision
 from src.models.ops.job_execution import JobExecution
@@ -35,6 +41,9 @@ from src.models.raw.raw_dividend import RawDividend
 from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
+from src.models.raw.raw_dc_daily import RawDcDaily
+from src.models.raw.raw_dc_index import RawDcIndex
+from src.models.raw.raw_dc_member import RawDcMember
 from src.models.raw.raw_index_basic import RawIndexBasic
 from src.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.models.raw.raw_index_daily import RawIndexDaily
@@ -46,6 +55,9 @@ from src.models.raw.raw_moneyflow import RawMoneyflow
 from src.models.raw.raw_stock_basic import RawStockBasic
 from src.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
+from src.models.raw.raw_ths_daily import RawThsDaily
+from src.models.raw.raw_ths_index import RawThsIndex
+from src.models.raw.raw_ths_member import RawThsMember
 from src.models.raw.raw_top_list import RawTopList
 from src.models.raw.raw_trade_cal import RawTradeCal
 
@@ -62,6 +74,9 @@ __all__ = [
     "EquityTopList",
     "EtfBasic",
     "FundDailyBar",
+    "DcDaily",
+    "DcIndex",
+    "DcMember",
     "IndexBasic",
     "IndexDailyBasic",
     "IndexDailyBar",
@@ -76,6 +91,9 @@ __all__ = [
     "RawEtfBasic",
     "RawFundDaily",
     "RawHolderNumber",
+    "RawDcDaily",
+    "RawDcIndex",
+    "RawDcMember",
     "RawIndexBasic",
     "RawIndexDailyBasic",
     "RawIndexDaily",
@@ -87,6 +105,9 @@ __all__ = [
     "RawStockBasic",
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",
+    "RawThsDaily",
+    "RawThsIndex",
+    "RawThsMember",
     "RawTopList",
     "RawTradeCal",
     "ConfigRevision",
@@ -99,5 +120,8 @@ __all__ = [
     "StkPeriodBarAdj",
     "SyncJobState",
     "SyncRunLog",
+    "ThsDaily",
+    "ThsIndex",
+    "ThsMember",
     "TradeCalendar",
 ]

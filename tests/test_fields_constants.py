@@ -7,6 +7,12 @@ from src.services.sync.fields import (
     ETF_BASIC_FIELDS,
     FUND_DAILY_FIELDS,
     HOLDERNUMBER_FIELDS,
+    THS_INDEX_FIELDS,
+    THS_MEMBER_FIELDS,
+    THS_DAILY_FIELDS,
+    DC_INDEX_FIELDS,
+    DC_MEMBER_FIELDS,
+    DC_DAILY_FIELDS,
     INDEX_BASIC_FIELDS,
     INDEX_DAILY_BASIC_FIELDS,
     INDEX_DAILY_FIELDS,
@@ -63,6 +69,12 @@ def test_new_field_constants_exist() -> None:
     assert "trade_date" in INDEX_MONTHLY_FIELDS
     assert tuple(INDEX_WEIGHT_FIELDS) == ("index_code", "con_code", "trade_date", "weight")
     assert "pb" in INDEX_DAILY_BASIC_FIELDS
+    assert tuple(THS_INDEX_FIELDS) == ("ts_code", "name", "count", "exchange", "list_date", "type")
+    assert "con_code" in THS_MEMBER_FIELDS
+    assert "avg_price" in THS_DAILY_FIELDS
+    assert "idx_type" in DC_INDEX_FIELDS
+    assert tuple(DC_MEMBER_FIELDS) == ("trade_date", "ts_code", "con_code", "name")
+    assert "swing" in DC_DAILY_FIELDS
 
 
 def test_existing_field_constants_still_cover_core_resources() -> None:

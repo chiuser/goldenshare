@@ -49,6 +49,7 @@ const categoryLabelMap: Record<string, string> = {
   backfill_trade_cal: "交易日历回补",
   backfill_equity_series: "股票纵向回补",
   backfill_by_trade_date: "按交易日回补",
+  backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
   backfill_fund_series: "基金纵向回补",
   backfill_index_series: "指数纵向回补",
@@ -96,6 +97,7 @@ const unitKindLabelMap: Record<string, string> = {
   ts_code: "证券代码",
   trade_date: "交易日期",
   index_code: "指数代码",
+  con_code: "板块代码",
   exchange: "交易所",
   dataset: "数据集",
   security: "证券",
@@ -133,6 +135,12 @@ const resourceLabelMap: Record<string, string> = {
   index_monthly: "指数月线",
   index_weight: "指数成分权重",
   index_daily_basic: "指数每日指标",
+  ths_index: "同花顺概念和行业指数",
+  ths_member: "同花顺板块成分",
+  ths_daily: "同花顺板块行情",
+  dc_index: "东方财富概念板块",
+  dc_member: "东方财富板块成分",
+  dc_daily: "东方财富板块行情",
   rebuild_dm: "数据集市刷新",
 };
 
@@ -142,6 +150,7 @@ const specPrefixLabelMap: Record<string, string> = {
   backfill_trade_cal: "交易日历回补",
   backfill_equity_series: "股票纵向回补",
   backfill_by_trade_date: "按交易日回补",
+  backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
   backfill_fund_series: "基金纵向回补",
   backfill_index_series: "指数纵向回补",
@@ -152,6 +161,7 @@ const workflowLabelMap: Record<string, string> = {
   reference_data_refresh: "基础主数据刷新",
   daily_market_close_sync: "每日收盘后同步",
   index_extension_backfill: "指数扩展数据补齐",
+  board_reference_refresh: "板块主数据刷新",
 };
 
 function normalizeKey(value: string | null | undefined): string {

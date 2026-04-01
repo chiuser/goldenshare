@@ -7,11 +7,12 @@ from pathlib import Path
 import typer
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from src.config.logging import configure_logging
 from src.config.settings import get_settings
 from src.db import SessionLocal
+from src.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import OperationsExecutionReconciliationService, SyncJobStateReconciliationService
 from src.services.history_backfill_service import HistoryBackfillService
@@ -45,6 +46,12 @@ def _resolve_default_sync_date(session) -> date:
     return latest
 
 
+def _open_execution_counts(session) -> tuple[int, int]:
+    queued = session.scalar(select(func.count()).select_from(JobExecution).where(JobExecution.status == "queued")) or 0
+    running = session.scalar(select(func.count()).select_from(JobExecution).where(JobExecution.status == "running")) or 0
+    return int(queued), int(running)
+
+
 @app.callback()
 def main() -> None:
     configure_logging()
@@ -60,6 +67,10 @@ def sync_history(
     resources: list[str] = typer.Option(..., "--resources", "-r"),
     ts_code: str | None = typer.Option(None),
     index_code: str | None = typer.Option(None, "--index-code", help="For index_weight, maps to Tushare index_code."),
+    con_code: str | None = typer.Option(None, "--con-code", help="For board/member resources, maps to concept code."),
+    exchange: str | None = typer.Option(None, help="Optional exchange filter for reference resources."),
+    ths_type: str | None = typer.Option(None, "--type", help="Optional type filter for 同花顺板块主数据."),
+    idx_type: str | None = typer.Option(None, "--idx-type", help="Optional 东财板块类型筛选."),
     start_date: str | None = typer.Option(None),
     end_date: str | None = typer.Option(None),
 ) -> None:
@@ -67,7 +78,16 @@ def sync_history(
         reconciliation_service = SyncJobStateReconciliationService()
         for resource in resources:
             service = build_sync_service(resource, session)
-            kwargs = {"ts_code": ts_code, "index_code": index_code, "start_date": start_date, "end_date": end_date}
+            kwargs = {
+                "ts_code": ts_code,
+                "index_code": index_code,
+                "con_code": con_code,
+                "exchange": exchange,
+                "type": ths_type,
+                "idx_type": idx_type,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
             result = service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
             if result.trade_date is None:
                 reconciliation_service.refresh_resource_state_from_observed(session, resource)
@@ -76,8 +96,25 @@ def sync_history(
 @app.command("sync-daily")
 def sync_daily(
     trade_date: str | None = typer.Option(None, help="YYYY-MM-DD"),
+    ts_code: str | None = typer.Option(None),
+    con_code: str | None = typer.Option(None, "--con-code"),
+    idx_type: str | None = typer.Option(None, "--idx-type"),
     resources: list[str] = typer.Option(
-        ["daily", "adj_factor", "daily_basic", "moneyflow", "limit_list_d", "top_list", "block_trade", "fund_daily", "index_daily"],
+        [
+            "daily",
+            "adj_factor",
+            "daily_basic",
+            "moneyflow",
+            "limit_list_d",
+            "top_list",
+            "block_trade",
+            "fund_daily",
+            "index_daily",
+            "ths_daily",
+            "dc_index",
+            "dc_member",
+            "dc_daily",
+        ],
         "--resources",
         "-r",
     ),
@@ -88,7 +125,7 @@ def sync_daily(
             target_date = _resolve_default_sync_date(session)
         for resource in resources:
             service = build_sync_service(resource, session)
-            service.run_incremental(trade_date=target_date)
+            service.run_incremental(trade_date=target_date, ts_code=ts_code, con_code=con_code, idx_type=idx_type)
 
 
 @app.command("rebuild-dm")
@@ -145,11 +182,14 @@ def backfill_equity_series(
 def backfill_by_trade_date(
     resource: str = typer.Option(
         ...,
-        help="daily_basic, moneyflow, or limit_list_d",
+        help="daily_basic, moneyflow, limit_list_d, or dc_member",
     ),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     exchange: str | None = typer.Option(None),
+    ts_code: str | None = typer.Option(None),
+    con_code: str | None = typer.Option(None, "--con-code"),
+    idx_type: str | None = typer.Option(None, "--idx-type"),
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
@@ -160,11 +200,37 @@ def backfill_by_trade_date(
             start_date=date.fromisoformat(start_date),
             end_date=date.fromisoformat(end_date),
             exchange=exchange,
+            ts_code=ts_code,
+            con_code=con_code,
+            idx_type=idx_type,
             offset=offset,
             limit=limit,
             progress=typer.echo,
         )
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+
+
+@app.command("backfill-by-date-range")
+def backfill_by_date_range(
+    resource: str = typer.Option(..., help="ths_daily, dc_index, or dc_daily"),
+    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
+    ts_code: str | None = typer.Option(None),
+    idx_type: str | None = typer.Option(None, "--idx-type"),
+) -> None:
+    if resource not in {"ths_daily", "dc_index", "dc_daily"}:
+        raise typer.BadParameter("resource must be one of: ths_daily, dc_index, dc_daily")
+    with SessionLocal() as session:
+        reconciliation_service = SyncJobStateReconciliationService()
+        service = build_sync_service(resource, session)
+        result = service.run_full(
+            ts_code=ts_code,
+            idx_type=idx_type,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        reconciliation_service.refresh_resource_state_from_observed(session, resource)
+        typer.echo(f"{resource}: units=1 fetched={result.rows_fetched} written={result.rows_written}")
 
 
 @app.command("backfill-low-frequency")
@@ -262,7 +328,13 @@ def ops_worker_run(
                 f"rows_fetched={execution.rows_fetched} "
                 f"rows_written={execution.rows_written}"
             )
-        typer.echo(f"ops-worker-run: processed={processed}")
+        queued, running = _open_execution_counts(session)
+        typer.echo(
+            "ops-worker-run: "
+            f"本轮新接任务={processed} "
+            f"等待中={queued} "
+            f"执行中={running}"
+        )
 
 
 @app.command("ops-scheduler-serve")
@@ -298,7 +370,13 @@ def ops_worker_serve(
                 if execution is None:
                     break
                 processed += 1
-            typer.echo(f"ops-worker-serve: processed={processed}")
+            queued, running = _open_execution_counts(session)
+            typer.echo(
+                "ops-worker-serve: "
+                f"本轮新接任务={processed} "
+                f"等待中={queued} "
+                f"执行中={running}"
+            )
         cycles += 1
         if max_cycles is not None and cycles >= max_cycles:
             break

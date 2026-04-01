@@ -8,6 +8,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.dao.factory import DAOFactory
+from src.models.ops.job_execution import JobExecution
+from src.operations.runtime.errors import ExecutionCanceledError
 from src.schemas import SyncResult
 
 
@@ -30,7 +32,7 @@ class BaseSyncService(ABC):
         execution_id = kwargs.pop("execution_id", None)
         log = self.dao.sync_run_log.start_log(self.job_name, run_type, execution_id=execution_id)
         try:
-            fetched, written, result_date, message = self.execute(run_type=run_type, **kwargs)
+            fetched, written, result_date, message = self.execute(run_type=run_type, execution_id=execution_id, **kwargs)
             self.dao.sync_run_log.finish_log(log, "SUCCESS", fetched, written, message)
             if result_date:
                 self.dao.sync_job_state.mark_success(self.job_name, self.target_table, result_date)
@@ -50,6 +52,13 @@ class BaseSyncService(ABC):
             self.dao.sync_run_log.finish_log(log, "FAILED", 0, 0, str(exc))
             self.session.commit()
             raise
+
+    def ensure_not_canceled(self, execution_id: int | None) -> None:
+        if execution_id is None:
+            return
+        execution = self.session.get(JobExecution, execution_id)
+        if execution is not None and execution.cancel_requested_at is not None:
+            raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
 
     @abstractmethod
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
