@@ -27,6 +27,7 @@ from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
 from src.models.core.trade_calendar import TradeCalendar
 from src.models.ops.config_revision import ConfigRevision
+from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
 from src.models.ops.job_execution_step import JobExecutionStep
@@ -111,6 +112,7 @@ __all__ = [
     "RawTopList",
     "RawTradeCal",
     "ConfigRevision",
+    "DatasetStatusSnapshot",
     "JobExecution",
     "JobExecutionEvent",
     "JobExecutionStep",

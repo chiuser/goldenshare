@@ -34,6 +34,7 @@ from src.models.core.trade_calendar import TradeCalendar
 from src.models.core.ths_daily import ThsDaily
 from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
+from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.models.ops.sync_job_state import SyncJobState
 from src.models.ops.sync_run_log import SyncRunLog
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec_by_job_name, list_dataset_freshness_specs
@@ -91,12 +92,31 @@ class FailureSnapshot:
 
 class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
+        snapshot_response = self._build_from_snapshot(session)
+        if snapshot_response is not None:
+            return snapshot_response
+        items = self.build_live_items(session, today=today)
+        groups = self._group_items(items)
+        summary = self._build_summary(items)
+        return OpsFreshnessResponse(summary=summary, groups=groups)
+
+    def build_live_items(
+        self,
+        session: Session,
+        *,
+        today: date | None = None,
+        resource_keys: list[str] | None = None,
+    ) -> list[DatasetFreshnessItem]:
         reference_date = today or datetime.now(timezone.utc).date()
         latest_open_date = self._get_latest_open_date(session, before_or_on=reference_date)
         states = list(session.scalars(select(SyncJobState)))
         state_by_job_name = {state.job_name: state for state in states}
         failures_by_job_name = self._latest_failures_by_job_name(session)
-        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(session)
+        specs = list_dataset_freshness_specs()
+        if resource_keys is not None:
+            target_keys = set(resource_keys)
+            specs = [spec for spec in specs if spec.resource_key in target_keys]
+        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(session, specs)
 
         items = [
             self._build_item(
@@ -108,25 +128,23 @@ class OpsFreshnessQueryService:
                 observed_business_range=observed_business_ranges.get(spec.dataset_key),
                 observed_sync_date=observed_sync_dates.get(spec.dataset_key),
             )
-            for spec in list_dataset_freshness_specs()
+            for spec in specs
         ]
 
-        for job_name, state in sorted(state_by_job_name.items()):
-            items.append(
-                self._build_item(
-                    spec=self._fallback_spec_for_state(state),
-                    state=state,
-                    latest_open_date=latest_open_date,
-                    reference_date=reference_date,
-                    recent_failure=failures_by_job_name.get(job_name),
-                    observed_business_range=None,
-                    observed_sync_date=observed_sync_dates.get(self._fallback_spec_for_state(state).dataset_key),
+        if resource_keys is None:
+            for job_name, state in sorted(state_by_job_name.items()):
+                items.append(
+                    self._build_item(
+                        spec=self._fallback_spec_for_state(state),
+                        state=state,
+                        latest_open_date=latest_open_date,
+                        reference_date=reference_date,
+                        recent_failure=failures_by_job_name.get(job_name),
+                        observed_business_range=None,
+                        observed_sync_date=observed_sync_dates.get(self._fallback_spec_for_state(state).dataset_key),
+                    )
                 )
-            )
-
-        groups = self._group_items(items)
-        summary = self._build_summary(items)
-        return OpsFreshnessResponse(summary=summary, groups=groups)
+        return items
 
     @staticmethod
     def summarize(response: OpsFreshnessResponse) -> tuple[OpsFreshnessSummary, list[DatasetFreshnessItem]]:
@@ -350,10 +368,11 @@ class OpsFreshnessQueryService:
     @staticmethod
     def _observed_dataset_snapshots(
         session: Session,
+        specs: list[DatasetFreshnessSpec],
     ) -> tuple[dict[str, tuple[date | None, date | None]], dict[str, date | None]]:
         observed_ranges: dict[str, tuple[date | None, date | None]] = {}
         observed_sync_dates: dict[str, date | None] = {}
-        for spec in list_dataset_freshness_specs():
+        for spec in specs:
             model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
             if model is None:
                 continue
@@ -382,6 +401,48 @@ class OpsFreshnessQueryService:
             except SQLAlchemyError:
                 observed_sync_dates[spec.dataset_key] = None
         return observed_ranges, observed_sync_dates
+
+    @staticmethod
+    def _build_from_snapshot(session: Session) -> OpsFreshnessResponse | None:
+        try:
+            rows = list(session.scalars(select(DatasetStatusSnapshot).order_by(DatasetStatusSnapshot.domain_key, DatasetStatusSnapshot.display_name)))
+            if not rows:
+                return None
+            items = [
+                DatasetFreshnessItem(
+                    dataset_key=row.dataset_key,
+                    resource_key=row.resource_key,
+                    display_name=row.display_name,
+                    domain_key=row.domain_key,
+                    domain_display_name=row.domain_display_name,
+                    job_name=row.job_name,
+                    target_table=row.target_table,
+                    cadence=row.cadence,
+                    state_business_date=row.state_business_date,
+                    earliest_business_date=row.earliest_business_date,
+                    observed_business_date=row.observed_business_date,
+                    latest_business_date=row.latest_business_date,
+                    business_date_source=row.business_date_source,
+                    freshness_note=row.freshness_note,
+                    latest_success_at=row.latest_success_at,
+                    last_sync_date=row.last_sync_date,
+                    expected_business_date=row.expected_business_date,
+                    lag_days=row.lag_days,
+                    freshness_status=row.freshness_status,
+                    recent_failure_message=row.recent_failure_message,
+                    recent_failure_summary=row.recent_failure_summary,
+                    recent_failure_at=row.recent_failure_at,
+                    primary_execution_spec_key=row.primary_execution_spec_key,
+                    full_sync_done=row.full_sync_done,
+                )
+                for row in rows
+            ]
+            groups = OpsFreshnessQueryService._group_items(items)
+            summary = OpsFreshnessQueryService._build_summary(items)
+            return OpsFreshnessResponse(summary=summary, groups=groups)
+        except SQLAlchemyError:
+            session.rollback()
+            return None
 
     @staticmethod
     def _normalize_observed_date(value: object) -> date | None:

@@ -1,3 +1,4 @@
+from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.operations.services.execution_service import OperationsExecutionService
 from src.operations.services.execution_reconciliation_service import (
     OperationsExecutionReconciliationService,
@@ -13,6 +14,7 @@ __all__ = [
     "OperationsExecutionService",
     "OperationsExecutionReconciliationService",
     "OperationsScheduleService",
+    "DatasetStatusSnapshotService",
     "ReconciledExecution",
     "ReconciledSyncJobState",
     "SyncJobStateReconciliationService",

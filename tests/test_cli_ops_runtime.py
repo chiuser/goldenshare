@@ -202,3 +202,22 @@ def test_ops_reconcile_sync_job_state_apply_repairs_statuses(mocker) -> None:
     service.reconcile_stale_sync_job_states.assert_called_once_with(session)
     assert "reconciled sync_block_trade 2025-12-31->2026-03-26 target_table=core.equity_block_trade" in result.stdout
     assert "ops-reconcile-sync-job-state: reconciled=1" in result.stdout
+
+
+def test_ops_rebuild_dataset_status_rebuilds_snapshots(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    service = mocker.Mock()
+    service.rebuild_all.return_value = 28
+    service_cls = mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=service)
+
+    result = CliRunner().invoke(app, ["ops-rebuild-dataset-status"])
+
+    assert result.exit_code == 0
+    service_cls.assert_called_once_with()
+    service.rebuild_all.assert_called_once_with(session, strict=True)
+    assert "ops-rebuild-dataset-status: rebuilt=28" in result.stdout

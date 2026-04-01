@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
 from src.operations.runtime.dispatcher import DispatchOutcome, OperationsDispatcher
+from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.web.exceptions import WebAppError
 
 
@@ -112,5 +113,10 @@ class OperationsWorker:
             )
         )
         session.commit()
+        DatasetStatusSnapshotService().refresh_for_execution(
+            session,
+            spec_type=execution.spec_type,
+            spec_key=execution.spec_key,
+        )
         session.refresh(execution)
         return execution

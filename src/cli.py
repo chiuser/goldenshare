@@ -14,7 +14,7 @@ from src.config.settings import get_settings
 from src.db import SessionLocal
 from src.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
-from src.operations.services import OperationsExecutionReconciliationService, SyncJobStateReconciliationService
+from src.operations.services import DatasetStatusSnapshotService, OperationsExecutionReconciliationService, SyncJobStateReconciliationService
 from src.services.history_backfill_service import HistoryBackfillService
 from src.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
@@ -76,6 +76,7 @@ def sync_history(
 ) -> None:
     with SessionLocal() as session:
         reconciliation_service = SyncJobStateReconciliationService()
+        snapshot_service = DatasetStatusSnapshotService()
         for resource in resources:
             service = build_sync_service(resource, session)
             kwargs = {
@@ -91,6 +92,7 @@ def sync_history(
             result = service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
             if result.trade_date is None:
                 reconciliation_service.refresh_resource_state_from_observed(session, resource)
+            snapshot_service.refresh_resources(session, [resource])
 
 
 @app.command("sync-daily")
@@ -121,11 +123,13 @@ def sync_daily(
 ) -> None:
     target_date = date.fromisoformat(trade_date) if trade_date else None
     with SessionLocal() as session:
+        snapshot_service = DatasetStatusSnapshotService()
         if target_date is None:
             target_date = _resolve_default_sync_date(session)
         for resource in resources:
             service = build_sync_service(resource, session)
             service.run_incremental(trade_date=target_date, ts_code=ts_code, con_code=con_code, idx_type=idx_type)
+            snapshot_service.refresh_resources(session, [resource])
 
 
 @app.command("rebuild-dm")
@@ -141,6 +145,13 @@ def list_resources() -> None:
         typer.echo(resource)
 
 
+@app.command("ops-rebuild-dataset-status")
+def ops_rebuild_dataset_status() -> None:
+    with SessionLocal() as session:
+        count = DatasetStatusSnapshotService().rebuild_all(session, strict=True)
+        typer.echo(f"ops-rebuild-dataset-status: rebuilt={count}")
+
+
 @app.command("backfill-trade-cal")
 def backfill_trade_cal(
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
@@ -150,6 +161,7 @@ def backfill_trade_cal(
     with SessionLocal() as session:
         service = HistoryBackfillService(session)
         summary = service.backfill_trade_calendar(date.fromisoformat(start_date), date.fromisoformat(end_date), exchange=exchange)
+        DatasetStatusSnapshotService().refresh_resources(session, ["trade_cal"])
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
 
 
@@ -175,6 +187,7 @@ def backfill_equity_series(
             limit=limit,
             progress=typer.echo,
         )
+        DatasetStatusSnapshotService().refresh_resources(session, [resource])
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
 
 
@@ -207,6 +220,7 @@ def backfill_by_trade_date(
             limit=limit,
             progress=typer.echo,
         )
+        DatasetStatusSnapshotService().refresh_resources(session, [resource])
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
 
 
@@ -222,6 +236,7 @@ def backfill_by_date_range(
         raise typer.BadParameter("resource must be one of: ths_daily, dc_index, dc_daily")
     with SessionLocal() as session:
         reconciliation_service = SyncJobStateReconciliationService()
+        snapshot_service = DatasetStatusSnapshotService()
         service = build_sync_service(resource, session)
         result = service.run_full(
             ts_code=ts_code,
@@ -230,6 +245,7 @@ def backfill_by_date_range(
             end_date=end_date,
         )
         reconciliation_service.refresh_resource_state_from_observed(session, resource)
+        snapshot_service.refresh_resources(session, [resource])
         typer.echo(f"{resource}: units=1 fetched={result.rows_fetched} written={result.rows_written}")
 
 
@@ -247,6 +263,7 @@ def backfill_low_frequency(
             limit=limit,
             progress=typer.echo,
         )
+        DatasetStatusSnapshotService().refresh_resources(session, [resource])
         typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
 
 
