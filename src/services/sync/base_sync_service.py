@@ -39,6 +39,7 @@ class BaseSyncService(ABC):
             if run_type == "FULL":
                 self.dao.sync_job_state.mark_full_sync_done(self.job_name, self.target_table)
             self.session.commit()
+            self._refresh_dataset_snapshot()
             return SyncResult(
                 job_name=self.job_name,
                 run_type=run_type,
@@ -51,7 +52,34 @@ class BaseSyncService(ABC):
             self.session.rollback()
             self.dao.sync_run_log.finish_log(log, "FAILED", 0, 0, str(exc))
             self.session.commit()
+            self._refresh_dataset_snapshot()
             raise
+
+    def _refresh_dataset_snapshot(self) -> None:
+        resource_keys = self._snapshot_resource_keys()
+        if not resource_keys:
+            return
+        try:
+            # Keep snapshot in sync even when sync jobs are executed directly via CLI.
+            from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
+
+            DatasetStatusSnapshotService().refresh_resources(self.session, resource_keys)
+        except Exception as exc:  # pragma: no cover - snapshot refresh should never break sync jobs
+            self.logger.warning("skip dataset snapshot refresh for %s: %s", self.job_name, exc)
+
+    def _snapshot_resource_keys(self) -> list[str]:
+        candidates: list[str] = []
+        if self.job_name.startswith("sync_"):
+            candidates.append(self.job_name.removeprefix("sync_"))
+        if "." in self.target_table:
+            candidates.append(self.target_table.split(".", 1)[1])
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for key in candidates:
+            if key and key not in seen:
+                seen.add(key)
+                deduped.append(key)
+        return deduped
 
     def ensure_not_canceled(self, execution_id: int | None) -> None:
         if execution_id is None:
