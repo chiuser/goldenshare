@@ -88,10 +88,10 @@ health_check() {
   if [[ "${ok}" -ne 1 ]]; then
     echo "健康检查失败：30秒内 ${HEALTH_URL} 未就绪"
     echo "服务状态："
-    sudo_systemctl status "${WEB_SERVICE}" --no-pager || true
-    sudo_systemctl status "${WORKER_SERVICE}" --no-pager || true
+    sudo_systemctl status "${WEB_SERVICE}" || true
+    sudo_systemctl status "${WORKER_SERVICE}" || true
     if [[ "${RESTART_SCHEDULER}" == "1" ]]; then
-      sudo_systemctl status "${SCHEDULER_SERVICE}" --no-pager || true
+      sudo_systemctl status "${SCHEDULER_SERVICE}" || true
     fi
     exit 1
   fi
@@ -139,10 +139,10 @@ main() {
   health_check
 
   log "服务状态"
-  sudo_systemctl status "${WEB_SERVICE}" --no-pager || true
-  sudo_systemctl status "${WORKER_SERVICE}" --no-pager || true
+  sudo_systemctl status "${WEB_SERVICE}" || true
+  sudo_systemctl status "${WORKER_SERVICE}" || true
   if [[ "${RESTART_SCHEDULER}" == "1" ]]; then
-    sudo_systemctl status "${SCHEDULER_SERVICE}" --no-pager || true
+    sudo_systemctl status "${SCHEDULER_SERVICE}" || true
   fi
 
   log "发版完成"
