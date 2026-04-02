@@ -65,7 +65,7 @@ class OperationsExecutionReconciliationService:
         return list(
             session.scalars(
                 select(JobExecution)
-                .where(JobExecution.status.in_(("queued", "running")))
+                .where(JobExecution.status.in_(("queued", "running", "canceling")))
                 .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
                 .limit(max(1, min(limit, 1000)))
             )

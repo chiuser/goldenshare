@@ -29,7 +29,7 @@ function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined)
   if (!data?.items?.length) {
     return false;
   }
-  return data.items.some((item) => item.status === "queued" || item.status === "running") ? 3000 : false;
+  return data.items.some((item) => item.status === "queued" || item.status === "running" || item.status === "canceling") ? 3000 : false;
 }
 
 export function OpsTasksPage() {
@@ -101,7 +101,7 @@ export function OpsTasksPage() {
     return {
       total: items.length,
       queued: items.filter((item) => item.status === "queued").length,
-      running: items.filter((item) => item.status === "running").length,
+      running: items.filter((item) => item.status === "running" || item.status === "canceling").length,
       success: items.filter((item) => item.status === "success").length,
       failed: items.filter((item) => item.status === "failed").length,
     };
@@ -150,7 +150,7 @@ export function OpsTasksPage() {
     ) {
       return `当前进展 ${item.progress_current}/${item.progress_total}（${item.progress_percent ?? 0}%）`;
     }
-    if (item.progress_message && (item.status === "queued" || item.status === "running")) {
+    if (item.progress_message && (item.status === "queued" || item.status === "running" || item.status === "canceling")) {
       return item.progress_message;
     }
     if (item.summary_message) {
@@ -164,6 +164,9 @@ export function OpsTasksPage() {
     }
     if (item.status === "running") {
       return "任务正在处理中，新的进展会陆续更新。";
+    }
+    if (item.status === "canceling") {
+      return "已收到停止请求，正在结束当前处理。";
     }
     return `当前状态：${formatStatusLabel(item.status)}`;
   }
@@ -222,6 +225,7 @@ export function OpsTasksPage() {
               data={[
                 { value: "queued", label: "等待处理" },
                 { value: "running", label: "正在处理" },
+                { value: "canceling", label: "停止中" },
                 { value: "success", label: "执行成功" },
                 { value: "failed", label: "执行失败" },
                 { value: "canceled", label: "已取消" },

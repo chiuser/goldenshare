@@ -82,9 +82,21 @@ class OperationsExecutionService:
             raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
         if execution.status in {"success", "failed", "canceled"}:
             raise WebAppError(status_code=409, code="conflict", message="Execution is already finished")
+        if execution.cancel_requested_at is not None:
+            session.refresh(execution)
+            return execution
 
         now = datetime.now(timezone.utc)
         execution.cancel_requested_at = now
+        execution.last_progress_at = now
+        execution.progress_message = "已收到停止请求，正在结束当前处理。"
+        if execution.status == "queued":
+            execution.status = "canceled"
+            execution.canceled_at = now
+            execution.ended_at = now
+            execution.summary_message = "任务在开始前已停止。"
+        else:
+            execution.status = "canceling"
         session.add(
             JobExecutionEvent(
                 execution_id=execution.id,
@@ -95,6 +107,17 @@ class OperationsExecutionService:
                 occurred_at=now,
             )
         )
+        if execution.status == "canceled":
+            session.add(
+                JobExecutionEvent(
+                    execution_id=execution.id,
+                    event_type="canceled",
+                    level="INFO",
+                    message="Execution canceled before start",
+                    payload_json={"requested_by_user_id": requested_by_user_id},
+                    occurred_at=now,
+                )
+            )
         session.commit()
         session.refresh(execution)
         return execution

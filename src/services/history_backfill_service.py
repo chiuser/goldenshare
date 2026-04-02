@@ -68,6 +68,32 @@ class HistoryBackfillService:
                 "stk_period_bar_week, stk_period_bar_month, "
                 "stk_period_bar_adj_week, and stk_period_bar_adj_month"
             )
+        if resource == "stk_period_bar_week":
+            exchange_name = self.settings.default_exchange
+            trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
+            if offset:
+                trade_dates = trade_dates[offset:]
+            if limit is not None:
+                trade_dates = trade_dates[:limit]
+            rows_fetched = 0
+            rows_written = 0
+            total = len(trade_dates)
+            for index, trade_date in enumerate(trade_dates, start=1):
+                service = build_sync_service(resource, self.session)
+                result = service.run_incremental(
+                    trade_date=trade_date,
+                    execution_id=execution_id,
+                )
+                rows_fetched += result.rows_fetched
+                rows_written += result.rows_written
+                if progress is not None:
+                    progress(
+                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
+                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                    )
+            self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
+            return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+
         securities = sorted(self.dao.security.get_active_equities(), key=lambda item: item.ts_code)
         if offset:
             securities = securities[offset:]
@@ -103,6 +129,9 @@ class HistoryBackfillService:
         ts_code: str | None = None,
         con_code: str | None = None,
         idx_type: str | None = None,
+        market: str | None = None,
+        hot_type: str | None = None,
+        is_new: str | None = None,
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
@@ -111,12 +140,17 @@ class HistoryBackfillService:
         trade_date_resources = {
             "daily_basic",
             "moneyflow",
+            "top_list",
+            "block_trade",
             "limit_list_d",
             "dc_member",
+            "ths_hot",
+            "dc_hot",
+            "kpl_concept_cons",
         }
         if resource not in trade_date_resources:
             raise ValueError(
-                "trade-date backfill only supports daily_basic, moneyflow, limit_list_d, and dc_member"
+                "trade-date backfill only supports daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, and kpl_concept_cons"
             )
         exchange_name = exchange or self.settings.default_exchange
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
@@ -139,6 +173,12 @@ class HistoryBackfillService:
                 incremental_kwargs["con_code"] = con_code
             if idx_type:
                 incremental_kwargs["idx_type"] = idx_type
+            if market:
+                incremental_kwargs["market"] = market
+            if hot_type:
+                incremental_kwargs["hot_type"] = hot_type
+            if is_new:
+                incremental_kwargs["is_new"] = is_new
             result = service.run_incremental(
                 **incremental_kwargs,
             )

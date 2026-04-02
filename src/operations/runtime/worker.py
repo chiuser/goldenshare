@@ -87,9 +87,17 @@ class OperationsWorker:
         execution.summary_message = outcome.summary_message
         execution.error_code = outcome.error_code
         execution.error_message = outcome.error_message
+        if execution.cancel_requested_at is not None and outcome.status in {"success", "partial_success"}:
+            outcome.status = "canceled"
+            outcome.summary_message = outcome.summary_message or "任务已收到停止请求，已在当前处理单元后停止。"
+            execution.summary_message = outcome.summary_message
+            execution.error_code = None
+            execution.error_message = None
         if outcome.status == "success" and execution.progress_total is not None:
             execution.progress_current = execution.progress_total
             execution.progress_percent = 100
+        if outcome.status == "canceled":
+            execution.canceled_at = execution.canceled_at or execution.ended_at
         execution.progress_message = outcome.summary_message or execution.progress_message
         execution.last_progress_at = execution.ended_at
         final_event_type = "succeeded"

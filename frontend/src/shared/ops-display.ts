@@ -1,6 +1,7 @@
 const statusLabelMap: Record<string, string> = {
   queued: "等待开始",
   running: "执行中",
+  canceling: "停止中",
   success: "执行成功",
   failed: "执行失败",
   canceled: "已取消",

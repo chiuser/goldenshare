@@ -11,6 +11,7 @@ import {
 describe("运维前端显示层映射", () => {
   it("把内部状态和值映射成中文", () => {
     expect(formatStatusLabel("queued")).toBe("等待开始");
+    expect(formatStatusLabel("canceling")).toBe("停止中");
     expect(formatTriggerSourceLabel("retry")).toBe("重新提交");
     expect(formatCategoryLabel("backfill_index_series")).toBe("指数纵向回补");
   });

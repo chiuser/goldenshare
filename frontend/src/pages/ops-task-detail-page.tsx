@@ -38,7 +38,7 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 function buildRefetchInterval(status: string | undefined) {
-  return status === "queued" || status === "running" ? 3000 : false;
+  return status === "queued" || status === "running" || status === "canceling" ? 3000 : false;
 }
 
 function sortByTimeDesc<T extends { occurred_at?: string; started_at?: string }>(items: T[]) {
@@ -73,6 +73,14 @@ function formatParamValue(value: unknown): string {
     return JSON.stringify(value);
   }
   return String(value);
+}
+
+function buildRawLogText(logs: ExecutionLogsResponse["items"]): string {
+  if (!logs.length) return "";
+  return [...logs]
+    .sort((left, right) => new Date(left.started_at || 0).getTime() - new Date(right.started_at || 0).getTime())
+    .map((item) => item.message?.trim() || "（无原始日志内容）")
+    .join("\n\n");
 }
 
 function buildScopeItems(detail: ExecutionDetailResponse) {
@@ -110,6 +118,13 @@ function buildStatusHeadline(detail: ExecutionDetailResponse) {
       color: "blue" as const,
     };
   }
+  if (detail.status === "canceling") {
+    return {
+      title: "任务正在停止中",
+      description: detail.progress_message || "系统已收到停止请求，正在结束当前处理。",
+      color: "violet" as const,
+    };
+  }
   if (detail.status === "success") {
     return {
       title: "任务已经处理完成",
@@ -144,6 +159,9 @@ function buildActionSuggestion(detail: ExecutionDetailResponse) {
   }
   if (detail.status === "running") {
     return "先观察当前进展。如果长时间没有变化，再展开技术细节查看原始日志。";
+  }
+  if (detail.status === "canceling") {
+    return "系统正在按停止请求收尾。通常会在当前处理单元结束后更新为“已取消”。";
   }
   if (detail.status === "success") {
     return "这次处理已经完成。如果还要处理别的日期范围，可以返回手动同步页继续发起。";
@@ -284,6 +302,12 @@ function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsRes
     return {
       value: "处理中",
       hint: "任务已经开始处理，但目前还没有可展示的阶段性结果。",
+    };
+  }
+  if (detail.status === "canceling") {
+    return {
+      value: "停止中",
+      hint: "系统已收到停止请求，正在结束当前处理单元。",
     };
   }
 
@@ -559,8 +583,8 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                 <Accordion.Control>详细处理记录</Accordion.Control>
                 <Accordion.Panel>
                   <Stack gap="md">
-                    <Alert color={activeStatus === "queued" || activeStatus === "running" ? "blue" : "gray"} title="这部分用于排查处理过程">
-                      {activeStatus === "queued" || activeStatus === "running"
+                    <Alert color={activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling" ? "blue" : "gray"} title="这部分用于排查处理过程">
+                      {activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling"
                         ? "如果这里内容还不多，通常只是任务刚开始。页面会自动刷新，不需要手动反复点。"
                         : "这里保留更细的处理记录，方便排查。"}
                     </Alert>
@@ -650,31 +674,27 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                     </Group>
                     <ScrollArea h={320} type="auto" offsetScrollbars>
                       {filteredLogs.length ? (
-                        <Table highlightOnHover striped>
-                          <Table.Thead>
-                            <Table.Tr>
-                              <Table.Th>开始时间</Table.Th>
-                              <Table.Th>底层任务</Table.Th>
-                              <Table.Th>运行方式</Table.Th>
-                              <Table.Th>状态</Table.Th>
-                              <Table.Th>说明</Table.Th>
-                            </Table.Tr>
-                          </Table.Thead>
-                          <Table.Tbody>
-                            {sortByTimeDesc(filteredLogs).map((item) => (
-                              <Table.Tr key={item.id}>
-                                <Table.Td>{formatDateTimeLabel(item.started_at)}</Table.Td>
-                                <Table.Td>{item.job_name}</Table.Td>
-                                <Table.Td>{formatRunTypeLabel(item.run_type)}</Table.Td>
-                                <Table.Td><StatusBadge value={item.status} /></Table.Td>
-                                <Table.Td>{item.message || "这条日志没有留下额外说明。"}</Table.Td>
-                              </Table.Tr>
-                            ))}
-                          </Table.Tbody>
-                        </Table>
+                        <Text
+                          component="pre"
+                          p="md"
+                          bg="var(--mantine-color-dark-9)"
+                          c="var(--mantine-color-gray-1)"
+                          ff="monospace"
+                          fz={12}
+                          style={{
+                            borderRadius: "var(--mantine-radius-md)",
+                            border: "1px solid var(--mantine-color-dark-4)",
+                            lineHeight: 1.6,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            margin: 0,
+                          }}
+                        >
+                          {buildRawLogText(filteredLogs)}
+                        </Text>
                       ) : (
-                        <Alert color={activeStatus === "queued" || activeStatus === "running" ? "blue" : "gray"} title="原始日志暂时还没有内容">
-                          {activeStatus === "queued" || activeStatus === "running"
+                        <Alert color={activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling" ? "blue" : "gray"} title="原始日志暂时还没有内容">
+                          {activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling"
                             ? "如果任务刚开始，原始日志可能还没来得及写进来。页面会自动刷新。"
                             : "这次任务没有留下可展示的原始日志。"}
                         </Alert>

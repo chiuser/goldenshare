@@ -32,6 +32,7 @@ class BaseSyncService(ABC):
         execution_id = kwargs.pop("execution_id", None)
         log = self.dao.sync_run_log.start_log(self.job_name, run_type, execution_id=execution_id)
         try:
+            self.ensure_not_canceled(execution_id)
             fetched, written, result_date, message = self.execute(run_type=run_type, execution_id=execution_id, **kwargs)
             self.dao.sync_run_log.finish_log(log, "SUCCESS", fetched, written, message)
             if result_date:
@@ -48,6 +49,12 @@ class BaseSyncService(ABC):
                 trade_date=result_date,
                 message=message,
             )
+        except ExecutionCanceledError as exc:
+            self.session.rollback()
+            self.dao.sync_run_log.finish_log(log, "CANCELED", 0, 0, str(exc))
+            self.session.commit()
+            self._refresh_dataset_snapshot()
+            raise
         except Exception as exc:
             self.session.rollback()
             self.dao.sync_run_log.finish_log(log, "FAILED", 0, 0, str(exc))

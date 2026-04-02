@@ -393,7 +393,7 @@ def test_ops_execution_create_run_now_keeps_backward_compatible_path_but_only_cr
     assert payload["status"] == "queued"
 
 
-def test_ops_execution_cancel_marks_cancel_requested(app_client, user_factory, job_execution_factory) -> None:
+def test_ops_execution_cancel_marks_queued_execution_as_canceled(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
         spec_type="job",
@@ -413,7 +413,30 @@ def test_ops_execution_cancel_marks_cancel_requested(app_client, user_factory, j
     payload = response.json()
     assert payload["id"] == execution.id
     assert payload["cancel_requested_at"] is not None
-    assert payload["status"] == "queued"
+    assert payload["status"] == "canceled"
+
+
+def test_ops_execution_cancel_marks_running_execution_as_canceling(app_client, user_factory, job_execution_factory) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        status="running",
+        requested_by_user_id=admin.id,
+    )
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        f"/api/v1/ops/executions/{execution.id}/cancel",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == execution.id
+    assert payload["cancel_requested_at"] is not None
+    assert payload["status"] == "canceling"
 
 
 def test_ops_execution_steps_and_events_endpoints_return_split_views(

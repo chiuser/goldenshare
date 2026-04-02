@@ -38,7 +38,7 @@ class OpsOverviewQueryService:
             kpis=OpsOverviewKpis(
                 total_executions=sum(counts.values()),
                 queued_executions=counts.get("queued", 0),
-                running_executions=counts.get("running", 0),
+                running_executions=counts.get("running", 0) + counts.get("canceling", 0),
                 success_executions=counts.get("success", 0),
                 failed_executions=counts.get("failed", 0),
                 canceled_executions=counts.get("canceled", 0),
@@ -71,7 +71,7 @@ class OpsOverviewQueryService:
             business_date=now_local.date(),
             total_requests=sum(counts.values()),
             completed_requests=completed,
-            running_requests=counts.get("running", 0),
+            running_requests=counts.get("running", 0) + counts.get("canceling", 0),
             failed_requests=counts.get("failed", 0),
             queued_requests=counts.get("queued", 0),
             attention_dataset_count=0,

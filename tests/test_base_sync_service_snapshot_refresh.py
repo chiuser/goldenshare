@@ -4,6 +4,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from src.services.sync.base_sync_service import BaseSyncService
+from src.operations.runtime.errors import ExecutionCanceledError
 
 
 class _DummySyncService(BaseSyncService):
@@ -61,4 +62,28 @@ def test_sync_service_refreshes_snapshot_on_failure(mocker) -> None:
     else:  # pragma: no cover
         raise AssertionError("Expected RuntimeError")
 
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["dc_index"])
+
+
+def test_sync_service_stops_immediately_when_execution_already_canceled(mocker) -> None:
+    session = mocker.Mock()
+    fake_dao = _build_fake_dao()
+    finish_log = mocker.Mock()
+    fake_dao.sync_run_log.finish_log = finish_log
+    mocker.patch("src.services.sync.base_sync_service.DAOFactory", return_value=fake_dao)
+    snapshot_service_cls = mocker.patch("src.operations.services.dataset_status_snapshot_service.DatasetStatusSnapshotService")
+    snapshot_service = snapshot_service_cls.return_value
+
+    service = _DummySyncService(session)
+    mocker.patch.object(service, "ensure_not_canceled", side_effect=ExecutionCanceledError("任务已收到停止请求，正在结束处理。"))
+
+    try:
+        service.run_incremental(trade_date=date(2026, 2, 25), execution_id=123)
+    except ExecutionCanceledError:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("Expected ExecutionCanceledError")
+
+    finish_log.assert_called_once()
+    assert finish_log.call_args.args[1] == "CANCELED"
     snapshot_service.refresh_resources.assert_called_once_with(session, ["dc_index"])

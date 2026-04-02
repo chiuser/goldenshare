@@ -5,6 +5,7 @@ import { formatStatusLabel } from "../ops-display";
 const toneMap: Record<string, { background: string; color: string; border: string }> = {
   queued: { background: "rgba(114, 9, 183, 0.12)", color: "#560bad", border: "rgba(114, 9, 183, 0.18)" },
   running: { background: "rgba(67, 97, 238, 0.12)", color: "#3f37c9", border: "rgba(67, 97, 238, 0.18)" },
+  canceling: { background: "rgba(58, 12, 163, 0.12)", color: "#3a0ca3", border: "rgba(58, 12, 163, 0.2)" },
   success: { background: "rgba(76, 201, 240, 0.16)", color: "#216d90", border: "rgba(76, 201, 240, 0.28)" },
   failed: { background: "rgba(247, 37, 133, 0.12)", color: "#b5179e", border: "rgba(247, 37, 133, 0.18)" },
   canceled: { background: "rgba(86, 11, 173, 0.12)", color: "#560bad", border: "rgba(86, 11, 173, 0.18)" },
