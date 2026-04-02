@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.web.schemas.ops.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 from src.web.queries.ops.freshness_query_service import OpsFreshnessQueryService
 
 
@@ -183,3 +184,95 @@ def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date
     )
 
     assert item.last_sync_date == date(2026, 4, 1)
+
+
+def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
+    db_session,
+    monkeypatch,
+) -> None:
+    service = OpsFreshnessQueryService()
+
+    snapshot_item = DatasetFreshnessItem(
+        dataset_key="daily",
+        resource_key="daily",
+        display_name="股票日线",
+        domain_key="equity",
+        domain_display_name="股票",
+        job_name="sync_equity_daily",
+        target_table="core.equity_daily_bar",
+        cadence="daily",
+        freshness_status="fresh",
+        primary_execution_spec_key="sync_daily.daily",
+        full_sync_done=False,
+    )
+    live_missing_item = DatasetFreshnessItem(
+        dataset_key="ths_hot",
+        resource_key="ths_hot",
+        display_name="同花顺热榜",
+        domain_key="ranking",
+        domain_display_name="榜单",
+        job_name="sync_ths_hot",
+        target_table="core.ths_hot",
+        cadence="daily",
+        freshness_status="unknown",
+        primary_execution_spec_key="sync_daily.ths_hot",
+        full_sync_done=False,
+    )
+    snapshot_response = OpsFreshnessResponse(
+        summary=OpsFreshnessSummary(
+            total_datasets=1,
+            fresh_datasets=1,
+            lagging_datasets=0,
+            stale_datasets=0,
+            unknown_datasets=0,
+        ),
+        groups=[
+            FreshnessGroup(
+                domain_key="equity",
+                domain_display_name="股票",
+                items=[snapshot_item],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
+    monkeypatch.setattr(
+        "src.web.queries.ops.freshness_query_service.list_dataset_freshness_specs",
+        lambda: [
+            DatasetFreshnessSpec(
+                dataset_key="daily",
+                resource_key="daily",
+                job_name="sync_equity_daily",
+                display_name="股票日线",
+                domain_key="equity",
+                domain_display_name="股票",
+                target_table="core.equity_daily_bar",
+                cadence="daily",
+                observed_date_column="trade_date",
+                primary_execution_spec_key="sync_daily.daily",
+            ),
+            DatasetFreshnessSpec(
+                dataset_key="ths_hot",
+                resource_key="ths_hot",
+                job_name="sync_ths_hot",
+                display_name="同花顺热榜",
+                domain_key="ranking",
+                domain_display_name="榜单",
+                target_table="core.ths_hot",
+                cadence="daily",
+                observed_date_column="trade_date",
+                primary_execution_spec_key="sync_daily.ths_hot",
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "build_live_items",
+        lambda _session, *, today=None, resource_keys=None: [live_missing_item] if resource_keys == ["ths_hot"] else [],
+    )
+
+    response = service.build_freshness(db_session)
+    dataset_keys = {item.dataset_key for group in response.groups for item in group.items}
+
+    assert "daily" in dataset_keys
+    assert "ths_hot" in dataset_keys

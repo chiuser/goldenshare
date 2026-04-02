@@ -102,7 +102,32 @@ class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
         snapshot_response = self._build_from_snapshot(session)
         if snapshot_response is not None:
-            return snapshot_response
+            all_specs = list_dataset_freshness_specs()
+            snapshot_keys = {
+                item.dataset_key
+                for group in snapshot_response.groups
+                for item in group.items
+            }
+            missing_resource_keys = [
+                spec.resource_key
+                for spec in all_specs
+                if spec.dataset_key not in snapshot_keys
+            ]
+            if not missing_resource_keys:
+                return snapshot_response
+
+            live_missing_items = self.build_live_items(session, today=today, resource_keys=missing_resource_keys)
+            merged_items = [
+                *[
+                    item
+                    for group in snapshot_response.groups
+                    for item in group.items
+                ],
+                *live_missing_items,
+            ]
+            groups = self._group_items(merged_items)
+            summary = self._build_summary(merged_items)
+            return OpsFreshnessResponse(summary=summary, groups=groups)
         items = self.build_live_items(session, today=today)
         groups = self._group_items(items)
         summary = self._build_summary(items)

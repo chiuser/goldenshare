@@ -142,6 +142,10 @@ const resourceLabelMap: Record<string, string> = {
   dc_index: "东方财富概念板块",
   dc_member: "东方财富板块成分",
   dc_daily: "东方财富板块行情",
+  ths_hot: "同花顺热榜",
+  dc_hot: "东方财富热榜",
+  kpl_list: "开盘啦榜单",
+  kpl_concept_cons: "开盘啦题材成分",
   rebuild_dm: "数据集市刷新",
 };
 
@@ -241,7 +245,7 @@ export function formatServiceNameLabel(value: string | null | undefined): string
 
 export function formatResourceLabel(value: string | null | undefined): string {
   const key = normalizeKey(value);
-  return resourceLabelMap[key] || "未命名资源";
+  return resourceLabelMap[key] || `未配置显示名称（${key || "未知资源"}）`;
 }
 
 export function formatSpecDisplayLabel(
