@@ -54,6 +54,18 @@ class BaseDAO(Generic[ModelT]):
             written += result.rowcount if result.rowcount and result.rowcount > 0 else len(batch)
         return written
 
+    def bulk_insert(self, rows: list[dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        table_columns = {column.name for column in self.model.__table__.columns}
+        filtered_rows = [{key: value for key, value in row.items() if key in table_columns} for row in rows]
+        written = 0
+        for batch in chunked(filtered_rows, self.settings.sync_batch_size):
+            statement = insert(self.model).values(batch)
+            result = self.session.execute(statement)
+            written += result.rowcount if result.rowcount and result.rowcount > 0 else len(batch)
+        return written
+
     def fetch_by_pk(self, *pk_values: Any) -> ModelT | None:
         return self.session.get(self.model, pk_values if len(pk_values) > 1 else pk_values[0])
 

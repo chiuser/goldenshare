@@ -278,7 +278,7 @@ function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsRes
   if (detail.rows_fetched > 0 || detail.rows_written > 0) {
     return {
       value: `${detail.rows_fetched}/${detail.rows_written}`,
-      hint: "这是当前已经汇总到任务上的读取 / 写入数量。",
+      hint: "读取数量 / 写入数量",
     };
   }
 
@@ -440,45 +440,52 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             </Alert>
             <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md" verticalSpacing="md">
               <Stack
-                gap={4}
+                gap={8}
                 p="md"
                 bg="var(--mantine-color-gray-0)"
                 bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
               >
-                <Text c="dimmed" size="sm">当前状态</Text>
-                <StatusBadge value={detail.status} />
+                <Text c="dimmed" size="xl" fw={600}>当前状态</Text>
+                <Group justify="flex-end" align="flex-end">
+                  <StatusBadge value={detail.status} size="lg" />
+                </Group>
               </Stack>
               <Stack
-                gap={4}
+                gap={8}
                 p="md"
                 bg="var(--mantine-color-gray-0)"
                 bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
               >
-                <Text c="dimmed" size="sm">发起方式</Text>
-                <Text fw={600}>{formatTriggerSourceLabel(detail.trigger_source)}</Text>
+                <Text c="dimmed" size="xl" fw={600}>发起方式</Text>
+                <Group justify="flex-end" align="flex-end">
+                  <Text fw={700} size="xl">{formatTriggerSourceLabel(detail.trigger_source)}</Text>
+                </Group>
               </Stack>
               <Stack
-                gap={4}
+                gap={8}
                 p="md"
                 bg="var(--mantine-color-gray-0)"
                 bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
               >
-                <Text c="dimmed" size="sm">提交时间</Text>
-                <Text ff="monospace">{formatDateTimeLabel(detail.requested_at)}</Text>
+                <Text c="dimmed" size="xl" fw={600}>提交时间</Text>
+                <Group justify="flex-end" align="flex-end">
+                  <Text ff="monospace" fw={700} size="xl">{formatDateTimeLabel(detail.requested_at)}</Text>
+                </Group>
               </Stack>
               <Stack
-                gap={4}
+                gap={8}
                 p="md"
                 bg="var(--mantine-color-gray-0)"
                 bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)" }}
+                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
               >
-                <Text c="dimmed" size="sm">当前结果</Text>
-                <Text fw={700}>{liveResult?.value || "暂无结果"}</Text>
-                <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
+                <Text c="dimmed" size="xl" fw={600}>当前结果</Text>
+                <Group justify="flex-end" align="flex-end">
+                  <Text fw={700} size="xl">{liveResult?.value || "暂无结果"}</Text>
+                </Group>
               </Stack>
             </SimpleGrid>
           </SectionCard>

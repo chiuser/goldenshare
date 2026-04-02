@@ -1,4 +1,5 @@
 import { Badge } from "@mantine/core";
+import type { MantineSize } from "@mantine/core";
 
 import { formatStatusLabel } from "../ops-display";
 
@@ -25,24 +26,29 @@ const toneMap: Record<string, { background: string; color: string; border: strin
 export function StatusBadge({
   value,
   label,
+  size,
 }: {
   value: string | null | undefined;
   label?: string | null;
+  size?: MantineSize;
 }) {
-  return <StatusBadgeWithLabel value={value} label={label} />;
+  return <StatusBadgeWithLabel value={value} label={label} size={size} />;
 }
 
 export function StatusBadgeWithLabel({
   value,
   label,
+  size,
 }: {
   value: string | null | undefined;
   label?: string | null;
+  size?: MantineSize;
 }) {
   const normalized = (value || "unknown").toLowerCase();
   const tone = toneMap[normalized] || toneMap.unknown;
   return (
     <Badge
+      size={size}
       radius="xl"
       variant="light"
       styles={{
