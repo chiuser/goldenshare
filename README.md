@@ -435,4 +435,17 @@ pytest tests/web
 - `scripts/goldenshare-web.service` 提供了一个 systemd 部署样例
 - `scripts/goldenshare-ops-scheduler.service` 提供了调度器部署样例
 - `scripts/goldenshare-ops-worker.service` 提供了执行器部署样例
+- `scripts/deploy-systemd.sh` 提供了面向 systemd 托管服务器的发版脚本
+- `scripts/goldenshare-deploy.sudoers` 提供了 `goldenshare` 用户无密码重启相关服务的 sudoers 样例
 - `tests/web` 和 `/platform-check` 是平台防腐层，后续新增 Web 功能或修改平台能力时都必须回归验证
+
+生产发版建议：
+
+- 不要在服务器上手工运行 `python -m src.web.run` 或 `goldenshare ops-worker-serve`
+- Web、Scheduler、Worker 应统一交给 systemd 管理
+- 如果需要由 `goldenshare` 用户直接执行发版脚本，请先安装 `scripts/goldenshare-deploy.sudoers`
+- 发版脚本示例：
+
+```bash
+bash scripts/deploy-systemd.sh main
+```

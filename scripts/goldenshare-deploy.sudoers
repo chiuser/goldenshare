@@ -1,0 +1,11 @@
+# Adjust SYSTEMCTL_BIN if your distro uses a different path.
+Cmnd_Alias GOLDENSHARE_SYSTEMD = \
+  /usr/bin/systemctl daemon-reload, \
+  /usr/bin/systemctl restart goldenshare-web.service, \
+  /usr/bin/systemctl restart goldenshare-ops-worker.service, \
+  /usr/bin/systemctl restart goldenshare-ops-scheduler.service, \
+  /usr/bin/systemctl status goldenshare-web.service, \
+  /usr/bin/systemctl status goldenshare-ops-worker.service, \
+  /usr/bin/systemctl status goldenshare-ops-scheduler.service
+
+goldenshare ALL=(root) NOPASSWD: GOLDENSHARE_SYSTEMD
