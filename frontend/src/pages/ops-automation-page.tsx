@@ -17,7 +17,6 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
@@ -218,7 +217,6 @@ function formatParamValue(value: unknown): string {
 }
 
 export function OpsAutomationPage() {
-  const navigate = useNavigate();
   const { token } = useAuth();
   const queryClient = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
@@ -255,6 +253,7 @@ export function OpsAutomationPage() {
       if (selectedScheduleId) {
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule", selectedScheduleId] });
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", selectedScheduleId] });
+        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-latest-execution", selectedScheduleId] });
       }
     };
     source.addEventListener("schedules", refresh);
@@ -276,6 +275,17 @@ export function OpsAutomationPage() {
   const revisionsQuery = useQuery({
     queryKey: ["ops", "schedule-revisions", selectedScheduleId],
     queryFn: () => apiRequest<ScheduleRevisionListResponse>(`/api/v1/ops/schedules/${selectedScheduleId}/revisions`),
+    enabled: Boolean(selectedScheduleId),
+  });
+
+  const latestExecutionQuery = useQuery({
+    queryKey: ["ops", "schedule-latest-execution", selectedScheduleId],
+    queryFn: async () => {
+      const response = await apiRequest<ExecutionListResponse>(
+        `/api/v1/ops/executions?schedule_id=${selectedScheduleId}&limit=1`,
+      );
+      return response.items[0] || null;
+    },
     enabled: Boolean(selectedScheduleId),
   });
 
@@ -563,29 +573,6 @@ export function OpsAutomationPage() {
     },
   });
 
-  const openLatestExecutionMutation = useMutation({
-    mutationFn: async (scheduleId: number) => {
-      const response = await apiRequest<ExecutionListResponse>(
-        `/api/v1/ops/executions?schedule_id=${scheduleId}&limit=1`,
-      );
-      return response.items[0] || null;
-    },
-    onSuccess: async (execution) => {
-      if (!execution) {
-        notifications.show({
-          color: "blue",
-          title: "这条自动任务还没有执行记录",
-          message: "你可以先查看右侧详情，或手动触发一次。",
-        });
-        return;
-      }
-      await navigate({
-        to: "/ops/tasks/$executionId",
-        params: { executionId: String(execution.id) },
-      });
-    },
-  });
-
   const openCreate = () => {
     setForm(emptyForm);
     open();
@@ -683,10 +670,7 @@ export function OpsAutomationPage() {
                   {(schedulesQuery.data?.items || []).map((item) => (
                     <Table.Tr
                       key={item.id}
-                      onClick={() => {
-                        setSelectedScheduleId(item.id);
-                        openLatestExecutionMutation.mutate(item.id);
-                      }}
+                      onClick={() => setSelectedScheduleId(item.id)}
                       style={{
                         cursor: "pointer",
                         background: selectedScheduleId === item.id ? "rgba(72, 149, 239, 0.10)" : undefined,
@@ -830,6 +814,53 @@ export function OpsAutomationPage() {
                       <Text size="sm">无额外参数（系统使用默认策略）</Text>
                     )}
                   </Stack>
+                  {detailQuery.data.last_triggered_at ? (
+                    <Stack
+                      gap={6}
+                      p="sm"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-md)" }}
+                    >
+                      <Text c="dimmed" size="xs">上次执行结果</Text>
+                      {latestExecutionQuery.isLoading ? (
+                        <Text size="sm" c="dimmed">正在读取上次执行结果…</Text>
+                      ) : latestExecutionQuery.data ? (
+                        <>
+                          <Group justify="space-between" align="center">
+                            <Text size="sm" c="dimmed">执行状态</Text>
+                            <StatusBadge value={latestExecutionQuery.data.status} />
+                          </Group>
+                          <Group justify="space-between" align="center">
+                            <Text size="sm" c="dimmed">触发时间</Text>
+                            <Text size="sm" ff="IBM Plex Mono, SFMono-Regular, monospace">
+                              {formatDateTimeLabel(latestExecutionQuery.data.requested_at)}
+                            </Text>
+                          </Group>
+                          <Group justify="space-between" align="center">
+                            <Text size="sm" c="dimmed">读取/写入</Text>
+                            <Text size="sm">
+                              {latestExecutionQuery.data.rows_fetched}/{latestExecutionQuery.data.rows_written}
+                            </Text>
+                          </Group>
+                          {latestExecutionQuery.data.summary_message ? (
+                            <Text size="sm">{latestExecutionQuery.data.summary_message}</Text>
+                          ) : null}
+                          <Button
+                            component="a"
+                            href={`/app/ops/tasks/${latestExecutionQuery.data.id}`}
+                            size="xs"
+                            variant="light"
+                            color="brand"
+                          >
+                            查看上次任务详情
+                          </Button>
+                        </>
+                      ) : (
+                        <Text size="sm" c="dimmed">该任务已有触发记录，但暂未查到执行明细。</Text>
+                      )}
+                    </Stack>
+                  ) : null}
                   <Button
                     component="a"
                     href={`/app/ops/manual-sync?from_schedule_id=${detailQuery.data.id}`}
