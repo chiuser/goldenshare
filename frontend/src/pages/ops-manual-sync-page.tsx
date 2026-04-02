@@ -3,6 +3,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  Radio,
   Grid,
   Group,
   Loader,
@@ -676,12 +677,34 @@ export function OpsManualSyncPage() {
                                   }))
                                 }
                               >
-                                <Stack gap={6} mt="xs">
+                                <Group gap="lg" mt="xs">
                                   {normalizeParamOptions(param.options).map((option) => (
                                     <Checkbox key={option} value={option} label={option} />
                                   ))}
-                                </Stack>
+                                </Group>
                               </Checkbox.Group>
+                            ) : (param.param_type === "enum" && param.key === "is_new") ? (
+                              <Radio.Group
+                                label={param.display_name}
+                                description={param.description}
+                                value={
+                                  Array.isArray(draft.field_values[param.key])
+                                    ? ((draft.field_values[param.key] as string[])[0] || "")
+                                    : (draft.field_values[param.key] as string) || ""
+                                }
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: value },
+                                  }))
+                                }
+                              >
+                                <Group gap="lg" mt="xs">
+                                  {normalizeParamOptions(param.options).map((option) => (
+                                    <Radio key={option} value={option} label={option} />
+                                  ))}
+                                </Group>
+                              </Radio.Group>
                             ) : param.param_type === "enum" ? (
                               <Select
                                 label={param.display_name}
@@ -725,23 +748,24 @@ export function OpsManualSyncPage() {
                     )}
                   </Stack>
 
-                  <Group justify="space-between" align="center">
-                    <Text c="dimmed" size="sm">
-                      提交后会直接跳到任务详情页，后续进度会自动刷新。
-                    </Text>
-                    <Button
-                      variant="light"
-                      onClick={() => setDraft(buildEmptyDraft())}
-                    >
-                      清空当前表单
-                    </Button>
-                    <Button
-                      loading={createExecutionMutation.isPending}
-                      onClick={() => createExecutionMutation.mutate()}
-                    >
-                      开始同步
-                    </Button>
-                  </Group>
+                  <Stack gap="md">
+                    <Group justify="flex-end" align="center">
+                      <Button
+                        loading={createExecutionMutation.isPending}
+                        onClick={() => createExecutionMutation.mutate()}
+                      >
+                        开始同步
+                      </Button>
+                    </Group>
+                    <Group justify="center">
+                      <Button
+                        variant="light"
+                        onClick={() => setDraft(buildEmptyDraft())}
+                      >
+                        清空当前表单
+                      </Button>
+                    </Group>
+                  </Stack>
                 </>
               ) : (
                 <EmptyState
