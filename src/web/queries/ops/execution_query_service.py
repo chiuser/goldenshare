@@ -33,6 +33,7 @@ class ExecutionQueryService:
         trigger_source: str | None = None,
         spec_type: str | None = None,
         spec_key: str | None = None,
+        schedule_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> ExecutionListResponse:
@@ -46,6 +47,8 @@ class ExecutionQueryService:
             filters.append(JobExecution.spec_type == spec_type)
         if spec_key:
             filters.append(JobExecution.spec_key == spec_key)
+        if schedule_id is not None:
+            filters.append(JobExecution.schedule_id == schedule_id)
 
         count_stmt = select(func.count()).select_from(JobExecution)
         if filters:

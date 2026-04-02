@@ -17,10 +17,12 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
+  ExecutionListResponse,
   OpsCatalogResponse,
   ScheduleDetailResponse,
   ScheduleListResponse,
@@ -36,6 +38,7 @@ import {
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { DateField } from "../shared/ui/date-field";
+import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
@@ -183,7 +186,40 @@ function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextR
   return `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
 }
 
+function formatParamLabel(key: string): string {
+  const map: Record<string, string> = {
+    trade_date: "交易日",
+    start_date: "开始日期",
+    end_date: "结束日期",
+    ts_code: "证券代码",
+    con_code: "板块代码",
+    index_code: "指数代码",
+    market: "市场",
+    tag: "标签",
+    type: "类型",
+    hot_type: "热榜类型",
+    is_new: "最新标记",
+    exchange: "交易所",
+  };
+  return map[key] || key;
+}
+
+function formatParamValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "未填写";
+  }
+  if (Array.isArray(value)) {
+    return value.join("、");
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 export function OpsAutomationPage() {
+  const navigate = useNavigate();
+  const { token } = useAuth();
   const queryClient = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
   const [selectedScheduleId, setSelectedScheduleId] = usePersistentState<number | null>(
@@ -208,6 +244,28 @@ export function OpsAutomationPage() {
       setSelectedScheduleId(schedulesQuery.data.items[0].id);
     }
   }, [selectedScheduleId, schedulesQuery.data, setSelectedScheduleId]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    const source = new EventSource(`/api/v1/ops/schedules/stream?token=${encodeURIComponent(token)}`);
+    const refresh = () => {
+      void queryClient.invalidateQueries({ queryKey: ["ops", "schedules"] });
+      if (selectedScheduleId) {
+        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule", selectedScheduleId] });
+        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", selectedScheduleId] });
+      }
+    };
+    source.addEventListener("schedules", refresh);
+    source.onerror = () => {
+      source.close();
+    };
+    return () => {
+      source.removeEventListener("schedules", refresh);
+      source.close();
+    };
+  }, [queryClient, selectedScheduleId, token]);
 
   const detailQuery = useQuery({
     queryKey: ["ops", "schedule", selectedScheduleId],
@@ -369,25 +427,58 @@ export function OpsAutomationPage() {
     };
   }, [schedulesQuery.data?.items]);
 
-  const previewMutation = useMutation({
-    mutationFn: () => {
+  const previewPayload = useMemo(() => {
+    try {
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
         ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
+      return {
+        schedule_type: scheduleType,
+        cron_expr: cronExpr,
+        timezone: form.timezone,
+        next_run_at: nextRunAt,
+        count: 5,
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    form.once_date,
+    form.once_time,
+    form.repeat_mode,
+    form.repeat_month_day,
+    form.repeat_time,
+    form.repeat_weekdays,
+    form.schedule_type,
+    form.timezone,
+  ]);
+
+  const previewMutation = useMutation({
+    mutationFn: (payload: {
+      schedule_type: string;
+      cron_expr: string | null;
+      timezone: string;
+      next_run_at: string | null;
+      count: number;
+    }) => {
       return apiRequest<SchedulePreviewResponse>("/api/v1/ops/schedules/preview", {
         method: "POST",
-        body: {
-          schedule_type: scheduleType,
-          cron_expr: cronExpr,
-          timezone: form.timezone,
-          next_run_at: nextRunAt,
-          count: 5,
-        },
+        body: payload,
       });
     },
   });
+
+  useEffect(() => {
+    if (!opened || !previewPayload) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      previewMutation.mutate(previewPayload);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [opened, previewMutation, previewPayload]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -464,6 +555,29 @@ export function OpsAutomationPage() {
         queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", data.id] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "catalog"] }),
       ]);
+    },
+  });
+
+  const openLatestExecutionMutation = useMutation({
+    mutationFn: async (scheduleId: number) => {
+      const response = await apiRequest<ExecutionListResponse>(
+        `/api/v1/ops/executions?schedule_id=${scheduleId}&limit=1`,
+      );
+      return response.items[0] || null;
+    },
+    onSuccess: async (execution) => {
+      if (!execution) {
+        notifications.show({
+          color: "blue",
+          title: "这条自动任务还没有执行记录",
+          message: "你可以先查看右侧详情，或手动触发一次。",
+        });
+        return;
+      }
+      await navigate({
+        to: "/ops/tasks/$executionId",
+        params: { executionId: String(execution.id) },
+      });
     },
   });
 
@@ -564,7 +678,10 @@ export function OpsAutomationPage() {
                   {(schedulesQuery.data?.items || []).map((item) => (
                     <Table.Tr
                       key={item.id}
-                      onClick={() => setSelectedScheduleId(item.id)}
+                      onClick={() => {
+                        setSelectedScheduleId(item.id);
+                        openLatestExecutionMutation.mutate(item.id);
+                      }}
                       style={{
                         cursor: "pointer",
                         background: selectedScheduleId === item.id ? "rgba(72, 149, 239, 0.10)" : undefined,
@@ -689,6 +806,25 @@ export function OpsAutomationPage() {
                       </Stack>
                     </Grid.Col>
                   </Grid>
+                  <Stack
+                    gap={6}
+                    p="sm"
+                    bg="var(--mantine-color-gray-0)"
+                    bd="1px solid var(--mantine-color-gray-2)"
+                    style={{ borderRadius: "var(--mantine-radius-md)" }}
+                  >
+                    <Text c="dimmed" size="xs">任务参数</Text>
+                    {Object.keys(detailQuery.data.params_json || {}).length ? (
+                      Object.entries(detailQuery.data.params_json || {}).map(([key, value]) => (
+                        <Group key={key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
+                          <Text size="sm" c="dimmed">{formatParamLabel(key)}</Text>
+                          <Text size="sm" ta="right">{formatParamValue(value)}</Text>
+                        </Group>
+                      ))
+                    ) : (
+                      <Text size="sm">无额外参数（系统使用默认策略）</Text>
+                    )}
+                  </Stack>
                   <Button
                     component="a"
                     href={`/app/ops/manual-sync?from_schedule_id=${detailQuery.data.id}`}
@@ -811,6 +947,7 @@ export function OpsAutomationPage() {
                 <TextInput
                   label="执行时间"
                   placeholder="HH:mm"
+                  type="time"
                   value={form.once_time}
                   onChange={(event) => setForm((current) => ({ ...current, once_time: event.currentTarget.value }))}
                 />
@@ -856,6 +993,7 @@ export function OpsAutomationPage() {
               <TextInput
                 label="执行时间"
                 placeholder="HH:mm"
+                type="time"
                 value={form.repeat_time}
                 onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
               />
@@ -1017,17 +1155,14 @@ export function OpsAutomationPage() {
             </Accordion.Item>
           </Accordion>
 
-          <Group justify="space-between">
-            <Button variant="light" onClick={() => previewMutation.mutate()}>
-              预览未来 5 次运行时间
-            </Button>
+          <Group justify="flex-end">
             <Button loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
               {form.id ? "保存修改" : "创建自动任务"}
             </Button>
           </Group>
 
           {previewMutation.data ? (
-            <Alert color="blue" variant="light" title="预览结果">
+            <Alert color="blue" variant="light" title="预览未来 5 次运行时间（自动更新）">
               <Stack gap={4}>
                 {previewMutation.data.preview_times.map((item) => (
                   <Text key={item} size="sm">

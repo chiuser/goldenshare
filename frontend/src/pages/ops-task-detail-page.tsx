@@ -84,6 +84,40 @@ function buildRawLogText(logs: ExecutionLogsResponse["items"]): string {
     .join("\n\n");
 }
 
+function parseProgressDetails(message: string | null | undefined) {
+  const raw = String(message || "").trim();
+  if (!raw) {
+    return null;
+  }
+  const ratioMatch = raw.match(/(\d+)\s*\/\s*(\d+)/);
+  const kvMatches = [...raw.matchAll(/([a-zA-Z_]+)=([^\s]+)/g)];
+  const kv = Object.fromEntries(kvMatches.map((item) => [item[1], item[2]]));
+  const cursorValue = kv.trade_date || kv.ts_code || kv.con_code || kv.index_code || kv.code || kv.idx_type || null;
+  const cursorLabel = kv.trade_date
+    ? `当前日期：${kv.trade_date}`
+    : kv.ts_code
+      ? `当前代码：${kv.ts_code}`
+      : kv.con_code
+        ? `当前板块：${kv.con_code}`
+        : kv.index_code
+          ? `当前指数：${kv.index_code}`
+          : kv.code
+            ? `当前代码：${kv.code}`
+            : kv.idx_type
+              ? `当前类型：${kv.idx_type}`
+              : null;
+  const fetched = kv.fetched ? Number(kv.fetched) : null;
+  const written = kv.written ? Number(kv.written) : null;
+  return {
+    raw,
+    current: ratioMatch ? Number(ratioMatch[1]) : null,
+    total: ratioMatch ? Number(ratioMatch[2]) : null,
+    cursorLabel,
+    fetched: Number.isFinite(fetched) ? fetched : null,
+    written: Number.isFinite(written) ? written : null,
+  };
+}
+
 function buildScopeItems(params: Record<string, unknown>) {
   const preferredOrder = ["trade_date", "start_date", "end_date", "ts_code", "index_code", "exchange"];
   const keys = preferredOrder.filter((key) => key in params);
@@ -181,11 +215,20 @@ function buildLatestUpdate(
   logs: ExecutionLogsResponse["items"],
   steps: ExecutionStepsResponse["items"],
 ) {
+  if (detail.status === "success" || detail.status === "failed" || detail.status === "canceled" || detail.status === "partial_success") {
+    return {
+      time: formatDateTimeLabel(detail.ended_at || detail.last_progress_at || detail.requested_at),
+      label: "任务结果",
+      message: detail.summary_message || detail.error_message || "任务已结束。",
+    };
+  }
+
   if (detail.last_progress_at || detail.progress_message) {
+    const parsed = parseProgressDetails(detail.progress_message);
     return {
       time: detail.last_progress_at ? formatDateTimeLabel(detail.last_progress_at) : "刚刚",
       label: "最近进展",
-      message: detail.progress_message || "系统刚刚写入了新的处理进展。",
+      message: parsed?.raw || detail.progress_message || "系统刚刚写入了新的处理进展。",
     };
   }
 
@@ -255,7 +298,9 @@ function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
 function buildStructuredProgressSnapshot(
   detail: ExecutionDetailResponse,
   events: ExecutionEventsResponse["items"],
+  logs: ExecutionLogsResponse["items"],
 ) {
+  const detailProgress = parseProgressDetails(detail.progress_message);
   if (
     detail.progress_current !== null &&
     detail.progress_current !== undefined &&
@@ -263,15 +308,44 @@ function buildStructuredProgressSnapshot(
     detail.progress_total !== undefined &&
     detail.progress_total > 0
   ) {
+    const current = detail.progress_current;
+    const total = detail.progress_total;
     return {
-      current: detail.progress_current,
-      total: detail.progress_total,
-      percent: detail.progress_percent ?? Math.round((detail.progress_current / detail.progress_total) * 100),
-      message: detail.progress_message || "系统正在持续更新当前进展。",
+      current,
+      total,
+      percent: detail.progress_percent ?? Math.round((current / total) * 100),
+      message: detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。",
+      cursorLabel: detailProgress?.cursorLabel || null,
+      fetched: detailProgress?.fetched ?? null,
+      written: detailProgress?.written ?? null,
       occurredAt: detail.last_progress_at,
     };
   }
-  return extractProgressSnapshot(events);
+  const fromEvent = extractProgressSnapshot(events);
+  if (fromEvent) {
+    const parsed = parseProgressDetails(fromEvent.message);
+    return {
+      ...fromEvent,
+      cursorLabel: parsed?.cursorLabel || null,
+      fetched: parsed?.fetched ?? null,
+      written: parsed?.written ?? null,
+    };
+  }
+  const latestLog = sortByTimeDesc(logs)[0];
+  const parsedLog = parseProgressDetails(latestLog?.message);
+  if (parsedLog && parsedLog.current !== null && parsedLog.total !== null && parsedLog.total > 0) {
+    return {
+      current: parsedLog.current,
+      total: parsedLog.total,
+      percent: Math.round((parsedLog.current / parsedLog.total) * 100),
+      message: parsedLog.raw,
+      cursorLabel: parsedLog.cursorLabel,
+      fetched: parsedLog.fetched,
+      written: parsedLog.written,
+      occurredAt: latestLog?.started_at || null,
+    };
+  }
+  return null;
 }
 
 function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsResponse["items"]) {
@@ -301,7 +375,7 @@ function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsRes
   if (detail.status === "running") {
     return {
       value: "处理中",
-      hint: "任务已经开始处理，但目前还没有可展示的阶段性结果。",
+      hint: "任务正在运行，进展写回后会自动显示。",
     };
   }
   if (detail.status === "canceling") {
@@ -313,7 +387,7 @@ function buildLiveResult(detail: ExecutionDetailResponse, logs: ExecutionLogsRes
 
   return {
     value: "暂无结果",
-    hint: "这次任务还没有留下可汇总的处理结果。",
+    hint: detail.status === "success" ? "任务执行完成，但没有可汇总的读取/写入数字。" : "这次任务还没有留下可汇总的处理结果。",
   };
 }
 
@@ -390,7 +464,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const steps = stepsQuery.data?.items || [];
   const events = eventsQuery.data?.items || [];
   const logs = logsQuery.data?.items || [];
-  const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
+  const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events, logs) : null;
   const liveResult = detail ? buildLiveResult(detail, logs) : null;
   const filteredLogs = useMemo(() => {
     return logStatus ? logs.filter((item) => item.status.toLowerCase() === logStatus) : logs;
@@ -531,14 +605,28 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       </Group>
                       <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
                       <Text size="sm">{progressSnapshot.message}</Text>
+                      {progressSnapshot.cursorLabel ? (
+                        <Text size="sm">{progressSnapshot.cursorLabel}</Text>
+                      ) : null}
+                      {(progressSnapshot.fetched !== null || progressSnapshot.written !== null) ? (
+                        <Text size="sm">
+                          当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条
+                        </Text>
+                      ) : null}
                       <Text size="sm" c="dimmed">
                         最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
                       </Text>
                     </Stack>
                   ) : (
-                    <Alert color={detail.status === "failed" ? "red" : "blue"} title="还在等待可展示的阶段性进展">
-                      系统已经开始处理，但目前还没有写回更细的阶段性数字。页面会自动刷新。
-                    </Alert>
+                    (detail.status === "queued" || detail.status === "running" || detail.status === "canceling") ? (
+                      <Alert color="blue" title="处理中，等待进展写回">
+                        任务正在执行。进度与当前处理对象写回后，这里会自动更新。
+                      </Alert>
+                    ) : (
+                      <Alert color={detail.status === "failed" ? "red" : "teal"} title="任务已结束">
+                        {detail.summary_message || detail.error_message || "任务已结束。"}
+                      </Alert>
+                    )
                   )}
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                     <Stack

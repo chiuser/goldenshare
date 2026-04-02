@@ -29,6 +29,7 @@ def list_ops_executions(
     trigger_source: str | None = Query(None),
     spec_type: str | None = Query(None),
     spec_key: str | None = Query(None),
+    schedule_id: int | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> ExecutionListResponse:
@@ -38,6 +39,7 @@ def list_ops_executions(
         trigger_source=trigger_source,
         spec_type=spec_type,
         spec_key=spec_key,
+        schedule_id=schedule_id,
         limit=limit,
         offset=offset,
     )
