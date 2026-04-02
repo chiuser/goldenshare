@@ -39,6 +39,8 @@ export function OpsShell(_props: PropsWithChildren) {
   const navigate = useNavigate();
   const { clearToken } = useAuth();
   const userQuery = useCurrentUser();
+  const versionText = `v${__APP_VERSION__} · ${__APP_COMMIT__}`;
+  const buildTimeText = __APP_BUILD_TIME__.replace("T", " ").replace("Z", " UTC");
 
   const logout = async () => {
     clearToken();
@@ -123,6 +125,10 @@ export function OpsShell(_props: PropsWithChildren) {
               disabled
               variant="light"
             />
+            <Stack gap={2} mt={8} px="sm">
+              <Text size="xs" c="dimmed">版本：{versionText}</Text>
+              <Text size="xs" c="dimmed">构建：{buildTimeText}</Text>
+            </Stack>
           </Stack>
         </AppShell.Section>
       </AppShell.Navbar>
