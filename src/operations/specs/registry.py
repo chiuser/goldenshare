@@ -127,6 +127,8 @@ SCHEDULED_FULL_REFRESH_RESOURCES = {
     "trade_cal",
     "etf_basic",
     "index_basic",
+    "ths_index",
+    "ths_member",
 }
 
 SECURITY_RANGE_RESOURCES = {

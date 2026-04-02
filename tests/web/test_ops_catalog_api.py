@@ -24,12 +24,15 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     workflow_keys = {item["key"] for item in payload["workflow_specs"]}
 
     assert "sync_history.stock_basic" in job_keys
+    assert "sync_history.ths_member" in job_keys
     assert "sync_daily.daily" in job_keys
     assert "backfill_index_series.index_weight" in job_keys
     assert "maintenance.rebuild_dm" in job_keys
     assert "daily_market_close_sync" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
     workflows = {item["key"]: item for item in payload["workflow_specs"]}
+    jobs = {item["key"]: item for item in payload["job_specs"]}
+    assert jobs["sync_history.ths_member"]["supports_schedule"] is True
     assert workflows["daily_market_close_sync"]["supports_schedule"] is True
     assert workflows["index_extension_backfill"]["supports_schedule"] is False
 

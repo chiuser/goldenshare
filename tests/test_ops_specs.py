@@ -46,6 +46,16 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert [param.key for param in dc_index_spec.supported_params] == ["start_date", "end_date", "ts_code", "idx_type"]
 
 
+def test_ths_reference_sync_history_specs_are_schedulable() -> None:
+    ths_index_spec = get_job_spec("sync_history.ths_index")
+    assert ths_index_spec is not None
+    assert ths_index_spec.supports_schedule is True
+
+    ths_member_spec = get_job_spec("sync_history.ths_member")
+    assert ths_member_spec is not None
+    assert ths_member_spec.supports_schedule is True
+
+
 def test_workflow_specs_reference_existing_job_specs() -> None:
     assert "daily_market_close_sync" in WORKFLOW_SPEC_REGISTRY
     for workflow in WORKFLOW_SPEC_REGISTRY.values():
