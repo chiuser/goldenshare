@@ -17,11 +17,11 @@ def test_ths_hot_supports_incremental_and_range_params() -> None:
 
 
 def test_dc_hot_supports_incremental_and_range_params() -> None:
-    incremental = build_dc_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="A", hot_type="theme", is_new="Y")
-    assert incremental == {"trade_date": "20260402", "market": "A", "hot_type": "theme", "is_new": "Y"}
+    incremental = build_dc_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="A股市场", hot_type="人气榜", is_new="Y")
+    assert incremental == {"trade_date": "20260402", "market": "A股市场", "hot_type": "人气榜", "is_new": "Y"}
 
-    full = build_dc_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", hot_type="theme")
-    assert full == {"start_date": "20260301", "end_date": "20260331", "hot_type": "theme"}
+    full = build_dc_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", hot_type="飙升榜")
+    assert full == {"start_date": "20260301", "end_date": "20260331", "hot_type": "飙升榜"}
 
 
 def test_kpl_list_supports_incremental_and_range_params() -> None:
@@ -71,6 +71,39 @@ def test_ths_hot_persists_query_context_keys(mocker) -> None:
     assert persisted_row["query_is_new"] == "Y"
 
 
+def test_ths_hot_expands_multi_value_filters(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncThsHotService(session)
+    service.client = mocker.Mock()
+    service.client.call.side_effect = [
+        [
+            {
+                "trade_date": "20260402",
+                "data_type": "热度",
+                "ts_code": "000001.SZ",
+                "rank_time": "10:00:00",
+                "ts_name": "平安银行",
+                "rank": 1,
+            }
+        ],
+        [],
+    ]
+    service.dao.raw_ths_hot = mocker.Mock()
+    service.dao.ths_hot = mocker.Mock()
+    service.dao.ths_hot.bulk_upsert.side_effect = [1, 0]
+
+    fetched, written, _, _ = service.execute(
+        "INCREMENTAL",
+        trade_date=date(2026, 4, 2),
+        market=["A", "HK"],
+        is_new="N",
+    )
+
+    assert fetched == 1
+    assert written == 1
+    assert service.client.call.call_count == 2
+
+
 def test_dc_hot_persists_query_context_keys(mocker) -> None:
     session = mocker.Mock()
     service = SyncDcHotService(session)
@@ -92,8 +125,8 @@ def test_dc_hot_persists_query_context_keys(mocker) -> None:
     fetched, written, result_date, message = service.execute(
         "INCREMENTAL",
         trade_date=date(2026, 4, 2),
-        market="A",
-        hot_type="theme",
+        market="A股市场",
+        hot_type="人气榜",
         is_new="Y",
     )
 
@@ -102,6 +135,49 @@ def test_dc_hot_persists_query_context_keys(mocker) -> None:
     assert result_date == date(2026, 4, 2)
     assert message is None
     persisted_row = service.dao.dc_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["query_market"] == "A"
-    assert persisted_row["query_hot_type"] == "theme"
+    assert persisted_row["query_market"] == "A股市场"
+    assert persisted_row["query_hot_type"] == "人气榜"
     assert persisted_row["query_is_new"] == "Y"
+
+
+def test_dc_hot_expands_multi_value_filters(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncDcHotService(session)
+    service.client = mocker.Mock()
+    service.client.call.side_effect = [
+        [
+            {
+                "trade_date": "20260402",
+                "data_type": "热度",
+                "ts_code": "000001.SZ",
+                "rank_time": "10:00:00",
+                "ts_name": "平安银行",
+                "rank": 1,
+            }
+        ],
+        [],
+        [],
+        [],
+    ]
+    service.dao.raw_dc_hot = mocker.Mock()
+    service.dao.dc_hot = mocker.Mock()
+    service.dao.dc_hot.bulk_upsert.side_effect = [1, 0, 0, 0]
+
+    fetched, written, _, _ = service.execute(
+        "INCREMENTAL",
+        trade_date=date(2026, 4, 2),
+        market=["A股市场", "ETF基金"],
+        hot_type=["人气榜", "飙升榜"],
+        is_new="N",
+    )
+
+    assert fetched == 1
+    assert written == 1
+    assert service.client.call.call_count == 4
+    first_call = service.client.call.call_args_list[0]
+    assert first_call.kwargs["params"] == {
+        "trade_date": "20260402",
+        "market": "A股市场",
+        "hot_type": "人气榜",
+        "is_new": "N",
+    }

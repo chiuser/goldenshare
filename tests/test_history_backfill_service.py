@@ -227,8 +227,8 @@ def test_backfill_by_trade_dates_supports_dc_hot_filters(mocker) -> None:
         resource="dc_hot",
         start_date=date(2026, 3, 24),
         end_date=date(2026, 3, 24),
-        market="A",
-        hot_type="theme",
+        market=["A股市场", "ETF基金"],
+        hot_type=["人气榜", "飙升榜"],
         is_new="Y",
     )
 
@@ -236,8 +236,8 @@ def test_backfill_by_trade_dates_supports_dc_hot_filters(mocker) -> None:
     build_sync_service.assert_called_once_with("dc_hot", session)
     sync_service.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 24),
-        market="A",
-        hot_type="theme",
+        market=["A股市场", "ETF基金"],
+        hot_type=["人气榜", "飙升榜"],
         is_new="Y",
         execution_id=None,
     )

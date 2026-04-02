@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Drawer,
   Grid,
   Group,
@@ -357,7 +358,7 @@ export function OpsAutomationPage() {
         if (!values.length) {
           continue;
         }
-        params[param.key] = values.join(",");
+        params[param.key] = values;
         continue;
       }
       const singleValue = Array.isArray(rawValue) ? rawValue[0] : rawValue;
@@ -1111,16 +1112,9 @@ export function OpsAutomationPage() {
                         {selectedJobParamSpecs.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
                             {(param.param_type === "enum" && param.multi_value) ? (
-                              <MultiSelect
+                              <Checkbox.Group
                                 label={param.display_name}
-                                placeholder={param.description}
-                                searchable
-                                clearable
-                                hidePickedOptions
-                                data={normalizeParamOptions(param.options).map((option) => ({
-                                  value: option,
-                                  label: option,
-                                }))}
+                                description={param.description}
                                 value={
                                   Array.isArray(form.field_values[param.key])
                                     ? (form.field_values[param.key] as string[])
@@ -1135,7 +1129,13 @@ export function OpsAutomationPage() {
                                     field_values: { ...current.field_values, [param.key]: values },
                                   }))
                                 }
-                              />
+                              >
+                                <Stack gap={6} mt="xs">
+                                  {normalizeParamOptions(param.options).map((option) => (
+                                    <Checkbox key={option} value={option} label={option} />
+                                  ))}
+                                </Stack>
+                              </Checkbox.Group>
                             ) : param.param_type === "enum" ? (
                               <Select
                                 label={param.display_name}

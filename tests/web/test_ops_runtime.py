@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
 
@@ -98,6 +99,46 @@ def test_dispatcher_progress_snapshot_updates_execution_fields(db_session, job_e
     assert execution.progress_percent == 11
     assert execution.progress_message == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
     assert execution.last_progress_at is not None
+
+
+def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_daily.dc_hot",
+        status="running",
+        params_json={
+            "trade_date": "2026-04-02",
+            "market": ["A股市场", "ETF基金"],
+            "hot_type": ["人气榜", "飙升榜"],
+            "is_new": "N",
+        },
+    )
+
+    class StubSyncService:
+        def run_incremental(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.kwargs = kwargs
+            return SimpleNamespace(rows_fetched=5, rows_written=5, message="ok")
+
+    stub_service = StubSyncService()
+    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+
+    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
+        db_session,
+        execution,
+        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily"),
+        dict(execution.params_json or {}),
+    )
+
+    assert rows_fetched == 5
+    assert rows_written == 5
+    assert summary == "ok"
+    assert stub_service.kwargs == {
+        "trade_date": datetime(2026, 4, 2, 0, 0, tzinfo=timezone.utc).date(),
+        "market": ["A股市场", "ETF基金"],
+        "hot_type": ["人气榜", "飙升榜"],
+        "is_new": "N",
+        "execution_id": execution.id,
+    }
 
 
 def test_worker_cancels_queued_execution_before_dispatch(db_session, job_execution_factory) -> None:

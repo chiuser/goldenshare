@@ -192,16 +192,18 @@ class OperationsDispatcher:
     def _run_sync_job(self, session: Session, execution: JobExecution, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         _, resource = job_spec.key.split(".", 1)
         service = build_sync_service(resource, session)
+        normalized_params = self._normalize_dates(params)
         if job_spec.category == "sync_daily":
-            trade_date = params.get("trade_date")
+            trade_date = normalized_params.get("trade_date")
             if not trade_date:
                 trade_date = self._resolve_default_trade_date(session)
             if not trade_date:
                 raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
             parsed_trade_date = self._parse_date(trade_date) if trade_date else None
-            result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id)
+            extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
+            result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
         else:
-            result = service.run_full(execution_id=execution.id, **self._normalize_dates(params))
+            result = service.run_full(execution_id=execution.id, **normalized_params)
         return result.rows_fetched, result.rows_written, result.message
 
     def _run_backfill_job(

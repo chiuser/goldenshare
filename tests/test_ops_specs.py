@@ -45,6 +45,31 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert dc_index_spec is not None
     assert [param.key for param in dc_index_spec.supported_params] == ["start_date", "end_date", "ts_code", "idx_type"]
 
+    dc_hot_daily_spec = get_job_spec("sync_daily.dc_hot")
+    assert dc_hot_daily_spec is not None
+    assert [param.key for param in dc_hot_daily_spec.supported_params] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
+
+    dc_hot_backfill_spec = get_job_spec("backfill_by_trade_date.dc_hot")
+    assert dc_hot_backfill_spec is not None
+    assert [param.key for param in dc_hot_backfill_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "ts_code",
+        "market",
+        "hot_type",
+        "is_new",
+        "offset",
+        "limit",
+    ]
+
+    market_param = next(param for param in dc_hot_backfill_spec.supported_params if param.key == "market")
+    assert market_param.options == ("A股市场", "ETF基金", "港股市场", "美股市场")
+    assert market_param.multi_value is True
+
+    hot_type_param = next(param for param in dc_hot_backfill_spec.supported_params if param.key == "hot_type")
+    assert hot_type_param.options == ("人气榜", "飙升榜")
+    assert hot_type_param.multi_value is True
+
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:
     ths_index_spec = get_job_spec("sync_history.ths_index")

@@ -79,8 +79,24 @@ IS_NEW_PARAM = ParameterSpec(
     key="is_new",
     display_name="最新标记",
     param_type="enum",
-    description="用于控制是否只拉取最新热榜快照。",
+    description="用于控制是否拉取日终最终版(Y)或小时级快照(N)热榜。",
     options=("Y", "N"),
+)
+DC_HOT_MARKET_PARAM = ParameterSpec(
+    key="market",
+    display_name="市场类型",
+    param_type="enum",
+    description="东方财富热榜市场类型，可多选：A股市场、ETF基金、港股市场、美股市场。",
+    options=("A股市场", "ETF基金", "港股市场", "美股市场"),
+    multi_value=True,
+)
+DC_HOT_TYPE_PARAM = ParameterSpec(
+    key="hot_type",
+    display_name="热点类型",
+    param_type="enum",
+    description="东方财富热榜榜单类型，可多选：人气榜、飙升榜。",
+    options=("人气榜", "飙升榜"),
+    multi_value=True,
 )
 TAG_PARAM = ParameterSpec(
     key="tag",
@@ -198,7 +214,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "ths_hot":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, IS_NEW_PARAM)
     if resource == "dc_hot":
-        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, HOT_TYPE_PARAM, IS_NEW_PARAM)
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
     if resource == "kpl_list":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
@@ -240,7 +256,7 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "ths_hot":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, IS_NEW_PARAM)
     elif resource == "dc_hot":
-        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, HOT_TYPE_PARAM, IS_NEW_PARAM)
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
     elif resource == "kpl_list":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     elif resource == "kpl_concept_cons":
@@ -342,10 +358,9 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
         _supported_params = (
             START_DATE_PARAM,
             END_DATE_PARAM,
-            EXCHANGE_PARAM,
             TS_CODE_PARAM,
-            MARKET_PARAM,
-            HOT_TYPE_PARAM,
+            DC_HOT_MARKET_PARAM,
+            DC_HOT_TYPE_PARAM,
             IS_NEW_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
