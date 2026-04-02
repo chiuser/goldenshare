@@ -21,7 +21,22 @@ def _upgrade_table(schema: str, table: str) -> None:
         f"SELECT setval('{schema}.{seq_name}', COALESCE((SELECT MAX(id) FROM {schema}.{table}), 0) + 1, false)"
     )
     op.execute(f"ALTER TABLE {schema}.{table} ALTER COLUMN id SET NOT NULL")
-    op.execute(f"ALTER TABLE {schema}.{table} DROP CONSTRAINT IF EXISTS {table}_pkey")
+    op.execute(
+        f"""
+        DO $$
+        DECLARE _pk_name text;
+        BEGIN
+          SELECT conname INTO _pk_name
+          FROM pg_constraint
+          WHERE conrelid = '{schema}.{table}'::regclass
+            AND contype = 'p'
+          LIMIT 1;
+          IF _pk_name IS NOT NULL THEN
+            EXECUTE format('ALTER TABLE {schema}.{table} DROP CONSTRAINT %I', _pk_name);
+          END IF;
+        END $$;
+        """
+    )
     op.execute(f"ALTER TABLE {schema}.{table} ADD CONSTRAINT {table}_pkey PRIMARY KEY (id)")
 
 
