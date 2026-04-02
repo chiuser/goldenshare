@@ -29,6 +29,7 @@ from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
 from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_hot import DcHot
 from src.models.core.dc_index import DcIndex
 from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
@@ -37,6 +38,8 @@ from src.models.core.index_daily_bar import IndexDailyBar
 from src.models.core.index_monthly_bar import IndexMonthlyBar
 from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.kpl_concept_cons import KplConceptCons
+from src.models.core.kpl_list import KplList
 from src.models.raw.raw_adj_factor import RawAdjFactor
 from src.models.raw.raw_block_trade import RawBlockTrade
 from src.models.raw.raw_daily import RawDaily
@@ -46,6 +49,7 @@ from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_dc_daily import RawDcDaily
+from src.models.raw.raw_dc_hot import RawDcHot
 from src.models.raw.raw_dc_index import RawDcIndex
 from src.models.raw.raw_dc_member import RawDcMember
 from src.models.raw.raw_index_basic import RawIndexBasic
@@ -56,6 +60,8 @@ from src.models.raw.raw_index_weight import RawIndexWeight
 from src.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.models.raw.raw_limit_list import RawLimitList
 from src.models.raw.raw_moneyflow import RawMoneyflow
+from src.models.raw.raw_kpl_concept_cons import RawKplConceptCons
+from src.models.raw.raw_kpl_list import RawKplList
 from src.models.raw.raw_stock_basic import RawStockBasic
 from src.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
@@ -64,9 +70,11 @@ from src.models.raw.raw_trade_cal import RawTradeCal
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_hot import ThsHot
 from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
 from src.models.raw.raw_ths_daily import RawThsDaily
+from src.models.raw.raw_ths_hot import RawThsHot
 from src.models.raw.raw_ths_index import RawThsIndex
 from src.models.raw.raw_ths_member import RawThsMember
 
@@ -99,6 +107,10 @@ class DAOFactory:
         self.dc_index = GenericDAO(session, DcIndex)
         self.dc_member = GenericDAO(session, DcMember)
         self.dc_daily = GenericDAO(session, DcDaily)
+        self.dc_hot = GenericDAO(session, DcHot)
+        self.kpl_list = GenericDAO(session, KplList)
+        self.kpl_concept_cons = GenericDAO(session, KplConceptCons)
+        self.ths_hot = GenericDAO(session, ThsHot)
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.sync_job_state = SyncJobStateDAO(session)
         self.sync_run_log = SyncRunLogDAO(session)
@@ -128,5 +140,9 @@ class DAOFactory:
         self.raw_dc_index = GenericDAO(session, RawDcIndex)
         self.raw_dc_member = GenericDAO(session, RawDcMember)
         self.raw_dc_daily = GenericDAO(session, RawDcDaily)
+        self.raw_dc_hot = GenericDAO(session, RawDcHot)
+        self.raw_kpl_list = GenericDAO(session, RawKplList)
+        self.raw_kpl_concept_cons = GenericDAO(session, RawKplConceptCons)
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
+        self.raw_ths_hot = GenericDAO(session, RawThsHot)

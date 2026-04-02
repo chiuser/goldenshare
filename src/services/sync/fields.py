@@ -262,3 +262,66 @@ DC_DAILY_FIELDS = [
     "swing",
     "turnover_rate",
 ]
+
+THS_HOT_FIELDS = [
+    "trade_date",
+    "data_type",
+    "ts_code",
+    "ts_name",
+    "rank",
+    "pct_change",
+    "current_price",
+    "concept",
+    "rank_reason",
+    "hot",
+    "rank_time",
+]
+
+DC_HOT_FIELDS = [
+    "trade_date",
+    "data_type",
+    "ts_code",
+    "ts_name",
+    "rank",
+    "pct_change",
+    "current_price",
+    "rank_time",
+]
+
+KPL_LIST_FIELDS = [
+    "ts_code",
+    "name",
+    "trade_date",
+    "lu_time",
+    "ld_time",
+    "open_time",
+    "last_time",
+    "lu_desc",
+    "tag",
+    "theme",
+    "net_change",
+    "bid_amount",
+    "status",
+    "bid_change",
+    "bid_turnover",
+    "lu_bid_vol",
+    "pct_chg",
+    "bid_pct_chg",
+    "rt_pct_chg",
+    "limit_order",
+    "amount",
+    "turnover_rate",
+    "free_float",
+    "lu_limit_order",
+]
+
+KPL_CONCEPT_CONS_FIELDS = [
+    "ts_code",
+    "name",
+    "con_name",
+    "con_code",
+    "trade_date",
+    "desc",
+    "hot_num",
+    "ts_name",
+]

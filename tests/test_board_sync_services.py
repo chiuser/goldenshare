@@ -6,7 +6,7 @@ from src.services.sync.sync_dc_member_service import SyncDcMemberService, build_
 from src.services.sync.sync_ths_member_service import SyncThsMemberService, build_ths_member_params
 from src.services.sync.sync_dc_daily_service import SyncDcDailyService, build_dc_daily_params
 from src.services.sync.sync_dc_index_service import build_dc_index_params
-from src.services.sync.sync_ths_daily_service import build_ths_daily_params
+from src.services.sync.sync_ths_daily_service import SyncThsDailyService, build_ths_daily_params
 from src.services.sync.sync_ths_index_service import build_ths_index_params
 
 
@@ -154,6 +154,75 @@ def test_dc_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker)
     }
     assert service.client.call.call_args_list[1].kwargs["params"] == {
         "ts_code": "BK002",
+        "start_date": "20260301",
+        "end_date": "20260331",
+    }
+
+
+def test_ths_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = ["885001.TI", "885002.TI"]
+    mocker.patch("src.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
+    service = SyncThsDailyService(session)
+    service.client = mocker.Mock()
+    service.client.call.side_effect = [
+        [{"trade_date": "20260401", "ts_code": "885001.TI", "close": "1"}],
+        [{"trade_date": "20260401", "ts_code": "885002.TI", "close": "2"}],
+    ]
+    service.dao.raw_ths_daily = mocker.Mock()
+    service.dao.ths_daily = mocker.Mock()
+    service.dao.ths_daily.bulk_upsert.side_effect = [1, 1]
+    trade_date = date(2026, 4, 1)
+
+    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=trade_date)
+
+    assert fetched == 2
+    assert written == 2
+    assert result_date == trade_date
+    assert message == "boards=2"
+    assert service.client.call.call_args_list[0].kwargs["params"] == {
+        "ts_code": "885001.TI",
+        "start_date": "20260401",
+        "end_date": "20260401",
+    }
+    assert service.client.call.call_args_list[1].kwargs["params"] == {
+        "ts_code": "885002.TI",
+        "start_date": "20260401",
+        "end_date": "20260401",
+    }
+
+
+def test_ths_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = ["885001.TI", "885002.TI"]
+    mocker.patch("src.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
+    service = SyncThsDailyService(session)
+    service.client = mocker.Mock()
+    service.client.call.side_effect = [
+        [{"trade_date": "20260331", "ts_code": "885001.TI", "close": "1"}],
+        [{"trade_date": "20260331", "ts_code": "885002.TI", "close": "2"}],
+    ]
+    service.dao.raw_ths_daily = mocker.Mock()
+    service.dao.ths_daily = mocker.Mock()
+    service.dao.ths_daily.bulk_upsert.side_effect = [1, 1]
+
+    fetched, written, result_date, message = service.execute(
+        "FULL",
+        start_date="2026-03-01",
+        end_date="2026-03-31",
+    )
+
+    assert fetched == 2
+    assert written == 2
+    assert result_date == date(2026, 3, 31)
+    assert message == "boards=2"
+    assert service.client.call.call_args_list[0].kwargs["params"] == {
+        "ts_code": "885001.TI",
+        "start_date": "20260301",
+        "end_date": "20260331",
+    }
+    assert service.client.call.call_args_list[1].kwargs["params"] == {
+        "ts_code": "885002.TI",
         "start_date": "20260301",
         "end_date": "20260331",
     }

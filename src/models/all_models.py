@@ -11,6 +11,7 @@ from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
 from src.models.core.dc_daily import DcDaily
+from src.models.core.dc_hot import DcHot
 from src.models.core.dc_index import DcIndex
 from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
@@ -19,10 +20,13 @@ from src.models.core.index_daily_bar import IndexDailyBar
 from src.models.core.index_monthly_bar import IndexMonthlyBar
 from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.kpl_concept_cons import KplConceptCons
+from src.models.core.kpl_list import KplList
 from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.ths_daily import ThsDaily
+from src.models.core.ths_hot import ThsHot
 from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
 from src.models.core.trade_calendar import TradeCalendar
@@ -43,6 +47,7 @@ from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_dc_daily import RawDcDaily
+from src.models.raw.raw_dc_hot import RawDcHot
 from src.models.raw.raw_dc_index import RawDcIndex
 from src.models.raw.raw_dc_member import RawDcMember
 from src.models.raw.raw_index_basic import RawIndexBasic
@@ -53,10 +58,13 @@ from src.models.raw.raw_index_weight import RawIndexWeight
 from src.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.models.raw.raw_limit_list import RawLimitList
 from src.models.raw.raw_moneyflow import RawMoneyflow
+from src.models.raw.raw_kpl_concept_cons import RawKplConceptCons
+from src.models.raw.raw_kpl_list import RawKplList
 from src.models.raw.raw_stock_basic import RawStockBasic
 from src.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.models.raw.raw_ths_daily import RawThsDaily
+from src.models.raw.raw_ths_hot import RawThsHot
 from src.models.raw.raw_ths_index import RawThsIndex
 from src.models.raw.raw_ths_member import RawThsMember
 from src.models.raw.raw_top_list import RawTopList
@@ -76,6 +84,7 @@ __all__ = [
     "EtfBasic",
     "FundDailyBar",
     "DcDaily",
+    "DcHot",
     "DcIndex",
     "DcMember",
     "IndexBasic",
@@ -84,6 +93,8 @@ __all__ = [
     "IndexMonthlyBar",
     "IndexWeight",
     "IndexWeeklyBar",
+    "KplConceptCons",
+    "KplList",
     "RawAdjFactor",
     "RawBlockTrade",
     "RawDaily",
@@ -93,6 +104,7 @@ __all__ = [
     "RawFundDaily",
     "RawHolderNumber",
     "RawDcDaily",
+    "RawDcHot",
     "RawDcIndex",
     "RawDcMember",
     "RawIndexBasic",
@@ -102,11 +114,14 @@ __all__ = [
     "RawIndexWeight",
     "RawIndexWeeklyBar",
     "RawLimitList",
+    "RawKplConceptCons",
+    "RawKplList",
     "RawMoneyflow",
     "RawStockBasic",
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",
     "RawThsDaily",
+    "RawThsHot",
     "RawThsIndex",
     "RawThsMember",
     "RawTopList",
@@ -123,6 +138,7 @@ __all__ = [
     "SyncJobState",
     "SyncRunLog",
     "ThsDaily",
+    "ThsHot",
     "ThsIndex",
     "ThsMember",
     "TradeCalendar",

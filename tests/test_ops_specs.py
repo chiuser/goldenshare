@@ -14,10 +14,20 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.dc_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.dc_member" in JOB_SPEC_REGISTRY
     assert "sync_daily.dc_daily" in JOB_SPEC_REGISTRY
+    assert "sync_daily.ths_hot" in JOB_SPEC_REGISTRY
+    assert "sync_daily.dc_hot" in JOB_SPEC_REGISTRY
+    assert "sync_daily.kpl_list" in JOB_SPEC_REGISTRY
+    assert "sync_daily.kpl_concept_cons" in JOB_SPEC_REGISTRY
     assert "backfill_by_date_range.ths_daily" in JOB_SPEC_REGISTRY
     assert "backfill_by_date_range.dc_index" in JOB_SPEC_REGISTRY
     assert "backfill_by_date_range.dc_daily" in JOB_SPEC_REGISTRY
+    assert "backfill_by_date_range.kpl_list" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.dc_member" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.top_list" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.block_trade" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.ths_hot" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.dc_hot" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.kpl_concept_cons" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_weekly" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_dm" in JOB_SPEC_REGISTRY
 

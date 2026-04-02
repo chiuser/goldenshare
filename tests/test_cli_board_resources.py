@@ -14,6 +14,8 @@ def test_sync_history_accepts_board_filters(mocker) -> None:
     mocker.patch("src.cli.build_sync_service", return_value=service)
     reconciliation = mocker.Mock()
     mocker.patch("src.cli.SyncJobStateReconciliationService", return_value=reconciliation)
+    snapshot_service = mocker.Mock()
+    mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=snapshot_service)
 
     result = CliRunner().invoke(
         app,
@@ -31,6 +33,7 @@ def test_sync_history_accepts_board_filters(mocker) -> None:
     assert result.exit_code == 0
     service.run_full.assert_called_once_with(exchange="A", type="N")
     reconciliation.refresh_resource_state_from_observed.assert_called_once_with(session, "ths_index")
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["ths_index"])
 
 
 def test_backfill_by_date_range_invokes_sync_service_and_reconciliation(mocker) -> None:
@@ -44,6 +47,8 @@ def test_backfill_by_date_range_invokes_sync_service_and_reconciliation(mocker) 
     mocker.patch("src.cli.build_sync_service", return_value=service)
     reconciliation = mocker.Mock()
     mocker.patch("src.cli.SyncJobStateReconciliationService", return_value=reconciliation)
+    snapshot_service = mocker.Mock()
+    mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=snapshot_service)
 
     result = CliRunner().invoke(
         app,
@@ -68,3 +73,4 @@ def test_backfill_by_date_range_invokes_sync_service_and_reconciliation(mocker) 
         end_date="2026-03-31",
     )
     reconciliation.refresh_resource_state_from_observed.assert_called_once_with(session, "dc_index")
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["dc_index"])

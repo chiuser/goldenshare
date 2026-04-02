@@ -9,10 +9,13 @@ from src.services.sync.sync_dc_index_service import SyncDcIndexService
 from src.services.sync.sync_dc_member_service import SyncDcMemberService
 from src.services.sync.sync_daily_basic_service import SyncDailyBasicService
 from src.services.sync.sync_dividend_service import SyncDividendService
+from src.services.sync.sync_dc_hot_service import SyncDcHotService
 from src.services.sync.sync_etf_basic_service import SyncEtfBasicService
 from src.services.sync.sync_equity_daily_service import SyncEquityDailyService
 from src.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.services.sync.sync_holdernumber_service import SyncHolderNumberService
+from src.services.sync.sync_kpl_concept_cons_service import SyncKplConceptConsService
+from src.services.sync.sync_kpl_list_service import SyncKplListService
 from src.services.sync.sync_index_basic_service import SyncIndexBasicService
 from src.services.sync.sync_index_daily_service import SyncIndexDailyService
 from src.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService
@@ -29,6 +32,7 @@ from src.services.sync.sync_stk_period_bar_week_service import SyncStkPeriodBarW
 from src.services.sync.sync_top_list_service import SyncTopListService
 from src.services.sync.sync_trade_calendar_service import SyncTradeCalendarService
 from src.services.sync.sync_ths_daily_service import SyncThsDailyService
+from src.services.sync.sync_ths_hot_service import SyncThsHotService
 from src.services.sync.sync_ths_index_service import SyncThsIndexService
 from src.services.sync.sync_ths_member_service import SyncThsMemberService
 
@@ -54,9 +58,13 @@ SYNC_SERVICE_REGISTRY = {
     "ths_index": SyncThsIndexService,
     "ths_member": SyncThsMemberService,
     "ths_daily": SyncThsDailyService,
+    "ths_hot": SyncThsHotService,
     "dc_index": SyncDcIndexService,
     "dc_member": SyncDcMemberService,
     "dc_daily": SyncDcDailyService,
+    "dc_hot": SyncDcHotService,
+    "kpl_list": SyncKplListService,
+    "kpl_concept_cons": SyncKplConceptConsService,
     "stk_holdernumber": SyncHolderNumberService,
     "limit_list_d": SyncLimitListService,
     "stk_period_bar_week": SyncStkPeriodBarWeekService,

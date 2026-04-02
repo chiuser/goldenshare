@@ -12,3 +12,7 @@ def test_registry_contains_required_resources() -> None:
     assert "dc_index" in SYNC_SERVICE_REGISTRY
     assert "dc_member" in SYNC_SERVICE_REGISTRY
     assert "dc_daily" in SYNC_SERVICE_REGISTRY
+    assert "ths_hot" in SYNC_SERVICE_REGISTRY
+    assert "dc_hot" in SYNC_SERVICE_REGISTRY
+    assert "kpl_list" in SYNC_SERVICE_REGISTRY
+    assert "kpl_concept_cons" in SYNC_SERVICE_REGISTRY

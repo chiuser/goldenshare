@@ -71,6 +71,10 @@ def sync_history(
     exchange: str | None = typer.Option(None, help="Optional exchange filter for reference resources."),
     ths_type: str | None = typer.Option(None, "--type", help="Optional type filter for 同花顺板块主数据."),
     idx_type: str | None = typer.Option(None, "--idx-type", help="Optional 东财板块类型筛选."),
+    market: str | None = typer.Option(None, "--market", help="Optional market filter for hot list resources."),
+    hot_type: str | None = typer.Option(None, "--hot-type", help="Optional hot list type filter for dc_hot."),
+    is_new: str | None = typer.Option(None, "--is-new", help="Optional latest-snapshot tag for hot list resources."),
+    tag: str | None = typer.Option(None, "--tag", help="Optional tag filter for kpl_list."),
     start_date: str | None = typer.Option(None),
     end_date: str | None = typer.Option(None),
 ) -> None:
@@ -86,6 +90,10 @@ def sync_history(
                 "exchange": exchange,
                 "type": ths_type,
                 "idx_type": idx_type,
+                "market": market,
+                "hot_type": hot_type,
+                "is_new": is_new,
+                "tag": tag,
                 "start_date": start_date,
                 "end_date": end_date,
             }
@@ -101,6 +109,10 @@ def sync_daily(
     ts_code: str | None = typer.Option(None),
     con_code: str | None = typer.Option(None, "--con-code"),
     idx_type: str | None = typer.Option(None, "--idx-type"),
+    market: str | None = typer.Option(None, "--market"),
+    hot_type: str | None = typer.Option(None, "--hot-type"),
+    is_new: str | None = typer.Option(None, "--is-new"),
+    tag: str | None = typer.Option(None, "--tag"),
     resources: list[str] = typer.Option(
         [
             "daily",
@@ -116,6 +128,10 @@ def sync_daily(
             "dc_index",
             "dc_member",
             "dc_daily",
+            "ths_hot",
+            "dc_hot",
+            "kpl_list",
+            "kpl_concept_cons",
         ],
         "--resources",
         "-r",
@@ -128,7 +144,16 @@ def sync_daily(
             target_date = _resolve_default_sync_date(session)
         for resource in resources:
             service = build_sync_service(resource, session)
-            service.run_incremental(trade_date=target_date, ts_code=ts_code, con_code=con_code, idx_type=idx_type)
+            service.run_incremental(
+                trade_date=target_date,
+                ts_code=ts_code,
+                con_code=con_code,
+                idx_type=idx_type,
+                market=market,
+                hot_type=hot_type,
+                is_new=is_new,
+                tag=tag,
+            )
             snapshot_service.refresh_resources(session, [resource])
 
 
@@ -195,7 +220,7 @@ def backfill_equity_series(
 def backfill_by_trade_date(
     resource: str = typer.Option(
         ...,
-        help="daily_basic, moneyflow, limit_list_d, or dc_member",
+        help="daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, or kpl_concept_cons",
     ),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
@@ -203,6 +228,9 @@ def backfill_by_trade_date(
     ts_code: str | None = typer.Option(None),
     con_code: str | None = typer.Option(None, "--con-code"),
     idx_type: str | None = typer.Option(None, "--idx-type"),
+    market: str | None = typer.Option(None, "--market"),
+    hot_type: str | None = typer.Option(None, "--hot-type"),
+    is_new: str | None = typer.Option(None, "--is-new"),
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
@@ -216,6 +244,9 @@ def backfill_by_trade_date(
             ts_code=ts_code,
             con_code=con_code,
             idx_type=idx_type,
+            market=market,
+            hot_type=hot_type,
+            is_new=is_new,
             offset=offset,
             limit=limit,
             progress=typer.echo,
@@ -226,24 +257,28 @@ def backfill_by_trade_date(
 
 @app.command("backfill-by-date-range")
 def backfill_by_date_range(
-    resource: str = typer.Option(..., help="ths_daily, dc_index, or dc_daily"),
+    resource: str = typer.Option(..., help="ths_daily, dc_index, dc_daily, or kpl_list"),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     ts_code: str | None = typer.Option(None),
     idx_type: str | None = typer.Option(None, "--idx-type"),
+    tag: str | None = typer.Option(None, "--tag"),
 ) -> None:
-    if resource not in {"ths_daily", "dc_index", "dc_daily"}:
-        raise typer.BadParameter("resource must be one of: ths_daily, dc_index, dc_daily")
+    if resource not in {"ths_daily", "dc_index", "dc_daily", "kpl_list"}:
+        raise typer.BadParameter("resource must be one of: ths_daily, dc_index, dc_daily, kpl_list")
     with SessionLocal() as session:
         reconciliation_service = SyncJobStateReconciliationService()
         snapshot_service = DatasetStatusSnapshotService()
         service = build_sync_service(resource, session)
-        result = service.run_full(
-            ts_code=ts_code,
-            idx_type=idx_type,
-            start_date=start_date,
-            end_date=end_date,
-        )
+        run_kwargs = {
+            "ts_code": ts_code,
+            "idx_type": idx_type,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        if resource == "kpl_list":
+            run_kwargs["tag"] = tag
+        result = service.run_full(**run_kwargs)
         reconciliation_service.refresh_resource_state_from_observed(session, resource)
         snapshot_service.refresh_resources(session, [resource])
         typer.echo(f"{resource}: units=1 fetched={result.rows_fetched} written={result.rows_written}")

@@ -19,7 +19,12 @@ def test_sync_history_accepts_index_code_alias(mocker) -> None:
     session_context.__exit__.return_value = False
     mocker.patch("src.cli.SessionLocal", return_value=session_context)
     service = mocker.Mock()
+    service.run_full.return_value = mocker.Mock(trade_date=None)
     mocker.patch("src.cli.build_sync_service", return_value=service)
+    snapshot_service = mocker.Mock()
+    mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=snapshot_service)
+    reconciliation = mocker.Mock()
+    mocker.patch("src.cli.SyncJobStateReconciliationService", return_value=reconciliation)
 
     result = CliRunner().invoke(
         app,
@@ -42,3 +47,4 @@ def test_sync_history_accepts_index_code_alias(mocker) -> None:
         start_date="2020-01-01",
         end_date="2020-01-31",
     )
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["index_weight"])
