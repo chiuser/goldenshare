@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from src.models.core.trade_calendar import TradeCalendar
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
 from src.models.ops.job_execution_step import JobExecutionStep
@@ -192,6 +194,10 @@ class OperationsDispatcher:
         service = build_sync_service(resource, session)
         if job_spec.category == "sync_daily":
             trade_date = params.get("trade_date")
+            if not trade_date:
+                trade_date = self._resolve_default_trade_date(session)
+            if not trade_date:
+                raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
             parsed_trade_date = self._parse_date(trade_date) if trade_date else None
             result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id)
         else:
@@ -381,6 +387,18 @@ class OperationsDispatcher:
         if isinstance(value, str):
             return date.fromisoformat(value)
         raise ValueError(f"Invalid date value: {value!r}")
+
+    @staticmethod
+    def _resolve_default_trade_date(session: Session) -> date | None:
+        today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+        stmt = (
+            select(TradeCalendar.trade_date)
+            .where(TradeCalendar.is_open.is_(True))
+            .where(TradeCalendar.trade_date <= today)
+            .order_by(TradeCalendar.trade_date.desc())
+            .limit(1)
+        )
+        return session.scalar(stmt)
 
     def _require_date(self, params: dict[str, Any], key: str) -> date:
         value = params.get(key)

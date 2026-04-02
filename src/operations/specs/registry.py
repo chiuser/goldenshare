@@ -64,8 +64,10 @@ IDX_TYPE_PARAM = ParameterSpec(
 MARKET_PARAM = ParameterSpec(
     key="market",
     display_name="市场标识",
-    param_type="string",
+    param_type="enum",
     description="用于热榜类数据的市场过滤，例如 A股、港股或美股。",
+    options=("A", "HK", "US"),
+    multi_value=True,
 )
 HOT_TYPE_PARAM = ParameterSpec(
     key="hot_type",

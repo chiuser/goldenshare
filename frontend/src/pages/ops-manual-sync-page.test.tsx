@@ -202,7 +202,6 @@ function renderPageWithPersistedDraft() {
       start_date: "",
       end_date: "",
       field_values: { exchange: "SSE" },
-      extra_params_json: "{\"exchange\":\"SSE\"}",
     }),
   );
   renderPage();

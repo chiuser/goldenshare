@@ -1,12 +1,11 @@
 import {
-  Accordion,
   Alert,
   Badge,
   Button,
   Grid,
   Group,
-  JsonInput,
   Loader,
+  MultiSelect,
   Select,
   SimpleGrid,
   Stack,
@@ -61,15 +60,6 @@ const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic"]);
 
-function parseJsonOrThrow(label: string, raw: string) {
-  const normalized = raw.trim() || "{}";
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new Error(`${label} 格式不正确，请检查大括号、引号和逗号。`);
-  }
-}
-
 function buildEmptyDraft() {
   return {
     action_id: "",
@@ -77,8 +67,7 @@ function buildEmptyDraft() {
     selected_date: "",
     start_date: "",
     end_date: "",
-    field_values: {} as Record<string, string>,
-    extra_params_json: "{}",
+    field_values: {} as Record<string, string | string[]>,
   };
 }
 
@@ -220,7 +209,14 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
   if (!paramsJson) {
     return {};
   }
-  return Object.fromEntries(Object.entries(paramsJson).map(([key, value]) => [key, String(value ?? "")]));
+  return Object.fromEntries(
+    Object.entries(paramsJson).map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return [key, value.map((item) => String(item ?? ""))];
+      }
+      return [key, String(value ?? "")];
+    }),
+  );
 }
 
 function buildDraftFromParams(
@@ -241,7 +237,6 @@ function buildDraftFromParams(
     start_date: startDate,
     end_date: endDate,
     field_values: fieldValues,
-    extra_params_json: JSON.stringify(paramsJson || {}, null, 2),
   };
 }
 
@@ -281,16 +276,33 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
 function resolveExecutionTarget(
   action: ManualAction,
   draft: ReturnType<typeof buildEmptyDraft>,
-  extraJson: string,
 ) {
-  const params = parseJsonOrThrow("高级参数", extraJson);
+  const params: Record<string, unknown> = {};
 
   for (const param of action.supportedParams) {
     const rawValue = draft.field_values[param.key];
-    if (rawValue === undefined || rawValue === null || rawValue === "") {
+    if (rawValue === undefined || rawValue === null) {
       continue;
     }
-    params[param.key] = param.param_type === "integer" ? Number(rawValue) : rawValue;
+    if (param.multi_value) {
+      const values =
+        Array.isArray(rawValue)
+          ? rawValue.filter((item) => item !== "")
+          : String(rawValue)
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+      if (!values.length) {
+        continue;
+      }
+      params[param.key] = values.join(",");
+      continue;
+    }
+    const singleValue = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+    if (singleValue === "") {
+      continue;
+    }
+    params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
   }
 
   if (action.type === "workflow" && action.workflowKey) {
@@ -479,7 +491,7 @@ export function OpsManualSyncPage() {
       }
       return apiRequest<ExecutionDetailResponse>("/api/v1/ops/executions", {
         method: "POST",
-        body: resolveExecutionTarget(selectedAction, draft, draft.extra_params_json),
+        body: resolveExecutionTarget(selectedAction, draft),
       });
     },
     onSuccess: async (data) => {
@@ -625,7 +637,33 @@ export function OpsManualSyncPage() {
                       <Grid>
                         {selectedAction.supportedParams.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
-                            {param.param_type === "enum" ? (
+                            {(param.param_type === "enum" && param.multi_value) ? (
+                              <MultiSelect
+                                label={param.display_name}
+                                placeholder={param.description}
+                                searchable
+                                clearable
+                                hidePickedOptions
+                                data={normalizeParamOptions(param.options).map((option) => ({
+                                  value: option,
+                                  label: option,
+                                }))}
+                                value={
+                                  Array.isArray(draft.field_values[param.key])
+                                    ? (draft.field_values[param.key] as string[])
+                                    : String(draft.field_values[param.key] || "")
+                                      .split(",")
+                                      .map((item) => item.trim())
+                                      .filter(Boolean)
+                                }
+                                onChange={(values) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: values },
+                                  }))
+                                }
+                              />
+                            ) : param.param_type === "enum" ? (
                               <Select
                                 label={param.display_name}
                                 placeholder={param.description}
@@ -633,7 +671,11 @@ export function OpsManualSyncPage() {
                                   value: option,
                                   label: option,
                                 }))}
-                                value={draft.field_values[param.key] || null}
+                                value={
+                                  Array.isArray(draft.field_values[param.key])
+                                    ? ((draft.field_values[param.key] as string[])[0] || null)
+                                    : (draft.field_values[param.key] as string) || null
+                                }
                                 onChange={(value) =>
                                   setDraft((current) => ({
                                     ...current,
@@ -645,7 +687,7 @@ export function OpsManualSyncPage() {
                               <TextInput
                                 label={param.display_name}
                                 placeholder={param.description}
-                                value={draft.field_values[param.key] || ""}
+                                value={Array.isArray(draft.field_values[param.key]) ? "" : (draft.field_values[param.key] as string) || ""}
                                 onChange={(event) =>
                                   setDraft((current) => ({
                                     ...current,
@@ -663,22 +705,6 @@ export function OpsManualSyncPage() {
                       </Alert>
                     )}
                   </Stack>
-
-                  <Accordion variant="separated" radius="md">
-                    <Accordion.Item value="advanced">
-                      <Accordion.Control>高级设置</Accordion.Control>
-                      <Accordion.Panel>
-                        <JsonInput
-                          label="高级参数"
-                          description="只有在常用条件不够用时才需要填写。与上面的条件重复时，以这里为准。"
-                          autosize
-                          minRows={8}
-                          value={draft.extra_params_json}
-                          onChange={(value) => setDraft((current) => ({ ...current, extra_params_json: value }))}
-                        />
-                      </Accordion.Panel>
-                    </Accordion.Item>
-                  </Accordion>
 
                   <Group justify="space-between" align="center">
                     <Text c="dimmed" size="sm">

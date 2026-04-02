@@ -6,8 +6,8 @@ import {
   Drawer,
   Grid,
   Group,
-  JsonInput,
   Loader,
+  MultiSelect,
   Select,
   Stack,
   Table,
@@ -35,6 +35,7 @@ import {
   formatTimezoneLabel,
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
+import { DateField } from "../shared/ui/date-field";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
@@ -42,6 +43,12 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
+type DateMode = "single_day" | "date_range";
+type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
+type RepeatMode = "daily" | "weekly" | "monthly";
+
+const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
+const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 
 const emptyForm = {
   id: null as number | null,
@@ -49,22 +56,131 @@ const emptyForm = {
   spec_key: "",
   display_name: "",
   schedule_type: "once",
-  cron_expr: "",
   timezone: "Asia/Shanghai",
   calendar_policy: "",
-  next_run_at: "",
-  params_json: "{}",
-  retry_policy_json: "{}",
-  concurrency_policy_json: "{}",
+  once_date: "",
+  once_time: "19:00",
+  repeat_mode: "daily" as RepeatMode,
+  repeat_weekdays: ["1", "2", "3", "4", "5"] as string[],
+  repeat_month_day: "1",
+  repeat_time: "19:00",
+  date_mode: "single_day" as DateMode,
+  selected_date: "",
+  start_date: "",
+  end_date: "",
+  field_values: {} as Record<string, string | string[]>,
 };
 
-function parseJsonOrThrow(label: string, raw: string) {
-  const normalized = raw.trim() || "{}";
-  try {
-    return JSON.parse(normalized);
-  } catch {
-    throw new Error(`${label} 格式不正确，请检查大括号、引号和逗号。`);
+function normalizeParamOptions(options: string[] | undefined) {
+  return Array.isArray(options) ? options : [];
+}
+
+function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
+  if (!paramsJson) {
+    return {};
   }
+  return Object.fromEntries(
+    Object.entries(paramsJson).map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return [key, value.map((item) => String(item ?? ""))];
+      }
+      return [key, String(value ?? "")];
+    }),
+  );
+}
+
+function parseCronExpression(cronExpr: string | null | undefined) {
+  const raw = String(cronExpr || "").trim();
+  const match = raw.match(/^(\d{1,2})\s+(\d{1,2})\s+(.+)\s+(.+)\s+(.+)$/);
+  if (!match) {
+    return null;
+  }
+  const minute = Number(match[1]);
+  const hour = Number(match[2]);
+  const dayOfMonth = match[3];
+  const month = match[4];
+  const dayOfWeek = match[5];
+  if (!Number.isFinite(minute) || !Number.isFinite(hour)) {
+    return null;
+  }
+  if (month !== "*") {
+    return null;
+  }
+  const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  if (dayOfMonth === "*" && dayOfWeek === "*") {
+    return { repeatMode: "daily" as RepeatMode, repeatTime: time, repeatWeekdays: ["1", "2", "3", "4", "5"], repeatMonthDay: "1" };
+  }
+  if (dayOfMonth === "*" && dayOfWeek !== "*") {
+    const weekdays = dayOfWeek
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return { repeatMode: "weekly" as RepeatMode, repeatTime: time, repeatWeekdays: weekdays.length ? weekdays : ["1"], repeatMonthDay: "1" };
+  }
+  if (dayOfWeek === "*" && /^\d{1,2}$/.test(dayOfMonth)) {
+    return { repeatMode: "monthly" as RepeatMode, repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: dayOfMonth };
+  }
+  return null;
+}
+
+function buildCronExpression(repeatMode: RepeatMode, repeatTime: string, repeatWeekdays: string[], repeatMonthDay: string) {
+  const [hourRaw, minuteRaw] = repeatTime.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error("请填写正确的执行时间，格式为 HH:mm。");
+  }
+  if (repeatMode === "daily") {
+    return `${minute} ${hour} * * *`;
+  }
+  if (repeatMode === "weekly") {
+    const weekdays = repeatWeekdays.filter(Boolean);
+    if (!weekdays.length) {
+      throw new Error("每周执行至少选择一天。");
+    }
+    return `${minute} ${hour} * * ${weekdays.join(",")}`;
+  }
+  const day = Number(repeatMonthDay);
+  if (!Number.isFinite(day) || day < 1 || day > 28) {
+    throw new Error("每月执行日期请填写 1 到 28 之间的数字。");
+  }
+  return `${minute} ${hour} ${day} * *`;
+}
+
+function buildOnceRunAt(onceDate: string, onceTime: string) {
+  if (!onceDate) {
+    throw new Error("请选择单次执行日期。");
+  }
+  if (!/^\d{2}:\d{2}$/.test(onceTime)) {
+    throw new Error("请填写正确的执行时间，格式为 HH:mm。");
+  }
+  return `${onceDate}T${onceTime}:00+08:00`;
+}
+
+function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextRunAt: string | null) {
+  const weekdayLabel: Record<string, string> = {
+    "1": "周一",
+    "2": "周二",
+    "3": "周三",
+    "4": "周四",
+    "5": "周五",
+    "6": "周六",
+    "0": "周日",
+  };
+  if (scheduleType === "once") {
+    return nextRunAt ? `单次执行：${nextRunAt.replace("T", " ").slice(0, 16)}` : "单次执行";
+  }
+  const parsed = parseCronExpression(cronExpr);
+  if (!parsed) {
+    return cronExpr || "未设置";
+  }
+  if (parsed.repeatMode === "daily") {
+    return `每天 ${parsed.repeatTime}`;
+  }
+  if (parsed.repeatMode === "weekly") {
+    return `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`;
+  }
+  return `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
 }
 
 export function OpsAutomationPage() {
@@ -123,6 +239,125 @@ export function OpsAutomationPage() {
     ];
   }, [catalogQuery.data]);
 
+  const selectedJobSpec = useMemo(
+    () =>
+      (form.spec_type === "job" && catalogQuery.data && form.spec_key)
+        ? (catalogQuery.data.job_specs.find((item) => item.key === form.spec_key) || null)
+        : null,
+    [catalogQuery.data, form.spec_key, form.spec_type],
+  );
+
+  const selectedJobParamSpecs = useMemo<CatalogParamSpec[]>(
+    () =>
+      form.spec_type === "job"
+        ? (selectedJobSpec?.supported_params || []).filter(
+          (param) => !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key),
+        )
+        : [],
+    [form.spec_type, selectedJobSpec],
+  );
+
+  const supportsSingleDay = useMemo(
+    () => form.spec_type === "job" && Boolean(selectedJobSpec?.supported_params?.some((param) => param.key === "trade_date")),
+    [form.spec_type, selectedJobSpec],
+  );
+  const supportsDateRange = useMemo(
+    () =>
+      form.spec_type === "job"
+      && Boolean(
+        selectedJobSpec?.supported_params?.some((param) => param.key === "start_date")
+        && selectedJobSpec?.supported_params?.some((param) => param.key === "end_date"),
+      ),
+    [form.spec_type, selectedJobSpec],
+  );
+
+  const resolvedParamsJson = useMemo(() => {
+    const params: Record<string, unknown> = {};
+    for (const param of selectedJobParamSpecs) {
+      const rawValue = form.field_values[param.key];
+      if (rawValue === undefined || rawValue === null) {
+        continue;
+      }
+      if (param.multi_value) {
+        const values =
+          Array.isArray(rawValue)
+            ? rawValue.filter((item) => item !== "")
+            : String(rawValue)
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean);
+        if (!values.length) {
+          continue;
+        }
+        params[param.key] = values.join(",");
+        continue;
+      }
+      const singleValue = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+      if (singleValue === "") {
+        continue;
+      }
+      params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
+    }
+
+    if (supportsSingleDay && supportsDateRange) {
+      if (form.date_mode === "single_day") {
+        if (form.selected_date) {
+          params.trade_date = form.selected_date;
+        }
+      } else if (form.start_date && form.end_date) {
+        params.start_date = form.start_date;
+        params.end_date = form.end_date;
+      }
+    } else if (supportsSingleDay) {
+      if (form.selected_date) {
+        params.trade_date = form.selected_date;
+      }
+    } else if (supportsDateRange && form.start_date && form.end_date) {
+      params.start_date = form.start_date;
+      params.end_date = form.end_date;
+    }
+    return params;
+  }, [
+    form.date_mode,
+    form.end_date,
+    form.field_values,
+    form.selected_date,
+    form.start_date,
+    selectedJobParamSpecs,
+    supportsDateRange,
+    supportsSingleDay,
+  ]);
+
+  const resolvedScheduleSummary = useMemo(() => {
+    if (form.schedule_type === "once") {
+      return {
+        title: "单次执行",
+        detail: form.once_date ? `${form.once_date} ${form.once_time}` : "未选择日期",
+        cronExpr: null as string | null,
+      };
+    }
+    try {
+      const cronExpr = buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day);
+      const detail =
+        form.repeat_mode === "daily"
+          ? `每天 ${form.repeat_time}`
+          : form.repeat_mode === "weekly"
+            ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}`
+            : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
+      return {
+        title: "重复执行",
+        detail,
+        cronExpr,
+      };
+    } catch {
+      return {
+        title: "重复执行",
+        detail: "当前时间配置无效",
+        cronExpr: null as string | null,
+      };
+    }
+  }, [form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+
   const summary = useMemo(() => {
     const items = schedulesQuery.data?.items || [];
     return {
@@ -135,33 +370,44 @@ export function OpsAutomationPage() {
   }, [schedulesQuery.data?.items]);
 
   const previewMutation = useMutation({
-    mutationFn: () =>
-      apiRequest<SchedulePreviewResponse>("/api/v1/ops/schedules/preview", {
+    mutationFn: () => {
+      const scheduleType = form.schedule_type;
+      const cronExpr = scheduleType === "cron"
+        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
+        : null;
+      const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
+      return apiRequest<SchedulePreviewResponse>("/api/v1/ops/schedules/preview", {
         method: "POST",
         body: {
-          schedule_type: form.schedule_type,
-          cron_expr: form.cron_expr || null,
+          schedule_type: scheduleType,
+          cron_expr: cronExpr,
           timezone: form.timezone,
-          next_run_at: form.next_run_at || null,
+          next_run_at: nextRunAt,
           count: 5,
         },
-      }),
+      });
+    },
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const scheduleType = form.schedule_type;
+      const cronExpr = scheduleType === "cron"
+        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
+        : null;
+      const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
         spec_type: form.spec_type,
         spec_key: form.spec_key,
         display_name: form.display_name,
-        schedule_type: form.schedule_type,
-        cron_expr: form.cron_expr || null,
+        schedule_type: scheduleType,
+        cron_expr: cronExpr,
         timezone: form.timezone,
         calendar_policy: form.calendar_policy || null,
-        next_run_at: form.next_run_at || null,
-        params_json: parseJsonOrThrow("自动运行参数", form.params_json),
-        retry_policy_json: parseJsonOrThrow("失败后重试设置", form.retry_policy_json),
-        concurrency_policy_json: parseJsonOrThrow("并发处理设置", form.concurrency_policy_json),
+        next_run_at: nextRunAt,
+        params_json: resolvedParamsJson,
+        retry_policy_json: {},
+        concurrency_policy_json: {},
       };
       if (form.id) {
         return apiRequest<ScheduleDetailResponse>(`/api/v1/ops/schedules/${form.id}`, {
@@ -229,19 +475,32 @@ export function OpsAutomationPage() {
   const openEdit = () => {
     const detail = detailQuery.data;
     if (!detail) return;
+    const parsedCron = parseCronExpression(detail.cron_expr);
+    const nextRunAt = detail.next_run_at ? String(detail.next_run_at) : "";
+    const paramsJson = detail.params_json || {};
+    const tradeDate = typeof paramsJson.trade_date === "string" ? paramsJson.trade_date : "";
+    const startDate = typeof paramsJson.start_date === "string" ? paramsJson.start_date : "";
+    const endDate = typeof paramsJson.end_date === "string" ? paramsJson.end_date : "";
+    const dateMode: DateMode = tradeDate || (startDate && endDate && startDate === endDate) ? "single_day" : "date_range";
     setForm({
       id: detail.id,
       spec_type: detail.spec_type,
       spec_key: detail.spec_key,
       display_name: detail.display_name,
       schedule_type: detail.schedule_type,
-      cron_expr: detail.cron_expr || "",
       timezone: detail.timezone,
       calendar_policy: detail.calendar_policy || "",
-      next_run_at: detail.next_run_at || "",
-      params_json: JSON.stringify(detail.params_json || {}, null, 2),
-      retry_policy_json: JSON.stringify(detail.retry_policy_json || {}, null, 2),
-      concurrency_policy_json: JSON.stringify(detail.concurrency_policy_json || {}, null, 2),
+      once_date: nextRunAt ? nextRunAt.slice(0, 10) : "",
+      once_time: nextRunAt ? nextRunAt.slice(11, 16) : "19:00",
+      repeat_mode: parsedCron?.repeatMode || "daily",
+      repeat_weekdays: parsedCron?.repeatWeekdays || ["1", "2", "3", "4", "5"],
+      repeat_month_day: parsedCron?.repeatMonthDay || "1",
+      repeat_time: parsedCron?.repeatTime || "19:00",
+      date_mode: dateMode,
+      selected_date: tradeDate || startDate || "",
+      start_date: startDate,
+      end_date: endDate,
+      field_values: buildFieldValues(paramsJson),
     });
     open();
   };
@@ -423,9 +682,9 @@ export function OpsAutomationPage() {
                         bd="1px solid var(--mantine-color-gray-2)"
                         style={{ borderRadius: "var(--mantine-radius-md)" }}
                       >
-                        <Text c="dimmed" size="xs">周期规则</Text>
-                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
-                          {detailQuery.data.cron_expr || "未设置"}
+                        <Text c="dimmed" size="xs">调度策略</Text>
+                        <Text size="sm">
+                          {formatScheduleRule(detailQuery.data.schedule_type, detailQuery.data.cron_expr, detailQuery.data.next_run_at)}
                         </Text>
                       </Stack>
                     </Grid.Col>
@@ -517,7 +776,16 @@ export function OpsAutomationPage() {
             value={form.spec_key ? `${form.spec_type}:${form.spec_key}` : null}
             onChange={(value) => {
               const [specType, specKey] = (value || "job:").split(":");
-              setForm((current) => ({ ...current, spec_type: specType, spec_key: specKey || "" }));
+              setForm((current) => ({
+                ...current,
+                spec_type: specType,
+                spec_key: specKey || "",
+                date_mode: "single_day",
+                selected_date: "",
+                start_date: "",
+                end_date: "",
+                field_values: {},
+              }));
             }}
           />
           <Select
@@ -530,19 +798,68 @@ export function OpsAutomationPage() {
             onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
           />
           {form.schedule_type === "once" ? (
-            <TextInput
-              label="开始执行时间"
-              placeholder="例如：2026-04-01T19:00:00+08:00"
-              value={form.next_run_at}
-              onChange={(event) => setForm((current) => ({ ...current, next_run_at: event.currentTarget.value }))}
-            />
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 7 }}>
+                <DateField
+                  label="执行日期"
+                  placeholder="请选择日期"
+                  value={form.once_date}
+                  onChange={(value) => setForm((current) => ({ ...current, once_date: value }))}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 5 }}>
+                <TextInput
+                  label="执行时间"
+                  placeholder="HH:mm"
+                  value={form.once_time}
+                  onChange={(event) => setForm((current) => ({ ...current, once_time: event.currentTarget.value }))}
+                />
+              </Grid.Col>
+            </Grid>
           ) : (
-            <TextInput
-              label="周期规则"
-              placeholder="例如：0 19 * * 1-5"
-              value={form.cron_expr}
-              onChange={(event) => setForm((current) => ({ ...current, cron_expr: event.currentTarget.value }))}
-            />
+            <Stack gap="sm">
+              <Select
+                label="重复方式"
+                data={[
+                  { value: "daily", label: "每天" },
+                  { value: "weekly", label: "每周" },
+                  { value: "monthly", label: "每月" },
+                ]}
+                value={form.repeat_mode}
+                onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
+              />
+              {form.repeat_mode === "weekly" ? (
+                <MultiSelect
+                  label="每周执行日"
+                  data={[
+                    { value: "1", label: "周一" },
+                    { value: "2", label: "周二" },
+                    { value: "3", label: "周三" },
+                    { value: "4", label: "周四" },
+                    { value: "5", label: "周五" },
+                    { value: "6", label: "周六" },
+                    { value: "0", label: "周日" },
+                  ]}
+                  value={form.repeat_weekdays}
+                  onChange={(values) => setForm((current) => ({ ...current, repeat_weekdays: values }))}
+                  clearable={false}
+                />
+              ) : null}
+              {form.repeat_mode === "monthly" ? (
+                <TextInput
+                  label="每月几号"
+                  placeholder="1-28"
+                  value={form.repeat_month_day}
+                  onChange={(event) => setForm((current) => ({ ...current, repeat_month_day: event.currentTarget.value }))}
+                />
+              ) : null}
+              <TextInput
+                label="执行时间"
+                placeholder="HH:mm"
+                value={form.repeat_time}
+                onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
+              />
+            </Stack>
           )}
           <Select
             label="时区"
@@ -553,30 +870,148 @@ export function OpsAutomationPage() {
 
           <Accordion variant="separated" radius="md">
             <Accordion.Item value="params">
-              <Accordion.Control>高级设置</Accordion.Control>
+              <Accordion.Control>同步参数</Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
-                  <JsonInput
-                    label="自动运行参数"
-                    autosize
-                    minRows={6}
-                    value={form.params_json}
-                    onChange={(value) => setForm((current) => ({ ...current, params_json: value }))}
-                  />
-                  <JsonInput
-                    label="失败后重试设置"
-                    autosize
-                    minRows={4}
-                    value={form.retry_policy_json}
-                    onChange={(value) => setForm((current) => ({ ...current, retry_policy_json: value }))}
-                  />
-                  <JsonInput
-                    label="并发处理设置"
-                    autosize
-                    minRows={4}
-                    value={form.concurrency_policy_json}
-                    onChange={(value) => setForm((current) => ({ ...current, concurrency_policy_json: value }))}
-                  />
+                  {(supportsSingleDay || supportsDateRange) ? (
+                    <Stack gap="xs">
+                      <Text fw={700} size="sm">可选：固定同步日期</Text>
+                      {(supportsSingleDay && supportsDateRange) ? (
+                        <Group grow>
+                          <Button
+                            variant={form.date_mode === "single_day" ? "filled" : "light"}
+                            onClick={() => setForm((current) => ({ ...current, date_mode: "single_day" }))}
+                          >
+                            单日
+                          </Button>
+                          <Button
+                            variant={form.date_mode === "date_range" ? "filled" : "light"}
+                            onClick={() => setForm((current) => ({ ...current, date_mode: "date_range" }))}
+                          >
+                            日期区间
+                          </Button>
+                        </Group>
+                      ) : null}
+                      {(supportsSingleDay && (!supportsDateRange || form.date_mode === "single_day")) ? (
+                        <DateField
+                          label="同步日期（可留空）"
+                          placeholder="留空表示按系统自动判断业务日期"
+                          value={form.selected_date}
+                          onChange={(value) =>
+                            setForm((current) => ({
+                              ...current,
+                              selected_date: value,
+                              start_date: value,
+                              end_date: value,
+                            }))
+                          }
+                        />
+                      ) : null}
+                      {(supportsDateRange && (!supportsSingleDay || form.date_mode === "date_range")) ? (
+                        <Grid>
+                          <Grid.Col span={{ base: 12, sm: 6 }}>
+                            <DateField
+                              label="开始日期（可留空）"
+                              placeholder="留空表示按系统自动判断业务日期"
+                              value={form.start_date}
+                              onChange={(value) => setForm((current) => ({ ...current, start_date: value }))}
+                            />
+                          </Grid.Col>
+                          <Grid.Col span={{ base: 12, sm: 6 }}>
+                            <DateField
+                              label="结束日期（可留空）"
+                              placeholder="留空表示按系统自动判断业务日期"
+                              value={form.end_date}
+                              onChange={(value) => setForm((current) => ({ ...current, end_date: value }))}
+                            />
+                          </Grid.Col>
+                        </Grid>
+                      ) : null}
+                    </Stack>
+                  ) : null}
+
+                  {selectedJobParamSpecs.length ? (
+                    <Stack gap="xs">
+                      <Text fw={700} size="sm">可选：附加筛选条件</Text>
+                      <Grid>
+                        {selectedJobParamSpecs.map((param) => (
+                          <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
+                            {(param.param_type === "enum" && param.multi_value) ? (
+                              <MultiSelect
+                                label={param.display_name}
+                                placeholder={param.description}
+                                searchable
+                                clearable
+                                hidePickedOptions
+                                data={normalizeParamOptions(param.options).map((option) => ({
+                                  value: option,
+                                  label: option,
+                                }))}
+                                value={
+                                  Array.isArray(form.field_values[param.key])
+                                    ? (form.field_values[param.key] as string[])
+                                    : String(form.field_values[param.key] || "")
+                                      .split(",")
+                                      .map((item) => item.trim())
+                                      .filter(Boolean)
+                                }
+                                onChange={(values) =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: values },
+                                  }))
+                                }
+                              />
+                            ) : param.param_type === "enum" ? (
+                              <Select
+                                label={param.display_name}
+                                placeholder={param.description}
+                                data={normalizeParamOptions(param.options).map((option) => ({
+                                  value: option,
+                                  label: option,
+                                }))}
+                                value={
+                                  Array.isArray(form.field_values[param.key])
+                                    ? ((form.field_values[param.key] as string[])[0] || null)
+                                    : (form.field_values[param.key] as string) || null
+                                }
+                                onChange={(value) =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: value || "" },
+                                  }))
+                                }
+                              />
+                            ) : (
+                              <TextInput
+                                label={param.display_name}
+                                placeholder={param.description}
+                                value={Array.isArray(form.field_values[param.key]) ? "" : (form.field_values[param.key] as string) || ""}
+                                onChange={(event) =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: event.currentTarget.value },
+                                  }))
+                                }
+                              />
+                            )}
+                          </Grid.Col>
+                        ))}
+                      </Grid>
+                    </Stack>
+                  ) : null}
+                  <Alert color="indigo" variant="light" title="系统将按以下参数执行（只读）">
+                    <Stack gap={6}>
+                      <Text size="sm">调度策略：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}</Text>
+                      {resolvedScheduleSummary.cronExpr ? (
+                        <Text size="xs" c="dimmed">内部规则：{resolvedScheduleSummary.cronExpr}</Text>
+                      ) : null}
+                      <Text size="sm">同步参数：</Text>
+                      <Text component="pre" ff="monospace" fz={12} style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {JSON.stringify(resolvedParamsJson, null, 2)}
+                      </Text>
+                    </Stack>
+                  </Alert>
                 </Stack>
               </Accordion.Panel>
             </Accordion.Item>

@@ -24,6 +24,7 @@ import type {
   ExecutionDetailResponse,
   ExecutionEventsResponse,
   ExecutionLogsResponse,
+  ScheduleDetailResponse,
   ExecutionStepsResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
@@ -83,8 +84,7 @@ function buildRawLogText(logs: ExecutionLogsResponse["items"]): string {
     .join("\n\n");
 }
 
-function buildScopeItems(detail: ExecutionDetailResponse) {
-  const params = detail.params_json || {};
+function buildScopeItems(params: Record<string, unknown>) {
   const preferredOrder = ["trade_date", "start_date", "end_date", "ts_code", "index_code", "exchange"];
   const keys = preferredOrder.filter((key) => key in params);
   const extras = Object.keys(params).filter((key) => !preferredOrder.includes(key));
@@ -348,6 +348,12 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
     refetchInterval: buildRefetchInterval(activeStatus),
   });
 
+  const scheduleQuery = useQuery({
+    queryKey: ["ops", "schedule", detailQuery.data?.schedule_id],
+    queryFn: () => apiRequest<ScheduleDetailResponse>(`/api/v1/ops/schedules/${detailQuery.data?.schedule_id}`),
+    enabled: Boolean(detailQuery.data?.schedule_id),
+  });
+
   const retryMutation = useMutation({
     mutationFn: () =>
       apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry`, {
@@ -391,6 +397,14 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   }, [logStatus, logs]);
 
   const latestUpdate = detail ? buildLatestUpdate(detail, events, logs, steps) : null;
+  const userConfiguredParams = useMemo(
+    () => (scheduleQuery.data?.params_json || detail?.params_json || {}) as Record<string, unknown>,
+    [detail?.params_json, scheduleQuery.data?.params_json],
+  );
+  const finalExecutionParams = useMemo(
+    () => (detail?.params_json || {}) as Record<string, unknown>,
+    [detail?.params_json],
+  );
 
   return (
     <Stack gap="lg">
@@ -557,14 +571,30 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             <Grid.Col span={{ base: 12, lg: 5 }}>
               <Stack gap="md">
                 <SectionCard title="本次处理范围" description="这里展示这次任务实际会处理哪些日期、代码或交易所。">
-                  <Stack gap="sm">
-                    {buildScopeItems(detail).map((item) => (
-                      <Stack gap={2} key={item.label}>
-                        <Text c="dimmed" size="sm">{item.label}</Text>
-                        <Text>{item.value}</Text>
+                  <Grid gutter="md">
+                    <Grid.Col span={{ base: 12, md: 6 }}>
+                      <Stack gap="sm">
+                        <Text fw={700} size="sm">用户配置</Text>
+                        {buildScopeItems(userConfiguredParams).map((item) => (
+                          <Stack gap={2} key={`user-${item.label}`}>
+                            <Text c="dimmed" size="sm">{item.label}</Text>
+                            <Text>{item.value}</Text>
+                          </Stack>
+                        ))}
                       </Stack>
-                    ))}
-                  </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, md: 6 }}>
+                      <Stack gap="sm">
+                        <Text fw={700} size="sm">最终执行参数</Text>
+                        {buildScopeItems(finalExecutionParams).map((item) => (
+                          <Stack gap={2} key={`final-${item.label}`}>
+                            <Text c="dimmed" size="sm">{item.label}</Text>
+                            <Text>{item.value}</Text>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    </Grid.Col>
+                  </Grid>
                 </SectionCard>
 
                 <SectionCard title="建议下一步" description="不要先钻进原始日志。先看这里给出的下一步建议，再决定要不要继续排查。">
