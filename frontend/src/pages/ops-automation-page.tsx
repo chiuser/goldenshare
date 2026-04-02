@@ -455,30 +455,35 @@ export function OpsAutomationPage() {
     form.timezone,
   ]);
 
-  const previewMutation = useMutation({
-    mutationFn: (payload: {
-      schedule_type: string;
-      cron_expr: string | null;
-      timezone: string;
-      next_run_at: string | null;
-      count: number;
-    }) => {
-      return apiRequest<SchedulePreviewResponse>("/api/v1/ops/schedules/preview", {
-        method: "POST",
-        body: payload,
-      });
-    },
-  });
-
-  useEffect(() => {
-    if (!opened || !previewPayload) {
-      return;
+  const previewTriggerKey = useMemo(() => {
+    if (!previewPayload) {
+      return null;
     }
-    const timer = window.setTimeout(() => {
-      previewMutation.mutate(previewPayload);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [opened, previewMutation, previewPayload]);
+    return JSON.stringify({
+      schedule_type: previewPayload.schedule_type,
+      cron_expr: previewPayload.cron_expr,
+      next_run_at: previewPayload.next_run_at,
+      timezone: previewPayload.timezone,
+    });
+  }, [previewPayload]);
+
+  const previewQuery = useQuery({
+    queryKey: ["ops", "schedule-preview", previewTriggerKey],
+    queryFn: () =>
+      apiRequest<SchedulePreviewResponse>("/api/v1/ops/schedules/preview", {
+        method: "POST",
+        body: previewPayload as {
+          schedule_type: string;
+          cron_expr: string | null;
+          timezone: string;
+          next_run_at: string | null;
+          count: number;
+        },
+      }),
+    enabled: opened && Boolean(previewPayload && previewTriggerKey),
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1161,10 +1166,10 @@ export function OpsAutomationPage() {
             </Button>
           </Group>
 
-          {previewMutation.data ? (
+          {previewQuery.data ? (
             <Alert color="blue" variant="light" title="预览未来 5 次运行时间（自动更新）">
               <Stack gap={4}>
-                {previewMutation.data.preview_times.map((item) => (
+                {previewQuery.data.preview_times.map((item) => (
                   <Text key={item} size="sm">
                     {formatDateTimeLabel(item)}
                   </Text>
