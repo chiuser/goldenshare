@@ -17,7 +17,9 @@ import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
+import { ShareMarketPage } from "../pages/share-market-page";
 import { OpsShell } from "./shell";
+import { ShareShell } from "./share-shell";
 
 
 function AppRoot() {
@@ -130,6 +132,14 @@ function OpsLayout() {
   );
 }
 
+function ShareLayout() {
+  return (
+    <RequireAdmin>
+      <ShareShell />
+    </RequireAdmin>
+  );
+}
+
 function OpsIndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -194,6 +204,12 @@ const opsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/ops",
   component: OpsLayout,
+});
+
+const shareLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/share",
+  component: ShareLayout,
 });
 
 const opsIndexRoute = createRoute({
@@ -280,6 +296,12 @@ const opsLegacyCatalogRoute = createRoute({
   component: () => <RedirectTo to="/ops/manual-sync" />,
 });
 
+const shareIndexRoute = createRoute({
+  getParentRoute: () => shareLayoutRoute,
+  path: "/",
+  component: ShareMarketPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
@@ -298,6 +320,9 @@ const routeTree = rootRoute.addChildren([
     opsLegacyExecutionsRoute,
     opsLegacyExecutionDetailRoute,
     opsLegacyCatalogRoute,
+  ]),
+  shareLayoutRoute.addChildren([
+    shareIndexRoute,
   ]),
 ]);
 

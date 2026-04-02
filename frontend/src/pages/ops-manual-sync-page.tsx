@@ -44,6 +44,7 @@ type ManualAction = {
   description: string;
   syncDailySpecKey: string | null;
   backfillSpecKey: string | null;
+  backfillNoDateSpecKey: string | null;
   directSpecKey: string | null;
   workflowKey: string | null;
   supportedParams: CatalogParamSpec[];
@@ -102,6 +103,10 @@ function isSingleDay(resource: ManualAction, draft: ReturnType<typeof buildEmpty
     return true;
   }
   return false;
+}
+
+function hasParam(spec: CatalogJobSpec | null, key: string) {
+  return Boolean(spec?.supported_params?.some((param) => param.key === key));
 }
 
 function buildManualActions(catalog: OpsCatalogResponse | undefined) {
@@ -170,20 +175,26 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
     resourceMap.set(resourceKey, current);
   }
 
-  const actions: ManualAction[] = Array.from(resourceMap.values()).map((item) => ({
-    id: `job:${item.resourceKey}`,
-    type: "job",
-    categoryLabel: formatCategoryLabel(item.category),
-    displayName: `维护${formatResourceLabel(item.resourceKey)}`,
-    description: item.description,
-    syncDailySpecKey: item.syncDailySpec?.key || null,
-    backfillSpecKey: item.backfillSpec?.key || null,
-    directSpecKey: item.directSpec?.key || null,
-    workflowKey: null,
-    supportedParams: item.supportedParams,
-    supportsSingleDay: Boolean(item.syncDailySpec),
-    supportsDateRange: Boolean(item.backfillSpec),
-  }));
+  const actions: ManualAction[] = Array.from(resourceMap.values()).map((item) => {
+    const supportsSingleDay = hasParam(item.syncDailySpec, "trade_date");
+    const supportsDateRange = hasParam(item.backfillSpec, "start_date") && hasParam(item.backfillSpec, "end_date");
+    const backfillNoDateSpecKey = item.backfillSpec && !supportsDateRange ? item.backfillSpec.key : null;
+    return {
+      id: `job:${item.resourceKey}`,
+      type: "job",
+      categoryLabel: formatCategoryLabel(item.category),
+      displayName: `维护${formatResourceLabel(item.resourceKey)}`,
+      description: item.description,
+      syncDailySpecKey: item.syncDailySpec?.key || null,
+      backfillSpecKey: item.backfillSpec?.key || null,
+      backfillNoDateSpecKey,
+      directSpecKey: item.directSpec?.key || null,
+      workflowKey: null,
+      supportedParams: item.supportedParams,
+      supportsSingleDay,
+      supportsDateRange,
+    };
+  });
 
   for (const workflow of catalog.workflow_specs.filter((item) => item.supports_manual_run !== false)) {
     actions.push({
@@ -194,6 +205,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       description: workflow.description,
       syncDailySpecKey: null,
       backfillSpecKey: null,
+      backfillNoDateSpecKey: null,
       directSpecKey: null,
       workflowKey: workflow.key,
       supportedParams: [],
@@ -367,6 +379,14 @@ function resolveExecutionTarget(
       spec_type: "job" as ManualSpecType,
       spec_key: action.backfillSpecKey,
       params_json: { ...params, start_date: startDate, end_date: endDate },
+    };
+  }
+
+  if (action.backfillNoDateSpecKey) {
+    return {
+      spec_type: "job" as ManualSpecType,
+      spec_key: action.backfillNoDateSpecKey,
+      params_json: params,
     };
   }
 
