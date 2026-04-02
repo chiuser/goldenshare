@@ -29,7 +29,7 @@ function HomeRoutePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void navigate({ to: token ? "/ops/overview" : "/login", replace: true });
+    void navigate({ to: token ? "/ops/data-status" : "/login", replace: true });
   }, [navigate, token]);
 
   return (
@@ -133,7 +133,7 @@ function OpsLayout() {
 function OpsIndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    void navigate({ to: "/ops/today", replace: true });
+    void navigate({ to: "/ops/data-status", replace: true });
   }, [navigate]);
   return (
     <Center mih="100vh">

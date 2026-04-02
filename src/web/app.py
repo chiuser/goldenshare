@@ -64,9 +64,7 @@ def _frontend_app_response(path: str = ""):  # type: ignore[no-untyped-def]
 
 @app.get("/", include_in_schema=False)
 def root():  # type: ignore[no-untyped-def]
-    if settings.platform_check_enabled:
-        return RedirectResponse(url="/platform-check")
-    return RedirectResponse(url="/api/docs")
+    return RedirectResponse(url="/app")
 
 
 @app.get("/platform-check", include_in_schema=False)
