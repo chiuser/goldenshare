@@ -37,13 +37,17 @@ def test_job_spec_registry_contains_key_operations() -> None:
 def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     hk_basic_spec = get_job_spec("sync_history.hk_basic")
     assert hk_basic_spec is not None
-    assert [param.key for param in hk_basic_spec.supported_params] == ["ts_code", "list_status"]
-    assert next(param for param in hk_basic_spec.supported_params if param.key == "list_status").options == ("L", "D", "P")
+    assert [param.key for param in hk_basic_spec.supported_params] == ["list_status"]
+    hk_list_status = next(param for param in hk_basic_spec.supported_params if param.key == "list_status")
+    assert hk_list_status.options == ("L", "D", "P")
+    assert hk_list_status.multi_value is True
 
     us_basic_spec = get_job_spec("sync_history.us_basic")
     assert us_basic_spec is not None
-    assert [param.key for param in us_basic_spec.supported_params] == ["ts_code", "classify"]
-    assert next(param for param in us_basic_spec.supported_params if param.key == "classify").options == ("ADR", "GDR", "EQ")
+    assert [param.key for param in us_basic_spec.supported_params] == ["classify"]
+    us_classify = next(param for param in us_basic_spec.supported_params if param.key == "classify")
+    assert us_classify.options == ("ADR", "GDR", "EQ")
+    assert us_classify.multi_value is True
 
     trade_cal_spec = get_job_spec("sync_history.trade_cal")
     assert trade_cal_spec is not None

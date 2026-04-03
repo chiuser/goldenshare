@@ -6,19 +6,23 @@ from src.services.sync.sync_us_basic_service import SyncUsBasicService, build_us
 
 def test_build_hk_basic_params_supports_ts_code_and_list_status() -> None:
     assert build_hk_basic_params("FULL") == {}
-    assert build_hk_basic_params("FULL", ts_code="00005.HK", list_status="L") == {
-        "ts_code": "00005.HK",
+    assert build_hk_basic_params("FULL", list_status="L") == {
         "list_status": "L",
+    }
+    assert build_hk_basic_params("FULL", list_status=["L", "P"]) == {
+        "list_status": "L,P",
     }
 
 
 def test_build_us_basic_params_supports_filters_and_paging() -> None:
     assert build_us_basic_params("FULL") == {}
-    assert build_us_basic_params("FULL", ts_code="AAPL", classify="EQ", offset=100, limit=200) == {
-        "ts_code": "AAPL",
+    assert build_us_basic_params("FULL", classify="EQ", offset=100, limit=200) == {
         "classify": "EQ",
         "offset": 100,
         "limit": 200,
+    }
+    assert build_us_basic_params("FULL", classify=["ADR", "EQ"]) == {
+        "classify": "ADR,EQ",
     }
 
 

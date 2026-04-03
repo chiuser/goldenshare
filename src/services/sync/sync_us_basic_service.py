@@ -8,7 +8,14 @@ from src.services.sync.resource_sync import HttpResourceSyncService
 
 def build_us_basic_params(run_type: str, **kwargs: Any):  # type: ignore[no-untyped-def]
     params = {}
-    for key in ("ts_code", "classify", "offset", "limit"):
+    classify = kwargs.get("classify")
+    if isinstance(classify, list):
+        values = [str(item).strip() for item in classify if str(item).strip()]
+        if values:
+            params["classify"] = ",".join(values)
+    elif classify is not None and classify != "":
+        params["classify"] = classify
+    for key in ("ts_code", "offset", "limit"):
         if kwargs.get(key) is not None and kwargs.get(key) != "":
             params[key] = kwargs[key]
     return params

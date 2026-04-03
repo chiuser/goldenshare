@@ -8,9 +8,13 @@ from src.services.sync.resource_sync import HttpResourceSyncService
 
 def build_hk_basic_params(run_type: str, **kwargs: Any):  # type: ignore[no-untyped-def]
     params = {}
-    for key in ("ts_code", "list_status"):
-        if kwargs.get(key):
-            params[key] = kwargs[key]
+    list_status = kwargs.get("list_status")
+    if isinstance(list_status, list):
+        values = [str(item).strip() for item in list_status if str(item).strip()]
+        if values:
+            params["list_status"] = ",".join(values)
+    elif list_status:
+        params["list_status"] = list_status
     return params
 
 

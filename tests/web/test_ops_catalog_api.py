@@ -35,8 +35,14 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     workflows = {item["key"]: item for item in payload["workflow_specs"]}
     jobs = {item["key"]: item for item in payload["job_specs"]}
     assert jobs["sync_history.ths_member"]["supports_schedule"] is True
-    assert next(param for param in jobs["sync_history.hk_basic"]["supported_params"] if param["key"] == "list_status")["options"] == ["L", "D", "P"]
-    assert next(param for param in jobs["sync_history.us_basic"]["supported_params"] if param["key"] == "classify")["options"] == ["ADR", "GDR", "EQ"]
+    assert [param["key"] for param in jobs["sync_history.hk_basic"]["supported_params"]] == ["list_status"]
+    hk_list_status = next(param for param in jobs["sync_history.hk_basic"]["supported_params"] if param["key"] == "list_status")
+    assert hk_list_status["options"] == ["L", "D", "P"]
+    assert hk_list_status["multi_value"] is True
+    assert [param["key"] for param in jobs["sync_history.us_basic"]["supported_params"]] == ["classify"]
+    us_classify = next(param for param in jobs["sync_history.us_basic"]["supported_params"] if param["key"] == "classify")
+    assert us_classify["options"] == ["ADR", "GDR", "EQ"]
+    assert us_classify["multi_value"] is True
     dc_hot_daily = jobs["sync_daily.dc_hot"]
     assert [param["key"] for param in dc_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
     assert next(param for param in dc_hot_daily["supported_params"] if param["key"] == "market")["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]

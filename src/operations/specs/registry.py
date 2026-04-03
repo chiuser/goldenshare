@@ -37,6 +37,7 @@ LIST_STATUS_PARAM = ParameterSpec(
     param_type="enum",
     description="用于港股列表筛选上市状态。",
     options=("L", "D", "P"),
+    multi_value=True,
 )
 CLASSIFY_PARAM = ParameterSpec(
     key="classify",
@@ -44,6 +45,7 @@ CLASSIFY_PARAM = ParameterSpec(
     param_type="enum",
     description="用于美股列表筛选证券分类。",
     options=("ADR", "GDR", "EQ"),
+    multi_value=True,
 )
 TS_CODE_PARAM = ParameterSpec(
     key="ts_code",
@@ -214,9 +216,9 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "hk_basic":
-        return (TS_CODE_PARAM, LIST_STATUS_PARAM)
+        return (LIST_STATUS_PARAM,)
     if resource == "us_basic":
-        return (TS_CODE_PARAM, CLASSIFY_PARAM)
+        return (CLASSIFY_PARAM,)
     if resource == "index_weight":
         return (INDEX_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "ths_index":
