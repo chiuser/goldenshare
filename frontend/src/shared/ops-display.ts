@@ -115,6 +115,8 @@ const serviceNameLabelMap: Record<string, string> = {
 const resourceLabelMap: Record<string, string> = {
   trade_cal: "交易日历",
   stock_basic: "股票基础信息",
+  hk_basic: "港股列表",
+  us_basic: "美股列表",
   etf_basic: "ETF 基础信息",
   index_basic: "指数基础信息",
   daily: "股票日线",

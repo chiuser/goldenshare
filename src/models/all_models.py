@@ -10,6 +10,7 @@ from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.hk_security import HkSecurity
 from src.models.core.dc_daily import DcDaily
 from src.models.core.dc_hot import DcHot
 from src.models.core.dc_index import DcIndex
@@ -30,6 +31,7 @@ from src.models.core.ths_hot import ThsHot
 from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
 from src.models.core.trade_calendar import TradeCalendar
+from src.models.core.us_security import UsSecurity
 from src.models.ops.config_revision import ConfigRevision
 from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.models.ops.job_execution import JobExecution
@@ -45,6 +47,7 @@ from src.models.raw.raw_daily_basic import RawDailyBasic
 from src.models.raw.raw_dividend import RawDividend
 from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
+from src.models.raw.raw_hk_basic import RawHkBasic
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_dc_daily import RawDcDaily
 from src.models.raw.raw_dc_hot import RawDcHot
@@ -69,6 +72,7 @@ from src.models.raw.raw_ths_index import RawThsIndex
 from src.models.raw.raw_ths_member import RawThsMember
 from src.models.raw.raw_top_list import RawTopList
 from src.models.raw.raw_trade_cal import RawTradeCal
+from src.models.raw.raw_us_basic import RawUsBasic
 
 __all__ = [
     "AppUser",
@@ -83,6 +87,7 @@ __all__ = [
     "EquityTopList",
     "EtfBasic",
     "FundDailyBar",
+    "HkSecurity",
     "DcDaily",
     "DcHot",
     "DcIndex",
@@ -102,6 +107,7 @@ __all__ = [
     "RawDividend",
     "RawEtfBasic",
     "RawFundDaily",
+    "RawHkBasic",
     "RawHolderNumber",
     "RawDcDaily",
     "RawDcHot",
@@ -126,6 +132,7 @@ __all__ = [
     "RawThsMember",
     "RawTopList",
     "RawTradeCal",
+    "RawUsBasic",
     "ConfigRevision",
     "DatasetStatusSnapshot",
     "JobExecution",
@@ -142,4 +149,5 @@ __all__ = [
     "ThsIndex",
     "ThsMember",
     "TradeCalendar",
+    "UsSecurity",
 ]

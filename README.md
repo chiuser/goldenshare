@@ -138,6 +138,30 @@ alembic upgrade head
 goldenshare init-db
 ```
 
+## 基础主数据类数据集接入模式
+
+后续接入类似 `stock_basic` / `etf_basic` / `hk_basic` / `us_basic` 这种“基础主数据”接口时，统一按下面模式实现：
+
+1. 显式声明 `fields`
+   不依赖 Tushare 默认返回字段，所有输出字段都要在 [src/services/sync/fields.py](/Users/congming/github/goldenshare/src/services/sync/fields.py) 中定义常量并显式请求。像 `us_basic.enname` 这种默认不返回的字段，也必须包含进去。
+2. raw/core 分层建表
+   `raw.*` 负责保留原始接口输出和抓取元信息，`core.*` 负责提供规范化后的业务查询表。不要为了图省事把不同市场、不同语义的主数据硬塞进 [core.security](/Users/congming/github/goldenshare/src/models/core/security.py)。
+3. sync service 最小转换
+   基础主数据类资源通常不需要复杂 normalizer，只做日期转换、必要字段透传和 `source="tushare"` 这样的最小补充。
+4. 运营后台完整打通
+   新资源不仅要能 `sync-history`，还要同步接入：
+   - ops catalog 参数定义
+   - 手动任务
+   - 自动任务
+   - workflow
+   - 数据状态 / freshness 展示
+5. migration 保持 additive
+   这类资源优先走“新增 raw/core 表和索引”的 additive migration，不碰无关表结构。
+
+按这个模式，本轮新增了：
+- `hk_basic` 港股列表
+- `us_basic` 美股列表
+
 ## 安全启动同步
 
 建议按这个顺序启动同步，先确认库结构和小批量链路都正常，再开始大批量回补：
@@ -177,6 +201,18 @@ goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-0
 goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
 goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
+```
+
+新增的海外基础主数据可以这样同步：
+
+```bash
+goldenshare sync-history --resources hk_basic
+goldenshare sync-history --resources hk_basic --list-status L
+goldenshare sync-history --resources hk_basic --ts-code 00005.HK
+
+goldenshare sync-history --resources us_basic
+goldenshare sync-history --resources us_basic --classify EQ
+goldenshare sync-history --resources us_basic --ts-code AAPL
 ```
 
 说明：

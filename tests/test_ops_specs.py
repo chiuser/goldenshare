@@ -6,6 +6,8 @@ from src.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stock_basic" in JOB_SPEC_REGISTRY
+    assert "sync_history.hk_basic" in JOB_SPEC_REGISTRY
+    assert "sync_history.us_basic" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_index" in JOB_SPEC_REGISTRY
@@ -33,6 +35,16 @@ def test_job_spec_registry_contains_key_operations() -> None:
 
 
 def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
+    hk_basic_spec = get_job_spec("sync_history.hk_basic")
+    assert hk_basic_spec is not None
+    assert [param.key for param in hk_basic_spec.supported_params] == ["ts_code", "list_status"]
+    assert next(param for param in hk_basic_spec.supported_params if param.key == "list_status").options == ("L", "D", "P")
+
+    us_basic_spec = get_job_spec("sync_history.us_basic")
+    assert us_basic_spec is not None
+    assert [param.key for param in us_basic_spec.supported_params] == ["ts_code", "classify"]
+    assert next(param for param in us_basic_spec.supported_params if param.key == "classify").options == ("ADR", "GDR", "EQ")
+
     trade_cal_spec = get_job_spec("sync_history.trade_cal")
     assert trade_cal_spec is not None
     assert [param.key for param in trade_cal_spec.supported_params] == ["start_date", "end_date", "exchange"]

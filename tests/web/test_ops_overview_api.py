@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import src.web.queries.ops.overview_query_service as overview_query_module
+
 
 def test_ops_overview_rejects_non_admin(app_client, user_factory) -> None:
     user_factory(username="user", password="secret", is_admin=False)
@@ -20,9 +22,20 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     job_execution_factory,
     trade_calendar_factory,
     sync_job_state_factory,
+    monkeypatch,
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     now = datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc)
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return now.replace(tzinfo=None)
+            return now.astimezone(tz)
+
+    monkeypatch.setattr(overview_query_module, "datetime", FixedDateTime)
+
     trade_calendar_factory(exchange="SSE", trade_date=now.date(), is_open=True)
     sync_job_state_factory(
         job_name="sync_equity_daily",

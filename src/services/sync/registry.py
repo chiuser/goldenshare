@@ -14,6 +14,7 @@ from src.services.sync.sync_etf_basic_service import SyncEtfBasicService
 from src.services.sync.sync_equity_daily_service import SyncEquityDailyService
 from src.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.services.sync.sync_holdernumber_service import SyncHolderNumberService
+from src.services.sync.sync_hk_basic_service import SyncHkBasicService
 from src.services.sync.sync_kpl_concept_cons_service import SyncKplConceptConsService
 from src.services.sync.sync_kpl_list_service import SyncKplListService
 from src.services.sync.sync_index_basic_service import SyncIndexBasicService
@@ -35,10 +36,13 @@ from src.services.sync.sync_ths_daily_service import SyncThsDailyService
 from src.services.sync.sync_ths_hot_service import SyncThsHotService
 from src.services.sync.sync_ths_index_service import SyncThsIndexService
 from src.services.sync.sync_ths_member_service import SyncThsMemberService
+from src.services.sync.sync_us_basic_service import SyncUsBasicService
 
 
 SYNC_SERVICE_REGISTRY = {
     "stock_basic": SyncStockBasicService,
+    "hk_basic": SyncHkBasicService,
+    "us_basic": SyncUsBasicService,
     "trade_cal": SyncTradeCalendarService,
     "daily": SyncEquityDailyService,
     "adj_factor": SyncAdjFactorService,

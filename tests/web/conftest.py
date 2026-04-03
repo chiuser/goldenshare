@@ -103,6 +103,8 @@ def app_client(db_session: Session) -> Generator[TestClient, None, None]:
     from src.web.app import app
     from src.web.dependencies import get_db_session
 
+    get_settings.cache_clear()
+
     def override_db_session():
         yield db_session
 
@@ -110,6 +112,7 @@ def app_client(db_session: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
+    get_settings.cache_clear()
 
 
 @pytest.fixture()

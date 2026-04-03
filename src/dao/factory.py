@@ -28,6 +28,7 @@ from src.models.core.equity_limit_list import EquityLimitList
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.hk_security import HkSecurity
 from src.models.core.dc_daily import DcDaily
 from src.models.core.dc_hot import DcHot
 from src.models.core.dc_index import DcIndex
@@ -40,6 +41,7 @@ from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
 from src.models.core.kpl_concept_cons import KplConceptCons
 from src.models.core.kpl_list import KplList
+from src.models.core.us_security import UsSecurity
 from src.models.raw.raw_adj_factor import RawAdjFactor
 from src.models.raw.raw_block_trade import RawBlockTrade
 from src.models.raw.raw_daily import RawDaily
@@ -47,6 +49,7 @@ from src.models.raw.raw_daily_basic import RawDailyBasic
 from src.models.raw.raw_dividend import RawDividend
 from src.models.raw.raw_etf_basic import RawEtfBasic
 from src.models.raw.raw_fund_daily import RawFundDaily
+from src.models.raw.raw_hk_basic import RawHkBasic
 from src.models.raw.raw_holdernumber import RawHolderNumber
 from src.models.raw.raw_dc_daily import RawDcDaily
 from src.models.raw.raw_dc_hot import RawDcHot
@@ -67,6 +70,7 @@ from src.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.models.raw.raw_top_list import RawTopList
 from src.models.raw.raw_trade_cal import RawTradeCal
+from src.models.raw.raw_us_basic import RawUsBasic
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.ths_daily import ThsDaily
@@ -92,6 +96,8 @@ class DAOFactory:
         self.equity_block_trade = GenericDAO(session, EquityBlockTrade)
         self.equity_dividend = EquityDividendDAO(session)
         self.etf_basic = EtfBasicDAO(session)
+        self.hk_security = GenericDAO(session, HkSecurity)
+        self.us_security = GenericDAO(session, UsSecurity)
         self.fund_daily_bar = GenericDAO(session, FundDailyBar)
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
@@ -125,6 +131,8 @@ class DAOFactory:
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)
         self.raw_dividend = RawDividendDAO(session)
         self.raw_etf_basic = GenericDAO(session, RawEtfBasic)
+        self.raw_hk_basic = GenericDAO(session, RawHkBasic)
+        self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)
         self.raw_stk_period_bar = GenericDAO(session, RawStkPeriodBar)
         self.raw_stk_period_bar_adj = GenericDAO(session, RawStkPeriodBarAdj)

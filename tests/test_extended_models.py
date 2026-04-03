@@ -1,4 +1,5 @@
 from src.models.core.etf_basic import EtfBasic
+from src.models.core.hk_security import HkSecurity
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
@@ -13,6 +14,7 @@ from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.ths_daily import ThsDaily
 from src.models.core.ths_index import ThsIndex
 from src.models.core.ths_member import ThsMember
+from src.models.core.us_security import UsSecurity
 
 
 def test_security_includes_curr_type() -> None:
@@ -48,6 +50,21 @@ def test_index_supplement_models_match_expected_keys() -> None:
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexWeight.__table__.primary_key.columns] == ["index_code", "trade_date", "con_code"]
     assert [column.name for column in IndexDailyBasic.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+
+
+def test_overseas_basic_models_match_expected_keys() -> None:
+    assert [column.name for column in HkSecurity.__table__.primary_key.columns] == ["ts_code"]
+    assert {index.name for index in HkSecurity.__table__.indexes} == {
+        "idx_hk_security_name",
+        "idx_hk_security_market",
+        "idx_hk_security_list_status",
+    }
+    assert [column.name for column in UsSecurity.__table__.primary_key.columns] == ["ts_code"]
+    assert {index.name for index in UsSecurity.__table__.indexes} == {
+        "idx_us_security_name",
+        "idx_us_security_classify",
+        "idx_us_security_list_date",
+    }
 
 
 def test_board_dataset_models_match_expected_keys() -> None:

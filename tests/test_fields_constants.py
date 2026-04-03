@@ -7,6 +7,7 @@ from src.services.sync.fields import (
     ETF_BASIC_FIELDS,
     FUND_DAILY_FIELDS,
     HOLDERNUMBER_FIELDS,
+    HK_BASIC_FIELDS,
     THS_INDEX_FIELDS,
     THS_MEMBER_FIELDS,
     THS_DAILY_FIELDS,
@@ -26,6 +27,7 @@ from src.services.sync.fields import (
     STOCK_BASIC_FIELDS,
     TOP_LIST_FIELDS,
     TRADE_CAL_FIELDS,
+    US_BASIC_FIELDS,
 )
 from src.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.services.sync.sync_index_daily_service import SyncIndexDailyService
@@ -49,6 +51,28 @@ def test_new_field_constants_exist() -> None:
     assert "freq" in STK_PERIOD_BAR_FIELDS
     assert "open_qfq" in STK_PERIOD_BAR_ADJ_FIELDS
     assert "publisher" in INDEX_BASIC_FIELDS
+    assert tuple(HK_BASIC_FIELDS) == (
+        "ts_code",
+        "name",
+        "fullname",
+        "enname",
+        "cn_spell",
+        "market",
+        "list_status",
+        "list_date",
+        "delist_date",
+        "trade_unit",
+        "isin",
+        "curr_type",
+    )
+    assert tuple(US_BASIC_FIELDS) == (
+        "ts_code",
+        "name",
+        "enname",
+        "classify",
+        "list_date",
+        "delist_date",
+    )
     assert tuple(ETF_BASIC_FIELDS) == (
         "ts_code",
         "csname",

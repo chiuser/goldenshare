@@ -31,6 +31,20 @@ EXCHANGE_PARAM = ParameterSpec(
     description="用于交易日历或按交易日回补的交易所参数。",
     options=("SSE", "SZSE"),
 )
+LIST_STATUS_PARAM = ParameterSpec(
+    key="list_status",
+    display_name="上市状态",
+    param_type="enum",
+    description="用于港股列表筛选上市状态。",
+    options=("L", "D", "P"),
+)
+CLASSIFY_PARAM = ParameterSpec(
+    key="classify",
+    display_name="分类",
+    param_type="enum",
+    description="用于美股列表筛选证券分类。",
+    options=("ADR", "GDR", "EQ"),
+)
 TS_CODE_PARAM = ParameterSpec(
     key="ts_code",
     display_name="证券代码",
@@ -140,6 +154,8 @@ DAILY_SYNC_RESOURCES = (
 
 SCHEDULED_FULL_REFRESH_RESOURCES = {
     "stock_basic",
+    "hk_basic",
+    "us_basic",
     "trade_cal",
     "etf_basic",
     "index_basic",
@@ -197,6 +213,10 @@ def _service_target_table(resource: str) -> str:
 def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
+    if resource == "hk_basic":
+        return (TS_CODE_PARAM, LIST_STATUS_PARAM)
+    if resource == "us_basic":
+        return (TS_CODE_PARAM, CLASSIFY_PARAM)
     if resource == "index_weight":
         return (INDEX_CODE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "ths_index":
@@ -466,6 +486,8 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("trade_cal", "sync_history.trade_cal", "交易日历"),
             WorkflowStepSpec("etf_basic", "sync_history.etf_basic", "ETF 基本信息"),
             WorkflowStepSpec("index_basic", "sync_history.index_basic", "指数基本信息"),
+            WorkflowStepSpec("hk_basic", "sync_history.hk_basic", "港股列表"),
+            WorkflowStepSpec("us_basic", "sync_history.us_basic", "美股列表"),
         ),
         supports_schedule=True,
         supports_manual_run=True,
@@ -526,6 +548,8 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
 
 DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference", None),
+    "hk_basic": ("港股列表", "reference_data", "基础主数据", "reference", None),
+    "us_basic": ("美股列表", "reference_data", "基础主数据", "reference", None),
     "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
     "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),

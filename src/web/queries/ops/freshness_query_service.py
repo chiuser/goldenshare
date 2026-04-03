@@ -18,6 +18,7 @@ from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.etf_basic import EtfBasic
 from src.models.core.fund_daily_bar import FundDailyBar
+from src.models.core.hk_security import HkSecurity
 from src.models.core.dc_daily import DcDaily
 from src.models.core.dc_hot import DcHot
 from src.models.core.dc_index import DcIndex
@@ -34,6 +35,7 @@ from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.trade_calendar import TradeCalendar
+from src.models.core.us_security import UsSecurity
 from src.models.core.ths_daily import ThsDaily
 from src.models.core.ths_hot import ThsHot
 from src.models.core.ths_index import ThsIndex
@@ -59,6 +61,8 @@ ON_CONFLICT_RE = re.compile(
 
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.security": Security,
+    "core.hk_security": HkSecurity,
+    "core.us_security": UsSecurity,
     "core.trade_calendar": TradeCalendar,
     "core.etf_basic": EtfBasic,
     "core.index_basic": IndexBasic,

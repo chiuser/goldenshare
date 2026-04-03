@@ -60,7 +60,7 @@ type ActionGuidance = {
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
-const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic"]);
+const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic", "hk_basic", "us_basic"]);
 
 function buildEmptyDraft() {
   return {

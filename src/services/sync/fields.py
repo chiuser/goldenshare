@@ -214,6 +214,30 @@ ETF_BASIC_FIELDS = [
     "etf_type",
 ]
 
+HK_BASIC_FIELDS = [
+    "ts_code",
+    "name",
+    "fullname",
+    "enname",
+    "cn_spell",
+    "market",
+    "list_status",
+    "list_date",
+    "delist_date",
+    "trade_unit",
+    "isin",
+    "curr_type",
+]
+
+US_BASIC_FIELDS = [
+    "ts_code",
+    "name",
+    "enname",
+    "classify",
+    "list_date",
+    "delist_date",
+]
+
 THS_INDEX_FIELDS = ["ts_code", "name", "count", "exchange", "list_date", "type"]
 THS_MEMBER_FIELDS = ["ts_code", "con_code", "con_name", "weight", "in_date", "out_date", "is_new"]
 THS_DAILY_FIELDS = [

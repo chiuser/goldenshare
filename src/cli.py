@@ -66,6 +66,8 @@ def init_db() -> None:
 def sync_history(
     resources: list[str] = typer.Option(..., "--resources", "-r"),
     ts_code: str | None = typer.Option(None),
+    list_status: str | None = typer.Option(None, "--list-status", help="Optional list status filter for hk_basic."),
+    classify: str | None = typer.Option(None, "--classify", help="Optional classify filter for us_basic."),
     index_code: str | None = typer.Option(None, "--index-code", help="For index_weight, maps to Tushare index_code."),
     con_code: str | None = typer.Option(None, "--con-code", help="For board/member resources, maps to concept code."),
     exchange: str | None = typer.Option(None, help="Optional exchange filter for reference resources."),
@@ -85,6 +87,8 @@ def sync_history(
             service = build_sync_service(resource, session)
             kwargs = {
                 "ts_code": ts_code,
+                "list_status": list_status,
+                "classify": classify,
                 "index_code": index_code,
                 "con_code": con_code,
                 "exchange": exchange,
