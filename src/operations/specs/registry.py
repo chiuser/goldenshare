@@ -44,7 +44,7 @@ CLASSIFY_PARAM = ParameterSpec(
     display_name="分类",
     param_type="enum",
     description="用于美股列表筛选证券分类。",
-    options=("ADR", "GDR", "EQ"),
+    options=("ADR", "GDR", "EQT"),
     multi_value=True,
 )
 TS_CODE_PARAM = ParameterSpec(

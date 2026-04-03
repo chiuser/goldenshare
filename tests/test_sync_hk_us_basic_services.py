@@ -17,12 +17,12 @@ def test_build_hk_basic_params_supports_ts_code_and_list_status() -> None:
 def test_build_us_basic_params_supports_filters_and_paging() -> None:
     assert build_us_basic_params("FULL") == {}
     assert build_us_basic_params("FULL", classify="EQ", offset=100, limit=200) == {
-        "classify": "EQ",
+        "classify": "EQT",
         "offset": 100,
         "limit": 200,
     }
     assert build_us_basic_params("FULL", classify=["ADR", "EQ"]) == {
-        "classify": "ADR,EQ",
+        "classify": "ADR,EQT",
     }
 
 

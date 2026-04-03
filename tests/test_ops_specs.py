@@ -46,7 +46,7 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert us_basic_spec is not None
     assert [param.key for param in us_basic_spec.supported_params] == ["classify"]
     us_classify = next(param for param in us_basic_spec.supported_params if param.key == "classify")
-    assert us_classify.options == ("ADR", "GDR", "EQ")
+    assert us_classify.options == ("ADR", "GDR", "EQT")
     assert us_classify.multi_value is True
 
     trade_cal_spec = get_job_spec("sync_history.trade_cal")

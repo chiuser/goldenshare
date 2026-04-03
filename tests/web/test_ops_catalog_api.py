@@ -41,7 +41,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert hk_list_status["multi_value"] is True
     assert [param["key"] for param in jobs["sync_history.us_basic"]["supported_params"]] == ["classify"]
     us_classify = next(param for param in jobs["sync_history.us_basic"]["supported_params"] if param["key"] == "classify")
-    assert us_classify["options"] == ["ADR", "GDR", "EQ"]
+    assert us_classify["options"] == ["ADR", "GDR", "EQT"]
     assert us_classify["multi_value"] is True
     dc_hot_daily = jobs["sync_daily.dc_hot"]
     assert [param["key"] for param in dc_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
