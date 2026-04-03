@@ -162,6 +162,28 @@ goldenshare init-db
 - `hk_basic` 港股列表
 - `us_basic` 美股列表
 
+## 日频榜单类数据集接入模式
+
+后续接入类似 `ths_hot` / `dc_hot` / `kpl_list` / `limit_list_ths` / `limit_step` / `limit_cpt_list` 这种“日频榜单类”接口时，统一按下面模式实现：
+
+1. 显式声明 `fields`
+   和基础主数据一样，不依赖默认返回字段，所有输出字段都要在 [src/services/sync/fields.py](/Users/congming/github/goldenshare/src/services/sync/fields.py) 中定义并显式传给接口。
+2. 按交易日同步与回补
+   默认支持：
+   - `sync_daily.<resource>` 按单个交易日同步
+   - `backfill_by_trade_date.<resource>` 按交易日区间历史回补
+3. raw/core 双表
+   `raw.*` 记录原始榜单快照，`core.*` 提供查询表；必要时保留 `query_*` 请求上下文字段，避免多筛选条件下的数据语义丢失。
+4. 用户参数只暴露高价值筛选项
+   不要把文档里所有参数都直接暴露给运营后台。像单证券 `ts_code`、低频分析参数这类，如果日常同步价值很低，就不要放进手动任务和自动任务页面。
+5. 多选参数优先复选框
+   如果参数允许多值，前端统一用复选框，不再用下拉菜单；后端按接口语义决定是拼接传参还是拆分多次调用。
+
+按这个模式，本轮新增了：
+- `limit_list_ths` 同花顺涨跌停榜单
+- `limit_step` 涨停天梯
+- `limit_cpt_list` 最强板块统计
+
 ## 安全启动同步
 
 建议按这个顺序启动同步，先确认库结构和小批量链路都正常，再开始大批量回补：
@@ -211,7 +233,7 @@ goldenshare sync-history --resources hk_basic --list-status L
 goldenshare sync-history --resources hk_basic --ts-code 00005.HK
 
 goldenshare sync-history --resources us_basic
-goldenshare sync-history --resources us_basic --classify EQ
+goldenshare sync-history --resources us_basic --classify EQT
 goldenshare sync-history --resources us_basic --ts-code AAPL
 ```
 

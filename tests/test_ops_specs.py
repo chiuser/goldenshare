@@ -63,6 +63,24 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert limit_list_exchange_param.options == ("SH", "SZ", "BJ")
     assert limit_list_exchange_param.multi_value is True
 
+    limit_list_ths_daily_spec = get_job_spec("sync_daily.limit_list_ths")
+    assert limit_list_ths_daily_spec is not None
+    assert [param.key for param in limit_list_ths_daily_spec.supported_params] == ["trade_date", "limit_type", "market"]
+    limit_list_ths_type = next(param for param in limit_list_ths_daily_spec.supported_params if param.key == "limit_type")
+    assert limit_list_ths_type.options == ("涨停池", "连扳池", "冲刺涨停", "炸板池", "跌停池")
+    assert limit_list_ths_type.multi_value is True
+    limit_list_ths_market = next(param for param in limit_list_ths_daily_spec.supported_params if param.key == "market")
+    assert limit_list_ths_market.options == ("HS", "GEM", "STAR")
+    assert limit_list_ths_market.multi_value is True
+
+    limit_step_daily_spec = get_job_spec("sync_daily.limit_step")
+    assert limit_step_daily_spec is not None
+    assert [param.key for param in limit_step_daily_spec.supported_params] == ["trade_date"]
+
+    limit_cpt_list_daily_spec = get_job_spec("sync_daily.limit_cpt_list")
+    assert limit_cpt_list_daily_spec is not None
+    assert [param.key for param in limit_cpt_list_daily_spec.supported_params] == ["trade_date"]
+
     index_weight_spec = get_job_spec("sync_history.index_weight")
     assert index_weight_spec is not None
     assert [param.key for param in index_weight_spec.supported_params] == ["index_code", "start_date", "end_date"]

@@ -77,6 +77,7 @@ def sync_history(
     hot_type: str | None = typer.Option(None, "--hot-type", help="Optional hot list type filter for dc_hot."),
     is_new: str | None = typer.Option(None, "--is-new", help="Optional latest-snapshot tag for hot list resources."),
     tag: str | None = typer.Option(None, "--tag", help="Optional tag filter for kpl_list."),
+    limit_type: str | None = typer.Option(None, "--limit-type", help="Optional limit list type filter."),
     start_date: str | None = typer.Option(None),
     end_date: str | None = typer.Option(None),
 ) -> None:
@@ -98,6 +99,7 @@ def sync_history(
                 "hot_type": hot_type,
                 "is_new": is_new,
                 "tag": tag,
+                "limit_type": limit_type,
                 "start_date": start_date,
                 "end_date": end_date,
             }
@@ -137,6 +139,9 @@ def sync_daily(
             "ths_hot",
             "dc_hot",
             "kpl_list",
+            "limit_list_ths",
+            "limit_step",
+            "limit_cpt_list",
             "kpl_concept_cons",
         ],
         "--resources",
@@ -228,7 +233,7 @@ def backfill_equity_series(
 def backfill_by_trade_date(
     resource: str = typer.Option(
         ...,
-        help="daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, or kpl_concept_cons",
+        help="daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, or kpl_concept_cons",
     ),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),

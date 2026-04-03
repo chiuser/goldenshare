@@ -160,6 +160,34 @@ def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
     assert progress.call_args_list[0].args[0] == "limit_list_d: 1/1 trade_date=2026-03-24 fetched=113 written=113"
 
 
+def test_backfill_by_trade_dates_supports_limit_list_ths_filters(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 4, 3)]
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=21, rows_written=21)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_by_trade_dates(
+        resource="limit_list_ths",
+        start_date=date(2026, 4, 3),
+        end_date=date(2026, 4, 3),
+        limit_type=["涨停池", "炸板池"],
+        market=["HS", "GEM"],
+    )
+
+    assert summary.units_processed == 1
+    build_sync_service.assert_called_once_with("limit_list_ths", session)
+    sync_service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 4, 3),
+        limit_type=["涨停池", "炸板池"],
+        market=["HS", "GEM"],
+        execution_id=None,
+    )
+
+
 def test_backfill_by_trade_dates_supports_top_list(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

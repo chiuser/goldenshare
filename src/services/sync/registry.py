@@ -24,6 +24,9 @@ from src.services.sync.sync_index_monthly_service import SyncIndexMonthlyService
 from src.services.sync.sync_index_weekly_service import SyncIndexWeeklyService
 from src.services.sync.sync_index_weight_service import SyncIndexWeightService
 from src.services.sync.sync_limit_list_service import SyncLimitListService
+from src.services.sync.sync_limit_list_ths_service import SyncLimitListThsService
+from src.services.sync.sync_limit_step_service import SyncLimitStepService
+from src.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService
 from src.services.sync.sync_moneyflow_service import SyncMoneyflowService
 from src.services.sync.sync_stock_basic_service import SyncStockBasicService
 from src.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
@@ -69,6 +72,9 @@ SYNC_SERVICE_REGISTRY = {
     "dc_hot": SyncDcHotService,
     "kpl_list": SyncKplListService,
     "kpl_concept_cons": SyncKplConceptConsService,
+    "limit_list_ths": SyncLimitListThsService,
+    "limit_step": SyncLimitStepService,
+    "limit_cpt_list": SyncLimitCptListService,
     "stk_holdernumber": SyncHolderNumberService,
     "limit_list_d": SyncLimitListService,
     "stk_period_bar_week": SyncStkPeriodBarWeekService,

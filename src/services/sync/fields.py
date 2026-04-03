@@ -120,6 +120,34 @@ LIMIT_LIST_FIELDS = [
     "limit_times",
     "limit",
 ]
+LIMIT_LIST_THS_FIELDS = [
+    "trade_date",
+    "ts_code",
+    "name",
+    "price",
+    "pct_chg",
+    "open_num",
+    "lu_desc",
+    "limit_type",
+    "tag",
+    "status",
+    "first_lu_time",
+    "last_lu_time",
+    "first_ld_time",
+    "last_ld_time",
+    "limit_order",
+    "limit_amount",
+    "turnover_rate",
+    "free_float",
+    "lu_limit_order",
+    "limit_up_suc_rate",
+    "turnover",
+    "rise_rate",
+    "sum_float",
+    "market_type",
+]
+LIMIT_STEP_FIELDS = ["ts_code", "name", "trade_date", "nums"]
+LIMIT_CPT_LIST_FIELDS = ["ts_code", "name", "trade_date", "days", "up_stat", "cons_nums", "up_nums", "pct_chg", "rank"]
 FUND_DAILY_FIELDS = ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"]
 INDEX_DAILY_FIELDS = ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"]
 

@@ -67,6 +67,18 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     limit_exchange = next(param for param in limit_list_daily["supported_params"] if param["key"] == "exchange")
     assert limit_exchange["options"] == ["SH", "SZ", "BJ"]
     assert limit_exchange["multi_value"] is True
+    limit_list_ths_daily = jobs["sync_daily.limit_list_ths"]
+    assert [param["key"] for param in limit_list_ths_daily["supported_params"]] == ["trade_date", "limit_type", "market"]
+    assert next(param for param in limit_list_ths_daily["supported_params"] if param["key"] == "limit_type")["options"] == [
+        "涨停池",
+        "连扳池",
+        "冲刺涨停",
+        "炸板池",
+        "跌停池",
+    ]
+    assert next(param for param in limit_list_ths_daily["supported_params"] if param["key"] == "market")["options"] == ["HS", "GEM", "STAR"]
+    assert [param["key"] for param in jobs["sync_daily.limit_step"]["supported_params"]] == ["trade_date"]
+    assert [param["key"] for param in jobs["sync_daily.limit_cpt_list"]["supported_params"]] == ["trade_date"]
     assert workflows["daily_market_close_sync"]["supports_schedule"] is True
     assert workflows["index_extension_backfill"]["supports_schedule"] is False
 

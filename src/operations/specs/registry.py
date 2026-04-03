@@ -47,6 +47,22 @@ LIMIT_TYPE_PARAM = ParameterSpec(
     options=("U", "D", "Z"),
     multi_value=True,
 )
+LIMIT_LIST_THS_LIMIT_TYPE_PARAM = ParameterSpec(
+    key="limit_type",
+    display_name="榜单类型",
+    param_type="enum",
+    description="用于同花顺涨跌停榜单筛选榜单类型。",
+    options=("涨停池", "连扳池", "冲刺涨停", "炸板池", "跌停池"),
+    multi_value=True,
+)
+LIMIT_LIST_THS_MARKET_PARAM = ParameterSpec(
+    key="market",
+    display_name="市场类型",
+    param_type="enum",
+    description="用于同花顺涨跌停榜单筛选市场类型。",
+    options=("HS", "GEM", "STAR"),
+    multi_value=True,
+)
 LIST_STATUS_PARAM = ParameterSpec(
     key="list_status",
     display_name="上市状态",
@@ -176,6 +192,9 @@ DAILY_SYNC_RESOURCES = (
     "dc_hot",
     "kpl_list",
     "kpl_concept_cons",
+    "limit_list_ths",
+    "limit_step",
+    "limit_cpt_list",
 )
 
 SCHEDULED_FULL_REFRESH_RESOURCES = {
@@ -213,6 +232,9 @@ TRADE_DATE_RANGE_RESOURCES = {
     "ths_hot",
     "dc_hot",
     "kpl_concept_cons",
+    "limit_list_ths",
+    "limit_step",
+    "limit_cpt_list",
 }
 
 DIRECT_DATE_RANGE_RESOURCES = {
@@ -261,6 +283,10 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, THS_HOT_MARKET_PARAM, IS_NEW_PARAM)
     if resource == "dc_hot":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
+    if resource == "limit_list_ths":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_LIST_THS_LIMIT_TYPE_PARAM, LIMIT_LIST_THS_MARKET_PARAM)
+    if resource in {"limit_step", "limit_cpt_list"}:
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "kpl_list":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
@@ -305,6 +331,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, THS_HOT_MARKET_PARAM, IS_NEW_PARAM)
     elif resource == "dc_hot":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
+    elif resource == "limit_list_ths":
+        supported_params = (TRADE_DATE_PARAM, LIMIT_LIST_THS_LIMIT_TYPE_PARAM, LIMIT_LIST_THS_MARKET_PARAM)
     elif resource == "kpl_list":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     elif resource == "kpl_concept_cons":
@@ -391,7 +419,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "ths_hot", "dc_hot", "kpl_concept_cons"):
+for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -421,6 +449,22 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
             DC_HOT_MARKET_PARAM,
             DC_HOT_TYPE_PARAM,
             IS_NEW_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "limit_list_ths":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            LIMIT_LIST_THS_LIMIT_TYPE_PARAM,
+            LIMIT_LIST_THS_MARKET_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource in {"limit_step", "limit_cpt_list"}:
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
@@ -552,6 +596,9 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("ths_hot", "sync_daily.ths_hot", "同花顺热榜"),
             WorkflowStepSpec("dc_hot", "sync_daily.dc_hot", "东方财富热榜"),
             WorkflowStepSpec("kpl_list", "sync_daily.kpl_list", "开盘啦榜单"),
+            WorkflowStepSpec("limit_list_ths", "sync_daily.limit_list_ths", "同花顺涨跌停榜单"),
+            WorkflowStepSpec("limit_step", "sync_daily.limit_step", "涨停天梯"),
+            WorkflowStepSpec("limit_cpt_list", "sync_daily.limit_cpt_list", "最强板块统计"),
             WorkflowStepSpec("kpl_concept_cons", "sync_daily.kpl_concept_cons", "开盘啦题材成分"),
         ),
         default_schedule_policy="trading_day_close",
@@ -618,6 +665,9 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "ths_hot": ("同花顺热榜", "ranking", "榜单", "daily", "trade_date"),
     "dc_hot": ("东方财富热榜", "ranking", "榜单", "daily", "trade_date"),
     "kpl_list": ("开盘啦榜单", "ranking", "榜单", "daily", "trade_date"),
+    "limit_list_ths": ("同花顺涨跌停榜单", "ranking", "榜单", "daily", "trade_date"),
+    "limit_step": ("涨停天梯", "ranking", "榜单", "daily", "trade_date"),
+    "limit_cpt_list": ("最强板块统计", "ranking", "榜单", "daily", "trade_date"),
     "kpl_concept_cons": ("开盘啦题材成分", "board", "板块", "daily", "trade_date"),
     "dividend": ("分红送转", "event", "低频事件", "event", None),
     "stk_holdernumber": ("股东户数", "event", "低频事件", "event", None),

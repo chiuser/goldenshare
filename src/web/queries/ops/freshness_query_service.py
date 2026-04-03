@@ -31,6 +31,9 @@ from src.models.core.index_weight import IndexWeight
 from src.models.core.kpl_concept_cons import KplConceptCons
 from src.models.core.kpl_list import KplList
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.limit_cpt_list import LimitCptList
+from src.models.core.limit_list_ths import LimitListThs
+from src.models.core.limit_step import LimitStep
 from src.models.core.security import Security
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
@@ -93,6 +96,9 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.dc_hot": DcHot,
     "core.kpl_list": KplList,
     "core.kpl_concept_cons": KplConceptCons,
+    "core.limit_list_ths": LimitListThs,
+    "core.limit_step": LimitStep,
+    "core.limit_cpt_list": LimitCptList,
 }
 
 

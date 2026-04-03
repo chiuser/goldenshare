@@ -41,6 +41,9 @@ from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
 from src.models.core.kpl_concept_cons import KplConceptCons
 from src.models.core.kpl_list import KplList
+from src.models.core.limit_cpt_list import LimitCptList
+from src.models.core.limit_list_ths import LimitListThs
+from src.models.core.limit_step import LimitStep
 from src.models.core.us_security import UsSecurity
 from src.models.raw.raw_adj_factor import RawAdjFactor
 from src.models.raw.raw_block_trade import RawBlockTrade
@@ -62,6 +65,9 @@ from src.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.models.raw.raw_index_weight import RawIndexWeight
 from src.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.models.raw.raw_limit_list import RawLimitList
+from src.models.raw.raw_limit_cpt_list import RawLimitCptList
+from src.models.raw.raw_limit_list_ths import RawLimitListThs
+from src.models.raw.raw_limit_step import RawLimitStep
 from src.models.raw.raw_moneyflow import RawMoneyflow
 from src.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.models.raw.raw_kpl_list import RawKplList
@@ -116,6 +122,9 @@ class DAOFactory:
         self.dc_hot = GenericDAO(session, DcHot)
         self.kpl_list = GenericDAO(session, KplList)
         self.kpl_concept_cons = GenericDAO(session, KplConceptCons)
+        self.limit_list_ths = GenericDAO(session, LimitListThs)
+        self.limit_step = GenericDAO(session, LimitStep)
+        self.limit_cpt_list = GenericDAO(session, LimitCptList)
         self.ths_hot = GenericDAO(session, ThsHot)
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.sync_job_state = SyncJobStateDAO(session)
@@ -151,6 +160,9 @@ class DAOFactory:
         self.raw_dc_hot = GenericDAO(session, RawDcHot)
         self.raw_kpl_list = GenericDAO(session, RawKplList)
         self.raw_kpl_concept_cons = GenericDAO(session, RawKplConceptCons)
+        self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
+        self.raw_limit_step = GenericDAO(session, RawLimitStep)
+        self.raw_limit_cpt_list = GenericDAO(session, RawLimitCptList)
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)

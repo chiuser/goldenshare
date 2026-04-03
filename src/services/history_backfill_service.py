@@ -147,11 +147,14 @@ class HistoryBackfillService:
             "dc_member",
             "ths_hot",
             "dc_hot",
+            "limit_list_ths",
+            "limit_step",
+            "limit_cpt_list",
             "kpl_concept_cons",
         }
         if resource not in trade_date_resources:
             raise ValueError(
-                "trade-date backfill only supports daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, and kpl_concept_cons"
+                "trade-date backfill only supports daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, and kpl_concept_cons"
             )
         exchange_name = self.settings.default_exchange if resource == "limit_list_d" else (exchange or self.settings.default_exchange)
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
