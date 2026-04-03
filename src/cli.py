@@ -52,6 +52,23 @@ def _open_execution_counts(session) -> tuple[int, int]:
     return int(queued), int(running)
 
 
+def _auto_reconcile_stale_executions(
+    session,
+    *,
+    stale_for_minutes: int,
+    limit: int,
+) -> int:
+    if stale_for_minutes <= 0:
+        return 0
+    service = OperationsExecutionReconciliationService()
+    reconciled = service.reconcile_stale_executions(
+        session,
+        stale_for_minutes=stale_for_minutes,
+        limit=limit,
+    )
+    return len(reconciled)
+
+
 @app.callback()
 def main() -> None:
     configure_logging()
@@ -379,8 +396,19 @@ def ops_scheduler_tick(
 @app.command("ops-worker-run")
 def ops_worker_run(
     limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued executions to consume in one run."),
+    auto_reconcile_stale_for_minutes: int = typer.Option(
+        5,
+        min=0,
+        help="Automatically reconcile stale queued/running/canceling executions before consuming queue. Set 0 to disable.",
+    ),
+    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
 ) -> None:
     with SessionLocal() as session:
+        reconciled = _auto_reconcile_stale_executions(
+            session,
+            stale_for_minutes=auto_reconcile_stale_for_minutes,
+            limit=auto_reconcile_limit,
+        )
         worker = OperationsWorker()
         processed = 0
         for _ in range(limit):
@@ -400,7 +428,8 @@ def ops_worker_run(
             "ops-worker-run: "
             f"本轮新接任务={processed} "
             f"等待中={queued} "
-            f"执行中={running}"
+            f"执行中={running} "
+            f"自动收敛={reconciled}"
         )
 
 
@@ -426,10 +455,21 @@ def ops_worker_serve(
     limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued executions to consume per cycle."),
     sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
     max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+    auto_reconcile_stale_for_minutes: int = typer.Option(
+        5,
+        min=0,
+        help="Automatically reconcile stale queued/running/canceling executions before each cycle. Set 0 to disable.",
+    ),
+    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
 ) -> None:
     cycles = 0
     while True:
         with SessionLocal() as session:
+            reconciled = _auto_reconcile_stale_executions(
+                session,
+                stale_for_minutes=auto_reconcile_stale_for_minutes,
+                limit=auto_reconcile_limit,
+            )
             worker = OperationsWorker()
             processed = 0
             for _ in range(limit):
@@ -442,7 +482,8 @@ def ops_worker_serve(
                 "ops-worker-serve: "
                 f"本轮新接任务={processed} "
                 f"等待中={queued} "
-                f"执行中={running}"
+                f"执行中={running} "
+                f"自动收敛={reconciled}"
             )
         cycles += 1
         if max_cycles is not None and cycles >= max_cycles:

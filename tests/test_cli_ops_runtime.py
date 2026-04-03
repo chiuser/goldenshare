@@ -45,16 +45,21 @@ def test_ops_worker_run_consumes_until_limit_or_queue_is_empty(mocker) -> None:
         None,
     ]
     worker_cls = mocker.patch("src.cli.OperationsWorker", return_value=worker)
+    reconcile_service = mocker.Mock()
+    reconcile_service.reconcile_stale_executions.return_value = []
+    reconcile_cls = mocker.patch("src.cli.OperationsExecutionReconciliationService", return_value=reconcile_service)
     mocker.patch("src.cli._open_execution_counts", return_value=(0, 1))
 
     result = CliRunner().invoke(app, ["ops-worker-run", "--limit", "5"])
 
     assert result.exit_code == 0
     worker_cls.assert_called_once_with()
+    reconcile_cls.assert_called_once_with()
+    reconcile_service.reconcile_stale_executions.assert_called_once_with(session, stale_for_minutes=5, limit=200)
     assert worker.run_next.call_count == 3
     assert "processed execution#201 status=success rows_fetched=8 rows_written=6" in result.stdout
     assert "processed execution#202 status=failed rows_fetched=3 rows_written=0" in result.stdout
-    assert "ops-worker-run: 本轮新接任务=2 等待中=0 执行中=1" in result.stdout
+    assert "ops-worker-run: 本轮新接任务=2 等待中=0 执行中=1 自动收敛=0" in result.stdout
 
 
 def test_ops_scheduler_serve_runs_multiple_cycles(mocker) -> None:
@@ -88,6 +93,9 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
     worker = mocker.Mock()
     worker.run_next.side_effect = [SimpleNamespace(id=301), None, None]
     worker_cls = mocker.patch("src.cli.OperationsWorker", return_value=worker)
+    reconcile_service = mocker.Mock()
+    reconcile_service.reconcile_stale_executions.side_effect = [[], []]
+    reconcile_cls = mocker.patch("src.cli.OperationsExecutionReconciliationService", return_value=reconcile_service)
     open_counts = mocker.patch("src.cli._open_execution_counts", side_effect=[(0, 1), (0, 0)])
     sleep = mocker.patch("src.cli.time.sleep")
 
@@ -95,11 +103,13 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
 
     assert result.exit_code == 0
     worker_cls.assert_called()
+    assert reconcile_cls.call_count == 2
+    assert reconcile_service.reconcile_stale_executions.call_count == 2
     assert worker.run_next.call_count == 3
     assert open_counts.call_count == 2
     sleep.assert_called_once_with(1.0)
-    assert "ops-worker-serve: 本轮新接任务=1 等待中=0 执行中=1" in result.stdout
-    assert "ops-worker-serve: 本轮新接任务=0 等待中=0 执行中=0" in result.stdout
+    assert "ops-worker-serve: 本轮新接任务=1 等待中=0 执行中=1 自动收敛=0" in result.stdout
+    assert "ops-worker-serve: 本轮新接任务=0 等待中=0 执行中=0 自动收敛=0" in result.stdout
 
 
 def test_ops_reconcile_executions_previews_by_default(mocker) -> None:
