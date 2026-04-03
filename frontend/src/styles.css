@@ -62,6 +62,116 @@ code {
     linear-gradient(180deg, #f7f4ff 0%, #edf4ff 54%, #f9fbff 100%);
 }
 
+.share-terminal-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 6% 0%, rgba(52, 89, 151, 0.22), transparent 24%),
+    radial-gradient(circle at 94% 0%, rgba(120, 142, 180, 0.2), transparent 26%),
+    linear-gradient(180deg, #070d16 0%, #0a1220 45%, #0b1424 100%);
+}
+
+.terminal-root {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(70, 115, 189, 0.16), transparent 24%),
+    radial-gradient(circle at 92% 0%, rgba(40, 170, 130, 0.12), transparent 26%),
+    linear-gradient(180deg, #090f1a 0%, #0a1322 48%, #0a1425 100%);
+  padding: 8px;
+}
+
+.terminal-window {
+  border-radius: 10px;
+  border: 1px solid rgba(42, 66, 100, 0.85);
+  background: rgba(9, 15, 26, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 20px 45px rgba(3, 9, 20, 0.5);
+  overflow: hidden;
+}
+
+.terminal-topbar {
+  border-bottom: 1px solid rgba(34, 54, 84, 0.85);
+  padding: 8px 10px;
+  background: rgba(15, 23, 39, 0.96);
+}
+
+.terminal-card {
+  background: #0f1727;
+  border: 1px solid #223654;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(2, 10, 24, 0.35);
+}
+
+.terminal-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(34, 54, 84, 0.85);
+  background: linear-gradient(180deg, #121c2f 0%, #101a2b 100%);
+}
+
+.terminal-panel-title {
+  color: #dce7fb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.terminal-panel-subtitle {
+  color: #8fa6c7;
+  font-size: 11px;
+}
+
+.terminal-chip {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(68, 96, 140, 0.8);
+  background: rgba(20, 33, 55, 0.85);
+  color: #a9bedc;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.terminal-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.terminal-metric-row .label {
+  color: #8fa6c7;
+  font-size: 11px;
+}
+
+.terminal-metric-row .value {
+  color: #dce7fb;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.terminal-news-toggle {
+  border-radius: 0;
+}
+
+.terminal-modal-content {
+  background:
+    radial-gradient(circle at top right, rgba(76, 139, 255, 0.08), transparent 36%),
+    #0f1727 !important;
+}
+
+.terminal-modal-table thead th {
+  font-size: 12px;
+  color: #8fa6c7;
+}
+
+.terminal-modal-help {
+  background: linear-gradient(180deg, #101726 0%, #0f1523 100%);
+  border: 1px solid #223654;
+}
+
 .glass-card {
   background: rgba(255, 255, 255, 0.84);
   backdrop-filter: blur(14px);

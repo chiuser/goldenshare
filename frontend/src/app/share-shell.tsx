@@ -18,7 +18,8 @@ import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 
 
 const shareLinks = [
-  { to: "/share", label: "市场快照", icon: IconChartCandle },
+  { to: "/share/terminal", label: "行情终端", icon: IconChartCandle },
+  { to: "/share/snapshot", label: "市场快照", icon: IconChartCandle },
 ];
 
 export function ShareShell() {
@@ -35,7 +36,7 @@ export function ShareShell() {
 
   return (
     <AppShell
-      className="app-gradient-shell"
+      className="share-terminal-shell"
       header={{ height: 76 }}
       navbar={{ width: 280, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"

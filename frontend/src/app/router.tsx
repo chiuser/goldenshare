@@ -18,8 +18,8 @@ import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
 import { ShareMarketPage } from "../pages/share-market-page";
+import { ShareTerminalPage } from "../pages/share-terminal-page";
 import { OpsShell } from "./shell";
-import { ShareShell } from "./share-shell";
 
 
 function AppRoot() {
@@ -135,7 +135,7 @@ function OpsLayout() {
 function ShareLayout() {
   return (
     <RequireAdmin>
-      <ShareShell />
+      <Outlet />
     </RequireAdmin>
   );
 }
@@ -299,6 +299,18 @@ const opsLegacyCatalogRoute = createRoute({
 const shareIndexRoute = createRoute({
   getParentRoute: () => shareLayoutRoute,
   path: "/",
+  component: () => <RedirectTo to="/share/terminal" />,
+});
+
+const shareTerminalRoute = createRoute({
+  getParentRoute: () => shareLayoutRoute,
+  path: "/terminal",
+  component: ShareTerminalPage,
+});
+
+const shareSnapshotRoute = createRoute({
+  getParentRoute: () => shareLayoutRoute,
+  path: "/snapshot",
   component: ShareMarketPage,
 });
 
@@ -323,6 +335,8 @@ const routeTree = rootRoute.addChildren([
   ]),
   shareLayoutRoute.addChildren([
     shareIndexRoute,
+    shareTerminalRoute,
+    shareSnapshotRoute,
   ]),
 ]);
 

@@ -58,6 +58,73 @@ export interface ShareMarketOverviewResponse {
   }>;
 }
 
+export interface ShareKlineResponse {
+  ts_code: string;
+  period: "d" | "w" | "m";
+  adjust_mode: "qfq" | "none";
+  items: Array<{
+    trade_date: string;
+    open: string;
+    high: string;
+    low: string;
+    close: string;
+    pre_close: string | null;
+    pct_chg: string | null;
+    volume: string | null;
+    amount: string | null;
+    turnover_rate: string | null;
+  }>;
+}
+
+export interface ShareQuoteResponse {
+  ts_code: string;
+  name: string | null;
+  trade_date: string | null;
+  prev_close: string | null;
+  open: string | null;
+  high: string | null;
+  low: string | null;
+  close: string | null;
+  change_amount: string | null;
+  change_pct: string | null;
+  volume: string | null;
+  amount: string | null;
+  turnover_rate: string | null;
+  turnover_rate_f: string | null;
+  volume_ratio: string | null;
+  pe_ttm: string | null;
+  dv_ratio: string | null;
+  dv_ttm: string | null;
+  total_share: string | null;
+  float_share: string | null;
+  free_share: string | null;
+  pb: string | null;
+  total_mv: string | null;
+  circ_mv: string | null;
+}
+
+export interface ShareNewsResponse {
+  ts_code: string;
+  items: Array<{
+    id: string;
+    occurred_at: string;
+    tag: string;
+    title: string;
+    summary: string | null;
+  }>;
+}
+
+export interface ShareSecuritySuggestionsResponse {
+  query: string;
+  items: Array<{
+    ts_code: string;
+    symbol: string | null;
+    name: string;
+    cnspell: string | null;
+    market: string | null;
+  }>;
+}
+
 export interface OpsOverviewResponse {
   today_kpis: {
     business_date: string;
