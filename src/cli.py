@@ -111,6 +111,8 @@ def sync_history(
 def sync_daily(
     trade_date: str | None = typer.Option(None, help="YYYY-MM-DD"),
     ts_code: str | None = typer.Option(None),
+    exchange: str | None = typer.Option(None, "--exchange"),
+    limit_type: str | None = typer.Option(None, "--limit-type"),
     con_code: str | None = typer.Option(None, "--con-code"),
     idx_type: str | None = typer.Option(None, "--idx-type"),
     market: str | None = typer.Option(None, "--market"),
@@ -151,6 +153,8 @@ def sync_daily(
             service.run_incremental(
                 trade_date=target_date,
                 ts_code=ts_code,
+                exchange=exchange,
+                limit_type=limit_type,
                 con_code=con_code,
                 idx_type=idx_type,
                 market=market,
@@ -229,6 +233,7 @@ def backfill_by_trade_date(
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     exchange: str | None = typer.Option(None),
+    limit_type: str | None = typer.Option(None, "--limit-type"),
     ts_code: str | None = typer.Option(None),
     con_code: str | None = typer.Option(None, "--con-code"),
     idx_type: str | None = typer.Option(None, "--idx-type"),
@@ -245,6 +250,7 @@ def backfill_by_trade_date(
             start_date=date.fromisoformat(start_date),
             end_date=date.fromisoformat(end_date),
             exchange=exchange,
+            limit_type=limit_type,
             ts_code=ts_code,
             con_code=con_code,
             idx_type=idx_type,

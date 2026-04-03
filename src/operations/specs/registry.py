@@ -31,6 +31,22 @@ EXCHANGE_PARAM = ParameterSpec(
     description="用于交易日历或按交易日回补的交易所参数。",
     options=("SSE", "SZSE"),
 )
+LIMIT_LIST_EXCHANGE_PARAM = ParameterSpec(
+    key="exchange",
+    display_name="交易所",
+    param_type="enum",
+    description="用于涨跌停和炸板数据筛选交易所。",
+    options=("SH", "SZ", "BJ"),
+    multi_value=True,
+)
+LIMIT_TYPE_PARAM = ParameterSpec(
+    key="limit_type",
+    display_name="涨跌停类型",
+    param_type="enum",
+    description="用于筛选涨停(U)、跌停(D)或炸板(Z)数据。",
+    options=("U", "D", "Z"),
+    multi_value=True,
+)
 LIST_STATUS_PARAM = ParameterSpec(
     key="list_status",
     display_name="上市状态",
@@ -249,6 +265,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
+    if resource == "limit_list_d":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource in CODE_ONLY_RESOURCES:
@@ -291,6 +309,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
     elif resource == "kpl_concept_cons":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
+    elif resource == "limit_list_d":
+        supported_params = (TRADE_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     elif resource == "dc_member":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     return JobSpec(
@@ -373,7 +393,16 @@ for _resource in (
 
 for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "ths_hot", "dc_hot", "kpl_concept_cons"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
-    if _resource == "ths_hot":
+    if _resource == "limit_list_d":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            LIMIT_TYPE_PARAM,
+            LIMIT_LIST_EXCHANGE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "ths_hot":
         _supported_params = (
             START_DATE_PARAM,
             END_DATE_PARAM,

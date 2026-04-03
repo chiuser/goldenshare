@@ -142,6 +142,8 @@ def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
         resource="limit_list_d",
         start_date=date(2026, 3, 24),
         end_date=date(2026, 3, 24),
+        limit_type=["U", "Z"],
+        exchange=["SH", "SZ"],
         progress=progress,
     )
 
@@ -151,6 +153,8 @@ def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
     build_sync_service.assert_called_once_with("limit_list_d", session)
     sync_service.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 24),
+        limit_type=["U", "Z"],
+        exchange=["SH", "SZ"],
         execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "limit_list_d: 1/1 trade_date=2026-03-24 fetched=113 written=113"
@@ -263,16 +267,22 @@ def test_backfill_by_trade_dates_emits_progress_for_incremental_resources(mocker
         resource="limit_list_d",
         start_date=date(2026, 3, 20),
         end_date=date(2026, 3, 21),
+        limit_type="U",
+        exchange="SH",
         progress=progress,
     )
 
     assert summary.units_processed == 2
     sync_service_1.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 20),
+        limit_type="U",
+        exchange="SH",
         execution_id=None,
     )
     sync_service_2.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 21),
+        limit_type="U",
+        exchange="SH",
         execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "limit_list_d: 1/2 trade_date=2026-03-20 fetched=10 written=10"

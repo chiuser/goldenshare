@@ -125,7 +125,8 @@ class HistoryBackfillService:
         resource: str,
         start_date: date,
         end_date: date,
-        exchange: str | None = None,
+        exchange: str | list[str] | None = None,
+        limit_type: str | list[str] | None = None,
         ts_code: str | None = None,
         con_code: str | None = None,
         idx_type: str | None = None,
@@ -152,7 +153,7 @@ class HistoryBackfillService:
             raise ValueError(
                 "trade-date backfill only supports daily_basic, moneyflow, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, and kpl_concept_cons"
             )
-        exchange_name = exchange or self.settings.default_exchange
+        exchange_name = self.settings.default_exchange if resource == "limit_list_d" else (exchange or self.settings.default_exchange)
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
         if offset:
             trade_dates = trade_dates[offset:]
@@ -169,6 +170,10 @@ class HistoryBackfillService:
             }
             if ts_code:
                 incremental_kwargs["ts_code"] = ts_code
+            if limit_type:
+                incremental_kwargs["limit_type"] = limit_type
+            if exchange and resource == "limit_list_d":
+                incremental_kwargs["exchange"] = exchange
             if con_code:
                 incremental_kwargs["con_code"] = con_code
             if idx_type:

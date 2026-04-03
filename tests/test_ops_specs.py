@@ -53,6 +53,16 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert trade_cal_spec is not None
     assert [param.key for param in trade_cal_spec.supported_params] == ["start_date", "end_date", "exchange"]
 
+    limit_list_daily_spec = get_job_spec("sync_daily.limit_list_d")
+    assert limit_list_daily_spec is not None
+    assert [param.key for param in limit_list_daily_spec.supported_params] == ["trade_date", "limit_type", "exchange"]
+    limit_type_param = next(param for param in limit_list_daily_spec.supported_params if param.key == "limit_type")
+    assert limit_type_param.options == ("U", "D", "Z")
+    assert limit_type_param.multi_value is True
+    limit_list_exchange_param = next(param for param in limit_list_daily_spec.supported_params if param.key == "exchange")
+    assert limit_list_exchange_param.options == ("SH", "SZ", "BJ")
+    assert limit_list_exchange_param.multi_value is True
+
     index_weight_spec = get_job_spec("sync_history.index_weight")
     assert index_weight_spec is not None
     assert [param.key for param in index_weight_spec.supported_params] == ["index_code", "start_date", "end_date"]
