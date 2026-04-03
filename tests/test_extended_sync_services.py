@@ -115,6 +115,43 @@ def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) ->
     assert core_upsert.call_count == 2
 
 
+def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
+    session = mocker.Mock()
+    session.get.return_value = None
+    service = SyncIndexDailyService(session)
+    mocker.patch.object(
+        service.dao.index_basic,
+        "get_active_indexes",
+        return_value=[
+            mocker.Mock(ts_code="000001.SH"),
+            mocker.Mock(ts_code="399001.SZ"),
+        ],
+    )
+    mocker.patch.object(
+        service.client,
+        "call",
+        side_effect=[
+            [{"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"}],
+            [{"ts_code": "399001.SZ", "trade_date": "20260325", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"}],
+        ],
+    )
+    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_daily_bar, "bulk_upsert", side_effect=[1, 1])
+    progress = mocker.patch.object(service, "_update_progress")
+
+    service.execute("INCREMENTAL", trade_date=date(2026, 3, 25), execution_id=99)
+
+    assert progress.call_count == 3
+    assert progress.call_args_list[0].kwargs == {
+        "execution_id": 99,
+        "current": 0,
+        "total": 2,
+        "message": "准备按 2 个指数逐个同步日线行情。",
+    }
+    assert progress.call_args_list[1].kwargs["current"] == 1
+    assert progress.call_args_list[2].kwargs["current"] == 2
+
+
 def test_etf_basic_builds_default_full_sync_params() -> None:
     params = build_etf_basic_params("FULL")
 
