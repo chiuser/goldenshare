@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+from sqlalchemy import select
+
 from src.clients.tushare_client import TushareHttpClient
+from src.models.core.us_security import UsSecurity
 from src.services.sync.base_sync_service import BaseSyncService
 from src.services.sync.fields import DC_HOT_FIELDS
 from src.utils import coerce_row
@@ -57,12 +60,45 @@ class SyncDcHotService(BaseSyncService):
     def __init__(self, session) -> None:  # type: ignore[no-untyped-def]
         super().__init__(session)
         self.client = TushareHttpClient()
+        self._us_name_cache: dict[str, str | None] = {}
+
+    def _lookup_us_ts_code_by_name(self, ts_name: str) -> str | None:
+        normalized_name = ts_name.strip()
+        if not normalized_name:
+            return None
+        if normalized_name in self._us_name_cache:
+            return self._us_name_cache[normalized_name]
+
+        matches = list(
+            self.session.scalars(
+                select(UsSecurity.ts_code).where(UsSecurity.name == normalized_name)
+            )
+        )
+        resolved = matches[0] if len(matches) == 1 else None
+        self._us_name_cache[normalized_name] = resolved
+        if len(matches) > 1:
+            self.logger.warning("skip dc_hot us ts_code enrichment for %s: multiple us_security matches", normalized_name)
+        return resolved
+
+    def _enrich_missing_us_ts_code(self, row: dict[str, Any]) -> bool:
+        if row.get("ts_code") or row.get("query_market") != "美股市场":
+            return True
+        ts_name = row.get("ts_name")
+        if not isinstance(ts_name, str) or not ts_name.strip():
+            return False
+        resolved_ts_code = self._lookup_us_ts_code_by_name(ts_name)
+        if resolved_ts_code:
+            row["ts_code"] = resolved_ts_code
+            return True
+        self.logger.warning("skip dc_hot us ts_code enrichment for %s: no unique us_security match", ts_name)
+        return False
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
         extra_kwargs = {key: value for key, value in kwargs.items() if key != "trade_date"}
         total_fetched = 0
         total_written = 0
+        unresolved_us_rows = 0
         for market in _normalize_filter_values(extra_kwargs.get("market")):
             for hot_type in _normalize_filter_values(extra_kwargs.get("hot_type")):
                 for is_new in _normalize_filter_values(extra_kwargs.get("is_new")):
@@ -77,7 +113,12 @@ class SyncDcHotService(BaseSyncService):
                         row["query_market"] = params.get("market") or "__ALL__"
                         row["query_hot_type"] = params.get("hot_type") or "__ALL__"
                         row["query_is_new"] = params.get("is_new") or "__ALL__"
+                        if row.get("query_market") == "美股市场" and not self._enrich_missing_us_ts_code(row):
+                            unresolved_us_rows += 1
                     self.dao.raw_dc_hot.bulk_upsert(normalized)
                     total_written += self.dao.dc_hot.bulk_upsert(normalized)
                     total_fetched += len(rows)
-        return total_fetched, total_written, trade_date, None
+        message = None
+        if unresolved_us_rows:
+            message = f"unresolved {unresolved_us_rows} dc_hot rows missing ts_code after us_security lookup"
+        return total_fetched, total_written, trade_date, message

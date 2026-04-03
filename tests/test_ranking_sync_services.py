@@ -181,3 +181,77 @@ def test_dc_hot_expands_multi_value_filters(mocker) -> None:
         "hot_type": "人气榜",
         "is_new": "N",
     }
+
+
+def test_dc_hot_enriches_missing_us_ts_code_from_us_security(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncDcHotService(session)
+    service.client = mocker.Mock()
+    service.client.call.return_value = [
+        {
+            "trade_date": "20260105",
+            "data_type": "美股市场",
+            "ts_code": None,
+            "ts_name": "苹果",
+            "rank": 1,
+            "pct_change": "-0.31",
+            "current_price": "271.01",
+            "rank_time": "2026-01-05 08:00:26",
+        }
+    ]
+    mocker.patch.object(service.session, "scalars", return_value=iter(["AAPL"]))
+    service.dao.raw_dc_hot = mocker.Mock()
+    service.dao.dc_hot = mocker.Mock()
+    service.dao.raw_dc_hot.bulk_upsert.return_value = 1
+    service.dao.dc_hot.bulk_upsert.return_value = 1
+
+    fetched, written, result_date, message = service.execute(
+        "INCREMENTAL",
+        trade_date=date(2026, 1, 5),
+        market="美股市场",
+        hot_type="人气榜",
+        is_new="N",
+    )
+
+    assert fetched == 1
+    assert written == 1
+    assert result_date == date(2026, 1, 5)
+    assert message is None
+    persisted_row = service.dao.raw_dc_hot.bulk_upsert.call_args.args[0][0]
+    assert persisted_row["ts_code"] == "AAPL"
+
+
+def test_dc_hot_reports_unresolved_us_rows_when_lookup_fails(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncDcHotService(session)
+    service.client = mocker.Mock()
+    service.client.call.return_value = [
+        {
+            "trade_date": "20260105",
+            "data_type": "美股市场",
+            "ts_code": None,
+            "ts_name": "苹果",
+            "rank": 1,
+            "rank_time": "2026-01-05 08:00:26",
+        }
+    ]
+    mocker.patch.object(service.session, "scalars", return_value=iter([]))
+    service.dao.raw_dc_hot = mocker.Mock()
+    service.dao.dc_hot = mocker.Mock()
+    service.dao.raw_dc_hot.bulk_upsert.return_value = 1
+    service.dao.dc_hot.bulk_upsert.return_value = 1
+
+    fetched, written, result_date, message = service.execute(
+        "INCREMENTAL",
+        trade_date=date(2026, 1, 5),
+        market="美股市场",
+        hot_type="人气榜",
+        is_new="N",
+    )
+
+    assert fetched == 1
+    assert written == 1
+    assert result_date == date(2026, 1, 5)
+    assert message == "unresolved 1 dc_hot rows missing ts_code after us_security lookup"
+    persisted_row = service.dao.raw_dc_hot.bulk_upsert.call_args.args[0][0]
+    assert persisted_row["ts_code"] is None
