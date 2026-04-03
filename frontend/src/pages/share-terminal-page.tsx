@@ -16,6 +16,7 @@ import {
   NumberInput,
   Paper,
   ScrollArea,
+  SegmentedControl,
   Stack,
   Table,
   Text,
@@ -243,6 +244,13 @@ function formatCompact(value: string | number | null | undefined, digits = 2) {
   return parsed.toLocaleString("zh-CN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
+function formatPercent(value: string | number | null | undefined, digits = 2) {
+  if (value === null || value === undefined) return "—";
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "—";
+  return `${parsed.toLocaleString("zh-CN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
+}
+
 function formatAmount(value: string | number | null | undefined) {
   if (value === null || value === undefined) return "—";
   const parsed = Number(value);
@@ -298,6 +306,14 @@ function toTimeKey(time: Time | undefined) {
   return `${time.year}-${String(time.month).padStart(2, "0")}-${String(time.day).padStart(2, "0")}`;
 }
 
+type MetricSectionId = "intraday" | "activity" | "valuation";
+type MetricTone = "up" | "down";
+type MetricSection = {
+  id: MetricSectionId;
+  title: string;
+  items: Array<{ label: string; value: string; tone?: MetricTone }>;
+};
+
 export function ShareTerminalPage() {
   const [searchValue, setSearchValue] = useState("");
   const deferredSearchValue = useDeferredValue(searchValue);
@@ -310,6 +326,11 @@ export function ShareTerminalPage() {
   const [focusActive, setFocusActive] = useState(false);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const [focusCrosshairPoint, setFocusCrosshairPoint] = useState<{ x: number; y: number } | null>(null);
+  const [metricSectionOpen, setMetricSectionOpen] = useState<Record<MetricSectionId, boolean>>({
+    intraday: true,
+    activity: true,
+    valuation: false,
+  });
 
   const mainContainerRef = useRef<HTMLDivElement | null>(null);
   const macdContainerRef = useRef<HTMLDivElement | null>(null);
@@ -659,6 +680,46 @@ export function ShareTerminalPage() {
   const changePct = Number(quote?.change_pct || 0);
   const quoteColor = changePct >= 0 ? TERMINAL_THEME.up : TERMINAL_THEME.down;
   const headline = quote?.name || tsCode;
+  const toggleMetricSection = (sectionId: MetricSectionId) => {
+    setMetricSectionOpen((current) => ({ ...current, [sectionId]: !current[sectionId] }));
+  };
+  const metricSections: MetricSection[] = [
+    {
+      id: "intraday" as const,
+      title: "日内表现",
+      items: [
+        { label: "今开", value: formatCompact(quote?.open, 2) },
+        { label: "昨收", value: formatCompact(quote?.prev_close, 2) },
+        { label: "最高", value: formatCompact(quote?.high, 2), tone: "up" as const },
+        { label: "最低", value: formatCompact(quote?.low, 2), tone: "down" as const },
+      ],
+    },
+    {
+      id: "activity" as const,
+      title: "成交活跃",
+      items: [
+        { label: "成交量", value: formatAmount(quote?.volume) },
+        { label: "成交额", value: formatAmount(quote?.amount) },
+        { label: "换手率", value: formatPercent(quote?.turnover_rate_f, 2) },
+        { label: "量比", value: formatCompact(quote?.volume_ratio, 2) },
+      ],
+    },
+    {
+      id: "valuation" as const,
+      title: "估值与市值",
+      items: [
+        { label: "市盈率(TTM)", value: formatCompact(quote?.pe_ttm, 2) },
+        { label: "市净率(PB)", value: formatCompact(quote?.pb, 2) },
+        { label: "股息率", value: formatPercent(quote?.dv_ratio, 2) },
+        { label: "股息率(TTM)", value: formatPercent(quote?.dv_ttm, 2) },
+        { label: "总股本(万股)", value: formatCompact(quote?.total_share, 2) },
+        { label: "流通股本(万股)", value: formatCompact(quote?.float_share, 2) },
+        { label: "自由流通股本(万)", value: formatCompact(quote?.free_share, 2) },
+        { label: "总市值(万元)", value: formatCompact(quote?.total_mv, 2) },
+        { label: "流通市值(万元)", value: formatCompact(quote?.circ_mv, 2) },
+      ],
+    },
+  ];
   const activeMaConfigs = maConfigs.filter((item) => item.enabled && item.period > 0);
   const focusedPointIndex = focusIndex ?? -1;
   const focusedPoint = focusedPointIndex >= 0 ? points[focusedPointIndex] : null;
@@ -737,47 +798,57 @@ export function ShareTerminalPage() {
                     color: TERMINAL_THEME.text,
                     fontSize: 12,
                     height: 30,
+                    borderRadius: 8,
                   },
                   dropdown: { background: TERMINAL_THEME.panelRaised, borderColor: TERMINAL_THEME.border },
-                  option: { fontSize: 12, color: TERMINAL_THEME.text },
+                  option: {
+                    fontSize: 12,
+                    color: TERMINAL_THEME.text,
+                    borderRadius: 6,
+                    "&[data-combobox-selected]": {
+                      background: "rgba(44, 74, 120, 0.45)",
+                    },
+                  },
                 }}
               />
-              <div className="terminal-chip">{quote?.trade_date ? formatDateLabel(quote.trade_date) : "暂无交易日"}</div>
+              <div className="terminal-chip terminal-date-chip">{quote?.trade_date ? formatDateLabel(quote.trade_date) : "暂无交易日"}</div>
+              <div className={`terminal-chip ${changePct >= 0 ? "terminal-chip-up" : "terminal-chip-down"}`}>
+                涨跌 {formatPercent(quote?.change_pct, 2)}
+              </div>
+              <div className="terminal-chip terminal-chip-muted">额 {formatAmount(quote?.amount)}</div>
             </Group>
-            <Group gap={6} wrap="nowrap">
-              {[
-                { label: "日K", value: "d" as const },
-                { label: "周K", value: "w" as const },
-                { label: "月K", value: "m" as const },
-              ].map((item) => {
-                const active = period === item.value;
-                return (
-                  <Button
-                    key={item.value}
-                    size="compact-xs"
-                    radius="sm"
-                    onClick={() => setPeriod(item.value)}
-                    styles={{
-                      root: {
-                        minWidth: 44,
-                        paddingInline: 10,
-                        background: active ? TERMINAL_THEME.buttonBg : TERMINAL_THEME.buttonSoftBg,
-                        border: `1px solid ${TERMINAL_THEME.buttonBorder}`,
-                        color: active ? "#dce7fb" : "#9fb3d8",
-                        fontWeight: active ? 700 : 600,
-                        "&:hover": { background: active ? TERMINAL_THEME.buttonHover : TERMINAL_THEME.buttonSoftHover },
-                        "&:active": { background: TERMINAL_THEME.buttonActive },
-                      },
-                      label: {
-                        color: active ? "#dce7fb" : "#9fb3d8",
-                      },
-                    }}
-                  >
-                    {item.label}
-                  </Button>
-                );
-              })}
-            </Group>
+            <SegmentedControl
+              value={period}
+              onChange={(value) => setPeriod(value as Period)}
+              size="xs"
+              radius="sm"
+              data={[
+                { label: "日K", value: "d" },
+                { label: "周K", value: "w" },
+                { label: "月K", value: "m" },
+              ]}
+              styles={{
+                root: {
+                  background: "rgba(18, 30, 50, 0.92)",
+                  border: `1px solid ${TERMINAL_THEME.buttonBorder}`,
+                  padding: 2,
+                  minWidth: 146,
+                },
+                indicator: {
+                  background: "linear-gradient(180deg, #2a4270 0%, #23395f 100%)",
+                  border: `1px solid rgba(87, 132, 208, 0.75)`,
+                  boxShadow: "0 0 0 1px rgba(70, 106, 168, 0.25)",
+                },
+                label: {
+                  color: "#a5bbdd",
+                  fontWeight: 600,
+                  fontSize: 11,
+                  "&[data-active]": {
+                    color: "#e0ecff",
+                  },
+                },
+              }}
+            />
           </Group>
         </div>
 
@@ -888,31 +959,39 @@ export function ShareTerminalPage() {
                 <div className="terminal-panel-header" style={{ margin: "-8px -8px 8px -8px", borderTopLeftRadius: 6, borderTopRightRadius: 6 }}>
                   <Text className="terminal-panel-title">股票指标</Text>
                 </div>
-                <Stack gap={4}>
-                  <Text c={TERMINAL_THEME.text} fw={700} size="sm">{quote?.name || tsCode}</Text>
-                  <Text c={TERMINAL_THEME.textMuted} ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">{tsCode}</Text>
-                  <Text fw={700} size="xl" c={quoteColor}>{formatCompact(quote?.close, 2)}</Text>
-                  <Text c={quoteColor} fw={600} size="xs">{formatCompact(quote?.change_amount, 2)} / {formatCompact(quote?.change_pct, 2)}%</Text>
-                  <Divider my={2} color={TERMINAL_THEME.border} />
-                  <div className="terminal-metric-row"><span className="label">今开</span><span className="value">{formatCompact(quote?.open, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">昨收</span><span className="value">{formatCompact(quote?.prev_close, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">最高</span><span className="value" style={{ color: TERMINAL_THEME.up }}>{formatCompact(quote?.high, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">最低</span><span className="value" style={{ color: TERMINAL_THEME.down }}>{formatCompact(quote?.low, 2)}</span></div>
-                  <Divider my={2} color={TERMINAL_THEME.border} />
-                  <div className="terminal-metric-row"><span className="label">成交量</span><span className="value">{formatAmount(quote?.volume)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">成交额</span><span className="value">{formatAmount(quote?.amount)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">换手率（自由流通股）</span><span className="value">{formatCompact(quote?.turnover_rate_f, 2)}%</span></div>
-                  <div className="terminal-metric-row"><span className="label">量比</span><span className="value">{formatCompact(quote?.volume_ratio, 2)}</span></div>
-                  <Divider my={2} color={TERMINAL_THEME.border} />
-                  <div className="terminal-metric-row"><span className="label">市盈率（TTM，亏损的PE为空）</span><span className="value">{formatCompact(quote?.pe_ttm, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">市净率（PB）</span><span className="value">{formatCompact(quote?.pb, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">股息率 （%）</span><span className="value">{formatCompact(quote?.dv_ratio, 2)}%</span></div>
-                  <div className="terminal-metric-row"><span className="label">股息率（TTM）（%）</span><span className="value">{formatCompact(quote?.dv_ttm, 2)}%</span></div>
-                  <div className="terminal-metric-row"><span className="label">总股本 （万股）</span><span className="value">{formatCompact(quote?.total_share, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">流通股本 （万股）</span><span className="value">{formatCompact(quote?.float_share, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">自由流通股本 （万）</span><span className="value">{formatCompact(quote?.free_share, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">总市值（万元）</span><span className="value">{formatCompact(quote?.total_mv, 2)}</span></div>
-                  <div className="terminal-metric-row"><span className="label">流通市值（万元）</span><span className="value">{formatCompact(quote?.circ_mv, 2)}</span></div>
+                <Stack gap={8} className="terminal-quote-panel">
+                  <div className="terminal-quote-head">
+                    <Text c={TERMINAL_THEME.text} fw={700} size="sm">{quote?.name || tsCode}</Text>
+                    <Text c={TERMINAL_THEME.textMuted} ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">{tsCode}</Text>
+                    <div className="terminal-quote-price-line">
+                      <Text fw={700} size="xl" c={quoteColor}>{formatCompact(quote?.close, 2)}</Text>
+                      <Text c={quoteColor} fw={600} size="xs">{formatCompact(quote?.change_amount, 2)} / {formatPercent(quote?.change_pct, 2)}</Text>
+                    </div>
+                  </div>
+                  {metricSections.map((section) => (
+                    <div key={section.title} className="terminal-metric-section">
+                      <button
+                        type="button"
+                        className="terminal-metric-section-title"
+                        onClick={() => toggleMetricSection(section.id)}
+                      >
+                        <span>{section.title}</span>
+                        <span className="terminal-metric-section-action">
+                          {metricSectionOpen[section.id] ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}
+                        </span>
+                      </button>
+                      <Collapse in={metricSectionOpen[section.id]}>
+                        <div className="terminal-metric-grid">
+                          {section.items.map((item) => (
+                            <div key={`${section.title}-${item.label}`} className="terminal-metric-row">
+                              <span className="label">{item.label}</span>
+                              <span className={`value${item.tone ? ` is-${item.tone}` : ""}`}>{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Collapse>
+                    </div>
+                  ))}
                 </Stack>
               </Paper>
             </Grid.Col>
@@ -942,6 +1021,10 @@ export function ShareTerminalPage() {
         </Button>
         <Collapse in={newsExpanded}>
           <Stack p={8} gap={6}>
+            <Group justify="space-between" className="terminal-news-header">
+              <Text size="xs" c={TERMINAL_THEME.text}>最新新闻与事件</Text>
+              <Text size="10px" c={TERMINAL_THEME.textMuted}>{newsQuery.data?.items?.length ?? 0} 条</Text>
+            </Group>
             {newsQuery.error ? (
               <Alert color="red" title="新闻读取失败">
                 {newsQuery.error instanceof Error ? newsQuery.error.message : "未知错误"}
@@ -952,19 +1035,20 @@ export function ShareTerminalPage() {
                 highlightOnHover
                 withTableBorder
                 stickyHeader
+                className="terminal-news-table"
                 styles={{
                   table: { background: TERMINAL_THEME.panelRaised, borderColor: TERMINAL_THEME.border },
                   thead: { background: "#132038" },
-                  th: { color: TERMINAL_THEME.textMuted, fontSize: 11, borderColor: TERMINAL_THEME.border },
+                  th: { color: TERMINAL_THEME.textMuted, fontSize: 11, borderColor: TERMINAL_THEME.border, letterSpacing: "0.03em" },
                   td: { borderColor: TERMINAL_THEME.border, background: "transparent" },
                   tr: { borderColor: TERMINAL_THEME.border },
                 }}
               >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>日期</Table.Th>
-                    <Table.Th>标签</Table.Th>
-                    <Table.Th>标题</Table.Th>
+                    <Table.Th style={{ width: 88 }}>日期</Table.Th>
+                    <Table.Th style={{ width: 84 }}>标签</Table.Th>
+                    <Table.Th style={{ width: 320 }}>标题</Table.Th>
                     <Table.Th>摘要</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
@@ -972,9 +1056,23 @@ export function ShareTerminalPage() {
                   {(newsQuery.data?.items || []).map((item) => (
                     <Table.Tr key={item.id}>
                       <Table.Td><Text c={TERMINAL_THEME.textMuted} size="xs">{formatDateLabel(item.occurred_at)}</Text></Table.Td>
-                      <Table.Td><Badge variant="light" color="blue" size="xs">{item.tag}</Badge></Table.Td>
-                      <Table.Td><Text c={TERMINAL_THEME.text} size="xs">{item.title}</Text></Table.Td>
-                      <Table.Td><Text c={TERMINAL_THEME.textMuted} size="xs">{item.summary || "—"}</Text></Table.Td>
+                      <Table.Td>
+                        <Badge
+                          variant="light"
+                          size="xs"
+                          styles={{
+                            root: {
+                              background: "rgba(43, 85, 156, 0.32)",
+                              border: "1px solid rgba(74, 127, 212, 0.5)",
+                              color: "#d6e7ff",
+                            },
+                          }}
+                        >
+                          {item.tag}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td><Text c={TERMINAL_THEME.text} size="xs" fw={600} lineClamp={1}>{item.title}</Text></Table.Td>
+                      <Table.Td><Text c={TERMINAL_THEME.textMuted} size="xs" lineClamp={2}>{item.summary || "—"}</Text></Table.Td>
                     </Table.Tr>
                   ))}
                   {!newsQuery.data?.items?.length ? (
