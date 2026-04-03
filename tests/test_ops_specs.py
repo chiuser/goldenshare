@@ -61,6 +61,13 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert dc_index_spec is not None
     assert [param.key for param in dc_index_spec.supported_params] == ["start_date", "end_date", "ts_code", "idx_type"]
 
+    ths_hot_daily_spec = get_job_spec("sync_daily.ths_hot")
+    assert ths_hot_daily_spec is not None
+    assert [param.key for param in ths_hot_daily_spec.supported_params] == ["trade_date", "ts_code", "market", "is_new"]
+    ths_hot_market_param = next(param for param in ths_hot_daily_spec.supported_params if param.key == "market")
+    assert ths_hot_market_param.options == ("热股", "ETF", "可转债", "行业板块", "概念板块", "期货", "港股", "热基", "美股")
+    assert ths_hot_market_param.multi_value is True
+
     dc_hot_daily_spec = get_job_spec("sync_daily.dc_hot")
     assert dc_hot_daily_spec is not None
     assert [param.key for param in dc_hot_daily_spec.supported_params] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]

@@ -85,6 +85,14 @@ MARKET_PARAM = ParameterSpec(
     options=("A", "HK", "US"),
     multi_value=True,
 )
+THS_HOT_MARKET_PARAM = ParameterSpec(
+    key="market",
+    display_name="热榜类型",
+    param_type="enum",
+    description="同花顺热榜类型，可多选：热股、ETF、可转债、行业板块、概念板块、期货、港股、热基、美股。",
+    options=("热股", "ETF", "可转债", "行业板块", "概念板块", "期货", "港股", "热基", "美股"),
+    multi_value=True,
+)
 HOT_TYPE_PARAM = ParameterSpec(
     key="hot_type",
     display_name="热榜类型",
@@ -234,7 +242,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "dc_member":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     if resource == "ths_hot":
-        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, IS_NEW_PARAM)
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, THS_HOT_MARKET_PARAM, IS_NEW_PARAM)
     if resource == "dc_hot":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
     if resource == "kpl_list":
@@ -276,7 +284,7 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
             extras = (TS_CODE_PARAM, IDX_TYPE_PARAM)
         supported_params = (TRADE_DATE_PARAM, *extras)
     elif resource == "ths_hot":
-        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, MARKET_PARAM, IS_NEW_PARAM)
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, THS_HOT_MARKET_PARAM, IS_NEW_PARAM)
     elif resource == "dc_hot":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, DC_HOT_MARKET_PARAM, DC_HOT_TYPE_PARAM, IS_NEW_PARAM)
     elif resource == "kpl_list":
@@ -371,7 +379,7 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
             END_DATE_PARAM,
             EXCHANGE_PARAM,
             TS_CODE_PARAM,
-            MARKET_PARAM,
+            THS_HOT_MARKET_PARAM,
             IS_NEW_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,

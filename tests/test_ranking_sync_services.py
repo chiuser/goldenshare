@@ -9,11 +9,11 @@ from src.services.sync.sync_ths_hot_service import SyncThsHotService, build_ths_
 
 
 def test_ths_hot_supports_incremental_and_range_params() -> None:
-    incremental = build_ths_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="A", is_new="Y")
-    assert incremental == {"trade_date": "20260402", "market": "A", "is_new": "Y"}
+    incremental = build_ths_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="热股", is_new="Y")
+    assert incremental == {"trade_date": "20260402", "market": "热股", "is_new": "Y"}
 
-    full = build_ths_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", market="A", is_new="N")
-    assert full == {"start_date": "20260301", "end_date": "20260331", "market": "A", "is_new": "N"}
+    full = build_ths_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", market="热股", is_new="N")
+    assert full == {"start_date": "20260301", "end_date": "20260331", "market": "热股", "is_new": "N"}
 
 
 def test_dc_hot_supports_incremental_and_range_params() -> None:
@@ -58,7 +58,7 @@ def test_ths_hot_persists_query_context_keys(mocker) -> None:
     fetched, written, result_date, message = service.execute(
         "INCREMENTAL",
         trade_date=date(2026, 4, 2),
-        market="A",
+        market="热股",
         is_new="Y",
     )
 
@@ -67,7 +67,7 @@ def test_ths_hot_persists_query_context_keys(mocker) -> None:
     assert result_date == date(2026, 4, 2)
     assert message is None
     persisted_row = service.dao.ths_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["query_market"] == "A"
+    assert persisted_row["query_market"] == "热股"
     assert persisted_row["query_is_new"] == "Y"
 
 
@@ -95,7 +95,7 @@ def test_ths_hot_expands_multi_value_filters(mocker) -> None:
     fetched, written, _, _ = service.execute(
         "INCREMENTAL",
         trade_date=date(2026, 4, 2),
-        market=["A", "HK"],
+        market=["热股", "港股"],
         is_new="N",
     )
 

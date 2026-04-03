@@ -43,6 +43,19 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     us_classify = next(param for param in jobs["sync_history.us_basic"]["supported_params"] if param["key"] == "classify")
     assert us_classify["options"] == ["ADR", "GDR", "EQT"]
     assert us_classify["multi_value"] is True
+    ths_hot_daily = jobs["sync_daily.ths_hot"]
+    assert [param["key"] for param in ths_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "is_new"]
+    assert next(param for param in ths_hot_daily["supported_params"] if param["key"] == "market")["options"] == [
+        "热股",
+        "ETF",
+        "可转债",
+        "行业板块",
+        "概念板块",
+        "期货",
+        "港股",
+        "热基",
+        "美股",
+    ]
     dc_hot_daily = jobs["sync_daily.dc_hot"]
     assert [param["key"] for param in dc_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
     assert next(param for param in dc_hot_daily["supported_params"] if param["key"] == "market")["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
