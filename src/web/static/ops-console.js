@@ -1280,6 +1280,17 @@ function renderExecutionsPage(catalog, executionsPayload, filters = {}) {
   const specOptions = specOptionsFromCatalog(catalog);
   const executions = executionsPayload.items || [];
   const byStatus = summarizeByKey(executions, 'status');
+  const knownStatuses = ['queued', 'running', 'canceling', 'success', 'failed', 'canceled', 'partial_success'];
+  const dynamicStatuses = Object.keys(byStatus || {});
+  const statusOptions = Array.from(new Set([...knownStatuses, ...dynamicStatuses])).filter(Boolean);
+  const selectedStatus = String(filters.status || '').trim();
+  if (selectedStatus && !statusOptions.includes(selectedStatus)) {
+    statusOptions.push(selectedStatus);
+  }
+  const statusOptionsHtml = [
+    '<option value="">全部</option>',
+    ...statusOptions.map((status) => `<option value="${escapeHtml(status)}" ${selectedStatus === status ? 'selected' : ''}>${escapeHtml(status)}</option>`),
+  ].join('');
   const rows = (executionsPayload.items || [])
     .map(
       (item) => `
@@ -1350,7 +1361,9 @@ function renderExecutionsPage(catalog, executionsPayload, filters = {}) {
         <div class="form-grid three">
           <div class="field">
             <label for="execution-filter-status">status</label>
-            <input id="execution-filter-status" value="${escapeHtml(filters.status || '')}" placeholder="failed / running / queued">
+            <select id="execution-filter-status">
+              ${statusOptionsHtml}
+            </select>
           </div>
           <div class="field">
             <label for="execution-filter-trigger">trigger_source</label>
