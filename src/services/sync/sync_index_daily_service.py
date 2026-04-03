@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from src.config.settings import get_settings
+from src.models.ops.job_execution import JobExecution
 from src.services.sync.fields import INDEX_DAILY_FIELDS
 from src.services.sync.resource_sync import HttpResourceSyncService
 from src.utils import coerce_row
@@ -36,18 +37,55 @@ class SyncIndexDailyService(HttpResourceSyncService):
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
+        execution_id = kwargs.get("execution_id")
+        self.ensure_not_canceled(execution_id)
         if kwargs.get("ts_code"):
-            return super().execute(run_type, **kwargs)
+            fetched, written, result_date, message = super().execute(run_type, **kwargs)
+            self._update_progress(
+                execution_id=execution_id,
+                current=1,
+                total=1,
+                message=f"已完成定向同步：{kwargs['ts_code']}",
+            )
+            return fetched, written, result_date, message
 
-        index_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes()]
+        index_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
+        total_indexes = len(index_codes)
+        self._update_progress(
+            execution_id=execution_id,
+            current=0,
+            total=total_indexes,
+            message=f"准备按 {total_indexes} 个指数逐个同步日线行情。",
+        )
         total_fetched = 0
         total_written = 0
-        for index_code in index_codes:
+        for index, index_code in enumerate(index_codes, start=1):
+            self.ensure_not_canceled(execution_id)
             params_kwargs = {**kwargs, "ts_code": index_code}
             params = self.params_builder(run_type, **params_kwargs)
             rows = self.client.call(self.api_name, params=params, fields=self.fields)
             normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
             self.dao.raw_index_daily.bulk_upsert(normalized)
-            total_written += self.dao.index_daily_bar.bulk_upsert([self.core_transform(row) for row in normalized])
+            written = self.dao.index_daily_bar.bulk_upsert([self.core_transform(row) for row in normalized])
+            total_written += written
             total_fetched += len(rows)
+            self._update_progress(
+                execution_id=execution_id,
+                current=index,
+                total=total_indexes,
+                message=f"正在同步指数日线：{index}/{total_indexes} {index_code} fetched={len(rows)} written={written}",
+            )
         return total_fetched, total_written, trade_date, None
+
+    def _update_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
+        if execution_id is None:
+            return
+        execution = self.session.get(JobExecution, execution_id)
+        if execution is None:
+            return
+        execution.progress_current = current
+        execution.progress_total = total
+        execution.progress_percent = int((current / total) * 100) if total else None
+        execution.progress_message = message
+        execution.last_progress_at = datetime.now(timezone.utc)
+        self.session.commit()
