@@ -1529,11 +1529,10 @@ function renderExecutionsPage(catalog, executionsPayload, filters = {}) {
   };
 }
 
-function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload) {
+function renderExecutionDetail(detail, stepsPayload, eventsPayload) {
   rememberRecentExecution(detail);
   const allSteps = stepsPayload.items || [];
   const allEvents = eventsPayload.items || [];
-  const allLogs = logsPayload.items || [];
   const isActiveExecution = detail.status === 'queued' || detail.status === 'running';
   const autoRefreshEnabled = localStorage.getItem(EXECUTION_AUTO_REFRESH_ENABLED_KEY) !== 'false';
   const refreshInterval = Number(localStorage.getItem(EXECUTION_AUTO_REFRESH_INTERVAL_KEY) || '10') || 10;
@@ -1654,19 +1653,6 @@ function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload)
           <label for="execution-event-search">事件搜索</label>
           <input id="execution-event-search" placeholder="按事件类型 / message 搜索">
         </div>
-        <div class="field">
-          <label for="execution-log-status-filter">日志状态筛选</label>
-          <select id="execution-log-status-filter">
-            <option value="">全部</option>
-            <option value="RUNNING">RUNNING</option>
-            <option value="SUCCESS">SUCCESS</option>
-            <option value="FAILED">FAILED</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="execution-log-search">日志搜索</label>
-          <input id="execution-log-search" placeholder="按 job_name / message 搜索">
-        </div>
       </div>
       <p class="muted">${isActiveExecution ? '当前 execution 仍在进行中，可开启自动刷新。' : '当前 execution 已结束，自动刷新已关闭。'}</p>
     </section>
@@ -1686,30 +1672,15 @@ function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload)
         <pre id="execution-detail-inspector">点击“查看”后，这里会显示 step 或 event payload 的结构化内容。</pre>
       </section>
     </div>
-
-    <div class="split-layout">
-      <section class="panel">
-        <h2>底层同步日志</h2>
-        <div id="execution-logs-table"></div>
-      </section>
-      <section class="panel">
-        <h2>日志检查面板</h2>
-        <pre id="execution-log-inspector">点击“查看”后，这里会显示单条 sync_run_log 的详细内容。</pre>
-      </section>
-    </div>
   `);
 
   const stepsRoot = document.getElementById('execution-steps-table');
   const eventsRoot = document.getElementById('execution-events-table');
-  const logsRoot = document.getElementById('execution-logs-table');
   const detailInspector = document.getElementById('execution-detail-inspector');
-  const logInspector = document.getElementById('execution-log-inspector');
   const autoRefreshToggle = document.getElementById('execution-detail-auto-refresh');
   const refreshIntervalSelect = document.getElementById('execution-detail-refresh-interval');
   const eventLevelFilter = document.getElementById('execution-event-level-filter');
   const eventSearchInput = document.getElementById('execution-event-search');
-  const logStatusFilter = document.getElementById('execution-log-status-filter');
-  const logSearchInput = document.getElementById('execution-log-search');
 
   function renderSteps(items) {
     const rows = items
@@ -1758,37 +1729,8 @@ function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload)
     eventsRoot.innerHTML = tableOrEmpty(['发生时间', '级别', '事件类型', '消息', 'step_id', '检查'], rows, '当前 execution 还没有结构化事件。');
   }
 
-  function renderLogs() {
-    const status = logStatusFilter.value.trim();
-    const search = logSearchInput.value.trim().toLowerCase();
-    const filtered = allLogs.filter((item) => {
-      const matchesStatus = !status || item.status === status;
-      const haystack = `${item.job_name || ''} ${item.message || ''}`.toLowerCase();
-      const matchesSearch = !search || haystack.includes(search);
-      return matchesStatus && matchesSearch;
-    });
-    const rows = filtered
-      .map(
-        (item) => `
-          <tr>
-            <td>${formatDateTime(item.started_at)}</td>
-            <td>${escapeHtml(item.job_name)}</td>
-            <td>${escapeHtml(item.run_type)}</td>
-            <td>${badge(String(item.status || '').toLowerCase())}</td>
-            <td>${formatNumber(item.rows_fetched)}</td>
-            <td>${formatNumber(item.rows_written)}</td>
-            <td>${escapeHtml(item.message || '—')}</td>
-            <td><button class="secondary" data-action="inspect-log" data-id="${item.id}">查看</button></td>
-          </tr>
-        `,
-      )
-      .join('');
-    logsRoot.innerHTML = tableOrEmpty(['开始时间', 'job_name', 'run_type', '状态', 'rows_fetched', 'rows_written', 'message', '检查'], rows, '当前 execution 还没有挂载 sync_run_log。');
-  }
-
   renderSteps(allSteps);
   renderEvents();
-  renderLogs();
 
   function armAutoRefresh() {
     clearExecutionDetailAutoRefresh();
@@ -1817,8 +1759,6 @@ function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload)
   });
   eventLevelFilter.addEventListener('change', renderEvents);
   eventSearchInput.addEventListener('input', renderEvents);
-  logStatusFilter.addEventListener('change', renderLogs);
-  logSearchInput.addEventListener('input', renderLogs);
 
   document.getElementById('btn-retry-detail').addEventListener('click', async () => {
     try {
@@ -1913,10 +1853,6 @@ function renderExecutionDetail(detail, stepsPayload, eventsPayload, logsPayload)
     if (action === 'inspect-event') {
       const item = allEvents.find((candidate) => String(candidate.id) === button.dataset.id);
       if (item) detailInspector.textContent = formatJson(item.payload_json && Object.keys(item.payload_json).length ? item.payload_json : item);
-    }
-    if (action === 'inspect-log') {
-      const item = allLogs.find((candidate) => String(candidate.id) === button.dataset.id);
-      if (item) logInspector.textContent = formatJson(item);
     }
   };
 }
@@ -2044,17 +1980,15 @@ async function loadAndRenderCurrentRoute() {
     if (route.name === 'executionDetail') {
       const session = await ensureAdminSession();
       if (!session) return;
-      const [detail, steps, events, logs] = await Promise.all([
+      const [detail, steps, events] = await Promise.all([
         callApi(`/api/v1/ops/executions/${route.executionId}`),
         callApi(`/api/v1/ops/executions/${route.executionId}/steps`),
         callApi(`/api/v1/ops/executions/${route.executionId}/events`),
-        callApi(`/api/v1/ops/executions/${route.executionId}/logs`),
       ]);
       if (!detail.ok) throw new Error(detail.body.message || `execution 详情加载失败 (${detail.status})`);
       if (!steps.ok) throw new Error(steps.body.message || `execution steps 加载失败 (${steps.status})`);
       if (!events.ok) throw new Error(events.body.message || `execution events 加载失败 (${events.status})`);
-      if (!logs.ok) throw new Error(logs.body.message || `execution logs 加载失败 (${logs.status})`);
-      renderExecutionDetail(detail.body, steps.body, events.body, logs.body);
+      renderExecutionDetail(detail.body, steps.body, events.body);
       return;
     }
 
