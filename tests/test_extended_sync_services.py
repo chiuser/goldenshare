@@ -5,6 +5,7 @@ from datetime import date
 from src.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
 from src.services.sync.sync_index_daily_service import SyncIndexDailyService, build_index_daily_params
 from src.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
+from src.services.sync.sync_index_monthly_service import SyncIndexMonthlyService
 from src.services.sync.sync_index_weekly_service import SyncIndexWeeklyService
 from src.services.sync.sync_index_weight_service import build_index_weight_params
 from src.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
@@ -250,6 +251,11 @@ def test_index_weekly_service_paginates(mocker) -> None:
     service.page_limit = 2
     mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
+        service.dao.trade_calendar,
+        "get_open_dates",
+        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
+    )
+    mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
         return_value=[
@@ -292,6 +298,11 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     service.page_limit = 1000
     mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
+        service.dao.trade_calendar,
+        "get_open_dates",
+        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
+    )
+    mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
         return_value=[mocker.Mock(ts_code="000001.SH")],
@@ -319,12 +330,28 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     assert transformed_rows[0]["source"] == "api"
 
 
-def test_index_weekly_period_start_uses_monday_boundary(mocker) -> None:
+def test_index_weekly_period_start_uses_first_open_trade_date(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexWeeklyService(session)
+    mocker.patch.object(
+        service.dao.trade_calendar,
+        "get_open_dates",
+        return_value=[date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
+    )
 
-    assert service._period_start_date(date(2026, 3, 18)) == date(2026, 3, 16)
-    assert service._period_start_date(date(2026, 3, 16)) == date(2026, 3, 16)
+    assert service._period_start_date(date(2026, 3, 18)) == date(2026, 3, 17)
+
+
+def test_index_monthly_period_start_uses_first_open_trade_date(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexMonthlyService(session)
+    mocker.patch.object(
+        service.dao.trade_calendar,
+        "get_open_dates",
+        return_value=[date(2026, 3, 2), date(2026, 3, 3), date(2026, 3, 4)],
+    )
+
+    assert service._period_start_date(date(2026, 3, 20)) == date(2026, 3, 2)
 
 
 def test_etf_basic_builds_default_full_sync_params() -> None:

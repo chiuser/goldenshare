@@ -146,6 +146,15 @@ def upgrade() -> None:
         select
             ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
         from (
+            with weekly_period_starts as (
+                select
+                    date_trunc('week', trade_date)::date as natural_period_start,
+                    min(trade_date) as period_start_date
+                from core.trade_calendar
+                where exchange = 'SSE'
+                  and is_open is true
+                group by date_trunc('week', trade_date)::date
+            )
             select distinct on (ts_code, period_start_date)
                 ts_code,
                 period_start_date,
@@ -162,18 +171,20 @@ def upgrade() -> None:
             from (
                 select
                     ts_code,
-                    date_trunc('week', trade_date)::date as period_start_date,
-                    trade_date,
-                    open,
-                    high,
-                    low,
-                    close,
-                    pre_close,
-                    change_amount,
-                    pct_chg,
-                    vol,
-                    amount
-                from core.index_weekly_bar
+                    wps.period_start_date,
+                    wb.trade_date,
+                    wb.open,
+                    wb.high,
+                    wb.low,
+                    wb.close,
+                    wb.pre_close,
+                    wb.change_amount,
+                    wb.pct_chg,
+                    wb.vol,
+                    wb.amount
+                from core.index_weekly_bar wb
+                join weekly_period_starts wps
+                  on wps.natural_period_start = date_trunc('week', wb.trade_date)::date
             ) weekly_raw
             order by ts_code, period_start_date, trade_date desc
         ) weekly_dedup
@@ -199,6 +210,15 @@ def upgrade() -> None:
         select
             ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
         from (
+            with monthly_period_starts as (
+                select
+                    date_trunc('month', trade_date)::date as natural_period_start,
+                    min(trade_date) as period_start_date
+                from core.trade_calendar
+                where exchange = 'SSE'
+                  and is_open is true
+                group by date_trunc('month', trade_date)::date
+            )
             select distinct on (ts_code, period_start_date)
                 ts_code,
                 period_start_date,
@@ -215,18 +235,20 @@ def upgrade() -> None:
             from (
                 select
                     ts_code,
-                    date_trunc('month', trade_date)::date as period_start_date,
-                    trade_date,
-                    open,
-                    high,
-                    low,
-                    close,
-                    pre_close,
-                    change_amount,
-                    pct_chg,
-                    vol,
-                    amount
-                from core.index_monthly_bar
+                    mps.period_start_date,
+                    mb.trade_date,
+                    mb.open,
+                    mb.high,
+                    mb.low,
+                    mb.close,
+                    mb.pre_close,
+                    mb.change_amount,
+                    mb.pct_chg,
+                    mb.vol,
+                    mb.amount
+                from core.index_monthly_bar mb
+                join monthly_period_starts mps
+                  on mps.natural_period_start = date_trunc('month', mb.trade_date)::date
             ) monthly_raw
             order by ts_code, period_start_date, trade_date desc
         ) monthly_dedup

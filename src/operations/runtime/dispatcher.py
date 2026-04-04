@@ -317,14 +317,14 @@ class OperationsDispatcher:
                 target_table="core.index_weekly_serving",
                 start_date=start_date,
                 end_date=end_date,
-                period_expr="date_trunc('week', d.trade_date)::date",
+                period_granularity="week",
             )
             monthly_rows = self._rebuild_index_period_serving(
                 session=session,
                 target_table="core.index_monthly_serving",
                 start_date=start_date,
                 end_date=end_date,
-                period_expr="date_trunc('month', d.trade_date)::date",
+                period_granularity="month",
             )
             session.commit()
             written = weekly_rows + monthly_rows
@@ -338,11 +338,30 @@ class OperationsDispatcher:
         target_table: str,
         start_date: date,
         end_date: date,
-        period_expr: str,
+        period_granularity: str,
     ) -> int:
+        if period_granularity == "week":
+            calendar_period_expr = "date_trunc('week', trade_date)::date"
+            daily_period_expr = "date_trunc('week', d.trade_date)::date"
+        elif period_granularity == "month":
+            calendar_period_expr = "date_trunc('month', trade_date)::date"
+            daily_period_expr = "date_trunc('month', d.trade_date)::date"
+        else:
+            raise ValueError(f"Unsupported period granularity: {period_granularity}")
+
         sql = text(
             f"""
-            with daily_scope as (
+            with calendar_periods as (
+                select
+                    {calendar_period_expr} as natural_period_start,
+                    min(trade_date) as period_start_date
+                from core.trade_calendar
+                where exchange = :exchange
+                  and is_open is true
+                  and trade_date between :start_date and :end_date
+                group by {calendar_period_expr}
+            ),
+            daily_scope as (
                 select
                     d.ts_code,
                     d.trade_date,
@@ -353,9 +372,10 @@ class OperationsDispatcher:
                     d.pre_close,
                     d.vol,
                     d.amount,
-                    {period_expr} as period_start_date
+                    cp.period_start_date as period_start_date
                 from core.index_daily_serving d
                 join core.index_basic b on b.ts_code = d.ts_code
+                join calendar_periods cp on cp.natural_period_start = {daily_period_expr}
                 where d.trade_date between :start_date and :end_date
             ),
             win as (
@@ -438,7 +458,11 @@ class OperationsDispatcher:
         )
         result = session.execute(
             sql,
-            {"start_date": start_date, "end_date": end_date},
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "exchange": get_settings().default_exchange,
+            },
         )
         return result.rowcount or 0
 

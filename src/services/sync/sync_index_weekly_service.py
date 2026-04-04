@@ -60,6 +60,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         total_fetched = 0
         total_written = 0
         offset = 0
+        period_start_cache: dict[date, date] = {}
         while True:
             self.ensure_not_canceled(execution_id)
             page_params = {**params, "limit": self.page_limit, "offset": offset}
@@ -71,7 +72,14 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
             raw_dao = getattr(self.dao, self.raw_dao_name)
             core_dao = getattr(self.dao, self.core_dao_name)
             raw_dao.bulk_upsert(normalized)
-            serving_rows = [{**self.core_transform(row), "period_start_date": self._period_start_date(row["trade_date"]), "source": "api"} for row in filtered]
+            serving_rows = [
+                {
+                    **self.core_transform(row),
+                    "period_start_date": self._period_start_date(row["trade_date"], cache=period_start_cache),
+                    "source": "api",
+                }
+                for row in filtered
+            ]
             written = core_dao.bulk_upsert(serving_rows, conflict_columns=["ts_code", "period_start_date"])
             api_codes_seen.update(row["ts_code"] for row in filtered if row.get("ts_code"))
             total_fetched += len(rows)
@@ -100,8 +108,8 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
     def _fill_missing_from_daily(self, trade_date: date, missing_codes: list[str]) -> int:
         if not missing_codes:
             return 0
-        start_date = self._period_start_date(trade_date)
         period_start_date = self._period_start_date(trade_date)
+        start_date = period_start_date
         sql = text(
             f"""
             win as (
@@ -182,7 +190,18 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         )
         return result.rowcount or 0
 
-    def _period_start_date(self, trade_date: date) -> date:
+    def _period_start_date(self, trade_date: date, *, cache: dict[date, date] | None = None) -> date:
+        natural_start = self._natural_period_start_date(trade_date)
+        if cache is not None and natural_start in cache:
+            return cache[natural_start]
+        exchange = get_settings().default_exchange
+        open_dates = self.dao.trade_calendar.get_open_dates(exchange, natural_start, trade_date)
+        period_start = open_dates[0] if open_dates else natural_start
+        if cache is not None:
+            cache[natural_start] = period_start
+        return period_start
+
+    def _natural_period_start_date(self, trade_date: date) -> date:
         if self.period_kind == "monthly":
             return trade_date.replace(day=1)
         return trade_date - timedelta(days=trade_date.weekday())
