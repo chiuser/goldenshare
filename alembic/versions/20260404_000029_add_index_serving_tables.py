@@ -144,8 +144,39 @@ def upgrade() -> None:
         insert into core.index_weekly_serving
             (ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, source)
         select
-            ts_code, date_trunc('week', trade_date)::date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
-        from core.index_weekly_bar
+            ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
+        from (
+            select distinct on (ts_code, period_start_date)
+                ts_code,
+                period_start_date,
+                trade_date,
+                open,
+                high,
+                low,
+                close,
+                pre_close,
+                change_amount,
+                pct_chg,
+                vol,
+                amount
+            from (
+                select
+                    ts_code,
+                    date_trunc('week', trade_date)::date as period_start_date,
+                    trade_date,
+                    open,
+                    high,
+                    low,
+                    close,
+                    pre_close,
+                    change_amount,
+                    pct_chg,
+                    vol,
+                    amount
+                from core.index_weekly_bar
+            ) weekly_raw
+            order by ts_code, period_start_date, trade_date desc
+        ) weekly_dedup
         on conflict (ts_code, period_start_date) do update set
             trade_date = excluded.trade_date,
             open = excluded.open,
@@ -166,8 +197,39 @@ def upgrade() -> None:
         insert into core.index_monthly_serving
             (ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, source)
         select
-            ts_code, date_trunc('month', trade_date)::date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
-        from core.index_monthly_bar
+            ts_code, period_start_date, trade_date, open, high, low, close, pre_close, change_amount, pct_chg, vol, amount, 'api'
+        from (
+            select distinct on (ts_code, period_start_date)
+                ts_code,
+                period_start_date,
+                trade_date,
+                open,
+                high,
+                low,
+                close,
+                pre_close,
+                change_amount,
+                pct_chg,
+                vol,
+                amount
+            from (
+                select
+                    ts_code,
+                    date_trunc('month', trade_date)::date as period_start_date,
+                    trade_date,
+                    open,
+                    high,
+                    low,
+                    close,
+                    pre_close,
+                    change_amount,
+                    pct_chg,
+                    vol,
+                    amount
+                from core.index_monthly_bar
+            ) monthly_raw
+            order by ts_code, period_start_date, trade_date desc
+        ) monthly_dedup
         on conflict (ts_code, period_start_date) do update set
             trade_date = excluded.trade_date,
             open = excluded.open,
