@@ -49,7 +49,7 @@ class SyncIndexDailyService(HttpResourceSyncService):
                 execution_id=execution_id,
                 current=1,
                 total=1,
-                message=f"已完成定向同步：{kwargs['ts_code']}",
+                message=f"index_daily: 1/1 ts_code={kwargs['ts_code']} fetched={fetched} written={written}",
             )
             return fetched, written, trade_date, None
 
