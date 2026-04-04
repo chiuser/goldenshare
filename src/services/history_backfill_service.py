@@ -365,6 +365,8 @@ class HistoryBackfillService:
                 code_label = "index_code"
             else:
                 kwargs["ts_code"] = index_code
+            if resource == "index_daily":
+                kwargs["suppress_single_code_progress"] = True
             kwargs["execution_id"] = execution_id
             result = service.run_full(**kwargs)
             rows_fetched += result.rows_fetched

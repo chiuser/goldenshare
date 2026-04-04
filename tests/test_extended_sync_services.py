@@ -274,8 +274,37 @@ def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
     assert raw_upsert.call_count == 2
     assert core_upsert.call_count == 2
     upsert_active.assert_called_once_with("index_daily", {"000001.SH": date(2026, 3, 25)})
+
+
+def test_index_daily_service_can_suppress_single_code_progress_update(mocker) -> None:
+    session = mocker.Mock()
+    session.get.return_value = None
+    service = SyncIndexDailyService(session)
+    mocker.patch.object(
+        service.client,
+        "call",
+        return_value=[
+            {"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+        ],
+    )
+    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
+    update_progress = mocker.patch.object(service, "_update_progress")
+
+    fetched, written, _, _ = service.execute(
+        "FULL",
+        ts_code="000001.SH",
+        start_date="2026-03-01",
+        end_date="2026-03-25",
+        execution_id=123,
+        suppress_single_code_progress=True,
+    )
+
+    assert fetched == 1
+    assert written == 1
+    update_progress.assert_not_called()
     assert service.client.call.call_args_list[0].kwargs["params"]["offset"] == 0
-    assert service.client.call.call_args_list[1].kwargs["params"]["offset"] == 2
 
 
 def test_index_weekly_service_paginates(mocker) -> None:

@@ -40,17 +40,19 @@ class SyncIndexDailyService(HttpResourceSyncService):
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
         execution_id = kwargs.get("execution_id")
+        suppress_single_code_progress = bool(kwargs.get("suppress_single_code_progress"))
         self.ensure_not_canceled(execution_id)
         if kwargs.get("ts_code"):
             fetched, written, latest_seen = self._sync_index_code(run_type=run_type, **kwargs)
             if latest_seen is not None:
                 self.dao.index_series_active.upsert_seen_codes(self.resource_key, {kwargs["ts_code"]: latest_seen})
-            self._update_progress(
-                execution_id=execution_id,
-                current=1,
-                total=1,
-                message=f"index_daily: 1/1 ts_code={kwargs['ts_code']} fetched={fetched} written={written}",
-            )
+            if not suppress_single_code_progress:
+                self._update_progress(
+                    execution_id=execution_id,
+                    current=1,
+                    total=1,
+                    message=f"index_daily: 1/1 ts_code={kwargs['ts_code']} fetched={fetched} written={written}",
+                )
             return fetched, written, trade_date, None
 
         index_codes = self.dao.index_series_active.list_active_codes(self.resource_key)
