@@ -91,7 +91,7 @@ vi.mock("../shared/api/client", () => ({
 }));
 
 describe("任务详情页", () => {
-  it("默认先展示状态、范围和下一步建议，把技术细节后置", async () => {
+  it("默认先展示状态、范围和下一步建议，把实时处理记录后置", async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -127,7 +127,7 @@ describe("任务详情页", () => {
     expect(await screen.findByText("本次处理范围")).toBeInTheDocument();
     expect((await screen.findAllByText("当前进展")).length).toBeGreaterThan(0);
     expect(await screen.findByText("建议下一步")).toBeInTheDocument();
-    expect(await screen.findByText("技术细节")).toBeInTheDocument();
+    expect((await screen.findAllByText("实时处理记录")).length).toBeGreaterThan(0);
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
     expect(await screen.findByText("11%")).toBeInTheDocument();
     expect((await screen.findAllByText("正在拉取 2026-03-23 到 2026-03-30 的股票日线数据")).length).toBeGreaterThan(0);
