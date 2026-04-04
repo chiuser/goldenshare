@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import delete, or_, text, tuple_
 
 from src.config.settings import get_settings
 from src.services.sync.fields import INDEX_WEEKLY_FIELDS
@@ -80,7 +80,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 }
                 for row in filtered
             ]
-            written = core_dao.bulk_upsert(serving_rows, conflict_columns=["ts_code", "trade_date"])
+            written = self._write_serving_rows(serving_rows, keep_api=False)
             api_codes_seen.update(row["ts_code"] for row in filtered if row.get("ts_code"))
             total_fetched += len(rows)
             total_written += written
@@ -142,10 +142,6 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 from win
                 group by ts_code
             )
-            insert into {self.serving_table} (
-                ts_code, period_start_date, trade_date, open, high, low, close, pre_close,
-                change_amount, pct_chg, vol, amount, source
-            )
             select
                 a.ts_code,
                 :period_start_date,
@@ -164,23 +160,9 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 a.amount,
                 'derived_daily'
             from agg a
-            on conflict (ts_code, trade_date) do update set
-                trade_date = excluded.trade_date,
-                period_start_date = excluded.period_start_date,
-                open = excluded.open,
-                high = excluded.high,
-                low = excluded.low,
-                close = excluded.close,
-                pre_close = excluded.pre_close,
-                change_amount = excluded.change_amount,
-                pct_chg = excluded.pct_chg,
-                vol = excluded.vol,
-                amount = excluded.amount,
-                source = excluded.source,
-                updated_at = now()
             """
         )
-        result = self.session.execute(
+        rows = self.session.execute(
             sql,
             {
                 "trade_date": trade_date,
@@ -188,8 +170,40 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 "start_date": start_date,
                 "missing_codes": missing_codes,
             },
+        ).mappings()
+        serving_rows = [dict(row) for row in rows]
+        return self._write_serving_rows(serving_rows, keep_api=True)
+
+    def _write_serving_rows(self, rows: list[dict[str, Any]], *, keep_api: bool) -> int:
+        if not rows:
+            return 0
+        deduped_rows = self._dedupe_by_period_key(rows)
+        core_dao = getattr(self.dao, self.core_dao_name)
+        model = core_dao.model
+        period_keys = [(row["ts_code"], row["period_start_date"]) for row in deduped_rows]
+        trade_keys = [(row["ts_code"], row["trade_date"]) for row in deduped_rows]
+        stmt = delete(model).where(
+            or_(
+                tuple_(model.ts_code, model.period_start_date).in_(period_keys),
+                tuple_(model.ts_code, model.trade_date).in_(trade_keys),
+            )
         )
-        return result.rowcount or 0
+        if keep_api:
+            stmt = stmt.where(model.source != "api")
+        self.session.execute(stmt)
+        return core_dao.bulk_insert(deduped_rows)
+
+    @staticmethod
+    def _dedupe_by_period_key(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deduped_by_key: dict[tuple[str, date], dict[str, Any]] = {}
+        for row in rows:
+            ts_code = row.get("ts_code")
+            period_start_date = row.get("period_start_date")
+            trade_date = row.get("trade_date")
+            if not ts_code or period_start_date is None or trade_date is None:
+                continue
+            deduped_by_key[(ts_code, period_start_date)] = row
+        return list(deduped_by_key.values())
 
     def _period_start_date(self, trade_date: date, *, cache: dict[date, date] | None = None) -> date:
         natural_start = self._natural_period_start_date(trade_date)

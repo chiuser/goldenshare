@@ -340,7 +340,7 @@ def test_index_weekly_service_paginates(mocker) -> None:
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_upsert", side_effect=[2, 1])
+    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", side_effect=[2, 1])
 
     fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
 
@@ -349,7 +349,7 @@ def test_index_weekly_service_paginates(mocker) -> None:
     assert result_date == date(2026, 3, 20)
     assert message is None
     assert raw_upsert.call_count == 2
-    assert core_upsert.call_count == 2
+    assert core_insert.call_count == 2
     assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 0}
     assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 2}
 
@@ -378,7 +378,7 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_upsert", return_value=1)
+    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", return_value=1)
 
     fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
 
@@ -386,7 +386,7 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     assert written == 1
     raw_rows = raw_upsert.call_args.args[0]
     assert len(raw_rows) == 2
-    transformed_rows = core_upsert.call_args.args[0]
+    transformed_rows = core_insert.call_args.args[0]
     assert len(transformed_rows) == 1
     assert transformed_rows[0]["ts_code"] == "000001.SH"
     assert transformed_rows[0]["source"] == "api"
@@ -400,7 +400,9 @@ def test_index_weekly_fill_missing_uses_valid_cte_sql(mocker) -> None:
         "get_open_dates",
         return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
     )
-    session.execute.return_value = mocker.Mock(rowcount=0)
+    execute_result = mocker.Mock()
+    execute_result.mappings.return_value = []
+    session.execute.return_value = execute_result
 
     service._fill_missing_from_daily(date(2026, 3, 20), ["000001.SH"])
 

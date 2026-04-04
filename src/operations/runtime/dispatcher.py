@@ -439,7 +439,13 @@ class OperationsDispatcher:
                 a.amount,
                 'derived_daily'
             from agg a
-            on conflict (ts_code, trade_date) do update
+            left join {target_table} existing_trade
+              on existing_trade.ts_code = a.ts_code
+             and existing_trade.trade_date = a.trade_date
+             and existing_trade.period_start_date <> a.period_start_date
+             and existing_trade.source = 'api'
+            where existing_trade.ts_code is null
+            on conflict (ts_code, period_start_date) do update
             set
                 period_start_date = excluded.period_start_date,
                 trade_date = excluded.trade_date,
