@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
+from typing import Any
+
 from src.config.settings import get_settings
 from src.services.sync.fields import KPL_LIST_FIELDS
 from src.services.sync.resource_sync import HttpResourceSyncService
+from src.services.sync.sync_ths_hot_service import _normalize_filter_values
+from src.utils import coerce_row
 
 
 def build_kpl_list_params(run_type: str, trade_date=None, **kwargs):  # type: ignore[no-untyped-def]
@@ -50,3 +55,19 @@ class SyncKplListService(HttpResourceSyncService):
         "lu_limit_order",
     )
     params_builder = staticmethod(build_kpl_list_params)
+
+    def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
+        trade_date = kwargs.get("trade_date")
+        extra_kwargs = {key: value for key, value in kwargs.items() if key != "trade_date"}
+        total_fetched = 0
+        total_written = 0
+        for tag in _normalize_filter_values(extra_kwargs.get("tag")):
+            params_kwargs = dict(extra_kwargs)
+            params_kwargs["tag"] = tag
+            params = build_kpl_list_params(run_type, trade_date=trade_date, **params_kwargs)
+            rows = self.client.call(self.api_name, params=params, fields=self.fields)
+            normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
+            self.dao.raw_kpl_list.bulk_upsert(normalized)
+            total_written += self.dao.kpl_list.bulk_upsert(normalized)
+            total_fetched += len(rows)
+        return total_fetched, total_written, trade_date, None

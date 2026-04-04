@@ -4,7 +4,7 @@ from datetime import date
 
 from src.services.sync.sync_dc_hot_service import SyncDcHotService, build_dc_hot_params
 from src.services.sync.sync_kpl_concept_cons_service import build_kpl_concept_cons_params
-from src.services.sync.sync_kpl_list_service import build_kpl_list_params
+from src.services.sync.sync_kpl_list_service import SyncKplListService, build_kpl_list_params
 from src.services.sync.sync_ths_hot_service import SyncThsHotService, build_ths_hot_params
 
 
@@ -35,6 +35,32 @@ def test_kpl_list_supports_incremental_and_range_params() -> None:
 def test_kpl_concept_cons_supports_incremental_params() -> None:
     incremental = build_kpl_concept_cons_params("INCREMENTAL", trade_date=date(2026, 4, 2), con_code="GN001")
     assert incremental == {"trade_date": "20260402", "con_code": "GN001"}
+
+
+def test_kpl_list_expands_multi_value_tag_filters(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncKplListService(session)
+    service.client = mocker.Mock()
+    service.client.call.side_effect = [
+        [{"trade_date": "20260402", "ts_code": "000001.SZ", "tag": "涨停"}],
+        [{"trade_date": "20260402", "ts_code": "000002.SZ", "tag": "炸板"}],
+    ]
+    service.dao.raw_kpl_list = mocker.Mock()
+    service.dao.kpl_list = mocker.Mock()
+    service.dao.kpl_list.bulk_upsert.side_effect = [1, 1]
+
+    fetched, written, result_date, message = service.execute(
+        "INCREMENTAL",
+        trade_date=date(2026, 4, 2),
+        tag=["涨停", "炸板"],
+    )
+
+    assert fetched == 2
+    assert written == 2
+    assert result_date == date(2026, 4, 2)
+    assert message is None
+    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260402", "tag": "涨停"}
+    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260402", "tag": "炸板"}
 
 
 def test_ths_hot_persists_query_context_keys(mocker) -> None:

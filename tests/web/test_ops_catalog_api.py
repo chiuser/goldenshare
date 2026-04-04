@@ -77,6 +77,11 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
         "跌停池",
     ]
     assert next(param for param in limit_list_ths_daily["supported_params"] if param["key"] == "market")["options"] == ["HS", "GEM", "STAR"]
+    kpl_list_daily = jobs["sync_daily.kpl_list"]
+    assert [param["key"] for param in kpl_list_daily["supported_params"]] == ["trade_date", "tag"]
+    kpl_tag = next(param for param in kpl_list_daily["supported_params"] if param["key"] == "tag")
+    assert kpl_tag["options"] == ["涨停", "炸板", "跌停", "自然涨停", "竞价"]
+    assert kpl_tag["multi_value"] is True
     assert [param["key"] for param in jobs["sync_daily.limit_step"]["supported_params"]] == ["trade_date"]
     assert [param["key"] for param in jobs["sync_daily.limit_cpt_list"]["supported_params"]] == ["trade_date"]
     assert workflows["daily_market_close_sync"]["supports_schedule"] is True

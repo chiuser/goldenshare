@@ -157,8 +157,10 @@ DC_HOT_TYPE_PARAM = ParameterSpec(
 TAG_PARAM = ParameterSpec(
     key="tag",
     display_name="榜单标签",
-    param_type="string",
-    description="用于开盘啦榜单的标签过滤。",
+    param_type="enum",
+    description="用于开盘啦榜单标签过滤，可多选：涨停、炸板、跌停、自然涨停、竞价。不传时接口默认返回涨停。",
+    options=("涨停", "炸板", "跌停", "自然涨停", "竞价"),
+    multi_value=True,
 )
 OFFSET_PARAM = ParameterSpec(
     key="offset",
@@ -288,7 +290,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource in {"limit_step", "limit_cpt_list"}:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "kpl_list":
-        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     if resource == "limit_list_d":
@@ -334,7 +336,7 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "limit_list_ths":
         supported_params = (TRADE_DATE_PARAM, LIMIT_LIST_THS_LIMIT_TYPE_PARAM, LIMIT_LIST_THS_MARKET_PARAM)
     elif resource == "kpl_list":
-        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, TAG_PARAM)
+        supported_params = (TRADE_DATE_PARAM, TAG_PARAM)
     elif resource == "kpl_concept_cons":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     elif resource == "limit_list_d":
@@ -501,7 +503,7 @@ for _resource in ("ths_daily", "dc_index", "dc_daily", "kpl_list"):
     if _resource in {"dc_index", "dc_daily"}:
         _extra_params = (TS_CODE_PARAM, IDX_TYPE_PARAM)
     elif _resource == "kpl_list":
-        _extra_params = (TS_CODE_PARAM, TAG_PARAM, TRADE_DATE_PARAM)
+        _extra_params = (TAG_PARAM, TRADE_DATE_PARAM)
     JOB_SPEC_REGISTRY[f"backfill_by_date_range.{_resource}"] = JobSpec(
         key=f"backfill_by_date_range.{_resource}",
         display_name=f"按日期区间回补 / {_resource}",

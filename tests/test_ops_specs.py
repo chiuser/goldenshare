@@ -121,6 +121,17 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert hot_type_param.options == ("人气榜", "飙升榜")
     assert hot_type_param.multi_value is True
 
+    kpl_list_daily_spec = get_job_spec("sync_daily.kpl_list")
+    assert kpl_list_daily_spec is not None
+    assert [param.key for param in kpl_list_daily_spec.supported_params] == ["trade_date", "tag"]
+    kpl_tag_param = next(param for param in kpl_list_daily_spec.supported_params if param.key == "tag")
+    assert kpl_tag_param.options == ("涨停", "炸板", "跌停", "自然涨停", "竞价")
+    assert kpl_tag_param.multi_value is True
+
+    kpl_list_backfill_spec = get_job_spec("backfill_by_date_range.kpl_list")
+    assert kpl_list_backfill_spec is not None
+    assert [param.key for param in kpl_list_backfill_spec.supported_params] == ["start_date", "end_date", "tag", "trade_date"]
+
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:
     ths_index_spec = get_job_spec("sync_history.ths_index")
