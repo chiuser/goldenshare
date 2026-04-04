@@ -80,7 +80,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 }
                 for row in filtered
             ]
-            written = core_dao.bulk_upsert(serving_rows, conflict_columns=["ts_code", "period_start_date"])
+            written = core_dao.bulk_upsert(serving_rows, conflict_columns=["ts_code", "trade_date"])
             api_codes_seen.update(row["ts_code"] for row in filtered if row.get("ts_code"))
             total_fetched += len(rows)
             total_written += written
@@ -164,8 +164,9 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                 a.amount,
                 'derived_daily'
             from agg a
-            on conflict (ts_code, period_start_date) do update set
+            on conflict (ts_code, trade_date) do update set
                 trade_date = excluded.trade_date,
+                period_start_date = excluded.period_start_date,
                 open = excluded.open,
                 high = excluded.high,
                 low = excluded.low,

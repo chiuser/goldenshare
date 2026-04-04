@@ -439,8 +439,9 @@ class OperationsDispatcher:
                 a.amount,
                 'derived_daily'
             from agg a
-            on conflict (ts_code, period_start_date) do update
+            on conflict (ts_code, trade_date) do update
             set
+                period_start_date = excluded.period_start_date,
                 trade_date = excluded.trade_date,
                 open = excluded.open,
                 high = excluded.high,
