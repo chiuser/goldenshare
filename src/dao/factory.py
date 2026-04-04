@@ -12,6 +12,7 @@ from src.dao.generic import GenericDAO
 from src.dao.holdernumber_dao import EquityHolderNumberDAO, RawHolderNumberDAO
 from src.dao.index_basic_dao import IndexBasicDAO
 from src.dao.index_daily_basic_dao import IndexDailyBasicDAO
+from src.dao.index_series_active_dao import IndexSeriesActiveDAO
 from src.dao.index_monthly_bar_dao import IndexMonthlyBarDAO
 from src.dao.index_weight_dao import IndexWeightDAO
 from src.dao.index_weekly_bar_dao import IndexWeeklyBarDAO
@@ -129,6 +130,7 @@ class DAOFactory:
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.sync_job_state = SyncJobStateDAO(session)
         self.sync_run_log = SyncRunLogDAO(session)
+        self.index_series_active = IndexSeriesActiveDAO(session)
 
         self.raw_stock_basic = GenericDAO(session, RawStockBasic)
         self.raw_trade_cal = GenericDAO(session, RawTradeCal)

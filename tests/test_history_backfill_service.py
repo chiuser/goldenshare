@@ -446,6 +446,71 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
     assert progress.call_args_list[0].args[0] == "index_daily: 1/1 ts_code=000001.SH fetched=15 written=15"
 
 
+def test_backfill_index_daily_basic_prefers_active_pool(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.index_series_active.list_active_codes.side_effect = [["000300.SH", "000905.SH"]]
+    progress = mocker.Mock()
+
+    sync_service_1 = mocker.Mock()
+    sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
+    sync_service_2 = mocker.Mock()
+    sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=11, rows_written=11)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+
+    summary = service.backfill_index_series(
+        resource="index_daily_basic",
+        start_date=date(2020, 1, 1),
+        end_date=date(2026, 3, 29),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 2
+    assert summary.rows_fetched == 23
+    assert summary.rows_written == 23
+    assert build_sync_service.call_count == 2
+    sync_service_1.run_full.assert_called_once_with(
+        ts_code="000300.SH",
+        start_date="2020-01-01",
+        end_date="2026-03-29",
+        execution_id=None,
+    )
+    assert progress.call_args_list[0].args[0] == "index_daily_basic: 1/2 ts_code=000300.SH fetched=12 written=12"
+
+
+def test_backfill_index_daily_basic_bootstraps_active_pool_when_empty(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.index_series_active.list_active_codes.side_effect = [[], ["000300.SH"]]
+    service.dao.trade_calendar.get_latest_open_date.return_value = date(2026, 3, 28)
+
+    discovery_service = mocker.Mock()
+    discovery_service.run_incremental.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
+    sync_service = mocker.Mock()
+    sync_service.run_full.return_value = mocker.Mock(rows_fetched=100, rows_written=100)
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[discovery_service, sync_service])
+
+    summary = service.backfill_index_series(
+        resource="index_daily_basic",
+        start_date=date(2020, 1, 1),
+        end_date=date(2026, 3, 29),
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 100
+    assert summary.rows_written == 100
+    discovery_service.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 28), execution_id=None)
+    sync_service.run_full.assert_called_once_with(
+        ts_code="000300.SH",
+        start_date="2020-01-01",
+        end_date="2026-03-29",
+        execution_id=None,
+    )
+    assert build_sync_service.call_count == 2
+
+
 def test_backfill_index_series_uses_index_code_for_index_weight(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

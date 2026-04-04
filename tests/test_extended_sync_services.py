@@ -82,6 +82,62 @@ def test_index_daily_basic_service_fields_are_explicit() -> None:
     assert SyncIndexDailyBasicService.fields
 
 
+def test_index_daily_basic_updates_active_pool_when_rows_returned(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexDailyBasicService(session)
+    mocker.patch.object(service.dao.trade_calendar, "fetch_by_pk", return_value=mocker.Mock(is_open=True))
+    mocker.patch.object(
+        service.client,
+        "call",
+        return_value=[
+            {
+                "ts_code": "000300.SH",
+                "trade_date": "20260325",
+                "total_mv": "1",
+                "float_mv": "1",
+                "total_share": "1",
+                "float_share": "1",
+                "free_share": "1",
+                "turnover_rate": "1",
+                "turnover_rate_f": "1",
+                "pe": "1",
+                "pe_ttm": "1",
+                "pb": "1",
+            }
+        ],
+    )
+    mocker.patch.object(service.dao.raw_index_daily_basic, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_daily_basic, "bulk_upsert", return_value=1)
+    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes", return_value=1)
+
+    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
+
+    assert fetched == 1
+    assert written == 1
+    assert result_date == date(2026, 3, 25)
+    assert message is None
+    upsert_active.assert_called_once()
+    assert upsert_active.call_args.args[0] == "index_daily_basic"
+    assert upsert_active.call_args.args[1] == {"000300.SH": date(2026, 3, 25)}
+
+
+def test_index_daily_basic_skips_closed_trade_date_and_does_not_pollute_active_pool(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexDailyBasicService(session)
+    mocker.patch.object(service.dao.trade_calendar, "fetch_by_pk", return_value=mocker.Mock(is_open=False))
+    client_call = mocker.patch.object(service.client, "call")
+    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
+
+    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 1, 1))
+
+    assert fetched == 0
+    assert written == 0
+    assert result_date == date(2026, 1, 1)
+    assert "非交易日" in (message or "")
+    client_call.assert_not_called()
+    upsert_active.assert_not_called()
+
+
 def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexDailyService(session)

@@ -37,6 +37,7 @@ from src.models.core.trade_calendar import TradeCalendar
 from src.models.core.us_security import UsSecurity
 from src.models.ops.config_revision import ConfigRevision
 from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.models.ops.index_series_active import IndexSeriesActive
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
 from src.models.ops.job_execution_step import JobExecutionStep
@@ -147,6 +148,7 @@ __all__ = [
     "RawUsBasic",
     "ConfigRevision",
     "DatasetStatusSnapshot",
+    "IndexSeriesActive",
     "JobExecution",
     "JobExecutionEvent",
     "JobExecutionStep",

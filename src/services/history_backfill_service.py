@@ -289,15 +289,25 @@ class HistoryBackfillService:
             raise ValueError(
                 "index series backfill only supports index_daily, index_weekly, index_monthly, index_daily_basic, and index_weight"
             )
-        indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
+        if resource == "index_daily_basic":
+            index_codes = self.dao.index_series_active.list_active_codes(resource)
+            if not index_codes:
+                latest_open = self.dao.trade_calendar.get_latest_open_date(self.settings.default_exchange, end_date)
+                if latest_open is not None:
+                    discovery_service = build_sync_service(resource, self.session)
+                    discovery_service.run_incremental(trade_date=latest_open, execution_id=execution_id)
+                index_codes = self.dao.index_series_active.list_active_codes(resource)
+        else:
+            indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
+            index_codes = [item.ts_code for item in indexes if item.ts_code]
         if offset:
-            indexes = indexes[offset:]
+            index_codes = index_codes[offset:]
         if limit is not None:
-            indexes = indexes[:limit]
+            index_codes = index_codes[:limit]
         rows_fetched = 0
         rows_written = 0
-        total = len(indexes)
-        for index_number, index_item in enumerate(indexes, start=1):
+        total = len(index_codes)
+        for index_number, index_code in enumerate(index_codes, start=1):
             service = build_sync_service(resource, self.session)
             kwargs = {
                 "start_date": start_date.isoformat(),
@@ -305,18 +315,18 @@ class HistoryBackfillService:
             }
             code_label = "ts_code"
             if resource == "index_weight":
-                kwargs["index_code"] = index_item.ts_code
+                kwargs["index_code"] = index_code
                 code_label = "index_code"
             else:
-                kwargs["ts_code"] = index_item.ts_code
+                kwargs["ts_code"] = index_code
             kwargs["execution_id"] = execution_id
             result = service.run_full(**kwargs)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index_number}/{total} {code_label}={index_item.ts_code} "
+                    f"{resource}: {index_number}/{total} {code_label}={index_code} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
-        return BackfillSummary(resource, len(indexes), rows_fetched, rows_written)
+        return BackfillSummary(resource, len(index_codes), rows_fetched, rows_written)
