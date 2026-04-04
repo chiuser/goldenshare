@@ -5,6 +5,7 @@ from datetime import date
 from src.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
 from src.services.sync.sync_index_daily_service import SyncIndexDailyService, build_index_daily_params
 from src.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
+from src.services.sync.sync_index_weekly_service import SyncIndexWeeklyService
 from src.services.sync.sync_index_weight_service import build_index_weight_params
 from src.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
 from src.services.sync.sync_stk_period_bar_adj_week_service import SyncStkPeriodBarAdjWeekService
@@ -109,8 +110,8 @@ def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) ->
     assert written == 2
     assert result_date == date(2026, 3, 25)
     assert message is None
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260325", "ts_code": "000001.SH"}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260325", "ts_code": "399001.SZ"}
+    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260325", "ts_code": "000001.SH", "limit": 2000, "offset": 0}
+    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260325", "ts_code": "399001.SZ", "limit": 2000, "offset": 0}
     assert raw_upsert.call_count == 2
     assert core_upsert.call_count == 2
 
@@ -150,6 +151,73 @@ def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
     }
     assert progress.call_args_list[1].kwargs["current"] == 1
     assert progress.call_args_list[2].kwargs["current"] == 2
+
+
+def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexDailyService(session)
+    service.page_limit = 2
+    mocker.patch.object(
+        service.client,
+        "call",
+        side_effect=[
+            [
+                {"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+                {"ts_code": "000001.SH", "trade_date": "20260318", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+            ],
+            [
+                {"ts_code": "000001.SH", "trade_date": "20260311", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+            ],
+        ],
+    )
+    raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
+    core_upsert = mocker.patch.object(service.dao.index_daily_bar, "bulk_upsert", side_effect=[2, 1])
+
+    fetched, written, _, _ = service.execute(
+        "FULL",
+        ts_code="000001.SH",
+        start_date="2026-03-01",
+        end_date="2026-03-25",
+    )
+
+    assert fetched == 3
+    assert written == 3
+    assert raw_upsert.call_count == 2
+    assert core_upsert.call_count == 2
+    assert service.client.call.call_args_list[0].kwargs["params"]["offset"] == 0
+    assert service.client.call.call_args_list[1].kwargs["params"]["offset"] == 2
+
+
+def test_index_weekly_service_paginates(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexWeeklyService(session)
+    service.page_limit = 2
+    mocker.patch.object(
+        service.client,
+        "call",
+        side_effect=[
+            [
+                {"ts_code": "000001.SH", "trade_date": "20260320", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+                {"ts_code": "000300.SH", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
+            ],
+            [
+                {"ts_code": "000905.SH", "trade_date": "20260320", "open": "3", "high": "3", "low": "3", "close": "3", "pre_close": "3", "change": "0", "pct_chg": "0", "vol": "3", "amount": "3"},
+            ],
+        ],
+    )
+    raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
+    core_upsert = mocker.patch.object(service.dao.index_weekly_bar, "bulk_upsert", side_effect=[2, 1])
+
+    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
+
+    assert fetched == 3
+    assert written == 3
+    assert result_date == date(2026, 3, 20)
+    assert message is None
+    assert raw_upsert.call_count == 2
+    assert core_upsert.call_count == 2
+    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 0}
+    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 2}
 
 
 def test_etf_basic_builds_default_full_sync_params() -> None:

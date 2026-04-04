@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
+from typing import Any
+
 from src.config.settings import get_settings
 from src.services.sync.fields import INDEX_WEEKLY_FIELDS
 from src.services.sync.resource_sync import HttpResourceSyncService
+from src.utils import coerce_row
 
 
 def build_index_period_params(api_freq: str):
@@ -40,3 +44,30 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
     decimal_fields = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount")
     params_builder = staticmethod(build_index_period_params("weekly"))
     core_transform = staticmethod(transform_index_period_bar)
+    page_limit = 1000
+
+    def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
+        trade_date = kwargs.get("trade_date")
+        execution_id = kwargs.get("execution_id")
+        params = self.params_builder(run_type, **kwargs)
+
+        total_fetched = 0
+        total_written = 0
+        offset = 0
+        while True:
+            self.ensure_not_canceled(execution_id)
+            page_params = {**params, "limit": self.page_limit, "offset": offset}
+            rows = self.client.call(self.api_name, params=page_params, fields=self.fields)
+            if not rows:
+                break
+            normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
+            raw_dao = getattr(self.dao, self.raw_dao_name)
+            core_dao = getattr(self.dao, self.core_dao_name)
+            raw_dao.bulk_upsert(normalized)
+            written = core_dao.bulk_upsert([self.core_transform(row) for row in normalized])
+            total_fetched += len(rows)
+            total_written += written
+            if len(rows) < self.page_limit:
+                break
+            offset += self.page_limit
+        return total_fetched, total_written, trade_date, None
