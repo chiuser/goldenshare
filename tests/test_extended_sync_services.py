@@ -158,7 +158,7 @@ def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) ->
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_daily_bar, "bulk_upsert", side_effect=[1, 1])
+    core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
 
     fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
 
@@ -193,7 +193,7 @@ def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
         ],
     )
     mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_daily_bar, "bulk_upsert", side_effect=[1, 1])
+    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
     progress = mocker.patch.object(service, "_update_progress")
 
     service.execute("INCREMENTAL", trade_date=date(2026, 3, 25), execution_id=99)
@@ -227,7 +227,7 @@ def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_daily_bar, "bulk_upsert", side_effect=[2, 1])
+    core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[2, 1])
 
     fetched, written, _, _ = service.execute(
         "FULL",
@@ -248,6 +248,7 @@ def test_index_weekly_service_paginates(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexWeeklyService(session)
     service.page_limit = 2
+    mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
@@ -271,7 +272,7 @@ def test_index_weekly_service_paginates(mocker) -> None:
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_weekly_bar, "bulk_upsert", side_effect=[2, 1])
+    core_upsert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_upsert", side_effect=[2, 1])
 
     fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
 
@@ -289,6 +290,7 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexWeeklyService(session)
     service.page_limit = 1000
+    mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
@@ -303,18 +305,26 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
         ],
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_weekly_bar, "bulk_upsert", return_value=1)
+    core_upsert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_upsert", return_value=1)
 
     fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
 
     assert fetched == 2
     assert written == 1
-    filtered_rows = raw_upsert.call_args.args[0]
-    assert len(filtered_rows) == 1
-    assert filtered_rows[0]["ts_code"] == "000001.SH"
+    raw_rows = raw_upsert.call_args.args[0]
+    assert len(raw_rows) == 2
     transformed_rows = core_upsert.call_args.args[0]
     assert len(transformed_rows) == 1
     assert transformed_rows[0]["ts_code"] == "000001.SH"
+    assert transformed_rows[0]["source"] == "api"
+
+
+def test_index_weekly_period_start_uses_monday_boundary(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexWeeklyService(session)
+
+    assert service._period_start_date(date(2026, 3, 18)) == date(2026, 3, 16)
+    assert service._period_start_date(date(2026, 3, 16)) == date(2026, 3, 16)
 
 
 def test_etf_basic_builds_default_full_sync_params() -> None:

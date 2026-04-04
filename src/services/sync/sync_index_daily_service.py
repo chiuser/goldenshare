@@ -25,10 +25,10 @@ def build_index_daily_params(run_type: str, trade_date=None, **kwargs):  # type:
 
 class SyncIndexDailyService(HttpResourceSyncService):
     job_name = "sync_index_daily"
-    target_table = "core.index_daily_bar"
+    target_table = "core.index_daily_serving"
     api_name = "index_daily"
     raw_dao_name = "raw_index_daily"
-    core_dao_name = "index_daily_bar"
+    core_dao_name = "index_daily_serving"
     fields = INDEX_DAILY_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount")
@@ -87,7 +87,7 @@ class SyncIndexDailyService(HttpResourceSyncService):
                 break
             normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
             self.dao.raw_index_daily.bulk_upsert(normalized)
-            written = self.dao.index_daily_bar.bulk_upsert([self.core_transform(row) for row in normalized])
+            written = self.dao.index_daily_serving.bulk_upsert([self.core_transform(row) for row in normalized])
             total_fetched += len(rows)
             total_written += written
             if len(rows) < self.page_limit:

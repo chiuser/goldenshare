@@ -45,7 +45,7 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     )
     sync_job_state_factory(
         job_name="sync_index_monthly",
-        target_table="core.index_monthly_bar",
+        target_table="core.index_monthly_serving",
         last_success_date=datetime(2026, 1, 31, tzinfo=timezone.utc).date(),
         last_success_at=datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc),
     )

@@ -12,6 +12,9 @@ from sqlalchemy.pool import StaticPool
 from src.config.settings import get_settings
 from src.models.app.app_user import AppUser
 from src.models.core.equity_block_trade import EquityBlockTrade
+from src.models.core.index_daily_serving import IndexDailyServing
+from src.models.core.index_weekly_serving import IndexWeeklyServing
+from src.models.core.index_monthly_serving import IndexMonthlyServing
 from src.models.core.trade_calendar import TradeCalendar
 from src.models.ops.config_revision import ConfigRevision
 from src.models.ops.job_execution import JobExecution
@@ -50,6 +53,9 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)
+        IndexDailyServing.__table__.create(connection)
+        IndexWeeklyServing.__table__.create(connection)
+        IndexMonthlyServing.__table__.create(connection)
         TradeCalendar.__table__.create(connection)
         JobSchedule.__table__.create(connection)
         JobExecution.__table__.create(connection)

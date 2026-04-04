@@ -25,12 +25,15 @@ from src.models.core.dc_index import DcIndex
 from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_bar import IndexDailyBar
+from src.models.core.index_daily_serving import IndexDailyServing
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
+from src.models.core.index_monthly_serving import IndexMonthlyServing
 from src.models.core.index_weight import IndexWeight
 from src.models.core.kpl_concept_cons import KplConceptCons
 from src.models.core.kpl_list import KplList
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.index_weekly_serving import IndexWeeklyServing
 from src.models.core.limit_cpt_list import LimitCptList
 from src.models.core.limit_list_ths import LimitListThs
 from src.models.core.limit_step import LimitStep
@@ -82,8 +85,11 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.stk_period_bar_adj": StkPeriodBarAdj,
     "core.fund_daily_bar": FundDailyBar,
     "core.index_daily_bar": IndexDailyBar,
+    "core.index_daily_serving": IndexDailyServing,
     "core.index_weekly_bar": IndexWeeklyBar,
+    "core.index_weekly_serving": IndexWeeklyServing,
     "core.index_monthly_bar": IndexMonthlyBar,
+    "core.index_monthly_serving": IndexMonthlyServing,
     "core.index_daily_basic": IndexDailyBasic,
     "core.index_weight": IndexWeight,
     "core.ths_index": ThsIndex,

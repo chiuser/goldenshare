@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
+
+from sqlalchemy import text
 
 from src.config.settings import get_settings
 from src.services.sync.fields import INDEX_WEEKLY_FIELDS
@@ -35,22 +37,25 @@ def transform_index_period_bar(row: dict):  # type: ignore[no-untyped-def]
 
 class SyncIndexWeeklyService(HttpResourceSyncService):
     job_name = "sync_index_weekly"
-    target_table = "core.index_weekly_bar"
+    target_table = "core.index_weekly_serving"
     api_name = "index_weekly"
     raw_dao_name = "raw_index_weekly_bar"
-    core_dao_name = "index_weekly_bar"
+    core_dao_name = "index_weekly_serving"
     fields = INDEX_WEEKLY_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount")
     params_builder = staticmethod(build_index_period_params("weekly"))
     core_transform = staticmethod(transform_index_period_bar)
     page_limit = 1000
+    serving_table = "core.index_weekly_serving"
+    period_kind = "weekly"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
         execution_id = kwargs.get("execution_id")
         params = self.params_builder(run_type, **kwargs)
-        valid_index_codes = self._valid_index_codes()
+        target_codes = self._target_codes(kwargs.get("ts_code"))
+        api_codes_seen: set[str] = set()
 
         total_fetched = 0
         total_written = 0
@@ -62,17 +67,122 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
             if not rows:
                 break
             normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
-            filtered = [row for row in normalized if row.get("ts_code") in valid_index_codes]
+            filtered = [row for row in normalized if row.get("ts_code") in target_codes]
             raw_dao = getattr(self.dao, self.raw_dao_name)
             core_dao = getattr(self.dao, self.core_dao_name)
-            raw_dao.bulk_upsert(filtered)
-            written = core_dao.bulk_upsert([self.core_transform(row) for row in filtered])
+            raw_dao.bulk_upsert(normalized)
+            serving_rows = [{**self.core_transform(row), "period_start_date": self._period_start_date(row["trade_date"]), "source": "api"} for row in filtered]
+            written = core_dao.bulk_upsert(serving_rows, conflict_columns=["ts_code", "period_start_date"])
+            api_codes_seen.update(row["ts_code"] for row in filtered if row.get("ts_code"))
             total_fetched += len(rows)
             total_written += written
             if len(rows) < self.page_limit:
                 break
             offset += self.page_limit
+        if trade_date is not None and kwargs.get("ts_code") is None:
+            missing_codes = sorted(target_codes - api_codes_seen)
+            total_written += self._fill_missing_from_daily(trade_date, missing_codes)
         return total_fetched, total_written, trade_date, None
 
-    def _valid_index_codes(self) -> set[str]:
-        return {item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code}
+    def _target_codes(self, ts_code: str | None) -> set[str]:
+        if ts_code:
+            return {ts_code}
+        codes: set[str] = set()
+        stmt = text("select distinct ts_code from core.index_daily_serving")
+        try:
+            codes = {row[0] for row in self.session.execute(stmt) if row[0]}
+        except Exception:
+            codes = set()
+        if not codes:
+            codes = {item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code}
+        return codes
+
+    def _fill_missing_from_daily(self, trade_date: date, missing_codes: list[str]) -> int:
+        if not missing_codes:
+            return 0
+        start_date = self._period_start_date(trade_date)
+        period_start_date = self._period_start_date(trade_date)
+        sql = text(
+            f"""
+            win as (
+                select
+                    d.ts_code,
+                    d.trade_date,
+                    d.open,
+                    d.high,
+                    d.low,
+                    d.close,
+                    d.pre_close,
+                    d.vol,
+                    d.amount,
+                    row_number() over (partition by d.ts_code order by d.trade_date asc) as rn_first,
+                    row_number() over (partition by d.ts_code order by d.trade_date desc) as rn_last
+                from core.index_daily_serving d
+                where d.trade_date between :start_date and :trade_date
+                  and d.ts_code = any(:missing_codes)
+            ),
+            agg as (
+                select
+                    ts_code,
+                    max(case when rn_first = 1 then open end) as open,
+                    max(high) as high,
+                    min(low) as low,
+                    max(case when rn_last = 1 then close end) as close,
+                    max(case when rn_first = 1 then pre_close end) as pre_close,
+                    sum(vol) as vol,
+                    sum(amount) as amount
+                from win
+                group by ts_code
+            )
+            insert into {self.serving_table} (
+                ts_code, period_start_date, trade_date, open, high, low, close, pre_close,
+                change_amount, pct_chg, vol, amount, source
+            )
+            select
+                a.ts_code,
+                :period_start_date,
+                :trade_date,
+                a.open,
+                a.high,
+                a.low,
+                a.close,
+                a.pre_close,
+                case when a.pre_close is null or a.close is null then null else a.close - a.pre_close end as change_amount,
+                case
+                    when a.pre_close is null or a.pre_close = 0 or a.close is null then null
+                    else round(((a.close / a.pre_close) - 1) * 100, 4)
+                end as pct_chg,
+                a.vol,
+                a.amount,
+                'derived_from_daily'
+            from agg a
+            on conflict (ts_code, period_start_date) do update set
+                trade_date = excluded.trade_date,
+                open = excluded.open,
+                high = excluded.high,
+                low = excluded.low,
+                close = excluded.close,
+                pre_close = excluded.pre_close,
+                change_amount = excluded.change_amount,
+                pct_chg = excluded.pct_chg,
+                vol = excluded.vol,
+                amount = excluded.amount,
+                source = excluded.source,
+                updated_at = now()
+            """
+        )
+        result = self.session.execute(
+            sql,
+            {
+                "trade_date": trade_date,
+                "period_start_date": period_start_date,
+                "start_date": start_date,
+                "missing_codes": missing_codes,
+            },
+        )
+        return result.rowcount or 0
+
+    def _period_start_date(self, trade_date: date) -> date:
+        if self.period_kind == "monthly":
+            return trade_date.replace(day=1)
+        return trade_date - timedelta(days=trade_date.weekday())

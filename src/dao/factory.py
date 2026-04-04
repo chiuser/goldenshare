@@ -37,9 +37,12 @@ from src.models.core.dc_member import DcMember
 from src.models.core.index_basic import IndexBasic
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_daily_bar import IndexDailyBar
+from src.models.core.index_daily_serving import IndexDailyServing
 from src.models.core.index_monthly_bar import IndexMonthlyBar
+from src.models.core.index_monthly_serving import IndexMonthlyServing
 from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.index_weekly_serving import IndexWeeklyServing
 from src.models.core.kpl_concept_cons import KplConceptCons
 from src.models.core.kpl_list import KplList
 from src.models.core.limit_cpt_list import LimitCptList
@@ -110,8 +113,11 @@ class DAOFactory:
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
         self.index_basic = IndexBasicDAO(session)
         self.index_daily_bar = GenericDAO(session, IndexDailyBar)
+        self.index_daily_serving = GenericDAO(session, IndexDailyServing)
         self.index_weekly_bar = IndexWeeklyBarDAO(session)
+        self.index_weekly_serving = GenericDAO(session, IndexWeeklyServing)
         self.index_monthly_bar = IndexMonthlyBarDAO(session)
+        self.index_monthly_serving = GenericDAO(session, IndexMonthlyServing)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
         self.ths_index = GenericDAO(session, ThsIndex)

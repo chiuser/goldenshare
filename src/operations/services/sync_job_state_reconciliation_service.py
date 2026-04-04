@@ -17,10 +17,13 @@ from src.models.core.equity_moneyflow import EquityMoneyflow
 from src.models.core.equity_top_list import EquityTopList
 from src.models.core.fund_daily_bar import FundDailyBar
 from src.models.core.index_daily_bar import IndexDailyBar
+from src.models.core.index_daily_serving import IndexDailyServing
 from src.models.core.index_daily_basic import IndexDailyBasic
 from src.models.core.index_monthly_bar import IndexMonthlyBar
+from src.models.core.index_monthly_serving import IndexMonthlyServing
 from src.models.core.index_weight import IndexWeight
 from src.models.core.index_weekly_bar import IndexWeeklyBar
+from src.models.core.index_weekly_serving import IndexWeeklyServing
 from src.models.core.stk_period_bar import StkPeriodBar
 from src.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.models.core.trade_calendar import TradeCalendar
@@ -42,8 +45,11 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.stk_period_bar_adj": StkPeriodBarAdj,
     "core.fund_daily_bar": FundDailyBar,
     "core.index_daily_bar": IndexDailyBar,
+    "core.index_daily_serving": IndexDailyServing,
     "core.index_weekly_bar": IndexWeeklyBar,
+    "core.index_weekly_serving": IndexWeeklyServing,
     "core.index_monthly_bar": IndexMonthlyBar,
+    "core.index_monthly_serving": IndexMonthlyServing,
     "core.index_daily_basic": IndexDailyBasic,
     "core.index_weight": IndexWeight,
 }

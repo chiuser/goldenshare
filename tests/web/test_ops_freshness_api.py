@@ -35,7 +35,7 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     )
     sync_job_state_factory(
         job_name="sync_index_monthly",
-        target_table="core.index_monthly_bar",
+        target_table="core.index_monthly_serving",
         last_success_date=date(2025, 12, 31),
         last_success_at=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
     )
