@@ -142,6 +142,7 @@ def test_index_daily_basic_skips_closed_trade_date_and_does_not_pollute_active_p
 def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexDailyService(session)
+    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=[])
     mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
@@ -160,6 +161,7 @@ def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) ->
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
     core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
+    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
 
     fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
 
@@ -171,12 +173,16 @@ def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) ->
     assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260325", "ts_code": "399001.SZ", "limit": 2000, "offset": 0}
     assert raw_upsert.call_count == 2
     assert core_upsert.call_count == 2
+    upsert_active.assert_called_once()
+    assert upsert_active.call_args.args[0] == "index_daily"
+    assert upsert_active.call_args.args[1] == {"000001.SH": date(2026, 3, 25), "399001.SZ": date(2026, 3, 25)}
 
 
 def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
     session = mocker.Mock()
     session.get.return_value = None
     service = SyncIndexDailyService(session)
+    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=[])
     mocker.patch.object(
         service.dao.index_basic,
         "get_active_indexes",
@@ -195,6 +201,7 @@ def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
     )
     mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
     mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
+    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
     progress = mocker.patch.object(service, "_update_progress")
 
     service.execute("INCREMENTAL", trade_date=date(2026, 3, 25), execution_id=99)
@@ -208,6 +215,30 @@ def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
     }
     assert progress.call_args_list[1].kwargs["current"] == 1
     assert progress.call_args_list[2].kwargs["current"] == 2
+
+
+def test_index_daily_service_prefers_active_code_pool(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexDailyService(session)
+    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=["000300.SH"])
+    get_active_indexes = mocker.patch.object(service.dao.index_basic, "get_active_indexes")
+    mocker.patch.object(
+        service.client,
+        "call",
+        return_value=[
+            {"ts_code": "000300.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+        ],
+    )
+    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", return_value=1)
+    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
+
+    fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
+
+    assert fetched == 1
+    assert written == 1
+    get_active_indexes.assert_not_called()
+    assert service.client.call.call_args.kwargs["params"]["ts_code"] == "000300.SH"
 
 
 def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
@@ -229,6 +260,7 @@ def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
     )
     raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
     core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[2, 1])
+    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
 
     fetched, written, _, _ = service.execute(
         "FULL",
@@ -241,6 +273,7 @@ def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
     assert written == 3
     assert raw_upsert.call_count == 2
     assert core_upsert.call_count == 2
+    upsert_active.assert_called_once_with("index_daily", {"000001.SH": date(2026, 3, 25)})
     assert service.client.call.call_args_list[0].kwargs["params"]["offset"] == 0
     assert service.client.call.call_args_list[1].kwargs["params"]["offset"] == 2
 

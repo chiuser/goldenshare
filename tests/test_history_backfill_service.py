@@ -383,10 +383,7 @@ def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> N
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.index_basic.get_active_indexes.return_value = [
-        mocker.Mock(ts_code="000001.SH"),
-        mocker.Mock(ts_code="000300.SH"),
-    ]
+    service.dao.index_series_active.list_active_codes.return_value = ["000001.SH", "000300.SH"]
     progress = mocker.Mock()
 
     sync_service_1 = mocker.Mock()
@@ -482,7 +479,7 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.index_basic.get_active_indexes.return_value = [mocker.Mock(ts_code="000001.SH")]
+    service.dao.index_series_active.list_active_codes.return_value = ["000001.SH"]
     progress = mocker.Mock()
 
     sync_service = mocker.Mock()
@@ -500,6 +497,7 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
     assert summary.rows_fetched == 15
     assert summary.rows_written == 15
     build_sync_service.assert_called_once_with("index_daily", session)
+    service.dao.index_series_active.list_active_codes.assert_called_once_with("index_daily")
     sync_service.run_full.assert_called_once_with(
         ts_code="000001.SH",
         start_date="2020-01-01",
@@ -507,6 +505,25 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
         execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "index_daily: 1/1 ts_code=000001.SH fetched=15 written=15"
+
+
+def test_backfill_index_daily_returns_empty_when_active_pool_missing(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.index_series_active.list_active_codes.return_value = []
+    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service")
+
+    summary = service.backfill_index_series(
+        resource="index_daily",
+        start_date=date(2020, 1, 1),
+        end_date=date(2026, 3, 29),
+    )
+
+    assert summary.units_processed == 0
+    assert summary.rows_fetched == 0
+    assert summary.rows_written == 0
+    build_sync_service.assert_not_called()
 
 
 def test_backfill_index_daily_basic_prefers_active_pool(mocker) -> None:

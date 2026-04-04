@@ -35,13 +35,16 @@ class SyncIndexDailyService(HttpResourceSyncService):
     params_builder = staticmethod(build_index_daily_params)
     core_transform = staticmethod(lambda row: {**row, "change_amount": row.get("change")})
     page_limit = 2000
+    resource_key = "index_daily"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
         execution_id = kwargs.get("execution_id")
         self.ensure_not_canceled(execution_id)
         if kwargs.get("ts_code"):
-            fetched, written = self._sync_index_code(run_type=run_type, **kwargs)
+            fetched, written, latest_seen = self._sync_index_code(run_type=run_type, **kwargs)
+            if latest_seen is not None:
+                self.dao.index_series_active.upsert_seen_codes(self.resource_key, {kwargs["ts_code"]: latest_seen})
             self._update_progress(
                 execution_id=execution_id,
                 current=1,
@@ -50,7 +53,9 @@ class SyncIndexDailyService(HttpResourceSyncService):
             )
             return fetched, written, trade_date, None
 
-        index_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
+        index_codes = self.dao.index_series_active.list_active_codes(self.resource_key)
+        if not index_codes:
+            index_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
         total_indexes = len(index_codes)
         self._update_progress(
             execution_id=execution_id,
@@ -60,24 +65,30 @@ class SyncIndexDailyService(HttpResourceSyncService):
         )
         total_fetched = 0
         total_written = 0
+        latest_seen_by_code: dict[str, date] = {}
         for index, index_code in enumerate(index_codes, start=1):
             self.ensure_not_canceled(execution_id)
-            fetched, written = self._sync_index_code(run_type=run_type, **{**kwargs, "ts_code": index_code})
+            fetched, written, latest_seen = self._sync_index_code(run_type=run_type, **{**kwargs, "ts_code": index_code})
             total_written += written
             total_fetched += fetched
+            if latest_seen is not None:
+                latest_seen_by_code[index_code] = latest_seen
             self._update_progress(
                 execution_id=execution_id,
                 current=index,
                 total=total_indexes,
                 message=f"正在同步指数日线：{index}/{total_indexes} {index_code} fetched={fetched} written={written}",
             )
+        if latest_seen_by_code:
+            self.dao.index_series_active.upsert_seen_codes(self.resource_key, latest_seen_by_code)
         return total_fetched, total_written, trade_date, None
 
-    def _sync_index_code(self, *, run_type: str, **kwargs: Any) -> tuple[int, int]:
+    def _sync_index_code(self, *, run_type: str, **kwargs: Any) -> tuple[int, int, date | None]:
         execution_id = kwargs.get("execution_id")
         params = self.params_builder(run_type, **kwargs)
         total_fetched = 0
         total_written = 0
+        latest_seen: date | None = None
         offset = 0
         while True:
             self.ensure_not_canceled(execution_id)
@@ -90,10 +101,14 @@ class SyncIndexDailyService(HttpResourceSyncService):
             written = self.dao.index_daily_serving.bulk_upsert([self.core_transform(row) for row in normalized])
             total_fetched += len(rows)
             total_written += written
+            for row in normalized:
+                row_date = row.get("trade_date")
+                if isinstance(row_date, date) and (latest_seen is None or row_date > latest_seen):
+                    latest_seen = row_date
             if len(rows) < self.page_limit:
                 break
             offset += self.page_limit
-        return total_fetched, total_written
+        return total_fetched, total_written, latest_seen
 
     def _update_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
         if execution_id is None:

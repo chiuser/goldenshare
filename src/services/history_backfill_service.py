@@ -333,9 +333,9 @@ class HistoryBackfillService:
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
-        if resource == "index_daily_basic":
+        if resource in {"index_daily", "index_daily_basic"}:
             index_codes = self.dao.index_series_active.list_active_codes(resource)
-            if not index_codes:
+            if resource == "index_daily_basic" and not index_codes:
                 latest_open = self.dao.trade_calendar.get_latest_open_date(self.settings.default_exchange, end_date)
                 if latest_open is not None:
                     discovery_service = build_sync_service(resource, self.session)
@@ -344,6 +344,8 @@ class HistoryBackfillService:
         else:
             indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
             index_codes = [item.ts_code for item in indexes if item.ts_code]
+        if not index_codes:
+            return BackfillSummary(resource, 0, 0, 0)
         if offset:
             index_codes = index_codes[offset:]
         if limit is not None:
