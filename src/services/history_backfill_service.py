@@ -290,7 +290,8 @@ class HistoryBackfillService:
                 "index series backfill only supports index_daily, index_weekly, index_monthly, index_daily_basic, and index_weight"
             )
         if resource == "index_weekly":
-            trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
+            open_trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
+            trade_dates = self._select_week_end_trade_dates(open_trade_dates)
             if offset:
                 trade_dates = trade_dates[offset:]
             if limit is not None:
@@ -383,3 +384,14 @@ class HistoryBackfillService:
             if existing is None or item > existing:
                 month_ends[key] = item
         return [month_ends[key] for key in sorted(month_ends)]
+
+    @staticmethod
+    def _select_week_end_trade_dates(open_trade_dates: list[date]) -> list[date]:
+        week_ends: dict[tuple[int, int], date] = {}
+        for item in open_trade_dates:
+            iso = item.isocalendar()
+            key = (iso.year, iso.week)
+            existing = week_ends.get(key)
+            if existing is None or item > existing:
+                week_ends[key] = item
+        return [week_ends[key] for key in sorted(week_ends)]
