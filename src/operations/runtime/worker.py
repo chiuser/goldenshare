@@ -67,15 +67,18 @@ class OperationsWorker:
         session.commit()
 
         try:
-            outcome = self.dispatcher.dispatch(session, execution)
+            try:
+                outcome = self.dispatcher.dispatch(session, execution)
+            except Exception as exc:
+                outcome = DispatchOutcome(
+                    status="failed",
+                    error_code="dispatcher_error",
+                    error_message=str(exc),
+                    summary_message=str(exc),
+                )
+            return self._finalize_execution(session, execution.id, outcome)
         except Exception as exc:
-            outcome = DispatchOutcome(
-                status="failed",
-                error_code="dispatcher_error",
-                error_message=str(exc),
-                summary_message=str(exc),
-            )
-        return self._finalize_execution(session, execution.id, outcome)
+            return self._emergency_fail_execution(session, execution.id, f"worker_finalize_error: {exc}")
 
     def _finalize_execution(self, session: Session, execution_id: int, outcome: DispatchOutcome) -> JobExecution:
         execution = session.get(JobExecution, execution_id)
@@ -126,5 +129,30 @@ class OperationsWorker:
             spec_type=execution.spec_type,
             spec_key=execution.spec_key,
         )
+        session.refresh(execution)
+        return execution
+
+    def _emergency_fail_execution(self, session: Session, execution_id: int, message: str) -> JobExecution:
+        execution = session.get(JobExecution, execution_id)
+        if execution is None:
+            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
+        execution.status = "failed"
+        execution.ended_at = datetime.now(timezone.utc)
+        execution.summary_message = message
+        execution.error_code = execution.error_code or "worker_finalize_error"
+        execution.error_message = message
+        execution.last_progress_at = execution.ended_at
+        execution.progress_message = message
+        session.add(
+            JobExecutionEvent(
+                execution_id=execution.id,
+                event_type="failed",
+                level="ERROR",
+                message=message,
+                payload_json={},
+                occurred_at=execution.ended_at,
+            )
+        )
+        session.commit()
         session.refresh(execution)
         return execution

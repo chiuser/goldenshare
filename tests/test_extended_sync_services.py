@@ -363,6 +363,22 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     assert transformed_rows[0]["source"] == "api"
 
 
+def test_index_weekly_fill_missing_uses_valid_cte_sql(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexWeeklyService(session)
+    mocker.patch.object(
+        service.dao.trade_calendar,
+        "get_open_dates",
+        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
+    )
+    session.execute.return_value = mocker.Mock(rowcount=0)
+
+    service._fill_missing_from_daily(date(2026, 3, 20), ["000001.SH"])
+
+    sql = session.execute.call_args.args[0]
+    assert "with win as" in sql.text.lower()
+
+
 def test_index_weekly_period_start_uses_first_open_trade_date(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexWeeklyService(session)

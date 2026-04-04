@@ -207,3 +207,23 @@ def test_worker_marks_running_execution_canceled_when_dispatcher_returns_cancele
     assert result.id == execution.id
     assert result.status == "canceled"
     assert result.summary_message == "任务已收到停止请求，正在结束处理。"
+
+
+def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_execution_factory, mocker) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        status="queued",
+        requested_at=datetime(2026, 3, 30, 11, 0, tzinfo=timezone.utc),
+    )
+    dispatcher = StubDispatcher(DispatchOutcome(status="success", rows_fetched=1, rows_written=1, summary_message="ok"))
+    worker = OperationsWorker(dispatcher=dispatcher)
+    mocker.patch.object(worker, "_finalize_execution", side_effect=RuntimeError("boom"))
+
+    result = worker.run_next(db_session)
+
+    assert result is not None
+    assert result.id == execution.id
+    assert result.status == "failed"
+    assert result.error_code == "worker_finalize_error"
+    assert "worker_finalize_error" in (result.summary_message or "")

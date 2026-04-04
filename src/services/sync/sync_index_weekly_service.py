@@ -112,7 +112,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         start_date = period_start_date
         sql = text(
             f"""
-            win as (
+            with win as (
                 select
                     d.ts_code,
                     d.trade_date,
