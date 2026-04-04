@@ -9,7 +9,7 @@ from src.models.ops.job_execution_event import JobExecutionEvent
 from src.models.ops.job_schedule import JobSchedule
 from src.models.ops.job_execution_step import JobExecutionStep
 from src.models.ops.sync_run_log import SyncRunLog
-from src.operations.specs import get_ops_spec_display_name
+from src.operations.specs import get_ops_spec_display_name, get_workflow_spec
 from src.web.exceptions import WebAppError
 from src.web.schemas.ops.execution import (
     ExecutionDetailResponse,
@@ -84,7 +84,7 @@ class ExecutionQueryService:
             raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
         execution, username, schedule_display_name = row
 
-        steps = self._load_steps(session, execution_id)
+        steps = self._build_step_items(session, execution)
         events = self._load_events(session, execution_id)
 
         return ExecutionDetailResponse(
@@ -114,15 +114,15 @@ class ExecutionQueryService:
             canceled_at=execution.canceled_at,
             error_code=execution.error_code,
             error_message=execution.error_message,
-            steps=[self._step_item(step) for step in steps],
+            steps=steps,
             events=[self._event_item(event) for event in events],
         )
 
     def get_execution_steps(self, session: Session, execution_id: int) -> ExecutionStepsResponse:
-        self._ensure_execution_exists(session, execution_id)
+        execution = self._load_execution(session, execution_id)
         return ExecutionStepsResponse(
             execution_id=execution_id,
-            items=[self._step_item(step) for step in self._load_steps(session, execution_id)],
+            items=self._build_step_items(session, execution),
         )
 
     def get_execution_events(self, session: Session, execution_id: int) -> ExecutionEventsResponse:
@@ -221,6 +221,13 @@ class ExecutionQueryService:
             raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
 
     @staticmethod
+    def _load_execution(session: Session, execution_id: int) -> JobExecution:
+        execution = session.get(JobExecution, execution_id)
+        if execution is None:
+            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
+        return execution
+
+    @staticmethod
     def _load_steps(session: Session, execution_id: int) -> list[JobExecutionStep]:
         return list(
             session.scalars(
@@ -239,3 +246,38 @@ class ExecutionQueryService:
                 .order_by(JobExecutionEvent.occurred_at.asc(), JobExecutionEvent.id.asc())
             )
         )
+
+    def _build_step_items(self, session: Session, execution: JobExecution) -> list[ExecutionStepItem]:
+        actual_steps = self._load_steps(session, execution.id)
+        actual_items = [self._step_item(step) for step in actual_steps]
+        if execution.spec_type != "workflow":
+            return actual_items
+
+        workflow_spec = get_workflow_spec(execution.spec_key)
+        if workflow_spec is None:
+            return actual_items
+
+        by_step_key = {item.step_key: item for item in actual_items}
+        items: list[ExecutionStepItem] = []
+        for sequence_no, workflow_step in enumerate(workflow_spec.steps, start=1):
+            existing = by_step_key.get(workflow_step.step_key)
+            if existing is not None:
+                items.append(existing)
+                continue
+            items.append(
+                ExecutionStepItem(
+                    id=-sequence_no,
+                    step_key=workflow_step.step_key,
+                    display_name=workflow_step.display_name,
+                    sequence_no=sequence_no,
+                    unit_kind=None,
+                    unit_value=None,
+                    status="pending",
+                    started_at=None,
+                    ended_at=None,
+                    rows_fetched=0,
+                    rows_written=0,
+                    message=None,
+                )
+            )
+        return items
