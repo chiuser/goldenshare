@@ -11,10 +11,13 @@ import {
   Stack,
   Table,
   Text,
+  ThemeIcon,
+  Timeline,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { IconCheck, IconClock, IconPlayerPause, IconPlayerStop, IconX } from "@tabler/icons-react";
 import { useMemo } from "react";
 
 import { apiRequest } from "../shared/api/client";
@@ -344,6 +347,49 @@ function buildLiveResult(detail: ExecutionDetailResponse) {
     value: "暂无结果",
     hint: detail.status === "success" ? "任务执行完成，但没有可汇总的读取/写入数字。" : "这次任务还没有留下可汇总的处理结果。",
   };
+}
+
+function renderStepStatusIcon(status: string) {
+  if (status === "success") {
+    return (
+      <ThemeIcon color="teal" variant="light" radius="xl" size="sm">
+        <IconCheck size={14} />
+      </ThemeIcon>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <ThemeIcon color="red" variant="light" radius="xl" size="sm">
+        <IconX size={14} />
+      </ThemeIcon>
+    );
+  }
+  if (status === "running") {
+    return (
+      <ThemeIcon color="blue" variant="light" radius="xl" size="sm">
+        <Loader size={12} />
+      </ThemeIcon>
+    );
+  }
+  if (status === "canceling") {
+    return (
+      <ThemeIcon color="violet" variant="light" radius="xl" size="sm">
+        <IconPlayerPause size={14} />
+      </ThemeIcon>
+    );
+  }
+  if (status === "canceled") {
+    return (
+      <ThemeIcon color="yellow" variant="light" radius="xl" size="sm">
+        <IconPlayerStop size={14} />
+      </ThemeIcon>
+    );
+  }
+  return (
+    <ThemeIcon color="gray" variant="light" radius="xl" size="sm">
+      <IconClock size={14} />
+    </ThemeIcon>
+  );
 }
 
 export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
@@ -684,32 +730,35 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               </ScrollArea>
 
               <Text fw={600}>步骤明细</Text>
-              <ScrollArea h={260} type="auto" offsetScrollbars>
+              <ScrollArea h={340} type="auto" offsetScrollbars>
                 {steps.length ? (
-                  <Table highlightOnHover striped>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>步骤名称</Table.Th>
-                        <Table.Th>当前状态</Table.Th>
-                        <Table.Th>处理对象</Table.Th>
-                        <Table.Th>最近说明</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {steps.map((item) => (
-                        <Table.Tr key={item.id}>
-                          <Table.Td>{item.display_name}</Table.Td>
-                          <Table.Td><StatusBadge value={item.status} /></Table.Td>
-                          <Table.Td>
-                            {item.unit_kind
-                              ? `${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`
-                              : "当前没有拆到更细的处理对象"}
-                          </Table.Td>
-                          <Table.Td>{item.message || "系统还没有写入更细的步骤说明。"}</Table.Td>
-                        </Table.Tr>
+                  <Timeline active={steps.findIndex((item) => item.status === "running" || item.status === "canceling")} bulletSize={24} lineWidth={2}>
+                    {[...steps]
+                      .sort((left, right) => left.sequence_no - right.sequence_no)
+                      .map((item) => (
+                        <Timeline.Item key={item.id} bullet={renderStepStatusIcon(item.status)}>
+                          <Stack gap={6} pb="sm">
+                            <Group justify="space-between" align="flex-start">
+                              <Text fw={700}>{item.display_name}</Text>
+                              <Group gap="xs">
+                                <StatusBadge value={item.status} />
+                                {renderStepStatusIcon(item.status)}
+                              </Group>
+                            </Group>
+                            <Text size="sm" c="dimmed">
+                              {item.started_at ? `开始：${formatDateTimeLabel(item.started_at)}` : "开始时间待写入"}
+                              {item.ended_at ? ` · 结束：${formatDateTimeLabel(item.ended_at)}` : ""}
+                            </Text>
+                            <Text size="sm">
+                              {item.unit_kind
+                                ? `${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`
+                                : "当前没有拆到更细的处理对象"}
+                            </Text>
+                            <Text size="sm">{item.message || "系统还没有写入更细的步骤说明。"}</Text>
+                          </Stack>
+                        </Timeline.Item>
                       ))}
-                    </Table.Tbody>
-                  </Table>
+                  </Timeline>
                 ) : (
                   <Text c="dimmed" size="sm">暂时还没有步骤明细。通常说明任务刚开始，或者这类任务本身不会拆成更多步骤。</Text>
                 )}
