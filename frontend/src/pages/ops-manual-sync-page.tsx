@@ -110,6 +110,10 @@ function hasParam(spec: CatalogJobSpec | null, key: string) {
   return Boolean(spec?.supported_params?.some((param) => param.key === key));
 }
 
+function hasWorkflowParam(params: CatalogParamSpec[], key: string) {
+  return params.some((param) => param.key === key);
+}
+
 function buildManualActions(catalog: OpsCatalogResponse | undefined) {
   if (!catalog) {
     return [];
@@ -198,6 +202,10 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
   });
 
   for (const workflow of catalog.workflow_specs.filter((item) => item.supports_manual_run !== false)) {
+    const workflowVisibleParams = filterVisibleParams(workflow.supported_params || []);
+    const workflowSupportsSingleDay = hasWorkflowParam(workflow.supported_params || [], "trade_date");
+    const workflowSupportsDateRange = hasWorkflowParam(workflow.supported_params || [], "start_date")
+      && hasWorkflowParam(workflow.supported_params || [], "end_date");
     actions.push({
       id: `workflow:${workflow.key}`,
       type: "workflow",
@@ -209,9 +217,9 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       backfillNoDateSpecKey: null,
       directSpecKey: null,
       workflowKey: workflow.key,
-      supportedParams: [],
-      supportsSingleDay: false,
-      supportsDateRange: false,
+      supportedParams: workflowVisibleParams,
+      supportsSingleDay: workflowSupportsSingleDay,
+      supportsDateRange: workflowSupportsDateRange,
     });
   }
 
@@ -290,6 +298,9 @@ function resolveExecutionTarget(
   action: ManualAction,
   draft: ReturnType<typeof buildEmptyDraft>,
 ) {
+  if (action.type === "workflow" && !action.workflowKey) {
+    throw new Error("当前工作流缺少执行标识。");
+  }
   const params: Record<string, unknown> = {};
 
   for (const param of action.supportedParams) {
@@ -318,18 +329,17 @@ function resolveExecutionTarget(
     params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
   }
 
-  if (action.type === "workflow" && action.workflowKey) {
-    return {
-      spec_type: "workflow" as ManualSpecType,
-      spec_key: action.workflowKey,
-      params_json: params,
-    };
-  }
-
   if (action.supportsSingleDay && action.supportsDateRange) {
     if (draft.date_mode === "single_day") {
       if (!draft.selected_date) {
         throw new Error("请选择要处理的日期。");
+      }
+      if (action.type === "workflow") {
+        return {
+          spec_type: "workflow" as ManualSpecType,
+          spec_key: action.workflowKey!,
+          params_json: { ...params, trade_date: draft.selected_date },
+        };
       }
       if (!action.syncDailySpecKey) {
         throw new Error("当前任务暂不支持按单日直接执行。");
@@ -342,6 +352,13 @@ function resolveExecutionTarget(
     }
     if (!draft.start_date || !draft.end_date) {
       throw new Error("请选择开始日期和结束日期。");
+    }
+    if (action.type === "workflow") {
+      return {
+        spec_type: "workflow" as ManualSpecType,
+        spec_key: action.workflowKey!,
+        params_json: { ...params, start_date: draft.start_date, end_date: draft.end_date },
+      };
     }
     if (!action.backfillSpecKey) {
       throw new Error("当前任务暂不支持按日期区间补数据。");
@@ -356,6 +373,13 @@ function resolveExecutionTarget(
   if (action.supportsSingleDay) {
     if (!draft.selected_date) {
       throw new Error("请选择要处理的日期。");
+    }
+    if (action.type === "workflow") {
+      return {
+        spec_type: "workflow" as ManualSpecType,
+        spec_key: action.workflowKey!,
+        params_json: { ...params, trade_date: draft.selected_date },
+      };
     }
     if (!action.syncDailySpecKey) {
       throw new Error("当前任务暂不支持按单日直接执行。");
@@ -373,6 +397,13 @@ function resolveExecutionTarget(
     if (!startDate || !endDate) {
       throw new Error("请选择开始日期和结束日期。");
     }
+    if (action.type === "workflow") {
+      return {
+        spec_type: "workflow" as ManualSpecType,
+        spec_key: action.workflowKey!,
+        params_json: { ...params, start_date: startDate, end_date: endDate },
+      };
+    }
     if (!action.backfillSpecKey) {
       throw new Error("当前任务暂不支持按日期区间补数据。");
     }
@@ -380,6 +411,14 @@ function resolveExecutionTarget(
       spec_type: "job" as ManualSpecType,
       spec_key: action.backfillSpecKey,
       params_json: { ...params, start_date: startDate, end_date: endDate },
+    };
+  }
+
+  if (action.type === "workflow") {
+    return {
+      spec_type: "workflow" as ManualSpecType,
+      spec_key: action.workflowKey!,
+      params_json: params,
     };
   }
 

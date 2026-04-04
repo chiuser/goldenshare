@@ -73,6 +73,18 @@ class OpsCatalogQueryService:
                     supports_manual_run=workflow_spec.supports_manual_run,
                     schedule_binding_count=bindings.get(("workflow", workflow_spec.key), {}).get("schedule_binding_count", 0),
                     active_schedule_count=bindings.get(("workflow", workflow_spec.key), {}).get("active_schedule_count", 0),
+                    supported_params=[
+                        ParameterSpecResponse(
+                            key=param.key,
+                            display_name=param.display_name,
+                            param_type=param.param_type,
+                            description=param.description,
+                            required=param.required,
+                            options=list(param.options),
+                            multi_value=param.multi_value,
+                        )
+                        for param in workflow_spec.supported_params
+                    ],
                     steps=[
                         WorkflowStepResponse(
                             step_key=step.step_key,

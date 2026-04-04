@@ -336,6 +336,15 @@ export interface OpsCatalogResponse {
     active_schedule_count: number;
     supports_manual_run?: boolean;
     supports_schedule?: boolean;
+    supported_params?: Array<{
+      key: string;
+      display_name: string;
+      param_type: string;
+      description: string;
+      required: boolean;
+      options: string[];
+      multi_value: boolean;
+    }>;
     steps?: Array<{
       step_key: string;
       job_key: string;

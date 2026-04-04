@@ -560,6 +560,20 @@ JOB_SPEC_REGISTRY["maintenance.rebuild_dm"] = JobSpec(
     supports_retry=True,
 )
 
+JOB_SPEC_REGISTRY["maintenance.rebuild_index_kline_serving"] = JobSpec(
+    key="maintenance.rebuild_index_kline_serving",
+    display_name="维护动作 / rebuild_index_kline_serving",
+    category="maintenance",
+    description="基于指数日线服务表补齐周线/月线服务表（API 优先，日线派生补缺）。",
+    strategy_type="maintenance_action",
+    executor_kind="maintenance",
+    target_tables=("core.index_weekly_serving", "core.index_monthly_serving"),
+    supported_params=(START_DATE_PARAM, END_DATE_PARAM),
+    supports_manual_run=True,
+    supports_schedule=False,
+    supports_retry=True,
+)
+
 
 WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
     "reference_data_refresh": WorkflowSpec(
@@ -630,6 +644,20 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("index_weight", "backfill_index_series.index_weight", "指数权重"),
         ),
         supports_manual_run=True,
+    ),
+    "index_kline_sync_pipeline": WorkflowSpec(
+        key="index_kline_sync_pipeline",
+        display_name="指数K线全链路同步",
+        description="按日线→周线→月线→服务表补齐的顺序执行指数K线同步工作流。",
+        supported_params=(START_DATE_PARAM, END_DATE_PARAM),
+        steps=(
+            WorkflowStepSpec("sync_index_daily", "backfill_index_series.index_daily", "同步指数日线"),
+            WorkflowStepSpec("sync_index_weekly", "backfill_index_series.index_weekly", "同步指数周线"),
+            WorkflowStepSpec("sync_index_monthly", "backfill_index_series.index_monthly", "同步指数月线"),
+            WorkflowStepSpec("rebuild_index_serving", "maintenance.rebuild_index_kline_serving", "补齐指数服务表"),
+        ),
+        supports_manual_run=True,
+        supports_schedule=False,
     ),
 }
 

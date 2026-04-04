@@ -187,7 +187,7 @@ class OperationsDispatcher:
         if job_spec.executor_kind == "history_backfill_service":
             return self._run_backfill_job(session, execution, job_spec, params, step_id)
         if job_spec.executor_kind == "maintenance":
-            return self._run_maintenance_job(session, job_spec)
+            return self._run_maintenance_job(session, job_spec, params)
         raise ValueError(f"Unsupported executor kind: {job_spec.executor_kind}")
 
     def _run_sync_job(self, session: Session, execution: JobExecution, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
@@ -302,12 +302,159 @@ class OperationsDispatcher:
             raise ValueError(f"Unsupported backfill category: {job_spec.category}")
         return summary.rows_fetched, summary.rows_written, f"units={summary.units_processed}"
 
-    def _run_maintenance_job(self, session: Session, job_spec) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        if job_spec.key != "maintenance.rebuild_dm":
-            raise ValueError(f"Unsupported maintenance job: {job_spec.key}")
-        session.execute(text("REFRESH MATERIALIZED VIEW dm.equity_daily_snapshot"))
-        session.commit()
-        return 0, 0, "materialized view refreshed"
+    def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
+        if job_spec.key == "maintenance.rebuild_dm":
+            session.execute(text("REFRESH MATERIALIZED VIEW dm.equity_daily_snapshot"))
+            session.commit()
+            return 0, 0, "materialized view refreshed"
+        if job_spec.key == "maintenance.rebuild_index_kline_serving":
+            start_date = self._resolve_maintenance_start_date(params)
+            end_date = self._resolve_maintenance_end_date(params)
+            if start_date > end_date:
+                raise ValueError("start_date cannot be greater than end_date")
+            weekly_rows = self._rebuild_index_period_serving(
+                session=session,
+                target_table="core.index_weekly_serving",
+                start_date=start_date,
+                end_date=end_date,
+                period_expr="date_trunc('week', d.trade_date)::date",
+            )
+            monthly_rows = self._rebuild_index_period_serving(
+                session=session,
+                target_table="core.index_monthly_serving",
+                start_date=start_date,
+                end_date=end_date,
+                period_expr="date_trunc('month', d.trade_date)::date",
+            )
+            session.commit()
+            written = weekly_rows + monthly_rows
+            return 0, written, f"index serving rebuilt weekly={weekly_rows} monthly={monthly_rows}"
+        raise ValueError(f"Unsupported maintenance job: {job_spec.key}")
+
+    def _rebuild_index_period_serving(
+        self,
+        *,
+        session: Session,
+        target_table: str,
+        start_date: date,
+        end_date: date,
+        period_expr: str,
+    ) -> int:
+        sql = text(
+            f"""
+            with daily_scope as (
+                select
+                    d.ts_code,
+                    d.trade_date,
+                    d.open,
+                    d.high,
+                    d.low,
+                    d.close,
+                    d.pre_close,
+                    d.vol,
+                    d.amount,
+                    {period_expr} as period_start_date
+                from core.index_daily_serving d
+                join core.index_basic b on b.ts_code = d.ts_code
+                where d.trade_date between :start_date and :end_date
+            ),
+            win as (
+                select
+                    ds.*,
+                    row_number() over (
+                        partition by ds.ts_code, ds.period_start_date
+                        order by ds.trade_date asc
+                    ) as rn_first,
+                    row_number() over (
+                        partition by ds.ts_code, ds.period_start_date
+                        order by ds.trade_date desc
+                    ) as rn_last
+                from daily_scope ds
+            ),
+            agg as (
+                select
+                    ts_code,
+                    period_start_date,
+                    max(trade_date) as trade_date,
+                    max(case when rn_first = 1 then open end) as open,
+                    max(high) as high,
+                    min(low) as low,
+                    max(case when rn_last = 1 then close end) as close,
+                    max(case when rn_first = 1 then pre_close end) as pre_close,
+                    sum(vol) as vol,
+                    sum(amount) as amount
+                from win
+                group by ts_code, period_start_date
+            )
+            insert into {target_table} (
+                ts_code,
+                period_start_date,
+                trade_date,
+                open,
+                high,
+                low,
+                close,
+                pre_close,
+                change_amount,
+                pct_chg,
+                vol,
+                amount,
+                source
+            )
+            select
+                a.ts_code,
+                a.period_start_date,
+                a.trade_date,
+                a.open,
+                a.high,
+                a.low,
+                a.close,
+                a.pre_close,
+                case when a.pre_close is null or a.close is null then null else a.close - a.pre_close end as change_amount,
+                case
+                    when a.pre_close is null or a.pre_close = 0 or a.close is null then null
+                    else round(((a.close / a.pre_close) - 1) * 100, 4)
+                end as pct_chg,
+                a.vol,
+                a.amount,
+                'derived_from_daily'
+            from agg a
+            on conflict (ts_code, period_start_date) do update
+            set
+                trade_date = excluded.trade_date,
+                open = excluded.open,
+                high = excluded.high,
+                low = excluded.low,
+                close = excluded.close,
+                pre_close = excluded.pre_close,
+                change_amount = excluded.change_amount,
+                pct_chg = excluded.pct_chg,
+                vol = excluded.vol,
+                amount = excluded.amount,
+                source = excluded.source,
+                updated_at = now()
+            where {target_table}.source <> 'api'
+            """
+        )
+        result = session.execute(
+            sql,
+            {"start_date": start_date, "end_date": end_date},
+        )
+        return result.rowcount or 0
+
+    @staticmethod
+    def _resolve_maintenance_start_date(params: dict[str, Any]) -> date:
+        value = params.get("start_date")
+        if value is not None:
+            return OperationsDispatcher._parse_date(value)
+        return date.fromisoformat(get_settings().history_start_date)
+
+    @staticmethod
+    def _resolve_maintenance_end_date(params: dict[str, Any]) -> date:
+        value = params.get("end_date")
+        if value is not None:
+            return OperationsDispatcher._parse_date(value)
+        return datetime.now(ZoneInfo("Asia/Shanghai")).date()
 
     @staticmethod
     def _create_step(

@@ -32,6 +32,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_by_trade_date.kpl_concept_cons" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_weekly" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_dm" in JOB_SPEC_REGISTRY
+    assert "maintenance.rebuild_index_kline_serving" in JOB_SPEC_REGISTRY
 
 
 def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
@@ -145,6 +146,7 @@ def test_ths_reference_sync_history_specs_are_schedulable() -> None:
 
 def test_workflow_specs_reference_existing_job_specs() -> None:
     assert "daily_market_close_sync" in WORKFLOW_SPEC_REGISTRY
+    assert "index_kline_sync_pipeline" in WORKFLOW_SPEC_REGISTRY
     for workflow in WORKFLOW_SPEC_REGISTRY.values():
         for step in workflow.steps:
             assert step.job_key in JOB_SPEC_REGISTRY

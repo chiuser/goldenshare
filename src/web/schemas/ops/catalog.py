@@ -47,6 +47,7 @@ class WorkflowSpecCatalogItem(BaseModel):
     supports_manual_run: bool
     schedule_binding_count: int = 0
     active_schedule_count: int = 0
+    supported_params: list[ParameterSpecResponse]
     steps: list[WorkflowStepResponse]
 
 
