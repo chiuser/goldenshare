@@ -349,6 +349,20 @@ class OperationsDispatcher:
         else:
             raise ValueError(f"Unsupported period granularity: {period_granularity}")
 
+        # Rebuild is derived-from-daily only for this date window; clear old derived rows
+        # first so dual unique keys (ts_code, trade_date) / (ts_code, period_start_date)
+        # won't conflict with stale non-api rows.
+        session.execute(
+            text(
+                f"""
+                delete from {target_table}
+                where source <> 'api'
+                  and trade_date between :start_date and :end_date
+                """
+            ),
+            {"start_date": start_date, "end_date": end_date},
+        )
+
         sql = text(
             f"""
             with calendar_periods as (
