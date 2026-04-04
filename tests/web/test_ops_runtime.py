@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
@@ -139,6 +139,38 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
         "is_new": "N",
         "execution_id": execution.id,
     }
+
+
+def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execution_factory, trade_calendar_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_daily.dc_hot",
+        status="running",
+        params_json={"trade_date": "2026-01-01"},
+    )
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 1, 1), is_open=False)
+
+    class StubSyncService:
+        called = False
+
+        def run_incremental(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.called = True
+            return SimpleNamespace(rows_fetched=1, rows_written=1, message="unexpected")
+
+    stub_service = StubSyncService()
+    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+
+    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
+        db_session,
+        execution,
+        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily"),
+        dict(execution.params_json or {}),
+    )
+
+    assert rows_fetched == 0
+    assert rows_written == 0
+    assert summary == "skip sync_daily.dc_hot trade_date=2026-01-01 非交易日"
+    assert stub_service.called is False
 
 
 def test_worker_cancels_queued_execution_before_dispatch(db_session, job_execution_factory) -> None:

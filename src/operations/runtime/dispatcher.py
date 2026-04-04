@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from src.config.settings import get_settings
 from src.models.core.trade_calendar import TradeCalendar
 from src.models.ops.job_execution import JobExecution
 from src.models.ops.job_execution_event import JobExecutionEvent
@@ -191,7 +192,6 @@ class OperationsDispatcher:
 
     def _run_sync_job(self, session: Session, execution: JobExecution, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         _, resource = job_spec.key.split(".", 1)
-        service = build_sync_service(resource, session)
         normalized_params = self._normalize_dates(params)
         if job_spec.category == "sync_daily":
             trade_date = normalized_params.get("trade_date")
@@ -200,9 +200,14 @@ class OperationsDispatcher:
             if not trade_date:
                 raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
             parsed_trade_date = self._parse_date(trade_date) if trade_date else None
+            if parsed_trade_date and self._is_closed_trade_date(session, parsed_trade_date):
+                summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
+                return 0, 0, summary
             extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
+            service = build_sync_service(resource, session)
             result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
         else:
+            service = build_sync_service(resource, session)
             result = service.run_full(execution_id=execution.id, **normalized_params)
         return result.rows_fetched, result.rows_written, result.message
 
@@ -407,6 +412,18 @@ class OperationsDispatcher:
         if value is None:
             raise ValueError(f"Missing required date parameter: {key}")
         return self._parse_date(value)
+
+    @staticmethod
+    def _is_closed_trade_date(session: Session, trade_date: date) -> bool:
+        exchange = get_settings().default_exchange
+        stmt = (
+            select(TradeCalendar.is_open)
+            .where(TradeCalendar.exchange == exchange)
+            .where(TradeCalendar.trade_date == trade_date)
+            .limit(1)
+        )
+        is_open = session.scalar(stmt)
+        return is_open is False
 
     @staticmethod
     def _optional_int(value: Any) -> int | None:
