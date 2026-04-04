@@ -71,7 +71,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert [param["key"] for param in limit_list_ths_daily["supported_params"]] == ["trade_date", "limit_type", "market"]
     assert next(param for param in limit_list_ths_daily["supported_params"] if param["key"] == "limit_type")["options"] == [
         "涨停池",
-        "连扳池",
+        "连板池",
         "冲刺涨停",
         "炸板池",
         "跌停池",

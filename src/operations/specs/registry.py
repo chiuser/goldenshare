@@ -52,7 +52,7 @@ LIMIT_LIST_THS_LIMIT_TYPE_PARAM = ParameterSpec(
     display_name="榜单类型",
     param_type="enum",
     description="用于同花顺涨跌停榜单筛选榜单类型。",
-    options=("涨停池", "连扳池", "冲刺涨停", "炸板池", "跌停池"),
+    options=("涨停池", "连板池", "冲刺涨停", "炸板池", "跌停池"),
     multi_value=True,
 )
 LIMIT_LIST_THS_MARKET_PARAM = ParameterSpec(
