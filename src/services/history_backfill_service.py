@@ -289,6 +289,49 @@ class HistoryBackfillService:
             raise ValueError(
                 "index series backfill only supports index_daily, index_weekly, index_monthly, index_daily_basic, and index_weight"
             )
+        if resource == "index_weekly":
+            trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
+            if offset:
+                trade_dates = trade_dates[offset:]
+            if limit is not None:
+                trade_dates = trade_dates[:limit]
+            rows_fetched = 0
+            rows_written = 0
+            total = len(trade_dates)
+            for index, trade_date in enumerate(trade_dates, start=1):
+                service = build_sync_service(resource, self.session)
+                result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
+                rows_fetched += result.rows_fetched
+                rows_written += result.rows_written
+                if progress is not None:
+                    progress(
+                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
+                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                    )
+            self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
+            return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+        if resource == "index_monthly":
+            open_trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
+            trade_dates = self._select_month_end_trade_dates(open_trade_dates)
+            if offset:
+                trade_dates = trade_dates[offset:]
+            if limit is not None:
+                trade_dates = trade_dates[:limit]
+            rows_fetched = 0
+            rows_written = 0
+            total = len(trade_dates)
+            for index, trade_date in enumerate(trade_dates, start=1):
+                service = build_sync_service(resource, self.session)
+                result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
+                rows_fetched += result.rows_fetched
+                rows_written += result.rows_written
+                if progress is not None:
+                    progress(
+                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
+                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                    )
+            self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
+            return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
         if resource == "index_daily_basic":
             index_codes = self.dao.index_series_active.list_active_codes(resource)
             if not index_codes:
@@ -330,3 +373,13 @@ class HistoryBackfillService:
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(index_codes), rows_fetched, rows_written)
+
+    @staticmethod
+    def _select_month_end_trade_dates(open_trade_dates: list[date]) -> list[date]:
+        month_ends: dict[tuple[int, int], date] = {}
+        for item in open_trade_dates:
+            key = (item.year, item.month)
+            existing = month_ends.get(key)
+            if existing is None or item > existing:
+                month_ends[key] = item
+        return [month_ends[key] for key in sorted(month_ends)]
