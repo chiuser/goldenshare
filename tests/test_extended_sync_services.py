@@ -249,6 +249,15 @@ def test_index_weekly_service_paginates(mocker) -> None:
     service = SyncIndexWeeklyService(session)
     service.page_limit = 2
     mocker.patch.object(
+        service.dao.index_basic,
+        "get_active_indexes",
+        return_value=[
+            mocker.Mock(ts_code="000001.SH"),
+            mocker.Mock(ts_code="000300.SH"),
+            mocker.Mock(ts_code="000905.SH"),
+        ],
+    )
+    mocker.patch.object(
         service.client,
         "call",
         side_effect=[
@@ -274,6 +283,38 @@ def test_index_weekly_service_paginates(mocker) -> None:
     assert core_upsert.call_count == 2
     assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 0}
     assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 2}
+
+
+def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexWeeklyService(session)
+    service.page_limit = 1000
+    mocker.patch.object(
+        service.dao.index_basic,
+        "get_active_indexes",
+        return_value=[mocker.Mock(ts_code="000001.SH")],
+    )
+    mocker.patch.object(
+        service.client,
+        "call",
+        return_value=[
+            {"ts_code": "000001.SH", "trade_date": "20260320", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
+            {"ts_code": "470006", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
+        ],
+    )
+    raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
+    core_upsert = mocker.patch.object(service.dao.index_weekly_bar, "bulk_upsert", return_value=1)
+
+    fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
+
+    assert fetched == 2
+    assert written == 1
+    filtered_rows = raw_upsert.call_args.args[0]
+    assert len(filtered_rows) == 1
+    assert filtered_rows[0]["ts_code"] == "000001.SH"
+    transformed_rows = core_upsert.call_args.args[0]
+    assert len(transformed_rows) == 1
+    assert transformed_rows[0]["ts_code"] == "000001.SH"
 
 
 def test_etf_basic_builds_default_full_sync_params() -> None:

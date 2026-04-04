@@ -50,6 +50,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         trade_date = kwargs.get("trade_date")
         execution_id = kwargs.get("execution_id")
         params = self.params_builder(run_type, **kwargs)
+        valid_index_codes = self._valid_index_codes()
 
         total_fetched = 0
         total_written = 0
@@ -61,13 +62,17 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
             if not rows:
                 break
             normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
+            filtered = [row for row in normalized if row.get("ts_code") in valid_index_codes]
             raw_dao = getattr(self.dao, self.raw_dao_name)
             core_dao = getattr(self.dao, self.core_dao_name)
-            raw_dao.bulk_upsert(normalized)
-            written = core_dao.bulk_upsert([self.core_transform(row) for row in normalized])
+            raw_dao.bulk_upsert(filtered)
+            written = core_dao.bulk_upsert([self.core_transform(row) for row in filtered])
             total_fetched += len(rows)
             total_written += written
             if len(rows) < self.page_limit:
                 break
             offset += self.page_limit
         return total_fetched, total_written, trade_date, None
+
+    def _valid_index_codes(self) -> set[str]:
+        return {item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code}
