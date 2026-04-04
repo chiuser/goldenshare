@@ -93,17 +93,12 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         return total_fetched, total_written, trade_date, None
 
     def _target_codes(self, ts_code: str | None) -> set[str]:
+        active_codes = set(self.dao.index_series_active.list_active_codes("index_daily"))
         if ts_code:
-            return {ts_code}
-        codes: set[str] = set()
-        stmt = text("select distinct ts_code from core.index_daily_serving")
-        try:
-            codes = {row[0] for row in self.session.execute(stmt) if row[0]}
-        except Exception:
-            codes = set()
-        if not codes:
-            codes = {item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code}
-        return codes
+            return {ts_code} if ts_code in active_codes else set()
+        if active_codes:
+            return active_codes
+        return set()
 
     def _fill_missing_from_daily(self, trade_date: date, missing_codes: list[str]) -> int:
         if not missing_codes:

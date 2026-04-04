@@ -313,18 +313,14 @@ def test_index_weekly_service_paginates(mocker) -> None:
     service.page_limit = 2
     mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
+        service.dao.index_series_active,
+        "list_active_codes",
+        return_value=["000001.SH", "000300.SH", "000905.SH"],
+    )
+    mocker.patch.object(
         service.dao.trade_calendar,
         "get_open_dates",
         return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
-    )
-    mocker.patch.object(
-        service.dao.index_basic,
-        "get_active_indexes",
-        return_value=[
-            mocker.Mock(ts_code="000001.SH"),
-            mocker.Mock(ts_code="000300.SH"),
-            mocker.Mock(ts_code="000905.SH"),
-        ],
     )
     mocker.patch.object(
         service.client,
@@ -354,20 +350,20 @@ def test_index_weekly_service_paginates(mocker) -> None:
     assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 2}
 
 
-def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
+def test_index_weekly_service_filters_codes_outside_active_pool(mocker) -> None:
     session = mocker.Mock()
     service = SyncIndexWeeklyService(session)
     service.page_limit = 1000
     mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
     mocker.patch.object(
+        service.dao.index_series_active,
+        "list_active_codes",
+        return_value=["000001.SH"],
+    )
+    mocker.patch.object(
         service.dao.trade_calendar,
         "get_open_dates",
         return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
-    )
-    mocker.patch.object(
-        service.dao.index_basic,
-        "get_active_indexes",
-        return_value=[mocker.Mock(ts_code="000001.SH")],
     )
     mocker.patch.object(
         service.client,
@@ -390,6 +386,31 @@ def test_index_weekly_service_filters_codes_outside_index_basic(mocker) -> None:
     assert len(transformed_rows) == 1
     assert transformed_rows[0]["ts_code"] == "000001.SH"
     assert transformed_rows[0]["source"] == "api"
+
+
+def test_index_weekly_service_rejects_single_code_outside_active_pool(mocker) -> None:
+    session = mocker.Mock()
+    service = SyncIndexWeeklyService(session)
+    mocker.patch.object(
+        service.dao.index_series_active,
+        "list_active_codes",
+        return_value=["000001.SH"],
+    )
+    mocker.patch.object(
+        service.client,
+        "call",
+        return_value=[
+            {"ts_code": "000300.SH", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
+        ],
+    )
+    mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
+    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", return_value=0)
+
+    fetched, written, _, _ = service.execute("FULL", ts_code="000300.SH", start_date="2026-03-01", end_date="2026-03-20")
+
+    assert fetched == 1
+    assert written == 0
+    core_insert.assert_not_called()
 
 
 def test_index_weekly_fill_missing_uses_valid_cte_sql(mocker) -> None:
