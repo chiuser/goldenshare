@@ -437,7 +437,7 @@ class OperationsDispatcher:
                 end as pct_chg,
                 a.vol,
                 a.amount,
-                'derived_from_daily'
+                'derived_daily'
             from agg a
             on conflict (ts_code, period_start_date) do update
             set
