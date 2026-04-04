@@ -352,44 +352,59 @@ function buildLiveResult(detail: ExecutionDetailResponse) {
 function renderStepStatusIcon(status: string) {
   if (status === "success") {
     return (
-      <ThemeIcon color="teal" variant="light" radius="xl" size="sm">
-        <IconCheck size={14} />
+      <ThemeIcon color="teal" variant="light" radius="xl" size="lg">
+        <IconCheck size={18} />
       </ThemeIcon>
     );
   }
   if (status === "failed") {
     return (
-      <ThemeIcon color="red" variant="light" radius="xl" size="sm">
-        <IconX size={14} />
+      <ThemeIcon color="red" variant="light" radius="xl" size="lg">
+        <IconX size={18} />
       </ThemeIcon>
     );
   }
   if (status === "running") {
     return (
-      <ThemeIcon color="blue" variant="light" radius="xl" size="sm">
-        <Loader size={12} />
+      <ThemeIcon color="blue" variant="light" radius="xl" size="lg">
+        <Loader size={16} />
       </ThemeIcon>
     );
   }
   if (status === "canceling") {
     return (
-      <ThemeIcon color="violet" variant="light" radius="xl" size="sm">
-        <IconPlayerPause size={14} />
+      <ThemeIcon color="violet" variant="light" radius="xl" size="lg">
+        <IconPlayerPause size={18} />
       </ThemeIcon>
     );
   }
   if (status === "canceled") {
     return (
-      <ThemeIcon color="yellow" variant="light" radius="xl" size="sm">
-        <IconPlayerStop size={14} />
+      <ThemeIcon color="yellow" variant="light" radius="xl" size="lg">
+        <IconPlayerStop size={18} />
       </ThemeIcon>
     );
   }
   return (
-    <ThemeIcon color="gray" variant="light" radius="xl" size="sm">
-      <IconClock size={14} />
+    <ThemeIcon color="gray" variant="light" radius="xl" size="lg">
+      <IconClock size={18} />
     </ThemeIcon>
   );
+}
+
+function getStepStatusLabel(status: string) {
+  if (status === "running") return "执行中";
+  if (status === "success") return "成功";
+  if (status === "failed") return "失败";
+  if (status === "canceling") return "停止中";
+  if (status === "canceled") return "已停止";
+  return "等待开始";
+}
+
+function renderStepBullet(sequenceNo: number) {
+  const palette = ["blue", "teal", "cyan", "indigo", "grape", "orange"];
+  const color = palette[(sequenceNo - 1) % palette.length];
+  return <ThemeIcon color={color} variant="filled" radius="xl" size="sm" />;
 }
 
 export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
@@ -698,6 +713,40 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                   ? "如果这里内容还不多，通常只是任务刚开始。页面会自动刷新，不需要手动反复点。"
                   : "这里保留了完整的过程记录，方便复盘。"}
               </Alert>
+              <Text fw={600}>步骤明细</Text>
+              {steps.length ? (
+                <Timeline
+                  active={steps.findIndex((item) => item.status === "running" || item.status === "canceling")}
+                  bulletSize={18}
+                  lineWidth={2}
+                >
+                  {[...steps]
+                    .sort((left, right) => left.sequence_no - right.sequence_no)
+                    .map((item) => (
+                      <Timeline.Item key={item.id} bullet={renderStepBullet(item.sequence_no)}>
+                        <Stack gap={6} pb="sm">
+                          <Group justify="space-between" align="flex-start">
+                            <Text fw={700}>{item.display_name}</Text>
+                            <Group gap="xs">
+                              <Text size="sm" fw={600}>{getStepStatusLabel(item.status)}</Text>
+                              {renderStepStatusIcon(item.status)}
+                            </Group>
+                          </Group>
+                          <Text size="sm" c="dimmed">
+                            {item.started_at ? `开始：${formatDateTimeLabel(item.started_at)}` : "等待开始"}
+                          </Text>
+                          {item.unit_kind ? (
+                            <Text size="sm">{`${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`}</Text>
+                          ) : null}
+                          {item.message ? <Text size="sm">{item.message}</Text> : null}
+                        </Stack>
+                      </Timeline.Item>
+                    ))}
+                </Timeline>
+              ) : (
+                <Text c="dimmed" size="sm">暂时还没有步骤明细。</Text>
+              )}
+
               <Text fw={600}>系统更新</Text>
               <ScrollArea h={260} type="auto" offsetScrollbars>
                 {events.length ? (
@@ -726,41 +775,6 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                   </Table>
                 ) : (
                   <Text c="dimmed" size="sm">暂时还没有更细的系统更新记录。</Text>
-                )}
-              </ScrollArea>
-
-              <Text fw={600}>步骤明细</Text>
-              <ScrollArea h={340} type="auto" offsetScrollbars>
-                {steps.length ? (
-                  <Timeline active={steps.findIndex((item) => item.status === "running" || item.status === "canceling")} bulletSize={24} lineWidth={2}>
-                    {[...steps]
-                      .sort((left, right) => left.sequence_no - right.sequence_no)
-                      .map((item) => (
-                        <Timeline.Item key={item.id} bullet={renderStepStatusIcon(item.status)}>
-                          <Stack gap={6} pb="sm">
-                            <Group justify="space-between" align="flex-start">
-                              <Text fw={700}>{item.display_name}</Text>
-                              <Group gap="xs">
-                                <StatusBadge value={item.status} />
-                                {renderStepStatusIcon(item.status)}
-                              </Group>
-                            </Group>
-                            <Text size="sm" c="dimmed">
-                              {item.started_at ? `开始：${formatDateTimeLabel(item.started_at)}` : "开始时间待写入"}
-                              {item.ended_at ? ` · 结束：${formatDateTimeLabel(item.ended_at)}` : ""}
-                            </Text>
-                            <Text size="sm">
-                              {item.unit_kind
-                                ? `${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`
-                                : "当前没有拆到更细的处理对象"}
-                            </Text>
-                            <Text size="sm">{item.message || "系统还没有写入更细的步骤说明。"}</Text>
-                          </Stack>
-                        </Timeline.Item>
-                      ))}
-                  </Timeline>
-                ) : (
-                  <Text c="dimmed" size="sm">暂时还没有步骤明细。通常说明任务刚开始，或者这类任务本身不会拆成更多步骤。</Text>
                 )}
               </ScrollArea>
             </Stack>
