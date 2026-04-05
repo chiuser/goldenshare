@@ -31,6 +31,14 @@ EXCHANGE_PARAM = ParameterSpec(
     description="用于交易日历或按交易日回补的交易所参数。",
     options=("SSE", "SZSE"),
 )
+ETF_EXCHANGE_PARAM = ParameterSpec(
+    key="exchange",
+    display_name="交易所",
+    param_type="enum",
+    description="用于 ETF 基本信息筛选交易所。",
+    options=("SH", "SZ"),
+    multi_value=True,
+)
 LIMIT_LIST_EXCHANGE_PARAM = ParameterSpec(
     key="exchange",
     display_name="交易所",
@@ -68,6 +76,14 @@ LIST_STATUS_PARAM = ParameterSpec(
     display_name="上市状态",
     param_type="enum",
     description="用于港股列表筛选上市状态。",
+    options=("L", "D", "P"),
+    multi_value=True,
+)
+ETF_LIST_STATUS_PARAM = ParameterSpec(
+    key="list_status",
+    display_name="上市状态",
+    param_type="enum",
+    description="用于 ETF 基本信息筛选上市状态。",
     options=("L", "D", "P"),
     multi_value=True,
 )
@@ -300,7 +316,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource in CODE_ONLY_RESOURCES:
         return (TS_CODE_PARAM,) if resource in {"dividend", "stk_holdernumber"} else ()
     if resource == "etf_basic":
-        return (TS_CODE_PARAM, INDEX_CODE_PARAM, EXCHANGE_PARAM)
+        return (ETF_LIST_STATUS_PARAM, ETF_EXCHANGE_PARAM)
     return ()
 
 

@@ -133,6 +133,16 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert kpl_list_backfill_spec is not None
     assert [param.key for param in kpl_list_backfill_spec.supported_params] == ["start_date", "end_date", "tag", "trade_date"]
 
+    etf_basic_spec = get_job_spec("sync_history.etf_basic")
+    assert etf_basic_spec is not None
+    assert [param.key for param in etf_basic_spec.supported_params] == ["list_status", "exchange"]
+    etf_list_status_param = next(param for param in etf_basic_spec.supported_params if param.key == "list_status")
+    assert etf_list_status_param.options == ("L", "D", "P")
+    assert etf_list_status_param.multi_value is True
+    etf_exchange_param = next(param for param in etf_basic_spec.supported_params if param.key == "exchange")
+    assert etf_exchange_param.options == ("SH", "SZ")
+    assert etf_exchange_param.multi_value is True
+
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:
     ths_index_spec = get_job_spec("sync_history.ths_index")
