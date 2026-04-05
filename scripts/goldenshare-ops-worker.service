@@ -3,9 +3,9 @@ Description=Goldenshare Ops Worker
 After=network.target
 
 [Service]
-WorkingDirectory=/opt/goldenshare
+WorkingDirectory=/opt/goldenshare/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/.venv/bin/goldenshare ops-worker-serve
+ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare ops-worker-serve
 Restart=always
 RestartSec=3
 

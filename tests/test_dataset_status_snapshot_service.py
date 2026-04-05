@@ -8,9 +8,9 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
-from src.web.schemas.ops.freshness import DatasetFreshnessItem
+from src.ops.schemas.freshness import DatasetFreshnessItem
 
 
 @pytest.fixture()

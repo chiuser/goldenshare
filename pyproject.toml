@@ -32,7 +32,7 @@ dev = [
 
 [project.scripts]
 goldenshare = "src.cli:app"
-goldenshare-web = "src.web.run:main"
+goldenshare-web = "src.platform.web.run:main"
 
 [tool.setuptools]
 packages = ["src"]

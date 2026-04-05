@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 
 from src.db import SessionLocal
-from src.models.core.equity_top_list import EquityTopList
-from src.services.transform.top_list_reason import hash_top_list_reason
+from src.foundation.models.core.equity_top_list import EquityTopList
+from src.foundation.services.transform.top_list_reason import hash_top_list_reason
 
 
 @dataclass

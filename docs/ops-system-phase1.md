@@ -1,5 +1,7 @@
 # 运维系统一期设计
 
+> 历史文档（归档）：本文件保留一期设计过程记录。当前目录与服务入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## 1. 文档目标
 
 本文档定义 `goldenshare` 运维系统一期的设计方案。
@@ -107,7 +109,7 @@
 - 调度配置、手动执行、重试、取消、维护类操作不向普通登录用户开放
 - 不在一期引入复杂角色树来支撑尚未出现的需求
 
-从当前用户模型看，现有 [app_user.py](/Users/congming/github/goldenshare/src/models/app/app_user.py) 中的：
+从当前用户模型看，现有 [app_user.py](/Users/congming/github/goldenshare/src/platform/models/app/app_user.py) 中的：
 
 - `is_active`
 - `is_admin`
@@ -137,10 +139,10 @@
 
 当前仓库已具备以下可复用基础：
 
-- [sync_run_log.py](/Users/congming/github/goldenshare/src/models/ops/sync_run_log.py)
-- [sync_job_state.py](/Users/congming/github/goldenshare/src/models/ops/sync_job_state.py)
-- [base_sync_service.py](/Users/congming/github/goldenshare/src/services/sync/base_sync_service.py)
-- [history_backfill_service.py](/Users/congming/github/goldenshare/src/services/history_backfill_service.py)
+- [sync_run_log.py](/Users/congming/github/goldenshare/src/ops/models/ops/sync_run_log.py)
+- [sync_job_state.py](/Users/congming/github/goldenshare/src/ops/models/ops/sync_job_state.py)
+- [base_sync_service.py](/Users/congming/github/goldenshare/src/foundation/services/sync/base_sync_service.py)
+- [history_backfill_service.py](/Users/congming/github/goldenshare/src/operations/services/history_backfill_service.py)
 - [cli.py](/Users/congming/github/goldenshare/src/cli.py)
 - 已完成的一期 Web 平台基础能力
 
@@ -666,7 +668,7 @@ Web 只负责：
 
 一期 API 仍应遵循 BFF 原则，面向页面模型，不暴露底层表结构。
 
-建议新增 `src/web/api/v1/ops/` 模块。
+建议新增 `src/ops/api/` 模块。
 
 权限要求：
 

@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models.ops.job_execution import JobExecution
-from src.models.ops.job_execution_event import JobExecutionEvent
+from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.operations.specs import get_job_spec, get_workflow_spec
-from src.web.exceptions import WebAppError
+from src.platform.exceptions import WebAppError
 
 
 class OperationsExecutionService:

@@ -10,7 +10,7 @@ for year in $(seq "$START_YEAR" "$END_YEAR"); do
   YEAR="$year" python3 - <<'PY' | while read -r d; do
 import os
 from sqlalchemy import create_engine, text
-from src.config.settings import get_settings
+from src.foundation.config.settings import get_settings
 
 engine = create_engine(get_settings().database_url, future=True)
 year = os.environ["YEAR"]

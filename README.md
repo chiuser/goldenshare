@@ -63,7 +63,7 @@ Web 环境相关变量见 `.env.web.example`。
 1. 启动后端 Web：
 
 ```bash
-GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.web.run
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.platform.web.run
 ```
 
 2. 启动前端 dev server：
@@ -98,7 +98,7 @@ npm run build
 然后启动后端：
 
 ```bash
-GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.web.run
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.platform.web.run
 ```
 
 此时访问：
@@ -144,9 +144,9 @@ goldenshare init-db
 后续接入类似 `stock_basic` / `etf_basic` / `hk_basic` / `us_basic` 这种“基础主数据”接口时，统一按下面模式实现：
 
 1. 显式声明 `fields`
-   不依赖 Tushare 默认返回字段，所有输出字段都要在 [src/services/sync/fields.py](/Users/congming/github/goldenshare/src/services/sync/fields.py) 中定义常量并显式请求。像 `us_basic.enname` 这种默认不返回的字段，也必须包含进去。
+   不依赖 Tushare 默认返回字段，所有输出字段都要在 [src/foundation/services/sync/fields.py](/Users/congming/github/goldenshare/src/foundation/services/sync/fields.py) 中定义常量并显式请求。像 `us_basic.enname` 这种默认不返回的字段，也必须包含进去。
 2. raw/core 分层建表
-   `raw.*` 负责保留原始接口输出和抓取元信息，`core.*` 负责提供规范化后的业务查询表。不要为了图省事把不同市场、不同语义的主数据硬塞进 [core.security](/Users/congming/github/goldenshare/src/models/core/security.py)。
+   `raw.*` 负责保留原始接口输出和抓取元信息，`core.*` 负责提供规范化后的业务查询表。不要为了图省事把不同市场、不同语义的主数据硬塞进 [core.security](/Users/congming/github/goldenshare/src/foundation/models/core/security.py)。
 3. sync service 最小转换
    基础主数据类资源通常不需要复杂 normalizer，只做日期转换、必要字段透传和 `source="tushare"` 这样的最小补充。
 4. 运营后台完整打通
@@ -168,7 +168,7 @@ goldenshare init-db
 后续接入类似 `ths_hot` / `dc_hot` / `kpl_list` / `limit_list_ths` / `limit_step` / `limit_cpt_list` 这种“日频榜单类”接口时，统一按下面模式实现：
 
 1. 显式声明 `fields`
-   和基础主数据一样，不依赖默认返回字段，所有输出字段都要在 [src/services/sync/fields.py](/Users/congming/github/goldenshare/src/services/sync/fields.py) 中定义并显式传给接口。
+   和基础主数据一样，不依赖默认返回字段，所有输出字段都要在 [src/foundation/services/sync/fields.py](/Users/congming/github/goldenshare/src/foundation/services/sync/fields.py) 中定义并显式传给接口。
 2. 按交易日同步与回补
    默认支持：
    - `sync_daily.<resource>` 按单个交易日同步
@@ -323,7 +323,7 @@ goldenshare backfill-by-trade-date --resource limit_list_d --start-date 2020-01-
 goldenshare sync-history --resources index_weight --index-code 000300.SH --start-date 2020-01-01 --end-date 2026-03-31
 ```
 
-为了兼容现有风格，`--ts-code` 仍可继续使用，但对 `index_weight` 来说它会被当作 `index_code` 处理。
+`index_weight` 仅支持 `--index-code`，不再接受 `--ts-code`。
 
 指数扩展资源的历史回补现在可以直接使用：
 
@@ -448,13 +448,13 @@ goldenshare init-db
 创建一个用于平台验证的管理员账号：
 
 ```bash
-python3 -m src.web.scripts.create_user --username admin --password your_password --admin
+python3 -m src.scripts.create_user --username admin --password your_password --admin
 ```
 
 启动 Web：
 
 ```bash
-python3 -m src.web.run
+python3 -m src.platform.web.run
 ```
 
 或者直接使用安装后的命令：
@@ -500,7 +500,7 @@ pytest tests/web
 
 生产发版建议：
 
-- 不要在服务器上手工运行 `python -m src.web.run` 或 `goldenshare ops-worker-serve`
+- 不要在服务器上手工运行 `python -m src.platform.web.run` 或 `goldenshare ops-worker-serve`
 - Web、Scheduler、Worker 应统一交给 systemd 管理
 - 如果需要由 `goldenshare` 用户直接执行发版脚本，请先安装 `scripts/goldenshare-deploy.sudoers`
 - 发版脚本示例：

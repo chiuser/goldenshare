@@ -17,9 +17,9 @@
 
 ### 2.1 路由与模块分层
 
-- Router：`src/web/api/v1/quote.py`、`src/web/api/v1/market.py`
-- Schema：`src/web/schemas/quote.py`
-- Query Service：`src/web/queries/quote_query_service.py`
+- Router：`src/biz/api/quote.py`、`src/biz/api/market.py`
+- Schema：`src/biz/schemas/quote.py`
+- Query Service：`src/biz/queries/quote_query_service.py`
 - 复用 `core`/`dm` 数据，不在 web 层新增重型跑数逻辑
 
 ### 2.2 协议规范
@@ -109,7 +109,7 @@
 支持两种输入方式（二选一）：
 
 - `ts_code`（推荐，主路径）
-- `symbol + market`（兼容路径）
+- `symbol + market`（可选路径）
 
 当同时传入时，以 `ts_code` 为准。
 
@@ -388,7 +388,7 @@
 
 ---
 
-## 8. v1 降级与兼容策略
+## 8. v1 能力降级说明
 
 - 分钟线：返回 `501/UNSUPPORTED_PERIOD`
 - 公告：返回空数组 + `capability.placeholder`

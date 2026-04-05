@@ -1,4 +1,4 @@
-from src.services.sync.fields import (
+from src.foundation.services.sync.fields import (
     ADJ_FACTOR_FIELDS,
     BLOCK_TRADE_FIELDS,
     DAILY_BASIC_FIELDS,
@@ -32,9 +32,9 @@ from src.services.sync.fields import (
     TRADE_CAL_FIELDS,
     US_BASIC_FIELDS,
 )
-from src.services.sync.sync_fund_daily_service import SyncFundDailyService
-from src.services.sync.sync_index_daily_service import SyncIndexDailyService
-from src.services.sync.sync_stock_basic_service import SyncStockBasicService
+from src.foundation.services.sync.sync_fund_daily_service import SyncFundDailyService
+from src.foundation.services.sync.sync_index_daily_service import SyncIndexDailyService
+from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
 
 
 def test_existing_field_constants_are_wired_to_services() -> None:

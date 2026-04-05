@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.models.ops.job_execution import JobExecution
-from src.models.ops.job_execution_event import JobExecutionEvent
-from src.models.ops.sync_run_log import SyncRunLog
+from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_execution_event import JobExecutionEvent
+from src.ops.models.ops.sync_run_log import SyncRunLog
 
 
 @dataclass(slots=True)

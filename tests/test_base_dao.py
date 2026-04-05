@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.dao.base_dao import BaseDAO
-from src.models.base import Base
+from src.foundation.dao.base_dao import BaseDAO
+from src.foundation.models.base import Base
 
 
 class DummyRow(Base):

@@ -1,5 +1,7 @@
 # 运维系统一期 Low Level Design
 
+> 历史文档（归档）：本文件保留一期落地细节记录。当前目录与运行入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## 1. 文档目标
 
 本文档是 [ops-system-phase1.md](/Users/congming/github/goldenshare/docs/ops-system-phase1.md) 的低层设计文档。
@@ -90,7 +92,7 @@
 
 ### 3.2 对当前用户模型的判断
 
-当前 [app_user.py](/Users/congming/github/goldenshare/src/models/app/app_user.py) 的设计，在运维系统一期是合理的。
+当前 [app_user.py](/Users/congming/github/goldenshare/src/platform/models/app/app_user.py) 的设计，在运维系统一期是合理的。
 
 当前字段：
 
@@ -652,7 +654,7 @@ phase 1 当前实现说明：
 
 ## 8. Web API 设计
 
-一期建议新增 `src/web/api/v1/ops/`。
+一期建议新增 `src/ops/api/`。
 
 所有接口都要求 `require_admin`。
 
@@ -716,7 +718,7 @@ phase 1 当前实现说明：
 建议新增：
 
 ```text
-src/web/schemas/ops/
+src/ops/schemas/
   __init__.py
   overview.py
   schedule.py
@@ -774,7 +776,7 @@ src/operations/
   executors/
 ```
 
-### 10.2 `src/web/services/ops/`
+### 10.2 `src/ops/services/`
 
 建议新增：
 
@@ -787,7 +789,7 @@ src/operations/
 - 协调 web 请求与 operations 服务
 - 处理权限后的业务流程
 
-### 10.3 `src/web/queries/ops/`
+### 10.3 `src/ops/queries/`
 
 建议新增：
 

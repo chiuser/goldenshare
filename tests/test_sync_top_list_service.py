@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date
 
 from src.scripts.backfill_top_list_reason_hash import find_top_list_reason_hash_conflicts
-from src.services.sync.sync_top_list_service import SyncTopListService
-from src.services.transform.top_list_reason import hash_top_list_reason, normalize_top_list_reason
+from src.foundation.services.sync.sync_top_list_service import SyncTopListService
+from src.foundation.services.transform.top_list_reason import hash_top_list_reason, normalize_top_list_reason
 
 
 def _build_service(mocker) -> SyncTopListService:

@@ -44,7 +44,8 @@ bash scripts/release-preflight.sh
 1. Python 编译检查
 2. 最小回归：`tests/web/test_health_api.py` + `tests/web/test_quote_api.py`
 3. Web 关键接口回归
-4. 前端构建
+4. 架构边界测试
+5. 前端构建
 
 可选开关（环境变量）：
 
@@ -52,6 +53,7 @@ bash scripts/release-preflight.sh
 - `RUN_FRONTEND_BUILD=0`：跳过前端构建
 - `RUN_COMPILE_CHECK=0`：跳过 compileall
 - `RUN_MINIMAL_TESTS=0`：跳过最小回归
+- `RUN_ARCH_TESTS=0`：跳过架构边界测试
 
 说明：正式发版不建议关闭任何开关。
 
@@ -59,10 +61,10 @@ bash scripts/release-preflight.sh
 
 ## 5. 服务器发版步骤（systemd）
 
-使用已有脚本：
+推荐使用分层脚本：
 
 ```bash
-bash scripts/deploy-systemd.sh main
+bash scripts/deploy-layered-systemd.sh main
 ```
 
 默认流程：
@@ -71,8 +73,17 @@ bash scripts/deploy-systemd.sh main
 2. 安装后端依赖
 3. 构建前端
 4. 执行数据库迁移（`goldenshare init-db`）
-5. 重启 `web/worker/scheduler` 服务
-6. 健康检查 `/api/health`
+5. 按层重启 `foundation(worker) / ops(scheduler) / platform(web)` 服务
+6. 分层自检（foundation 资源列表 + ops 执行协调）
+7. 健康检查 `/api/health` 与 `/api/v1/health`
+
+分层开关（环境变量）：
+
+- `DEPLOY_FOUNDATION=0`：跳过 worker 重启
+- `DEPLOY_OPS=0`：跳过 scheduler 重启
+- `DEPLOY_PLATFORM=0`：跳过 web 重启
+- `RUN_DB_MIGRATION=0`：跳过数据库迁移
+- `RUN_FRONTEND_BUILD=0`：跳过前端构建
 
 关键前提：
 

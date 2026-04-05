@@ -9,22 +9,22 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.config.settings import get_settings
-from src.models.app.app_user import AppUser
-from src.models.core.equity_block_trade import EquityBlockTrade
-from src.models.core.index_daily_serving import IndexDailyServing
-from src.models.core.index_weekly_serving import IndexWeeklyServing
-from src.models.core.index_monthly_serving import IndexMonthlyServing
-from src.models.core.trade_calendar import TradeCalendar
-from src.models.ops.config_revision import ConfigRevision
-from src.models.ops.job_execution import JobExecution
-from src.models.ops.job_execution_event import JobExecutionEvent
-from src.models.ops.job_execution_step import JobExecutionStep
-from src.models.ops.index_series_active import IndexSeriesActive
-from src.models.ops.job_schedule import JobSchedule
-from src.models.ops.sync_job_state import SyncJobState
-from src.models.ops.sync_run_log import SyncRunLog
-from src.web.auth.password_service import PasswordService
+from src.foundation.config.settings import get_settings
+from src.platform.models.app.app_user import AppUser
+from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.index_daily_serving import IndexDailyServing
+from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_execution_event import JobExecutionEvent
+from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.index_series_active import IndexSeriesActive
+from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.sync_job_state import SyncJobState
+from src.ops.models.ops.sync_run_log import SyncRunLog
+from src.platform.auth.password_service import PasswordService
 
 
 @pytest.fixture(autouse=True)
@@ -108,8 +108,8 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
 
 @pytest.fixture()
 def app_client(db_session: Session) -> Generator[TestClient, None, None]:
-    from src.web.app import app
-    from src.web.dependencies import get_db_session
+    from src.platform.web.app import app
+    from src.platform.dependencies.db import get_db_session
 
     get_settings.cache_clear()
 

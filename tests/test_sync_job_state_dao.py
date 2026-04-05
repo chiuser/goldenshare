@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.dao.sync_job_state_dao import SyncJobStateDAO
+from src.foundation.dao.sync_job_state_dao import SyncJobStateDAO
 
 
 def test_mark_success_preserves_full_sync_done_for_existing_record(mocker) -> None:

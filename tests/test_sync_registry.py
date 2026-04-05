@@ -1,4 +1,4 @@
-from src.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 
 def test_registry_contains_required_resources() -> None:

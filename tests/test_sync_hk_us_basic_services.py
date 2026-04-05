@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.services.sync.sync_hk_basic_service import SyncHkBasicService, build_hk_basic_params
-from src.services.sync.sync_us_basic_service import SyncUsBasicService, build_us_basic_params
+from src.foundation.services.sync.sync_hk_basic_service import SyncHkBasicService, build_hk_basic_params
+from src.foundation.services.sync.sync_us_basic_service import SyncUsBasicService, build_us_basic_params
 
 
 def test_build_hk_basic_params_supports_ts_code_and_list_status() -> None:

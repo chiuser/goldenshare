@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy import text
 
 from src.db import SessionLocal
-from src.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
+from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 
 
 @dataclass

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_holdernumber_service import SyncHolderNumberService
-from src.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
+from src.foundation.services.sync.sync_holdernumber_service import SyncHolderNumberService
+from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 
 
 def _build_service(mocker) -> SyncHolderNumberService:

@@ -1,5 +1,7 @@
 # Web Platform Phase 1
 
+> 历史文档（归档）：本文件包含虚拟拆仓前后的阶段性描述。当前以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## Goal
 
 Phase 1 builds the web platform foundation for `goldenshare`.
@@ -308,14 +310,14 @@ Local:
 
 ```bash
 export GOLDENSHARE_ENV_FILE=.env.web.local
-uvicorn src.web.app:app --reload
+uvicorn src.platform.web.app:app --reload
 ```
 
 Production:
 
 ```bash
 export GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-uvicorn src.web.app:app --host 0.0.0.0 --port 8000
+uvicorn src.platform.web.app:app --host 0.0.0.0 --port 8000
 ```
 
 ### Deployment Requirements
@@ -420,7 +422,7 @@ Phase 1 should provide a user creation path for platform verification.
 
 Recommended option:
 
-- `python -m src.web.scripts.create_user --username ... --password ... --admin`
+- `python -m src.scripts.create_user --username ... --password ... --admin`
 
 This allows:
 

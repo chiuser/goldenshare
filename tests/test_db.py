@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from src.config.settings import get_settings
+from src.foundation.config.settings import get_settings
 from src.db import get_engine, reset_db
 
 

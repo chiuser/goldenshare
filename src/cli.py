@@ -9,14 +9,14 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, select, text
 
-from src.config.logging import configure_logging
-from src.config.settings import get_settings
+from src.foundation.config.logging import configure_logging
+from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
-from src.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import DatasetStatusSnapshotService, OperationsExecutionReconciliationService, SyncJobStateReconciliationService
-from src.services.history_backfill_service import HistoryBackfillService
-from src.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
+from src.operations.services.history_backfill_service import HistoryBackfillService
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
 
 app = typer.Typer(help="goldenshare market data foundation CLI")

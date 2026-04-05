@@ -1,5 +1,7 @@
 # 运维系统执行解耦设计
 
+> 历史文档（归档）：本文用于记录执行解耦过程。当前实现以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 与现行代码为准。
+
 ## 1. 背景
 
 当前运维系统已经具备：

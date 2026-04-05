@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 
-from src.web.auth.jwt_service import JWTService
-from src.web.auth.password_service import PasswordService
-from src.web.exceptions import WebAppError
+from src.platform.auth.jwt_service import JWTService
+from src.platform.auth.password_service import PasswordService
+from src.platform.exceptions.web import WebAppError
 
 
 def test_password_service_hash_and_verify() -> None:

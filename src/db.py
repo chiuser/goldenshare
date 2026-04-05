@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.config.settings import get_settings
+from src.foundation.config.settings import get_settings
 
 
 @lru_cache(maxsize=1)

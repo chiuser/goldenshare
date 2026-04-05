@@ -1,5 +1,7 @@
 # 三子系统架构治理规范（Foundation / Ops / Biz）v1
 
+> 说明：本文是治理规则文档，部分路径示例来自演进阶段。当前落地目录以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## 1. 目的
 
 本规范用于支撑三团队并行开发：
@@ -47,11 +49,11 @@
 代码归属（当前）：
 
 - `src/clients/*`
-- `src/services/sync/*`
-- `src/services/transform/*`
+- `src/foundation/services/sync/*`
+- `src/foundation/services/transform/*`
 - `src/dao/*`
-- `src/models/raw/*`
-- `src/models/core/*`
+- `src/foundation/models/raw/*`
+- `src/foundation/models/core/*`
 - `src/models/dm/*`（未来）
 
 禁止行为：
@@ -70,11 +72,11 @@
 代码归属（当前）：
 
 - `src/operations/*`
-- `src/models/ops/*`
-- `src/web/api/v1/ops/*`
-- `src/web/queries/ops/*`
-- `src/web/services/ops/*`
-- `src/web/schemas/ops/*`
+- `src/ops/models/ops/*`
+- `src/ops/api/*`
+- `src/ops/queries/*`
+- `src/ops/services/*`
+- `src/ops/schemas/*`
 
 禁止行为：
 
@@ -91,16 +93,16 @@
 
 代码归属（当前）：
 
-- `src/web/api/v1/quote.py`
-- `src/web/api/v1/market.py`
-- `src/web/queries/quote_query_service.py`
-- `src/web/schemas/quote.py`
-- `src/web/auth/*`（与 Ops 共用）
+- `src/biz/api/quote.py`
+- `src/biz/api/market.py`
+- `src/biz/queries/quote_query_service.py`
+- `src/biz/schemas/quote.py`
+- `src/platform/auth/*`（与 Ops 共用）
 
 禁止行为：
 
 - 直接触发重型同步任务
-- 直接依赖 `src/services/sync/*` 与 `src/operations/runtime/*`
+- 直接依赖 `src/foundation/services/sync/*` 与 `src/operations/runtime/*`
 
 ---
 
@@ -126,7 +128,7 @@
 
 禁止：
 
-- Biz import `src/services/sync/*`
+- Biz import `src/foundation/services/sync/*`
 - Biz import `src/operations/runtime/*`
 - Foundation import `src/web/*`（测试桩除外）
 
@@ -161,7 +163,7 @@
 - Foundation 路径由 Foundation 团队审批
 - Ops 路径由 Ops 团队审批
 - Biz 路径由 Biz 团队审批
-- 跨域文件（如 `src/web/auth/*`、`src/config/*`）要求至少两方审批
+- 跨域文件（如 `src/platform/auth/*`、`src/config/*`）要求至少两方审批
 
 ## 5.3 CI 分轨
 
@@ -216,4 +218,3 @@
 - **方向清晰**：三子系统边界在概念上已经成立。
 - **治理不足**：边界尚未通过工程手段强制，存在随迭代变模糊的风险。
 - **可行路径**：在不大规模重构目录的前提下，通过“边界规则 + 所有权 + CI + 契约治理”即可实现三团队低冲突并行开发。
-

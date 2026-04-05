@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.dao.factory import DAOFactory
-from src.dao.etf_basic_dao import EtfBasicDAO
-from src.dao.index_basic_dao import IndexBasicDAO
-from src.dao.index_weight_dao import IndexWeightDAO
-from src.dao.stk_period_bar_dao import StkPeriodBarDAO
+from src.foundation.dao.factory import DAOFactory
+from src.foundation.dao.etf_basic_dao import EtfBasicDAO
+from src.foundation.dao.index_basic_dao import IndexBasicDAO
+from src.foundation.dao.index_weight_dao import IndexWeightDAO
+from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
 
 
 def test_stk_period_bar_dao_get_bars_orders_by_trade_date(mocker) -> None:

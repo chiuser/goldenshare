@@ -1,4 +1,4 @@
-from src.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
+from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 
 
 def test_holdernumber_row_key_hash_changes_when_record_changes() -> None:

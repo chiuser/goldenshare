@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from src.dao.dividend_dao import EquityDividendDAO, RawDividendDAO
-from src.models.base import Base
-from src.models.core.equity_dividend import EquityDividend
-from src.models.raw.raw_dividend import RawDividend
+from src.foundation.dao.dividend_dao import EquityDividendDAO, RawDividendDAO
+from src.foundation.models.base import Base
+from src.foundation.models.core.equity_dividend import EquityDividend
+from src.foundation.models.raw.raw_dividend import RawDividend
 
 
 class DummySession:

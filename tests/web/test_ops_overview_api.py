@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import src.web.queries.ops.overview_query_service as overview_query_module
+import src.ops.queries.overview_query_service as ops_overview_query_module
 
 
 def test_ops_overview_rejects_non_admin(app_client, user_factory) -> None:
@@ -34,7 +34,7 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
                 return now.replace(tzinfo=None)
             return now.astimezone(tz)
 
-    monkeypatch.setattr(overview_query_module, "datetime", FixedDateTime)
+    monkeypatch.setattr(ops_overview_query_module, "datetime", FixedDateTime)
 
     trade_calendar_factory(exchange="SSE", trade_date=now.date(), is_open=True)
     sync_job_state_factory(

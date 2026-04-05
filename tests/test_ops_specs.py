@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_job_spec
-from src.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 
 def test_job_spec_registry_contains_key_operations() -> None:

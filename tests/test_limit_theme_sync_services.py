@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService, build_limit_cpt_list_params
-from src.services.sync.sync_limit_list_ths_service import SyncLimitListThsService, build_limit_list_ths_params
-from src.services.sync.sync_limit_step_service import SyncLimitStepService, build_limit_step_params
+from src.foundation.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService, build_limit_cpt_list_params
+from src.foundation.services.sync.sync_limit_list_ths_service import SyncLimitListThsService, build_limit_list_ths_params
+from src.foundation.services.sync.sync_limit_step_service import SyncLimitStepService, build_limit_step_params
 
 
 def test_limit_list_ths_supports_incremental_and_range_params() -> None:

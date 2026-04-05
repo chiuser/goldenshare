@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from src.services.transform.build_adjusted_bar_service import BuildAdjustedBarService
+from src.foundation.services.transform.build_adjusted_bar_service import BuildAdjustedBarService
 from src.utils import parse_tushare_date
 
 

@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from src.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
+from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 
 
 def test_dividend_row_key_hash_changes_when_record_state_changes() -> None:

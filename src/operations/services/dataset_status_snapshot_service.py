@@ -6,10 +6,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
+from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
 from src.operations.specs import get_job_spec, get_workflow_spec, list_dataset_freshness_specs
-from src.web.queries.ops.freshness_query_service import OpsFreshnessQueryService
-from src.web.schemas.ops.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
 
 
 class DatasetStatusSnapshotService:

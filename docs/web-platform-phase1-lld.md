@@ -1,5 +1,7 @@
 # Goldenshare Web 平台一期 Low Level Design
 
+> 历史文档（归档）：本文件包含早期目录（如 `src/web/*`）说明。当前工程结构请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## 1. 文档目标
 
 本文档是 `goldenshare` Web 平台一期的低层设计文档。
@@ -139,7 +141,7 @@ scripts/goldenshare-web.service
 
 ### 4.2 模块职责
 
-#### `src/web/app.py`
+#### `src/platform/web/app.py`
 
 职责：
 
@@ -154,7 +156,7 @@ scripts/goldenshare-web.service
 - 业务逻辑
 - 数据库查询
 
-#### `src/web/lifespan.py`
+#### `src/platform/web/lifespan.py`
 
 职责：
 
@@ -162,7 +164,7 @@ scripts/goldenshare-web.service
 - 启动时记录配置摘要
 - 可选做数据库可用性预检查
 
-#### `src/web/settings.py`
+#### `src/platform/web/settings.py`
 
 职责：
 
@@ -170,14 +172,14 @@ scripts/goldenshare-web.service
 - 加载环境变量和环境文件
 - 提供强类型配置对象
 
-#### `src/web/dependencies.py`
+#### `src/platform/dependencies/db.py`
 
 职责：
 
 - 提供通用依赖，例如数据库 session
 - 为 `api` 层提供统一依赖入口
 
-#### `src/web/exceptions.py`
+#### `src/platform/exceptions/web.py`
 
 职责：
 
@@ -185,7 +187,7 @@ scripts/goldenshare-web.service
 - 注册统一异常处理逻辑
 - 输出统一错误响应结构
 
-#### `src/web/logging.py`
+#### `src/platform/web/logging.py`
 
 职责：
 
@@ -200,7 +202,7 @@ scripts/goldenshare-web.service
 - 按版本聚合路由
 - 控制 HTTP 协议层边界
 
-#### `src/web/auth/`
+#### `src/platform/auth/`
 
 职责：
 
@@ -238,7 +240,7 @@ scripts/goldenshare-web.service
 
 - 用户状态枚举、权限概念、token payload 概念模型
 
-#### `src/web/middleware/`
+#### `src/platform/web/middleware/`
 
 职责：
 
@@ -262,7 +264,7 @@ scripts/goldenshare-web.service
 
 ### 5.2 建议配置项
 
-建议在 `src/web/settings.py` 中定义如下配置项：
+建议在 `src/platform/web/settings.py` 中定义如下配置项：
 
 - `app_env`
 - `database_url`
@@ -358,13 +360,13 @@ PLATFORM_CHECK_ENABLED=true
 统一入口：
 
 ```bash
-uvicorn src.web.app:app
+uvicorn src.platform.web.app:app
 ```
 
 同时建议提供一个配置驱动的 Python 启动入口：
 
 ```bash
-python -m src.web.run
+python -m src.platform.web.run
 ```
 
 如果项目已安装，也可以提供命令行入口：
@@ -377,14 +379,14 @@ goldenshare-web
 
 ```bash
 export GOLDENSHARE_ENV_FILE=.env.web.local
-python -m src.web.run
+python -m src.platform.web.run
 ```
 
 ### 6.3 远程生产启动方式
 
 ```bash
 export GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-python -m src.web.run
+python -m src.platform.web.run
 ```
 
 ### 6.4 部署建议
@@ -408,7 +410,7 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/.venv/bin/uvicorn src.web.app:app --host 0.0.0.0 --port 8000
+ExecStart=/opt/goldenshare/.venv/bin/uvicorn src.platform.web.app:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -458,11 +460,11 @@ WantedBy=multi-user.target
 
 建议新增：
 
-- `src/models/app/app_user.py`
+- `src/platform/models/app/app_user.py`
 
 同时更新：
 
-- `src/models/all_models.py`
+- `src/foundation/models/all_models.py`
 
 注意：
 
@@ -475,7 +477,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/auth/password_service.py`
+- `src/platform/auth/password_service.py`
 
 职责：
 
@@ -488,7 +490,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/auth/jwt_service.py`
+- `src/platform/auth/jwt_service.py`
 
 职责：
 
@@ -507,7 +509,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/auth/dependencies.py`
+- `src/platform/auth/dependencies.py`
 
 建议提供：
 
@@ -759,7 +761,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/middleware/request_id.py`
+- `src/platform/web/middleware/request_id.py`
 
 职责：
 
@@ -776,7 +778,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/middleware/access_log.py`
+- `src/platform/web/middleware/access_log.py`
 
 记录字段建议：
 
@@ -791,7 +793,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/exceptions.py`
+- `src/platform/exceptions/web.py`
 
 建议处理：
 
@@ -956,7 +958,7 @@ WantedBy=multi-user.target
 
 文件：
 
-- `src/web/scripts/create_user.py`
+- `src/scripts/create_user.py`
 
 建议参数：
 
@@ -1063,7 +1065,7 @@ WantedBy=multi-user.target
 
 一期开发完成后，应满足：
 
-1. `uvicorn src.web.app:app --reload` 可在本地启动
+1. `uvicorn src.platform.web.app:app --reload` 可在本地启动
 2. 通过 `GOLDENSHARE_ENV_FILE` 可切换本地与生产配置
 3. 数据库已创建 `app.app_user`
 4. 可通过脚本创建管理员用户

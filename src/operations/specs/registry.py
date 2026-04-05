@@ -3,7 +3,7 @@ from __future__ import annotations
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.operations.specs.job_spec import JobSpec, ParameterSpec
 from src.operations.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
-from src.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 
 TRADE_DATE_PARAM = ParameterSpec(

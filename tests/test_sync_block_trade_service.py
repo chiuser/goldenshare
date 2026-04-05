@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
-from src.services.sync.sync_block_trade_service import SyncBlockTradeService
+from src.foundation.services.sync.sync_block_trade_service import SyncBlockTradeService
 
 
 def _build_fake_dao(raw_dao: SimpleNamespace, core_dao: SimpleNamespace) -> SimpleNamespace:
@@ -27,11 +27,9 @@ def test_block_trade_keeps_source_duplicates_and_rebuilds_trade_date_snapshot(mo
     core_dao = mocker.Mock()
     core_dao.bulk_insert.return_value = 3
     mocker.patch(
-        "src.services.sync.base_sync_service.DAOFactory",
+        "src.foundation.services.sync.base_sync_service.DAOFactory",
         return_value=_build_fake_dao(raw_dao, core_dao),
     )
-    snapshot_service_cls = mocker.patch("src.operations.services.dataset_status_snapshot_service.DatasetStatusSnapshotService")
-    snapshot_service = snapshot_service_cls.return_value
 
     service = SyncBlockTradeService(session)
     service.client = mocker.Mock()
@@ -75,4 +73,3 @@ def test_block_trade_keeps_source_duplicates_and_rebuilds_trade_date_snapshot(mo
     assert len(inserted_rows) == 3
     assert result.rows_fetched == 3
     assert result.rows_written == 3
-    snapshot_service.refresh_resources.assert_called_once_with(session, ["block_trade", "equity_block_trade"])

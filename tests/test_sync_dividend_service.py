@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_dividend_service import SyncDividendService
-from src.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
+from src.foundation.services.sync.sync_dividend_service import SyncDividendService
+from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 
 
 def _build_service(mocker) -> SyncDividendService:

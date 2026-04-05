@@ -5,9 +5,9 @@ import inspect
 from datetime import datetime
 from pathlib import Path
 
-from src.dao.factory import DAOFactory
+from src.foundation.dao.factory import DAOFactory
 from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY
-from src.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 
 OUTPUT_PATH = Path("docs/dataset-catalog.md")

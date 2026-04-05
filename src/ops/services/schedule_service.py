@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from src.operations.services import OperationsScheduleService
+from src.operations.services.schedule_planner import preview_schedule_runs
+from src.platform.auth.domain import AuthenticatedUser
+
+
+class OpsScheduleCommandService:
+    def __init__(self) -> None:
+        self.schedule_service = OperationsScheduleService()
+
+    def create_schedule(
+        self,
+        session: Session,
+        *,
+        user: AuthenticatedUser,
+        spec_type: str,
+        spec_key: str,
+        display_name: str,
+        schedule_type: str,
+        cron_expr: str | None,
+        timezone_name: str,
+        calendar_policy: str | None,
+        params_json: dict,
+        retry_policy_json: dict,
+        concurrency_policy_json: dict,
+        next_run_at,
+    ) -> int:
+        schedule = self.schedule_service.create_schedule(
+            session,
+            spec_type=spec_type,
+            spec_key=spec_key,
+            display_name=display_name,
+            schedule_type=schedule_type,
+            cron_expr=cron_expr,
+            timezone_name=timezone_name,
+            calendar_policy=calendar_policy,
+            params_json=params_json,
+            retry_policy_json=retry_policy_json,
+            concurrency_policy_json=concurrency_policy_json,
+            next_run_at=next_run_at,
+            created_by_user_id=user.id,
+        )
+        return schedule.id
+
+    def update_schedule(self, session: Session, *, user: AuthenticatedUser, schedule_id: int, changes: dict) -> int:
+        schedule = self.schedule_service.update_schedule(
+            session,
+            schedule_id=schedule_id,
+            changes=changes,
+            updated_by_user_id=user.id,
+        )
+        return schedule.id
+
+    def pause_schedule(self, session: Session, *, user: AuthenticatedUser, schedule_id: int) -> int:
+        schedule = self.schedule_service.pause_schedule(session, schedule_id=schedule_id, updated_by_user_id=user.id)
+        return schedule.id
+
+    def resume_schedule(self, session: Session, *, user: AuthenticatedUser, schedule_id: int) -> int:
+        schedule = self.schedule_service.resume_schedule(session, schedule_id=schedule_id, updated_by_user_id=user.id)
+        return schedule.id
+
+    def preview_schedule(
+        self,
+        *,
+        schedule_type: str,
+        cron_expr: str | None,
+        timezone_name: str,
+        next_run_at: datetime | None,
+        count: int,
+    ) -> list[datetime]:
+        return preview_schedule_runs(
+            schedule_type=schedule_type,
+            cron_expr=cron_expr,
+            timezone_name=timezone_name,
+            next_run_at=next_run_at,
+            count=count,
+        )

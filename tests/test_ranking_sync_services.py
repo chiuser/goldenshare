@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_dc_hot_service import SyncDcHotService, build_dc_hot_params
-from src.services.sync.sync_kpl_concept_cons_service import build_kpl_concept_cons_params
-from src.services.sync.sync_kpl_list_service import SyncKplListService, build_kpl_list_params
-from src.services.sync.sync_ths_hot_service import SyncThsHotService, build_ths_hot_params
+from src.foundation.services.sync.sync_dc_hot_service import SyncDcHotService, build_dc_hot_params
+from src.foundation.services.sync.sync_kpl_concept_cons_service import build_kpl_concept_cons_params
+from src.foundation.services.sync.sync_kpl_list_service import SyncKplListService, build_kpl_list_params
+from src.foundation.services.sync.sync_ths_hot_service import SyncThsHotService, build_ths_hot_params
 
 
 def test_ths_hot_supports_incremental_and_range_params() -> None:

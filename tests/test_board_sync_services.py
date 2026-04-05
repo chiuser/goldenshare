@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_dc_member_service import SyncDcMemberService, build_dc_member_params
-from src.services.sync.sync_ths_member_service import SyncThsMemberService, build_ths_member_params
-from src.services.sync.sync_dc_daily_service import SyncDcDailyService, build_dc_daily_params
-from src.services.sync.sync_dc_index_service import build_dc_index_params
-from src.services.sync.sync_ths_daily_service import SyncThsDailyService, build_ths_daily_params
-from src.services.sync.sync_ths_index_service import build_ths_index_params
+from src.foundation.services.sync.sync_dc_member_service import SyncDcMemberService, build_dc_member_params
+from src.foundation.services.sync.sync_ths_member_service import SyncThsMemberService, build_ths_member_params
+from src.foundation.services.sync.sync_dc_daily_service import SyncDcDailyService, build_dc_daily_params
+from src.foundation.services.sync.sync_dc_index_service import build_dc_index_params
+from src.foundation.services.sync.sync_ths_daily_service import SyncThsDailyService, build_ths_daily_params
+from src.foundation.services.sync.sync_ths_index_service import build_ths_index_params
 
 
 def test_ths_index_builds_filter_params() -> None:
@@ -52,7 +52,7 @@ def test_dc_daily_supports_incremental_and_range_params() -> None:
 def test_ths_member_full_sync_refreshes_indices_then_fetches_members_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.services.sync.sync_ths_member_service.SyncThsIndexService.run_full")
+    mocker.patch("src.foundation.services.sync.sync_ths_member_service.SyncThsIndexService.run_full")
     service = SyncThsMemberService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [
@@ -76,7 +76,7 @@ def test_ths_member_full_sync_refreshes_indices_then_fetches_members_by_board(mo
 def test_dc_member_incremental_refreshes_board_index_then_fetches_members_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.services.sync.sync_dc_member_service.SyncDcIndexService.run_incremental")
+    mocker.patch("src.foundation.services.sync.sync_dc_member_service.SyncDcIndexService.run_incremental")
     service = SyncDcMemberService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [
@@ -101,7 +101,7 @@ def test_dc_member_incremental_refreshes_board_index_then_fetches_members_by_boa
 def test_dc_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.services.sync.sync_dc_daily_service.SyncDcIndexService.run_incremental")
+    mocker.patch("src.foundation.services.sync.sync_dc_daily_service.SyncDcIndexService.run_incremental")
     service = SyncDcDailyService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [
@@ -126,7 +126,7 @@ def test_dc_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(
 def test_dc_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.services.sync.sync_dc_daily_service.SyncDcIndexService.run_full")
+    mocker.patch("src.foundation.services.sync.sync_dc_daily_service.SyncDcIndexService.run_full")
     service = SyncDcDailyService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [
@@ -162,7 +162,7 @@ def test_dc_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker)
 def test_ths_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
+    mocker.patch("src.foundation.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
     service = SyncThsDailyService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [
@@ -195,7 +195,7 @@ def test_ths_daily_incremental_refreshes_board_index_then_fetches_daily_by_board
 def test_ths_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
     session = mocker.Mock()
     session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
+    mocker.patch("src.foundation.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
     service = SyncThsDailyService(session)
     service.client = mocker.Mock()
     service.client.call.side_effect = [

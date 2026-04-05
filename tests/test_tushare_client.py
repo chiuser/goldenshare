@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from src.clients.tushare_client import TushareHttpClient
+from src.foundation.clients.tushare_client import TushareHttpClient
 
 
 def test_tushare_http_client_builds_session_with_post_retries() -> None:

@@ -8,8 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.models.core.equity_block_trade import EquityBlockTrade
-from src.models.ops.sync_job_state import SyncJobState
+from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.ops.models.ops.sync_job_state import SyncJobState
 from src.operations.services import SyncJobStateReconciliationService
 
 

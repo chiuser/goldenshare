@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.history_backfill_service import HistoryBackfillService
+from src.operations.services.history_backfill_service import HistoryBackfillService
 
 
 def test_backfill_equity_series_emits_progress(mocker) -> None:
@@ -19,7 +19,7 @@ def test_backfill_equity_series_emits_progress(mocker) -> None:
     sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_equity_series(
         resource="daily",
@@ -44,7 +44,7 @@ def test_backfill_equity_series_supports_period_resources(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_full.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_equity_series(
         resource="stk_period_bar_month",
@@ -75,7 +75,7 @@ def test_backfill_equity_series_uses_trade_date_mode_for_stk_period_bar_week(moc
     sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=50, rows_written=50)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=60, rows_written=60)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_equity_series(
         resource="stk_period_bar_week",
@@ -111,7 +111,7 @@ def test_backfill_by_trade_dates_emits_progress(mocker) -> None:
     sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=5, rows_written=5)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=6, rows_written=6)
-    mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_by_trade_dates(
         resource="daily_basic",
@@ -136,7 +136,7 @@ def test_backfill_by_trade_dates_supports_limit_list_d(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=113, rows_written=113)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_by_trade_dates(
         resource="limit_list_d",
@@ -168,7 +168,7 @@ def test_backfill_by_trade_dates_supports_limit_list_ths_filters(mocker) -> None
 
     sync_service = mocker.Mock()
     sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=21, rows_written=21)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_by_trade_dates(
         resource="limit_list_ths",
@@ -197,7 +197,7 @@ def test_backfill_by_trade_dates_supports_top_list(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=25, rows_written=25)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_by_trade_dates(
         resource="top_list",
@@ -225,7 +225,7 @@ def test_backfill_by_trade_dates_supports_dc_member_filters(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=8, rows_written=8)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_by_trade_dates(
         resource="dc_member",
@@ -253,7 +253,7 @@ def test_backfill_by_trade_dates_supports_dc_hot_filters(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=18, rows_written=18)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_by_trade_dates(
         resource="dc_hot",
@@ -289,7 +289,7 @@ def test_backfill_by_trade_dates_emits_progress_for_incremental_resources(mocker
     sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
-    mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_by_trade_dates(
         resource="limit_list_d",
@@ -346,7 +346,7 @@ def test_backfill_fund_series_emits_progress(mocker) -> None:
     sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_fund_series(
         resource="fund_daily",
@@ -390,7 +390,7 @@ def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> N
     sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_index_series(
         resource="index_daily",
@@ -424,7 +424,7 @@ def test_backfill_index_weekly_uses_trade_date_mode(mocker) -> None:
     sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=1000, rows_written=980)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=976, rows_written=970)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_index_series(
         resource="index_weekly",
@@ -458,7 +458,7 @@ def test_backfill_index_monthly_uses_month_end_trade_dates(mocker) -> None:
     sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=500, rows_written=500)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=520, rows_written=520)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_index_series(
         resource="index_monthly",
@@ -485,7 +485,7 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_full.return_value = mocker.Mock(rows_fetched=15, rows_written=15)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_index_series(
         resource="index_daily",
@@ -514,7 +514,7 @@ def test_backfill_index_daily_returns_empty_when_active_pool_missing(mocker) -> 
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
     service.dao.index_series_active.list_active_codes.return_value = []
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service")
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service")
 
     summary = service.backfill_index_series(
         resource="index_daily",
@@ -539,7 +539,7 @@ def test_backfill_index_daily_basic_prefers_active_pool(mocker) -> None:
     sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
     sync_service_2 = mocker.Mock()
     sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=11, rows_written=11)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_index_series(
         resource="index_daily_basic",
@@ -572,7 +572,7 @@ def test_backfill_index_daily_basic_bootstraps_active_pool_when_empty(mocker) ->
     discovery_service.run_incremental.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
     sync_service = mocker.Mock()
     sync_service.run_full.return_value = mocker.Mock(rows_fetched=100, rows_written=100)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", side_effect=[discovery_service, sync_service])
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[discovery_service, sync_service])
 
     summary = service.backfill_index_series(
         resource="index_daily_basic",
@@ -602,7 +602,7 @@ def test_backfill_index_series_uses_index_code_for_index_weight(mocker) -> None:
 
     sync_service = mocker.Mock()
     sync_service.run_full.return_value = mocker.Mock(rows_fetched=300, rows_written=300)
-    build_sync_service = mocker.patch("src.services.history_backfill_service.build_sync_service", return_value=sync_service)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_index_series(
         resource="index_weight",

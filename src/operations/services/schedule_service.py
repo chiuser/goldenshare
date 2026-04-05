@@ -5,13 +5,13 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models.ops.config_revision import ConfigRevision
-from src.models.ops.job_execution import JobExecution
-from src.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_schedule import JobSchedule
 from src.operations.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.operations.services.execution_service import OperationsExecutionService
 from src.operations.specs import get_ops_spec_display_name, ops_spec_supports_schedule
-from src.web.exceptions import WebAppError
+from src.platform.exceptions import WebAppError
 
 
 class OperationsScheduleService:

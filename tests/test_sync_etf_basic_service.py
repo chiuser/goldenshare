@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from src.services.sync.sync_etf_basic_service import SyncEtfBasicService
+from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService
 
 
 def test_sync_etf_basic_service_normalizes_and_upserts_rows(mocker) -> None:

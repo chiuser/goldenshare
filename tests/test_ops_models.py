@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from src.models.ops.config_revision import ConfigRevision
-from src.models.ops.job_execution import JobExecution
-from src.models.ops.job_execution_event import JobExecutionEvent
-from src.models.ops.job_execution_step import JobExecutionStep
-from src.models.ops.job_schedule import JobSchedule
-from src.models.ops.sync_run_log import SyncRunLog
+from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.job_execution_event import JobExecutionEvent
+from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.sync_run_log import SyncRunLog
 
 
 def test_ops_control_plane_models_expose_primary_keys_and_indexes() -> None:

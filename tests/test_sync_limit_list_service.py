@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.services.sync.sync_limit_list_service import build_limit_list_params
+from src.foundation.services.sync.sync_limit_list_service import build_limit_list_params
 
 
 def test_build_limit_list_params_supports_incremental_filters() -> None:

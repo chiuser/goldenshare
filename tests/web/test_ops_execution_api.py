@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from src.web.schemas.ops.execution import ExecutionDetailResponse
+from src.ops.schemas.execution import ExecutionDetailResponse
 
 
 def test_ops_execution_list_rejects_non_admin(app_client, user_factory, job_execution_factory) -> None:
@@ -229,11 +229,11 @@ def test_ops_execution_retry_now_keeps_backward_compatible_path_but_only_requeue
         requested_by_user_id=admin.id,
     )
     mocker.patch(
-        "src.web.api.v1.ops.executions.OpsExecutionCommandService.retry_execution",
+        "src.ops.api.executions.OpsExecutionCommandService.retry_execution",
         return_value=existing.id + 1,
     )
     mocker.patch(
-        "src.web.api.v1.ops.executions.ExecutionQueryService.get_execution_detail",
+        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
         return_value=ExecutionDetailResponse(
             id=existing.id + 1,
             schedule_id=None,
@@ -289,7 +289,7 @@ def test_ops_execution_run_now_returns_current_execution_without_starting_it(app
         requested_by_user_id=admin.id,
     )
     mocker.patch(
-        "src.web.api.v1.ops.executions.ExecutionQueryService.get_execution_detail",
+        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
         return_value=ExecutionDetailResponse(
             id=execution.id,
             schedule_id=None,
@@ -338,11 +338,11 @@ def test_ops_execution_run_now_returns_current_execution_without_starting_it(app
 def test_ops_execution_create_run_now_keeps_backward_compatible_path_but_only_creates_queued_execution(app_client, user_factory, mocker) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     mocker.patch(
-        "src.web.api.v1.ops.executions.OpsExecutionCommandService.create_manual_execution",
+        "src.ops.api.executions.OpsExecutionCommandService.create_manual_execution",
         return_value=88,
     )
     mocker.patch(
-        "src.web.api.v1.ops.executions.ExecutionQueryService.get_execution_detail",
+        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
         return_value=ExecutionDetailResponse(
             id=88,
             schedule_id=None,

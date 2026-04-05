@@ -1,5 +1,7 @@
 # 运维系统新鲜度页检查记录（2026-03-30）
 
+> 历史检查记录（归档）：本文为问题排查纪要，路径示例可能已过时。当前目录结构以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+
 ## 背景
 
 本次检查聚焦运维系统前端中的“数据新鲜度”页面，重点验证以下问题：
@@ -62,7 +64,7 @@
 
 修复位置：
 
-- [/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py](/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py)
+- [/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)
 
 修复方式：
 
@@ -79,8 +81,8 @@
 
 修复位置：
 
-- [/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py](/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py)
-- [/Users/congming/github/goldenshare/src/web/schemas/ops/freshness.py](/Users/congming/github/goldenshare/src/web/schemas/ops/freshness.py)
+- [/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)
+- [/Users/congming/github/goldenshare/src/ops/schemas/freshness.py](/Users/congming/github/goldenshare/src/ops/schemas/freshness.py)
 - [/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts)
 - [/Users/congming/github/goldenshare/frontend/src/pages/ops-freshness-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-freshness-page.tsx)
 
@@ -107,7 +109,7 @@
 
 - [/Users/congming/github/goldenshare/src/operations/specs/dataset_freshness_spec.py](/Users/congming/github/goldenshare/src/operations/specs/dataset_freshness_spec.py)
 - [/Users/congming/github/goldenshare/src/operations/specs/registry.py](/Users/congming/github/goldenshare/src/operations/specs/registry.py)
-- [/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py](/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py)
+- [/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)
 
 修复方式：
 
@@ -125,7 +127,7 @@
 
 修复位置：
 
-- [/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py](/Users/congming/github/goldenshare/src/web/queries/ops/freshness_query_service.py)
+- [/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)
 
 问题原因：
 

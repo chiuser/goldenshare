@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
-from src.web.schemas.ops.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
-from src.web.queries.ops.freshness_query_service import OpsFreshnessQueryService
+from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
+from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 
 
 def test_ops_freshness_rejects_non_admin(app_client, user_factory) -> None:
@@ -237,7 +237,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
 
     monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
     monkeypatch.setattr(
-        "src.web.queries.ops.freshness_query_service.list_dataset_freshness_specs",
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_specs",
         lambda: [
             DatasetFreshnessSpec(
                 dataset_key="daily",

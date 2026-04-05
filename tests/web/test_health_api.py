@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.web.settings import get_web_settings
+from src.platform.web.settings import get_web_settings
 
 
 def test_health_endpoints_return_ok(app_client) -> None:
