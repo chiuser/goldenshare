@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="", alias="JWT_SECRET")
     jwt_expire_minutes: int = Field(default=480, alias="JWT_EXPIRE_MINUTES")
     platform_check_enabled: bool = Field(default=True, alias="PLATFORM_CHECK_ENABLED")
+    quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
 
     model_config = SettingsConfigDict(extra="ignore")
 
