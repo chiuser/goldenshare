@@ -68,7 +68,7 @@ class HistoryBackfillService:
                 "stk_period_bar_week, stk_period_bar_month, "
                 "stk_period_bar_adj_week, and stk_period_bar_adj_month"
             )
-        if resource == "stk_period_bar_week":
+        if resource in {"daily", "adj_factor", "stk_period_bar_week", "stk_period_bar_adj_week"}:
             exchange_name = self.settings.default_exchange
             trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
             if offset:
