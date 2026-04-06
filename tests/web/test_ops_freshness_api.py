@@ -276,3 +276,115 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
 
     assert "daily" in dataset_keys
     assert "ths_hot" in dataset_keys
+
+
+def test_observed_snapshot_for_stk_period_week_adds_freq_filter(mocker) -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="stk_period_bar_week",
+        resource_key="stk_period_bar_week",
+        job_name="sync_stk_period_bar_week",
+        display_name="股票周线",
+        domain_key="equity",
+        domain_display_name="股票",
+        target_table="core.stk_period_bar",
+        cadence="weekly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="sync_history.stk_period_bar_week",
+    )
+    session = mocker.Mock()
+    session.execute.return_value.one.return_value = (date(2020, 1, 1), date(2026, 4, 3))
+
+    observed_ranges, _ = service._observed_dataset_snapshots(session, [spec])
+
+    assert observed_ranges["stk_period_bar_week"] == (date(2020, 1, 1), date(2026, 4, 3))
+    query = session.execute.call_args.args[0]
+    compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
+    assert "freq" in compiled
+    assert "week" in compiled
+
+
+def test_build_freshness_overrides_snapshot_with_live_weekly_item(
+    db_session,
+    monkeypatch,
+) -> None:
+    service = OpsFreshnessQueryService()
+    snapshot_item = DatasetFreshnessItem(
+        dataset_key="stk_period_bar_week",
+        resource_key="stk_period_bar_week",
+        display_name="股票周线",
+        domain_key="equity",
+        domain_display_name="股票",
+        job_name="sync_stk_period_bar_week",
+        target_table="core.stk_period_bar",
+        cadence="weekly",
+        latest_business_date=date(2026, 3, 27),
+        observed_business_date=date(2026, 3, 27),
+        freshness_status="fresh",
+        primary_execution_spec_key="sync_history.stk_period_bar_week",
+        full_sync_done=False,
+    )
+    live_item = DatasetFreshnessItem(
+        dataset_key="stk_period_bar_week",
+        resource_key="stk_period_bar_week",
+        display_name="股票周线",
+        domain_key="equity",
+        domain_display_name="股票",
+        job_name="sync_stk_period_bar_week",
+        target_table="core.stk_period_bar",
+        cadence="weekly",
+        latest_business_date=date(2026, 4, 3),
+        observed_business_date=date(2026, 4, 3),
+        freshness_status="fresh",
+        primary_execution_spec_key="sync_history.stk_period_bar_week",
+        full_sync_done=False,
+    )
+    snapshot_response = OpsFreshnessResponse(
+        summary=OpsFreshnessSummary(
+            total_datasets=1,
+            fresh_datasets=1,
+            lagging_datasets=0,
+            stale_datasets=0,
+            unknown_datasets=0,
+        ),
+        groups=[
+            FreshnessGroup(
+                domain_key="equity",
+                domain_display_name="股票",
+                items=[snapshot_item],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
+    monkeypatch.setattr(
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_specs",
+        lambda: [
+            DatasetFreshnessSpec(
+                dataset_key="stk_period_bar_week",
+                resource_key="stk_period_bar_week",
+                job_name="sync_stk_period_bar_week",
+                display_name="股票周线",
+                domain_key="equity",
+                domain_display_name="股票",
+                target_table="core.stk_period_bar",
+                cadence="weekly",
+                observed_date_column="trade_date",
+                primary_execution_spec_key="sync_history.stk_period_bar_week",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "build_live_items",
+        lambda _session, *, today=None, resource_keys=None: [live_item] if resource_keys == ["stk_period_bar_week"] else [],
+    )
+
+    response = service.build_freshness(db_session)
+    item = next(
+        item
+        for group in response.groups
+        for item in group.items
+        if item.dataset_key == "stk_period_bar_week"
+    )
+    assert item.latest_business_date == date(2026, 4, 3)

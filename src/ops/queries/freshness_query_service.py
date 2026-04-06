@@ -67,6 +67,23 @@ ON_CONFLICT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Shared-table datasets that must be refreshed live on each page load to avoid
+# stale snapshot perception when period data just finished syncing.
+FORCE_LIVE_RESOURCE_KEYS = {
+    "stk_period_bar_week",
+    "stk_period_bar_month",
+    "stk_period_bar_adj_week",
+    "stk_period_bar_adj_month",
+}
+
+# Dataset-specific observed-range filters for shared tables.
+OBSERVED_DATE_FILTERS: dict[str, tuple[str, str]] = {
+    "stk_period_bar_week": ("freq", "week"),
+    "stk_period_bar_month": ("freq", "month"),
+    "stk_period_bar_adj_week": ("freq", "week"),
+    "stk_period_bar_adj_month": ("freq", "month"),
+}
+
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.security": Security,
     "core.hk_security": HkSecurity,
@@ -133,18 +150,24 @@ class OpsFreshnessQueryService:
                 for spec in all_specs
                 if spec.dataset_key not in snapshot_keys
             ]
-            if not missing_resource_keys:
+            live_override_resource_keys = [
+                spec.resource_key
+                for spec in all_specs
+                if spec.resource_key in FORCE_LIVE_RESOURCE_KEYS
+            ]
+            live_refresh_resource_keys = sorted(set([*missing_resource_keys, *live_override_resource_keys]))
+            if not live_refresh_resource_keys:
                 return snapshot_response
 
-            live_missing_items = self.build_live_items(session, today=today, resource_keys=missing_resource_keys)
-            merged_items = [
-                *[
-                    item
-                    for group in snapshot_response.groups
-                    for item in group.items
-                ],
-                *live_missing_items,
-            ]
+            live_refreshed_items = self.build_live_items(session, today=today, resource_keys=live_refresh_resource_keys)
+            merged_by_key = {
+                item.dataset_key: item
+                for group in snapshot_response.groups
+                for item in group.items
+            }
+            for live_item in live_refreshed_items:
+                merged_by_key[live_item.dataset_key] = live_item
+            merged_items = list(merged_by_key.values())
             groups = self._group_items(merged_items)
             summary = self._build_summary(merged_items)
             return OpsFreshnessResponse(summary=summary, groups=groups)
@@ -436,7 +459,13 @@ class OpsFreshnessQueryService:
                     continue
                 try:
                     column = getattr(model, spec.observed_date_column)
-                    earliest_raw, latest_raw = session.execute(select(func.min(column), func.max(column))).one()
+                    query = select(func.min(column), func.max(column))
+                    filter_spec = OBSERVED_DATE_FILTERS.get(spec.dataset_key)
+                    if filter_spec is not None:
+                        filter_field, filter_value = filter_spec
+                        if hasattr(model, filter_field):
+                            query = query.where(getattr(model, filter_field) == filter_value)
+                    earliest_raw, latest_raw = session.execute(query).one()
                     normalized_earliest = OpsFreshnessQueryService._normalize_observed_date(earliest_raw)
                     normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
                     observed_ranges[spec.dataset_key] = (normalized_earliest, normalized_latest)
