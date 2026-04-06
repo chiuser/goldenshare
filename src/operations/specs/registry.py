@@ -319,7 +319,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "etf_basic":
         return (ETF_LIST_STATUS_PARAM, ETF_EXCHANGE_PARAM)
     if resource == "etf_index":
-        return (TS_CODE_PARAM,)
+        return ()
     return ()
 
 

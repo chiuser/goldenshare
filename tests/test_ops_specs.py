@@ -138,6 +138,7 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert fund_daily_history_spec is not None
     assert [param.key for param in fund_daily_history_spec.supported_params] == ["start_date", "end_date"]
 
+
     etf_basic_spec = get_job_spec("sync_history.etf_basic")
     assert etf_basic_spec is not None
     assert [param.key for param in etf_basic_spec.supported_params] == ["list_status", "exchange"]
@@ -150,7 +151,7 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
 
     etf_index_spec = get_job_spec("sync_history.etf_index")
     assert etf_index_spec is not None
-    assert [param.key for param in etf_index_spec.supported_params] == ["ts_code"]
+    assert [param.key for param in etf_index_spec.supported_params] == []
 
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:

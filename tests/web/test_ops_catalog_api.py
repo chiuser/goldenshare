@@ -53,7 +53,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     etf_exchange = next(param for param in jobs["sync_history.etf_basic"]["supported_params"] if param["key"] == "exchange")
     assert etf_exchange["options"] == ["SH", "SZ"]
     assert etf_exchange["multi_value"] is True
-    assert [param["key"] for param in jobs["sync_history.etf_index"]["supported_params"]] == ["ts_code"]
+    assert [param["key"] for param in jobs["sync_history.etf_index"]["supported_params"]] == []
     ths_hot_daily = jobs["sync_daily.ths_hot"]
     assert [param["key"] for param in ths_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "is_new"]
     assert next(param for param in ths_hot_daily["supported_params"] if param["key"] == "market")["options"] == [
