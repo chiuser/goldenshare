@@ -4,6 +4,7 @@ from datetime import date
 
 from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
 from src.foundation.services.sync.sync_etf_index_service import build_etf_index_params
+from src.foundation.services.sync.sync_fund_adj_service import build_fund_adj_params
 from src.foundation.services.sync.sync_index_daily_service import SyncIndexDailyService, build_index_daily_params
 from src.foundation.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
 from src.foundation.services.sync.sync_index_monthly_service import SyncIndexMonthlyService
@@ -32,6 +33,14 @@ def test_etf_index_params_accepts_ts_code_and_date_filters() -> None:
         "pub_date": "20250131",
         "base_date": "20250102",
     }
+
+
+def test_fund_adj_params_accepts_full_range_and_incremental_trade_date() -> None:
+    full_params = build_fund_adj_params("FULL", start_date="2026-03-01", end_date="2026-03-31")
+    assert full_params == {"start_date": "20260301", "end_date": "20260331"}
+
+    incremental_params = build_fund_adj_params("INCREMENTAL", trade_date=date(2026, 3, 31))
+    assert incremental_params == {"trade_date": "20260331"}
 
 
 def test_stk_period_bar_adj_week_builds_full_range_params() -> None:

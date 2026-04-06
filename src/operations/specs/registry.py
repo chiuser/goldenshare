@@ -201,6 +201,7 @@ DAILY_SYNC_RESOURCES = (
     "top_list",
     "block_trade",
     "fund_daily",
+    "fund_adj",
     "index_daily",
     "ths_daily",
     "dc_index",
@@ -245,6 +246,7 @@ TRADE_DATE_RANGE_RESOURCES = {
     "moneyflow",
     "top_list",
     "block_trade",
+    "fund_adj",
     "fund_daily",
     "limit_list_d",
     "dc_member",
@@ -555,6 +557,14 @@ JOB_SPEC_REGISTRY["backfill_fund_series.fund_daily"] = _backfill_job_spec(
     strategy_type="backfill_by_security",
     supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
 )
+JOB_SPEC_REGISTRY["backfill_fund_series.fund_adj"] = _backfill_job_spec(
+    prefix="backfill_fund_series",
+    resource="fund_adj",
+    display_name="按交易日回补 / fund_adj",
+    description="按交易日历逐日回补基金复权因子（支持分页拉取）。",
+    strategy_type="backfill_by_security",
+    supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+)
 
 for _resource in ("index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
     JOB_SPEC_REGISTRY[f"backfill_index_series.{_resource}"] = _backfill_job_spec(
@@ -624,6 +634,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
             WorkflowStepSpec("block_trade", "sync_daily.block_trade", "大宗交易"),
             WorkflowStepSpec("fund_daily", "sync_daily.fund_daily", "基金日线"),
+            WorkflowStepSpec("fund_adj", "sync_daily.fund_adj", "基金复权因子"),
             WorkflowStepSpec("index_daily", "sync_daily.index_daily", "指数日线"),
             WorkflowStepSpec("ths_daily", "sync_daily.ths_daily", "同花顺板块行情"),
             WorkflowStepSpec("dc_index", "sync_daily.dc_index", "东方财富概念板块"),
@@ -702,6 +713,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly", "trade_date"),
     "stk_period_bar_adj_month": ("股票复权月线", "equity", "股票", "monthly", "trade_date"),
     "fund_daily": ("基金日线", "fund", "ETF/Fund", "daily", "trade_date"),
+    "fund_adj": ("基金复权因子", "fund", "ETF/Fund", "daily", "trade_date"),
     "index_daily": ("指数日线", "index", "指数", "daily", "trade_date"),
     "index_weekly": ("指数周线", "index", "指数", "weekly", "trade_date"),
     "index_monthly": ("指数月线", "index", "指数", "monthly", "trade_date"),

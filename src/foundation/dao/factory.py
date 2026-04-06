@@ -30,6 +30,7 @@ from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
+from src.foundation.models.core.fund_adj_factor import FundAdjFactor
 from src.foundation.models.core.hk_security import HkSecurity
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
@@ -58,6 +59,7 @@ from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
+from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
 from src.foundation.models.raw.raw_holdernumber import RawHolderNumber
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
@@ -112,6 +114,7 @@ class DAOFactory:
         self.hk_security = GenericDAO(session, HkSecurity)
         self.us_security = GenericDAO(session, UsSecurity)
         self.fund_daily_bar = GenericDAO(session, FundDailyBar)
+        self.fund_adj_factor = GenericDAO(session, FundAdjFactor)
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
         self.index_basic = IndexBasicDAO(session)
@@ -155,6 +158,7 @@ class DAOFactory:
         self.raw_hk_basic = GenericDAO(session, RawHkBasic)
         self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)
+        self.raw_fund_adj = GenericDAO(session, RawFundAdj)
         self.raw_stk_period_bar = GenericDAO(session, RawStkPeriodBar)
         self.raw_stk_period_bar_adj = GenericDAO(session, RawStkPeriodBarAdj)
         self.raw_index_basic = GenericDAO(session, RawIndexBasic)

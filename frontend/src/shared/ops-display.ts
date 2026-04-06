@@ -133,6 +133,7 @@ const resourceLabelMap: Record<string, string> = {
   limit_step: "涨停天梯",
   limit_cpt_list: "最强板块统计",
   fund_daily: "基金日线",
+  fund_adj: "基金复权因子",
   index_daily: "指数日线",
   stk_period_bar_week: "股票周线",
   stk_period_bar_month: "股票月线",

@@ -240,8 +240,8 @@ class HistoryBackfillService:
         progress: Callable[[str], None] | None = None,
         execution_id: int | None = None,
     ) -> BackfillSummary:
-        if resource not in {"fund_daily"}:
-            raise ValueError("fund series backfill only supports fund_daily")
+        if resource not in {"fund_daily", "fund_adj"}:
+            raise ValueError("fund series backfill only supports fund_daily and fund_adj")
         trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
         if offset:
             trade_dates = trade_dates[offset:]

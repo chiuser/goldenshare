@@ -10,6 +10,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.us_basic" in JOB_SPEC_REGISTRY
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
+    assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_index" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_member" in JOB_SPEC_REGISTRY
@@ -137,6 +138,10 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     fund_daily_history_spec = get_job_spec("sync_history.fund_daily")
     assert fund_daily_history_spec is not None
     assert [param.key for param in fund_daily_history_spec.supported_params] == ["start_date", "end_date"]
+
+    fund_adj_history_spec = get_job_spec("sync_history.fund_adj")
+    assert fund_adj_history_spec is not None
+    assert [param.key for param in fund_adj_history_spec.supported_params] == ["start_date", "end_date"]
 
 
     etf_basic_spec = get_job_spec("sync_history.etf_basic")

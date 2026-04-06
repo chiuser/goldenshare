@@ -253,6 +253,12 @@ ETF_INDEX_FIELDS = [
     "adj_circle",
 ]
 
+FUND_ADJ_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "adj_factor",
+]
+
 HK_BASIC_FIELDS = [
     "ts_code",
     "name",

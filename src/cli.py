@@ -336,7 +336,7 @@ def backfill_low_frequency(
 
 @app.command("backfill-fund-series")
 def backfill_fund_series(
-    resource: str = typer.Option(..., help="fund_daily"),
+    resource: str = typer.Option(..., help="fund_daily or fund_adj"),
     start_date: str = typer.Option(..., help="YYYY-MM-DD"),
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     offset: int = typer.Option(0),

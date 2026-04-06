@@ -379,9 +379,35 @@ def test_backfill_fund_series_rejects_unsupported_resources(mocker) -> None:
             end_date=date(2026, 3, 29),
         )
     except ValueError as exc:
-        assert "fund_daily" in str(exc)
+        assert "fund_adj" in str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_backfill_fund_series_supports_fund_adj(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 4, 1)]
+    progress = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=99, rows_written=99)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_fund_series(
+        resource="fund_adj",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 1),
+        progress=progress,
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 99
+    assert summary.rows_written == 99
+    build_sync_service.assert_called_once_with("fund_adj", session)
+    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 4, 1), execution_id=None)
+    assert progress.call_args_list[0].args[0] == "fund_adj: 1/1 trade_date=2026-04-01 fetched=99 written=99"
 
 
 def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> None:

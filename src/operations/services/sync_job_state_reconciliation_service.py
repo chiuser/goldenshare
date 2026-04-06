@@ -16,6 +16,7 @@ from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
+from src.foundation.models.core.fund_adj_factor import FundAdjFactor
 from src.foundation.models.core.index_daily_bar import IndexDailyBar
 from src.foundation.models.core.index_daily_serving import IndexDailyServing
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
@@ -44,6 +45,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.stk_period_bar": StkPeriodBar,
     "core.stk_period_bar_adj": StkPeriodBarAdj,
     "core.fund_daily_bar": FundDailyBar,
+    "core.fund_adj_factor": FundAdjFactor,
     "core.index_daily_bar": IndexDailyBar,
     "core.index_daily_serving": IndexDailyServing,
     "core.index_weekly_bar": IndexWeeklyBar,

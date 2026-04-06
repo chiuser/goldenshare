@@ -11,6 +11,7 @@ from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
+from src.foundation.models.core.fund_adj_factor import FundAdjFactor
 from src.foundation.models.core.hk_security import HkSecurity
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
@@ -56,6 +57,7 @@ from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
+from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
 from src.foundation.models.raw.raw_holdernumber import RawHolderNumber
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
@@ -100,6 +102,7 @@ __all__ = [
     "EtfBasic",
     "EtfIndex",
     "FundDailyBar",
+    "FundAdjFactor",
     "HkSecurity",
     "DcDaily",
     "DcHot",
@@ -127,6 +130,7 @@ __all__ = [
     "RawEtfBasic",
     "RawEtfIndex",
     "RawFundDaily",
+    "RawFundAdj",
     "RawHkBasic",
     "RawHolderNumber",
     "RawDcDaily",

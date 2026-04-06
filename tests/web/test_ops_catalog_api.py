@@ -29,6 +29,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "sync_history.etf_index" in job_keys
     assert "sync_history.ths_member" in job_keys
     assert "sync_daily.daily" in job_keys
+    assert "sync_daily.fund_adj" in job_keys
     assert "backfill_index_series.index_weight" in job_keys
     assert "maintenance.rebuild_dm" in job_keys
     assert "maintenance.rebuild_index_kline_serving" in job_keys
@@ -71,6 +72,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert [param["key"] for param in dc_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
     assert next(param for param in dc_hot_daily["supported_params"] if param["key"] == "market")["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
     assert [param["key"] for param in jobs["sync_history.fund_daily"]["supported_params"]] == ["start_date", "end_date"]
+    assert [param["key"] for param in jobs["sync_history.fund_adj"]["supported_params"]] == ["start_date", "end_date"]
     limit_list_daily = jobs["sync_daily.limit_list_d"]
     assert [param["key"] for param in limit_list_daily["supported_params"]] == ["trade_date", "limit_type", "exchange"]
     limit_type = next(param for param in limit_list_daily["supported_params"] if param["key"] == "limit_type")
