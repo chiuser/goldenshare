@@ -10,7 +10,7 @@ from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_R
 from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 
-OUTPUT_PATH = Path("docs/dataset-catalog.md")
+OUTPUT_PATH = Path("docs/datasets/dataset-catalog.md")
 
 
 FIELD_GLOSSARY = [
@@ -259,7 +259,7 @@ def generate_markdown() -> str:
     lines.append("python scripts/generate_dataset_catalog.py")
     lines.append("```")
     lines.append("")
-    lines.append("然后提交更新后的 `docs/dataset-catalog.md`。")
+    lines.append("然后提交更新后的 `docs/datasets/dataset-catalog.md`。")
     lines.append("")
     return "\n".join(lines)
 

@@ -1,6 +1,6 @@
 # 运维系统一期设计
 
-> 历史文档（归档）：本文件保留一期设计过程记录。当前目录与服务入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史文档（归档）：本文件保留一期设计过程记录。当前目录与服务入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 1. 文档目标
 
@@ -19,9 +19,9 @@
 
 实现与后续迭代需同时遵守以下文档：
 
-- [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md)
-- [web-platform-phase1.md](/Users/congming/github/goldenshare/docs/web-platform-phase1.md)
-- [web-platform-phase1-lld.md](/Users/congming/github/goldenshare/docs/web-platform-phase1-lld.md)
+- [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [web-platform-phase1.md](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1.md)
+- [web-platform-phase1-lld.md](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1-lld.md)
 
 ## 2. 系统定位
 

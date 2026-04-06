@@ -1,6 +1,6 @@
 # 虚拟拆仓目录重构方案 v1（Foundation / Ops / Biz）
 
-> 历史迁移文档（归档）：该方案用于记录拆分过程。当前生效结构请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史迁移文档（归档）：该方案用于记录拆分过程。当前生效结构请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 1. 目标
 

@@ -1491,4 +1491,4 @@
 python scripts/generate_dataset_catalog.py
 ```
 
-然后提交更新后的 `docs/dataset-catalog.md`。
+然后提交更新后的 `docs/datasets/dataset-catalog.md`。

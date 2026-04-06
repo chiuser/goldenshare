@@ -1,6 +1,6 @@
 # Web Platform Phase 1
 
-> 历史文档（归档）：本文件包含虚拟拆仓前后的阶段性描述。当前以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史文档（归档）：本文件包含虚拟拆仓前后的阶段性描述。当前以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## Goal
 
@@ -37,7 +37,7 @@ Phase 1 does not include:
 
 ## Design Constraints
 
-Phase 1 follows [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md).
+Phase 1 follows [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md).
 
 Key constraints:
 
@@ -434,7 +434,7 @@ This allows:
 
 Phase 1 should produce or update:
 
-- [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md)
+- [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - this phase-1 design document
 - web startup instructions
 - environment variable documentation

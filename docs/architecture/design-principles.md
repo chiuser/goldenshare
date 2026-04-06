@@ -1,6 +1,6 @@
 # Goldenshare Design Principles
 
-> 说明：本文中的目录示例若与当前代码不一致，请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 说明：本文中的目录示例若与当前代码不一致，请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## Purpose
 
@@ -33,6 +33,7 @@ Rules:
 - the web layer must not introduce direct execution shortcuts simply because a page currently needs them
 - if a data interface naturally supports a date range, the foundation implementation should provide both single-day execution and historical backfill capability from the start; do not ship a date-ranged dataset with only one of those modes
 - when a new dataset is introduced, its operational capability must be introduced at the same time: it should be schedulable, manually triggerable, and observable through the operations system instead of existing as an unmanaged foundation-only table
+- when a new dataset is introduced, a dedicated dataset development document must be created under `docs/` in the same delivery cycle (covering interface source links, input/output fields, raw/core schema design, sync strategy, ops exposure, and current support scope); dataset delivery is considered incomplete without this document
 
 Implication:
 
@@ -41,6 +42,7 @@ Implication:
 - page interaction is not an excuse to bypass foundation boundaries
 - datasets with date-driven update semantics should not require later retrofitting just to gain basic single-day sync or backfill support
 - “data exists in the foundation” is not considered sufficient completion for a new dataset; the operational surface is part of the delivery definition
+- “code landed but documentation missing” is not considered sufficient completion for a new dataset; dataset-level engineering docs are part of the Definition of Done
 
 ## External Reference Rule
 
@@ -158,8 +160,8 @@ Implication:
 
 Reference:
 
-- see `docs/frontend-technology-and-component-selection.md` for the current frontend platform selection analysis
-- see `docs/frontend-application-phase1.md` for the first frontend application architecture
+- see `docs/frontend/frontend-technology-and-component-selection.md` for the current frontend platform selection analysis
+- see `docs/frontend/frontend-application-phase1.md` for the first frontend application architecture
 
 ## UI Copy and Interaction Language Principle
 

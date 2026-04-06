@@ -1,10 +1,10 @@
 # 运维系统一期 Low Level Design
 
-> 历史文档（归档）：本文件保留一期落地细节记录。当前目录与运行入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史文档（归档）：本文件保留一期落地细节记录。当前目录与运行入口请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 1. 文档目标
 
-本文档是 [ops-system-phase1.md](/Users/congming/github/goldenshare/docs/ops-system-phase1.md) 的低层设计文档。
+本文档是 [ops-system-phase1.md](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1.md) 的低层设计文档。
 
 它回答的是“如何具体落地运维系统一期”，而不是“为什么要做运维系统”。
 
@@ -20,9 +20,9 @@
 
 实现时应同时遵守：
 
-- [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md)
-- [ops-system-phase1.md](/Users/congming/github/goldenshare/docs/ops-system-phase1.md)
-- [web-platform-phase1-lld.md](/Users/congming/github/goldenshare/docs/web-platform-phase1-lld.md)
+- [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [ops-system-phase1.md](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1.md)
+- [web-platform-phase1-lld.md](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1-lld.md)
 
 ## 1.1 后续新增数据集准则
 

@@ -1,6 +1,6 @@
 # Goldenshare Web 平台一期 Low Level Design
 
-> 历史文档（归档）：本文件包含早期目录（如 `src/web/*`）说明。当前工程结构请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史文档（归档）：本文件包含早期目录（如 `src/web/*`）说明。当前工程结构请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 1. 文档目标
 
@@ -8,8 +8,8 @@
 
 它的目标不是描述愿景，而是为后续实现提供可以直接执行的蓝图。实现时应同时遵守以下文档：
 
-- [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md)
-- [web-platform-phase1.md](/Users/congming/github/goldenshare/docs/web-platform-phase1.md)
+- [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [web-platform-phase1.md](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1.md)
 
 本 LLD 聚焦一期平台能力，不包含业务页面迁移和业务 API。
 

@@ -13,8 +13,8 @@
 
 本设计同时遵守：
 
-- [design-principles.md](/Users/congming/github/goldenshare/docs/design-principles.md)
-- [frontend-technology-and-component-selection.md](/Users/congming/github/goldenshare/docs/frontend-technology-and-component-selection.md)
+- [design-principles.md](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [frontend-technology-and-component-selection.md](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
 
 ## 2. 一期范围
 

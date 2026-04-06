@@ -1,6 +1,6 @@
 # 运维系统新鲜度页检查记录（2026-03-30）
 
-> 历史检查记录（归档）：本文为问题排查纪要，路径示例可能已过时。当前目录结构以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 历史检查记录（归档）：本文为问题排查纪要，路径示例可能已过时。当前目录结构以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 背景
 

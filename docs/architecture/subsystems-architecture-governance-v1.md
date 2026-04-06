@@ -1,6 +1,6 @@
 # 三子系统架构治理规范（Foundation / Ops / Biz）v1
 
-> 说明：本文是治理规则文档，部分路径示例来自演进阶段。当前落地目录以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/current-architecture-baseline.md) 为准。
+> 说明：本文是治理规则文档，部分路径示例来自演进阶段。当前落地目录以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
 
 ## 1. 目的
 
@@ -153,7 +153,7 @@
 
 建议新增目录约定文档：
 
-- `docs/subsystems-architecture-governance-v1.md`（本文）
+- `docs/architecture/subsystems-architecture-governance-v1.md`（本文）
 - 后续可补 `docs/code-ownership-map-v1.md`
 
 ## 5.2 代码所有权
