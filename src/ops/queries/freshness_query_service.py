@@ -17,6 +17,7 @@ from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.hk_security import HkSecurity
 from src.foundation.models.core.dc_daily import DcDaily
@@ -71,6 +72,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.us_security": UsSecurity,
     "core.trade_calendar": TradeCalendar,
     "core.etf_basic": EtfBasic,
+    "core.etf_index": EtfIndex,
     "core.index_basic": IndexBasic,
     "core.equity_daily_bar": EquityDailyBar,
     "core.equity_adj_factor": EquityAdjFactor,

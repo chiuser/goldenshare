@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
+from src.foundation.services.sync.sync_etf_index_service import build_etf_index_params
 from src.foundation.services.sync.sync_index_daily_service import SyncIndexDailyService, build_index_daily_params
 from src.foundation.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
 from src.foundation.services.sync.sync_index_monthly_service import SyncIndexMonthlyService
@@ -17,6 +18,20 @@ from src.foundation.services.sync.sync_stk_period_bar_week_service import SyncSt
 def test_stk_period_bar_week_builds_trade_date_params() -> None:
     params = SyncStkPeriodBarWeekService.params_builder("FULL", trade_date=date(2026, 3, 27))
     assert params == {"freq": "week", "trade_date": "20260327"}
+
+
+def test_etf_index_params_accepts_ts_code_and_date_filters() -> None:
+    params = build_etf_index_params(
+        "FULL",
+        ts_code="CSI931151.CSI",
+        pub_date="2025-01-31",
+        base_date="2025-01-02",
+    )
+    assert params == {
+        "ts_code": "CSI931151.CSI",
+        "pub_date": "20250131",
+        "base_date": "20250102",
+    }
 
 
 def test_stk_period_bar_adj_week_builds_full_range_params() -> None:

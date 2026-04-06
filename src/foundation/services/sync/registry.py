@@ -11,6 +11,7 @@ from src.foundation.services.sync.sync_daily_basic_service import SyncDailyBasic
 from src.foundation.services.sync.sync_dividend_service import SyncDividendService
 from src.foundation.services.sync.sync_dc_hot_service import SyncDcHotService
 from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService
+from src.foundation.services.sync.sync_etf_index_service import SyncEtfIndexService
 from src.foundation.services.sync.sync_equity_daily_service import SyncEquityDailyService
 from src.foundation.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.foundation.services.sync.sync_holdernumber_service import SyncHolderNumberService
@@ -55,6 +56,7 @@ SYNC_SERVICE_REGISTRY = {
     "block_trade": SyncBlockTradeService,
     "dividend": SyncDividendService,
     "etf_basic": SyncEtfBasicService,
+    "etf_index": SyncEtfIndexService,
     "fund_daily": SyncFundDailyService,
     "index_daily": SyncIndexDailyService,
     "index_basic": SyncIndexBasicService,

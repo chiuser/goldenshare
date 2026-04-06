@@ -26,6 +26,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "sync_history.stock_basic" in job_keys
     assert "sync_history.hk_basic" in job_keys
     assert "sync_history.us_basic" in job_keys
+    assert "sync_history.etf_index" in job_keys
     assert "sync_history.ths_member" in job_keys
     assert "sync_daily.daily" in job_keys
     assert "backfill_index_series.index_weight" in job_keys
@@ -52,6 +53,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     etf_exchange = next(param for param in jobs["sync_history.etf_basic"]["supported_params"] if param["key"] == "exchange")
     assert etf_exchange["options"] == ["SH", "SZ"]
     assert etf_exchange["multi_value"] is True
+    assert [param["key"] for param in jobs["sync_history.etf_index"]["supported_params"]] == ["ts_code"]
     ths_hot_daily = jobs["sync_daily.ths_hot"]
     assert [param["key"] for param in ths_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "is_new"]
     assert next(param for param in ths_hot_daily["supported_params"] if param["key"] == "market")["options"] == [
@@ -68,6 +70,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     dc_hot_daily = jobs["sync_daily.dc_hot"]
     assert [param["key"] for param in dc_hot_daily["supported_params"]] == ["trade_date", "ts_code", "market", "hot_type", "is_new"]
     assert next(param for param in dc_hot_daily["supported_params"] if param["key"] == "market")["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
+    assert [param["key"] for param in jobs["sync_history.fund_daily"]["supported_params"]] == ["start_date", "end_date"]
     limit_list_daily = jobs["sync_daily.limit_list_d"]
     assert [param["key"] for param in limit_list_daily["supported_params"]] == ["trade_date", "limit_type", "exchange"]
     limit_type = next(param for param in limit_list_daily["supported_params"] if param["key"] == "limit_type")

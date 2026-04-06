@@ -8,6 +8,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stock_basic" in JOB_SPEC_REGISTRY
     assert "sync_history.hk_basic" in JOB_SPEC_REGISTRY
     assert "sync_history.us_basic" in JOB_SPEC_REGISTRY
+    assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_index" in JOB_SPEC_REGISTRY
@@ -133,6 +134,10 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert kpl_list_backfill_spec is not None
     assert [param.key for param in kpl_list_backfill_spec.supported_params] == ["start_date", "end_date", "tag", "trade_date"]
 
+    fund_daily_history_spec = get_job_spec("sync_history.fund_daily")
+    assert fund_daily_history_spec is not None
+    assert [param.key for param in fund_daily_history_spec.supported_params] == ["start_date", "end_date"]
+
     etf_basic_spec = get_job_spec("sync_history.etf_basic")
     assert etf_basic_spec is not None
     assert [param.key for param in etf_basic_spec.supported_params] == ["list_status", "exchange"]
@@ -142,6 +147,10 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     etf_exchange_param = next(param for param in etf_basic_spec.supported_params if param.key == "exchange")
     assert etf_exchange_param.options == ("SH", "SZ")
     assert etf_exchange_param.multi_value is True
+
+    etf_index_spec = get_job_spec("sync_history.etf_index")
+    assert etf_index_spec is not None
+    assert [param.key for param in etf_index_spec.supported_params] == ["ts_code"]
 
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:

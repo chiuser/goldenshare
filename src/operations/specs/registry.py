@@ -221,6 +221,7 @@ SCHEDULED_FULL_REFRESH_RESOURCES = {
     "us_basic",
     "trade_cal",
     "etf_basic",
+    "etf_index",
     "index_basic",
     "ths_index",
     "ths_member",
@@ -229,7 +230,6 @@ SCHEDULED_FULL_REFRESH_RESOURCES = {
 SECURITY_RANGE_RESOURCES = {
     "daily",
     "adj_factor",
-    "fund_daily",
     "index_daily",
     "index_daily_basic",
     "index_weekly",
@@ -245,6 +245,7 @@ TRADE_DATE_RANGE_RESOURCES = {
     "moneyflow",
     "top_list",
     "block_trade",
+    "fund_daily",
     "limit_list_d",
     "dc_member",
     "ths_hot",
@@ -317,6 +318,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TS_CODE_PARAM,) if resource in {"dividend", "stk_holdernumber"} else ()
     if resource == "etf_basic":
         return (ETF_LIST_STATUS_PARAM, ETF_EXCHANGE_PARAM)
+    if resource == "etf_index":
+        return (TS_CODE_PARAM,)
     return ()
 
 
@@ -547,8 +550,8 @@ for _resource in ("dividend", "stk_holdernumber"):
 JOB_SPEC_REGISTRY["backfill_fund_series.fund_daily"] = _backfill_job_spec(
     prefix="backfill_fund_series",
     resource="fund_daily",
-    display_name="基金纵向回补 / fund_daily",
-    description="从 ETF/Fund 代码池读取候选代码，按证券纵向回补基金日线。",
+    display_name="按交易日回补 / fund_daily",
+    description="按交易日历逐日回补 ETF 日线行情（支持分页拉取）。",
     strategy_type="backfill_by_security",
     supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
 )
@@ -600,6 +603,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("stock_basic", "sync_history.stock_basic", "股票主数据"),
             WorkflowStepSpec("trade_cal", "sync_history.trade_cal", "交易日历"),
             WorkflowStepSpec("etf_basic", "sync_history.etf_basic", "ETF 基本信息"),
+            WorkflowStepSpec("etf_index", "sync_history.etf_index", "ETF 基准指数列表"),
             WorkflowStepSpec("index_basic", "sync_history.index_basic", "指数基本信息"),
             WorkflowStepSpec("hk_basic", "sync_history.hk_basic", "港股列表"),
             WorkflowStepSpec("us_basic", "sync_history.us_basic", "美股列表"),
@@ -684,6 +688,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "us_basic": ("美股列表", "reference_data", "基础主数据", "reference", None),
     "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
     "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
+    "etf_index": ("ETF 基准指数列表", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),

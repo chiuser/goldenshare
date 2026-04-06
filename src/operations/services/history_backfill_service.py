@@ -242,31 +242,29 @@ class HistoryBackfillService:
     ) -> BackfillSummary:
         if resource not in {"fund_daily"}:
             raise ValueError("fund series backfill only supports fund_daily")
-        funds = sorted(self.dao.etf_basic.get_fund_daily_candidates(), key=lambda item: item.ts_code)
+        trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
         if offset:
-            funds = funds[offset:]
+            trade_dates = trade_dates[offset:]
         if limit is not None:
-            funds = funds[:limit]
+            trade_dates = trade_dates[:limit]
         rows_fetched = 0
         rows_written = 0
-        total = len(funds)
-        for index, fund in enumerate(funds, start=1):
+        total = len(trade_dates)
+        for index, trade_date in enumerate(trade_dates, start=1):
             service = build_sync_service(resource, self.session)
-            result = service.run_full(
-                ts_code=fund.ts_code,
-                start_date=start_date.isoformat(),
-                end_date=end_date.isoformat(),
+            result = service.run_incremental(
+                trade_date=trade_date,
                 execution_id=execution_id,
             )
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} ts_code={fund.ts_code} "
+                    f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
                     f"fetched={result.rows_fetched} written={result.rows_written}"
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
-        return BackfillSummary(resource, len(funds), rows_fetched, rows_written)
+        return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
 
     def backfill_index_series(
         self,

@@ -336,16 +336,13 @@ def test_backfill_fund_series_emits_progress(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.etf_basic.get_fund_daily_candidates.return_value = [
-        mocker.Mock(ts_code="159915.SZ"),
-        mocker.Mock(ts_code="510300.SH"),
-    ]
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 28), date(2026, 3, 31)]
     progress = mocker.Mock()
 
     sync_service_1 = mocker.Mock()
-    sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
+    sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
     sync_service_2 = mocker.Mock()
-    sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
+    sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=20, rows_written=20)
     build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
 
     summary = service.backfill_fund_series(
@@ -359,8 +356,16 @@ def test_backfill_fund_series_emits_progress(mocker) -> None:
     assert summary.rows_fetched == 30
     assert summary.rows_written == 30
     assert build_sync_service.call_count == 2
-    assert progress.call_args_list[0].args[0] == "fund_daily: 1/2 ts_code=159915.SZ fetched=10 written=10"
-    assert progress.call_args_list[1].args[0] == "fund_daily: 2/2 ts_code=510300.SH fetched=20 written=20"
+    sync_service_1.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 28),
+        execution_id=None,
+    )
+    sync_service_2.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 31),
+        execution_id=None,
+    )
+    assert progress.call_args_list[0].args[0] == "fund_daily: 1/2 trade_date=2026-03-28 fetched=10 written=10"
+    assert progress.call_args_list[1].args[0] == "fund_daily: 2/2 trade_date=2026-03-31 fetched=20 written=20"
 
 
 def test_backfill_fund_series_rejects_unsupported_resources(mocker) -> None:

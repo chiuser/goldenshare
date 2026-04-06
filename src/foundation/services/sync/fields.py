@@ -242,6 +242,17 @@ ETF_BASIC_FIELDS = [
     "etf_type",
 ]
 
+ETF_INDEX_FIELDS = [
+    "ts_code",
+    "indx_name",
+    "indx_csname",
+    "pub_party_name",
+    "pub_date",
+    "base_date",
+    "bp",
+    "adj_circle",
+]
+
 HK_BASIC_FIELDS = [
     "ts_code",
     "name",

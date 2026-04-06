@@ -28,6 +28,7 @@ from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.hk_security import HkSecurity
 from src.foundation.models.core.dc_daily import DcDaily
@@ -55,6 +56,7 @@ from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
 from src.foundation.models.raw.raw_holdernumber import RawHolderNumber
@@ -106,6 +108,7 @@ class DAOFactory:
         self.equity_block_trade = GenericDAO(session, EquityBlockTrade)
         self.equity_dividend = EquityDividendDAO(session)
         self.etf_basic = EtfBasicDAO(session)
+        self.etf_index = GenericDAO(session, EtfIndex)
         self.hk_security = GenericDAO(session, HkSecurity)
         self.us_security = GenericDAO(session, UsSecurity)
         self.fund_daily_bar = GenericDAO(session, FundDailyBar)
@@ -148,6 +151,7 @@ class DAOFactory:
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)
         self.raw_dividend = RawDividendDAO(session)
         self.raw_etf_basic = GenericDAO(session, RawEtfBasic)
+        self.raw_etf_index = GenericDAO(session, RawEtfIndex)
         self.raw_hk_basic = GenericDAO(session, RawHkBasic)
         self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)

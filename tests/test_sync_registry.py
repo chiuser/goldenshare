@@ -6,6 +6,7 @@ def test_registry_contains_required_resources() -> None:
     assert "hk_basic" in SYNC_SERVICE_REGISTRY
     assert "us_basic" in SYNC_SERVICE_REGISTRY
     assert "etf_basic" in SYNC_SERVICE_REGISTRY
+    assert "etf_index" in SYNC_SERVICE_REGISTRY
     assert "daily" in SYNC_SERVICE_REGISTRY
     assert "fund_daily" in SYNC_SERVICE_REGISTRY
     assert "stk_period_bar_week" in SYNC_SERVICE_REGISTRY

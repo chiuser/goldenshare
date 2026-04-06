@@ -52,7 +52,7 @@ const categoryLabelMap: Record<string, string> = {
   backfill_by_trade_date: "按交易日回补",
   backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
-  backfill_fund_series: "基金纵向回补",
+  backfill_fund_series: "基金按交易日回补",
   backfill_index_series: "指数纵向回补",
   maintenance: "维护动作",
 };
@@ -118,6 +118,7 @@ const resourceLabelMap: Record<string, string> = {
   hk_basic: "港股列表",
   us_basic: "美股列表",
   etf_basic: "ETF 基础信息",
+  etf_index: "ETF 基准指数列表",
   index_basic: "指数基础信息",
   daily: "股票日线",
   adj_factor: "复权因子",
@@ -162,7 +163,7 @@ const specPrefixLabelMap: Record<string, string> = {
   backfill_by_trade_date: "按交易日回补",
   backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
-  backfill_fund_series: "基金纵向回补",
+  backfill_fund_series: "基金按交易日回补",
   backfill_index_series: "指数纵向回补",
   maintenance: "维护动作",
 };

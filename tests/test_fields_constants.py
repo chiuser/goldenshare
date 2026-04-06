@@ -5,6 +5,7 @@ from src.foundation.services.sync.fields import (
     DAILY_FIELDS,
     DIVIDEND_FIELDS,
     ETF_BASIC_FIELDS,
+    ETF_INDEX_FIELDS,
     FUND_DAILY_FIELDS,
     HOLDERNUMBER_FIELDS,
     HK_BASIC_FIELDS,
@@ -91,6 +92,16 @@ def test_new_field_constants_exist() -> None:
         "custod_name",
         "mgt_fee",
         "etf_type",
+    )
+    assert tuple(ETF_INDEX_FIELDS) == (
+        "ts_code",
+        "indx_name",
+        "indx_csname",
+        "pub_party_name",
+        "pub_date",
+        "base_date",
+        "bp",
+        "adj_circle",
     )
     assert "trade_date" in INDEX_WEEKLY_FIELDS
     assert "trade_date" in INDEX_MONTHLY_FIELDS
