@@ -187,6 +187,23 @@ def test_quote_page_init_and_kline_for_stock(app_client, db_session) -> None:
     assert first_bar["close"] == "5.2500"
     assert first_bar["turnover_rate"] == "2.1000"
     assert second_bar["close"] == "11.0000"
+    single_day_response = app_client.get(
+        "/api/v1/quote/detail/kline",
+        params={
+            "ts_code": "002245.SZ",
+            "period": "day",
+            "adjustment": "forward",
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-01",
+            "limit": 10,
+        },
+    )
+    assert single_day_response.status_code == 200
+    single_day_payload = single_day_response.json()
+    assert single_day_payload["meta"]["bar_count"] == 1
+    assert single_day_payload["bars"][0]["trade_date"] == "2026-04-01"
+    assert single_day_payload["bars"][0]["open"] == "5.0000"
+    assert single_day_payload["bars"][0]["close"] == "5.2500"
 
     related_response = app_client.get("/api/v1/quote/detail/related-info", params={"ts_code": "002245.SZ"})
     assert related_response.status_code == 200

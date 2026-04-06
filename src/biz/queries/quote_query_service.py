@@ -573,7 +573,9 @@ class QuoteQueryService:
                 for row in rows
             ]
 
-        anchor = max(factor_map.values()) if adjustment == "forward" else min(factor_map.values())
+        anchor = self._load_stock_adjustment_anchor(session, ts_code=ts_code, adjustment=adjustment)
+        if anchor is None:
+            anchor = max(factor_map.values()) if adjustment == "forward" else min(factor_map.values())
         if anchor == 0:
             anchor = Decimal("1")
 
@@ -597,6 +599,27 @@ class QuoteQueryService:
                 )
             )
         return points
+
+    def _load_stock_adjustment_anchor(
+        self,
+        session: Session,
+        *,
+        ts_code: str,
+        adjustment: str,
+    ) -> Decimal | None:
+        if adjustment == "forward":
+            return session.scalar(
+                select(EquityAdjFactor.adj_factor)
+                .where(EquityAdjFactor.ts_code == ts_code)
+                .order_by(EquityAdjFactor.trade_date.desc())
+                .limit(1)
+            )
+        return session.scalar(
+            select(EquityAdjFactor.adj_factor)
+            .where(EquityAdjFactor.ts_code == ts_code)
+            .order_by(EquityAdjFactor.trade_date.asc())
+            .limit(1)
+        )
 
     def _load_stock_period_points(
         self,
