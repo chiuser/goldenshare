@@ -7,6 +7,7 @@ from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -100,6 +101,7 @@ __all__ = [
     "EquityHolderNumber",
     "EquityLimitList",
     "EquityMoneyflow",
+    "EquityPriceRestoreFactor",
     "EquityTopList",
     "EtfBasic",
     "EtfIndex",

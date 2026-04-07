@@ -212,6 +212,7 @@ LIMIT_PARAM = ParameterSpec(
 
 DAILY_SYNC_RESOURCES = (
     "daily",
+    "equity_price_restore_factor",
     "adj_factor",
     "daily_basic",
     "moneyflow",
@@ -261,6 +262,7 @@ SECURITY_RANGE_RESOURCES = {
 }
 
 TRADE_DATE_RANGE_RESOURCES = {
+    "equity_price_restore_factor",
     "daily_basic",
     "moneyflow",
     "top_list",
@@ -659,6 +661,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
         description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日同步工作流。",
         steps=(
             WorkflowStepSpec("daily", "sync_daily.daily", "股票日线"),
+            WorkflowStepSpec("equity_price_restore_factor", "sync_daily.equity_price_restore_factor", "价格还原因子"),
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
@@ -735,6 +738,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
+    "equity_price_restore_factor": ("价格还原因子", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),

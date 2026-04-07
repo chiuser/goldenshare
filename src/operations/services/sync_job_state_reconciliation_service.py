@@ -14,6 +14,7 @@ from src.foundation.models.core.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -36,6 +37,7 @@ from src.foundation.services.sync.registry import build_sync_service
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.trade_calendar": TradeCalendar,
     "core.equity_daily_bar": EquityDailyBar,
+    "core.equity_price_restore_factor": EquityPriceRestoreFactor,
     "core.equity_adj_factor": EquityAdjFactor,
     "core.equity_daily_basic": EquityDailyBasic,
     "core.equity_moneyflow": EquityMoneyflow,

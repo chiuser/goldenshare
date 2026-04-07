@@ -15,6 +15,7 @@ from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -93,6 +94,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.etf_index": EtfIndex,
     "core.index_basic": IndexBasic,
     "core.equity_daily_bar": EquityDailyBar,
+    "core.equity_price_restore_factor": EquityPriceRestoreFactor,
     "core.equity_adj_factor": EquityAdjFactor,
     "core.equity_daily_basic": EquityDailyBasic,
     "core.equity_moneyflow": EquityMoneyflow,

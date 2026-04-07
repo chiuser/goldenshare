@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
-from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -546,15 +546,15 @@ class QuoteQueryService:
             ]
 
         factors = session.scalars(
-            select(EquityAdjFactor)
+            select(EquityPriceRestoreFactor)
             .where(
-                EquityAdjFactor.ts_code == ts_code,
-                EquityAdjFactor.trade_date >= rows[0].trade_date,
-                EquityAdjFactor.trade_date <= rows[-1].trade_date,
+                EquityPriceRestoreFactor.ts_code == ts_code,
+                EquityPriceRestoreFactor.trade_date >= rows[0].trade_date,
+                EquityPriceRestoreFactor.trade_date <= rows[-1].trade_date,
             )
-            .order_by(EquityAdjFactor.trade_date.asc())
+            .order_by(EquityPriceRestoreFactor.trade_date.asc())
         ).all()
-        factor_map = {item.trade_date: item.adj_factor for item in factors if item.adj_factor is not None}
+        factor_map = {item.trade_date: item.cum_factor for item in factors if item.cum_factor is not None}
         if not factor_map:
             return [
                 KlinePoint(
@@ -609,15 +609,15 @@ class QuoteQueryService:
     ) -> Decimal | None:
         if adjustment == "forward":
             return session.scalar(
-                select(EquityAdjFactor.adj_factor)
-                .where(EquityAdjFactor.ts_code == ts_code)
-                .order_by(EquityAdjFactor.trade_date.desc())
+                select(EquityPriceRestoreFactor.cum_factor)
+                .where(EquityPriceRestoreFactor.ts_code == ts_code)
+                .order_by(EquityPriceRestoreFactor.trade_date.desc())
                 .limit(1)
             )
         return session.scalar(
-            select(EquityAdjFactor.adj_factor)
-            .where(EquityAdjFactor.ts_code == ts_code)
-            .order_by(EquityAdjFactor.trade_date.asc())
+            select(EquityPriceRestoreFactor.cum_factor)
+            .where(EquityPriceRestoreFactor.ts_code == ts_code)
+            .order_by(EquityPriceRestoreFactor.trade_date.asc())
             .limit(1)
         )
 
