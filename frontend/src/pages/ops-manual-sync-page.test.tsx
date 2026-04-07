@@ -281,6 +281,65 @@ vi.mock("../shared/api/client", () => ({
               },
             ],
           },
+          {
+            key: "sync_daily.broker_recommend",
+            display_name: "日常同步 / broker_recommend",
+            category: "sync_daily",
+            description: "按单月同步券商每月荐股。",
+            strategy_type: "incremental_by_date",
+            executor_kind: "sync_service",
+            target_tables: ["core.broker_recommend"],
+            supports_manual_run: true,
+            supports_schedule: true,
+            supports_retry: true,
+            schedule_binding_count: 0,
+            active_schedule_count: 0,
+            supported_params: [
+              {
+                key: "month",
+                display_name: "月份",
+                param_type: "month",
+                description: "单个月份。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+            ],
+          },
+          {
+            key: "backfill_by_month.broker_recommend",
+            display_name: "按月份回补 / broker_recommend",
+            category: "backfill_by_month",
+            description: "按月份区间回补券商每月荐股。",
+            strategy_type: "backfill_by_month",
+            executor_kind: "history_backfill_service",
+            target_tables: ["core.broker_recommend"],
+            supports_manual_run: true,
+            supports_schedule: false,
+            supports_retry: true,
+            schedule_binding_count: 0,
+            active_schedule_count: 0,
+            supported_params: [
+              {
+                key: "start_month",
+                display_name: "开始月份",
+                param_type: "month",
+                description: "开始月份。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+              {
+                key: "end_month",
+                display_name: "结束月份",
+                param_type: "month",
+                description: "结束月份。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+            ],
+          },
         ],
         workflow_specs: [],
       };
@@ -328,10 +387,13 @@ function renderPageWithPersistedDraft() {
     "goldenshare.frontend.ops.manual-sync.draft",
     JSON.stringify({
       action_id: "job:stock_basic",
-      date_mode: "single_day",
+      date_mode: "single_point",
       selected_date: "",
       start_date: "",
       end_date: "",
+      selected_month: "",
+      start_month: "",
+      end_month: "",
       field_values: { exchange: "SSE" },
     }),
   );
@@ -434,5 +496,44 @@ describe("手动同步页", () => {
     expect(screen.getByLabelText("人气榜")).toBeInTheDocument();
     expect(screen.getByLabelText("飙升榜")).toBeInTheDocument();
     expect(screen.queryByText("交易所")).not.toBeInTheDocument();
+  });
+
+  it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
+    window.history.replaceState({}, "", "/app/ops/manual-sync?spec_key=sync_daily.broker_recommend&spec_type=job");
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const rootRoute = createRootRoute({
+      component: () => <OpsManualSyncPage />,
+    });
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/manual-sync",
+      component: () => <OpsManualSyncPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/manual-sync?spec_key=sync_daily.broker_recommend&spec_type=job"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByText("维护券商每月荐股")).toBeInTheDocument();
+    expect(screen.getByText("第二步：选择时间范围")).toBeInTheDocument();
+    expect(screen.getByText("只处理一个月")).toBeInTheDocument();
+    expect(screen.getByText("处理一个月份区间")).toBeInTheDocument();
+    expect(screen.getByLabelText("选择月份")).toBeInTheDocument();
   });
 });

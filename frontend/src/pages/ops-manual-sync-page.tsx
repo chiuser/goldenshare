@@ -26,13 +26,19 @@ import type {
 } from "../shared/api/types";
 import { formatCategoryLabel, formatResourceLabel, formatSpecDisplayLabel } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
+import {
+  filterNonTimeParams,
+  getTimeModeLabels,
+  inferTimeCapability,
+  type TimeCapability,
+  type TimeMode,
+} from "../shared/ops-time-capability";
 import { DateField } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
 
 type ManualSpecType = "job" | "workflow";
-type DateMode = "single_day" | "date_range";
 
 type CatalogJobSpec = OpsCatalogResponse["job_specs"][number];
 type CatalogWorkflowSpec = OpsCatalogResponse["workflow_specs"][number];
@@ -50,8 +56,7 @@ type ManualAction = {
   directSpecKey: string | null;
   workflowKey: string | null;
   supportedParams: CatalogParamSpec[];
-  supportsSingleDay: boolean;
-  supportsDateRange: boolean;
+  timeCapability: TimeCapability;
 };
 
 type ActionGuidance = {
@@ -60,16 +65,18 @@ type ActionGuidance = {
 };
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
-const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic", "hk_basic", "us_basic"]);
 
 function buildEmptyDraft() {
   return {
     action_id: "",
-    date_mode: "single_day" as DateMode,
+    date_mode: "single_point" as TimeMode,
     selected_date: "",
     start_date: "",
     end_date: "",
+    selected_month: "",
+    start_month: "",
+    end_month: "",
     field_values: {} as Record<string, string | string[]>,
   };
 }
@@ -89,7 +96,7 @@ function matchesActionSpec(action: ManualAction, specType: string | null, specKe
 }
 
 function filterVisibleParams(params: CatalogParamSpec[]) {
-  return params.filter((param) => !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key));
+  return filterNonTimeParams(params).filter((param) => !INTERNAL_PARAM_KEYS.has(param.key));
 }
 
 function extractResourceKey(specKey: string) {
@@ -97,22 +104,14 @@ function extractResourceKey(specKey: string) {
   return parts.length >= 2 ? parts[1] : specKey;
 }
 
-function isSingleDay(resource: ManualAction, draft: ReturnType<typeof buildEmptyDraft>) {
-  if (resource.supportsSingleDay && resource.supportsDateRange) {
-    return draft.date_mode === "single_day";
+function isSinglePoint(resource: ManualAction, draft: ReturnType<typeof buildEmptyDraft>) {
+  if (resource.timeCapability.supportsPoint && resource.timeCapability.supportsRange) {
+    return draft.date_mode === "single_point";
   }
-  if (resource.supportsSingleDay) {
+  if (resource.timeCapability.supportsPoint) {
     return true;
   }
   return false;
-}
-
-function hasParam(spec: CatalogJobSpec | null, key: string) {
-  return Boolean(spec?.supported_params?.some((param) => param.key === key));
-}
-
-function hasWorkflowParam(params: CatalogParamSpec[], key: string) {
-  return params.some((param) => param.key === key);
 }
 
 function buildManualActions(catalog: OpsCatalogResponse | undefined) {
@@ -182,9 +181,12 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
   }
 
   const actions: ManualAction[] = Array.from(resourceMap.values()).map((item) => {
-    const supportsSingleDay = hasParam(item.syncDailySpec, "trade_date");
-    const supportsDateRange = hasParam(item.backfillSpec, "start_date") && hasParam(item.backfillSpec, "end_date");
-    const backfillNoDateSpecKey = item.backfillSpec && !supportsDateRange ? item.backfillSpec.key : null;
+    const timeCapability = inferTimeCapability([
+      ...(item.syncDailySpec?.supported_params || []),
+      ...(item.backfillSpec?.supported_params || []),
+      ...(item.directSpec?.supported_params || []),
+    ]);
+    const backfillNoDateSpecKey = item.backfillSpec && !timeCapability.supportsRange ? item.backfillSpec.key : null;
     return {
       id: `job:${item.resourceKey}`,
       type: "job",
@@ -197,16 +199,13 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       directSpecKey: item.directSpec?.key || null,
       workflowKey: null,
       supportedParams: item.supportedParams,
-      supportsSingleDay,
-      supportsDateRange,
+      timeCapability,
     };
   });
 
   for (const workflow of catalog.workflow_specs.filter((item) => item.supports_manual_run !== false)) {
     const workflowVisibleParams = filterVisibleParams(workflow.supported_params || []);
-    const workflowSupportsSingleDay = hasWorkflowParam(workflow.supported_params || [], "trade_date");
-    const workflowSupportsDateRange = hasWorkflowParam(workflow.supported_params || [], "start_date")
-      && hasWorkflowParam(workflow.supported_params || [], "end_date");
+    const timeCapability = inferTimeCapability(workflow.supported_params || []);
     actions.push({
       id: `workflow:${workflow.key}`,
       type: "workflow",
@@ -219,8 +218,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       directSpecKey: null,
       workflowKey: workflow.key,
       supportedParams: workflowVisibleParams,
-      supportsSingleDay: workflowSupportsSingleDay,
-      supportsDateRange: workflowSupportsDateRange,
+      timeCapability,
     });
   }
 
@@ -250,7 +248,10 @@ function buildDraftFromParams(
   const tradeDate = typeof paramsJson?.trade_date === "string" ? paramsJson.trade_date : "";
   const startDate = typeof paramsJson?.start_date === "string" ? paramsJson.start_date : "";
   const endDate = typeof paramsJson?.end_date === "string" ? paramsJson.end_date : "";
-  const dateMode: DateMode = tradeDate || (startDate && endDate && startDate === endDate) ? "single_day" : "date_range";
+  const month = typeof paramsJson?.month === "string" ? paramsJson.month : "";
+  const startMonth = typeof paramsJson?.start_month === "string" ? paramsJson.start_month : "";
+  const endMonth = typeof paramsJson?.end_month === "string" ? paramsJson.end_month : "";
+  const dateMode: TimeMode = (tradeDate || month) ? "single_point" : "time_range";
   return {
     ...current,
     action_id: actionId,
@@ -258,6 +259,9 @@ function buildDraftFromParams(
     selected_date: tradeDate || startDate || current.selected_date,
     start_date: startDate,
     end_date: endDate,
+    selected_month: month || startMonth || current.selected_month,
+    start_month: startMonth,
+    end_month: endMonth,
     field_values: fieldValues,
   };
 }
@@ -330,16 +334,17 @@ function resolveExecutionTarget(
     params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
   }
 
-  if (action.supportsSingleDay && action.supportsDateRange) {
-    if (draft.date_mode === "single_day") {
-      if (!draft.selected_date) {
-        throw new Error("请选择要处理的日期。");
+  if (action.timeCapability.supportsPoint && action.timeCapability.supportsRange) {
+    if (draft.date_mode === "single_point") {
+      const pointValue = action.timeCapability.pointGranularity === "month" ? draft.selected_month : draft.selected_date;
+      if (!pointValue) {
+        throw new Error(action.timeCapability.pointGranularity === "month" ? "请选择要处理的月份。" : "请选择要处理的日期。");
       }
       if (action.type === "workflow") {
         return {
           spec_type: "workflow" as ManualSpecType,
           spec_key: action.workflowKey!,
-          params_json: { ...params, trade_date: draft.selected_date },
+          params_json: { ...params, [action.timeCapability.pointKey!]: pointValue },
         };
       }
       if (!action.syncDailySpecKey) {
@@ -348,17 +353,19 @@ function resolveExecutionTarget(
       return {
         spec_type: "job" as ManualSpecType,
         spec_key: action.syncDailySpecKey,
-        params_json: { ...params, trade_date: draft.selected_date },
+        params_json: { ...params, [action.timeCapability.pointKey!]: pointValue },
       };
     }
-    if (!draft.start_date || !draft.end_date) {
-      throw new Error("请选择开始日期和结束日期。");
+    const rangeStart = action.timeCapability.rangeGranularity === "month" ? draft.start_month : draft.start_date;
+    const rangeEnd = action.timeCapability.rangeGranularity === "month" ? draft.end_month : draft.end_date;
+    if (!rangeStart || !rangeEnd) {
+      throw new Error(action.timeCapability.rangeGranularity === "month" ? "请选择开始月份和结束月份。" : "请选择开始日期和结束日期。");
     }
     if (action.type === "workflow") {
       return {
         spec_type: "workflow" as ManualSpecType,
         spec_key: action.workflowKey!,
-        params_json: { ...params, start_date: draft.start_date, end_date: draft.end_date },
+        params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
       };
     }
     if (!action.backfillSpecKey) {
@@ -367,19 +374,20 @@ function resolveExecutionTarget(
     return {
       spec_type: "job" as ManualSpecType,
       spec_key: action.backfillSpecKey,
-      params_json: { ...params, start_date: draft.start_date, end_date: draft.end_date },
+      params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
     };
   }
 
-  if (action.supportsSingleDay) {
-    if (!draft.selected_date) {
-      throw new Error("请选择要处理的日期。");
+  if (action.timeCapability.supportsPoint) {
+    const pointValue = action.timeCapability.pointGranularity === "month" ? draft.selected_month : draft.selected_date;
+    if (!pointValue) {
+      throw new Error(action.timeCapability.pointGranularity === "month" ? "请选择要处理的月份。" : "请选择要处理的日期。");
     }
     if (action.type === "workflow") {
       return {
         spec_type: "workflow" as ManualSpecType,
         spec_key: action.workflowKey!,
-        params_json: { ...params, trade_date: draft.selected_date },
+        params_json: { ...params, [action.timeCapability.pointKey!]: pointValue },
       };
     }
     if (!action.syncDailySpecKey) {
@@ -388,21 +396,25 @@ function resolveExecutionTarget(
     return {
       spec_type: "job" as ManualSpecType,
       spec_key: action.syncDailySpecKey,
-      params_json: { ...params, trade_date: draft.selected_date },
+      params_json: { ...params, [action.timeCapability.pointKey!]: pointValue },
     };
   }
 
-  if (action.supportsDateRange) {
-    const startDate = draft.start_date || draft.selected_date;
-    const endDate = draft.end_date || draft.selected_date;
-    if (!startDate || !endDate) {
-      throw new Error("请选择开始日期和结束日期。");
+  if (action.timeCapability.supportsRange) {
+    const rangeStart = action.timeCapability.rangeGranularity === "month"
+      ? (draft.start_month || draft.selected_month)
+      : (draft.start_date || draft.selected_date);
+    const rangeEnd = action.timeCapability.rangeGranularity === "month"
+      ? (draft.end_month || draft.selected_month)
+      : (draft.end_date || draft.selected_date);
+    if (!rangeStart || !rangeEnd) {
+      throw new Error(action.timeCapability.rangeGranularity === "month" ? "请选择开始月份和结束月份。" : "请选择开始日期和结束日期。");
     }
     if (action.type === "workflow") {
       return {
         spec_type: "workflow" as ManualSpecType,
         spec_key: action.workflowKey!,
-        params_json: { ...params, start_date: startDate, end_date: endDate },
+        params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
       };
     }
     if (!action.backfillSpecKey) {
@@ -411,7 +423,7 @@ function resolveExecutionTarget(
     return {
       spec_type: "job" as ManualSpecType,
       spec_key: action.backfillSpecKey,
-      params_json: { ...params, start_date: startDate, end_date: endDate },
+      params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
     };
   }
 
@@ -628,72 +640,117 @@ export function OpsManualSyncPage() {
                     </Alert>
                   ) : null}
 
-                  {(selectedAction.supportsSingleDay || selectedAction.supportsDateRange) ? (
+                  {selectedAction.timeCapability.hasTimeInput ? (
                     <Stack gap="xs">
                       <Text fw={700}>第二步：选择时间范围</Text>
 
-                      {(selectedAction.supportsSingleDay && selectedAction.supportsDateRange) ? (
+                      {(selectedAction.timeCapability.supportsPoint && selectedAction.timeCapability.supportsRange) ? (
                         <SimpleGrid cols={{ base: 1, md: 2 }}>
                           <Button
-                            variant={draft.date_mode === "single_day" ? "filled" : "light"}
-                            onClick={() => setDraft((current) => ({ ...current, date_mode: "single_day" }))}
+                            variant={draft.date_mode === "single_point" ? "filled" : "light"}
+                            onClick={() => setDraft((current) => ({ ...current, date_mode: "single_point" }))}
                           >
-                            只处理一天
+                            {getTimeModeLabels(selectedAction.timeCapability).point}
                           </Button>
                           <Button
-                            variant={draft.date_mode === "date_range" ? "filled" : "light"}
-                            onClick={() => setDraft((current) => ({ ...current, date_mode: "date_range" }))}
+                            variant={draft.date_mode === "time_range" ? "filled" : "light"}
+                            onClick={() => setDraft((current) => ({ ...current, date_mode: "time_range" }))}
                           >
-                            处理一个时间区间
+                            {getTimeModeLabels(selectedAction.timeCapability).range}
                           </Button>
                         </SimpleGrid>
                       ) : null}
 
-                      {isSingleDay(selectedAction, draft) ? (
-                        <DateField
-                          label="选择日期"
-                          placeholder="请选择日期"
-                          value={draft.selected_date}
-                          onChange={(value) =>
-                            setDraft((current) => ({
-                              ...current,
-                              selected_date: value,
-                              start_date: value,
-                              end_date: value,
-                            }))
-                          }
-                        />
-                      ) : (
-                        <SimpleGrid cols={{ base: 1, md: 2 }}>
-                          <DateField
-                            label="开始日期"
-                            placeholder="请选择开始日期"
-                            value={draft.start_date}
+                      {isSinglePoint(selectedAction, draft) ? (
+                        selectedAction.timeCapability.pointGranularity === "month" ? (
+                          <MonthField
+                            label="选择月份"
+                            placeholder="请选择月份"
+                            value={draft.selected_month}
                             onChange={(value) =>
                               setDraft((current) => ({
                                 ...current,
-                                start_date: value,
+                                selected_month: value,
+                                start_month: value,
+                                end_month: value,
                               }))
                             }
                           />
+                        ) : (
                           <DateField
-                            label="结束日期"
-                            placeholder="请选择结束日期"
-                            value={draft.end_date}
+                            label="选择日期"
+                            placeholder="请选择日期"
+                            value={draft.selected_date}
                             onChange={(value) =>
                               setDraft((current) => ({
                                 ...current,
+                                selected_date: value,
+                                start_date: value,
                                 end_date: value,
                               }))
                             }
                           />
+                        )
+                      ) : (
+                        <SimpleGrid cols={{ base: 1, md: 2 }}>
+                          {selectedAction.timeCapability.rangeGranularity === "month" ? (
+                            <>
+                              <MonthField
+                                label="开始月份"
+                                placeholder="请选择开始月份"
+                                value={draft.start_month}
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    start_month: value,
+                                  }))
+                                }
+                              />
+                              <MonthField
+                                label="结束月份"
+                                placeholder="请选择结束月份"
+                                value={draft.end_month}
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    end_month: value,
+                                  }))
+                                }
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <DateField
+                                label="开始日期"
+                                placeholder="请选择开始日期"
+                                value={draft.start_date}
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    start_date: value,
+                                  }))
+                                }
+                              />
+                              <DateField
+                                label="结束日期"
+                                placeholder="请选择结束日期"
+                                value={draft.end_date}
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    end_date: value,
+                                  }))
+                                }
+                              />
+                            </>
+                          )}
                         </SimpleGrid>
                       )}
                     </Stack>
                   ) : null}
 
                   <Stack gap="xs">
-                    <Text fw={700}>第三步：补充范围条件</Text>
+                    <Text fw={700}>{selectedAction.timeCapability.hasTimeInput ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
                     {selectedAction.supportedParams.length ? (
                       <Grid>
                         {selectedAction.supportedParams.map((param) => (
