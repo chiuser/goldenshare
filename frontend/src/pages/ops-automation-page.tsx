@@ -10,6 +10,7 @@ import {
   Loader,
   MultiSelect,
   Select,
+  SimpleGrid,
   Stack,
   Table,
   Text,
@@ -53,6 +54,25 @@ type RepeatMode = "daily" | "weekly" | "monthly";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
+const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "etf_index", "index_basic", "hk_basic", "us_basic", "ths_index", "ths_member", "broker_recommend"]);
+const EQUITY_RESOURCES = new Set([
+  "daily",
+  "adj_factor",
+  "daily_basic",
+  "moneyflow",
+  "top_list",
+  "block_trade",
+  "limit_list_d",
+  "stk_period_bar_week",
+  "stk_period_bar_month",
+  "stk_period_bar_adj_week",
+  "stk_period_bar_adj_month",
+]);
+const FUND_RESOURCES = new Set(["fund_daily", "fund_adj"]);
+const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]);
+const BOARD_RESOURCES = new Set(["ths_daily", "dc_index", "dc_member", "dc_daily", "kpl_concept_cons"]);
+const RANKING_RESOURCES = new Set(["ths_hot", "dc_hot", "kpl_list", "limit_list_ths", "limit_step", "limit_cpt_list"]);
+const EVENT_RESOURCES = new Set(["dividend", "stk_holdernumber"]);
 
 const emptyForm = {
   id: null as number | null,
@@ -221,6 +241,24 @@ function formatParamValue(value: unknown): string {
   return String(value);
 }
 
+function inferSpecDomain(specType: string, specKey: string, category: string | null): string {
+  if (specType === "workflow") {
+    return "工作流";
+  }
+  if (category === "maintenance") {
+    return "维护动作";
+  }
+  const resourceKey = specKey.includes(".") ? specKey.split(".")[1] : specKey;
+  if (REFERENCE_RESOURCES.has(resourceKey)) return "基础主数据";
+  if (EQUITY_RESOURCES.has(resourceKey)) return "股票";
+  if (FUND_RESOURCES.has(resourceKey)) return "ETF/Fund";
+  if (INDEX_RESOURCES.has(resourceKey)) return "指数";
+  if (BOARD_RESOURCES.has(resourceKey)) return "板块";
+  if (RANKING_RESOURCES.has(resourceKey)) return "榜单";
+  if (EVENT_RESOURCES.has(resourceKey)) return "低频事件";
+  return "其他";
+}
+
 export function OpsAutomationPage() {
   const { token } = useAuth();
   const queryClient = useQueryClient();
@@ -228,6 +266,10 @@ export function OpsAutomationPage() {
   const [selectedScheduleId, setSelectedScheduleId] = usePersistentState<number | null>(
     "goldenshare.frontend.ops.automation.selected-id",
     null,
+  );
+  const [selectedSpecDomain, setSelectedSpecDomain] = usePersistentState<string>(
+    "goldenshare.frontend.ops.automation.selected-domain",
+    "",
   );
   const [form, setForm] = usePersistentState("goldenshare.frontend.ops.automation.form", emptyForm);
   const [lastAction, setLastAction] = useState<ScheduleDetailResponse | null>(null);
@@ -294,7 +336,7 @@ export function OpsAutomationPage() {
     enabled: Boolean(selectedScheduleId),
   });
 
-  const specOptions = useMemo(() => {
+  const specItems = useMemo(() => {
     if (!catalogQuery.data) return [];
     return [
       ...catalogQuery.data.job_specs
@@ -302,15 +344,41 @@ export function OpsAutomationPage() {
         .map((item) => ({
           value: `job:${item.key}`,
           label: `【任务】${formatSpecDisplayLabel(item.key, item.display_name)}`,
+          domain: inferSpecDomain("job", item.key, item.category),
         })),
       ...catalogQuery.data.workflow_specs
         .filter((item) => item.supports_schedule !== false)
         .map((item) => ({
           value: `workflow:${item.key}`,
           label: `【流程】${formatSpecDisplayLabel(item.key, item.display_name)}`,
+          domain: inferSpecDomain("workflow", item.key, null),
         })),
     ];
   }, [catalogQuery.data]);
+
+  const domainOptions = useMemo(() => {
+    const domains = Array.from(new Set(specItems.map((item) => item.domain))).sort((a, b) => a.localeCompare(b, "zh-CN"));
+    return domains.map((domain) => ({ value: domain, label: domain }));
+  }, [specItems]);
+
+  const specOptions = useMemo(
+    () => specItems.filter((item) => !selectedSpecDomain || item.domain === selectedSpecDomain),
+    [selectedSpecDomain, specItems],
+  );
+
+  useEffect(() => {
+    if (!form.spec_key) {
+      return;
+    }
+    const value = `${form.spec_type}:${form.spec_key}`;
+    const matched = specItems.find((item) => item.value === value);
+    if (!matched) {
+      return;
+    }
+    if (selectedSpecDomain !== matched.domain) {
+      setSelectedSpecDomain(matched.domain);
+    }
+  }, [form.spec_key, form.spec_type, selectedSpecDomain, setSelectedSpecDomain, specItems]);
 
   const selectedJobSpec = useMemo(
     () =>
@@ -946,25 +1014,62 @@ export function OpsAutomationPage() {
             value={form.display_name}
             onChange={(event) => setForm((current) => ({ ...current, display_name: event.currentTarget.value }))}
           />
-          <Select
-            label="执行对象"
-            searchable
-            data={specOptions}
-            value={form.spec_key ? `${form.spec_type}:${form.spec_key}` : null}
-            onChange={(value) => {
-              const [specType, specKey] = (value || "job:").split(":");
-              setForm((current) => ({
-                ...current,
-                spec_type: specType,
-                spec_key: specKey || "",
-                date_mode: "single_day",
-                selected_date: "",
-                start_date: "",
-                end_date: "",
-                field_values: {},
-              }));
-            }}
-          />
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
+            <Select
+              label="先选数据分组"
+              placeholder="请选择分组"
+              data={domainOptions}
+              value={selectedSpecDomain || null}
+              clearable
+              onChange={(value) => {
+                const nextDomain = value || "";
+                setSelectedSpecDomain(nextDomain);
+                if (!nextDomain) {
+                  return;
+                }
+                const selectedValue = form.spec_key ? `${form.spec_type}:${form.spec_key}` : "";
+                const current = specItems.find((item) => item.value === selectedValue);
+                if (current && current.domain === nextDomain) {
+                  return;
+                }
+                setForm((currentForm) => ({
+                  ...currentForm,
+                  spec_type: "job",
+                  spec_key: "",
+                  date_mode: "single_day",
+                  selected_date: "",
+                  start_date: "",
+                  end_date: "",
+                  field_values: {},
+                }));
+              }}
+            />
+            <Select
+              label="再选执行对象"
+              searchable
+              placeholder="请选择执行对象"
+              data={specOptions}
+              value={form.spec_key ? `${form.spec_type}:${form.spec_key}` : null}
+              nothingFoundMessage="没有找到匹配对象"
+              onChange={(value) => {
+                const [specType, specKey] = (value || "job:").split(":");
+                const selected = specItems.find((item) => item.value === value);
+                if (selected) {
+                  setSelectedSpecDomain(selected.domain);
+                }
+                setForm((current) => ({
+                  ...current,
+                  spec_type: specType,
+                  spec_key: specKey || "",
+                  date_mode: "single_day",
+                  selected_date: "",
+                  start_date: "",
+                  end_date: "",
+                  field_values: {},
+                }));
+              }}
+            />
+          </SimpleGrid>
           <Select
             label="执行方式"
             data={[

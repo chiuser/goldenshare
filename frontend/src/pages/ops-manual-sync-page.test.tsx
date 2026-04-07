@@ -490,7 +490,7 @@ describe("手动同步页", () => {
       </MantineProvider>,
     );
 
-    expect(await screen.findByText("维护东方财富热榜（日常同步）")).toBeInTheDocument();
+    expect(await screen.findByText("维护东方财富热榜")).toBeInTheDocument();
     expect(screen.getByLabelText("A股市场")).toBeInTheDocument();
     expect(screen.getByLabelText("ETF基金")).toBeInTheDocument();
     expect(screen.getByLabelText("人气榜")).toBeInTheDocument();

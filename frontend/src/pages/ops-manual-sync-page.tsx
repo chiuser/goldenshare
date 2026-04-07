@@ -47,6 +47,7 @@ type CatalogParamSpec = NonNullable<CatalogJobSpec["supported_params"]>[number];
 type ManualAction = {
   id: string;
   type: "job" | "workflow";
+  domainLabel: string;
   categoryLabel: string;
   displayName: string;
   description: string;
@@ -66,6 +67,25 @@ type ActionGuidance = {
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "index_basic", "hk_basic", "us_basic"]);
+const MARKET_REFERENCE_RESOURCES = new Set(["ths_index", "ths_member", "broker_recommend"]);
+const EQUITY_RESOURCES = new Set([
+  "daily",
+  "adj_factor",
+  "daily_basic",
+  "moneyflow",
+  "top_list",
+  "block_trade",
+  "limit_list_d",
+  "stk_period_bar_week",
+  "stk_period_bar_month",
+  "stk_period_bar_adj_week",
+  "stk_period_bar_adj_month",
+]);
+const FUND_RESOURCES = new Set(["fund_daily", "fund_adj"]);
+const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]);
+const BOARD_RESOURCES = new Set(["ths_daily", "dc_index", "dc_member", "dc_daily", "kpl_concept_cons"]);
+const RANKING_RESOURCES = new Set(["ths_hot", "dc_hot", "kpl_list", "limit_list_ths", "limit_step", "limit_cpt_list"]);
+const EVENT_RESOURCES = new Set(["dividend", "stk_holdernumber"]);
 
 function buildEmptyDraft() {
   return {
@@ -190,6 +210,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
     return {
       id: `job:${item.resourceKey}`,
       type: "job",
+      domainLabel: inferActionDomain(item.resourceKey, item.category, "job"),
       categoryLabel: formatCategoryLabel(item.category),
       displayName: `维护${formatResourceLabel(item.resourceKey)}`,
       description: item.description,
@@ -209,6 +230,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
     actions.push({
       id: `workflow:${workflow.key}`,
       type: "workflow",
+      domainLabel: inferActionDomain(workflow.key, "workflow", "workflow"),
       categoryLabel: "工作流",
       displayName: workflow.display_name,
       description: workflow.description,
@@ -297,6 +319,37 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
     };
   }
   return null;
+}
+
+function inferActionDomain(resourceKey: string, category: string, type: "job" | "workflow"): string {
+  if (type === "workflow") {
+    return "工作流";
+  }
+  if (category === "maintenance") {
+    return "维护动作";
+  }
+  if (REFERENCE_RESOURCES.has(resourceKey) || MARKET_REFERENCE_RESOURCES.has(resourceKey)) {
+    return "基础主数据";
+  }
+  if (EQUITY_RESOURCES.has(resourceKey)) {
+    return "股票";
+  }
+  if (FUND_RESOURCES.has(resourceKey)) {
+    return "ETF/Fund";
+  }
+  if (INDEX_RESOURCES.has(resourceKey)) {
+    return "指数";
+  }
+  if (BOARD_RESOURCES.has(resourceKey)) {
+    return "板块";
+  }
+  if (RANKING_RESOURCES.has(resourceKey)) {
+    return "榜单";
+  }
+  if (EVENT_RESOURCES.has(resourceKey)) {
+    return "低频事件";
+  }
+  return "其他";
 }
 
 function resolveExecutionTarget(
@@ -457,6 +510,8 @@ function resolveExecutionTarget(
 export function OpsManualSyncPage() {
   const navigate = useNavigate();
   const [draft, setDraft] = usePersistentState("goldenshare.frontend.ops.manual-sync.draft", buildEmptyDraft());
+  const [selectedDomain, setSelectedDomain] = usePersistentState<string>("goldenshare.frontend.ops.manual-sync.domain", "");
+  const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>("goldenshare.frontend.ops.manual-sync.recent-actions", []);
 
   const search = new URLSearchParams(window.location.search);
   const prefillExecutionId = search.get("from_execution_id");
@@ -483,13 +538,29 @@ export function OpsManualSyncPage() {
 
   const manualActions = useMemo(() => buildManualActions(catalogQuery.data), [catalogQuery.data]);
 
+  const domainOptions = useMemo(() => {
+    const domains = Array.from(new Set(manualActions.map((action) => action.domainLabel))).sort((a, b) => a.localeCompare(b, "zh-CN"));
+    return domains.map((domain) => ({ value: domain, label: domain }));
+  }, [manualActions]);
+
   const actionOptions = useMemo(
     () =>
-      manualActions.map((action) => ({
-        value: action.id,
-        label: `${action.displayName}（${action.categoryLabel}）`,
-      })),
-    [manualActions],
+      manualActions
+        .filter((action) => !selectedDomain || action.domainLabel === selectedDomain)
+        .map((action) => ({
+          value: action.id,
+          label: `${action.displayName}（${action.categoryLabel}）`,
+        })),
+    [manualActions, selectedDomain],
+  );
+
+  const recentActions = useMemo(
+    () =>
+      recentActionIds
+        .map((id) => manualActions.find((action) => action.id === id))
+        .filter((item): item is ManualAction => Boolean(item))
+        .slice(0, 5),
+    [manualActions, recentActionIds],
   );
 
   const selectedAction = useMemo(
@@ -497,6 +568,15 @@ export function OpsManualSyncPage() {
     [draft.action_id, manualActions],
   );
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
+
+  useEffect(() => {
+    if (!selectedAction) {
+      return;
+    }
+    if (selectedAction.domainLabel !== selectedDomain) {
+      setSelectedDomain(selectedAction.domainLabel);
+    }
+  }, [selectedAction, selectedDomain, setSelectedDomain]);
 
   useEffect(() => {
     if (!manualActions.length) {
@@ -608,15 +688,56 @@ export function OpsManualSyncPage() {
             <Stack gap="lg">
               <Stack gap="xs">
                 <Text fw={700}>第一步：选择要维护的数据</Text>
-                <Select
-                  searchable
-                  placeholder="例如：股票日线、分红送转、指数周线、交易日历"
-                  data={actionOptions}
-                  value={draft.action_id || null}
-                  onChange={(value) =>
-                    setDraft(() => (value ? buildDraftForActionSelection(value) : buildEmptyDraft()))
-                  }
-                />
+                <SimpleGrid cols={{ base: 1, md: 2 }}>
+                  <Select
+                    label="先选数据分组"
+                    placeholder="请选择分组"
+                    data={domainOptions}
+                    value={selectedDomain || null}
+                    onChange={(value) => setSelectedDomain(value || "")}
+                    clearable
+                  />
+                  <Select
+                    searchable
+                    label="再选维护对象"
+                    placeholder="例如：股票日线、分红送转、指数周线、交易日历"
+                    data={actionOptions}
+                    value={draft.action_id || null}
+                    nothingFoundMessage="没有找到匹配任务"
+                    onChange={(value) => {
+                      if (!value) {
+                        setDraft(() => buildEmptyDraft());
+                        return;
+                      }
+                      const nextAction = manualActions.find((item) => item.id === value);
+                      if (nextAction) {
+                        setSelectedDomain(nextAction.domainLabel);
+                      }
+                      setRecentActionIds((current) => [value, ...current.filter((item) => item !== value)].slice(0, 10));
+                      setDraft(() => buildDraftForActionSelection(value));
+                    }}
+                  />
+                </SimpleGrid>
+                {recentActions.length ? (
+                  <Stack gap={6}>
+                    <Text size="sm" c="dimmed">最近使用</Text>
+                    <Group gap="xs">
+                      {recentActions.map((action) => (
+                        <Button
+                          key={action.id}
+                          size="xs"
+                          variant={draft.action_id === action.id ? "filled" : "light"}
+                          onClick={() => {
+                            setSelectedDomain(action.domainLabel);
+                            setDraft(() => buildDraftForActionSelection(action.id));
+                          }}
+                        >
+                          {action.displayName}
+                        </Button>
+                      ))}
+                    </Group>
+                  </Stack>
+                ) : null}
               </Stack>
 
               {selectedAction ? (
@@ -749,9 +870,9 @@ export function OpsManualSyncPage() {
                     </Stack>
                   ) : null}
 
-                  <Stack gap="xs">
-                    <Text fw={700}>{selectedAction.timeCapability.hasTimeInput ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
-                    {selectedAction.supportedParams.length ? (
+                  {selectedAction.supportedParams.length ? (
+                    <Stack gap="xs">
+                      <Text fw={700}>{selectedAction.timeCapability.hasTimeInput ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
                       <Grid>
                         {selectedAction.supportedParams.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
@@ -850,12 +971,8 @@ export function OpsManualSyncPage() {
                           </Grid.Col>
                         ))}
                       </Grid>
-                    ) : (
-                      <Alert color="gray" variant="light" title="这个任务没有额外筛选条件">
-                        直接点击“开始同步”就可以了。
-                      </Alert>
-                    )}
-                  </Stack>
+                    </Stack>
+                  ) : null}
 
                   <Stack gap="md">
                     <Group justify="flex-end" align="center">
