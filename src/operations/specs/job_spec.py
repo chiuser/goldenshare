@@ -4,12 +4,13 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
-ParameterType = Literal["string", "date", "integer", "boolean", "enum"]
+ParameterType = Literal["string", "date", "month", "integer", "boolean", "enum"]
 StrategyType = Literal[
     "full_refresh",
     "incremental_by_date",
     "backfill_by_date_range",
     "backfill_by_trade_date",
+    "backfill_by_month",
     "backfill_by_security",
     "backfill_low_frequency",
     "maintenance_action",

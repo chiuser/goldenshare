@@ -28,6 +28,7 @@ import { formatCategoryLabel, formatResourceLabel, formatSpecDisplayLabel } from
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { DateField } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
+import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
 
 type ManualSpecType = "job" | "workflow";
@@ -761,6 +762,18 @@ export function OpsManualSyncPage() {
                                   setDraft((current) => ({
                                     ...current,
                                     field_values: { ...current.field_values, [param.key]: value || "" },
+                                  }))
+                                }
+                              />
+                            ) : param.param_type === "month" ? (
+                              <MonthField
+                                label={param.display_name}
+                                placeholder={param.description}
+                                value={Array.isArray(draft.field_values[param.key]) ? "" : (draft.field_values[param.key] as string) || ""}
+                                onChange={(value) =>
+                                  setDraft((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: value },
                                   }))
                                 }
                               />

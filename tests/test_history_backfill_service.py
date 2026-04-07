@@ -487,6 +487,53 @@ def test_backfill_fund_series_supports_fund_adj(mocker) -> None:
     assert progress.call_args_list[0].args[0] == "fund_adj: 1/1 trade_date=2026-04-01 fetched=99 written=99"
 
 
+def test_backfill_by_months_emits_progress(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    progress = mocker.Mock()
+
+    sync_service_1 = mocker.Mock()
+    sync_service_1.run_full.return_value = mocker.Mock(rows_fetched=10, rows_written=10)
+    sync_service_2 = mocker.Mock()
+    sync_service_2.run_full.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
+    build_sync_service = mocker.patch(
+        "src.operations.services.history_backfill_service.build_sync_service",
+        side_effect=[sync_service_1, sync_service_2],
+    )
+
+    summary = service.backfill_by_months(
+        resource="broker_recommend",
+        start_month="2026-02",
+        end_month="2026-03",
+        progress=progress,
+    )
+
+    assert summary.units_processed == 2
+    assert summary.rows_fetched == 22
+    assert summary.rows_written == 22
+    assert build_sync_service.call_count == 2
+    sync_service_1.run_full.assert_called_once_with(month="202602", execution_id=None)
+    sync_service_2.run_full.assert_called_once_with(month="202603", execution_id=None)
+    assert progress.call_args_list[0].args[0] == "broker_recommend: 1/2 month=202602 fetched=10 written=10"
+    assert progress.call_args_list[1].args[0] == "broker_recommend: 2/2 month=202603 fetched=12 written=12"
+
+
+def test_backfill_by_months_rejects_invalid_range(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+
+    try:
+        service.backfill_by_months(
+            resource="broker_recommend",
+            start_month="2026-04",
+            end_month="2026-03",
+        )
+    except ValueError as exc:
+        assert "开始月份不能晚于结束月份" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid month range")
+
+
 def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

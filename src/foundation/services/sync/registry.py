@@ -7,6 +7,7 @@ from src.foundation.services.sync.sync_block_trade_service import SyncBlockTrade
 from src.foundation.services.sync.sync_dc_daily_service import SyncDcDailyService
 from src.foundation.services.sync.sync_dc_index_service import SyncDcIndexService
 from src.foundation.services.sync.sync_dc_member_service import SyncDcMemberService
+from src.foundation.services.sync.sync_broker_recommend_service import SyncBrokerRecommendService
 from src.foundation.services.sync.sync_daily_basic_service import SyncDailyBasicService
 from src.foundation.services.sync.sync_dividend_service import SyncDividendService
 from src.foundation.services.sync.sync_dc_hot_service import SyncDcHotService
@@ -85,6 +86,7 @@ SYNC_SERVICE_REGISTRY = {
     "stk_period_bar_month": SyncStkPeriodBarMonthService,
     "stk_period_bar_adj_week": SyncStkPeriodBarAdjWeekService,
     "stk_period_bar_adj_month": SyncStkPeriodBarAdjMonthService,
+    "broker_recommend": SyncBrokerRecommendService,
 }
 
 

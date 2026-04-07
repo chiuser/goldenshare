@@ -24,6 +24,24 @@ END_DATE_PARAM = ParameterSpec(
     param_type="date",
     description="历史回补或区间同步的结束日期。",
 )
+MONTH_PARAM = ParameterSpec(
+    key="month",
+    display_name="月份",
+    param_type="month",
+    description="指定单个月份执行同步，格式 YYYY-MM。",
+)
+START_MONTH_PARAM = ParameterSpec(
+    key="start_month",
+    display_name="开始月份",
+    param_type="month",
+    description="历史回补起始月份，格式 YYYY-MM。",
+)
+END_MONTH_PARAM = ParameterSpec(
+    key="end_month",
+    display_name="结束月份",
+    param_type="month",
+    description="历史回补结束月份，格式 YYYY-MM。",
+)
 EXCHANGE_PARAM = ParameterSpec(
     key="exchange",
     display_name="交易所",
@@ -214,6 +232,7 @@ DAILY_SYNC_RESOURCES = (
     "limit_list_ths",
     "limit_step",
     "limit_cpt_list",
+    "broker_recommend",
 )
 
 SCHEDULED_FULL_REFRESH_RESOURCES = {
@@ -322,6 +341,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (ETF_LIST_STATUS_PARAM, ETF_EXCHANGE_PARAM)
     if resource == "etf_index":
         return ()
+    if resource == "broker_recommend":
+        return ()
     return ()
 
 
@@ -364,6 +385,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     elif resource == "dc_member":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
+    elif resource == "broker_recommend":
+        supported_params = (MONTH_PARAM,)
     return JobSpec(
         key=f"sync_daily.{resource}",
         display_name=f"日常同步 / {resource}",
@@ -566,6 +589,15 @@ JOB_SPEC_REGISTRY["backfill_fund_series.fund_adj"] = _backfill_job_spec(
     supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
 )
 
+JOB_SPEC_REGISTRY["backfill_by_month.broker_recommend"] = _backfill_job_spec(
+    prefix="backfill_by_month",
+    resource="broker_recommend",
+    display_name="按月份回补 / broker_recommend",
+    description="按月份区间逐月回补券商每月荐股。",
+    strategy_type="backfill_by_month",
+    supported_params=(START_MONTH_PARAM, END_MONTH_PARAM, OFFSET_PARAM, LIMIT_PARAM),
+)
+
 for _resource in ("index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
     JOB_SPEC_REGISTRY[f"backfill_index_series.{_resource}"] = _backfill_job_spec(
         prefix="backfill_index_series",
@@ -700,6 +732,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
     "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
     "etf_index": ("ETF 基准指数列表", "reference_data", "基础主数据", "reference", None),
+    "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),

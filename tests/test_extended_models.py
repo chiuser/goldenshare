@@ -1,5 +1,6 @@
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
+from src.foundation.models.core.broker_recommend import BrokerRecommend
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.hk_security import HkSecurity
 from src.foundation.models.core.index_basic import IndexBasic
@@ -54,6 +55,12 @@ def test_index_supplement_models_match_expected_keys() -> None:
     }
     assert [column.name for column in FundAdjFactor.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert {index.name for index in FundAdjFactor.__table__.indexes} == {"idx_fund_adj_factor_trade_date"}
+    assert [column.name for column in BrokerRecommend.__table__.primary_key.columns] == ["month", "ts_code", "broker"]
+    assert {index.name for index in BrokerRecommend.__table__.indexes} == {
+        "idx_broker_recommend_month",
+        "idx_broker_recommend_trade_date",
+        "idx_broker_recommend_ts_code_month",
+    }
     assert [column.name for column in IndexBasic.__table__.primary_key.columns] == ["ts_code"]
     assert [column.name for column in IndexWeeklyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]

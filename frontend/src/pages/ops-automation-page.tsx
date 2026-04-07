@@ -41,6 +41,7 @@ import { DateField } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
+import { MonthField } from "../shared/ui/month-field";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -200,6 +201,9 @@ function formatParamLabel(key: string): string {
     hot_type: "热榜类型",
     is_new: "最新标记",
     exchange: "交易所",
+    month: "月份",
+    start_month: "开始月份",
+    end_month: "结束月份",
   };
   return map[key] || key;
 }
@@ -1153,6 +1157,18 @@ export function OpsAutomationPage() {
                                   setForm((current) => ({
                                     ...current,
                                     field_values: { ...current.field_values, [param.key]: value || "" },
+                                  }))
+                                }
+                              />
+                            ) : param.param_type === "month" ? (
+                              <MonthField
+                                label={param.display_name}
+                                placeholder={param.description}
+                                value={Array.isArray(form.field_values[param.key]) ? "" : (form.field_values[param.key] as string) || ""}
+                                onChange={(value) =>
+                                  setForm((current) => ({
+                                    ...current,
+                                    field_values: { ...current.field_values, [param.key]: value },
                                   }))
                                 }
                               />

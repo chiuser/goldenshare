@@ -28,6 +28,7 @@
 | --- | --- | --- | --- | ---: | --- | --- |
 | `adj_factor` | `adj_factor` | `raw.adj_factor` | `core.equity_adj_factor` | 3 | `trade_date` | backfill_equity_series.adj_factor, sync_daily.adj_factor, sync_history.adj_factor |
 | `block_trade` | `block_trade` | `raw.block_trade` | `core.equity_block_trade` | 7 | `trade_date` | backfill_by_trade_date.block_trade, sync_daily.block_trade, sync_history.block_trade |
+| `broker_recommend` | `broker_recommend` | `raw.broker_recommend` | `core.broker_recommend` | 14 | `None` | backfill_by_month.broker_recommend, sync_daily.broker_recommend, sync_history.broker_recommend |
 | `daily` | `daily` | `raw.daily` | `core.equity_daily_bar` | 11 | `trade_date` | backfill_equity_series.daily, sync_daily.daily, sync_history.daily |
 | `daily_basic` | `daily_basic` | `raw.daily_basic` | `core.equity_daily_basic` | 18 | `trade_date` | backfill_by_trade_date.daily_basic, sync_daily.daily_basic, sync_history.daily_basic |
 | `dc_daily` | `dc_daily` | `raw.dc_daily` | `core.dc_daily` | 12 | `trade_date` | backfill_by_date_range.dc_daily, sync_daily.dc_daily, sync_history.dc_daily |

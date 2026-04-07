@@ -8,6 +8,7 @@ from src.foundation.services.sync.fields import (
     ETF_INDEX_FIELDS,
     FUND_ADJ_FIELDS,
     FUND_DAILY_FIELDS,
+    BROKER_RECOMMEND_FIELDS,
     HOLDERNUMBER_FIELDS,
     HK_BASIC_FIELDS,
     LIMIT_CPT_LIST_FIELDS,
@@ -108,6 +109,22 @@ def test_new_field_constants_exist() -> None:
         "ts_code",
         "trade_date",
         "adj_factor",
+    )
+    assert tuple(BROKER_RECOMMEND_FIELDS) == (
+        "month",
+        "currency",
+        "name",
+        "ts_code",
+        "trade_date",
+        "close",
+        "pct_change",
+        "target_price",
+        "industry",
+        "broker",
+        "broker_mkt",
+        "author",
+        "recom_type",
+        "reason",
     )
     assert "trade_date" in INDEX_WEEKLY_FIELDS
     assert "trade_date" in INDEX_MONTHLY_FIELDS

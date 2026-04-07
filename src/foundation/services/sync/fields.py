@@ -259,6 +259,23 @@ FUND_ADJ_FIELDS = [
     "adj_factor",
 ]
 
+BROKER_RECOMMEND_FIELDS = [
+    "month",
+    "currency",
+    "name",
+    "ts_code",
+    "trade_date",
+    "close",
+    "pct_change",
+    "target_price",
+    "industry",
+    "broker",
+    "broker_mkt",
+    "author",
+    "recom_type",
+    "reason",
+]
+
 HK_BASIC_FIELDS = [
     "ts_code",
     "name",

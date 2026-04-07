@@ -50,6 +50,7 @@ const categoryLabelMap: Record<string, string> = {
   backfill_trade_cal: "交易日历回补",
   backfill_equity_series: "股票纵向回补",
   backfill_by_trade_date: "按交易日回补",
+  backfill_by_month: "按月份回补",
   backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
   backfill_fund_series: "基金按交易日回补",
@@ -153,6 +154,7 @@ const resourceLabelMap: Record<string, string> = {
   dc_hot: "东方财富热榜",
   kpl_list: "开盘啦榜单",
   kpl_concept_cons: "开盘啦题材成分",
+  broker_recommend: "券商每月荐股",
   rebuild_dm: "数据集市刷新",
 };
 
@@ -162,6 +164,7 @@ const specPrefixLabelMap: Record<string, string> = {
   backfill_trade_cal: "交易日历回补",
   backfill_equity_series: "股票纵向回补",
   backfill_by_trade_date: "按交易日回补",
+  backfill_by_month: "按月份回补",
   backfill_by_date_range: "按日期区间回补",
   backfill_low_frequency: "低频事件回补",
   backfill_fund_series: "基金按交易日回补",

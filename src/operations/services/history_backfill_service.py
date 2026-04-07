@@ -309,6 +309,7 @@ class HistoryBackfillService:
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+
         if resource == "index_monthly":
             open_trade_dates = self.dao.trade_calendar.get_open_dates(self.settings.default_exchange, start_date, end_date)
             trade_dates = self._select_month_end_trade_dates(open_trade_dates)
@@ -331,6 +332,7 @@ class HistoryBackfillService:
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+
         if resource in {"index_daily", "index_daily_basic"}:
             index_codes = self.dao.index_series_active.list_active_codes(resource)
             if resource == "index_daily_basic" and not index_codes:
@@ -377,6 +379,41 @@ class HistoryBackfillService:
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(index_codes), rows_fetched, rows_written)
 
+    def backfill_by_months(
+        self,
+        resource: str,
+        start_month: str,
+        end_month: str,
+        offset: int = 0,
+        limit: int | None = None,
+        progress: Callable[[str], None] | None = None,
+        execution_id: int | None = None,
+    ) -> BackfillSummary:
+        if resource not in {"broker_recommend"}:
+            raise ValueError("month backfill only supports broker_recommend")
+
+        months = self._iter_months(start_month, end_month)
+        if offset:
+            months = months[offset:]
+        if limit is not None:
+            months = months[:limit]
+
+        rows_fetched = 0
+        rows_written = 0
+        total = len(months)
+        for index, month in enumerate(months, start=1):
+            service = build_sync_service(resource, self.session)
+            result = service.run_full(month=month, execution_id=execution_id)
+            rows_fetched += result.rows_fetched
+            rows_written += result.rows_written
+            if progress is not None:
+                progress(
+                    f"{resource}: {index}/{total} month={month} "
+                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                )
+        self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
+        return BackfillSummary(resource, len(months), rows_fetched, rows_written)
+
     @staticmethod
     def _select_month_end_trade_dates(open_trade_dates: list[date]) -> list[date]:
         month_ends: dict[tuple[int, int], date] = {}
@@ -386,6 +423,39 @@ class HistoryBackfillService:
             if existing is None or item > existing:
                 month_ends[key] = item
         return [month_ends[key] for key in sorted(month_ends)]
+
+    @staticmethod
+    def _normalize_month(value: str) -> tuple[int, int]:
+        cleaned = value.strip()
+        if len(cleaned) == 7 and cleaned[4] == "-":
+            cleaned = cleaned.replace("-", "")
+        if len(cleaned) != 6 or not cleaned.isdigit():
+            raise ValueError("月份格式错误，请使用 YYYY-MM 或 YYYYMM")
+        year = int(cleaned[:4])
+        month = int(cleaned[4:6])
+        if month < 1 or month > 12:
+            raise ValueError("月份格式错误，请使用 YYYY-MM 或 YYYYMM")
+        return year, month
+
+    @classmethod
+    def _iter_months(cls, start_month: str, end_month: str) -> list[str]:
+        start_year, start_month_value = cls._normalize_month(start_month)
+        end_year, end_month_value = cls._normalize_month(end_month)
+        start_code = start_year * 100 + start_month_value
+        end_code = end_year * 100 + end_month_value
+        if start_code > end_code:
+            raise ValueError("开始月份不能晚于结束月份")
+
+        months: list[str] = []
+        year = start_year
+        month = start_month_value
+        while year * 100 + month <= end_code:
+            months.append(f"{year:04d}{month:02d}")
+            month += 1
+            if month > 12:
+                year += 1
+                month = 1
+        return months
 
     @staticmethod
     def _select_week_end_trade_dates(open_trade_dates: list[date]) -> list[date]:

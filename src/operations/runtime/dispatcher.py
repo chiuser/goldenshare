@@ -194,18 +194,22 @@ class OperationsDispatcher:
         _, resource = job_spec.key.split(".", 1)
         normalized_params = self._normalize_dates(params)
         if job_spec.category == "sync_daily":
-            trade_date = normalized_params.get("trade_date")
-            if not trade_date:
-                trade_date = self._resolve_default_trade_date(session)
-            if not trade_date:
-                raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
-            parsed_trade_date = self._parse_date(trade_date) if trade_date else None
-            if parsed_trade_date and self._is_closed_trade_date(session, parsed_trade_date):
-                summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
-                return 0, 0, summary
-            extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
             service = build_sync_service(resource, session)
-            result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
+            supported_param_keys = {param.key for param in (job_spec.supported_params or ())}
+            if "month" in supported_param_keys and "trade_date" not in supported_param_keys:
+                result = service.run_incremental(execution_id=execution.id, **normalized_params)
+            else:
+                trade_date = normalized_params.get("trade_date")
+                if not trade_date:
+                    trade_date = self._resolve_default_trade_date(session)
+                if not trade_date:
+                    raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
+                parsed_trade_date = self._parse_date(trade_date) if trade_date else None
+                if parsed_trade_date and self._is_closed_trade_date(session, parsed_trade_date):
+                    summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
+                    return 0, 0, summary
+                extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
+                result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
         else:
             service = build_sync_service(resource, session)
             result = service.run_full(execution_id=execution.id, **normalized_params)
@@ -293,6 +297,16 @@ class OperationsDispatcher:
                 resource=resource,
                 start_date=self._require_date(normalized, "start_date"),
                 end_date=self._require_date(normalized, "end_date"),
+                offset=int(normalized.get("offset", 0)),
+                limit=self._optional_int(normalized.get("limit")),
+                progress=on_progress,
+                execution_id=execution.id,
+            )
+        elif job_spec.category == "backfill_by_month":
+            summary = service.backfill_by_months(
+                resource=resource,
+                start_month=self._require_value(normalized, "start_month"),
+                end_month=self._require_value(normalized, "end_month"),
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,
@@ -622,6 +636,13 @@ class OperationsDispatcher:
         if value is None:
             return None
         return int(value)
+
+    @staticmethod
+    def _require_value(params: dict[str, Any], key: str) -> str:
+        value = params.get(key)
+        if value in (None, ""):
+            raise ValueError(f"{key} is required")
+        return str(value)
 
     def _normalize_dates(self, params: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(params)

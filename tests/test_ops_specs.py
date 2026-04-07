@@ -11,6 +11,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
+    assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_index" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_member" in JOB_SPEC_REGISTRY
@@ -32,6 +33,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_by_trade_date.ths_hot" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.dc_hot" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.kpl_concept_cons" in JOB_SPEC_REGISTRY
+    assert "backfill_by_month.broker_recommend" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_weekly" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_dm" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_index_kline_serving" in JOB_SPEC_REGISTRY
@@ -142,6 +144,19 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     fund_adj_history_spec = get_job_spec("sync_history.fund_adj")
     assert fund_adj_history_spec is not None
     assert [param.key for param in fund_adj_history_spec.supported_params] == ["start_date", "end_date"]
+
+    broker_recommend_daily_spec = get_job_spec("sync_daily.broker_recommend")
+    assert broker_recommend_daily_spec is not None
+    assert [param.key for param in broker_recommend_daily_spec.supported_params] == ["month"]
+
+    broker_recommend_backfill_spec = get_job_spec("backfill_by_month.broker_recommend")
+    assert broker_recommend_backfill_spec is not None
+    assert [param.key for param in broker_recommend_backfill_spec.supported_params] == [
+        "start_month",
+        "end_month",
+        "offset",
+        "limit",
+    ]
 
 
     etf_basic_spec = get_job_spec("sync_history.etf_basic")

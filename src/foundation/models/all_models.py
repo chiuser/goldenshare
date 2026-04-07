@@ -28,6 +28,7 @@ from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
+from src.foundation.models.core.broker_recommend import BrokerRecommend
 from src.foundation.models.core.limit_cpt_list import LimitCptList
 from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
@@ -77,6 +78,7 @@ from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
+from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
@@ -119,6 +121,7 @@ __all__ = [
     "IndexWeeklyServing",
     "KplConceptCons",
     "KplList",
+    "BrokerRecommend",
     "LimitCptList",
     "LimitListThs",
     "LimitStep",
@@ -149,6 +152,7 @@ __all__ = [
     "RawLimitStep",
     "RawKplConceptCons",
     "RawKplList",
+    "RawBrokerRecommend",
     "RawMoneyflow",
     "RawStockBasic",
     "RawStkPeriodBar",
