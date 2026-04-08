@@ -190,6 +190,7 @@ class OpsFreshnessQueryService:
         states = list(session.scalars(select(SyncJobState)))
         state_by_job_name = {state.job_name: state for state in states}
         failures_by_job_name = self._latest_failures_by_job_name(session)
+        quality_notes_by_job_name = self._latest_quality_notes_by_job_name(session)
         specs = list_dataset_freshness_specs()
         if resource_keys is not None:
             target_keys = set(resource_keys)
@@ -203,6 +204,7 @@ class OpsFreshnessQueryService:
                 latest_open_date=latest_open_date,
                 reference_date=reference_date,
                 recent_failure=failures_by_job_name.get(spec.job_name),
+                quality_note=quality_notes_by_job_name.get(spec.job_name),
                 observed_business_range=observed_business_ranges.get(spec.dataset_key),
                 observed_sync_date=observed_sync_dates.get(spec.dataset_key),
             )
@@ -218,6 +220,7 @@ class OpsFreshnessQueryService:
                         latest_open_date=latest_open_date,
                         reference_date=reference_date,
                         recent_failure=failures_by_job_name.get(job_name),
+                        quality_note=quality_notes_by_job_name.get(job_name),
                         observed_business_range=None,
                         observed_sync_date=observed_sync_dates.get(self._fallback_spec_for_state(state).dataset_key),
                     )
@@ -243,6 +246,7 @@ class OpsFreshnessQueryService:
         latest_open_date: date,
         reference_date: date,
         recent_failure: FailureSnapshot | None,
+        quality_note: str | None,
         observed_business_range: tuple[date | None, date | None] | None,
         observed_sync_date: date | None,
     ) -> DatasetFreshnessItem:
@@ -268,6 +272,13 @@ class OpsFreshnessQueryService:
         freshness_status = self._freshness_status(spec.cadence, lag_days, full_sync_done, latest_success_at)
         visible_failure = self._visible_failure_snapshot(recent_failure, latest_success_at)
 
+        base_note = self._freshness_note(
+            state_business_date=state_business_date,
+            observed_business_date=observed_business_date,
+            business_date_source=business_date_source,
+        )
+        freshness_note = self._compose_freshness_note(base_note=base_note, quality_note=quality_note)
+
         return DatasetFreshnessItem(
             dataset_key=spec.dataset_key,
             resource_key=spec.resource_key,
@@ -282,11 +293,7 @@ class OpsFreshnessQueryService:
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
             business_date_source=business_date_source,
-            freshness_note=self._freshness_note(
-                state_business_date=state_business_date,
-                observed_business_date=observed_business_date,
-                business_date_source=business_date_source,
-            ),
+            freshness_note=freshness_note,
             latest_success_at=latest_success_at,
             last_sync_date=last_sync_date,
             expected_business_date=expected_business_date,
@@ -442,6 +449,42 @@ class OpsFreshnessQueryService:
                 ),
             )
         return failures
+
+    @staticmethod
+    def _latest_quality_notes_by_job_name(session: Session) -> dict[str, str]:
+        rows = session.scalars(
+            select(SyncRunLog)
+            .where(SyncRunLog.status == "SUCCESS")
+            .where(SyncRunLog.message.is_not(None))
+            .order_by(SyncRunLog.job_name.asc(), desc(SyncRunLog.ended_at), desc(SyncRunLog.id))
+        )
+        notes: dict[str, str] = {}
+        for row in rows:
+            if not row.message:
+                continue
+            marker = OpsFreshnessQueryService._extract_quality_warning_marker(row.message)
+            if marker is None:
+                continue
+            notes.setdefault(row.job_name, marker)
+        return notes
+
+    @staticmethod
+    def _extract_quality_warning_marker(message: str) -> str | None:
+        marker_prefix = "data_quality_warning:"
+        for part in message.split(";"):
+            normalized = part.strip()
+            if normalized.startswith(marker_prefix):
+                return normalized[len(marker_prefix) :].strip()
+        return None
+
+    @staticmethod
+    def _compose_freshness_note(*, base_note: str | None, quality_note: str | None) -> str | None:
+        if quality_note:
+            quality_text = f"质量提醒：{quality_note}"
+            if base_note:
+                return f"{base_note} {quality_text}"
+            return quality_text
+        return base_note
 
     @staticmethod
     def _observed_dataset_snapshots(

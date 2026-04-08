@@ -33,6 +33,23 @@ class SyncDividendService(HttpResourceSyncService):
         trade_date = kwargs.get("trade_date")
         rows = self.client.call(self.api_name, params=self.params_builder(run_type, **kwargs), fields=self.fields)
         normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
+        auto_fill_record = 0
+        auto_fill_pay = 0
+        for row in normalized:
+            if row.get("div_proc") != "实施" or row.get("ex_date") is not None:
+                continue
+            stk_div = row.get("stk_div")
+            cash_div = row.get("cash_div")
+            record_date = row.get("record_date")
+            pay_date = row.get("pay_date")
+            if stk_div is not None and stk_div > 0 and record_date is not None:
+                row["ex_date"] = record_date
+                auto_fill_record += 1
+                continue
+            if stk_div is not None and stk_div == 0 and cash_div is not None and cash_div > 0 and pay_date is not None:
+                row["ex_date"] = pay_date
+                auto_fill_pay += 1
+
         raw_dao = getattr(self.dao, self.raw_dao_name)
         core_dao = getattr(self.dao, self.core_dao_name)
         raw_rows = [{**row, "row_key_hash": build_dividend_row_key_hash(row)} for row in normalized]
@@ -57,9 +74,17 @@ class SyncDividendService(HttpResourceSyncService):
             )
 
         written = core_dao.bulk_upsert(valid_core_rows, conflict_columns=["row_key_hash"])
-        message = None
+        messages: list[str] = []
+        auto_fill_total = auto_fill_record + auto_fill_pay
+        if auto_fill_total:
+            quality_msg = (
+                "data_quality_warning: dividend_ex_date_autofill "
+                f"total={auto_fill_total} by_record_date={auto_fill_record} by_pay_date={auto_fill_pay}"
+            )
+            self.logger.warning(quality_msg)
+            messages.append(quality_msg)
         if skipped:
-            message = f"skipped {skipped} core dividend rows missing required business keys"
+            skipped_msg = f"skipped {skipped} core dividend rows missing required business keys"
             if sample_missing is not None:
                 missing, row = sample_missing
                 self.logger.debug(
@@ -70,5 +95,7 @@ class SyncDividendService(HttpResourceSyncService):
                     row.get("ann_date"),
                     row.get("div_proc"),
                 )
-            self.logger.warning(message)
+            self.logger.warning(skipped_msg)
+            messages.append(skipped_msg)
+        message = "; ".join(messages) if messages else None
         return len(rows), written, trade_date, message

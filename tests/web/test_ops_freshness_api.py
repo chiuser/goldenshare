@@ -179,11 +179,52 @@ def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date
         latest_open_date=date(2026, 4, 1),
         reference_date=date(2026, 4, 1),
         recent_failure=None,
+        quality_note=None,
         observed_business_range=None,
         observed_sync_date=date(2026, 4, 1),
     )
 
     assert item.last_sync_date == date(2026, 4, 1)
+
+
+def test_ops_freshness_appends_data_quality_warning_note(
+    app_client,
+    user_factory,
+    trade_calendar_factory,
+    sync_job_state_factory,
+    sync_run_log_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
+    sync_job_state_factory(
+        job_name="sync_dividend",
+        target_table="core.equity_dividend",
+        last_success_date=date(2026, 3, 30),
+        last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+        full_sync_done=True,
+    )
+    sync_run_log_factory(
+        job_name="sync_dividend",
+        run_type="FULL",
+        status="SUCCESS",
+        ended_at=datetime(2026, 3, 30, 12, 1, tzinfo=timezone.utc),
+        message="data_quality_warning: dividend_ex_date_autofill total=5 by_record_date=3 by_pay_date=2",
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/freshness", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    grouped = {
+        group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
+        for group in payload["groups"]
+    }
+    dividend_item = grouped["event"]["dividend"]
+    assert dividend_item["freshness_note"] is not None
+    assert "质量提醒：dividend_ex_date_autofill total=5 by_record_date=3 by_pay_date=2" in dividend_item["freshness_note"]
 
 
 def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(

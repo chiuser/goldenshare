@@ -124,3 +124,45 @@ def test_dividend_execute_same_record_uses_stable_row_key_hash(mocker) -> None:
 
     assert first_raw == second_raw
     assert first_core == second_core
+
+
+def test_dividend_execute_autofills_ex_date_and_emits_quality_warning(mocker) -> None:
+    service = _build_service(mocker)
+    service.client.call.return_value = [
+        {
+            "ts_code": "000001.SZ",
+            "end_date": "20251231",
+            "ann_date": "20260321",
+            "div_proc": "实施",
+            "record_date": "20260401",
+            "ex_date": None,
+            "pay_date": None,
+            "cash_div": "0",
+            "cash_div_tax": "0",
+            "stk_div": "1",
+        },
+        {
+            "ts_code": "000002.SZ",
+            "end_date": "20251231",
+            "ann_date": "20260321",
+            "div_proc": "实施",
+            "record_date": None,
+            "ex_date": None,
+            "pay_date": "20260402",
+            "cash_div": "0.2",
+            "cash_div_tax": "0.2",
+            "stk_div": "0",
+        },
+    ]
+    service.dao.raw_dividend.bulk_upsert.return_value = 2
+    service.dao.equity_dividend.bulk_upsert.return_value = 2
+
+    fetched, written, _, message = service.execute("FULL", ts_code="000001.SZ")
+
+    assert fetched == 2
+    assert written == 2
+    assert message is not None
+    assert "data_quality_warning: dividend_ex_date_autofill total=2 by_record_date=1 by_pay_date=1" in message
+    core_rows = service.dao.equity_dividend.bulk_upsert.call_args.args[0]
+    assert core_rows[0]["ex_date"] == date(2026, 4, 1)
+    assert core_rows[1]["ex_date"] == date(2026, 4, 2)

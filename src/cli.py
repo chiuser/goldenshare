@@ -14,7 +14,12 @@ from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
 from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
-from src.operations.services import DatasetStatusSnapshotService, OperationsExecutionReconciliationService, SyncJobStateReconciliationService
+from src.operations.services import (
+    DailyHealthReportService,
+    DatasetStatusSnapshotService,
+    OperationsExecutionReconciliationService,
+    SyncJobStateReconciliationService,
+)
 from src.operations.services.history_backfill_service import HistoryBackfillService
 from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
@@ -205,6 +210,31 @@ def ops_rebuild_dataset_status() -> None:
     with SessionLocal() as session:
         count = DatasetStatusSnapshotService().rebuild_all(session, strict=True)
         typer.echo(f"ops-rebuild-dataset-status: rebuilt={count}")
+
+
+@app.command("ops-daily-health-report")
+def ops_daily_health_report(
+    report_date: str | None = typer.Option(None, "--date", help="报告日期，格式 YYYY-MM-DD；默认今天"),
+    output_format: str = typer.Option("md", "--format", help="输出格式：md 或 json"),
+    output: Path | None = typer.Option(None, "--output", help="输出文件路径；不传则打印到终端"),
+) -> None:
+    target_date = date.fromisoformat(report_date) if report_date else date.today()
+    format_key = output_format.strip().lower()
+    if format_key not in {"md", "json"}:
+        raise typer.BadParameter("--format 仅支持 md 或 json")
+
+    with SessionLocal() as session:
+        service = DailyHealthReportService()
+        report = service.build_report(session, report_date=target_date)
+        rendered = service.render_markdown(report) if format_key == "md" else report.to_json()
+
+    if output is None:
+        typer.echo(rendered)
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(rendered, encoding="utf-8")
+    typer.echo(f"ops-daily-health-report: written={output}")
 
 
 @app.command("backfill-trade-cal")
