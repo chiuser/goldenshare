@@ -6,9 +6,9 @@ from decimal import Decimal
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -30,7 +30,7 @@ def _ensure_quote_tables(db_session) -> None:
         Security.__table__,
         EquityDailyBar.__table__,
         EquityDailyBasic.__table__,
-        EquityPriceRestoreFactor.__table__,
+        EquityAdjFactor.__table__,
         IndexBasic.__table__,
         IndexDailyServing.__table__,
         IndexDailyBasic.__table__,
@@ -152,8 +152,8 @@ def test_quote_page_init_and_kline_for_stock(app_client, db_session) -> None:
     )
     db_session.add_all(
         [
-            EquityPriceRestoreFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 1), cum_factor=Decimal("1.00000000")),
-            EquityPriceRestoreFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 2), cum_factor=Decimal("2.00000000")),
+            EquityAdjFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 2), adj_factor=Decimal("2.00000000")),
         ]
     )
     db_session.add(
@@ -532,8 +532,8 @@ def test_quote_kline_limit_bounds_are_respected(app_client, db_session) -> None:
     )
     db_session.add_all(
         [
-            EquityPriceRestoreFactor(ts_code="600000.SH", trade_date=date(2026, 4, 1), cum_factor=Decimal("1.00000000")),
-            EquityPriceRestoreFactor(ts_code="600000.SH", trade_date=date(2026, 4, 2), cum_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="600000.SH", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="600000.SH", trade_date=date(2026, 4, 2), adj_factor=Decimal("1.00000000")),
         ]
     )
     db_session.commit()
