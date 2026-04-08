@@ -70,6 +70,8 @@ const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "i
 const MARKET_REFERENCE_RESOURCES = new Set(["ths_index", "ths_member", "broker_recommend"]);
 const EQUITY_RESOURCES = new Set([
   "daily",
+  "equity_price_restore_factor",
+  "equity_indicators",
   "adj_factor",
   "daily_basic",
   "moneyflow",
@@ -352,7 +354,7 @@ function inferActionDomain(resourceKey: string, category: string, type: "job" | 
   return "其他";
 }
 
-function resolveExecutionTarget(
+export function resolveExecutionTarget(
   action: ManualAction,
   draft: ReturnType<typeof buildEmptyDraft>,
 ) {
@@ -421,12 +423,13 @@ function resolveExecutionTarget(
         params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
       };
     }
-    if (!action.backfillSpecKey) {
-      throw new Error("当前任务暂不支持按日期区间补数据。");
+    const rangeSpecKey = action.backfillSpecKey || action.directSpecKey;
+    if (!rangeSpecKey) {
+      throw new Error("当前任务暂不支持按日期区间执行。");
     }
     return {
       spec_type: "job" as ManualSpecType,
-      spec_key: action.backfillSpecKey,
+      spec_key: rangeSpecKey,
       params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
     };
   }
@@ -470,12 +473,13 @@ function resolveExecutionTarget(
         params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
       };
     }
-    if (!action.backfillSpecKey) {
-      throw new Error("当前任务暂不支持按日期区间补数据。");
+    const rangeSpecKey = action.backfillSpecKey || action.directSpecKey;
+    if (!rangeSpecKey) {
+      throw new Error("当前任务暂不支持按日期区间执行。");
     }
     return {
       spec_type: "job" as ManualSpecType,
-      spec_key: action.backfillSpecKey,
+      spec_key: rangeSpecKey,
       params_json: { ...params, [action.timeCapability.rangeStartKey!]: rangeStart, [action.timeCapability.rangeEndKey!]: rangeEnd },
     };
   }

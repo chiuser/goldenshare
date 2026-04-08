@@ -123,6 +123,7 @@ const resourceLabelMap: Record<string, string> = {
   index_basic: "指数基础信息",
   daily: "股票日线",
   equity_price_restore_factor: "价格还原因子",
+  equity_indicators: "股票技术指标",
   adj_factor: "复权因子",
   daily_basic: "每日指标",
   moneyflow: "资金流向",
