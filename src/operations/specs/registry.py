@@ -213,6 +213,7 @@ LIMIT_PARAM = ParameterSpec(
 DAILY_SYNC_RESOURCES = (
     "daily",
     "equity_price_restore_factor",
+    "equity_indicators",
     "adj_factor",
     "daily_basic",
     "moneyflow",
@@ -263,6 +264,7 @@ SECURITY_RANGE_RESOURCES = {
 
 TRADE_DATE_RANGE_RESOURCES = {
     "equity_price_restore_factor",
+    "equity_indicators",
     "daily_basic",
     "moneyflow",
     "top_list",
@@ -333,6 +335,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
+    if resource == "equity_indicators":
+        return (START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "limit_list_d":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
@@ -389,6 +393,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     elif resource == "broker_recommend":
         supported_params = (MONTH_PARAM,)
+    elif resource == "equity_indicators":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     return JobSpec(
         key=f"sync_daily.{resource}",
         display_name=f"日常同步 / {resource}",
@@ -662,6 +668,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
         steps=(
             WorkflowStepSpec("daily", "sync_daily.daily", "股票日线"),
             WorkflowStepSpec("equity_price_restore_factor", "sync_daily.equity_price_restore_factor", "价格还原因子"),
+            WorkflowStepSpec("equity_indicators", "sync_daily.equity_indicators", "股票技术指标"),
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
@@ -739,6 +746,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
     "equity_price_restore_factor": ("价格还原因子", "equity", "股票", "daily", "trade_date"),
+    "equity_indicators": ("股票技术指标", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),

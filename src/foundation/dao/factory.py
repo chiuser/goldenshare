@@ -46,6 +46,11 @@ from src.foundation.models.core.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core.indicator_kdj import IndicatorKdj
+from src.foundation.models.core.indicator_macd import IndicatorMacd
+from src.foundation.models.core.indicator_meta import IndicatorMeta
+from src.foundation.models.core.indicator_rsi import IndicatorRsi
+from src.foundation.models.core.indicator_state import IndicatorState
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.broker_recommend import BrokerRecommend
@@ -130,6 +135,11 @@ class DAOFactory:
         self.index_monthly_serving = GenericDAO(session, IndexMonthlyServing)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
+        self.indicator_meta = GenericDAO(session, IndicatorMeta)
+        self.indicator_state = GenericDAO(session, IndicatorState)
+        self.indicator_macd = GenericDAO(session, IndicatorMacd)
+        self.indicator_kdj = GenericDAO(session, IndicatorKdj)
+        self.indicator_rsi = GenericDAO(session, IndicatorRsi)
         self.ths_index = GenericDAO(session, ThsIndex)
         self.ths_member = GenericDAO(session, ThsMember)
         self.ths_daily = GenericDAO(session, ThsDaily)

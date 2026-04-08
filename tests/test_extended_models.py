@@ -12,6 +12,11 @@ from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.indicator_kdj import IndicatorKdj
+from src.foundation.models.core.indicator_macd import IndicatorMacd
+from src.foundation.models.core.indicator_meta import IndicatorMeta
+from src.foundation.models.core.indicator_rsi import IndicatorRsi
+from src.foundation.models.core.indicator_state import IndicatorState
 from src.foundation.models.core.security import Security
 from src.foundation.models.core.stk_period_bar import StkPeriodBar
 from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
@@ -72,6 +77,31 @@ def test_index_supplement_models_match_expected_keys() -> None:
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexWeight.__table__.primary_key.columns] == ["index_code", "trade_date", "con_code"]
     assert [column.name for column in IndexDailyBasic.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in IndicatorMeta.__table__.primary_key.columns] == ["indicator_name", "version"]
+    assert [column.name for column in IndicatorState.__table__.primary_key.columns] == [
+        "ts_code",
+        "adjustment",
+        "indicator_name",
+        "version",
+    ]
+    assert [column.name for column in IndicatorMacd.__table__.primary_key.columns] == [
+        "ts_code",
+        "trade_date",
+        "adjustment",
+        "version",
+    ]
+    assert [column.name for column in IndicatorKdj.__table__.primary_key.columns] == [
+        "ts_code",
+        "trade_date",
+        "adjustment",
+        "version",
+    ]
+    assert [column.name for column in IndicatorRsi.__table__.primary_key.columns] == [
+        "ts_code",
+        "trade_date",
+        "adjustment",
+        "version",
+    ]
 
 
 def test_overseas_basic_models_match_expected_keys() -> None:
