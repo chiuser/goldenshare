@@ -6,6 +6,7 @@
 - [当前架构基线](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md)
 - [三子系统治理规范](/Users/congming/github/goldenshare/docs/architecture/subsystems-architecture-governance-v1.md)
 - [虚拟拆仓重构方案](/Users/congming/github/goldenshare/docs/architecture/virtual-split-repo-refactor-plan-v1.md)
+- [数据同步统一架构与全量矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
 
 ## 前端设计与实现
 
@@ -33,6 +34,7 @@
 - [ETF 日线行情开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
 - [基金复权因子开发说明](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [股票价格还原因子设计说明](/Users/congming/github/goldenshare/docs/datasets/equity-price-restore-factor-dataset-development.md)
+- [股票技术指标数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/equity-technical-indicators-dataset-development.md)
 
 ## 发布与运维流程
 
