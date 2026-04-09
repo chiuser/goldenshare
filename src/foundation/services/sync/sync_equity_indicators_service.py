@@ -44,39 +44,32 @@ class SyncEquityIndicatorsService(BaseSyncService):
     target_table = "core.ind_macd"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
-        trade_date = _parse_date_or_none(kwargs.get("trade_date"))
-        ts_code = kwargs.get("ts_code")
+        ts_code_raw = kwargs.get("ts_code")
+        ts_code = str(ts_code_raw).strip().upper() if ts_code_raw else None
         execution_id = kwargs.get("execution_id")
 
-        if run_type == "INCREMENTAL":
-            if trade_date is None:
-                raise ValueError("trade_date is required for incremental equity_indicators sync")
-            start_date = trade_date
-            end_date = trade_date
-        else:
-            start_date = _parse_date_or_none(kwargs.get("start_date")) or date.fromisoformat(get_settings().history_start_date)
-            end_date = _parse_date_or_none(kwargs.get("end_date")) or self._latest_trade_date()
-            if end_date is None:
-                return 0, 0, None, "未找到股票日线数据"
-            if start_date > end_date:
-                raise ValueError("start_date cannot be greater than end_date")
-
-        ts_codes = self._load_ts_codes(start_date=start_date, end_date=end_date, ts_code=ts_code)
+        ts_codes = self._load_ts_codes(ts_code=ts_code)
         if not ts_codes:
-            return 0, 0, end_date, "指定区间无可处理股票日线数据"
+            return 0, 0, None, "无可处理股票日线数据"
 
         self._ensure_meta_rows()
 
         fetched_total = 0
         written_total = 0
+        latest_end_date: date | None = None
         for code in ts_codes:
             self.ensure_not_canceled(execution_id)
+            bounds = self._load_trade_bounds(ts_code=code)
+            if bounds is None:
+                continue
+            start_date, end_date = bounds
+            latest_end_date = end_date if latest_end_date is None else max(latest_end_date, end_date)
             fetched, written = self._build_for_ts_code(code, start_date=start_date, end_date=end_date)
             fetched_total += fetched
             written_total += written
 
         message = f"stocks={len(ts_codes)} days={fetched_total}"
-        return fetched_total, written_total, end_date, message
+        return fetched_total, written_total, latest_end_date, message
 
     def _build_for_ts_code(self, ts_code: str, *, start_date: date, end_date: date) -> tuple[int, int]:
         all_rows = self._load_daily_rows(ts_code=ts_code, end_date=end_date)
@@ -400,19 +393,20 @@ class SyncEquityIndicatorsService(BaseSyncService):
 
         return values, {"avg_gain": avg_gain, "avg_loss": avg_loss, "prev_close": prev_close}
 
-    def _load_ts_codes(self, *, start_date: date, end_date: date, ts_code: str | None = None) -> list[str]:
-        stmt = (
-            select(EquityDailyBar.ts_code)
-            .where(
-                EquityDailyBar.trade_date >= start_date,
-                EquityDailyBar.trade_date <= end_date,
-            )
-            .distinct()
-            .order_by(EquityDailyBar.ts_code.asc())
-        )
+    def _load_ts_codes(self, *, ts_code: str | None = None) -> list[str]:
+        stmt = select(EquityDailyBar.ts_code).distinct().order_by(EquityDailyBar.ts_code.asc())
         if ts_code:
             stmt = stmt.where(EquityDailyBar.ts_code == ts_code)
         return list(self.session.scalars(stmt))
 
-    def _latest_trade_date(self) -> date | None:
-        return self.session.scalar(select(func.max(EquityDailyBar.trade_date)))
+    def _load_trade_bounds(self, *, ts_code: str) -> tuple[date, date] | None:
+        row = self.session.execute(
+            select(
+                func.min(EquityDailyBar.trade_date),
+                func.max(EquityDailyBar.trade_date),
+            ).where(EquityDailyBar.ts_code == ts_code)
+        ).one()
+        start_date, end_date = row
+        if start_date is None or end_date is None:
+            return None
+        return start_date, end_date

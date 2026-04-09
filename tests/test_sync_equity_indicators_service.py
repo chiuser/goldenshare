@@ -8,24 +8,16 @@ import src.foundation.services.sync.sync_equity_indicators_service as service_mo
 from src.foundation.services.sync.sync_equity_indicators_service import SyncEquityIndicatorsService
 
 
-def test_sync_equity_indicators_incremental_requires_trade_date(mocker) -> None:
-    service = SyncEquityIndicatorsService(mocker.Mock())
-    try:
-        service.execute("INCREMENTAL")
-        assert False, "expected ValueError for missing trade_date"
-    except ValueError as exc:
-        assert "trade_date is required" in str(exc)
-
-
 def test_sync_equity_indicators_incremental_executes_for_single_day(mocker) -> None:
     service = SyncEquityIndicatorsService(mocker.Mock())
     mocker.patch.object(service, "_load_ts_codes", return_value=["000001.SZ"])
+    mocker.patch.object(service, "_load_trade_bounds", return_value=(date(2020, 1, 1), date(2026, 4, 8)))
     mocker.patch.object(service, "_ensure_meta_rows")
     mocker.patch.object(service, "_build_for_ts_code", return_value=(2, 6))
 
     fetched, written, result_date, message = service.execute(
         "INCREMENTAL",
-        trade_date=date(2026, 4, 8),
+        ts_code="000001.SZ",
     )
 
     assert fetched == 2

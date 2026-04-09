@@ -55,12 +55,12 @@
 资源 key：`equity_indicators`
 
 1. `sync_daily.equity_indicators`
-  - 参数：`trade_date`、`ts_code`（可选）
-  - 用途：日常更新或单股补算。
+  - 参数：`ts_code`（可选）
+  - 用途：按股票全历史重算（可指定单股）。
 
 2. `sync_history.equity_indicators`
-  - 参数：`start_date`、`end_date`、`ts_code`（可选）
-  - 用途：历史重算、区间重算。
+  - 参数：`ts_code`（可选）
+  - 用途：按股票全历史重算（可指定单股）。
 
 ## 5. 当前实现策略
 

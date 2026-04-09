@@ -336,7 +336,7 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "kpl_concept_cons":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     if resource == "equity_indicators":
-        return (START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+        return (TS_CODE_PARAM,)
     if resource == "limit_list_d":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
@@ -394,7 +394,7 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "broker_recommend":
         supported_params = (MONTH_PARAM,)
     elif resource == "equity_indicators":
-        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+        supported_params = (TS_CODE_PARAM,)
     return JobSpec(
         key=f"sync_daily.{resource}",
         display_name=f"日常同步 / {resource}",

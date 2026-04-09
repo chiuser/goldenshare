@@ -153,11 +153,11 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
 
     indicator_history_spec = get_job_spec("sync_history.equity_indicators")
     assert indicator_history_spec is not None
-    assert [param.key for param in indicator_history_spec.supported_params] == ["start_date", "end_date", "ts_code"]
+    assert [param.key for param in indicator_history_spec.supported_params] == ["ts_code"]
 
     indicator_daily_spec = get_job_spec("sync_daily.equity_indicators")
     assert indicator_daily_spec is not None
-    assert [param.key for param in indicator_daily_spec.supported_params] == ["trade_date", "ts_code"]
+    assert [param.key for param in indicator_daily_spec.supported_params] == ["ts_code"]
 
     broker_recommend_daily_spec = get_job_spec("sync_daily.broker_recommend")
     assert broker_recommend_daily_spec is not None
