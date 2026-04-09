@@ -83,6 +83,7 @@ export interface OpsOverviewResponse {
     lagging_datasets: number;
     stale_datasets: number;
     unknown_datasets: number;
+    disabled_datasets: number;
   };
   lagging_datasets: Array<{
     dataset_key: string;
@@ -120,6 +121,7 @@ export interface OpsFreshnessResponse {
     lagging_datasets: number;
     stale_datasets: number;
     unknown_datasets: number;
+    disabled_datasets: number;
   };
   groups: Array<{
     domain_key: string;

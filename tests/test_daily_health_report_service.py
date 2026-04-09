@@ -41,6 +41,7 @@ def _freshness_response() -> SimpleNamespace:
         lagging_datasets=0,
         stale_datasets=1,
         unknown_datasets=0,
+        disabled_datasets=0,
     )
     return SimpleNamespace(
         summary=summary,

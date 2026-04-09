@@ -40,6 +40,7 @@ vi.mock("../shared/api/client", () => ({
       lagging_datasets: 1,
       stale_datasets: 0,
       unknown_datasets: 0,
+      disabled_datasets: 0,
     },
     lagging_datasets: [
       {

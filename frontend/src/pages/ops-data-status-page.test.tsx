@@ -40,6 +40,7 @@ describe("数据状态页", () => {
         lagging_datasets: 0,
         stale_datasets: 0,
         unknown_datasets: 0,
+        disabled_datasets: 0,
       },
       groups: [
         {
@@ -90,6 +91,7 @@ describe("数据状态页", () => {
         lagging_datasets: 0,
         stale_datasets: 0,
         unknown_datasets: 0,
+        disabled_datasets: 0,
       },
       groups: [
         {

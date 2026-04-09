@@ -73,6 +73,9 @@ export function OpsDataStatusPage() {
               <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
                 <StatCard label="严重滞后 / 未知" value={freshnessQuery.data.summary.stale_datasets + freshnessQuery.data.summary.unknown_datasets} />
               </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="已停用" value={freshnessQuery.data.summary.disabled_datasets} />
+              </Grid.Col>
             </Grid>
           </SectionCard>
 

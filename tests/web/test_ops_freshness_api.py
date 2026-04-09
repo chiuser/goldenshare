@@ -266,6 +266,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
             lagging_datasets=0,
             stale_datasets=0,
             unknown_datasets=0,
+            disabled_datasets=0,
         ),
         groups=[
             FreshnessGroup(
@@ -387,6 +388,7 @@ def test_build_freshness_overrides_snapshot_with_live_weekly_item(
             lagging_datasets=0,
             stale_datasets=0,
             unknown_datasets=0,
+            disabled_datasets=0,
         ),
         groups=[
             FreshnessGroup(

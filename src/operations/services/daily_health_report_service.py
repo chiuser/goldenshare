@@ -79,6 +79,7 @@ class DailyHealthReportService:
                 "lagging_datasets": freshness.summary.lagging_datasets,
                 "stale_datasets": freshness.summary.stale_datasets,
                 "unknown_datasets": freshness.summary.unknown_datasets,
+                "disabled_datasets": freshness.summary.disabled_datasets,
             },
             execution_summary=execution_summary,
             datasets=datasets,
@@ -97,7 +98,7 @@ class DailyHealthReportService:
         lines.append(
             f"- 数据集：总计 {report.freshness_summary['total_datasets']}，正常 {report.freshness_summary['fresh_datasets']}，"
             f"滞后 {report.freshness_summary['lagging_datasets']}，严重滞后 {report.freshness_summary['stale_datasets']}，"
-            f"未知 {report.freshness_summary['unknown_datasets']}"
+            f"未知 {report.freshness_summary['unknown_datasets']}，已停用 {report.freshness_summary['disabled_datasets']}"
         )
         lines.append(
             f"- 今日任务：总计 {report.execution_summary['total']}，成功 {report.execution_summary['success']}，"
@@ -287,4 +288,3 @@ class DailyHealthReportService:
             deduped.append(item)
             seen.add(item)
         return deduped[:12]
-

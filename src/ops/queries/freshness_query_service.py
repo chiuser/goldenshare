@@ -56,7 +56,10 @@ from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spe
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
-STATUS_PRIORITY = {"stale": 0, "lagging": 1, "fresh": 2, "unknown": 3}
+STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unknown": 2, "disabled": 3, "fresh": 4}
+DISABLED_DATASET_KEYS = {
+    "equity_price_restore_factor",
+}
 
 UNDEFINED_COLUMN_RE = re.compile(r'column "([^"]+)" of relation "([^"]+)" does not exist', re.IGNORECASE)
 NOT_NULL_RE = re.compile(
@@ -270,6 +273,9 @@ class OpsFreshnessQueryService:
         effective_date = latest_business_date or (latest_success_at.date() if latest_success_at else None)
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
         freshness_status = self._freshness_status(spec.cadence, lag_days, full_sync_done, latest_success_at)
+        if spec.dataset_key in DISABLED_DATASET_KEYS:
+            freshness_status = "disabled"
+            lag_days = None
         visible_failure = self._visible_failure_snapshot(recent_failure, latest_success_at)
 
         base_note = self._freshness_note(
@@ -278,6 +284,11 @@ class OpsFreshnessQueryService:
             business_date_source=business_date_source,
         )
         freshness_note = self._compose_freshness_note(base_note=base_note, quality_note=quality_note)
+        if freshness_status == "disabled":
+            freshness_note = self._compose_freshness_note(
+                base_note="该数据集已停用，不纳入健康度统计。",
+                quality_note=quality_note,
+            )
 
         return DatasetFreshnessItem(
             dataset_key=spec.dataset_key,
@@ -408,7 +419,7 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _build_summary(items: list[DatasetFreshnessItem]) -> OpsFreshnessSummary:
-        counts = {"fresh": 0, "lagging": 0, "stale": 0, "unknown": 0}
+        counts = {"fresh": 0, "lagging": 0, "stale": 0, "unknown": 0, "disabled": 0}
         for item in items:
             counts[item.freshness_status] = counts.get(item.freshness_status, 0) + 1
         return OpsFreshnessSummary(
@@ -417,6 +428,7 @@ class OpsFreshnessQueryService:
             lagging_datasets=counts["lagging"],
             stale_datasets=counts["stale"],
             unknown_datasets=counts["unknown"],
+            disabled_datasets=counts["disabled"],
         )
 
     @staticmethod

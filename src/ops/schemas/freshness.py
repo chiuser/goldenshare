@@ -44,6 +44,7 @@ class OpsFreshnessSummary(BaseModel):
     lagging_datasets: int
     stale_datasets: int
     unknown_datasets: int
+    disabled_datasets: int
 
 
 class OpsFreshnessResponse(BaseModel):
