@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,6 +32,10 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = Field(default=480, alias="JWT_EXPIRE_MINUTES")
     platform_check_enabled: bool = Field(default=True, alias="PLATFORM_CHECK_ENABLED")
     quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
+    equity_adjustment_factor_source: Literal["adj_factor", "price_restore_factor"] = Field(
+        default="adj_factor",
+        alias="EQUITY_ADJUSTMENT_FACTOR_SOURCE",
+    )
 
     model_config = SettingsConfigDict(extra="ignore")
 

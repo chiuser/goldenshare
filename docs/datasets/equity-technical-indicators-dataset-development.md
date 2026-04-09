@@ -10,7 +10,10 @@
 本数据集不直接调用外部 API，输入来自：
 
 1. `core.equity_daily_bar`（原始日线）
-2. `core.equity_price_restore_factor`（价格还原因子）
+2. 复权因子表（由配置决定）：
+  - 默认：`core.equity_adj_factor`
+  - 可切换：`core.equity_price_restore_factor`
+  - 配置项：`EQUITY_ADJUSTMENT_FACTOR_SOURCE=adj_factor|price_restore_factor`
 
 支持两种复权口径：
 
@@ -77,4 +80,3 @@
   - 前/后复权指标都可按增量更新。
 
 > 注：当前代码已落地统一计算框架与版本管理；后续可在此基础上进一步强化“状态递推”性能优化。
-
