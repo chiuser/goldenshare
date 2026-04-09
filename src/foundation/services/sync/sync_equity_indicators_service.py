@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -12,6 +13,7 @@ from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.services.sync.base_sync_service import BaseSyncService
+from src.ops.models.ops.job_execution import JobExecution
 
 
 INDICATOR_VERSION = 1
@@ -57,7 +59,14 @@ class SyncEquityIndicatorsService(BaseSyncService):
         fetched_total = 0
         written_total = 0
         latest_end_date: date | None = None
-        for code in ts_codes:
+        total_codes = len(ts_codes)
+        self._update_progress(
+            execution_id=execution_id,
+            current=0,
+            total=total_codes,
+            message=f"units=0/{total_codes} unit=stock",
+        )
+        for index, code in enumerate(ts_codes, start=1):
             self.ensure_not_canceled(execution_id)
             bounds = self._load_trade_bounds(ts_code=code)
             if bounds is None:
@@ -67,9 +76,28 @@ class SyncEquityIndicatorsService(BaseSyncService):
             fetched, written = self._build_for_ts_code(code, start_date=start_date, end_date=end_date)
             fetched_total += fetched
             written_total += written
+            self._update_progress(
+                execution_id=execution_id,
+                current=index,
+                total=total_codes,
+                message=f"units={index}/{total_codes} unit=stock ts_code={code} fetched={fetched} written={written}",
+            )
 
         message = f"stocks={len(ts_codes)} days={fetched_total}"
         return fetched_total, written_total, latest_end_date, message
+
+    def _update_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
+        if execution_id is None:
+            return
+        execution = self.session.get(JobExecution, execution_id)
+        if execution is None:
+            return
+        execution.progress_current = current
+        execution.progress_total = total
+        execution.progress_percent = int((current / total) * 100) if total else None
+        execution.progress_message = message
+        execution.last_progress_at = datetime.now(timezone.utc)
+        self.session.commit()
 
     def _build_for_ts_code(self, ts_code: str, *, start_date: date, end_date: date) -> tuple[int, int]:
         all_rows = self._load_daily_rows(ts_code=ts_code, end_date=end_date)

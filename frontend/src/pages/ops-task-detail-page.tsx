@@ -84,6 +84,19 @@ function parseProgressDetails(message: string | null | undefined) {
   const ratioMatch = raw.match(/(\d+)\s*\/\s*(\d+)/);
   const kvMatches = [...raw.matchAll(/([a-zA-Z_]+)=([^\s]+)/g)];
   const kv = Object.fromEntries(kvMatches.map((item) => [item[1], item[2]]));
+  const unitRaw = kv.unit || kv.unit_kind || null;
+  const unitLabel =
+    unitRaw === "stock"
+      ? "股票"
+      : unitRaw === "trade_date"
+        ? "交易日"
+        : unitRaw === "month"
+          ? "月份"
+          : unitRaw === "board"
+            ? "板块"
+            : unitRaw === "code"
+              ? "代码"
+              : null;
   const cursorValue = kv.trade_date || kv.ts_code || kv.con_code || kv.index_code || kv.code || kv.idx_type || null;
   const cursorLabel = kv.trade_date
     ? `当前日期：${kv.trade_date}`
@@ -104,6 +117,7 @@ function parseProgressDetails(message: string | null | undefined) {
     raw,
     current: ratioMatch ? Number(ratioMatch[1]) : null,
     total: ratioMatch ? Number(ratioMatch[2]) : null,
+    unitLabel,
     cursorLabel,
     fetched: Number.isFinite(fetched) ? fetched : null,
     written: Number.isFinite(written) ? written : null,
@@ -296,6 +310,7 @@ function buildStructuredProgressSnapshot(
       total,
       percent: detail.progress_percent ?? Math.round((current / total) * 100),
       message: detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。",
+      unitLabel: detailProgress?.unitLabel || "任务单元",
       cursorLabel: detailProgress?.cursorLabel || null,
       fetched: detailProgress?.fetched ?? null,
       written: detailProgress?.written ?? null,
@@ -307,6 +322,7 @@ function buildStructuredProgressSnapshot(
     const parsed = parseProgressDetails(fromEvent.message);
     return {
       ...fromEvent,
+      unitLabel: parsed?.unitLabel || "任务单元",
       cursorLabel: parsed?.cursorLabel || null,
       fetched: parsed?.fetched ?? null,
       written: parsed?.written ?? null,
@@ -315,7 +331,25 @@ function buildStructuredProgressSnapshot(
   return null;
 }
 
-function buildLiveResult(detail: ExecutionDetailResponse) {
+function buildLiveResult(
+  detail: ExecutionDetailResponse,
+  progressSnapshot: {
+    current: number;
+    total: number;
+    unitLabel?: string | null;
+    fetched?: number | null;
+    written?: number | null;
+  } | null,
+) {
+  if (progressSnapshot && progressSnapshot.total > 0) {
+    const unitLabel = progressSnapshot.unitLabel || "任务单元";
+    const unitWord = unitLabel === "任务单元" ? unitLabel : `${unitLabel}`;
+    return {
+      value: `${progressSnapshot.current}/${progressSnapshot.total}`,
+      hint: `已处理${unitWord} / 全部${unitWord}`,
+    };
+  }
+
   if (detail.rows_fetched > 0 || detail.rows_written > 0) {
     return {
       value: `${detail.rows_fetched}/${detail.rows_written}`,
@@ -473,7 +507,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const steps = stepsQuery.data?.items || [];
   const events = eventsQuery.data?.items || [];
   const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
-  const liveResult = detail ? buildLiveResult(detail) : null;
+  const liveResult = detail ? buildLiveResult(detail, progressSnapshot) : null;
   const latestUpdate = detail ? buildLatestUpdate(detail, events, steps) : null;
   const userConfiguredParams = useMemo(
     () => (scheduleQuery.data?.params_json || detail?.params_json || {}) as Record<string, unknown>,
@@ -603,15 +637,18 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       <Group justify="space-between" align="end">
                         <Stack gap={2}>
                           <Text c="dimmed" size="sm">阶段性进度</Text>
-                          <Text fw={700} size="xl">{progressSnapshot.current} / {progressSnapshot.total}</Text>
-                        </Stack>
-                        <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">{progressSnapshot.percent}%</Text>
-                      </Group>
-                      <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
-                      <Text size="sm">{progressSnapshot.message}</Text>
-                      {progressSnapshot.cursorLabel ? (
-                        <Text size="sm">{progressSnapshot.cursorLabel}</Text>
-                      ) : null}
+                      <Text fw={700} size="xl">{progressSnapshot.current} / {progressSnapshot.total}</Text>
+                    </Stack>
+                    <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">{progressSnapshot.percent}%</Text>
+                  </Group>
+                  <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
+                  <Text size="sm" c="dimmed">
+                    {`进度单位：${progressSnapshot.unitLabel || "任务单元"}`}
+                  </Text>
+                  <Text size="sm">{progressSnapshot.message}</Text>
+                  {progressSnapshot.cursorLabel ? (
+                    <Text size="sm">{progressSnapshot.cursorLabel}</Text>
+                  ) : null}
                       {(progressSnapshot.fetched !== null || progressSnapshot.written !== null) ? (
                         <Text size="sm">
                           当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条
