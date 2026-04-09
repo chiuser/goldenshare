@@ -360,6 +360,123 @@ def test_quote_kline_can_switch_factor_source_to_price_restore(app_client, db_se
         get_settings.cache_clear()
 
 
+def test_quote_kline_uses_preheat_window_for_ma_on_single_day_request(app_client, db_session) -> None:
+    _ensure_quote_tables(db_session)
+    db_session.add(
+        Security(
+            ts_code="300001.SZ",
+            symbol="300001",
+            name="测试预热",
+            exchange="SZSE",
+            industry="测试",
+            list_status="L",
+            security_type="EQUITY",
+            source="tushare",
+        )
+    )
+    db_session.add_all(
+        [
+            EquityDailyBar(
+                ts_code="300001.SZ",
+                trade_date=date(2026, 4, 1),
+                open=Decimal("10.0000"),
+                high=Decimal("10.2000"),
+                low=Decimal("9.9000"),
+                close=Decimal("10.0000"),
+                pre_close=Decimal("9.9000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("1.0101"),
+                vol=Decimal("100.0000"),
+                amount=Decimal("1000.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300001.SZ",
+                trade_date=date(2026, 4, 2),
+                open=Decimal("10.1000"),
+                high=Decimal("10.3000"),
+                low=Decimal("10.0000"),
+                close=Decimal("10.1000"),
+                pre_close=Decimal("10.0000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("1.0000"),
+                vol=Decimal("110.0000"),
+                amount=Decimal("1100.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300001.SZ",
+                trade_date=date(2026, 4, 3),
+                open=Decimal("10.2000"),
+                high=Decimal("10.4000"),
+                low=Decimal("10.1000"),
+                close=Decimal("10.2000"),
+                pre_close=Decimal("10.1000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("0.9901"),
+                vol=Decimal("120.0000"),
+                amount=Decimal("1200.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300001.SZ",
+                trade_date=date(2026, 4, 6),
+                open=Decimal("10.3000"),
+                high=Decimal("10.5000"),
+                low=Decimal("10.2000"),
+                close=Decimal("10.3000"),
+                pre_close=Decimal("10.2000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("0.9804"),
+                vol=Decimal("130.0000"),
+                amount=Decimal("1300.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300001.SZ",
+                trade_date=date(2026, 4, 7),
+                open=Decimal("10.4000"),
+                high=Decimal("10.6000"),
+                low=Decimal("10.3000"),
+                close=Decimal("10.4000"),
+                pre_close=Decimal("10.3000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("0.9709"),
+                vol=Decimal("140.0000"),
+                amount=Decimal("1400.0000"),
+                source="api",
+            ),
+        ]
+    )
+    db_session.add_all(
+        [
+            EquityAdjFactor(ts_code="300001.SZ", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="300001.SZ", trade_date=date(2026, 4, 2), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="300001.SZ", trade_date=date(2026, 4, 3), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="300001.SZ", trade_date=date(2026, 4, 6), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="300001.SZ", trade_date=date(2026, 4, 7), adj_factor=Decimal("1.00000000")),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/quote/detail/kline",
+        params={
+            "ts_code": "300001.SZ",
+            "period": "day",
+            "adjustment": "forward",
+            "start_date": "2026-04-07",
+            "end_date": "2026-04-07",
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["meta"]["bar_count"] == 1
+    # Should use preheat bars before 2026-04-07, not treat this as first bar.
+    assert payload["bars"][0]["ma5"] == "10.2000"
+
+
 def test_quote_kline_supports_stock_week_backward_and_month_none(app_client, db_session) -> None:
     _ensure_quote_tables(db_session)
     db_session.add(

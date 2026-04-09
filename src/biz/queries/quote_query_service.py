@@ -50,6 +50,7 @@ from src.biz.schemas.quote import (
 SUPPORTED_PERIODS = {"day", "week", "month"}
 UNSUPPORTED_MINUTE_PERIODS = {"timeline", "minute5", "minute15", "minute30", "minute60"}
 SUPPORTED_ADJUSTMENTS = {"none", "forward", "backward"}
+INDICATOR_PREHEAT_BARS = 250
 
 
 @dataclass
@@ -236,7 +237,13 @@ class QuoteQueryService:
             end_date=end_date,
             limit=limit,
         )
-        bars = self._attach_indicators(points)
+        bars = self._attach_indicators_with_context(
+            session,
+            instrument=instrument,
+            period=period,
+            adjustment=adjustment,
+            points=points,
+        )
         next_start_date = None
         has_more_history = False
         if points:
@@ -260,6 +267,35 @@ class QuoteQueryService:
                 next_start_date=next_start_date,
             ),
         )
+
+    def _attach_indicators_with_context(
+        self,
+        session: Session,
+        *,
+        instrument: ResolvedInstrument,
+        period: str,
+        adjustment: str,
+        points: list[KlinePoint],
+    ) -> list[QuoteKlineBar]:
+        if not points:
+            return []
+        if instrument.security_type != "stock" or period != "day":
+            return self._attach_indicators(points)
+
+        preheat_points = self._load_stock_daily_preheat_points(
+            session,
+            ts_code=instrument.ts_code,
+            adjustment=adjustment,
+            before_trade_date=points[0].trade_date,
+            limit=INDICATOR_PREHEAT_BARS,
+        )
+        if not preheat_points:
+            return self._attach_indicators(points)
+
+        context_points = [*preheat_points, *points]
+        context_bars = self._attach_indicators(context_points)
+        by_trade_date = {bar.trade_date: bar for bar in context_bars}
+        return [by_trade_date[point.trade_date] for point in points if point.trade_date in by_trade_date]
 
     def build_related_info(
         self,
@@ -522,6 +558,56 @@ class QuoteQueryService:
         if not rows:
             return []
 
+        return self._build_stock_points_from_rows(
+            session,
+            ts_code=ts_code,
+            adjustment=adjustment,
+            rows=rows,
+        )
+
+    def _load_stock_daily_preheat_points(
+        self,
+        session: Session,
+        *,
+        ts_code: str,
+        adjustment: str,
+        before_trade_date: date,
+        limit: int,
+    ) -> list[KlinePoint]:
+        rows = list(
+            reversed(
+                list(
+                    session.scalars(
+                        select(EquityDailyBar)
+                        .where(
+                            EquityDailyBar.ts_code == ts_code,
+                            EquityDailyBar.trade_date < before_trade_date,
+                        )
+                        .order_by(desc(EquityDailyBar.trade_date))
+                        .limit(limit)
+                    ).all()
+                )
+            )
+        )
+        if not rows:
+            return []
+        return self._build_stock_points_from_rows(
+            session,
+            ts_code=ts_code,
+            adjustment=adjustment,
+            rows=rows,
+        )
+
+    def _build_stock_points_from_rows(
+        self,
+        session: Session,
+        *,
+        ts_code: str,
+        adjustment: str,
+        rows: list[EquityDailyBar],
+    ) -> list[KlinePoint]:
+        if not rows:
+            return []
         turnover_by_date = self._load_stock_turnover_by_date(
             session,
             ts_code=ts_code,
