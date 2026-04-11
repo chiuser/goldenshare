@@ -20,6 +20,7 @@ from src.platform.exceptions import WebAppError
 from src.ops.queries import ScheduleQueryService
 from src.ops.schemas.schedule import (
     CreateScheduleRequest,
+    DeleteScheduleResponse,
     ScheduleDetailResponse,
     ScheduleListResponse,
     SchedulePreviewRequest,
@@ -175,6 +176,16 @@ def resume_ops_schedule(
 ) -> ScheduleDetailResponse:
     updated_schedule_id = OpsScheduleCommandService().resume_schedule(session, user=user, schedule_id=schedule_id)
     return ScheduleQueryService().get_schedule_detail(session, updated_schedule_id)
+
+
+@router.delete("/{schedule_id}", response_model=DeleteScheduleResponse)
+def delete_ops_schedule(
+    schedule_id: int,
+    user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+) -> DeleteScheduleResponse:
+    deleted_schedule_id = OpsScheduleCommandService().delete_schedule(session, user=user, schedule_id=schedule_id)
+    return DeleteScheduleResponse(id=deleted_schedule_id)
 
 
 @router.get("/{schedule_id}/revisions", response_model=ScheduleRevisionListResponse)

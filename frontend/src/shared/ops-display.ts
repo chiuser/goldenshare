@@ -73,6 +73,7 @@ const revisionActionLabelMap: Record<string, string> = {
   updated: "修改",
   paused: "暂停",
   resumed: "恢复",
+  deleted: "删除",
 };
 
 const eventTypeLabelMap: Record<string, string> = {

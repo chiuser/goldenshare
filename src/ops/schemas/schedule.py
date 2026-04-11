@@ -107,3 +107,8 @@ class SchedulePreviewResponse(BaseModel):
     schedule_type: str
     timezone: str
     preview_times: list[datetime]
+
+
+class DeleteScheduleResponse(BaseModel):
+    id: int
+    status: str = "deleted"

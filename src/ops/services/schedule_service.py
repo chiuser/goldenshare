@@ -64,6 +64,9 @@ class OpsScheduleCommandService:
         schedule = self.schedule_service.resume_schedule(session, schedule_id=schedule_id, updated_by_user_id=user.id)
         return schedule.id
 
+    def delete_schedule(self, session: Session, *, user: AuthenticatedUser, schedule_id: int) -> int:
+        return self.schedule_service.delete_schedule(session, schedule_id=schedule_id, deleted_by_user_id=user.id)
+
     def preview_schedule(
         self,
         *,

@@ -221,6 +221,24 @@ class OperationsScheduleService:
         session.refresh(schedule)
         return schedule
 
+    def delete_schedule(self, session: Session, *, schedule_id: int, deleted_by_user_id: int) -> int:
+        schedule = session.scalar(select(JobSchedule).where(JobSchedule.id == schedule_id))
+        if schedule is None:
+            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+
+        before = self._snapshot(schedule)
+        self._record_revision(
+            session,
+            object_id=str(schedule.id),
+            action="deleted",
+            before_json=before,
+            after_json=None,
+            changed_by_user_id=deleted_by_user_id,
+        )
+        session.delete(schedule)
+        session.commit()
+        return schedule_id
+
     def enqueue_due_schedules(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> list[JobExecution]:
         current_time = now or datetime.now(timezone.utc)
         stmt = (

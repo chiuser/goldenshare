@@ -22,6 +22,7 @@ from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse
 from src.ops.schemas.runtime import RuntimeExecutionItem, RuntimeTickRequest, SchedulerTickResponse, WorkerRunResponse
 from src.ops.schemas.schedule import (
     CreateScheduleRequest,
+    DeleteScheduleResponse,
     ScheduleDetailResponse,
     ScheduleListItem,
     ScheduleListResponse,
@@ -33,6 +34,7 @@ from src.ops.schemas.schedule import (
 __all__ = [
     "CreateExecutionRequest",
     "CreateScheduleRequest",
+    "DeleteScheduleResponse",
     "DatasetFreshnessItem",
     "ExecutionDetailResponse",
     "ExecutionEventItem",

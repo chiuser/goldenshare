@@ -646,6 +646,31 @@ export function OpsAutomationPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => apiRequest<{ id: number; status: string }>(`/api/v1/ops/schedules/${selectedScheduleId}`, {
+      method: "DELETE",
+    }),
+    onSuccess: async (data) => {
+      notifications.show({
+        color: "green",
+        title: "自动任务已删除",
+        message: `任务 #${data.id}`,
+      });
+      setSelectedScheduleId(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ops", "schedules"] }),
+        queryClient.invalidateQueries({ queryKey: ["ops", "catalog"] }),
+      ]);
+    },
+    onError: (error) => {
+      notifications.show({
+        color: "red",
+        title: "删除自动任务失败",
+        message: error instanceof Error ? error.message : "未知错误",
+      });
+    },
+  });
+
   const openCreate = () => {
     setForm(emptyForm);
     open();
@@ -798,6 +823,19 @@ export function OpsAutomationPage() {
                       }
                     >
                       {detailQuery.data.status === "active" ? "暂停自动运行" : "恢复自动运行"}
+                    </Button>
+                    <Button
+                      color="red"
+                      variant="light"
+                      loading={deleteMutation.isPending}
+                      onClick={() => {
+                        if (!detailQuery.data) return;
+                        const confirmed = window.confirm(`确认删除自动任务“${detailQuery.data.display_name}”？删除后无法恢复。`);
+                        if (!confirmed) return;
+                        deleteMutation.mutate();
+                      }}
+                    >
+                      删除任务
                     </Button>
                   </Group>
                 ) : undefined
