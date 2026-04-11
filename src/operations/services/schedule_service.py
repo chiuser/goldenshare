@@ -227,6 +227,18 @@ class OperationsScheduleService:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
 
         before = self._snapshot(schedule)
+        if schedule.status == "active":
+            schedule.status = "paused"
+            schedule.updated_by_user_id = deleted_by_user_id
+            self._record_revision(
+                session,
+                object_id=str(schedule.id),
+                action="paused",
+                before_json=before,
+                after_json=self._snapshot(schedule),
+                changed_by_user_id=deleted_by_user_id,
+            )
+            before = self._snapshot(schedule)
         self._record_revision(
             session,
             object_id=str(schedule.id),

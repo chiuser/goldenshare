@@ -163,12 +163,55 @@ def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, u
     assert list_response.status_code == 200
     assert list_response.json()["total"] == 0
 
+    # 删除后详情与修订查询都会返回 not_found，验证删除成功
     revisions_response = app_client.get(
         f"/api/v1/ops/schedules/{schedule.id}/revisions",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert revisions_response.status_code == 404
     assert revisions_response.json()["code"] == "not_found"
+
+
+def test_ops_schedule_delete_active_schedule_pauses_before_delete(
+    app_client,
+    user_factory,
+    job_schedule_factory,
+    db_session,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    schedule = job_schedule_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        display_name="股票主数据刷新",
+        status="active",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        created_by_user_id=admin.id,
+        updated_by_user_id=admin.id,
+    )
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    delete_response = app_client.delete(
+        f"/api/v1/ops/schedules/{schedule.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert delete_response.status_code == 200
+
+    from src.ops.models.ops.config_revision import ConfigRevision
+    from sqlalchemy import select
+
+    revisions = list(
+        db_session.scalars(
+            select(ConfigRevision)
+            .where(ConfigRevision.object_type == "job_schedule")
+            .where(ConfigRevision.object_id == str(schedule.id))
+            .order_by(ConfigRevision.id.asc())
+        )
+    )
+    actions = [item.action for item in revisions]
+    assert actions[-2:] == ["paused", "deleted"]
 
 
 def test_ops_schedule_detail_returns_not_found_for_missing_schedule(app_client, user_factory) -> None:
