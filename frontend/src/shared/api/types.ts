@@ -147,6 +147,10 @@ export interface OpsFreshnessResponse {
       recent_failure_summary: string | null;
       recent_failure_at: string | null;
       primary_execution_spec_key: string | null;
+      auto_schedule_status: string;
+      auto_schedule_total: number;
+      auto_schedule_active: number;
+      auto_schedule_next_run_at: string | null;
     }>;
   }>;
 }

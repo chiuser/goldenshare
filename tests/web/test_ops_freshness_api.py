@@ -70,6 +70,56 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     assert grouped["index"]["index_monthly"]["recent_failure_summary"] == "monthly sync timeout"
 
 
+def test_ops_freshness_includes_auto_schedule_flags(
+    app_client,
+    user_factory,
+    trade_calendar_factory,
+    sync_job_state_factory,
+    job_schedule_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
+    sync_job_state_factory(
+        job_name="sync_equity_daily",
+        target_table="core.equity_daily_bar",
+        last_success_date=date(2026, 3, 30),
+        last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+    )
+    job_schedule_factory(
+        spec_type="job",
+        spec_key="sync_daily.daily",
+        status="active",
+        schedule_type="cron",
+        cron_expr="30 18 * * *",
+        next_run_at=datetime(2026, 3, 31, 10, 30, tzinfo=timezone.utc),
+    )
+    job_schedule_factory(
+        spec_type="job",
+        spec_key="sync_daily.daily",
+        status="paused",
+        schedule_type="cron",
+        cron_expr="45 18 * * *",
+        next_run_at=datetime(2026, 3, 31, 10, 45, tzinfo=timezone.utc),
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/freshness", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    grouped = {
+        group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
+        for group in payload["groups"]
+    }
+    daily_item = grouped["equity"]["daily"]
+    assert daily_item["auto_schedule_status"] == "active"
+    assert daily_item["auto_schedule_total"] == 2
+    assert daily_item["auto_schedule_active"] == 1
+    assert daily_item["auto_schedule_next_run_at"] == "2026-03-31T10:30:00"
+
+
 def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
     app_client,
     user_factory,

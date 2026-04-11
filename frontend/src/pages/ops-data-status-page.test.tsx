@@ -68,6 +68,10 @@ describe("数据状态页", () => {
               recent_failure_summary: null,
               recent_failure_at: null,
               primary_execution_spec_key: "sync_daily.daily",
+              auto_schedule_status: "active",
+              auto_schedule_total: 1,
+              auto_schedule_active: 1,
+              auto_schedule_next_run_at: "2026-03-31T10:30:00Z",
             },
           ],
         },
@@ -79,6 +83,7 @@ describe("数据状态页", () => {
     expect(await screen.findByText("有业务日期的数据会显示覆盖范围；没有业务日期的数据会显示最近一次同步日期。")).toBeInTheDocument();
     expect(await screen.findByText("日期范围")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "去处理" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "自动" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "查看任务" })).not.toBeInTheDocument();
     expect(await screen.findByText(`${formatDateLabel("2020-01-01")} ~ ${formatDateLabel("2026-03-30")}`)).toBeInTheDocument();
   });
@@ -119,6 +124,10 @@ describe("数据状态页", () => {
               recent_failure_summary: null,
               recent_failure_at: null,
               primary_execution_spec_key: "sync_history.ths_index",
+              auto_schedule_status: "paused",
+              auto_schedule_total: 2,
+              auto_schedule_active: 0,
+              auto_schedule_next_run_at: null,
             },
           ],
         },
@@ -129,5 +138,6 @@ describe("数据状态页", () => {
 
     expect(await screen.findByText(formatDateLabel("2026-04-01"))).toBeInTheDocument();
     expect(screen.getByText("同花顺概念和行业指数")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "自动已暂停" })).toBeInTheDocument();
   });
 });

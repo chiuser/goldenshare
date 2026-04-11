@@ -1,9 +1,9 @@
-import { Alert, Button, Grid, Loader, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Button, Grid, Group, Loader, Stack, Table, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
 import type { OpsFreshnessResponse } from "../shared/api/types";
-import { formatDateLabel } from "../shared/date-format";
+import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -33,6 +33,26 @@ function formatDateRangeLabel(earliestDate: string | null, latestDate: string | 
 
 function formatFailureLabel(summary: string | null) {
   return summary || "无";
+}
+
+function resolveAutoScheduleBadge(item: OpsFreshnessResponse["groups"][number]["items"][number]) {
+  if (item.auto_schedule_status === "active") {
+    return {
+      label: "自动",
+      color: "teal",
+      tooltip: `已启用 ${item.auto_schedule_active}/${item.auto_schedule_total} 个自动任务${
+        item.auto_schedule_next_run_at ? `，下次运行 ${formatDateTimeLabel(item.auto_schedule_next_run_at)}` : ""
+      }。点击查看自动任务。`,
+    };
+  }
+  if (item.auto_schedule_status === "paused") {
+    return {
+      label: "自动已暂停",
+      color: "gray",
+      tooltip: `已配置 ${item.auto_schedule_total} 个自动任务，当前都处于暂停状态。点击查看自动任务。`,
+    };
+  }
+  return null;
 }
 
 export function OpsDataStatusPage() {
@@ -97,44 +117,68 @@ export function OpsDataStatusPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {group.items.map((item) => (
-                    <Table.Tr key={item.dataset_key}>
-                      <OpsTableCell align="left" width="22%">
-                        <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell align="left" width="24%">
-                        <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
-                          {formatDateRangeLabel(item.earliest_business_date, item.latest_business_date, item.last_sync_date)}
-                        </OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell width="12%">
-                        <OpsTableCellText size="xs">{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell width="14%">
-                        <StatusBadge value={item.freshness_status} />
-                      </OpsTableCell>
-                      <OpsTableCell align="left" width="18%">
-                        <OpsTableCellText lineClamp={1} size="xs" c={item.recent_failure_summary ? "var(--gs-magenta)" : "dimmed"}>
-                          {formatFailureLabel(item.recent_failure_summary)}
-                        </OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell width="10%">
-                        <OpsTableActionGroup>
-                          {item.primary_execution_spec_key ? (
-                            <Button
-                              component="a"
-                              href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
-                              size="xs"
-                              variant="light"
-                              color="brand"
-                            >
-                              去处理
-                            </Button>
-                          ) : <OpsTableCellText c="dimmed">—</OpsTableCellText>}
-                        </OpsTableActionGroup>
-                      </OpsTableCell>
-                    </Table.Tr>
-                  ))}
+                  {group.items.map((item) => {
+                    const autoBadge = resolveAutoScheduleBadge(item);
+                    return (
+                      <Table.Tr key={item.dataset_key}>
+                        <OpsTableCell align="left" width="22%">
+                          <Group gap={6} wrap="wrap">
+                            <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
+                            {autoBadge ? (
+                              <Tooltip label={autoBadge.tooltip}>
+                                <Badge
+                                  component="a"
+                                  href={
+                                    item.primary_execution_spec_key
+                                      ? `/app/ops/automation?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`
+                                      : "/app/ops/automation"
+                                  }
+                                  size="sm"
+                                  radius="sm"
+                                  variant="light"
+                                  color={autoBadge.color}
+                                  style={{ cursor: "pointer" }}
+                                >
+                                  {autoBadge.label}
+                                </Badge>
+                              </Tooltip>
+                            ) : null}
+                          </Group>
+                        </OpsTableCell>
+                        <OpsTableCell align="left" width="24%">
+                          <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                            {formatDateRangeLabel(item.earliest_business_date, item.latest_business_date, item.last_sync_date)}
+                          </OpsTableCellText>
+                        </OpsTableCell>
+                        <OpsTableCell width="12%">
+                          <OpsTableCellText size="xs">{cadenceLabelMap[item.cadence] || "未定义"}</OpsTableCellText>
+                        </OpsTableCell>
+                        <OpsTableCell width="14%">
+                          <StatusBadge value={item.freshness_status} />
+                        </OpsTableCell>
+                        <OpsTableCell align="left" width="18%">
+                          <OpsTableCellText lineClamp={1} size="xs" c={item.recent_failure_summary ? "var(--gs-magenta)" : "dimmed"}>
+                            {formatFailureLabel(item.recent_failure_summary)}
+                          </OpsTableCellText>
+                        </OpsTableCell>
+                        <OpsTableCell width="10%">
+                          <OpsTableActionGroup>
+                            {item.primary_execution_spec_key ? (
+                              <Button
+                                component="a"
+                                href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
+                                size="xs"
+                                variant="light"
+                                color="brand"
+                              >
+                                去处理
+                              </Button>
+                            ) : <OpsTableCellText c="dimmed">—</OpsTableCellText>}
+                          </OpsTableActionGroup>
+                        </OpsTableCell>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </OpsTable>
             </SectionCard>

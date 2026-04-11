@@ -30,6 +30,10 @@ class DatasetFreshnessItem(BaseModel):
     recent_failure_at: datetime | None = None
     primary_execution_spec_key: str | None = None
     full_sync_done: bool
+    auto_schedule_status: str = "none"
+    auto_schedule_total: int = 0
+    auto_schedule_active: int = 0
+    auto_schedule_next_run_at: datetime | None = None
 
 
 class FreshnessGroup(BaseModel):

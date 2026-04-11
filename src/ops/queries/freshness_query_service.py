@@ -50,6 +50,7 @@ from src.foundation.models.core.ths_hot import ThsHot
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec_by_job_name, list_dataset_freshness_specs
@@ -140,6 +141,14 @@ class FailureSnapshot:
         self.occurred_at = occurred_at
 
 
+class AutoScheduleSnapshot:
+    def __init__(self) -> None:
+        self.total = 0
+        self.active = 0
+        self.paused = 0
+        self.next_run_at: datetime | None = None
+
+
 class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
         snapshot_response = self._build_from_snapshot(session)
@@ -162,7 +171,7 @@ class OpsFreshnessQueryService:
             ]
             live_refresh_resource_keys = sorted(set([*missing_resource_keys, *live_override_resource_keys]))
             if not live_refresh_resource_keys:
-                return snapshot_response
+                return self._attach_auto_schedule_metadata(session, snapshot_response)
 
             live_refreshed_items = self.build_live_items(session, today=today, resource_keys=live_refresh_resource_keys)
             merged_by_key = {
@@ -175,11 +184,17 @@ class OpsFreshnessQueryService:
             merged_items = list(merged_by_key.values())
             groups = self._group_items(merged_items)
             summary = self._build_summary(merged_items)
-            return OpsFreshnessResponse(summary=summary, groups=groups)
+            return self._attach_auto_schedule_metadata(
+                session,
+                OpsFreshnessResponse(summary=summary, groups=groups),
+            )
         items = self.build_live_items(session, today=today)
         groups = self._group_items(items)
         summary = self._build_summary(items)
-        return OpsFreshnessResponse(summary=summary, groups=groups)
+        return self._attach_auto_schedule_metadata(
+            session,
+            OpsFreshnessResponse(summary=summary, groups=groups),
+        )
 
     def build_live_items(
         self,
@@ -430,6 +445,59 @@ class OpsFreshnessQueryService:
             unknown_datasets=counts["unknown"],
             disabled_datasets=counts["disabled"],
         )
+
+    def _attach_auto_schedule_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
+        spec_keys = {
+            item.primary_execution_spec_key
+            for group in response.groups
+            for item in group.items
+            if item.primary_execution_spec_key
+        }
+        if not spec_keys:
+            return response
+        by_spec_key = self._auto_schedule_by_spec_key(session, spec_keys=spec_keys)
+        for group in response.groups:
+            for item in group.items:
+                if not item.primary_execution_spec_key:
+                    continue
+                schedule_snapshot = by_spec_key.get(item.primary_execution_spec_key)
+                if schedule_snapshot is None:
+                    continue
+                item.auto_schedule_total = schedule_snapshot.total
+                item.auto_schedule_active = schedule_snapshot.active
+                item.auto_schedule_next_run_at = schedule_snapshot.next_run_at
+                if schedule_snapshot.active > 0:
+                    item.auto_schedule_status = "active"
+                elif schedule_snapshot.total > 0:
+                    item.auto_schedule_status = "paused"
+                else:
+                    item.auto_schedule_status = "none"
+        return response
+
+    @staticmethod
+    def _auto_schedule_by_spec_key(
+        session: Session,
+        *,
+        spec_keys: set[str],
+    ) -> dict[str, AutoScheduleSnapshot]:
+        rows = session.execute(
+            select(JobSchedule.spec_key, JobSchedule.status, JobSchedule.next_run_at)
+            .where(JobSchedule.spec_type == "job")
+            .where(JobSchedule.spec_key.in_(sorted(spec_keys)))
+        ).all()
+        result: dict[str, AutoScheduleSnapshot] = {}
+        for spec_key, status, next_run_at in rows:
+            snap = result.setdefault(spec_key, AutoScheduleSnapshot())
+            snap.total += 1
+            status_value = (status or "").lower()
+            if status_value == "active":
+                snap.active += 1
+                if isinstance(next_run_at, datetime):
+                    if snap.next_run_at is None or next_run_at < snap.next_run_at:
+                        snap.next_run_at = next_run_at
+            elif status_value == "paused":
+                snap.paused += 1
+        return result
 
     @staticmethod
     def _fallback_spec_for_state(state: SyncJobState) -> DatasetFreshnessSpec:
