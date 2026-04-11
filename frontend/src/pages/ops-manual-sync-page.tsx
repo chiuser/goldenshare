@@ -574,15 +574,6 @@ export function OpsManualSyncPage() {
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
 
   useEffect(() => {
-    if (!selectedAction) {
-      return;
-    }
-    if (selectedAction.domainLabel !== selectedDomain) {
-      setSelectedDomain(selectedAction.domainLabel);
-    }
-  }, [selectedAction, selectedDomain, setSelectedDomain]);
-
-  useEffect(() => {
     if (!manualActions.length) {
       return;
     }
