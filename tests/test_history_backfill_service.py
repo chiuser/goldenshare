@@ -77,46 +77,37 @@ def test_backfill_equity_series_uses_trade_date_mode_for_adj_factor(mocker) -> N
     assert progress.call_args_list[1].args[0] == "adj_factor: 2/2 trade_date=2026-03-21 fetched=60 written=60"
 
 
-def test_backfill_equity_series_supports_period_resources(mocker) -> None:
+def test_backfill_equity_series_month_uses_month_end_trade_date_mode(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.security.get_active_equities.return_value = [mocker.Mock(ts_code="000001.SZ")]
 
     sync_service = mocker.Mock()
-    sync_service.run_full.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
     build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_equity_series(
         resource="stk_period_bar_month",
-        start_date=date(2010, 1, 1),
-        end_date=date(2026, 3, 24),
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
     )
 
     assert summary.units_processed == 1
     assert summary.rows_fetched == 12
     assert summary.rows_written == 12
     build_sync_service.assert_called_once_with("stk_period_bar_month", session)
-    sync_service.run_full.assert_called_once_with(
-        ts_code="000001.SZ",
-        start_date="2010-01-01",
-        end_date="2026-03-24",
-        execution_id=None,
-    )
+    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 31), execution_id=None)
 
 
 def test_backfill_equity_series_uses_trade_date_mode_for_stk_period_bar_week(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 20), date(2026, 3, 21)]
     progress = mocker.Mock()
 
-    sync_service_1 = mocker.Mock()
-    sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=50, rows_written=50)
-    sync_service_2 = mocker.Mock()
-    sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=60, rows_written=60)
-    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=50, rows_written=50)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_equity_series(
         resource="stk_period_bar_week",
@@ -125,34 +116,27 @@ def test_backfill_equity_series_uses_trade_date_mode_for_stk_period_bar_week(moc
         progress=progress,
     )
 
-    assert summary.units_processed == 2
-    assert summary.rows_fetched == 110
-    assert summary.rows_written == 110
-    assert build_sync_service.call_count == 2
-    sync_service_1.run_incremental.assert_called_once_with(
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 50
+    assert summary.rows_written == 50
+    assert build_sync_service.call_count == 1
+    sync_service.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 20),
         execution_id=None,
     )
-    sync_service_2.run_incremental.assert_called_once_with(
-        trade_date=date(2026, 3, 21),
-        execution_id=None,
-    )
-    assert progress.call_args_list[0].args[0] == "stk_period_bar_week: 1/2 trade_date=2026-03-20 fetched=50 written=50"
-    assert progress.call_args_list[1].args[0] == "stk_period_bar_week: 2/2 trade_date=2026-03-21 fetched=60 written=60"
+    assert progress.call_args_list[0].args[0] == "stk_period_bar_week: 1/1 trade_date=2026-03-20 fetched=50 written=50"
+    service.dao.trade_calendar.get_open_dates.assert_not_called()
 
 
 def test_backfill_equity_series_uses_trade_date_mode_for_stk_period_bar_adj_week(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)
     service.dao = mocker.Mock()
-    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 20), date(2026, 3, 21)]
     progress = mocker.Mock()
 
-    sync_service_1 = mocker.Mock()
-    sync_service_1.run_incremental.return_value = mocker.Mock(rows_fetched=40, rows_written=40)
-    sync_service_2 = mocker.Mock()
-    sync_service_2.run_incremental.return_value = mocker.Mock(rows_fetched=45, rows_written=45)
-    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", side_effect=[sync_service_1, sync_service_2])
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=40, rows_written=40)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
 
     summary = service.backfill_equity_series(
         resource="stk_period_bar_adj_week",
@@ -161,20 +145,16 @@ def test_backfill_equity_series_uses_trade_date_mode_for_stk_period_bar_adj_week
         progress=progress,
     )
 
-    assert summary.units_processed == 2
-    assert summary.rows_fetched == 85
-    assert summary.rows_written == 85
-    assert build_sync_service.call_count == 2
-    sync_service_1.run_incremental.assert_called_once_with(
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 40
+    assert summary.rows_written == 40
+    assert build_sync_service.call_count == 1
+    sync_service.run_incremental.assert_called_once_with(
         trade_date=date(2026, 3, 20),
         execution_id=None,
     )
-    sync_service_2.run_incremental.assert_called_once_with(
-        trade_date=date(2026, 3, 21),
-        execution_id=None,
-    )
-    assert progress.call_args_list[0].args[0] == "stk_period_bar_adj_week: 1/2 trade_date=2026-03-20 fetched=40 written=40"
-    assert progress.call_args_list[1].args[0] == "stk_period_bar_adj_week: 2/2 trade_date=2026-03-21 fetched=45 written=45"
+    assert progress.call_args_list[0].args[0] == "stk_period_bar_adj_week: 1/1 trade_date=2026-03-20 fetched=40 written=40"
+    service.dao.trade_calendar.get_open_dates.assert_not_called()
 
 
 def test_backfill_by_trade_dates_emits_progress(mocker) -> None:
@@ -407,6 +387,46 @@ def test_backfill_by_trade_dates_rejects_period_resources(mocker) -> None:
         assert "limit_list_d" in str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_backfill_equity_series_week_uses_natural_friday_anchor_without_trade_calendar_validation(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=8, rows_written=8)
+    mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_equity_series(
+        resource="stk_period_bar_week",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 5),
+    )
+
+    assert summary.units_processed == 1
+    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 4, 3), execution_id=None)
+    service.dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_backfill_equity_series_month_uses_natural_month_end_anchor_without_trade_calendar_validation(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=9, rows_written=9)
+    mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_equity_series(
+        resource="stk_period_bar_adj_month",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 30),
+    )
+
+    assert summary.units_processed == 1
+    sync_service.run_incremental.assert_called_once_with(trade_date=date(2026, 4, 30), execution_id=None)
+    service.dao.trade_calendar.get_open_dates.assert_not_called()
 
 
 def test_backfill_fund_series_emits_progress(mocker) -> None:

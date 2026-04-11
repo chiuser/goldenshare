@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from datetime import date
+from calendar import monthrange
 
 from sqlalchemy.orm import Session
 
@@ -68,9 +70,37 @@ class HistoryBackfillService:
                 "stk_period_bar_week, stk_period_bar_month, "
                 "stk_period_bar_adj_week, and stk_period_bar_adj_month"
             )
-        if resource in {"daily", "adj_factor", "stk_period_bar_week", "stk_period_bar_adj_week"}:
+        if resource in {"daily", "adj_factor"}:
             exchange_name = self.settings.default_exchange
             trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
+            if offset:
+                trade_dates = trade_dates[offset:]
+            if limit is not None:
+                trade_dates = trade_dates[:limit]
+            rows_fetched = 0
+            rows_written = 0
+            total = len(trade_dates)
+            for index, trade_date in enumerate(trade_dates, start=1):
+                service = build_sync_service(resource, self.session)
+                result = service.run_incremental(
+                    trade_date=trade_date,
+                    execution_id=execution_id,
+                )
+                rows_fetched += result.rows_fetched
+                rows_written += result.rows_written
+                if progress is not None:
+                    progress(
+                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
+                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                    )
+            self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
+            return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
+
+        if resource in {"stk_period_bar_week", "stk_period_bar_adj_week", "stk_period_bar_month", "stk_period_bar_adj_month"}:
+            if resource in {"stk_period_bar_week", "stk_period_bar_adj_week"}:
+                trade_dates = self._iter_week_friday_dates(start_date, end_date)
+            else:
+                trade_dates = self._iter_month_end_dates(start_date, end_date)
             if offset:
                 trade_dates = trade_dates[offset:]
             if limit is not None:
@@ -467,3 +497,33 @@ class HistoryBackfillService:
             if existing is None or item > existing:
                 week_ends[key] = item
         return [week_ends[key] for key in sorted(week_ends)]
+
+    @staticmethod
+    def _iter_week_friday_dates(start_date: date, end_date: date) -> list[date]:
+        if start_date > end_date:
+            return []
+        days_until_friday = (4 - start_date.weekday()) % 7
+        first_friday = start_date + timedelta(days=days_until_friday)
+        dates: list[date] = []
+        current = first_friday
+        while current <= end_date:
+            dates.append(current)
+            current += timedelta(days=7)
+        return dates
+
+    @staticmethod
+    def _iter_month_end_dates(start_date: date, end_date: date) -> list[date]:
+        if start_date > end_date:
+            return []
+        dates: list[date] = []
+        current = date(start_date.year, start_date.month, 1)
+        while current <= end_date:
+            last_day = monthrange(current.year, current.month)[1]
+            month_end = date(current.year, current.month, last_day)
+            if start_date <= month_end <= end_date:
+                dates.append(month_end)
+            if current.month == 12:
+                current = date(current.year + 1, 1, 1)
+            else:
+                current = date(current.year, current.month + 1, 1)
+        return dates
