@@ -17,6 +17,7 @@
 
 - [运维系统一期](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1.md)
 - [运维系统一期 LLD](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1-lld.md)
+- [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [执行解耦设计](/Users/congming/github/goldenshare/docs/ops/ops-execution-decoupling.md)
 - [新鲜度问题复盘](/Users/congming/github/goldenshare/docs/ops/ops-freshness-review-20260330.md)
 - [数据集停用策略 v1（过渡方案）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-disable-policy-v1.md)
@@ -49,3 +50,4 @@
 ## 模板
 
 - [数据集开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
+- [工作流开发模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)

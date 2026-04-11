@@ -53,7 +53,12 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
-from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec_by_job_name, list_dataset_freshness_specs
+from src.operations.specs import (
+    DatasetFreshnessSpec,
+    get_dataset_freshness_spec_by_job_name,
+    get_workflow_spec,
+    list_dataset_freshness_specs,
+)
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
@@ -480,14 +485,18 @@ class OpsFreshnessQueryService:
         *,
         spec_keys: set[str],
     ) -> dict[str, AutoScheduleSnapshot]:
+        if not spec_keys:
+            return {}
         rows = session.execute(
-            select(JobSchedule.spec_key, JobSchedule.status, JobSchedule.next_run_at)
-            .where(JobSchedule.spec_type == "job")
-            .where(JobSchedule.spec_key.in_(sorted(spec_keys)))
+            select(JobSchedule.spec_type, JobSchedule.spec_key, JobSchedule.status, JobSchedule.next_run_at)
+            .where(JobSchedule.spec_type.in_(("job", "workflow")))
         ).all()
         result: dict[str, AutoScheduleSnapshot] = {}
-        for spec_key, status, next_run_at in rows:
-            snap = result.setdefault(spec_key, AutoScheduleSnapshot())
+
+        def merge_schedule_snapshot(target_spec_key: str, status: str | None, next_run_at: datetime | None) -> None:
+            if target_spec_key not in spec_keys:
+                return
+            snap = result.setdefault(target_spec_key, AutoScheduleSnapshot())
             snap.total += 1
             status_value = (status or "").lower()
             if status_value == "active":
@@ -497,6 +506,19 @@ class OpsFreshnessQueryService:
                         snap.next_run_at = next_run_at
             elif status_value == "paused":
                 snap.paused += 1
+
+        workflow_job_keys_cache: dict[str, tuple[str, ...]] = {}
+        for spec_type, spec_key, status, next_run_at in rows:
+            if spec_type == "job":
+                merge_schedule_snapshot(spec_key, status, next_run_at)
+                continue
+            if spec_type != "workflow":
+                continue
+            if spec_key not in workflow_job_keys_cache:
+                workflow_spec = get_workflow_spec(spec_key)
+                workflow_job_keys_cache[spec_key] = tuple(step.job_key for step in workflow_spec.steps) if workflow_spec else ()
+            for job_key in workflow_job_keys_cache[spec_key]:
+                merge_schedule_snapshot(job_key, status, next_run_at)
         return result
 
     @staticmethod

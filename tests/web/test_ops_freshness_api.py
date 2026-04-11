@@ -120,6 +120,57 @@ def test_ops_freshness_includes_auto_schedule_flags(
     assert daily_item["auto_schedule_next_run_at"] == "2026-03-31T10:30:00"
 
 
+def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_schedule(
+    app_client,
+    user_factory,
+    trade_calendar_factory,
+    sync_job_state_factory,
+    job_schedule_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
+    sync_job_state_factory(
+        job_name="sync_stock_basic",
+        target_table="core.security",
+        last_success_date=date(2026, 3, 30),
+        last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+    )
+    sync_job_state_factory(
+        job_name="sync_trade_cal",
+        target_table="core.trade_calendar",
+        last_success_date=date(2026, 3, 30),
+        last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+    )
+    job_schedule_factory(
+        spec_type="workflow",
+        spec_key="reference_data_refresh",
+        status="active",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        next_run_at=datetime(2026, 3, 31, 11, 0, tzinfo=timezone.utc),
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/freshness", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    grouped = {
+        group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
+        for group in payload["groups"]
+    }
+    stock_basic_item = grouped["reference_data"]["stock_basic"]
+    trade_cal_item = grouped["reference_data"]["trade_cal"]
+    assert stock_basic_item["auto_schedule_status"] == "active"
+    assert stock_basic_item["auto_schedule_total"] == 1
+    assert stock_basic_item["auto_schedule_active"] == 1
+    assert trade_cal_item["auto_schedule_status"] == "active"
+    assert trade_cal_item["auto_schedule_total"] == 1
+    assert trade_cal_item["auto_schedule_active"] == 1
+
+
 def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
     app_client,
     user_factory,

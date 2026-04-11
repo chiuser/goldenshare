@@ -50,6 +50,33 @@
 - 避免后续为了补运营能力再次返工底座接口
 - 让运维系统与数据基座从第一天就按统一模式演进
 
+## 1.2 后续新增工作流准则
+
+后续新增或修改 workflow（复合型任务）时，必须同步完成“代码 + 文档 + 测试”三件套，不允许只改注册表。
+
+明确规则：
+
+- 只要 `WORKFLOW_SPEC_REGISTRY` 有新增或步骤变更，必须同步更新工作流目录文档：
+  - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
+- 每个新增 workflow 必须新建独立开发说明，模板见：
+  - [工作流开发模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)
+- 文档至少要覆盖：
+  - 目标与边界
+  - 步骤编排清单（step_key/job_key/依赖/默认参数）
+  - 参数传递与覆盖规则
+  - 失败/取消/重试语义
+  - 运维页面观测与进度展示
+- 必须补测试：
+  - 规格层测试（supports_schedule/supports_manual_run/supported_params）
+  - 运行时测试（成功、失败、部分成功、取消）
+- 提交信息必须明确标注 workflow 变更范围，禁止隐式调整。
+
+这条规则的目标是：
+
+- 防止“时间久了没人知道 workflow 实际跑了什么”
+- 防止步骤顺序被改动后无法追溯
+- 让值守和开发基于同一份事实文档协作
+
 ## 2. 一期范围再确认
 
 ### 2.1 一期要落地的内容
