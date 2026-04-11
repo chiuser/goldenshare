@@ -16,7 +16,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
@@ -572,12 +572,19 @@ export function OpsManualSyncPage() {
     [draft.action_id, manualActions],
   );
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
+  const prefillSpecAppliedRef = useRef(false);
+  const prefillExecutionAppliedRef = useRef(false);
+  const prefillScheduleAppliedRef = useRef(false);
 
   useEffect(() => {
+    if (prefillSpecAppliedRef.current) {
+      return;
+    }
     if (!manualActions.length) {
       return;
     }
     if (!prefillSpecKey) {
+      prefillSpecAppliedRef.current = true;
       if (draft.action_id && manualActions.some((item) => item.id === draft.action_id)) {
         return;
       }
@@ -588,11 +595,16 @@ export function OpsManualSyncPage() {
       if (draft.action_id !== prefilledAction.id) {
         setDraft(() => buildDraftForActionSelection(prefilledAction.id));
       }
+      prefillSpecAppliedRef.current = true;
       return;
     }
+    prefillSpecAppliedRef.current = true;
   }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft]);
 
   useEffect(() => {
+    if (prefillExecutionAppliedRef.current) {
+      return;
+    }
     if (!manualActions.length || !prefillExecutionQuery.data) {
       return;
     }
@@ -607,12 +619,17 @@ export function OpsManualSyncPage() {
         ),
     );
     if (!action) {
+      prefillExecutionAppliedRef.current = true;
       return;
     }
+    prefillExecutionAppliedRef.current = true;
     setDraft((current) => buildDraftFromParams(current, action.id, prefillExecutionQuery.data.params_json));
   }, [manualActions, prefillExecutionQuery.data, setDraft]);
 
   useEffect(() => {
+    if (prefillScheduleAppliedRef.current) {
+      return;
+    }
     if (!manualActions.length || !prefillScheduleQuery.data) {
       return;
     }
@@ -627,8 +644,10 @@ export function OpsManualSyncPage() {
         ),
     );
     if (!action) {
+      prefillScheduleAppliedRef.current = true;
       return;
     }
+    prefillScheduleAppliedRef.current = true;
     setDraft((current) => buildDraftFromParams(current, action.id, prefillScheduleQuery.data.params_json));
   }, [manualActions, prefillScheduleQuery.data, setDraft]);
 
