@@ -68,6 +68,8 @@
   - 已完成测试：
     - `tests/test_biying_connector.py`
     - `tests/test_sync_stock_basic_service.py`
+  - 已补历史回填迁移：
+    - `20260412_000039_backfill_raw_tushare_stock_basic_from_legacy_raw.py`
 
 ---
 
