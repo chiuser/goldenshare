@@ -7,6 +7,12 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.resolution.policy_store import ResolutionPolicyStore
 from src.foundation.resolution.types import ResolutionPolicy
 from src.foundation.serving.builders.base import ServingBuildResult
+from src.foundation.serving.builders.equity_adj_factor_serving_builder import EquityAdjFactorServingBuilder
+from src.foundation.serving.builders.equity_daily_bar_serving_builder import EquityDailyBarServingBuilder
+from src.foundation.serving.builders.equity_daily_basic_serving_builder import EquityDailyBasicServingBuilder
+from src.foundation.serving.builders.index_daily_serving_builder import IndexDailyServingBuilder
+from src.foundation.serving.builders.index_monthly_serving_builder import IndexMonthlyServingBuilder
+from src.foundation.serving.builders.index_weekly_serving_builder import IndexWeeklyServingBuilder
 from src.foundation.serving.builders.registry import ServingBuilderRegistry
 from src.foundation.serving.builders.security_serving_builder import SecurityServingBuilder
 from src.foundation.serving.targets import get_target_dao_attr
@@ -40,8 +46,18 @@ class ServingPublishService:
         self.dao = dao
         self._policy_store = policy_store or ResolutionPolicyStore()
         self._builder_registry = builder_registry or ServingBuilderRegistry()
-        if self._builder_registry.get("stock_basic") is None:
-            self._builder_registry.register(security_builder or SecurityServingBuilder())
+        default_builders = [
+            security_builder or SecurityServingBuilder(),
+            EquityDailyBarServingBuilder(),
+            EquityAdjFactorServingBuilder(),
+            EquityDailyBasicServingBuilder(),
+            IndexDailyServingBuilder(),
+            IndexWeeklyServingBuilder(),
+            IndexMonthlyServingBuilder(),
+        ]
+        for builder in default_builders:
+            if self._builder_registry.get(builder.dataset_key) is None:
+                self._builder_registry.register(builder)
 
     def plan_publish(
         self,

@@ -138,3 +138,30 @@ def test_serving_publish_service_execute_publish_plan_rejects_empty_when_guard_e
 
     with pytest.raises(ValueError, match="Refuse to publish empty serving rows"):
         service.execute_publish_plan(plan, allow_empty_rows=False)
+
+
+def test_serving_publish_service_registers_default_index_builder(mocker) -> None:
+    session = mocker.Mock()
+    dao = DAOFactory(session)
+    dao.index_daily_serving = mocker.Mock()
+    dao.index_daily_serving.model = SimpleNamespace(
+        __table__=SimpleNamespace(columns=[SimpleNamespace(name="ts_code"), SimpleNamespace(name="trade_date"), SimpleNamespace(name="close"), SimpleNamespace(name="source")])
+    )
+    dao.index_daily_serving.upsert_many.return_value = 1
+
+    policy_store = mocker.Mock()
+    policy_store.get_enabled_policy.return_value = ResolutionPolicy(
+        dataset_key="index_daily",
+        mode="primary",
+        primary_source_key="tushare",
+    )
+    policy_store.get_active_sources.return_value = {"tushare"}
+
+    service = ServingPublishService(dao, policy_store=policy_store)
+    result = service.publish_dataset(
+        dataset_key="index_daily",
+        std_rows_by_source={"tushare": [{"source_key": "tushare", "ts_code": "000001.SH", "trade_date": "2026-04-10", "close": 3300.5}]},
+    )
+
+    assert result.written == 1
+    dao.index_daily_serving.upsert_many.assert_called_once()

@@ -117,6 +117,7 @@
       - `IndexDailyServingBuilder`
       - `IndexWeeklyServingBuilder`
       - `IndexMonthlyServingBuilder`
+    - `ServingPublishService` 默认注册上述 builder（开箱可用于 `publish_dataset`）
     - `SERVING_TARGET_DAO_ATTR` 新增预置映射：
       - `equity_daily_bar -> equity_daily_bar`
       - `equity_adj_factor -> equity_adj_factor`
