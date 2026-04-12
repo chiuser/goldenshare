@@ -6,7 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.base_dao import BaseDAO
-from src.foundation.models.core.stk_period_bar import StkPeriodBar
+from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 
 
 class StkPeriodBarDAO(BaseDAO[StkPeriodBar]):

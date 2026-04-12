@@ -96,8 +96,8 @@ from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.raw.raw_us_basic import RawUsBasic
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 from src.foundation.models.raw_multi.raw_tushare_stock_basic import RawTushareStockBasic
-from src.foundation.models.core.stk_period_bar import StkPeriodBar
-from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
+from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_hot import ThsHot
 from src.foundation.models.core.ths_index import ThsIndex

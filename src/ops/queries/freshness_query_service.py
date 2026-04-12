@@ -41,8 +41,8 @@ from src.foundation.models.core.limit_cpt_list import LimitCptList
 from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
 from src.foundation.models.core_serving.security_serving import Security
-from src.foundation.models.core.stk_period_bar import StkPeriodBar
-from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
+from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core.ths_daily import ThsDaily

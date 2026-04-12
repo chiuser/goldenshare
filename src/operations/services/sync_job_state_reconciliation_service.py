@@ -26,8 +26,8 @@ from src.foundation.models.core.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core.stk_period_bar import StkPeriodBar
-from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
+from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
+from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs

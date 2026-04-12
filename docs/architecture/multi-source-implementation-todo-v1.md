@@ -99,6 +99,8 @@
       - `equity_daily_bar`
       - `equity_adj_factor`
       - `equity_daily_basic`
+      - `stk_period_bar`
+      - `stk_period_bar_adj`
     - builder 通用结果类型 `ServingBuildResult`，并支持可选溯源字段透传（仅当目标列存在时写入）：
       - `resolution_mode`
       - `resolution_policy_version`
