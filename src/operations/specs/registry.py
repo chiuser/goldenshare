@@ -208,6 +208,13 @@ LIMIT_PARAM = ParameterSpec(
     param_type="integer",
     description="用于限制单次回补的执行单元数量。",
 )
+SOURCE_KEY_PARAM = ParameterSpec(
+    key="source_key",
+    display_name="数据源",
+    param_type="enum",
+    description="选择执行的数据源：tushare、biying 或 all（顺序执行两源）。",
+    options=("tushare", "biying", "all"),
+)
 
 
 DAILY_SYNC_RESOURCES = (
@@ -305,6 +312,8 @@ def _service_target_table(resource: str) -> str:
 
 
 def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
+    if resource == "stock_basic":
+        return (SOURCE_KEY_PARAM,)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "hk_basic":

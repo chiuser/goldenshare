@@ -189,6 +189,12 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert etf_index_spec is not None
     assert [param.key for param in etf_index_spec.supported_params] == []
 
+    stock_basic_spec = get_job_spec("sync_history.stock_basic")
+    assert stock_basic_spec is not None
+    assert [param.key for param in stock_basic_spec.supported_params] == ["source_key"]
+    source_key_param = next(param for param in stock_basic_spec.supported_params if param.key == "source_key")
+    assert source_key_param.options == ("tushare", "biying", "all")
+
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:
     ths_index_spec = get_job_spec("sync_history.ths_index")

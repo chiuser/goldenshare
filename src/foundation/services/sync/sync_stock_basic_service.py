@@ -20,6 +20,7 @@ class SyncStockBasicService(BaseSyncService):
         "tushare": "raw_tushare_stock_basic",
         "biying": "raw_biying_stock_basic",
     }
+    _supported_source_keys = ("tushare", "biying", "all")
 
     def _get_rows_from_source(self, source_key: str) -> list[dict[str, Any]]:
         connector = create_source_connector(source_key)
@@ -60,16 +61,24 @@ class SyncStockBasicService(BaseSyncService):
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         del run_type
         source_key = str(kwargs.get("source_key") or "tushare").strip().lower()
-        if source_key not in self._raw_dao_by_source:
+        if source_key not in self._supported_source_keys:
             raise ValueError(f"Unsupported source_key for stock_basic: {source_key}")
 
-        rows = self._get_rows_from_source(source_key)
-        raw_rows = self._normalize_raw(rows, source_key)
-        raw_dao = getattr(self.dao, self._raw_dao_by_source[source_key])
-        raw_dao.bulk_upsert(raw_rows)
+        source_keys = ("tushare", "biying") if source_key == "all" else (source_key,)
+        total_fetched = 0
+        total_written = 0
 
-        std_rows = [self._normalizer.to_std(row, source_key=source_key) for row in rows]
-        self.dao.security_std.bulk_upsert(std_rows)
+        for current_source in source_keys:
+            rows = self._get_rows_from_source(current_source)
+            raw_rows = self._normalize_raw(rows, current_source)
+            raw_dao = getattr(self.dao, self._raw_dao_by_source[current_source])
+            raw_dao.bulk_upsert(raw_rows)
 
-        written = self._publish_serving(std_rows, source_key=source_key)
-        return len(rows), written, None, f"source={source_key}"
+            std_rows = [self._normalizer.to_std(row, source_key=current_source) for row in rows]
+            self.dao.security_std.bulk_upsert(std_rows)
+
+            written = self._publish_serving(std_rows, source_key=current_source)
+            total_fetched += len(rows)
+            total_written += written
+
+        return total_fetched, total_written, None, f"source={source_key}"
