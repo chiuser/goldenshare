@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.base_dao import BaseDAO
-from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 
 
 class EquityAdjFactorDAO(BaseDAO[EquityAdjFactor]):

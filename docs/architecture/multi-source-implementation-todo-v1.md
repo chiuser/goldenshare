@@ -95,6 +95,10 @@
     - `src/foundation/serving/targets.py`（dataset -> target DAO 映射）
     - `ServingPublishPlan` 与两段式发布（plan -> execute）骨架，支持 `dry_run` 与空发布保护
     - serving 模型命名空间开始切换到 `core_serving`（首个：`security_serving`）
+    - 已补齐 `core_serving` 命名空间迁移（不改表结构）：
+      - `equity_daily_bar`
+      - `equity_adj_factor`
+      - `equity_daily_basic`
     - builder 通用结果类型 `ServingBuildResult`，并支持可选溯源字段透传（仅当目标列存在时写入）：
       - `resolution_mode`
       - `resolution_policy_version`

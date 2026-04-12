@@ -6,7 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.base_dao import BaseDAO
-from src.foundation.models.core.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 
 class EquityDailyBarDAO(BaseDAO[EquityDailyBar]):

@@ -8,10 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
-from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
-from src.foundation.models.core.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor

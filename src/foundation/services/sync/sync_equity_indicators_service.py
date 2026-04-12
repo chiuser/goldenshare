@@ -9,8 +9,8 @@ from typing import Any
 from sqlalchemy import func, select
 
 from src.foundation.config.settings import get_settings
-from src.foundation.models.core.equity_adj_factor import EquityAdjFactor
-from src.foundation.models.core.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.ops.models.ops.job_execution import JobExecution

@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import and_, func, select
 
 from src.foundation.config.settings import get_settings
-from src.foundation.models.core.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.services.sync.base_sync_service import BaseSyncService
