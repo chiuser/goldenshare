@@ -165,3 +165,48 @@ def test_serving_publish_service_registers_default_index_builder(mocker) -> None
 
     assert result.written == 1
     dao.index_daily_serving.upsert_many.assert_called_once()
+
+
+def test_serving_publish_service_registers_default_stk_period_builder(mocker) -> None:
+    session = mocker.Mock()
+    dao = DAOFactory(session)
+    dao.stk_period_bar = mocker.Mock()
+    dao.stk_period_bar.model = SimpleNamespace(
+        __table__=SimpleNamespace(
+            columns=[
+                SimpleNamespace(name="ts_code"),
+                SimpleNamespace(name="trade_date"),
+                SimpleNamespace(name="freq"),
+                SimpleNamespace(name="close"),
+                SimpleNamespace(name="source"),
+            ]
+        )
+    )
+    dao.stk_period_bar.upsert_many.return_value = 1
+
+    policy_store = mocker.Mock()
+    policy_store.get_enabled_policy.return_value = ResolutionPolicy(
+        dataset_key="stk_period_bar_week",
+        mode="primary",
+        primary_source_key="tushare",
+    )
+    policy_store.get_active_sources.return_value = {"tushare"}
+
+    service = ServingPublishService(dao, policy_store=policy_store)
+    result = service.publish_dataset(
+        dataset_key="stk_period_bar_week",
+        std_rows_by_source={
+            "tushare": [
+                {
+                    "source_key": "tushare",
+                    "ts_code": "000001.SZ",
+                    "trade_date": "2026-04-10",
+                    "freq": "week",
+                    "close": 12.3,
+                }
+            ]
+        },
+    )
+
+    assert result.written == 1
+    dao.stk_period_bar.upsert_many.assert_called_once()

@@ -14,6 +14,10 @@ from src.foundation.serving.builders.index_daily_serving_builder import IndexDai
 from src.foundation.serving.builders.index_monthly_serving_builder import IndexMonthlyServingBuilder
 from src.foundation.serving.builders.index_weekly_serving_builder import IndexWeeklyServingBuilder
 from src.foundation.serving.builders.registry import ServingBuilderRegistry
+from src.foundation.serving.builders.stk_period_bar_adj_month_serving_builder import StkPeriodBarAdjMonthServingBuilder
+from src.foundation.serving.builders.stk_period_bar_adj_week_serving_builder import StkPeriodBarAdjWeekServingBuilder
+from src.foundation.serving.builders.stk_period_bar_month_serving_builder import StkPeriodBarMonthServingBuilder
+from src.foundation.serving.builders.stk_period_bar_week_serving_builder import StkPeriodBarWeekServingBuilder
 from src.foundation.serving.builders.security_serving_builder import SecurityServingBuilder
 from src.foundation.serving.targets import get_target_dao_attr
 
@@ -54,6 +58,10 @@ class ServingPublishService:
             IndexDailyServingBuilder(),
             IndexWeeklyServingBuilder(),
             IndexMonthlyServingBuilder(),
+            StkPeriodBarWeekServingBuilder(),
+            StkPeriodBarMonthServingBuilder(),
+            StkPeriodBarAdjWeekServingBuilder(),
+            StkPeriodBarAdjMonthServingBuilder(),
         ]
         for builder in default_builders:
             if self._builder_registry.get(builder.dataset_key) is None:

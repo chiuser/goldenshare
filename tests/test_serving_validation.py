@@ -37,6 +37,10 @@ def test_validate_serving_coverage_ok_when_all_required_present() -> None:
         "index_daily",
         "index_weekly",
         "index_monthly",
+        "stk_period_bar_week",
+        "stk_period_bar_month",
+        "stk_period_bar_adj_week",
+        "stk_period_bar_adj_month",
     ):
         registry.register(_DummyBuilder(dataset_key))
 
@@ -48,6 +52,8 @@ def test_validate_serving_coverage_ok_when_all_required_present() -> None:
         index_daily_serving=object(),
         index_weekly_serving=object(),
         index_monthly_serving=object(),
+        stk_period_bar=object(),
+        stk_period_bar_adj=object(),
     )
     issues = validate_serving_coverage(dao=dao, builder_registry=registry)
     assert issues == []

@@ -117,6 +117,10 @@
       - `IndexDailyServingBuilder`
       - `IndexWeeklyServingBuilder`
       - `IndexMonthlyServingBuilder`
+      - `StkPeriodBarWeekServingBuilder`
+      - `StkPeriodBarMonthServingBuilder`
+      - `StkPeriodBarAdjWeekServingBuilder`
+      - `StkPeriodBarAdjMonthServingBuilder`
     - `ServingPublishService` 默认注册上述 builder（开箱可用于 `publish_dataset`）
     - `SERVING_TARGET_DAO_ATTR` 新增预置映射：
       - `equity_daily_bar -> equity_daily_bar`
@@ -125,6 +129,10 @@
       - `index_daily -> index_daily_serving`
       - `index_weekly -> index_weekly_serving`
       - `index_monthly -> index_monthly_serving`
+      - `stk_period_bar_week -> stk_period_bar`
+      - `stk_period_bar_month -> stk_period_bar`
+      - `stk_period_bar_adj_week -> stk_period_bar_adj`
+      - `stk_period_bar_adj_month -> stk_period_bar_adj`
   - 已完成 `sync_stock_basic` 接线：
     - `source=all` 通过 `ServingPublishService` 发布到 `core.security_serving`
   - 已完成测试：
@@ -135,6 +143,7 @@
     - `tests/test_serving_builder_atomic_publish.py`
     - `tests/test_resolution_serving_builder.py`
     - `tests/test_index_serving_builders.py`
+    - `tests/test_stk_period_serving_builders.py`
     - `tests/test_serving_targets.py`
 
 - 2026-04-12 停机迁移工具（阶段1）补充

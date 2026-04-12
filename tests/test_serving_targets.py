@@ -17,3 +17,10 @@ def test_serving_target_mapping_index_core_datasets() -> None:
     assert get_target_dao_attr("index_daily") == "index_daily_serving"
     assert get_target_dao_attr("index_weekly") == "index_weekly_serving"
     assert get_target_dao_attr("index_monthly") == "index_monthly_serving"
+
+
+def test_serving_target_mapping_stk_period_datasets() -> None:
+    assert get_target_dao_attr("stk_period_bar_week") == "stk_period_bar"
+    assert get_target_dao_attr("stk_period_bar_month") == "stk_period_bar"
+    assert get_target_dao_attr("stk_period_bar_adj_week") == "stk_period_bar_adj"
+    assert get_target_dao_attr("stk_period_bar_adj_month") == "stk_period_bar_adj"
