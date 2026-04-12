@@ -42,7 +42,7 @@ sudo_systemctl() {
 }
 
 ensure_sudo_ready() {
-  if ! sudo_systemctl status "${WEB_SERVICE}" >/dev/null 2>&1; then
+  if ! sudo_systemctl daemon-reload >/dev/null 2>&1; then
     cat <<'EOF'
 当前用户无法无密码执行 sudo。
 请先为部署用户配置受控 sudo 权限，至少允许：
