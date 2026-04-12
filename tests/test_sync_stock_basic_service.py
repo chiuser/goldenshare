@@ -162,3 +162,51 @@ def test_sync_stock_basic_all_respects_resolution_policy(mocker) -> None:
     assert len(serving_rows) == 1
     assert serving_rows[0]["name"] == "平 安 银 行"
     assert serving_rows[0]["source"] == "biying"
+
+
+def test_sync_stock_basic_all_normalizes_serving_rows_to_full_schema(mocker) -> None:
+    service = SyncStockBasicService(mocker.Mock())
+    mocker.patch.object(service._policy_store, "get_enabled_policy", return_value=None)
+    mocker.patch.object(service._policy_store, "get_active_sources", return_value={"tushare", "biying"})
+    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=2)
+
+    std_rows_by_source = {
+        "tushare": [
+            {
+                "source_key": "tushare",
+                "ts_code": "000001.SZ",
+                "symbol": "000001",
+                "name": "平安银行",
+                "exchange": "SZSE",
+                "list_status": "L",
+                "area": "深圳",
+                "industry": "银行",
+                "security_type": "EQUITY",
+                "source": "tushare",
+            }
+        ],
+        "biying": [
+            {
+                "source_key": "biying",
+                "ts_code": "000002.SZ",
+                "symbol": "000002",
+                "name": "万科A",
+                "exchange": "SZ",
+                "list_status": "L",
+                "security_type": "EQUITY",
+                "source": "biying",
+            }
+        ],
+    }
+
+    written, _policy = service._publish_serving_by_resolution(std_rows_by_source)
+
+    assert written == 2
+    rows = serving_upsert.call_args.args[0]
+    assert len(rows) == 2
+    tushare_row = next(row for row in rows if row["ts_code"] == "000001.SZ")
+    biying_row = next(row for row in rows if row["ts_code"] == "000002.SZ")
+    assert tushare_row["area"] == "深圳"
+    assert biying_row["area"] is None
+    assert "created_at" not in tushare_row
+    assert "updated_at" not in tushare_row

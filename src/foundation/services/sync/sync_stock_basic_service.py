@@ -92,6 +92,11 @@ class SyncStockBasicService(BaseSyncService):
                 by_source[source_key] = dict(row)
 
         serving_rows: list[dict[str, Any]] = []
+        target_columns = {
+            column.name
+            for column in self.dao.security.model.__table__.columns
+            if column.name not in {"created_at", "updated_at"}
+        }
         for ts_code, candidates in candidates_by_code.items():
             output = self._policy_engine.resolve(
                 ResolutionInput(
@@ -107,7 +112,8 @@ class SyncStockBasicService(BaseSyncService):
             serving_row = {key: value for key, value in output.resolved_record.items() if key != "source_key"}
             if output.resolved_source_key:
                 serving_row["source"] = output.resolved_source_key
-            serving_rows.append(serving_row)
+            normalized_row = {key: serving_row.get(key) for key in target_columns}
+            serving_rows.append(normalized_row)
         return self.dao.security.upsert_many(serving_rows), policy
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
