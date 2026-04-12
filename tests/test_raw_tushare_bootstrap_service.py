@@ -30,6 +30,7 @@ def test_raw_tushare_bootstrap_service_create_and_migrate_data(mocker) -> None:
     service = RawTushareBootstrapService()
     mocker.patch.object(service, "list_legacy_raw_tables", return_value=["daily"])
     mocker.patch.object(service, "_list_columns", side_effect=[["ts_code", "trade_date", "close"], ["ts_code", "trade_date", "close"]])
+    messages: list[str] = []
 
     # For INSERT rowcount
     session.execute.side_effect = [
@@ -39,7 +40,12 @@ def test_raw_tushare_bootstrap_service_create_and_migrate_data(mocker) -> None:
         SimpleNamespace(rowcount=123),  # insert
     ]
 
-    result = service.run(session, table_names=["daily"], migrate_data=True)
+    result = service.run(
+        session,
+        table_names=["daily"],
+        migrate_data=True,
+        progress_callback=messages.append,
+    )
 
     assert len(result.tables) == 1
     item = result.tables[0]
@@ -47,6 +53,7 @@ def test_raw_tushare_bootstrap_service_create_and_migrate_data(mocker) -> None:
     assert item.migrated is True
     assert item.inserted_rows == 123
     assert session.commit.call_count == 1
+    assert any("daily: done inserted=123" in message for message in messages)
 
 
 def test_raw_tushare_bootstrap_service_rejects_when_schema_not_identical(mocker) -> None:

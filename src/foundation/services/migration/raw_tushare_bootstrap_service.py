@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -53,7 +54,9 @@ class RawTushareBootstrapService:
         table_names: list[str] | None = None,
         migrate_data: bool,
         drop_if_exists: bool = False,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> RawTushareBootstrapResult:
+        emit = progress_callback or (lambda _: None)
         session.execute(text("CREATE SCHEMA IF NOT EXISTS raw_tushare"))
         legacy_tables = self.list_legacy_raw_tables(session)
         if table_names:
@@ -65,9 +68,13 @@ class RawTushareBootstrapService:
         else:
             target_tables = legacy_tables
 
+        emit(
+            f"bootstrap-raw-tushare: start tables={len(target_tables)} migrate_data={migrate_data} drop_if_exists={drop_if_exists}"
+        )
         results: list[RawTushareTableBootstrapResult] = []
-        for table_name in target_tables:
+        for index, table_name in enumerate(target_tables, start=1):
             ident = self._quote_ident(table_name)
+            emit(f"[{index}/{len(target_tables)}] {table_name}: creating target table")
             if drop_if_exists:
                 session.execute(text(f"DROP TABLE IF EXISTS raw_tushare.{ident}"))
             session.execute(
@@ -79,10 +86,13 @@ class RawTushareBootstrapService:
 
             inserted_rows = 0
             if migrate_data:
+                emit(f"[{index}/{len(target_tables)}] {table_name}: validating schema parity")
                 source_columns = self._list_columns(session, schema="raw", table_name=table_name)
                 target_columns = self._list_columns(session, schema="raw_tushare", table_name=table_name)
                 self._ensure_same_columns(table_name, source_columns=source_columns, target_columns=target_columns)
+                emit(f"[{index}/{len(target_tables)}] {table_name}: truncating target")
                 session.execute(text(f"TRUNCATE TABLE raw_tushare.{ident} RESTART IDENTITY"))
+                emit(f"[{index}/{len(target_tables)}] {table_name}: copying rows")
                 inserted_rows = int(
                     session.execute(
                         text(f"INSERT INTO raw_tushare.{ident} SELECT * FROM raw.{ident}")
@@ -90,6 +100,7 @@ class RawTushareBootstrapService:
                     or 0
                 )
             session.commit()
+            emit(f"[{index}/{len(target_tables)}] {table_name}: done inserted={inserted_rows}")
             results.append(
                 RawTushareTableBootstrapResult(
                     table_name=table_name,

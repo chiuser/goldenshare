@@ -100,6 +100,7 @@ def bootstrap_raw_tushare(
             table_names=table or None,
             migrate_data=not create_only,
             drop_if_exists=drop_if_exists,
+            progress_callback=typer.echo,
         )
 
     typer.echo(
