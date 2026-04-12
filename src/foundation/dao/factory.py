@@ -51,6 +51,9 @@ from src.foundation.models.core_serving.ind_macd import IndicatorMacd
 from src.foundation.models.core.indicator_meta import IndicatorMeta
 from src.foundation.models.core_serving.ind_rsi import IndicatorRsi
 from src.foundation.models.core.indicator_state import IndicatorState
+from src.foundation.models.core_multi.indicator_kdj_std import IndicatorKdjStd
+from src.foundation.models.core_multi.indicator_macd_std import IndicatorMacdStd
+from src.foundation.models.core_multi.indicator_rsi_std import IndicatorRsiStd
 from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
@@ -144,6 +147,9 @@ class DAOFactory:
         self.indicator_macd = GenericDAO(session, IndicatorMacd)
         self.indicator_kdj = GenericDAO(session, IndicatorKdj)
         self.indicator_rsi = GenericDAO(session, IndicatorRsi)
+        self.indicator_macd_std = GenericDAO(session, IndicatorMacdStd)
+        self.indicator_kdj_std = GenericDAO(session, IndicatorKdjStd)
+        self.indicator_rsi_std = GenericDAO(session, IndicatorRsiStd)
         self.ths_index = GenericDAO(session, ThsIndex)
         self.ths_member = GenericDAO(session, ThsMember)
         self.ths_daily = GenericDAO(session, ThsDaily)

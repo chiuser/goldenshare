@@ -203,6 +203,9 @@
     - `tests/test_serving_publish_service.py`（indicator builder 默认注册）
     - `tests/test_serving_targets.py`（indicator target 映射）
     - `tests/test_serving_validation.py`（覆盖校验纳入 indicator）
+  - 指标同步已接入 std 双写（不改变现有 serving 行为）：
+    - `sync_equity_indicators` 在写 `core.ind_*` 的同时写入 `core_multi.indicator_*_std`
+    - std 写入带 `source_key` 维度，供后续多源发布链路接管
 
 ---
 

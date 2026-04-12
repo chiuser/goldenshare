@@ -116,6 +116,9 @@ class SyncEquityIndicatorsService(BaseSyncService):
         macd_rows: list[dict[str, Any]] = []
         kdj_rows: list[dict[str, Any]] = []
         rsi_rows: list[dict[str, Any]] = []
+        std_macd_rows: list[dict[str, Any]] = []
+        std_kdj_rows: list[dict[str, Any]] = []
+        std_rsi_rows: list[dict[str, Any]] = []
         fetched = 0
 
         for adjustment in ADJUSTMENTS:
@@ -147,6 +150,18 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "macd_bar": self._to_decimal(macd_bar[idx]),
                     }
                 )
+                std_macd_rows.append(
+                    {
+                        "source_key": source_key,
+                        "ts_code": ts_code,
+                        "trade_date": row.trade_date,
+                        "adjustment": adjustment,
+                        "version": INDICATOR_VERSION,
+                        "dif": self._to_decimal(dif[idx]),
+                        "dea": self._to_decimal(dea[idx]),
+                        "macd_bar": self._to_decimal(macd_bar[idx]),
+                    }
+                )
                 kdj_rows.append(
                     {
                         "ts_code": ts_code,
@@ -158,8 +173,32 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "j": self._to_decimal(j[idx]),
                     }
                 )
+                std_kdj_rows.append(
+                    {
+                        "source_key": source_key,
+                        "ts_code": ts_code,
+                        "trade_date": row.trade_date,
+                        "adjustment": adjustment,
+                        "version": INDICATOR_VERSION,
+                        "k": self._to_decimal(k[idx]),
+                        "d": self._to_decimal(d[idx]),
+                        "j": self._to_decimal(j[idx]),
+                    }
+                )
                 rsi_rows.append(
                     {
+                        "ts_code": ts_code,
+                        "trade_date": row.trade_date,
+                        "adjustment": adjustment,
+                        "version": INDICATOR_VERSION,
+                        "rsi_6": self._to_decimal(rsi6[idx]),
+                        "rsi_12": self._to_decimal(rsi12[idx]),
+                        "rsi_24": self._to_decimal(rsi24[idx]),
+                    }
+                )
+                std_rsi_rows.append(
+                    {
+                        "source_key": source_key,
                         "ts_code": ts_code,
                         "trade_date": row.trade_date,
                         "adjustment": adjustment,
@@ -211,6 +250,9 @@ class SyncEquityIndicatorsService(BaseSyncService):
         written += self.dao.indicator_macd.bulk_upsert(macd_rows)
         written += self.dao.indicator_kdj.bulk_upsert(kdj_rows)
         written += self.dao.indicator_rsi.bulk_upsert(rsi_rows)
+        self.dao.indicator_macd_std.bulk_upsert(std_macd_rows)
+        self.dao.indicator_kdj_std.bulk_upsert(std_kdj_rows)
+        self.dao.indicator_rsi_std.bulk_upsert(std_rsi_rows)
         return fetched, written
 
     def _ensure_meta_rows(self) -> None:
