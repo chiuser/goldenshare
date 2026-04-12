@@ -68,7 +68,7 @@ export function OpsShell(_props: PropsWithChildren) {
                 财势乾坤
               </Text>
               <Text c="dimmed" size="sm">
-                数据运行管理台
+                数据运营管理综合平台
               </Text>
             </Stack>
           </Group>

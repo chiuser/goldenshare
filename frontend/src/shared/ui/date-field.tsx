@@ -68,6 +68,8 @@ function isDateAllowedByRule(date: Date, rule: DateSelectionRule): boolean {
 
 export function DateField({ value, onChange, selectionRule = "any", ...props }: DateFieldProps) {
   const parsed = toDateString(parseInputDate(value));
+  const pickerValue: string | null = parsed || null;
+  const placeholder = props.placeholder || "请选择日期";
   const excludeDate =
     selectionRule === "any"
       ? undefined
@@ -82,7 +84,8 @@ export function DateField({ value, onChange, selectionRule = "any", ...props }: 
   return (
     <DatePickerInput
       {...props}
-      value={parsed}
+      value={pickerValue}
+      placeholder={placeholder}
       onChange={(next) => onChange(normalizePickerValue(next))}
       valueFormat="YYYY-MM-DD"
       clearable
