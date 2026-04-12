@@ -74,6 +74,19 @@
     - 删除非 `stock_basic` 的多源 demo 模型与路由
     - 新增迁移：`20260412_000040_drop_non_stock_multi_source_demo_tables.py`
 
+- 2026-04-12 包 4 启动（框架骨架完成，无示例数据集扩展）
+  - 已完成 resolution 骨架：
+    - `ResolutionPolicyEngine`（`primary/fallback/field_merge/freshness_first`）
+    - `ConflictScorer`
+    - `ResolutionPolicyStore`（读取 `foundation.dataset_resolution_policy` / `dataset_source_status`）
+    - `ResolutionRegistry` 与 resolver 协议
+  - 已完成测试：
+    - `tests/test_resolution_policy_engine.py`
+    - `tests/test_resolution_conflict_scorer.py`
+  - 已完成首个接线：
+    - `sync_stock_basic` 的 `source=all` 发布改为通过 ResolutionPolicyEngine 统一决策
+    - 单源模式（`tushare` / `biying`）保持原有行为，降低切换风险
+
 ---
 
 ## 包 1：基础骨架与元数据
