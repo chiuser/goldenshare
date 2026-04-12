@@ -12,9 +12,9 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.config.settings import get_settings
 from src.platform.models.app.app_user import AppUser
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
-from src.foundation.models.core.index_daily_serving import IndexDailyServing
-from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_execution import JobExecution

@@ -101,6 +101,9 @@
       - `equity_daily_basic`
       - `stk_period_bar`
       - `stk_period_bar_adj`
+      - `index_daily_serving`
+      - `index_weekly_serving`
+      - `index_monthly_serving`
     - builder 通用结果类型 `ServingBuildResult`，并支持可选溯源字段透传（仅当目标列存在时写入）：
       - `resolution_mode`
       - `resolution_policy_version`
