@@ -9,10 +9,12 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import func, select, text
 
+from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
 from src.foundation.services.migration import RawTushareBootstrapService
+from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import (
@@ -112,6 +114,23 @@ def bootstrap_raw_tushare(
             f" - {item.table_name}: "
             f"created={item.created} migrated={item.migrated} inserted={item.inserted_rows}"
         )
+
+
+@app.command("validate-serving-coverage")
+def validate_serving_coverage_cmd() -> None:
+    with SessionLocal() as session:
+        dao = DAOFactory(session)
+        publish_service = ServingPublishService(dao)
+        issues = validate_serving_coverage(dao=dao, builder_registry=publish_service.builder_registry)
+
+    if not issues:
+        typer.echo("validate-serving-coverage: OK")
+        return
+
+    typer.echo(f"validate-serving-coverage: FAILED issues={len(issues)}")
+    for issue in issues:
+        typer.echo(f" - dataset={issue.dataset_key} type={issue.issue_type} detail={issue.detail}")
+    raise typer.Exit(code=1)
 
 
 @app.command("sync-history")

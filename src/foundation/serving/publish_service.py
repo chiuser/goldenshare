@@ -59,6 +59,10 @@ class ServingPublishService:
             if self._builder_registry.get(builder.dataset_key) is None:
                 self._builder_registry.register(builder)
 
+    @property
+    def builder_registry(self) -> ServingBuilderRegistry:
+        return self._builder_registry
+
     def plan_publish(
         self,
         *,

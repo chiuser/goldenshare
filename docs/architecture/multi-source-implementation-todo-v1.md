@@ -147,6 +147,14 @@
   - 已完成测试：
     - `tests/test_raw_tushare_bootstrap_service.py`
 
+- 2026-04-12 包 5 质量保障补充
+  - 已新增覆盖校验命令：`goldenshare validate-serving-coverage`
+  - 校验项：
+    - `SERVING_TARGET_DAO_ATTR` 是否有对应 builder
+    - `SERVING_TARGET_DAO_ATTR` 是否有对应 DAOFactory 属性
+  - 已完成测试：
+    - `tests/test_serving_validation.py`
+
 ---
 
 ## 包 1：基础骨架与元数据
