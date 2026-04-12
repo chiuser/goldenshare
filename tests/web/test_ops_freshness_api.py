@@ -132,7 +132,7 @@ def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_sched
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
     sync_job_state_factory(
         job_name="sync_stock_basic",
-        target_table="core.security",
+        target_table="core.security_serving",
         last_success_date=date(2026, 3, 30),
         last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
     )

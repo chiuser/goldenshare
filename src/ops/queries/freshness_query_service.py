@@ -102,7 +102,7 @@ OBSERVED_DATE_AUTHORITATIVE_KEYS = {
 }
 
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
-    "core.security": Security,
+    "core.security_serving": Security,
     "core.hk_security": HkSecurity,
     "core.us_security": UsSecurity,
     "core.trade_calendar": TradeCalendar,

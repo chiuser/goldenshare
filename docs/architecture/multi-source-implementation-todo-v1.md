@@ -51,6 +51,24 @@
     - `tests/test_normalizer_equity_daily_bar.py`
     - `tests/test_normalizer_error_isolation.py`
 
+- 2026-04-12 BIYING 接入并行事项（stock_basic 首批）
+  - 已完成设置项：
+    - `BIYING_TOKEN`
+    - `BIYING_BASE_URL`
+  - 已完成 connector：
+    - `BiyingSourceConnector` 支持 `stock_basic`
+  - 已完成双源主数据链路：
+    - `raw_tushare.stock_basic`
+    - `raw_biying.stock_basic`
+    - `core_multi.security_std`
+    - `core.security_serving`（由 `core.security` 重命名切换）
+  - 已完成服务改造：
+    - `sync_stock_basic` 按 `source_key` 拉取/标准化/发布
+    - 策略：`tushare` 主，`biying` 仅补缺（不覆盖已有 richer 字段）
+  - 已完成测试：
+    - `tests/test_biying_connector.py`
+    - `tests/test_sync_stock_basic_service.py`
+
 ---
 
 ## 包 1：基础骨架与元数据

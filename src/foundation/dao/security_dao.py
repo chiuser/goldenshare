@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,3 +22,10 @@ class SecurityDAO(BaseDAO[Security]):
 
     def get_by_ts_code(self, ts_code: str) -> Security | None:
         return self.fetch_by_pk(ts_code)
+
+    def get_existing_ts_codes(self, ts_codes: Sequence[str]) -> set[str]:
+        code_list = [code for code in ts_codes if code]
+        if not code_list:
+            return set()
+        stmt = select(Security.ts_code).where(Security.ts_code.in_(code_list))
+        return {str(code) for code in self.session.scalars(stmt)}

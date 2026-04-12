@@ -8,15 +8,15 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.foundation.models.base import Base, TimestampMixin
 
 
-class Security(TimestampMixin, Base):
-    __tablename__ = "security_serving"
+class SecurityStd(TimestampMixin, Base):
+    __tablename__ = "security_std"
     __table_args__ = (
-        Index("idx_security_serving_name", "name"),
-        Index("idx_security_serving_industry", "industry"),
-        Index("idx_security_serving_list_status", "list_status"),
-        {"schema": "core"},
+        Index("idx_security_std_name", "name"),
+        Index("idx_security_std_source", "source_key"),
+        {"schema": "core_multi"},
     )
 
+    source_key: Mapped[str] = mapped_column(String(32), primary_key=True)
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     symbol: Mapped[str | None] = mapped_column(String(16))
     name: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -25,7 +25,6 @@ class Security(TimestampMixin, Base):
     fullname: Mapped[str | None] = mapped_column(String(128))
     enname: Mapped[str | None] = mapped_column(String(128))
     cnspell: Mapped[str | None] = mapped_column(String(32))
-    market: Mapped[str | None] = mapped_column(String(32))
     exchange: Mapped[str | None] = mapped_column(String(16))
     curr_type: Mapped[str | None] = mapped_column(String(16))
     list_status: Mapped[str | None] = mapped_column(String(8))
@@ -35,4 +34,3 @@ class Security(TimestampMixin, Base):
     act_name: Mapped[str | None] = mapped_column(String(128))
     act_ent_type: Mapped[str | None] = mapped_column(String(64))
     security_type: Mapped[str] = mapped_column(String(16), nullable=False, default="EQUITY", server_default="EQUITY")
-    source: Mapped[str] = mapped_column(String(32), nullable=False, default="tushare", server_default="tushare")

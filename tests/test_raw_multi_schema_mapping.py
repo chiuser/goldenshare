@@ -3,9 +3,11 @@ from __future__ import annotations
 from src.foundation.models.raw_multi.raw_biying_equity_adj_factor import RawBiyingEquityAdjFactor
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_equity_daily_basic import RawBiyingEquityDailyBasic
+from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 from src.foundation.models.raw_multi.raw_tushare_equity_adj_factor import RawTushareEquityAdjFactor
 from src.foundation.models.raw_multi.raw_tushare_equity_daily_bar import RawTushareEquityDailyBar
 from src.foundation.models.raw_multi.raw_tushare_equity_daily_basic import RawTushareEquityDailyBasic
+from src.foundation.models.raw_multi.raw_tushare_stock_basic import RawTushareStockBasic
 
 
 def test_raw_multi_models_schema_mapping() -> None:
@@ -16,6 +18,8 @@ def test_raw_multi_models_schema_mapping() -> None:
     assert RawBiyingEquityDailyBar.__table__.schema == "raw_biying"
     assert RawBiyingEquityAdjFactor.__table__.schema == "raw_biying"
     assert RawBiyingEquityDailyBasic.__table__.schema == "raw_biying"
+    assert RawTushareStockBasic.__table__.schema == "raw_tushare"
+    assert RawBiyingStockBasic.__table__.schema == "raw_biying"
 
 
 def test_raw_multi_models_primary_keys() -> None:

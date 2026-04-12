@@ -44,7 +44,7 @@ class FakeFreshnessQueryService:
                 domain_key="reference_data",
                 domain_display_name="基础主数据",
                 job_name="sync_stock_basic",
-                target_table="core.security",
+                target_table="core.security_serving",
                 cadence="reference",
                 latest_business_date=None,
                 freshness_status="fresh",

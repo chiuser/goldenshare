@@ -12,6 +12,8 @@ RAW_MULTI_DAO_NAME: dict[tuple[str, str], str] = {
     ("biying", "equity_adj_factor"): "raw_biying_equity_adj_factor",
     ("tushare", "equity_daily_basic"): "raw_tushare_equity_daily_basic",
     ("biying", "equity_daily_basic"): "raw_biying_equity_daily_basic",
+    ("tushare", "stock_basic"): "raw_tushare_stock_basic",
+    ("biying", "stock_basic"): "raw_biying_stock_basic",
 }
 
 

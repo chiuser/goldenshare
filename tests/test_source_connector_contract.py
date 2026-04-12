@@ -31,7 +31,7 @@ def test_connectors_expose_source_key() -> None:
     assert BiyingSourceConnector.source_key == "biying"
 
 
-def test_biying_connector_is_explicit_not_implemented() -> None:
-    connector = BiyingSourceConnector()
-    with pytest.raises(NotImplementedError, match="not implemented"):
+def test_biying_connector_rejects_unsupported_api() -> None:
+    connector = BiyingSourceConnector(token="x", base_url="https://api.biyingapi.com")
+    with pytest.raises(ValueError, match="does not support"):
         connector.call("equity_daily")

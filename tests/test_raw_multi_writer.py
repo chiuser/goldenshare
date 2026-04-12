@@ -42,5 +42,7 @@ def test_raw_multi_writer_route_map_covers_expected_pairs() -> None:
         ("biying", "equity_adj_factor"),
         ("tushare", "equity_daily_basic"),
         ("biying", "equity_daily_basic"),
+        ("tushare", "stock_basic"),
+        ("biying", "stock_basic"),
     }
     assert expected_pairs.issubset(set(RAW_MULTI_DAO_NAME.keys()))

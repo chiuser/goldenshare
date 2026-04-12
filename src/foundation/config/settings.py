@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     )
     tushare_token: str = Field(default="", alias="TUSHARE_TOKEN")
     tushare_base_url: str = Field(default="https://api.tushare.pro", alias="TUSHARE_BASE_URL")
+    biying_token: str = Field(default="", alias="BIYING_TOKEN")
+    biying_base_url: str = Field(default="https://api.biyingapi.com", alias="BIYING_BASE_URL")
     default_exchange: str = Field(default="SSE", alias="DEFAULT_EXCHANGE")
     sync_batch_size: int = Field(default=1000, alias="SYNC_BATCH_SIZE")
     history_start_date: str = Field(default="2000-01-01", alias="HISTORY_START_DATE")

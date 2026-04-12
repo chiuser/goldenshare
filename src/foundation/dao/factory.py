@@ -51,6 +51,12 @@ from src.foundation.models.core.indicator_macd import IndicatorMacd
 from src.foundation.models.core.indicator_meta import IndicatorMeta
 from src.foundation.models.core.indicator_rsi import IndicatorRsi
 from src.foundation.models.core.indicator_state import IndicatorState
+from src.foundation.models.core_multi.equity_adj_factor_std import EquityAdjFactorStd
+from src.foundation.models.core_multi.equity_daily_bar_std import EquityDailyBarStd
+from src.foundation.models.core_multi.equity_daily_basic_std import EquityDailyBasicStd
+from src.foundation.models.core_multi.security_std import SecurityStd
+from src.foundation.models.core_multi.stk_period_bar_adj_std import StkPeriodBarAdjStd
+from src.foundation.models.core_multi.stk_period_bar_std import StkPeriodBarStd
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.broker_recommend import BrokerRecommend
@@ -96,9 +102,11 @@ from src.foundation.models.raw.raw_us_basic import RawUsBasic
 from src.foundation.models.raw_multi.raw_biying_equity_adj_factor import RawBiyingEquityAdjFactor
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_equity_daily_basic import RawBiyingEquityDailyBasic
+from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 from src.foundation.models.raw_multi.raw_tushare_equity_adj_factor import RawTushareEquityAdjFactor
 from src.foundation.models.raw_multi.raw_tushare_equity_daily_bar import RawTushareEquityDailyBar
 from src.foundation.models.raw_multi.raw_tushare_equity_daily_basic import RawTushareEquityDailyBasic
+from src.foundation.models.raw_multi.raw_tushare_stock_basic import RawTushareStockBasic
 from src.foundation.models.core.stk_period_bar import StkPeriodBar
 from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.ths_daily import ThsDaily
@@ -164,6 +172,12 @@ class DAOFactory:
         self.sync_job_state = SyncJobStateDAO(session)
         self.sync_run_log = SyncRunLogDAO(session)
         self.index_series_active = IndexSeriesActiveDAO(session)
+        self.equity_daily_bar_std = GenericDAO(session, EquityDailyBarStd)
+        self.equity_adj_factor_std = GenericDAO(session, EquityAdjFactorStd)
+        self.equity_daily_basic_std = GenericDAO(session, EquityDailyBasicStd)
+        self.security_std = GenericDAO(session, SecurityStd)
+        self.stk_period_bar_std = GenericDAO(session, StkPeriodBarStd)
+        self.stk_period_bar_adj_std = GenericDAO(session, StkPeriodBarAdjStd)
 
         self.raw_stock_basic = GenericDAO(session, RawStockBasic)
         self.raw_trade_cal = GenericDAO(session, RawTradeCal)
@@ -210,3 +224,5 @@ class DAOFactory:
         self.raw_biying_equity_adj_factor = GenericDAO(session, RawBiyingEquityAdjFactor)
         self.raw_tushare_equity_daily_basic = GenericDAO(session, RawTushareEquityDailyBasic)
         self.raw_biying_equity_daily_basic = GenericDAO(session, RawBiyingEquityDailyBasic)
+        self.raw_tushare_stock_basic = GenericDAO(session, RawTushareStockBasic)
+        self.raw_biying_stock_basic = GenericDAO(session, RawBiyingStockBasic)
