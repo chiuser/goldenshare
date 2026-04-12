@@ -93,6 +93,12 @@ from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.raw.raw_us_basic import RawUsBasic
+from src.foundation.models.raw_multi.raw_biying_equity_adj_factor import RawBiyingEquityAdjFactor
+from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
+from src.foundation.models.raw_multi.raw_biying_equity_daily_basic import RawBiyingEquityDailyBasic
+from src.foundation.models.raw_multi.raw_tushare_equity_adj_factor import RawTushareEquityAdjFactor
+from src.foundation.models.raw_multi.raw_tushare_equity_daily_bar import RawTushareEquityDailyBar
+from src.foundation.models.raw_multi.raw_tushare_equity_daily_basic import RawTushareEquityDailyBasic
 from src.foundation.models.core.stk_period_bar import StkPeriodBar
 from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.ths_daily import ThsDaily
@@ -198,3 +204,9 @@ class DAOFactory:
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)
+        self.raw_tushare_equity_daily_bar = GenericDAO(session, RawTushareEquityDailyBar)
+        self.raw_biying_equity_daily_bar = GenericDAO(session, RawBiyingEquityDailyBar)
+        self.raw_tushare_equity_adj_factor = GenericDAO(session, RawTushareEquityAdjFactor)
+        self.raw_biying_equity_adj_factor = GenericDAO(session, RawBiyingEquityAdjFactor)
+        self.raw_tushare_equity_daily_basic = GenericDAO(session, RawTushareEquityDailyBasic)
+        self.raw_biying_equity_daily_basic = GenericDAO(session, RawBiyingEquityDailyBasic)

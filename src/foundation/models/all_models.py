@@ -47,6 +47,14 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core.us_security import UsSecurity
+from src.foundation.models.core_multi.equity_adj_factor_std import EquityAdjFactorStd
+from src.foundation.models.core_multi.equity_daily_bar_std import EquityDailyBarStd
+from src.foundation.models.core_multi.equity_daily_basic_std import EquityDailyBasicStd
+from src.foundation.models.core_multi.stk_period_bar_adj_std import StkPeriodBarAdjStd
+from src.foundation.models.core_multi.stk_period_bar_std import StkPeriodBarStd
+from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
+from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
+from src.foundation.models.meta.source_registry import SourceRegistry
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
@@ -95,6 +103,12 @@ from src.foundation.models.raw.raw_ths_member import RawThsMember
 from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.raw.raw_us_basic import RawUsBasic
+from src.foundation.models.raw_multi.raw_biying_equity_adj_factor import RawBiyingEquityAdjFactor
+from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
+from src.foundation.models.raw_multi.raw_biying_equity_daily_basic import RawBiyingEquityDailyBasic
+from src.foundation.models.raw_multi.raw_tushare_equity_adj_factor import RawTushareEquityAdjFactor
+from src.foundation.models.raw_multi.raw_tushare_equity_daily_bar import RawTushareEquityDailyBar
+from src.foundation.models.raw_multi.raw_tushare_equity_daily_basic import RawTushareEquityDailyBasic
 
 __all__ = [
     "AppUser",
@@ -194,4 +208,18 @@ __all__ = [
     "ThsMember",
     "TradeCalendar",
     "UsSecurity",
+    "EquityDailyBarStd",
+    "EquityAdjFactorStd",
+    "EquityDailyBasicStd",
+    "StkPeriodBarStd",
+    "StkPeriodBarAdjStd",
+    "SourceRegistry",
+    "DatasetResolutionPolicy",
+    "DatasetSourceStatus",
+    "RawTushareEquityDailyBar",
+    "RawBiyingEquityDailyBar",
+    "RawTushareEquityAdjFactor",
+    "RawBiyingEquityAdjFactor",
+    "RawTushareEquityDailyBasic",
+    "RawBiyingEquityDailyBasic",
 ]
