@@ -220,6 +220,8 @@ DAILY_SYNC_RESOURCES = (
     "limit_list_d",
     "top_list",
     "block_trade",
+    "stk_period_bar_month",
+    "stk_period_bar_adj_month",
     "fund_daily",
     "fund_adj",
     "index_daily",

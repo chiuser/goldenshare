@@ -13,6 +13,8 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.equity_price_restore_factor" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
+    assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
+    assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
     assert "backfill_index_series.index_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.ths_index" in JOB_SPEC_REGISTRY
