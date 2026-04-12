@@ -177,6 +177,20 @@
   - 指标同步服务写入 `indicator_state` 时显式写入 `source_key`（默认 `tushare`）
   - 已新增迁移：
     - `20260413_000042_add_source_key_to_indicator_state.py`
+  - 指标 std 三表已补齐：
+    - `core_multi.indicator_macd_std`
+    - `core_multi.indicator_kdj_std`
+    - `core_multi.indicator_rsi_std`
+  - 指标 serving 读模型已迁入 `core_serving` 命名空间：
+    - `core_serving.ind_macd`
+    - `core_serving.ind_kdj`
+    - `core_serving.ind_rsi`
+  - 已新增迁移：
+    - `20260413_000043_create_indicator_multi_std_tables.py`
+  - 已新增测试：
+    - `tests/test_indicator_multi_models.py`
+    - `tests/test_indicator_multi_source_state.py`
+    - `tests/test_indicator_resolution_consistency.py`
 
 ---
 
