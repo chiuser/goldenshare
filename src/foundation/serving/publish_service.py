@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from src.foundation.dao.factory import DAOFactory
+from src.foundation.resolution.policy_store import ResolutionPolicyStore
+from src.foundation.resolution.types import ResolutionPolicy
+from src.foundation.serving.builders.registry import ServingBuilderRegistry
+from src.foundation.serving.builders.security_serving_builder import SecurityServingBuildResult, SecurityServingBuilder
+
+
+@dataclass(frozen=True)
+class ServingPublishResult:
+    written: int
+    policy: ResolutionPolicy
+    resolved_count: int
+
+
+class ServingPublishService:
+    def __init__(
+        self,
+        dao: DAOFactory,
+        *,
+        policy_store: ResolutionPolicyStore | None = None,
+        security_builder: SecurityServingBuilder | None = None,
+        builder_registry: ServingBuilderRegistry | None = None,
+    ) -> None:
+        self.dao = dao
+        self._policy_store = policy_store or ResolutionPolicyStore()
+        self._builder_registry = builder_registry or ServingBuilderRegistry()
+        if self._builder_registry.get("stock_basic") is None:
+            self._builder_registry.register(security_builder or SecurityServingBuilder())
+
+    def publish(
+        self,
+        *,
+        dataset_key: str,
+        std_rows_by_source: dict[str, list[dict[str, Any]]],
+        target_dao_attr: str,
+    ) -> ServingPublishResult:
+        builder = self._builder_registry.get(dataset_key)
+        if builder is None:
+            raise ValueError(f"No serving builder registered for dataset: {dataset_key}")
+        target_dao = getattr(self.dao, target_dao_attr, None)
+        if target_dao is None:
+            raise ValueError(f"DAOFactory has no target DAO attr: {target_dao_attr}")
+
+        policy = self._policy_store.get_enabled_policy(self.dao.session, dataset_key) or ResolutionPolicy(
+            dataset_key=dataset_key,
+            mode="primary",
+            primary_source_key="tushare",
+            fallback_source_keys=("biying",),
+            version=1,
+            enabled=True,
+        )
+        active_sources = self._policy_store.get_active_sources(self.dao.session, dataset_key)
+        target_columns = {
+            column.name
+            for column in target_dao.model.__table__.columns
+            if column.name not in {"created_at", "updated_at"}
+        }
+        build_result: SecurityServingBuildResult = builder.build_rows(
+            std_rows_by_source=std_rows_by_source,
+            policy=policy,
+            active_sources=active_sources if active_sources else None,
+            target_columns=target_columns,
+        )
+        written = target_dao.upsert_many(build_result.rows)
+        return ServingPublishResult(
+            written=written,
+            policy=policy,
+            resolved_count=build_result.resolved_count,
+        )
+
+    def publish_stock_basic_from_std(
+        self,
+        *,
+        std_rows_by_source: dict[str, list[dict[str, Any]]],
+    ) -> ServingPublishResult:
+        return self.publish(
+            dataset_key="stock_basic",
+            std_rows_by_source=std_rows_by_source,
+            target_dao_attr="security",
+        )

@@ -4,9 +4,7 @@ from datetime import date
 from typing import Any
 
 from src.foundation.connectors.factory import create_source_connector
-from src.foundation.resolution.policy_engine import ResolutionPolicyEngine
-from src.foundation.resolution.policy_store import ResolutionPolicyStore
-from src.foundation.resolution.types import ResolutionInput, ResolutionPolicy
+from src.foundation.serving.publish_service import ServingPublishService
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.fields import STOCK_BASIC_FIELDS
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
@@ -24,8 +22,6 @@ class SyncStockBasicService(BaseSyncService):
         "biying": "raw_biying_stock_basic",
     }
     _supported_source_keys = ("tushare", "biying", "all")
-    _policy_store = ResolutionPolicyStore()
-    _policy_engine = ResolutionPolicyEngine()
 
     def _get_rows_from_source(self, source_key: str) -> list[dict[str, Any]]:
         connector = create_source_connector(source_key)
@@ -63,58 +59,12 @@ class SyncStockBasicService(BaseSyncService):
                 serving_rows.append({key: value for key, value in row.items() if key != "source_key"})
         return self.dao.security.upsert_many(serving_rows)
 
-    def _resolve_policy(self) -> ResolutionPolicy:
-        policy = self._policy_store.get_enabled_policy(self.session, "stock_basic")
-        if policy is not None:
-            return policy
-        return ResolutionPolicy(
-            dataset_key="stock_basic",
-            mode="primary",
-            primary_source_key="tushare",
-            fallback_source_keys=("biying",),
-            version=1,
-            enabled=True,
-        )
-
     def _publish_serving_by_resolution(
         self,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
-    ) -> tuple[int, ResolutionPolicy]:
-        policy = self._resolve_policy()
-        active_sources = self._policy_store.get_active_sources(self.session, "stock_basic")
-        candidates_by_code: dict[str, dict[str, dict[str, Any]]] = {}
-        for source_key, rows in std_rows_by_source.items():
-            for row in rows:
-                ts_code = str(row.get("ts_code", "")).strip()
-                if not ts_code:
-                    continue
-                by_source = candidates_by_code.setdefault(ts_code, {})
-                by_source[source_key] = dict(row)
-
-        serving_rows: list[dict[str, Any]] = []
-        target_columns = {
-            column.name
-            for column in self.dao.security.model.__table__.columns
-            if column.name not in {"created_at", "updated_at"}
-        }
-        for ts_code, candidates in candidates_by_code.items():
-            output = self._policy_engine.resolve(
-                ResolutionInput(
-                    dataset_key="stock_basic",
-                    business_key=ts_code,
-                    candidates_by_source=candidates,
-                    active_sources=active_sources if active_sources else None,
-                ),
-                policy,
-            )
-            if output.resolved_record is None:
-                continue
-            serving_row = {key: value for key, value in output.resolved_record.items() if key != "source_key"}
-            if output.resolved_source_key:
-                serving_row["source"] = output.resolved_source_key
-            normalized_row = {key: serving_row.get(key) for key in target_columns}
-            serving_rows.append(normalized_row)
-        return self.dao.security.upsert_many(serving_rows), policy
+    ) -> tuple[int, str]:
+        result = ServingPublishService(self.dao).publish_stock_basic_from_std(std_rows_by_source=std_rows_by_source)
+        return result.written, f"{result.policy.mode}@v{result.policy.version}"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         del run_type
@@ -144,6 +94,6 @@ class SyncStockBasicService(BaseSyncService):
 
         message = f"source={source_key}"
         if source_key == "all":
-            total_written, policy = self._publish_serving_by_resolution(std_rows_by_source)
-            message = f"source=all policy={policy.mode}@v{policy.version}"
+            total_written, policy_text = self._publish_serving_by_resolution(std_rows_by_source)
+            message = f"source=all policy={policy_text}"
         return total_fetched, total_written, None, message

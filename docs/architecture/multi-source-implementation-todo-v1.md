@@ -87,6 +87,18 @@
     - `sync_stock_basic` 的 `source=all` 发布改为通过 ResolutionPolicyEngine 统一决策
     - 单源模式（`tushare` / `biying`）保持原有行为，降低切换风险
 
+- 2026-04-12 包 5 启动（最小发布层抽离）
+  - 已新增发布层骨架：
+    - `src/foundation/serving/publish_service.py`
+    - `src/foundation/serving/builders/security_serving_builder.py`
+    - `src/foundation/serving/builders/registry.py`（builder 注册机制）
+  - 已完成 `sync_stock_basic` 接线：
+    - `source=all` 通过 `ServingPublishService` 发布到 `core.security_serving`
+  - 已完成测试：
+    - `tests/test_security_serving_builder.py`
+    - `tests/test_serving_publish_service.py`
+    - `tests/test_serving_builder_registry.py`
+
 ---
 
 ## 包 1：基础骨架与元数据

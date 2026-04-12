@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from src.foundation.services.sync import sync_stock_basic_service
-from src.foundation.resolution.types import ResolutionPolicy
 from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
 
 
@@ -81,9 +80,7 @@ def test_sync_stock_basic_all_runs_both_sources_and_accumulates_counts(mocker) -
     raw_tushare_upsert = mocker.patch.object(service.dao.raw_tushare_stock_basic, "bulk_upsert", return_value=1)
     raw_biying_upsert = mocker.patch.object(service.dao.raw_biying_stock_basic, "bulk_upsert", return_value=1)
     security_std_upsert = mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=1)
-    mocker.patch.object(service._policy_store, "get_enabled_policy", return_value=None)
-    mocker.patch.object(service._policy_store, "get_active_sources", return_value={"tushare", "biying"})
-    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=2)
+    publish = mocker.patch.object(service, "_publish_serving_by_resolution", return_value=(2, "primary@v1"))
 
     fetched, written, result_date, message = service.execute("FULL", source_key="all")
 
@@ -96,9 +93,7 @@ def test_sync_stock_basic_all_runs_both_sources_and_accumulates_counts(mocker) -
     raw_tushare_upsert.assert_called_once()
     raw_biying_upsert.assert_called_once()
     assert security_std_upsert.call_count == 2
-    serving_upsert.assert_called_once()
-    serving_rows = serving_upsert.call_args.args[0]
-    assert len(serving_rows) == 2
+    publish.assert_called_once()
 
 
 def test_sync_stock_basic_tushare_requests_include_g_status(mocker) -> None:
@@ -137,20 +132,7 @@ def test_sync_stock_basic_all_respects_resolution_policy(mocker) -> None:
     mocker.patch.object(service.dao.raw_tushare_stock_basic, "bulk_upsert", return_value=1)
     mocker.patch.object(service.dao.raw_biying_stock_basic, "bulk_upsert", return_value=1)
     mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=1)
-    mocker.patch.object(
-        service._policy_store,
-        "get_enabled_policy",
-        return_value=ResolutionPolicy(
-            dataset_key="stock_basic",
-            mode="primary",
-            primary_source_key="biying",
-            fallback_source_keys=("tushare",),
-            version=9,
-            enabled=True,
-        ),
-    )
-    mocker.patch.object(service._policy_store, "get_active_sources", return_value={"tushare", "biying"})
-    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=1)
+    publish = mocker.patch.object(service, "_publish_serving_by_resolution", return_value=(1, "primary@v9"))
 
     fetched, written, result_date, message = service.execute("FULL", source_key="all")
 
@@ -158,55 +140,4 @@ def test_sync_stock_basic_all_respects_resolution_policy(mocker) -> None:
     assert written == 1
     assert result_date is None
     assert message == "source=all policy=primary@v9"
-    serving_rows = serving_upsert.call_args.args[0]
-    assert len(serving_rows) == 1
-    assert serving_rows[0]["name"] == "平 安 银 行"
-    assert serving_rows[0]["source"] == "biying"
-
-
-def test_sync_stock_basic_all_normalizes_serving_rows_to_full_schema(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    mocker.patch.object(service._policy_store, "get_enabled_policy", return_value=None)
-    mocker.patch.object(service._policy_store, "get_active_sources", return_value={"tushare", "biying"})
-    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=2)
-
-    std_rows_by_source = {
-        "tushare": [
-            {
-                "source_key": "tushare",
-                "ts_code": "000001.SZ",
-                "symbol": "000001",
-                "name": "平安银行",
-                "exchange": "SZSE",
-                "list_status": "L",
-                "area": "深圳",
-                "industry": "银行",
-                "security_type": "EQUITY",
-                "source": "tushare",
-            }
-        ],
-        "biying": [
-            {
-                "source_key": "biying",
-                "ts_code": "000002.SZ",
-                "symbol": "000002",
-                "name": "万科A",
-                "exchange": "SZ",
-                "list_status": "L",
-                "security_type": "EQUITY",
-                "source": "biying",
-            }
-        ],
-    }
-
-    written, _policy = service._publish_serving_by_resolution(std_rows_by_source)
-
-    assert written == 2
-    rows = serving_upsert.call_args.args[0]
-    assert len(rows) == 2
-    tushare_row = next(row for row in rows if row["ts_code"] == "000001.SZ")
-    biying_row = next(row for row in rows if row["ts_code"] == "000002.SZ")
-    assert tushare_row["area"] == "深圳"
-    assert biying_row["area"] is None
-    assert "created_at" not in tushare_row
-    assert "updated_at" not in tushare_row
+    publish.assert_called_once()

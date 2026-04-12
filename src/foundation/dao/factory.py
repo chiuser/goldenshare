@@ -110,6 +110,7 @@ from src.foundation.models.raw.raw_ths_member import RawThsMember
 
 class DAOFactory:
     def __init__(self, session: Session) -> None:
+        self.session = session
         self.security = SecurityDAO(session)
         self.trade_calendar = TradeCalendarDAO(session)
         self.equity_daily_bar = EquityDailyBarDAO(session)
