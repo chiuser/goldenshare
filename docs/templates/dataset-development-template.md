@@ -4,6 +4,7 @@
 > - 每新增一个数据集，必须复制本模板生成一份独立文档，放在 `docs/datasets/` 目录。
 > - 文档命名建议：`<dataset>-dataset-development.md`（示例：`etf-index-dataset-development.md`）。
 > - 未完成本文档，不得视为数据集交付完成。
+> - 必须同时遵守《数据集发布治理规范 v1（Raw -> Std -> Serving）》。
 > - 模板中的“必须/应当”默认视为交付门禁（Definition of Done）。
 
 ## 0. 标准交付流程（必须按顺序）

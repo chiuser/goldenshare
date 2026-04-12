@@ -7,6 +7,7 @@ from src.operations.services.execution_reconciliation_service import (
 )
 from src.operations.services.history_backfill_service import BackfillSummary, HistoryBackfillService
 from src.operations.services.schedule_service import OperationsScheduleService
+from src.operations.services.stock_basic_reconcile_service import StockBasicReconcileReport, StockBasicReconcileService
 from src.operations.services.sync_job_state_reconciliation_service import (
     ReconciledSyncJobState,
     SyncJobStateReconciliationService,
@@ -24,4 +25,6 @@ __all__ = [
     "SyncJobStateReconciliationService",
     "DailyHealthReportService",
     "DailyHealthReport",
+    "StockBasicReconcileService",
+    "StockBasicReconcileReport",
 ]

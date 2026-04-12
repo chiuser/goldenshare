@@ -7,6 +7,7 @@
 - [三子系统治理规范](/Users/congming/github/goldenshare/docs/architecture/subsystems-architecture-governance-v1.md)
 - [虚拟拆仓重构方案](/Users/congming/github/goldenshare/docs/architecture/virtual-split-repo-refactor-plan-v1.md)
 - [数据同步统一架构与全量矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
+- [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 
 ## 前端设计与实现
 
@@ -21,6 +22,7 @@
 - [执行解耦设计](/Users/congming/github/goldenshare/docs/ops/ops-execution-decoupling.md)
 - [新鲜度问题复盘](/Users/congming/github/goldenshare/docs/ops/ops-freshness-review-20260330.md)
 - [数据集停用策略 v1（过渡方案）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-disable-policy-v1.md)
+- [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 
 ## 业务平台
 

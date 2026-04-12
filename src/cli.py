@@ -18,6 +18,7 @@ from src.operations.services import (
     DailyHealthReportService,
     DatasetStatusSnapshotService,
     OperationsExecutionReconciliationService,
+    StockBasicReconcileService,
     SyncJobStateReconciliationService,
 )
 from src.operations.services.history_backfill_service import HistoryBackfillService
@@ -235,6 +236,63 @@ def ops_daily_health_report(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(rendered, encoding="utf-8")
     typer.echo(f"ops-daily-health-report: written={output}")
+
+
+@app.command("reconcile-stock-basic")
+def reconcile_stock_basic(
+    sample_limit: int = typer.Option(20, min=0, max=200, help="每类差异最多输出多少条样例。"),
+    threshold_only_tushare: int = typer.Option(
+        -1,
+        help="only_tushare 阈值；-1 表示不校验。超过阈值时命令返回非 0。",
+    ),
+    threshold_only_biying: int = typer.Option(
+        -1,
+        help="only_biying 阈值；-1 表示不校验。超过阈值时命令返回非 0。",
+    ),
+    threshold_comparable_diff: int = typer.Option(
+        -1,
+        help="comparable_diff 阈值；-1 表示不校验。超过阈值时命令返回非 0。",
+    ),
+) -> None:
+    with SessionLocal() as session:
+        report = StockBasicReconcileService().run(session, sample_limit=sample_limit)
+
+    typer.echo("reconcile-stock-basic summary")
+    typer.echo(f"total_union={report.total_union}")
+    typer.echo(f"comparable={report.comparable}")
+    typer.echo(f"only_tushare={report.only_tushare}")
+    typer.echo(f"only_biying={report.only_biying}")
+    typer.echo(f"comparable_diff={report.comparable_diff}")
+
+    if sample_limit > 0:
+        for diff_type in ("only_tushare", "only_biying", "comparable_diff"):
+            items = report.samples[diff_type]
+            if not items:
+                continue
+            typer.echo(f"\n[{diff_type}] samples={len(items)}")
+            for item in items:
+                typer.echo(
+                    " - "
+                    f"{item.ts_code} "
+                    f"t_name={item.tushare_name!r} b_name={item.biying_name!r} "
+                    f"t_exchange={item.tushare_exchange!r} b_exchange={item.biying_exchange!r} "
+                    f"t_name_norm={item.tushare_name_norm!r} b_name_norm={item.biying_name_norm!r} "
+                    f"t_exchange_norm={item.tushare_exchange_norm!r} b_exchange_norm={item.biying_exchange_norm!r}"
+                )
+
+    failed_checks: list[str] = []
+    if threshold_only_tushare >= 0 and report.only_tushare > threshold_only_tushare:
+        failed_checks.append(f"only_tushare={report.only_tushare} > threshold={threshold_only_tushare}")
+    if threshold_only_biying >= 0 and report.only_biying > threshold_only_biying:
+        failed_checks.append(f"only_biying={report.only_biying} > threshold={threshold_only_biying}")
+    if threshold_comparable_diff >= 0 and report.comparable_diff > threshold_comparable_diff:
+        failed_checks.append(f"comparable_diff={report.comparable_diff} > threshold={threshold_comparable_diff}")
+
+    if failed_checks:
+        typer.echo("\nreconcile-stock-basic gate failed:")
+        for check in failed_checks:
+            typer.echo(f" - {check}")
+        raise typer.Exit(code=1)
 
 
 @app.command("backfill-trade-cal")
