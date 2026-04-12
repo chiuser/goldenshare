@@ -100,6 +100,15 @@
       - `resolution_policy_version`
       - `candidate_sources`
       - `resolution_audit`
+    - 通用融合模板 `ResolutionServingBuilder`（按业务键聚合 + 策略融合）
+    - 首批可复用模板 builder：
+      - `EquityDailyBarServingBuilder`
+      - `EquityAdjFactorServingBuilder`
+      - `EquityDailyBasicServingBuilder`
+    - `SERVING_TARGET_DAO_ATTR` 新增预置映射：
+      - `equity_daily_bar -> equity_daily_bar`
+      - `equity_adj_factor -> equity_adj_factor`
+      - `equity_daily_basic -> equity_daily_basic`
   - 已完成 `sync_stock_basic` 接线：
     - `source=all` 通过 `ServingPublishService` 发布到 `core.security_serving`
   - 已完成测试：
@@ -108,6 +117,8 @@
     - `tests/test_serving_builder_registry.py`
     - `tests/test_serving_provenance_fields.py`
     - `tests/test_serving_builder_atomic_publish.py`
+    - `tests/test_resolution_serving_builder.py`
+    - `tests/test_serving_targets.py`
 
 - 2026-04-12 停机迁移工具（阶段1）补充
   - 已新增 CLI：`goldenshare bootstrap-raw-tushare`
