@@ -66,6 +66,7 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
         "000001.SZ",
         start_date=date(2026, 4, 7),
         end_date=date(2026, 4, 8),
+        source_key="tushare",
     )
 
     assert fetched == 4  # 2 days x 2 adjustments
@@ -77,6 +78,8 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     assert first_macd_row["trade_date"] == date(2026, 4, 7)
     assert kdj_upsert.call_count == 1
     assert rsi_upsert.call_count == 1
+    first_state_row = state_upsert.call_args.args[0][0]
+    assert first_state_row["source_key"] == "tushare"
 
 
 def test_load_factor_map_uses_adj_factor_by_default(mocker) -> None:

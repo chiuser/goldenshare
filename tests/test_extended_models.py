@@ -80,6 +80,7 @@ def test_index_supplement_models_match_expected_keys() -> None:
     assert [column.name for column in IndicatorMeta.__table__.primary_key.columns] == ["indicator_name", "version"]
     assert [column.name for column in IndicatorState.__table__.primary_key.columns] == [
         "ts_code",
+        "source_key",
         "adjustment",
         "indicator_name",
         "version",

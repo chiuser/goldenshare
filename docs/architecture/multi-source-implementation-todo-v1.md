@@ -172,6 +172,12 @@
   - 已新增 `validate-serving-coverage` 校验命令（target/builder/dao 一致性）
   - 说明：`*create_core_serving_tables.py` 迁移文件不在本包单独新增；当前为“命名空间与发布层收敛”，物理重建与停机切换归包 7 实施。
 
+- 2026-04-13 包 6 启动（指标状态多源维度）
+  - `core.indicator_state` 新增 `source_key` 字段并纳入主键
+  - 指标同步服务写入 `indicator_state` 时显式写入 `source_key`（默认 `tushare`）
+  - 已新增迁移：
+    - `20260413_000042_add_source_key_to_indicator_state.py`
+
 ---
 
 ## 包 1：基础骨架与元数据

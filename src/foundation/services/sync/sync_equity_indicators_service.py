@@ -48,6 +48,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         ts_code_raw = kwargs.get("ts_code")
         ts_code = str(ts_code_raw).strip().upper() if ts_code_raw else None
+        source_key = str(kwargs.get("source_key") or "tushare").strip().lower()
         execution_id = kwargs.get("execution_id")
 
         ts_codes = self._load_ts_codes(ts_code=ts_code)
@@ -73,7 +74,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                 continue
             start_date, end_date = bounds
             latest_end_date = end_date if latest_end_date is None else max(latest_end_date, end_date)
-            fetched, written = self._build_for_ts_code(code, start_date=start_date, end_date=end_date)
+            fetched, written = self._build_for_ts_code(code, start_date=start_date, end_date=end_date, source_key=source_key)
             fetched_total += fetched
             written_total += written
             self._update_progress(
@@ -99,7 +100,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
         execution.last_progress_at = datetime.now(timezone.utc)
         self.session.commit()
 
-    def _build_for_ts_code(self, ts_code: str, *, start_date: date, end_date: date) -> tuple[int, int]:
+    def _build_for_ts_code(self, ts_code: str, *, start_date: date, end_date: date, source_key: str = "tushare") -> tuple[int, int]:
         all_rows = self._load_daily_rows(ts_code=ts_code, end_date=end_date)
         if not all_rows:
             return 0, 0
@@ -174,6 +175,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                 [
                     {
                         "ts_code": ts_code,
+                        "source_key": source_key,
                         "adjustment": adjustment,
                         "indicator_name": "macd",
                         "version": INDICATOR_VERSION,
@@ -182,6 +184,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     },
                     {
                         "ts_code": ts_code,
+                        "source_key": source_key,
                         "adjustment": adjustment,
                         "indicator_name": "kdj",
                         "version": INDICATOR_VERSION,
@@ -190,6 +193,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     },
                     {
                         "ts_code": ts_code,
+                        "source_key": source_key,
                         "adjustment": adjustment,
                         "indicator_name": "rsi",
                         "version": INDICATOR_VERSION,

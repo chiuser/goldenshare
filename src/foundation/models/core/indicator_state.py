@@ -16,9 +16,9 @@ class IndicatorState(TimestampMixin, Base):
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    source_key: Mapped[str] = mapped_column(String(32), primary_key=True, default="tushare", server_default="tushare")
     adjustment: Mapped[str] = mapped_column(String(16), primary_key=True)
     indicator_name: Mapped[str] = mapped_column(String(32), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, primary_key=True)
     last_trade_date: Mapped[date] = mapped_column(Date, nullable=False)
     state_json: Mapped[dict] = mapped_column(JSON, nullable=False)
-
