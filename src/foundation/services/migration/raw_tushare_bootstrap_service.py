@@ -81,19 +81,11 @@ class RawTushareBootstrapService:
             if migrate_data:
                 source_columns = self._list_columns(session, schema="raw", table_name=table_name)
                 target_columns = self._list_columns(session, schema="raw_tushare", table_name=table_name)
-                common_columns = [column for column in target_columns if column in set(source_columns)]
-                if not common_columns:
-                    raise ValueError(
-                        f"No common columns between raw.{table_name} and raw_tushare.{table_name}"
-                    )
-                column_list_sql = ", ".join(self._quote_ident(column) for column in common_columns)
+                self._ensure_same_columns(table_name, source_columns=source_columns, target_columns=target_columns)
                 session.execute(text(f"TRUNCATE TABLE raw_tushare.{ident} RESTART IDENTITY"))
                 inserted_rows = int(
                     session.execute(
-                        text(
-                            f"INSERT INTO raw_tushare.{ident} ({column_list_sql}) "
-                            f"SELECT {column_list_sql} FROM raw.{ident}"
-                        )
+                        text(f"INSERT INTO raw_tushare.{ident} SELECT * FROM raw.{ident}")
                     ).rowcount
                     or 0
                 )
@@ -126,3 +118,14 @@ class RawTushareBootstrapService:
             {"schema": schema, "table_name": table_name},
         ).scalars()
         return [str(item) for item in rows]
+
+    @staticmethod
+    def _ensure_same_columns(table_name: str, *, source_columns: list[str], target_columns: list[str]) -> None:
+        if source_columns == target_columns:
+            return
+        source_only = [column for column in source_columns if column not in set(target_columns)]
+        target_only = [column for column in target_columns if column not in set(source_columns)]
+        raise ValueError(
+            "Schema mismatch between raw and raw_tushare for table "
+            f"{table_name}: source_only={source_only}, target_only={target_only}"
+        )
