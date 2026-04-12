@@ -70,6 +70,9 @@
     - `tests/test_sync_stock_basic_service.py`
   - 已补历史回填迁移：
     - `20260412_000039_backfill_raw_tushare_stock_basic_from_legacy_raw.py`
+  - 已执行范围收敛（移除无关示例表与代码）：
+    - 删除非 `stock_basic` 的多源 demo 模型与路由
+    - 新增迁移：`20260412_000040_drop_non_stock_multi_source_demo_tables.py`
 
 ---
 

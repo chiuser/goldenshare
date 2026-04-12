@@ -19,29 +19,23 @@ class _DummyDao:
 
 def test_raw_multi_writer_routes_to_expected_dao() -> None:
     daily_dao = _DummyDao(result=3)
-    dao_factory = SimpleNamespace(raw_tushare_equity_daily_bar=daily_dao)
+    dao_factory = SimpleNamespace(raw_tushare_stock_basic=daily_dao)
     writer = RawMultiWriter(dao_factory)  # type: ignore[arg-type]
 
-    written = writer.bulk_upsert("tushare", "equity_daily_bar", [{"ts_code": "000001.SZ", "trade_date": "20260412"}])
+    written = writer.bulk_upsert("tushare", "stock_basic", [{"ts_code": "000001.SZ"}])
 
     assert written == 3
-    assert daily_dao.rows == [{"ts_code": "000001.SZ", "trade_date": "20260412"}]
+    assert daily_dao.rows == [{"ts_code": "000001.SZ"}]
 
 
 def test_raw_multi_writer_rejects_unknown_route() -> None:
     writer = RawMultiWriter(SimpleNamespace())  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="Unsupported raw multi route"):
-        writer.bulk_upsert("unknown", "equity_daily_bar", [])
+        writer.bulk_upsert("unknown", "stock_basic", [])
 
 
 def test_raw_multi_writer_route_map_covers_expected_pairs() -> None:
     expected_pairs = {
-        ("tushare", "equity_daily_bar"),
-        ("biying", "equity_daily_bar"),
-        ("tushare", "equity_adj_factor"),
-        ("biying", "equity_adj_factor"),
-        ("tushare", "equity_daily_basic"),
-        ("biying", "equity_daily_basic"),
         ("tushare", "stock_basic"),
         ("biying", "stock_basic"),
     }
