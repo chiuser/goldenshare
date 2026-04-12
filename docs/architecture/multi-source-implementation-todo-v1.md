@@ -109,6 +109,16 @@
     - `tests/test_serving_provenance_fields.py`
     - `tests/test_serving_builder_atomic_publish.py`
 
+- 2026-04-12 停机迁移工具（阶段1）补充
+  - 已新增 CLI：`goldenshare bootstrap-raw-tushare`
+  - 能力：`raw.*` 镜像建表到 `raw_tushare.*`，并可选执行全量迁移
+  - 参数：
+    - `--create-only`（只建表）
+    - `--table/-t`（指定表）
+    - `--drop-if-exists`（重建模式）
+  - 已完成测试：
+    - `tests/test_raw_tushare_bootstrap_service.py`
+
 ---
 
 ## 包 1：基础骨架与元数据

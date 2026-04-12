@@ -795,3 +795,40 @@ src/foundation/
 4. 已落地示例（stock_basic）
 - 结构迁移：`20260412_000038_stock_basic_multi_source_and_security_serving.py`
 - 历史回填：`20260412_000039_backfill_raw_tushare_stock_basic_from_legacy_raw.py`
+
+---
+
+## 14. 分步落地策略（当前执行口径）
+
+为降低一次性改造风险，当前执行顺序明确为：
+
+1. 先完成 **raw 分源承接**  
+- 先建 `raw_tushare.*` 目标表（镜像 `raw.*` 结构）。  
+- 再执行 `raw.* -> raw_tushare.*` 全量迁移。  
+- 本阶段不强制同步切换 std/serving。
+
+2. 再按数据集逐个推进 std/serving  
+- 每次只接入一个数据集（字段映射、融合策略、发布层、测试）。  
+- 每个数据集必须完成“迁移 + 对账 + 回归”后，才进入下一个数据集。
+
+### 14.1 工程命令（第一阶段）
+
+新增命令：`goldenshare bootstrap-raw-tushare`
+
+- 默认行为：建表 + 迁移数据（处理 `raw` schema 全部表）  
+- `--create-only`：只建表，不迁移数据  
+- `--table/-t`：仅处理指定表（可重复）  
+- `--drop-if-exists`：若目标表已存在则先删后建（用于停机重跑）
+
+示例：
+
+```bash
+# 仅建表（不迁移）
+goldenshare bootstrap-raw-tushare --create-only
+
+# 全量建表并迁移
+goldenshare bootstrap-raw-tushare
+
+# 只迁移指定表
+goldenshare bootstrap-raw-tushare -t daily -t daily_basic -t adj_factor
+```

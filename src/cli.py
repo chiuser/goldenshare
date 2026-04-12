@@ -12,6 +12,7 @@ from sqlalchemy import func, select, text
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
+from src.foundation.services.migration import RawTushareBootstrapService
 from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import (
@@ -83,6 +84,34 @@ def main() -> None:
 @app.command("init-db")
 def init_db() -> None:
     command.upgrade(_alembic_config(), "head")
+
+
+@app.command("bootstrap-raw-tushare")
+def bootstrap_raw_tushare(
+    table: list[str] = typer.Option([], "--table", "-t", help="指定 raw 表名；不传则处理 raw 全部表。"),
+    create_only: bool = typer.Option(False, help="仅建表，不迁移数据。"),
+    drop_if_exists: bool = typer.Option(False, help="若目标表已存在，先 DROP 再重建。"),
+) -> None:
+    with SessionLocal() as session:
+        result = RawTushareBootstrapService().run(
+            session,
+            table_names=table or None,
+            migrate_data=not create_only,
+            drop_if_exists=drop_if_exists,
+        )
+
+    typer.echo(
+        "bootstrap-raw-tushare: "
+        f"tables={len(result.tables)} "
+        f"created={result.created_count} "
+        f"migrated={result.migrated_count} "
+        f"inserted_rows={result.inserted_rows_total}"
+    )
+    for item in result.tables:
+        typer.echo(
+            f" - {item.table_name}: "
+            f"created={item.created} migrated={item.migrated} inserted={item.inserted_rows}"
+        )
 
 
 @app.command("sync-history")
