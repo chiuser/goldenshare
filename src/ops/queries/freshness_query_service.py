@@ -94,6 +94,13 @@ OBSERVED_DATE_FILTERS: dict[str, tuple[str, str]] = {
     "stk_period_bar_adj_month": ("freq", "month"),
 }
 
+OBSERVED_DATE_AUTHORITATIVE_KEYS = {
+    "stk_period_bar_week",
+    "stk_period_bar_month",
+    "stk_period_bar_adj_week",
+    "stk_period_bar_adj_month",
+}
+
 OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.security": Security,
     "core.hk_security": HkSecurity,
@@ -282,7 +289,12 @@ class OpsFreshnessQueryService:
         state_business_date = state.last_success_date if state is not None else None
         earliest_business_date = observed_business_range[0] if observed_business_range else None
         observed_business_date = observed_business_range[1] if observed_business_range else None
-        latest_business_date = self._choose_latest_business_date(state_business_date, observed_business_date)
+        prefer_observed = spec.dataset_key in OBSERVED_DATE_AUTHORITATIVE_KEYS
+        latest_business_date = self._choose_latest_business_date(
+            state_business_date,
+            observed_business_date,
+            prefer_observed=prefer_observed,
+        )
         business_date_source = self._business_date_source(
             state_business_date=state_business_date,
             observed_business_date=observed_business_date,
@@ -338,7 +350,14 @@ class OpsFreshnessQueryService:
         )
 
     @staticmethod
-    def _choose_latest_business_date(state_business_date: date | None, observed_business_date: date | None) -> date | None:
+    def _choose_latest_business_date(
+        state_business_date: date | None,
+        observed_business_date: date | None,
+        *,
+        prefer_observed: bool = False,
+    ) -> date | None:
+        if prefer_observed and observed_business_date is not None:
+            return observed_business_date
         if state_business_date and observed_business_date:
             return max(state_business_date, observed_business_date)
         return observed_business_date or state_business_date

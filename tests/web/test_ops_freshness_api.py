@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from unittest.mock import Mock
 
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
@@ -532,3 +533,40 @@ def test_build_freshness_overrides_snapshot_with_live_weekly_item(
         if item.dataset_key == "stk_period_bar_week"
     )
     assert item.latest_business_date == date(2026, 4, 3)
+
+
+def test_stk_period_month_prefers_observed_business_date_over_state_date() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="stk_period_bar_month",
+        resource_key="stk_period_bar_month",
+        job_name="sync_stk_period_bar_month",
+        display_name="股票月线",
+        domain_key="equity",
+        domain_display_name="股票",
+        target_table="core.stk_period_bar",
+        cadence="monthly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="sync_daily.stk_period_bar_month",
+    )
+    state = Mock(
+        last_success_at=datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc),
+        last_success_date=date(2026, 3, 20),
+        full_sync_done=False,
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=state,
+        latest_open_date=date(2026, 3, 20),
+        reference_date=date(2026, 3, 20),
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=(date(2010, 1, 31), date(2026, 2, 28)),
+        observed_sync_date=date(2026, 2, 28),
+    )
+
+    assert item.earliest_business_date == date(2010, 1, 31)
+    assert item.observed_business_date == date(2026, 2, 28)
+    assert item.latest_business_date == date(2026, 2, 28)
+    assert item.business_date_source == "observed"
