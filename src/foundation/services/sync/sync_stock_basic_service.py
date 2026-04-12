@@ -25,7 +25,7 @@ class SyncStockBasicService(BaseSyncService):
     def _get_rows_from_source(self, source_key: str) -> list[dict[str, Any]]:
         connector = create_source_connector(source_key)
         if source_key == "tushare":
-            return connector.call("stock_basic", params={"list_status": "L,D,P"}, fields=STOCK_BASIC_FIELDS)
+            return connector.call("stock_basic", params={"list_status": "L,D,P,G"}, fields=STOCK_BASIC_FIELDS)
         return connector.call("stock_basic")
 
     def _normalize_raw(self, rows: list[dict[str, Any]], source_key: str) -> list[dict[str, Any]]:

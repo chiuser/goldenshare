@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.foundation.services.sync import sync_stock_basic_service
 from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
 
 
@@ -94,3 +95,18 @@ def test_sync_stock_basic_all_runs_both_sources_and_accumulates_counts(mocker) -
     raw_biying_upsert.assert_called_once()
     assert security_std_upsert.call_count == 2
     assert serving_upsert.call_count == 2
+
+
+def test_sync_stock_basic_tushare_requests_include_g_status(mocker) -> None:
+    service = SyncStockBasicService(mocker.Mock())
+    connector = mocker.Mock()
+    connector.call.return_value = []
+    mocker.patch.object(sync_stock_basic_service, "create_source_connector", return_value=connector)
+
+    service._get_rows_from_source("tushare")
+
+    connector.call.assert_called_once_with(
+        "stock_basic",
+        params={"list_status": "L,D,P,G"},
+        fields=service.fields,
+    )
