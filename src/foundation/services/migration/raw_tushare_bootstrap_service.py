@@ -79,10 +79,21 @@ class RawTushareBootstrapService:
 
             inserted_rows = 0
             if migrate_data:
+                source_columns = self._list_columns(session, schema="raw", table_name=table_name)
+                target_columns = self._list_columns(session, schema="raw_tushare", table_name=table_name)
+                common_columns = [column for column in target_columns if column in set(source_columns)]
+                if not common_columns:
+                    raise ValueError(
+                        f"No common columns between raw.{table_name} and raw_tushare.{table_name}"
+                    )
+                column_list_sql = ", ".join(self._quote_ident(column) for column in common_columns)
                 session.execute(text(f"TRUNCATE TABLE raw_tushare.{ident} RESTART IDENTITY"))
                 inserted_rows = int(
                     session.execute(
-                        text(f"INSERT INTO raw_tushare.{ident} SELECT * FROM raw.{ident}")
+                        text(
+                            f"INSERT INTO raw_tushare.{ident} ({column_list_sql}) "
+                            f"SELECT {column_list_sql} FROM raw.{ident}"
+                        )
                     ).rowcount
                     or 0
                 )
@@ -100,3 +111,18 @@ class RawTushareBootstrapService:
     @staticmethod
     def _quote_ident(identifier: str) -> str:
         return f"\"{identifier.replace('\"', '\"\"')}\""
+
+    def _list_columns(self, session: Session, *, schema: str, table_name: str) -> list[str]:
+        rows = session.execute(
+            text(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = :schema
+                  AND table_name = :table_name
+                ORDER BY ordinal_position
+                """
+            ),
+            {"schema": schema, "table_name": table_name},
+        ).scalars()
+        return [str(item) for item in rows]
