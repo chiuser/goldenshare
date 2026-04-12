@@ -597,6 +597,15 @@ export function OpsManualSyncPage() {
   const prefillScheduleAppliedRef = useRef(false);
 
   useEffect(() => {
+    if (!selectedAction) {
+      return;
+    }
+    if (selectedDomain !== selectedAction.domainLabel) {
+      setSelectedDomain(selectedAction.domainLabel);
+    }
+  }, [selectedAction, selectedDomain, setSelectedDomain]);
+
+  useEffect(() => {
     if (prefillSpecAppliedRef.current) {
       return;
     }

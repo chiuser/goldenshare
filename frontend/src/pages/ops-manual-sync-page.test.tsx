@@ -400,6 +400,25 @@ function renderPageWithPersistedDraft() {
   renderPage();
 }
 
+function renderPageWithMismatchedPersistedDomain() {
+  window.localStorage.setItem("goldenshare.frontend.ops.manual-sync.domain", JSON.stringify("基础主数据"));
+  window.localStorage.setItem(
+    "goldenshare.frontend.ops.manual-sync.draft",
+    JSON.stringify({
+      action_id: "",
+      date_mode: "single_point",
+      selected_date: "",
+      start_date: "",
+      end_date: "",
+      selected_month: "",
+      start_month: "",
+      end_month: "",
+      field_values: {},
+    }),
+  );
+  renderPage();
+}
+
 describe("手动同步页", () => {
   it("区间模式在没有 backfill 入口时应回退到 directSpec（sync_history）", () => {
     const action = {
@@ -467,6 +486,16 @@ describe("手动同步页", () => {
 
     expect(await screen.findByText("维护股票日线")).toBeInTheDocument();
     expect(screen.queryByText("维护股票基础信息")).not.toBeInTheDocument();
+  });
+
+  it("显式上下文会同步修正数据分组，避免维护对象下拉被旧分组过滤", async () => {
+    renderPageWithMismatchedPersistedDomain();
+
+    expect(await screen.findByText("维护股票日线")).toBeInTheDocument();
+    const domainInput = screen
+      .getAllByLabelText("先选数据分组")
+      .find((element) => element.tagName === "INPUT") as HTMLInputElement;
+    expect(domainInput.value).toBe("股票");
   });
 
   it("板块成分任务会展示先板块后成分的执行说明", async () => {
