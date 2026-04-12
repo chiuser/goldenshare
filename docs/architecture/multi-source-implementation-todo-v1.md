@@ -185,12 +185,24 @@
     - `core_serving.ind_macd`
     - `core_serving.ind_kdj`
     - `core_serving.ind_rsi`
+  - 指标发布链路骨架已接入：
+    - serving builder：
+      - `indicator_macd`
+      - `indicator_kdj`
+      - `indicator_rsi`
+    - target 映射：
+      - `indicator_macd -> DAOFactory.indicator_macd`
+      - `indicator_kdj -> DAOFactory.indicator_kdj`
+      - `indicator_rsi -> DAOFactory.indicator_rsi`
   - 已新增迁移：
     - `20260413_000043_create_indicator_multi_std_tables.py`
   - 已新增测试：
     - `tests/test_indicator_multi_models.py`
     - `tests/test_indicator_multi_source_state.py`
     - `tests/test_indicator_resolution_consistency.py`
+    - `tests/test_serving_publish_service.py`（indicator builder 默认注册）
+    - `tests/test_serving_targets.py`（indicator target 映射）
+    - `tests/test_serving_validation.py`（覆盖校验纳入 indicator）
 
 ---
 

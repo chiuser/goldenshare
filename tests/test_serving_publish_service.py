@@ -210,3 +210,54 @@ def test_serving_publish_service_registers_default_stk_period_builder(mocker) ->
 
     assert result.written == 1
     dao.stk_period_bar.upsert_many.assert_called_once()
+
+
+def test_serving_publish_service_registers_default_indicator_builder(mocker) -> None:
+    session = mocker.Mock()
+    dao = DAOFactory(session)
+    dao.indicator_macd = mocker.Mock()
+    dao.indicator_macd.model = SimpleNamespace(
+        __table__=SimpleNamespace(
+            columns=[
+                SimpleNamespace(name="ts_code"),
+                SimpleNamespace(name="trade_date"),
+                SimpleNamespace(name="adjustment"),
+                SimpleNamespace(name="version"),
+                SimpleNamespace(name="dif"),
+                SimpleNamespace(name="dea"),
+                SimpleNamespace(name="macd_bar"),
+                SimpleNamespace(name="source"),
+            ]
+        )
+    )
+    dao.indicator_macd.upsert_many.return_value = 1
+
+    policy_store = mocker.Mock()
+    policy_store.get_enabled_policy.return_value = ResolutionPolicy(
+        dataset_key="indicator_macd",
+        mode="primary",
+        primary_source_key="tushare",
+    )
+    policy_store.get_active_sources.return_value = {"tushare"}
+
+    service = ServingPublishService(dao, policy_store=policy_store)
+    result = service.publish_dataset(
+        dataset_key="indicator_macd",
+        std_rows_by_source={
+            "tushare": [
+                {
+                    "source_key": "tushare",
+                    "ts_code": "000001.SZ",
+                    "trade_date": "2026-04-10",
+                    "adjustment": "forward",
+                    "version": 1,
+                    "dif": 0.1,
+                    "dea": 0.09,
+                    "macd_bar": 0.02,
+                }
+            ]
+        },
+    )
+
+    assert result.written == 1
+    dao.indicator_macd.upsert_many.assert_called_once()
