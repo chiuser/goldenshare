@@ -33,7 +33,7 @@ import {
   type TimeCapability,
   type TimeMode,
 } from "../shared/ops-time-capability";
-import { DateField } from "../shared/ui/date-field";
+import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
@@ -88,6 +88,8 @@ const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly",
 const BOARD_RESOURCES = new Set(["ths_daily", "dc_index", "dc_member", "dc_daily", "kpl_concept_cons"]);
 const RANKING_RESOURCES = new Set(["ths_hot", "dc_hot", "kpl_list", "limit_list_ths", "limit_step", "limit_cpt_list"]);
 const EVENT_RESOURCES = new Set(["dividend", "stk_holdernumber"]);
+const WEEKLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_week", "stk_period_bar_adj_week"]);
+const MONTHLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_month", "stk_period_bar_adj_month"]);
 
 function buildEmptyDraft() {
   return {
@@ -134,6 +136,23 @@ function isSinglePoint(resource: ManualAction, draft: ReturnType<typeof buildEmp
     return true;
   }
   return false;
+}
+
+function inferSinglePointDateRule(action: ManualAction | null): DateSelectionRule {
+  if (!action || action.type !== "job") {
+    return "any";
+  }
+  if (action.timeCapability.pointGranularity !== "day") {
+    return "any";
+  }
+  const resourceKey = action.id.startsWith("job:") ? action.id.slice(4) : "";
+  if (WEEKLY_ANCHOR_RESOURCES.has(resourceKey)) {
+    return "week_friday";
+  }
+  if (MONTHLY_ANCHOR_RESOURCES.has(resourceKey)) {
+    return "month_end";
+  }
+  return "any";
 }
 
 function buildManualActions(catalog: OpsCatalogResponse | undefined) {
@@ -571,6 +590,7 @@ export function OpsManualSyncPage() {
     () => manualActions.find((item) => item.id === draft.action_id) || null,
     [draft.action_id, manualActions],
   );
+  const selectedActionDateRule = useMemo(() => inferSinglePointDateRule(selectedAction), [selectedAction]);
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
   const prefillSpecAppliedRef = useRef(false);
   const prefillExecutionAppliedRef = useRef(false);
@@ -816,6 +836,7 @@ export function OpsManualSyncPage() {
                             label="选择日期"
                             placeholder="请选择日期"
                             value={draft.selected_date}
+                            selectionRule={selectedActionDateRule}
                             onChange={(value) =>
                               setDraft((current) => ({
                                 ...current,

@@ -38,7 +38,7 @@ import {
   formatTimezoneLabel,
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
-import { DateField } from "../shared/ui/date-field";
+import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { EmptyState } from "../shared/ui/empty-state";
@@ -73,6 +73,8 @@ const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly",
 const BOARD_RESOURCES = new Set(["ths_daily", "dc_index", "dc_member", "dc_daily", "kpl_concept_cons"]);
 const RANKING_RESOURCES = new Set(["ths_hot", "dc_hot", "kpl_list", "limit_list_ths", "limit_step", "limit_cpt_list"]);
 const EVENT_RESOURCES = new Set(["dividend", "stk_holdernumber"]);
+const WEEKLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_week", "stk_period_bar_adj_week"]);
+const MONTHLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_month", "stk_period_bar_adj_month"]);
 
 const emptyForm = {
   id: null as number | null,
@@ -97,6 +99,11 @@ const emptyForm = {
 
 function normalizeParamOptions(options: string[] | undefined) {
   return Array.isArray(options) ? options : [];
+}
+
+function extractResourceKeyFromSpecKey(specKey: string): string {
+  const parts = specKey.split(".");
+  return parts.length >= 2 ? parts[1] : specKey;
 }
 
 function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
@@ -387,6 +394,19 @@ export function OpsAutomationPage() {
         : null,
     [catalogQuery.data, form.spec_key, form.spec_type],
   );
+  const selectedJobDateRule = useMemo<DateSelectionRule>(() => {
+    if (!selectedJobSpec) {
+      return "any";
+    }
+    const resourceKey = extractResourceKeyFromSpecKey(selectedJobSpec.key);
+    if (WEEKLY_ANCHOR_RESOURCES.has(resourceKey)) {
+      return "week_friday";
+    }
+    if (MONTHLY_ANCHOR_RESOURCES.has(resourceKey)) {
+      return "month_end";
+    }
+    return "any";
+  }, [selectedJobSpec]);
 
   const selectedJobParamSpecs = useMemo<CatalogParamSpec[]>(
     () =>
@@ -1219,6 +1239,7 @@ export function OpsAutomationPage() {
                           label="同步日期（可留空）"
                           placeholder="留空表示按系统自动判断业务日期"
                           value={form.selected_date}
+                          selectionRule={selectedJobDateRule}
                           onChange={(value) =>
                             setForm((current) => ({
                               ...current,
