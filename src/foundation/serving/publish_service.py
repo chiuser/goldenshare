@@ -8,6 +8,7 @@ from src.foundation.resolution.policy_store import ResolutionPolicyStore
 from src.foundation.resolution.types import ResolutionPolicy
 from src.foundation.serving.builders.registry import ServingBuilderRegistry
 from src.foundation.serving.builders.security_serving_builder import SecurityServingBuildResult, SecurityServingBuilder
+from src.foundation.serving.targets import get_target_dao_attr
 
 
 @dataclass(frozen=True)
@@ -37,14 +38,17 @@ class ServingPublishService:
         *,
         dataset_key: str,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
-        target_dao_attr: str,
+        target_dao_attr: str | None = None,
     ) -> ServingPublishResult:
+        resolved_target_dao_attr = target_dao_attr or get_target_dao_attr(dataset_key)
+        if not resolved_target_dao_attr:
+            raise ValueError(f"No serving target DAO mapping configured for dataset: {dataset_key}")
         builder = self._builder_registry.get(dataset_key)
         if builder is None:
             raise ValueError(f"No serving builder registered for dataset: {dataset_key}")
-        target_dao = getattr(self.dao, target_dao_attr, None)
+        target_dao = getattr(self.dao, resolved_target_dao_attr, None)
         if target_dao is None:
-            raise ValueError(f"DAOFactory has no target DAO attr: {target_dao_attr}")
+            raise ValueError(f"DAOFactory has no target DAO attr: {resolved_target_dao_attr}")
 
         policy = self._policy_store.get_enabled_policy(self.dao.session, dataset_key) or ResolutionPolicy(
             dataset_key=dataset_key,
@@ -73,13 +77,20 @@ class ServingPublishService:
             resolved_count=build_result.resolved_count,
         )
 
+    def publish_dataset(
+        self,
+        *,
+        dataset_key: str,
+        std_rows_by_source: dict[str, list[dict[str, Any]]],
+    ) -> ServingPublishResult:
+        return self.publish(
+            dataset_key=dataset_key,
+            std_rows_by_source=std_rows_by_source,
+        )
+
     def publish_stock_basic_from_std(
         self,
         *,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
     ) -> ServingPublishResult:
-        return self.publish(
-            dataset_key="stock_basic",
-            std_rows_by_source=std_rows_by_source,
-            target_dao_attr="security",
-        )
+        return self.publish_dataset(dataset_key="stock_basic", std_rows_by_source=std_rows_by_source)

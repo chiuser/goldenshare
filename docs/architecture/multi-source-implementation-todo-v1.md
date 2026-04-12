@@ -92,6 +92,7 @@
     - `src/foundation/serving/publish_service.py`
     - `src/foundation/serving/builders/security_serving_builder.py`
     - `src/foundation/serving/builders/registry.py`（builder 注册机制）
+    - `src/foundation/serving/targets.py`（dataset -> target DAO 映射）
   - 已完成 `sync_stock_basic` 接线：
     - `source=all` 通过 `ServingPublishService` 发布到 `core.security_serving`
   - 已完成测试：

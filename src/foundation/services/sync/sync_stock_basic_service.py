@@ -63,7 +63,10 @@ class SyncStockBasicService(BaseSyncService):
         self,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
     ) -> tuple[int, str]:
-        result = ServingPublishService(self.dao).publish_stock_basic_from_std(std_rows_by_source=std_rows_by_source)
+        result = ServingPublishService(self.dao).publish_dataset(
+            dataset_key="stock_basic",
+            std_rows_by_source=std_rows_by_source,
+        )
         return result.written, f"{result.policy.mode}@v{result.policy.version}"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
