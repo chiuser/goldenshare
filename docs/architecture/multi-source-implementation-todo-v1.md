@@ -163,6 +163,14 @@
     - `SERVING_TARGET_DAO_ATTR` 是否有对应 DAOFactory 属性
   - 已完成测试：
     - `tests/test_serving_validation.py`
+    - `tests/test_serving_builder_equity_daily_bar.py`
+
+- 2026-04-13 包 5 阶段性收口
+  - 发布模型命名空间已统一迁入 `core_serving`（现有行情主链路读模型）
+  - 发布模板 builder 已覆盖：`stock_basic`、`equity` 主链路、`index` 主链路、`stk_period` 主链路
+  - `ServingPublishService` 已具备预置 builder 注册能力（减少漏配风险）
+  - 已新增 `validate-serving-coverage` 校验命令（target/builder/dao 一致性）
+  - 说明：`*create_core_serving_tables.py` 迁移文件不在本包单独新增；当前为“命名空间与发布层收敛”，物理重建与停机切换归包 7 实施。
 
 ---
 
