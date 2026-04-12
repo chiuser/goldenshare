@@ -1,5 +1,4 @@
 import { DatePickerInput } from "@mantine/dates";
-import type { DateValue } from "@mantine/dates";
 import type { ComponentPropsWithoutRef } from "react";
 
 export type DateSelectionRule = "any" | "week_friday" | "month_end";
@@ -29,8 +28,25 @@ function parseInputDate(value: string): Date | null {
   return parsed;
 }
 
-function toDateString(value: DateValue): string {
-  if (!value || !(value instanceof Date)) {
+function normalizePickerValue(
+  value: string | string[] | [string | null, string | null] | null,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return typeof first === "string" ? first : "";
+  }
+  return "";
+}
+
+function normalizeExcludeDateInput(value: string): Date | null {
+  return parseInputDate(value);
+}
+
+function toDateString(value: Date | null): string {
+  if (!value) {
     return "";
   }
   const year = value.getFullYear();
@@ -51,17 +67,23 @@ function isDateAllowedByRule(date: Date, rule: DateSelectionRule): boolean {
 }
 
 export function DateField({ value, onChange, selectionRule = "any", ...props }: DateFieldProps) {
-  const parsed = parseInputDate(value);
+  const parsed = toDateString(parseInputDate(value));
   const excludeDate =
     selectionRule === "any"
       ? undefined
-      : (date: Date) => !isDateAllowedByRule(date, selectionRule);
+      : (date: string) => {
+        const normalized = normalizeExcludeDateInput(date);
+        if (!normalized) {
+          return false;
+        }
+        return !isDateAllowedByRule(normalized, selectionRule);
+      };
 
   return (
     <DatePickerInput
       {...props}
       value={parsed}
-      onChange={(next) => onChange(toDateString(next))}
+      onChange={(next) => onChange(normalizePickerValue(next))}
       valueFormat="YYYY-MM-DD"
       clearable
       excludeDate={excludeDate}
