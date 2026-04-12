@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 from src.foundation.resolution.types import ResolutionPolicy
-from src.foundation.serving.builders.security_serving_builder import SecurityServingBuildResult
+
+
+@dataclass(frozen=True)
+class ServingBuildResult:
+    rows: list[dict[str, Any]]
+    resolved_count: int
 
 
 class ServingBuilder(Protocol):
@@ -16,4 +22,4 @@ class ServingBuilder(Protocol):
         policy: ResolutionPolicy,
         active_sources: set[str] | None,
         target_columns: set[str],
-    ) -> SecurityServingBuildResult: ...
+    ) -> ServingBuildResult: ...

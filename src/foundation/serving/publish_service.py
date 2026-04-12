@@ -6,14 +6,24 @@ from typing import Any
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.resolution.policy_store import ResolutionPolicyStore
 from src.foundation.resolution.types import ResolutionPolicy
+from src.foundation.serving.builders.base import ServingBuildResult
 from src.foundation.serving.builders.registry import ServingBuilderRegistry
-from src.foundation.serving.builders.security_serving_builder import SecurityServingBuildResult, SecurityServingBuilder
+from src.foundation.serving.builders.security_serving_builder import SecurityServingBuilder
 from src.foundation.serving.targets import get_target_dao_attr
 
 
 @dataclass(frozen=True)
 class ServingPublishResult:
     written: int
+    policy: ResolutionPolicy
+    resolved_count: int
+
+
+@dataclass(frozen=True)
+class ServingPublishPlan:
+    dataset_key: str
+    target_dao_attr: str
+    rows: list[dict[str, Any]]
     policy: ResolutionPolicy
     resolved_count: int
 
@@ -33,13 +43,13 @@ class ServingPublishService:
         if self._builder_registry.get("stock_basic") is None:
             self._builder_registry.register(security_builder or SecurityServingBuilder())
 
-    def publish(
+    def plan_publish(
         self,
         *,
         dataset_key: str,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
         target_dao_attr: str | None = None,
-    ) -> ServingPublishResult:
+    ) -> ServingPublishPlan:
         resolved_target_dao_attr = target_dao_attr or get_target_dao_attr(dataset_key)
         if not resolved_target_dao_attr:
             raise ValueError(f"No serving target DAO mapping configured for dataset: {dataset_key}")
@@ -64,17 +74,63 @@ class ServingPublishService:
             for column in target_dao.model.__table__.columns
             if column.name not in {"created_at", "updated_at"}
         }
-        build_result: SecurityServingBuildResult = builder.build_rows(
+        build_result: ServingBuildResult = builder.build_rows(
             std_rows_by_source=std_rows_by_source,
             policy=policy,
             active_sources=active_sources if active_sources else None,
             target_columns=target_columns,
         )
-        written = target_dao.upsert_many(build_result.rows)
-        return ServingPublishResult(
-            written=written,
+        return ServingPublishPlan(
+            dataset_key=dataset_key,
+            target_dao_attr=resolved_target_dao_attr,
+            rows=build_result.rows,
             policy=policy,
             resolved_count=build_result.resolved_count,
+        )
+
+    def execute_publish_plan(
+        self,
+        plan: ServingPublishPlan,
+        *,
+        dry_run: bool = False,
+        allow_empty_rows: bool = True,
+    ) -> ServingPublishResult:
+        if not allow_empty_rows and not plan.rows:
+            raise ValueError(f"Refuse to publish empty serving rows for dataset: {plan.dataset_key}")
+        if dry_run:
+            return ServingPublishResult(
+                written=0,
+                policy=plan.policy,
+                resolved_count=plan.resolved_count,
+            )
+        target_dao = getattr(self.dao, plan.target_dao_attr, None)
+        if target_dao is None:
+            raise ValueError(f"DAOFactory has no target DAO attr: {plan.target_dao_attr}")
+        written = target_dao.upsert_many(plan.rows)
+        return ServingPublishResult(
+            written=written,
+            policy=plan.policy,
+            resolved_count=plan.resolved_count,
+        )
+
+    def publish(
+        self,
+        *,
+        dataset_key: str,
+        std_rows_by_source: dict[str, list[dict[str, Any]]],
+        target_dao_attr: str | None = None,
+        dry_run: bool = False,
+        allow_empty_rows: bool = True,
+    ) -> ServingPublishResult:
+        plan = self.plan_publish(
+            dataset_key=dataset_key,
+            std_rows_by_source=std_rows_by_source,
+            target_dao_attr=target_dao_attr,
+        )
+        return self.execute_publish_plan(
+            plan,
+            dry_run=dry_run,
+            allow_empty_rows=allow_empty_rows,
         )
 
     def publish_dataset(
@@ -82,10 +138,14 @@ class ServingPublishService:
         *,
         dataset_key: str,
         std_rows_by_source: dict[str, list[dict[str, Any]]],
+        dry_run: bool = False,
+        allow_empty_rows: bool = True,
     ) -> ServingPublishResult:
         return self.publish(
             dataset_key=dataset_key,
             std_rows_by_source=std_rows_by_source,
+            dry_run=dry_run,
+            allow_empty_rows=allow_empty_rows,
         )
 
     def publish_stock_basic_from_std(

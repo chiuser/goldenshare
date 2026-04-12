@@ -93,12 +93,20 @@
     - `src/foundation/serving/builders/security_serving_builder.py`
     - `src/foundation/serving/builders/registry.py`（builder 注册机制）
     - `src/foundation/serving/targets.py`（dataset -> target DAO 映射）
+    - `ServingPublishPlan` 与两段式发布（plan -> execute）骨架，支持 `dry_run` 与空发布保护
+    - builder 通用结果类型 `ServingBuildResult`，并支持可选溯源字段透传（仅当目标列存在时写入）：
+      - `resolution_mode`
+      - `resolution_policy_version`
+      - `candidate_sources`
+      - `resolution_audit`
   - 已完成 `sync_stock_basic` 接线：
     - `source=all` 通过 `ServingPublishService` 发布到 `core.security_serving`
   - 已完成测试：
     - `tests/test_security_serving_builder.py`
     - `tests/test_serving_publish_service.py`
     - `tests/test_serving_builder_registry.py`
+    - `tests/test_serving_provenance_fields.py`
+    - `tests/test_serving_builder_atomic_publish.py`
 
 ---
 

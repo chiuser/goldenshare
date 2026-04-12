@@ -5,12 +5,12 @@ from typing import Any
 
 from src.foundation.resolution.policy_engine import ResolutionPolicyEngine
 from src.foundation.resolution.types import ResolutionInput, ResolutionPolicy
+from src.foundation.serving.builders.base import ServingBuildResult
 
 
 @dataclass(frozen=True)
-class SecurityServingBuildResult:
-    rows: list[dict[str, Any]]
-    resolved_count: int
+class SecurityServingBuildResult(ServingBuildResult):
+    pass
 
 
 class SecurityServingBuilder:
@@ -54,6 +54,14 @@ class SecurityServingBuilder:
             serving_row = {key: value for key, value in output.resolved_record.items() if key != "source_key"}
             if output.resolved_source_key:
                 serving_row["source"] = output.resolved_source_key
+            if "resolution_mode" in target_columns:
+                serving_row["resolution_mode"] = output.mode
+            if "resolution_policy_version" in target_columns:
+                serving_row["resolution_policy_version"] = output.policy_version
+            if "candidate_sources" in target_columns:
+                serving_row["candidate_sources"] = ",".join(sorted(candidates.keys()))
+            if "resolution_audit" in target_columns:
+                serving_row["resolution_audit"] = output.audit
             normalized_row = {key: serving_row.get(key) for key in target_columns}
             serving_rows.append(normalized_row)
         return SecurityServingBuildResult(rows=serving_rows, resolved_count=resolved_count)
