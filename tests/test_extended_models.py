@@ -17,7 +17,7 @@ from src.foundation.models.core.indicator_macd import IndicatorMacd
 from src.foundation.models.core.indicator_meta import IndicatorMeta
 from src.foundation.models.core.indicator_rsi import IndicatorRsi
 from src.foundation.models.core.indicator_state import IndicatorState
-from src.foundation.models.core.security import Security
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.stk_period_bar import StkPeriodBar
 from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.ths_daily import ThsDaily

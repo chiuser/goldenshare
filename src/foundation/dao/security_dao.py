@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.base_dao import BaseDAO
-from src.foundation.models.core.security import Security
+from src.foundation.models.core_serving.security_serving import Security
 
 
 class SecurityDAO(BaseDAO[Security]):

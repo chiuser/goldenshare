@@ -40,7 +40,7 @@ from src.foundation.models.core.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core.limit_cpt_list import LimitCptList
 from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
-from src.foundation.models.core.security import Security
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.stk_period_bar import StkPeriodBar
 from src.foundation.models.core.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
