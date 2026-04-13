@@ -105,6 +105,8 @@ function buildEmptyDraft() {
   };
 }
 
+type ManualDraft = ReturnType<typeof buildEmptyDraft>;
+
 function normalizeParamOptions(options: string[] | undefined) {
   return Array.isArray(options) ? options : [];
 }
@@ -121,6 +123,24 @@ function matchesActionSpec(action: ManualAction, specType: string | null, specKe
 
 function filterVisibleParams(params: CatalogParamSpec[]) {
   return filterNonTimeParams(params).filter((param) => !INTERNAL_PARAM_KEYS.has(param.key));
+}
+
+export function shouldAutoAlignDomain(selectedDomain: string, selectedAction: ManualAction | null) {
+  return Boolean(selectedAction && !selectedDomain);
+}
+
+export function resolveDraftOnDomainChange(current: ManualDraft, nextDomain: string, manualActions: ManualAction[]) {
+  if (!current.action_id) {
+    return current;
+  }
+  const currentAction = manualActions.find((item) => item.id === current.action_id);
+  if (!currentAction) {
+    return buildEmptyDraft();
+  }
+  if (!nextDomain || currentAction.domainLabel === nextDomain) {
+    return current;
+  }
+  return buildEmptyDraft();
 }
 
 function extractResourceKey(specKey: string) {
@@ -597,10 +617,7 @@ export function OpsManualSyncPage() {
   const prefillScheduleAppliedRef = useRef(false);
 
   useEffect(() => {
-    if (!selectedAction) {
-      return;
-    }
-    if (selectedDomain !== selectedAction.domainLabel) {
+    if (shouldAutoAlignDomain(selectedDomain, selectedAction)) {
       setSelectedDomain(selectedAction.domainLabel);
     }
   }, [selectedAction, selectedDomain, setSelectedDomain]);
@@ -621,6 +638,7 @@ export function OpsManualSyncPage() {
     }
     const prefilledAction = manualActions.find((item) => matchesActionSpec(item, prefillSpecType, prefillSpecKey));
     if (prefilledAction) {
+      setSelectedDomain(prefilledAction.domainLabel);
       if (draft.action_id !== prefilledAction.id) {
         setDraft(() => buildDraftForActionSelection(prefilledAction.id));
       }
@@ -628,7 +646,7 @@ export function OpsManualSyncPage() {
       return;
     }
     prefillSpecAppliedRef.current = true;
-  }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft]);
+  }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft, setSelectedDomain]);
 
   useEffect(() => {
     if (prefillExecutionAppliedRef.current) {
@@ -652,8 +670,9 @@ export function OpsManualSyncPage() {
       return;
     }
     prefillExecutionAppliedRef.current = true;
+    setSelectedDomain(action.domainLabel);
     setDraft((current) => buildDraftFromParams(current, action.id, prefillExecutionQuery.data.params_json));
-  }, [manualActions, prefillExecutionQuery.data, setDraft]);
+  }, [manualActions, prefillExecutionQuery.data, setDraft, setSelectedDomain]);
 
   useEffect(() => {
     if (prefillScheduleAppliedRef.current) {
@@ -677,8 +696,9 @@ export function OpsManualSyncPage() {
       return;
     }
     prefillScheduleAppliedRef.current = true;
+    setSelectedDomain(action.domainLabel);
     setDraft((current) => buildDraftFromParams(current, action.id, prefillScheduleQuery.data.params_json));
-  }, [manualActions, prefillScheduleQuery.data, setDraft]);
+  }, [manualActions, prefillScheduleQuery.data, setDraft, setSelectedDomain]);
 
   const createExecutionMutation = useMutation({
     mutationFn: () => {
@@ -737,7 +757,11 @@ export function OpsManualSyncPage() {
                     placeholder="请选择分组"
                     data={domainOptions}
                     value={selectedDomain || null}
-                    onChange={(value) => setSelectedDomain(value || "")}
+                    onChange={(value) => {
+                      const nextDomain = value || "";
+                      setSelectedDomain(nextDomain);
+                      setDraft((current) => resolveDraftOnDomainChange(current, nextDomain, manualActions));
+                    }}
                     clearable
                   />
                   <Select

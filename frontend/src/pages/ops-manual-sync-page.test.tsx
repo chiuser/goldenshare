@@ -7,7 +7,7 @@ import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
-import { OpsManualSyncPage, resolveExecutionTarget } from "./ops-manual-sync-page";
+import { OpsManualSyncPage, resolveDraftOnDomainChange, resolveExecutionTarget, shouldAutoAlignDomain } from "./ops-manual-sync-page";
 
 vi.mock("../shared/api/client", () => ({
   apiRequest: vi.fn(async (path: string) => {
@@ -496,6 +496,50 @@ describe("手动同步页", () => {
       .getAllByLabelText("先选数据分组")
       .find((element) => element.tagName === "INPUT") as HTMLInputElement;
     expect(domainInput.value).toBe("股票");
+  });
+
+  it("切换数据分组时会清空不匹配的维护对象，避免下拉被锁死", () => {
+    const manualActions = [
+      {
+        id: "job:daily",
+        domainLabel: "股票",
+      },
+      {
+        id: "job:stock_basic",
+        domainLabel: "基础主数据",
+      },
+    ] as never;
+
+    const next = resolveDraftOnDomainChange(
+      {
+        action_id: "job:daily",
+        date_mode: "single_point",
+        selected_date: "",
+        start_date: "",
+        end_date: "",
+        selected_month: "",
+        start_month: "",
+        end_month: "",
+        field_values: {},
+      },
+      "基础主数据",
+      manualActions,
+    );
+
+    expect(next.action_id).toBe("");
+  });
+
+  it("仅在分组为空时自动对齐维护对象分组，避免覆盖用户选择", () => {
+    expect(
+      shouldAutoAlignDomain("股票", {
+        id: "job:daily",
+      } as never),
+    ).toBe(false);
+    expect(
+      shouldAutoAlignDomain("", {
+        id: "job:daily",
+      } as never),
+    ).toBe(true);
   });
 
   it("板块成分任务会展示先板块后成分的执行说明", async () => {
