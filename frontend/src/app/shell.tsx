@@ -19,6 +19,7 @@ import {
   IconPlayerPlay,
   IconShieldLock,
   IconSparkles,
+  IconTopologyRing3,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useDisclosure } from "@mantine/hooks";
@@ -29,6 +30,7 @@ const opsLinks = [
   { to: "/ops/data-status", label: "数据状态", icon: IconActivityHeartbeat },
   { to: "/ops/today", label: "今日运行", icon: IconGauge },
   { to: "/ops/automation", label: "自动运行", icon: IconCalendarTime },
+  { to: "/ops/source-management", label: "数据源管理（新版）", icon: IconTopologyRing3 },
   { to: "/ops/manual-sync", label: "手动同步", icon: IconPlayerPlay },
   { to: "/ops/tasks", label: "任务记录", icon: IconListDetails },
 ];

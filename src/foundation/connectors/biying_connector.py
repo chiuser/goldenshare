@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import logging
 from typing import Any
+from urllib.parse import urlencode
 
 import requests
 from requests import Session
@@ -47,7 +48,7 @@ class BiyingSourceConnector(SourceConnector):
         return session
 
     def supports_api(self, api_name: str) -> bool:
-        return api_name == "stock_basic"
+        return api_name in {"stock_basic", "equity_daily_bar"}
 
     def call(
         self,
@@ -55,12 +56,16 @@ class BiyingSourceConnector(SourceConnector):
         params: dict[str, Any] | None = None,
         fields: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
-        del params, fields
         if not self.supports_api(api_name):
             raise ValueError(f"Biying source does not support api_name={api_name}")
         if not self.token:
             raise ValueError("BIYING_TOKEN is empty")
 
+        if api_name == "stock_basic":
+            return self._call_stock_basic()
+        return self._call_equity_daily_bar(params=params)
+
+    def _call_stock_basic(self) -> list[dict[str, Any]]:
         endpoint = f"{self.base_url}/hslt/list/{self.token}"
         response = self.session.get(endpoint, timeout=self.timeout)
         response.raise_for_status()
@@ -69,6 +74,42 @@ class BiyingSourceConnector(SourceConnector):
             raise RuntimeError("Biying API response format invalid: expected list")
         rows: list[dict[str, Any]] = []
         for item in payload:
+            if isinstance(item, dict):
+                rows.append(item)
+        return rows
+
+    def _call_equity_daily_bar(self, *, params: dict[str, Any] | None) -> list[dict[str, Any]]:
+        payload = params or {}
+        dm = str(payload.get("dm") or "").strip().upper()
+        if not dm:
+            raise ValueError("dm is required for biying equity_daily_bar")
+        freq = str(payload.get("freq") or "d").strip().lower()
+        adj_type = str(payload.get("adj_type") or "f").strip().lower()
+        if freq != "d":
+            raise ValueError("Only daily freq=d is supported for biying equity_daily_bar")
+        if adj_type not in {"n", "f", "b", "fr", "br"}:
+            raise ValueError("adj_type must be one of n/f/b/fr/br")
+
+        query: dict[str, str] = {}
+        start = payload.get("st")
+        end = payload.get("et")
+        limit = payload.get("lt")
+        if start:
+            query["st"] = str(start)
+        if end:
+            query["et"] = str(end)
+        if limit:
+            query["lt"] = str(limit)
+        query_text = f"?{urlencode(query)}" if query else ""
+
+        endpoint = f"{self.base_url}/hsstock/history/{dm}/{freq}/{adj_type}/{self.token}{query_text}"
+        response = self.session.get(endpoint, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, list):
+            raise RuntimeError("Biying equity_daily_bar response format invalid: expected list")
+        rows: list[dict[str, Any]] = []
+        for item in data:
             if isinstance(item, dict):
                 rows.append(item)
         return rows

@@ -218,6 +218,7 @@ SOURCE_KEY_PARAM = ParameterSpec(
 
 
 DAILY_SYNC_RESOURCES = (
+    "biying_equity_daily",
     "daily",
     "equity_price_restore_factor",
     "equity_indicators",
@@ -314,6 +315,8 @@ def _service_target_table(resource: str) -> str:
 def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "stock_basic":
         return (SOURCE_KEY_PARAM,)
+    if resource == "biying_equity_daily":
+        return (START_DATE_PARAM, END_DATE_PARAM)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "hk_basic":
@@ -383,7 +386,10 @@ def _sync_history_job_spec(resource: str) -> JobSpec:
 
 def _sync_daily_job_spec(resource: str) -> JobSpec:
     supported_params = (TRADE_DATE_PARAM,)
-    if resource in {"ths_daily", "dc_index", "dc_daily"}:
+    if resource == "biying_equity_daily":
+        supported_params = (TRADE_DATE_PARAM,)
+    elif resource in {"ths_daily", "dc_index", "dc_daily"}:
+        
         extras: tuple[ParameterSpec, ...] = (TS_CODE_PARAM,)
         if resource in {"dc_index", "dc_daily"}:
             extras = (TS_CODE_PARAM, IDX_TYPE_PARAM)
@@ -747,6 +753,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
 
 
 DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
+    "biying_equity_daily": ("BIYING 股票日线", "equity", "股票", "daily", "trade_date"),
     "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference", None),
     "hk_basic": ("港股列表", "reference_data", "基础主数据", "reference", None),
     "us_basic": ("美股列表", "reference_data", "基础主数据", "reference", None),

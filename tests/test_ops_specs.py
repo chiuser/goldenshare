@@ -8,8 +8,10 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stock_basic" in JOB_SPEC_REGISTRY
     assert "sync_history.hk_basic" in JOB_SPEC_REGISTRY
     assert "sync_history.us_basic" in JOB_SPEC_REGISTRY
+    assert "sync_history.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
+    assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_price_restore_factor" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
@@ -194,6 +196,14 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert [param.key for param in stock_basic_spec.supported_params] == ["source_key"]
     source_key_param = next(param for param in stock_basic_spec.supported_params if param.key == "source_key")
     assert source_key_param.options == ("tushare", "biying", "all")
+
+    biying_daily_history_spec = get_job_spec("sync_history.biying_equity_daily")
+    assert biying_daily_history_spec is not None
+    assert [param.key for param in biying_daily_history_spec.supported_params] == ["start_date", "end_date"]
+
+    biying_daily_incremental_spec = get_job_spec("sync_daily.biying_equity_daily")
+    assert biying_daily_incremental_spec is not None
+    assert [param.key for param in biying_daily_incremental_spec.supported_params] == ["trade_date"]
 
 
 def test_ths_reference_sync_history_specs_are_schedulable() -> None:

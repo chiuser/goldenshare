@@ -16,6 +16,7 @@ import { OpsManualSyncPage } from "../pages/ops-manual-sync-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
+import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
 import { ShareMarketPage } from "../pages/share-market-page";
 import { OpsShell } from "./shell";
@@ -257,6 +258,12 @@ const opsManualSyncRoute = createRoute({
   component: OpsManualSyncPage,
 });
 
+const opsSourceManagementRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/source-management",
+  component: OpsSourceManagementPage,
+});
+
 const opsLegacyOverviewRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/overview",
@@ -311,6 +318,7 @@ const routeTree = rootRoute.addChildren([
     opsOverviewRoute,
     opsFreshnessRoute,
     opsSchedulesRoute,
+    opsSourceManagementRoute,
     opsManualSyncRoute,
     opsExecutionsRoute,
     opsExecutionDetailRoute,

@@ -158,6 +158,7 @@ const resourceLabelMap: Record<string, string> = {
   kpl_list: "开盘啦榜单",
   kpl_concept_cons: "开盘啦题材成分",
   broker_recommend: "券商每月荐股",
+  biying_equity_daily: "BIYING 股票日线",
   rebuild_dm: "数据集市刷新",
 };
 
