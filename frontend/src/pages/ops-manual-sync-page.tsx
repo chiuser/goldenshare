@@ -617,7 +617,7 @@ export function OpsManualSyncPage() {
   const prefillScheduleAppliedRef = useRef(false);
 
   useEffect(() => {
-    if (shouldAutoAlignDomain(selectedDomain, selectedAction)) {
+    if (selectedAction && shouldAutoAlignDomain(selectedDomain, selectedAction)) {
       setSelectedDomain(selectedAction.domainLabel);
     }
   }, [selectedAction, selectedDomain, setSelectedDomain]);
