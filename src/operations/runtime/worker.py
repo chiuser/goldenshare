@@ -83,6 +83,7 @@ class OperationsWorker:
     def _finalize_execution(self, session: Session, execution_id: int, outcome: DispatchOutcome) -> JobExecution:
         execution = session.get(JobExecution, execution_id)
         assert execution is not None
+        last_progress_message = execution.progress_message
         execution.status = outcome.status
         execution.ended_at = datetime.now(timezone.utc)
         execution.rows_fetched = outcome.rows_fetched
@@ -101,7 +102,11 @@ class OperationsWorker:
             execution.progress_percent = 100
         if outcome.status == "canceled":
             execution.canceled_at = execution.canceled_at or execution.ended_at
-        execution.progress_message = outcome.summary_message or execution.progress_message
+        if outcome.status == "failed":
+            # Preserve the latest business progress for troubleshooting.
+            execution.progress_message = last_progress_message or outcome.summary_message
+        else:
+            execution.progress_message = outcome.summary_message or execution.progress_message
         execution.last_progress_at = execution.ended_at
         final_event_type = "succeeded"
         level = "INFO"
@@ -136,13 +141,14 @@ class OperationsWorker:
         execution = session.get(JobExecution, execution_id)
         if execution is None:
             raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
+        last_progress_message = execution.progress_message
         execution.status = "failed"
         execution.ended_at = datetime.now(timezone.utc)
         execution.summary_message = message
         execution.error_code = execution.error_code or "worker_finalize_error"
         execution.error_message = message
         execution.last_progress_at = execution.ended_at
-        execution.progress_message = message
+        execution.progress_message = last_progress_message or message
         session.add(
             JobExecutionEvent(
                 execution_id=execution.id,

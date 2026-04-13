@@ -125,7 +125,7 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
     rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
         db_session,
         execution,
-        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily"),
+        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily", supported_params=()),
         dict(execution.params_json or {}),
     )
 
@@ -163,7 +163,7 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
     rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
         db_session,
         execution,
-        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily"),
+        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily", supported_params=()),
         dict(execution.params_json or {}),
     )
 
@@ -209,6 +209,30 @@ def test_worker_marks_running_execution_canceled_when_dispatcher_returns_cancele
     assert result.summary_message == "任务已收到停止请求，正在结束处理。"
 
 
+def test_worker_failed_keeps_last_progress_message_for_diagnosis(db_session, job_execution_factory) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.biying_equity_daily",
+        status="queued",
+        requested_at=datetime(2026, 4, 12, 10, 0, tzinfo=timezone.utc),
+    )
+    dispatcher = StubDispatcher(
+        DispatchOutcome(
+            status="failed",
+            summary_message="Biying equity_daily_bar response format invalid: expected list",
+            error_message="Biying equity_daily_bar response format invalid: expected list",
+            error_code="dispatcher_error",
+        )
+    )
+    worker = OperationsWorker(dispatcher=dispatcher)
+
+    result = worker.run_execution(db_session, execution.id)
+    assert result is not None
+    assert result.status == "failed"
+    assert result.progress_message == "系统已经开始处理这次任务。"
+    assert result.error_message == "Biying equity_daily_bar response format invalid: expected list"
+
+
 def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_execution_factory, mocker) -> None:
     execution = job_execution_factory(
         spec_type="job",
@@ -227,3 +251,4 @@ def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_e
     assert result.status == "failed"
     assert result.error_code == "worker_finalize_error"
     assert "worker_finalize_error" in (result.summary_message or "")
+    assert result.progress_message == "系统已经开始处理这次任务。"
