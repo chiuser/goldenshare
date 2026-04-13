@@ -53,3 +53,29 @@ def test_biying_connector_fetches_equity_daily_rows(mocker) -> None:
         "https://api.biyingapi.com/hsstock/history/600602.SH/d/f/token_x?st=20260403&et=20260410&lt=2",
         timeout=(5, 30),
     )
+
+
+def test_biying_connector_equity_daily_no_data_returns_empty_list(mocker) -> None:
+    connector = BiyingSourceConnector(token="token_x", base_url="https://api.biyingapi.com")
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"error": "数据不存在"}
+    get = mocker.patch.object(connector.session, "get", return_value=response)
+
+    rows = connector.call(
+        "equity_daily_bar",
+        params={
+            "dm": "600602.SH",
+            "freq": "d",
+            "adj_type": "f",
+            "st": "20260403",
+            "et": "20260410",
+            "lt": "2",
+        },
+    )
+
+    assert rows == []
+    get.assert_called_once_with(
+        "https://api.biyingapi.com/hsstock/history/600602.SH/d/f/token_x?st=20260403&et=20260410&lt=2",
+        timeout=(5, 30),
+    )

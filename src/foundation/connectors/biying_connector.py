@@ -106,6 +106,17 @@ class BiyingSourceConnector(SourceConnector):
         response = self.session.get(endpoint, timeout=self.timeout)
         response.raise_for_status()
         data = response.json()
+        if isinstance(data, dict):
+            error_message = str(data.get("error") or "").strip()
+            if "数据不存在" in error_message:
+                self.logger.info(
+                    "Biying equity_daily_bar no data dm=%s adj_type=%s st=%s et=%s",
+                    dm,
+                    adj_type,
+                    query.get("st"),
+                    query.get("et"),
+                )
+                return []
         if not isinstance(data, list):
             raise RuntimeError("Biying equity_daily_bar response format invalid: expected list")
         rows: list[dict[str, Any]] = []
