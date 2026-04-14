@@ -27,7 +27,7 @@ def build_fund_daily_params(run_type: str, trade_date=None, **kwargs):  # type: 
 
 class SyncFundDailyService(HttpResourceSyncService):
     job_name = "sync_fund_daily"
-    target_table = "core.fund_daily_bar"
+    target_table = "core_serving.fund_daily_bar"
     api_name = "fund_daily"
     raw_dao_name = "raw_fund_daily"
     core_dao_name = "fund_daily_bar"

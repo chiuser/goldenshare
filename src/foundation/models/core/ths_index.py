@@ -13,7 +13,7 @@ class ThsIndex(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_ths_index_exchange", "exchange"),
         Index("idx_ths_index_type", "type"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

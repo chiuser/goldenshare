@@ -12,7 +12,7 @@ def transform_stk_period_bar_adj(row: dict):  # type: ignore[no-untyped-def]
 
 class SyncStkPeriodBarAdjWeekService(HttpResourceSyncService):
     job_name = "sync_stk_period_bar_adj_week"
-    target_table = "core.stk_period_bar_adj"
+    target_table = "core_serving.stk_period_bar_adj"
     api_name = "stk_week_month_adj"
     raw_dao_name = "raw_stk_period_bar_adj"
     core_dao_name = "stk_period_bar_adj"

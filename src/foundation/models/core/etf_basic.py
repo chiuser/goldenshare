@@ -16,7 +16,7 @@ class EtfBasic(TimestampMixin, Base):
         Index("idx_etf_basic_exchange", "exchange"),
         Index("idx_etf_basic_mgr_name", "mgr_name"),
         Index("idx_etf_basic_list_status", "list_status"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

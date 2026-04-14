@@ -33,7 +33,7 @@ def build_broker_recommend_params(run_type: str, trade_date: date | None = None,
 
 class SyncBrokerRecommendService(HttpResourceSyncService):
     job_name = "sync_broker_recommend"
-    target_table = "core.broker_recommend"
+    target_table = "core_serving.broker_recommend"
     api_name = "broker_recommend"
     raw_dao_name = "raw_broker_recommend"
     core_dao_name = "broker_recommend"

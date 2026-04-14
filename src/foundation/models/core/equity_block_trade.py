@@ -13,7 +13,7 @@ class EquityBlockTrade(TimestampMixin, Base):
     __tablename__ = "equity_block_trade"
     __table_args__ = (
         Index("idx_equity_block_trade_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)

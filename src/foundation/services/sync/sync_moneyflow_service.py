@@ -7,7 +7,7 @@ from src.foundation.services.sync.sync_daily_basic_service import build_trade_da
 
 class SyncMoneyflowService(HttpResourceSyncService):
     job_name = "sync_moneyflow"
-    target_table = "core.equity_moneyflow"
+    target_table = "core_serving.equity_moneyflow"
     api_name = "moneyflow"
     raw_dao_name = "raw_moneyflow"
     core_dao_name = "equity_moneyflow"

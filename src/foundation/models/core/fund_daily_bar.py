@@ -13,7 +13,7 @@ class FundDailyBar(TimestampMixin, Base):
     __tablename__ = "fund_daily_bar"
     __table_args__ = (
         Index("idx_fund_daily_bar_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

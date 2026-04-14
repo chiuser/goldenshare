@@ -15,7 +15,7 @@ class BrokerRecommend(TimestampMixin, Base):
         Index("idx_broker_recommend_month", "month"),
         Index("idx_broker_recommend_trade_date", "trade_date"),
         Index("idx_broker_recommend_ts_code_month", "ts_code", "month"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     month: Mapped[str] = mapped_column(String(6), primary_key=True)

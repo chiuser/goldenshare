@@ -12,7 +12,7 @@ def build_trade_date_only(run_type: str, trade_date=None, **kwargs):  # type: ig
 
 class SyncDailyBasicService(HttpResourceSyncService):
     job_name = "sync_daily_basic"
-    target_table = "core.equity_daily_basic"
+    target_table = "core_serving.equity_daily_basic"
     api_name = "daily_basic"
     raw_dao_name = "raw_daily_basic"
     core_dao_name = "equity_daily_basic"

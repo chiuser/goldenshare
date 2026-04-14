@@ -29,7 +29,7 @@ def build_trade_cal_params(run_type: str, trade_date=None, **kwargs):  # type: i
 
 class SyncTradeCalendarService(HttpResourceSyncService):
     job_name = "sync_trade_calendar"
-    target_table = "core.trade_calendar"
+    target_table = "core_serving.trade_calendar"
     api_name = "trade_cal"
     raw_dao_name = "raw_trade_cal"
     core_dao_name = "trade_calendar"

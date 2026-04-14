@@ -13,7 +13,7 @@ class IndexDailyServing(TimestampMixin, Base):
     __tablename__ = "index_daily_serving"
     __table_args__ = (
         Index("idx_index_daily_serving_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(32), primary_key=True)

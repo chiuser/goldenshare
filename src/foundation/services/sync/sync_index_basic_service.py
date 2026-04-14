@@ -6,7 +6,7 @@ from src.foundation.services.sync.resource_sync import HttpResourceSyncService
 
 class SyncIndexBasicService(HttpResourceSyncService):
     job_name = "sync_index_basic"
-    target_table = "core.index_basic"
+    target_table = "core_serving.index_basic"
     api_name = "index_basic"
     raw_dao_name = "raw_index_basic"
     core_dao_name = "index_basic"

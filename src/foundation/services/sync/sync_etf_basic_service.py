@@ -21,7 +21,7 @@ def build_etf_basic_params(run_type: str, trade_date: date | None = None, **kwar
 
 class SyncEtfBasicService(HttpResourceSyncService):
     job_name = "sync_etf_basic"
-    target_table = "core.etf_basic"
+    target_table = "core_serving.etf_basic"
     api_name = "etf_basic"
     raw_dao_name = "raw_etf_basic"
     core_dao_name = "etf_basic"

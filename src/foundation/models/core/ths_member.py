@@ -14,7 +14,7 @@ class ThsMember(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_ths_member_con_code", "con_code"),
         Index("idx_ths_member_is_new", "is_new"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

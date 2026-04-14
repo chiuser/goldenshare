@@ -14,7 +14,7 @@ class IndexWeight(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_index_weight_index_code_trade_date", "index_code", "trade_date"),
         Index("idx_index_weight_con_code_trade_date", "con_code", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     index_code: Mapped[str] = mapped_column(String(16), primary_key=True)

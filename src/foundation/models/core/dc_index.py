@@ -14,7 +14,7 @@ class DcIndex(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_dc_index_trade_date", "trade_date"),
         Index("idx_dc_index_idx_type_trade_date", "idx_type", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

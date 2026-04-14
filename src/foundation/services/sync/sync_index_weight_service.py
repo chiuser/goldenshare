@@ -34,7 +34,7 @@ def build_index_weight_params(run_type: str, trade_date=None, **kwargs):  # type
 
 class SyncIndexWeightService(HttpResourceSyncService):
     job_name = "sync_index_weight"
-    target_table = "core.index_weight"
+    target_table = "core_serving.index_weight"
     api_name = "index_weight"
     raw_dao_name = "raw_index_weight"
     core_dao_name = "index_weight"

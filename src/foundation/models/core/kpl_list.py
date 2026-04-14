@@ -15,7 +15,7 @@ class KplList(TimestampMixin, Base):
         Index("idx_kpl_list_trade_date", "trade_date"),
         Index("idx_kpl_list_tag_trade_date", "tag", "trade_date"),
         Index("idx_kpl_list_ts_code_trade_date", "ts_code", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

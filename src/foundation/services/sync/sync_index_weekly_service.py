@@ -37,7 +37,7 @@ def transform_index_period_bar(row: dict):  # type: ignore[no-untyped-def]
 
 class SyncIndexWeeklyService(HttpResourceSyncService):
     job_name = "sync_index_weekly"
-    target_table = "core.index_weekly_serving"
+    target_table = "core_serving.index_weekly_serving"
     api_name = "index_weekly"
     raw_dao_name = "raw_index_weekly_bar"
     core_dao_name = "index_weekly_serving"
@@ -47,7 +47,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
     params_builder = staticmethod(build_index_period_params("weekly"))
     core_transform = staticmethod(transform_index_period_bar)
     page_limit = 1000
-    serving_table = "core.index_weekly_serving"
+    serving_table = "core_serving.index_weekly_serving"
     period_kind = "weekly"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
@@ -120,7 +120,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
                     d.amount,
                     row_number() over (partition by d.ts_code order by d.trade_date asc) as rn_first,
                     row_number() over (partition by d.ts_code order by d.trade_date desc) as rn_last
-                from core.index_daily_serving d
+                from core_serving.index_daily_serving d
                 where d.trade_date between :start_date and :trade_date
                   and d.ts_code = any(:missing_codes)
             ),

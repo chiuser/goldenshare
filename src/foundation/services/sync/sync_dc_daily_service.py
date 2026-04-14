@@ -35,7 +35,7 @@ def build_dc_daily_params(run_type: str, trade_date=None, **kwargs):  # type: ig
 
 class SyncDcDailyService(BaseSyncService):
     job_name = "sync_dc_daily"
-    target_table = "core.dc_daily"
+    target_table = "core_serving.dc_daily"
     fields = DC_DAILY_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = ("close", "open", "high", "low", "change", "pct_change", "vol", "amount", "swing", "turnover_rate")

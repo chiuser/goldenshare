@@ -23,6 +23,7 @@ def db_session() -> Generator[Session, None, None]:
     )
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         EquityBlockTrade.__table__.create(connection)
         SyncJobState.__table__.create(connection)
@@ -50,7 +51,7 @@ def test_preview_stale_sync_job_states_uses_observed_target_table_date(db_sessio
     db_session.add(
         SyncJobState(
             job_name="sync_block_trade",
-            target_table="core.equity_block_trade",
+            target_table="core_serving.equity_block_trade",
             last_success_date=date(2025, 12, 31),
             last_success_at=datetime(2026, 3, 29, tzinfo=timezone.utc),
             full_sync_done=False,
@@ -79,7 +80,7 @@ def test_reconcile_stale_sync_job_states_updates_only_outdated_rows(db_session: 
             ),
             SyncJobState(
                 job_name="sync_block_trade",
-                target_table="core.equity_block_trade",
+                target_table="core_serving.equity_block_trade",
                 last_success_date=date(2025, 12, 31),
                 last_success_at=datetime(2026, 3, 29, tzinfo=timezone.utc),
                 full_sync_done=False,

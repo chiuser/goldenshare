@@ -57,6 +57,7 @@ def web_engine(configured_web_env) -> Generator:
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS app")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)

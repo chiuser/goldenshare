@@ -14,7 +14,7 @@ class EtfIndex(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_etf_index_pub_date", "pub_date"),
         Index("idx_etf_index_base_date", "base_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

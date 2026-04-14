@@ -13,7 +13,7 @@ class LimitStep(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_limit_step_trade_date", "trade_date"),
         Index("idx_limit_step_nums_trade_date", "nums", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

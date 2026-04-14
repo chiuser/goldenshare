@@ -30,7 +30,7 @@ def build_limit_step_params(run_type: str, trade_date=None, **kwargs):  # type: 
 
 class SyncLimitStepService(HttpResourceSyncService):
     job_name = "sync_limit_step"
-    target_table = "core.limit_step"
+    target_table = "core_serving.limit_step"
     api_name = "limit_step"
     raw_dao_name = "raw_limit_step"
     core_dao_name = "limit_step"

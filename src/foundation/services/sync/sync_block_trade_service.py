@@ -11,7 +11,7 @@ from src.utils import coerce_row
 
 class SyncBlockTradeService(HttpResourceSyncService):
     job_name = "sync_block_trade"
-    target_table = "core.equity_block_trade"
+    target_table = "core_serving.equity_block_trade"
     api_name = "block_trade"
     raw_dao_name = "raw_block_trade"
     core_dao_name = "equity_block_trade"

@@ -15,7 +15,7 @@ class IndexMonthlyServing(TimestampMixin, Base):
         Index("idx_index_monthly_serving_trade_date", "trade_date"),
         Index("idx_index_monthly_serving_period_start", "period_start_date"),
         Index("uq_index_monthly_serving_ts_period", "ts_code", "period_start_date", unique=True),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(32), primary_key=True)

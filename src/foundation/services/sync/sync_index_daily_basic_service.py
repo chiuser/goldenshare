@@ -30,7 +30,7 @@ def build_index_daily_basic_params(run_type: str, trade_date=None, **kwargs):  #
 
 class SyncIndexDailyBasicService(HttpResourceSyncService):
     job_name = "sync_index_daily_basic"
-    target_table = "core.index_daily_basic"
+    target_table = "core_serving.index_daily_basic"
     api_name = "index_dailybasic"
     raw_dao_name = "raw_index_daily_basic"
     core_dao_name = "index_daily_basic"

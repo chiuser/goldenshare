@@ -34,7 +34,7 @@ def transform_us_security(row: dict[str, Any]) -> dict[str, Any]:
 
 class SyncUsBasicService(HttpResourceSyncService):
     job_name = "sync_us_basic"
-    target_table = "core.us_security"
+    target_table = "core_serving.us_security"
     api_name = "us_basic"
     raw_dao_name = "raw_us_basic"
     core_dao_name = "us_security"

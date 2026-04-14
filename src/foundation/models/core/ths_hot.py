@@ -15,7 +15,7 @@ class ThsHot(TimestampMixin, Base):
         Index("idx_ths_hot_trade_date", "trade_date"),
         Index("idx_ths_hot_data_type_trade_date", "data_type", "trade_date"),
         Index("idx_ths_hot_ts_code_trade_date", "ts_code", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)

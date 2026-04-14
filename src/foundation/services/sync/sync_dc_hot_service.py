@@ -52,7 +52,7 @@ def build_dc_hot_params(run_type: str, trade_date=None, **kwargs):  # type: igno
 
 class SyncDcHotService(BaseSyncService):
     job_name = "sync_dc_hot"
-    target_table = "core.dc_hot"
+    target_table = "core_serving.dc_hot"
     fields = DC_HOT_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = ("pct_change", "current_price", "hot")

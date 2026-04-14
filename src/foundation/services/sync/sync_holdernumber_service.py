@@ -11,7 +11,7 @@ from src.utils import coerce_row
 
 class SyncHolderNumberService(HttpResourceSyncService):
     job_name = "sync_holder_number"
-    target_table = "core.equity_holder_number"
+    target_table = "core_serving.equity_holder_number"
     api_name = "stk_holdernumber"
     raw_dao_name = "raw_holder_number"
     core_dao_name = "equity_holder_number"
@@ -54,7 +54,7 @@ class SyncHolderNumberService(HttpResourceSyncService):
             if sample_missing is not None:
                 missing, row = sample_missing
                 self.logger.debug(
-                    "Sample skipped core.equity_holder_number row due to missing required fields %s: ts_code=%s end_date=%s ann_date=%s",
+                    "Sample skipped core_serving.equity_holder_number row due to missing required fields %s: ts_code=%s end_date=%s ann_date=%s",
                     ",".join(missing),
                     row.get("ts_code"),
                     row.get("end_date"),

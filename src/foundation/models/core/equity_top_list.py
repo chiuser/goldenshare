@@ -20,7 +20,7 @@ class EquityTopList(TimestampMixin, Base):
             "reason_hash",
             unique=True,
         ),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

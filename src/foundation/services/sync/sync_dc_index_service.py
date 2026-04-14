@@ -27,7 +27,7 @@ def build_dc_index_params(run_type: str, trade_date=None, **kwargs):  # type: ig
 
 class SyncDcIndexService(HttpResourceSyncService):
     job_name = "sync_dc_index"
-    target_table = "core.dc_index"
+    target_table = "core_serving.dc_index"
     api_name = "dc_index"
     raw_dao_name = "raw_dc_index"
     core_dao_name = "dc_index"

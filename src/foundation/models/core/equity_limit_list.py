@@ -13,7 +13,7 @@ class EquityLimitList(TimestampMixin, Base):
     __tablename__ = "equity_limit_list"
     __table_args__ = (
         Index("idx_equity_limit_list_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

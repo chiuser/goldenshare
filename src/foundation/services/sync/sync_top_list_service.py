@@ -11,7 +11,7 @@ from src.foundation.services.sync.sync_daily_basic_service import build_trade_da
 
 class SyncTopListService(HttpResourceSyncService):
     job_name = "sync_top_list"
-    target_table = "core.equity_top_list"
+    target_table = "core_serving.equity_top_list"
     api_name = "top_list"
     raw_dao_name = "raw_top_list"
     core_dao_name = "equity_top_list"

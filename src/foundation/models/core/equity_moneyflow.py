@@ -14,7 +14,7 @@ class EquityMoneyflow(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_equity_moneyflow_trade_date", "trade_date"),
         Index("idx_equity_moneyflow_net_mf_amount_trade_date", "trade_date", "net_mf_amount"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

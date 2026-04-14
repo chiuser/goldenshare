@@ -38,7 +38,7 @@ def build_limit_list_ths_params(run_type: str, trade_date=None, **kwargs):  # ty
 
 class SyncLimitListThsService(BaseSyncService):
     job_name = "sync_limit_list_ths"
-    target_table = "core.limit_list_ths"
+    target_table = "core_serving.limit_list_ths"
     fields = LIMIT_LIST_THS_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = (

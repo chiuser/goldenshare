@@ -32,7 +32,7 @@ def build_ths_daily_params(run_type: str, trade_date=None, **kwargs):  # type: i
 
 class SyncThsDailyService(BaseSyncService):
     job_name = "sync_ths_daily"
-    target_table = "core.ths_daily"
+    target_table = "core_serving.ths_daily"
     fields = THS_DAILY_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = (

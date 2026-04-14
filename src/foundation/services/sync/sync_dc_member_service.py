@@ -24,7 +24,7 @@ def build_dc_member_params(run_type: str, trade_date=None, **kwargs):  # type: i
 
 class SyncDcMemberService(BaseSyncService):
     job_name = "sync_dc_member"
-    target_table = "core.dc_member"
+    target_table = "core_serving.dc_member"
     fields = DC_MEMBER_FIELDS
     date_fields = ("trade_date",)
 

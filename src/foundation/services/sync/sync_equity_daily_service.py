@@ -19,7 +19,7 @@ def build_daily_params(run_type: str, trade_date=None, **kwargs):  # type: ignor
 
 class SyncEquityDailyService(HttpResourceSyncService):
     job_name = "sync_equity_daily"
-    target_table = "core.equity_daily_bar"
+    target_table = "core_serving.equity_daily_bar"
     api_name = "daily"
     raw_dao_name = "raw_daily"
     core_dao_name = "equity_daily_bar"

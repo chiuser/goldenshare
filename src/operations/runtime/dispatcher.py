@@ -328,14 +328,14 @@ class OperationsDispatcher:
                 raise ValueError("start_date cannot be greater than end_date")
             weekly_rows = self._rebuild_index_period_serving(
                 session=session,
-                target_table="core.index_weekly_serving",
+                target_table="core_serving.index_weekly_serving",
                 start_date=start_date,
                 end_date=end_date,
                 period_granularity="week",
             )
             monthly_rows = self._rebuild_index_period_serving(
                 session=session,
-                target_table="core.index_monthly_serving",
+                target_table="core_serving.index_monthly_serving",
                 start_date=start_date,
                 end_date=end_date,
                 period_granularity="month",
@@ -383,7 +383,7 @@ class OperationsDispatcher:
                 select
                     {calendar_period_expr} as natural_period_start,
                     min(trade_date) as period_start_date
-                from core.trade_calendar
+                from core_serving.trade_calendar
                 where exchange = :exchange
                   and is_open is true
                   and trade_date between :start_date and :end_date
@@ -401,8 +401,8 @@ class OperationsDispatcher:
                     d.vol,
                     d.amount,
                     cp.period_start_date as period_start_date
-                from core.index_daily_serving d
-                join core.index_basic b on b.ts_code = d.ts_code
+                from core_serving.index_daily_serving d
+                join core_serving.index_basic b on b.ts_code = d.ts_code
                 join calendar_periods cp on cp.natural_period_start = {daily_period_expr}
                 where d.trade_date between :start_date and :end_date
             ),

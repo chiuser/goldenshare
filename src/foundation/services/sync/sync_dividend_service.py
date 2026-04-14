@@ -20,7 +20,7 @@ def build_date_window_params(run_type: str, trade_date=None, **kwargs):  # type:
 
 class SyncDividendService(HttpResourceSyncService):
     job_name = "sync_dividend"
-    target_table = "core.equity_dividend"
+    target_table = "core_serving.equity_dividend"
     api_name = "dividend"
     raw_dao_name = "raw_dividend"
     core_dao_name = "equity_dividend"
@@ -88,7 +88,7 @@ class SyncDividendService(HttpResourceSyncService):
             if sample_missing is not None:
                 missing, row = sample_missing
                 self.logger.debug(
-                    "Sample skipped core.equity_dividend row due to missing required fields %s: ts_code=%s end_date=%s ann_date=%s div_proc=%s",
+                    "Sample skipped core_serving.equity_dividend row due to missing required fields %s: ts_code=%s end_date=%s ann_date=%s div_proc=%s",
                     ",".join(missing),
                     row.get("ts_code"),
                     row.get("end_date"),

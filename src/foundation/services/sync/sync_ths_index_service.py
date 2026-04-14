@@ -15,7 +15,7 @@ def build_ths_index_params(run_type: str, **kwargs):  # type: ignore[no-untyped-
 
 class SyncThsIndexService(HttpResourceSyncService):
     job_name = "sync_ths_index"
-    target_table = "core.ths_index"
+    target_table = "core_serving.ths_index"
     api_name = "ths_index"
     raw_dao_name = "raw_ths_index"
     core_dao_name = "ths_index"

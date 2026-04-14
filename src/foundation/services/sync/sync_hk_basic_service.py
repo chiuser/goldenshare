@@ -26,7 +26,7 @@ def transform_hk_security(row: dict[str, Any]) -> dict[str, Any]:
 
 class SyncHkBasicService(HttpResourceSyncService):
     job_name = "sync_hk_basic"
-    target_table = "core.hk_security"
+    target_table = "core_serving.hk_security"
     api_name = "hk_basic"
     raw_dao_name = "raw_hk_basic"
     core_dao_name = "hk_security"

@@ -33,7 +33,7 @@ def build_kpl_list_params(run_type: str, trade_date=None, **kwargs):  # type: ig
 
 class SyncKplListService(HttpResourceSyncService):
     job_name = "sync_kpl_list"
-    target_table = "core.kpl_list"
+    target_table = "core_serving.kpl_list"
     api_name = "kpl_list"
     raw_dao_name = "raw_kpl_list"
     core_dao_name = "kpl_list"

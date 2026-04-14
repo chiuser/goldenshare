@@ -14,7 +14,7 @@ class EquityHolderNumber(TimestampMixin, Base):
         Index("uq_equity_holder_number_row_key_hash", "row_key_hash", unique=True),
         Index("idx_equity_holder_number_event_key_hash", "event_key_hash"),
         Index("idx_equity_holder_number_end_date", "end_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

@@ -15,7 +15,7 @@ class IndexBasic(TimestampMixin, Base):
         Index("idx_index_basic_market", "market"),
         Index("idx_index_basic_publisher", "publisher"),
         Index("idx_index_basic_category", "category"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

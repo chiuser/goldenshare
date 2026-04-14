@@ -13,7 +13,7 @@ class ThsDaily(TimestampMixin, Base):
     __tablename__ = "ths_daily"
     __table_args__ = (
         Index("idx_ths_daily_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

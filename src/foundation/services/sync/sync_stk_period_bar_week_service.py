@@ -26,7 +26,7 @@ def transform_stk_period_bar(row: dict):  # type: ignore[no-untyped-def]
 
 class SyncStkPeriodBarWeekService(HttpResourceSyncService):
     job_name = "sync_stk_period_bar_week"
-    target_table = "core.stk_period_bar"
+    target_table = "core_serving.stk_period_bar"
     api_name = "stk_weekly_monthly"
     raw_dao_name = "raw_stk_period_bar"
     core_dao_name = "stk_period_bar"

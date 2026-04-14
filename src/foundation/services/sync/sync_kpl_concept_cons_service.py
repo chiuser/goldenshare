@@ -30,7 +30,7 @@ def transform_kpl_concept_cons_row(row):  # type: ignore[no-untyped-def]
 
 class SyncKplConceptConsService(HttpResourceSyncService):
     job_name = "sync_kpl_concept_cons"
-    target_table = "core.kpl_concept_cons"
+    target_table = "core_serving.kpl_concept_cons"
     api_name = "kpl_concept_cons"
     raw_dao_name = "raw_kpl_concept_cons"
     core_dao_name = "kpl_concept_cons"

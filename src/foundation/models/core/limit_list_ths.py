@@ -16,7 +16,7 @@ class LimitListThs(TimestampMixin, Base):
         Index("idx_limit_list_ths_query_trade_date", "query_limit_type", "trade_date"),
         Index("idx_limit_list_ths_market_trade_date", "query_market", "trade_date"),
         Index("idx_limit_list_ths_ts_code_trade_date", "ts_code", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)

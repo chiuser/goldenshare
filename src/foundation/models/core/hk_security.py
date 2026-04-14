@@ -14,7 +14,7 @@ class HkSecurity(TimestampMixin, Base):
         Index("idx_hk_security_name", "name"),
         Index("idx_hk_security_market", "market"),
         Index("idx_hk_security_list_status", "list_status"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

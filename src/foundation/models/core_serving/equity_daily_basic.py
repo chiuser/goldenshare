@@ -15,7 +15,7 @@ class EquityDailyBasic(TimestampMixin, Base):
         Index("idx_equity_daily_basic_trade_date", "trade_date"),
         Index("idx_equity_daily_basic_pb_trade_date", "trade_date", "pb"),
         Index("idx_equity_daily_basic_total_mv_trade_date", "trade_date", "total_mv"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

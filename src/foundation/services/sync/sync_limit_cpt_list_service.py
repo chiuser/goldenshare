@@ -28,7 +28,7 @@ def build_limit_cpt_list_params(run_type: str, trade_date=None, **kwargs):  # ty
 
 class SyncLimitCptListService(HttpResourceSyncService):
     job_name = "sync_limit_cpt_list"
-    target_table = "core.limit_cpt_list"
+    target_table = "core_serving.limit_cpt_list"
     api_name = "limit_cpt_list"
     raw_dao_name = "raw_limit_cpt_list"
     core_dao_name = "limit_cpt_list"

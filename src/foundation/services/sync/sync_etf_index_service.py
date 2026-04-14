@@ -18,7 +18,7 @@ def build_etf_index_params(run_type: str, trade_date: date | None = None, **kwar
 
 class SyncEtfIndexService(HttpResourceSyncService):
     job_name = "sync_etf_index"
-    target_table = "core.etf_index"
+    target_table = "core_serving.etf_index"
     api_name = "etf_index"
     raw_dao_name = "raw_etf_index"
     core_dao_name = "etf_index"

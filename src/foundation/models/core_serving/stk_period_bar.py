@@ -14,7 +14,7 @@ class StkPeriodBar(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_stk_period_bar_freq_trade_date", "freq", "trade_date"),
         Index("idx_stk_period_bar_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

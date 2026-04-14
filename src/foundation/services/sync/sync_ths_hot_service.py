@@ -46,7 +46,7 @@ def build_ths_hot_params(run_type: str, trade_date=None, **kwargs):  # type: ign
 
 class SyncThsHotService(BaseSyncService):
     job_name = "sync_ths_hot"
-    target_table = "core.ths_hot"
+    target_table = "core_serving.ths_hot"
     fields = THS_HOT_FIELDS
     date_fields = ("trade_date",)
     decimal_fields = ("pct_change", "current_price", "hot")

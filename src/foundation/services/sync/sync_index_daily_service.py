@@ -25,7 +25,7 @@ def build_index_daily_params(run_type: str, trade_date=None, **kwargs):  # type:
 
 class SyncIndexDailyService(HttpResourceSyncService):
     job_name = "sync_index_daily"
-    target_table = "core.index_daily_serving"
+    target_table = "core_serving.index_daily_serving"
     api_name = "index_daily"
     raw_dao_name = "raw_index_daily"
     core_dao_name = "index_daily_serving"

@@ -14,7 +14,7 @@ class LimitCptList(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_limit_cpt_list_trade_date", "trade_date"),
         Index("idx_limit_cpt_list_rank_trade_date", "rank", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(32), primary_key=True)

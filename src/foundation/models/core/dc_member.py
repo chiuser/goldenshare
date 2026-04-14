@@ -13,7 +13,7 @@ class DcMember(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_dc_member_trade_date", "trade_date"),
         Index("idx_dc_member_con_code_trade_date", "con_code", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)

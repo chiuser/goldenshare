@@ -16,7 +16,7 @@ class EquityDividend(TimestampMixin, Base):
         Index("idx_equity_dividend_event_key_hash", "event_key_hash"),
         Index("idx_equity_dividend_ex_date", "ex_date"),
         Index("idx_equity_dividend_ann_date", "ann_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

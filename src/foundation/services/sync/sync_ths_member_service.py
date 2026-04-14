@@ -23,7 +23,7 @@ def build_ths_member_params(run_type: str, **kwargs):  # type: ignore[no-untyped
 
 class SyncThsMemberService(BaseSyncService):
     job_name = "sync_ths_member"
-    target_table = "core.ths_member"
+    target_table = "core_serving.ths_member"
     fields = THS_MEMBER_FIELDS
     date_fields = ("in_date", "out_date")
     decimal_fields = ("weight",)

@@ -14,7 +14,7 @@ class UsSecurity(TimestampMixin, Base):
         Index("idx_us_security_name", "name"),
         Index("idx_us_security_classify", "classify"),
         Index("idx_us_security_list_date", "list_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

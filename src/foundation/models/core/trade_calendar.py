@@ -12,7 +12,7 @@ class TradeCalendar(Base):
     __tablename__ = "trade_calendar"
     __table_args__ = (
         Index("idx_trade_calendar_trade_date", "trade_date"),
-        {"schema": "core"},
+        {"schema": "core_serving"},
     )
 
     exchange: Mapped[str] = mapped_column(String(16), primary_key=True)

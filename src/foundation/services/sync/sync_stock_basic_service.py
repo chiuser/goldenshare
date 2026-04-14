@@ -13,7 +13,7 @@ from src.utils import coerce_row
 
 class SyncStockBasicService(BaseSyncService):
     job_name = "sync_stock_basic"
-    target_table = "core.security_serving"
+    target_table = "core_serving.security_serving"
     fields = STOCK_BASIC_FIELDS
     _normalizer = NormalizeSecurityService()
 

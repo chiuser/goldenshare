@@ -40,7 +40,7 @@ def build_limit_list_params(run_type: str, trade_date: date | None = None, **kwa
 
 class SyncLimitListService(HttpResourceSyncService):
     job_name = "sync_limit_list"
-    target_table = "core.equity_limit_list"
+    target_table = "core_serving.equity_limit_list"
     api_name = "limit_list_d"
     raw_dao_name = "raw_limit_list"
     core_dao_name = "equity_limit_list"
