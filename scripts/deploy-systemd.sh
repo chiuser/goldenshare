@@ -19,7 +19,8 @@ usage() {
   --platform-only         仅发布 platform(web)
   --ops-only              仅发布 ops(scheduler)
   --foundation-only       仅发布 foundation(worker)
-  --seed-default-source   发版时执行默认单源规则初始化（写入库）
+  --seed-default-source   启用“默认单源规则缺失检测 + 按需初始化”（默认启用）
+  --skip-seed-default-source 关闭“默认单源规则缺失检测 + 按需初始化”
   --seed-source <key>     初始化使用的数据源（默认 tushare）
   --skip-build            跳过前端构建
   --skip-migration        跳过数据库迁移
@@ -39,7 +40,7 @@ export DEPLOY_OPS="${DEPLOY_OPS:-1}"
 export DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
-export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-0}"
+export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
@@ -74,6 +75,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --seed-default-source)
       export RUN_DEFAULT_SINGLE_SOURCE_SEED=1
+      ;;
+    --skip-seed-default-source)
+      export RUN_DEFAULT_SINGLE_SOURCE_SEED=0
       ;;
     --seed-source)
       shift

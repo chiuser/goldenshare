@@ -15,7 +15,7 @@ DEPLOY_OPS="${DEPLOY_OPS:-1}"
 DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
-RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-0}"
+RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
@@ -146,13 +146,26 @@ main() {
   fi
 
   if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
-    log "5/10 初始化默认单源规则（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
+    log "5/10 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
     set -a
     source "${ENV_FILE}"
     set +a
-    .venv/bin/goldenshare ops-seed-default-single-source --apply --source-key "${DEFAULT_SINGLE_SOURCE_SEED_KEY}"
+    seed_preview="$(
+      .venv/bin/goldenshare ops-seed-default-single-source --source-key "${DEFAULT_SINGLE_SOURCE_SEED_KEY}"
+    )"
+    echo "${seed_preview}"
+    missing_total="$(
+      printf '%s\n' "${seed_preview}" \
+        | awk -F= '/^created_(mapping_rules|cleansing_rules|resolution_policies|source_statuses)=/{sum+=$2} END{print sum+0}'
+    )"
+    if [[ "${missing_total}" -gt 0 ]]; then
+      log "检测到缺失规则 ${missing_total} 项，执行按需初始化"
+      .venv/bin/goldenshare ops-seed-default-single-source --apply --source-key "${DEFAULT_SINGLE_SOURCE_SEED_KEY}"
+    else
+      log "未检测到缺失规则，跳过初始化写入"
+    fi
   else
-    log "5/10 跳过默认单源规则初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
+    log "5/10 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
   fi
 
   log "6/10 重新加载 systemd 配置"
