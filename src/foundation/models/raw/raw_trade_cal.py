@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawTradeCal(Base):
     __tablename__ = "trade_cal"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     exchange: Mapped[str] = mapped_column(String(16), primary_key=True)
     cal_date: Mapped[date] = mapped_column(Date, primary_key=True)

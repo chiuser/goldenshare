@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawThsHot(Base):
     __tablename__ = "ths_hot"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
     data_type: Mapped[str] = mapped_column(String(64), primary_key=True)

@@ -12,7 +12,7 @@ class RawDividend(Base):
     __tablename__ = "dividend"
     __table_args__ = (
         Index("uq_raw_dividend_row_key_hash", "row_key_hash", unique=True),
-        {"schema": "raw"},
+        {"schema": "raw_tushare"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

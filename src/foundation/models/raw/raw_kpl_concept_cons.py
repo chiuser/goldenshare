@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawKplConceptCons(Base):
     __tablename__ = "kpl_concept_cons"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawBrokerRecommend(Base):
     __tablename__ = "broker_recommend"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     month: Mapped[str] = mapped_column(String(6), primary_key=True)
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)

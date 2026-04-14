@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawLimitCptList(Base):
     __tablename__ = "limit_cpt_list"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     ts_code: Mapped[str] = mapped_column(String(32), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)

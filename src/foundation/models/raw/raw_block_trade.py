@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawBlockTrade(Base):
     __tablename__ = "block_trade"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     ts_code: Mapped[str] = mapped_column(String(16))

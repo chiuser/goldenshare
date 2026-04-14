@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawIndexWeight(Base):
     __tablename__ = "index_weight"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     index_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)

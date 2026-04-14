@@ -18,7 +18,7 @@ class SyncStockBasicService(BaseSyncService):
     _normalizer = NormalizeSecurityService()
 
     _raw_dao_by_source = {
-        "tushare": "raw_tushare_stock_basic",
+        "tushare": "raw_stock_basic",
         "biying": "raw_biying_stock_basic",
     }
     _supported_source_keys = ("tushare", "biying", "all")

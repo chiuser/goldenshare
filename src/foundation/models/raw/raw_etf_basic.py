@@ -10,7 +10,7 @@ from src.foundation.models.base import Base
 
 class RawEtfBasic(Base):
     __tablename__ = "etf_basic"
-    __table_args__ = {"schema": "raw"}
+    __table_args__ = {"schema": "raw_tushare"}
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     csname: Mapped[str | None] = mapped_column(String(128))
