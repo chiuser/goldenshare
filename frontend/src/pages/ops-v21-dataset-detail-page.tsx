@@ -28,12 +28,14 @@ function stageTitle(stage: string) {
   return stage;
 }
 
-function inferSourceFromTargetTable(targetTable: string | null | undefined): string | null {
+function inferSourceFromTargetTable(
+  targetTable: string | null | undefined,
+  datasetKey: string,
+): "tushare" | "biying" {
+  if (datasetKey.startsWith("biying_")) return "biying";
   const table = (targetTable || "").toLowerCase();
   if (table.startsWith("raw_biying.")) return "biying";
-  if (table.startsWith("raw_tushare.")) return "tushare";
-  if (table.startsWith("raw.")) return "tushare";
-  return null;
+  return "tushare";
 }
 
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
@@ -98,7 +100,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             ? "healthy"
             : "unknown";
     const fallbackTs = freshnessItem.last_sync_date || freshnessItem.recent_failure_at || freshnessItem.expected_business_date || "1970-01-01T00:00:00Z";
-    const sourceKey = inferSourceFromTargetTable(freshnessItem.target_table);
+    const sourceKey = inferSourceFromTargetTable(freshnessItem.target_table, datasetKey);
     latestItems.push({
       snapshot_date: (freshnessItem.state_business_date || freshnessItem.latest_business_date || "1970-01-01").slice(0, 10),
       dataset_key: datasetKey,

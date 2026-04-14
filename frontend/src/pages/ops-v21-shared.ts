@@ -43,12 +43,14 @@ export function buildFreshnessDisplayNameMap(freshness?: OpsFreshnessResponse): 
   return map;
 }
 
-function inferSourceFromTargetTable(targetTable: string | null | undefined): string | null {
+function inferSourceFromTargetTable(
+  targetTable: string | null | undefined,
+  datasetKey: string,
+): "tushare" | "biying" {
+  if (datasetKey.startsWith("biying_")) return "biying";
   const table = (targetTable || "").toLowerCase();
   if (table.startsWith("raw_biying.")) return "biying";
-  if (table.startsWith("raw_tushare.")) return "tushare";
-  if (table.startsWith("raw.")) return "tushare";
-  return null;
+  return "tushare";
 }
 
 function toSyntheticSnapshotFromFreshness(
@@ -67,7 +69,7 @@ function toSyntheticSnapshotFromFreshness(
   return {
     snapshot_date: (item.state_business_date || item.latest_business_date || item.last_sync_date || "1970-01-01").slice(0, 10),
     dataset_key: item.dataset_key,
-    source_key: inferSourceFromTargetTable(item.target_table),
+    source_key: inferSourceFromTargetTable(item.target_table, item.dataset_key),
     stage,
     status,
     rows_in: null,
