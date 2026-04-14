@@ -6,7 +6,7 @@ import type { LayerSnapshotLatestResponse, OpsFreshnessResponse } from "../share
 import { formatDateTimeLabel } from "../shared/date-format";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { buildFreshnessDisplayNameMap, groupDatasetSummaries } from "./ops-v21-shared";
+import { groupDatasetSummariesWithFreshnessFallback } from "./ops-v21-shared";
 
 
 function cardTone(status: "healthy" | "warning" | "failed" | "unknown") {
@@ -47,8 +47,7 @@ export function OpsV21OverviewPage() {
   const isLoading = freshnessQuery.isLoading || latestQuery.isLoading;
   const error = freshnessQuery.error || latestQuery.error;
 
-  const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
-  const summaries = groupDatasetSummaries(latestQuery.data?.items || [], displayNameMap);
+  const summaries = groupDatasetSummariesWithFreshnessFallback(latestQuery.data?.items || [], freshnessQuery.data);
 
   return (
     <Stack gap="lg">
@@ -63,6 +62,12 @@ export function OpsV21OverviewPage() {
           </Alert>
         ) : null}
       </SectionCard>
+
+      {!isLoading && !error && summaries.length === 0 ? (
+        <Alert color="blue" title="暂无数据状态快照">
+          当前还没有可展示的数据状态记录。先执行一次相关同步任务，页面会自动出现卡片。
+        </Alert>
+      ) : null}
 
       <Grid>
         {summaries.map((item) => (

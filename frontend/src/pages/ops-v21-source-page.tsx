@@ -6,7 +6,7 @@ import type { LayerSnapshotLatestResponse, OpsFreshnessResponse } from "../share
 import { formatDateTimeLabel } from "../shared/date-format";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { buildFreshnessDisplayNameMap, groupDatasetSummaries } from "./ops-v21-shared";
+import { groupDatasetSummariesWithFreshnessFallback } from "./ops-v21-shared";
 
 
 function cardTone(status: "healthy" | "warning" | "failed" | "unknown") {
@@ -46,8 +46,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: "tushare" | 
 
   const isLoading = freshnessQuery.isLoading || latestQuery.isLoading;
   const error = freshnessQuery.error || latestQuery.error;
-  const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
-  const summaries = groupDatasetSummaries(latestQuery.data?.items || [], displayNameMap);
+  const summaries = groupDatasetSummariesWithFreshnessFallback(latestQuery.data?.items || [], freshnessQuery.data)
+    .filter((item) => item.sourceKeys.includes(sourceKey));
 
   return (
     <Stack gap="lg">
@@ -62,6 +62,12 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: "tushare" | 
           </Alert>
         ) : null}
       </SectionCard>
+
+      {!isLoading && !error && summaries.length === 0 ? (
+        <Alert color="blue" title={`暂无 ${title} 数据`}>
+          当前没有可展示的来源快照记录。先运行该来源的数据同步任务，再回来查看。
+        </Alert>
+      ) : null}
 
       <Grid>
         {summaries.map((item) => (

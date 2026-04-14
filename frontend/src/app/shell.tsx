@@ -19,6 +19,7 @@ import {
   IconPlayerPlay,
   IconShieldLock,
   IconSparkles,
+  IconStack2,
   IconTopologyRing3,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
@@ -30,7 +31,7 @@ const opsV21Links = [
   { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
 ];
 
-const opsV21DatasetLinks = [
+const opsV21SourceLinks = [
   { to: "/ops/v21/datasets/tushare", label: "Tushare", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/biying", label: "Biying", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/tasks", label: "任务中心", icon: IconListDetails },
@@ -121,8 +122,11 @@ export function OpsShell(_props: PropsWithChildren) {
                 color="brand"
               />
             ))}
-            <Text size="xs" c="dimmed" fw={700} px="xs" pt="xs">数据集</Text>
-            {opsV21DatasetLinks.map((link) => (
+            <Group gap={6} px="xs" pt="xs">
+              <IconStack2 size={14} color="var(--mantine-color-brand-6)" />
+              <Text size="xs" c="brand.6" fw={700}>数据源</Text>
+            </Group>
+            {opsV21SourceLinks.map((link) => (
               <NavLink
                 key={link.to}
                 component={Link}

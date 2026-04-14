@@ -43,6 +43,44 @@ export function buildFreshnessDisplayNameMap(freshness?: OpsFreshnessResponse): 
   return map;
 }
 
+function inferSourceFromTargetTable(targetTable: string | null | undefined): string | null {
+  const table = (targetTable || "").toLowerCase();
+  if (table.startsWith("raw_biying.")) return "biying";
+  if (table.startsWith("raw_tushare.")) return "tushare";
+  if (table.startsWith("raw.")) return "tushare";
+  return null;
+}
+
+function toSyntheticSnapshotFromFreshness(
+  item: OpsFreshnessResponse["groups"][number]["items"][number],
+  stage: "raw" | "serving",
+): LayerSnapshotItem {
+  const status =
+    item.freshness_status === "stale"
+      ? "failed"
+      : item.freshness_status === "lagging"
+        ? "warning"
+        : item.freshness_status === "fresh"
+          ? "healthy"
+          : "unknown";
+  const ts = item.last_sync_date || item.recent_failure_at || item.expected_business_date || "1970-01-01T00:00:00Z";
+  return {
+    snapshot_date: (item.state_business_date || item.latest_business_date || item.last_sync_date || "1970-01-01").slice(0, 10),
+    dataset_key: item.dataset_key,
+    source_key: inferSourceFromTargetTable(item.target_table),
+    stage,
+    status,
+    rows_in: null,
+    rows_out: null,
+    error_count: item.recent_failure_at ? 1 : 0,
+    lag_seconds: item.lag_days != null ? item.lag_days * 86400 : null,
+    message: item.freshness_note || item.recent_failure_summary || null,
+    calculated_at: ts,
+    last_success_at: item.last_sync_date || null,
+    last_failure_at: item.recent_failure_at || null,
+  };
+}
+
 export function groupDatasetSummaries(
   items: LayerSnapshotLatestResponse["items"],
   displayNameMap: Record<string, string>,
@@ -79,3 +117,22 @@ export function groupDatasetSummaries(
   });
 }
 
+export function groupDatasetSummariesWithFreshnessFallback(
+  snapshots: LayerSnapshotLatestResponse["items"],
+  freshness?: OpsFreshnessResponse,
+): DatasetStageSummary[] {
+  const displayNameMap = buildFreshnessDisplayNameMap(freshness);
+  const snapshotItems = [...snapshots];
+  const existing = new Set(snapshotItems.map((item) => item.dataset_key));
+
+  for (const group of freshness?.groups || []) {
+    for (const item of group.items || []) {
+      if (existing.has(item.dataset_key)) continue;
+      snapshotItems.push(toSyntheticSnapshotFromFreshness(item, "raw"));
+      snapshotItems.push(toSyntheticSnapshotFromFreshness(item, "serving"));
+      existing.add(item.dataset_key);
+    }
+  }
+
+  return groupDatasetSummaries(snapshotItems, displayNameMap);
+}

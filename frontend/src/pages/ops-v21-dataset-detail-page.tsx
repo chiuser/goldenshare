@@ -28,6 +28,14 @@ function stageTitle(stage: string) {
   return stage;
 }
 
+function inferSourceFromTargetTable(targetTable: string | null | undefined): string | null {
+  const table = (targetTable || "").toLowerCase();
+  if (table.startsWith("raw_biying.")) return "biying";
+  if (table.startsWith("raw_tushare.")) return "tushare";
+  if (table.startsWith("raw.")) return "tushare";
+  return null;
+}
+
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness", "v21-dataset-detail", datasetKey],
@@ -76,7 +84,52 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
   const displayName = displayNameMap[datasetKey] || datasetKey;
-  const latestItems = latestQuery.data?.items || [];
+  const freshnessItem = (freshnessQuery.data?.groups || [])
+    .flatMap((group) => group.items || [])
+    .find((item) => item.dataset_key === datasetKey);
+  const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
+  if (latestItems.length === 0 && freshnessItem) {
+    const fallbackStatus =
+      freshnessItem.freshness_status === "stale"
+        ? "failed"
+        : freshnessItem.freshness_status === "lagging"
+          ? "warning"
+          : freshnessItem.freshness_status === "fresh"
+            ? "healthy"
+            : "unknown";
+    const fallbackTs = freshnessItem.last_sync_date || freshnessItem.recent_failure_at || freshnessItem.expected_business_date || "1970-01-01T00:00:00Z";
+    const sourceKey = inferSourceFromTargetTable(freshnessItem.target_table);
+    latestItems.push({
+      snapshot_date: (freshnessItem.state_business_date || freshnessItem.latest_business_date || "1970-01-01").slice(0, 10),
+      dataset_key: datasetKey,
+      source_key: sourceKey,
+      stage: "raw",
+      status: fallbackStatus,
+      rows_in: null,
+      rows_out: null,
+      error_count: freshnessItem.recent_failure_at ? 1 : 0,
+      lag_seconds: freshnessItem.lag_days != null ? freshnessItem.lag_days * 86400 : null,
+      message: freshnessItem.freshness_note || freshnessItem.recent_failure_summary || null,
+      calculated_at: fallbackTs,
+      last_success_at: freshnessItem.last_sync_date || null,
+      last_failure_at: freshnessItem.recent_failure_at || null,
+    });
+    latestItems.push({
+      snapshot_date: (freshnessItem.state_business_date || freshnessItem.latest_business_date || "1970-01-01").slice(0, 10),
+      dataset_key: datasetKey,
+      source_key: sourceKey,
+      stage: "serving",
+      status: fallbackStatus,
+      rows_in: null,
+      rows_out: null,
+      error_count: freshnessItem.recent_failure_at ? 1 : 0,
+      lag_seconds: freshnessItem.lag_days != null ? freshnessItem.lag_days * 86400 : null,
+      message: freshnessItem.freshness_note || freshnessItem.recent_failure_summary || null,
+      calculated_at: fallbackTs,
+      last_success_at: freshnessItem.last_sync_date || null,
+      last_failure_at: freshnessItem.recent_failure_at || null,
+    });
+  }
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
   const executionItems = executionQuery.data?.items || [];
   const recentExecution = executionItems[0];
@@ -119,6 +172,11 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       {error ? (
         <Alert color="red" title="读取数据集详情失败">
           {error instanceof Error ? error.message : "未知错误"}
+        </Alert>
+      ) : null}
+      {!isLoading && !error && latestItems.length === 0 && executionItems.length === 0 ? (
+        <Alert color="blue" title="该数据集暂无可展示记录">
+          还没有该数据集的层级快照与执行记录。先执行一次同步任务后再查看详情。
         </Alert>
       ) : null}
 
@@ -283,4 +341,3 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     </Stack>
   );
 }
-
