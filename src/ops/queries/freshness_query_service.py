@@ -55,6 +55,7 @@ from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
 from src.operations.specs import (
     DatasetFreshnessSpec,
+    get_dataset_freshness_spec,
     get_dataset_freshness_spec_by_job_name,
     get_workflow_spec,
     list_dataset_freshness_specs,
@@ -657,35 +658,38 @@ class OpsFreshnessQueryService:
             rows = list(session.scalars(select(DatasetStatusSnapshot).order_by(DatasetStatusSnapshot.domain_key, DatasetStatusSnapshot.display_name)))
             if not rows:
                 return None
-            items = [
-                DatasetFreshnessItem(
-                    dataset_key=row.dataset_key,
-                    resource_key=row.resource_key,
-                    display_name=row.display_name,
-                    domain_key=row.domain_key,
-                    domain_display_name=row.domain_display_name,
-                    job_name=row.job_name,
-                    target_table=row.target_table,
-                    cadence=row.cadence,
-                    state_business_date=row.state_business_date,
-                    earliest_business_date=row.earliest_business_date,
-                    observed_business_date=row.observed_business_date,
-                    latest_business_date=row.latest_business_date,
-                    business_date_source=row.business_date_source,
-                    freshness_note=row.freshness_note,
-                    latest_success_at=row.latest_success_at,
-                    last_sync_date=row.last_sync_date,
-                    expected_business_date=row.expected_business_date,
-                    lag_days=row.lag_days,
-                    freshness_status=row.freshness_status,
-                    recent_failure_message=row.recent_failure_message,
-                    recent_failure_summary=row.recent_failure_summary,
-                    recent_failure_at=row.recent_failure_at,
-                    primary_execution_spec_key=row.primary_execution_spec_key,
-                    full_sync_done=row.full_sync_done,
+            items: list[DatasetFreshnessItem] = []
+            for row in rows:
+                spec = get_dataset_freshness_spec(row.resource_key)
+                items.append(
+                    DatasetFreshnessItem(
+                        dataset_key=row.dataset_key,
+                        resource_key=row.resource_key,
+                        display_name=row.display_name,
+                        domain_key=row.domain_key,
+                        domain_display_name=row.domain_display_name,
+                        job_name=row.job_name,
+                        target_table=row.target_table,
+                        raw_table=spec.raw_table if spec is not None else None,
+                        cadence=row.cadence,
+                        state_business_date=row.state_business_date,
+                        earliest_business_date=row.earliest_business_date,
+                        observed_business_date=row.observed_business_date,
+                        latest_business_date=row.latest_business_date,
+                        business_date_source=row.business_date_source,
+                        freshness_note=row.freshness_note,
+                        latest_success_at=row.latest_success_at,
+                        last_sync_date=row.last_sync_date,
+                        expected_business_date=row.expected_business_date,
+                        lag_days=row.lag_days,
+                        freshness_status=row.freshness_status,
+                        recent_failure_message=row.recent_failure_message,
+                        recent_failure_summary=row.recent_failure_summary,
+                        recent_failure_at=row.recent_failure_at,
+                        primary_execution_spec_key=row.primary_execution_spec_key,
+                        full_sync_done=row.full_sync_done,
+                    )
                 )
-                for row in rows
-            ]
             groups = OpsFreshnessQueryService._group_items(items)
             summary = OpsFreshnessQueryService._build_summary(items)
             return OpsFreshnessResponse(summary=summary, groups=groups)
