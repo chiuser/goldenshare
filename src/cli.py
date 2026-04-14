@@ -19,6 +19,7 @@ from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import (
     DailyHealthReportService,
+    DefaultSingleSourceSeedService,
     DatasetStatusSnapshotService,
     OperationsExecutionReconciliationService,
     StockBasicReconcileService,
@@ -342,6 +343,27 @@ def reconcile_stock_basic(
         for check in failed_checks:
             typer.echo(f" - {check}")
         raise typer.Exit(code=1)
+
+
+@app.command("ops-seed-default-single-source")
+def ops_seed_default_single_source(
+    source_key: str = typer.Option("tushare", "--source-key", help="默认来源键（例如 tushare）。"),
+    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
+) -> None:
+    with SessionLocal() as session:
+        report = DefaultSingleSourceSeedService().run(
+            session,
+            source_key=source_key,
+            dry_run=not apply,
+        )
+
+    mode = "apply" if apply else "dry-run"
+    typer.echo(f"ops-seed-default-single-source [{mode}] source={report.source_key}")
+    typer.echo(f"dataset_total={report.dataset_total}")
+    typer.echo(f"created_mapping_rules={report.created_mapping_rules}")
+    typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
+    typer.echo(f"created_resolution_policies={report.created_resolution_policies}")
+    typer.echo(f"created_source_statuses={report.created_source_statuses}")
 
 
 @app.command("backfill-trade-cal")
