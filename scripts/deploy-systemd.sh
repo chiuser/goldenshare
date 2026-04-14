@@ -19,6 +19,8 @@ usage() {
   --platform-only         仅发布 platform(web)
   --ops-only              仅发布 ops(scheduler)
   --foundation-only       仅发布 foundation(worker)
+  --seed-default-source   发版时执行默认单源规则初始化（写入库）
+  --seed-source <key>     初始化使用的数据源（默认 tushare）
   --skip-build            跳过前端构建
   --skip-migration        跳过数据库迁移
   --full                  全量发布（默认）
@@ -27,6 +29,7 @@ usage() {
 示例:
   bash scripts/deploy-systemd.sh dev-interface --platform-only
   bash scripts/deploy-systemd.sh --branch dev-interface --skip-build
+  bash scripts/deploy-systemd.sh dev-interface --seed-default-source --seed-source tushare
 EOF
 }
 
@@ -36,6 +39,8 @@ export DEPLOY_OPS="${DEPLOY_OPS:-1}"
 export DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
+export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-0}"
+export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
   BRANCH="$1"
@@ -66,6 +71,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       export RUN_FRONTEND_BUILD=0
+      ;;
+    --seed-default-source)
+      export RUN_DEFAULT_SINGLE_SOURCE_SEED=1
+      ;;
+    --seed-source)
+      shift
+      [[ $# -gt 0 ]] || { echo "缺少 --seed-source 参数值"; exit 1; }
+      export DEFAULT_SINGLE_SOURCE_SEED_KEY="$1"
       ;;
     --skip-migration)
       export RUN_DB_MIGRATION=0

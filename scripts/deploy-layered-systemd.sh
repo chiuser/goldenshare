@@ -15,6 +15,8 @@ DEPLOY_OPS="${DEPLOY_OPS:-1}"
 DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
+RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-0}"
+DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -115,35 +117,45 @@ main() {
 
   cd "${REPO_DIR}"
 
-  log "1/9 拉取代码"
+  log "1/10 拉取代码"
   git fetch --all --prune
   git checkout "${BRANCH}"
   git pull --ff-only origin "${BRANCH}"
 
-  log "2/9 安装后端依赖"
+  log "2/10 安装后端依赖"
   .venv/bin/pip install -e ".[dev]"
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
-    log "3/9 构建前端"
+    log "3/10 构建前端"
     cd "${REPO_DIR}/frontend"
     npm ci
     npm run build
     cd "${REPO_DIR}"
   else
-    log "3/9 跳过前端构建（RUN_FRONTEND_BUILD=0）"
+    log "3/10 跳过前端构建（RUN_FRONTEND_BUILD=0）"
   fi
 
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
-    log "4/9 执行数据库迁移"
+    log "4/10 执行数据库迁移"
     set -a
     source "${ENV_FILE}"
     set +a
     .venv/bin/goldenshare init-db
   else
-    log "4/9 跳过数据库迁移（RUN_DB_MIGRATION=0）"
+    log "4/10 跳过数据库迁移（RUN_DB_MIGRATION=0）"
   fi
 
-  log "5/9 重新加载 systemd 配置"
+  if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
+    log "5/10 初始化默认单源规则（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
+    set -a
+    source "${ENV_FILE}"
+    set +a
+    .venv/bin/goldenshare ops-seed-default-single-source --apply --source-key "${DEFAULT_SINGLE_SOURCE_SEED_KEY}"
+  else
+    log "5/10 跳过默认单源规则初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
+  fi
+
+  log "6/10 重新加载 systemd 配置"
   sudo_systemctl daemon-reload
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
@@ -164,17 +176,17 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
-  log "6/9 Foundation 自检"
+  log "7/10 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
-  log "7/9 Ops 自检"
+  log "8/10 Ops 自检"
   .venv/bin/goldenshare ops-reconcile-executions --stale-for-minutes 30 >/dev/null
 
-  log "8/9 Platform 健康检查"
+  log "9/10 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
-  log "9/9 服务状态"
+  log "10/10 服务状态"
   sudo_systemctl status "${WEB_SERVICE}" || true
   sudo_systemctl status "${WORKER_SERVICE}" || true
   sudo_systemctl status "${SCHEDULER_SERVICE}" || true
