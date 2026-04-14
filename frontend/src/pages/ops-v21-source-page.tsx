@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Switch, Text } from "@mantine/core";
+import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Switch, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
@@ -22,6 +22,7 @@ interface SourceCardItem {
   dateRangeText: string;
   primaryExecutionSpecKey: string | null;
   autoEnabled: boolean;
+  autoTooltip: string;
 }
 
 function inferSource(datasetKey: string, targetTable: string): SourceKey {
@@ -38,29 +39,18 @@ function toCardStatus(rawStatus: string | null | undefined): CardStatus {
   return "unknown";
 }
 
-function cardTone(status: CardStatus) {
-  if (status === "healthy") {
-    return {
-      border: "1px solid rgba(16,185,129,0.42)",
-      background: "linear-gradient(180deg, rgba(34,197,94,0.35) 0%, rgba(16,185,129,0.16) 70%, rgba(16,185,129,0.08) 100%)",
-    };
-  }
-  if (status === "failed") {
-    return {
-      border: "1px solid rgba(244,63,94,0.42)",
-      background: "linear-gradient(180deg, rgba(244,63,94,0.30) 0%, rgba(244,63,94,0.15) 70%, rgba(244,63,94,0.08) 100%)",
-    };
-  }
-  if (status === "warning") {
-    return {
-      border: "1px solid rgba(245,158,11,0.42)",
-      background: "linear-gradient(180deg, rgba(245,158,11,0.30) 0%, rgba(245,158,11,0.15) 70%, rgba(245,158,11,0.08) 100%)",
-    };
-  }
-  return {
-    border: "1px solid rgba(148,163,184,0.35)",
-    background: "linear-gradient(180deg, rgba(148,163,184,0.22) 0%, rgba(148,163,184,0.12) 70%, rgba(148,163,184,0.07) 100%)",
-  };
+function statusDotColor(status: CardStatus) {
+  if (status === "healthy") return "rgb(34, 197, 94)";
+  if (status === "failed") return "rgb(244, 63, 94)";
+  if (status === "warning") return "rgb(245, 158, 11)";
+  return "rgb(148, 163, 184)";
+}
+
+function statusTag(status: CardStatus): { text: string; color: string } {
+  if (status === "healthy") return { text: "成功", color: "green" };
+  if (status === "failed") return { text: "失败", color: "red" };
+  if (status === "warning") return { text: "滞后", color: "yellow" };
+  return { text: "未知", color: "gray" };
 }
 
 function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"][number]): string {
@@ -114,6 +104,10 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
             dateRangeText: buildDateRangeText(item),
             primaryExecutionSpecKey: item.primary_execution_spec_key,
             autoEnabled: item.auto_schedule_active > 0,
+            autoTooltip:
+              item.auto_schedule_total > 0
+                ? `已配置自动任务 ${item.auto_schedule_active}/${item.auto_schedule_total} 条，下一次：${item.auto_schedule_next_run_at ? formatDateTimeLabel(item.auto_schedule_next_run_at) : "待计算"}`
+                : "未配置自动任务",
           };
         }),
     )
@@ -151,25 +145,54 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         const [, groupDisplayName] = groupKey.split("::");
         return (
           <SectionCard key={groupKey} title={groupDisplayName} description={`共 ${items.length} 个数据集`}>
-            <SimpleGrid cols={{ base: 1, md: 2, lg: 3, xl: 5 }} spacing="md" verticalSpacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing="md" verticalSpacing="md">
               {items.map((item) => (
-                <Paper key={item.datasetKey} radius="md" p="md" style={{ ...cardTone(item.status), height: 260, minHeight: 260 }}>
-                  <Stack gap={8} h="100%">
-                    <Group justify="space-between" align="flex-start">
-                      <Text fw={800} size="lg" lineClamp={1}>{item.displayName}</Text>
-                      <Switch checked={item.autoEnabled} onChange={() => undefined} size="md" />
+                <Paper
+                  key={item.datasetKey}
+                  radius="md"
+                  p="md"
+                  style={{
+                    border: "1px solid rgba(15, 23, 42, 0.18)",
+                    background: "rgba(148, 163, 184, 0.12)",
+                    minHeight: 228,
+                  }}
+                >
+                  <Stack gap={10} h="100%">
+                    <Group justify="space-between" align="center">
+                      <Stack gap={2}>
+                        <Group gap={8} align="center">
+                          <Box
+                            w={9}
+                            h={9}
+                            style={{ borderRadius: "50%", background: statusDotColor(item.status), flex: "0 0 auto" }}
+                          />
+                          <Text fw={700} size="sm" lineClamp={1}>
+                            {item.displayName}
+                          </Text>
+                        </Group>
+                        <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
+                          数据表：{item.rawTableLabel}
+                        </Text>
+                      </Stack>
+                      <Switch checked={item.autoEnabled} onChange={() => undefined} size="sm" />
                     </Group>
-                    <Text size="xs" c="dimmed">{item.datasetKey}</Text>
 
-                    <Stack gap={2}>
-                      <Text size="sm">数据表：{item.rawTableLabel}</Text>
-                      <Text size="sm">最近同步时间：{item.recentSyncAt ? formatDateTimeLabel(item.recentSyncAt) : "—"}</Text>
-                      <Text size="sm">最近同步状态：{item.recentSyncResult}</Text>
+                    <Stack gap={6}>
+                      <Group gap={6} wrap="wrap">
+                        <Text size="sm">最近同步：{item.recentSyncAt ? formatDateTimeLabel(item.recentSyncAt) : "—"}</Text>
+                        <Badge size="xs" variant="light" color={statusTag(item.status).color}>
+                          {statusTag(item.status).text}
+                        </Badge>
+                      </Group>
                       <Text size="sm">时间范围：{item.dateRangeText}</Text>
                     </Stack>
 
                     <Group justify="space-between" mt="auto">
-                      <Badge variant="light" color="orange">自动</Badge>
+                      <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
+                        <Badge variant="light" color={item.autoEnabled ? "orange" : "gray"}>
+                          {item.autoEnabled ? "自动" : "未配置"}
+                        </Badge>
+                      </Tooltip>
                       {item.status !== "healthy" ? (
                         <Button
                           component="a"

@@ -122,9 +122,9 @@ export function OpsShell(_props: PropsWithChildren) {
                 color="brand"
               />
             ))}
-            <Group gap={6} px="xs" pt="xs">
-              <IconStack2 size={14} color="var(--mantine-color-brand-6)" />
-              <Text size="xs" c="brand.6" fw={700}>数据源</Text>
+            <Group gap={8} px="xs" pt="xs">
+              <IconStack2 size={18} color="var(--mantine-color-brand-6)" />
+              <Text size="sm" c="brand.6" fw={800}>数据源</Text>
             </Group>
             {opsV21SourceLinks.map((link) => (
               <NavLink
