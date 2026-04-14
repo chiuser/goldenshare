@@ -17,5 +17,6 @@ class DatasetFreshnessSpec:
     domain_display_name: str
     target_table: str
     cadence: DatasetCadence
+    raw_table: str | None = None
     observed_date_column: str | None = None
     primary_execution_spec_key: str | None = None

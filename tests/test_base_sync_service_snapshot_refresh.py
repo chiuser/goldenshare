@@ -83,3 +83,22 @@ def test_sync_service_stops_immediately_when_execution_already_canceled(mocker) 
     assert finish_log.call_args.args[1] == "CANCELED"
     session.rollback.assert_called_once()
     session.commit.assert_called_once()
+
+
+def test_sync_service_blocks_legacy_raw_schema_routes(mocker) -> None:
+    session = mocker.Mock()
+    fake_dao = _build_fake_dao()
+    fake_dao.raw_daily = SimpleNamespace(
+        model=SimpleNamespace(
+            __table__=SimpleNamespace(schema="raw"),
+        )
+    )
+    mocker.patch("src.foundation.services.sync.base_sync_service.DAOFactory", return_value=fake_dao)
+
+    try:
+        _DummySyncService(session)
+    except RuntimeError as exc:
+        assert "legacy raw schema route" in str(exc)
+        assert "raw_daily" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Expected RuntimeError")

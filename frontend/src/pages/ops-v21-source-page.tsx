@@ -26,8 +26,9 @@ interface SourceCardItem {
   autoTooltip: string;
 }
 
-function inferSource(datasetKey: string, targetTable: string): SourceKey {
-  if (datasetKey.startsWith("biying_")) return "biying";
+function inferSource(datasetKey: string, rawTable: string | null, targetTable: string): SourceKey {
+    if (datasetKey.startsWith("biying_")) return "biying";
+  if ((rawTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
   if ((targetTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
   return "tushare";
 }
@@ -96,7 +97,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const cards: SourceCardItem[] = (freshnessQuery.data?.groups || [])
     .flatMap((group) =>
       group.items
-        .filter((item) => inferSource(item.dataset_key, item.target_table) === sourceKey)
+        .filter((item) => inferSource(item.dataset_key, item.raw_table, item.target_table) === sourceKey)
+        .filter((item) => Boolean(item.raw_table))
         .map((item) => {
           const rawLatest = rawLatestByDataset.get(item.dataset_key);
           const status = toCardStatus(rawLatest?.status || item.freshness_status);
@@ -105,10 +107,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
             displayName: formatResourceLabel(item.dataset_key),
             domainKey: group.domain_key,
             domainDisplayName: group.domain_display_name,
-            rawTableLabel:
-              sourceKey === "tushare"
-                ? `raw_tushare.${item.dataset_key}`
-                : `raw_biying.${item.dataset_key.replace(/^biying_/, "")}`,
+            rawTableLabel: item.raw_table || "—",
             status,
             recentSyncAt: rawLatest?.calculated_at || (item.latest_success_at ? item.latest_success_at : null),
             recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",

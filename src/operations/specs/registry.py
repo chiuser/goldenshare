@@ -813,6 +813,28 @@ def _primary_execution_spec_key_for_resource(resource: str) -> str | None:
         return sync_history_key
     return None
 
+
+def _raw_table_for_resource(resource: str) -> str | None:
+    if resource == "equity_price_restore_factor":
+        return None
+    if resource == "equity_indicators":
+        return None
+    if resource == "stk_period_bar_week" or resource == "stk_period_bar_month":
+        return "raw_tushare.stk_period_bar"
+    if resource == "stk_period_bar_adj_week" or resource == "stk_period_bar_adj_month":
+        return "raw_tushare.stk_period_bar_adj"
+    if resource == "index_weekly":
+        return "raw_tushare.index_weekly_bar"
+    if resource == "index_monthly":
+        return "raw_tushare.index_monthly_bar"
+    if resource == "limit_list_d":
+        return "raw_tushare.limit_list"
+    if resource == "stk_holdernumber":
+        return "raw_tushare.holdernumber"
+    if resource.startswith("biying_"):
+        return f"raw_biying.{resource.removeprefix('biying_')}"
+    return f"raw_tushare.{resource}"
+
 for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
     if _resource not in DATASET_FRESHNESS_METADATA:
         continue
@@ -826,6 +848,7 @@ for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
         domain_display_name=_domain_display_name,
         target_table=_service_cls.target_table,
         cadence=_cadence,  # type: ignore[arg-type]
+        raw_table=_raw_table_for_resource(_resource),
         observed_date_column=_observed_date_column,
         primary_execution_spec_key=_primary_execution_spec_key_for_resource(_resource),
     )

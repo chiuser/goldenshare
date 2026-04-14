@@ -330,6 +330,7 @@ class OpsFreshnessQueryService:
             domain_display_name=spec.domain_display_name,
             job_name=spec.job_name,
             target_table=spec.target_table,
+            raw_table=spec.raw_table,
             cadence=spec.cadence,
             state_business_date=state_business_date,
             earliest_business_date=earliest_business_date,

@@ -13,6 +13,7 @@ class DatasetFreshnessItem(BaseModel):
     domain_display_name: str
     job_name: str
     target_table: str
+    raw_table: str | None = None
     cadence: str
     state_business_date: date | None = None
     earliest_business_date: date | None = None

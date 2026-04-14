@@ -133,6 +133,7 @@ export interface OpsFreshnessResponse {
       display_name: string;
       cadence: string;
       target_table: string;
+      raw_table: string | null;
       state_business_date: string | null;
       earliest_business_date: string | null;
       observed_business_date: string | null;

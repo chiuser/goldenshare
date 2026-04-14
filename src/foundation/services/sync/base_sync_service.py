@@ -22,6 +22,7 @@ class BaseSyncService(ABC):
         self.session = session
         self.dao = DAOFactory(session)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self._assert_no_legacy_raw_schema_route()
 
     def run_full(self, **kwargs: Any) -> SyncResult:
         return self._run("FULL", **kwargs)
@@ -69,6 +70,30 @@ class BaseSyncService(ABC):
         ).scalar_one_or_none()
         if isinstance(cancel_requested_at, datetime):
             raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
+
+    def _assert_no_legacy_raw_schema_route(self) -> None:
+        """
+        发布闸门：除 BIYING 专属 raw 路由外，任何 raw DAO 若仍指向 legacy `raw` schema，
+        直接阻断任务执行，避免切换后再次写回旧表。
+        """
+        offenders: list[str] = []
+        for attr_name in dir(self.dao):
+            if not attr_name.startswith("raw_"):
+                continue
+            if attr_name.startswith("raw_biying_"):
+                continue
+            dao_obj = getattr(self.dao, attr_name, None)
+            model = getattr(dao_obj, "model", None)
+            table = getattr(model, "__table__", None)
+            schema = getattr(table, "schema", None)
+            if schema == "raw":
+                offenders.append(attr_name)
+        if offenders:
+            joined = ", ".join(sorted(offenders))
+            raise RuntimeError(
+                "Detected legacy raw schema route(s): "
+                f"{joined}. Please migrate these routes to raw_tushare before running sync jobs."
+            )
 
     @abstractmethod
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
