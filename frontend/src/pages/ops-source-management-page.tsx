@@ -1,29 +1,206 @@
-import { Stack, Text, ThemeIcon } from "@mantine/core";
-import { IconDatabaseCog } from "@tabler/icons-react";
+import { Alert, Badge, Grid, Group, Loader, Stack, Table, Text } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
 
-import { EmptyState } from "../shared/ui/empty-state";
+import { apiRequest } from "../shared/api/client";
+import type {
+  SourceManagementBridgeResponse,
+} from "../shared/api/types";
+import { formatDateTimeLabel } from "../shared/date-format";
+import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
+import { StatCard } from "../shared/ui/stat-card";
+import { StatusBadge } from "../shared/ui/status-badge";
 
 export function OpsSourceManagementPage() {
+  const bridgeQuery = useQuery({
+    queryKey: ["ops", "source-management-bridge"],
+    queryFn: () => apiRequest<SourceManagementBridgeResponse>("/api/v1/ops/source-management/bridge"),
+  });
+  const loading = bridgeQuery.isLoading;
+  const error = bridgeQuery.error;
+
+  const summary = bridgeQuery.data?.summary;
+  const probeItems = bridgeQuery.data?.probe_rules ?? [];
+  const releaseItems = bridgeQuery.data?.releases ?? [];
+  const mappingItems = bridgeQuery.data?.std_mapping_rules ?? [];
+  const cleansingItems = bridgeQuery.data?.std_cleansing_rules ?? [];
+  const latestItems = bridgeQuery.data?.layer_latest ?? [];
+
+  const stageList = ["raw", "std", "resolution", "serving"];
+  const stageLabelMap: Record<string, string> = {
+    raw: "原始层",
+    std: "标准层",
+    resolution: "融合层",
+    serving: "服务层",
+  };
+
   return (
     <Stack gap="lg">
       <SectionCard
         title="数据源管理（新版）"
-        description="这是新版多源运维页面的入口。当前阶段先用于承接 BIYING 数据源任务，旧版页面继续可用。"
+        description="这个页面先作为新版能力桥接看板：在不改动旧页面流程的前提下，承接多源模型的核心对象。"
       >
-        <EmptyState
-          title="功能建设中"
-          description="新版数据源管理将逐步迁移：先接入数据源状态与任务入口，再扩展融合策略和发布控制。"
-          action={
-            <ThemeIcon variant="light" color="brand" size={36} radius="xl">
-              <IconDatabaseCog size={20} />
-            </ThemeIcon>
-          }
-        />
-        <Text size="sm" c="dimmed" mt="md">
-          当前请继续在“手动同步 / 任务记录”页面执行与查看 BIYING 日线同步任务。
-        </Text>
+        {loading ? <Loader size="sm" /> : null}
+        {error ? (
+          <Alert color="red" title="读取新版能力数据失败">
+            {error instanceof Error ? error.message : "未知错误"}
+          </Alert>
+        ) : null}
+
+        {!loading && !error ? (
+          <>
+            <Grid mb="md">
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="探测规则（启用）" value={`${summary?.probe_active ?? 0}/${summary?.probe_total ?? 0}`} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="发布任务（运行中）" value={summary?.release_running ?? 0} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="标准化规则（启用）" value={`${(summary?.std_mapping_active ?? 0) + (summary?.std_cleansing_active ?? 0)}`} />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+                <StatCard label="分层快照失败项" value={summary?.layer_latest_failed ?? 0} />
+              </Grid.Col>
+            </Grid>
+
+            <Text c="dimmed" size="sm">
+              当前是桥接阶段，只做查询可视化，不做复杂写操作入口。后续 UI 重构时会把探测、发布、规则编辑拆分成独立工作区。
+            </Text>
+          </>
+        ) : null}
       </SectionCard>
+
+      <SectionCard title="分层快照（Latest）" description="按 dataset/source/stage 去重后的最新状态，用来快速判断多源链路卡在哪一层。">
+        <OpsTable>
+          <Table.Thead>
+            <Table.Tr>
+              <OpsTableHeaderCell align="left" width="24%">数据集 / 来源</OpsTableHeaderCell>
+              <OpsTableHeaderCell width="14%">层级</OpsTableHeaderCell>
+              <OpsTableHeaderCell width="14%">状态</OpsTableHeaderCell>
+              <OpsTableHeaderCell width="14%">记录数</OpsTableHeaderCell>
+              <OpsTableHeaderCell align="left" width="16%">快照日期</OpsTableHeaderCell>
+              <OpsTableHeaderCell align="left" width="18%">最近计算</OpsTableHeaderCell>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {latestItems.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={6}>
+                  <OpsTableCellText c="dimmed">暂无数据</OpsTableCellText>
+                </Table.Td>
+              </Table.Tr>
+            ) : latestItems.slice(0, 30).map((item, index) => (
+              <Table.Tr key={`${item.dataset_key}-${item.source_key ?? "none"}-${item.stage}-${index}`}>
+                <OpsTableCell align="left" width="24%">
+                  <Stack gap={2}>
+                    <OpsTableCellText fw={600} size="sm">{item.dataset_key}</OpsTableCellText>
+                    <OpsTableCellText size="xs" c="dimmed">{item.source_key || "未指定来源"}</OpsTableCellText>
+                  </Stack>
+                </OpsTableCell>
+                <OpsTableCell width="14%">
+                  <Badge size="sm" variant="light" color={stageList.includes(item.stage) ? "brand" : "gray"}>
+                    {stageLabelMap[item.stage] || "未定义层级"}
+                  </Badge>
+                </OpsTableCell>
+                <OpsTableCell width="14%">
+                  <StatusBadge value={item.status} />
+                </OpsTableCell>
+                <OpsTableCell width="14%">
+                  <OpsTableCellText size="xs">{item.rows_out ?? item.rows_in ?? 0}</OpsTableCellText>
+                </OpsTableCell>
+                <OpsTableCell align="left" width="16%">
+                  <OpsTableCellText size="xs">{item.snapshot_date}</OpsTableCellText>
+                </OpsTableCell>
+                <OpsTableCell align="left" width="18%">
+                  <OpsTableCellText size="xs">{formatDateTimeLabel(item.calculated_at)}</OpsTableCellText>
+                </OpsTableCell>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </OpsTable>
+      </SectionCard>
+
+      <Grid>
+        <Grid.Col span={{ base: 12, xl: 6 }}>
+          <SectionCard title="探测规则（Probe）" description="用于自动探测源数据是否就绪并触发任务。">
+            <Stack gap="xs">
+              {probeItems.slice(0, 8).map((item) => (
+                <Group key={item.id} justify="space-between" wrap="nowrap">
+                  <Stack gap={0}>
+                    <Text size="sm" fw={600}>{item.name}</Text>
+                    <Text size="xs" c="dimmed">{item.dataset_key} · {item.source_key || "未指定来源"}</Text>
+                  </Stack>
+                  <Group gap={8}>
+                    <StatusBadge value={item.status} />
+                    <Text size="xs" c="dimmed">{item.probe_interval_seconds}s</Text>
+                  </Group>
+                </Group>
+              ))}
+              {probeItems.length === 0 ? <Text size="sm" c="dimmed">暂无探测规则</Text> : null}
+            </Stack>
+          </SectionCard>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, xl: 6 }}>
+          <SectionCard title="发布流水（Resolution Release）" description="记录策略发布与回滚过程的执行状态。">
+            <Stack gap="xs">
+              {releaseItems.slice(0, 8).map((item) => (
+                <Group key={item.id} justify="space-between" wrap="nowrap">
+                  <Stack gap={0}>
+                    <Text size="sm" fw={600}>{item.dataset_key} · v{item.target_policy_version}</Text>
+                    <Text size="xs" c="dimmed">{formatDateTimeLabel(item.triggered_at)}</Text>
+                  </Stack>
+                  <StatusBadge value={item.status} />
+                </Group>
+              ))}
+              {releaseItems.length === 0 ? <Text size="sm" c="dimmed">暂无发布记录</Text> : null}
+            </Stack>
+          </SectionCard>
+        </Grid.Col>
+      </Grid>
+
+      <Grid>
+        <Grid.Col span={{ base: 12, xl: 6 }}>
+          <SectionCard title="标准化映射规则（Mapping）" description="字段级映射规则，支撑 raw → std。">
+            <Stack gap="xs">
+              {mappingItems.slice(0, 8).map((item) => (
+                <Group key={item.id} justify="space-between" wrap="nowrap">
+                  <Stack gap={0}>
+                    <Text size="sm" fw={600}>{item.dataset_key} · {item.source_key}</Text>
+                    <Text size="xs" c="dimmed">{item.src_field} → {item.std_field}</Text>
+                  </Stack>
+                  <Group gap={8}>
+                    <Badge size="sm" variant="light" color="gray">v{item.rule_set_version}</Badge>
+                    <StatusBadge value={item.status} />
+                  </Group>
+                </Group>
+              ))}
+              {mappingItems.length === 0 ? <Text size="sm" c="dimmed">暂无映射规则</Text> : null}
+            </Stack>
+          </SectionCard>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, xl: 6 }}>
+          <SectionCard title="标准化清洗规则（Cleansing）" description="数据质量清洗规则，支撑 std 入层前处理。">
+            <Stack gap="xs">
+              {cleansingItems.slice(0, 8).map((item) => (
+                <Group key={item.id} justify="space-between" wrap="nowrap">
+                  <Stack gap={0}>
+                    <Text size="sm" fw={600}>{item.dataset_key} · {item.source_key}</Text>
+                    <Text size="xs" c="dimmed">{item.rule_type} / {item.action}</Text>
+                  </Stack>
+                  <Group gap={8}>
+                    <Badge size="sm" variant="light" color="gray">v{item.rule_set_version}</Badge>
+                    <StatusBadge value={item.status} />
+                  </Group>
+                </Group>
+              ))}
+              {cleansingItems.length === 0 ? <Text size="sm" c="dimmed">暂无清洗规则</Text> : null}
+            </Stack>
+          </SectionCard>
+        </Grid.Col>
+      </Grid>
     </Stack>
   );
 }

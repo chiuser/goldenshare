@@ -26,11 +26,20 @@ import { useDisclosure } from "@mantine/hooks";
 import type { PropsWithChildren } from "react";
 
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
-const opsLinks = [
-  { to: "/ops/data-status", label: "数据状态", icon: IconActivityHeartbeat },
+const opsV21Links = [
+  { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
+];
+
+const opsV21DatasetLinks = [
+  { to: "/ops/v21/datasets/tushare", label: "Tushare", icon: IconTopologyRing3 },
+  { to: "/ops/v21/datasets/biying", label: "Biying", icon: IconTopologyRing3 },
+  { to: "/ops/v21/datasets/tasks", label: "任务中心", icon: IconListDetails },
+];
+
+const opsLegacyLinks = [
+  { to: "/ops/data-status", label: "数据状态", icon: IconGauge },
   { to: "/ops/today", label: "今日运行", icon: IconGauge },
   { to: "/ops/automation", label: "自动运行", icon: IconCalendarTime },
-  { to: "/ops/source-management", label: "数据源管理（新版）", icon: IconTopologyRing3 },
   { to: "/ops/manual-sync", label: "手动同步", icon: IconPlayerPlay },
   { to: "/ops/tasks", label: "任务记录", icon: IconListDetails },
 ];
@@ -96,7 +105,54 @@ export function OpsShell(_props: PropsWithChildren) {
       <AppShell.Navbar p="md">
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap="xs">
-            {opsLinks.map((link) => (
+            <Group justify="space-between" px="xs" pb={2}>
+              <Text size="xs" c="dimmed" fw={700}>V2.1</Text>
+              <Badge size="xs" radius="xl" variant="light" color="brand">新</Badge>
+            </Group>
+            {opsV21Links.map((link) => (
+              <NavLink
+                key={link.to}
+                component={Link}
+                to={link.to}
+                label={link.label}
+                leftSection={<link.icon size={18} />}
+                active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
+                variant="light"
+                color="brand"
+              />
+            ))}
+            <Text size="xs" c="dimmed" fw={700} px="xs" pt="xs">数据集</Text>
+            {opsV21DatasetLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                component={Link}
+                to={link.to}
+                label={link.label}
+                leftSection={<link.icon size={16} />}
+                active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
+                variant="subtle"
+                color="brand"
+                style={{ marginLeft: 10 }}
+              />
+            ))}
+
+            <NavLink
+              label="融合策略中心（即将开放）"
+              leftSection={<IconSparkles size={16} />}
+              disabled
+              variant="subtle"
+              style={{ marginLeft: 10 }}
+            />
+            <NavLink
+              label="发布中心（即将开放）"
+              leftSection={<IconSparkles size={16} />}
+              disabled
+              variant="subtle"
+              style={{ marginLeft: 10 }}
+            />
+
+            <Text size="xs" c="dimmed" fw={700} px="xs" pt="sm" pb={2}>旧版（过渡）</Text>
+            {opsLegacyLinks.map((link) => (
               <NavLink
                 key={link.to}
                 component={Link}

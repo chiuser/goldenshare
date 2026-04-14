@@ -33,6 +33,10 @@ class ExecutionQueryService:
         trigger_source: str | None = None,
         spec_type: str | None = None,
         spec_key: str | None = None,
+        dataset_key: str | None = None,
+        source_key: str | None = None,
+        stage: str | None = None,
+        run_scope: str | None = None,
         schedule_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
@@ -47,6 +51,14 @@ class ExecutionQueryService:
             filters.append(JobExecution.spec_type == spec_type)
         if spec_key:
             filters.append(JobExecution.spec_key == spec_key)
+        if dataset_key:
+            filters.append(JobExecution.dataset_key == dataset_key)
+        if source_key:
+            filters.append(JobExecution.source_key == source_key)
+        if stage:
+            filters.append(JobExecution.stage == stage)
+        if run_scope:
+            filters.append(JobExecution.run_scope == run_scope)
         if schedule_id is not None:
             filters.append(JobExecution.schedule_id == schedule_id)
 
@@ -92,6 +104,11 @@ class ExecutionQueryService:
             schedule_id=execution.schedule_id,
             spec_type=execution.spec_type,
             spec_key=execution.spec_key,
+            dataset_key=execution.dataset_key,
+            source_key=execution.source_key,
+            stage=execution.stage,
+            policy_version=execution.policy_version,
+            run_scope=execution.run_scope,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,
@@ -166,6 +183,11 @@ class ExecutionQueryService:
             id=execution.id,
             spec_type=execution.spec_type,
             spec_key=execution.spec_key,
+            dataset_key=execution.dataset_key,
+            source_key=execution.source_key,
+            stage=execution.stage,
+            policy_version=execution.policy_version,
+            run_scope=execution.run_scope,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,

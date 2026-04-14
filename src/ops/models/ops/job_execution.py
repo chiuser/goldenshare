@@ -14,6 +14,8 @@ class JobExecution(TimestampMixin, Base):
         Index("idx_job_execution_status_requested_at", "status", "requested_at"),
         Index("idx_job_execution_schedule_id_requested_at", "schedule_id", "requested_at"),
         Index("idx_job_execution_spec_requested_at", "spec_type", "spec_key", "requested_at"),
+        Index("idx_job_execution_dataset_requested_at", "dataset_key", "requested_at"),
+        Index("idx_job_execution_source_stage_requested_at", "source_key", "stage", "requested_at"),
         {"schema": "ops"},
     )
 
@@ -21,6 +23,11 @@ class JobExecution(TimestampMixin, Base):
     schedule_id: Mapped[int | None] = mapped_column(BigInteger)
     spec_type: Mapped[str] = mapped_column(String(32), nullable=False)
     spec_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    dataset_key: Mapped[str | None] = mapped_column(String(64))
+    source_key: Mapped[str | None] = mapped_column(String(32))
+    stage: Mapped[str | None] = mapped_column(String(16))
+    policy_version: Mapped[int | None] = mapped_column(Integer)
+    run_scope: Mapped[str | None] = mapped_column(String(32))
     trigger_source: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued", server_default="queued")
     priority: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")

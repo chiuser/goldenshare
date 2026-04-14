@@ -25,7 +25,7 @@ export function LoginPage() {
     onSuccess: async (data) => {
       setErrorText(null);
       setToken(data.token);
-      await navigate({ to: "/ops/data-status" });
+      await navigate({ to: "/ops/v21/overview" });
     },
     onError: (error) => {
       setErrorText(error instanceof Error ? error.message : "登录失败，请稍后重试");

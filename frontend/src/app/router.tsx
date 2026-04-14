@@ -17,6 +17,11 @@ import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
+import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
+import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
+import { OpsV21OverviewPage } from "../pages/ops-v21-overview-page";
+import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
+import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
 import { ShareMarketPage } from "../pages/share-market-page";
 import { OpsShell } from "./shell";
@@ -32,7 +37,7 @@ function HomeRoutePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void navigate({ to: token ? "/ops/data-status" : "/login", replace: true });
+    void navigate({ to: token ? "/ops/v21/overview" : "/login", replace: true });
   }, [navigate, token]);
 
   return (
@@ -144,7 +149,7 @@ function ShareLayout() {
 function OpsIndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    void navigate({ to: "/ops/data-status", replace: true });
+    void navigate({ to: "/ops/v21/overview", replace: true });
   }, [navigate]);
   return (
     <Center mih="100vh">
@@ -264,6 +269,39 @@ const opsSourceManagementRoute = createRoute({
   component: OpsSourceManagementPage,
 });
 
+const opsV21OverviewRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/overview",
+  component: OpsV21OverviewPage,
+});
+
+const opsV21DatasetsTushareRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/datasets/tushare",
+  component: OpsV21TusharePage,
+});
+
+const opsV21DatasetsBiyingRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/datasets/biying",
+  component: OpsV21BiyingPage,
+});
+
+const opsV21DatasetsTasksRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/datasets/tasks",
+  component: OpsV21TaskCenterPage,
+});
+
+const opsV21DatasetDetailRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/datasets/detail/$datasetKey",
+  component: function OpsV21DatasetDetailRouteComponent() {
+    const params = opsV21DatasetDetailRoute.useParams();
+    return <OpsV21DatasetDetailPage datasetKey={params.datasetKey} />;
+  },
+});
+
 const opsLegacyOverviewRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/overview",
@@ -319,6 +357,11 @@ const routeTree = rootRoute.addChildren([
     opsFreshnessRoute,
     opsSchedulesRoute,
     opsSourceManagementRoute,
+    opsV21OverviewRoute,
+    opsV21DatasetsTushareRoute,
+    opsV21DatasetsBiyingRoute,
+    opsV21DatasetsTasksRoute,
+    opsV21DatasetDetailRoute,
     opsManualSyncRoute,
     opsExecutionsRoute,
     opsExecutionDetailRoute,

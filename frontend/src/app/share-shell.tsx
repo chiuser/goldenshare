@@ -86,7 +86,7 @@ export function ShareShell() {
           <Stack gap="xs">
             <NavLink
               component={Link}
-              to="/ops/data-status"
+              to="/ops/v21/overview"
               label="进入运维管理"
               leftSection={<IconSettings size={18} />}
               variant="light"

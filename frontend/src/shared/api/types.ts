@@ -378,3 +378,98 @@ export interface RuntimeTickResponse {
     summary_message: string | null;
   }>;
 }
+
+export interface ProbeRuleListResponse {
+  items: Array<{
+    id: number;
+    name: string;
+    dataset_key: string;
+    source_key: string | null;
+    status: string;
+    probe_interval_seconds: number;
+    last_probed_at: string | null;
+    last_triggered_at: string | null;
+    updated_at: string;
+  }>;
+  total: number;
+}
+
+export interface ResolutionReleaseListResponse {
+  items: Array<{
+    id: number;
+    dataset_key: string;
+    target_policy_version: number;
+    status: string;
+    triggered_by_username: string | null;
+    triggered_at: string;
+    finished_at: string | null;
+    updated_at: string;
+  }>;
+  total: number;
+}
+
+export interface StdMappingRuleListResponse {
+  items: Array<{
+    id: number;
+    dataset_key: string;
+    source_key: string;
+    src_field: string;
+    std_field: string;
+    transform_fn: string | null;
+    status: string;
+    rule_set_version: number;
+    updated_at: string;
+  }>;
+  total: number;
+}
+
+export interface StdCleansingRuleListResponse {
+  items: Array<{
+    id: number;
+    dataset_key: string;
+    source_key: string;
+    rule_type: string;
+    action: string;
+    status: string;
+    rule_set_version: number;
+    updated_at: string;
+  }>;
+  total: number;
+}
+
+export interface LayerSnapshotLatestResponse {
+  items: Array<{
+    snapshot_date: string;
+    dataset_key: string;
+    source_key: string | null;
+    stage: string;
+    status: string;
+    rows_in: number | null;
+    rows_out: number | null;
+    error_count: number | null;
+    lag_seconds: number | null;
+    message: string | null;
+    calculated_at: string;
+  }>;
+  total: number;
+}
+
+export interface SourceManagementBridgeResponse {
+  summary: {
+    probe_total: number;
+    probe_active: number;
+    release_total: number;
+    release_running: number;
+    std_mapping_total: number;
+    std_mapping_active: number;
+    std_cleansing_total: number;
+    std_cleansing_active: number;
+    layer_latest_total: number;
+    layer_latest_failed: number;
+  };
+  probe_rules: ProbeRuleListResponse["items"];
+  releases: ResolutionReleaseListResponse["items"];
+  std_mapping_rules: StdMappingRuleListResponse["items"];
+  std_cleansing_rules: StdCleansingRuleListResponse["items"];
+  layer_latest: LayerSnapshotLatestResponse["items"];
+}

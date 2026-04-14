@@ -17,11 +17,18 @@ from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyS
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.models.ops.probe_run_log import ProbeRunLog
+from src.ops.models.ops.resolution_release import ResolutionRelease
+from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
+from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
+from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
 from src.platform.auth.password_service import PasswordService
@@ -62,6 +69,13 @@ def web_engine(configured_web_env) -> Generator:
         JobExecutionStep.__table__.create(connection)
         JobExecutionEvent.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
+        DatasetLayerSnapshotHistory.__table__.create(connection)
+        ProbeRule.__table__.create(connection)
+        ProbeRunLog.__table__.create(connection)
+        ResolutionRelease.__table__.create(connection)
+        ResolutionReleaseStageStatus.__table__.create(connection)
+        StdMappingRule.__table__.create(connection)
+        StdCleansingRule.__table__.create(connection)
         ConfigRevision.__table__.create(connection)
         SyncJobState.__table__.create(connection)
         SyncRunLog.__table__.create(connection)
@@ -415,5 +429,190 @@ def job_execution_event_factory(db_session: Session) -> Callable[..., JobExecuti
         db_session.commit()
         db_session.refresh(event)
         return event
+
+    return build
+
+
+@pytest.fixture()
+def probe_rule_factory(db_session: Session) -> Callable[..., ProbeRule]:
+    def build(
+        *,
+        name: str = "收盘探测",
+        dataset_key: str = "equity_daily",
+        source_key: str | None = "tushare",
+        status: str = "active",
+        window_start: str | None = "15:30",
+        window_end: str | None = "17:30",
+        probe_interval_seconds: int = 300,
+        probe_condition_json: dict | None = None,
+        on_success_action_json: dict | None = None,
+        max_triggers_per_day: int = 1,
+        timezone_name: str = "Asia/Shanghai",
+        created_by_user_id: int | None = None,
+        updated_by_user_id: int | None = None,
+    ) -> ProbeRule:
+        next_id = (db_session.scalar(select(func.max(ProbeRule.id))) or 0) + 1
+        rule = ProbeRule(
+            id=next_id,
+            name=name,
+            dataset_key=dataset_key,
+            source_key=source_key,
+            status=status,
+            window_start=window_start,
+            window_end=window_end,
+            probe_interval_seconds=probe_interval_seconds,
+            probe_condition_json=probe_condition_json or {},
+            on_success_action_json=on_success_action_json or {},
+            max_triggers_per_day=max_triggers_per_day,
+            timezone_name=timezone_name,
+            created_by_user_id=created_by_user_id,
+            updated_by_user_id=updated_by_user_id,
+        )
+        db_session.add(rule)
+        db_session.commit()
+        db_session.refresh(rule)
+        return rule
+
+    return build
+
+
+@pytest.fixture()
+def probe_run_log_factory(db_session: Session) -> Callable[..., ProbeRunLog]:
+    def build(
+        *,
+        probe_rule_id: int,
+        status: str = "success",
+        condition_matched: bool = True,
+        message: str | None = None,
+        payload_json: dict | None = None,
+        probed_at: datetime | None = None,
+        triggered_execution_id: int | None = None,
+        duration_ms: int | None = None,
+    ) -> ProbeRunLog:
+        next_id = (db_session.scalar(select(func.max(ProbeRunLog.id))) or 0) + 1
+        log = ProbeRunLog(
+            id=next_id,
+            probe_rule_id=probe_rule_id,
+            status=status,
+            condition_matched=condition_matched,
+            message=message,
+            payload_json=payload_json or {},
+            probed_at=probed_at or datetime.now(timezone.utc),
+            triggered_execution_id=triggered_execution_id,
+            duration_ms=duration_ms,
+        )
+        db_session.add(log)
+        db_session.commit()
+        db_session.refresh(log)
+        return log
+
+    return build
+
+
+@pytest.fixture()
+def resolution_release_factory(db_session: Session) -> Callable[..., ResolutionRelease]:
+    def build(
+        *,
+        dataset_key: str = "security_master",
+        target_policy_version: int = 1,
+        status: str = "previewing",
+        triggered_by_user_id: int | None = None,
+        triggered_at: datetime | None = None,
+        finished_at: datetime | None = None,
+        rollback_to_release_id: int | None = None,
+    ) -> ResolutionRelease:
+        next_id = (db_session.scalar(select(func.max(ResolutionRelease.id))) or 0) + 1
+        release = ResolutionRelease(
+            id=next_id,
+            dataset_key=dataset_key,
+            target_policy_version=target_policy_version,
+            status=status,
+            triggered_by_user_id=triggered_by_user_id,
+            triggered_at=triggered_at or datetime.now(timezone.utc),
+            finished_at=finished_at,
+            rollback_to_release_id=rollback_to_release_id,
+        )
+        db_session.add(release)
+        db_session.commit()
+        db_session.refresh(release)
+        return release
+
+    return build
+
+
+@pytest.fixture()
+def resolution_release_stage_status_factory(db_session: Session) -> Callable[..., ResolutionReleaseStageStatus]:
+    def build(
+        *,
+        release_id: int,
+        dataset_key: str = "security_master",
+        source_key: str | None = "tushare",
+        stage: str = "std",
+        status: str = "running",
+        rows_in: int | None = None,
+        rows_out: int | None = None,
+        message: str | None = None,
+        updated_at: datetime | None = None,
+    ) -> ResolutionReleaseStageStatus:
+        next_id = (db_session.scalar(select(func.max(ResolutionReleaseStageStatus.id))) or 0) + 1
+        stage_status = ResolutionReleaseStageStatus(
+            id=next_id,
+            release_id=release_id,
+            dataset_key=dataset_key,
+            source_key=source_key,
+            stage=stage,
+            status=status,
+            rows_in=rows_in,
+            rows_out=rows_out,
+            message=message,
+            updated_at=updated_at or datetime.now(timezone.utc),
+        )
+        db_session.add(stage_status)
+        db_session.commit()
+        db_session.refresh(stage_status)
+        return stage_status
+
+    return build
+
+
+@pytest.fixture()
+def dataset_layer_snapshot_history_factory(db_session: Session) -> Callable[..., DatasetLayerSnapshotHistory]:
+    def build(
+        *,
+        snapshot_date,
+        dataset_key: str = "equity_daily",
+        source_key: str | None = "tushare",
+        stage: str = "serving",
+        status: str = "healthy",
+        rows_in: int | None = None,
+        rows_out: int | None = None,
+        error_count: int | None = None,
+        last_success_at: datetime | None = None,
+        last_failure_at: datetime | None = None,
+        lag_seconds: int | None = None,
+        message: str | None = None,
+        calculated_at: datetime | None = None,
+    ) -> DatasetLayerSnapshotHistory:
+        next_id = (db_session.scalar(select(func.max(DatasetLayerSnapshotHistory.id))) or 0) + 1
+        row = DatasetLayerSnapshotHistory(
+            id=next_id,
+            snapshot_date=snapshot_date,
+            dataset_key=dataset_key,
+            source_key=source_key,
+            stage=stage,
+            status=status,
+            rows_in=rows_in,
+            rows_out=rows_out,
+            error_count=error_count,
+            last_success_at=last_success_at,
+            last_failure_at=last_failure_at,
+            lag_seconds=lag_seconds,
+            message=message,
+            calculated_at=calculated_at or datetime.now(timezone.utc),
+        )
+        db_session.add(row)
+        db_session.commit()
+        db_session.refresh(row)
+        return row
 
     return build

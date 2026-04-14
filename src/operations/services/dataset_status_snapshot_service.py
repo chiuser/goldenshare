@@ -6,6 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
@@ -20,7 +21,9 @@ class DatasetStatusSnapshotService:
         try:
             items = self.query_service.build_live_items(session, today=today)
             session.execute(delete(DatasetStatusSnapshot))
-            self._upsert_items(session, items, snapshot_date=today or datetime.now(timezone.utc).date())
+            snapshot_date = today or datetime.now(timezone.utc).date()
+            self._upsert_items(session, items, snapshot_date=snapshot_date)
+            self._append_history_items(session, items, snapshot_date=snapshot_date)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -37,6 +40,7 @@ class DatasetStatusSnapshotService:
             items = self.query_service.build_live_items(session, today=today, resource_keys=target_keys)
             snapshot_date = today or datetime.now(timezone.utc).date()
             self._upsert_items(session, items, snapshot_date=snapshot_date)
+            self._append_history_items(session, items, snapshot_date=snapshot_date)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -140,3 +144,25 @@ class DatasetStatusSnapshotService:
             row.full_sync_done = item.full_sync_done
             row.snapshot_date = snapshot_date
             row.last_calculated_at = calculated_at
+
+    @staticmethod
+    def _append_history_items(session: Session, items: list[DatasetFreshnessItem], *, snapshot_date: date) -> None:
+        calculated_at = datetime.now(timezone.utc)
+        for item in items:
+            session.add(
+                DatasetLayerSnapshotHistory(
+                    snapshot_date=snapshot_date,
+                    dataset_key=item.dataset_key,
+                    source_key=None,
+                    stage="serving",
+                    status=item.freshness_status,
+                    rows_in=None,
+                    rows_out=None,
+                    error_count=1 if item.recent_failure_summary else 0,
+                    last_success_at=item.latest_success_at,
+                    last_failure_at=item.recent_failure_at,
+                    lag_seconds=(item.lag_days * 86400) if item.lag_days is not None else None,
+                    message=item.freshness_note,
+                    calculated_at=calculated_at,
+                )
+            )

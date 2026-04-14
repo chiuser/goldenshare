@@ -1,9 +1,9 @@
 # Ops 多源综合运维契约 v2
 
-更新时间：2026-04-13
+更新时间：2026-04-14
 适用范围：`src/ops/*`、`src/operations/*`、`src/platform/*`（Ops 相关）
 上游依赖：Foundation 多源升级方案 v1
-变更说明：在 v1 基础上，根据 UI 设计评审结论补充「数据集详情页」、调整 IA 结构、细化融合策略中心四 Tab 设计、明确导航与跳转契约。
+变更说明：在 v1 基础上，根据 UI 设计评审结论补充「数据集详情页」、调整 IA 结构、细化融合策略中心四 Tab 设计、明确导航与跳转契约；并在 v2.1 增补“基础能力优先”约束（逻辑层 resolution、发布对象拆分、append-only 快照、统一 ctx 契约等）。
 
 ---
 
@@ -26,6 +26,20 @@
 4. **配置可回滚**：任何策略与配置变更必须版本化。
 5. **诊断闭环**：从总览发现问题 → 详情页诊断 → 运维中心操作，全程不需要跨页手动重选上下文。
 6. **工作流可感知**：融合策略中心四个阶段的工作流状态持久可见，用户随时知道当前在哪一步。
+
+---
+
+## 2.1 v2.1 基础能力优先约束（新增）
+
+为保证平滑迁移，先补基础模型与契约，再迁移页面交互。以下约束优先级高于原型展示细节：
+
+1. **resolution 先定义为逻辑层**：先观测“融合决策过程与指标”，不强制先落地物化 `resolution_*` 中间表。
+2. **策略对象与发布对象拆分**：策略负责“声明”，发布负责“流程与结果”（预览、进度、回滚、审计）。
+3. **快照采用 append-only 历史 + 当前视图**：保留当前快照读模型，同时新增历史明细，支持回溯与趋势诊断。
+4. **执行对象补齐上下文**：`dataset_key/source_key/stage/policy_version/run_scope` 必须结构化落库，不再只依赖 `spec_key/params_json`。
+5. **Probe 独立对象**：不复用 `job_schedule`，使用 `ops.probe_rule` 与独立执行记录。
+6. **std 与融合规则先支持声明式白名单能力**：转换函数、清洗动作、冲突策略先限定可选集合，禁止任意脚本执行。
+7. **导航上下文统一为 `ctx`**：页面跳转优先透传统一上下文对象，避免 URL 参数碎片化与扩展困难。
 
 ---
 
@@ -90,6 +104,7 @@
 
 3. **全链路层级状态**（横向四列流）
    - 按 `raw → std → resolution → serving` 排列
+   - v2.1 约束：`resolution` 在第一阶段为“逻辑层状态”（决策耗时/冲突量/覆盖率/错误），不是强制物化中间表
    - 每列顶部色条 = 状态（绿/橙/红）
    - 每列展示：最近成功时间、最近失败时间、rows_in、rows_out、lag、错误信息
 
@@ -164,6 +179,7 @@
 **操作**：
 - 保存草稿
 - 下一步：配置融合策略 →（引导至 Tab ②）
+- v2.1 约束：转换函数与清洗动作仅允许白名单枚举值（声明式），不支持任意脚本
 
 #### Tab ② — 融合策略
 
@@ -189,6 +205,7 @@
 - 新建草稿 / 从当前版本复制草稿
 - 保存并去发布 →（引导至 Tab ③）
 - 历史版本：回滚到指定版本
+- v2.1 约束：策略对象只表达“应该如何融合”，不承载发布流程状态
 
 #### Tab ③ — 发布管理
 
@@ -209,6 +226,7 @@
 - 链接至运维与发布中心 → 发布流水（完整日志）
 
 **发布历史表**：版本 / 影响数据集数 / 发布时间 / 状态 / 回滚操作
+- v2.1 约束：发布历史来自独立发布对象，不回写覆盖策略定义
 
 #### Tab ④ — 运行洞察
 
@@ -283,17 +301,19 @@ Probe 规则最小字段：
 
 | 触发点 | 跳转目标 | 携带上下文 |
 |---|---|---|
-| 总览卡片点击（主体） | 数据集详情页 | `dataset_key` |
-| 总览卡片"去处理"按钮 | 运维中心 → 发布中心 → 分层重跑 | `dataset_key + source_key + 推荐 stage` |
-| 详情页"手动执行" | 运维中心 → 任务中心 → 手动执行 | `dataset_key` 预填 |
-| 详情页"分层重跑" | 运维中心 → 发布中心 → 分层重跑 | `dataset_key` 预填 |
-| 详情页"查看调度" | 运维中心 → 任务中心 → 调度管理 | 过滤到该 dataset |
-| 详情页"查看策略详情" | 融合策略中心 → Tab② | `dataset_key` 预选 |
+| 总览卡片点击（主体） | 数据集详情页 | `ctx={dataset_key}` |
+| 总览卡片"去处理"按钮 | 运维中心 → 发布中心 → 分层重跑 | `ctx={dataset_key, source_key, recommended_stage}` |
+| 详情页"手动执行" | 运维中心 → 任务中心 → 手动执行 | `ctx={dataset_key}` |
+| 详情页"分层重跑" | 运维中心 → 发布中心 → 分层重跑 | `ctx={dataset_key}` |
+| 详情页"查看调度" | 运维中心 → 任务中心 → 调度管理 | `ctx={dataset_key}` |
+| 详情页"查看策略详情" | 融合策略中心 → Tab② | `ctx={dataset_key}` |
 | 融合策略 Tab① "下一步" | 融合策略中心 → Tab② | — |
 | 融合策略 Tab② "保存并去发布" | 融合策略中心 → Tab③ | — |
 | 发布进度"完整日志" | 运维中心 → 发布中心 → 发布流水 | `rel_id` |
-| 洞察告警"去 Tab① 检查" | 融合策略中心 → Tab① | `dataset_key + source_key` |
+| 洞察告警"去 Tab① 检查" | 融合策略中心 → Tab① | `ctx={dataset_key, source_key}` |
 | 工作流状态条各步骤 | 融合策略中心对应 Tab | — |
+
+`ctx` 建议使用统一 JSON 编码透传（query 中 base64url 或服务端 session context id），避免页面间字段不一致。
 
 ---
 
@@ -305,6 +325,7 @@ Probe 规则最小字段：
 - `source_key`：数据来源标识（如 `tushare`、`biying`）
 - `stage`：`raw / std / resolution / serving`
 - `policy_version`：融合策略版本
+- `run_scope`：`full / range / single / probe_triggered`
 - `execution_id`：运行实例
 
 ### 5.2 运行对象扩展
@@ -314,6 +335,7 @@ Probe 规则最小字段：
 - `source_key`（可空，表示全来源）
 - `stage`（可空，表示全链路）
 - `policy_version`（发布/重算时记录）
+- `run_scope`（区分全量、区间、单点、probe 触发）
 - `trigger_mode`：`manual / schedule / probe / system`
 
 ### 5.3 std 标准化规则对象（新增）
@@ -361,6 +383,52 @@ resolution_policy_field_rule:
   source_override     # 可空，指定该字段来自哪个 source
   note
 ```
+
+### 5.6 发布对象（v2.1 新增）
+
+```
+resolution_release:
+  release_id
+  dataset_key
+  target_policy_version
+  status              # previewing / running / succeeded / failed / rolled_back
+  triggered_by
+  triggered_at
+  finished_at
+  rollback_to_release_id
+
+resolution_release_stage_status:
+  release_id
+  dataset_key
+  source_key          # 可空
+  stage               # raw/std/resolution/serving
+  status              # pending/running/succeeded/failed/skipped
+  rows_in
+  rows_out
+  message
+  updated_at
+```
+
+### 5.7 快照历史对象（v2.1 新增）
+
+```
+dataset_layer_snapshot_history:
+  id
+  snapshot_date
+  dataset_key
+  source_key          # 可空
+  stage
+  status
+  rows_in
+  rows_out
+  error_count
+  last_success_at
+  last_failure_at
+  lag_seconds
+  calculated_at
+```
+
+说明：`ops.dataset_status_snapshot` 继续作为“当前视图”，`dataset_layer_snapshot_history` 用于趋势与回溯。
 
 ### 5.5 审计对象扩展
 
@@ -453,6 +521,19 @@ resolution_policy_field_rule:
 ### 7.6 服务监控契约
 
 读取：Biz API 运行健康指标（QPS、错误率、延迟）/ 按接口路径聚合的调用情况
+
+### 7.7 统一跳转上下文契约（v2.1 新增）
+
+输入：`ctx`
+
+最小字段：
+- `dataset_key`
+- `source_key`（可选）
+- `stage`（可选）
+- `policy_version`（可选）
+- `recommended_stage`（可选）
+
+要求：所有跨页跳转与“去处理”入口优先使用 `ctx`，不得新增散落 query 字段作为长期契约。
 
 ---
 
@@ -608,6 +689,10 @@ v1 建议保持管理员口径不变，细分审计事件：
 | G9 | 运行中心 + 发布中心双 Tab | 当前五页单源结构 | 中 | 重组导航为新五页结构 |
 | G10 | 自动调度 SSE 刷新稳定性 | 已有 SSE，2秒轮询 | 低 | 可复用于 probe/发布进度广播 |
 | G11 | **std 标准化规则独立对象** | 无 std_mapping_rule / std_cleansing_rule 表 | 高 | 新增两张规则表，支持版本化 |
+| G12 | `resolution` 语义不清（逻辑层/物化层） | 页面目标已含四层，后端尚无明确边界 | 高 | v2.1 先定义为逻辑层观测，后续按触发条件再物化 |
+| G13 | 发布与策略耦合 | 当前仅策略对象，无独立发布对象 | 高 | 新增 release/release_stage_status 对象 |
+| G14 | 快照缺历史序列 | 仅当前快照，难以追趋势和回放 | 中 | 新增 append-only history 表 |
+| G15 | 跳转参数碎片化风险 | 页面间透传字段不统一 | 中 | 引入统一 `ctx` 契约 |
 
 ### 14.3 已定稿的架构决策（继承 v1）
 
@@ -615,6 +700,9 @@ v1 建议保持管理员口径不变，细分审计事件：
 2. **Probe 对象采用独立模型**：新增 `ops.probe_rule`，不复用 `job_schedule`。
 3. **策略发布对象采用"策略对象 + revision"**：新增 `ops.resolution_policy` 与 `ops.resolution_policy_revision`。
 4. **（v2 新增）std 规则采用独立对象**：新增 `ops.std_mapping_rule` 与 `ops.std_cleansing_rule`，支持 source_key + dataset_key 粒度管理。
+5. **（v2.1 新增）resolution 先逻辑层**：先做可观测决策层，不强制先建物化 `resolution_*` 表。
+6. **（v2.1 新增）发布对象独立**：新增 `ops.resolution_release` 与 `ops.resolution_release_stage_status`。
+7. **（v2.1 新增）统一上下文契约**：跨页跳转统一透传 `ctx`。
 
 ---
 
@@ -628,3 +716,72 @@ Ops 在多源时代是"数据生产控制台"：
 - **对运维**：任何异常从总览 → 详情 → 操作一步到位，不需要跨页手动重选上下文。
 
 本契约作为后续编码与测试的统一依据，任何实现偏离都应先回到本契约评审。
+
+---
+
+## 16. v2.1 后端基础能力落实（2026-04-14）
+
+以下能力已落地为可调用 API（作为新版 Ops UI 的后端底座）：
+
+1. 探测规则（Probe）
+   - `GET /api/v1/ops/probes`
+   - `POST /api/v1/ops/probes`
+   - `PATCH /api/v1/ops/probes/{probe_rule_id}`
+   - `POST /api/v1/ops/probes/{probe_rule_id}/pause`
+   - `POST /api/v1/ops/probes/{probe_rule_id}/resume`
+   - `DELETE /api/v1/ops/probes/{probe_rule_id}`
+   - `GET /api/v1/ops/probes/runs`
+   - `GET /api/v1/ops/probes/{probe_rule_id}/runs`
+
+2. 发布对象（Resolution Release）
+   - `GET /api/v1/ops/releases`
+   - `POST /api/v1/ops/releases`
+   - `GET /api/v1/ops/releases/{release_id}`
+   - `PATCH /api/v1/ops/releases/{release_id}/status`
+   - `GET /api/v1/ops/releases/{release_id}/stages`
+   - `PUT /api/v1/ops/releases/{release_id}/stages`
+
+3. 标准化规则（Std Rule）
+   - Mapping：
+     - `GET /api/v1/ops/std-rules/mapping`
+     - `POST /api/v1/ops/std-rules/mapping`
+     - `PATCH /api/v1/ops/std-rules/mapping/{rule_id}`
+     - `POST /api/v1/ops/std-rules/mapping/{rule_id}/disable`
+     - `POST /api/v1/ops/std-rules/mapping/{rule_id}/enable`
+   - Cleansing：
+     - `GET /api/v1/ops/std-rules/cleansing`
+     - `POST /api/v1/ops/std-rules/cleansing`
+     - `PATCH /api/v1/ops/std-rules/cleansing/{rule_id}`
+     - `POST /api/v1/ops/std-rules/cleansing/{rule_id}/disable`
+     - `POST /api/v1/ops/std-rules/cleansing/{rule_id}/enable`
+
+4. 分层快照历史查询（Layer Snapshot）
+   - `GET /api/v1/ops/layer-snapshots/history`
+   - `GET /api/v1/ops/layer-snapshots/latest`
+
+5. 执行上下文扩展（Execution Context）
+   - `ops.job_execution` 已新增并落库字段：
+     - `dataset_key`
+     - `source_key`
+     - `stage`
+     - `policy_version`
+     - `run_scope`
+   - 执行列表接口已支持过滤：
+     - `dataset_key`
+     - `source_key`
+     - `stage`
+     - `run_scope`
+
+6. 测试覆盖（当前分支）
+   - 已新增/更新 API 与模型测试，ops 相关回归通过：
+     - `python -m pytest tests/web/test_ops_*.py tests/test_ops_*.py tests/test_dataset_status_snapshot_service.py -q`
+     - 结果：`78 passed`
+
+7. 桥接契约文档（过渡期）
+   - 见：[ops-source-management-bridge-v1.md](./ops-source-management-bridge-v1.md)
+   - 定位：仅用于旧页面迁移期的数据聚合读取，不作为长期稳定对外契约。
+
+8. 页面迁移策略（已确认）
+   - 采用“双菜单并行短过渡”：`V2.1` 与 `旧版（过渡）` 同时存在一段时间。
+   - 旧版页面冻结，不再承接新需求。
+   - `V2.1` 可用后切默认入口，再删除旧版与桥接。

@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.schemas.freshness import DatasetFreshnessItem
@@ -24,6 +25,7 @@ def db_session() -> Generator[Session, None, None]:
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         DatasetStatusSnapshot.__table__.create(connection)
+        DatasetLayerSnapshotHistory.__table__.create(connection)
     testing_session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     session = testing_session_local()
     try:

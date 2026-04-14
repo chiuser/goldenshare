@@ -15,6 +15,11 @@ class ExecutionListItem(BaseModel):
     id: int
     spec_type: str
     spec_key: str
+    dataset_key: str | None = None
+    source_key: str | None = None
+    stage: str | None = None
+    policy_version: int | None = None
+    run_scope: str | None = None
     spec_display_name: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str
@@ -82,6 +87,11 @@ class ExecutionDetailResponse(BaseModel):
     schedule_id: int | None = None
     spec_type: str
     spec_key: str
+    dataset_key: str | None = None
+    source_key: str | None = None
+    stage: str | None = None
+    policy_version: int | None = None
+    run_scope: str | None = None
     spec_display_name: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str

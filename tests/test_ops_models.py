@@ -17,7 +17,9 @@ def test_ops_control_plane_models_expose_primary_keys_and_indexes() -> None:
 
     assert [column.name for column in JobExecution.__table__.primary_key.columns] == ["id"]
     assert {index.name for index in JobExecution.__table__.indexes} == {
+        "idx_job_execution_dataset_requested_at",
         "idx_job_execution_schedule_id_requested_at",
+        "idx_job_execution_source_stage_requested_at",
         "idx_job_execution_spec_requested_at",
         "idx_job_execution_status_requested_at",
     }
