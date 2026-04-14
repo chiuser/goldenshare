@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -67,3 +67,44 @@ def test_refresh_resources_upserts_snapshot_rows(db_session: Session) -> None:
     assert row.display_name == "股票主数据"
     assert row.last_sync_date == date(2026, 4, 1)
     assert row.snapshot_date == date(2026, 4, 1)
+
+
+def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> None:
+    db_session.add(
+        DatasetStatusSnapshot(
+            dataset_key="daily",
+            resource_key="daily",
+            display_name="股票日线",
+            domain_key="equity",
+            domain_display_name="股票",
+            job_name="sync_daily",
+            target_table="core.equity_daily_bar",
+            cadence="daily",
+            state_business_date=date(2026, 4, 1),
+            earliest_business_date=date(2026, 4, 1),
+            observed_business_date=date(2026, 4, 1),
+            latest_business_date=date(2026, 4, 1),
+            business_date_source="state",
+            freshness_note=None,
+            latest_success_at=None,
+            last_sync_date=date(2026, 4, 1),
+            expected_business_date=date(2026, 4, 1),
+            lag_days=0,
+            freshness_status="fresh",
+            recent_failure_message=None,
+            recent_failure_summary=None,
+            recent_failure_at=None,
+            primary_execution_spec_key="sync_daily.daily",
+            full_sync_done=True,
+            snapshot_date=date(2026, 4, 1),
+            last_calculated_at=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+
+    response = DatasetStatusSnapshotService().read_snapshot(db_session)
+
+    assert response is not None
+    item = response.groups[0].items[0]
+    assert item.dataset_key == "daily"
+    assert item.raw_table == "raw_tushare.daily"

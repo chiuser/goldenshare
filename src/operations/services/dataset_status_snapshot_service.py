@@ -10,7 +10,12 @@ from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
-from src.operations.specs import get_job_spec, get_workflow_spec, list_dataset_freshness_specs
+from src.operations.specs import (
+    get_dataset_freshness_spec,
+    get_job_spec,
+    get_workflow_spec,
+    list_dataset_freshness_specs,
+)
 
 
 class DatasetStatusSnapshotService:
@@ -67,6 +72,7 @@ class DatasetStatusSnapshotService:
 
     @staticmethod
     def _to_item(row: DatasetStatusSnapshot) -> DatasetFreshnessItem:
+        spec = get_dataset_freshness_spec(row.resource_key)
         return DatasetFreshnessItem(
             dataset_key=row.dataset_key,
             resource_key=row.resource_key,
@@ -75,6 +81,7 @@ class DatasetStatusSnapshotService:
             domain_display_name=row.domain_display_name,
             job_name=row.job_name,
             target_table=row.target_table,
+            raw_table=spec.raw_table if spec is not None else None,
             cadence=row.cadence,
             state_business_date=row.state_business_date,
             earliest_business_date=row.earliest_business_date,
