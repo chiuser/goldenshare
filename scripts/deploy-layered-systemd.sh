@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export SYSTEMD_PAGER=""
+export SYSTEMD_LESS=""
+export PAGER=cat
 
 REPO_DIR="${REPO_DIR:-/opt/goldenshare/goldenshare}"
 BRANCH="${1:-main}"
@@ -40,7 +43,7 @@ require_file() {
 }
 
 sudo_systemctl() {
-  sudo -n "${SYSTEMCTL_BIN}" "$@"
+  sudo -n "${SYSTEMCTL_BIN}" --no-pager "$@"
 }
 
 ensure_sudo_ready() {
@@ -200,9 +203,9 @@ main() {
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
   log "10/10 服务状态"
-  sudo_systemctl status --no-pager "${WEB_SERVICE}" || true
-  sudo_systemctl status --no-pager "${WORKER_SERVICE}" || true
-  sudo_systemctl status --no-pager "${SCHEDULER_SERVICE}" || true
+  sudo_systemctl status "${WEB_SERVICE}" || true
+  sudo_systemctl status "${WORKER_SERVICE}" || true
+  sudo_systemctl status "${SCHEDULER_SERVICE}" || true
 
   log "分层发版完成"
 }
