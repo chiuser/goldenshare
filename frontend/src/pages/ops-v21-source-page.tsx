@@ -1,4 +1,4 @@
-import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Switch, Text, Tooltip } from "@mantine/core";
+import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
@@ -20,6 +20,7 @@ interface SourceCardItem {
   recentSyncAt: string | null;
   recentSyncResult: string;
   dateRangeText: string;
+  cadenceText: string;
   primaryExecutionSpecKey: string | null;
   autoEnabled: boolean;
   autoTooltip: string;
@@ -51,6 +52,16 @@ function statusTag(status: CardStatus): { text: string; color: string } {
   if (status === "failed") return { text: "失败", color: "red" };
   if (status === "warning") return { text: "滞后", color: "yellow" };
   return { text: "未知", color: "gray" };
+}
+
+function cadenceLabel(cadence: string): string {
+  const key = (cadence || "").toLowerCase();
+  if (key === "daily") return "每日";
+  if (key === "weekly") return "每周";
+  if (key === "monthly") return "每月";
+  if (key === "intraday") return "盘中";
+  if (key === "on_demand") return "按需";
+  return "未定义";
 }
 
 function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"][number]): string {
@@ -102,6 +113,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
             recentSyncAt: rawLatest?.calculated_at || (item.latest_success_at ? item.latest_success_at : null),
             recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",
             dateRangeText: buildDateRangeText(item),
+            cadenceText: cadenceLabel(item.cadence),
             primaryExecutionSpecKey: item.primary_execution_spec_key,
             autoEnabled: item.auto_schedule_active > 0,
             autoTooltip:
@@ -153,7 +165,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                   p="md"
                   style={{
                     border: "1px solid rgba(15, 23, 42, 0.18)",
-                    background: "rgba(148, 163, 184, 0.12)",
+                    background: "rgba(250, 204, 21, 0.10)",
                     minHeight: 228,
                   }}
                 >
@@ -171,10 +183,9 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           </Text>
                         </Group>
                         <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
-                          数据表：{item.rawTableLabel}
+                          {item.rawTableLabel}
                         </Text>
                       </Stack>
-                      <Switch checked={item.autoEnabled} onChange={() => undefined} size="sm" />
                     </Group>
 
                     <Stack gap={6}>
@@ -184,15 +195,20 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           {statusTag(item.status).text}
                         </Badge>
                       </Group>
+                      <Text size="sm">更新频率：{item.cadenceText}</Text>
                       <Text size="sm">时间范围：{item.dateRangeText}</Text>
                     </Stack>
 
                     <Group justify="space-between" mt="auto">
-                      <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
-                        <Badge variant="light" color={item.autoEnabled ? "orange" : "gray"}>
-                          {item.autoEnabled ? "自动" : "未配置"}
-                        </Badge>
-                      </Tooltip>
+                      {item.autoEnabled ? (
+                        <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
+                          <Badge variant="light" color="orange">
+                            自动
+                          </Badge>
+                        </Tooltip>
+                      ) : (
+                        <Text size="xs" c="dimmed">未配置自动更新</Text>
+                      )}
                       {item.status !== "healthy" ? (
                         <Button
                           component="a"
