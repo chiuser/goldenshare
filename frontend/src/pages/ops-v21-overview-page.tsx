@@ -1,6 +1,5 @@
 import { Alert, Badge, Button, Grid, Group, Loader, Paper, Stack, Switch, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 
 import { apiRequest } from "../shared/api/client";
 import type { LayerSnapshotLatestResponse, OpsFreshnessResponse } from "../shared/api/types";
@@ -118,9 +117,8 @@ export function OpsV21OverviewPage() {
                     最近计算：{item.lastCalculatedAt ? formatDateTimeLabel(item.lastCalculatedAt) : "—"}
                   </Text>
                   <Button
-                    component={Link}
-                    to="/ops/v21/datasets/detail/$datasetKey"
-                    params={{ datasetKey: item.datasetKey }}
+                    component="a"
+                    href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.datasetKey)}`}
                     size="sm"
                     variant="light"
                     color="brand"
@@ -136,4 +134,3 @@ export function OpsV21OverviewPage() {
     </Stack>
   );
 }
-

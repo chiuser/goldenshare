@@ -229,6 +229,7 @@ export interface ExecutionListResponse {
     progress_message: string | null;
     last_progress_at: string | null;
     summary_message: string | null;
+    error_code: string | null;
   }>;
   total: number;
 }
@@ -387,6 +388,8 @@ export interface ProbeRuleListResponse {
     source_key: string | null;
     status: string;
     probe_interval_seconds: number;
+    window_start: string | null;
+    window_end: string | null;
     last_probed_at: string | null;
     last_triggered_at: string | null;
     updated_at: string;
@@ -438,6 +441,25 @@ export interface StdCleansingRuleListResponse {
 }
 
 export interface LayerSnapshotLatestResponse {
+  items: Array<{
+    snapshot_date: string;
+    dataset_key: string;
+    source_key: string | null;
+    stage: string;
+    status: string;
+    rows_in: number | null;
+    rows_out: number | null;
+    error_count: number | null;
+    lag_seconds: number | null;
+    message: string | null;
+    calculated_at: string;
+    last_success_at: string | null;
+    last_failure_at: string | null;
+  }>;
+  total: number;
+}
+
+export interface LayerSnapshotHistoryResponse {
   items: Array<{
     snapshot_date: string;
     dataset_key: string;
