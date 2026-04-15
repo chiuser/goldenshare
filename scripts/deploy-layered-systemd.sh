@@ -20,6 +20,7 @@ RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
+RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -120,36 +121,36 @@ main() {
 
   cd "${REPO_DIR}"
 
-  log "1/10 拉取代码"
+  log "1/11 拉取代码"
   git fetch --all --prune
   git checkout "${BRANCH}"
   git pull --ff-only origin "${BRANCH}"
 
-  log "2/10 安装后端依赖"
+  log "2/11 安装后端依赖"
   .venv/bin/pip install -e ".[dev]"
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
-    log "3/10 构建前端"
+    log "3/11 构建前端"
     cd "${REPO_DIR}/frontend"
     npm ci
     npm run build
     cd "${REPO_DIR}"
   else
-    log "3/10 跳过前端构建（RUN_FRONTEND_BUILD=0）"
+    log "3/11 跳过前端构建（RUN_FRONTEND_BUILD=0）"
   fi
 
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
-    log "4/10 执行数据库迁移"
+    log "4/11 执行数据库迁移"
     set -a
     source "${ENV_FILE}"
     set +a
     .venv/bin/goldenshare init-db
   else
-    log "4/10 跳过数据库迁移（RUN_DB_MIGRATION=0）"
+    log "4/11 跳过数据库迁移（RUN_DB_MIGRATION=0）"
   fi
 
   if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
-    log "5/10 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
+    log "5/11 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -168,10 +169,33 @@ main() {
       log "未检测到缺失规则，跳过初始化写入"
     fi
   else
-    log "5/10 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
+    log "5/11 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
   fi
 
-  log "6/10 重新加载 systemd 配置"
+  if [[ "${RUN_DATASET_PIPELINE_MODE_SEED}" == "1" ]]; then
+    log "6/11 检测数据集 pipeline_mode 缺失/漂移"
+    set -a
+    source "${ENV_FILE}"
+    set +a
+    pipeline_mode_preview="$(
+      .venv/bin/goldenshare ops-seed-dataset-pipeline-mode
+    )"
+    echo "${pipeline_mode_preview}"
+    pipeline_mode_delta="$(
+      printf '%s\n' "${pipeline_mode_preview}" \
+        | awk -F= '/^(created|updated)=/{sum+=$2} END{print sum+0}'
+    )"
+    if [[ "${pipeline_mode_delta}" -gt 0 ]]; then
+      log "检测到 pipeline_mode 需写入 ${pipeline_mode_delta} 项，执行按需初始化"
+      .venv/bin/goldenshare ops-seed-dataset-pipeline-mode --apply
+    else
+      log "未检测到 pipeline_mode 变更，跳过初始化写入"
+    fi
+  else
+    log "6/11 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
+  fi
+
+  log "7/11 重新加载 systemd 配置"
   sudo_systemctl daemon-reload
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
@@ -192,17 +216,17 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
-  log "7/10 Foundation 自检"
+  log "8/11 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
-  log "8/10 Ops 自检"
+  log "9/11 Ops 自检"
   .venv/bin/goldenshare ops-reconcile-executions --stale-for-minutes 30 >/dev/null
 
-  log "9/10 Platform 健康检查"
+  log "10/11 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
-  log "10/10 服务状态"
+  log "11/11 服务状态"
   sudo_systemctl status "${WEB_SERVICE}" || true
   sudo_systemctl status "${WORKER_SERVICE}" || true
   sudo_systemctl status "${SCHEDULER_SERVICE}" || true

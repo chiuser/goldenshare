@@ -22,6 +22,8 @@ usage() {
   --seed-default-source   启用“默认单源规则缺失检测 + 按需初始化”（默认启用）
   --skip-seed-default-source 关闭“默认单源规则缺失检测 + 按需初始化”
   --seed-source <key>     初始化使用的数据源（默认 tushare）
+  --seed-pipeline-mode    启用“pipeline_mode 缺失/漂移检测 + 按需初始化”（默认启用）
+  --skip-seed-pipeline-mode 关闭“pipeline_mode 缺失/漂移检测 + 按需初始化”
   --skip-build            跳过前端构建
   --skip-migration        跳过数据库迁移
   --full                  全量发布（默认）
@@ -42,6 +44,7 @@ export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
+export RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
   BRANCH="$1"
@@ -83,6 +86,12 @@ while [[ $# -gt 0 ]]; do
       shift
       [[ $# -gt 0 ]] || { echo "缺少 --seed-source 参数值"; exit 1; }
       export DEFAULT_SINGLE_SOURCE_SEED_KEY="$1"
+      ;;
+    --seed-pipeline-mode)
+      export RUN_DATASET_PIPELINE_MODE_SEED=1
+      ;;
+    --skip-seed-pipeline-mode)
+      export RUN_DATASET_PIPELINE_MODE_SEED=0
       ;;
     --skip-migration)
       export RUN_DB_MIGRATION=0
