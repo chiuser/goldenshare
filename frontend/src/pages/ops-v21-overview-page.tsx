@@ -56,6 +56,13 @@ function stageLabel(stage: StageKey): string {
   return "服务层";
 }
 
+function stageTableName(stage: StageKey, item: DatasetPipelineModeListResponse["items"][number]): string | null {
+  if (stage === "raw") return item.raw_table;
+  if (stage === "std") return item.std_table_hint;
+  if (stage === "serving") return item.serving_table;
+  return null;
+}
+
 export function OpsV21OverviewPage() {
   const modeQuery = useQuery({
     queryKey: ["ops", "pipeline-modes", "v21-overview"],
@@ -121,12 +128,11 @@ export function OpsV21OverviewPage() {
           const status = toCardStatus(item.freshness_status);
           const stages = expectedStages(item.mode);
           const stageMap = stageLatestByDataset.get(item.dataset_key) || {};
-          const chainRows = [
-            { label: "raw", value: item.raw_table || "—" },
-            ...(item.mode === "multi_source_pipeline" ? [{ label: "std", value: item.std_table_hint || "—" }] : []),
-            ...(item.mode === "multi_source_pipeline" ? [{ label: "serving", value: item.serving_table || "—" }] : []),
-            ...(item.mode === "single_source_direct" ? [{ label: "serving", value: item.serving_table || "—" }] : []),
-          ];
+          const statusUpdatedAt = stages
+            .map((stage) => stageMap[stage]?.calculated_at || null)
+            .filter((value): value is string => Boolean(value))
+            .sort()
+            .at(-1);
           const flags: Array<{ label: string; on: boolean }> = [
             { label: "映射规则", on: item.std_mapping_configured },
             { label: "清洗规则", on: item.std_cleansing_configured },
@@ -146,14 +152,14 @@ export function OpsV21OverviewPage() {
                   >
                     <Stack gap={10} h="100%">
                       <Group justify="space-between" align="flex-start">
-                        <Stack gap={2}>
+                        <Stack gap={2} justify="center">
                           <Group gap={8} align="center">
                             <Box
                               w={9}
                               h={9}
                               style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
                             />
-                            <Text fw={700} size="sm" lineClamp={1}>
+                            <Text fw={800} size="lg" lineClamp={1}>
                               {item.display_name}
                             </Text>
                           </Group>
@@ -161,27 +167,30 @@ export function OpsV21OverviewPage() {
                             {item.dataset_key}
                           </Text>
                         </Stack>
-                        <Badge variant="light" color={modeColor(item.mode)}>
-                          {modeLabel(item.mode)}
-                        </Badge>
+                        <Stack gap={2} align="flex-start" justify="center">
+                          <Text size="xs" c="dimmed">
+                            最新业务日期：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            状态更新时间：{statusUpdatedAt ? formatDateTimeLabel(statusUpdatedAt) : "—"}
+                          </Text>
+                        </Stack>
                       </Group>
 
                       <Group gap={6} wrap="wrap">
-                        <Badge variant="light" color="blue" size="sm">
-                          最新业务日：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
+                        <Badge variant="dot" color={modeColor(item.mode)} size="sm">
+                          {modeLabel(item.mode)}
                         </Badge>
                       </Group>
 
                       <Stack gap={6}>
                         {stages.map((stage) => (
                           <Group key={stage} justify="space-between" align="center">
-                            <Text size="sm" c="dimmed">{stageLabel(stage)}</Text>
-                            <Group gap={8}>
-                              <StatusBadge value={stageMap[stage]?.status || "unknown"} />
-                              <Text size="xs" c="dimmed">
-                                {stageMap[stage]?.calculated_at ? formatDateTimeLabel(stageMap[stage]?.calculated_at) : "—"}
-                              </Text>
-                            </Group>
+                            <Text size="sm" c="dimmed">
+                              {stageLabel(stage)}
+                              {stageTableName(stage, item) ? `（${stageTableName(stage, item)}）` : ""}
+                            </Text>
+                            <StatusBadge value={stageMap[stage]?.status || "unknown"} />
                           </Group>
                         ))}
                       </Stack>
@@ -199,15 +208,7 @@ export function OpsV21OverviewPage() {
                         ))}
                       </Grid>
 
-                      <Stack gap={4} mt="auto">
-                        {chainRows.map((row) => (
-                          <Text key={row.label} size="xs" c="dimmed" lineClamp={1}>
-                            {row.label}：{row.value}
-                          </Text>
-                        ))}
-                      </Stack>
-
-                      <Group justify="flex-end">
+                      <Group justify="space-between" mt="auto">
                         <Button
                           component="a"
                           href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.dataset_key)}`}
