@@ -9,6 +9,7 @@ class DatasetPipelineModeItem(BaseModel):
     dataset_key: str
     display_name: str
     domain_key: str
+    domain_display_name: str
     mode: str
     source_scope: str
     layer_plan: str

@@ -72,6 +72,15 @@ def test_refresh_resources_upserts_snapshot_rows(db_session: Session) -> None:
     assert row.last_sync_date == date(2026, 4, 1)
     assert row.snapshot_date == date(2026, 4, 1)
 
+    current_rows = list(
+        db_session.scalars(
+            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "stock_basic")
+        )
+    )
+    by_stage = {r.stage: r for r in current_rows}
+    assert by_stage["raw"].status == "fresh"
+    assert by_stage["serving"].status == "fresh"
+
 
 def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> None:
     db_session.add(

@@ -188,8 +188,10 @@ class DatasetStatusSnapshotService:
         }
         for item in items:
             mode = mode_by_key.get(item.dataset_key)
+            if mode is None:
+                mode = DatasetStatusSnapshotService._inferred_mode_from_item(item)
             source_key = "__all__"
-            if mode is not None and "," not in mode.source_scope and mode.source_scope.strip():
+            if "," not in mode.source_scope and mode.source_scope.strip():
                 source_key = mode.source_scope.strip()
 
             def upsert_stage(stage: str, status: str, message: str | None) -> None:
@@ -208,10 +210,6 @@ class DatasetStatusSnapshotService:
                 row.message = message
                 row.calculated_at = calculated_at
 
-            if mode is None:
-                upsert_stage("serving", item.freshness_status, item.freshness_note)
-                continue
-
             upsert_stage("raw", item.freshness_status if mode.raw_enabled else "skipped", mode.notes)
             if mode.std_enabled:
                 upsert_stage("std", "unobserved", "该层已启用，但暂未接入独立观测指标")
@@ -225,3 +223,53 @@ class DatasetStatusSnapshotService:
                 upsert_stage("serving", item.freshness_status, item.freshness_note)
             else:
                 upsert_stage("serving", "skipped", "当前模式不产出 serving")
+
+    @staticmethod
+    def _inferred_mode_from_item(item: DatasetFreshnessItem) -> DatasetPipelineMode:
+        if item.dataset_key == "stock_basic":
+            return DatasetPipelineMode(
+                dataset_key=item.dataset_key,
+                mode="multi_source_pipeline",
+                source_scope="tushare,biying",
+                raw_enabled=True,
+                std_enabled=True,
+                resolution_enabled=True,
+                serving_enabled=True,
+                notes="按规格推断：双源标准化+融合发布链路",
+            )
+        target = item.target_table or ""
+        raw_table = item.raw_table or ""
+        if target.startswith("raw_") or target.startswith("raw."):
+            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
+            return DatasetPipelineMode(
+                dataset_key=item.dataset_key,
+                mode="raw_only",
+                source_scope=scope,
+                raw_enabled=True,
+                std_enabled=False,
+                resolution_enabled=False,
+                serving_enabled=False,
+                notes="按规格推断：仅采集原始数据",
+            )
+        if target.startswith("core_serving."):
+            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
+            return DatasetPipelineMode(
+                dataset_key=item.dataset_key,
+                mode="single_source_direct",
+                source_scope=scope,
+                raw_enabled=True,
+                std_enabled=False,
+                resolution_enabled=False,
+                serving_enabled=True,
+                notes="按规格推断：单源直出 serving",
+            )
+        return DatasetPipelineMode(
+            dataset_key=item.dataset_key,
+            mode="legacy_core_direct",
+            source_scope="tushare",
+            raw_enabled=True,
+            std_enabled=False,
+            resolution_enabled=False,
+            serving_enabled=False,
+            notes="按规格推断：历史保留路径（core 口径）",
+        )

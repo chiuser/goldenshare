@@ -504,6 +504,7 @@ export interface DatasetPipelineModeListResponse {
     dataset_key: string;
     display_name: string;
     domain_key: string;
+    domain_display_name: string;
     mode: string;
     source_scope: string;
     layer_plan: string;

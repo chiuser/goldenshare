@@ -56,17 +56,6 @@ function stageLabel(stage: StageKey): string {
   return "服务层";
 }
 
-function domainLabel(domainKey: string): string {
-  const key = domainKey.toLowerCase();
-  if (key === "equity_core") return "股票核心";
-  if (key === "index_series") return "指数数据";
-  if (key === "fund_series") return "基金数据";
-  if (key === "event_features") return "事件特征";
-  if (key === "reference_data") return "基础主数据";
-  if (key === "board_hotspot") return "板块与热榜";
-  return domainKey;
-}
-
 export function OpsV21OverviewPage() {
   const modeQuery = useQuery({
     queryKey: ["ops", "pipeline-modes", "v21-overview"],
@@ -94,13 +83,13 @@ export function OpsV21OverviewPage() {
   }
 
   const cards = (modeQuery.data?.items || []).sort((a, b) => {
-    const d = domainLabel(a.domain_key).localeCompare(domainLabel(b.domain_key), "zh-CN");
+    const d = a.domain_display_name.localeCompare(b.domain_display_name, "zh-CN");
     if (d !== 0) return d;
     return a.display_name.localeCompare(b.display_name, "zh-CN");
   });
   const groupedCards = new Map<string, typeof cards>();
   for (const item of cards) {
-    const key = `${item.domain_key}::${domainLabel(item.domain_key)}`;
+    const key = `${item.domain_key}::${item.domain_display_name}`;
     const list = groupedCards.get(key) || [];
     list.push(item);
     groupedCards.set(key, list);

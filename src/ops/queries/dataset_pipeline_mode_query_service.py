@@ -83,6 +83,7 @@ class DatasetPipelineModeQueryService:
                     dataset_key=row.dataset_key,
                     display_name=row.display_name,
                     domain_key=row.domain_key,
+                    domain_display_name=row.domain_display_name,
                     mode=resolved_mode,
                     source_scope=source_scope,
                     layer_plan=self._layer_plan(mode=resolved_mode),
