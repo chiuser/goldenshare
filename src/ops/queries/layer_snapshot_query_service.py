@@ -85,7 +85,8 @@ class LayerSnapshotQueryService:
         if dataset_key:
             filters.append(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
         if source_key:
-            filters.append(DatasetLayerSnapshotCurrent.source_key == source_key)
+            normalized_source = source_key.strip()
+            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "__all__"]))
         if stage:
             filters.append(DatasetLayerSnapshotCurrent.stage == stage)
         if status:

@@ -94,11 +94,6 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const isLoading = freshnessQuery.isLoading || latestQuery.isLoading || probeQuery.isLoading;
   const error = freshnessQuery.error || latestQuery.error || probeQuery.error;
 
-  const rawLatestByDataset = new Map(
-    (latestQuery.data?.items || [])
-      .filter((item) => item.stage === "raw")
-      .map((item) => [item.dataset_key, item] as const),
-  );
   const freshnessByDataset = new Map(
     (freshnessQuery.data?.groups || [])
       .flatMap((group) => group.items.map((item) => [item.dataset_key, { group, item }] as const)),
@@ -115,7 +110,6 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
 
   const cards: SourceCardItem[] = (latestQuery.data?.items || [])
     .filter((item) => item.stage === "raw")
-    .filter((item) => (item.source_key || "").toLowerCase() === sourceKey)
     .map((rawLatest) => {
       const freshMeta = freshnessByDataset.get(rawLatest.dataset_key);
       const freshGroup = freshMeta?.group;

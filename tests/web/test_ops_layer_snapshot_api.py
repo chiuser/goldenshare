@@ -79,3 +79,45 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     latest_by_key = {(item["dataset_key"], item["source_key"], item["stage"]): item for item in latest_payload["items"]}
     assert latest_by_key[("equity_daily", "tushare", "serving")]["status"] == "healthy"
     assert latest_by_key[("etf_daily", "biying", "std")]["status"] == "failed"
+
+
+def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            DatasetLayerSnapshotCurrent(
+                dataset_key="stock_basic",
+                source_key="__all__",
+                stage="raw",
+                status="healthy",
+                rows_out=2000,
+                calculated_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
+            ),
+            DatasetLayerSnapshotCurrent(
+                dataset_key="etf_daily",
+                source_key="tushare",
+                stage="raw",
+                status="healthy",
+                rows_out=500,
+                calculated_at=datetime(2026, 4, 15, 10, 1, tzinfo=timezone.utc),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    latest = app_client.get(
+        "/api/v1/ops/layer-snapshots/latest?source_key=biying&stage=raw",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert latest.status_code == 200
+    payload = latest.json()
+    keys = {(item["dataset_key"], item["source_key"], item["stage"]) for item in payload["items"]}
+    assert ("stock_basic", "__all__", "raw") in keys
+    assert ("etf_daily", "tushare", "raw") not in keys
