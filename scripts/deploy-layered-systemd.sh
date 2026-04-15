@@ -44,7 +44,7 @@ require_file() {
 }
 
 sudo_systemctl() {
-  sudo -n "${SYSTEMCTL_BIN}" --no-pager "$@"
+  sudo -n "${SYSTEMCTL_BIN}" "$@"
 }
 
 ensure_sudo_ready() {
