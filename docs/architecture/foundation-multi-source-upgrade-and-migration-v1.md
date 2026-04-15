@@ -481,7 +481,7 @@ Biz 查询（K 线等）直接读 `core.*`，未引入来源维度选择：
 | `core.equity_daily_bar` | core | `ts_code,trade_date` | `ts_code,trade_date,open,high,low,close,pre_close,change_amount,pct_chg,vol,amount,source` | 股票日线统一事实（单源时期） | 不再作为最终对外读取表；迁移后由 `core_serving.equity_daily_bar` 对外 |
 | `raw.adj_factor` | raw | `ts_code,trade_date` | `ts_code,trade_date,adj_factor,api_name,fetched_at,raw_payload` | 复权因子原始数据 | 迁移为分源 raw |
 | `core.equity_adj_factor` | core | `ts_code,trade_date` | `ts_code,trade_date,adj_factor` | 复权因子统一事实（旧） | 迁移后进入 `core_multi.equity_adj_factor_std` 并参与 serving 融合 |
-| `core.equity_price_restore_factor` | core | `ts_code,trade_date` | `ts_code,trade_date,cum_factor,single_factor,event_applied,event_ex_date` | 价格还原因子（当前停用但保留） | 保持停用状态；不纳入首批 serving 输出 |
+| `core.equity_price_restore_factor` | core | `ts_code,trade_date` | `ts_code,trade_date,cum_factor,single_factor,event_applied,event_ex_date` | 价格还原因子（已移除） | 已下线，不再纳入任何同步/服务链路 |
 | `raw.daily_basic` | raw | `ts_code,trade_date` | `ts_code,trade_date,close,turnover_rate,turnover_rate_f,volume_ratio,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,free_share,total_mv,circ_mv,api_name,fetched_at,raw_payload` | 每日基本面原始数据 | 迁移为分源 raw |
 | `core.equity_daily_basic` | core | `ts_code,trade_date` | `ts_code,trade_date,close,turnover_rate,turnover_rate_f,volume_ratio,pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,free_share,total_mv,circ_mv` | 每日基本面统一事实 | 迁移后进入 `core_multi.equity_daily_basic_std` + `core_serving.equity_daily_basic` |
 | `raw.stk_period_bar` | raw | `ts_code,trade_date,freq` | `ts_code,trade_date,freq,end_date,open,high,low,close,pre_close,vol,amount,change,pct_chg,api_name,fetched_at,raw_payload` | 周/月原始行情 | 迁移为分源 raw |

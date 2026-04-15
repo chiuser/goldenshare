@@ -4,7 +4,6 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
-import src.foundation.services.sync.sync_equity_indicators_service as service_module
 from src.foundation.services.sync.sync_equity_indicators_service import SyncEquityIndicatorsService
 
 
@@ -103,23 +102,3 @@ def test_load_factor_map_uses_adj_factor_by_default(mocker) -> None:
 
     stmt = session.execute.call_args.args[0]
     assert "core.equity_adj_factor" in str(stmt)
-
-
-def test_load_factor_map_supports_price_restore_factor_source(mocker) -> None:
-    mocker.patch.object(
-        service_module,
-        "get_settings",
-        return_value=SimpleNamespace(equity_adjustment_factor_source="price_restore_factor"),
-    )
-    session = mocker.Mock()
-    session.execute.return_value.all.return_value = []
-    service = SyncEquityIndicatorsService(session)
-
-    service._load_factor_map(
-        ts_code="000001.SZ",
-        start_date=date(2026, 4, 1),
-        end_date=date(2026, 4, 8),
-    )
-
-    stmt = session.execute.call_args.args[0]
-    assert "core.equity_price_restore_factor" in str(stmt)

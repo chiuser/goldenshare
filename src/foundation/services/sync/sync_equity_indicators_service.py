@@ -8,10 +8,8 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from src.foundation.config.settings import get_settings
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.ops.models.ops.job_execution import JobExecution
 
@@ -294,58 +292,30 @@ class SyncEquityIndicatorsService(BaseSyncService):
         return [_DailyPrice(*row) for row in rows]
 
     def _load_factor_map(self, *, ts_code: str, start_date: date, end_date: date) -> dict[date, Decimal]:
-        if self._factor_source() == "adj_factor":
-            factors = self.session.execute(
-                select(EquityAdjFactor.trade_date, EquityAdjFactor.adj_factor)
-                .where(
-                    EquityAdjFactor.ts_code == ts_code,
-                    EquityAdjFactor.trade_date >= start_date,
-                    EquityAdjFactor.trade_date <= end_date,
-                )
-            ).all()
-            return {row.trade_date: row.adj_factor for row in factors if row.adj_factor is not None}
         factors = self.session.execute(
-            select(EquityPriceRestoreFactor.trade_date, EquityPriceRestoreFactor.cum_factor)
+            select(EquityAdjFactor.trade_date, EquityAdjFactor.adj_factor)
             .where(
-                EquityPriceRestoreFactor.ts_code == ts_code,
-                EquityPriceRestoreFactor.trade_date >= start_date,
-                EquityPriceRestoreFactor.trade_date <= end_date,
+                EquityAdjFactor.ts_code == ts_code,
+                EquityAdjFactor.trade_date >= start_date,
+                EquityAdjFactor.trade_date <= end_date,
             )
         ).all()
-        return {row.trade_date: row.cum_factor for row in factors if row.cum_factor is not None}
+        return {row.trade_date: row.adj_factor for row in factors if row.adj_factor is not None}
 
     def _load_anchor(self, *, ts_code: str, adjustment: str) -> Decimal | None:
-        if self._factor_source() == "adj_factor":
-            if adjustment == "forward":
-                return self.session.scalar(
-                    select(EquityAdjFactor.adj_factor)
-                    .where(EquityAdjFactor.ts_code == ts_code)
-                    .order_by(EquityAdjFactor.trade_date.desc())
-                    .limit(1)
-                )
+        if adjustment == "forward":
             return self.session.scalar(
                 select(EquityAdjFactor.adj_factor)
                 .where(EquityAdjFactor.ts_code == ts_code)
-                .order_by(EquityAdjFactor.trade_date.asc())
-                .limit(1)
-            )
-        if adjustment == "forward":
-            return self.session.scalar(
-                select(EquityPriceRestoreFactor.cum_factor)
-                .where(EquityPriceRestoreFactor.ts_code == ts_code)
-                .order_by(EquityPriceRestoreFactor.trade_date.desc())
+                .order_by(EquityAdjFactor.trade_date.desc())
                 .limit(1)
             )
         return self.session.scalar(
-            select(EquityPriceRestoreFactor.cum_factor)
-            .where(EquityPriceRestoreFactor.ts_code == ts_code)
-            .order_by(EquityPriceRestoreFactor.trade_date.asc())
+            select(EquityAdjFactor.adj_factor)
+            .where(EquityAdjFactor.ts_code == ts_code)
+            .order_by(EquityAdjFactor.trade_date.asc())
             .limit(1)
         )
-
-    @staticmethod
-    def _factor_source() -> str:
-        return get_settings().equity_adjustment_factor_source
 
     @staticmethod
     def _adjust_price(value: Decimal | None, factor: Decimal | None, anchor: Decimal) -> Decimal | None:

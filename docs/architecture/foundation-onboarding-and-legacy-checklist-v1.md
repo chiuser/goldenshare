@@ -119,7 +119,6 @@
 
 - [ ] 指标与因子保留项迁移策略明确并落地：
   - `equity_indicators`（`ind_macd/ind_kdj/ind_rsi`）
-  - `equity_price_restore_factor`
   - `adj_factor`（`equity_adj_factor`）
   - `fund_adj`（`fund_adj_factor`）
 - [ ] 历史 `core.*` 兼容路径最终下线计划（按白名单逐个收口）。

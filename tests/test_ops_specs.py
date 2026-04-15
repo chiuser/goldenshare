@@ -12,7 +12,6 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
-    assert "sync_daily.equity_price_restore_factor" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
@@ -151,10 +150,6 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert fund_adj_history_spec is not None
     assert [param.key for param in fund_adj_history_spec.supported_params] == ["start_date", "end_date"]
 
-    price_restore_history_spec = get_job_spec("sync_history.equity_price_restore_factor")
-    assert price_restore_history_spec is not None
-    assert [param.key for param in price_restore_history_spec.supported_params] == ["start_date", "end_date"]
-
     indicator_history_spec = get_job_spec("sync_history.equity_indicators")
     assert indicator_history_spec is not None
     assert [param.key for param in indicator_history_spec.supported_params] == ["ts_code"]
@@ -224,10 +219,9 @@ def test_workflow_specs_reference_existing_job_specs() -> None:
             assert step.job_key in JOB_SPEC_REGISTRY
 
 
-def test_daily_market_close_sync_excludes_price_restore_and_indicator_tasks() -> None:
+def test_daily_market_close_sync_excludes_indicator_tasks() -> None:
     workflow = WORKFLOW_SPEC_REGISTRY["daily_market_close_sync"]
     step_job_keys = {step.job_key for step in workflow.steps}
-    assert "sync_daily.equity_price_restore_factor" not in step_job_keys
     assert "sync_daily.equity_indicators" not in step_job_keys
 
 

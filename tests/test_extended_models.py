@@ -1,6 +1,5 @@
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.broker_recommend import BrokerRecommend
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.hk_security import HkSecurity
@@ -61,11 +60,6 @@ def test_index_supplement_models_match_expected_keys() -> None:
     }
     assert [column.name for column in FundAdjFactor.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert {index.name for index in FundAdjFactor.__table__.indexes} == {"idx_fund_adj_factor_trade_date"}
-    assert [column.name for column in EquityPriceRestoreFactor.__table__.primary_key.columns] == ["ts_code", "trade_date"]
-    assert {index.name for index in EquityPriceRestoreFactor.__table__.indexes} == {
-        "idx_equity_price_restore_factor_trade_date",
-        "idx_equity_price_restore_factor_updated_at",
-    }
     assert [column.name for column in BrokerRecommend.__table__.primary_key.columns] == ["month", "ts_code", "broker"]
     assert {index.name for index in BrokerRecommend.__table__.indexes} == {
         "idx_broker_recommend_month",

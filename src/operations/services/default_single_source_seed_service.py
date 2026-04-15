@@ -12,7 +12,7 @@ from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
 
-DISABLED_DEFAULT_DATASET_KEYS = {"equity_price_restore_factor"}
+DISABLED_DEFAULT_DATASET_KEYS: set[str] = set()
 
 
 @dataclass(slots=True)

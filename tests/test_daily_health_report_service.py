@@ -22,9 +22,9 @@ def _freshness_response() -> SimpleNamespace:
         recent_failure_summary=None,
     )
     dataset_factor = SimpleNamespace(
-        dataset_key="equity_price_restore_factor",
-        resource_key="equity_price_restore_factor",
-        display_name="价格还原因子",
+        dataset_key="adj_factor",
+        resource_key="adj_factor",
+        display_name="复权因子",
         domain_key="equity",
         domain_display_name="股票",
         freshness_status="stale",
@@ -58,7 +58,7 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
         return_value=[
             SimpleNamespace(
                 id=101,
-                spec_key="sync_daily.equity_price_restore_factor",
+                spec_key="sync_daily.adj_factor",
                 status="failed",
                 error_message="boom",
                 summary_message=None,
@@ -86,7 +86,7 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
                 started_at=datetime(2026, 4, 8, 1, 0, tzinfo=timezone.utc),
             ),
             SimpleNamespace(
-                job_name="sync_equity_price_restore_factor",
+                job_name="sync_equity_adj_factor",
                 status="FAILED",
                 rows_fetched=100,
                 rows_written=0,
@@ -100,8 +100,8 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
 
     assert report.freshness_summary["total_datasets"] == 2
     assert any(item["display_name"] == "股票日线" for item in report.datasets)
-    assert any(item["display_name"] == "价格还原因子" for item in report.datasets)
+    assert any(item["display_name"] == "复权因子" for item in report.datasets)
     assert "数据健康度日报（2026-04-08）" in markdown
-    assert "价格还原因子" in markdown
+    assert "复权因子" in markdown
     assert "重点关注" in markdown
     assert any("严重滞后" in item for item in report.key_alerts)

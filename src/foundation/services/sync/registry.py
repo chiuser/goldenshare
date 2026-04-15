@@ -16,7 +16,6 @@ from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicServ
 from src.foundation.services.sync.sync_etf_index_service import SyncEtfIndexService
 from src.foundation.services.sync.sync_equity_daily_service import SyncEquityDailyService
 from src.foundation.services.sync.sync_equity_indicators_service import SyncEquityIndicatorsService
-from src.foundation.services.sync.sync_equity_price_restore_factor_service import SyncEquityPriceRestoreFactorService
 from src.foundation.services.sync.sync_fund_daily_service import SyncFundDailyService
 from src.foundation.services.sync.sync_fund_adj_service import SyncFundAdjService
 from src.foundation.services.sync.sync_holdernumber_service import SyncHolderNumberService
@@ -55,7 +54,6 @@ SYNC_SERVICE_REGISTRY = {
     "us_basic": SyncUsBasicService,
     "trade_cal": SyncTradeCalendarService,
     "daily": SyncEquityDailyService,
-    "equity_price_restore_factor": SyncEquityPriceRestoreFactorService,
     "equity_indicators": SyncEquityIndicatorsService,
     "adj_factor": SyncAdjFactorService,
     "daily_basic": SyncDailyBasicService,

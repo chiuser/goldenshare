@@ -7,7 +7,7 @@ import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
-import { OpsManualSyncPage, resolveDraftOnDomainChange, resolveExecutionTarget, shouldAutoAlignDomain } from "./ops-manual-sync-page";
+import { OpsManualSyncPage, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-manual-sync-page";
 
 vi.mock("../shared/api/client", () => ({
   apiRequest: vi.fn(async (path: string) => {
@@ -420,53 +420,6 @@ function renderPageWithMismatchedPersistedDomain() {
 }
 
 describe("手动同步页", () => {
-  it("区间模式在没有 backfill 入口时应回退到 directSpec（sync_history）", () => {
-    const action = {
-      id: "job:equity_price_restore_factor",
-      type: "job",
-      domainLabel: "股票",
-      categoryLabel: "历史同步",
-      displayName: "维护价格还原因子",
-      description: "按区间重算价格还原因子。",
-      syncDailySpecKey: "sync_daily.equity_price_restore_factor",
-      backfillSpecKey: null,
-      backfillNoDateSpecKey: null,
-      directSpecKey: "sync_history.equity_price_restore_factor",
-      workflowKey: null,
-      supportedParams: [],
-      timeCapability: {
-        hasTimeInput: true,
-        supportsPoint: true,
-        supportsRange: true,
-        pointGranularity: "day",
-        rangeGranularity: "day",
-        pointKey: "trade_date",
-        rangeStartKey: "start_date",
-        rangeEndKey: "end_date",
-      },
-    } as const;
-
-    const draft = {
-      action_id: "job:equity_price_restore_factor",
-      date_mode: "time_range",
-      selected_date: "",
-      start_date: "1990-12-19",
-      end_date: "2026-04-08",
-      selected_month: "",
-      start_month: "",
-      end_month: "",
-      field_values: {},
-    } as const;
-
-    const target = resolveExecutionTarget(action as never, draft as never);
-    expect(target.spec_type).toBe("job");
-    expect(target.spec_key).toBe("sync_history.equity_price_restore_factor");
-    expect(target.params_json).toMatchObject({
-      start_date: "1990-12-19",
-      end_date: "2026-04-08",
-    });
-  });
-
   it("用维护动作抽象底层逻辑，并隐藏内部参数", async () => {
     renderPage();
 

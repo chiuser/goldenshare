@@ -218,7 +218,6 @@ SOURCE_KEY_PARAM = ParameterSpec(
 DAILY_SYNC_RESOURCES = (
     "biying_equity_daily",
     "daily",
-    "equity_price_restore_factor",
     "equity_indicators",
     "adj_factor",
     "daily_basic",
@@ -271,7 +270,6 @@ SECURITY_RANGE_RESOURCES = {
 }
 
 TRADE_DATE_RANGE_RESOURCES = {
-    "equity_price_restore_factor",
     "equity_indicators",
     "daily_basic",
     "moneyflow",
@@ -759,7 +757,6 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
-    "equity_price_restore_factor": ("价格还原因子", "equity", "股票", "daily", "trade_date"),
     "equity_indicators": ("股票技术指标", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
@@ -811,8 +808,6 @@ def _primary_execution_spec_key_for_resource(resource: str) -> str | None:
 
 
 def _raw_table_for_resource(resource: str) -> str | None:
-    if resource == "equity_price_restore_factor":
-        return None
     if resource == "equity_indicators":
         return None
     if resource == "stk_period_bar_week" or resource == "stk_period_bar_month":

@@ -78,28 +78,26 @@
 | 序号 | step_key | 显示名 | job_key |
 |---:|---|---|---|
 | 1 | `daily` | 股票日线 | `sync_daily.daily` |
-| 2 | `equity_price_restore_factor` | 价格还原因子 | `sync_daily.equity_price_restore_factor` |
-| 3 | `equity_indicators` | 股票技术指标 | `sync_daily.equity_indicators` |
-| 4 | `adj_factor` | 复权因子 | `sync_daily.adj_factor` |
-| 5 | `daily_basic` | 股票日指标 | `sync_daily.daily_basic` |
-| 6 | `moneyflow` | 资金流 | `sync_daily.moneyflow` |
-| 7 | `limit_list` | 涨跌停榜 | `sync_daily.limit_list_d` |
-| 8 | `top_list` | 龙虎榜 | `sync_daily.top_list` |
-| 9 | `block_trade` | 大宗交易 | `sync_daily.block_trade` |
-| 10 | `fund_daily` | 基金日线 | `sync_daily.fund_daily` |
-| 11 | `fund_adj` | 基金复权因子 | `sync_daily.fund_adj` |
-| 12 | `index_daily` | 指数日线 | `sync_daily.index_daily` |
-| 13 | `ths_daily` | 同花顺板块行情 | `sync_daily.ths_daily` |
-| 14 | `dc_index` | 东方财富概念板块 | `sync_daily.dc_index` |
-| 15 | `dc_member` | 东方财富板块成分 | `sync_daily.dc_member` |
-| 16 | `dc_daily` | 东方财富板块行情 | `sync_daily.dc_daily` |
-| 17 | `ths_hot` | 同花顺热榜 | `sync_daily.ths_hot` |
-| 18 | `dc_hot` | 东方财富热榜 | `sync_daily.dc_hot` |
-| 19 | `kpl_list` | 开盘啦榜单 | `sync_daily.kpl_list` |
-| 20 | `limit_list_ths` | 同花顺涨跌停榜单 | `sync_daily.limit_list_ths` |
-| 21 | `limit_step` | 涨停天梯 | `sync_daily.limit_step` |
-| 22 | `limit_cpt_list` | 最强板块统计 | `sync_daily.limit_cpt_list` |
-| 23 | `kpl_concept_cons` | 开盘啦题材成分 | `sync_daily.kpl_concept_cons` |
+| 2 | `adj_factor` | 复权因子 | `sync_daily.adj_factor` |
+| 3 | `daily_basic` | 股票日指标 | `sync_daily.daily_basic` |
+| 4 | `moneyflow` | 资金流 | `sync_daily.moneyflow` |
+| 5 | `limit_list` | 涨跌停榜 | `sync_daily.limit_list_d` |
+| 6 | `top_list` | 龙虎榜 | `sync_daily.top_list` |
+| 7 | `block_trade` | 大宗交易 | `sync_daily.block_trade` |
+| 8 | `fund_daily` | 基金日线 | `sync_daily.fund_daily` |
+| 9 | `fund_adj` | 基金复权因子 | `sync_daily.fund_adj` |
+| 10 | `index_daily` | 指数日线 | `sync_daily.index_daily` |
+| 11 | `ths_daily` | 同花顺板块行情 | `sync_daily.ths_daily` |
+| 12 | `dc_index` | 东方财富概念板块 | `sync_daily.dc_index` |
+| 13 | `dc_member` | 东方财富板块成分 | `sync_daily.dc_member` |
+| 14 | `dc_daily` | 东方财富板块行情 | `sync_daily.dc_daily` |
+| 15 | `ths_hot` | 同花顺热榜 | `sync_daily.ths_hot` |
+| 16 | `dc_hot` | 东方财富热榜 | `sync_daily.dc_hot` |
+| 17 | `kpl_list` | 开盘啦榜单 | `sync_daily.kpl_list` |
+| 18 | `limit_list_ths` | 同花顺涨跌停榜单 | `sync_daily.limit_list_ths` |
+| 19 | `limit_step` | 涨停天梯 | `sync_daily.limit_step` |
+| 20 | `limit_cpt_list` | 最强板块统计 | `sync_daily.limit_cpt_list` |
+| 21 | `kpl_concept_cons` | 开盘啦题材成分 | `sync_daily.kpl_concept_cons` |
 
 ## 3.3 `board_reference_refresh`（板块主数据刷新）
 

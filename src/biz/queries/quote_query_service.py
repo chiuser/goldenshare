@@ -7,13 +7,11 @@ from decimal import Decimal
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
 
-from src.foundation.config.settings import get_settings
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -691,20 +689,6 @@ class QuoteQueryService:
         ts_code: str,
         adjustment: str,
     ) -> Decimal | None:
-        if self._stock_factor_source() == "price_restore_factor":
-            if adjustment == "forward":
-                return session.scalar(
-                    select(EquityPriceRestoreFactor.cum_factor)
-                    .where(EquityPriceRestoreFactor.ts_code == ts_code)
-                    .order_by(EquityPriceRestoreFactor.trade_date.desc())
-                    .limit(1)
-                )
-            return session.scalar(
-                select(EquityPriceRestoreFactor.cum_factor)
-                .where(EquityPriceRestoreFactor.ts_code == ts_code)
-                .order_by(EquityPriceRestoreFactor.trade_date.asc())
-                .limit(1)
-            )
         if adjustment == "forward":
             return session.scalar(
                 select(EquityAdjFactor.adj_factor)
@@ -727,17 +711,6 @@ class QuoteQueryService:
         start_date: date,
         end_date: date,
     ) -> dict[date, Decimal]:
-        if self._stock_factor_source() == "price_restore_factor":
-            factors = session.scalars(
-                select(EquityPriceRestoreFactor)
-                .where(
-                    EquityPriceRestoreFactor.ts_code == ts_code,
-                    EquityPriceRestoreFactor.trade_date >= start_date,
-                    EquityPriceRestoreFactor.trade_date <= end_date,
-                )
-                .order_by(EquityPriceRestoreFactor.trade_date.asc())
-            ).all()
-            return {item.trade_date: item.cum_factor for item in factors if item.cum_factor is not None}
         factors = session.scalars(
             select(EquityAdjFactor)
             .where(
@@ -748,10 +721,6 @@ class QuoteQueryService:
             .order_by(EquityAdjFactor.trade_date.asc())
         ).all()
         return {item.trade_date: item.adj_factor for item in factors if item.adj_factor is not None}
-
-    @staticmethod
-    def _stock_factor_source() -> str:
-        return get_settings().equity_adjustment_factor_source
 
     def _load_stock_period_points(
         self,

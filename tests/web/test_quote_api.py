@@ -9,7 +9,6 @@ from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -32,7 +31,6 @@ def _ensure_quote_tables(db_session) -> None:
         EquityDailyBar.__table__,
         EquityDailyBasic.__table__,
         EquityAdjFactor.__table__,
-        EquityPriceRestoreFactor.__table__,
         IndexBasic.__table__,
         IndexDailyServing.__table__,
         IndexDailyBasic.__table__,
@@ -283,80 +281,6 @@ def test_quote_api_auth_required_can_be_enforced(app_client, monkeypatch) -> Non
         assert payload["code"] == "auth_required"
     finally:
         monkeypatch.setenv("QUOTE_API_AUTH_REQUIRED", "false")
-        get_settings.cache_clear()
-
-
-def test_quote_kline_can_switch_factor_source_to_price_restore(app_client, db_session, monkeypatch) -> None:
-    _ensure_quote_tables(db_session)
-    db_session.add(
-        Security(
-            ts_code="002245.SZ",
-            symbol="002245",
-            name="蔚蓝锂芯",
-            exchange="SZSE",
-            industry="锂电池",
-            list_status="L",
-            security_type="EQUITY",
-            source="tushare",
-        )
-    )
-    db_session.add_all(
-        [
-            EquityDailyBar(
-                ts_code="002245.SZ",
-                trade_date=date(2026, 4, 1),
-                open=Decimal("10.0000"),
-                high=Decimal("11.0000"),
-                low=Decimal("9.8000"),
-                close=Decimal("10.5000"),
-                pre_close=Decimal("9.9000"),
-                change_amount=Decimal("0.6000"),
-                pct_chg=Decimal("6.0600"),
-                vol=Decimal("100000.0000"),
-                amount=Decimal("1000000.0000"),
-                source="api",
-            ),
-            EquityDailyBar(
-                ts_code="002245.SZ",
-                trade_date=date(2026, 4, 2),
-                open=Decimal("10.6000"),
-                high=Decimal("11.2000"),
-                low=Decimal("10.4000"),
-                close=Decimal("11.0000"),
-                pre_close=Decimal("10.5000"),
-                change_amount=Decimal("0.5000"),
-                pct_chg=Decimal("4.7619"),
-                vol=Decimal("120000.0000"),
-                amount=Decimal("1200000.0000"),
-                source="api",
-            ),
-        ]
-    )
-    db_session.add_all(
-        [
-            EquityAdjFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000")),
-            EquityAdjFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 2), adj_factor=Decimal("2.00000000")),
-            EquityPriceRestoreFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 1), cum_factor=Decimal("1.00000000")),
-            EquityPriceRestoreFactor(ts_code="002245.SZ", trade_date=date(2026, 4, 2), cum_factor=Decimal("4.00000000")),
-        ]
-    )
-    db_session.commit()
-
-    monkeypatch.setenv("EQUITY_ADJUSTMENT_FACTOR_SOURCE", "price_restore_factor")
-    get_settings.cache_clear()
-    try:
-        response = app_client.get(
-            "/api/v1/quote/detail/kline",
-            params={"ts_code": "002245.SZ", "period": "day", "adjustment": "forward", "limit": 10},
-        )
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["meta"]["bar_count"] == 2
-        # With restore factor anchor=4, first-day qfq close should be 10.5 * 1/4 = 2.6250
-        assert payload["bars"][0]["close"] == "2.6250"
-        assert payload["bars"][1]["close"] == "11.0000"
-    finally:
-        monkeypatch.setenv("EQUITY_ADJUSTMENT_FACTOR_SOURCE", "adj_factor")
         get_settings.cache_clear()
 
 

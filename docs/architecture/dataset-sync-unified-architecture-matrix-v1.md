@@ -123,7 +123,6 @@ Intent(用户意图)
 | `dividend` | `backfill_low_frequency.dividend / sync_history.dividend` | `A01 A03 A05 A07 A08 A09 A10 A11 A12` | `ex_date` 自动修复规则 |
 | `stk_holdernumber` | `backfill_low_frequency.stk_holdernumber / sync_history.stk_holdernumber` | `A01 A03 A05 A07 A09 A10 A12` | 低频代码池遍历 |
 | `broker_recommend` | `backfill_by_month.broker_recommend / sync_daily.broker_recommend / sync_history.broker_recommend` | `A01 A02 A03 A05 A06 A07 A09 A10 A12` | 月份区间展开 |
-| `equity_price_restore_factor` | `sync_daily.equity_price_restore_factor / sync_history.equity_price_restore_factor` | `A01 A02 A03 A04 A08 A10 A11 A12` | 因子链计算（派生型） |
 
 ---
 
@@ -162,4 +161,3 @@ Intent(用户意图)
 3. 若需新增切面，先补文档与测试，再进代码。
 4. 所有数据集最终只对外呈现同一套业务语义：  
    **维护数据 -> 选时间 -> 选其他条件 -> 执行 -> 看进度与结果**。
-

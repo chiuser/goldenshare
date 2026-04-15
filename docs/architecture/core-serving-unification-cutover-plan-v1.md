@@ -52,7 +52,6 @@
 
 本轮明确暂不迁移（保留在 `core`）：
 - `equity_indicators`（`ind_macd` / `ind_kdj` / `ind_rsi`）
-- `equity_price_restore_factor`
 - `equity_adj_factor`
 - `fund_adj_factor`
 
@@ -118,7 +117,6 @@
 - 基础主数据：`index_basic` / `etf_basic` / `etf_index` / `trade_calendar` / `hk_security` / `us_security`
 - 低频事件与榜单：`equity_dividend` / `equity_holder_number` / `block_trade` / `moneyflow` / `top_list` / `limit_*` / `ths_*` / `dc_*` / `kpl_*`
 - 指标状态与版本：`indicator_state` / `indicator_meta`
-- 停用数据集：`equity_price_restore_factor`
 
 ---
 

@@ -184,7 +184,6 @@
 3. 同步服务与指标：
 - [test_sync_registry.py](/Users/congming/github/goldenshare/tests/test_sync_registry.py)
 - [test_sync_equity_indicators_service.py](/Users/congming/github/goldenshare/tests/test_sync_equity_indicators_service.py)
-- [test_sync_equity_price_restore_factor_service.py](/Users/congming/github/goldenshare/tests/test_sync_equity_price_restore_factor_service.py)
 
 ---
 
@@ -206,4 +205,3 @@
 3. Ops 任务配置中的 source/policy 约束测试。  
 
 以上三项将在 Ops 契约文档确认后补入本清单。
-

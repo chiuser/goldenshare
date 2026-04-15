@@ -26,7 +26,6 @@ from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -118,7 +117,6 @@ class DAOFactory:
         self.trade_calendar = TradeCalendarDAO(session)
         self.equity_daily_bar = EquityDailyBarDAO(session)
         self.equity_adj_factor = EquityAdjFactorDAO(session)
-        self.equity_price_restore_factor = GenericDAO(session, EquityPriceRestoreFactor)
         self.equity_daily_basic = EquityDailyBasicDAO(session)
         self.equity_moneyflow = EquityMoneyflowDAO(session)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)

@@ -25,6 +25,7 @@
 - [数据集停用策略 v1（过渡方案）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-disable-policy-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据集模式与层级观测补齐方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-dataset-pipeline-mode-and-layer-observability-v1.md)
+- [融合策略中心开发准备度与待办清单 v1](/Users/congming/github/goldenshare/docs/ops/ops-fusion-strategy-center-readiness-todo-v1.md)
 
 ## 业务平台
 
@@ -39,7 +40,6 @@
 - [ETF 基准指数列表开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
 - [ETF 日线行情开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
 - [基金复权因子开发说明](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
-- [股票价格还原因子设计说明](/Users/congming/github/goldenshare/docs/datasets/equity-price-restore-factor-dataset-development.md)
 - [股票技术指标数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/equity-technical-indicators-dataset-development.md)
 
 ## 发布与运维流程

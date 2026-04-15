@@ -15,7 +15,6 @@ from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
-from src.foundation.models.core.equity_price_restore_factor import EquityPriceRestoreFactor
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -64,9 +63,7 @@ from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsF
 
 
 STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unknown": 2, "disabled": 3, "fresh": 4}
-DISABLED_DATASET_KEYS = {
-    "equity_price_restore_factor",
-}
+DISABLED_DATASET_KEYS: set[str] = set()
 
 UNDEFINED_COLUMN_RE = re.compile(r'column "([^"]+)" of relation "([^"]+)" does not exist', re.IGNORECASE)
 NOT_NULL_RE = re.compile(
@@ -111,7 +108,6 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.etf_index": EtfIndex,
     "core_serving.index_basic": IndexBasic,
     "core_serving.equity_daily_bar": EquityDailyBar,
-    "core.equity_price_restore_factor": EquityPriceRestoreFactor,
     "core.equity_adj_factor": EquityAdjFactor,
     "core_serving.equity_daily_basic": EquityDailyBasic,
     "core_serving.equity_moneyflow": EquityMoneyflow,
