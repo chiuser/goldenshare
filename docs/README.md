@@ -8,6 +8,7 @@
 - [虚拟拆仓重构方案](/Users/congming/github/goldenshare/docs/architecture/virtual-split-repo-refactor-plan-v1.md)
 - [数据同步统一架构与全量矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+- [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 
 ## 前端设计与实现
 
