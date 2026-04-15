@@ -227,9 +227,9 @@ main() {
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
   log "11/11 服务状态"
-  sudo_systemctl status "${WEB_SERVICE}" || true
-  sudo_systemctl status "${WORKER_SERVICE}" || true
-  sudo_systemctl status "${SCHEDULER_SERVICE}" || true
+  sudo_systemctl status "${WEB_SERVICE}" 2>&1 | cat || true
+  sudo_systemctl status "${WORKER_SERVICE}" 2>&1 | cat || true
+  sudo_systemctl status "${SCHEDULER_SERVICE}" 2>&1 | cat || true
 
   log "分层发版完成"
 }
