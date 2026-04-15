@@ -214,11 +214,11 @@ class DatasetStatusSnapshotService:
 
             upsert_stage("raw", item.freshness_status if mode.raw_enabled else "skipped", mode.notes)
             if mode.std_enabled:
-                upsert_stage("std", "unknown", "待接入实体 std 层观测")
+                upsert_stage("std", "unobserved", "该层已启用，但暂未接入独立观测指标")
             else:
                 upsert_stage("std", "skipped", "当前模式未启用 std 物化")
             if mode.resolution_enabled:
-                upsert_stage("resolution", "unknown", "待接入融合决策层观测")
+                upsert_stage("resolution", "unobserved", "该层已启用，但暂未接入独立观测指标")
             else:
                 upsert_stage("resolution", "skipped", "当前模式未启用融合决策层")
             if mode.serving_enabled:

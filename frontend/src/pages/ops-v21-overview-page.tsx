@@ -98,6 +98,13 @@ export function OpsV21OverviewPage() {
     if (d !== 0) return d;
     return a.display_name.localeCompare(b.display_name, "zh-CN");
   });
+  const groupedCards = new Map<string, typeof cards>();
+  for (const item of cards) {
+    const key = `${item.domain_key}::${domainLabel(item.domain_key)}`;
+    const list = groupedCards.get(key) || [];
+    list.push(item);
+    groupedCards.set(key, list);
+  }
 
   return (
     <Stack gap="lg">
@@ -116,8 +123,12 @@ export function OpsV21OverviewPage() {
         </Alert>
       ) : null}
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
-        {cards.map((item) => {
+      {Array.from(groupedCards.entries()).map(([groupKey, groupItems]) => {
+        const [, groupDisplayName] = groupKey.split("::");
+        return (
+          <SectionCard key={groupKey} title={groupDisplayName} description={`共 ${groupItems.length} 个数据集`}>
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
+              {groupItems.map((item) => {
           const status = toCardStatus(item.freshness_status);
           const stages = expectedStages(item.mode);
           const stageMap = stageLatestByDataset.get(item.dataset_key) || {};
@@ -133,97 +144,99 @@ export function OpsV21OverviewPage() {
             { label: "融合策略", on: item.resolution_policy_configured },
           ];
 
-          return (
-            <Paper
-              key={item.dataset_key}
-              radius="md"
-              p="md"
-              style={{
-                border: "1px solid rgba(15, 23, 42, 0.16)",
-                background: "rgba(248, 250, 252, 0.92)",
-                minHeight: 320,
-              }}
-            >
-              <Stack gap={10} h="100%">
-                <Group justify="space-between" align="flex-start">
-                  <Stack gap={2}>
-                    <Group gap={8} align="center">
-                      <Box
-                        w={9}
-                        h={9}
-                        style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
-                      />
-                      <Text fw={700} size="sm" lineClamp={1}>
-                        {item.display_name}
-                      </Text>
-                    </Group>
-                    <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
-                      {item.dataset_key}
-                    </Text>
-                  </Stack>
-                  <Badge variant="light" color={modeColor(item.mode)}>
-                    {modeLabel(item.mode)}
-                  </Badge>
-                </Group>
-
-                <Group gap={6} wrap="wrap">
-                  <Badge variant="dot" color="gray" size="sm">{domainLabel(item.domain_key)}</Badge>
-                  <Badge variant="light" color="blue" size="sm">
-                    最新业务日：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
-                  </Badge>
-                </Group>
-
-                <Stack gap={6}>
-                  {stages.map((stage) => (
-                    <Group key={stage} justify="space-between" align="center">
-                      <Text size="sm" c="dimmed">{stageLabel(stage)}</Text>
-                      <Group gap={8}>
-                        <StatusBadge value={stageMap[stage]?.status || "unknown"} />
-                        <Text size="xs" c="dimmed">
-                          {stageMap[stage]?.calculated_at ? formatDateTimeLabel(stageMap[stage]?.calculated_at) : "—"}
-                        </Text>
-                      </Group>
-                    </Group>
-                  ))}
-                </Stack>
-
-                <Grid gutter={6}>
-                  {flags.map((flag) => (
-                    <Grid.Col key={flag.label} span={4}>
-                      <Paper radius="sm" p="xs" bg="white">
-                        <Text size="xs" c="dimmed">{flag.label}</Text>
-                        <Text size="xs" fw={700} c={flag.on ? "green.7" : "gray.6"}>
-                          {flag.on ? "已配置" : "未配置"}
-                        </Text>
-                      </Paper>
-                    </Grid.Col>
-                  ))}
-                </Grid>
-
-                <Stack gap={4} mt="auto">
-                  {chainRows.map((row) => (
-                    <Text key={row.label} size="xs" c="dimmed" lineClamp={1}>
-                      {row.label}：{row.value}
-                    </Text>
-                  ))}
-                </Stack>
-
-                <Group justify="flex-end">
-                  <Button
-                    component="a"
-                    href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.dataset_key)}`}
-                    size="xs"
-                    variant="light"
-                    color="brand"
+                return (
+                  <Paper
+                    key={item.dataset_key}
+                    radius="md"
+                    p="md"
+                    style={{
+                      border: "1px solid rgba(15, 23, 42, 0.16)",
+                      background: "rgba(248, 250, 252, 0.92)",
+                      minHeight: 320,
+                    }}
                   >
-                    查看详情
-                  </Button>
-                </Group>
-              </Stack>
-            </Paper>
-          );
-        })}
-      </SimpleGrid>
+                    <Stack gap={10} h="100%">
+                      <Group justify="space-between" align="flex-start">
+                        <Stack gap={2}>
+                          <Group gap={8} align="center">
+                            <Box
+                              w={9}
+                              h={9}
+                              style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
+                            />
+                            <Text fw={700} size="sm" lineClamp={1}>
+                              {item.display_name}
+                            </Text>
+                          </Group>
+                          <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
+                            {item.dataset_key}
+                          </Text>
+                        </Stack>
+                        <Badge variant="light" color={modeColor(item.mode)}>
+                          {modeLabel(item.mode)}
+                        </Badge>
+                      </Group>
+
+                      <Group gap={6} wrap="wrap">
+                        <Badge variant="light" color="blue" size="sm">
+                          最新业务日：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
+                        </Badge>
+                      </Group>
+
+                      <Stack gap={6}>
+                        {stages.map((stage) => (
+                          <Group key={stage} justify="space-between" align="center">
+                            <Text size="sm" c="dimmed">{stageLabel(stage)}</Text>
+                            <Group gap={8}>
+                              <StatusBadge value={stageMap[stage]?.status || "unknown"} />
+                              <Text size="xs" c="dimmed">
+                                {stageMap[stage]?.calculated_at ? formatDateTimeLabel(stageMap[stage]?.calculated_at) : "—"}
+                              </Text>
+                            </Group>
+                          </Group>
+                        ))}
+                      </Stack>
+
+                      <Grid gutter={6}>
+                        {flags.map((flag) => (
+                          <Grid.Col key={flag.label} span={4}>
+                            <Paper radius="sm" p="xs" bg="white">
+                              <Text size="xs" c="dimmed">{flag.label}</Text>
+                              <Text size="xs" fw={700} c={flag.on ? "green.7" : "gray.6"}>
+                                {flag.on ? "已配置" : "未配置"}
+                              </Text>
+                            </Paper>
+                          </Grid.Col>
+                        ))}
+                      </Grid>
+
+                      <Stack gap={4} mt="auto">
+                        {chainRows.map((row) => (
+                          <Text key={row.label} size="xs" c="dimmed" lineClamp={1}>
+                            {row.label}：{row.value}
+                          </Text>
+                        ))}
+                      </Stack>
+
+                      <Group justify="flex-end">
+                        <Button
+                          component="a"
+                          href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.dataset_key)}`}
+                          size="xs"
+                          variant="light"
+                          color="brand"
+                        >
+                          查看详情
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Paper>
+                );
+              })}
+            </SimpleGrid>
+          </SectionCard>
+        );
+      })}
     </Stack>
   );
 }

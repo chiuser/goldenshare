@@ -77,6 +77,21 @@ def test_pipeline_mode_query_lists_mode_and_rule_status(db_session: Session) -> 
                 snapshot_date=date(2026, 4, 15),
                 last_calculated_at=_now(),
             ),
+            DatasetStatusSnapshot(
+                dataset_key="block_trade",
+                resource_key="block_trade",
+                display_name="大宗交易",
+                domain_key="equity",
+                domain_display_name="股票",
+                job_name="sync_block_trade",
+                target_table="core.equity_block_trade",
+                cadence="daily",
+                latest_business_date=date(2026, 4, 15),
+                business_date_source="observed",
+                freshness_status="fresh",
+                snapshot_date=date(2026, 4, 15),
+                last_calculated_at=_now(),
+            ),
             DatasetPipelineMode(
                 dataset_key="stock_basic",
                 mode="multi_source_pipeline",
@@ -131,7 +146,7 @@ def test_pipeline_mode_query_lists_mode_and_rule_status(db_session: Session) -> 
     db_session.commit()
 
     result = DatasetPipelineModeQueryService().list_modes(db_session)
-    assert result.total == 2
+    assert result.total == 3
     by_key = {item.dataset_key: item for item in result.items}
 
     stock_basic = by_key["stock_basic"]
@@ -147,3 +162,7 @@ def test_pipeline_mode_query_lists_mode_and_rule_status(db_session: Session) -> 
     assert daily.layer_plan == "raw->serving"
     assert daily.std_mapping_configured is False
     assert daily.resolution_policy_configured is False
+
+    block_trade = by_key["block_trade"]
+    assert block_trade.mode == "single_source_direct"
+    assert block_trade.serving_table == "core_serving.equity_block_trade"

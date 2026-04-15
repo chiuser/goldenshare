@@ -570,3 +570,39 @@ def test_stk_period_month_prefers_observed_business_date_over_state_date() -> No
     assert item.observed_business_date == date(2026, 2, 28)
     assert item.latest_business_date == date(2026, 2, 28)
     assert item.business_date_source == "observed"
+
+
+def test_reference_dataset_uses_last_sync_date_as_business_date_when_no_observed_date() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="stock_basic",
+        resource_key="stock_basic",
+        job_name="sync_stock_basic",
+        display_name="股票主数据",
+        domain_key="reference_data",
+        domain_display_name="基础主数据",
+        target_table="core_serving.security_serving",
+        cadence="reference",
+        observed_date_column=None,
+        primary_execution_spec_key="sync_history.stock_basic",
+    )
+    state = Mock(
+        last_success_at=datetime(2026, 4, 15, 12, 0, tzinfo=timezone.utc),
+        last_success_date=None,
+        full_sync_done=True,
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=state,
+        latest_open_date=date(2026, 4, 15),
+        reference_date=date(2026, 4, 15),
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=(None, None),
+        observed_sync_date=None,
+    )
+
+    assert item.latest_business_date == date(2026, 4, 15)
+    assert item.business_date_source == "sync_date"
+    assert item.freshness_note == "该数据集无业务日期字段，已使用最近同步日期作为业务日期。"

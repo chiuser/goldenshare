@@ -301,6 +301,9 @@ class OpsFreshnessQueryService:
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
         )
+        if latest_business_date is None and last_sync_date is not None and spec.observed_date_column is None:
+            latest_business_date = last_sync_date
+            business_date_source = "sync_date"
         full_sync_done = bool(state.full_sync_done) if state is not None else False
         expected_business_date = self._expected_business_date(spec.cadence, reference_date, latest_open_date)
         effective_date = latest_business_date or (latest_success_at.date() if latest_success_at else None)
@@ -400,6 +403,8 @@ class OpsFreshnessQueryService:
             return "最新业务日当前来自真实目标表观测值。"
         if business_date_source == "state":
             return "最新业务日当前来自 sync_job_state。"
+        if business_date_source == "sync_date":
+            return "该数据集无业务日期字段，已使用最近同步日期作为业务日期。"
         return None
 
     @staticmethod

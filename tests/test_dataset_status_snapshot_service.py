@@ -112,3 +112,53 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
     item = response.groups[0].items[0]
     assert item.dataset_key == "daily"
     assert item.raw_table == "raw_tushare.daily"
+
+
+def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Session) -> None:
+    class _FakeQueryService:
+        def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
+            assert resource_keys == ["stock_basic"]
+            return [
+                DatasetFreshnessItem(
+                    dataset_key="stock_basic",
+                    resource_key="stock_basic",
+                    display_name="股票主数据",
+                    domain_key="reference_data",
+                    domain_display_name="基础主数据",
+                    job_name="sync_stock_basic",
+                    target_table="core_serving.security_serving",
+                    cadence="reference",
+                    latest_business_date=date(2026, 4, 1),
+                    freshness_status="fresh",
+                    last_sync_date=date(2026, 4, 1),
+                    full_sync_done=True,
+                )
+            ]
+
+    db_session.add(
+        DatasetPipelineMode(
+            dataset_key="stock_basic",
+            mode="multi_source_pipeline",
+            source_scope="tushare,biying",
+            raw_enabled=True,
+            std_enabled=True,
+            resolution_enabled=True,
+            serving_enabled=True,
+        )
+    )
+    db_session.commit()
+
+    service = DatasetStatusSnapshotService(query_service=_FakeQueryService())
+    refreshed = service.refresh_resources(db_session, ["stock_basic"], today=date(2026, 4, 1))
+    assert refreshed == 1
+
+    rows = list(
+        db_session.scalars(
+            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "stock_basic")
+        )
+    )
+    by_stage = {row.stage: row for row in rows}
+    assert by_stage["raw"].status == "fresh"
+    assert by_stage["std"].status == "unobserved"
+    assert by_stage["resolution"].status == "unobserved"
+    assert by_stage["serving"].status == "fresh"

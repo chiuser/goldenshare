@@ -9,7 +9,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.schemas.dataset_pipeline import DatasetPipelineModeItem, DatasetPipelineModeListResponse
-from src.operations.specs import get_dataset_freshness_spec
+from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec
 
 
 class DatasetPipelineModeQueryService:
@@ -70,11 +70,14 @@ class DatasetPipelineModeQueryService:
 
         items: list[DatasetPipelineModeItem] = []
         for row in rows:
+            spec = get_dataset_freshness_spec(row.resource_key)
             mode = mode_by_key.get(row.dataset_key)
+            if mode is None and spec is not None:
+                mode = self._inferred_mode_from_spec(row.dataset_key, spec)
             resolved_mode = mode.mode if mode is not None else "unknown"
             source_scope = mode.source_scope if mode is not None else "unknown"
-            spec = get_dataset_freshness_spec(row.resource_key)
             raw_table = spec.raw_table if spec is not None else None
+            target_table = spec.target_table if spec is not None else row.target_table
             items.append(
                 DatasetPipelineModeItem(
                     dataset_key=row.dataset_key,
@@ -85,7 +88,7 @@ class DatasetPipelineModeQueryService:
                     layer_plan=self._layer_plan(mode=resolved_mode),
                     raw_table=raw_table,
                     std_table_hint=self._std_table_hint(row.dataset_key, resolved_mode),
-                    serving_table=self._serving_table(row.target_table, row.dataset_key, resolved_mode),
+                    serving_table=self._serving_table(target_table, row.dataset_key, resolved_mode),
                     freshness_status=row.freshness_status,
                     latest_business_date=row.latest_business_date,
                     std_mapping_configured=mapping_counts.get(row.dataset_key, 0) > 0,
@@ -122,3 +125,53 @@ class DatasetPipelineModeQueryService:
         if mode == "legacy_core_direct":
             return "raw->core(legacy)"
         return "unknown"
+
+    @staticmethod
+    def _inferred_mode_from_spec(dataset_key: str, spec: DatasetFreshnessSpec) -> DatasetPipelineMode:
+        target = spec.target_table
+        raw_table = spec.raw_table or ""
+        if dataset_key == "stock_basic":
+            return DatasetPipelineMode(
+                dataset_key=dataset_key,
+                mode="multi_source_pipeline",
+                source_scope="tushare,biying",
+                raw_enabled=True,
+                std_enabled=True,
+                resolution_enabled=True,
+                serving_enabled=True,
+                notes="按规格推断：双源标准化+融合发布链路",
+            )
+        if target.startswith("raw_") or target.startswith("raw."):
+            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
+            return DatasetPipelineMode(
+                dataset_key=dataset_key,
+                mode="raw_only",
+                source_scope=scope,
+                raw_enabled=True,
+                std_enabled=False,
+                resolution_enabled=False,
+                serving_enabled=False,
+                notes="按规格推断：仅采集原始数据",
+            )
+        if target.startswith("core_serving."):
+            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
+            return DatasetPipelineMode(
+                dataset_key=dataset_key,
+                mode="single_source_direct",
+                source_scope=scope,
+                raw_enabled=True,
+                std_enabled=False,
+                resolution_enabled=False,
+                serving_enabled=True,
+                notes="按规格推断：单源直出 serving",
+            )
+        return DatasetPipelineMode(
+            dataset_key=dataset_key,
+            mode="legacy_core_direct",
+            source_scope="tushare",
+            raw_enabled=True,
+            std_enabled=False,
+            resolution_enabled=False,
+            serving_enabled=False,
+            notes="按规格推断：历史保留路径（core 口径）",
+        )

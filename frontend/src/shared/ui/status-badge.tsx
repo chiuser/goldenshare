@@ -21,6 +21,8 @@ const toneMap: Record<string, { background: string; color: string; border: strin
   lagging: { background: "rgba(72, 149, 239, 0.14)", color: "#3558d4", border: "rgba(72, 149, 239, 0.22)" },
   stale: { background: "rgba(247, 37, 133, 0.14)", color: "#b5179e", border: "rgba(247, 37, 133, 0.22)" },
   unknown: { background: "rgba(58, 12, 163, 0.09)", color: "#5f6286", border: "rgba(58, 12, 163, 0.14)" },
+  skipped: { background: "rgba(148, 163, 184, 0.12)", color: "#556072", border: "rgba(148, 163, 184, 0.2)" },
+  unobserved: { background: "rgba(72, 149, 239, 0.11)", color: "#3458d1", border: "rgba(72, 149, 239, 0.2)" },
   info: { background: "rgba(72, 149, 239, 0.12)", color: "#4361ee", border: "rgba(72, 149, 239, 0.18)" },
   warning: { background: "rgba(114, 9, 183, 0.12)", color: "#560bad", border: "rgba(114, 9, 183, 0.18)" },
   error: { background: "rgba(247, 37, 133, 0.12)", color: "#b5179e", border: "rgba(247, 37, 133, 0.18)" },
