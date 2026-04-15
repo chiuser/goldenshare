@@ -19,6 +19,7 @@ from src.ops.models.ops.job_execution import JobExecution
 from src.operations.runtime import OperationsScheduler, OperationsWorker
 from src.operations.services import (
     DailyHealthReportService,
+    DatasetPipelineModeSeedService,
     DefaultSingleSourceSeedService,
     DatasetStatusSnapshotService,
     OperationsExecutionReconciliationService,
@@ -364,6 +365,19 @@ def ops_seed_default_single_source(
     typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
     typer.echo(f"created_resolution_policies={report.created_resolution_policies}")
     typer.echo(f"created_source_statuses={report.created_source_statuses}")
+
+
+@app.command("ops-seed-dataset-pipeline-mode")
+def ops_seed_dataset_pipeline_mode(
+    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
+) -> None:
+    with SessionLocal() as session:
+        report = DatasetPipelineModeSeedService().run(session, dry_run=not apply)
+    mode = "apply" if apply else "dry-run"
+    typer.echo(f"ops-seed-dataset-pipeline-mode [{mode}]")
+    typer.echo(f"dataset_total={report.dataset_total}")
+    typer.echo(f"created={report.created}")
+    typer.echo(f"updated={report.updated}")
 
 
 @app.command("backfill-trade-cal")

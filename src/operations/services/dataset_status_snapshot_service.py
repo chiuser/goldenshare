@@ -7,6 +7,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
+from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
+from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
@@ -29,6 +31,7 @@ class DatasetStatusSnapshotService:
             snapshot_date = today or datetime.now(timezone.utc).date()
             self._upsert_items(session, items, snapshot_date=snapshot_date)
             self._append_history_items(session, items, snapshot_date=snapshot_date)
+            self._upsert_current_items(session, items)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -46,6 +49,7 @@ class DatasetStatusSnapshotService:
             snapshot_date = today or datetime.now(timezone.utc).date()
             self._upsert_items(session, items, snapshot_date=snapshot_date)
             self._append_history_items(session, items, snapshot_date=snapshot_date)
+            self._upsert_current_items(session, items)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -173,3 +177,51 @@ class DatasetStatusSnapshotService:
                     calculated_at=calculated_at,
                 )
             )
+
+    @staticmethod
+    def _upsert_current_items(session: Session, items: list[DatasetFreshnessItem]) -> None:
+        calculated_at = datetime.now(timezone.utc)
+        keys = [item.dataset_key for item in items]
+        mode_by_key = {
+            row.dataset_key: row
+            for row in session.scalars(select(DatasetPipelineMode).where(DatasetPipelineMode.dataset_key.in_(keys))).all()
+        }
+        for item in items:
+            mode = mode_by_key.get(item.dataset_key)
+            source_key = "__all__"
+            if mode is not None and "," not in mode.source_scope and mode.source_scope.strip():
+                source_key = mode.source_scope.strip()
+
+            def upsert_stage(stage: str, status: str, message: str | None) -> None:
+                pk = (item.dataset_key, source_key, stage)
+                row = session.get(DatasetLayerSnapshotCurrent, pk)
+                if row is None:
+                    row = DatasetLayerSnapshotCurrent(dataset_key=item.dataset_key, source_key=source_key, stage=stage)
+                    session.add(row)
+                row.status = status
+                row.rows_in = None
+                row.rows_out = None
+                row.error_count = 1 if item.recent_failure_summary and stage == "serving" else 0
+                row.last_success_at = item.latest_success_at if stage == "serving" else None
+                row.last_failure_at = item.recent_failure_at if stage == "serving" else None
+                row.lag_seconds = (item.lag_days * 86400) if (item.lag_days is not None and stage == "serving") else None
+                row.message = message
+                row.calculated_at = calculated_at
+
+            if mode is None:
+                upsert_stage("serving", item.freshness_status, item.freshness_note)
+                continue
+
+            upsert_stage("raw", item.freshness_status if mode.raw_enabled else "skipped", mode.notes)
+            if mode.std_enabled:
+                upsert_stage("std", "unknown", "待接入实体 std 层观测")
+            else:
+                upsert_stage("std", "skipped", "当前模式未启用 std 物化")
+            if mode.resolution_enabled:
+                upsert_stage("resolution", "unknown", "待接入融合决策层观测")
+            else:
+                upsert_stage("resolution", "skipped", "当前模式未启用融合决策层")
+            if mode.serving_enabled:
+                upsert_stage("serving", item.freshness_status, item.freshness_note)
+            else:
+                upsert_stage("serving", "skipped", "当前模式不产出 serving")

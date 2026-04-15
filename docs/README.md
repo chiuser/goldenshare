@@ -23,6 +23,7 @@
 - [新鲜度问题复盘](/Users/congming/github/goldenshare/docs/ops/ops-freshness-review-20260330.md)
 - [数据集停用策略 v1（过渡方案）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-disable-policy-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
+- [数据集模式与层级观测补齐方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-dataset-pipeline-mode-and-layer-observability-v1.md)
 
 ## 业务平台
 

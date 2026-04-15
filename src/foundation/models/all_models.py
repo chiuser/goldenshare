@@ -55,7 +55,9 @@ from src.foundation.models.meta.dataset_resolution_policy import DatasetResoluti
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
+from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_execution import JobExecution
@@ -193,7 +195,9 @@ __all__ = [
     "RawTradeCal",
     "RawUsBasic",
     "ConfigRevision",
+    "DatasetLayerSnapshotCurrent",
     "DatasetLayerSnapshotHistory",
+    "DatasetPipelineMode",
     "DatasetStatusSnapshot",
     "IndexSeriesActive",
     "JobExecution",

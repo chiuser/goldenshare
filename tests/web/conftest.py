@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.foundation.config.settings import get_settings
+from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.platform.models.app.app_user import AppUser
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -17,7 +18,10 @@ from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyS
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
+from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
@@ -58,6 +62,7 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS app")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)
@@ -70,7 +75,10 @@ def web_engine(configured_web_env) -> Generator:
         JobExecutionStep.__table__.create(connection)
         JobExecutionEvent.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
+        DatasetStatusSnapshot.__table__.create(connection)
         DatasetLayerSnapshotHistory.__table__.create(connection)
+        DatasetLayerSnapshotCurrent.__table__.create(connection)
+        DatasetPipelineMode.__table__.create(connection)
         ProbeRule.__table__.create(connection)
         ProbeRunLog.__table__.create(connection)
         ResolutionRelease.__table__.create(connection)
@@ -78,6 +86,7 @@ def web_engine(configured_web_env) -> Generator:
         StdMappingRule.__table__.create(connection)
         StdCleansingRule.__table__.create(connection)
         ConfigRevision.__table__.create(connection)
+        DatasetResolutionPolicy.__table__.create(connection)
         SyncJobState.__table__.create(connection)
         SyncRunLog.__table__.create(connection)
     yield engine

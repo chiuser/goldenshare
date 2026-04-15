@@ -1,4 +1,5 @@
 from src.ops.queries.catalog_query_service import OpsCatalogQueryService
+from src.ops.queries.dataset_pipeline_mode_query_service import DatasetPipelineModeQueryService
 from src.ops.queries.execution_query_service import ExecutionQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
@@ -11,6 +12,7 @@ from src.ops.queries.std_rule_query_service import StdRuleQueryService
 
 __all__ = [
     "ExecutionQueryService",
+    "DatasetPipelineModeQueryService",
     "LayerSnapshotQueryService",
     "OpsCatalogQueryService",
     "OpsFreshnessQueryService",

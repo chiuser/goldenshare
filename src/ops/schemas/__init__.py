@@ -5,6 +5,10 @@ from src.ops.schemas.catalog import (
     WorkflowSpecCatalogItem,
     WorkflowStepResponse,
 )
+from src.ops.schemas.dataset_pipeline import (
+    DatasetPipelineModeItem,
+    DatasetPipelineModeListResponse,
+)
 from src.ops.schemas.execution import (
     CreateExecutionRequest,
     ExecutionDetailResponse,
@@ -82,6 +86,8 @@ __all__ = [
     "DeleteProbeRuleResponse",
     "DeleteScheduleResponse",
     "DatasetFreshnessItem",
+    "DatasetPipelineModeItem",
+    "DatasetPipelineModeListResponse",
     "ExecutionDetailResponse",
     "ExecutionEventItem",
     "ExecutionEventsResponse",
