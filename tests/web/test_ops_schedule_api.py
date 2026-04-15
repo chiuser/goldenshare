@@ -291,3 +291,44 @@ def test_ops_schedule_preview_returns_once_next_run(app_client, user_factory) ->
     assert payload["schedule_type"] == "once"
     assert len(payload["preview_times"]) == 1
     assert payload["preview_times"][0].startswith("2099-01-01T01:00:00")
+
+
+def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "spec_type": "workflow",
+            "spec_key": "daily_market_close_sync",
+            "display_name": "收盘探测触发",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "0 19 * * 1-5",
+            "timezone": "Asia/Shanghai",
+                "probe_config": {
+                    "source_key": "tushare",
+                    "window_start": "15:30",
+                    "window_end": "17:00",
+                    "probe_interval_seconds": 180,
+                    "max_triggers_per_day": 1,
+                    "workflow_dataset_keys": ["daily", "daily_basic"],
+                },
+            },
+        )
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created["trigger_mode"] == "probe"
+
+    probe_response = app_client.get(
+        f"/api/v1/ops/probes?schedule_id={created['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert probe_response.status_code == 200
+    probe_payload = probe_response.json()
+    assert probe_payload["total"] == 2
+    dataset_keys = sorted(item["dataset_key"] for item in probe_payload["items"])
+    assert dataset_keys == ["daily", "daily_basic"]

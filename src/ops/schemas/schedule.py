@@ -5,14 +5,27 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class ScheduleProbeConfig(BaseModel):
+    source_key: str | None = None
+    window_start: str | None = "15:30"
+    window_end: str | None = "17:00"
+    probe_interval_seconds: int = 300
+    max_triggers_per_day: int = 1
+    condition_kind: str = "freshness_latest_open"
+    min_rows_in: int | None = None
+    workflow_dataset_keys: list[str] = []
+
+
 class CreateScheduleRequest(BaseModel):
     spec_type: str
     spec_key: str
     display_name: str
     schedule_type: str
+    trigger_mode: str = "schedule"
     cron_expr: str | None = None
     timezone: str = "Asia/Shanghai"
     calendar_policy: str | None = None
+    probe_config: ScheduleProbeConfig | None = None
     params_json: dict = {}
     retry_policy_json: dict = {}
     concurrency_policy_json: dict = {}
@@ -24,9 +37,11 @@ class UpdateScheduleRequest(BaseModel):
     spec_key: str | None = None
     display_name: str | None = None
     schedule_type: str | None = None
+    trigger_mode: str | None = None
     cron_expr: str | None = None
     timezone: str | None = None
     calendar_policy: str | None = None
+    probe_config: ScheduleProbeConfig | None = None
     params_json: dict | None = None
     retry_policy_json: dict | None = None
     concurrency_policy_json: dict | None = None
@@ -41,6 +56,7 @@ class ScheduleListItem(BaseModel):
     display_name: str
     status: str
     schedule_type: str
+    trigger_mode: str = "schedule"
     cron_expr: str | None = None
     timezone: str
     calendar_policy: str | None = None
@@ -65,9 +81,11 @@ class ScheduleDetailResponse(BaseModel):
     display_name: str
     status: str
     schedule_type: str
+    trigger_mode: str = "schedule"
     cron_expr: str | None = None
     timezone: str
     calendar_policy: str | None = None
+    probe_config: ScheduleProbeConfig | None = None
     params_json: dict
     retry_policy_json: dict
     concurrency_policy_json: dict

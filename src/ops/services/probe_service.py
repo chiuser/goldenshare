@@ -225,6 +225,7 @@ class OpsProbeCommandService:
     def _snapshot(rule: ProbeRule) -> dict:
         return {
             "id": rule.id,
+            "schedule_id": rule.schedule_id,
             "name": rule.name,
             "dataset_key": rule.dataset_key,
             "source_key": rule.source_key,

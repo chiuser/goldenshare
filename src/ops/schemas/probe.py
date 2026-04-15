@@ -35,6 +35,7 @@ class UpdateProbeRuleRequest(BaseModel):
 
 class ProbeRuleListItem(BaseModel):
     id: int
+    schedule_id: int | None = None
     name: str
     dataset_key: str
     source_key: str | None = None

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.probe_rule import ProbeRule
+from src.operations.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.operations.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.operations.services.execution_service import OperationsExecutionService
 from src.operations.specs import get_ops_spec_display_name, ops_spec_supports_schedule
@@ -17,6 +19,7 @@ from src.platform.exceptions import WebAppError
 class OperationsScheduleService:
     def __init__(self) -> None:
         self.execution_service = OperationsExecutionService()
+        self.probe_binding_service = ScheduleProbeBindingService()
 
     def create_schedule(
         self,
@@ -26,9 +29,11 @@ class OperationsScheduleService:
         spec_key: str,
         display_name: str,
         schedule_type: str,
+        trigger_mode: str,
         cron_expr: str | None,
         timezone_name: str,
         calendar_policy: str | None,
+        probe_config_json: dict | None,
         params_json: dict | None,
         retry_policy_json: dict | None,
         concurrency_policy_json: dict | None,
@@ -38,6 +43,7 @@ class OperationsScheduleService:
         self._validate_spec(spec_type, spec_key)
         ensure_schedule_type(schedule_type)
         ensure_timezone(timezone_name)
+        trigger_mode = self._normalize_trigger_mode(trigger_mode)
         normalized_next_run_at = self._resolve_next_run_at(
             schedule_type=schedule_type,
             cron_expr=cron_expr,
@@ -51,9 +57,11 @@ class OperationsScheduleService:
             display_name=display_name.strip() or self._fallback_display_name(spec_type, spec_key),
             status="active",
             schedule_type=schedule_type,
+            trigger_mode=trigger_mode,
             cron_expr=cron_expr,
             timezone=timezone_name,
             calendar_policy=calendar_policy,
+            probe_config_json=dict(probe_config_json or {}),
             params_json=dict(params_json or {}),
             retry_policy_json=dict(retry_policy_json or {}),
             concurrency_policy_json=dict(concurrency_policy_json or {}),
@@ -63,6 +71,7 @@ class OperationsScheduleService:
         )
         session.add(schedule)
         session.flush()
+        self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=created_by_user_id)
         self._record_revision(
             session,
             object_id=str(schedule.id),
@@ -108,6 +117,8 @@ class OperationsScheduleService:
         if "schedule_type" in changed_fields:
             ensure_schedule_type(changes["schedule_type"])
             schedule.schedule_type = changes["schedule_type"]
+        if "trigger_mode" in changed_fields:
+            schedule.trigger_mode = self._normalize_trigger_mode(changes["trigger_mode"])
         if "cron_expr" in changed_fields:
             schedule.cron_expr = changes["cron_expr"]
         if "timezone" in changed_fields:
@@ -115,6 +126,8 @@ class OperationsScheduleService:
             schedule.timezone = changes["timezone"]
         if "calendar_policy" in changed_fields:
             schedule.calendar_policy = changes["calendar_policy"]
+        if "probe_config" in changed_fields:
+            schedule.probe_config_json = dict(changes["probe_config"] or {})
         if "params_json" in changed_fields:
             schedule.params_json = dict(changes["params_json"] or {})
         if "retry_policy_json" in changed_fields:
@@ -144,8 +157,10 @@ class OperationsScheduleService:
             raise WebAppError(status_code=422, code="validation_error", message="next_run_at is required for once schedules")
 
         schedule.updated_by_user_id = updated_by_user_id
+        self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
         after = self._snapshot(schedule)
         if before == after:
+            session.commit()
             session.refresh(schedule)
             return schedule
 
@@ -172,6 +187,7 @@ class OperationsScheduleService:
         before = self._snapshot(schedule)
         schedule.status = "paused"
         schedule.updated_by_user_id = updated_by_user_id
+        self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
         self._record_revision(
             session,
             object_id=str(schedule.id),
@@ -209,6 +225,7 @@ class OperationsScheduleService:
             )
         schedule.status = "active"
         schedule.updated_by_user_id = updated_by_user_id
+        self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
         self._record_revision(
             session,
             object_id=str(schedule.id),
@@ -247,6 +264,7 @@ class OperationsScheduleService:
             after_json=None,
             changed_by_user_id=deleted_by_user_id,
         )
+        session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
         session.delete(schedule)
         session.commit()
         return schedule_id
@@ -256,6 +274,7 @@ class OperationsScheduleService:
         stmt = (
             select(JobSchedule)
             .where(JobSchedule.status == "active")
+            .where(JobSchedule.trigger_mode != "probe")
             .where(JobSchedule.next_run_at.is_not(None))
             .where(JobSchedule.next_run_at <= current_time)
             .order_by(JobSchedule.next_run_at.asc(), JobSchedule.id.asc())
@@ -297,9 +316,11 @@ class OperationsScheduleService:
             "display_name": schedule.display_name,
             "status": schedule.status,
             "schedule_type": schedule.schedule_type,
+            "trigger_mode": schedule.trigger_mode,
             "cron_expr": schedule.cron_expr,
             "timezone": schedule.timezone,
             "calendar_policy": schedule.calendar_policy,
+            "probe_config": dict(schedule.probe_config_json or {}),
             "params_json": dict(schedule.params_json or {}),
             "retry_policy_json": dict(schedule.retry_policy_json or {}),
             "concurrency_policy_json": dict(schedule.concurrency_policy_json or {}),
@@ -364,6 +385,13 @@ class OperationsScheduleService:
             cron_expr=cron_expr,
             after=datetime.now(timezone.utc),
         )
+
+    @staticmethod
+    def _normalize_trigger_mode(value: str | None) -> str:
+        mode = str(value or "schedule").strip().lower()
+        if mode not in {"schedule", "probe", "schedule_probe_fallback"}:
+            raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported trigger_mode: {mode}")
+        return mode
 
     @staticmethod
     def _stored_datetime(value: datetime | None) -> datetime | None:

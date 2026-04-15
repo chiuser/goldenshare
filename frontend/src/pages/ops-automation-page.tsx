@@ -25,6 +25,7 @@ import { apiRequest } from "../shared/api/client";
 import type {
   ExecutionListResponse,
   OpsCatalogResponse,
+  ProbeRuleListResponse,
   ScheduleDetailResponse,
   ScheduleListResponse,
   SchedulePreviewResponse,
@@ -51,6 +52,7 @@ import { StatusBadge } from "../shared/ui/status-badge";
 type DateMode = "single_day" | "date_range";
 type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
+type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
@@ -90,6 +92,15 @@ const emptyForm = {
   repeat_weekdays: ["1", "2", "3", "4", "5"] as string[],
   repeat_month_day: "1",
   repeat_time: "19:00",
+  trigger_mode: "schedule" as TriggerMode,
+  probe_source_key: "tushare",
+  probe_window_start: "15:30",
+  probe_window_end: "17:00",
+  probe_interval_seconds: "300",
+  probe_max_triggers_per_day: "1",
+  probe_condition_kind: "freshness_latest_open",
+  probe_min_rows_in: "",
+  workflow_probe_dataset_keys: [] as string[],
   date_mode: "single_day" as DateMode,
   selected_date: "",
   start_date: "",
@@ -214,6 +225,12 @@ function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextR
   return `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
 }
 
+function formatTriggerModeLabel(triggerMode: string): string {
+  if (triggerMode === "probe") return "探测触发";
+  if (triggerMode === "schedule_probe_fallback") return "定时 + 探测兜底";
+  return "定时触发";
+}
+
 function formatParamLabel(key: string): string {
   const map: Record<string, string> = {
     trade_date: "交易日",
@@ -308,6 +325,7 @@ export function OpsAutomationPage() {
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule", selectedScheduleId] });
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", selectedScheduleId] });
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-latest-execution", selectedScheduleId] });
+        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-probes", selectedScheduleId] });
       }
     };
     source.addEventListener("schedules", refresh);
@@ -340,6 +358,12 @@ export function OpsAutomationPage() {
       );
       return response.items[0] || null;
     },
+    enabled: Boolean(selectedScheduleId),
+  });
+
+  const probeRulesQuery = useQuery({
+    queryKey: ["ops", "schedule-probes", selectedScheduleId],
+    queryFn: () => apiRequest<ProbeRuleListResponse>(`/api/v1/ops/probes?schedule_id=${selectedScheduleId}&limit=50`),
     enabled: Boolean(selectedScheduleId),
   });
 
@@ -416,6 +440,21 @@ export function OpsAutomationPage() {
         )
         : [],
     [form.spec_type, selectedJobSpec],
+  );
+
+  const workflowProbeDatasetOptions = useMemo(
+    () =>
+      (catalogQuery.data?.job_specs || [])
+        .filter((item) => item.key.startsWith("sync_daily."))
+        .map((item) => {
+          const datasetKey = item.key.replace("sync_daily.", "");
+          return {
+            value: datasetKey,
+            label: formatSpecDisplayLabel(datasetKey, item.display_name),
+          };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
+    [catalogQuery.data?.job_specs],
   );
 
   const supportsSingleDay = useMemo(
@@ -590,6 +629,9 @@ export function OpsAutomationPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (form.trigger_mode !== "schedule" && form.spec_type === "workflow" && form.workflow_probe_dataset_keys.length === 0) {
+        throw new Error("工作流使用探测触发时，请至少选择一个探测目标数据集。");
+      }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
         ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
@@ -600,10 +642,27 @@ export function OpsAutomationPage() {
         spec_key: form.spec_key,
         display_name: form.display_name,
         schedule_type: scheduleType,
+        trigger_mode: form.trigger_mode,
         cron_expr: cronExpr,
         timezone: form.timezone,
         calendar_policy: form.calendar_policy || null,
         next_run_at: nextRunAt,
+        probe_config:
+          form.trigger_mode === "schedule"
+            ? null
+            : {
+              source_key: form.probe_source_key || null,
+              window_start: form.probe_window_start || null,
+              window_end: form.probe_window_end || null,
+              probe_interval_seconds: Number(form.probe_interval_seconds || "300"),
+              max_triggers_per_day: Number(form.probe_max_triggers_per_day || "1"),
+              condition_kind: form.probe_condition_kind || "freshness_latest_open",
+              min_rows_in: form.probe_min_rows_in ? Number(form.probe_min_rows_in) : null,
+              workflow_dataset_keys:
+                form.spec_type === "workflow"
+                  ? form.workflow_probe_dataset_keys
+                  : [],
+            },
         params_json: resolvedParamsJson,
         retry_policy_json: {},
         concurrency_policy_json: {},
@@ -633,6 +692,7 @@ export function OpsAutomationPage() {
         queryClient.invalidateQueries({ queryKey: ["ops", "schedules"] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "schedule", data.id] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", data.id] }),
+        queryClient.invalidateQueries({ queryKey: ["ops", "schedule-probes", data.id] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "catalog"] }),
       ]);
     },
@@ -661,6 +721,7 @@ export function OpsAutomationPage() {
         queryClient.invalidateQueries({ queryKey: ["ops", "schedules"] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "schedule", data.id] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", data.id] }),
+        queryClient.invalidateQueries({ queryKey: ["ops", "schedule-probes", data.id] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "catalog"] }),
       ]);
     },
@@ -679,6 +740,7 @@ export function OpsAutomationPage() {
       setSelectedScheduleId(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["ops", "schedules"] }),
+        queryClient.invalidateQueries({ queryKey: ["ops", "schedule-probes"] }),
         queryClient.invalidateQueries({ queryKey: ["ops", "catalog"] }),
       ]);
     },
@@ -706,12 +768,14 @@ export function OpsAutomationPage() {
     const startDate = typeof paramsJson.start_date === "string" ? paramsJson.start_date : "";
     const endDate = typeof paramsJson.end_date === "string" ? paramsJson.end_date : "";
     const dateMode: DateMode = tradeDate || (startDate && endDate && startDate === endDate) ? "single_day" : "date_range";
+    const probeConfig = detail.probe_config || null;
     setForm({
       id: detail.id,
       spec_type: detail.spec_type,
       spec_key: detail.spec_key,
       display_name: detail.display_name,
       schedule_type: detail.schedule_type,
+      trigger_mode: (detail.trigger_mode as TriggerMode) || "schedule",
       timezone: detail.timezone,
       calendar_policy: detail.calendar_policy || "",
       once_date: nextRunAt ? nextRunAt.slice(0, 10) : "",
@@ -720,6 +784,14 @@ export function OpsAutomationPage() {
       repeat_weekdays: parsedCron?.repeatWeekdays || ["1", "2", "3", "4", "5"],
       repeat_month_day: parsedCron?.repeatMonthDay || "1",
       repeat_time: parsedCron?.repeatTime || "19:00",
+      probe_source_key: probeConfig?.source_key || "tushare",
+      probe_window_start: probeConfig?.window_start || "15:30",
+      probe_window_end: probeConfig?.window_end || "17:00",
+      probe_interval_seconds: String(probeConfig?.probe_interval_seconds || 300),
+      probe_max_triggers_per_day: String(probeConfig?.max_triggers_per_day || 1),
+      probe_condition_kind: probeConfig?.condition_kind || "freshness_latest_open",
+      probe_min_rows_in: probeConfig?.min_rows_in != null ? String(probeConfig.min_rows_in) : "",
+      workflow_probe_dataset_keys: probeConfig?.workflow_dataset_keys || [],
       date_mode: dateMode,
       selected_date: tradeDate || startDate || "",
       start_date: startDate,
@@ -868,6 +940,7 @@ export function OpsAutomationPage() {
                   <Group gap="xs">
                     <StatusBadge value={detailQuery.data.status} />
                     <Badge variant="light">{formatScheduleTypeLabel(detailQuery.data.schedule_type)}</Badge>
+                    <Badge variant="light" color="violet">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Badge>
                     <Badge variant="light">{formatTimezoneLabel(detailQuery.data.timezone)}</Badge>
                   </Group>
                   <Grid gutter="sm">
@@ -925,7 +998,70 @@ export function OpsAutomationPage() {
                         </Text>
                       </Stack>
                     </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <Stack
+                        gap={4}
+                        p="sm"
+                        bg="var(--mantine-color-gray-0)"
+                        bd="1px solid var(--mantine-color-gray-2)"
+                        style={{ borderRadius: "var(--mantine-radius-md)" }}
+                      >
+                        <Text c="dimmed" size="xs">触发方式</Text>
+                        <Text size="sm">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Text>
+                      </Stack>
+                    </Grid.Col>
                   </Grid>
+                  {(detailQuery.data.trigger_mode !== "schedule" && detailQuery.data.probe_config) ? (
+                    <Stack
+                      gap={6}
+                      p="sm"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-md)" }}
+                    >
+                      <Text c="dimmed" size="xs">探测配置</Text>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测窗口</Text><Text size="sm">{detailQuery.data.probe_config.window_start || "—"} ~ {detailQuery.data.probe_config.window_end || "—"}</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_key || "全部来源"}</Text></Group>
+                      {detailQuery.data.spec_type === "workflow" ? (
+                        <Group justify="space-between" align="flex-start">
+                          <Text size="sm" c="dimmed">工作流探测目标</Text>
+                          <Text size="sm" ta="right">
+                            {(detailQuery.data.probe_config.workflow_dataset_keys || []).length
+                              ? (detailQuery.data.probe_config.workflow_dataset_keys || []).join("、")
+                              : "未配置"}
+                          </Text>
+                        </Group>
+                      ) : null}
+                    </Stack>
+                  ) : null}
+                  {(detailQuery.data.trigger_mode !== "schedule") ? (
+                    <Stack
+                      gap={6}
+                      p="sm"
+                      bg="var(--mantine-color-gray-0)"
+                      bd="1px solid var(--mantine-color-gray-2)"
+                      style={{ borderRadius: "var(--mantine-radius-md)" }}
+                    >
+                      <Text c="dimmed" size="xs">探测规则运行状态</Text>
+                      {probeRulesQuery.isLoading ? <Text size="sm" c="dimmed">正在读取探测规则…</Text> : null}
+                      {probeRulesQuery.data?.items?.length ? (
+                        probeRulesQuery.data.items.map((rule) => (
+                          <Group key={rule.id} justify="space-between" align="center">
+                            <Text size="sm">{rule.dataset_key}</Text>
+                            <Group gap={6}>
+                              <StatusBadge value={rule.status} />
+                              <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>
+                              <Text size="xs" c="dimmed">最近命中：{formatDateTimeLabel(rule.last_triggered_at)}</Text>
+                            </Group>
+                          </Group>
+                        ))
+                      ) : (
+                        <Text size="sm" c="dimmed">当前还没有探测规则。</Text>
+                      )}
+                    </Stack>
+                  ) : null}
                   <Stack
                     gap={6}
                     p="sm"
@@ -1130,12 +1266,33 @@ export function OpsAutomationPage() {
           </SimpleGrid>
           <Select
             label="执行方式"
-            data={[
-              { value: "once", label: "单次执行" },
-              { value: "cron", label: "按周期执行" },
-            ]}
+            data={form.trigger_mode === "probe"
+              ? [{ value: "cron", label: "按周期执行（探测触发场景下仅用于兜底）" }]
+              : [
+                { value: "once", label: "单次执行" },
+                { value: "cron", label: "按周期执行" },
+              ]}
             value={form.schedule_type}
             onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
+          />
+          <Select
+            label="触发方式"
+            data={[
+              { value: "schedule", label: "定时触发" },
+              { value: "probe", label: "探测触发" },
+              { value: "schedule_probe_fallback", label: "定时 + 探测兜底" },
+            ]}
+            value={form.trigger_mode}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                trigger_mode: (value as TriggerMode) || "schedule",
+                schedule_type:
+                  ((value as TriggerMode) === "probe" && current.schedule_type === "once")
+                    ? "cron"
+                    : current.schedule_type,
+              }))
+            }
           />
           {form.schedule_type === "once" ? (
             <Grid>
@@ -1209,6 +1366,89 @@ export function OpsAutomationPage() {
             value={form.timezone}
             onChange={(value) => setForm((current) => ({ ...current, timezone: value || "Asia/Shanghai" }))}
           />
+          {form.trigger_mode !== "schedule" ? (
+            <Stack gap="sm" p="sm" bg="var(--mantine-color-gray-0)" bd="1px solid var(--mantine-color-gray-2)" style={{ borderRadius: "var(--mantine-radius-md)" }}>
+              <Text fw={700} size="sm">探测触发配置</Text>
+              <SimpleGrid cols={{ base: 1, md: 2 }}>
+                <Select
+                  label="探测来源"
+                  data={[
+                    { value: "tushare", label: "Tushare" },
+                    { value: "biying", label: "Biying" },
+                    { value: "all", label: "全部来源" },
+                  ]}
+                  value={form.probe_source_key}
+                  onChange={(value) => setForm((current) => ({ ...current, probe_source_key: value || "tushare" }))}
+                />
+                <Select
+                  label="探测条件"
+                  data={[
+                    { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
+                    { value: "raw_rows_min", label: "原始层写入行数达到阈值" },
+                  ]}
+                  value={form.probe_condition_kind}
+                  onChange={(value) => setForm((current) => ({ ...current, probe_condition_kind: value || "freshness_latest_open" }))}
+                />
+              </SimpleGrid>
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="探测窗口开始"
+                    placeholder="15:30"
+                    type="time"
+                    value={form.probe_window_start}
+                    onChange={(event) => setForm((current) => ({ ...current, probe_window_start: event.currentTarget.value }))}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="探测窗口结束"
+                    placeholder="17:00"
+                    type="time"
+                    value={form.probe_window_end}
+                    onChange={(event) => setForm((current) => ({ ...current, probe_window_end: event.currentTarget.value }))}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="探测频率（秒）"
+                    placeholder="300"
+                    type="number"
+                    value={form.probe_interval_seconds}
+                    onChange={(event) => setForm((current) => ({ ...current, probe_interval_seconds: event.currentTarget.value }))}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="每日触发上限"
+                    placeholder="1"
+                    type="number"
+                    value={form.probe_max_triggers_per_day}
+                    onChange={(event) => setForm((current) => ({ ...current, probe_max_triggers_per_day: event.currentTarget.value }))}
+                  />
+                </Grid.Col>
+                <Grid.Col span={12}>
+                  <TextInput
+                    label="最小写入行数（可选）"
+                    placeholder="例如 1"
+                    type="number"
+                    value={form.probe_min_rows_in}
+                    onChange={(event) => setForm((current) => ({ ...current, probe_min_rows_in: event.currentTarget.value }))}
+                  />
+                </Grid.Col>
+              </Grid>
+              {form.spec_type === "workflow" ? (
+                <MultiSelect
+                  label="工作流探测目标数据集"
+                  placeholder="请选择工作流探测目标（可多选）"
+                  data={workflowProbeDatasetOptions}
+                  value={form.workflow_probe_dataset_keys}
+                  searchable
+                  onChange={(values) => setForm((current) => ({ ...current, workflow_probe_dataset_keys: values }))}
+                />
+              ) : null}
+            </Stack>
+          ) : null}
 
           <Accordion variant="separated" radius="md">
             <Accordion.Item value="params">
@@ -1356,9 +1596,15 @@ export function OpsAutomationPage() {
                   ) : null}
                   <Alert color="indigo" variant="light" title="系统将按以下参数执行（只读）">
                     <Stack gap={6}>
+                      <Text size="sm">触发方式：{formatTriggerModeLabel(form.trigger_mode)}</Text>
                       <Text size="sm">调度策略：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}</Text>
                       {resolvedScheduleSummary.cronExpr ? (
                         <Text size="xs" c="dimmed">内部规则：{resolvedScheduleSummary.cronExpr}</Text>
+                      ) : null}
+                      {form.trigger_mode !== "schedule" ? (
+                        <Text size="sm">
+                          探测配置：{form.probe_window_start || "—"}~{form.probe_window_end || "—"}，每 {form.probe_interval_seconds || "300"} 秒探测，来源 {form.probe_source_key || "tushare"}
+                        </Text>
                       ) : null}
                       <Text size="sm">同步参数：</Text>
                       <Text component="pre" ff="monospace" fz={12} style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>

@@ -13,10 +13,12 @@ class ProbeRule(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_probe_rule_status_dataset", "status", "dataset_key"),
         Index("idx_probe_rule_dataset_source", "dataset_key", "source_key"),
+        Index("idx_probe_rule_schedule_id", "schedule_id"),
         {"schema": "ops"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    schedule_id: Mapped[int | None] = mapped_column(BigInteger)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     dataset_key: Mapped[str] = mapped_column(String(64), nullable=False)
     source_key: Mapped[str | None] = mapped_column(String(32))

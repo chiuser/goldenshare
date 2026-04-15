@@ -165,6 +165,7 @@ export interface ScheduleListResponse {
     display_name: string;
     status: string;
     schedule_type: string;
+    trigger_mode: string;
     cron_expr: string | null;
     timezone: string;
     next_run_at: string | null;
@@ -181,9 +182,20 @@ export interface ScheduleDetailResponse {
   display_name: string;
   status: string;
   schedule_type: string;
+  trigger_mode: string;
   cron_expr: string | null;
   timezone: string;
   calendar_policy: string | null;
+  probe_config: {
+    source_key: string | null;
+    window_start: string | null;
+    window_end: string | null;
+    probe_interval_seconds: number;
+    max_triggers_per_day: number;
+    condition_kind: string;
+    min_rows_in: number | null;
+    workflow_dataset_keys: string[];
+  } | null;
   params_json: Record<string, unknown>;
   retry_policy_json: Record<string, unknown>;
   concurrency_policy_json: Record<string, unknown>;

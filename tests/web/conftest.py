@@ -333,9 +333,11 @@ def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
         display_name: str = "股票主数据刷新",
         status: str = "active",
         schedule_type: str = "once",
+        trigger_mode: str = "schedule",
         cron_expr: str | None = None,
         timezone_name: str = "Asia/Shanghai",
         calendar_policy: str | None = None,
+        probe_config_json: dict | None = None,
         params_json: dict | None = None,
         retry_policy_json: dict | None = None,
         concurrency_policy_json: dict | None = None,
@@ -352,9 +354,11 @@ def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
             display_name=display_name,
             status=status,
             schedule_type=schedule_type,
+            trigger_mode=trigger_mode,
             cron_expr=cron_expr,
             timezone=timezone_name,
             calendar_policy=calendar_policy,
+            probe_config_json=probe_config_json or {},
             params_json=params_json or {},
             retry_policy_json=retry_policy_json or {},
             concurrency_policy_json=concurrency_policy_json or {},
@@ -447,6 +451,7 @@ def job_execution_event_factory(db_session: Session) -> Callable[..., JobExecuti
 def probe_rule_factory(db_session: Session) -> Callable[..., ProbeRule]:
     def build(
         *,
+        schedule_id: int | None = None,
         name: str = "收盘探测",
         dataset_key: str = "equity_daily",
         source_key: str | None = "tushare",
@@ -464,6 +469,7 @@ def probe_rule_factory(db_session: Session) -> Callable[..., ProbeRule]:
         next_id = (db_session.scalar(select(func.max(ProbeRule.id))) or 0) + 1
         rule = ProbeRule(
             id=next_id,
+            schedule_id=schedule_id,
             name=name,
             dataset_key=dataset_key,
             source_key=source_key,

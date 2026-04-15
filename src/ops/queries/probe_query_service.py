@@ -24,6 +24,7 @@ class ProbeQueryService:
         status: str | None = None,
         dataset_key: str | None = None,
         source_key: str | None = None,
+        schedule_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> ProbeRuleListResponse:
@@ -35,6 +36,8 @@ class ProbeQueryService:
             filters.append(ProbeRule.dataset_key == dataset_key)
         if source_key:
             filters.append(ProbeRule.source_key == source_key)
+        if schedule_id is not None:
+            filters.append(ProbeRule.schedule_id == schedule_id)
 
         count_stmt = select(func.count()).select_from(ProbeRule)
         if filters:
@@ -132,6 +135,7 @@ class ProbeQueryService:
     def _list_item(rule: ProbeRule) -> ProbeRuleListItem:
         return ProbeRuleListItem(
             id=rule.id,
+            schedule_id=rule.schedule_id,
             name=rule.name,
             dataset_key=rule.dataset_key,
             source_key=rule.source_key,

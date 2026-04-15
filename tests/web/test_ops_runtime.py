@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+from sqlalchemy import select
+
+from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
+from src.operations.services.probe_runtime_service import ProbeTickResult
 
 
 class StubDispatcher:
@@ -58,6 +62,87 @@ def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, job_sched
     assert refreshed.status == "active"
     assert refreshed.next_run_at is not None
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 3, 30, 11, 5, tzinfo=timezone.utc)
+
+
+def test_scheduler_skips_due_schedule_when_trigger_mode_is_probe_only(db_session, job_schedule_factory) -> None:
+    schedule = job_schedule_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        schedule_type="cron",
+        trigger_mode="probe",
+        cron_expr="5 * * * *",
+        timezone_name="UTC",
+        next_run_at=datetime(2026, 3, 30, 10, 5, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 10, 5, tzinfo=timezone.utc),
+    )
+
+    assert created == []
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.next_run_at is not None
+
+
+def test_scheduler_creates_probe_execution_when_rule_matches(
+    db_session,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    rule = probe_rule_factory(
+        dataset_key="daily",
+        source_key="tushare",
+        window_start=None,
+        window_end=None,
+        probe_interval_seconds=30,
+        on_success_action_json={
+            "spec_type": "job",
+            "spec_key": "sync_daily.daily",
+            "params_json": {"run_scope": "probe_triggered"},
+        },
+    )
+
+    def _stub_run_once(self, session, *, now=None, limit=100):  # type: ignore[no-untyped-def]
+        from src.operations.services.execution_service import OperationsExecutionService
+
+        execution = OperationsExecutionService().create_execution(
+            session,
+                spec_type="job",
+                spec_key="sync_daily.daily",
+                params_json={"run_scope": "probe_triggered"},
+            trigger_source="probe",
+            requested_by_user_id=None,
+            schedule_id=None,
+        )
+        session.add(
+            ProbeRunLog(
+                probe_rule_id=rule.id,
+                    status="success",
+                    condition_matched=True,
+                    message="命中探测条件",
+                    payload_json={"dataset_key": "daily"},
+                probed_at=datetime(2026, 3, 30, 10, 5, tzinfo=timezone.utc),
+                triggered_execution_id=execution.id,
+                duration_ms=1,
+            )
+        )
+        session.commit()
+        return [execution], ProbeTickResult(processed_rules=1, triggered_rules=1, created_executions=1)
+
+    monkeypatch.setattr("src.operations.runtime.scheduler.ProbeRuntimeService.run_once", _stub_run_once)
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 10, 5, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    assert created[0].trigger_source == "probe"
+    logs = list(db_session.scalars(select(ProbeRunLog)))
+    assert len(logs) == 1
+    assert logs[0].condition_matched is True
 
 
 def test_worker_claims_queued_execution_and_marks_success(db_session, job_execution_factory) -> None:

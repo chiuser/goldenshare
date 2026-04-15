@@ -28,6 +28,7 @@ def list_probe_rules(
     status: str | None = Query(None),
     dataset_key: str | None = Query(None),
     source_key: str | None = Query(None),
+    schedule_id: int | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> ProbeRuleListResponse:
@@ -36,6 +37,7 @@ def list_probe_rules(
         status=status,
         dataset_key=dataset_key,
         source_key=source_key,
+        schedule_id=schedule_id,
         limit=limit,
         offset=offset,
     )
