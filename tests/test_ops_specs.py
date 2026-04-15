@@ -224,5 +224,12 @@ def test_workflow_specs_reference_existing_job_specs() -> None:
             assert step.job_key in JOB_SPEC_REGISTRY
 
 
+def test_daily_market_close_sync_excludes_price_restore_and_indicator_tasks() -> None:
+    workflow = WORKFLOW_SPEC_REGISTRY["daily_market_close_sync"]
+    step_job_keys = {step.job_key for step in workflow.steps}
+    assert "sync_daily.equity_price_restore_factor" not in step_job_keys
+    assert "sync_daily.equity_indicators" not in step_job_keys
+
+
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:
     assert set(SYNC_SERVICE_REGISTRY) == set(DATASET_FRESHNESS_METADATA)

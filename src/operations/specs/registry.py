@@ -682,8 +682,6 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
         description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日同步工作流。",
         steps=(
             WorkflowStepSpec("daily", "sync_daily.daily", "股票日线"),
-            WorkflowStepSpec("equity_price_restore_factor", "sync_daily.equity_price_restore_factor", "价格还原因子"),
-            WorkflowStepSpec("equity_indicators", "sync_daily.equity_indicators", "股票技术指标"),
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),

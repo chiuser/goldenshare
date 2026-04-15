@@ -27,7 +27,7 @@ interface SourceCardItem {
 }
 
 function inferSource(datasetKey: string, rawTable: string | null, targetTable: string): SourceKey {
-    if (datasetKey.startsWith("biying_")) return "biying";
+  if (datasetKey.startsWith("biying_")) return "biying";
   if ((rawTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
   if ((targetTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
   return "tushare";
@@ -93,35 +93,40 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       .filter((item) => item.stage === "raw")
       .map((item) => [item.dataset_key, item] as const),
   );
+  const freshnessByDataset = new Map(
+    (freshnessQuery.data?.groups || [])
+      .flatMap((group) => group.items.map((item) => [item.dataset_key, { group, item }] as const)),
+  );
 
-  const cards: SourceCardItem[] = (freshnessQuery.data?.groups || [])
-    .flatMap((group) =>
-      group.items
-        .filter((item) => inferSource(item.dataset_key, item.raw_table, item.target_table) === sourceKey)
-        .filter((item) => Boolean(item.raw_table))
-        .map((item) => {
-          const rawLatest = rawLatestByDataset.get(item.dataset_key);
-          const status = toCardStatus(rawLatest?.status || item.freshness_status);
-          return {
-            datasetKey: item.dataset_key,
-            displayName: formatResourceLabel(item.dataset_key),
-            domainKey: group.domain_key,
-            domainDisplayName: group.domain_display_name,
-            rawTableLabel: item.raw_table || "—",
-            status,
-            recentSyncAt: rawLatest?.calculated_at || (item.latest_success_at ? item.latest_success_at : null),
-            recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",
-            dateRangeText: buildDateRangeText(item),
-            cadenceText: cadenceLabel(item.cadence),
-            primaryExecutionSpecKey: item.primary_execution_spec_key,
-            autoEnabled: item.auto_schedule_active > 0,
-            autoTooltip:
-              item.auto_schedule_total > 0
-                ? `已配置自动任务 ${item.auto_schedule_active}/${item.auto_schedule_total} 条，下一次：${item.auto_schedule_next_run_at ? formatDateTimeLabel(item.auto_schedule_next_run_at) : "待计算"}`
-                : "未配置自动任务",
-          };
-        }),
-    )
+  const cards: SourceCardItem[] = (latestQuery.data?.items || [])
+    .filter((item) => item.stage === "raw")
+    .filter((item) => (item.source_key || "").toLowerCase() === sourceKey)
+    .map((rawLatest) => {
+      const freshMeta = freshnessByDataset.get(rawLatest.dataset_key);
+      const freshGroup = freshMeta?.group;
+      const freshItem = freshMeta?.item;
+      const fallbackRawTable = `${sourceKey === "biying" ? "raw_biying" : "raw_tushare"}.${rawLatest.dataset_key.replace(/^biying_/, "")}`;
+      const sourceScopedRawTable = (freshItem?.raw_table || "").replace(/^raw_tushare\./i, sourceKey === "biying" ? "raw_biying." : "raw_tushare.");
+      const status = toCardStatus(rawLatest.status || freshItem?.freshness_status);
+      return {
+        datasetKey: rawLatest.dataset_key,
+        displayName: formatResourceLabel(rawLatest.dataset_key),
+        domainKey: freshGroup?.domain_key || "uncategorized",
+        domainDisplayName: freshGroup?.domain_display_name || "未分类",
+        rawTableLabel: sourceScopedRawTable || fallbackRawTable,
+        status,
+        recentSyncAt: rawLatest.calculated_at || (freshItem?.latest_success_at || null),
+        recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",
+        dateRangeText: freshItem ? buildDateRangeText(freshItem) : "—",
+        cadenceText: cadenceLabel(freshItem?.cadence || ""),
+        primaryExecutionSpecKey: freshItem?.primary_execution_spec_key || null,
+        autoEnabled: (freshItem?.auto_schedule_active || 0) > 0,
+        autoTooltip:
+          (freshItem?.auto_schedule_total || 0) > 0
+            ? `已配置自动任务 ${freshItem?.auto_schedule_active || 0}/${freshItem?.auto_schedule_total || 0} 条，下一次：${freshItem?.auto_schedule_next_run_at ? formatDateTimeLabel(freshItem.auto_schedule_next_run_at) : "待计算"}`
+            : "未配置自动任务",
+      };
+    })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
 
   const groupedCards = new Map<string, SourceCardItem[]>();
