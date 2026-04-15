@@ -2,7 +2,7 @@ import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Tex
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
-import type { LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
+import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
@@ -26,13 +26,6 @@ interface SourceCardItem {
   autoTooltip: string;
   probeEnabled: boolean;
   probeTooltip: string;
-}
-
-function inferSource(datasetKey: string, rawTable: string | null, targetTable: string): SourceKey {
-  if (datasetKey.startsWith("biying_")) return "biying";
-  if ((rawTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
-  if ((targetTable || "").toLowerCase().startsWith("raw_biying.")) return "biying";
-  return "tushare";
 }
 
 function toCardStatus(rawStatus: string | null | undefined): CardStatus {
@@ -78,6 +71,10 @@ function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"
 }
 
 export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; title: string }) {
+  const modeQuery = useQuery({
+    queryKey: ["ops", "pipeline-modes", `v21-source-${sourceKey}`],
+    queryFn: () => apiRequest<DatasetPipelineModeListResponse>("/api/v1/ops/pipeline-modes?limit=2000"),
+  });
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness", `v21-source-${sourceKey}`],
     queryFn: () => apiRequest<OpsFreshnessResponse>("/api/v1/ops/freshness"),
@@ -91,8 +88,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     queryFn: () => apiRequest<ProbeRuleListResponse>(`/api/v1/ops/probes?source_key=${sourceKey}&limit=200`),
   });
 
-  const isLoading = freshnessQuery.isLoading || latestQuery.isLoading || probeQuery.isLoading;
-  const error = freshnessQuery.error || latestQuery.error || probeQuery.error;
+  const isLoading = modeQuery.isLoading || freshnessQuery.isLoading || latestQuery.isLoading || probeQuery.isLoading;
+  const error = modeQuery.error || freshnessQuery.error || latestQuery.error || probeQuery.error;
 
   const freshnessByDataset = new Map(
     (freshnessQuery.data?.groups || [])
@@ -108,25 +105,48 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     probeSummaryByDataset.set(rule.dataset_key, existing);
   }
 
-  const cards: SourceCardItem[] = (latestQuery.data?.items || [])
-    .filter((item) => item.stage === "raw")
-    .map((rawLatest) => {
-      const freshMeta = freshnessByDataset.get(rawLatest.dataset_key);
+  const latestRawByDataset = new Map(
+    (latestQuery.data?.items || [])
+      .filter((item) => item.stage === "raw")
+      .map((item) => [item.dataset_key, item] as const),
+  );
+
+  function inSourceScope(scope: string): boolean {
+    const values = scope
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    return values.includes(sourceKey);
+  }
+
+  const cards: SourceCardItem[] = (modeQuery.data?.items || [])
+    .filter((modeItem) => {
+      if (!modeItem.raw_table && modeItem.layer_plan !== "raw-only" && !modeItem.layer_plan.startsWith("raw->")) {
+        return false;
+      }
+      if (modeItem.dataset_key.startsWith("biying_")) return sourceKey === "biying";
+      if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_biying.")) return sourceKey === "biying";
+      if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_tushare.")) return sourceKey === "tushare";
+      return inSourceScope(modeItem.source_scope || "");
+    })
+    .map((modeItem) => {
+      const rawLatest = latestRawByDataset.get(modeItem.dataset_key);
+      const freshMeta = freshnessByDataset.get(modeItem.dataset_key);
       const freshGroup = freshMeta?.group;
       const freshItem = freshMeta?.item;
-      const fallbackRawTable = `${sourceKey === "biying" ? "raw_biying" : "raw_tushare"}.${rawLatest.dataset_key.replace(/^biying_/, "")}`;
+      const fallbackRawTable = `${sourceKey === "biying" ? "raw_biying" : "raw_tushare"}.${modeItem.dataset_key.replace(/^biying_/, "")}`;
       const sourceScopedRawTable = (freshItem?.raw_table || "").replace(/^raw_tushare\./i, sourceKey === "biying" ? "raw_biying." : "raw_tushare.");
-      const status = toCardStatus(rawLatest.status || freshItem?.freshness_status);
+      const status = toCardStatus(rawLatest?.status || freshItem?.freshness_status || modeItem.freshness_status);
       return {
-        datasetKey: rawLatest.dataset_key,
-        displayName: formatResourceLabel(rawLatest.dataset_key),
-        domainKey: freshGroup?.domain_key || "uncategorized",
-        domainDisplayName: freshGroup?.domain_display_name || "未分类",
-        rawTableLabel: sourceScopedRawTable || fallbackRawTable,
+        datasetKey: modeItem.dataset_key,
+        displayName: modeItem.display_name || formatResourceLabel(modeItem.dataset_key),
+        domainKey: freshGroup?.domain_key || modeItem.domain_key || "uncategorized",
+        domainDisplayName: freshGroup?.domain_display_name || modeItem.domain_display_name || "未分类",
+        rawTableLabel: sourceScopedRawTable || modeItem.raw_table || fallbackRawTable,
         status,
-        recentSyncAt: rawLatest.calculated_at || (freshItem?.latest_success_at || null),
+        recentSyncAt: rawLatest?.calculated_at || (freshItem?.latest_success_at || null),
         recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",
-        dateRangeText: freshItem ? buildDateRangeText(freshItem) : "—",
+        dateRangeText: freshItem ? buildDateRangeText(freshItem) : (modeItem.latest_business_date ? `最新业务日：${formatDateLabel(modeItem.latest_business_date)}` : "—"),
         cadenceText: cadenceLabel(freshItem?.cadence || ""),
         primaryExecutionSpecKey: freshItem?.primary_execution_spec_key || null,
         autoEnabled: (freshItem?.auto_schedule_active || 0) > 0,
@@ -134,9 +154,9 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
           (freshItem?.auto_schedule_total || 0) > 0
             ? `已配置自动任务 ${freshItem?.auto_schedule_active || 0}/${freshItem?.auto_schedule_total || 0} 条，下一次：${freshItem?.auto_schedule_next_run_at ? formatDateTimeLabel(freshItem.auto_schedule_next_run_at) : "待计算"}`
             : "未配置自动任务",
-        probeEnabled: (probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0) > 0,
-        probeTooltip: (probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0) > 0
-          ? `已配置自动探测规则 ${probeSummaryByDataset.get(rawLatest.dataset_key)?.active || 0}/${probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0} 条`
+        probeEnabled: (probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0) > 0,
+        probeTooltip: (probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0) > 0
+          ? `已配置自动探测规则 ${probeSummaryByDataset.get(modeItem.dataset_key)?.active || 0}/${probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0} 条`
           : "未配置自动探测规则",
       };
     })
@@ -236,7 +256,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           <Text size="xs" c="dimmed">未配置自动更新</Text>
                         ) : null}
                       </Group>
-                      {item.status !== "healthy" ? (
+                      {item.status !== "healthy" && item.primaryExecutionSpecKey ? (
                         <Button
                           component="a"
                           href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primaryExecutionSpecKey || "")}&spec_type=job`}

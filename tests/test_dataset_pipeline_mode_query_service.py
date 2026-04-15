@@ -146,7 +146,7 @@ def test_pipeline_mode_query_lists_mode_and_rule_status(db_session: Session) -> 
     db_session.commit()
 
     result = DatasetPipelineModeQueryService().list_modes(db_session)
-    assert result.total == 3
+    assert result.total >= 3
     by_key = {item.dataset_key: item for item in result.items}
 
     stock_basic = by_key["stock_basic"]
@@ -166,3 +166,28 @@ def test_pipeline_mode_query_lists_mode_and_rule_status(db_session: Session) -> 
     block_trade = by_key["block_trade"]
     assert block_trade.mode == "single_source_direct"
     assert block_trade.serving_table == "core_serving.equity_block_trade"
+
+
+def test_pipeline_mode_query_includes_spec_even_without_snapshot(db_session: Session) -> None:
+    db_session.add(
+        DatasetPipelineMode(
+            dataset_key="biying_moneyflow",
+            mode="raw_only",
+            source_scope="biying",
+            raw_enabled=True,
+            std_enabled=False,
+            resolution_enabled=False,
+            serving_enabled=False,
+        )
+    )
+    db_session.commit()
+
+    result = DatasetPipelineModeQueryService().list_modes(db_session)
+    by_key = {item.dataset_key: item for item in result.items}
+
+    assert "biying_moneyflow" in by_key
+    item = by_key["biying_moneyflow"]
+    assert item.mode == "raw_only"
+    assert item.source_scope == "biying"
+    assert item.raw_table == "raw_biying.moneyflow"
+    assert item.freshness_status == "unknown"

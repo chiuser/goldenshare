@@ -9,7 +9,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.schemas.dataset_pipeline import DatasetPipelineModeItem, DatasetPipelineModeListResponse
-from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec
+from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
 
 
 class DatasetPipelineModeQueryService:
@@ -23,19 +23,21 @@ class DatasetPipelineModeQueryService:
 
     def list_modes(self, session: Session, *, limit: int = 500, offset: int = 0) -> DatasetPipelineModeListResponse:
         limit = max(1, min(limit, 2000))
-        rows = session.scalars(
-            select(DatasetStatusSnapshot)
-            .order_by(DatasetStatusSnapshot.domain_key.asc(), DatasetStatusSnapshot.display_name.asc())
-            .limit(limit)
-            .offset(offset)
+        specs = list_dataset_freshness_specs()
+        spec_by_key = {spec.dataset_key: spec for spec in specs}
+        dataset_keys = [spec.dataset_key for spec in specs]
+
+        snapshot_rows = session.scalars(
+            select(DatasetStatusSnapshot).where(DatasetStatusSnapshot.dataset_key.in_(dataset_keys))
         ).all()
+        snapshot_by_key = {row.dataset_key: row for row in snapshot_rows}
 
-        if not rows:
-            return DatasetPipelineModeListResponse(total=0, items=[])
-
-        dataset_keys = [row.dataset_key for row in rows]
+        legacy_rows = session.scalars(
+            select(DatasetStatusSnapshot).where(~DatasetStatusSnapshot.dataset_key.in_(dataset_keys))
+        ).all()
+        all_dataset_keys = [*dataset_keys, *[row.dataset_key for row in legacy_rows]]
         mode_rows = session.scalars(
-            select(DatasetPipelineMode).where(DatasetPipelineMode.dataset_key.in_(dataset_keys))
+            select(DatasetPipelineMode).where(DatasetPipelineMode.dataset_key.in_(all_dataset_keys))
         ).all()
         mode_by_key = {row.dataset_key: row for row in mode_rows}
 
@@ -43,7 +45,7 @@ class DatasetPipelineModeQueryService:
             session.execute(
                 select(StdMappingRule.dataset_key, func.count())
                 .where(
-                    StdMappingRule.dataset_key.in_(dataset_keys),
+                    StdMappingRule.dataset_key.in_(all_dataset_keys),
                     StdMappingRule.status == "active",
                 )
                 .group_by(StdMappingRule.dataset_key)
@@ -53,7 +55,7 @@ class DatasetPipelineModeQueryService:
             session.execute(
                 select(StdCleansingRule.dataset_key, func.count())
                 .where(
-                    StdCleansingRule.dataset_key.in_(dataset_keys),
+                    StdCleansingRule.dataset_key.in_(all_dataset_keys),
                     StdCleansingRule.status == "active",
                 )
                 .group_by(StdCleansingRule.dataset_key)
@@ -62,14 +64,46 @@ class DatasetPipelineModeQueryService:
         resolution_keys = set(
             session.scalars(
                 select(DatasetResolutionPolicy.dataset_key).where(
-                    DatasetResolutionPolicy.dataset_key.in_(dataset_keys),
+                    DatasetResolutionPolicy.dataset_key.in_(all_dataset_keys),
                     DatasetResolutionPolicy.enabled.is_(True),
                 )
             ).all()
         )
 
         items: list[DatasetPipelineModeItem] = []
-        for row in rows:
+        for dataset_key in dataset_keys:
+            spec = spec_by_key[dataset_key]
+            row = snapshot_by_key.get(dataset_key)
+            mode = mode_by_key.get(dataset_key)
+            if mode is None and spec is not None:
+                mode = self._inferred_mode_from_spec(dataset_key, spec)
+            resolved_mode = mode.mode if mode is not None else "unknown"
+            source_scope = mode.source_scope if mode is not None else "unknown"
+            raw_table = spec.raw_table
+            target_table = spec.target_table
+            items.append(
+                DatasetPipelineModeItem(
+                    dataset_key=dataset_key,
+                    display_name=spec.display_name,
+                    domain_key=spec.domain_key,
+                    domain_display_name=spec.domain_display_name,
+                    mode=resolved_mode,
+                    source_scope=source_scope,
+                    layer_plan=self._layer_plan(mode=resolved_mode),
+                    raw_table=raw_table,
+                    std_table_hint=self._std_table_hint(dataset_key, resolved_mode),
+                    serving_table=self._serving_table(target_table, dataset_key, resolved_mode),
+                    freshness_status=row.freshness_status if row is not None else "unknown",
+                    latest_business_date=row.latest_business_date if row is not None else None,
+                    std_mapping_configured=mapping_counts.get(dataset_key, 0) > 0,
+                    std_cleansing_configured=cleansing_counts.get(dataset_key, 0) > 0,
+                    resolution_policy_configured=dataset_key in resolution_keys,
+                )
+            )
+
+        for row in legacy_rows:
+            if row.dataset_key in spec_by_key:
+                continue
             spec = get_dataset_freshness_spec(row.resource_key)
             mode = mode_by_key.get(row.dataset_key)
             if mode is None and spec is not None:
@@ -98,8 +132,10 @@ class DatasetPipelineModeQueryService:
                 )
             )
 
-        total = session.scalar(select(func.count()).select_from(DatasetStatusSnapshot)) or 0
-        return DatasetPipelineModeListResponse(total=int(total), items=items)
+        items.sort(key=lambda it: (it.domain_display_name, it.display_name))
+        total = len(items)
+        sliced = items[offset : offset + limit]
+        return DatasetPipelineModeListResponse(total=int(total), items=sliced)
 
     @classmethod
     def _std_table_hint(cls, dataset_key: str, mode: str) -> str | None:
