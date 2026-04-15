@@ -111,11 +111,15 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       .map((item) => [item.dataset_key, item] as const),
   );
 
-  function inSourceScope(scope: string): boolean {
-    const values = scope
+  function parseSourceScope(scope: string): string[] {
+    return scope
       .split(",")
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
+  }
+
+  function inSourceScope(scope: string): boolean {
+    const values = parseSourceScope(scope);
     return values.includes(sourceKey);
   }
 
@@ -123,6 +127,10 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     .filter((modeItem) => {
       if (!modeItem.raw_table && modeItem.layer_plan !== "raw-only" && !modeItem.layer_plan.startsWith("raw->")) {
         return false;
+      }
+      const scopeValues = parseSourceScope(modeItem.source_scope || "");
+      if (scopeValues.length > 0 && !scopeValues.includes("unknown")) {
+        return scopeValues.includes(sourceKey);
       }
       if (modeItem.dataset_key.startsWith("biying_")) return sourceKey === "biying";
       if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_biying.")) return sourceKey === "biying";
