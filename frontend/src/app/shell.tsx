@@ -122,10 +122,16 @@ export function OpsShell(_props: PropsWithChildren) {
                 color="brand"
               />
             ))}
-            <Group gap={8} px="xs" pt="xs">
-              <IconStack2 size={18} color="var(--mantine-color-brand-6)" />
-              <Text size="sm" c="brand.6" fw={800}>数据源</Text>
-            </Group>
+            <NavLink
+              label="数据源"
+              leftSection={<IconStack2 size={18} />}
+              variant="light"
+              color="brand"
+              styles={{
+                root: { pointerEvents: "none" },
+                label: { fontWeight: 600, color: "var(--mantine-color-text)" },
+              }}
+            />
             {opsV21SourceLinks.map((link) => (
               <NavLink
                 key={link.to}

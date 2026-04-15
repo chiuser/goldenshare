@@ -147,10 +147,10 @@ export function OpsV21OverviewPage() {
                     style={{
                       border: "1px solid rgba(15, 23, 42, 0.16)",
                       background: "rgba(248, 250, 252, 0.92)",
-                      minHeight: 320,
+                      minHeight: 278,
                     }}
                   >
-                    <Stack gap={10} h="100%">
+                    <Stack gap={8} h="100%">
                       <Group justify="space-between" align="center" wrap="nowrap">
                         <Stack gap={2} justify="center" style={{ minWidth: 0, flex: 1 }}>
                           <Group gap={8} align="center">
@@ -167,7 +167,7 @@ export function OpsV21OverviewPage() {
                             {item.dataset_key}
                           </Text>
                         </Stack>
-                        <Stack gap={6} align="flex-start" justify="center" style={{ flex: "0 0 auto" }}>
+                        <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto" }}>
                           <Badge variant="light" color="blue" size="sm">
                             最新业务日期：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
                           </Badge>
@@ -175,7 +175,12 @@ export function OpsV21OverviewPage() {
                             状态更新时间：{statusUpdatedAt ? formatDateTimeLabel(statusUpdatedAt) : "—"}
                           </Badge>
                         </Stack>
-                        <Badge variant="dot" color={modeColor(item.mode)} size="sm" style={{ flex: "0 0 auto" }}>
+                        <Badge
+                          variant="dot"
+                          color={modeColor(item.mode)}
+                          size="md"
+                          style={{ flex: "0 0 auto", fontSize: 14 }}
+                        >
                           {modeLabel(item.mode)}
                         </Badge>
                       </Group>
