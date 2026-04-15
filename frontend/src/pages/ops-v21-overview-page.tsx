@@ -41,6 +41,19 @@ function modeColor(mode: string): string {
   return "gray";
 }
 
+function modeTone(mode: string) {
+  if (mode === "single_source_direct") {
+    return { background: "rgba(34, 197, 94, 0.14)", color: "#166534", border: "rgba(34, 197, 94, 0.28)" };
+  }
+  if (mode === "multi_source_pipeline") {
+    return { background: "rgba(79, 70, 229, 0.14)", color: "#3730a3", border: "rgba(79, 70, 229, 0.26)" };
+  }
+  if (mode === "legacy_core_direct") {
+    return { background: "rgba(251, 146, 60, 0.14)", color: "#9a3412", border: "rgba(251, 146, 60, 0.24)" };
+  }
+  return { background: "rgba(100, 116, 139, 0.14)", color: "#334155", border: "rgba(100, 116, 139, 0.24)" };
+}
+
 function expectedStages(mode: string): StageKey[] {
   if (mode === "single_source_direct") return ["raw", "serving"];
   if (mode === "multi_source_pipeline") return ["raw", "std", "resolution", "serving"];
@@ -146,20 +159,20 @@ export function OpsV21OverviewPage() {
                     p="md"
                     style={{
                       border: "1px solid rgba(15, 23, 42, 0.16)",
-                      background: "rgba(248, 250, 252, 0.92)",
+                      background: "rgba(250, 204, 21, 0.10)",
                       minHeight: 278,
                     }}
                   >
                     <Stack gap={8} h="100%">
-                      <Group justify="space-between" align="center" wrap="nowrap">
+                      <Group justify="space-between" align="center" wrap="nowrap" gap={10}>
                         <Stack gap={2} justify="center" style={{ minWidth: 0, flex: 1 }}>
-                          <Group gap={8} align="center">
+                          <Group gap={8} align="center" wrap="nowrap">
                             <Box
                               w={9}
                               h={9}
                               style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
                             />
-                            <Text fw={800} size="lg" lineClamp={1}>
+                            <Text fw={800} size="xl" lineClamp={1} style={{ minWidth: 0 }}>
                               {item.display_name}
                             </Text>
                           </Group>
@@ -167,19 +180,27 @@ export function OpsV21OverviewPage() {
                             {item.dataset_key}
                           </Text>
                         </Stack>
-                        <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto" }}>
-                          <Badge variant="light" color="blue" size="sm">
+                        <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto", minWidth: 0 }}>
+                          <Badge variant="light" color="blue" size="sm" styles={{ root: { background: "rgba(59, 130, 246, 0.12)", border: "1px solid rgba(59,130,246,0.25)" } }}>
                             最新业务日期：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
                           </Badge>
-                          <Badge variant="light" color="gray" size="sm">
+                          <Badge variant="light" color="gray" size="sm" styles={{ root: { background: "rgba(100, 116, 139, 0.12)", border: "1px solid rgba(100,116,139,0.22)" } }}>
                             状态更新时间：{statusUpdatedAt ? formatDateTimeLabel(statusUpdatedAt) : "—"}
                           </Badge>
                         </Stack>
                         <Badge
-                          variant="dot"
+                          variant="light"
                           color={modeColor(item.mode)}
                           size="md"
                           style={{ flex: "0 0 auto", fontSize: 14 }}
+                          styles={{
+                            root: {
+                              background: modeTone(item.mode).background,
+                              color: modeTone(item.mode).color,
+                              border: `1px solid ${modeTone(item.mode).border}`,
+                              fontWeight: 700,
+                            },
+                          }}
                         >
                           {modeLabel(item.mode)}
                         </Badge>
@@ -200,11 +221,34 @@ export function OpsV21OverviewPage() {
                       <Grid gutter={6}>
                         {flags.map((flag) => (
                           <Grid.Col key={flag.label} span={4}>
-                            <Paper radius="sm" p="xs" bg="white">
+                            <Paper
+                              radius="sm"
+                              p="xs"
+                              style={{
+                                background: "rgba(254, 249, 220, 0.92)",
+                                border: "1px solid rgba(180, 160, 90, 0.24)",
+                              }}
+                            >
                               <Text size="xs" c="dimmed">{flag.label}</Text>
-                              <Text size="xs" fw={700} c={flag.on ? "green.7" : "gray.6"}>
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                styles={{
+                                  root: flag.on
+                                    ? {
+                                      background: "rgba(34, 197, 94, 0.16)",
+                                      color: "#166534",
+                                      border: "1px solid rgba(34, 197, 94, 0.28)",
+                                    }
+                                    : {
+                                      background: "rgba(148, 163, 184, 0.14)",
+                                      color: "#475569",
+                                      border: "1px solid rgba(148, 163, 184, 0.24)",
+                                    },
+                                }}
+                              >
                                 {flag.on ? "已配置" : "未配置"}
-                              </Text>
+                              </Badge>
                             </Paper>
                           </Grid.Col>
                         ))}
