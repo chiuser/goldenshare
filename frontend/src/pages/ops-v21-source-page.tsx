@@ -2,7 +2,7 @@ import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Tex
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
-import type { LayerSnapshotLatestResponse, OpsFreshnessResponse } from "../shared/api/types";
+import type { LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
@@ -24,6 +24,8 @@ interface SourceCardItem {
   primaryExecutionSpecKey: string | null;
   autoEnabled: boolean;
   autoTooltip: string;
+  probeEnabled: boolean;
+  probeTooltip: string;
 }
 
 function inferSource(datasetKey: string, rawTable: string | null, targetTable: string): SourceKey {
@@ -84,9 +86,13 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     queryKey: ["ops", "layer-snapshot", "latest", `v21-source-${sourceKey}`],
     queryFn: () => apiRequest<LayerSnapshotLatestResponse>(`/api/v1/ops/layer-snapshots/latest?source_key=${sourceKey}&stage=raw&limit=1000`),
   });
+  const probeQuery = useQuery({
+    queryKey: ["ops", "probes", `v21-source-${sourceKey}`],
+    queryFn: () => apiRequest<ProbeRuleListResponse>(`/api/v1/ops/probes?source_key=${sourceKey}&limit=200`),
+  });
 
-  const isLoading = freshnessQuery.isLoading || latestQuery.isLoading;
-  const error = freshnessQuery.error || latestQuery.error;
+  const isLoading = freshnessQuery.isLoading || latestQuery.isLoading || probeQuery.isLoading;
+  const error = freshnessQuery.error || latestQuery.error || probeQuery.error;
 
   const rawLatestByDataset = new Map(
     (latestQuery.data?.items || [])
@@ -97,6 +103,15 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     (freshnessQuery.data?.groups || [])
       .flatMap((group) => group.items.map((item) => [item.dataset_key, { group, item }] as const)),
   );
+  const probeSummaryByDataset = new Map<string, { total: number; active: number }>();
+  for (const rule of probeQuery.data?.items || []) {
+    const existing = probeSummaryByDataset.get(rule.dataset_key) || { total: 0, active: 0 };
+    existing.total += 1;
+    if (rule.status === "active") {
+      existing.active += 1;
+    }
+    probeSummaryByDataset.set(rule.dataset_key, existing);
+  }
 
   const cards: SourceCardItem[] = (latestQuery.data?.items || [])
     .filter((item) => item.stage === "raw")
@@ -125,6 +140,10 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
           (freshItem?.auto_schedule_total || 0) > 0
             ? `已配置自动任务 ${freshItem?.auto_schedule_active || 0}/${freshItem?.auto_schedule_total || 0} 条，下一次：${freshItem?.auto_schedule_next_run_at ? formatDateTimeLabel(freshItem.auto_schedule_next_run_at) : "待计算"}`
             : "未配置自动任务",
+        probeEnabled: (probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0) > 0,
+        probeTooltip: (probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0) > 0
+          ? `已配置自动探测规则 ${probeSummaryByDataset.get(rawLatest.dataset_key)?.active || 0}/${probeSummaryByDataset.get(rawLatest.dataset_key)?.total || 0} 条`
+          : "未配置自动探测规则",
       };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
@@ -204,15 +223,25 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                     </Stack>
 
                     <Group justify="space-between" mt="auto">
-                      {item.autoEnabled ? (
-                        <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
-                          <Badge variant="light" color="orange">
-                            自动
-                          </Badge>
-                        </Tooltip>
-                      ) : (
-                        <Text size="xs" c="dimmed">未配置自动更新</Text>
-                      )}
+                      <Group gap={6}>
+                        {item.autoEnabled ? (
+                          <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
+                            <Badge variant="light" color="orange">
+                              自动
+                            </Badge>
+                          </Tooltip>
+                        ) : null}
+                        {item.probeEnabled ? (
+                          <Tooltip label={item.probeTooltip} withArrow multiline w={260}>
+                            <Badge variant="light" color="violet">
+                              自动探测
+                            </Badge>
+                          </Tooltip>
+                        ) : null}
+                        {!item.autoEnabled && !item.probeEnabled ? (
+                          <Text size="xs" c="dimmed">未配置自动更新</Text>
+                        ) : null}
+                      </Group>
                       {item.status !== "healthy" ? (
                         <Button
                           component="a"
