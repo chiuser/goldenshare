@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
+
 
 def test_ops_layer_snapshot_requires_admin(app_client, user_factory) -> None:
     user_factory(username="user", password="secret", is_admin=False)
@@ -17,6 +19,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     app_client,
     user_factory,
     dataset_layer_snapshot_history_factory,
+    db_session,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -32,26 +35,29 @@ def test_ops_layer_snapshot_history_and_latest_queries(
         lag_seconds=7200,
         calculated_at=datetime(2026, 4, 13, 16, 0, tzinfo=timezone.utc),
     )
-    dataset_layer_snapshot_history_factory(
-        snapshot_date=date(2026, 4, 14),
-        dataset_key="equity_daily",
-        source_key="tushare",
-        stage="serving",
-        status="healthy",
-        rows_out=120,
-        lag_seconds=120,
-        calculated_at=datetime(2026, 4, 14, 16, 0, tzinfo=timezone.utc),
+    db_session.add_all(
+        [
+            DatasetLayerSnapshotCurrent(
+                dataset_key="equity_daily",
+                source_key="tushare",
+                stage="serving",
+                status="healthy",
+                rows_out=120,
+                lag_seconds=120,
+                calculated_at=datetime(2026, 4, 14, 16, 0, tzinfo=timezone.utc),
+            ),
+            DatasetLayerSnapshotCurrent(
+                dataset_key="etf_daily",
+                source_key="biying",
+                stage="std",
+                status="failed",
+                rows_in=80,
+                error_count=3,
+                calculated_at=datetime(2026, 4, 14, 16, 5, tzinfo=timezone.utc),
+            ),
+        ]
     )
-    dataset_layer_snapshot_history_factory(
-        snapshot_date=date(2026, 4, 14),
-        dataset_key="etf_daily",
-        source_key="biying",
-        stage="std",
-        status="failed",
-        rows_in=80,
-        error_count=3,
-        calculated_at=datetime(2026, 4, 14, 16, 5, tzinfo=timezone.utc),
-    )
+    db_session.commit()
 
     history = app_client.get(
         "/api/v1/ops/layer-snapshots/history?dataset_key=equity_daily&stage=serving",
@@ -59,9 +65,9 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     )
     assert history.status_code == 200
     history_payload = history.json()
-    assert history_payload["total"] == 2
-    assert history_payload["items"][0]["snapshot_date"] == "2026-04-14"
-    assert history_payload["items"][0]["status"] == "healthy"
+    assert history_payload["total"] == 1
+    assert history_payload["items"][0]["snapshot_date"] == "2026-04-13"
+    assert history_payload["items"][0]["status"] == "stale"
 
     latest = app_client.get(
         "/api/v1/ops/layer-snapshots/latest",

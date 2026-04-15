@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.schemas.layer_snapshot import (
     LayerSnapshotHistoryItem,
@@ -77,35 +78,39 @@ class LayerSnapshotQueryService:
         limit: int = 500,
     ) -> LayerSnapshotLatestResponse:
         """
-        SQLite/PG 通用最小实现：按时间倒序拉取后在 Python 侧按 (dataset, source, stage) 去重。
+        latest 语义应读取当前快照表（dataset_layer_snapshot_current）。
         """
         limit = max(1, min(limit, 5000))
         filters = []
         if dataset_key:
-            filters.append(DatasetLayerSnapshotHistory.dataset_key == dataset_key)
+            filters.append(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
         if source_key:
-            filters.append(DatasetLayerSnapshotHistory.source_key == source_key)
+            filters.append(DatasetLayerSnapshotCurrent.source_key == source_key)
         if stage:
-            filters.append(DatasetLayerSnapshotHistory.stage == stage)
+            filters.append(DatasetLayerSnapshotCurrent.stage == stage)
         if status:
-            filters.append(DatasetLayerSnapshotHistory.status == status)
+            filters.append(DatasetLayerSnapshotCurrent.status == status)
 
-        stmt = select(DatasetLayerSnapshotHistory).order_by(
-            desc(DatasetLayerSnapshotHistory.snapshot_date),
-            desc(DatasetLayerSnapshotHistory.calculated_at),
-            desc(DatasetLayerSnapshotHistory.id),
+        count_stmt = select(func.count()).select_from(DatasetLayerSnapshotCurrent)
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+        total = session.scalar(count_stmt) or 0
+
+        stmt = select(DatasetLayerSnapshotCurrent).order_by(
+            desc(DatasetLayerSnapshotCurrent.calculated_at),
+            desc(DatasetLayerSnapshotCurrent.dataset_key),
+            desc(DatasetLayerSnapshotCurrent.source_key),
+            desc(DatasetLayerSnapshotCurrent.stage),
         )
         if filters:
             stmt = stmt.where(*filters)
-        rows = session.scalars(stmt.limit(limit * 20)).all()
+        rows = session.scalars(stmt.limit(limit)).all()
 
-        dedup: dict[tuple[str, str | None, str], LayerSnapshotLatestItem] = {}
+        items: list[LayerSnapshotLatestItem] = []
         for row in rows:
-            key = (row.dataset_key, row.source_key, row.stage)
-            if key in dedup:
-                continue
-            dedup[key] = LayerSnapshotLatestItem(
-                snapshot_date=row.snapshot_date,
+            items.append(
+                LayerSnapshotLatestItem(
+                snapshot_date=row.calculated_at.date(),
                 dataset_key=row.dataset_key,
                 source_key=row.source_key,
                 stage=row.stage,
@@ -119,11 +124,8 @@ class LayerSnapshotQueryService:
                 message=row.message,
                 calculated_at=row.calculated_at,
             )
-            if len(dedup) >= limit:
-                break
-
-        items = list(dedup.values())
-        return LayerSnapshotLatestResponse(total=len(items), items=items)
+            )
+        return LayerSnapshotLatestResponse(total=int(total), items=items)
 
     @staticmethod
     def _to_history_item(row: DatasetLayerSnapshotHistory) -> LayerSnapshotHistoryItem:
