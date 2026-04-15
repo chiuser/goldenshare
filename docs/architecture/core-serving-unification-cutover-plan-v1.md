@@ -4,6 +4,58 @@
 适用环境：停机切换（当前无下游流量）  
 目标：把“对上服务语义”统一收口到 `core_serving.*`，避免 `core.*` 同时承载基础层与服务层造成混淆。
 
+## 当前实施状态（2026-04-15）
+
+已完成：
+1. 第一批 `core -> core_serving` 收口已完成并上线验证通过。
+2. `core.*` 指向 `core_serving.*` 的兼容视图已清理完成。
+3. 部署脚本已默认禁用 pager，发版不再卡在 `(END)`。
+
+本轮已迁入 `core_serving` 的表（37）：
+- `security_serving`
+- `equity_daily_bar`
+- `equity_daily_basic`
+- `stk_period_bar`
+- `stk_period_bar_adj`
+- `index_daily_serving`
+- `index_weekly_serving`
+- `index_monthly_serving`
+- `trade_calendar`
+- `hk_security`
+- `us_security`
+- `index_basic`
+- `index_daily_basic`
+- `index_weight`
+- `etf_basic`
+- `etf_index`
+- `fund_daily_bar`
+- `equity_moneyflow`
+- `equity_top_list`
+- `equity_block_trade`
+- `equity_limit_list`
+- `equity_dividend`
+- `equity_holder_number`
+- `ths_index`
+- `ths_member`
+- `ths_daily`
+- `ths_hot`
+- `dc_index`
+- `dc_member`
+- `dc_daily`
+- `dc_hot`
+- `kpl_list`
+- `kpl_concept_cons`
+- `limit_list_ths`
+- `limit_step`
+- `limit_cpt_list`
+- `broker_recommend`
+
+本轮明确暂不迁移（保留在 `core`）：
+- `equity_indicators`（`ind_macd` / `ind_kdj` / `ind_rsi`）
+- `equity_price_restore_factor`
+- `equity_adj_factor`
+- `fund_adj_factor`
+
 ---
 
 ## 1. 背景与问题
@@ -210,4 +262,3 @@ ALTER TABLE core_serving.equity_daily_bar SET SCHEMA core;
 2. 第二步：提交一笔“schema 切换 + target_table 引用修正 + 测试”代码。  
 3. 第三步：停机执行 DB 迁移 SQL，发布，做接口与页面验收。  
 4. 第四步：补第二波（fund/index_daily_basic/board-rank）收口计划。
-
