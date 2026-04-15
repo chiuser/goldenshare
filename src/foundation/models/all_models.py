@@ -111,6 +111,7 @@ from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.raw.raw_us_basic import RawUsBasic
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
+from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 __all__ = [
@@ -227,5 +228,6 @@ __all__ = [
     "DatasetResolutionPolicy",
     "DatasetSourceStatus",
     "RawBiyingEquityDailyBar",
+    "RawBiyingMoneyflow",
     "RawBiyingStockBasic",
 ]

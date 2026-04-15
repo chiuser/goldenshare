@@ -48,7 +48,7 @@ class BiyingSourceConnector(SourceConnector):
         return session
 
     def supports_api(self, api_name: str) -> bool:
-        return api_name in {"stock_basic", "equity_daily_bar"}
+        return api_name in {"stock_basic", "equity_daily_bar", "moneyflow"}
 
     def call(
         self,
@@ -63,7 +63,9 @@ class BiyingSourceConnector(SourceConnector):
 
         if api_name == "stock_basic":
             return self._call_stock_basic()
-        return self._call_equity_daily_bar(params=params)
+        if api_name == "equity_daily_bar":
+            return self._call_equity_daily_bar(params=params)
+        return self._call_moneyflow(params=params)
 
     def _call_stock_basic(self) -> list[dict[str, Any]]:
         endpoint = f"{self.base_url}/hslt/list/{self.token}"
@@ -119,6 +121,46 @@ class BiyingSourceConnector(SourceConnector):
                 return []
         if not isinstance(data, list):
             raise RuntimeError("Biying equity_daily_bar response format invalid: expected list")
+        rows: list[dict[str, Any]] = []
+        for item in data:
+            if isinstance(item, dict):
+                rows.append(item)
+        return rows
+
+    def _call_moneyflow(self, *, params: dict[str, Any] | None) -> list[dict[str, Any]]:
+        payload = params or {}
+        dm = str(payload.get("dm") or "").strip().upper()
+        if not dm:
+            raise ValueError("dm is required for biying moneyflow")
+
+        query: dict[str, str] = {}
+        start = payload.get("st")
+        end = payload.get("et")
+        limit = payload.get("lt")
+        if start:
+            query["st"] = str(start)
+        if end:
+            query["et"] = str(end)
+        if limit:
+            query["lt"] = str(limit)
+        query_text = f"?{urlencode(query)}" if query else ""
+
+        endpoint = f"{self.base_url}/hsstock/history/transaction/{dm}/{self.token}{query_text}"
+        response = self.session.get(endpoint, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, dict):
+            error_message = str(data.get("error") or "").strip()
+            if "数据不存在" in error_message:
+                self.logger.info(
+                    "Biying moneyflow no data dm=%s st=%s et=%s",
+                    dm,
+                    query.get("st"),
+                    query.get("et"),
+                )
+                return []
+        if not isinstance(data, list):
+            raise RuntimeError("Biying moneyflow response format invalid: expected list")
         rows: list[dict[str, Any]] = []
         for item in data:
             if isinstance(item, dict):

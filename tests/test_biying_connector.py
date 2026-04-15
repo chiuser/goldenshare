@@ -79,3 +79,51 @@ def test_biying_connector_equity_daily_no_data_returns_empty_list(mocker) -> Non
         "https://api.biyingapi.com/hsstock/history/600602.SH/d/f/token_x?st=20260403&et=20260410&lt=2",
         timeout=(5, 30),
     )
+
+
+def test_biying_connector_fetches_moneyflow_rows(mocker) -> None:
+    connector = BiyingSourceConnector(token="token_x", base_url="https://api.biyingapi.com")
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = [
+        {"t": "2026-04-10 00:00:00", "zmbzds": 1, "dddx": -5.3},
+    ]
+    get = mocker.patch.object(connector.session, "get", return_value=response)
+
+    rows = connector.call(
+        "moneyflow",
+        params={
+            "dm": "000001.SZ",
+            "st": "20260401",
+            "et": "20260410",
+        },
+    )
+
+    assert rows == response.json.return_value
+    get.assert_called_once_with(
+        "https://api.biyingapi.com/hsstock/history/transaction/000001.SZ/token_x?st=20260401&et=20260410",
+        timeout=(5, 30),
+    )
+
+
+def test_biying_connector_moneyflow_no_data_returns_empty_list(mocker) -> None:
+    connector = BiyingSourceConnector(token="token_x", base_url="https://api.biyingapi.com")
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"error": "数据不存在"}
+    get = mocker.patch.object(connector.session, "get", return_value=response)
+
+    rows = connector.call(
+        "moneyflow",
+        params={
+            "dm": "000001.SZ",
+            "st": "20260401",
+            "et": "20260410",
+        },
+    )
+
+    assert rows == []
+    get.assert_called_once_with(
+        "https://api.biyingapi.com/hsstock/history/transaction/000001.SZ/token_x?st=20260401&et=20260410",
+        timeout=(5, 30),
+    )

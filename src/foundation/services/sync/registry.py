@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from src.foundation.services.sync.sync_adj_factor_service import SyncAdjFactorService
 from src.foundation.services.sync.sync_block_trade_service import SyncBlockTradeService
 from src.foundation.services.sync.sync_biying_equity_daily_service import SyncBiyingEquityDailyService
+from src.foundation.services.sync.sync_biying_moneyflow_service import SyncBiyingMoneyflowService
 from src.foundation.services.sync.sync_dc_daily_service import SyncDcDailyService
 from src.foundation.services.sync.sync_dc_index_service import SyncDcIndexService
 from src.foundation.services.sync.sync_dc_member_service import SyncDcMemberService
@@ -50,6 +51,7 @@ from src.foundation.services.sync.sync_us_basic_service import SyncUsBasicServic
 SYNC_SERVICE_REGISTRY = {
     "stock_basic": SyncStockBasicService,
     "biying_equity_daily": SyncBiyingEquityDailyService,
+    "biying_moneyflow": SyncBiyingMoneyflowService,
     "hk_basic": SyncHkBasicService,
     "us_basic": SyncUsBasicService,
     "trade_cal": SyncTradeCalendarService,

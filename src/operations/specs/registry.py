@@ -217,6 +217,7 @@ SOURCE_KEY_PARAM = ParameterSpec(
 
 DAILY_SYNC_RESOURCES = (
     "biying_equity_daily",
+    "biying_moneyflow",
     "daily",
     "equity_indicators",
     "adj_factor",
@@ -312,6 +313,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
     if resource == "stock_basic":
         return (SOURCE_KEY_PARAM,)
     if resource == "biying_equity_daily":
+        return (START_DATE_PARAM, END_DATE_PARAM)
+    if resource == "biying_moneyflow":
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
@@ -748,6 +751,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
 
 DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "biying_equity_daily": ("BIYING 股票日线", "equity", "股票", "daily", "trade_date"),
+    "biying_moneyflow": ("BIYING 资金流向", "equity", "股票", "daily", "trade_date"),
     "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference", None),
     "hk_basic": ("港股列表", "reference_data", "基础主数据", "reference", None),
     "us_basic": ("美股列表", "reference_data", "基础主数据", "reference", None),
