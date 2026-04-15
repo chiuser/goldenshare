@@ -81,10 +81,10 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert [param["key"] for param in limit_list_daily["supported_params"]] == ["trade_date", "limit_type", "exchange"]
     limit_type = next(param for param in limit_list_daily["supported_params"] if param["key"] == "limit_type")
     assert limit_type["options"] == ["U", "D", "Z"]
-    assert limit_type["multi_value"] is True
+    assert limit_type["multi_value"] is False
     limit_exchange = next(param for param in limit_list_daily["supported_params"] if param["key"] == "exchange")
     assert limit_exchange["options"] == ["SH", "SZ", "BJ"]
-    assert limit_exchange["multi_value"] is True
+    assert limit_exchange["multi_value"] is False
     limit_list_ths_daily = jobs["sync_daily.limit_list_ths"]
     assert [param["key"] for param in limit_list_ths_daily["supported_params"]] == ["trade_date", "limit_type", "market"]
     assert next(param for param in limit_list_ths_daily["supported_params"] if param["key"] == "limit_type")["options"] == [

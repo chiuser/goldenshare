@@ -61,17 +61,15 @@ LIMIT_LIST_EXCHANGE_PARAM = ParameterSpec(
     key="exchange",
     display_name="交易所",
     param_type="enum",
-    description="用于涨跌停和炸板数据筛选交易所。",
+    description="用于涨跌停和炸板数据筛选交易所（单选；不选时默认全市场扇出）。",
     options=("SH", "SZ", "BJ"),
-    multi_value=True,
 )
 LIMIT_TYPE_PARAM = ParameterSpec(
     key="limit_type",
     display_name="涨跌停类型",
     param_type="enum",
-    description="用于筛选涨停(U)、跌停(D)或炸板(Z)数据。",
+    description="用于筛选涨停(U)、跌停(D)或炸板(Z)数据（单选；不选时默认全部类型扇出）。",
     options=("U", "D", "Z"),
-    multi_value=True,
 )
 LIMIT_LIST_THS_LIMIT_TYPE_PARAM = ParameterSpec(
     key="limit_type",
