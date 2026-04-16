@@ -127,6 +127,12 @@ STK_LIMIT_FIELDS = [
     "up_limit",
     "down_limit",
 ]
+SUSPEND_D_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "suspend_timing",
+    "suspend_type",
+]
 STK_NINETURN_FIELDS = [
     "ts_code",
     "trade_date",

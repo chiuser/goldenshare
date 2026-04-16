@@ -71,6 +71,13 @@ LIMIT_TYPE_PARAM = ParameterSpec(
     description="用于筛选涨停(U)、跌停(D)或炸板(Z)数据（单选；不选时默认全部类型扇出）。",
     options=("U", "D", "Z"),
 )
+SUSPEND_TYPE_PARAM = ParameterSpec(
+    key="suspend_type",
+    display_name="停复牌类型",
+    param_type="enum",
+    description="用于筛选停牌(S)或复牌(R)记录。",
+    options=("S", "R"),
+)
 LIMIT_LIST_THS_LIMIT_TYPE_PARAM = ParameterSpec(
     key="limit_type",
     display_name="榜单类型",
@@ -226,6 +233,7 @@ DAILY_SYNC_RESOURCES = (
     "limit_list_d",
     "stk_limit",
     "stk_nineturn",
+    "suspend_d",
     "top_list",
     "block_trade",
     "stk_period_bar_month",
@@ -358,6 +366,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "stk_nineturn":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+    if resource == "suspend_d":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, SUSPEND_TYPE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource in CODE_ONLY_RESOURCES:
@@ -415,6 +425,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     elif resource == "stk_nineturn":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+    elif resource == "suspend_d":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, SUSPEND_TYPE_PARAM)
     elif resource == "dc_member":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     elif resource == "broker_recommend":
@@ -499,7 +511,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
+for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -552,6 +564,15 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
         _supported_params = (
             START_DATE_PARAM,
             END_DATE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "suspend_d":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            SUSPEND_TYPE_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
@@ -704,6 +725,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("limit_list", "sync_daily.limit_list_d", "涨跌停榜"),
+            WorkflowStepSpec("suspend_d", "sync_daily.suspend_d", "每日停复牌信息"),
             WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
             WorkflowStepSpec("block_trade", "sync_daily.block_trade", "大宗交易"),
             WorkflowStepSpec("fund_daily", "sync_daily.fund_daily", "基金日线"),
@@ -787,6 +809,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),
     "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily", "trade_date"),
     "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily", "trade_date"),
+    "suspend_d": ("每日停复牌信息", "equity", "股票", "daily", "trade_date"),
     "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly", "trade_date"),
     "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly", "trade_date"),
     "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly", "trade_date"),

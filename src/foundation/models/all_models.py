@@ -9,6 +9,7 @@ from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -104,6 +105,7 @@ from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
@@ -131,6 +133,7 @@ __all__ = [
     "EquityMoneyflow",
     "EquityNineTurn",
     "EquityStkLimit",
+    "EquitySuspendD",
     "EquityTopList",
     "EtfBasic",
     "EtfIndex",
@@ -191,6 +194,7 @@ __all__ = [
     "RawBrokerRecommend",
     "RawMoneyflow",
     "RawStockBasic",
+    "RawSuspendD",
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",
     "RawStkLimit",

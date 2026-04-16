@@ -139,6 +139,7 @@ const resourceLabelMap: Record<string, string> = {
   limit_list_d: "涨跌停明细",
   stk_limit: "每日涨跌停价格",
   stk_nineturn: "神奇九转指标",
+  suspend_d: "每日停复牌信息",
   limit_list_ths: "同花顺涨跌停榜单",
   limit_step: "涨停天梯",
   limit_cpt_list: "最强板块统计",

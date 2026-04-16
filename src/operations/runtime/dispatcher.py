@@ -269,6 +269,7 @@ class OperationsDispatcher:
                 market=normalized.get("market"),
                 hot_type=normalized.get("hot_type"),
                 is_new=normalized.get("is_new"),
+                suspend_type=normalized.get("suspend_type"),
                 offset=int(normalized.get("offset", 0)),
                 limit=self._optional_int(normalized.get("limit")),
                 progress=on_progress,

@@ -42,6 +42,7 @@
 - [基金复权因子开发说明](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [每日涨跌停价格开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [神奇九转指标开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
+- [每日停复牌信息开发说明](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [股票技术指标数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/equity-technical-indicators-dataset-development.md)
 
 ## 发布与运维流程

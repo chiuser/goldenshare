@@ -246,6 +246,37 @@ def test_backfill_by_trade_dates_supports_stk_nineturn(mocker) -> None:
     assert progress.call_args_list[0].args[0] == "stk_nineturn: 1/1 trade_date=2026-03-24 fetched=88 written=88"
 
 
+def test_backfill_by_trade_dates_supports_suspend_d(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 24)]
+    progress = mocker.Mock()
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=12, rows_written=12)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_by_trade_dates(
+        resource="suspend_d",
+        start_date=date(2026, 3, 24),
+        end_date=date(2026, 3, 24),
+        suspend_type="S",
+        progress=progress,
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 12
+    assert summary.rows_written == 12
+    build_sync_service.assert_called_once_with("suspend_d", session)
+    sync_service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 24),
+        suspend_type="S",
+        execution_id=None,
+    )
+    assert progress.call_args_list[0].args[0] == "suspend_d: 1/1 trade_date=2026-03-24 fetched=12 written=12"
+
+
 def test_backfill_by_trade_dates_supports_limit_list_ths_filters(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

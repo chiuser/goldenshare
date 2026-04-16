@@ -12,6 +12,7 @@ from src.foundation.services.transform.holdernumber_hash import (
     build_holdernumber_event_key_hash,
     build_holdernumber_row_key_hash,
 )
+from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason, normalize_top_list_reason
@@ -29,6 +30,7 @@ __all__ = [
     "build_dividend_row_key_hash",
     "build_holdernumber_event_key_hash",
     "build_holdernumber_row_key_hash",
+    "build_suspend_d_row_key_hash",
     "hash_top_list_reason",
     "normalize_top_list_reason",
 ]

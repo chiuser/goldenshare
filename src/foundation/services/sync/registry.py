@@ -34,6 +34,7 @@ from src.foundation.services.sync.sync_limit_list_ths_service import SyncLimitLi
 from src.foundation.services.sync.sync_limit_step_service import SyncLimitStepService
 from src.foundation.services.sync.sync_stk_limit_service import SyncStkLimitService
 from src.foundation.services.sync.sync_stk_nineturn_service import SyncStkNineTurnService
+from src.foundation.services.sync.sync_suspend_d_service import SyncSuspendDService
 from src.foundation.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService
 from src.foundation.services.sync.sync_moneyflow_service import SyncMoneyflowService
 from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
@@ -92,6 +93,7 @@ SYNC_SERVICE_REGISTRY = {
     "limit_list_d": SyncLimitListService,
     "stk_limit": SyncStkLimitService,
     "stk_nineturn": SyncStkNineTurnService,
+    "suspend_d": SyncSuspendDService,
     "stk_period_bar_week": SyncStkPeriodBarWeekService,
     "stk_period_bar_month": SyncStkPeriodBarMonthService,
     "stk_period_bar_adj_week": SyncStkPeriodBarAdjWeekService,
