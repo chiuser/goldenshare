@@ -25,7 +25,7 @@ def test_sync_stk_nineturn_incremental_paginates_and_writes(mocker) -> None:
             {
                 "ts_code": "000001.SZ",
                 "trade_date": "20260410",
-                "freq": "D",
+                "freq": "daily",
                 "open": "10.11",
                 "high": "10.22",
                 "low": "9.98",
@@ -53,7 +53,7 @@ def test_sync_stk_nineturn_incremental_paginates_and_writes(mocker) -> None:
     assert message is None
     client.call.assert_called_once_with(
         "stk_nineturn",
-        params={"trade_date": "20260410", "freq": "D", "limit": 10000, "offset": 0},
+        params={"trade_date": "20260410", "freq": "daily", "limit": 10000, "offset": 0},
         fields=service.fields,
     )
     row = raw_upsert.call_args.args[0][0]
@@ -118,4 +118,3 @@ def test_sync_stk_nineturn_history_range_before_supported_start_returns_hint(moc
     assert result_date == date(2022, 12, 30)
     assert message == "区间早于可用起点 2023-01-01，未执行同步"
     sync_one_day.assert_not_called()
-

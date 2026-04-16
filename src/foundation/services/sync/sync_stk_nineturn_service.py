@@ -104,7 +104,7 @@ class SyncStkNineTurnService(BaseSyncService):
         ts_code: str | None,
         execution_id: int | None,
     ) -> tuple[int, int]:
-        base_params: dict[str, Any] = {"trade_date": trade_date.strftime("%Y%m%d"), "freq": "D"}
+        base_params: dict[str, Any] = {"trade_date": trade_date.strftime("%Y%m%d"), "freq": "daily"}
         if ts_code:
             base_params["ts_code"] = ts_code
 

@@ -31,7 +31,7 @@
   - 参数：`trade_date`，可选 `ts_code`
 - `sync_history.stk_nineturn`
   - 参数：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
-- `freq` 不暴露到用户交互层，后端固定传 `D`（日线）。
+- `freq` 不暴露到用户交互层，后端固定传 `daily`（日线）。
 - 历史同步若不带时间参数直接报错（避免误触发全量）。
 
 ## 4. 输出字段（全量落库）
