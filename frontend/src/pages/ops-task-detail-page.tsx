@@ -262,6 +262,46 @@ function buildLatestUpdate(
   };
 }
 
+function buildServingLightRefreshUpdate(events: ExecutionEventsResponse["items"]) {
+  const targetEvent = [...events]
+    .sort((left, right) => new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime())
+    .find((item) =>
+      item.event_type === "serving_light_refreshed"
+      || item.event_type === "serving_light_refresh_failed"
+      || item.event_type === "serving_light_refresh_skipped",
+    );
+  if (!targetEvent) {
+    return null;
+  }
+  const touchedRows = Number(targetEvent.payload_json?.touched_rows);
+  const normalizedTouchedRows = Number.isFinite(touchedRows) ? touchedRows : null;
+  if (targetEvent.event_type === "serving_light_refreshed") {
+    return {
+      color: "teal" as const,
+      title: "轻量层刷新成功",
+      message: targetEvent.message || "轻量层已完成刷新。",
+      touchedRows: normalizedTouchedRows,
+      occurredAt: targetEvent.occurred_at,
+    };
+  }
+  if (targetEvent.event_type === "serving_light_refresh_failed") {
+    return {
+      color: "red" as const,
+      title: "轻量层刷新失败",
+      message: targetEvent.message || "轻量层刷新失败，请查看系统更新记录。",
+      touchedRows: normalizedTouchedRows,
+      occurredAt: targetEvent.occurred_at,
+    };
+  }
+  return {
+    color: "gray" as const,
+    title: "轻量层刷新已跳过",
+    message: targetEvent.message || "本次任务写入为 0，已跳过轻量层刷新。",
+    touchedRows: normalizedTouchedRows,
+    occurredAt: targetEvent.occurred_at,
+  };
+}
+
 function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
   const progressEvent = [...events]
     .reverse()
@@ -509,6 +549,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
   const liveResult = detail ? buildLiveResult(detail, progressSnapshot) : null;
   const latestUpdate = detail ? buildLatestUpdate(detail, events, steps) : null;
+  const servingLightUpdate = buildServingLightRefreshUpdate(events);
   const userConfiguredParams = useMemo(
     () => (scheduleQuery.data?.params_json || detail?.params_json || {}) as Record<string, unknown>,
     [detail?.params_json, scheduleQuery.data?.params_json],
@@ -669,6 +710,17 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       </Alert>
                     )
                   )}
+                  {servingLightUpdate ? (
+                    <Alert color={servingLightUpdate.color} title={servingLightUpdate.title}>
+                      <Text size="sm">{servingLightUpdate.message}</Text>
+                      {servingLightUpdate.touchedRows !== null ? (
+                        <Text size="sm" mt={6}>刷新行数：{servingLightUpdate.touchedRows}</Text>
+                      ) : null}
+                      <Text size="xs" c="dimmed" mt={6}>
+                        更新时间：{formatDateTimeLabel(servingLightUpdate.occurredAt)}
+                      </Text>
+                    </Alert>
+                  ) : null}
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                     <Stack
                       gap={4}

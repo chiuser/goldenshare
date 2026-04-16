@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
@@ -186,6 +187,7 @@ class DatasetStatusSnapshotService:
             row.dataset_key: row
             for row in session.scalars(select(DatasetPipelineMode).where(DatasetPipelineMode.dataset_key.in_(keys))).all()
         }
+        light_snapshot_by_dataset = DatasetStatusSnapshotService._load_light_snapshot_by_dataset(session, keys)
         for item in items:
             mode = mode_by_key.get(item.dataset_key)
             if mode is None:
@@ -223,6 +225,108 @@ class DatasetStatusSnapshotService:
                 upsert_stage("serving", item.freshness_status, item.freshness_note)
             else:
                 upsert_stage("serving", "skipped", "当前模式不产出 serving")
+            light_snapshot = light_snapshot_by_dataset.get(item.dataset_key)
+            if item.dataset_key == "daily" and mode.serving_enabled:
+                pk = (item.dataset_key, source_key, "light")
+                row = session.get(DatasetLayerSnapshotCurrent, pk)
+                if row is None:
+                    row = DatasetLayerSnapshotCurrent(dataset_key=item.dataset_key, source_key=source_key, stage="light")
+                    session.add(row)
+                if light_snapshot is None:
+                    row.status = "unknown"
+                    row.rows_in = None
+                    row.rows_out = None
+                    row.error_count = 0
+                    row.last_success_at = None
+                    row.last_failure_at = None
+                    row.lag_seconds = None
+                    row.message = "轻量层尚未初始化，暂无可用快照。"
+                else:
+                    light_status = DatasetStatusSnapshotService._resolve_light_status(
+                        expected_business_date=item.latest_business_date,
+                        light_latest_business_date=light_snapshot["latest_business_date"],
+                    )
+                    row.status = light_status
+                    row.rows_in = light_snapshot["rows_on_latest_day"]
+                    row.rows_out = light_snapshot["rows_on_latest_day"]
+                    row.error_count = 0
+                    row.last_success_at = light_snapshot["updated_at"]
+                    row.last_failure_at = None
+                    row.lag_seconds = DatasetStatusSnapshotService._resolve_light_lag_seconds(
+                        expected_business_date=item.latest_business_date,
+                        light_latest_business_date=light_snapshot["latest_business_date"],
+                    )
+                    row.message = (
+                        f"轻量层最新业务日 {light_snapshot['latest_business_date'].isoformat()}，"
+                        f"最近刷新 {light_snapshot['updated_at'].isoformat() if light_snapshot['updated_at'] else '未知'}。"
+                        if light_snapshot["latest_business_date"] is not None
+                        else "轻量层暂无可用数据。"
+                    )
+                row.calculated_at = calculated_at
+
+    @staticmethod
+    def _load_light_snapshot_by_dataset(session: Session, dataset_keys: list[str]) -> dict[str, dict[str, object | None]]:
+        if "daily" not in dataset_keys:
+            return {}
+        bind = session.get_bind()
+        if bind is None:
+            return {}
+        inspector = inspect(bind)
+        if not inspector.has_table("equity_daily_bar_light", schema="core_serving_light"):
+            return {}
+        try:
+            latest_business_date, updated_at = session.execute(
+                select(
+                    func.max(EquityDailyBarLight.trade_date),
+                    func.max(EquityDailyBarLight.updated_at),
+                )
+            ).one()
+            rows_on_latest_day = None
+            if latest_business_date is not None:
+                rows_on_latest_day = session.scalar(
+                    select(func.count())
+                    .select_from(EquityDailyBarLight)
+                    .where(EquityDailyBarLight.trade_date == latest_business_date)
+                )
+            return {
+                "daily": {
+                    "latest_business_date": latest_business_date,
+                    "updated_at": updated_at,
+                    "rows_on_latest_day": int(rows_on_latest_day or 0) if latest_business_date is not None else None,
+                }
+            }
+        except SQLAlchemyError:
+            return {}
+
+    @staticmethod
+    def _resolve_light_status(
+        *,
+        expected_business_date: date | None,
+        light_latest_business_date: date | None,
+    ) -> str:
+        if light_latest_business_date is None:
+            return "unknown"
+        if expected_business_date is None:
+            return "healthy"
+        lag_days = (expected_business_date - light_latest_business_date).days
+        if lag_days <= 0:
+            return "healthy"
+        if lag_days <= 1:
+            return "lagging"
+        return "stale"
+
+    @staticmethod
+    def _resolve_light_lag_seconds(
+        *,
+        expected_business_date: date | None,
+        light_latest_business_date: date | None,
+    ) -> int | None:
+        if expected_business_date is None or light_latest_business_date is None:
+            return None
+        lag_days = (expected_business_date - light_latest_business_date).days
+        if lag_days <= 0:
+            return 0
+        return lag_days * 86400
 
     @staticmethod
     def _inferred_mode_from_item(item: DatasetFreshnessItem) -> DatasetPipelineMode:

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import select
 
+from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
 from src.operations.services.probe_runtime_service import ProbeTickResult
@@ -256,6 +257,59 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
     assert rows_written == 0
     assert summary == "skip sync_daily.dc_hot trade_date=2026-01-01 非交易日"
     assert stub_service.called is False
+
+
+def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_daily.daily",
+        status="running",
+        params_json={"trade_date": "2026-04-02"},
+    )
+
+    class StubSyncService:
+        def run_incremental(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.kwargs = kwargs
+            return SimpleNamespace(rows_fetched=5, rows_written=5, message="ok")
+
+    stub_service = StubSyncService()
+    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+
+    refresh_calls: list[dict] = []
+
+    def _stub_refresh(self, session, **kwargs):  # type: ignore[no-untyped-def]
+        refresh_calls.append(kwargs)
+        return SimpleNamespace(touched_rows=12)
+
+    monkeypatch.setattr(
+        "src.operations.runtime.dispatcher.ServingLightRefreshService.refresh_equity_daily_bar",
+        _stub_refresh,
+    )
+
+    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
+        db_session,
+        execution,
+        SimpleNamespace(key="sync_daily.daily", category="sync_daily", supported_params=()),
+        dict(execution.params_json or {}),
+        step_id=101,
+    )
+    db_session.flush()
+
+    assert rows_fetched == 5
+    assert rows_written == 5
+    assert "轻量层刷新完成" in (summary or "")
+    assert refresh_calls
+    assert refresh_calls[0]["start_date"] == date(2026, 4, 2)
+    assert refresh_calls[0]["end_date"] == date(2026, 4, 2)
+    assert refresh_calls[0]["commit"] is False
+
+    events = list(
+        db_session.scalars(
+            select(JobExecutionEvent).where(JobExecutionEvent.execution_id == execution.id)
+        )
+    )
+    event_types = {event.event_type for event in events}
+    assert "serving_light_refreshed" in event_types
 
 
 def test_worker_cancels_queued_execution_before_dispatch(db_session, job_execution_factory) -> None:

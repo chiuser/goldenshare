@@ -94,6 +94,9 @@ const eventTypeLabelMap: Record<string, string> = {
   step_succeeded: "步骤完成",
   step_failed: "步骤失败",
   step_progress: "步骤进度",
+  serving_light_refreshed: "轻量层刷新成功",
+  serving_light_refresh_failed: "轻量层刷新失败",
+  serving_light_refresh_skipped: "轻量层刷新跳过",
 };
 
 const runTypeLabelMap: Record<string, string> = {

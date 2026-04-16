@@ -20,6 +20,7 @@ class ServingLightRefreshService:
         start_date: date | None = None,
         end_date: date | None = None,
         ts_code: str | None = None,
+        commit: bool = True,
     ) -> ServingLightRefreshResult:
         predicates = ["1=1"]
         params: dict[str, object] = {}
@@ -85,5 +86,6 @@ class ServingLightRefreshService:
             ),
             params,
         )
-        session.commit()
+        if commit:
+            session.commit()
         return ServingLightRefreshResult(touched_rows=int(result.rowcount or 0))

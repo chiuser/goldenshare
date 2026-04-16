@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatCategoryLabel,
+  formatEventTypeLabel,
   formatResourceLabel,
   formatSpecDisplayLabel,
   formatStatusLabel,
@@ -15,6 +16,7 @@ describe("运维前端显示层映射", () => {
     expect(formatStatusLabel("canceling")).toBe("停止中");
     expect(formatTriggerSourceLabel("retry")).toBe("重新提交");
     expect(formatCategoryLabel("backfill_index_series")).toBe("指数纵向回补");
+    expect(formatEventTypeLabel("serving_light_refreshed")).toBe("轻量层刷新成功");
   });
 
   it("把任务键映射成用户可读名称", () => {

@@ -17,6 +17,7 @@ from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.operations.specs import get_job_spec, get_workflow_spec
 from src.platform.exceptions import WebAppError
 from src.operations.services.history_backfill_service import HistoryBackfillService
+from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync.registry import build_sync_service
 
 
@@ -31,6 +32,9 @@ class DispatchOutcome:
 
 
 class OperationsDispatcher:
+    def __init__(self, serving_light_refresh_service: ServingLightRefreshService | None = None) -> None:
+        self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
+
     def dispatch(self, session: Session, execution: JobExecution) -> DispatchOutcome:
         if execution.spec_type == "job":
             job_spec = get_job_spec(execution.spec_key)
@@ -183,16 +187,25 @@ class OperationsDispatcher:
     def _run_job(self, session: Session, execution: JobExecution, job_spec, step_id: int) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         params = dict(execution.params_json or {})
         if job_spec.executor_kind == "sync_service":
-            return self._run_sync_job(session, execution, job_spec, params)
+            return self._run_sync_job(session, execution, job_spec, params, step_id=step_id)
         if job_spec.executor_kind == "history_backfill_service":
             return self._run_backfill_job(session, execution, job_spec, params, step_id)
         if job_spec.executor_kind == "maintenance":
             return self._run_maintenance_job(session, job_spec, params)
         raise ValueError(f"Unsupported executor kind: {job_spec.executor_kind}")
 
-    def _run_sync_job(self, session: Session, execution: JobExecution, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
+    def _run_sync_job(
+        self,
+        session: Session,
+        execution: JobExecution,
+        job_spec,
+        params: dict[str, Any],
+        *,
+        step_id: int | None = None,
+    ) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         _, resource = job_spec.key.split(".", 1)
         normalized_params = self._normalize_dates(params)
+        parsed_trade_date: date | None = None
         if job_spec.category == "sync_daily":
             service = build_sync_service(resource, session)
             supported_param_keys = {param.key for param in (job_spec.supported_params or ())}
@@ -213,7 +226,22 @@ class OperationsDispatcher:
         else:
             service = build_sync_service(resource, session)
             result = service.run_full(execution_id=execution.id, **normalized_params)
-        return result.rows_fetched, result.rows_written, result.message
+
+        light_note = self._refresh_serving_light_if_needed(
+            session,
+            execution_id=execution.id,
+            step_id=step_id,
+            resource=resource,
+            rows_written=int(result.rows_written or 0),
+            trade_date=parsed_trade_date,
+            start_date=self._optional_date(normalized_params.get("start_date")),
+            end_date=self._optional_date(normalized_params.get("end_date")),
+            ts_code=self._normalize_single_ts_code(normalized_params.get("ts_code")),
+        )
+        summary_message = result.message
+        if light_note:
+            summary_message = f"{summary_message}；{light_note}" if summary_message else light_note
+        return result.rows_fetched, result.rows_written, summary_message
 
     def _run_backfill_job(
         self,
@@ -316,7 +344,21 @@ class OperationsDispatcher:
             )
         else:
             raise ValueError(f"Unsupported backfill category: {job_spec.category}")
-        return summary.rows_fetched, summary.rows_written, f"units={summary.units_processed}"
+
+        light_note = self._refresh_serving_light_if_needed(
+            session,
+            execution_id=execution.id,
+            step_id=step_id,
+            resource=resource,
+            rows_written=int(summary.rows_written or 0),
+            start_date=self._optional_date(normalized.get("start_date")),
+            end_date=self._optional_date(normalized.get("end_date")),
+            ts_code=self._normalize_single_ts_code(normalized.get("ts_code")),
+        )
+        summary_message = f"units={summary.units_processed}"
+        if light_note:
+            summary_message = f"{summary_message}；{light_note}"
+        return summary.rows_fetched, summary.rows_written, summary_message
 
     def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         if job_spec.key == "maintenance.rebuild_dm":
@@ -640,6 +682,26 @@ class OperationsDispatcher:
         return int(value)
 
     @staticmethod
+    def _optional_date(value: Any) -> date | None:
+        if value in (None, ""):
+            return None
+        if isinstance(value, date):
+            return value
+        return date.fromisoformat(str(value))
+
+    @staticmethod
+    def _normalize_single_ts_code(value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip().upper()
+            return normalized or None
+        if isinstance(value, list | tuple):
+            return None
+        normalized = str(value).strip().upper()
+        return normalized or None
+
+    @staticmethod
     def _require_value(params: dict[str, Any], key: str) -> str:
         value = params.get(key)
         if value in (None, ""):
@@ -655,3 +717,81 @@ class OperationsDispatcher:
                 else:
                     normalized[key] = date.fromisoformat(str(normalized[key])).isoformat()
         return normalized
+
+    def _refresh_serving_light_if_needed(
+        self,
+        session: Session,
+        *,
+        execution_id: int,
+        step_id: int | None,
+        resource: str,
+        rows_written: int,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+    ) -> str | None:
+        if resource != "daily":
+            return None
+        if rows_written <= 0:
+            message = "轻量层刷新跳过：本次写入 0 行。"
+            self._event(
+                session,
+                execution_id,
+                "serving_light_refresh_skipped",
+                step_id=step_id,
+                level="INFO",
+                message=message,
+                payload_json={"resource": resource, "rows_written": rows_written},
+            )
+            return "轻量层刷新已跳过"
+
+        effective_start_date = start_date or trade_date
+        effective_end_date = end_date or trade_date
+        if effective_start_date is not None and effective_end_date is not None and effective_start_date > effective_end_date:
+            effective_start_date, effective_end_date = effective_end_date, effective_start_date
+
+        try:
+            refresh_result = self.serving_light_refresh_service.refresh_equity_daily_bar(
+                session,
+                start_date=effective_start_date,
+                end_date=effective_end_date,
+                ts_code=ts_code,
+                commit=False,
+            )
+            message = f"轻量层刷新完成：{refresh_result.touched_rows} 行。"
+            self._event(
+                session,
+                execution_id,
+                "serving_light_refreshed",
+                step_id=step_id,
+                level="INFO",
+                message=message,
+                payload_json={
+                    "resource": resource,
+                    "rows_written": rows_written,
+                    "touched_rows": refresh_result.touched_rows,
+                    "start_date": effective_start_date.isoformat() if effective_start_date else None,
+                    "end_date": effective_end_date.isoformat() if effective_end_date else None,
+                    "ts_code": ts_code,
+                },
+            )
+            return message
+        except Exception as exc:  # pragma: no cover - defensive
+            message = f"轻量层刷新失败：{exc}"
+            self._event(
+                session,
+                execution_id,
+                "serving_light_refresh_failed",
+                step_id=step_id,
+                level="WARNING",
+                message=message,
+                payload_json={
+                    "resource": resource,
+                    "rows_written": rows_written,
+                    "start_date": effective_start_date.isoformat() if effective_start_date else None,
+                    "end_date": effective_end_date.isoformat() if effective_end_date else None,
+                    "ts_code": ts_code,
+                },
+            )
+            return message

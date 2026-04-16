@@ -8,7 +8,7 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 type CardStatus = "healthy" | "warning" | "failed" | "unknown";
-type StageKey = "raw" | "std" | "resolution" | "serving";
+type StageKey = "raw" | "std" | "resolution" | "serving" | "light";
 
 interface MergedCardItem {
   cardKey: string;
@@ -114,24 +114,35 @@ function pickWorseStatus(current: string | null, next: string | null): string | 
   return (rank[nextKey] || 0) > (rank[currentKey] || 0) ? next : current;
 }
 
-function expectedStages(mode: string): StageKey[] {
-  if (mode === "single_source_direct") return ["raw", "serving"];
-  if (mode === "multi_source_pipeline") return ["raw", "std", "resolution", "serving"];
-  if (mode === "raw_only") return ["raw"];
-  if (mode === "legacy_core_direct") return ["raw"];
-  return ["raw", "serving"];
+function expectedStages(
+  mode: string,
+  datasetKey: string,
+  stageMap: Partial<Record<StageKey, LayerSnapshotLatestResponse["items"][number]>>,
+): StageKey[] {
+  let base: StageKey[];
+  if (mode === "single_source_direct") base = ["raw", "serving"];
+  else if (mode === "multi_source_pipeline") base = ["raw", "std", "resolution", "serving"];
+  else if (mode === "raw_only") base = ["raw"];
+  else if (mode === "legacy_core_direct") base = ["raw"];
+  else base = ["raw", "serving"];
+  if (datasetKey === "daily" || stageMap.light) {
+    return [...base, "light"];
+  }
+  return base;
 }
 
 function stageLabel(stage: StageKey): string {
   if (stage === "raw") return "原始层";
   if (stage === "std") return "标准层";
   if (stage === "resolution") return "融合层";
+  if (stage === "light") return "轻量层";
   return "服务层";
 }
 
 function stageTableName(stage: StageKey, item: MergedCardItem): string | null {
   if (stage === "raw") return item.rawSources[0]?.tableName || null;
   if (stage === "std") return item.stdTableHint;
+  if (stage === "light") return item.canonicalDatasetKey === "daily" ? "core_serving_light.equity_daily_bar_light" : null;
   if (stage === "serving") return item.servingTable;
   return null;
 }
@@ -154,7 +165,7 @@ export function OpsV21OverviewPage() {
   const rawLatestByCanonicalAndSource = new Map<string, Map<string, LayerSnapshotLatestResponse["items"][number]>>();
   for (const item of latestItems) {
     const stage = item.stage as StageKey;
-    if (!["raw", "std", "resolution", "serving"].includes(stage)) continue;
+    if (!["raw", "std", "resolution", "serving", "light"].includes(stage)) continue;
     const canonicalKey = canonicalDatasetKey(item.dataset_key);
     const existing = stageLatestByCanonical.get(canonicalKey) || {};
     const previous = existing[stage];
@@ -281,7 +292,7 @@ export function OpsV21OverviewPage() {
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
               {groupItems.map((item) => {
           const status = toCardStatus(item.freshnessStatus);
-          const stages = expectedStages(item.mode);
+          const stages = expectedStages(item.mode, item.canonicalDatasetKey, item.stageMap);
           const stageMap = item.stageMap;
           const statusUpdatedAt = stages
             .map((stage) => {

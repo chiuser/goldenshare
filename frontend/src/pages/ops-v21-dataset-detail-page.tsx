@@ -25,6 +25,7 @@ function stageTitle(stage: string) {
   if (stage === "std") return "std";
   if (stage === "resolution") return "resolution";
   if (stage === "serving") return "serving";
+  if (stage === "light") return "light";
   return stage;
 }
 
@@ -133,6 +134,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     });
   }
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
+  const stageOrder = ["raw", "std", "resolution", "serving"];
+  if (datasetKey === "daily" || stageMap.has("light")) {
+    stageOrder.push("light");
+  }
   const executionItems = executionQuery.data?.items || [];
   const recentExecution = executionItems[0];
   const sourceGroups = new Map<string, typeof latestItems>();
@@ -211,9 +216,9 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         </Grid.Col>
       </Grid>
 
-      <SectionCard title="全链路层级状态" description="raw / std / resolution / serving 的最新状态。">
+      <SectionCard title="全链路层级状态" description="raw / std / resolution / serving / light 的最新状态。">
         <Grid>
-          {(["raw", "std", "resolution", "serving"] as const).map((stage) => {
+          {stageOrder.map((stage) => {
             const item = stageMap.get(stage);
             return (
               <Grid.Col key={stage} span={{ base: 12, md: 6, xl: 3 }}>
