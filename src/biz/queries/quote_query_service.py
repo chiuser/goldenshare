@@ -3,28 +3,32 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from decimal import ROUND_HALF_UP
 
 from sqlalchemy import and_, desc, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.foundation.models.core.dc_index import DcIndex
-from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core.etf_basic import EtfBasic
-from src.foundation.models.core.fund_daily_bar import FundDailyBar
-from src.foundation.models.core.index_basic import IndexBasic
-from src.foundation.models.core.index_daily_basic import IndexDailyBasic
+from src.foundation.models.core_serving.etf_basic import EtfBasic
+from src.foundation.models.core_serving.fund_daily_bar import FundDailyBar
+from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
+from src.foundation.models.core_serving.ind_macd import IndicatorMacd
+from src.foundation.models.core_serving.index_basic import IndexBasic
+from src.foundation.models.core_serving.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core.kpl_concept_cons import KplConceptCons
+from src.foundation.models.core_serving.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
-from src.foundation.models.core.ths_member import ThsMember
-from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.ths_member import ThsMember
+from src.foundation.models.core_serving.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.dc_member import DcMember
+from src.foundation.models.core_serving.dc_index import DcIndex
 from src.biz.schemas.quote import (
     MarketTradeCalendarItem,
     MarketTradeCalendarResponse,
@@ -178,36 +182,23 @@ class QuoteQueryService:
     ) -> QuotePageInitResponse:
         summary = self._build_price_summary(session, instrument=instrument)
         default_adjustment = "forward" if instrument.security_type == "stock" else "none"
-        kline = self.build_kline(
-            session,
-            instrument=instrument,
-            period="day",
-            adjustment=default_adjustment,
-            start_date=None,
-            end_date=None,
-            limit=300,
-        )
-        defaults = QuoteChartHeaderDefaults()
-        if kline.bars:
-            last = kline.bars[-1]
-            defaults = QuoteChartHeaderDefaults(
-                ma5=last.ma5,
-                ma10=last.ma10,
-                ma15=last.ma15,
-                ma20=last.ma20,
-                ma30=last.ma30,
-                ma60=last.ma60,
-                ma120=last.ma120,
-                ma250=last.ma250,
-                volume_ma5=last.volume_ma5,
-                volume_ma10=last.volume_ma10,
-                macd=last.macd,
-                dif=last.dif,
-                dea=last.dea,
-                k=last.k,
-                d=last.d,
-                j=last.j,
+        try:
+            defaults = self._build_chart_header_defaults(
+                session,
+                instrument=instrument,
+                adjustment=default_adjustment,
             )
+        except ValueError:
+            # Keep page-init stable: when forward/backward factors are incomplete,
+            # fallback to non-adjusted day chart for initial load.
+            default_adjustment = "none"
+            defaults = self._build_chart_header_defaults(
+                session,
+                instrument=instrument,
+                adjustment=default_adjustment,
+            )
+        summary = self._round_price_summary(summary)
+        defaults = self._round_chart_header_defaults(defaults)
         return QuotePageInitResponse(
             instrument=self._to_instrument_schema(instrument),
             price_summary=summary,
@@ -242,6 +233,7 @@ class QuoteQueryService:
             adjustment=adjustment,
             points=points,
         )
+        bars = self._round_kline_bars_for_response(bars)
         next_start_date = None
         has_more_history = False
         if points:
@@ -266,6 +258,53 @@ class QuoteQueryService:
             ),
         )
 
+    def _build_chart_header_defaults(
+        self,
+        session: Session,
+        *,
+        instrument: ResolvedInstrument,
+        adjustment: str,
+    ) -> QuoteChartHeaderDefaults:
+        points = self._load_kline_points(
+            session,
+            instrument=instrument,
+            period="day",
+            adjustment=adjustment,
+            start_date=None,
+            end_date=None,
+            limit=250,
+        )
+        if not points:
+            return QuoteChartHeaderDefaults()
+        bars = self._attach_indicators_with_context(
+            session,
+            instrument=instrument,
+            period="day",
+            adjustment=adjustment,
+            points=points,
+        )
+        if not bars:
+            return QuoteChartHeaderDefaults()
+        last = bars[-1]
+        return QuoteChartHeaderDefaults(
+            ma5=last.ma5,
+            ma10=last.ma10,
+            ma15=last.ma15,
+            ma20=last.ma20,
+            ma30=last.ma30,
+            ma60=last.ma60,
+            ma120=last.ma120,
+            ma250=last.ma250,
+            volume_ma5=last.volume_ma5,
+            volume_ma10=last.volume_ma10,
+            macd=last.macd,
+            dif=last.dif,
+            dea=last.dea,
+            k=last.k,
+            d=last.d,
+            j=last.j,
+        )
+
     def _attach_indicators_with_context(
         self,
         session: Session,
@@ -288,12 +327,103 @@ class QuoteQueryService:
             limit=INDICATOR_PREHEAT_BARS,
         )
         if not preheat_points:
-            return self._attach_indicators(points)
+            bars = self._attach_indicators(points)
+            self._overlay_stock_daily_indicators(
+                session,
+                ts_code=instrument.ts_code,
+                adjustment=adjustment,
+                bars=bars,
+            )
+            return bars
 
         context_points = [*preheat_points, *points]
         context_bars = self._attach_indicators(context_points)
         by_trade_date = {bar.trade_date: bar for bar in context_bars}
-        return [by_trade_date[point.trade_date] for point in points if point.trade_date in by_trade_date]
+        bars = [by_trade_date[point.trade_date] for point in points if point.trade_date in by_trade_date]
+        self._overlay_stock_daily_indicators(
+            session,
+            ts_code=instrument.ts_code,
+            adjustment=adjustment,
+            bars=bars,
+        )
+        return bars
+
+    def _overlay_stock_daily_indicators(
+        self,
+        session: Session,
+        *,
+        ts_code: str,
+        adjustment: str,
+        bars: list[QuoteKlineBar],
+    ) -> None:
+        if not bars:
+            return
+        start_date = bars[0].trade_date
+        end_date = bars[-1].trade_date
+
+        try:
+            macd_version = session.scalar(select(func.max(IndicatorMacd.version)))
+            kdj_version = session.scalar(select(func.max(IndicatorKdj.version)))
+        except SQLAlchemyError:
+            # Some environments/tests may not have indicator tables initialized yet.
+            return
+        if macd_version is None and kdj_version is None:
+            return
+
+        macd_map: dict[date, tuple[Decimal | None, Decimal | None, Decimal | None]] = {}
+        if macd_version is not None:
+            macd_rows = session.execute(
+                select(
+                    IndicatorMacd.trade_date,
+                    IndicatorMacd.dif,
+                    IndicatorMacd.dea,
+                    IndicatorMacd.macd_bar,
+                ).where(
+                    IndicatorMacd.ts_code == ts_code,
+                    IndicatorMacd.adjustment == adjustment,
+                    IndicatorMacd.version == macd_version,
+                    IndicatorMacd.trade_date >= start_date,
+                    IndicatorMacd.trade_date <= end_date,
+                    IndicatorMacd.is_valid.is_(True),
+                )
+            ).all()
+            macd_map = {
+                trade_date: (dif, dea, macd_bar)
+                for trade_date, dif, dea, macd_bar in macd_rows
+            }
+
+        kdj_map: dict[date, tuple[Decimal | None, Decimal | None, Decimal | None]] = {}
+        if kdj_version is not None:
+            kdj_rows = session.execute(
+                select(
+                    IndicatorKdj.trade_date,
+                    IndicatorKdj.k,
+                    IndicatorKdj.d,
+                    IndicatorKdj.j,
+                ).where(
+                    IndicatorKdj.ts_code == ts_code,
+                    IndicatorKdj.adjustment == adjustment,
+                    IndicatorKdj.version == kdj_version,
+                    IndicatorKdj.trade_date >= start_date,
+                    IndicatorKdj.trade_date <= end_date,
+                    IndicatorKdj.is_valid.is_(True),
+                )
+            ).all()
+            kdj_map = {
+                trade_date: (k_value, d_value, j_value)
+                for trade_date, k_value, d_value, j_value in kdj_rows
+            }
+
+        for bar in bars:
+            macd_values = macd_map.get(bar.trade_date)
+            bar.dif = macd_values[0] if macd_values is not None else None
+            bar.dea = macd_values[1] if macd_values is not None else None
+            bar.macd = macd_values[2] if macd_values is not None else None
+
+            kdj_values = kdj_map.get(bar.trade_date)
+            bar.k = kdj_values[0] if kdj_values is not None else None
+            bar.d = kdj_values[1] if kdj_values is not None else None
+            bar.j = kdj_values[2] if kdj_values is not None else None
 
     def build_related_info(
         self,
@@ -637,34 +767,27 @@ class QuoteQueryService:
             start_date=rows[0].trade_date,
             end_date=rows[-1].trade_date,
         )
-        if not factor_map:
-            return [
-                KlinePoint(
-                    trade_date=row.trade_date,
-                    open=row.open,
-                    high=row.high,
-                    low=row.low,
-                    close=row.close,
-                    pre_close=row.pre_close,
-                    change_amount=row.change_amount,
-                    pct_chg=row.pct_chg,
-                    vol=row.vol,
-                    amount=row.amount,
-                    turnover_rate=turnover_by_date.get(row.trade_date),
+        missing_dates = [row.trade_date for row in rows if row.trade_date not in factor_map]
+        if not factor_map or missing_dates:
+            raise ValueError(
+                self._build_adjustment_factor_incomplete_message(
+                    ts_code=ts_code,
+                    start_date=rows[0].trade_date,
+                    end_date=rows[-1].trade_date,
+                    missing_dates=missing_dates,
                 )
-                for row in rows
-            ]
+            )
 
         anchor = self._load_stock_adjustment_anchor(session, ts_code=ts_code, adjustment=adjustment)
-        if anchor is None:
-            anchor = max(factor_map.values()) if adjustment == "forward" else min(factor_map.values())
-        if anchor == 0:
-            anchor = Decimal("1")
+        if anchor is None or anchor == 0:
+            raise ValueError(
+                f"复权锚点缺失：{ts_code} {adjustment}。请先补齐复权因子后再请求复权行情。"
+            )
 
         points: list[KlinePoint] = []
         for row in rows:
-            factor = factor_map.get(row.trade_date)
-            scale = Decimal("1") if factor is None else (factor / anchor)
+            factor = factor_map[row.trade_date]
+            scale = factor / anchor
             points.append(
                 KlinePoint(
                     trade_date=row.trade_date,
@@ -1127,7 +1250,7 @@ class QuoteQueryService:
     def _scale_price(value: Decimal | None, scale: Decimal) -> Decimal | None:
         if value is None:
             return None
-        return (value * scale).quantize(Decimal("0.0001"))
+        return value * scale
 
     @staticmethod
     def _to_float(value: Decimal | None) -> float | None:
@@ -1139,8 +1262,102 @@ class QuoteQueryService:
     def _to_decimal(value: float | None, *, scale: int = 4) -> Decimal | None:
         if value is None:
             return None
-        quant = Decimal("1").scaleb(-scale)
-        return Decimal(str(value)).quantize(quant)
+        return Decimal(str(value))
+
+    @staticmethod
+    def _quantize_decimal_4(value: Decimal | None) -> Decimal | None:
+        if value is None:
+            return None
+        return value.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+
+    @staticmethod
+    def _build_adjustment_factor_incomplete_message(
+        *,
+        ts_code: str,
+        start_date: date,
+        end_date: date,
+        missing_dates: list[date],
+    ) -> str:
+        if not missing_dates:
+            return (
+                f"复权因子缺失：{ts_code} 在 {start_date.isoformat()}~{end_date.isoformat()} "
+                "区间内未找到可用复权因子。请先同步复权因子后再请求复权行情。"
+            )
+        missing_count = len(missing_dates)
+        sample = ", ".join(item.isoformat() for item in missing_dates[:3])
+        suffix = "..." if missing_count > 3 else ""
+        return (
+            f"复权因子不完整：{ts_code} 在 {start_date.isoformat()}~{end_date.isoformat()} "
+            f"区间缺失 {missing_count} 个交易日因子（示例：{sample}{suffix}）。"
+            "请先同步复权因子后再请求复权行情。"
+        )
+
+    def _round_kline_bars_for_response(self, bars: list[QuoteKlineBar]) -> list[QuoteKlineBar]:
+        for bar in bars:
+            bar.open = self._quantize_decimal_4(bar.open)
+            bar.high = self._quantize_decimal_4(bar.high)
+            bar.low = self._quantize_decimal_4(bar.low)
+            bar.close = self._quantize_decimal_4(bar.close)
+            bar.pre_close = self._quantize_decimal_4(bar.pre_close)
+            bar.change_amount = self._quantize_decimal_4(bar.change_amount)
+            bar.pct_chg = self._quantize_decimal_4(bar.pct_chg)
+            bar.vol = self._quantize_decimal_4(bar.vol)
+            bar.amount = self._quantize_decimal_4(bar.amount)
+            bar.turnover_rate = self._quantize_decimal_4(bar.turnover_rate)
+            bar.ma5 = self._quantize_decimal_4(bar.ma5)
+            bar.ma10 = self._quantize_decimal_4(bar.ma10)
+            bar.ma15 = self._quantize_decimal_4(bar.ma15)
+            bar.ma20 = self._quantize_decimal_4(bar.ma20)
+            bar.ma30 = self._quantize_decimal_4(bar.ma30)
+            bar.ma60 = self._quantize_decimal_4(bar.ma60)
+            bar.ma120 = self._quantize_decimal_4(bar.ma120)
+            bar.ma250 = self._quantize_decimal_4(bar.ma250)
+            bar.volume_ma5 = self._quantize_decimal_4(bar.volume_ma5)
+            bar.volume_ma10 = self._quantize_decimal_4(bar.volume_ma10)
+            bar.macd = self._quantize_decimal_4(bar.macd)
+            bar.dif = self._quantize_decimal_4(bar.dif)
+            bar.dea = self._quantize_decimal_4(bar.dea)
+            bar.k = self._quantize_decimal_4(bar.k)
+            bar.d = self._quantize_decimal_4(bar.d)
+            bar.j = self._quantize_decimal_4(bar.j)
+        return bars
+
+    def _round_price_summary(self, summary: QuotePriceSummary) -> QuotePriceSummary:
+        summary.latest_price = self._quantize_decimal_4(summary.latest_price)
+        summary.pre_close = self._quantize_decimal_4(summary.pre_close)
+        summary.change_amount = self._quantize_decimal_4(summary.change_amount)
+        summary.pct_chg = self._quantize_decimal_4(summary.pct_chg)
+        summary.open = self._quantize_decimal_4(summary.open)
+        summary.high = self._quantize_decimal_4(summary.high)
+        summary.low = self._quantize_decimal_4(summary.low)
+        summary.vol = self._quantize_decimal_4(summary.vol)
+        summary.amount = self._quantize_decimal_4(summary.amount)
+        summary.turnover_rate = self._quantize_decimal_4(summary.turnover_rate)
+        summary.volume_ratio = self._quantize_decimal_4(summary.volume_ratio)
+        summary.pe_ttm = self._quantize_decimal_4(summary.pe_ttm)
+        summary.pb = self._quantize_decimal_4(summary.pb)
+        summary.total_mv = self._quantize_decimal_4(summary.total_mv)
+        summary.circ_mv = self._quantize_decimal_4(summary.circ_mv)
+        return summary
+
+    def _round_chart_header_defaults(self, defaults: QuoteChartHeaderDefaults) -> QuoteChartHeaderDefaults:
+        defaults.ma5 = self._quantize_decimal_4(defaults.ma5)
+        defaults.ma10 = self._quantize_decimal_4(defaults.ma10)
+        defaults.ma15 = self._quantize_decimal_4(defaults.ma15)
+        defaults.ma20 = self._quantize_decimal_4(defaults.ma20)
+        defaults.ma30 = self._quantize_decimal_4(defaults.ma30)
+        defaults.ma60 = self._quantize_decimal_4(defaults.ma60)
+        defaults.ma120 = self._quantize_decimal_4(defaults.ma120)
+        defaults.ma250 = self._quantize_decimal_4(defaults.ma250)
+        defaults.volume_ma5 = self._quantize_decimal_4(defaults.volume_ma5)
+        defaults.volume_ma10 = self._quantize_decimal_4(defaults.volume_ma10)
+        defaults.macd = self._quantize_decimal_4(defaults.macd)
+        defaults.dif = self._quantize_decimal_4(defaults.dif)
+        defaults.dea = self._quantize_decimal_4(defaults.dea)
+        defaults.k = self._quantize_decimal_4(defaults.k)
+        defaults.d = self._quantize_decimal_4(defaults.d)
+        defaults.j = self._quantize_decimal_4(defaults.j)
+        return defaults
 
     @staticmethod
     def _sma(values: list[float | None], period: int) -> list[float | None]:

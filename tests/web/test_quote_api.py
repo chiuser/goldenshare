@@ -9,6 +9,8 @@ from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
+from src.foundation.models.core_serving.ind_macd import IndicatorMacd
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -31,6 +33,8 @@ def _ensure_quote_tables(db_session) -> None:
         EquityDailyBar.__table__,
         EquityDailyBasic.__table__,
         EquityAdjFactor.__table__,
+        IndicatorMacd.__table__,
+        IndicatorKdj.__table__,
         IndexBasic.__table__,
         IndexDailyServing.__table__,
         IndexDailyBasic.__table__,
@@ -173,6 +177,7 @@ def test_quote_page_init_and_kline_for_stock(app_client, db_session) -> None:
     assert init_payload["instrument"]["ts_code"] == "002245.SZ"
     assert init_payload["price_summary"]["latest_price"] == "11.0000"
     assert init_payload["default_chart"]["default_period"] == "day"
+    assert init_payload["default_chart"]["default_adjustment"] == "forward"
 
     kline_response = app_client.get(
         "/api/v1/quote/detail/kline",
@@ -401,6 +406,108 @@ def test_quote_kline_uses_preheat_window_for_ma_on_single_day_request(app_client
     assert payload["bars"][0]["ma5"] == "10.2000"
 
 
+def test_quote_kline_uses_precomputed_macd_kdj_for_stock_day(app_client, db_session) -> None:
+    _ensure_quote_tables(db_session)
+    db_session.add(
+        Security(
+            ts_code="300002.SZ",
+            symbol="300002",
+            name="指标回放",
+            exchange="SZSE",
+            industry="测试",
+            list_status="L",
+            security_type="EQUITY",
+            source="tushare",
+        )
+    )
+    db_session.add_all(
+        [
+            EquityDailyBar(
+                ts_code="300002.SZ",
+                trade_date=date(2026, 4, 1),
+                open=Decimal("10.0000"),
+                high=Decimal("10.2000"),
+                low=Decimal("9.9000"),
+                close=Decimal("10.1000"),
+                pre_close=Decimal("10.0000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("1.0000"),
+                vol=Decimal("100.0000"),
+                amount=Decimal("1000.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300002.SZ",
+                trade_date=date(2026, 4, 2),
+                open=Decimal("10.1000"),
+                high=Decimal("10.4000"),
+                low=Decimal("10.0000"),
+                close=Decimal("10.3000"),
+                pre_close=Decimal("10.1000"),
+                change_amount=Decimal("0.2000"),
+                pct_chg=Decimal("1.9802"),
+                vol=Decimal("120.0000"),
+                amount=Decimal("1200.0000"),
+                source="api",
+            ),
+        ]
+    )
+    db_session.add_all(
+        [
+            EquityAdjFactor(ts_code="300002.SZ", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000")),
+            EquityAdjFactor(ts_code="300002.SZ", trade_date=date(2026, 4, 2), adj_factor=Decimal("1.00000000")),
+        ]
+    )
+    db_session.add_all(
+        [
+            IndicatorMacd(
+                ts_code="300002.SZ",
+                trade_date=date(2026, 4, 2),
+                adjustment="forward",
+                version=9,
+                dif=Decimal("1.11111111"),
+                dea=Decimal("0.22222222"),
+                macd_bar=Decimal("1.77777778"),
+                is_valid=True,
+            ),
+            IndicatorKdj(
+                ts_code="300002.SZ",
+                trade_date=date(2026, 4, 2),
+                adjustment="forward",
+                version=9,
+                rsv=Decimal("88.00000000"),
+                k=Decimal("66.66666666"),
+                d=Decimal("55.55555555"),
+                j=Decimal("88.88888888"),
+                is_valid=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/quote/detail/kline",
+        params={
+            "ts_code": "300002.SZ",
+            "period": "day",
+            "adjustment": "forward",
+            "start_date": "2026-04-02",
+            "end_date": "2026-04-02",
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["meta"]["bar_count"] == 1
+    bar = payload["bars"][0]
+    assert bar["dif"] == "1.1111"
+    assert bar["dea"] == "0.2222"
+    assert bar["macd"] == "1.7778"
+    assert bar["k"] == "66.6667"
+    assert bar["d"] == "55.5556"
+    assert bar["j"] == "88.8889"
+
+
 def test_quote_kline_supports_stock_week_backward_and_month_none(app_client, db_session) -> None:
     _ensure_quote_tables(db_session)
     db_session.add(
@@ -555,6 +662,77 @@ def test_quote_page_init_supports_symbol_market_identifier(app_client, db_sessio
     payload = response.json()
     assert payload["instrument"]["ts_code"] == "300750.SZ"
     assert payload["instrument"]["symbol"] == "300750"
+    # Missing factor data should not break page-init: fallback to non-adjusted default.
+    assert payload["default_chart"]["default_adjustment"] == "none"
+
+
+def test_quote_kline_rejects_forward_when_adj_factor_incomplete(app_client, db_session) -> None:
+    _ensure_quote_tables(db_session)
+    db_session.add(
+        Security(
+            ts_code="300888.SZ",
+            symbol="300888",
+            name="因子缺失测试",
+            exchange="SZSE",
+            industry="测试",
+            list_status="L",
+            security_type="EQUITY",
+            source="tushare",
+        )
+    )
+    db_session.add_all(
+        [
+            EquityDailyBar(
+                ts_code="300888.SZ",
+                trade_date=date(2026, 4, 1),
+                open=Decimal("10.0000"),
+                high=Decimal("10.5000"),
+                low=Decimal("9.9000"),
+                close=Decimal("10.2000"),
+                pre_close=Decimal("10.0000"),
+                change_amount=Decimal("0.2000"),
+                pct_chg=Decimal("2.0000"),
+                vol=Decimal("1000.0000"),
+                amount=Decimal("10000.0000"),
+                source="api",
+            ),
+            EquityDailyBar(
+                ts_code="300888.SZ",
+                trade_date=date(2026, 4, 2),
+                open=Decimal("10.2000"),
+                high=Decimal("10.6000"),
+                low=Decimal("10.1000"),
+                close=Decimal("10.3000"),
+                pre_close=Decimal("10.2000"),
+                change_amount=Decimal("0.1000"),
+                pct_chg=Decimal("0.9804"),
+                vol=Decimal("1200.0000"),
+                amount=Decimal("12000.0000"),
+                source="api",
+            ),
+        ]
+    )
+    # Deliberately keep one trade-date factor missing.
+    db_session.add(
+        EquityAdjFactor(ts_code="300888.SZ", trade_date=date(2026, 4, 1), adj_factor=Decimal("1.00000000"))
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/quote/detail/kline",
+        params={
+            "ts_code": "300888.SZ",
+            "period": "day",
+            "adjustment": "forward",
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-02",
+            "limit": 10,
+        },
+    )
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["code"] == "INVALID_ARGUMENT"
+    assert "复权因子不完整" in payload["message"]
 
 
 def test_quote_kline_rejects_invalid_date_range(app_client) -> None:
