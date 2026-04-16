@@ -11,11 +11,13 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_history.biying_moneyflow" in JOB_SPEC_REGISTRY
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
+    assert "sync_history.stk_limit" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_moneyflow" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
+    assert "sync_daily.stk_limit" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
@@ -74,6 +76,19 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     limit_list_exchange_param = next(param for param in limit_list_daily_spec.supported_params if param.key == "exchange")
     assert limit_list_exchange_param.options == ("SH", "SZ", "BJ")
     assert limit_list_exchange_param.multi_value is False
+
+    stk_limit_history_spec = get_job_spec("sync_history.stk_limit")
+    assert stk_limit_history_spec is not None
+    assert [param.key for param in stk_limit_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+
+    stk_limit_daily_spec = get_job_spec("sync_daily.stk_limit")
+    assert stk_limit_daily_spec is not None
+    assert [param.key for param in stk_limit_daily_spec.supported_params] == ["trade_date", "ts_code"]
 
     limit_list_ths_daily_spec = get_job_spec("sync_daily.limit_list_ths")
     assert limit_list_ths_daily_spec is not None

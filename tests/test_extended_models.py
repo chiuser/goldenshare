@@ -11,6 +11,7 @@ from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.indicator_meta import IndicatorMeta
 from src.foundation.models.core.indicator_state import IndicatorState
 from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
@@ -125,3 +126,8 @@ def test_board_dataset_models_match_expected_keys() -> None:
     assert [column.name for column in DcIndex.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in DcMember.__table__.primary_key.columns] == ["trade_date", "ts_code", "con_code"]
     assert [column.name for column in DcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+
+
+def test_stk_limit_serving_model_matches_expected_keys() -> None:
+    assert [column.name for column in EquityStkLimit.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert {index.name for index in EquityStkLimit.__table__.indexes} == {"idx_equity_stk_limit_trade_date"}

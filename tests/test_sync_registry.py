@@ -23,3 +23,4 @@ def test_registry_contains_required_resources() -> None:
     assert "kpl_list" in SYNC_SERVICE_REGISTRY
     assert "kpl_concept_cons" in SYNC_SERVICE_REGISTRY
     assert "biying_moneyflow" in SYNC_SERVICE_REGISTRY
+    assert "stk_limit" in SYNC_SERVICE_REGISTRY

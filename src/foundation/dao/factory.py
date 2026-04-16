@@ -26,6 +26,7 @@ from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
+from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -94,6 +95,7 @@ from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
+from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.raw.raw_us_basic import RawUsBasic
@@ -122,6 +124,7 @@ class DAOFactory:
         self.equity_daily_basic = EquityDailyBasicDAO(session)
         self.equity_moneyflow = EquityMoneyflowDAO(session)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
+        self.equity_stk_limit = GenericDAO(session, EquityStkLimit)
         self.equity_top_list = GenericDAO(session, EquityTopList)
         self.equity_block_trade = GenericDAO(session, EquityBlockTrade)
         self.equity_dividend = EquityDividendDAO(session)
@@ -209,6 +212,7 @@ class DAOFactory:
         self.raw_limit_cpt_list = GenericDAO(session, RawLimitCptList)
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
+        self.raw_stk_limit = GenericDAO(session, RawStkLimit)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)
         self.raw_tushare_stock_basic = self.raw_stock_basic
         self.raw_biying_stock_basic = GenericDAO(session, RawBiyingStockBasic)

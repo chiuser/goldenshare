@@ -120,6 +120,13 @@ LIMIT_LIST_FIELDS = [
     "limit_times",
     "limit",
 ]
+STK_LIMIT_FIELDS = [
+    "trade_date",
+    "ts_code",
+    "pre_close",
+    "up_limit",
+    "down_limit",
+]
 LIMIT_LIST_THS_FIELDS = [
     "trade_date",
     "ts_code",

@@ -27,6 +27,7 @@ from src.foundation.services.sync.fields import (
     INDEX_WEIGHT_FIELDS,
     INDEX_WEEKLY_FIELDS,
     LIMIT_LIST_FIELDS,
+    STK_LIMIT_FIELDS,
     MONEYFLOW_FIELDS,
     STK_PERIOD_BAR_ADJ_FIELDS,
     STK_PERIOD_BAR_FIELDS,
@@ -153,3 +154,4 @@ def test_existing_field_constants_still_cover_core_resources() -> None:
     assert "base_share" in DIVIDEND_FIELDS
     assert "holder_num" in HOLDERNUMBER_FIELDS
     assert "limit_times" in LIMIT_LIST_FIELDS
+    assert tuple(STK_LIMIT_FIELDS) == ("trade_date", "ts_code", "pre_close", "up_limit", "down_limit")

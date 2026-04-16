@@ -40,6 +40,7 @@
 - [ETF 基准指数列表开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
 - [ETF 日线行情开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
 - [基金复权因子开发说明](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
+- [每日涨跌停价格开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [股票技术指标数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/equity-technical-indicators-dataset-development.md)
 
 ## 发布与运维流程
