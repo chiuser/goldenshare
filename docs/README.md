@@ -26,6 +26,7 @@
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据集模式与层级观测补齐方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-dataset-pipeline-mode-and-layer-observability-v1.md)
 - [融合策略中心开发准备度与待办清单 v1](/Users/congming/github/goldenshare/docs/ops/ops-fusion-strategy-center-readiness-todo-v1.md)
+- [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 
 ## 业务平台
 
@@ -45,6 +46,7 @@
 - [每日停复牌信息开发说明](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [融资融券交易汇总开发说明](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [股票技术指标数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/equity-technical-indicators-dataset-development.md)
+- [指数筛选池同步机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
 
 ## 发布与运维流程
 
