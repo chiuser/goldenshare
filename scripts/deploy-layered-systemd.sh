@@ -91,6 +91,21 @@ restart_layer_services() {
   esac
 }
 
+print_service_status() {
+  local service_name="$1"
+  local output
+  if output="$(sudo_systemctl status "${service_name}" 2>&1)"; then
+    printf '%s\n' "${output}" | cat
+    return 0
+  fi
+  if printf '%s' "${output}" | grep -qiE "password is required|not allowed to run sudo|a terminal is required"; then
+    log "跳过状态打印（sudo 规则未覆盖: systemctl status ${service_name}）"
+    return 0
+  fi
+  printf '%s\n' "${output}" | cat
+  return 0
+}
+
 health_check() {
   local url="$1"
   local label="$2"
@@ -251,9 +266,9 @@ main() {
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
   log "12/12 服务状态"
-  sudo_systemctl --no-pager status "${WEB_SERVICE}" 2>&1 | cat || true
-  sudo_systemctl --no-pager status "${WORKER_SERVICE}" 2>&1 | cat || true
-  sudo_systemctl --no-pager status "${SCHEDULER_SERVICE}" 2>&1 | cat || true
+  print_service_status "${WEB_SERVICE}"
+  print_service_status "${WORKER_SERVICE}"
+  print_service_status "${SCHEDULER_SERVICE}"
 
   log "分层发版完成"
 }
