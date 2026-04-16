@@ -221,8 +221,26 @@ class OpsFreshnessQueryService:
                     and snapshot_items_by_key[spec.dataset_key].latest_business_date is None
                 )
             ]
+            missing_business_range_resource_keys = [
+                spec.resource_key
+                for spec in all_specs
+                if (
+                    spec.observed_date_column is not None
+                    and spec.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[spec.dataset_key].last_sync_date is not None
+                    and snapshot_items_by_key[spec.dataset_key].latest_business_date is not None
+                    and snapshot_items_by_key[spec.dataset_key].earliest_business_date is None
+                )
+            ]
             live_refresh_resource_keys = sorted(
-                set([*missing_resource_keys, *live_override_resource_keys, *missing_business_date_resource_keys])
+                set(
+                    [
+                        *missing_resource_keys,
+                        *live_override_resource_keys,
+                        *missing_business_date_resource_keys,
+                        *missing_business_range_resource_keys,
+                    ]
+                )
             )
             if not live_refresh_resource_keys:
                 return self._attach_auto_schedule_metadata(session, snapshot_response)
