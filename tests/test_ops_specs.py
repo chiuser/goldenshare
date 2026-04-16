@@ -12,6 +12,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.biying_moneyflow" in JOB_SPEC_REGISTRY
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_history.stk_limit" in JOB_SPEC_REGISTRY
+    assert "sync_history.stock_st" in JOB_SPEC_REGISTRY
     assert "sync_history.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_history.suspend_d" in JOB_SPEC_REGISTRY
     assert "sync_history.margin" in JOB_SPEC_REGISTRY
@@ -21,6 +22,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_limit" in JOB_SPEC_REGISTRY
+    assert "sync_daily.stock_st" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_daily.suspend_d" in JOB_SPEC_REGISTRY
     assert "sync_daily.margin" in JOB_SPEC_REGISTRY
@@ -97,6 +99,19 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     stk_limit_daily_spec = get_job_spec("sync_daily.stk_limit")
     assert stk_limit_daily_spec is not None
     assert [param.key for param in stk_limit_daily_spec.supported_params] == ["trade_date", "ts_code"]
+
+    stock_st_history_spec = get_job_spec("sync_history.stock_st")
+    assert stock_st_history_spec is not None
+    assert [param.key for param in stock_st_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+
+    stock_st_daily_spec = get_job_spec("sync_daily.stock_st")
+    assert stock_st_daily_spec is not None
+    assert [param.key for param in stock_st_daily_spec.supported_params] == ["trade_date", "ts_code"]
 
     stk_nineturn_history_spec = get_job_spec("sync_history.stk_nineturn")
     assert stk_nineturn_history_spec is not None
@@ -331,6 +346,7 @@ def test_daily_market_close_sync_excludes_indicator_tasks() -> None:
     assert "sync_daily.equity_indicators" not in step_job_keys
     assert "sync_daily.margin" in step_job_keys
     assert "sync_daily.stk_limit" in step_job_keys
+    assert "sync_daily.stock_st" in step_job_keys
 
 
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:

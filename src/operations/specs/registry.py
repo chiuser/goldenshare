@@ -241,6 +241,7 @@ DAILY_SYNC_RESOURCES = (
     "margin",
     "limit_list_d",
     "stk_limit",
+    "stock_st",
     "stk_nineturn",
     "suspend_d",
     "top_list",
@@ -376,6 +377,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource == "stk_limit":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+    if resource == "stock_st":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "stk_nineturn":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "suspend_d":
@@ -434,6 +437,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "limit_list_d":
         supported_params = (TRADE_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     elif resource == "stk_limit":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+    elif resource == "stock_st":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     elif resource == "stk_nineturn":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
@@ -748,6 +753,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
             WorkflowStepSpec("stk_limit", "sync_daily.stk_limit", "每日涨跌停价格"),
+            WorkflowStepSpec("stock_st", "sync_daily.stock_st", "ST股票列表"),
             WorkflowStepSpec("limit_list", "sync_daily.limit_list_d", "涨跌停榜"),
             WorkflowStepSpec("suspend_d", "sync_daily.suspend_d", "每日停复牌信息"),
             WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
@@ -833,6 +839,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),
     "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),
     "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily", "trade_date"),
+    "stock_st": ("ST股票列表", "equity", "股票", "daily", "trade_date"),
     "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily", "trade_date"),
     "suspend_d": ("每日停复牌信息", "equity", "股票", "daily", "trade_date"),
     "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly", "trade_date"),

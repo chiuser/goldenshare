@@ -31,6 +31,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "sync_daily.daily" in job_keys
     assert "sync_daily.fund_adj" in job_keys
     assert "sync_daily.margin" in job_keys
+    assert "sync_daily.stock_st" in job_keys
     assert "sync_daily.stk_period_bar_month" in job_keys
     assert "sync_daily.stk_period_bar_adj_month" in job_keys
     assert "sync_daily.suspend_d" in job_keys
@@ -118,6 +119,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert [param["key"] for param in jobs["sync_daily.stk_period_bar_month"]["supported_params"]] == ["trade_date"]
     assert [param["key"] for param in jobs["sync_daily.stk_period_bar_adj_month"]["supported_params"]] == ["trade_date"]
     assert [param["key"] for param in jobs["sync_daily.suspend_d"]["supported_params"]] == ["trade_date", "ts_code", "suspend_type"]
+    assert [param["key"] for param in jobs["sync_daily.stock_st"]["supported_params"]] == ["trade_date", "ts_code"]
     assert workflows["daily_market_close_sync"]["supports_schedule"] is True
     assert workflows["index_extension_backfill"]["supports_schedule"] is False
     assert [param["key"] for param in workflows["index_kline_sync_pipeline"]["supported_params"]] == ["start_date", "end_date"]

@@ -159,6 +159,13 @@ STK_NINETURN_FIELDS = [
     "nine_up_turn",
     "nine_down_turn",
 ]
+STOCK_ST_FIELDS = [
+    "ts_code",
+    "name",
+    "trade_date",
+    "type",
+    "type_name",
+]
 LIMIT_LIST_THS_FIELDS = [
     "trade_date",
     "ts_code",

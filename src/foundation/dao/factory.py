@@ -28,6 +28,7 @@ from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
+from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_top_list import EquityTopList
@@ -97,6 +98,7 @@ from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
+from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
@@ -132,6 +134,7 @@ class DAOFactory:
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
         self.equity_margin = GenericDAO(session, EquityMargin)
         self.equity_stk_limit = GenericDAO(session, EquityStkLimit)
+        self.equity_stock_st = GenericDAO(session, EquityStockSt)
         self.equity_suspend_d = GenericDAO(session, EquitySuspendD)
         self.equity_nineturn = GenericDAO(session, EquityNineTurn)
         self.equity_top_list = GenericDAO(session, EquityTopList)
@@ -223,6 +226,7 @@ class DAOFactory:
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
         self.raw_stk_limit = GenericDAO(session, RawStkLimit)
+        self.raw_stock_st = GenericDAO(session, RawStockSt)
         self.raw_suspend_d = GenericDAO(session, RawSuspendD)
         self.raw_stk_nineturn = GenericDAO(session, RawStkNineTurn)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)

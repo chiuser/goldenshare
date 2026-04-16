@@ -16,6 +16,7 @@ from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
+from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
@@ -49,6 +50,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.equity_block_trade": EquityBlockTrade,
     "core_serving.equity_limit_list": EquityLimitList,
     "core_serving.equity_stk_limit": EquityStkLimit,
+    "core_serving.equity_stock_st": EquityStockSt,
     "core_serving.equity_nineturn": EquityNineTurn,
     "core_serving.equity_suspend_d": EquitySuspendD,
     "core_serving.stk_period_bar": StkPeriodBar,
@@ -75,6 +77,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.equity_block_trade": EquityBlockTrade,
     "core.equity_limit_list": EquityLimitList,
     "core.equity_stk_limit": EquityStkLimit,
+    "core.equity_stock_st": EquityStockSt,
     "core.equity_nineturn": EquityNineTurn,
     "core.equity_suspend_d": EquitySuspendD,
     "core.stk_period_bar": StkPeriodBar,
