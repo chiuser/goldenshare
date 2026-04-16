@@ -6,6 +6,7 @@ from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBas
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
+from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
@@ -100,6 +101,7 @@ from src.foundation.models.raw.raw_limit_list import RawLimitList
 from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
+from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
@@ -130,6 +132,7 @@ __all__ = [
     "EquityDividend",
     "EquityHolderNumber",
     "EquityLimitList",
+    "EquityMargin",
     "EquityMoneyflow",
     "EquityNineTurn",
     "EquityStkLimit",
@@ -189,6 +192,7 @@ __all__ = [
     "RawLimitList",
     "RawLimitListThs",
     "RawLimitStep",
+    "RawMargin",
     "RawKplConceptCons",
     "RawKplList",
     "RawBrokerRecommend",

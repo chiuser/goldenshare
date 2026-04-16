@@ -32,6 +32,7 @@ from src.foundation.services.sync.sync_index_weight_service import SyncIndexWeig
 from src.foundation.services.sync.sync_limit_list_service import SyncLimitListService
 from src.foundation.services.sync.sync_limit_list_ths_service import SyncLimitListThsService
 from src.foundation.services.sync.sync_limit_step_service import SyncLimitStepService
+from src.foundation.services.sync.sync_margin_service import SyncMarginService
 from src.foundation.services.sync.sync_stk_limit_service import SyncStkLimitService
 from src.foundation.services.sync.sync_stk_nineturn_service import SyncStkNineTurnService
 from src.foundation.services.sync.sync_suspend_d_service import SyncSuspendDService
@@ -63,6 +64,7 @@ SYNC_SERVICE_REGISTRY = {
     "adj_factor": SyncAdjFactorService,
     "daily_basic": SyncDailyBasicService,
     "moneyflow": SyncMoneyflowService,
+    "margin": SyncMarginService,
     "top_list": SyncTopListService,
     "block_trade": SyncBlockTradeService,
     "dividend": SyncDividendService,

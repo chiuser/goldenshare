@@ -26,6 +26,7 @@ from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
+from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
@@ -90,6 +91,7 @@ from src.foundation.models.raw.raw_limit_list import RawLimitList
 from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
+from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
@@ -128,6 +130,7 @@ class DAOFactory:
         self.equity_daily_basic = EquityDailyBasicDAO(session)
         self.equity_moneyflow = EquityMoneyflowDAO(session)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
+        self.equity_margin = GenericDAO(session, EquityMargin)
         self.equity_stk_limit = GenericDAO(session, EquityStkLimit)
         self.equity_suspend_d = GenericDAO(session, EquitySuspendD)
         self.equity_nineturn = GenericDAO(session, EquityNineTurn)
@@ -215,6 +218,7 @@ class DAOFactory:
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
         self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
         self.raw_limit_step = GenericDAO(session, RawLimitStep)
+        self.raw_margin = GenericDAO(session, RawMargin)
         self.raw_limit_cpt_list = GenericDAO(session, RawLimitCptList)
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)

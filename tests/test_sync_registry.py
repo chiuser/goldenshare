@@ -11,6 +11,7 @@ def test_registry_contains_required_resources() -> None:
     assert "equity_indicators" in SYNC_SERVICE_REGISTRY
     assert "fund_daily" in SYNC_SERVICE_REGISTRY
     assert "fund_adj" in SYNC_SERVICE_REGISTRY
+    assert "margin" in SYNC_SERVICE_REGISTRY
     assert "broker_recommend" in SYNC_SERVICE_REGISTRY
     assert "stk_period_bar_week" in SYNC_SERVICE_REGISTRY
     assert "index_weight" in SYNC_SERVICE_REGISTRY

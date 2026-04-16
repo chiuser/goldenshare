@@ -127,6 +127,17 @@ STK_LIMIT_FIELDS = [
     "up_limit",
     "down_limit",
 ]
+MARGIN_FIELDS = [
+    "trade_date",
+    "exchange_id",
+    "rzye",
+    "rzmre",
+    "rzche",
+    "rqye",
+    "rqmcl",
+    "rzrqye",
+    "rqyl",
+]
 SUSPEND_D_FIELDS = [
     "ts_code",
     "trade_date",

@@ -14,6 +14,7 @@ from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
+from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.indicator_meta import IndicatorMeta
 from src.foundation.models.core.indicator_state import IndicatorState
 from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
@@ -147,3 +148,11 @@ def test_suspend_d_serving_model_matches_expected_keys() -> None:
 def test_stk_nineturn_serving_model_matches_expected_keys() -> None:
     assert [column.name for column in EquityNineTurn.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert {index.name for index in EquityNineTurn.__table__.indexes} == {"idx_equity_nineturn_trade_date"}
+
+
+def test_margin_serving_model_matches_expected_keys() -> None:
+    assert [column.name for column in EquityMargin.__table__.primary_key.columns] == ["trade_date", "exchange_id"]
+    assert {index.name for index in EquityMargin.__table__.indexes} == {
+        "idx_equity_margin_trade_date",
+        "idx_equity_margin_exchange_trade_date",
+    }

@@ -213,6 +213,14 @@ LIMIT_PARAM = ParameterSpec(
     param_type="integer",
     description="用于限制单次回补的执行单元数量。",
 )
+MARGIN_EXCHANGE_ID_PARAM = ParameterSpec(
+    key="exchange_id",
+    display_name="交易所代码",
+    param_type="enum",
+    description="用于融资融券交易汇总筛选交易所（可多选；不选时默认全市场扇出）。",
+    options=("SSE", "SZSE", "BSE"),
+    multi_value=True,
+)
 SOURCE_KEY_PARAM = ParameterSpec(
     key="source_key",
     display_name="数据源",
@@ -230,6 +238,7 @@ DAILY_SYNC_RESOURCES = (
     "adj_factor",
     "daily_basic",
     "moneyflow",
+    "margin",
     "limit_list_d",
     "stk_limit",
     "stk_nineturn",
@@ -284,6 +293,7 @@ TRADE_DATE_RANGE_RESOURCES = {
     "equity_indicators",
     "daily_basic",
     "moneyflow",
+    "margin",
     "top_list",
     "block_trade",
     "fund_adj",
@@ -326,6 +336,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource == "biying_moneyflow":
         return (START_DATE_PARAM, END_DATE_PARAM)
+    if resource == "margin":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, MARGIN_EXCHANGE_ID_PARAM)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "hk_basic":
@@ -429,6 +441,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, SUSPEND_TYPE_PARAM)
     elif resource == "dc_member":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
+    elif resource == "margin":
+        supported_params = (TRADE_DATE_PARAM, MARGIN_EXCHANGE_ID_PARAM)
     elif resource == "broker_recommend":
         supported_params = (MONTH_PARAM,)
     elif resource == "equity_indicators":
@@ -511,7 +525,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
+for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -583,6 +597,14 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
             EXCHANGE_PARAM,
             TS_CODE_PARAM,
             CON_CODE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "margin":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            MARGIN_EXCHANGE_ID_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
@@ -724,6 +746,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
+            WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
             WorkflowStepSpec("limit_list", "sync_daily.limit_list_d", "涨跌停榜"),
             WorkflowStepSpec("suspend_d", "sync_daily.suspend_d", "每日停复牌信息"),
             WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
@@ -804,6 +827,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),
+    "margin": ("融资融券交易汇总", "equity", "股票", "daily", "trade_date"),
     "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),
     "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),
     "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),

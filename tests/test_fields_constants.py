@@ -14,6 +14,7 @@ from src.foundation.services.sync.fields import (
     LIMIT_CPT_LIST_FIELDS,
     LIMIT_LIST_THS_FIELDS,
     LIMIT_STEP_FIELDS,
+    MARGIN_FIELDS,
     THS_INDEX_FIELDS,
     THS_MEMBER_FIELDS,
     THS_DAILY_FIELDS,
@@ -147,6 +148,17 @@ def test_new_field_constants_exist() -> None:
 def test_existing_field_constants_still_cover_core_resources() -> None:
     assert "pretrade_date" in TRADE_CAL_FIELDS
     assert "adj_factor" in ADJ_FACTOR_FIELDS
+    assert tuple(MARGIN_FIELDS) == (
+        "trade_date",
+        "exchange_id",
+        "rzye",
+        "rzmre",
+        "rzche",
+        "rqye",
+        "rqmcl",
+        "rzrqye",
+        "rqyl",
+    )
     assert "close" in DAILY_BASIC_FIELDS
     assert "net_mf_amount" in MONEYFLOW_FIELDS
     assert "reason" in TOP_LIST_FIELDS

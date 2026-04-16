@@ -334,6 +334,34 @@ def test_backfill_by_trade_dates_supports_top_list(mocker) -> None:
     assert progress.call_args_list[0].args[0] == "top_list: 1/1 trade_date=2026-03-24 fetched=25 written=25"
 
 
+def test_backfill_by_trade_dates_supports_margin_exchange_id(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 24)]
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=9, rows_written=9)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_by_trade_dates(
+        resource="margin",
+        start_date=date(2026, 3, 24),
+        end_date=date(2026, 3, 24),
+        exchange_id=["SSE", "SZSE"],
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 9
+    assert summary.rows_written == 9
+    build_sync_service.assert_called_once_with("margin", session)
+    sync_service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 24),
+        exchange_id=["SSE", "SZSE"],
+        execution_id=None,
+    )
+
+
 def test_backfill_by_trade_dates_supports_dc_member_filters(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

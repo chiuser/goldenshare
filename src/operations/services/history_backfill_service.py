@@ -156,6 +156,7 @@ class HistoryBackfillService:
         start_date: date,
         end_date: date,
         exchange: str | list[str] | None = None,
+        exchange_id: str | list[str] | None = None,
         limit_type: str | list[str] | None = None,
         ts_code: str | None = None,
         con_code: str | None = None,
@@ -172,6 +173,7 @@ class HistoryBackfillService:
         trade_date_resources = {
             "daily_basic",
             "moneyflow",
+            "margin",
             "top_list",
             "block_trade",
             "limit_list_d",
@@ -187,7 +189,7 @@ class HistoryBackfillService:
         }
         if resource not in trade_date_resources:
             raise ValueError(
-                "trade-date backfill only supports daily_basic, moneyflow, top_list, block_trade, limit_list_d, stk_nineturn, suspend_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, and kpl_concept_cons"
+                "trade-date backfill only supports daily_basic, moneyflow, margin, top_list, block_trade, limit_list_d, stk_nineturn, suspend_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, and kpl_concept_cons"
             )
         exchange_name = self.settings.default_exchange if resource == "limit_list_d" else (exchange or self.settings.default_exchange)
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
@@ -210,6 +212,8 @@ class HistoryBackfillService:
                 incremental_kwargs["limit_type"] = limit_type
             if exchange and resource == "limit_list_d":
                 incremental_kwargs["exchange"] = exchange
+            if exchange_id and resource == "margin":
+                incremental_kwargs["exchange_id"] = exchange_id
             if con_code:
                 incremental_kwargs["con_code"] = con_code
             if idx_type:

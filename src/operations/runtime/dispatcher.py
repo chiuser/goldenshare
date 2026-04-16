@@ -263,6 +263,7 @@ class OperationsDispatcher:
                 start_date=self._require_date(normalized, "start_date"),
                 end_date=self._require_date(normalized, "end_date"),
                 exchange=normalized.get("exchange"),
+                exchange_id=normalized.get("exchange_id"),
                 ts_code=normalized.get("ts_code"),
                 con_code=normalized.get("con_code"),
                 idx_type=normalized.get("idx_type"),

@@ -14,6 +14,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stk_limit" in JOB_SPEC_REGISTRY
     assert "sync_history.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_history.suspend_d" in JOB_SPEC_REGISTRY
+    assert "sync_history.margin" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_moneyflow" in JOB_SPEC_REGISTRY
@@ -22,6 +23,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.stk_limit" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_daily.suspend_d" in JOB_SPEC_REGISTRY
+    assert "sync_daily.margin" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
@@ -43,6 +45,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_by_trade_date.dc_member" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.top_list" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.block_trade" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.margin" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.ths_hot" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.dc_hot" in JOB_SPEC_REGISTRY
@@ -129,6 +132,32 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
         "end_date",
         "ts_code",
         "suspend_type",
+        "offset",
+        "limit",
+    ]
+
+    margin_history_spec = get_job_spec("sync_history.margin")
+    assert margin_history_spec is not None
+    assert [param.key for param in margin_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "exchange_id",
+    ]
+
+    margin_daily_spec = get_job_spec("sync_daily.margin")
+    assert margin_daily_spec is not None
+    assert [param.key for param in margin_daily_spec.supported_params] == ["trade_date", "exchange_id"]
+    margin_exchange_param = next(param for param in margin_daily_spec.supported_params if param.key == "exchange_id")
+    assert margin_exchange_param.options == ("SSE", "SZSE", "BSE")
+    assert margin_exchange_param.multi_value is True
+
+    margin_backfill_spec = get_job_spec("backfill_by_trade_date.margin")
+    assert margin_backfill_spec is not None
+    assert [param.key for param in margin_backfill_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "exchange_id",
         "offset",
         "limit",
     ]
@@ -300,6 +329,7 @@ def test_daily_market_close_sync_excludes_indicator_tasks() -> None:
     workflow = WORKFLOW_SPEC_REGISTRY["daily_market_close_sync"]
     step_job_keys = {step.job_key for step in workflow.steps}
     assert "sync_daily.equity_indicators" not in step_job_keys
+    assert "sync_daily.margin" in step_job_keys
 
 
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:

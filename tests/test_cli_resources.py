@@ -12,6 +12,7 @@ def test_list_resources_includes_extended_resources() -> None:
     assert "us_basic" in result.stdout
     assert "stk_period_bar_week" in result.stdout
     assert "index_weight" in result.stdout
+    assert "margin" in result.stdout
 
 
 def test_sync_history_accepts_index_code_alias(mocker) -> None:

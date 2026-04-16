@@ -132,6 +132,7 @@ const resourceLabelMap: Record<string, string> = {
   adj_factor: "复权因子",
   daily_basic: "每日指标",
   moneyflow: "资金流向",
+  margin: "融资融券交易汇总",
   top_list: "龙虎榜",
   block_trade: "大宗交易",
   dividend: "分红送转",
