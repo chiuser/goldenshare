@@ -548,6 +548,13 @@ for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
+    elif _resource == "stk_nineturn":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
     elif _resource == "kpl_concept_cons":
         _supported_params = (
             START_DATE_PARAM,

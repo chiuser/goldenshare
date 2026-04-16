@@ -106,6 +106,15 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert stk_nineturn_daily_spec is not None
     assert [param.key for param in stk_nineturn_daily_spec.supported_params] == ["trade_date", "ts_code"]
 
+    stk_nineturn_backfill_spec = get_job_spec("backfill_by_trade_date.stk_nineturn")
+    assert stk_nineturn_backfill_spec is not None
+    assert [param.key for param in stk_nineturn_backfill_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "offset",
+        "limit",
+    ]
+
     limit_list_ths_daily_spec = get_job_spec("sync_daily.limit_list_ths")
     assert limit_list_ths_daily_spec is not None
     assert [param.key for param in limit_list_ths_daily_spec.supported_params] == ["trade_date", "limit_type", "market"]
