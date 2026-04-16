@@ -37,7 +37,7 @@ class ResolutionPolicyEngine:
                 audit={"reason": "no_active_candidates"},
             )
 
-        if policy.mode in {"primary", "fallback"}:
+        if policy.mode in {"primary", "fallback", "primary_fallback"}:
             resolved_source, resolved_record = self._resolve_by_priority(candidates, policy)
         elif policy.mode == "field_merge":
             resolved_source, resolved_record = self._resolve_field_merge(candidates, policy)

@@ -21,6 +21,7 @@ RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
+RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-1}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -121,36 +122,36 @@ main() {
 
   cd "${REPO_DIR}"
 
-  log "1/11 拉取代码"
+  log "1/12 拉取代码"
   git fetch --all --prune
   git checkout "${BRANCH}"
   git pull --ff-only origin "${BRANCH}"
 
-  log "2/11 安装后端依赖"
+  log "2/12 安装后端依赖"
   .venv/bin/pip install -e ".[dev]"
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
-    log "3/11 构建前端"
+    log "3/12 构建前端"
     cd "${REPO_DIR}/frontend"
     npm ci
     npm run build
     cd "${REPO_DIR}"
   else
-    log "3/11 跳过前端构建（RUN_FRONTEND_BUILD=0）"
+    log "3/12 跳过前端构建（RUN_FRONTEND_BUILD=0）"
   fi
 
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
-    log "4/11 执行数据库迁移"
+    log "4/12 执行数据库迁移"
     set -a
     source "${ENV_FILE}"
     set +a
     .venv/bin/goldenshare init-db
   else
-    log "4/11 跳过数据库迁移（RUN_DB_MIGRATION=0）"
+    log "4/12 跳过数据库迁移（RUN_DB_MIGRATION=0）"
   fi
 
   if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
-    log "5/11 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
+    log "5/12 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -169,11 +170,11 @@ main() {
       log "未检测到缺失规则，跳过初始化写入"
     fi
   else
-    log "5/11 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
+    log "5/12 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
   fi
 
   if [[ "${RUN_DATASET_PIPELINE_MODE_SEED}" == "1" ]]; then
-    log "6/11 检测数据集 pipeline_mode 缺失/漂移"
+    log "6/12 检测数据集 pipeline_mode 缺失/漂移"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -192,10 +193,33 @@ main() {
       log "未检测到 pipeline_mode 变更，跳过初始化写入"
     fi
   else
-    log "6/11 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
+    log "6/12 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
   fi
 
-  log "7/11 重新加载 systemd 配置"
+  if [[ "${RUN_MONEYFLOW_MULTI_SOURCE_SEED}" == "1" ]]; then
+    log "7/12 检测 moneyflow 多源融合骨架"
+    set -a
+    source "${ENV_FILE}"
+    set +a
+    moneyflow_preview="$(
+      .venv/bin/goldenshare ops-seed-moneyflow-multi-source
+    )"
+    echo "${moneyflow_preview}"
+    moneyflow_delta="$(
+      printf '%s\n' "${moneyflow_preview}" \
+        | awk -F= '/^(created_pipeline_mode|updated_pipeline_mode|created_mapping_rules|created_cleansing_rules|created_source_statuses|created_resolution_policy|updated_resolution_policy)=/{sum+=$2} END{print sum+0}'
+    )"
+    if [[ "${moneyflow_delta}" -gt 0 ]]; then
+      log "检测到 moneyflow 多源骨架需写入 ${moneyflow_delta} 项，执行按需初始化"
+      .venv/bin/goldenshare ops-seed-moneyflow-multi-source --apply
+    else
+      log "未检测到 moneyflow 多源骨架变更，跳过初始化写入"
+    fi
+  else
+    log "7/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
+  fi
+
+  log "8/12 重新加载 systemd 配置"
   sudo_systemctl daemon-reload
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
@@ -216,20 +240,20 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
-  log "8/11 Foundation 自检"
+  log "9/12 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
-  log "9/11 Ops 自检"
+  log "10/12 Ops 自检"
   .venv/bin/goldenshare ops-reconcile-executions --stale-for-minutes 30 >/dev/null
 
-  log "10/11 Platform 健康检查"
+  log "11/12 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
-  log "11/11 服务状态"
-  sudo_systemctl status "${WEB_SERVICE}" 2>&1 | cat || true
-  sudo_systemctl status "${WORKER_SERVICE}" 2>&1 | cat || true
-  sudo_systemctl status "${SCHEDULER_SERVICE}" 2>&1 | cat || true
+  log "12/12 服务状态"
+  sudo_systemctl --no-pager status "${WEB_SERVICE}" 2>&1 | cat || true
+  sudo_systemctl --no-pager status "${WORKER_SERVICE}" 2>&1 | cat || true
+  sudo_systemctl --no-pager status "${SCHEDULER_SERVICE}" 2>&1 | cat || true
 
   log "分层发版完成"
 }

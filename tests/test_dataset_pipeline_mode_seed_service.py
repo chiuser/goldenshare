@@ -37,6 +37,17 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
             cadence="daily",
         ),
         DatasetFreshnessSpec(
+            dataset_key="moneyflow",
+            resource_key="moneyflow",
+            job_name="sync_moneyflow",
+            display_name="资金流",
+            domain_key="equity",
+            domain_display_name="股票",
+            target_table="core_serving.equity_moneyflow",
+            raw_table="raw_tushare.moneyflow",
+            cadence="daily",
+        ),
+        DatasetFreshnessSpec(
             dataset_key="biying_equity_daily",
             resource_key="biying_equity_daily",
             job_name="sync_biying_equity_daily",
@@ -84,8 +95,8 @@ def db_session() -> Generator[Session, None, None]:
 def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> None:
     monkeypatch.setattr("src.operations.services.dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
     report = DatasetPipelineModeSeedService().run(db_session, dry_run=False)
-    assert report.dataset_total == 4
-    assert report.created == 4
+    assert report.dataset_total == 5
+    assert report.created == 5
 
     stock_basic = db_session.get(DatasetPipelineMode, "stock_basic")
     assert stock_basic is not None
@@ -95,6 +106,11 @@ def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> N
     daily = db_session.get(DatasetPipelineMode, "daily")
     assert daily is not None
     assert daily.mode == "single_source_direct"
+
+    moneyflow = db_session.get(DatasetPipelineMode, "moneyflow")
+    assert moneyflow is not None
+    assert moneyflow.mode == "multi_source_pipeline"
+    assert moneyflow.source_scope == "tushare,biying"
 
     biying_daily = db_session.get(DatasetPipelineMode, "biying_equity_daily")
     assert biying_daily is not None
@@ -108,5 +124,5 @@ def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> N
 def test_seed_dataset_pipeline_mode_dry_run(monkeypatch, db_session: Session) -> None:
     monkeypatch.setattr("src.operations.services.dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
     report = DatasetPipelineModeSeedService().run(db_session, dry_run=True)
-    assert report.created == 4
+    assert report.created == 5
     assert db_session.get(DatasetPipelineMode, "stock_basic") is None

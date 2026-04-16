@@ -28,6 +28,11 @@ def test_sync_biying_moneyflow_full_writes_raw_rows(mocker) -> None:
     mocker.patch.object(service, "_load_stocks", return_value=[("000001.SZ", "平安银行")])
     mocker.patch.object(service, "_build_windows", return_value=[(date(2026, 4, 1), date(2026, 4, 10))])
     raw_upsert = mocker.patch.object(service.dao.raw_biying_moneyflow, "bulk_upsert", return_value=1)
+    std_upsert = mocker.patch.object(service.dao.moneyflow_std, "bulk_upsert", return_value=1)
+    publish = mocker.patch(
+        "src.foundation.services.sync.sync_biying_moneyflow_service.publish_moneyflow_serving_for_keys",
+        return_value=1,
+    )
 
     fetched, written, result_date, message = service.execute(
         "FULL",
@@ -38,11 +43,13 @@ def test_sync_biying_moneyflow_full_writes_raw_rows(mocker) -> None:
     assert fetched == 1
     assert written == 1
     assert result_date == date(2026, 4, 10)
-    assert message == "stocks=1 windows=1"
+    assert message == "stocks=1 windows=1 std=1 serving=1"
     connector.call.assert_called_once_with(
         "moneyflow",
         params={"dm": "000001.SZ", "st": "20260401", "et": "20260410"},
     )
+    std_upsert.assert_called_once()
+    publish.assert_called_once()
 
     first_row = raw_upsert.call_args.args[0][0]
     assert first_row["dm"] == "000001.SZ"
@@ -53,6 +60,11 @@ def test_sync_biying_moneyflow_full_writes_raw_rows(mocker) -> None:
     assert first_row["zmbtdcje"] == Decimal("643556632.0")
     assert first_row["zmbtdcjl"] == 534893
     assert first_row["zmbtdcjzlv"] == 534893
+
+    std_row = std_upsert.call_args.args[0][0]
+    assert std_row["source_key"] == "biying"
+    assert std_row["ts_code"] == "000001.SZ"
+    assert std_row["trade_date"] == date(2026, 4, 10)
 
 
 def test_sync_biying_moneyflow_incremental_requires_trade_date(mocker) -> None:

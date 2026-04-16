@@ -88,8 +88,8 @@ def test_ops_pipeline_modes_returns_mode_and_config_status(app_client, user_fact
     response = app_client.get("/api/v1/ops/pipeline-modes", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 1
-    item = payload["items"][0]
+    assert payload["total"] >= 1
+    item = next(candidate for candidate in payload["items"] if candidate["dataset_key"] == "stock_basic")
     assert item["dataset_key"] == "stock_basic"
     assert item["mode"] == "multi_source_pipeline"
     assert item["layer_plan"] == "raw->std->resolution->serving"

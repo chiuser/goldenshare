@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 
 
-ResolutionMode = Literal["primary", "fallback", "field_merge", "freshness_first"]
+ResolutionMode = Literal["primary", "fallback", "primary_fallback", "field_merge", "freshness_first"]
 
 
 @dataclass(frozen=True)

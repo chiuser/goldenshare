@@ -49,6 +49,7 @@ from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core_multi.indicator_kdj_std import IndicatorKdjStd
 from src.foundation.models.core_multi.indicator_macd_std import IndicatorMacdStd
 from src.foundation.models.core_multi.indicator_rsi_std import IndicatorRsiStd
+from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
@@ -223,6 +224,7 @@ __all__ = [
     "IndicatorKdjStd",
     "IndicatorMacdStd",
     "IndicatorRsiStd",
+    "MoneyflowStd",
     "SecurityStd",
     "SourceRegistry",
     "DatasetResolutionPolicy",

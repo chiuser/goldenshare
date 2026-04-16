@@ -6,6 +6,7 @@ SERVING_TARGET_DAO_ATTR: dict[str, str] = {
     "equity_daily_bar": "equity_daily_bar",
     "equity_adj_factor": "equity_adj_factor",
     "equity_daily_basic": "equity_daily_basic",
+    "moneyflow": "equity_moneyflow",
     "indicator_macd": "indicator_macd",
     "indicator_kdj": "indicator_kdj",
     "indicator_rsi": "indicator_rsi",

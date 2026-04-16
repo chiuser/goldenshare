@@ -15,6 +15,7 @@ from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spe
 class DatasetPipelineModeQueryService:
     _STD_TABLE_HINTS = {
         "stock_basic": "core_multi.security_std",
+        "moneyflow": "core_multi.moneyflow_std",
         "equity_indicators": "core_multi.indicator_*_std",
     }
     _SERVING_TABLE_HINTS = {
@@ -177,6 +178,17 @@ class DatasetPipelineModeQueryService:
                 resolution_enabled=True,
                 serving_enabled=True,
                 notes="按规格推断：双源标准化+融合发布链路",
+            )
+        if dataset_key == "moneyflow":
+            return DatasetPipelineMode(
+                dataset_key=dataset_key,
+                mode="multi_source_pipeline",
+                source_scope="tushare,biying",
+                raw_enabled=True,
+                std_enabled=True,
+                resolution_enabled=True,
+                serving_enabled=True,
+                notes="按规格推断：多源融合骨架（tushare 主，biying 兜底）",
             )
         if target.startswith("raw_") or target.startswith("raw."):
             scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"

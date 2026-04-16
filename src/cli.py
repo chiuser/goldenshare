@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
 import typer
@@ -22,6 +23,8 @@ from src.operations.services import (
     DatasetPipelineModeSeedService,
     DefaultSingleSourceSeedService,
     DatasetStatusSnapshotService,
+    MoneyflowMultiSourceSeedService,
+    MoneyflowReconcileService,
     OperationsExecutionReconciliationService,
     StockBasicReconcileService,
     SyncJobStateReconciliationService,
@@ -346,6 +349,71 @@ def reconcile_stock_basic(
         raise typer.Exit(code=1)
 
 
+@app.command("reconcile-moneyflow")
+def reconcile_moneyflow(
+    start_date: str | None = typer.Option(None, "--start-date", help="对账开始日期（YYYY-MM-DD），默认自动推导。"),
+    end_date: str | None = typer.Option(None, "--end-date", help="对账结束日期（YYYY-MM-DD），默认自动推导。"),
+    range_days: int = typer.Option(5, min=1, max=120, help="当未传 start_date 时，默认回看最近 N 天。"),
+    sample_limit: int = typer.Option(20, min=0, max=200, help="每类差异最多输出多少条样例。"),
+    abs_tol: float = typer.Option(1.0, "--abs-tol", help="绝对误差阈值。"),
+    rel_tol: float = typer.Option(0.03, "--rel-tol", help="相对误差阈值。"),
+    threshold_only_tushare: int = typer.Option(-1, help="only_tushare 阈值；-1 表示不校验。"),
+    threshold_only_biying: int = typer.Option(-1, help="only_biying 阈值；-1 表示不校验。"),
+    threshold_comparable_diff: int = typer.Option(-1, help="comparable_diff 阈值；-1 表示不校验。"),
+) -> None:
+    parsed_start = date.fromisoformat(start_date) if start_date else None
+    parsed_end = date.fromisoformat(end_date) if end_date else None
+    with SessionLocal() as session:
+        report = MoneyflowReconcileService().run(
+            session,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            range_days=range_days,
+            sample_limit=sample_limit,
+            abs_tol=Decimal(str(abs_tol)),
+            rel_tol=Decimal(str(rel_tol)),
+        )
+
+    typer.echo("reconcile-moneyflow summary")
+    typer.echo(f"date_range={report.start_date.isoformat()}~{report.end_date.isoformat()}")
+    typer.echo(f"total_union={report.total_union}")
+    typer.echo(f"comparable={report.comparable}")
+    typer.echo(f"only_tushare={report.only_tushare}")
+    typer.echo(f"only_biying={report.only_biying}")
+    typer.echo(f"comparable_diff={report.comparable_diff}")
+    typer.echo(f"direction_mismatch={report.direction_mismatch}")
+
+    if sample_limit > 0:
+        for diff_type in ("only_tushare", "only_biying", "comparable_diff"):
+            items = report.samples[diff_type]
+            if not items:
+                continue
+            typer.echo(f"\n[{diff_type}] samples={len(items)}")
+            for item in items:
+                typer.echo(
+                    " - "
+                    f"{item.ts_code} {item.trade_date.isoformat()} "
+                    f"field={item.field or '-'} "
+                    f"t={item.tushare_value} b={item.biying_value} "
+                    f"abs_diff={item.abs_diff} rel_diff={item.rel_diff} "
+                    f"note={item.note or '-'}"
+                )
+
+    failed_checks: list[str] = []
+    if threshold_only_tushare >= 0 and report.only_tushare > threshold_only_tushare:
+        failed_checks.append(f"only_tushare={report.only_tushare} > threshold={threshold_only_tushare}")
+    if threshold_only_biying >= 0 and report.only_biying > threshold_only_biying:
+        failed_checks.append(f"only_biying={report.only_biying} > threshold={threshold_only_biying}")
+    if threshold_comparable_diff >= 0 and report.comparable_diff > threshold_comparable_diff:
+        failed_checks.append(f"comparable_diff={report.comparable_diff} > threshold={threshold_comparable_diff}")
+
+    if failed_checks:
+        typer.echo("\nreconcile-moneyflow gate failed:")
+        for check in failed_checks:
+            typer.echo(f" - {check}")
+        raise typer.Exit(code=1)
+
+
 @app.command("ops-seed-default-single-source")
 def ops_seed_default_single_source(
     source_key: str = typer.Option("tushare", "--source-key", help="默认来源键（例如 tushare）。"),
@@ -365,6 +433,24 @@ def ops_seed_default_single_source(
     typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
     typer.echo(f"created_resolution_policies={report.created_resolution_policies}")
     typer.echo(f"created_source_statuses={report.created_source_statuses}")
+
+
+@app.command("ops-seed-moneyflow-multi-source")
+def ops_seed_moneyflow_multi_source(
+    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
+) -> None:
+    with SessionLocal() as session:
+        report = MoneyflowMultiSourceSeedService().run(session, dry_run=not apply)
+
+    mode = "apply" if apply else "dry-run"
+    typer.echo(f"ops-seed-moneyflow-multi-source [{mode}] dataset={report.dataset_key}")
+    typer.echo(f"created_pipeline_mode={report.created_pipeline_mode}")
+    typer.echo(f"updated_pipeline_mode={report.updated_pipeline_mode}")
+    typer.echo(f"created_mapping_rules={report.created_mapping_rules}")
+    typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
+    typer.echo(f"created_source_statuses={report.created_source_statuses}")
+    typer.echo(f"created_resolution_policy={report.created_resolution_policy}")
+    typer.echo(f"updated_resolution_policy={report.updated_resolution_policy}")
 
 
 @app.command("ops-seed-dataset-pipeline-mode")

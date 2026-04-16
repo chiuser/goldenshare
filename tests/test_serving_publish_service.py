@@ -261,3 +261,58 @@ def test_serving_publish_service_registers_default_indicator_builder(mocker) -> 
 
     assert result.written == 1
     dao.indicator_macd.upsert_many.assert_called_once()
+
+
+def test_serving_publish_service_registers_default_moneyflow_builder(mocker) -> None:
+    session = mocker.Mock()
+    dao = DAOFactory(session)
+    dao.equity_moneyflow = mocker.Mock()
+    dao.equity_moneyflow.model = SimpleNamespace(
+        __table__=SimpleNamespace(
+            columns=[
+                SimpleNamespace(name="ts_code"),
+                SimpleNamespace(name="trade_date"),
+                SimpleNamespace(name="buy_sm_amount"),
+                SimpleNamespace(name="net_mf_amount"),
+                SimpleNamespace(name="source"),
+            ]
+        )
+    )
+    dao.equity_moneyflow.upsert_many.return_value = 1
+
+    policy_store = mocker.Mock()
+    policy_store.get_enabled_policy.return_value = ResolutionPolicy(
+        dataset_key="moneyflow",
+        mode="primary_fallback",
+        primary_source_key="tushare",
+        fallback_source_keys=("biying",),
+    )
+    policy_store.get_active_sources.return_value = {"tushare", "biying"}
+
+    service = ServingPublishService(dao, policy_store=policy_store)
+    result = service.publish_dataset(
+        dataset_key="moneyflow",
+        std_rows_by_source={
+            "tushare": [
+                {
+                    "source_key": "tushare",
+                    "ts_code": "000001.SZ",
+                    "trade_date": "2026-04-16",
+                    "buy_sm_amount": 100,
+                    "net_mf_amount": 50,
+                }
+            ],
+            "biying": [
+                {
+                    "source_key": "biying",
+                    "ts_code": "000001.SZ",
+                    "trade_date": "2026-04-16",
+                    "buy_sm_amount": 90,
+                    "net_mf_amount": 48,
+                }
+            ],
+        },
+    )
+
+    assert result.written == 1
+    dao.equity_moneyflow.upsert_many.assert_called_once()

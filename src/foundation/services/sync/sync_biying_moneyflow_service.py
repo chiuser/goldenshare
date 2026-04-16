@@ -11,6 +11,8 @@ from src.foundation.connectors.factory import create_source_connector
 from src.foundation.config.settings import get_settings
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 from src.foundation.services.sync.base_sync_service import BaseSyncService
+from src.foundation.services.sync.sync_moneyflow_service import publish_moneyflow_serving_for_keys
+from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.ops.models.ops.job_execution import JobExecution
 
 
@@ -110,6 +112,7 @@ class SyncBiyingMoneyflowService(BaseSyncService):
     def __init__(self, session) -> None:  # type: ignore[no-untyped-def]
         super().__init__(session)
         self.connector = create_source_connector("biying")
+        self._normalizer = NormalizeMoneyflowService()
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         execution_id = kwargs.get("execution_id")
@@ -136,13 +139,22 @@ class SyncBiyingMoneyflowService(BaseSyncService):
 
         fetched_total = 0
         written_total = 0
+        std_written_total = 0
         current_unit = 0
+        touched_keys: set[tuple[str, date]] = set()
         for dm, mc in stocks:
             for window_start, window_end in windows:
                 self.ensure_not_canceled(execution_id)
-                fetched, written = self._sync_window(dm=dm, mc=mc, window_start=window_start, window_end=window_end)
+                fetched, written, std_written, window_keys = self._sync_window(
+                    dm=dm,
+                    mc=mc,
+                    window_start=window_start,
+                    window_end=window_end,
+                )
                 fetched_total += fetched
                 written_total += written
+                std_written_total += std_written
+                touched_keys.update(window_keys)
                 current_unit += 1
                 self._update_progress(
                     execution_id=execution_id,
@@ -155,7 +167,13 @@ class SyncBiyingMoneyflowService(BaseSyncService):
                     ).strip(),
                 )
 
-        return fetched_total, written_total, end_date, f"stocks={len(stocks)} windows={len(windows)}"
+        serving_written = publish_moneyflow_serving_for_keys(self.dao, self.session, touched_keys)
+        return (
+            fetched_total,
+            written_total,
+            end_date,
+            f"stocks={len(stocks)} windows={len(windows)} std={std_written_total} serving={serving_written}",
+        )
 
     def _load_stocks(self) -> list[tuple[str, str | None]]:
         rows = self.session.execute(
@@ -182,7 +200,7 @@ class SyncBiyingMoneyflowService(BaseSyncService):
         mc: str | None,
         window_start: date,
         window_end: date,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, int, set[tuple[str, date]]]:
         rows = self.connector.call(
             "moneyflow",
             params={
@@ -193,7 +211,14 @@ class SyncBiyingMoneyflowService(BaseSyncService):
         )
         normalized = [self._normalize_row(dm=dm, mc=mc, row=row) for row in rows]
         written = self.dao.raw_biying_moneyflow.bulk_upsert(normalized)
-        return len(rows), written
+        std_rows = [self._normalizer.to_std_from_biying_raw(row) for row in normalized]
+        std_written = self.dao.moneyflow_std.bulk_upsert(std_rows)
+        touched_keys = {
+            (str(row["ts_code"]), row["trade_date"])
+            for row in std_rows
+            if row.get("ts_code") and isinstance(row.get("trade_date"), date)
+        }
+        return len(rows), written, std_written, touched_keys
 
     @staticmethod
     def _normalize_row(*, dm: str, mc: str | None, row: dict[str, Any]) -> dict[str, Any]:

@@ -8,6 +8,7 @@ from src.foundation.serving.builders.indicator_rsi_serving_builder import Indica
 from src.foundation.serving.builders.index_daily_serving_builder import IndexDailyServingBuilder
 from src.foundation.serving.builders.index_monthly_serving_builder import IndexMonthlyServingBuilder
 from src.foundation.serving.builders.index_weekly_serving_builder import IndexWeeklyServingBuilder
+from src.foundation.serving.builders.moneyflow_serving_builder import MoneyflowServingBuilder
 from src.foundation.serving.builders.registry import ServingBuilderRegistry
 from src.foundation.serving.builders.resolution_serving_builder import ResolutionServingBuilder
 from src.foundation.serving.builders.stk_period_bar_adj_month_serving_builder import StkPeriodBarAdjMonthServingBuilder
@@ -26,6 +27,7 @@ __all__ = [
     "IndicatorMacdServingBuilder",
     "IndicatorKdjServingBuilder",
     "IndicatorRsiServingBuilder",
+    "MoneyflowServingBuilder",
     "IndexDailyServingBuilder",
     "IndexWeeklyServingBuilder",
     "IndexMonthlyServingBuilder",
