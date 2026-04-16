@@ -57,6 +57,8 @@ from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_hot import ThsHot
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
+from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
+from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
@@ -169,6 +171,8 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.limit_list_ths": LimitListThs,
     "core_serving.limit_step": LimitStep,
     "core_serving.limit_cpt_list": LimitCptList,
+    "raw_biying.equity_daily_bar": RawBiyingEquityDailyBar,
+    "raw_biying.moneyflow": RawBiyingMoneyflow,
 }
 
 

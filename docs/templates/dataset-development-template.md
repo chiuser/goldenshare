@@ -172,6 +172,11 @@
 - 健康度口径：
   - 有业务日期：展示“日期范围”
   - 无业务日期：展示“最近同步日期”
+- 业务日期观测一致性（有业务日期时必填）：
+  - `DATASET_FRESHNESS_METADATA` 的 `observed_date_column` 已配置（通常为 `trade_date`）
+  - `DatasetFreshnessSpec.target_table` 已在 `OBSERVED_DATE_MODEL_REGISTRY` 中配置模型映射
+  - 映射模型中存在 `observed_date_column` 对应字段
+  - Tushare/Biying 源页面卡片展示“最新业务日/日期范围”，不会退化为“最近同步”
 - 异常展示口径（中文）：
 - 是否纳入自动任务覆盖标识：
 
@@ -198,6 +203,7 @@
 - [ ] 手动任务交互符合 1-2-3 步规范
 - [ ] 自动任务可配置且文案面向用户
 - [ ] 数据状态可观测且口径正确
+- [ ] 有业务日期的数据集已完成“业务日期观测一致性”检查（metadata / model registry / 字段存在 / 页面展示）
 - [ ] 失败可诊断（中文可读 + 原始错误可追踪）
 - [ ] 测试通过并记录命令
 - [ ] 文档已加入 `docs/README.md` 索引

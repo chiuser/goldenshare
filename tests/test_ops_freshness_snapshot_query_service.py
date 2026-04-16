@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from src.operations.specs import list_dataset_freshness_specs
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OBSERVED_DATE_MODEL_REGISTRY, OpsFreshnessQueryService
 
@@ -83,3 +84,20 @@ def test_observed_model_registry_covers_equity_daily_business_date_tables() -> N
     }
     missing_tables = expected_tables - set(OBSERVED_DATE_MODEL_REGISTRY)
     assert not missing_tables
+
+
+def test_all_observed_date_specs_have_model_mapping_and_column() -> None:
+    missing_model: list[str] = []
+    missing_column: list[str] = []
+    for spec in list_dataset_freshness_specs():
+        if not spec.observed_date_column:
+            continue
+        model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
+        if model is None:
+            missing_model.append(f"{spec.dataset_key}:{spec.target_table}")
+            continue
+        if not hasattr(model, spec.observed_date_column):
+            missing_column.append(f"{spec.dataset_key}:{spec.target_table}.{spec.observed_date_column}")
+
+    assert not missing_model
+    assert not missing_column
