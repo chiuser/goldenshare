@@ -10,6 +10,30 @@ import { StatusBadge } from "../shared/ui/status-badge";
 type CardStatus = "healthy" | "warning" | "failed" | "unknown";
 type StageKey = "raw" | "std" | "resolution" | "serving";
 
+interface MergedCardItem {
+  cardKey: string;
+  canonicalDatasetKey: string;
+  detailDatasetKey: string;
+  displayName: string;
+  domainKey: string;
+  domainDisplayName: string;
+  mode: string;
+  freshnessStatus: string;
+  latestBusinessDate: string | null;
+  stdTableHint: string | null;
+  servingTable: string | null;
+  stdMappingConfigured: boolean;
+  stdCleansingConfigured: boolean;
+  resolutionPolicyConfigured: boolean;
+  stageMap: Partial<Record<StageKey, LayerSnapshotLatestResponse["items"][number]>>;
+  rawSources: Array<{
+    sourceKey: string;
+    tableName: string | null;
+    status: string | null;
+    snapshot: LayerSnapshotLatestResponse["items"][number] | null;
+  }>;
+}
+
 function toCardStatus(rawStatus: string | null | undefined): CardStatus {
   const key = (rawStatus || "").toLowerCase();
   if (key === "failed" || key === "stale") return "failed";
@@ -54,6 +78,42 @@ function modeTone(mode: string) {
   return { background: "rgba(100, 116, 139, 0.14)", color: "#334155", border: "rgba(100, 116, 139, 0.24)" };
 }
 
+function canonicalDatasetKey(rawKey: string): string {
+  const lower = rawKey.toLowerCase();
+  if (lower.startsWith("biying_")) return rawKey.slice("biying_".length);
+  if (lower.startsWith("tushare_")) return rawKey.slice("tushare_".length);
+  return rawKey;
+}
+
+function inferSourceKey(item: { dataset_key: string; raw_table: string | null; source_scope?: string | null }): string {
+  const datasetKey = item.dataset_key.toLowerCase();
+  if (datasetKey.startsWith("biying_")) return "biying";
+  if (datasetKey.startsWith("tushare_")) return "tushare";
+  const rawTable = (item.raw_table || "").toLowerCase();
+  if (rawTable.startsWith("raw_biying.")) return "biying";
+  if (rawTable.startsWith("raw_tushare.")) return "tushare";
+  const scope = (item.source_scope || "").toLowerCase();
+  if (scope === "biying") return "biying";
+  if (scope === "tushare") return "tushare";
+  return "tushare";
+}
+
+function pickWorseStatus(current: string | null, next: string | null): string | null {
+  const rank: Record<string, number> = {
+    failed: 4,
+    stale: 3,
+    lagging: 2,
+    warning: 2,
+    healthy: 1,
+    fresh: 1,
+    success: 1,
+    unknown: 0,
+  };
+  const currentKey = (current || "unknown").toLowerCase();
+  const nextKey = (next || "unknown").toLowerCase();
+  return (rank[nextKey] || 0) > (rank[currentKey] || 0) ? next : current;
+}
+
 function expectedStages(mode: string): StageKey[] {
   if (mode === "single_source_direct") return ["raw", "serving"];
   if (mode === "multi_source_pipeline") return ["raw", "std", "resolution", "serving"];
@@ -69,10 +129,10 @@ function stageLabel(stage: StageKey): string {
   return "服务层";
 }
 
-function stageTableName(stage: StageKey, item: DatasetPipelineModeListResponse["items"][number]): string | null {
-  if (stage === "raw") return item.raw_table;
-  if (stage === "std") return item.std_table_hint;
-  if (stage === "serving") return item.serving_table;
+function stageTableName(stage: StageKey, item: MergedCardItem): string | null {
+  if (stage === "raw") return item.rawSources[0]?.tableName || null;
+  if (stage === "std") return item.stdTableHint;
+  if (stage === "serving") return item.servingTable;
   return null;
 }
 
@@ -90,26 +150,108 @@ export function OpsV21OverviewPage() {
   const error = modeQuery.error || latestQuery.error;
 
   const latestItems = latestQuery.data?.items || [];
-  const stageLatestByDataset = new Map<string, Partial<Record<StageKey, LayerSnapshotLatestResponse["items"][number]>>>();
+  const stageLatestByCanonical = new Map<string, Partial<Record<StageKey, LayerSnapshotLatestResponse["items"][number]>>>();
+  const rawLatestByCanonicalAndSource = new Map<string, Map<string, LayerSnapshotLatestResponse["items"][number]>>();
   for (const item of latestItems) {
     const stage = item.stage as StageKey;
     if (!["raw", "std", "resolution", "serving"].includes(stage)) continue;
-    const existing = stageLatestByDataset.get(item.dataset_key) || {};
+    const canonicalKey = canonicalDatasetKey(item.dataset_key);
+    const existing = stageLatestByCanonical.get(canonicalKey) || {};
     const previous = existing[stage];
     if (!previous || new Date(item.calculated_at).getTime() > new Date(previous.calculated_at).getTime()) {
       existing[stage] = item;
-      stageLatestByDataset.set(item.dataset_key, existing);
+      stageLatestByCanonical.set(canonicalKey, existing);
+    }
+    if (stage === "raw") {
+      const source = (item.source_key || inferSourceKey({ dataset_key: item.dataset_key, raw_table: null })).toLowerCase();
+      const sourceMap = rawLatestByCanonicalAndSource.get(canonicalKey) || new Map<string, LayerSnapshotLatestResponse["items"][number]>();
+      const prev = sourceMap.get(source);
+      if (!prev || new Date(item.calculated_at).getTime() > new Date(prev.calculated_at).getTime()) {
+        sourceMap.set(source, item);
+      }
+      rawLatestByCanonicalAndSource.set(canonicalKey, sourceMap);
     }
   }
 
-  const cards = (modeQuery.data?.items || []).sort((a, b) => {
-    const d = a.domain_display_name.localeCompare(b.domain_display_name, "zh-CN");
+  const rawCards = modeQuery.data?.items || [];
+  const mergedCardsMap = new Map<string, MergedCardItem>();
+  for (const item of rawCards) {
+    const canonicalKey = canonicalDatasetKey(item.dataset_key);
+    const sourceKey = inferSourceKey(item);
+    const existing = mergedCardsMap.get(canonicalKey);
+    if (!existing) {
+      const rawSourceSnapshot = rawLatestByCanonicalAndSource.get(canonicalKey)?.get(sourceKey) || null;
+      mergedCardsMap.set(canonicalKey, {
+        cardKey: canonicalKey,
+        canonicalDatasetKey: canonicalKey,
+        detailDatasetKey: item.dataset_key,
+        displayName: item.display_name,
+        domainKey: item.domain_key,
+        domainDisplayName: item.domain_display_name,
+        mode: item.mode,
+        freshnessStatus: item.freshness_status,
+        latestBusinessDate: item.latest_business_date,
+        stdTableHint: item.std_table_hint,
+        servingTable: item.serving_table,
+        stdMappingConfigured: item.std_mapping_configured,
+        stdCleansingConfigured: item.std_cleansing_configured,
+        resolutionPolicyConfigured: item.resolution_policy_configured,
+        stageMap: stageLatestByCanonical.get(canonicalKey) || {},
+        rawSources: [
+          {
+            sourceKey,
+            tableName: item.raw_table,
+            status: rawSourceSnapshot?.status || item.freshness_status,
+            snapshot: rawSourceSnapshot,
+          },
+        ],
+      });
+      continue;
+    }
+
+    const preferAsPrimary = !item.dataset_key.toLowerCase().startsWith("biying_")
+      && !item.dataset_key.toLowerCase().startsWith("tushare_");
+    if (preferAsPrimary) {
+      existing.detailDatasetKey = item.dataset_key;
+      existing.displayName = item.display_name;
+      existing.domainKey = item.domain_key;
+      existing.domainDisplayName = item.domain_display_name;
+      existing.mode = item.mode;
+      existing.latestBusinessDate = item.latest_business_date;
+      existing.stdTableHint = item.std_table_hint;
+      existing.servingTable = item.serving_table;
+    }
+    if (item.mode === "multi_source_pipeline") {
+      existing.mode = item.mode;
+    }
+    existing.freshnessStatus = (pickWorseStatus(existing.freshnessStatus, item.freshness_status) || existing.freshnessStatus);
+    if (!existing.latestBusinessDate || (item.latest_business_date && item.latest_business_date > existing.latestBusinessDate)) {
+      existing.latestBusinessDate = item.latest_business_date;
+    }
+    existing.stdMappingConfigured = existing.stdMappingConfigured || item.std_mapping_configured;
+    existing.stdCleansingConfigured = existing.stdCleansingConfigured || item.std_cleansing_configured;
+    existing.resolutionPolicyConfigured = existing.resolutionPolicyConfigured || item.resolution_policy_configured;
+    existing.stageMap = stageLatestByCanonical.get(canonicalKey) || existing.stageMap;
+
+    if (!existing.rawSources.some((row) => row.sourceKey === sourceKey)) {
+      const rawSourceSnapshot = rawLatestByCanonicalAndSource.get(canonicalKey)?.get(sourceKey) || null;
+      existing.rawSources.push({
+        sourceKey,
+        tableName: item.raw_table,
+        status: rawSourceSnapshot?.status || item.freshness_status,
+        snapshot: rawSourceSnapshot,
+      });
+    }
+  }
+
+  const cards = Array.from(mergedCardsMap.values()).sort((a, b) => {
+    const d = a.domainDisplayName.localeCompare(b.domainDisplayName, "zh-CN");
     if (d !== 0) return d;
-    return a.display_name.localeCompare(b.display_name, "zh-CN");
+    return a.displayName.localeCompare(b.displayName, "zh-CN");
   });
-  const groupedCards = new Map<string, typeof cards>();
+  const groupedCards = new Map<string, MergedCardItem[]>();
   for (const item of cards) {
-    const key = `${item.domain_key}::${item.domain_display_name}`;
+    const key = `${item.domainKey}::${item.domainDisplayName}`;
     const list = groupedCards.get(key) || [];
     list.push(item);
     groupedCards.set(key, list);
@@ -138,23 +280,31 @@ export function OpsV21OverviewPage() {
           <SectionCard key={groupKey} title={groupDisplayName} description={`共 ${groupItems.length} 个数据集`}>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
               {groupItems.map((item) => {
-          const status = toCardStatus(item.freshness_status);
+          const status = toCardStatus(item.freshnessStatus);
           const stages = expectedStages(item.mode);
-          const stageMap = stageLatestByDataset.get(item.dataset_key) || {};
+          const stageMap = item.stageMap;
           const statusUpdatedAt = stages
-            .map((stage) => stageMap[stage]?.calculated_at || null)
+            .map((stage) => {
+              if (stage === "raw" && item.rawSources.length > 0) {
+                const timestamps = item.rawSources
+                  .map((entry) => entry.snapshot?.calculated_at || null)
+                  .filter((value): value is string => Boolean(value));
+                return timestamps.sort().at(-1) || null;
+              }
+              return stageMap[stage]?.calculated_at || null;
+            })
             .filter((value): value is string => Boolean(value))
             .sort()
             .at(-1);
           const flags: Array<{ label: string; on: boolean }> = [
-            { label: "映射规则", on: item.std_mapping_configured },
-            { label: "清洗规则", on: item.std_cleansing_configured },
-            { label: "融合策略", on: item.resolution_policy_configured },
+            { label: "映射规则", on: item.stdMappingConfigured },
+            { label: "清洗规则", on: item.stdCleansingConfigured },
+            { label: "融合策略", on: item.resolutionPolicyConfigured },
           ];
 
                 return (
                   <Paper
-                    key={item.dataset_key}
+                    key={item.cardKey}
                     radius="md"
                     p="md"
                     style={{
@@ -173,16 +323,16 @@ export function OpsV21OverviewPage() {
                               style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
                             />
                             <Text fw={800} size="xl" lineClamp={1} style={{ minWidth: 0 }}>
-                              {item.display_name}
+                              {item.displayName}
                             </Text>
                           </Group>
                           <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
-                            {item.dataset_key}
+                            {item.canonicalDatasetKey}
                           </Text>
                         </Stack>
                         <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto", minWidth: 0 }}>
                           <Badge variant="light" color="blue" size="sm" styles={{ root: { background: "rgba(59, 130, 246, 0.12)", border: "1px solid rgba(59,130,246,0.25)" } }}>
-                            最新业务日期：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
+                            最新业务日期：{item.latestBusinessDate ? formatDateLabel(item.latestBusinessDate) : "—"}
                           </Badge>
                           <Badge variant="light" color="gray" size="sm" styles={{ root: { background: "rgba(100, 116, 139, 0.12)", border: "1px solid rgba(100,116,139,0.22)" } }}>
                             状态更新时间：{statusUpdatedAt ? formatDateTimeLabel(statusUpdatedAt) : "—"}
@@ -207,15 +357,40 @@ export function OpsV21OverviewPage() {
                       </Group>
 
                       <Stack gap={6}>
-                        {stages.map((stage) => (
-                          <Group key={stage} justify="space-between" align="center">
-                            <Text size="sm" c="dimmed">
-                              {stageLabel(stage)}
-                              {stageTableName(stage, item) ? `（${stageTableName(stage, item)}）` : ""}
-                            </Text>
-                            <StatusBadge value={stageMap[stage]?.status || "unknown"} />
-                          </Group>
-                        ))}
+                        {stages.map((stage) => {
+                          if (stage === "raw" && item.rawSources.length > 1) {
+                            return (
+                              <Stack key={stage} gap={4}>
+                                <Text size="sm" c="dimmed">
+                                  {stageLabel(stage)}
+                                </Text>
+                                {item.rawSources
+                                  .slice()
+                                  .sort((a, b) => a.sourceKey.localeCompare(b.sourceKey))
+                                  .map((entry) => (
+                                    <Group key={`${item.cardKey}-${entry.sourceKey}`} justify="space-between" align="center">
+                                      <Text size="sm" c="dimmed">
+                                        {entry.sourceKey}
+                                        {entry.tableName ? `（${entry.tableName}）` : ""}
+                                      </Text>
+                                      <StatusBadge value={entry.snapshot?.status || entry.status || "unknown"} />
+                                    </Group>
+                                  ))}
+                              </Stack>
+                            );
+                          }
+                          return (
+                            <Group key={stage} justify="space-between" align="center">
+                              <Text size="sm" c="dimmed">
+                                {stageLabel(stage)}
+                                {stageTableName(stage, item)
+                                  ? `（${stageTableName(stage, item)}）`
+                                  : ""}
+                              </Text>
+                              <StatusBadge value={stageMap[stage]?.status || "unknown"} />
+                            </Group>
+                          );
+                        })}
                       </Stack>
 
                       <Grid gutter={6}>
@@ -257,7 +432,7 @@ export function OpsV21OverviewPage() {
                       <Group justify="space-between" mt="auto">
                         <Button
                           component="a"
-                          href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.dataset_key)}`}
+                          href={`/app/ops/v21/datasets/detail/${encodeURIComponent(item.detailDatasetKey)}`}
                           size="xs"
                           variant="light"
                           color="brand"
