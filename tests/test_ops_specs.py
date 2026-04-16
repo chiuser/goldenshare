@@ -15,6 +15,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.stock_st" in JOB_SPEC_REGISTRY
     assert "sync_history.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_history.suspend_d" in JOB_SPEC_REGISTRY
+    assert "sync_history.cyq_perf" in JOB_SPEC_REGISTRY
     assert "sync_history.margin" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
@@ -25,6 +26,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.stock_st" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_daily.suspend_d" in JOB_SPEC_REGISTRY
+    assert "sync_daily.cyq_perf" in JOB_SPEC_REGISTRY
     assert "sync_daily.margin" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
@@ -125,6 +127,19 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     stk_nineturn_daily_spec = get_job_spec("sync_daily.stk_nineturn")
     assert stk_nineturn_daily_spec is not None
     assert [param.key for param in stk_nineturn_daily_spec.supported_params] == ["trade_date", "ts_code"]
+
+    cyq_perf_history_spec = get_job_spec("sync_history.cyq_perf")
+    assert cyq_perf_history_spec is not None
+    assert [param.key for param in cyq_perf_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+
+    cyq_perf_daily_spec = get_job_spec("sync_daily.cyq_perf")
+    assert cyq_perf_daily_spec is not None
+    assert [param.key for param in cyq_perf_daily_spec.supported_params] == ["trade_date", "ts_code"]
 
     suspend_d_history_spec = get_job_spec("sync_history.suspend_d")
     assert suspend_d_history_spec is not None

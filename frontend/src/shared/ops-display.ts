@@ -131,6 +131,7 @@ const resourceLabelMap: Record<string, string> = {
   equity_indicators: "股票技术指标",
   adj_factor: "复权因子",
   daily_basic: "每日指标",
+  cyq_perf: "每日筹码及胜率",
   moneyflow: "资金流向",
   margin: "融资融券交易汇总",
   top_list: "龙虎榜",

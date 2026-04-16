@@ -41,6 +41,19 @@ DAILY_BASIC_FIELDS = [
     "total_mv",
     "circ_mv",
 ]
+CYQ_PERF_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "his_low",
+    "his_high",
+    "cost_5pct",
+    "cost_15pct",
+    "cost_50pct",
+    "cost_85pct",
+    "cost_95pct",
+    "weight_avg",
+    "winner_rate",
+]
 MONEYFLOW_FIELDS = [
     "ts_code",
     "trade_date",

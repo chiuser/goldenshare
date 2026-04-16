@@ -1,6 +1,7 @@
 from src.platform.models.app.app_user import AppUser
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_dividend import EquityDividend
@@ -81,6 +82,7 @@ from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
@@ -129,6 +131,7 @@ __all__ = [
     "AppUser",
     "EquityAdjFactor",
     "EquityBlockTrade",
+    "EquityCyqPerf",
     "EquityDailyBar",
     "EquityDailyBasic",
     "EquityDividend",
@@ -174,6 +177,7 @@ __all__ = [
     "RawBlockTrade",
     "RawDaily",
     "RawDailyBasic",
+    "RawCyqPerf",
     "RawDividend",
     "RawEtfBasic",
     "RawEtfIndex",

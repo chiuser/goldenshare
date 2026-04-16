@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_limit_list import EquityLimitList
@@ -45,6 +46,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.equity_daily_bar": EquityDailyBar,
     "core.equity_adj_factor": EquityAdjFactor,
     "core_serving.equity_daily_basic": EquityDailyBasic,
+    "core_serving.equity_cyq_perf": EquityCyqPerf,
     "core_serving.equity_moneyflow": EquityMoneyflow,
     "core_serving.equity_top_list": EquityTopList,
     "core_serving.equity_block_trade": EquityBlockTrade,
@@ -72,6 +74,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.trade_calendar": TradeCalendar,
     "core.equity_daily_bar": EquityDailyBar,
     "core.equity_daily_basic": EquityDailyBasic,
+    "core.equity_cyq_perf": EquityCyqPerf,
     "core.equity_moneyflow": EquityMoneyflow,
     "core.equity_top_list": EquityTopList,
     "core.equity_block_trade": EquityBlockTrade,

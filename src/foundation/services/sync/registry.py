@@ -11,6 +11,7 @@ from src.foundation.services.sync.sync_dc_index_service import SyncDcIndexServic
 from src.foundation.services.sync.sync_dc_member_service import SyncDcMemberService
 from src.foundation.services.sync.sync_broker_recommend_service import SyncBrokerRecommendService
 from src.foundation.services.sync.sync_daily_basic_service import SyncDailyBasicService
+from src.foundation.services.sync.sync_cyq_perf_service import SyncCyqPerfService
 from src.foundation.services.sync.sync_dividend_service import SyncDividendService
 from src.foundation.services.sync.sync_dc_hot_service import SyncDcHotService
 from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService
@@ -64,6 +65,7 @@ SYNC_SERVICE_REGISTRY = {
     "equity_indicators": SyncEquityIndicatorsService,
     "adj_factor": SyncAdjFactorService,
     "daily_basic": SyncDailyBasicService,
+    "cyq_perf": SyncCyqPerfService,
     "moneyflow": SyncMoneyflowService,
     "margin": SyncMarginService,
     "top_list": SyncTopListService,

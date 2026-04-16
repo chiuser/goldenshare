@@ -8,6 +8,7 @@ def test_registry_contains_required_resources() -> None:
     assert "etf_basic" in SYNC_SERVICE_REGISTRY
     assert "etf_index" in SYNC_SERVICE_REGISTRY
     assert "daily" in SYNC_SERVICE_REGISTRY
+    assert "cyq_perf" in SYNC_SERVICE_REGISTRY
     assert "equity_indicators" in SYNC_SERVICE_REGISTRY
     assert "fund_daily" in SYNC_SERVICE_REGISTRY
     assert "fund_adj" in SYNC_SERVICE_REGISTRY

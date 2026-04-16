@@ -23,6 +23,7 @@ from src.foundation.dao.sync_job_state_dao import SyncJobStateDAO
 from src.foundation.dao.sync_run_log_dao import SyncRunLogDAO
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
@@ -71,6 +72,7 @@ from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
@@ -130,6 +132,7 @@ class DAOFactory:
         self.equity_daily_bar = EquityDailyBarDAO(session)
         self.equity_adj_factor = EquityAdjFactorDAO(session)
         self.equity_daily_basic = EquityDailyBasicDAO(session)
+        self.equity_cyq_perf = GenericDAO(session, EquityCyqPerf)
         self.equity_moneyflow = EquityMoneyflowDAO(session)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
         self.equity_margin = GenericDAO(session, EquityMargin)
@@ -191,6 +194,7 @@ class DAOFactory:
         self.raw_daily = GenericDAO(session, RawDaily)
         self.raw_adj_factor = GenericDAO(session, RawAdjFactor)
         self.raw_daily_basic = GenericDAO(session, RawDailyBasic)
+        self.raw_cyq_perf = GenericDAO(session, RawCyqPerf)
         self.raw_moneyflow = GenericDAO(session, RawMoneyflow)
         self.raw_top_list = GenericDAO(session, RawTopList)
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)

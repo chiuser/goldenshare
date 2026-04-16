@@ -11,6 +11,7 @@ from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
@@ -164,4 +165,12 @@ def test_margin_serving_model_matches_expected_keys() -> None:
     assert {index.name for index in EquityMargin.__table__.indexes} == {
         "idx_equity_margin_trade_date",
         "idx_equity_margin_exchange_trade_date",
+    }
+
+
+def test_cyq_perf_serving_model_matches_expected_keys() -> None:
+    assert [column.name for column in EquityCyqPerf.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert {index.name for index in EquityCyqPerf.__table__.indexes} == {
+        "idx_equity_cyq_perf_trade_date",
+        "idx_equity_cyq_perf_ts_code_trade_date",
     }

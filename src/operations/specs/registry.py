@@ -237,6 +237,7 @@ DAILY_SYNC_RESOURCES = (
     "equity_indicators",
     "adj_factor",
     "daily_basic",
+    "cyq_perf",
     "moneyflow",
     "margin",
     "limit_list_d",
@@ -373,6 +374,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     if resource == "equity_indicators":
         return (TS_CODE_PARAM,)
+    if resource == "cyq_perf":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "limit_list_d":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource == "stk_limit":
@@ -452,6 +455,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (MONTH_PARAM,)
     elif resource == "equity_indicators":
         supported_params = (TS_CODE_PARAM,)
+    elif resource == "cyq_perf":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     return JobSpec(
         key=f"sync_daily.{resource}",
         display_name=f"日常同步 / {resource}",
@@ -750,6 +755,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("daily", "sync_daily.daily", "股票日线"),
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
+            WorkflowStepSpec("cyq_perf", "sync_daily.cyq_perf", "每日筹码及胜率"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
             WorkflowStepSpec("stk_limit", "sync_daily.stk_limit", "每日涨跌停价格"),
@@ -833,6 +839,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "equity_indicators": ("股票技术指标", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
+    "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily", "trade_date"),
     "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),
     "margin": ("融资融券交易汇总", "equity", "股票", "daily", "trade_date"),
     "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),

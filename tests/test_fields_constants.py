@@ -2,6 +2,7 @@ from src.foundation.services.sync.fields import (
     ADJ_FACTOR_FIELDS,
     BLOCK_TRADE_FIELDS,
     DAILY_BASIC_FIELDS,
+    CYQ_PERF_FIELDS,
     DAILY_FIELDS,
     DIVIDEND_FIELDS,
     ETF_BASIC_FIELDS,
@@ -161,6 +162,19 @@ def test_existing_field_constants_still_cover_core_resources() -> None:
         "rqyl",
     )
     assert "close" in DAILY_BASIC_FIELDS
+    assert tuple(CYQ_PERF_FIELDS) == (
+        "ts_code",
+        "trade_date",
+        "his_low",
+        "his_high",
+        "cost_5pct",
+        "cost_15pct",
+        "cost_50pct",
+        "cost_85pct",
+        "cost_95pct",
+        "weight_avg",
+        "winner_rate",
+    )
     assert "net_mf_amount" in MONEYFLOW_FIELDS
     assert "reason" in TOP_LIST_FIELDS
     assert "seller" in BLOCK_TRADE_FIELDS
