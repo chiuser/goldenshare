@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Button,
+  Drawer,
   Group,
   Loader,
   NumberInput,
@@ -15,7 +16,7 @@ import {
 } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 
 import { apiRequest } from "../shared/api/client";
@@ -29,6 +30,26 @@ import { SectionCard } from "../shared/ui/section-card";
 
 
 type ReviewBoardTab = "ths" | "dc" | "equity";
+type ReviewBoardMember = { ts_code: string; name: string | null };
+
+const THS_BOARD_TYPE_LABELS: Record<string, string> = {
+  N: "概念指数",
+  I: "行业指数",
+  R: "地域指数",
+  S: "同花顺特色指数",
+  ST: "同花顺风格指数",
+  TH: "同花顺主题指数",
+  BB: "同花顺宽基指数",
+};
+
+const THS_EXCHANGE_LABELS: Record<string, string> = {
+  A: "A股",
+  HK: "港股",
+  US: "美股",
+};
+
+const MEMBER_PREVIEW_LIMIT = 5;
+const MEMBER_DRAWER_PAGE_SIZE = 20;
 
 function resolveTab(value: unknown): ReviewBoardTab {
   if (value === "dc" || value === "equity") return value;
@@ -55,6 +76,11 @@ function badgeColor(provider: string): string {
   return "gray";
 }
 
+function mapWithFallback(value: string | null, mapping: Record<string, string>): string {
+  if (!value) return "—";
+  return mapping[value] || value;
+}
+
 export function OpsV21ReviewBoardPage() {
   const navigate = useNavigate();
   const search = useSearch({ strict: false });
@@ -72,6 +98,77 @@ export function OpsV21ReviewBoardPage() {
   const equityProvider = pickString((search as Record<string, unknown>)?.equity_provider, "all");
   const equityKeyword = pickString((search as Record<string, unknown>)?.equity_keyword, "");
   const equityMin = Math.max(0, pickNumber((search as Record<string, unknown>)?.equity_min, 0));
+  const [thsKeywordInput, setThsKeywordInput] = useState(thsKeyword);
+  const [memberDrawer, setMemberDrawer] = useState<{
+    title: string;
+    members: ReviewBoardMember[];
+  } | null>(null);
+  const [memberDrawerPage, setMemberDrawerPage] = useState(1);
+
+  useEffect(() => {
+    setThsKeywordInput(thsKeyword);
+  }, [thsKeyword]);
+
+  const applyThsKeywordSearch = () => {
+    void navigate({
+      to: "/ops/v21/review/board",
+      search: {
+        ...((search as Record<string, unknown>) || {}),
+        tab: "ths",
+        ths_keyword: thsKeywordInput.trim(),
+        page: 1,
+      },
+      replace: true,
+    });
+  };
+
+  const openMemberDrawer = (title: string, members: ReviewBoardMember[]) => {
+    setMemberDrawer({ title, members });
+    setMemberDrawerPage(1);
+  };
+
+  const closeMemberDrawer = () => {
+    setMemberDrawer(null);
+    setMemberDrawerPage(1);
+  };
+
+  const drawerMembers = memberDrawer?.members || [];
+  const drawerPageCount = Math.max(1, Math.ceil(drawerMembers.length / MEMBER_DRAWER_PAGE_SIZE));
+  const drawerCurrentPage = Math.min(memberDrawerPage, drawerPageCount);
+  const drawerPageMembers = drawerMembers.slice(
+    (drawerCurrentPage - 1) * MEMBER_DRAWER_PAGE_SIZE,
+    drawerCurrentPage * MEMBER_DRAWER_PAGE_SIZE
+  );
+
+  const renderMemberCell = (params: {
+    members: ReviewBoardMember[];
+    boardCode: string;
+    boardName: string | null;
+    sourceLabel: string;
+  }) => {
+    if (params.members.length === 0) return <Text size="sm" c="dimmed">—</Text>;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+        <Group gap={4} wrap="wrap" style={{ flex: 1 }}>
+          {params.members.slice(0, MEMBER_PREVIEW_LIMIT).map((member, index) => (
+            <Badge key={`${params.boardCode}-${member.ts_code}-${index}`} size="xs" variant="light">
+              {member.name || "未知名称"}
+            </Badge>
+          ))}
+        </Group>
+        {params.members.length > MEMBER_PREVIEW_LIMIT ? (
+          <Button
+            size="xs"
+            variant="subtle"
+            style={{ marginLeft: "auto" }}
+            onClick={() => openMemberDrawer(`${params.sourceLabel}成分股 · ${params.boardName || params.boardCode}`, params.members)}
+          >
+            查看更多
+          </Button>
+        ) : null}
+      </div>
+    );
+  };
 
   const thsQuery = useQuery({
     queryKey: ["ops", "review", "board", "ths", thsKeyword, thsMin, page, pageSize],
@@ -149,22 +246,19 @@ export function OpsV21ReviewBoardPage() {
               <TextInput
                 label="板块关键词"
                 placeholder="代码或名称"
-                value={thsKeyword}
-                onChange={(event) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "ths",
-                      ths_keyword: event.currentTarget.value,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
+                value={thsKeywordInput}
+                onChange={(event) => setThsKeywordInput(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    applyThsKeywordSearch();
+                  }
                 }}
-                leftSection={<IconSearch size={14} />}
                 w={260}
               />
+              <Button leftSection={<IconSearch size={14} />} onClick={applyThsKeywordSearch}>
+                搜索
+              </Button>
               <NumberInput
                 label="成分个数 ≥"
                 min={0}
@@ -415,19 +509,15 @@ export function OpsV21ReviewBoardPage() {
                   <Table.Tr key={item.board_code}>
                     <Table.Td>{item.board_code}</Table.Td>
                     <Table.Td>{item.board_name || "—"}</Table.Td>
-                    <Table.Td>{item.exchange || "—"}</Table.Td>
-                    <Table.Td>{item.board_type || "—"}</Table.Td>
+                    <Table.Td>{mapWithFallback(item.exchange, THS_EXCHANGE_LABELS)}</Table.Td>
+                    <Table.Td>{mapWithFallback(item.board_type, THS_BOARD_TYPE_LABELS)}</Table.Td>
                     <Table.Td>{item.constituent_count}</Table.Td>
-                    <Table.Td>
-                      <Group gap={4}>
-                        {item.members.slice(0, 12).map((member) => (
-                          <Badge key={`${item.board_code}-${member.ts_code}`} size="xs" variant="light">
-                            {member.ts_code}
-                          </Badge>
-                        ))}
-                        {item.members.length > 12 ? <Text size="xs" c="dimmed">+{item.members.length - 12}</Text> : null}
-                      </Group>
-                    </Table.Td>
+                    <Table.Td>{renderMemberCell({
+                      members: item.members,
+                      boardCode: item.board_code,
+                      boardName: item.board_name,
+                      sourceLabel: "同花顺",
+                    })}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -456,16 +546,12 @@ export function OpsV21ReviewBoardPage() {
                       <Table.Td>{item.board_name || "—"}</Table.Td>
                       <Table.Td>{item.idx_type || "—"}</Table.Td>
                       <Table.Td>{item.constituent_count}</Table.Td>
-                      <Table.Td>
-                        <Group gap={4}>
-                          {item.members.slice(0, 12).map((member) => (
-                            <Badge key={`${item.board_code}-${member.ts_code}`} size="xs" variant="light">
-                              {member.ts_code}
-                            </Badge>
-                          ))}
-                          {item.members.length > 12 ? <Text size="xs" c="dimmed">+{item.members.length - 12}</Text> : null}
-                        </Group>
-                      </Table.Td>
+                      <Table.Td>{renderMemberCell({
+                        members: item.members,
+                        boardCode: item.board_code,
+                        boardName: item.board_name,
+                        sourceLabel: "东方财富",
+                      })}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -521,6 +607,54 @@ export function OpsV21ReviewBoardPage() {
           </Alert>
         ) : null}
       </SectionCard>
+      <Drawer
+        opened={memberDrawer !== null}
+        onClose={closeMemberDrawer}
+        title={memberDrawer?.title || "成分股明细"}
+        position="right"
+        size="70%"
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">共 {drawerMembers.length} 只股票</Text>
+          <Paper withBorder radius="md" p="sm">
+            <Table striped highlightOnHover withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>代码</Table.Th>
+                  <Table.Th>中文名称</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {drawerPageMembers.map((member, index) => (
+                  <Table.Tr key={`${member.ts_code}-${index}`}>
+                    <Table.Td>{member.ts_code}</Table.Td>
+                    <Table.Td>{member.name || "—"}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+          <Group justify="space-between">
+            <Button
+              size="xs"
+              variant="light"
+              disabled={drawerCurrentPage <= 1}
+              onClick={() => setMemberDrawerPage((prev) => Math.max(1, prev - 1))}
+            >
+              上一页
+            </Button>
+            <Text size="sm" c="dimmed">{drawerCurrentPage}/{drawerPageCount}</Text>
+            <Button
+              size="xs"
+              variant="light"
+              disabled={drawerCurrentPage >= drawerPageCount}
+              onClick={() => setMemberDrawerPage((prev) => Math.min(drawerPageCount, prev + 1))}
+            >
+              下一页
+            </Button>
+          </Group>
+        </Stack>
+      </Drawer>
     </Stack>
   );
 }
