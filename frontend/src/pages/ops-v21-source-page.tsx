@@ -6,8 +6,8 @@ import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsF
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
+import { dedupeModeItemsForSource, type SourceKey } from "./ops-v21-source-page-utils";
 
-type SourceKey = "tushare" | "biying";
 type CardStatus = "healthy" | "warning" | "failed" | "unknown";
 
 interface SourceCardItem {
@@ -123,20 +123,25 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     return values.includes(sourceKey);
   }
 
-  const cards: SourceCardItem[] = (modeQuery.data?.items || [])
-    .filter((modeItem) => {
-      if (!modeItem.raw_table && modeItem.layer_plan !== "raw-only" && !modeItem.layer_plan.startsWith("raw->")) {
-        return false;
-      }
-      const scopeValues = parseSourceScope(modeItem.source_scope || "");
-      if (scopeValues.length > 0 && !scopeValues.includes("unknown")) {
-        return scopeValues.includes(sourceKey);
-      }
-      if (modeItem.dataset_key.startsWith("biying_")) return sourceKey === "biying";
-      if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_biying.")) return sourceKey === "biying";
-      if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_tushare.")) return sourceKey === "tushare";
-      return inSourceScope(modeItem.source_scope || "");
-    })
+  const sourceModeItems = dedupeModeItemsForSource(
+    (modeQuery.data?.items || [])
+      .filter((modeItem) => {
+        if (!modeItem.raw_table && modeItem.layer_plan !== "raw-only" && !modeItem.layer_plan.startsWith("raw->")) {
+          return false;
+        }
+        const scopeValues = parseSourceScope(modeItem.source_scope || "");
+        if (scopeValues.length > 0 && !scopeValues.includes("unknown")) {
+          return scopeValues.includes(sourceKey);
+        }
+        if (modeItem.dataset_key.startsWith("biying_")) return sourceKey === "biying";
+        if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_biying.")) return sourceKey === "biying";
+        if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_tushare.")) return sourceKey === "tushare";
+        return inSourceScope(modeItem.source_scope || "");
+      }),
+    sourceKey,
+  );
+
+  const cards: SourceCardItem[] = sourceModeItems
     .map((modeItem) => {
       const rawLatest = latestRawByDataset.get(modeItem.dataset_key);
       const freshMeta = freshnessByDataset.get(modeItem.dataset_key);
