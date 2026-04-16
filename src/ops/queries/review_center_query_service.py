@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import and_, desc, false, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
+from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.ths_index import ThsIndex
@@ -39,13 +40,25 @@ class ReviewCenterQueryService:
         page = max(1, page)
         offset = (page - 1) * page_size
 
-        stmt = select(IndexSeriesActive).where(IndexSeriesActive.resource == resource)
+        stmt = (
+            select(
+                IndexSeriesActive.resource.label("resource"),
+                IndexSeriesActive.ts_code.label("ts_code"),
+                IndexSeriesActive.first_seen_date.label("first_seen_date"),
+                IndexSeriesActive.last_seen_date.label("last_seen_date"),
+                IndexSeriesActive.last_checked_at.label("last_checked_at"),
+                IndexBasic.name.label("index_name"),
+            )
+            .select_from(IndexSeriesActive)
+            .outerjoin(IndexBasic, IndexBasic.ts_code == IndexSeriesActive.ts_code)
+            .where(IndexSeriesActive.resource == resource)
+        )
         if keyword:
             pattern = f"%{keyword.strip()}%"
-            stmt = stmt.where(IndexSeriesActive.ts_code.ilike(pattern))
+            stmt = stmt.where(or_(IndexSeriesActive.ts_code.ilike(pattern), IndexBasic.name.ilike(pattern)))
 
         total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-        rows = session.scalars(
+        rows = session.execute(
             stmt.order_by(IndexSeriesActive.ts_code.asc()).limit(page_size).offset(offset)
         ).all()
         return ReviewActiveIndexListResponse(
@@ -54,6 +67,7 @@ class ReviewCenterQueryService:
                 ReviewActiveIndexItem(
                     resource=row.resource,
                     ts_code=row.ts_code,
+                    index_name=row.index_name,
                     first_seen_date=row.first_seen_date,
                     last_seen_date=row.last_seen_date,
                     last_checked_at=row.last_checked_at,

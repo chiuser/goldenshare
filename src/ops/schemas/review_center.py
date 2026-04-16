@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class ReviewActiveIndexItem(BaseModel):
     resource: str
     ts_code: str
+    index_name: str | None = None
     first_seen_date: date
     last_seen_date: date
     last_checked_at: datetime

@@ -1,20 +1,13 @@
-import { Alert, Button, Group, Loader, NumberInput, Paper, Select, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Group, Loader, NumberInput, Paper, Stack, Table, Text, TextInput } from "@mantine/core";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 
 import { apiRequest } from "../shared/api/client";
 import type { OpsReviewActiveIndexResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { SectionCard } from "../shared/ui/section-card";
-
-
-const resourceOptions = [
-  { value: "index_daily", label: "指数日线池" },
-  { value: "index_weekly", label: "指数周线池" },
-  { value: "index_monthly", label: "指数月线池" },
-];
 
 function pickString(value: unknown, fallback: string): string {
   if (typeof value === "string" && value.trim()) return value;
@@ -33,10 +26,15 @@ function pickNumber(value: unknown, fallback: number): number {
 export function OpsV21ReviewIndexPage() {
   const navigate = useNavigate();
   const search = useSearch({ strict: false });
-  const resource = pickString((search as Record<string, unknown>)?.resource, "index_daily");
+  const resource = "index_daily";
   const keyword = pickString((search as Record<string, unknown>)?.keyword, "");
+  const [keywordDraft, setKeywordDraft] = useState(keyword);
   const page = Math.max(1, pickNumber((search as Record<string, unknown>)?.page, 1));
   const pageSize = Math.min(200, Math.max(10, pickNumber((search as Record<string, unknown>)?.page_size, 50)));
+
+  useEffect(() => {
+    setKeywordDraft(keyword);
+  }, [keyword]);
 
   const queryKey = useMemo(() => ["ops", "review", "index", resource, keyword, page, pageSize], [resource, keyword, page, pageSize]);
   const query = useQuery({
@@ -54,46 +52,48 @@ export function OpsV21ReviewIndexPage() {
   const total = query.data?.total || 0;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
+  const applyKeywordSearch = () => {
+    void navigate({
+      to: "/ops/v21/review/index",
+      search: {
+        ...((search as Record<string, unknown>) || {}),
+        keyword: keywordDraft.trim(),
+        page: 1,
+      },
+      replace: true,
+    });
+  };
+
   return (
     <Stack gap="lg">
       <SectionCard title="审查中心 · 指数" description="查看当前纳入同步池的激活指数列表（只读）。">
         <Stack gap="sm">
           <Group align="flex-end" wrap="wrap">
-            <Select
-              label="资源池"
-              data={resourceOptions}
-              value={resource}
-              onChange={(value) => {
-                void navigate({
-                  to: "/ops/v21/review/index",
-                  search: {
-                    ...((search as Record<string, unknown>) || {}),
-                    resource: value || "index_daily",
-                    page: 1,
-                  },
-                  replace: true,
-                });
-              }}
-              w={220}
-            />
+            <Stack gap={4}>
+              <Text size="sm" fw={600}>资源池</Text>
+              <Group gap={8}>
+                <Badge variant="light" color="blue">指数日线池</Badge>
+                <Text size="xs" c="dimmed">周线/月线与日线共用同一激活池</Text>
+              </Group>
+            </Stack>
             <TextInput
               label="关键词"
-              placeholder="输入指数代码过滤"
-              value={keyword}
+              placeholder="输入指数代码或名称"
+              value={keywordDraft}
               onChange={(event) => {
-                void navigate({
-                  to: "/ops/v21/review/index",
-                  search: {
-                    ...((search as Record<string, unknown>) || {}),
-                    keyword: event.currentTarget.value,
-                    page: 1,
-                  },
-                  replace: true,
-                });
+                setKeywordDraft(event.currentTarget.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  applyKeywordSearch();
+                }
               }}
               leftSection={<IconSearch size={14} />}
               w={260}
             />
+            <Button variant="light" onClick={applyKeywordSearch}>
+              搜索
+            </Button>
             <NumberInput
               label="每页"
               min={10}
@@ -164,18 +164,18 @@ export function OpsV21ReviewIndexPage() {
             <Table striped highlightOnHover horizontalSpacing="md" verticalSpacing="xs" withTableBorder>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>资源</Table.Th>
                   <Table.Th>指数代码</Table.Th>
-                  <Table.Th>首次观测</Table.Th>
-                  <Table.Th>最近观测</Table.Th>
+                  <Table.Th>指数名称</Table.Th>
+                  <Table.Th>首次收录</Table.Th>
+                  <Table.Th>最近收录</Table.Th>
                   <Table.Th>最近检查时间</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {(query.data?.items || []).map((item) => (
                   <Table.Tr key={`${item.resource}-${item.ts_code}`}>
-                    <Table.Td>{item.resource}</Table.Td>
                     <Table.Td>{item.ts_code}</Table.Td>
+                    <Table.Td>{item.index_name || "—"}</Table.Td>
                     <Table.Td>{formatDateLabel(item.first_seen_date)}</Table.Td>
                     <Table.Td>{formatDateLabel(item.last_seen_date)}</Table.Td>
                     <Table.Td>{formatDateTimeLabel(item.last_checked_at)}</Table.Td>

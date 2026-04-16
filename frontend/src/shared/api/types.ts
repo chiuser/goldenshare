@@ -536,6 +536,7 @@ export interface OpsReviewActiveIndexResponse {
   items: Array<{
     resource: string;
     ts_code: string;
+    index_name: string | null;
     first_seen_date: string;
     last_seen_date: string;
     last_checked_at: string;

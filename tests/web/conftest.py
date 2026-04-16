@@ -13,6 +13,7 @@ from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.platform.models.app.app_user import AppUser
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.ths_index import ThsIndex
@@ -71,6 +72,7 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)
+        IndexBasic.__table__.create(connection)
         IndexDailyServing.__table__.create(connection)
         IndexWeeklyServing.__table__.create(connection)
         IndexMonthlyServing.__table__.create(connection)
