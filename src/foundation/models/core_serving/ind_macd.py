@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -24,3 +24,4 @@ class IndicatorMacd(TimestampMixin, Base):
     dif: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     dea: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     macd_bar: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")

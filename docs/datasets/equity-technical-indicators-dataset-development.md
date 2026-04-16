@@ -25,7 +25,8 @@
 
 1. `core.ind_macd`
   - 主键：`(ts_code, trade_date, adjustment, version)`
-  - 字段：`dif`, `dea`, `macd_bar`
+  - 字段：`dif`, `dea`, `macd_bar`, `is_valid`
+  - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 250` 时为 `TRUE`。
 
 2. `core.ind_kdj`
   - 主键：`(ts_code, trade_date, adjustment, version)`
@@ -61,11 +62,13 @@
 
 ## 5. 当前实现策略
 
-第一版以正确性优先：
+当前版本已支持“增量优先、异常回退全量”：
 
-1. 单股计算时会读取该股到 `end_date` 的历史日线与因子。
-2. 在指定区间内写入三张指标表，并更新 `indicator_state`。
-3. 通过 `version` 管理指标逻辑迭代。
+1. `INCREMENTAL` 模式下，优先读取 `indicator_state` 做递推计算。  
+2. 若发现状态缺失/`bar_count` 不一致/复权因子快照漂移，则自动回退该股全量重算。  
+3. `FULL` 模式下按全历史重算，重建三类指标与状态。  
+4. `indicator_state` 中 MACD 状态包含：`ema_fast`、`ema_slow`、`dea`、`bar_count`、`last_adj_factor`。  
+5. 指标结果通过 `version` 做逻辑迭代管理。
 
 ## 6. 重算触发规则（已确认）
 
@@ -75,5 +78,10 @@
 
 2. 日常盘后新增交易日：
   - 前/后复权指标都可按增量更新。
+
+3. 异常状态保护触发：
+  - `indicator_state.bar_count` 与实际历史行数不一致。
+  - `last_trade_date` 对应复权因子与状态快照差异超过阈值（`1e-8`）。
+  - 任一指标递推关键状态缺失。
 
 > 注：当前代码已落地统一计算框架与版本管理；后续可在此基础上进一步强化“状态递推”性能优化。

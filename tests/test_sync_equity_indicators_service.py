@@ -22,7 +22,7 @@ def test_sync_equity_indicators_incremental_executes_for_single_day(mocker) -> N
     assert fetched == 2
     assert written == 6
     assert result_date == date(2026, 4, 8)
-    assert message == "stocks=1 days=2"
+    assert message == "stocks=1 bars=2"
 
 
 def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> None:
@@ -73,11 +73,12 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
 
     assert fetched == 4  # 2 days x 2 adjustments
     assert written == 12
-    assert state_upsert.call_count == 2
+    assert state_upsert.call_count == 1
     first_macd_row = macd_upsert.call_args.args[0][0]
     assert first_macd_row["adjustment"] in {"forward", "backward"}
     assert first_macd_row["version"] == 1
     assert first_macd_row["trade_date"] == date(2026, 4, 7)
+    assert first_macd_row["is_valid"] is False
     assert kdj_upsert.call_count == 1
     assert rsi_upsert.call_count == 1
     assert macd_std_upsert.call_count == 1
@@ -85,6 +86,7 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     assert rsi_std_upsert.call_count == 1
     first_state_row = state_upsert.call_args.args[0][0]
     assert first_state_row["source_key"] == "tushare"
+    assert first_state_row["state_json"]["bar_count"] == 2
     first_macd_std_row = macd_std_upsert.call_args.args[0][0]
     assert first_macd_std_row["source_key"] == "tushare"
 
