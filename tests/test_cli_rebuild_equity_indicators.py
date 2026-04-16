@@ -19,7 +19,7 @@ def _mock_session_context(mocker):
 
 def test_cli_rebuild_equity_indicators_runs_purge_and_sync(mocker) -> None:
     session = _mock_session_context(mocker)
-    session.execute.side_effect = [SimpleNamespace(rowcount=1) for _ in range(7)]
+    session.execute.side_effect = [SimpleNamespace(rowcount=1) for _ in range(4)]
 
     sync_service = mocker.Mock()
     sync_service.run_full.return_value = SimpleNamespace(
@@ -40,8 +40,13 @@ def test_cli_rebuild_equity_indicators_runs_purge_and_sync(mocker) -> None:
     assert result.exit_code == 0
     assert "rebuild-equity-indicators purge summary" in result.stdout
     assert "rebuild-equity-indicators done" in result.stdout
-    assert session.execute.call_count == 7
-    sync_service.run_full.assert_called_once_with(source_key="tushare")
+    assert session.execute.call_count == 4
+    sync_service.run_full.assert_called_once()
+    kwargs = sync_service.run_full.call_args.kwargs
+    assert kwargs["source_key"] == "tushare"
+    assert kwargs["start_date"] == date(2010, 1, 1)
+    assert kwargs["progress_every"] == 50
+    assert callable(kwargs["progress_callback"])
     reconcile_service.refresh_resource_state_from_observed.assert_called_once_with(session, "equity_indicators")
     snapshot_service.refresh_resources.assert_called_once_with(session, ["equity_indicators"])
     assert session.commit.called
@@ -49,7 +54,7 @@ def test_cli_rebuild_equity_indicators_runs_purge_and_sync(mocker) -> None:
 
 def test_cli_rebuild_equity_indicators_skip_sync_with_ts_code(mocker) -> None:
     session = _mock_session_context(mocker)
-    session.execute.side_effect = [SimpleNamespace(rowcount=0) for _ in range(7)]
+    session.execute.side_effect = [SimpleNamespace(rowcount=0) for _ in range(4)]
     build_sync_service = mocker.patch("src.cli.build_sync_service")
 
     result = CliRunner().invoke(
@@ -59,5 +64,5 @@ def test_cli_rebuild_equity_indicators_skip_sync_with_ts_code(mocker) -> None:
 
     assert result.exit_code == 0
     assert "skip_sync=true: 仅清理，不执行重算。" in result.stdout
-    assert session.execute.call_count == 7
+    assert session.execute.call_count == 4
     build_sync_service.assert_not_called()

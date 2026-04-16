@@ -330,6 +330,7 @@ def test_daily_market_close_sync_excludes_indicator_tasks() -> None:
     step_job_keys = {step.job_key for step in workflow.steps}
     assert "sync_daily.equity_indicators" not in step_job_keys
     assert "sync_daily.margin" in step_job_keys
+    assert "sync_daily.stk_limit" in step_job_keys
 
 
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:

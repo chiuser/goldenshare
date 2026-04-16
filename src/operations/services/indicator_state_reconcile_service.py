@@ -181,10 +181,10 @@ class IndicatorStateReconcileService:
             text(
                 """
                 SELECT m.ts_code, m.adjustment, m.is_valid
-                FROM core.ind_macd m
+                FROM core_serving.ind_macd m
                 JOIN (
                   SELECT ts_code, MAX(trade_date) AS latest_trade_date
-                  FROM core.equity_daily_bar
+                  FROM core_serving.equity_daily_bar
                   GROUP BY ts_code
                 ) l
                   ON m.ts_code = l.ts_code
@@ -201,10 +201,10 @@ class IndicatorStateReconcileService:
             text(
                 """
                 SELECT k.ts_code, k.adjustment, k.k, k.d, k.is_valid
-                FROM core.ind_kdj k
+                FROM core_serving.ind_kdj k
                 JOIN (
                   SELECT ts_code, MAX(trade_date) AS latest_trade_date
-                  FROM core.equity_daily_bar
+                  FROM core_serving.equity_daily_bar
                   GROUP BY ts_code
                 ) l
                   ON k.ts_code = l.ts_code
@@ -221,10 +221,10 @@ class IndicatorStateReconcileService:
             text(
                 """
                 SELECT r.ts_code, r.adjustment, r.rsi_6, r.rsi_12, r.rsi_24, r.is_valid
-                FROM core.ind_rsi r
+                FROM core_serving.ind_rsi r
                 JOIN (
                   SELECT ts_code, MAX(trade_date) AS latest_trade_date
-                  FROM core.equity_daily_bar
+                  FROM core_serving.equity_daily_bar
                   GROUP BY ts_code
                 ) l
                   ON r.ts_code = l.ts_code

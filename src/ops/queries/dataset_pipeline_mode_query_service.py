@@ -16,7 +16,6 @@ class DatasetPipelineModeQueryService:
     _STD_TABLE_HINTS = {
         "stock_basic": "core_multi.security_std",
         "moneyflow": "core_multi.moneyflow_std",
-        "equity_indicators": "core_multi.indicator_*_std",
     }
     _SERVING_TABLE_HINTS = {
         "stock_basic": "core_serving.security_serving",

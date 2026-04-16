@@ -42,9 +42,6 @@ def _prepare_service(mocker) -> tuple[SyncEquityIndicatorsService, object]:
     mocker.patch.object(service.dao.indicator_macd, "bulk_upsert", return_value=4)
     mocker.patch.object(service.dao.indicator_kdj, "bulk_upsert", return_value=4)
     mocker.patch.object(service.dao.indicator_rsi, "bulk_upsert", return_value=4)
-    mocker.patch.object(service.dao.indicator_macd_std, "bulk_upsert", return_value=4)
-    mocker.patch.object(service.dao.indicator_kdj_std, "bulk_upsert", return_value=4)
-    mocker.patch.object(service.dao.indicator_rsi_std, "bulk_upsert", return_value=4)
     return service, state_upsert
 
 

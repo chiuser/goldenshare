@@ -9,7 +9,7 @@
 
 本数据集不直接调用外部 API，输入来自：
 
-1. `core.equity_daily_bar`（原始日线）
+1. `core_serving.equity_daily_bar`（原始日线）
 2. 复权因子表：`core.equity_adj_factor`
 
 支持两种复权口径：
@@ -23,17 +23,17 @@
 
 ## 3.1 指标表
 
-1. `core.ind_macd`
+1. `core_serving.ind_macd`
   - 主键：`(ts_code, trade_date, adjustment, version)`
   - 字段：`dif`, `dea`, `macd_bar`, `is_valid`
   - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 250` 时为 `TRUE`。
 
-2. `core.ind_kdj`
+2. `core_serving.ind_kdj`
   - 主键：`(ts_code, trade_date, adjustment, version)`
   - 字段：`rsv`, `k`, `d`, `j`, `is_valid`
   - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 60` 时为 `TRUE`。
 
-3. `core.ind_rsi`
+3. `core_serving.ind_rsi`
   - 主键：`(ts_code, trade_date, adjustment, version)`
   - 字段：`rsi_6`, `rsi_12`, `rsi_24`, `is_valid`
   - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 200` 时为 `TRUE`。
@@ -125,13 +125,15 @@
 新增 CLI：`goldenshare rebuild-equity-indicators`
 
 1. 默认行为
-  - 先清理 `version=1` 的历史指标结果（`core` + `core_multi` + `core.indicator_state`）。
+  - 先清理 `version=1` 的历史指标结果（`core_serving` + `core.indicator_state`）。
   - 再执行一次完整重算（MACD/KDJ/RSI 一次完成）。
   - 最后刷新同步状态与数据状态快照。
 
 2. 常用示例
   - 全市场重建（默认）：
     - `goldenshare rebuild-equity-indicators`
+  - 指定区间重建（推荐）：
+    - `goldenshare rebuild-equity-indicators --start-date 2010-01-01 --end-date 2026-12-31`
   - 单股重建：
     - `goldenshare rebuild-equity-indicators --ts-code 000001.SZ`
   - 仅清理不重算（排障用）：

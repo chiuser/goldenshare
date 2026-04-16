@@ -21,7 +21,7 @@
 
 说明：
 - 目前绝大多数“对外服务”数据集已迁到 `core_serving.*`。
-- 以下 3 类当前仍保留在 `core`：`equity_indicators`、`equity_adj_factor`、`fund_adj_factor`。
+- 以下 2 类当前仍保留在 `core`：`equity_adj_factor`、`fund_adj_factor`。
 
 ---
 

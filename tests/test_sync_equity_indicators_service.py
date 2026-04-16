@@ -25,6 +25,34 @@ def test_sync_equity_indicators_incremental_executes_for_single_day(mocker) -> N
     assert message == "stocks=1 bars=2"
 
 
+def test_sync_equity_indicators_emits_progress_every_n_stocks(mocker) -> None:
+    service = SyncEquityIndicatorsService(mocker.Mock())
+    mocker.patch.object(
+        service,
+        "_load_ts_codes",
+        return_value=["000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ", "000005.SZ"],
+    )
+    mocker.patch.object(service, "_load_trade_bounds", return_value=(date(2020, 1, 1), date(2026, 4, 8)))
+    mocker.patch.object(service, "_ensure_meta_rows")
+    mocker.patch.object(service, "_build_for_ts_code", return_value=(2, 6))
+    progress_callback = mocker.Mock()
+
+    fetched, written, result_date, message = service.execute(
+        "FULL",
+        progress_callback=progress_callback,
+        progress_every=2,
+    )
+
+    assert fetched == 10
+    assert written == 30
+    assert result_date == date(2026, 4, 8)
+    assert message == "stocks=5 bars=10"
+    assert progress_callback.call_count == 3
+    assert progress_callback.call_args_list[0].args[0].startswith("stocks: 2/5 ")
+    assert progress_callback.call_args_list[1].args[0].startswith("stocks: 4/5 ")
+    assert progress_callback.call_args_list[2].args[0].startswith("stocks: 5/5 ")
+
+
 def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> None:
     service = SyncEquityIndicatorsService(mocker.Mock())
     mocker.patch.object(
@@ -60,9 +88,6 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     macd_upsert = mocker.patch.object(service.dao.indicator_macd, "bulk_upsert", return_value=4)
     kdj_upsert = mocker.patch.object(service.dao.indicator_kdj, "bulk_upsert", return_value=4)
     rsi_upsert = mocker.patch.object(service.dao.indicator_rsi, "bulk_upsert", return_value=4)
-    macd_std_upsert = mocker.patch.object(service.dao.indicator_macd_std, "bulk_upsert", return_value=4)
-    kdj_std_upsert = mocker.patch.object(service.dao.indicator_kdj_std, "bulk_upsert", return_value=4)
-    rsi_std_upsert = mocker.patch.object(service.dao.indicator_rsi_std, "bulk_upsert", return_value=4)
 
     fetched, written = service._build_for_ts_code(
         "000001.SZ",
@@ -84,15 +109,8 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     assert first_kdj_row["is_valid"] is False
     first_rsi_row = rsi_upsert.call_args.args[0][0]
     assert first_rsi_row["is_valid"] is False
-    first_kdj_std_row = kdj_std_upsert.call_args.args[0][0]
-    assert first_kdj_std_row["is_valid"] is False
-    first_rsi_std_row = rsi_std_upsert.call_args.args[0][0]
-    assert first_rsi_std_row["is_valid"] is False
     assert kdj_upsert.call_count == 1
     assert rsi_upsert.call_count == 1
-    assert macd_std_upsert.call_count == 1
-    assert kdj_std_upsert.call_count == 1
-    assert rsi_std_upsert.call_count == 1
     first_state_row = state_upsert.call_args.args[0][0]
     assert first_state_row["source_key"] == "tushare"
     assert first_state_row["state_json"]["bar_count"] == 2
@@ -100,8 +118,6 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     assert "last_adj_factor" in kdj_state_row["state_json"]
     rsi_state_row = next(row for row in state_upsert.call_args.args[0] if row["indicator_name"] == "rsi")
     assert "last_adj_factor" in rsi_state_row["state_json"]
-    first_macd_std_row = macd_std_upsert.call_args.args[0][0]
-    assert first_macd_std_row["source_key"] == "tushare"
     assert service._load_daily_rows.call_count == 1
     assert service._load_factor_map.call_count == 1
 

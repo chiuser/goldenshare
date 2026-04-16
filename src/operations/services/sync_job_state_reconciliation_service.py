@@ -28,6 +28,9 @@ from src.foundation.models.core_serving.index_monthly_serving import IndexMonthl
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
+from src.foundation.models.core_serving.ind_macd import IndicatorMacd
+from src.foundation.models.core_serving.ind_rsi import IndicatorRsi
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
@@ -60,6 +63,9 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.index_monthly_serving": IndexMonthlyServing,
     "core_serving.index_daily_basic": IndexDailyBasic,
     "core_serving.index_weight": IndexWeight,
+    "core_serving.ind_macd": IndicatorMacd,
+    "core_serving.ind_kdj": IndicatorKdj,
+    "core_serving.ind_rsi": IndicatorRsi,
     # 兼容历史 sync_job_state.target_table 仍为 core.* 的记录
     "core.trade_calendar": TradeCalendar,
     "core.equity_daily_bar": EquityDailyBar,
@@ -79,6 +85,9 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.index_monthly_serving": IndexMonthlyServing,
     "core.index_daily_basic": IndexDailyBasic,
     "core.index_weight": IndexWeight,
+    "core.ind_macd": IndicatorMacd,
+    "core.ind_kdj": IndicatorKdj,
+    "core.ind_rsi": IndicatorRsi,
 }
 
 

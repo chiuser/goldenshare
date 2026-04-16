@@ -5,6 +5,7 @@ from datetime import date
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
+from typing import Callable
 
 from sqlalchemy import func, select
 
@@ -42,9 +43,6 @@ class _IndicatorBuildPayload:
     macd_rows: list[dict[str, Any]] = field(default_factory=list)
     kdj_rows: list[dict[str, Any]] = field(default_factory=list)
     rsi_rows: list[dict[str, Any]] = field(default_factory=list)
-    std_macd_rows: list[dict[str, Any]] = field(default_factory=list)
-    std_kdj_rows: list[dict[str, Any]] = field(default_factory=list)
-    std_rsi_rows: list[dict[str, Any]] = field(default_factory=list)
     state_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -67,13 +65,24 @@ def _parse_date_or_none(value: Any) -> date | None:
 
 class SyncEquityIndicatorsService(BaseSyncService):
     job_name = "sync_equity_indicators"
-    target_table = "core.ind_macd"
+    target_table = "core_serving.ind_macd"
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         ts_code_raw = kwargs.get("ts_code")
         ts_code = str(ts_code_raw).strip().upper() if ts_code_raw else None
         source_key = str(kwargs.get("source_key") or "tushare").strip().lower()
         execution_id = kwargs.get("execution_id")
+        progress_callback_raw = kwargs.get("progress_callback")
+        progress_callback: Callable[[str], None] | None = (
+            progress_callback_raw if callable(progress_callback_raw) else None
+        )
+        progress_every_raw = kwargs.get("progress_every")
+        progress_every = int(progress_every_raw) if progress_every_raw is not None else 50
+        progress_every = max(1, progress_every)
+        range_start = _parse_date_or_none(kwargs.get("start_date"))
+        range_end = _parse_date_or_none(kwargs.get("end_date"))
+        if range_start is not None and range_end is not None and range_start > range_end:
+            raise ValueError("start_date must be <= end_date")
 
         ts_codes = self._load_ts_codes(ts_code=ts_code)
         if not ts_codes:
@@ -94,7 +103,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
         )
         for index, code in enumerate(ts_codes, start=1):
             self.ensure_not_canceled(execution_id)
-            bounds = self._load_trade_bounds(ts_code=code)
+            bounds = self._load_trade_bounds(
+                ts_code=code,
+                start_date=range_start,
+                end_date=range_end,
+            )
             if bounds is None:
                 continue
             start_date, end_date = bounds
@@ -108,13 +121,23 @@ class SyncEquityIndicatorsService(BaseSyncService):
             )
             fetched_total += fetched
             written_total += written
-            if index == total_codes or index % progress_step == 0:
+            # 按股票分段提交，避免全市场单事务导致占用持续膨胀。
+            self.session.commit()
+            progress_message = (
+                f"stocks: {index}/{total_codes} "
+                f"ts_code={code} fetched={fetched} written={written}"
+            )
+            should_update_execution = index == total_codes or index % progress_step == 0
+            if should_update_execution:
                 self._update_progress(
                     execution_id=execution_id,
                     current=index,
                     total=total_codes,
-                    message=f"units={index}/{total_codes} unit=stock ts_code={code} fetched={fetched} written={written}",
+                    message=progress_message,
                 )
+            should_emit_cli_progress = index == total_codes or index % progress_every == 0
+            if progress_callback is not None and should_emit_cli_progress:
+                progress_callback(progress_message)
 
         message = f"stocks={len(ts_codes)} bars={fetched_total}"
         return fetched_total, written_total, latest_end_date, message
@@ -194,18 +217,12 @@ class SyncEquityIndicatorsService(BaseSyncService):
             total_payload.macd_rows.extend(payload.macd_rows)
             total_payload.kdj_rows.extend(payload.kdj_rows)
             total_payload.rsi_rows.extend(payload.rsi_rows)
-            total_payload.std_macd_rows.extend(payload.std_macd_rows)
-            total_payload.std_kdj_rows.extend(payload.std_kdj_rows)
-            total_payload.std_rsi_rows.extend(payload.std_rsi_rows)
             total_payload.state_rows.extend(payload.state_rows)
 
         written = 0
         written += self.dao.indicator_macd.bulk_upsert(total_payload.macd_rows)
         written += self.dao.indicator_kdj.bulk_upsert(total_payload.kdj_rows)
         written += self.dao.indicator_rsi.bulk_upsert(total_payload.rsi_rows)
-        self.dao.indicator_macd_std.bulk_upsert(total_payload.std_macd_rows)
-        self.dao.indicator_kdj_std.bulk_upsert(total_payload.std_kdj_rows)
-        self.dao.indicator_rsi_std.bulk_upsert(total_payload.std_rsi_rows)
         self.dao.indicator_state.bulk_upsert(total_payload.state_rows)
         return total_payload.fetched, written
 
@@ -266,19 +283,6 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "is_valid": is_macd_valid,
                 }
             )
-            payload.std_macd_rows.append(
-                {
-                    "source_key": source_key,
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "dif": self._to_decimal(dif[idx]),
-                    "dea": self._to_decimal(dea[idx]),
-                    "macd_bar": self._to_decimal(macd_bar[idx]),
-                    "is_valid": is_macd_valid,
-                }
-            )
             payload.kdj_rows.append(
                 {
                     "ts_code": ts_code,
@@ -292,35 +296,8 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "is_valid": is_kdj_valid,
                 }
             )
-            payload.std_kdj_rows.append(
-                {
-                    "source_key": source_key,
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "rsv": self._to_decimal(rsv[idx]),
-                    "k": self._to_decimal(k[idx]),
-                    "d": self._to_decimal(d[idx]),
-                    "j": self._to_decimal(j[idx]),
-                    "is_valid": is_kdj_valid,
-                }
-            )
             payload.rsi_rows.append(
                 {
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "rsi_6": self._to_decimal(rsi6[idx]),
-                    "rsi_12": self._to_decimal(rsi12[idx]),
-                    "rsi_24": self._to_decimal(rsi24[idx]),
-                    "is_valid": is_rsi_valid,
-                }
-            )
-            payload.std_rsi_rows.append(
-                {
-                    "source_key": source_key,
                     "ts_code": ts_code,
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
@@ -524,19 +501,6 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "is_valid": is_macd_valid,
                 }
             )
-            payload.std_macd_rows.append(
-                {
-                    "source_key": source_key,
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "dif": self._to_decimal(dif_values[idx]),
-                    "dea": self._to_decimal(dea_values[idx]),
-                    "macd_bar": self._to_decimal(macd_values[idx]),
-                    "is_valid": is_macd_valid,
-                }
-            )
             payload.kdj_rows.append(
                 {
                     "ts_code": ts_code,
@@ -550,35 +514,8 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "is_valid": is_kdj_valid,
                 }
             )
-            payload.std_kdj_rows.append(
-                {
-                    "source_key": source_key,
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "rsv": self._to_decimal(rsv_values[idx]),
-                    "k": self._to_decimal(k_values[idx]),
-                    "d": self._to_decimal(d_values[idx]),
-                    "j": self._to_decimal(j_values[idx]),
-                    "is_valid": is_kdj_valid,
-                }
-            )
             payload.rsi_rows.append(
                 {
-                    "ts_code": ts_code,
-                    "trade_date": row.trade_date,
-                    "adjustment": adjustment,
-                    "version": INDICATOR_VERSION,
-                    "rsi_6": self._to_decimal(rsi6[idx]),
-                    "rsi_12": self._to_decimal(rsi12[idx]),
-                    "rsi_24": self._to_decimal(rsi24[idx]),
-                    "is_valid": is_rsi_valid,
-                }
-            )
-            payload.std_rsi_rows.append(
-                {
-                    "source_key": source_key,
                     "ts_code": ts_code,
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
@@ -1142,13 +1079,22 @@ class SyncEquityIndicatorsService(BaseSyncService):
             stmt = stmt.where(EquityDailyBar.ts_code == ts_code)
         return list(self.session.scalars(stmt))
 
-    def _load_trade_bounds(self, *, ts_code: str) -> tuple[date, date] | None:
-        row = self.session.execute(
-            select(
-                func.min(EquityDailyBar.trade_date),
-                func.max(EquityDailyBar.trade_date),
-            ).where(EquityDailyBar.ts_code == ts_code)
-        ).one()
+    def _load_trade_bounds(
+        self,
+        *,
+        ts_code: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> tuple[date, date] | None:
+        stmt = select(
+            func.min(EquityDailyBar.trade_date),
+            func.max(EquityDailyBar.trade_date),
+        ).where(EquityDailyBar.ts_code == ts_code)
+        if start_date is not None:
+            stmt = stmt.where(EquityDailyBar.trade_date >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(EquityDailyBar.trade_date <= end_date)
+        row = self.session.execute(stmt).one()
         start_date, end_date = row
         if start_date is None or end_date is None:
             return None

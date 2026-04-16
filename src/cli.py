@@ -192,95 +192,67 @@ def sync_history(
 @app.command("rebuild-equity-indicators")
 def rebuild_equity_indicators(
     ts_code: str | None = typer.Option(None, "--ts-code", help="可选：仅重建指定股票（如 000001.SZ）。"),
+    start_date: str = typer.Option("2010-01-01", "--start-date", help="重建起始日期（YYYY-MM-DD，默认 2010-01-01）。"),
+    end_date: str | None = typer.Option(None, "--end-date", help="重建结束日期（YYYY-MM-DD，默认自动到最新）。"),
     version: int = typer.Option(1, "--version", min=1, help="指标版本号。"),
+    progress_every: int = typer.Option(50, "--progress-every", min=1, help="每处理 N 只股票打印一次进展。"),
     skip_sync: bool = typer.Option(False, "--skip-sync", help="仅清理旧数据，不触发重算。"),
 ) -> None:
     normalized_ts_code = ts_code.strip().upper() if ts_code else None
+    parsed_start_date = date.fromisoformat(start_date)
+    parsed_end_date = date.fromisoformat(end_date) if end_date else None
+    if parsed_end_date is not None and parsed_start_date > parsed_end_date:
+        raise typer.BadParameter("start_date 不能晚于 end_date")
     source_key = "tushare"
-    params = {"version": version, "source_key": source_key}
+    params = {"version": version, "source_key": source_key, "start_date": parsed_start_date}
     if normalized_ts_code:
         params["ts_code"] = normalized_ts_code
+    if parsed_end_date is not None:
+        params["end_date"] = parsed_end_date
 
     where_ts = " AND ts_code = :ts_code" if normalized_ts_code else ""
+    where_date = " AND trade_date >= :start_date"
+    if parsed_end_date is not None:
+        where_date += " AND trade_date <= :end_date"
     deleted_rows: dict[str, int] = {}
 
     with SessionLocal() as session:
-        deleted_rows["core.ind_macd"] = int(
+        deleted_rows["core_serving.ind_macd"] = int(
             session.execute(
                 text(
                     f"""
-                    DELETE FROM core.ind_macd
+                    DELETE FROM core_serving.ind_macd
                     WHERE version = :version
                     {where_ts}
+                    {where_date}
                     """
                 ),
                 params,
             ).rowcount
             or 0
         )
-        deleted_rows["core.ind_kdj"] = int(
+        deleted_rows["core_serving.ind_kdj"] = int(
             session.execute(
                 text(
                     f"""
-                    DELETE FROM core.ind_kdj
+                    DELETE FROM core_serving.ind_kdj
                     WHERE version = :version
                     {where_ts}
+                    {where_date}
                     """
                 ),
                 params,
             ).rowcount
             or 0
         )
-        deleted_rows["core.ind_rsi"] = int(
+        deleted_rows["core_serving.ind_rsi"] = int(
             session.execute(
                 text(
                     f"""
-                    DELETE FROM core.ind_rsi
+                    DELETE FROM core_serving.ind_rsi
                     WHERE version = :version
                     {where_ts}
-                    """
-                ),
-                params,
-            ).rowcount
-            or 0
-        )
-
-        deleted_rows["core_multi.indicator_macd_std"] = int(
-            session.execute(
-                text(
-                    f"""
-                    DELETE FROM core_multi.indicator_macd_std
-                    WHERE version = :version
-                      AND source_key = :source_key
-                    {where_ts}
-                    """
-                ),
-                params,
-            ).rowcount
-            or 0
-        )
-        deleted_rows["core_multi.indicator_kdj_std"] = int(
-            session.execute(
-                text(
-                    f"""
-                    DELETE FROM core_multi.indicator_kdj_std
-                    WHERE version = :version
-                      AND source_key = :source_key
-                    {where_ts}
-                    """
-                ),
-                params,
-            ).rowcount
-            or 0
-        )
-        deleted_rows["core_multi.indicator_rsi_std"] = int(
-            session.execute(
-                text(
-                    f"""
-                    DELETE FROM core_multi.indicator_rsi_std
-                    WHERE version = :version
-                      AND source_key = :source_key
-                    {where_ts}
+                    {where_date}
                     """
                 ),
                 params,
@@ -313,7 +285,14 @@ def rebuild_equity_indicators(
             return
 
         service = build_sync_service("equity_indicators", session)
-        run_kwargs = {"source_key": source_key}
+        run_kwargs = {
+            "source_key": source_key,
+            "start_date": parsed_start_date,
+            "progress_callback": typer.echo,
+            "progress_every": progress_every,
+        }
+        if parsed_end_date is not None:
+            run_kwargs["end_date"] = parsed_end_date
         if normalized_ts_code:
             run_kwargs["ts_code"] = normalized_ts_code
         result = service.run_full(**run_kwargs)

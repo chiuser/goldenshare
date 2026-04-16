@@ -747,6 +747,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
+            WorkflowStepSpec("stk_limit", "sync_daily.stk_limit", "每日涨跌停价格"),
             WorkflowStepSpec("limit_list", "sync_daily.limit_list_d", "涨跌停榜"),
             WorkflowStepSpec("suspend_d", "sync_daily.suspend_d", "每日停复牌信息"),
             WorkflowStepSpec("top_list", "sync_daily.top_list", "龙虎榜"),
