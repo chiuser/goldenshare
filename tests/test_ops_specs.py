@@ -12,12 +12,14 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.biying_moneyflow" in JOB_SPEC_REGISTRY
     assert "sync_history.etf_index" in JOB_SPEC_REGISTRY
     assert "sync_history.stk_limit" in JOB_SPEC_REGISTRY
+    assert "sync_history.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_moneyflow" in JOB_SPEC_REGISTRY
     assert "sync_daily.equity_indicators" in JOB_SPEC_REGISTRY
     assert "sync_daily.fund_adj" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_limit" in JOB_SPEC_REGISTRY
+    assert "sync_daily.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
@@ -39,6 +41,7 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_by_trade_date.dc_member" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.top_list" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.block_trade" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.ths_hot" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.dc_hot" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.kpl_concept_cons" in JOB_SPEC_REGISTRY
@@ -89,6 +92,19 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     stk_limit_daily_spec = get_job_spec("sync_daily.stk_limit")
     assert stk_limit_daily_spec is not None
     assert [param.key for param in stk_limit_daily_spec.supported_params] == ["trade_date", "ts_code"]
+
+    stk_nineturn_history_spec = get_job_spec("sync_history.stk_nineturn")
+    assert stk_nineturn_history_spec is not None
+    assert [param.key for param in stk_nineturn_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+
+    stk_nineturn_daily_spec = get_job_spec("sync_daily.stk_nineturn")
+    assert stk_nineturn_daily_spec is not None
+    assert [param.key for param in stk_nineturn_daily_spec.supported_params] == ["trade_date", "ts_code"]
 
     limit_list_ths_daily_spec = get_job_spec("sync_daily.limit_list_ths")
     assert limit_list_ths_daily_spec is not None

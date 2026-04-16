@@ -225,6 +225,7 @@ DAILY_SYNC_RESOURCES = (
     "moneyflow",
     "limit_list_d",
     "stk_limit",
+    "stk_nineturn",
     "top_list",
     "block_trade",
     "stk_period_bar_month",
@@ -355,6 +356,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource == "stk_limit":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+    if resource == "stk_nineturn":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource in TRADE_DATE_RANGE_RESOURCES:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource in CODE_ONLY_RESOURCES:
@@ -409,6 +412,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "limit_list_d":
         supported_params = (TRADE_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     elif resource == "stk_limit":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+    elif resource == "stk_nineturn":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     elif resource == "dc_member":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
@@ -494,7 +499,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
+for _resource in ("daily_basic", "moneyflow", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -774,6 +779,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),
     "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),
     "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily", "trade_date"),
+    "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily", "trade_date"),
     "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly", "trade_date"),
     "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly", "trade_date"),
     "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly", "trade_date"),

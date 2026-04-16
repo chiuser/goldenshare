@@ -7,6 +7,7 @@ from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
@@ -106,6 +107,7 @@ from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
+from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 from src.foundation.models.raw.raw_ths_daily import RawThsDaily
 from src.foundation.models.raw.raw_ths_hot import RawThsHot
 from src.foundation.models.raw.raw_ths_index import RawThsIndex
@@ -127,6 +129,7 @@ __all__ = [
     "EquityHolderNumber",
     "EquityLimitList",
     "EquityMoneyflow",
+    "EquityNineTurn",
     "EquityStkLimit",
     "EquityTopList",
     "EtfBasic",
@@ -191,6 +194,7 @@ __all__ = [
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",
     "RawStkLimit",
+    "RawStkNineTurn",
     "RawThsDaily",
     "RawThsHot",
     "RawThsIndex",

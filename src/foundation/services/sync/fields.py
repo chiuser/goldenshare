@@ -127,6 +127,21 @@ STK_LIMIT_FIELDS = [
     "up_limit",
     "down_limit",
 ]
+STK_NINETURN_FIELDS = [
+    "ts_code",
+    "trade_date",
+    "freq",
+    "open",
+    "high",
+    "low",
+    "close",
+    "vol",
+    "amount",
+    "up_count",
+    "down_count",
+    "nine_up_turn",
+    "nine_down_turn",
+]
 LIMIT_LIST_THS_FIELDS = [
     "trade_date",
     "ts_code",
