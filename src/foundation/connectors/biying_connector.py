@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from collections import deque
 import logging
+from threading import Lock
+import time
 from typing import Any
 from urllib.parse import urlencode
 
@@ -12,6 +15,39 @@ from urllib3.util.retry import Retry
 
 from src.foundation.connectors.base import SourceConnector
 from src.foundation.config.settings import get_settings
+
+
+class _RateLimiter:
+    def __init__(self, max_calls_per_minute: int) -> None:
+        self.max_calls = max_calls_per_minute
+        self.window_seconds = 60.0
+        self.calls: deque[float] = deque()
+        self.lock = Lock()
+
+    def acquire(self) -> None:
+        if self.max_calls <= 0:
+            return
+        while True:
+            with self.lock:
+                now = time.monotonic()
+                while self.calls and now - self.calls[0] >= self.window_seconds:
+                    self.calls.popleft()
+                if len(self.calls) < self.max_calls:
+                    self.calls.append(now)
+                    return
+                sleep_seconds = self.window_seconds - (now - self.calls[0]) + 0.05
+            time.sleep(max(sleep_seconds, 0.05))
+
+
+_rate_limiter: _RateLimiter | None = None
+
+
+def _get_rate_limiter() -> _RateLimiter:
+    global _rate_limiter
+    if _rate_limiter is None:
+        settings = get_settings()
+        _rate_limiter = _RateLimiter(settings.biying_max_calls_per_minute)
+    return _rate_limiter
 
 
 class BiyingSourceConnector(SourceConnector):
@@ -60,6 +96,7 @@ class BiyingSourceConnector(SourceConnector):
             raise ValueError(f"Biying source does not support api_name={api_name}")
         if not self.token:
             raise ValueError("BIYING_TOKEN is empty")
+        _get_rate_limiter().acquire()
 
         if api_name == "stock_basic":
             return self._call_stock_basic()

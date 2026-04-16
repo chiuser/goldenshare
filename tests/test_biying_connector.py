@@ -127,3 +127,19 @@ def test_biying_connector_moneyflow_no_data_returns_empty_list(mocker) -> None:
         "https://api.biyingapi.com/hsstock/history/transaction/000001.SZ/token_x?st=20260401&et=20260410",
         timeout=(5, 30),
     )
+
+
+def test_biying_connector_applies_rate_limit_before_request(mocker) -> None:
+    connector = BiyingSourceConnector(token="token_x", base_url="https://api.biyingapi.com")
+    limiter = mocker.Mock()
+    mocker.patch("src.foundation.connectors.biying_connector._get_rate_limiter", return_value=limiter)
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = [{"dm": "000001.SZ", "mc": "平安银行", "jys": "SZ"}]
+    get = mocker.patch.object(connector.session, "get", return_value=response)
+
+    rows = connector.call("stock_basic")
+
+    assert rows == response.json.return_value
+    limiter.acquire.assert_called_once()
+    get.assert_called_once_with("https://api.biyingapi.com/hslt/list/token_x", timeout=(5, 30))
