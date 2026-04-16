@@ -82,6 +82,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
         written_total = 0
         latest_end_date: date | None = None
         total_codes = len(ts_codes)
+        progress_step = max(1, total_codes // 100)
         self._update_progress(
             execution_id=execution_id,
             current=0,
@@ -104,12 +105,13 @@ class SyncEquityIndicatorsService(BaseSyncService):
             )
             fetched_total += fetched
             written_total += written
-            self._update_progress(
-                execution_id=execution_id,
-                current=index,
-                total=total_codes,
-                message=f"units={index}/{total_codes} unit=stock ts_code={code} fetched={fetched} written={written}",
-            )
+            if index == total_codes or index % progress_step == 0:
+                self._update_progress(
+                    execution_id=execution_id,
+                    current=index,
+                    total=total_codes,
+                    message=f"units={index}/{total_codes} unit=stock ts_code={code} fetched={fetched} written={written}",
+                )
 
         message = f"stocks={len(ts_codes)} bars={fetched_total}"
         return fetched_total, written_total, latest_end_date, message
@@ -137,6 +139,23 @@ class SyncEquityIndicatorsService(BaseSyncService):
         run_type: str = "FULL",
     ) -> tuple[int, int]:
         total_payload = _IndicatorBuildPayload()
+        cached_full_rows: list[_DailyPrice] | None = None
+        cached_full_factor_map: dict[date, Decimal] | None = None
+
+        def _get_cached_full_inputs() -> tuple[list[_DailyPrice], dict[date, Decimal]]:
+            nonlocal cached_full_rows, cached_full_factor_map
+            if cached_full_rows is None:
+                cached_full_rows = self._load_daily_rows(ts_code=ts_code, end_date=end_date)
+                if not cached_full_rows:
+                    cached_full_factor_map = {}
+                    return [], {}
+                cached_full_factor_map = self._load_factor_map(
+                    ts_code=ts_code,
+                    start_date=cached_full_rows[0].trade_date,
+                    end_date=end_date,
+                )
+            return cached_full_rows, cached_full_factor_map or {}
+
         for adjustment in ADJUSTMENTS:
             if run_type == "INCREMENTAL":
                 payload = self._build_adjustment_incremental(
@@ -147,20 +166,26 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     adjustment=adjustment,
                 )
                 if payload is None:
+                    full_rows, full_factor_map = _get_cached_full_inputs()
                     payload = self._build_adjustment_full(
                         ts_code=ts_code,
                         start_date=start_date,
                         end_date=end_date,
                         source_key=source_key,
                         adjustment=adjustment,
+                        raw_rows=full_rows,
+                        factor_map=full_factor_map,
                     )
             else:
+                full_rows, full_factor_map = _get_cached_full_inputs()
                 payload = self._build_adjustment_full(
                     ts_code=ts_code,
                     start_date=start_date,
                     end_date=end_date,
                     source_key=source_key,
                     adjustment=adjustment,
+                    raw_rows=full_rows,
+                    factor_map=full_factor_map,
                 )
             total_payload.fetched += payload.fetched
             total_payload.macd_rows.extend(payload.macd_rows)
@@ -189,22 +214,24 @@ class SyncEquityIndicatorsService(BaseSyncService):
         end_date: date,
         source_key: str,
         adjustment: str,
+        raw_rows: list[_DailyPrice] | None = None,
+        factor_map: dict[date, Decimal] | None = None,
     ) -> _IndicatorBuildPayload:
-        raw_rows = self._load_daily_rows(ts_code=ts_code, end_date=end_date)
-        if not raw_rows:
+        resolved_raw_rows = raw_rows if raw_rows is not None else self._load_daily_rows(ts_code=ts_code, end_date=end_date)
+        if not resolved_raw_rows:
             return _IndicatorBuildPayload()
 
-        factor_map = self._load_factor_map(
+        resolved_factor_map = factor_map if factor_map is not None else self._load_factor_map(
             ts_code=ts_code,
-            start_date=raw_rows[0].trade_date,
+            start_date=resolved_raw_rows[0].trade_date,
             end_date=end_date,
         )
         anchor = self._resolve_anchor(
             ts_code=ts_code,
             adjustment=adjustment,
-            factor_map=factor_map,
+            factor_map=resolved_factor_map,
         )
-        adjusted_rows = self._adjust_rows(raw_rows, factor_map=factor_map, anchor=anchor)
+        adjusted_rows = self._adjust_rows(resolved_raw_rows, factor_map=resolved_factor_map, anchor=anchor)
         closes = [self._to_float(row.close) for row in adjusted_rows]
         highs = [self._to_float(row.high) for row in adjusted_rows]
         lows = [self._to_float(row.low) for row in adjusted_rows]
@@ -295,7 +322,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             )
 
         last_trade_date = adjusted_rows[-1].trade_date
-        last_factor = factor_map.get(last_trade_date)
+        last_factor = resolved_factor_map.get(last_trade_date)
         bar_count_total = len(adjusted_rows)
         payload.state_rows.extend(
             [

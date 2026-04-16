@@ -23,6 +23,7 @@ from src.operations.services import (
     DatasetPipelineModeSeedService,
     DefaultSingleSourceSeedService,
     DatasetStatusSnapshotService,
+    IndicatorStateReconcileService,
     MoneyflowMultiSourceSeedService,
     MoneyflowReconcileService,
     OperationsExecutionReconciliationService,
@@ -409,6 +410,68 @@ def reconcile_moneyflow(
 
     if failed_checks:
         typer.echo("\nreconcile-moneyflow gate failed:")
+        for check in failed_checks:
+            typer.echo(f" - {check}")
+        raise typer.Exit(code=1)
+
+
+@app.command("reconcile-indicator-state")
+def reconcile_indicator_state(
+    source_key: str = typer.Option("tushare", "--source-key", help="状态所属来源键。"),
+    version: int = typer.Option(1, "--version", min=1, help="指标版本号。"),
+    sample_limit: int = typer.Option(20, min=0, max=200, help="每类异常最多输出多少条样例。"),
+    threshold_missing_state: int = typer.Option(-1, help="missing_state 阈值；-1 表示不校验。"),
+    threshold_stale_state: int = typer.Option(-1, help="stale_state 阈值；-1 表示不校验。"),
+    threshold_bar_count_mismatch: int = typer.Option(-1, help="bar_count_mismatch 阈值；-1 表示不校验。"),
+    threshold_adj_factor_mismatch: int = typer.Option(-1, help="adj_factor_mismatch 阈值；-1 表示不校验。"),
+) -> None:
+    with SessionLocal() as session:
+        report = IndicatorStateReconcileService().run(
+            session,
+            source_key=source_key,
+            version=version,
+            sample_limit=sample_limit,
+        )
+
+    typer.echo("reconcile-indicator-state summary")
+    typer.echo(f"source_key={source_key} version={version}")
+    typer.echo(f"total_codes={report.total_codes}")
+    typer.echo(f"expected_states={report.expected_states}")
+    typer.echo(f"existing_states={report.existing_states}")
+    typer.echo(f"missing_state={report.missing_state}")
+    typer.echo(f"stale_state={report.stale_state}")
+    typer.echo(f"bar_count_mismatch={report.bar_count_mismatch}")
+    typer.echo(f"adj_factor_mismatch={report.adj_factor_mismatch}")
+
+    if sample_limit > 0:
+        for issue_type in ("missing_state", "stale_state", "bar_count_mismatch", "adj_factor_mismatch"):
+            items = report.samples[issue_type]
+            if not items:
+                continue
+            typer.echo(f"\n[{issue_type}] samples={len(items)}")
+            for item in items:
+                typer.echo(
+                    " - "
+                    f"{item.ts_code} {item.adjustment} {item.indicator_name} "
+                    f"detail={item.detail}"
+                )
+
+    failed_checks: list[str] = []
+    if threshold_missing_state >= 0 and report.missing_state > threshold_missing_state:
+        failed_checks.append(f"missing_state={report.missing_state} > threshold={threshold_missing_state}")
+    if threshold_stale_state >= 0 and report.stale_state > threshold_stale_state:
+        failed_checks.append(f"stale_state={report.stale_state} > threshold={threshold_stale_state}")
+    if threshold_bar_count_mismatch >= 0 and report.bar_count_mismatch > threshold_bar_count_mismatch:
+        failed_checks.append(
+            f"bar_count_mismatch={report.bar_count_mismatch} > threshold={threshold_bar_count_mismatch}"
+        )
+    if threshold_adj_factor_mismatch >= 0 and report.adj_factor_mismatch > threshold_adj_factor_mismatch:
+        failed_checks.append(
+            f"adj_factor_mismatch={report.adj_factor_mismatch} > threshold={threshold_adj_factor_mismatch}"
+        )
+
+    if failed_checks:
+        typer.echo("\nreconcile-indicator-state gate failed:")
         for check in failed_checks:
             typer.echo(f" - {check}")
         raise typer.Exit(code=1)

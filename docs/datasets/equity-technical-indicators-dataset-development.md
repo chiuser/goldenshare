@@ -85,3 +85,28 @@
   - 任一指标递推关键状态缺失。
 
 > 注：当前代码已落地统一计算框架与版本管理；后续可在此基础上进一步强化“状态递推”性能优化。
+
+## 7. P2 巡检能力（已落地）
+
+新增 CLI：
+
+1. `goldenshare reconcile-indicator-state`
+  - 默认巡检 `source_key=tushare`、`version=1`
+  - 输出总览：
+    - `missing_state`
+    - `stale_state`
+    - `bar_count_mismatch`
+    - `adj_factor_mismatch`
+  - 支持阈值门禁，任一超阈值返回非 0（可接发版/定时巡检）。
+
+2. 常用示例
+  - 仅查看：
+    - `goldenshare reconcile-indicator-state --sample-limit 20`
+  - 作为门禁：
+    - `goldenshare reconcile-indicator-state --threshold-missing-state 0 --threshold-stale-state 0 --threshold-bar-count-mismatch 0 --threshold-adj-factor-mismatch 0`
+
+## 8. P3 性能优化（已落地）
+
+1. 同一股票全量重算时，共享加载 `daily` 与 `adj_factor` 输入，避免前/后复权重复查询。  
+2. 进度上报改为按总量步长提交（约最多 100 次），减少高频 `commit` 带来的吞吐抖动。  
+3. 对外语义不变：结果口径、状态回退规则、任务进度字段保持兼容。

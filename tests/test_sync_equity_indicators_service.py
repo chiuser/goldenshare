@@ -89,6 +89,8 @@ def test_build_for_ts_code_generates_rows_for_forward_and_backward(mocker) -> No
     assert first_state_row["state_json"]["bar_count"] == 2
     first_macd_std_row = macd_std_upsert.call_args.args[0][0]
     assert first_macd_std_row["source_key"] == "tushare"
+    assert service._load_daily_rows.call_count == 1
+    assert service._load_factor_map.call_count == 1
 
 
 def test_load_factor_map_uses_adj_factor_by_default(mocker) -> None:
