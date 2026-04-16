@@ -29,6 +29,8 @@ def test_indicator_kdj_std_primary_key_and_indexes() -> None:
         "idx_indicator_kdj_std_trade_date",
         "idx_indicator_kdj_std_source_trade_date",
     }
+    assert "rsv" in IndicatorKdjStd.__table__.columns
+    assert "is_valid" in IndicatorKdjStd.__table__.columns
 
 
 def test_indicator_rsi_std_primary_key_and_indexes() -> None:
@@ -43,3 +45,4 @@ def test_indicator_rsi_std_primary_key_and_indexes() -> None:
         "idx_indicator_rsi_std_trade_date",
         "idx_indicator_rsi_std_source_trade_date",
     }
+    assert "is_valid" in IndicatorRsiStd.__table__.columns

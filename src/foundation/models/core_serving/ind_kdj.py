@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -21,6 +21,8 @@ class IndicatorKdj(TimestampMixin, Base):
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
     adjustment: Mapped[str] = mapped_column(String(16), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rsv: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     k: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     d: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     j: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")

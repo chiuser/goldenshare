@@ -97,6 +97,10 @@ def test_index_supplement_models_match_expected_keys() -> None:
         "adjustment",
         "version",
     ]
+    assert "is_valid" in IndicatorMacd.__table__.columns
+    assert "rsv" in IndicatorKdj.__table__.columns
+    assert "is_valid" in IndicatorKdj.__table__.columns
+    assert "is_valid" in IndicatorRsi.__table__.columns
 
 
 def test_overseas_basic_models_match_expected_keys() -> None:

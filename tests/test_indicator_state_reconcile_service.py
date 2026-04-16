@@ -22,6 +22,41 @@ def test_indicator_state_reconcile_service_detects_missing_and_mismatch(mocker) 
                 SimpleNamespace(ts_code="000002.SZ", adj_factor=Decimal("2.00000000")),
             ]
         ),
+        SimpleNamespace(
+            mappings=lambda: SimpleNamespace(
+                all=lambda: [
+                    {"ts_code": "000001.SZ", "adjustment": "forward", "is_valid": True},
+                    {"ts_code": "000001.SZ", "adjustment": "backward", "is_valid": False},
+                ]
+            )
+        ),
+        SimpleNamespace(
+            mappings=lambda: SimpleNamespace(
+                all=lambda: [
+                    {
+                        "ts_code": "000001.SZ",
+                        "adjustment": "forward",
+                        "k": Decimal("120"),
+                        "d": Decimal("30"),
+                        "is_valid": True,
+                    },
+                ]
+            )
+        ),
+        SimpleNamespace(
+            mappings=lambda: SimpleNamespace(
+                all=lambda: [
+                    {
+                        "ts_code": "000001.SZ",
+                        "adjustment": "forward",
+                        "rsi_6": Decimal("50"),
+                        "rsi_12": Decimal("101"),
+                        "rsi_24": Decimal("40"),
+                        "is_valid": True,
+                    },
+                ]
+            )
+        ),
     ]
     session.scalars.return_value = [
         SimpleNamespace(
@@ -75,11 +110,17 @@ def test_indicator_state_reconcile_service_detects_missing_and_mismatch(mocker) 
     assert report.stale_state == 1
     assert report.bar_count_mismatch == 1
     assert report.adj_factor_mismatch == 1
+    assert report.is_valid_mismatch == 2
+    assert report.kdj_range_anomaly == 1
+    assert report.rsi_range_anomaly == 1
     assert report.has_issue is True
     assert report.samples["missing_state"][0].issue_type == "missing_state"
     assert report.samples["stale_state"][0].issue_type == "stale_state"
     assert report.samples["bar_count_mismatch"][0].issue_type == "bar_count_mismatch"
     assert report.samples["adj_factor_mismatch"][0].issue_type == "adj_factor_mismatch"
+    assert report.samples["is_valid_mismatch"][0].issue_type == "is_valid_mismatch"
+    assert report.samples["kdj_range_anomaly"][0].issue_type == "kdj_range_anomaly"
+    assert report.samples["rsi_range_anomaly"][0].issue_type == "rsi_range_anomaly"
 
 
 def test_indicator_state_reconcile_service_empty_dataset(mocker) -> None:

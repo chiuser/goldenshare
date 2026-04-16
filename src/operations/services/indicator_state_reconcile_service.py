@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.indicator_state import IndicatorState
@@ -12,7 +12,15 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 
 
-IssueType = Literal["missing_state", "stale_state", "bar_count_mismatch", "adj_factor_mismatch"]
+IssueType = Literal[
+    "missing_state",
+    "stale_state",
+    "bar_count_mismatch",
+    "adj_factor_mismatch",
+    "is_valid_mismatch",
+    "kdj_range_anomaly",
+    "rsi_range_anomaly",
+]
 
 
 @dataclass(frozen=True)
@@ -33,6 +41,9 @@ class IndicatorStateReconcileReport:
     stale_state: int
     bar_count_mismatch: int
     adj_factor_mismatch: int
+    is_valid_mismatch: int
+    kdj_range_anomaly: int
+    rsi_range_anomaly: int
     samples: dict[IssueType, list[IndicatorStateIssueSample]]
 
     @property
@@ -44,6 +55,9 @@ class IndicatorStateReconcileReport:
                 self.stale_state,
                 self.bar_count_mismatch,
                 self.adj_factor_mismatch,
+                self.is_valid_mismatch,
+                self.kdj_range_anomaly,
+                self.rsi_range_anomaly,
             )
         )
 
@@ -52,6 +66,7 @@ class IndicatorStateReconcileService:
     ADJUSTMENTS = ("forward", "backward")
     INDICATORS = ("macd", "kdj", "rsi")
     ADJ_FACTOR_EPSILON = 1e-8
+    WARMUP_DAYS = {"macd": 250, "kdj": 60, "rsi": 200}
 
     @staticmethod
     def _as_float(value: Any) -> float | None:
@@ -109,11 +124,17 @@ class IndicatorStateReconcileService:
                 stale_state=0,
                 bar_count_mismatch=0,
                 adj_factor_mismatch=0,
+                is_valid_mismatch=0,
+                kdj_range_anomaly=0,
+                rsi_range_anomaly=0,
                 samples={
                     "missing_state": [],
                     "stale_state": [],
                     "bar_count_mismatch": [],
                     "adj_factor_mismatch": [],
+                    "is_valid_mismatch": [],
+                    "kdj_range_anomaly": [],
+                    "rsi_range_anomaly": [],
                 },
             )
 
@@ -156,17 +177,83 @@ class IndicatorStateReconcileService:
         ).all()
         latest_adj_factor_by_code = {row.ts_code: self._as_float(row.adj_factor) for row in factor_rows}
 
+        macd_rows = session.execute(
+            text(
+                """
+                SELECT m.ts_code, m.adjustment, m.is_valid
+                FROM core.ind_macd m
+                JOIN (
+                  SELECT ts_code, MAX(trade_date) AS latest_trade_date
+                  FROM core.equity_daily_bar
+                  GROUP BY ts_code
+                ) l
+                  ON m.ts_code = l.ts_code
+                 AND m.trade_date = l.latest_trade_date
+                WHERE m.version = :version
+                  AND m.adjustment IN ('forward', 'backward')
+                """
+            ),
+            {"version": version},
+        ).mappings().all()
+        macd_latest = {(str(row["ts_code"]), str(row["adjustment"])): row for row in macd_rows}
+
+        kdj_rows = session.execute(
+            text(
+                """
+                SELECT k.ts_code, k.adjustment, k.k, k.d, k.is_valid
+                FROM core.ind_kdj k
+                JOIN (
+                  SELECT ts_code, MAX(trade_date) AS latest_trade_date
+                  FROM core.equity_daily_bar
+                  GROUP BY ts_code
+                ) l
+                  ON k.ts_code = l.ts_code
+                 AND k.trade_date = l.latest_trade_date
+                WHERE k.version = :version
+                  AND k.adjustment IN ('forward', 'backward')
+                """
+            ),
+            {"version": version},
+        ).mappings().all()
+        kdj_latest = {(str(row["ts_code"]), str(row["adjustment"])): row for row in kdj_rows}
+
+        rsi_rows = session.execute(
+            text(
+                """
+                SELECT r.ts_code, r.adjustment, r.rsi_6, r.rsi_12, r.rsi_24, r.is_valid
+                FROM core.ind_rsi r
+                JOIN (
+                  SELECT ts_code, MAX(trade_date) AS latest_trade_date
+                  FROM core.equity_daily_bar
+                  GROUP BY ts_code
+                ) l
+                  ON r.ts_code = l.ts_code
+                 AND r.trade_date = l.latest_trade_date
+                WHERE r.version = :version
+                  AND r.adjustment IN ('forward', 'backward')
+                """
+            ),
+            {"version": version},
+        ).mappings().all()
+        rsi_latest = {(str(row["ts_code"]), str(row["adjustment"])): row for row in rsi_rows}
+
         samples: dict[IssueType, list[IndicatorStateIssueSample]] = {
             "missing_state": [],
             "stale_state": [],
             "bar_count_mismatch": [],
             "adj_factor_mismatch": [],
+            "is_valid_mismatch": [],
+            "kdj_range_anomaly": [],
+            "rsi_range_anomaly": [],
         }
 
         missing_state = 0
         stale_state = 0
         bar_count_mismatch = 0
         adj_factor_mismatch = 0
+        is_valid_mismatch = 0
+        kdj_range_anomaly = 0
+        rsi_range_anomaly = 0
 
         for ts_code in ts_codes:
             latest_trade_date = latest_by_code[ts_code]
@@ -203,6 +290,89 @@ class IndicatorStateReconcileService:
                             )
                         continue
 
+                    if indicator_name == "macd":
+                        macd_row = macd_latest.get((ts_code, adjustment))
+                        expected_valid = latest_bar_count >= self.WARMUP_DAYS["macd"]
+                        if macd_row is not None and bool(macd_row["is_valid"]) != expected_valid:
+                            is_valid_mismatch += 1
+                            if len(samples["is_valid_mismatch"]) < sample_limit:
+                                samples["is_valid_mismatch"].append(
+                                    IndicatorStateIssueSample(
+                                        ts_code=ts_code,
+                                        adjustment=adjustment,
+                                        indicator_name=indicator_name,
+                                        issue_type="is_valid_mismatch",
+                                        detail=f"is_valid={bool(macd_row['is_valid'])} expected={expected_valid}",
+                                    )
+                                )
+
+                    if indicator_name == "kdj":
+                        kdj_row = kdj_latest.get((ts_code, adjustment))
+                        expected_valid = latest_bar_count >= self.WARMUP_DAYS["kdj"]
+                        if kdj_row is not None and bool(kdj_row["is_valid"]) != expected_valid:
+                            is_valid_mismatch += 1
+                            if len(samples["is_valid_mismatch"]) < sample_limit:
+                                samples["is_valid_mismatch"].append(
+                                    IndicatorStateIssueSample(
+                                        ts_code=ts_code,
+                                        adjustment=adjustment,
+                                        indicator_name=indicator_name,
+                                        issue_type="is_valid_mismatch",
+                                        detail=f"is_valid={bool(kdj_row['is_valid'])} expected={expected_valid}",
+                                    )
+                                )
+                        k_value = self._as_float(kdj_row["k"]) if kdj_row is not None else None
+                        d_value = self._as_float(kdj_row["d"]) if kdj_row is not None else None
+                        if (k_value is not None and not (0.0 <= k_value <= 100.0)) or (
+                            d_value is not None and not (0.0 <= d_value <= 100.0)
+                        ):
+                            kdj_range_anomaly += 1
+                            if len(samples["kdj_range_anomaly"]) < sample_limit:
+                                samples["kdj_range_anomaly"].append(
+                                    IndicatorStateIssueSample(
+                                        ts_code=ts_code,
+                                        adjustment=adjustment,
+                                        indicator_name=indicator_name,
+                                        issue_type="kdj_range_anomaly",
+                                        detail=f"k={k_value} d={d_value}",
+                                    )
+                                )
+
+                    if indicator_name == "rsi":
+                        rsi_row = rsi_latest.get((ts_code, adjustment))
+                        expected_valid = latest_bar_count >= self.WARMUP_DAYS["rsi"]
+                        if rsi_row is not None and bool(rsi_row["is_valid"]) != expected_valid:
+                            is_valid_mismatch += 1
+                            if len(samples["is_valid_mismatch"]) < sample_limit:
+                                samples["is_valid_mismatch"].append(
+                                    IndicatorStateIssueSample(
+                                        ts_code=ts_code,
+                                        adjustment=adjustment,
+                                        indicator_name=indicator_name,
+                                        issue_type="is_valid_mismatch",
+                                        detail=f"is_valid={bool(rsi_row['is_valid'])} expected={expected_valid}",
+                                    )
+                                )
+                        rsi_6 = self._as_float(rsi_row["rsi_6"]) if rsi_row is not None else None
+                        rsi_12 = self._as_float(rsi_row["rsi_12"]) if rsi_row is not None else None
+                        rsi_24 = self._as_float(rsi_row["rsi_24"]) if rsi_row is not None else None
+                        rsi_out_of_range = any(
+                            value is not None and not (0.0 <= value <= 100.0)
+                            for value in (rsi_6, rsi_12, rsi_24)
+                        )
+                        if rsi_out_of_range:
+                            rsi_range_anomaly += 1
+                            if len(samples["rsi_range_anomaly"]) < sample_limit:
+                                samples["rsi_range_anomaly"].append(
+                                    IndicatorStateIssueSample(
+                                        ts_code=ts_code,
+                                        adjustment=adjustment,
+                                        indicator_name=indicator_name,
+                                        issue_type="rsi_range_anomaly",
+                                        detail=f"rsi_6={rsi_6} rsi_12={rsi_12} rsi_24={rsi_24}",
+                                    )
+                                )
+
                     state_bar_count = self._as_int(state.state_json.get("bar_count"))
                     if state_bar_count is None or state_bar_count != latest_bar_count:
                         bar_count_mismatch += 1
@@ -217,7 +387,7 @@ class IndicatorStateReconcileService:
                                 )
                             )
 
-                    if indicator_name != "macd":
+                    if "last_adj_factor" not in state.state_json:
                         continue
 
                     state_factor = self._as_float(state.state_json.get("last_adj_factor"))
@@ -251,5 +421,8 @@ class IndicatorStateReconcileService:
             stale_state=stale_state,
             bar_count_mismatch=bar_count_mismatch,
             adj_factor_mismatch=adj_factor_mismatch,
+            is_valid_mismatch=is_valid_mismatch,
+            kdj_range_anomaly=kdj_range_anomaly,
+            rsi_range_anomaly=rsi_range_anomaly,
             samples=samples,
         )

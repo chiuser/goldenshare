@@ -30,11 +30,13 @@
 
 2. `core.ind_kdj`
   - 主键：`(ts_code, trade_date, adjustment, version)`
-  - 字段：`k`, `d`, `j`
+  - 字段：`rsv`, `k`, `d`, `j`, `is_valid`
+  - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 60` 时为 `TRUE`。
 
 3. `core.ind_rsi`
   - 主键：`(ts_code, trade_date, adjustment, version)`
-  - 字段：`rsi_6`, `rsi_12`, `rsi_24`
+  - 字段：`rsi_6`, `rsi_12`, `rsi_24`, `is_valid`
+  - 说明：`is_valid` 采用预热窗口规则，`bar_count >= 200` 时为 `TRUE`。
 
 ## 3.2 元数据与状态
 
@@ -67,8 +69,12 @@
 1. `INCREMENTAL` 模式下，优先读取 `indicator_state` 做递推计算。  
 2. 若发现状态缺失/`bar_count` 不一致/复权因子快照漂移，则自动回退该股全量重算。  
 3. `FULL` 模式下按全历史重算，重建三类指标与状态。  
-4. `indicator_state` 中 MACD 状态包含：`ema_fast`、`ema_slow`、`dea`、`bar_count`、`last_adj_factor`。  
-5. 指标结果通过 `version` 做逻辑迭代管理。
+4. `indicator_state` 中 MACD/KDJ/RSI 状态均包含 `bar_count` 与 `last_adj_factor` 快照。  
+5. KDJ 状态包含：`k`、`d`；RSI 状态包含：`period_6/12/24`。  
+6. 当前统一预热参数：MACD=250、KDJ=60、RSI=200。  
+7. RSI 零损失分支采用 epsilon 判定（`1e-12`），减少浮点边界抖动。  
+8. 增量模式要求三类状态（MACD/KDJ/RSI）在 `last_trade_date` 与 `bar_count` 上一致，不一致时自动回退全量重算。  
+9. 指标结果通过 `version` 做逻辑迭代管理。
 
 ## 6. 重算触发规则（已确认）
 
@@ -97,16 +103,36 @@
     - `stale_state`
     - `bar_count_mismatch`
     - `adj_factor_mismatch`
+    - `is_valid_mismatch`
+    - `kdj_range_anomaly`
+    - `rsi_range_anomaly`
   - 支持阈值门禁，任一超阈值返回非 0（可接发版/定时巡检）。
 
 2. 常用示例
   - 仅查看：
     - `goldenshare reconcile-indicator-state --sample-limit 20`
   - 作为门禁：
-    - `goldenshare reconcile-indicator-state --threshold-missing-state 0 --threshold-stale-state 0 --threshold-bar-count-mismatch 0 --threshold-adj-factor-mismatch 0`
+    - `goldenshare reconcile-indicator-state --threshold-missing-state 0 --threshold-stale-state 0 --threshold-bar-count-mismatch 0 --threshold-adj-factor-mismatch 0 --threshold-is-valid-mismatch 0 --threshold-kdj-range-anomaly 0 --threshold-rsi-range-anomaly 0`
 
 ## 8. P3 性能优化（已落地）
 
 1. 同一股票全量重算时，共享加载 `daily` 与 `adj_factor` 输入，避免前/后复权重复查询。  
 2. 进度上报改为按总量步长提交（约最多 100 次），减少高频 `commit` 带来的吞吐抖动。  
 3. 对外语义不变：结果口径、状态回退规则、任务进度字段保持兼容。
+
+## 9. 一键重建命令（已落地）
+
+新增 CLI：`goldenshare rebuild-equity-indicators`
+
+1. 默认行为
+  - 先清理 `version=1` 的历史指标结果（`core` + `core_multi` + `core.indicator_state`）。
+  - 再执行一次完整重算（MACD/KDJ/RSI 一次完成）。
+  - 最后刷新同步状态与数据状态快照。
+
+2. 常用示例
+  - 全市场重建（默认）：
+    - `goldenshare rebuild-equity-indicators`
+  - 单股重建：
+    - `goldenshare rebuild-equity-indicators --ts-code 000001.SZ`
+  - 仅清理不重算（排障用）：
+    - `goldenshare rebuild-equity-indicators --skip-sync`

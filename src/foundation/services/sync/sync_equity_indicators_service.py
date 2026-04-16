@@ -19,9 +19,12 @@ INDICATOR_VERSION = 1
 Q8 = Decimal("0.00000001")
 ONE = Decimal("1")
 ADJUSTMENTS = ("forward", "backward")
-WARMUP_DAYS = 250
+WARMUP_DAYS_MACD = 250
+WARMUP_DAYS_KDJ = 60
+WARMUP_DAYS_RSI = 200
 KDJ_WINDOW = 9
 ADJ_FACTOR_EPSILON = 1e-8
+RSI_ZERO_EPSILON = 1e-12
 
 
 @dataclass(slots=True)
@@ -237,7 +240,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
         lows = [self._to_float(row.low) for row in adjusted_rows]
 
         dif, dea, macd_bar, macd_state = self._macd(closes)
-        k, d, j, kdj_state = self._kdj(highs, lows, closes)
+        rsv, k, d, j, kdj_state = self._kdj(highs, lows, closes)
         rsi6, state6 = self._rsi(closes, 6)
         rsi12, state12 = self._rsi(closes, 12)
         rsi24, state24 = self._rsi(closes, 24)
@@ -247,7 +250,9 @@ class SyncEquityIndicatorsService(BaseSyncService):
             if row.trade_date < start_date or row.trade_date > end_date:
                 continue
             bar_count = idx + 1
-            is_valid = bar_count >= WARMUP_DAYS
+            is_macd_valid = bar_count >= WARMUP_DAYS_MACD
+            is_kdj_valid = bar_count >= WARMUP_DAYS_KDJ
+            is_rsi_valid = bar_count >= WARMUP_DAYS_RSI
             payload.fetched += 1
             payload.macd_rows.append(
                 {
@@ -258,7 +263,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "dif": self._to_decimal(dif[idx]),
                     "dea": self._to_decimal(dea[idx]),
                     "macd_bar": self._to_decimal(macd_bar[idx]),
-                    "is_valid": is_valid,
+                    "is_valid": is_macd_valid,
                 }
             )
             payload.std_macd_rows.append(
@@ -271,7 +276,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "dif": self._to_decimal(dif[idx]),
                     "dea": self._to_decimal(dea[idx]),
                     "macd_bar": self._to_decimal(macd_bar[idx]),
-                    "is_valid": is_valid,
+                    "is_valid": is_macd_valid,
                 }
             )
             payload.kdj_rows.append(
@@ -280,9 +285,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
                     "version": INDICATOR_VERSION,
+                    "rsv": self._to_decimal(rsv[idx]),
                     "k": self._to_decimal(k[idx]),
                     "d": self._to_decimal(d[idx]),
                     "j": self._to_decimal(j[idx]),
+                    "is_valid": is_kdj_valid,
                 }
             )
             payload.std_kdj_rows.append(
@@ -292,9 +299,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
                     "version": INDICATOR_VERSION,
+                    "rsv": self._to_decimal(rsv[idx]),
                     "k": self._to_decimal(k[idx]),
                     "d": self._to_decimal(d[idx]),
                     "j": self._to_decimal(j[idx]),
+                    "is_valid": is_kdj_valid,
                 }
             )
             payload.rsi_rows.append(
@@ -306,6 +315,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "rsi_6": self._to_decimal(rsi6[idx]),
                     "rsi_12": self._to_decimal(rsi12[idx]),
                     "rsi_24": self._to_decimal(rsi24[idx]),
+                    "is_valid": is_rsi_valid,
                 }
             )
             payload.std_rsi_rows.append(
@@ -318,6 +328,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "rsi_6": self._to_decimal(rsi6[idx]),
                     "rsi_12": self._to_decimal(rsi12[idx]),
                     "rsi_24": self._to_decimal(rsi24[idx]),
+                    "is_valid": is_rsi_valid,
                 }
             )
 
@@ -352,6 +363,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "k": kdj_state["k"],
                         "d": kdj_state["d"],
                         "bar_count": bar_count_total,
+                        "last_adj_factor": self._to_float(last_factor),
                     },
                 },
                 {
@@ -366,6 +378,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "period_12": state12,
                         "period_24": state24,
                         "bar_count": bar_count_total,
+                        "last_adj_factor": self._to_float(last_factor),
                     },
                 },
             ]
@@ -403,24 +416,32 @@ class SyncEquityIndicatorsService(BaseSyncService):
             return None
 
         last_trade_date = macd_state.last_trade_date
+        if kdj_state.last_trade_date != last_trade_date or rsi_state.last_trade_date != last_trade_date:
+            return None
         if last_trade_date > end_date:
             return None
 
-        bar_count = self._state_int(macd_state.state_json.get("bar_count"))
-        if bar_count is None or bar_count <= 0:
+        macd_bar_count = self._state_int(macd_state.state_json.get("bar_count"))
+        kdj_bar_count = self._state_int(kdj_state.state_json.get("bar_count"))
+        rsi_bar_count = self._state_int(rsi_state.state_json.get("bar_count"))
+        if macd_bar_count is None or kdj_bar_count is None or rsi_bar_count is None:
             return None
+        if macd_bar_count <= 0 or kdj_bar_count <= 0 or rsi_bar_count <= 0:
+            return None
+        if len({macd_bar_count, kdj_bar_count, rsi_bar_count}) != 1:
+            return None
+        bar_count = macd_bar_count
 
         observed_count = self._count_daily_rows_until(ts_code=ts_code, end_date=last_trade_date)
         if observed_count != bar_count:
             return None
 
-        snapshot_factor = self._state_float(macd_state.state_json.get("last_adj_factor"))
         current_factor = self._to_float(self._load_factor_on_date(ts_code=ts_code, trade_date=last_trade_date))
-        if snapshot_factor is None and current_factor is not None:
+        if self._has_adj_factor_mismatch(macd_state.state_json, current_factor):
             return None
-        if snapshot_factor is not None and current_factor is None:
+        if self._has_adj_factor_mismatch(kdj_state.state_json, current_factor):
             return None
-        if snapshot_factor is not None and current_factor is not None and abs(snapshot_factor - current_factor) > ADJ_FACTOR_EPSILON:
+        if self._has_adj_factor_mismatch(rsi_state.state_json, current_factor):
             return None
 
         ema_fast = self._state_float(macd_state.state_json.get("ema_fast"))
@@ -472,7 +493,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             ema_slow=ema_slow,
             dea=dea_prev,
         )
-        k_values, d_values, j_values, k_last, d_last = self._kdj_incremental(
+        rsv_values, k_values, d_values, j_values, k_last, d_last = self._kdj_incremental(
             highs_all,
             lows_all,
             closes_all,
@@ -487,7 +508,9 @@ class SyncEquityIndicatorsService(BaseSyncService):
         payload = _IndicatorBuildPayload()
         for idx, row in enumerate(adjusted_new_rows):
             current_bar_count = bar_count + idx + 1
-            is_valid = current_bar_count >= WARMUP_DAYS
+            is_macd_valid = current_bar_count >= WARMUP_DAYS_MACD
+            is_kdj_valid = current_bar_count >= WARMUP_DAYS_KDJ
+            is_rsi_valid = current_bar_count >= WARMUP_DAYS_RSI
             payload.fetched += 1
             payload.macd_rows.append(
                 {
@@ -498,7 +521,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "dif": self._to_decimal(dif_values[idx]),
                     "dea": self._to_decimal(dea_values[idx]),
                     "macd_bar": self._to_decimal(macd_values[idx]),
-                    "is_valid": is_valid,
+                    "is_valid": is_macd_valid,
                 }
             )
             payload.std_macd_rows.append(
@@ -511,7 +534,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "dif": self._to_decimal(dif_values[idx]),
                     "dea": self._to_decimal(dea_values[idx]),
                     "macd_bar": self._to_decimal(macd_values[idx]),
-                    "is_valid": is_valid,
+                    "is_valid": is_macd_valid,
                 }
             )
             payload.kdj_rows.append(
@@ -520,9 +543,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
                     "version": INDICATOR_VERSION,
+                    "rsv": self._to_decimal(rsv_values[idx]),
                     "k": self._to_decimal(k_values[idx]),
                     "d": self._to_decimal(d_values[idx]),
                     "j": self._to_decimal(j_values[idx]),
+                    "is_valid": is_kdj_valid,
                 }
             )
             payload.std_kdj_rows.append(
@@ -532,9 +557,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "trade_date": row.trade_date,
                     "adjustment": adjustment,
                     "version": INDICATOR_VERSION,
+                    "rsv": self._to_decimal(rsv_values[idx]),
                     "k": self._to_decimal(k_values[idx]),
                     "d": self._to_decimal(d_values[idx]),
                     "j": self._to_decimal(j_values[idx]),
+                    "is_valid": is_kdj_valid,
                 }
             )
             payload.rsi_rows.append(
@@ -546,6 +573,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "rsi_6": self._to_decimal(rsi6[idx]),
                     "rsi_12": self._to_decimal(rsi12[idx]),
                     "rsi_24": self._to_decimal(rsi24[idx]),
+                    "is_valid": is_rsi_valid,
                 }
             )
             payload.std_rsi_rows.append(
@@ -558,6 +586,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                     "rsi_6": self._to_decimal(rsi6[idx]),
                     "rsi_12": self._to_decimal(rsi12[idx]),
                     "rsi_24": self._to_decimal(rsi24[idx]),
+                    "is_valid": is_rsi_valid,
                 }
             )
 
@@ -592,6 +621,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "k": k_last,
                         "d": d_last,
                         "bar_count": latest_bar_count,
+                        "last_adj_factor": self._to_float(latest_factor),
                     },
                 },
                 {
@@ -606,6 +636,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "period_12": state12,
                         "period_24": state24,
                         "bar_count": latest_bar_count,
+                        "last_adj_factor": self._to_float(latest_factor),
                     },
                 },
             ]
@@ -623,19 +654,29 @@ class SyncEquityIndicatorsService(BaseSyncService):
                         "slow": 26,
                         "signal": 9,
                         "bar_multiplier": 2,
-                        "warmup_days": WARMUP_DAYS,
+                        "warmup_days": WARMUP_DAYS_MACD,
                         "seed_rule": "first_close",
                     },
                 },
                 {
                     "indicator_name": "kdj",
                     "version": INDICATOR_VERSION,
-                    "params_json": {"period": 9, "k_smooth": 3, "d_smooth": 3},
+                    "params_json": {
+                        "period": 9,
+                        "k_smooth": 3,
+                        "d_smooth": 3,
+                        "warmup_days": WARMUP_DAYS_KDJ,
+                        "seed_rule": "k0_d0_50",
+                    },
                 },
                 {
                     "indicator_name": "rsi",
                     "version": INDICATOR_VERSION,
-                    "params_json": {"periods": [6, 12, 24], "method": "wilder"},
+                    "params_json": {
+                        "periods": [6, 12, 24],
+                        "method": "wilder",
+                        "warmup_days": WARMUP_DAYS_RSI,
+                    },
                 },
             ]
         )
@@ -861,6 +902,20 @@ class SyncEquityIndicatorsService(BaseSyncService):
             return None
         return _RsiIncrementalState(avg_gain=avg_gain, avg_loss=avg_loss, prev_close=prev_close)
 
+    def _has_adj_factor_mismatch(self, state_json: dict[str, Any], current_factor: float | None) -> bool:
+        if "last_adj_factor" not in state_json:
+            return False
+        snapshot_factor = self._state_float(state_json.get("last_adj_factor"))
+        if snapshot_factor is None and current_factor is not None:
+            return True
+        if snapshot_factor is not None and current_factor is None:
+            return True
+        return (
+            snapshot_factor is not None
+            and current_factor is not None
+            and abs(snapshot_factor - current_factor) > ADJ_FACTOR_EPSILON
+        )
+
     @staticmethod
     def _ema(values: list[float | None], period: int) -> tuple[list[float | None], float | None]:
         result: list[float | None] = []
@@ -938,7 +993,8 @@ class SyncEquityIndicatorsService(BaseSyncService):
         highs: list[float | None],
         lows: list[float | None],
         closes: list[float | None],
-    ) -> tuple[list[float | None], list[float | None], list[float | None], dict[str, float]]:
+    ) -> tuple[list[float | None], list[float | None], list[float | None], list[float | None], dict[str, float]]:
+        rsv_values: list[float | None] = []
         k_values: list[float | None] = []
         d_values: list[float | None] = []
         j_values: list[float | None] = []
@@ -949,6 +1005,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             window_highs = [item for item in highs[start: idx + 1] if item is not None]
             window_lows = [item for item in lows[start: idx + 1] if item is not None]
             if close_value is None or not window_highs or not window_lows:
+                rsv_values.append(None)
                 k_values.append(None)
                 d_values.append(None)
                 j_values.append(None)
@@ -956,6 +1013,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             high_max = max(window_highs)
             low_min = min(window_lows)
             rsv = 50.0 if high_max == low_min else ((close_value - low_min) / (high_max - low_min) * 100.0)
+            rsv_values.append(rsv)
             current_k = (2.0 / 3.0) * prev_k + (1.0 / 3.0) * rsv
             current_d = (2.0 / 3.0) * prev_d + (1.0 / 3.0) * current_k
             current_j = 3.0 * current_k - 2.0 * current_d
@@ -963,7 +1021,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             d_values.append(current_d)
             j_values.append(current_j)
             prev_k, prev_d = current_k, current_d
-        return k_values, d_values, j_values, {"k": prev_k, "d": prev_d}
+        return rsv_values, k_values, d_values, j_values, {"k": prev_k, "d": prev_d}
 
     @staticmethod
     def _kdj_incremental(
@@ -974,7 +1032,8 @@ class SyncEquityIndicatorsService(BaseSyncService):
         start_index: int,
         prev_k: float,
         prev_d: float,
-    ) -> tuple[list[float | None], list[float | None], list[float | None], float, float]:
+    ) -> tuple[list[float | None], list[float | None], list[float | None], list[float | None], float, float]:
+        rsv_values: list[float | None] = []
         k_values: list[float | None] = []
         d_values: list[float | None] = []
         j_values: list[float | None] = []
@@ -986,6 +1045,7 @@ class SyncEquityIndicatorsService(BaseSyncService):
             window_highs = [item for item in highs[start: idx + 1] if item is not None]
             window_lows = [item for item in lows[start: idx + 1] if item is not None]
             if close_value is None or not window_highs or not window_lows:
+                rsv_values.append(None)
                 k_values.append(None)
                 d_values.append(None)
                 j_values.append(None)
@@ -993,13 +1053,14 @@ class SyncEquityIndicatorsService(BaseSyncService):
             high_max = max(window_highs)
             low_min = min(window_lows)
             rsv = 50.0 if high_max == low_min else ((close_value - low_min) / (high_max - low_min) * 100.0)
+            rsv_values.append(rsv)
             k_curr = (2.0 / 3.0) * k_curr + (1.0 / 3.0) * rsv
             d_curr = (2.0 / 3.0) * d_curr + (1.0 / 3.0) * k_curr
             j_curr = 3.0 * k_curr - 2.0 * d_curr
             k_values.append(k_curr)
             d_values.append(d_curr)
             j_values.append(j_curr)
-        return k_values, d_values, j_values, k_curr, d_curr
+        return rsv_values, k_values, d_values, j_values, k_curr, d_curr
 
     @staticmethod
     def _rsi(closes: list[float | None], period: int) -> tuple[list[float | None], dict[str, float | None]]:
@@ -1027,11 +1088,19 @@ class SyncEquityIndicatorsService(BaseSyncService):
                 if len(init_gains) == period:
                     avg_gain = sum(init_gains) / period
                     avg_loss = sum(init_losses) / period
-                    values[idx] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+                    values[idx] = (
+                        100.0
+                        if abs(avg_loss) <= RSI_ZERO_EPSILON
+                        else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+                    )
             else:
                 avg_gain = ((avg_gain * (period - 1)) + gain) / period
                 avg_loss = ((avg_loss * (period - 1)) + loss) / period
-                values[idx] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+                values[idx] = (
+                    100.0
+                    if abs(avg_loss) <= RSI_ZERO_EPSILON
+                    else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+                )
             prev_close = close
 
         return values, {"avg_gain": avg_gain, "avg_loss": avg_loss, "prev_close": prev_close}
@@ -1057,7 +1126,11 @@ class SyncEquityIndicatorsService(BaseSyncService):
             loss = max(-delta, 0.0)
             avg_gain = ((avg_gain * (period - 1)) + gain) / period
             avg_loss = ((avg_loss * (period - 1)) + loss) / period
-            value = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+            value = (
+                100.0
+                if abs(avg_loss) <= RSI_ZERO_EPSILON
+                else 100.0 - (100.0 / (1.0 + (avg_gain / avg_loss)))
+            )
             values.append(value)
             prev_close = close
 

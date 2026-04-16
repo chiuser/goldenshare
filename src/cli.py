@@ -187,6 +187,147 @@ def sync_history(
             snapshot_service.refresh_resources(session, [resource])
 
 
+@app.command("rebuild-equity-indicators")
+def rebuild_equity_indicators(
+    ts_code: str | None = typer.Option(None, "--ts-code", help="可选：仅重建指定股票（如 000001.SZ）。"),
+    version: int = typer.Option(1, "--version", min=1, help="指标版本号。"),
+    skip_sync: bool = typer.Option(False, "--skip-sync", help="仅清理旧数据，不触发重算。"),
+) -> None:
+    normalized_ts_code = ts_code.strip().upper() if ts_code else None
+    source_key = "tushare"
+    params = {"version": version, "source_key": source_key}
+    if normalized_ts_code:
+        params["ts_code"] = normalized_ts_code
+
+    where_ts = " AND ts_code = :ts_code" if normalized_ts_code else ""
+    deleted_rows: dict[str, int] = {}
+
+    with SessionLocal() as session:
+        deleted_rows["core.ind_macd"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core.ind_macd
+                    WHERE version = :version
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        deleted_rows["core.ind_kdj"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core.ind_kdj
+                    WHERE version = :version
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        deleted_rows["core.ind_rsi"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core.ind_rsi
+                    WHERE version = :version
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+
+        deleted_rows["core_multi.indicator_macd_std"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core_multi.indicator_macd_std
+                    WHERE version = :version
+                      AND source_key = :source_key
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        deleted_rows["core_multi.indicator_kdj_std"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core_multi.indicator_kdj_std
+                    WHERE version = :version
+                      AND source_key = :source_key
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        deleted_rows["core_multi.indicator_rsi_std"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core_multi.indicator_rsi_std
+                    WHERE version = :version
+                      AND source_key = :source_key
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        deleted_rows["core.indicator_state"] = int(
+            session.execute(
+                text(
+                    f"""
+                    DELETE FROM core.indicator_state
+                    WHERE version = :version
+                      AND source_key = :source_key
+                      AND indicator_name IN ('macd', 'kdj', 'rsi')
+                    {where_ts}
+                    """
+                ),
+                params,
+            ).rowcount
+            or 0
+        )
+        session.commit()
+
+        typer.echo("rebuild-equity-indicators purge summary")
+        for table_name, count in deleted_rows.items():
+            typer.echo(f" - {table_name}: deleted={count}")
+
+        if skip_sync:
+            typer.echo("skip_sync=true: 仅清理，不执行重算。")
+            return
+
+        service = build_sync_service("equity_indicators", session)
+        run_kwargs = {"source_key": source_key}
+        if normalized_ts_code:
+            run_kwargs["ts_code"] = normalized_ts_code
+        result = service.run_full(**run_kwargs)
+
+        SyncJobStateReconciliationService().refresh_resource_state_from_observed(session, "equity_indicators")
+        DatasetStatusSnapshotService().refresh_resources(session, ["equity_indicators"])
+
+        typer.echo(
+            "rebuild-equity-indicators done "
+            f"rows_fetched={result.rows_fetched} "
+            f"rows_written={result.rows_written} "
+            f"trade_date={result.trade_date} "
+            f"message={result.message}"
+        )
+
+
 @app.command("sync-daily")
 def sync_daily(
     trade_date: str | None = typer.Option(None, help="YYYY-MM-DD"),
@@ -424,6 +565,9 @@ def reconcile_indicator_state(
     threshold_stale_state: int = typer.Option(-1, help="stale_state 阈值；-1 表示不校验。"),
     threshold_bar_count_mismatch: int = typer.Option(-1, help="bar_count_mismatch 阈值；-1 表示不校验。"),
     threshold_adj_factor_mismatch: int = typer.Option(-1, help="adj_factor_mismatch 阈值；-1 表示不校验。"),
+    threshold_is_valid_mismatch: int = typer.Option(-1, help="is_valid_mismatch 阈值；-1 表示不校验。"),
+    threshold_kdj_range_anomaly: int = typer.Option(-1, help="kdj_range_anomaly 阈值；-1 表示不校验。"),
+    threshold_rsi_range_anomaly: int = typer.Option(-1, help="rsi_range_anomaly 阈值；-1 表示不校验。"),
 ) -> None:
     with SessionLocal() as session:
         report = IndicatorStateReconcileService().run(
@@ -442,9 +586,20 @@ def reconcile_indicator_state(
     typer.echo(f"stale_state={report.stale_state}")
     typer.echo(f"bar_count_mismatch={report.bar_count_mismatch}")
     typer.echo(f"adj_factor_mismatch={report.adj_factor_mismatch}")
+    typer.echo(f"is_valid_mismatch={report.is_valid_mismatch}")
+    typer.echo(f"kdj_range_anomaly={report.kdj_range_anomaly}")
+    typer.echo(f"rsi_range_anomaly={report.rsi_range_anomaly}")
 
     if sample_limit > 0:
-        for issue_type in ("missing_state", "stale_state", "bar_count_mismatch", "adj_factor_mismatch"):
+        for issue_type in (
+            "missing_state",
+            "stale_state",
+            "bar_count_mismatch",
+            "adj_factor_mismatch",
+            "is_valid_mismatch",
+            "kdj_range_anomaly",
+            "rsi_range_anomaly",
+        ):
             items = report.samples[issue_type]
             if not items:
                 continue
@@ -468,6 +623,18 @@ def reconcile_indicator_state(
     if threshold_adj_factor_mismatch >= 0 and report.adj_factor_mismatch > threshold_adj_factor_mismatch:
         failed_checks.append(
             f"adj_factor_mismatch={report.adj_factor_mismatch} > threshold={threshold_adj_factor_mismatch}"
+        )
+    if threshold_is_valid_mismatch >= 0 and report.is_valid_mismatch > threshold_is_valid_mismatch:
+        failed_checks.append(
+            f"is_valid_mismatch={report.is_valid_mismatch} > threshold={threshold_is_valid_mismatch}"
+        )
+    if threshold_kdj_range_anomaly >= 0 and report.kdj_range_anomaly > threshold_kdj_range_anomaly:
+        failed_checks.append(
+            f"kdj_range_anomaly={report.kdj_range_anomaly} > threshold={threshold_kdj_range_anomaly}"
+        )
+    if threshold_rsi_range_anomaly >= 0 and report.rsi_range_anomaly > threshold_rsi_range_anomaly:
+        failed_checks.append(
+            f"rsi_range_anomaly={report.rsi_range_anomaly} > threshold={threshold_rsi_range_anomaly}"
         )
 
     if failed_checks:
