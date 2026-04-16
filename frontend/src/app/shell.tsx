@@ -12,6 +12,8 @@ import {
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
+  IconApps,
+  IconBuildingCommunity,
   IconCalendarTime,
   IconGauge,
   IconLogout,
@@ -35,6 +37,11 @@ const opsV21SourceLinks = [
   { to: "/ops/v21/datasets/tushare", label: "Tushare", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/biying", label: "Biying", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/tasks", label: "任务中心", icon: IconListDetails },
+];
+
+const opsV21ReviewLinks = [
+  { to: "/ops/v21/review/index", label: "指数", icon: IconApps },
+  { to: "/ops/v21/review/board", label: "板块", icon: IconBuildingCommunity },
 ];
 
 const opsLegacyLinks = [
@@ -133,6 +140,30 @@ export function OpsShell(_props: PropsWithChildren) {
               }}
             />
             {opsV21SourceLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                component={Link}
+                to={link.to}
+                label={link.label}
+                leftSection={<link.icon size={16} />}
+                active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
+                variant="subtle"
+                color="brand"
+                style={{ marginLeft: 10 }}
+              />
+            ))}
+
+            <NavLink
+              label="审查中心"
+              leftSection={<IconStack2 size={18} />}
+              variant="light"
+              color="brand"
+              styles={{
+                root: { pointerEvents: "none" },
+                label: { fontWeight: 600, color: "var(--mantine-color-text)" },
+              }}
+            />
+            {opsV21ReviewLinks.map((link) => (
               <NavLink
                 key={link.to}
                 component={Link}

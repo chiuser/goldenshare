@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+
+
+def test_ops_review_center_requires_admin(app_client, user_factory) -> None:
+    user_factory(username="user", password="secret", is_admin=False)
+    login = app_client.post("/api/v1/auth/login", json={"username": "user", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/review/index/active", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+    assert response.json()["code"] == "forbidden"
+
+
+def test_ops_review_index_active_list_supports_keyword_and_page(app_client, user_factory, db_session) -> None:
+    from src.ops.models.ops.index_series_active import IndexSeriesActive
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="000001.SH",
+                first_seen_date=date(2026, 4, 1),
+                last_seen_date=date(2026, 4, 15),
+                last_checked_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
+            ),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="399001.SZ",
+                first_seen_date=date(2026, 4, 1),
+                last_seen_date=date(2026, 4, 15),
+                last_checked_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
+            ),
+            IndexSeriesActive(
+                resource="index_weekly",
+                ts_code="000300.SH",
+                first_seen_date=date(2026, 4, 1),
+                last_seen_date=date(2026, 4, 15),
+                last_checked_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/index/active?resource=index_daily&keyword=399&page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["ts_code"] == "399001.SZ"
+
+
+def test_ops_review_ths_board_list_returns_members(app_client, user_factory, db_session) -> None:
+    from src.foundation.models.core.ths_index import ThsIndex
+    from src.foundation.models.core.ths_member import ThsMember
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            ThsIndex(ts_code="885001.TI", name="人工智能", exchange="A", type_="N"),
+            ThsIndex(ts_code="885002.TI", name="新能源", exchange="A", type_="N"),
+            ThsMember(ts_code="885001.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
+            ThsMember(ts_code="885001.TI", con_code="000002.SZ", con_name="万科A", out_date=None),
+            ThsMember(ts_code="885002.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
+            ThsMember(ts_code="885002.TI", con_code="000003.SZ", con_name="国农科技", out_date=date(2026, 4, 1)),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/board/ths?min_constituent_count=2&page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    item = payload["items"][0]
+    assert item["board_code"] == "885001.TI"
+    assert item["constituent_count"] == 2
+    assert len(item["members"]) == 2
+
+
+def test_ops_review_dc_board_list_defaults_to_latest_trade_date(app_client, user_factory, db_session) -> None:
+    from src.foundation.models.core.dc_index import DcIndex
+    from src.foundation.models.core.dc_member import DcMember
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            DcIndex(ts_code="BK001", trade_date=date(2026, 4, 14), name="算力", idx_type="概念"),
+            DcIndex(ts_code="BK001", trade_date=date(2026, 4, 15), name="算力", idx_type="概念"),
+            DcMember(trade_date=date(2026, 4, 15), ts_code="BK001", con_code="000001.SZ", name="平安银行"),
+            DcMember(trade_date=date(2026, 4, 15), ts_code="BK001", con_code="000002.SZ", name="万科A"),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/board/dc?page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["trade_date"] == "2026-04-15"
+    assert payload["total"] == 1
+    assert payload["items"][0]["constituent_count"] == 2
+
+
+def test_ops_review_equity_membership_aggregates_ths_and_dc(app_client, user_factory, db_session) -> None:
+    from src.foundation.models.core.dc_index import DcIndex
+    from src.foundation.models.core.dc_member import DcMember
+    from src.foundation.models.core.ths_index import ThsIndex
+    from src.foundation.models.core.ths_member import ThsMember
+    from src.foundation.models.core_serving.security_serving import Security
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            Security(ts_code="000001.SZ", name="平安银行"),
+            ThsIndex(ts_code="885001.TI", name="人工智能", exchange="A", type_="N"),
+            ThsMember(ts_code="885001.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
+            DcIndex(ts_code="BK001", trade_date=date(2026, 4, 15), name="算力", idx_type="概念"),
+            DcMember(trade_date=date(2026, 4, 15), ts_code="BK001", con_code="000001.SZ", name="平安银行"),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/board/equity-membership?provider=all&page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["dc_trade_date"] == "2026-04-15"
+    assert payload["total"] == 1
+    item = payload["items"][0]
+    assert item["ts_code"] == "000001.SZ"
+    assert item["equity_name"] == "平安银行"
+    assert item["board_count"] == 2
+    providers = sorted(board["provider"] for board in item["boards"])
+    assert providers == ["dc", "ths"]

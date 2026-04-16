@@ -7,6 +7,7 @@ from src.ops.api import (
     freshness,
     layer_snapshots,
     overview,
+    review_center,
     probes,
     resolution_releases,
     runtime,
@@ -29,5 +30,6 @@ router.include_router(source_management_bridge.router)
 router.include_router(runtime.router)
 router.include_router(catalog.router)
 router.include_router(dataset_pipeline_modes.router)
+router.include_router(review_center.router)
 
 __all__ = ["router"]

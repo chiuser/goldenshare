@@ -20,6 +20,8 @@ import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
 import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
 import { OpsV21OverviewPage } from "../pages/ops-v21-overview-page";
+import { OpsV21ReviewBoardPage } from "../pages/ops-v21-review-board-page";
+import { OpsV21ReviewIndexPage } from "../pages/ops-v21-review-index-page";
 import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
 import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
@@ -275,6 +277,18 @@ const opsV21OverviewRoute = createRoute({
   component: OpsV21OverviewPage,
 });
 
+const opsV21ReviewIndexRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/review/index",
+  component: OpsV21ReviewIndexPage,
+});
+
+const opsV21ReviewBoardRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/review/board",
+  component: OpsV21ReviewBoardPage,
+});
+
 const opsV21DatasetsTushareRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/datasets/tushare",
@@ -358,6 +372,8 @@ const routeTree = rootRoute.addChildren([
     opsSchedulesRoute,
     opsSourceManagementRoute,
     opsV21OverviewRoute,
+    opsV21ReviewIndexRoute,
+    opsV21ReviewBoardRoute,
     opsV21DatasetsTushareRoute,
     opsV21DatasetsBiyingRoute,
     opsV21DatasetsTasksRoute,

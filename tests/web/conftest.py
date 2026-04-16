@@ -13,9 +13,14 @@ from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.platform.models.app.app_user import AppUser
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.dc_index import DcIndex
+from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.ths_index import ThsIndex
+from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
@@ -69,6 +74,11 @@ def web_engine(configured_web_env) -> Generator:
         IndexDailyServing.__table__.create(connection)
         IndexWeeklyServing.__table__.create(connection)
         IndexMonthlyServing.__table__.create(connection)
+        ThsIndex.__table__.create(connection)
+        ThsMember.__table__.create(connection)
+        DcIndex.__table__.create(connection)
+        DcMember.__table__.create(connection)
+        Security.__table__.create(connection)
         TradeCalendar.__table__.create(connection)
         JobSchedule.__table__.create(connection)
         JobExecution.__table__.create(connection)

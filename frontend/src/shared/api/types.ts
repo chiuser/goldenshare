@@ -530,3 +530,63 @@ export interface DatasetPipelineModeListResponse {
     resolution_policy_configured: boolean;
   }>;
 }
+
+export interface OpsReviewActiveIndexResponse {
+  total: number;
+  items: Array<{
+    resource: string;
+    ts_code: string;
+    first_seen_date: string;
+    last_seen_date: string;
+    last_checked_at: string;
+  }>;
+}
+
+export interface OpsReviewThsBoardsResponse {
+  total: number;
+  items: Array<{
+    board_code: string;
+    board_name: string | null;
+    exchange: string | null;
+    board_type: string | null;
+    constituent_count: number;
+    members: Array<{
+      ts_code: string;
+      name: string | null;
+      in_date: string | null;
+      out_date: string | null;
+    }>;
+  }>;
+}
+
+export interface OpsReviewDcBoardsResponse {
+  trade_date: string | null;
+  total: number;
+  items: Array<{
+    board_code: string;
+    board_name: string | null;
+    idx_type: string | null;
+    constituent_count: number;
+    members: Array<{
+      ts_code: string;
+      name: string | null;
+      in_date: string | null;
+      out_date: string | null;
+    }>;
+  }>;
+}
+
+export interface OpsReviewEquityMembershipResponse {
+  dc_trade_date: string | null;
+  total: number;
+  items: Array<{
+    ts_code: string;
+    equity_name: string | null;
+    board_count: number;
+    boards: Array<{
+      provider: string;
+      board_code: string;
+      board_name: string | null;
+    }>;
+  }>;
+}
