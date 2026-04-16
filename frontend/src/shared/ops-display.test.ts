@@ -23,6 +23,7 @@ describe("运维前端显示层映射", () => {
     expect(formatSpecDisplayLabel("daily_market_close_sync", null)).toBe("每日收盘后同步");
     expect(formatResourceLabel("biying_moneyflow")).toBe("BIYING 资金流向");
     expect(formatResourceLabel("margin")).toBe("融资融券交易汇总");
+    expect(formatResourceLabel("stock_st")).toBe("ST股票列表");
     expect(formatResourceLabel("stk_nineturn")).toBe("神奇九转指标");
   });
 });

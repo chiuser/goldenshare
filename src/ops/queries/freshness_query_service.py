@@ -15,7 +15,12 @@ from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBas
 from src.foundation.models.core.equity_dividend import EquityDividend
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
+from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_nineturn import EquityNineTurn
+from src.foundation.models.core.equity_stock_st import EquityStockSt
+from src.foundation.models.core.equity_stk_limit import EquityStkLimit
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
@@ -116,9 +121,14 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.equity_daily_basic": EquityDailyBasic,
     "core_serving.equity_cyq_perf": EquityCyqPerf,
     "core_serving.equity_moneyflow": EquityMoneyflow,
+    "core_serving.equity_margin": EquityMargin,
     "core_serving.equity_top_list": EquityTopList,
     "core_serving.equity_block_trade": EquityBlockTrade,
     "core_serving.equity_limit_list": EquityLimitList,
+    "core_serving.equity_stk_limit": EquityStkLimit,
+    "core_serving.equity_stock_st": EquityStockSt,
+    "core_serving.equity_nineturn": EquityNineTurn,
+    "core_serving.equity_suspend_d": EquitySuspendD,
     "core_serving.equity_dividend": EquityDividend,
     "core_serving.equity_holder_number": EquityHolderNumber,
     "core_serving.stk_period_bar": StkPeriodBar,
@@ -141,6 +151,11 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core.ind_kdj": IndicatorKdj,
     "core.ind_rsi": IndicatorRsi,
     "core.equity_cyq_perf": EquityCyqPerf,
+    "core.equity_margin": EquityMargin,
+    "core.equity_stk_limit": EquityStkLimit,
+    "core.equity_stock_st": EquityStockSt,
+    "core.equity_nineturn": EquityNineTurn,
+    "core.equity_suspend_d": EquitySuspendD,
     "core_serving.ths_index": ThsIndex,
     "core_serving.ths_member": ThsMember,
     "core_serving.ths_daily": ThsDaily,
@@ -176,11 +191,12 @@ class OpsFreshnessQueryService:
         snapshot_response = self._build_from_snapshot(session)
         if snapshot_response is not None:
             all_specs = list_dataset_freshness_specs()
-            snapshot_keys = {
-                item.dataset_key
+            snapshot_items_by_key = {
+                item.dataset_key: item
                 for group in snapshot_response.groups
                 for item in group.items
             }
+            snapshot_keys = set(snapshot_items_by_key)
             missing_resource_keys = [
                 spec.resource_key
                 for spec in all_specs
@@ -191,7 +207,19 @@ class OpsFreshnessQueryService:
                 for spec in all_specs
                 if spec.resource_key in FORCE_LIVE_RESOURCE_KEYS
             ]
-            live_refresh_resource_keys = sorted(set([*missing_resource_keys, *live_override_resource_keys]))
+            missing_business_date_resource_keys = [
+                spec.resource_key
+                for spec in all_specs
+                if (
+                    spec.observed_date_column is not None
+                    and spec.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[spec.dataset_key].last_sync_date is not None
+                    and snapshot_items_by_key[spec.dataset_key].latest_business_date is None
+                )
+            ]
+            live_refresh_resource_keys = sorted(
+                set([*missing_resource_keys, *live_override_resource_keys, *missing_business_date_resource_keys])
+            )
             if not live_refresh_resource_keys:
                 return self._attach_auto_schedule_metadata(session, snapshot_response)
 

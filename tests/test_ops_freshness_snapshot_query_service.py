@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
+from src.ops.queries.freshness_query_service import OBSERVED_DATE_MODEL_REGISTRY, OpsFreshnessQueryService
 
 
 @pytest.fixture()
@@ -71,3 +71,15 @@ def test_build_from_snapshot_includes_raw_table_from_dataset_spec(db_session: Se
     item = response.groups[0].items[0]
     assert item.dataset_key == "daily"
     assert item.raw_table == "raw_tushare.daily"
+
+
+def test_observed_model_registry_covers_equity_daily_business_date_tables() -> None:
+    expected_tables = {
+        "core_serving.equity_margin",
+        "core_serving.equity_stk_limit",
+        "core_serving.equity_stock_st",
+        "core_serving.equity_nineturn",
+        "core_serving.equity_suspend_d",
+    }
+    missing_tables = expected_tables - set(OBSERVED_DATE_MODEL_REGISTRY)
+    assert not missing_tables

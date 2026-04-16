@@ -61,8 +61,11 @@ function cadenceLabel(cadence: string): string {
 }
 
 function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"][number]): string {
-  if (item.earliest_business_date && item.latest_business_date) {
-    return `${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;
+  if (item.latest_business_date) {
+    if (item.earliest_business_date && item.earliest_business_date !== item.latest_business_date) {
+      return `${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;
+    }
+    return `最新业务日：${formatDateLabel(item.latest_business_date)}`;
   }
   if (item.last_sync_date) {
     return `最近同步：${formatDateLabel(item.last_sync_date)}`;
