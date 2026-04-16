@@ -68,6 +68,7 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS app")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving")
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving_light")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)

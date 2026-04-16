@@ -27,6 +27,7 @@ from src.operations.services import (
     MoneyflowMultiSourceSeedService,
     MoneyflowReconcileService,
     OperationsExecutionReconciliationService,
+    ServingLightRefreshService,
     StockBasicReconcileService,
     SyncJobStateReconciliationService,
 )
@@ -378,6 +379,40 @@ def rebuild_dm() -> None:
     with SessionLocal() as session:
         session.execute(text("REFRESH MATERIALIZED VIEW dm.equity_daily_snapshot"))
         session.commit()
+
+
+@app.command("refresh-serving-light")
+def refresh_serving_light(
+    dataset: str = typer.Option("equity_daily_bar", "--dataset", "-d", help="当前仅支持 equity_daily_bar"),
+    start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
+    end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
+    ts_code: str | None = typer.Option(None, "--ts-code", help="可选：仅刷新指定股票代码"),
+) -> None:
+    dataset_key = dataset.strip().lower()
+    if dataset_key != "equity_daily_bar":
+        raise typer.BadParameter("当前仅支持 --dataset equity_daily_bar")
+
+    parsed_start = date.fromisoformat(start_date) if start_date else None
+    parsed_end = date.fromisoformat(end_date) if end_date else None
+    if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
+        raise typer.BadParameter("start_date 不能晚于 end_date")
+
+    normalized_ts_code = ts_code.strip().upper() if ts_code else None
+    with SessionLocal() as session:
+        result = ServingLightRefreshService().refresh_equity_daily_bar(
+            session,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            ts_code=normalized_ts_code,
+        )
+    typer.echo(
+        "refresh-serving-light done "
+        f"dataset={dataset_key} "
+        f"ts_code={normalized_ts_code or '*'} "
+        f"start_date={parsed_start} "
+        f"end_date={parsed_end} "
+        f"touched_rows={result.touched_rows}"
+    )
 
 
 @app.command("list-resources")

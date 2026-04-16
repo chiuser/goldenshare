@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = Field(default=480, alias="JWT_EXPIRE_MINUTES")
     platform_check_enabled: bool = Field(default=True, alias="PLATFORM_CHECK_ENABLED")
     quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
+    biz_use_serving_light: bool = Field(default=True, alias="BIZ_USE_SERVING_LIGHT")
+    biz_serving_fallback: bool = Field(default=True, alias="BIZ_SERVING_FALLBACK")
 
     model_config = SettingsConfigDict(extra="ignore")
 

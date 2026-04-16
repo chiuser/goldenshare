@@ -9,9 +9,11 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.foundation.config.settings import get_settings
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.foundation.models.core_serving.etf_basic import EtfBasic
 from src.foundation.models.core_serving.fund_daily_bar import FundDailyBar
 from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
@@ -498,12 +500,7 @@ class QuoteQueryService:
 
     def _build_price_summary(self, session: Session, *, instrument: ResolvedInstrument) -> QuotePriceSummary:
         if instrument.security_type == "stock":
-            bar = session.scalar(
-                select(EquityDailyBar)
-                .where(EquityDailyBar.ts_code == instrument.ts_code)
-                .order_by(desc(EquityDailyBar.trade_date))
-                .limit(1)
-            )
+            bar = self._load_latest_stock_daily_row(session, ts_code=instrument.ts_code)
             if bar is None:
                 return QuotePriceSummary()
             basic = session.scalar(
@@ -517,15 +514,15 @@ class QuoteQueryService:
             )
             return QuotePriceSummary(
                 trade_date=bar.trade_date,
-                latest_price=bar.close,
-                pre_close=bar.pre_close,
-                change_amount=bar.change_amount,
-                pct_chg=bar.pct_chg,
-                open=bar.open,
-                high=bar.high,
-                low=bar.low,
-                vol=bar.vol,
-                amount=bar.amount,
+                latest_price=self._as_decimal(bar.close),
+                pre_close=self._as_decimal(bar.pre_close),
+                change_amount=self._as_decimal(bar.change_amount),
+                pct_chg=self._as_decimal(bar.pct_chg),
+                open=self._as_decimal(bar.open),
+                high=self._as_decimal(bar.high),
+                low=self._as_decimal(bar.low),
+                vol=self._as_decimal(bar.vol),
+                amount=self._as_decimal(bar.amount),
                 turnover_rate=basic.turnover_rate if basic else None,
                 volume_ratio=basic.volume_ratio if basic else None,
                 pe_ttm=basic.pe_ttm if basic else None,
@@ -590,6 +587,49 @@ class QuoteQueryService:
             vol=bar.vol,
             amount=bar.amount,
         )
+
+    @staticmethod
+    def _as_decimal(value: Decimal | float | int | None) -> Decimal | None:
+        if value is None:
+            return None
+        if isinstance(value, Decimal):
+            return value
+        return Decimal(str(value))
+
+    @staticmethod
+    def _prefer_serving_light() -> bool:
+        return bool(get_settings().biz_use_serving_light)
+
+    @staticmethod
+    def _serving_light_fallback_enabled() -> bool:
+        return bool(get_settings().biz_serving_fallback)
+
+    def _stock_daily_models_for_read(self) -> list[type]:
+        if not self._prefer_serving_light():
+            return [EquityDailyBar]
+        if self._serving_light_fallback_enabled():
+            return [EquityDailyBarLight, EquityDailyBar]
+        return [EquityDailyBarLight]
+
+    def _load_latest_stock_daily_row(self, session: Session, *, ts_code: str):
+        for model in self._stock_daily_models_for_read():
+            try:
+                row = session.scalar(
+                    select(model)
+                    .where(model.ts_code == ts_code)
+                    .order_by(desc(model.trade_date))
+                    .limit(1)
+                )
+            except SQLAlchemyError:
+                if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                    continue
+                raise
+            if row is not None:
+                return row
+            if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                continue
+            return None
+        return None
 
     def _load_kline_points(
         self,
@@ -672,17 +712,13 @@ class QuoteQueryService:
         end_date: date | None,
         limit: int,
     ) -> list[KlinePoint]:
-        stmt = (
-            select(EquityDailyBar)
-            .where(EquityDailyBar.ts_code == ts_code)
-            .order_by(desc(EquityDailyBar.trade_date))
-            .limit(limit)
+        rows = self._load_stock_daily_rows(
+            session,
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
         )
-        if start_date is not None:
-            stmt = stmt.where(EquityDailyBar.trade_date >= start_date)
-        if end_date is not None:
-            stmt = stmt.where(EquityDailyBar.trade_date <= end_date)
-        rows = list(reversed(list(session.scalars(stmt).all())))
         if not rows:
             return []
 
@@ -702,20 +738,13 @@ class QuoteQueryService:
         before_trade_date: date,
         limit: int,
     ) -> list[KlinePoint]:
-        rows = list(
-            reversed(
-                list(
-                    session.scalars(
-                        select(EquityDailyBar)
-                        .where(
-                            EquityDailyBar.ts_code == ts_code,
-                            EquityDailyBar.trade_date < before_trade_date,
-                        )
-                        .order_by(desc(EquityDailyBar.trade_date))
-                        .limit(limit)
-                    ).all()
-                )
-            )
+        rows = self._load_stock_daily_rows(
+            session,
+            ts_code=ts_code,
+            start_date=None,
+            end_date=before_trade_date,
+            limit=limit,
+            exclusive_end=True,
         )
         if not rows:
             return []
@@ -732,7 +761,7 @@ class QuoteQueryService:
         *,
         ts_code: str,
         adjustment: str,
-        rows: list[EquityDailyBar],
+        rows: list,
     ) -> list[KlinePoint]:
         if not rows:
             return []
@@ -747,15 +776,15 @@ class QuoteQueryService:
             return [
                 KlinePoint(
                     trade_date=row.trade_date,
-                    open=row.open,
-                    high=row.high,
-                    low=row.low,
-                    close=row.close,
-                    pre_close=row.pre_close,
-                    change_amount=row.change_amount,
-                    pct_chg=row.pct_chg,
-                    vol=row.vol,
-                    amount=row.amount,
+                    open=self._as_decimal(row.open),
+                    high=self._as_decimal(row.high),
+                    low=self._as_decimal(row.low),
+                    close=self._as_decimal(row.close),
+                    pre_close=self._as_decimal(row.pre_close),
+                    change_amount=self._as_decimal(row.change_amount),
+                    pct_chg=self._as_decimal(row.pct_chg),
+                    vol=self._as_decimal(row.vol),
+                    amount=self._as_decimal(row.amount),
                     turnover_rate=turnover_by_date.get(row.trade_date),
                 )
                 for row in rows
@@ -791,19 +820,56 @@ class QuoteQueryService:
             points.append(
                 KlinePoint(
                     trade_date=row.trade_date,
-                    open=self._scale_price(row.open, scale),
-                    high=self._scale_price(row.high, scale),
-                    low=self._scale_price(row.low, scale),
-                    close=self._scale_price(row.close, scale),
-                    pre_close=self._scale_price(row.pre_close, scale),
-                    change_amount=self._scale_price(row.change_amount, scale),
-                    pct_chg=row.pct_chg,
-                    vol=row.vol,
-                    amount=row.amount,
+                    open=self._scale_price(self._as_decimal(row.open), scale),
+                    high=self._scale_price(self._as_decimal(row.high), scale),
+                    low=self._scale_price(self._as_decimal(row.low), scale),
+                    close=self._scale_price(self._as_decimal(row.close), scale),
+                    pre_close=self._scale_price(self._as_decimal(row.pre_close), scale),
+                    change_amount=self._scale_price(self._as_decimal(row.change_amount), scale),
+                    pct_chg=self._as_decimal(row.pct_chg),
+                    vol=self._as_decimal(row.vol),
+                    amount=self._as_decimal(row.amount),
                     turnover_rate=turnover_by_date.get(row.trade_date),
                 )
             )
         return points
+
+    def _load_stock_daily_rows(
+        self,
+        session: Session,
+        *,
+        ts_code: str,
+        start_date: date | None,
+        end_date: date | None,
+        limit: int,
+        exclusive_end: bool = False,
+    ) -> list:
+        for model in self._stock_daily_models_for_read():
+            try:
+                stmt = (
+                    select(model)
+                    .where(model.ts_code == ts_code)
+                    .order_by(desc(model.trade_date))
+                    .limit(limit)
+                )
+                if start_date is not None:
+                    stmt = stmt.where(model.trade_date >= start_date)
+                if end_date is not None:
+                    if exclusive_end:
+                        stmt = stmt.where(model.trade_date < end_date)
+                    else:
+                        stmt = stmt.where(model.trade_date <= end_date)
+                rows = list(reversed(list(session.scalars(stmt).all())))
+            except SQLAlchemyError:
+                if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                    continue
+                raise
+            if rows:
+                return rows
+            if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                continue
+            return []
+        return []
 
     def _load_stock_adjustment_anchor(
         self,
@@ -1060,16 +1126,27 @@ class QuoteQueryService:
     ) -> date | None:
         if instrument.security_type == "stock":
             if period == "day":
-                row = session.scalar(
-                    select(EquityDailyBar.trade_date)
-                    .where(
-                        EquityDailyBar.ts_code == instrument.ts_code,
-                        EquityDailyBar.trade_date < first_trade_date,
-                    )
-                    .order_by(desc(EquityDailyBar.trade_date))
-                    .limit(1)
-                )
-                return row
+                for model in self._stock_daily_models_for_read():
+                    try:
+                        row = session.scalar(
+                            select(model.trade_date)
+                            .where(
+                                model.ts_code == instrument.ts_code,
+                                model.trade_date < first_trade_date,
+                            )
+                            .order_by(desc(model.trade_date))
+                            .limit(1)
+                        )
+                    except SQLAlchemyError:
+                        if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                            continue
+                        raise
+                    if row is not None:
+                        return row
+                    if model is EquityDailyBarLight and self._serving_light_fallback_enabled():
+                        continue
+                    return None
+                return None
             freq = "week" if period == "week" else "month"
             model = StkPeriodBar if adjustment == "none" else StkPeriodBarAdj
             row = session.scalar(

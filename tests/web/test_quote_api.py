@@ -9,6 +9,7 @@ from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
 from src.foundation.models.core_serving.ind_macd import IndicatorMacd
 from src.foundation.models.core.etf_basic import EtfBasic
@@ -62,6 +63,67 @@ def test_quote_kline_returns_unsupported_for_minute_period(app_client) -> None:
     assert response.status_code == 501
     payload = response.json()
     assert payload["code"] == "UNSUPPORTED_PERIOD"
+
+
+def test_quote_kline_prefers_serving_light_when_available(app_client, db_session, monkeypatch) -> None:
+    monkeypatch.setenv("BIZ_USE_SERVING_LIGHT", "true")
+    monkeypatch.setenv("BIZ_SERVING_FALLBACK", "true")
+    get_settings.cache_clear()
+    _ensure_quote_tables(db_session)
+    EquityDailyBarLight.__table__.create(db_session.get_bind(), checkfirst=True)
+    db_session.add(
+        Security(
+            ts_code="000001.SZ",
+            symbol="000001",
+            name="平安银行",
+            exchange="SZSE",
+            industry="银行",
+            list_status="L",
+            security_type="EQUITY",
+            source="tushare",
+        )
+    )
+    db_session.add(
+        EquityDailyBar(
+            ts_code="000001.SZ",
+            trade_date=date(2026, 4, 10),
+            open=Decimal("10.0000"),
+            high=Decimal("10.2000"),
+            low=Decimal("9.8000"),
+            close=Decimal("10.1000"),
+            pre_close=Decimal("9.9000"),
+            change_amount=Decimal("0.2000"),
+            pct_chg=Decimal("2.0202"),
+            vol=Decimal("1000.0000"),
+            amount=Decimal("10000.0000"),
+            source="tushare",
+        )
+    )
+    db_session.add(
+        EquityDailyBarLight(
+            ts_code="000001.SZ",
+            trade_date=date(2026, 4, 10),
+            open=11.0,
+            high=11.2,
+            low=10.8,
+            close=11.1,
+            pre_close=10.9,
+            change_amount=0.2,
+            pct_chg=1.8349,
+            vol=1200.0,
+            amount=13200.0,
+            source="tushare",
+        )
+    )
+    db_session.commit()
+    response = app_client.get(
+        "/api/v1/quote/detail/kline",
+        params={"ts_code": "000001.SZ", "period": "day", "adjustment": "none", "limit": 1},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bars"][0]["close"] == "11.1000"
+    assert payload["bars"][0]["open"] == "11.0000"
 
 
 def test_quote_page_init_and_kline_for_stock(app_client, db_session) -> None:

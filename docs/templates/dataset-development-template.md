@@ -17,11 +17,12 @@
 - 该数据集是否对外服务：是/否
 - 当前是否多源：是/否
 - 是否已具备 std 映射与融合策略：是/否
-- 本次 target_table 选择：`raw_*` / `core.*` / `core_serving.*`
+- 本次 target_table 选择：`raw_*` / `core.*` / `core_serving.*` / `core_serving_light.*`
 
 说明：
 - 目前绝大多数“对外服务”数据集已迁到 `core_serving.*`。
 - 以下 2 类当前仍保留在 `core`：`equity_adj_factor`、`fund_adj_factor`。
+- 若启用 `core_serving_light.*`，必须仍保留 `core_serving.*` 作为业务契约层。
 
 ---
 
@@ -98,12 +99,32 @@
 
 ### 5.1 路径选择（必填）
 
-- 路径类型：`raw only` / `raw -> core_serving` / `raw -> std -> core_serving`
+- 路径类型：`raw only` / `raw -> core_serving` / `raw -> std -> core_serving` / `raw -> core_serving -> core_serving_light`
 - 选择理由：
 - 是否为临时方案：是/否
 - 若临时，后续收敛计划与截止时间：
 
 ### 5.2 表设计
+
+### 5.2.0 工程硬约束（必须逐项填写）
+
+1. 数值类型策略：
+- 默认使用 `DOUBLE PRECISION`。
+- 若使用 `NUMERIC`，必须逐字段说明理由（例如监管口径、财务精确记账）。
+
+2. 分区策略（有 `trade_date` 时强制）：
+- 按 `trade_date` 做范围分区。
+- 默认年分区；超大表可月分区（需给出判断依据）。
+
+3. 主键与索引策略（有 `ts_code + trade_date` 语义时强制）：
+- 主键：`(ts_code, trade_date)`。
+- 必备索引：`trade_date` 方向索引（用于按日同步与检索）。
+- 可选索引：`(ts_code, trade_date DESC)`（用于单标的最近序列查询）。
+
+4. 本次设计填写：
+- 数值字段中 `DOUBLE PRECISION` 占比与例外字段：
+- 分区粒度（年/月）与理由：
+- 主键与索引清单：
 
 #### A. `raw_<source>.<table>`
 - 主键策略：
@@ -120,6 +141,12 @@
 - 对外字段口径：
 - `resolved_source_key` / `resolved_policy_version` / `resolved_at` 是否需要：
 - upsert 主键：
+
+#### D. `core_serving_light.<table>`（如启用）
+- 轻量字段清单（仅高频查询字段）：
+- 与 `core_serving` 一致性策略（字段映射/回退规则）：
+- 分区策略（年/月）：
+- upsert 主键与索引：
 
 ---
 

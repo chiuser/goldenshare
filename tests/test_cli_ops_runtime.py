@@ -231,3 +231,36 @@ def test_ops_rebuild_dataset_status_rebuilds_snapshots(mocker) -> None:
     service_cls.assert_called_once_with()
     service.rebuild_all.assert_called_once_with(session, strict=True)
     assert "ops-rebuild-dataset-status: rebuilt=28" in result.stdout
+
+
+def test_refresh_serving_light_invokes_refresh_service(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    service = mocker.Mock()
+    service.refresh_equity_daily_bar.return_value = SimpleNamespace(touched_rows=1234)
+    service_cls = mocker.patch("src.cli.ServingLightRefreshService", return_value=service)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "refresh-serving-light",
+            "--dataset",
+            "equity_daily_bar",
+            "--start-date",
+            "2026-01-01",
+            "--end-date",
+            "2026-01-31",
+            "--ts-code",
+            "000001.SZ",
+        ],
+    )
+
+    assert result.exit_code == 0
+    service_cls.assert_called_once_with()
+    service.refresh_equity_daily_bar.assert_called_once()
+    assert "refresh-serving-light done dataset=equity_daily_bar" in result.stdout
+    assert "touched_rows=1234" in result.stdout
