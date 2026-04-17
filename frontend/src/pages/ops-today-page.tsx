@@ -133,19 +133,20 @@ export function OpsTodayPage() {
             <OpsTable>
                 <Table.Thead>
                   <Table.Tr>
-                    <OpsTableHeaderCell align="left" width="38%">数据名称</OpsTableHeaderCell>
-                    <OpsTableHeaderCell align="left" width="24%">日期范围 / 最近同步日期</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="18%">当前状态</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="20%">操作</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="26%">数据名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="20%">日期范围 / 最近同步日期</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left" width="30%">最近异常</OpsTableHeaderCell>
+                    <OpsTableHeaderCell width="12%">操作</OpsTableHeaderCell>
                   </Table.Tr>
-              </Table.Thead>
+                </Table.Thead>
               <Table.Tbody>
                 {overview.lagging_datasets.map((item) => (
                   <Table.Tr key={item.dataset_key}>
-                    <OpsTableCell align="left" width="38%">
+                    <OpsTableCell align="left" width="26%">
                       <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
                     </OpsTableCell>
-                    <OpsTableCell align="left" width="24%">
+                    <OpsTableCell align="left" width="20%">
                       <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
                         {formatDateRangeLabel(
                           item.earliest_business_date ?? null,
@@ -154,10 +155,26 @@ export function OpsTodayPage() {
                         )}
                       </OpsTableCellText>
                     </OpsTableCell>
-                    <OpsTableCell width="18%">
+                    <OpsTableCell width="12%">
                       <StatusBadge value={item.freshness_status} />
                     </OpsTableCell>
-                    <OpsTableCell width="20%">
+                    <OpsTableCell align="left" width="30%">
+                      {(item.recent_failure_summary || item.recent_failure_message) ? (
+                        <Stack gap={2}>
+                          <OpsTableCellText c="red" size="xs">
+                            {item.recent_failure_summary || item.recent_failure_message}
+                          </OpsTableCellText>
+                          {item.recent_failure_at ? (
+                            <OpsTableCellText c="dimmed" ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">
+                              {formatDateTimeLabel(item.recent_failure_at)}
+                            </OpsTableCellText>
+                          ) : null}
+                        </Stack>
+                      ) : (
+                        <OpsTableCellText c="dimmed" size="xs">—</OpsTableCellText>
+                      )}
+                    </OpsTableCell>
+                    <OpsTableCell width="12%">
                       <OpsTableActionGroup>
                         {item.primary_execution_spec_key ? (
                           <Button
@@ -180,7 +197,7 @@ export function OpsTodayPage() {
                 ))}
                 {!overview.lagging_datasets.length ? (
                   <Table.Tr>
-                    <Table.Td colSpan={4}>
+                    <Table.Td colSpan={5}>
                       <Text c="dimmed" size="sm">
                         当前没有需要关注的数据。
                       </Text>

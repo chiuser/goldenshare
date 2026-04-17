@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.queries.execution_query_service import ExecutionQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
+from src.ops.schemas.freshness import DatasetFreshnessItem, OpsFreshnessResponse
 from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse, OpsTodayKpis
 
 
@@ -29,11 +30,12 @@ class OpsOverviewQueryService:
         recent_executions = self.execution_query_service.list_executions(session, limit=10).items
         recent_failures = self.execution_query_service.list_executions(session, status="failed", limit=5).items
         freshness_response = self.freshness_query_service.build_freshness(session)
-        freshness_summary, lagging_datasets = self.freshness_query_service.summarize(freshness_response)
+        freshness_summary, _ = self.freshness_query_service.summarize(freshness_response)
+        attention_datasets = self._build_attention_datasets(freshness_response)
 
         return OpsOverviewResponse(
             today_kpis=today_kpis.model_copy(
-                update={"attention_dataset_count": len(lagging_datasets)},
+                update={"attention_dataset_count": len(attention_datasets)},
             ),
             kpis=OpsOverviewKpis(
                 total_executions=sum(counts.values()),
@@ -45,7 +47,7 @@ class OpsOverviewQueryService:
                 partial_success_executions=counts.get("partial_success", 0),
             ),
             freshness_summary=freshness_summary,
-            lagging_datasets=lagging_datasets,
+            lagging_datasets=attention_datasets,
             recent_executions=recent_executions,
             recent_failures=recent_failures,
         )
@@ -54,6 +56,33 @@ class OpsOverviewQueryService:
         freshness_response = self.freshness_query_service.build_freshness(session)
         freshness_summary, _ = self.freshness_query_service.summarize(freshness_response)
         return OpsOverviewSummaryResponse(freshness_summary=freshness_summary)
+
+    @staticmethod
+    def _build_attention_datasets(freshness_response: OpsFreshnessResponse) -> list[DatasetFreshnessItem]:
+        attention_by_dataset: dict[str, DatasetFreshnessItem] = {}
+        for group in freshness_response.groups:
+            for item in group.items:
+                has_recent_failure = bool(item.recent_failure_summary or item.recent_failure_message)
+                lagging_or_stale = item.freshness_status in {"lagging", "stale"}
+                if not has_recent_failure and not lagging_or_stale:
+                    continue
+                attention_by_dataset[item.dataset_key] = item
+
+        status_priority = {
+            "stale": 0,
+            "lagging": 1,
+        }
+        items = list(attention_by_dataset.values())
+        items.sort(
+            key=lambda item: (
+                0 if (item.recent_failure_summary or item.recent_failure_message) else 1,
+                status_priority.get(item.freshness_status, 2),
+                -(item.lag_days or 0),
+                -(item.recent_failure_at.timestamp() if item.recent_failure_at else 0.0),
+                item.display_name,
+            )
+        )
+        return items
 
     @staticmethod
     def _build_today_kpis(session: Session) -> OpsTodayKpis:

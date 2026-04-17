@@ -178,6 +178,9 @@ export interface OpsOverviewResponse {
     latest_business_date: string | null;
     last_sync_date: string | null;
     primary_execution_spec_key: string | null;
+    recent_failure_message?: string | null;
+    recent_failure_summary?: string | null;
+    recent_failure_at?: string | null;
   }>;
   recent_executions: Array<{
     id: number;

@@ -35,6 +35,7 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     job_execution_factory,
     trade_calendar_factory,
     sync_job_state_factory,
+    sync_run_log_factory,
     monkeypatch,
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
@@ -95,6 +96,13 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
         status="partial_success",
         requested_at=now,
     )
+    sync_run_log_factory(
+        job_name="sync_equity_daily",
+        status="FAILED",
+        started_at=now,
+        ended_at=datetime(2026, 3, 30, 13, 0, tzinfo=timezone.utc),
+        message="network timeout while fetching daily data",
+    )
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
@@ -121,6 +129,9 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     assert payload["freshness_summary"]["total_datasets"] >= 2
     assert payload["freshness_summary"]["fresh_datasets"] >= 1
     assert any(item["dataset_key"] == "index_monthly" for item in payload["lagging_datasets"])
+    daily_item = next((item for item in payload["lagging_datasets"] if item["dataset_key"] == "daily"), None)
+    assert daily_item is not None
+    assert "network timeout" in (daily_item["recent_failure_summary"] or "")
     assert len(payload["recent_executions"]) == 5
     assert len(payload["recent_failures"]) == 1
     assert payload["recent_failures"][0]["id"] == failed.id
