@@ -8,7 +8,7 @@ import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
 import { dedupeModeItemsForSource, type SourceKey } from "./ops-v21-source-page-utils";
 
-type CardStatus = "healthy" | "warning" | "failed" | "unknown";
+type CardStatus = "running" | "healthy" | "warning" | "failed" | "unknown";
 
 interface SourceCardItem {
   datasetKey: string;
@@ -17,8 +17,7 @@ interface SourceCardItem {
   domainDisplayName: string;
   rawTableLabel: string;
   status: CardStatus;
-  recentSyncAt: string | null;
-  recentSyncResult: string;
+  recentSyncText: string;
   dateRangeText: string;
   cadenceText: string;
   primaryExecutionSpecKey: string | null;
@@ -30,6 +29,7 @@ interface SourceCardItem {
 
 function toCardStatus(rawStatus: string | null | undefined): CardStatus {
   const key = (rawStatus || "").toLowerCase();
+  if (key === "running" || key === "queued" || key === "canceling") return "running";
   if (key === "failed" || key === "stale") return "failed";
   if (key === "warning" || key === "lagging") return "warning";
   if (key === "healthy" || key === "fresh" || key === "success") return "healthy";
@@ -37,6 +37,7 @@ function toCardStatus(rawStatus: string | null | undefined): CardStatus {
 }
 
 function statusDotColor(status: CardStatus) {
+  if (status === "running") return "rgb(59, 130, 246)";
   if (status === "healthy") return "rgb(34, 197, 94)";
   if (status === "failed") return "rgb(244, 63, 94)";
   if (status === "warning") return "rgb(245, 158, 11)";
@@ -44,6 +45,7 @@ function statusDotColor(status: CardStatus) {
 }
 
 function statusTag(status: CardStatus): { text: string; color: string } {
+  if (status === "running") return { text: "执行中", color: "blue" };
   if (status === "healthy") return { text: "成功", color: "green" };
   if (status === "failed") return { text: "失败", color: "red" };
   if (status === "warning") return { text: "滞后", color: "yellow" };
@@ -81,6 +83,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness", `v21-source-${sourceKey}`],
     queryFn: () => apiRequest<OpsFreshnessResponse>("/api/v1/ops/freshness"),
+    refetchInterval: 5000,
   });
   const latestQuery = useQuery({
     queryKey: ["ops", "layer-snapshot", "latest", `v21-source-${sourceKey}`],
@@ -152,7 +155,19 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       const freshItem = freshMeta?.item;
       const fallbackRawTable = `${sourceKey === "biying" ? "raw_biying" : "raw_tushare"}.${modeItem.dataset_key.replace(/^biying_/, "")}`;
       const sourceScopedRawTable = (freshItem?.raw_table || "").replace(/^raw_tushare\./i, sourceKey === "biying" ? "raw_biying." : "raw_tushare.");
-      const status = toCardStatus(rawLatest?.status || freshItem?.freshness_status || modeItem.freshness_status);
+      const activeExecutionStatus = (freshItem?.active_execution_status || "").toLowerCase();
+      const hasActiveExecution = activeExecutionStatus === "queued" || activeExecutionStatus === "running" || activeExecutionStatus === "canceling";
+      const status = hasActiveExecution
+        ? "running"
+        : toCardStatus(rawLatest?.status || freshItem?.freshness_status || modeItem.freshness_status);
+      const recentSyncAt = freshItem?.latest_success_at || rawLatest?.last_success_at || null;
+      const recentSyncText = hasActiveExecution
+        ? (
+            freshItem?.active_execution_started_at
+              ? `执行中（开始于 ${formatDateTimeLabel(freshItem.active_execution_started_at)}）`
+              : "执行中"
+          )
+        : (recentSyncAt ? formatDateTimeLabel(recentSyncAt) : "—");
       return {
         datasetKey: modeItem.dataset_key,
         displayName: modeItem.display_name || formatResourceLabel(modeItem.dataset_key),
@@ -160,8 +175,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         domainDisplayName: freshGroup?.domain_display_name || modeItem.domain_display_name || "未分类",
         rawTableLabel: sourceScopedRawTable || modeItem.raw_table || fallbackRawTable,
         status,
-        recentSyncAt: rawLatest?.calculated_at || (freshItem?.latest_success_at || null),
-        recentSyncResult: status === "failed" ? "失败" : status === "warning" ? "告警" : status === "healthy" ? "成功" : "未知",
+        recentSyncText,
         dateRangeText: freshItem ? buildDateRangeText(freshItem) : (modeItem.latest_business_date ? `最新业务日：${formatDateLabel(modeItem.latest_business_date)}` : "—"),
         cadenceText: cadenceLabel(freshItem?.cadence || ""),
         primaryExecutionSpecKey: freshItem?.primary_execution_spec_key || null,
@@ -243,7 +257,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
 
                     <Stack gap={6}>
                       <Group gap={6} wrap="wrap">
-                        <Text size="sm">最近同步：{item.recentSyncAt ? formatDateTimeLabel(item.recentSyncAt) : "—"}</Text>
+                        <Text size="sm">最近同步：{item.recentSyncText}</Text>
                         <Badge size="xs" variant="light" color={statusTag(item.status).color}>
                           {statusTag(item.status).text}
                         </Badge>

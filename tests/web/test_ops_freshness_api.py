@@ -172,6 +172,45 @@ def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_sched
     assert trade_cal_item["auto_schedule_active"] == 1
 
 
+def test_ops_freshness_exposes_active_execution_status_for_dataset(
+    app_client,
+    user_factory,
+    trade_calendar_factory,
+    sync_job_state_factory,
+    job_execution_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 16), is_open=True, pretrade_date=date(2026, 4, 15))
+    sync_job_state_factory(
+        job_name="sync_cyq_perf",
+        target_table="core.equity_cyq_perf",
+        last_success_date=date(2026, 4, 10),
+        last_success_at=datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc),
+    )
+    job_execution_factory(
+        spec_type="job",
+        spec_key="sync_daily.cyq_perf",
+        status="running",
+        requested_at=datetime(2026, 4, 17, 8, 0, tzinfo=timezone.utc),
+        started_at=datetime(2026, 4, 17, 8, 1, tzinfo=timezone.utc),
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/freshness", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    grouped = {
+        group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
+        for group in payload["groups"]
+    }
+    cyq_item = grouped["equity"]["cyq_perf"]
+    assert cyq_item["active_execution_status"] == "running"
+    assert cyq_item["active_execution_started_at"] == "2026-04-17T08:01:00"
+
+
 def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
     app_client,
     user_factory,

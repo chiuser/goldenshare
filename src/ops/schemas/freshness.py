@@ -35,6 +35,8 @@ class DatasetFreshnessItem(BaseModel):
     auto_schedule_total: int = 0
     auto_schedule_active: int = 0
     auto_schedule_next_run_at: datetime | None = None
+    active_execution_status: str | None = None
+    active_execution_started_at: datetime | None = None
 
 
 class FreshnessGroup(BaseModel):

@@ -153,6 +153,8 @@ export interface OpsFreshnessResponse {
       auto_schedule_total: number;
       auto_schedule_active: number;
       auto_schedule_next_run_at: string | null;
+      active_execution_status: string | null;
+      active_execution_started_at: string | null;
     }>;
   }>;
 }

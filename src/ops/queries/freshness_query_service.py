@@ -60,6 +60,7 @@ from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
@@ -75,6 +76,7 @@ from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsF
 
 STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unknown": 2, "disabled": 3, "fresh": 4}
 DISABLED_DATASET_KEYS: set[str] = set()
+ACTIVE_EXECUTION_STATUSES = ("queued", "running", "canceling")
 
 UNDEFINED_COLUMN_RE = re.compile(r'column "([^"]+)" of relation "([^"]+)" does not exist', re.IGNORECASE)
 NOT_NULL_RE = re.compile(
@@ -243,7 +245,7 @@ class OpsFreshnessQueryService:
                 )
             )
             if not live_refresh_resource_keys:
-                return self._attach_auto_schedule_metadata(session, snapshot_response)
+                return self._attach_runtime_metadata(session, snapshot_response)
 
             live_refreshed_items = self.build_live_items(session, today=today, resource_keys=live_refresh_resource_keys)
             merged_by_key = {
@@ -256,14 +258,14 @@ class OpsFreshnessQueryService:
             merged_items = list(merged_by_key.values())
             groups = self._group_items(merged_items)
             summary = self._build_summary(merged_items)
-            return self._attach_auto_schedule_metadata(
+            return self._attach_runtime_metadata(
                 session,
                 OpsFreshnessResponse(summary=summary, groups=groups),
             )
         items = self.build_live_items(session, today=today)
         groups = self._group_items(items)
         summary = self._build_summary(items)
-        return self._attach_auto_schedule_metadata(
+        return self._attach_runtime_metadata(
             session,
             OpsFreshnessResponse(summary=summary, groups=groups),
         )
@@ -536,6 +538,11 @@ class OpsFreshnessQueryService:
             disabled_datasets=counts["disabled"],
         )
 
+    def _attach_runtime_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
+        response = self._attach_auto_schedule_metadata(session, response)
+        response = self._attach_active_execution_metadata(session, response)
+        return response
+
     def _attach_auto_schedule_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
         spec_keys = {
             item.primary_execution_spec_key
@@ -562,6 +569,58 @@ class OpsFreshnessQueryService:
                     item.auto_schedule_status = "paused"
                 else:
                     item.auto_schedule_status = "none"
+        return response
+
+    @staticmethod
+    def _attach_active_execution_metadata(session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
+        spec_keys = {
+            item.primary_execution_spec_key
+            for group in response.groups
+            for item in group.items
+            if item.primary_execution_spec_key
+        }
+        dataset_keys = {
+            item.dataset_key
+            for group in response.groups
+            for item in group.items
+            if item.dataset_key
+        }
+        if not spec_keys and not dataset_keys:
+            return response
+
+        rows = session.execute(
+            select(
+                JobExecution.spec_type,
+                JobExecution.spec_key,
+                JobExecution.dataset_key,
+                JobExecution.status,
+                JobExecution.started_at,
+                JobExecution.requested_at,
+            )
+            .where(JobExecution.status.in_(ACTIVE_EXECUTION_STATUSES))
+            .order_by(desc(JobExecution.requested_at), desc(JobExecution.id))
+        ).all()
+
+        by_spec_key: dict[str, tuple[str, datetime | None]] = {}
+        by_dataset_key: dict[str, tuple[str, datetime | None]] = {}
+        for row in rows:
+            effective_started_at = row.started_at or row.requested_at
+            if row.spec_key and row.spec_key in spec_keys and row.spec_key not in by_spec_key:
+                by_spec_key[row.spec_key] = (row.status, effective_started_at)
+            if row.dataset_key and row.dataset_key in dataset_keys and row.dataset_key not in by_dataset_key:
+                by_dataset_key[row.dataset_key] = (row.status, effective_started_at)
+
+        for group in response.groups:
+            for item in group.items:
+                active = None
+                if item.primary_execution_spec_key:
+                    active = by_spec_key.get(item.primary_execution_spec_key)
+                if active is None and item.dataset_key:
+                    active = by_dataset_key.get(item.dataset_key)
+                if active is None:
+                    continue
+                item.active_execution_status = active[0]
+                item.active_execution_started_at = active[1]
         return response
 
     @staticmethod
