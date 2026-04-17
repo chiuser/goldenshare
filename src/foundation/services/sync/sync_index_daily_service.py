@@ -113,14 +113,4 @@ class SyncIndexDailyService(HttpResourceSyncService):
         return total_fetched, total_written, latest_seen
 
     def _update_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
-        if execution_id is None:
-            return
-        execution = self.session.get(JobExecution, execution_id)
-        if execution is None:
-            return
-        execution.progress_current = current
-        execution.progress_total = total
-        execution.progress_percent = int((current / total) * 100) if total else None
-        execution.progress_message = message
-        execution.last_progress_at = datetime.now(timezone.utc)
-        self.session.commit()
+        self._update_execution_progress(execution_id=execution_id, current=current, total=total, message=message)

@@ -10,6 +10,11 @@
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
+- [架构设计问题清单 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-v1.md)
+- [架构问题 P0 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p0-remediation-v1.md)
+- [架构问题 P1 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p1-remediation-v1.md)
+- [架构问题 P2 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p2-remediation-v1.md)
+- [架构问题 P3 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p3-remediation-v1.md)
 
 ## 前端设计与实现
 

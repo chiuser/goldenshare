@@ -68,6 +68,12 @@ from src.operations.specs import (
     get_workflow_spec,
     list_dataset_freshness_specs,
 )
+from src.operations.specs.observed_dataset_registry import (
+    OBSERVED_DATE_AUTHORITATIVE_KEYS,
+    OBSERVED_DATE_FILTERS,
+    OBSERVED_DATE_MODEL_REGISTRY,
+)
+from src.operations.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
@@ -93,80 +99,6 @@ FORCE_LIVE_RESOURCE_KEYS = {
     "stk_period_bar_adj_week",
     "stk_period_bar_adj_month",
 }
-
-# Dataset-specific observed-range filters for shared tables.
-OBSERVED_DATE_FILTERS: dict[str, tuple[str, str]] = {
-    "stk_period_bar_week": ("freq", "week"),
-    "stk_period_bar_month": ("freq", "month"),
-    "stk_period_bar_adj_week": ("freq", "week"),
-    "stk_period_bar_adj_month": ("freq", "month"),
-}
-
-OBSERVED_DATE_AUTHORITATIVE_KEYS = {
-    "stk_period_bar_week",
-    "stk_period_bar_month",
-    "stk_period_bar_adj_week",
-    "stk_period_bar_adj_month",
-}
-
-OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
-    "core_serving.security_serving": Security,
-    "core_serving.hk_security": HkSecurity,
-    "core_serving.us_security": UsSecurity,
-    "core_serving.trade_calendar": TradeCalendar,
-    "core_serving.etf_basic": EtfBasic,
-    "core_serving.etf_index": EtfIndex,
-    "core_serving.index_basic": IndexBasic,
-    "core_serving.equity_daily_bar": EquityDailyBar,
-    "core.equity_adj_factor": EquityAdjFactor,
-    "core_serving.equity_daily_basic": EquityDailyBasic,
-    "core_serving.equity_cyq_perf": EquityCyqPerf,
-    "core_serving.equity_moneyflow": EquityMoneyflow,
-    "core_serving.equity_margin": EquityMargin,
-    "core_serving.equity_top_list": EquityTopList,
-    "core_serving.equity_block_trade": EquityBlockTrade,
-    "core_serving.equity_limit_list": EquityLimitList,
-    "core_serving.equity_stk_limit": EquityStkLimit,
-    "core_serving.equity_stock_st": EquityStockSt,
-    "core_serving.equity_nineturn": EquityNineTurn,
-    "core_serving.equity_suspend_d": EquitySuspendD,
-    "core_serving.equity_dividend": EquityDividend,
-    "core_serving.equity_holder_number": EquityHolderNumber,
-    "core_serving.stk_period_bar": StkPeriodBar,
-    "core_serving.stk_period_bar_adj": StkPeriodBarAdj,
-    "core_serving.fund_daily_bar": FundDailyBar,
-    "core.fund_adj_factor": FundAdjFactor,
-    "core.index_daily_bar": IndexDailyBar,
-    "core_serving.index_daily_serving": IndexDailyServing,
-    "core.index_weekly_bar": IndexWeeklyBar,
-    "core_serving.index_weekly_serving": IndexWeeklyServing,
-    "core.index_monthly_bar": IndexMonthlyBar,
-    "core_serving.index_monthly_serving": IndexMonthlyServing,
-    "core_serving.index_daily_basic": IndexDailyBasic,
-    "core_serving.index_weight": IndexWeight,
-    "core.equity_cyq_perf": EquityCyqPerf,
-    "core.equity_margin": EquityMargin,
-    "core.equity_stk_limit": EquityStkLimit,
-    "core.equity_stock_st": EquityStockSt,
-    "core.equity_nineturn": EquityNineTurn,
-    "core.equity_suspend_d": EquitySuspendD,
-    "core_serving.ths_index": ThsIndex,
-    "core_serving.ths_member": ThsMember,
-    "core_serving.ths_daily": ThsDaily,
-    "core_serving.ths_hot": ThsHot,
-    "core_serving.dc_index": DcIndex,
-    "core_serving.dc_member": DcMember,
-    "core_serving.dc_daily": DcDaily,
-    "core_serving.dc_hot": DcHot,
-    "core_serving.kpl_list": KplList,
-    "core_serving.kpl_concept_cons": KplConceptCons,
-    "core_serving.limit_list_ths": LimitListThs,
-    "core_serving.limit_step": LimitStep,
-    "core_serving.limit_cpt_list": LimitCptList,
-    "raw_biying.equity_daily_bar": RawBiyingEquityDailyBar,
-    "raw_biying.moneyflow": RawBiyingMoneyflow,
-}
-
 
 class FailureSnapshot:
     def __init__(self, *, message: str | None, occurred_at: datetime | None) -> None:
@@ -774,35 +706,7 @@ class OpsFreshnessQueryService:
             items: list[DatasetFreshnessItem] = []
             for row in rows:
                 spec = get_dataset_freshness_spec(row.resource_key)
-                items.append(
-                    DatasetFreshnessItem(
-                        dataset_key=row.dataset_key,
-                        resource_key=row.resource_key,
-                        display_name=row.display_name,
-                        domain_key=row.domain_key,
-                        domain_display_name=row.domain_display_name,
-                        job_name=row.job_name,
-                        target_table=row.target_table,
-                        raw_table=spec.raw_table if spec is not None else None,
-                        cadence=row.cadence,
-                        state_business_date=row.state_business_date,
-                        earliest_business_date=row.earliest_business_date,
-                        observed_business_date=row.observed_business_date,
-                        latest_business_date=row.latest_business_date,
-                        business_date_source=row.business_date_source,
-                        freshness_note=row.freshness_note,
-                        latest_success_at=row.latest_success_at,
-                        last_sync_date=row.last_sync_date,
-                        expected_business_date=row.expected_business_date,
-                        lag_days=row.lag_days,
-                        freshness_status=row.freshness_status,
-                        recent_failure_message=row.recent_failure_message,
-                        recent_failure_summary=row.recent_failure_summary,
-                        recent_failure_at=row.recent_failure_at,
-                        primary_execution_spec_key=row.primary_execution_spec_key,
-                        full_sync_done=row.full_sync_done,
-                    )
-                )
+                items.append(snapshot_row_to_freshness_item(row, raw_table=spec.raw_table if spec is not None else None))
             groups = OpsFreshnessQueryService._group_items(items)
             summary = OpsFreshnessQueryService._build_summary(items)
             return OpsFreshnessResponse(summary=summary, groups=groups)

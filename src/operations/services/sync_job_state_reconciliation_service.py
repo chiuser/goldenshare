@@ -8,88 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
-from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
-from src.foundation.models.core.equity_block_trade import EquityBlockTrade
-from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
-from src.foundation.models.core.equity_factor_pro import EquityFactorPro
-from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core.equity_limit_list import EquityLimitList
-from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
-from src.foundation.models.core.equity_nineturn import EquityNineTurn
-from src.foundation.models.core.equity_stk_limit import EquityStkLimit
-from src.foundation.models.core.equity_stock_st import EquityStockSt
-from src.foundation.models.core.equity_suspend_d import EquitySuspendD
-from src.foundation.models.core.equity_top_list import EquityTopList
-from src.foundation.models.core.fund_daily_bar import FundDailyBar
-from src.foundation.models.core.fund_adj_factor import FundAdjFactor
-from src.foundation.models.core.index_daily_bar import IndexDailyBar
-from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
-from src.foundation.models.core.index_daily_basic import IndexDailyBasic
-from src.foundation.models.core.index_monthly_bar import IndexMonthlyBar
-from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
-from src.foundation.models.core.index_weight import IndexWeight
-from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
-from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
-from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
-from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
+from src.operations.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.foundation.services.sync.registry import build_sync_service
-
-
-OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
-    "core_serving.trade_calendar": TradeCalendar,
-    "core_serving.equity_daily_bar": EquityDailyBar,
-    "core.equity_adj_factor": EquityAdjFactor,
-    "core_serving.equity_daily_basic": EquityDailyBasic,
-    "core_serving.equity_cyq_perf": EquityCyqPerf,
-    "core_serving.equity_factor_pro": EquityFactorPro,
-    "core_serving.equity_moneyflow": EquityMoneyflow,
-    "core_serving.equity_top_list": EquityTopList,
-    "core_serving.equity_block_trade": EquityBlockTrade,
-    "core_serving.equity_limit_list": EquityLimitList,
-    "core_serving.equity_stk_limit": EquityStkLimit,
-    "core_serving.equity_stock_st": EquityStockSt,
-    "core_serving.equity_nineturn": EquityNineTurn,
-    "core_serving.equity_suspend_d": EquitySuspendD,
-    "core_serving.stk_period_bar": StkPeriodBar,
-    "core_serving.stk_period_bar_adj": StkPeriodBarAdj,
-    "core_serving.fund_daily_bar": FundDailyBar,
-    "core.fund_adj_factor": FundAdjFactor,
-    "core.index_daily_bar": IndexDailyBar,
-    "core_serving.index_daily_serving": IndexDailyServing,
-    "core.index_weekly_bar": IndexWeeklyBar,
-    "core_serving.index_weekly_serving": IndexWeeklyServing,
-    "core.index_monthly_bar": IndexMonthlyBar,
-    "core_serving.index_monthly_serving": IndexMonthlyServing,
-    "core_serving.index_daily_basic": IndexDailyBasic,
-    "core_serving.index_weight": IndexWeight,
-    # 兼容历史 sync_job_state.target_table 仍为 core.* 的记录
-    "core.trade_calendar": TradeCalendar,
-    "core.equity_daily_bar": EquityDailyBar,
-    "core.equity_daily_basic": EquityDailyBasic,
-    "core.equity_cyq_perf": EquityCyqPerf,
-    "core.equity_factor_pro": EquityFactorPro,
-    "core.equity_moneyflow": EquityMoneyflow,
-    "core.equity_top_list": EquityTopList,
-    "core.equity_block_trade": EquityBlockTrade,
-    "core.equity_limit_list": EquityLimitList,
-    "core.equity_stk_limit": EquityStkLimit,
-    "core.equity_stock_st": EquityStockSt,
-    "core.equity_nineturn": EquityNineTurn,
-    "core.equity_suspend_d": EquitySuspendD,
-    "core.stk_period_bar": StkPeriodBar,
-    "core.stk_period_bar_adj": StkPeriodBarAdj,
-    "core.fund_daily_bar": FundDailyBar,
-    "core.index_daily_serving": IndexDailyServing,
-    "core.index_weekly_serving": IndexWeeklyServing,
-    "core.index_monthly_serving": IndexMonthlyServing,
-    "core.index_daily_basic": IndexDailyBasic,
-    "core.index_weight": IndexWeight,
-}
-
 
 @dataclass(slots=True)
 class ReconciledSyncJobState:

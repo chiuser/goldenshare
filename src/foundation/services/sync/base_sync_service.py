@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import date
 from datetime import datetime
+from datetime import timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.schemas import SyncResult
 from src.foundation.services.sync.errors import ExecutionCanceledError
+from src.ops.models.ops.job_execution import JobExecution
 
 
 class BaseSyncService(ABC):
@@ -70,6 +72,29 @@ class BaseSyncService(ABC):
         ).scalar_one_or_none()
         if isinstance(cancel_requested_at, datetime):
             raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
+
+    def _update_execution_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
+        if execution_id is None:
+            return
+        bind = self.session.get_bind()
+        if bind is None:
+            return
+        progress_session = Session(bind=bind, autoflush=False, autocommit=False, future=True)
+        try:
+            execution = progress_session.get(JobExecution, execution_id)
+            if execution is None:
+                return
+            execution.progress_current = current
+            execution.progress_total = total
+            execution.progress_percent = int((current / total) * 100) if total else None
+            execution.progress_message = message
+            execution.last_progress_at = datetime.now(timezone.utc)
+            progress_session.commit()
+        except Exception:
+            progress_session.rollback()
+            self.logger.warning("Failed to persist sync progress update.", exc_info=True)
+        finally:
+            progress_session.close()
 
     def _assert_no_legacy_raw_schema_route(self) -> None:
         """

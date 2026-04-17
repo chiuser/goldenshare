@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.operations.specs.job_spec import JobSpec, ParameterSpec
+from src.operations.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.operations.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
 from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
@@ -1016,9 +1017,48 @@ def _raw_table_for_resource(resource: str) -> str | None:
         return f"raw_biying.{resource.removeprefix('biying_')}"
     return f"raw_tushare.{resource}"
 
+
+def find_missing_freshness_metadata_resources(
+    *,
+    sync_resources: list[str] | tuple[str, ...],
+    metadata: dict[str, tuple[str, str, str, str, str | None]],
+) -> list[str]:
+    return sorted(resource for resource in sync_resources if resource not in metadata)
+
+
+def validate_dataset_freshness_registry(
+    specs: dict[str, DatasetFreshnessSpec],
+    *,
+    observed_model_registry: dict[str, type],
+) -> list[str]:
+    errors: list[str] = []
+    missing_models: list[str] = []
+    missing_columns: list[str] = []
+    for resource_key, spec in sorted(specs.items()):
+        if spec.observed_date_column is None:
+            continue
+        model = observed_model_registry.get(spec.target_table)
+        if model is None:
+            missing_models.append(resource_key)
+            continue
+        if not hasattr(model, spec.observed_date_column):
+            missing_columns.append(f"{resource_key}({spec.target_table}.{spec.observed_date_column})")
+    if missing_models:
+        errors.append(f"Missing observed model mapping: {', '.join(missing_models)}")
+    if missing_columns:
+        errors.append(f"Missing observed date column on mapped model: {', '.join(missing_columns)}")
+    return errors
+
+
+_missing_freshness_metadata = find_missing_freshness_metadata_resources(
+    sync_resources=tuple(sorted(SYNC_SERVICE_REGISTRY)),
+    metadata=DATASET_FRESHNESS_METADATA,
+)
+if _missing_freshness_metadata:
+    joined_missing = ", ".join(_missing_freshness_metadata)
+    raise RuntimeError(f"Missing DATASET_FRESHNESS_METADATA entries for sync resources: {joined_missing}")
+
 for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
-    if _resource not in DATASET_FRESHNESS_METADATA:
-        continue
     _display_name, _domain_key, _domain_display_name, _cadence, _observed_date_column = DATASET_FRESHNESS_METADATA[_resource]
     _spec = DatasetFreshnessSpec(
         dataset_key=_resource,
@@ -1035,6 +1075,13 @@ for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
     )
     DATASET_FRESHNESS_SPEC_REGISTRY[_resource] = _spec
     DATASET_FRESHNESS_BY_JOB_NAME[_spec.job_name] = _spec
+
+_dataset_freshness_registry_errors = validate_dataset_freshness_registry(
+    DATASET_FRESHNESS_SPEC_REGISTRY,
+    observed_model_registry=OBSERVED_DATE_MODEL_REGISTRY,
+)
+if _dataset_freshness_registry_errors:
+    raise RuntimeError("Invalid DATASET_FRESHNESS_SPEC_REGISTRY: " + "; ".join(_dataset_freshness_registry_errors))
 
 
 def list_job_specs() -> list[JobSpec]:

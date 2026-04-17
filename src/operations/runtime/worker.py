@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.job_execution import JobExecution
@@ -22,15 +22,23 @@ class OperationsWorker:
         self.dispatcher = dispatcher or OperationsDispatcher()
 
     def run_next(self, session: Session) -> JobExecution | None:
-        execution = session.scalar(
-            select(JobExecution)
-            .where(JobExecution.status == "queued")
-            .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
-            .limit(1)
-        )
-        if execution is None:
-            return None
-        return self.run_execution(session, execution.id)
+        canceled = self._cancel_next_queued_execution(session)
+        if canceled is not None:
+            return canceled
+
+        while True:
+            execution_id = session.scalar(
+                select(JobExecution.id)
+                .where(JobExecution.status == "queued")
+                .where(JobExecution.cancel_requested_at.is_(None))
+                .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
+                .limit(1)
+            )
+            if execution_id is None:
+                return None
+            if not self._claim_execution(session, execution_id):
+                continue
+            return self._run_started_execution(session, execution_id)
 
     def run_execution(self, session: Session, execution_id: int) -> JobExecution:
         execution = session.get(JobExecution, execution_id)
@@ -39,38 +47,96 @@ class OperationsWorker:
         if execution.status != "queued":
             raise WebAppError(status_code=409, code="conflict", message="Only queued executions can start immediately")
         if execution.cancel_requested_at is not None:
-            execution.status = "canceled"
-            execution.canceled_at = datetime.now(timezone.utc)
-            session.add(
-                JobExecutionEvent(
-                    execution_id=execution.id,
-                    event_type="canceled",
-                    level="INFO",
-                    message="Execution canceled before start",
-                    payload_json={},
-                    occurred_at=datetime.now(timezone.utc),
-                )
-            )
-            session.commit()
-            session.refresh(execution)
-            return execution
+            canceled = self._cancel_queued_execution(session, execution.id)
+            if canceled is None:
+                raise WebAppError(status_code=409, code="conflict", message="Execution status changed before canceling")
+            return canceled
 
-        execution.status = "running"
-        execution.started_at = datetime.now(timezone.utc)
-        execution.progress_message = "系统已经开始处理这次任务。"
-        execution.last_progress_at = execution.started_at
+        if not self._claim_execution(session, execution.id):
+            raise WebAppError(status_code=409, code="conflict", message="Execution status changed before start")
+        return self._run_started_execution(session, execution.id)
+
+    def _cancel_next_queued_execution(self, session: Session) -> JobExecution | None:
+        execution_id = session.scalar(
+            select(JobExecution.id)
+            .where(JobExecution.status == "queued")
+            .where(JobExecution.cancel_requested_at.is_not(None))
+            .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
+            .limit(1)
+        )
+        if execution_id is None:
+            return None
+        return self._cancel_queued_execution(session, execution_id)
+
+    def _cancel_queued_execution(self, session: Session, execution_id: int) -> JobExecution | None:
+        canceled_at = datetime.now(timezone.utc)
+        result = session.execute(
+            update(JobExecution)
+            .where(JobExecution.id == execution_id)
+            .where(JobExecution.status == "queued")
+            .where(JobExecution.cancel_requested_at.is_not(None))
+            .values(
+                status="canceled",
+                canceled_at=canceled_at,
+                ended_at=canceled_at,
+                progress_message="Execution canceled before start",
+                last_progress_at=canceled_at,
+            )
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            return None
         session.add(
             JobExecutionEvent(
-                execution_id=execution.id,
+                execution_id=execution_id,
+                event_type="canceled",
+                level="INFO",
+                message="Execution canceled before start",
+                payload_json={},
+                occurred_at=canceled_at,
+            )
+        )
+        session.commit()
+        execution = session.get(JobExecution, execution_id)
+        if execution is None:
+            return None
+        session.refresh(execution)
+        return execution
+
+    def _claim_execution(self, session: Session, execution_id: int) -> bool:
+        started_at = datetime.now(timezone.utc)
+        result = session.execute(
+            update(JobExecution)
+            .where(JobExecution.id == execution_id)
+            .where(JobExecution.status == "queued")
+            .where(JobExecution.cancel_requested_at.is_(None))
+            .values(
+                status="running",
+                started_at=started_at,
+                progress_message="系统已经开始处理这次任务。",
+                last_progress_at=started_at,
+            )
+        )
+        if result.rowcount != 1:
+            session.rollback()
+            return False
+        session.add(
+            JobExecutionEvent(
+                execution_id=execution_id,
                 event_type="started",
                 level="INFO",
                 message="Execution started",
                 payload_json={},
-                occurred_at=execution.started_at,
+                occurred_at=started_at,
             )
         )
         session.commit()
+        return True
 
+    def _run_started_execution(self, session: Session, execution_id: int) -> JobExecution:
+        execution = session.get(JobExecution, execution_id)
+        if execution is None:
+            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
         try:
             try:
                 outcome = self.dispatcher.dispatch(session, execution)
@@ -135,11 +201,13 @@ class OperationsWorker:
             )
         )
         session.commit()
-        DatasetStatusSnapshotService().refresh_for_execution(
+        refresh_error = self._refresh_snapshot_for_execution(
             session,
             spec_type=execution.spec_type,
             spec_key=execution.spec_key,
         )
+        if refresh_error is not None:
+            self._record_snapshot_refresh_failure(session, execution.id, refresh_error)
         session.refresh(execution)
         return execution
 
@@ -168,6 +236,42 @@ class OperationsWorker:
         session.commit()
         session.refresh(execution)
         return execution
+
+    def _record_snapshot_refresh_failure(self, session: Session, execution_id: int, error_message: str) -> None:
+        detail = self._sanitize_error_message(error_message)
+        try:
+            session.add(
+                JobExecutionEvent(
+                    execution_id=execution_id,
+                    event_type="warning",
+                    level="WARNING",
+                    message="Dataset status snapshot refresh failed",
+                    payload_json={"code": "dataset_snapshot_refresh_failed", "detail": detail},
+                    occurred_at=datetime.now(timezone.utc),
+                )
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
+
+    @staticmethod
+    def _refresh_snapshot_for_execution(session: Session, *, spec_type: str, spec_key: str) -> str | None:
+        bind = session.get_bind()
+        if bind is None:
+            return "Database bind is unavailable for snapshot refresh."
+        try:
+            with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
+                refreshed = DatasetStatusSnapshotService().refresh_for_execution(
+                    snapshot_session,
+                    spec_type=spec_type,
+                    spec_key=spec_key,
+                    strict=True,
+                )
+            if refreshed <= 0:
+                return f"Snapshot refresh returned 0 rows for {spec_type}:{spec_key}."
+            return None
+        except Exception as exc:
+            return str(exc)
 
     @classmethod
     def _sanitize_error_message(cls, message: str | None) -> str | None:

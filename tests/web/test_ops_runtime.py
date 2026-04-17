@@ -391,3 +391,39 @@ def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_e
     assert result.error_code == "worker_finalize_error"
     assert "worker_finalize_error" in (result.summary_message or "")
     assert result.progress_message == "系统已经开始处理这次任务。"
+
+
+def test_worker_records_warning_event_when_snapshot_refresh_fails(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        status="queued",
+        requested_at=datetime(2026, 4, 18, 10, 0, tzinfo=timezone.utc),
+    )
+    dispatcher = StubDispatcher(DispatchOutcome(status="success", rows_fetched=1, rows_written=1, summary_message="ok"))
+    worker = OperationsWorker(dispatcher=dispatcher)
+
+    def _stub_refresh(_session, *, spec_type, spec_key):  # type: ignore[no-untyped-def]
+        assert spec_type == "job"
+        assert spec_key == "sync_history.stock_basic"
+        return "snapshot refresh boom"
+
+    monkeypatch.setattr(worker, "_refresh_snapshot_for_execution", _stub_refresh)
+
+    result = worker.run_next(db_session)
+    assert result is not None
+    assert result.status == "success"
+
+    events = list(
+        db_session.scalars(
+            select(JobExecutionEvent)
+            .where(JobExecutionEvent.execution_id == execution.id)
+            .order_by(JobExecutionEvent.id.asc())
+        )
+    )
+    warning_events = [event for event in events if event.event_type == "warning"]
+    assert len(warning_events) == 1
+    warning = warning_events[0]
+    assert warning.level == "WARNING"
+    assert warning.payload_json.get("code") == "dataset_snapshot_refresh_failed"
+    assert "snapshot refresh boom" in str(warning.payload_json.get("detail") or "")
