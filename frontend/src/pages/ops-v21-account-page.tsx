@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -11,7 +12,9 @@ import {
   Tabs,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
+import { IconCopy } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -261,6 +264,16 @@ export function OpsV21AccountPage() {
       setActionError(error instanceof Error ? error.message : "停用邀请码失败");
     },
   });
+
+  const copyInviteCode = async (code: string) => {
+    if (!code.trim()) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setActionError(null);
+    } catch {
+      setActionError("复制失败，请手动复制邀请码");
+    }
+  };
 
   return (
     <Stack gap="lg">
@@ -649,7 +662,25 @@ export function OpsV21AccountPage() {
                     <Table.Tbody>
                       {(invitesQuery.data?.items || []).map((item) => (
                         <Table.Tr key={`invite-row-${item.id}`}>
-                          <Table.Td>{item.code_hint}</Table.Td>
+                          <Table.Td>
+                            <Group gap={4} wrap="nowrap" style={{ width: "fit-content" }}>
+                              <Text span style={{ whiteSpace: "nowrap" }}>
+                                {item.code_hint}
+                              </Text>
+                              <Tooltip label="复制邀请码">
+                                <ActionIcon
+                                  variant="subtle"
+                                  color="gray"
+                                  aria-label="复制邀请码"
+                                  onClick={() => {
+                                    void copyInviteCode(item.code_hint);
+                                  }}
+                                >
+                                  <IconCopy size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </Group>
+                          </Table.Td>
                           <Table.Td>{item.role_key}</Table.Td>
                           <Table.Td>{item.used_count}/{item.max_uses}</Table.Td>
                           <Table.Td>

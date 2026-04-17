@@ -82,3 +82,23 @@ def test_admin_can_not_delete_self(app_client, user_factory) -> None:
 
     delete_self = app_client.delete(f"/api/v1/admin/users/{admin_user['id']}", headers=headers)
     assert delete_self.status_code == 422
+
+
+def test_admin_invite_list_returns_full_code(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_invite = app_client.post(
+        "/api/v1/admin/invites",
+        headers=headers,
+        json={"role_key": "viewer", "max_uses": 1},
+    )
+    assert create_invite.status_code == 200
+    created_code = create_invite.json()["code"]
+
+    invite_list = app_client.get("/api/v1/admin/invites?include_disabled=true&limit=50&offset=0", headers=headers)
+    assert invite_list.status_code == 200
+    created_row = next(item for item in invite_list.json()["items"] if item["id"] == create_invite.json()["id"])
+    assert created_row["code_hint"] == created_code

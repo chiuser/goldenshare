@@ -20,7 +20,7 @@ class AuthInviteCode(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    code_hint: Mapped[str] = mapped_column(String(16), nullable=False)
+    code_hint: Mapped[str] = mapped_column(String(128), nullable=False)
     role_key: Mapped[str] = mapped_column(String(64), nullable=False, default="viewer", server_default="viewer")
     assigned_email: Mapped[str | None] = mapped_column(String(255))
     max_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
@@ -30,4 +30,3 @@ class AuthInviteCode(TimestampMixin, Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by_user_id: Mapped[int | None] = mapped_column(Integer)
     note: Mapped[str | None] = mapped_column(String(255))
-

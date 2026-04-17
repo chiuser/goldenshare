@@ -252,7 +252,7 @@ class AdminUserService:
         now = self._now()
         row = AuthInviteCode(
             code_hash=hash_raw_token(raw_code),
-            code_hint=f"{raw_code[:4]}...{raw_code[-4:]}",
+            code_hint=raw_code,
             role_key=(role_key or ROLE_VIEWER).strip().lower(),
             assigned_email=normalized_email,
             max_uses=max(1, max_uses),

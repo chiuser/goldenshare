@@ -28,9 +28,6 @@ export function UserOverviewPage() {
               数据状态总览
             </Text>
             <Title order={2}>状态概览</Title>
-            <Text c="dimmed" size="sm">
-              当前页面为普通用户只读视图，仅展示总体状态统计。
-            </Text>
           </Stack>
 
           {summaryQuery.isLoading ? (
