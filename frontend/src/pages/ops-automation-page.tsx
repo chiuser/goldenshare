@@ -61,7 +61,6 @@ const EQUITY_RESOURCES = new Set([
   "daily",
   "adj_factor",
   "daily_basic",
-  "moneyflow",
   "top_list",
   "block_trade",
   "limit_list_d",
@@ -69,6 +68,15 @@ const EQUITY_RESOURCES = new Set([
   "stk_period_bar_month",
   "stk_period_bar_adj_week",
   "stk_period_bar_adj_month",
+]);
+const MONEYFLOW_RESOURCES = new Set([
+  "moneyflow",
+  "moneyflow_ths",
+  "moneyflow_dc",
+  "moneyflow_cnt_ths",
+  "moneyflow_ind_ths",
+  "moneyflow_ind_dc",
+  "moneyflow_mkt_dc",
 ]);
 const FUND_RESOURCES = new Set(["fund_daily", "fund_adj"]);
 const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]);
@@ -245,6 +253,8 @@ function formatParamLabel(key: string): string {
     hot_type: "热榜类型",
     is_new: "最新标记",
     exchange: "交易所",
+    exchange_id: "交易所",
+    content_type: "板块类型",
     month: "月份",
     start_month: "开始月份",
     end_month: "结束月份",
@@ -274,6 +284,7 @@ function inferSpecDomain(specType: string, specKey: string, category: string | n
   }
   const resourceKey = specKey.includes(".") ? specKey.split(".")[1] : specKey;
   if (REFERENCE_RESOURCES.has(resourceKey)) return "基础主数据";
+  if (MONEYFLOW_RESOURCES.has(resourceKey)) return "资金流向";
   if (EQUITY_RESOURCES.has(resourceKey)) return "股票";
   if (FUND_RESOURCES.has(resourceKey)) return "ETF/Fund";
   if (INDEX_RESOURCES.has(resourceKey)) return "指数";

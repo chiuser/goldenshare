@@ -31,6 +31,12 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "sync_daily.daily" in job_keys
     assert "sync_daily.fund_adj" in job_keys
     assert "sync_daily.margin" in job_keys
+    assert "sync_daily.moneyflow_ths" in job_keys
+    assert "sync_daily.moneyflow_dc" in job_keys
+    assert "sync_daily.moneyflow_cnt_ths" in job_keys
+    assert "sync_daily.moneyflow_ind_ths" in job_keys
+    assert "sync_daily.moneyflow_ind_dc" in job_keys
+    assert "sync_daily.moneyflow_mkt_dc" in job_keys
     assert "sync_daily.cyq_perf" in job_keys
     assert "sync_daily.stk_factor_pro" in job_keys
     assert "sync_daily.stock_st" in job_keys
@@ -42,6 +48,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "maintenance.rebuild_dm" in job_keys
     assert "maintenance.rebuild_index_kline_serving" in job_keys
     assert "daily_market_close_sync" in workflow_keys
+    assert "daily_moneyflow_sync" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
     assert "index_kline_sync_pipeline" in workflow_keys
     workflows = {item["key"]: item for item in payload["workflow_specs"]}
@@ -104,6 +111,17 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert margin_exchange["options"] == ["SSE", "SZSE", "BSE"]
     assert margin_exchange["multi_value"] is True
     assert [param["key"] for param in jobs["sync_daily.cyq_perf"]["supported_params"]] == ["trade_date", "ts_code"]
+    assert [param["key"] for param in jobs["sync_daily.moneyflow_ths"]["supported_params"]] == ["trade_date", "ts_code"]
+    assert [param["key"] for param in jobs["sync_daily.moneyflow_ind_dc"]["supported_params"]] == [
+        "trade_date",
+        "ts_code",
+        "content_type",
+    ]
+    assert next(param for param in jobs["sync_daily.moneyflow_ind_dc"]["supported_params"] if param["key"] == "content_type")["options"] == [
+        "行业",
+        "概念",
+        "地域",
+    ]
     assert [param["key"] for param in jobs["sync_daily.stk_factor_pro"]["supported_params"]] == ["trade_date", "ts_code"]
     limit_list_daily = jobs["sync_daily.limit_list_d"]
     assert [param["key"] for param in limit_list_daily["supported_params"]] == ["trade_date", "limit_type", "exchange"]

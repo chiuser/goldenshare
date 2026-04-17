@@ -420,6 +420,36 @@ def test_backfill_by_trade_dates_supports_dc_hot_filters(mocker) -> None:
     )
 
 
+def test_backfill_by_trade_dates_supports_moneyflow_ind_dc_content_type(mocker) -> None:
+    session = mocker.Mock()
+    service = HistoryBackfillService(session)
+    service.dao = mocker.Mock()
+    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 3, 24)]
+
+    sync_service = mocker.Mock()
+    sync_service.run_incremental.return_value = mocker.Mock(rows_fetched=16, rows_written=16)
+    build_sync_service = mocker.patch("src.operations.services.history_backfill_service.build_sync_service", return_value=sync_service)
+
+    summary = service.backfill_by_trade_dates(
+        resource="moneyflow_ind_dc",
+        start_date=date(2026, 3, 24),
+        end_date=date(2026, 3, 24),
+        ts_code="BK1234",
+        content_type=["行业", "概念"],
+    )
+
+    assert summary.units_processed == 1
+    assert summary.rows_fetched == 16
+    assert summary.rows_written == 16
+    build_sync_service.assert_called_once_with("moneyflow_ind_dc", session)
+    sync_service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 3, 24),
+        ts_code="BK1234",
+        content_type=["行业", "概念"],
+        execution_id=None,
+    )
+
+
 def test_backfill_by_trade_dates_emits_progress_for_incremental_resources(mocker) -> None:
     session = mocker.Mock()
     service = HistoryBackfillService(session)

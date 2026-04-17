@@ -16,6 +16,12 @@ from src.foundation.services.sync.fields import (
     LIMIT_LIST_THS_FIELDS,
     LIMIT_STEP_FIELDS,
     MARGIN_FIELDS,
+    MONEYFLOW_CNT_THS_FIELDS,
+    MONEYFLOW_DC_FIELDS,
+    MONEYFLOW_IND_DC_FIELDS,
+    MONEYFLOW_IND_THS_FIELDS,
+    MONEYFLOW_MKT_DC_FIELDS,
+    MONEYFLOW_THS_FIELDS,
     THS_INDEX_FIELDS,
     THS_MEMBER_FIELDS,
     THS_DAILY_FIELDS,
@@ -146,6 +152,42 @@ def test_new_field_constants_exist() -> None:
     assert "market_type" in LIMIT_LIST_THS_FIELDS
     assert tuple(LIMIT_STEP_FIELDS) == ("ts_code", "name", "trade_date", "nums")
     assert tuple(LIMIT_CPT_LIST_FIELDS) == ("ts_code", "name", "trade_date", "days", "up_stat", "cons_nums", "up_nums", "pct_chg", "rank")
+    assert tuple(MONEYFLOW_THS_FIELDS) == (
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "latest",
+        "net_amount",
+        "net_d5_amount",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate",
+    )
+    assert tuple(MONEYFLOW_DC_FIELDS) == (
+        "trade_date",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate",
+    )
+    assert "industry_index" in MONEYFLOW_CNT_THS_FIELDS
+    assert "company_num" in MONEYFLOW_IND_THS_FIELDS
+    assert "content_type" in MONEYFLOW_IND_DC_FIELDS
+    assert "buy_sm_amount_rate" in MONEYFLOW_MKT_DC_FIELDS
 
 
 def test_existing_field_constants_still_cover_core_resources() -> None:

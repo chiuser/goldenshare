@@ -165,6 +165,7 @@ class HistoryBackfillService:
         hot_type: str | list[str] | None = None,
         is_new: str | list[str] | None = None,
         suspend_type: str | None = None,
+        content_type: str | list[str] | None = None,
         offset: int = 0,
         limit: int | None = None,
         progress: Callable[[str], None] | None = None,
@@ -173,6 +174,12 @@ class HistoryBackfillService:
         trade_date_resources = {
             "daily_basic",
             "moneyflow",
+            "moneyflow_ths",
+            "moneyflow_dc",
+            "moneyflow_cnt_ths",
+            "moneyflow_ind_ths",
+            "moneyflow_ind_dc",
+            "moneyflow_mkt_dc",
             "margin",
             "top_list",
             "block_trade",
@@ -189,7 +196,10 @@ class HistoryBackfillService:
         }
         if resource not in trade_date_resources:
             raise ValueError(
-                "trade-date backfill only supports daily_basic, moneyflow, margin, top_list, block_trade, limit_list_d, stk_nineturn, suspend_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, and kpl_concept_cons"
+                "trade-date backfill only supports daily_basic, moneyflow, moneyflow_ths, moneyflow_dc, "
+                "moneyflow_cnt_ths, moneyflow_ind_ths, moneyflow_ind_dc, moneyflow_mkt_dc, margin, top_list, "
+                "block_trade, limit_list_d, stk_nineturn, suspend_d, dc_member, ths_hot, dc_hot, limit_list_ths, "
+                "limit_step, limit_cpt_list, and kpl_concept_cons"
             )
         exchange_name = self.settings.default_exchange if resource == "limit_list_d" else (exchange or self.settings.default_exchange)
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
@@ -226,6 +236,8 @@ class HistoryBackfillService:
                 incremental_kwargs["is_new"] = is_new
             if suspend_type:
                 incremental_kwargs["suspend_type"] = suspend_type
+            if content_type and resource == "moneyflow_ind_dc":
+                incremental_kwargs["content_type"] = content_type
             result = service.run_incremental(
                 **incremental_kwargs,
             )

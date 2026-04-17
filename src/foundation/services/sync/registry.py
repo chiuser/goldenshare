@@ -40,6 +40,12 @@ from src.foundation.services.sync.sync_suspend_d_service import SyncSuspendDServ
 from src.foundation.services.sync.sync_stock_st_service import SyncStockStService
 from src.foundation.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService
 from src.foundation.services.sync.sync_moneyflow_service import SyncMoneyflowService
+from src.foundation.services.sync.sync_moneyflow_cnt_ths_service import SyncMoneyflowCntThsService
+from src.foundation.services.sync.sync_moneyflow_dc_service import SyncMoneyflowDcService
+from src.foundation.services.sync.sync_moneyflow_ind_dc_service import SyncMoneyflowIndDcService
+from src.foundation.services.sync.sync_moneyflow_ind_ths_service import SyncMoneyflowIndThsService
+from src.foundation.services.sync.sync_moneyflow_mkt_dc_service import SyncMoneyflowMktDcService
+from src.foundation.services.sync.sync_moneyflow_ths_service import SyncMoneyflowThsService
 from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
 from src.foundation.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
 from src.foundation.services.sync.sync_stk_period_bar_adj_week_service import SyncStkPeriodBarAdjWeekService
@@ -66,6 +72,12 @@ SYNC_SERVICE_REGISTRY = {
     "daily_basic": SyncDailyBasicService,
     "cyq_perf": SyncCyqPerfService,
     "moneyflow": SyncMoneyflowService,
+    "moneyflow_ths": SyncMoneyflowThsService,
+    "moneyflow_dc": SyncMoneyflowDcService,
+    "moneyflow_cnt_ths": SyncMoneyflowCntThsService,
+    "moneyflow_ind_ths": SyncMoneyflowIndThsService,
+    "moneyflow_ind_dc": SyncMoneyflowIndDcService,
+    "moneyflow_mkt_dc": SyncMoneyflowMktDcService,
     "margin": SyncMarginService,
     "top_list": SyncTopListService,
     "block_trade": SyncBlockTradeService,

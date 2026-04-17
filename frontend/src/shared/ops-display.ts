@@ -135,6 +135,12 @@ const resourceLabelMap: Record<string, string> = {
   daily_basic: "每日指标",
   cyq_perf: "每日筹码及胜率",
   moneyflow: "资金流向",
+  moneyflow_ths: "个股资金流向（同花顺）",
+  moneyflow_dc: "个股资金流向（东方财富）",
+  moneyflow_cnt_ths: "概念板块资金流向（同花顺）",
+  moneyflow_ind_ths: "行业资金流向（同花顺）",
+  moneyflow_ind_dc: "板块资金流向（东方财富）",
+  moneyflow_mkt_dc: "市场资金流向（东方财富）",
   margin: "融资融券交易汇总",
   top_list: "龙虎榜",
   block_trade: "大宗交易",
@@ -193,6 +199,7 @@ const specPrefixLabelMap: Record<string, string> = {
 const workflowLabelMap: Record<string, string> = {
   reference_data_refresh: "基础主数据刷新",
   daily_market_close_sync: "每日收盘后同步",
+  daily_moneyflow_sync: "每日资金流向同步",
   index_extension_backfill: "指数扩展数据补齐",
   board_reference_refresh: "板块主数据刷新",
 };

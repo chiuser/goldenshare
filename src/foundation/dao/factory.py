@@ -34,6 +34,12 @@ from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_top_list import EquityTopList
+from src.foundation.models.core.equity_moneyflow_ths import EquityMoneyflowThs
+from src.foundation.models.core.equity_moneyflow_dc import EquityMoneyflowDc
+from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
+from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
+from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
+from src.foundation.models.core.market_moneyflow_dc import MarketMoneyflowDc
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
@@ -89,6 +95,12 @@ from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
+from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
+from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
+from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
+from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
+from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
+from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
@@ -128,6 +140,12 @@ class DAOFactory:
         self.equity_daily_basic = EquityDailyBasicDAO(session)
         self.equity_cyq_perf = GenericDAO(session, EquityCyqPerf)
         self.equity_moneyflow = EquityMoneyflowDAO(session)
+        self.equity_moneyflow_ths = GenericDAO(session, EquityMoneyflowThs)
+        self.equity_moneyflow_dc = GenericDAO(session, EquityMoneyflowDc)
+        self.concept_moneyflow_ths = GenericDAO(session, ConceptMoneyflowThs)
+        self.industry_moneyflow_ths = GenericDAO(session, IndustryMoneyflowThs)
+        self.board_moneyflow_dc = GenericDAO(session, BoardMoneyflowDc)
+        self.market_moneyflow_dc = GenericDAO(session, MarketMoneyflowDc)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
         self.equity_margin = GenericDAO(session, EquityMargin)
         self.equity_factor_pro = GenericDAO(session, EquityFactorPro)
@@ -183,6 +201,12 @@ class DAOFactory:
         self.raw_daily_basic = GenericDAO(session, RawDailyBasic)
         self.raw_cyq_perf = GenericDAO(session, RawCyqPerf)
         self.raw_moneyflow = GenericDAO(session, RawMoneyflow)
+        self.raw_moneyflow_ths = GenericDAO(session, RawMoneyflowThs)
+        self.raw_moneyflow_dc = GenericDAO(session, RawMoneyflowDc)
+        self.raw_moneyflow_cnt_ths = GenericDAO(session, RawMoneyflowCntThs)
+        self.raw_moneyflow_ind_ths = GenericDAO(session, RawMoneyflowIndThs)
+        self.raw_moneyflow_ind_dc = GenericDAO(session, RawMoneyflowIndDc)
+        self.raw_moneyflow_mkt_dc = GenericDAO(session, RawMoneyflowMktDc)
         self.raw_top_list = GenericDAO(session, RawTopList)
         self.raw_block_trade = GenericDAO(session, RawBlockTrade)
         self.raw_dividend = RawDividendDAO(session)

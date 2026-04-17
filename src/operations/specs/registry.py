@@ -221,6 +221,14 @@ MARGIN_EXCHANGE_ID_PARAM = ParameterSpec(
     options=("SSE", "SZSE", "BSE"),
     multi_value=True,
 )
+MONEYFLOW_IND_DC_CONTENT_TYPE_PARAM = ParameterSpec(
+    key="content_type",
+    display_name="板块类型",
+    param_type="enum",
+    description="东方财富板块资金流向类型，可多选：行业、概念、地域；不选默认扇开全部。",
+    options=("行业", "概念", "地域"),
+    multi_value=True,
+)
 SOURCE_KEY_PARAM = ParameterSpec(
     key="source_key",
     display_name="数据源",
@@ -238,6 +246,12 @@ DAILY_SYNC_RESOURCES = (
     "daily_basic",
     "cyq_perf",
     "moneyflow",
+    "moneyflow_ths",
+    "moneyflow_dc",
+    "moneyflow_cnt_ths",
+    "moneyflow_ind_ths",
+    "moneyflow_ind_dc",
+    "moneyflow_mkt_dc",
     "margin",
     "limit_list_d",
     "stk_limit",
@@ -294,6 +308,12 @@ SECURITY_RANGE_RESOURCES = {
 TRADE_DATE_RANGE_RESOURCES = {
     "daily_basic",
     "moneyflow",
+    "moneyflow_ths",
+    "moneyflow_dc",
+    "moneyflow_cnt_ths",
+    "moneyflow_ind_ths",
+    "moneyflow_ind_dc",
+    "moneyflow_mkt_dc",
     "margin",
     "top_list",
     "block_trade",
@@ -339,6 +359,12 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (START_DATE_PARAM, END_DATE_PARAM)
     if resource == "margin":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, MARGIN_EXCHANGE_ID_PARAM)
+    if resource in {"moneyflow_ths", "moneyflow_dc", "moneyflow_cnt_ths", "moneyflow_ind_ths"}:
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+    if resource == "moneyflow_ind_dc":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, MONEYFLOW_IND_DC_CONTENT_TYPE_PARAM)
+    if resource == "moneyflow_mkt_dc":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
     if resource == "hk_basic":
@@ -452,6 +478,12 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
     elif resource == "margin":
         supported_params = (TRADE_DATE_PARAM, MARGIN_EXCHANGE_ID_PARAM)
+    elif resource in {"moneyflow_ths", "moneyflow_dc", "moneyflow_cnt_ths", "moneyflow_ind_ths"}:
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+    elif resource == "moneyflow_ind_dc":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM, MONEYFLOW_IND_DC_CONTENT_TYPE_PARAM)
+    elif resource == "moneyflow_mkt_dc":
+        supported_params = (TRADE_DATE_PARAM,)
     elif resource == "broker_recommend":
         supported_params = (MONTH_PARAM,)
     elif resource == "cyq_perf":
@@ -534,7 +566,29 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade", "limit_list_d", "stk_factor_pro", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
+for _resource in (
+    "daily_basic",
+    "moneyflow",
+    "moneyflow_ths",
+    "moneyflow_dc",
+    "moneyflow_cnt_ths",
+    "moneyflow_ind_ths",
+    "moneyflow_ind_dc",
+    "moneyflow_mkt_dc",
+    "margin",
+    "top_list",
+    "block_trade",
+    "limit_list_d",
+    "stk_factor_pro",
+    "stk_nineturn",
+    "suspend_d",
+    "ths_hot",
+    "dc_hot",
+    "kpl_concept_cons",
+    "limit_list_ths",
+    "limit_step",
+    "limit_cpt_list",
+):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -542,6 +596,30 @@ for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade
             END_DATE_PARAM,
             LIMIT_TYPE_PARAM,
             LIMIT_LIST_EXCHANGE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource in {"moneyflow_ths", "moneyflow_dc", "moneyflow_cnt_ths", "moneyflow_ind_ths"}:
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "moneyflow_ind_dc":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            MONEYFLOW_IND_DC_CONTENT_TYPE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "moneyflow_mkt_dc":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
@@ -764,7 +842,6 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("cyq_perf", "sync_daily.cyq_perf", "每日筹码及胜率"),
             WorkflowStepSpec("stk_factor_pro", "sync_daily.stk_factor_pro", "股票技术面因子(专业版)"),
-            WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
             WorkflowStepSpec("stk_limit", "sync_daily.stk_limit", "每日涨跌停价格"),
             WorkflowStepSpec("stock_st", "sync_daily.stock_st", "ST股票列表"),
@@ -788,6 +865,22 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("kpl_concept_cons", "sync_daily.kpl_concept_cons", "开盘啦题材成分"),
         ),
         default_schedule_policy="trading_day_close",
+        supports_schedule=True,
+        supports_manual_run=True,
+    ),
+    "daily_moneyflow_sync": WorkflowSpec(
+        key="daily_moneyflow_sync",
+        display_name="每日资金流向同步",
+        description="覆盖个股、概念、行业、板块和市场维度的资金流向每日同步工作流。",
+        steps=(
+            WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流向（基础）"),
+            WorkflowStepSpec("moneyflow_ths", "sync_daily.moneyflow_ths", "个股资金流向（同花顺）"),
+            WorkflowStepSpec("moneyflow_dc", "sync_daily.moneyflow_dc", "个股资金流向（东方财富）"),
+            WorkflowStepSpec("moneyflow_cnt_ths", "sync_daily.moneyflow_cnt_ths", "概念板块资金流向（同花顺）"),
+            WorkflowStepSpec("moneyflow_ind_ths", "sync_daily.moneyflow_ind_ths", "行业资金流向（同花顺）"),
+            WorkflowStepSpec("moneyflow_ind_dc", "sync_daily.moneyflow_ind_dc", "板块资金流向（东方财富）"),
+            WorkflowStepSpec("moneyflow_mkt_dc", "sync_daily.moneyflow_mkt_dc", "市场资金流向（东方财富）"),
+        ),
         supports_schedule=True,
         supports_manual_run=True,
     ),
@@ -848,7 +941,13 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily", "trade_date"),
     "stk_factor_pro": ("股票技术面因子(专业版)", "equity", "股票", "daily", "trade_date"),
-    "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),
+    "moneyflow": ("资金流向（基础）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_ths": ("个股资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_dc": ("个股资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_cnt_ths": ("概念板块资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_ind_ths": ("行业资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_ind_dc": ("板块资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
+    "moneyflow_mkt_dc": ("市场资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
     "margin": ("融资融券交易汇总", "equity", "股票", "daily", "trade_date"),
     "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),
     "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),

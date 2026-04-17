@@ -72,7 +72,6 @@ const EQUITY_RESOURCES = new Set([
   "daily",
   "adj_factor",
   "daily_basic",
-  "moneyflow",
   "top_list",
   "block_trade",
   "limit_list_d",
@@ -80,6 +79,15 @@ const EQUITY_RESOURCES = new Set([
   "stk_period_bar_month",
   "stk_period_bar_adj_week",
   "stk_period_bar_adj_month",
+]);
+const MONEYFLOW_RESOURCES = new Set([
+  "moneyflow",
+  "moneyflow_ths",
+  "moneyflow_dc",
+  "moneyflow_cnt_ths",
+  "moneyflow_ind_ths",
+  "moneyflow_ind_dc",
+  "moneyflow_mkt_dc",
 ]);
 const FUND_RESOURCES = new Set(["fund_daily", "fund_adj"]);
 const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]);
@@ -386,6 +394,9 @@ function inferActionDomain(resourceKey: string, category: string, type: "job" | 
   }
   if (REFERENCE_RESOURCES.has(resourceKey) || MARKET_REFERENCE_RESOURCES.has(resourceKey)) {
     return "基础主数据";
+  }
+  if (MONEYFLOW_RESOURCES.has(resourceKey)) {
+    return "资金流向";
   }
   if (EQUITY_RESOURCES.has(resourceKey)) {
     return "股票";

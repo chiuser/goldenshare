@@ -29,3 +29,9 @@ def test_registry_contains_required_resources() -> None:
     assert "stock_st" in SYNC_SERVICE_REGISTRY
     assert "stk_nineturn" in SYNC_SERVICE_REGISTRY
     assert "suspend_d" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_ths" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_dc" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_cnt_ths" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_ind_ths" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_ind_dc" in SYNC_SERVICE_REGISTRY
+    assert "moneyflow_mkt_dc" in SYNC_SERVICE_REGISTRY

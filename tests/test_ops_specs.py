@@ -18,6 +18,12 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_history.suspend_d" in JOB_SPEC_REGISTRY
     assert "sync_history.cyq_perf" in JOB_SPEC_REGISTRY
     assert "sync_history.margin" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_ths" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_dc" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_cnt_ths" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_ind_ths" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_ind_dc" in JOB_SPEC_REGISTRY
+    assert "sync_history.moneyflow_mkt_dc" in JOB_SPEC_REGISTRY
     assert "sync_daily.daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_equity_daily" in JOB_SPEC_REGISTRY
     assert "sync_daily.biying_moneyflow" in JOB_SPEC_REGISTRY
@@ -29,6 +35,12 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "sync_daily.suspend_d" in JOB_SPEC_REGISTRY
     assert "sync_daily.cyq_perf" in JOB_SPEC_REGISTRY
     assert "sync_daily.margin" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_ths" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_dc" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_cnt_ths" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_ind_ths" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_ind_dc" in JOB_SPEC_REGISTRY
+    assert "sync_daily.moneyflow_mkt_dc" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.stk_period_bar_adj_month" in JOB_SPEC_REGISTRY
     assert "sync_daily.broker_recommend" in JOB_SPEC_REGISTRY
@@ -51,6 +63,12 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_by_trade_date.top_list" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.block_trade" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.margin" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_ths" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_dc" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_cnt_ths" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_ind_ths" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_ind_dc" in JOB_SPEC_REGISTRY
+    assert "backfill_by_trade_date.moneyflow_mkt_dc" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.stk_factor_pro" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.stk_nineturn" in JOB_SPEC_REGISTRY
     assert "backfill_by_trade_date.ths_hot" in JOB_SPEC_REGISTRY
@@ -206,6 +224,63 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
         "offset",
         "limit",
     ]
+
+    moneyflow_ths_history_spec = get_job_spec("sync_history.moneyflow_ths")
+    assert moneyflow_ths_history_spec is not None
+    assert [param.key for param in moneyflow_ths_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+    ]
+
+    moneyflow_ths_daily_spec = get_job_spec("sync_daily.moneyflow_ths")
+    assert moneyflow_ths_daily_spec is not None
+    assert [param.key for param in moneyflow_ths_daily_spec.supported_params] == ["trade_date", "ts_code"]
+
+    moneyflow_ind_dc_history_spec = get_job_spec("sync_history.moneyflow_ind_dc")
+    assert moneyflow_ind_dc_history_spec is not None
+    assert [param.key for param in moneyflow_ind_dc_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+        "ts_code",
+        "content_type",
+    ]
+    content_type_param = next(param for param in moneyflow_ind_dc_history_spec.supported_params if param.key == "content_type")
+    assert content_type_param.options == ("行业", "概念", "地域")
+    assert content_type_param.multi_value is True
+
+    moneyflow_ind_dc_daily_spec = get_job_spec("sync_daily.moneyflow_ind_dc")
+    assert moneyflow_ind_dc_daily_spec is not None
+    assert [param.key for param in moneyflow_ind_dc_daily_spec.supported_params] == [
+        "trade_date",
+        "ts_code",
+        "content_type",
+    ]
+
+    moneyflow_ind_dc_backfill_spec = get_job_spec("backfill_by_trade_date.moneyflow_ind_dc")
+    assert moneyflow_ind_dc_backfill_spec is not None
+    assert [param.key for param in moneyflow_ind_dc_backfill_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "ts_code",
+        "content_type",
+        "offset",
+        "limit",
+    ]
+
+    moneyflow_mkt_dc_history_spec = get_job_spec("sync_history.moneyflow_mkt_dc")
+    assert moneyflow_mkt_dc_history_spec is not None
+    assert [param.key for param in moneyflow_mkt_dc_history_spec.supported_params] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+    ]
+
+    moneyflow_mkt_dc_daily_spec = get_job_spec("sync_daily.moneyflow_mkt_dc")
+    assert moneyflow_mkt_dc_daily_spec is not None
+    assert [param.key for param in moneyflow_mkt_dc_daily_spec.supported_params] == ["trade_date"]
 
     stk_nineturn_backfill_spec = get_job_spec("backfill_by_trade_date.stk_nineturn")
     assert stk_nineturn_backfill_spec is not None
@@ -366,6 +441,7 @@ def test_ths_reference_sync_history_specs_are_schedulable() -> None:
 
 def test_workflow_specs_reference_existing_job_specs() -> None:
     assert "daily_market_close_sync" in WORKFLOW_SPEC_REGISTRY
+    assert "daily_moneyflow_sync" in WORKFLOW_SPEC_REGISTRY
     assert "index_kline_sync_pipeline" in WORKFLOW_SPEC_REGISTRY
     for workflow in WORKFLOW_SPEC_REGISTRY.values():
         for step in workflow.steps:
@@ -377,8 +453,23 @@ def test_daily_market_close_sync_excludes_indicator_tasks() -> None:
     step_job_keys = {step.job_key for step in workflow.steps}
     assert "sync_daily.equity_indicators" not in step_job_keys
     assert "sync_daily.margin" in step_job_keys
+    assert "sync_daily.moneyflow" not in step_job_keys
     assert "sync_daily.stk_limit" in step_job_keys
     assert "sync_daily.stock_st" in step_job_keys
+
+
+def test_daily_moneyflow_sync_contains_only_moneyflow_resources() -> None:
+    workflow = WORKFLOW_SPEC_REGISTRY["daily_moneyflow_sync"]
+    step_job_keys = [step.job_key for step in workflow.steps]
+    assert step_job_keys == [
+        "sync_daily.moneyflow",
+        "sync_daily.moneyflow_ths",
+        "sync_daily.moneyflow_dc",
+        "sync_daily.moneyflow_cnt_ths",
+        "sync_daily.moneyflow_ind_ths",
+        "sync_daily.moneyflow_ind_dc",
+        "sync_daily.moneyflow_mkt_dc",
+    ]
 
 
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:

@@ -47,6 +47,13 @@
 - [每日停复牌信息开发说明](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [融资融券交易汇总开发说明](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [指数筛选池同步机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
+- [个股资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ths-dataset-development.md)
+- [个股资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-dc-dataset-development.md)
+- [概念板块资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-cnt-ths-dataset-development.md)
+- [行业资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-ths-dataset-development.md)
+- [板块资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-dc-dataset-development.md)
+- [大盘资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-mkt-dc-dataset-development.md)
+- [资金流 6 数据集拍板清单](/Users/congming/github/goldenshare/docs/datasets/moneyflow-overview-six-datasets-decisions.md)
 
 ## 发布与运维流程
 
