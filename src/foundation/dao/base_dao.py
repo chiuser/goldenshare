@@ -15,6 +15,9 @@ ModelT = TypeVar("ModelT")
 
 
 class BaseDAO(Generic[ModelT]):
+    PG_MAX_BIND_PARAMS = 65_535
+    PG_BIND_PARAM_RESERVE = 32
+
     def __init__(self, session: Session, model: type[ModelT]) -> None:
         self.session = session
         self.model = model
@@ -43,8 +46,9 @@ class BaseDAO(Generic[ModelT]):
             for column in self.model.__table__.columns
             if column.name not in conflict_target and column.name != "created_at"
         ]
+        batch_size = self._resolve_batch_size(deduped_rows)
         written = 0
-        for batch in chunked(deduped_rows, self.settings.sync_batch_size):
+        for batch in chunked(deduped_rows, batch_size):
             statement = insert(self.model).values(batch)
             update_mapping = {column: getattr(statement.excluded, column) for column in mutable_columns}
             if "updated_at" in self.model.__table__.columns:
@@ -59,12 +63,30 @@ class BaseDAO(Generic[ModelT]):
             return 0
         table_columns = {column.name for column in self.model.__table__.columns}
         filtered_rows = [{key: value for key, value in row.items() if key in table_columns} for row in rows]
+        batch_size = self._resolve_batch_size(filtered_rows)
         written = 0
-        for batch in chunked(filtered_rows, self.settings.sync_batch_size):
+        for batch in chunked(filtered_rows, batch_size):
             statement = insert(self.model).values(batch)
             result = self.session.execute(statement)
             written += result.rowcount if result.rowcount and result.rowcount > 0 else len(batch)
         return written
+
+    def _resolve_batch_size(self, rows: list[dict[str, Any]]) -> int:
+        configured_batch_size = max(int(self.settings.sync_batch_size), 1)
+        if not rows:
+            return configured_batch_size
+        max_row_param_count = max(len(row) for row in rows)
+        return self._compute_batch_size(
+            configured_batch_size=configured_batch_size,
+            row_param_count=max_row_param_count,
+        )
+
+    @classmethod
+    def _compute_batch_size(cls, *, configured_batch_size: int, row_param_count: int) -> int:
+        configured = max(configured_batch_size, 1)
+        per_row_params = max(row_param_count, 1)
+        allowed_by_params = (cls.PG_MAX_BIND_PARAMS - cls.PG_BIND_PARAM_RESERVE) // per_row_params
+        return max(min(configured, allowed_by_params), 1)
 
     def fetch_by_pk(self, *pk_values: Any) -> ModelT | None:
         return self.session.get(self.model, pk_values if len(pk_values) > 1 else pk_values[0])
