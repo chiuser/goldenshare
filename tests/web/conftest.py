@@ -12,6 +12,14 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.platform.models.app.app_user import AppUser
+from src.platform.models.app.auth_action_token import AuthActionToken
+from src.platform.models.app.auth_audit_log import AuthAuditLog
+from src.platform.models.app.auth_invite_code import AuthInviteCode
+from src.platform.models.app.auth_permission import AuthPermission
+from src.platform.models.app.auth_refresh_token import AuthRefreshToken
+from src.platform.models.app.auth_role import AuthRole
+from src.platform.models.app.auth_role_permission import AuthRolePermission
+from src.platform.models.app.auth_user_role import AuthUserRole
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.dc_index import DcIndex
@@ -72,6 +80,14 @@ def web_engine(configured_web_env) -> Generator:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         AppUser.__table__.create(connection)
+        AuthRole.__table__.create(connection)
+        AuthPermission.__table__.create(connection)
+        AuthUserRole.__table__.create(connection)
+        AuthRolePermission.__table__.create(connection)
+        AuthRefreshToken.__table__.create(connection)
+        AuthActionToken.__table__.create(connection)
+        AuthAuditLog.__table__.create(connection)
+        AuthInviteCode.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)
         IndexBasic.__table__.create(connection)
         IndexDailyServing.__table__.create(connection)
@@ -124,6 +140,7 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
         password: str = "secret",
         display_name: str | None = "Administrator",
         email: str | None = None,
+        account_state: str = "active",
         is_admin: bool = False,
         is_active: bool = True,
     ) -> AppUser:
@@ -132,6 +149,7 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
             password_hash=PasswordService().hash_password(password),
             display_name=display_name,
             email=email,
+            account_state=account_state,
             is_admin=is_admin,
             is_active=is_active,
         )

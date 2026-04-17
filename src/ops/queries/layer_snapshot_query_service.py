@@ -107,26 +107,92 @@ class LayerSnapshotQueryService:
             stmt = stmt.where(*filters)
         rows = session.scalars(stmt.limit(limit)).all()
 
+        if not rows:
+            return self._list_latest_from_history(
+                session,
+                dataset_key=dataset_key,
+                source_key=source_key,
+                stage=stage,
+                status=status,
+                limit=limit,
+            )
+
         items: list[LayerSnapshotLatestItem] = []
         for row in rows:
             items.append(
                 LayerSnapshotLatestItem(
-                snapshot_date=row.calculated_at.date(),
-                dataset_key=row.dataset_key,
-                source_key=row.source_key,
-                stage=row.stage,
-                status=row.status,
-                rows_in=row.rows_in,
-                rows_out=row.rows_out,
-                error_count=row.error_count,
-                last_success_at=row.last_success_at,
-                last_failure_at=row.last_failure_at,
-                lag_seconds=row.lag_seconds,
-                message=row.message,
-                calculated_at=row.calculated_at,
-            )
+                    snapshot_date=row.calculated_at.date(),
+                    dataset_key=row.dataset_key,
+                    source_key=row.source_key,
+                    stage=row.stage,
+                    status=row.status,
+                    rows_in=row.rows_in,
+                    rows_out=row.rows_out,
+                    error_count=row.error_count,
+                    last_success_at=row.last_success_at,
+                    last_failure_at=row.last_failure_at,
+                    lag_seconds=row.lag_seconds,
+                    message=row.message,
+                    calculated_at=row.calculated_at,
+                )
             )
         return LayerSnapshotLatestResponse(total=int(total), items=items)
+
+    def _list_latest_from_history(
+        self,
+        session: Session,
+        *,
+        dataset_key: str | None,
+        source_key: str | None,
+        stage: str | None,
+        status: str | None,
+        limit: int,
+    ) -> LayerSnapshotLatestResponse:
+        history_filters = []
+        if dataset_key:
+            history_filters.append(DatasetLayerSnapshotHistory.dataset_key == dataset_key)
+        if source_key:
+            normalized_source = source_key.strip()
+            history_filters.append(DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "__all__"]))
+        if stage:
+            history_filters.append(DatasetLayerSnapshotHistory.stage == stage)
+        if status:
+            history_filters.append(DatasetLayerSnapshotHistory.status == status)
+
+        history_stmt = select(DatasetLayerSnapshotHistory).order_by(
+            desc(DatasetLayerSnapshotHistory.snapshot_date),
+            desc(DatasetLayerSnapshotHistory.calculated_at),
+            desc(DatasetLayerSnapshotHistory.id),
+        )
+        if history_filters:
+            history_stmt = history_stmt.where(*history_filters)
+        history_rows = session.scalars(history_stmt).all()
+
+        unique_items: list[LayerSnapshotLatestItem] = []
+        seen_keys: set[tuple[str, str, str]] = set()
+        for row in history_rows:
+            key = (row.dataset_key, row.source_key, row.stage)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            unique_items.append(
+                LayerSnapshotLatestItem(
+                    snapshot_date=row.snapshot_date,
+                    dataset_key=row.dataset_key,
+                    source_key=row.source_key,
+                    stage=row.stage,
+                    status=row.status,
+                    rows_in=row.rows_in,
+                    rows_out=row.rows_out,
+                    error_count=row.error_count,
+                    last_success_at=row.last_success_at,
+                    last_failure_at=row.last_failure_at,
+                    lag_seconds=row.lag_seconds,
+                    message=row.message,
+                    calculated_at=row.calculated_at,
+                )
+            )
+        return LayerSnapshotLatestResponse(total=len(unique_items), items=unique_items[:limit])
 
     @staticmethod
     def _to_history_item(row: DatasetLayerSnapshotHistory) -> LayerSnapshotHistoryItem:

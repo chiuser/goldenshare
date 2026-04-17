@@ -1,4 +1,12 @@
 from src.platform.models.app.app_user import AppUser
+from src.platform.models.app.auth_action_token import AuthActionToken
+from src.platform.models.app.auth_audit_log import AuthAuditLog
+from src.platform.models.app.auth_invite_code import AuthInviteCode
+from src.platform.models.app.auth_permission import AuthPermission
+from src.platform.models.app.auth_refresh_token import AuthRefreshToken
+from src.platform.models.app.auth_role import AuthRole
+from src.platform.models.app.auth_role_permission import AuthRolePermission
+from src.platform.models.app.auth_user_role import AuthUserRole
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
@@ -123,6 +131,14 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 __all__ = [
     "AppUser",
+    "AuthActionToken",
+    "AuthAuditLog",
+    "AuthInviteCode",
+    "AuthPermission",
+    "AuthRefreshToken",
+    "AuthRole",
+    "AuthRolePermission",
+    "AuthUserRole",
     "EquityAdjFactor",
     "EquityBlockTrade",
     "EquityCyqPerf",

@@ -16,5 +16,8 @@ class AuthenticatedUser:
     username: str
     display_name: str | None
     email: str | None
+    account_state: str
     is_admin: bool
     is_active: bool
+    roles: tuple[str, ...] = ()
+    permissions: tuple[str, ...] = ()

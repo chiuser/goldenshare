@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.platform.models.app.auth_role_permission import AuthRolePermission
+from src.platform.models.app.auth_user_role import AuthUserRole
 from src.platform.auth.domain import AuthenticatedUser
 from src.platform.dependencies import get_db_session
 from src.platform.exceptions import WebAppError
@@ -13,6 +16,36 @@ from src.platform.web.settings import get_web_settings
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def _load_roles_permissions(session: Session, user_id: int, *, is_admin: bool) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    role_keys = tuple(
+        sorted(
+            {
+                key
+                for key in session.scalars(
+                    select(AuthUserRole.role_key).where(AuthUserRole.user_id == user_id)
+                ).all()
+                if key
+            }
+        )
+    )
+    if is_admin and "admin" not in role_keys:
+        role_keys = tuple(sorted({*role_keys, "admin"}))
+    if not role_keys:
+        return role_keys, tuple()
+    permission_keys = tuple(
+        sorted(
+            {
+                key
+                for key in session.scalars(
+                    select(AuthRolePermission.permission_key).where(AuthRolePermission.role_key.in_(role_keys))
+                ).all()
+                if key
+            }
+        )
+    )
+    return role_keys, permission_keys
 
 
 def get_current_user(
@@ -29,13 +62,17 @@ def get_current_user(
         raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
     if not user.is_active:
         raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+    roles, permissions = _load_roles_permissions(session, user.id, is_admin=user.is_admin)
     return AuthenticatedUser(
         id=user.id,
         username=user.username,
         display_name=user.display_name,
         email=user.email,
+        account_state=user.account_state,
         is_admin=user.is_admin,
         is_active=user.is_active,
+        roles=roles,
+        permissions=permissions,
     )
 
 
@@ -47,6 +84,17 @@ def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> Authen
     if not user.is_admin:
         raise WebAppError(status_code=403, code="forbidden", message="Admin permission required")
     return user
+
+
+def require_permission(permission_key: str):
+    def _dependency(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if user.is_admin:
+            return user
+        if permission_key not in user.permissions:
+            raise WebAppError(status_code=403, code="forbidden", message=f"Permission required: {permission_key}")
+        return user
+
+    return _dependency
 
 
 def get_current_user_optional(
@@ -63,13 +111,17 @@ def get_current_user_optional(
         raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
     if not user.is_active:
         raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+    roles, permissions = _load_roles_permissions(session, user.id, is_admin=user.is_admin)
     return AuthenticatedUser(
         id=user.id,
         username=user.username,
         display_name=user.display_name,
         email=user.email,
+        account_state=user.account_state,
         is_admin=user.is_admin,
         is_active=user.is_active,
+        roles=roles,
+        permissions=permissions,
     )
 
 
