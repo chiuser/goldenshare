@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -122,6 +123,7 @@ export function OpsV21ReviewBoardPage() {
   const [thsKeywordInput, setThsKeywordInput] = useState(thsKeyword);
   const [dcKeywordInput, setDcKeywordInput] = useState(dcKeyword);
   const [equityKeywordInput, setEquityKeywordInput] = useState(equityKeyword);
+  const [debouncedEquityKeywordInput] = useDebouncedValue(equityKeywordInput, 200);
   const [memberDrawer, setMemberDrawer] = useState<{
     title: string;
     members: ReviewBoardMember[];
@@ -169,11 +171,11 @@ export function OpsV21ReviewBoardPage() {
   };
 
   const equitySuggestQuery = useQuery({
-    queryKey: ["ops", "review", "board", "equity-suggest", equityKeywordInput.trim()],
-    enabled: activeTab === "equity" && equityKeywordInput.trim().length > 0,
+    queryKey: ["ops", "review", "board", "equity-suggest", debouncedEquityKeywordInput.trim()],
+    enabled: activeTab === "equity" && debouncedEquityKeywordInput.trim().length > 0,
     queryFn: () => {
       const params = new URLSearchParams();
-      params.set("keyword", equityKeywordInput.trim());
+      params.set("keyword", debouncedEquityKeywordInput.trim());
       params.set("limit", "20");
       return apiRequest<OpsReviewEquitySuggestResponse>(`/api/v1/ops/review/board/equity-suggest?${params.toString()}`);
     },
@@ -590,8 +592,9 @@ export function OpsV21ReviewBoardPage() {
                     applyEquityKeywordSearch();
                   }
                 }}
-                data={equitySuggestionOptions}
+                data={equityKeywordInput.trim() ? equitySuggestionOptions : []}
                 limit={20}
+                filter={({ options }) => options}
                 leftSection={<IconSearch size={14} />}
                 rightSection={equitySuggestQuery.isFetching ? <Loader size={14} /> : undefined}
                 w={240}

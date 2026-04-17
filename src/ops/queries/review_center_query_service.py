@@ -387,11 +387,15 @@ class ReviewCenterQueryService:
             .group_by(membership_subq.c.ts_code)
         )
         if keyword:
-            pattern = f"%{keyword.strip()}%"
+            normalized_keyword = keyword.strip()
+            pattern = f"%{normalized_keyword}%"
+            prefix_pattern = f"{normalized_keyword}%"
             summary_stmt = summary_stmt.having(
                 or_(
                     membership_subq.c.ts_code.ilike(pattern),
                     equity_name_expr.ilike(pattern),
+                    func.max(Security.symbol).ilike(prefix_pattern),
+                    func.max(Security.cnspell).ilike(prefix_pattern),
                 )
             )
         if min_board_count > 0:

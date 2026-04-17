@@ -159,6 +159,36 @@ def test_ops_review_equity_membership_aggregates_ths_and_dc(app_client, user_fac
     assert providers == ["dc", "ths"]
 
 
+def test_ops_review_equity_membership_keyword_supports_cnspell(app_client, user_factory, db_session) -> None:
+    from src.foundation.models.core.ths_index import ThsIndex
+    from src.foundation.models.core.ths_member import ThsMember
+    from src.foundation.models.core_serving.security_serving import Security
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            Security(ts_code="000001.SZ", name="平安银行", symbol="000001", cnspell="payh"),
+            Security(ts_code="000002.SZ", name="万科A", symbol="000002", cnspell="wka"),
+            ThsIndex(ts_code="885001.TI", name="人工智能", exchange="A", type_="N"),
+            ThsMember(ts_code="885001.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
+            ThsMember(ts_code="885001.TI", con_code="000002.SZ", con_name="万科A", out_date=None),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/review/board/equity-membership?provider=all&keyword=pay&page=1&page_size=10",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["ts_code"] == "000001.SZ"
+
+
 def test_ops_review_equity_suggest_supports_ts_code_and_cnspell(app_client, user_factory, db_session) -> None:
     from src.foundation.models.core_serving.security_serving import Security
 
