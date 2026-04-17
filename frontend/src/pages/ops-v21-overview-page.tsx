@@ -313,14 +313,12 @@ export function OpsV21OverviewPage() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="数据状态总览" description="按数据集展示当前运行模式、分层状态与链路关系。">
-        {isLoading ? <Loader size="sm" /> : null}
-        {error ? (
-          <Alert color="red" title="读取数据状态总览失败">
-            {error instanceof Error ? error.message : "未知错误"}
-          </Alert>
-        ) : null}
-      </SectionCard>
+      {isLoading ? <Loader size="sm" /> : null}
+      {error ? (
+        <Alert color="red" title="读取数据状态总览失败">
+          {error instanceof Error ? error.message : "未知错误"}
+        </Alert>
+      ) : null}
 
       {!isLoading && !error && cards.length === 0 ? (
         <Alert color="blue" title="暂无可展示的数据集">
