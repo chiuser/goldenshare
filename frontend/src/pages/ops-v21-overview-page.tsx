@@ -2,9 +2,14 @@ import { Alert, Badge, Box, Button, Grid, Group, Loader, Paper, SimpleGrid, Stac
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
-import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse } from "../shared/api/types";
+import type {
+  DatasetPipelineModeListResponse,
+  LayerSnapshotLatestResponse,
+  OpsOverviewResponse,
+} from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { SectionCard } from "../shared/ui/section-card";
+import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 type CardStatus = "healthy" | "warning" | "failed" | "unknown";
@@ -148,6 +153,10 @@ function stageTableName(stage: StageKey, item: MergedCardItem): string | null {
 }
 
 export function OpsV21OverviewPage() {
+  const summaryQuery = useQuery({
+    queryKey: ["ops", "overview", "v21-overview-summary"],
+    queryFn: () => apiRequest<OpsOverviewResponse>("/api/v1/ops/overview"),
+  });
   const modeQuery = useQuery({
     queryKey: ["ops", "pipeline-modes", "v21-overview"],
     queryFn: () => apiRequest<DatasetPipelineModeListResponse>("/api/v1/ops/pipeline-modes?limit=1000"),
@@ -270,6 +279,40 @@ export function OpsV21OverviewPage() {
 
   return (
     <Stack gap="lg">
+      <SectionCard
+        title="状态概览"
+        description="先看整体分布，再往下看各数据集当前链路状态。"
+      >
+        {summaryQuery.isLoading ? <Loader size="sm" /> : null}
+        {summaryQuery.error ? (
+          <Alert color="red" title="读取状态概览失败">
+            {summaryQuery.error instanceof Error ? summaryQuery.error.message : "未知错误"}
+          </Alert>
+        ) : null}
+        {summaryQuery.data ? (
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+              <StatCard label="数据集总数" value={summaryQuery.data.freshness_summary.total_datasets} />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+              <StatCard label="状态正常" value={summaryQuery.data.freshness_summary.fresh_datasets} />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+              <StatCard label="需要关注" value={summaryQuery.data.freshness_summary.lagging_datasets} />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+              <StatCard
+                label="严重滞后 / 未知"
+                value={summaryQuery.data.freshness_summary.stale_datasets + summaryQuery.data.freshness_summary.unknown_datasets}
+              />
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+              <StatCard label="已停用" value={summaryQuery.data.freshness_summary.disabled_datasets} />
+            </Grid.Col>
+          </Grid>
+        ) : null}
+      </SectionCard>
+
       <SectionCard title="数据状态总览" description="按数据集展示当前运行模式、分层状态与链路关系。">
         {isLoading ? <Loader size="sm" /> : null}
         {error ? (
