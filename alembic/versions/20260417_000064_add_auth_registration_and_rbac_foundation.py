@@ -197,6 +197,7 @@ def upgrade() -> None:
         sa.column("is_system", sa.Boolean()),
         sa.column("created_at", sa.DateTime(timezone=True)),
         sa.column("updated_at", sa.DateTime(timezone=True)),
+        schema="app",
     )
     permission_table = sa.table(
         "auth_permission",
@@ -205,6 +206,7 @@ def upgrade() -> None:
         sa.column("description", sa.String()),
         sa.column("created_at", sa.DateTime(timezone=True)),
         sa.column("updated_at", sa.DateTime(timezone=True)),
+        schema="app",
     )
     role_permission_table = sa.table(
         "auth_role_permission",
@@ -212,6 +214,7 @@ def upgrade() -> None:
         sa.column("permission_key", sa.String()),
         sa.column("created_at", sa.DateTime(timezone=True)),
         sa.column("updated_at", sa.DateTime(timezone=True)),
+        schema="app",
     )
 
     op.bulk_insert(
@@ -326,4 +329,3 @@ def downgrade() -> None:
     op.drop_column("app_user", "password_changed_at", schema="app")
     op.drop_column("app_user", "email_verified_at", schema="app")
     op.drop_column("app_user", "account_state", schema="app")
-
