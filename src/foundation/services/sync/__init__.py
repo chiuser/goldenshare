@@ -1,10 +1,7 @@
-"""Foundation sync service package."""
+"""Foundation sync service package.
 
-from src.foundation.services.sync.base_sync_service import BaseSyncService
-from src.foundation.services.sync.resource_sync import HttpResourceSyncService, ProBarSyncService
+注意：这里保持轻量，避免在包导入阶段触发重量级依赖（例如 DAOFactory），
+从而引入循环导入。
+"""
 
-__all__ = [
-    "BaseSyncService",
-    "HttpResourceSyncService",
-    "ProBarSyncService",
-]
+__all__: list[str] = []
