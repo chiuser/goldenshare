@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.queries.execution_query_service import ExecutionQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsTodayKpis
+from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse, OpsTodayKpis
 
 
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
@@ -49,6 +49,11 @@ class OpsOverviewQueryService:
             recent_executions=recent_executions,
             recent_failures=recent_failures,
         )
+
+    def build_overview_summary(self, session: Session) -> OpsOverviewSummaryResponse:
+        freshness_response = self.freshness_query_service.build_freshness(session)
+        freshness_summary, _ = self.freshness_query_service.summarize(freshness_response)
+        return OpsOverviewSummaryResponse(freshness_summary=freshness_summary)
 
     @staticmethod
     def _build_today_kpis(session: Session) -> OpsTodayKpis:

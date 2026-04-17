@@ -13,6 +13,7 @@ describe("apiRequest unauthorized handling", () => {
 
   it("clears token and redirects to login when token is expired on authenticated pages", async () => {
     window.localStorage.setItem("goldenshare.frontend.auth.token", "expired-token");
+    window.localStorage.setItem("goldenshare.frontend.auth.refresh-token", "expired-refresh-token");
     const replaceSpy = vi.fn();
     vi.stubGlobal("location", {
       ...window.location,
@@ -21,17 +22,64 @@ describe("apiRequest unauthorized handling", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ code: "unauthorized", message: "Token has expired" }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        })),
+      vi.fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ code: "unauthorized", message: "Token has expired" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ code: "unauthorized", message: "Refresh token is invalid" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
     );
 
     await expect(apiRequest("/api/v1/auth/me")).rejects.toBeInstanceOf(ApiError);
 
     expect(window.localStorage.getItem("goldenshare.frontend.auth.token")).toBeNull();
+    expect(window.localStorage.getItem("goldenshare.frontend.auth.refresh-token")).toBeNull();
     expect(replaceSpy).toHaveBeenCalledWith("/app/login");
+  });
+
+  it("refreshes token and retries once when access token expires", async () => {
+    window.localStorage.setItem("goldenshare.frontend.auth.token", "expired-token");
+    window.localStorage.setItem("goldenshare.frontend.auth.refresh-token", "valid-refresh-token");
+    vi.stubGlobal("location", {
+      ...window.location,
+      pathname: "/app/ops/data-status",
+      replace: vi.fn(),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ code: "unauthorized", message: "Token has expired" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ token: "new-access-token", refresh_token: "new-refresh-token" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+    );
+
+    const payload = await apiRequest<{ ok: boolean }>("/api/v1/auth/me");
+
+    expect(payload.ok).toBe(true);
+    expect(window.localStorage.getItem("goldenshare.frontend.auth.token")).toBe("new-access-token");
+    expect(window.localStorage.getItem("goldenshare.frontend.auth.refresh-token")).toBe("new-refresh-token");
   });
 
   it("does not redirect on login failure", async () => {

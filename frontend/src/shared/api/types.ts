@@ -1,5 +1,7 @@
 export interface LoginResponse {
   token: string;
+  refresh_token: string | null;
+  access_token_expires_at: string | null;
   username: string;
   is_admin: boolean;
   display_name: string | null;
@@ -10,8 +12,35 @@ export interface CurrentUserResponse {
   username: string;
   display_name: string | null;
   email: string | null;
+  account_state: string;
   is_admin: boolean;
   is_active: boolean;
+  roles: string[];
+  permissions: string[];
+}
+
+export interface RegisterRequestBody {
+  username: string;
+  password: string;
+  display_name?: string;
+  email?: string;
+  invite_code?: string;
+}
+
+export interface RegisterResponse {
+  user_id: number;
+  username: string;
+  account_state: string;
+  requires_email_verification: boolean;
+  token: string | null;
+  refresh_token: string | null;
+  verification_token_debug: string | null;
+}
+
+export interface LookupAccountResponse {
+  ok: boolean;
+  message: string;
+  token_debug: string | null;
 }
 
 export interface HealthResponse {
@@ -112,6 +141,10 @@ export interface OpsOverviewResponse {
     status: string;
     requested_at: string;
   }>;
+}
+
+export interface OpsOverviewSummaryResponse {
+  freshness_summary: OpsOverviewResponse["freshness_summary"];
 }
 
 export interface OpsFreshnessResponse {

@@ -35,3 +35,7 @@ class OpsOverviewResponse(BaseModel):
     lagging_datasets: list[DatasetFreshnessItem]
     recent_executions: list[ExecutionListItem]
     recent_failures: list[ExecutionListItem]
+
+
+class OpsOverviewSummaryResponse(BaseModel):
+    freshness_summary: OpsFreshnessSummary

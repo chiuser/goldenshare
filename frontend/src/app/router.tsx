@@ -10,6 +10,9 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 import { LoginPage } from "../pages/login-page";
+import { RegisterPage } from "../pages/register-page";
+import { ForgotPasswordPage } from "../pages/forgot-password-page";
+import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsAutomationPage } from "../pages/ops-automation-page";
 import { OpsDataStatusPage } from "../pages/ops-data-status-page";
 import { OpsManualSyncPage } from "../pages/ops-manual-sync-page";
@@ -26,6 +29,7 @@ import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
 import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
 import { ShareMarketPage } from "../pages/share-market-page";
+import { UserOverviewPage } from "../pages/user-overview-page";
 import { OpsShell } from "./shell";
 import { ShareShell } from "./share-shell";
 
@@ -35,12 +39,25 @@ function AppRoot() {
 }
 
 function HomeRoutePage() {
-  const { token } = useAuth();
+  const { token, clearToken } = useAuth();
+  const userQuery = useCurrentUser();
   const navigate = useNavigate();
 
   useEffect(() => {
-    void navigate({ to: token ? "/ops/v21/overview" : "/login", replace: true });
-  }, [navigate, token]);
+    if (!token) {
+      void navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (userQuery.error) {
+      clearToken();
+      void navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (!userQuery.data) {
+      return;
+    }
+    void navigate({ to: userQuery.data.is_admin ? "/ops/v21/overview" : "/user/overview", replace: true });
+  }, [clearToken, navigate, token, userQuery.data, userQuery.error]);
 
   return (
     <Center mih="100vh">
@@ -49,7 +66,7 @@ function HomeRoutePage() {
   );
 }
 
-function RequireAdmin({ children }: { children: ReactNode }) {
+function RequireAuthenticated({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { token, clearToken } = useAuth();
   const userQuery = useCurrentUser();
@@ -119,12 +136,23 @@ function RequireAdmin({ children }: { children: ReactNode }) {
     );
   }
 
+  return <>{children}</>;
+}
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const userQuery = useCurrentUser();
+
+  useEffect(() => {
+    if (userQuery.data && !userQuery.data.is_admin) {
+      void navigate({ to: "/user/overview", replace: true });
+    }
+  }, [navigate, userQuery.data]);
+
   if (!userQuery.data?.is_admin) {
     return (
       <Center mih="100vh">
-        <Alert color="red" title="无权访问">
-          当前账号不是管理员，无法进入运维系统。
-        </Alert>
+        <Loader />
       </Center>
     );
   }
@@ -132,19 +160,41 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminLayout({ children }: { children: ReactNode }) {
+  return (
+    <RequireAuthenticated>
+      <RequireAdmin>
+        {children}
+      </RequireAdmin>
+    </RequireAuthenticated>
+  );
+}
+
+function UserLayout({ children }: { children: ReactNode }) {
+  return <RequireAuthenticated>{children}</RequireAuthenticated>;
+}
+
 function OpsLayout() {
   return (
-    <RequireAdmin>
+    <AdminLayout>
       <OpsShell />
-    </RequireAdmin>
+    </AdminLayout>
   );
 }
 
 function ShareLayout() {
   return (
-    <RequireAdmin>
+    <AdminLayout>
       <ShareShell />
-    </RequireAdmin>
+    </AdminLayout>
+  );
+}
+
+function UserOverviewLayout() {
+  return (
+    <UserLayout>
+      <UserOverviewPage />
+    </UserLayout>
   );
 }
 
@@ -200,6 +250,30 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: LoginPage,
+});
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/register",
+  component: RegisterPage,
+});
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/forgot-password",
+  component: ForgotPasswordPage,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/reset-password",
+  component: ResetPasswordPage,
+});
+
+const userOverviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/user/overview",
+  component: UserOverviewLayout,
 });
 
 const platformCheckRoute = createRoute({
@@ -364,6 +438,10 @@ const shareIndexRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
+  registerRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
+  userOverviewRoute,
   platformCheckRoute,
   opsLayoutRoute.addChildren([
     opsIndexRoute,

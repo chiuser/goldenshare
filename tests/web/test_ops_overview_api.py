@@ -16,6 +16,19 @@ def test_ops_overview_rejects_non_admin(app_client, user_factory) -> None:
     assert response.json()["code"] == "forbidden"
 
 
+def test_ops_overview_summary_allows_non_admin(app_client, user_factory) -> None:
+    user_factory(username="user", password="secret", is_admin=False)
+    login = app_client.post("/api/v1/auth/login", json={"username": "user", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/overview-summary", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "freshness_summary" in payload
+    assert "total_datasets" in payload["freshness_summary"]
+
+
 def test_ops_overview_returns_kpis_recent_executions_and_failures(
     app_client,
     user_factory,

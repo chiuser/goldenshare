@@ -28,7 +28,7 @@ from src.ops.schemas.layer_snapshot import (
     LayerSnapshotLatestItem,
     LayerSnapshotLatestResponse,
 )
-from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse
+from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse
 from src.ops.schemas.probe import (
     CreateProbeRuleRequest,
     DeleteProbeRuleResponse as DeleteProbeRuleResponse,
@@ -119,6 +119,7 @@ __all__ = [
     "OpsFreshnessSummary",
     "OpsOverviewKpis",
     "OpsOverviewResponse",
+    "OpsOverviewSummaryResponse",
     "OpsCatalogResponse",
     "ParameterSpecResponse",
     "ProbeRuleDetailResponse",

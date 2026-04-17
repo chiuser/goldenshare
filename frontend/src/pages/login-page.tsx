@@ -1,11 +1,12 @@
 import { Alert, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconLock } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useAuth } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
+import { ApiError } from "../shared/api/errors";
 import type { LoginResponse } from "../shared/api/types";
 
 
@@ -24,10 +25,14 @@ export function LoginPage() {
       }),
     onSuccess: async (data) => {
       setErrorText(null);
-      setToken(data.token);
-      await navigate({ to: "/ops/v21/overview" });
+      setToken(data.token, data.refresh_token);
+      await navigate({ to: data.is_admin ? "/ops/v21/overview" : "/user/overview" });
     },
     onError: (error) => {
+      if (error instanceof ApiError && error.code === "email_verification_required") {
+        setErrorText("账号尚未完成验证，请先完成注册验证。");
+        return;
+      }
       setErrorText(error instanceof Error ? error.message : "登录失败，请稍后重试");
     },
   });
@@ -83,6 +88,12 @@ export function LoginPage() {
             onClick={() => loginMutation.mutate()}
           >
             进入应用
+          </Button>
+          <Button component={Link} to="/register" variant="subtle" size="sm">
+            使用邀请码注册
+          </Button>
+          <Button component={Link} to="/forgot-password" variant="subtle" size="sm">
+            忘记密码
           </Button>
         </Stack>
       </Paper>
