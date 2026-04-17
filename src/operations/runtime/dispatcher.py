@@ -19,6 +19,7 @@ from src.platform.exceptions import WebAppError
 from src.operations.services.history_backfill_service import HistoryBackfillService
 from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync.registry import build_sync_service
+from src.utils import truncate_text
 
 
 @dataclass(slots=True)
@@ -32,6 +33,11 @@ class DispatchOutcome:
 
 
 class OperationsDispatcher:
+    MAX_ERROR_MESSAGE_LENGTH = 16_000
+    MAX_EVENT_MESSAGE_LENGTH = 8_000
+    MAX_STEP_MESSAGE_LENGTH = 8_000
+    MAX_PROGRESS_MESSAGE_LENGTH = 1_000
+
     def __init__(self, serving_light_refresh_service: ServingLightRefreshService | None = None) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
 
@@ -70,32 +76,34 @@ class OperationsDispatcher:
                 summary_message=summary_message,
             )
         except ExecutionCanceledError as exc:
+            safe_message = self._sanitize_error_message(str(exc))
             session.rollback()
             step = session.get(JobExecutionStep, step.id)
             if step is not None:
                 step.status = "canceled"
                 step.ended_at = datetime.now(timezone.utc)
-                step.message = str(exc)
-            self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=str(exc), level="WARNING")
+                step.message = self._sanitize_step_message(safe_message)
+            self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=safe_message, level="WARNING")
             session.commit()
             return DispatchOutcome(
                 status="canceled",
-                summary_message=str(exc),
+                summary_message=safe_message,
             )
         except Exception as exc:
+            safe_message = self._sanitize_error_message(str(exc))
             session.rollback()
             step = session.get(JobExecutionStep, step.id)
             if step is not None:
                 step.status = "failed"
                 step.ended_at = datetime.now(timezone.utc)
-                step.message = str(exc)
-            self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=str(exc), level="ERROR")
+                step.message = self._sanitize_step_message(safe_message)
+            self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=safe_message, level="ERROR")
             session.commit()
             return DispatchOutcome(
                 status="failed",
                 error_code="execution_failed",
-                error_message=str(exc),
-                summary_message=str(exc),
+                error_message=safe_message,
+                summary_message=safe_message,
             )
 
     def _dispatch_workflow(self, session: Session, execution: JobExecution, workflow_spec) -> DispatchOutcome:  # type: ignore[no-untyped-def]
@@ -145,36 +153,38 @@ class OperationsDispatcher:
                 completed += 1
                 last_message = summary_message
             except ExecutionCanceledError as exc:
+                safe_message = self._sanitize_error_message(str(exc))
                 session.rollback()
                 step = session.get(JobExecutionStep, step.id)
                 if step is not None:
                     step.status = "canceled"
                     step.ended_at = datetime.now(timezone.utc)
-                    step.message = str(exc)
-                self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=str(exc), level="WARNING")
+                    step.message = self._sanitize_step_message(safe_message)
+                self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=safe_message, level="WARNING")
                 session.commit()
                 return DispatchOutcome(
                     status="canceled",
                     rows_fetched=total_fetched,
                     rows_written=total_written,
-                    summary_message=str(exc),
+                    summary_message=safe_message,
                 )
             except Exception as exc:
+                safe_message = self._sanitize_error_message(str(exc))
                 session.rollback()
                 step = session.get(JobExecutionStep, step.id)
                 if step is not None:
                     step.status = "failed"
                     step.ended_at = datetime.now(timezone.utc)
-                    step.message = str(exc)
-                self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=str(exc), level="ERROR")
+                    step.message = self._sanitize_step_message(safe_message)
+                self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=safe_message, level="ERROR")
                 session.commit()
                 return DispatchOutcome(
                     status="partial_success" if completed else "failed",
                     rows_fetched=total_fetched,
                     rows_written=total_written,
-                    summary_message=str(exc),
+                    summary_message=safe_message,
                     error_code="workflow_step_failed",
-                    error_message=str(exc),
+                    error_message=safe_message,
                 )
 
         return DispatchOutcome(
@@ -597,7 +607,7 @@ class OperationsDispatcher:
                 step_id=step_id,
                 event_type=event_type,
                 level=level,
-                message=message,
+                message=truncate_text(message, OperationsDispatcher.MAX_EVENT_MESSAGE_LENGTH),
                 payload_json=payload_json or {},
                 occurred_at=datetime.now(timezone.utc),
             )
@@ -607,7 +617,10 @@ class OperationsDispatcher:
         execution = session.get(JobExecution, execution_id)
         if execution is None:
             return
-        execution.progress_message = str(payload_json.get("progress_message") or execution.progress_message or "")
+        execution.progress_message = truncate_text(
+            str(payload_json.get("progress_message") or execution.progress_message or ""),
+            self.MAX_PROGRESS_MESSAGE_LENGTH,
+        )
         execution.last_progress_at = datetime.now(timezone.utc)
 
         current = self._optional_int(payload_json.get("progress_current"))
@@ -636,6 +649,14 @@ class OperationsDispatcher:
         payload["progress_total"] = total
         payload["progress_percent"] = 0 if total <= 0 else round(current / total * 100)
         return payload
+
+    @classmethod
+    def _sanitize_error_message(cls, message: str | None) -> str | None:
+        return truncate_text(message, cls.MAX_ERROR_MESSAGE_LENGTH)
+
+    @classmethod
+    def _sanitize_step_message(cls, message: str | None) -> str | None:
+        return truncate_text(message, cls.MAX_STEP_MESSAGE_LENGTH)
 
     @staticmethod
     def _parse_date(value: Any) -> date:

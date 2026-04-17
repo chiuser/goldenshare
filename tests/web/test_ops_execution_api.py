@@ -124,6 +124,73 @@ def test_ops_execution_detail_returns_steps_and_events(
     assert payload["events"][1]["payload_json"]["index_code"] == "000300.SH"
 
 
+def test_ops_execution_endpoints_truncate_oversized_messages(
+    app_client,
+    user_factory,
+    job_execution_factory,
+    job_execution_step_factory,
+    job_execution_event_factory,
+    sync_run_log_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    huge = "x" * 20_000
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="sync_history.stock_basic",
+        status="failed",
+        requested_by_user_id=admin.id,
+        summary_message=huge,
+        error_message=huge,
+        progress_message=huge,
+    )
+    job_execution_step_factory(
+        execution_id=execution.id,
+        step_key="sync_history.stock_basic",
+        display_name="股票主数据刷新",
+        sequence_no=1,
+        status="failed",
+        message=huge,
+    )
+    job_execution_event_factory(
+        execution_id=execution.id,
+        event_type="step_failed",
+        message=huge,
+        payload_json={"size": "huge"},
+    )
+    sync_run_log_factory(
+        execution_id=execution.id,
+        job_name="sync_stock_basic",
+        run_type="FULL",
+        status="FAILED",
+        message=huge,
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    detail = app_client.get(f"/api/v1/ops/executions/{execution.id}", headers=headers)
+    steps = app_client.get(f"/api/v1/ops/executions/{execution.id}/steps", headers=headers)
+    events = app_client.get(f"/api/v1/ops/executions/{execution.id}/events", headers=headers)
+    logs = app_client.get(f"/api/v1/ops/executions/{execution.id}/logs", headers=headers)
+
+    assert detail.status_code == 200
+    detail_payload = detail.json()
+    assert len(detail_payload["error_message"]) <= 12_000
+    assert len(detail_payload["summary_message"]) <= 4_000
+    assert len(detail_payload["progress_message"]) <= 1_000
+    assert detail_payload["error_message"].endswith("[已截断]")
+
+    assert steps.status_code == 200
+    assert len(steps.json()["items"][0]["message"]) <= 2_000
+
+    assert events.status_code == 200
+    assert len(events.json()["items"][0]["message"]) <= 4_000
+
+    assert logs.status_code == 200
+    assert len(logs.json()["items"][0]["message"]) <= 4_000
+
+
 def test_ops_execution_detail_returns_not_found_for_missing_execution(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

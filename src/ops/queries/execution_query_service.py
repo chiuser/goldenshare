@@ -22,9 +22,17 @@ from src.ops.schemas.execution import (
     ExecutionStepItem,
     ExecutionStepsResponse,
 )
+from src.utils import truncate_text
 
 
 class ExecutionQueryService:
+    MAX_DETAIL_ERROR_MESSAGE_LENGTH = 12_000
+    MAX_DETAIL_SUMMARY_LENGTH = 4_000
+    MAX_EVENT_MESSAGE_LENGTH = 4_000
+    MAX_STEP_MESSAGE_LENGTH = 2_000
+    MAX_LOG_MESSAGE_LENGTH = 4_000
+    MAX_PROGRESS_MESSAGE_LENGTH = 1_000
+
     def list_executions(
         self,
         session: Session,
@@ -119,18 +127,18 @@ class ExecutionQueryService:
             started_at=execution.started_at,
             ended_at=execution.ended_at,
             params_json=execution.params_json,
-            summary_message=execution.summary_message,
+            summary_message=self._clip(execution.summary_message, self.MAX_DETAIL_SUMMARY_LENGTH),
             rows_fetched=execution.rows_fetched,
             rows_written=execution.rows_written,
             progress_current=execution.progress_current,
             progress_total=execution.progress_total,
             progress_percent=execution.progress_percent,
-            progress_message=execution.progress_message,
+            progress_message=self._clip(execution.progress_message, self.MAX_PROGRESS_MESSAGE_LENGTH),
             last_progress_at=execution.last_progress_at,
             cancel_requested_at=execution.cancel_requested_at,
             canceled_at=execution.canceled_at,
             error_code=execution.error_code,
-            error_message=execution.error_message,
+            error_message=self._clip(execution.error_message, self.MAX_DETAIL_ERROR_MESSAGE_LENGTH),
             steps=steps,
             events=[self._event_item(event) for event in events],
         )
@@ -171,14 +179,13 @@ class ExecutionQueryService:
                     ended_at=log.ended_at,
                     rows_fetched=log.rows_fetched,
                     rows_written=log.rows_written,
-                    message=log.message,
+                    message=self._clip(log.message, self.MAX_LOG_MESSAGE_LENGTH),
                 )
                 for log in logs
             ],
         )
 
-    @staticmethod
-    def _list_item(execution: JobExecution, username: str | None, schedule_display_name: str | None) -> ExecutionListItem:
+    def _list_item(self, execution: JobExecution, username: str | None, schedule_display_name: str | None) -> ExecutionListItem:
         return ExecutionListItem(
             id=execution.id,
             spec_type=execution.spec_type,
@@ -201,14 +208,13 @@ class ExecutionQueryService:
             progress_current=execution.progress_current,
             progress_total=execution.progress_total,
             progress_percent=execution.progress_percent,
-            progress_message=execution.progress_message,
+            progress_message=self._clip(execution.progress_message, self.MAX_PROGRESS_MESSAGE_LENGTH),
             last_progress_at=execution.last_progress_at,
-            summary_message=execution.summary_message,
+            summary_message=self._clip(execution.summary_message, self.MAX_DETAIL_SUMMARY_LENGTH),
             error_code=execution.error_code,
         )
 
-    @staticmethod
-    def _step_item(step: JobExecutionStep) -> ExecutionStepItem:
+    def _step_item(self, step: JobExecutionStep) -> ExecutionStepItem:
         return ExecutionStepItem(
             id=step.id,
             step_key=step.step_key,
@@ -221,17 +227,16 @@ class ExecutionQueryService:
             ended_at=step.ended_at,
             rows_fetched=step.rows_fetched,
             rows_written=step.rows_written,
-            message=step.message,
+            message=self._clip(step.message, self.MAX_STEP_MESSAGE_LENGTH),
         )
 
-    @staticmethod
-    def _event_item(event: JobExecutionEvent) -> ExecutionEventItem:
+    def _event_item(self, event: JobExecutionEvent) -> ExecutionEventItem:
         return ExecutionEventItem(
             id=event.id,
             step_id=event.step_id,
             event_type=event.event_type,
             level=event.level,
-            message=event.message,
+            message=self._clip(event.message, self.MAX_EVENT_MESSAGE_LENGTH),
             payload_json=event.payload_json,
             occurred_at=event.occurred_at,
         )
@@ -303,3 +308,7 @@ class ExecutionQueryService:
                 )
             )
         return items
+
+    @staticmethod
+    def _clip(value: str | None, max_length: int) -> str | None:
+        return truncate_text(value, max_length)

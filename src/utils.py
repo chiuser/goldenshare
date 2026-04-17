@@ -39,3 +39,14 @@ def coerce_row(row: dict[str, Any], date_fields: Iterable[str], decimal_fields: 
         if key in normalized:
             normalized[key] = to_decimal(normalized.get(key))
     return normalized
+
+
+def truncate_text(value: str | None, max_length: int, *, suffix: str = "... [已截断]") -> str | None:
+    if value is None:
+        return None
+    if max_length <= 0:
+        return ""
+    if len(value) <= max_length:
+        return value
+    reserve = max(max_length - len(suffix), 0)
+    return value[:reserve] + suffix

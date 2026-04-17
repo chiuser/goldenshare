@@ -10,9 +10,14 @@ from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.operations.runtime.dispatcher import DispatchOutcome, OperationsDispatcher
 from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.platform.exceptions import WebAppError
+from src.utils import truncate_text
 
 
 class OperationsWorker:
+    MAX_EXECUTION_ERROR_MESSAGE_LENGTH = 16_000
+    MAX_EXECUTION_SUMMARY_LENGTH = 8_000
+    MAX_PROGRESS_MESSAGE_LENGTH = 1_000
+
     def __init__(self, dispatcher: OperationsDispatcher | None = None) -> None:
         self.dispatcher = dispatcher or OperationsDispatcher()
 
@@ -70,11 +75,12 @@ class OperationsWorker:
             try:
                 outcome = self.dispatcher.dispatch(session, execution)
             except Exception as exc:
+                safe_message = self._sanitize_error_message(str(exc))
                 outcome = DispatchOutcome(
                     status="failed",
                     error_code="dispatcher_error",
-                    error_message=str(exc),
-                    summary_message=str(exc),
+                    error_message=safe_message,
+                    summary_message=safe_message,
                 )
             return self._finalize_execution(session, execution.id, outcome)
         except Exception as exc:
@@ -88,13 +94,13 @@ class OperationsWorker:
         execution.ended_at = datetime.now(timezone.utc)
         execution.rows_fetched = outcome.rows_fetched
         execution.rows_written = outcome.rows_written
-        execution.summary_message = outcome.summary_message
+        execution.summary_message = self._sanitize_summary_message(outcome.summary_message)
         execution.error_code = outcome.error_code
-        execution.error_message = outcome.error_message
+        execution.error_message = self._sanitize_error_message(outcome.error_message)
         if execution.cancel_requested_at is not None and outcome.status in {"success", "partial_success"}:
             outcome.status = "canceled"
             outcome.summary_message = outcome.summary_message or "任务已收到停止请求，已在当前处理单元后停止。"
-            execution.summary_message = outcome.summary_message
+            execution.summary_message = self._sanitize_summary_message(outcome.summary_message)
             execution.error_code = None
             execution.error_message = None
         if outcome.status == "success" and execution.progress_total is not None:
@@ -104,9 +110,9 @@ class OperationsWorker:
             execution.canceled_at = execution.canceled_at or execution.ended_at
         if outcome.status == "failed":
             # Preserve the latest business progress for troubleshooting.
-            execution.progress_message = last_progress_message or outcome.summary_message
+            execution.progress_message = self._sanitize_progress_message(last_progress_message or outcome.summary_message)
         else:
-            execution.progress_message = outcome.summary_message or execution.progress_message
+            execution.progress_message = self._sanitize_progress_message(outcome.summary_message or execution.progress_message)
         execution.last_progress_at = execution.ended_at
         final_event_type = "succeeded"
         level = "INFO"
@@ -123,7 +129,7 @@ class OperationsWorker:
                 execution_id=execution.id,
                 event_type=final_event_type,
                 level=level,
-                message=outcome.summary_message,
+                message=self._sanitize_summary_message(outcome.summary_message),
                 payload_json={},
                 occurred_at=execution.ended_at,
             )
@@ -144,17 +150,17 @@ class OperationsWorker:
         last_progress_message = execution.progress_message
         execution.status = "failed"
         execution.ended_at = datetime.now(timezone.utc)
-        execution.summary_message = message
+        execution.summary_message = self._sanitize_summary_message(message)
         execution.error_code = execution.error_code or "worker_finalize_error"
-        execution.error_message = message
+        execution.error_message = self._sanitize_error_message(message)
         execution.last_progress_at = execution.ended_at
-        execution.progress_message = last_progress_message or message
+        execution.progress_message = self._sanitize_progress_message(last_progress_message or message)
         session.add(
             JobExecutionEvent(
                 execution_id=execution.id,
                 event_type="failed",
                 level="ERROR",
-                message=message,
+                message=self._sanitize_summary_message(message),
                 payload_json={},
                 occurred_at=execution.ended_at,
             )
@@ -162,3 +168,15 @@ class OperationsWorker:
         session.commit()
         session.refresh(execution)
         return execution
+
+    @classmethod
+    def _sanitize_error_message(cls, message: str | None) -> str | None:
+        return truncate_text(message, cls.MAX_EXECUTION_ERROR_MESSAGE_LENGTH)
+
+    @classmethod
+    def _sanitize_summary_message(cls, message: str | None) -> str | None:
+        return truncate_text(message, cls.MAX_EXECUTION_SUMMARY_LENGTH)
+
+    @classmethod
+    def _sanitize_progress_message(cls, message: str | None) -> str | None:
+        return truncate_text(message, cls.MAX_PROGRESS_MESSAGE_LENGTH)

@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 
 from src.foundation.dao.base_dao import BaseDAO
 from src.ops.models.ops.sync_run_log import SyncRunLog
+from src.utils import truncate_text
 
 
 class SyncRunLogDAO(BaseDAO[SyncRunLog]):
+    MAX_LOG_MESSAGE_LENGTH = 16_000
+
     def __init__(self, session: Session) -> None:
         super().__init__(session, SyncRunLog)
 
@@ -30,4 +33,4 @@ class SyncRunLogDAO(BaseDAO[SyncRunLog]):
         log.ended_at = datetime.now(timezone.utc)
         log.rows_fetched = rows_fetched
         log.rows_written = rows_written
-        log.message = message
+        log.message = truncate_text(message, self.MAX_LOG_MESSAGE_LENGTH)
