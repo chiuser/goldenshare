@@ -31,6 +31,7 @@ import type { PropsWithChildren } from "react";
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 const opsV21Links = [
   { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
+  { to: "/ops/v21/account", label: "帐号管理", icon: IconShieldLock },
 ];
 
 const opsV21SourceLinks = [

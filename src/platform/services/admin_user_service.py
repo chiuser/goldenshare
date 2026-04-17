@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, delete, desc, func, select
 from sqlalchemy.orm import Session
 
 from src.platform.auth.constants import ACCOUNT_STATE_ACTIVE, ACCOUNT_STATE_SUSPENDED, ROLE_ADMIN, ROLE_VIEWER
@@ -10,8 +10,10 @@ from src.platform.auth.password_service import PasswordService
 from src.platform.auth.security_utils import generate_raw_token, hash_raw_token, normalize_email, normalize_username
 from src.platform.auth.user_repository import UserRepository
 from src.platform.exceptions import WebAppError
+from src.platform.models.app.auth_action_token import AuthActionToken
 from src.platform.models.app.auth_audit_log import AuthAuditLog
 from src.platform.models.app.auth_invite_code import AuthInviteCode
+from src.platform.models.app.auth_refresh_token import AuthRefreshToken
 from src.platform.models.app.auth_user_role import AuthUserRole
 from src.platform.models.app.app_user import AppUser
 from src.platform.services.auth_service import AuthService
@@ -199,6 +201,38 @@ class AdminUserService:
         session.commit()
         session.refresh(user)
         return user
+
+    def delete_user(self, session: Session, *, user_id: int, actor_user_id: int | None) -> int:
+        user = self.user_repository.get_by_id(session, user_id)
+        if user is None:
+            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+        if actor_user_id is not None and actor_user_id == user.id:
+            raise WebAppError(status_code=422, code="validation_error", message="Can not delete current user")
+
+        if user.is_admin:
+            remaining_admins = int(
+                session.scalar(
+                    select(func.count())
+                    .select_from(AppUser)
+                    .where(and_(AppUser.is_admin.is_(True), AppUser.id != user.id))
+                ) or 0
+            )
+            if remaining_admins <= 0:
+                raise WebAppError(status_code=422, code="validation_error", message="Can not delete last admin user")
+
+        session.execute(delete(AuthUserRole).where(AuthUserRole.user_id == user.id))
+        session.execute(delete(AuthRefreshToken).where(AuthRefreshToken.user_id == user.id))
+        session.execute(delete(AuthActionToken).where(AuthActionToken.user_id == user.id))
+        session.delete(user)
+        self._audit(
+            session,
+            event_type="admin.user.delete",
+            user_id=actor_user_id,
+            username_snapshot=user.username,
+            detail={"deleted_user_id": user_id},
+        )
+        session.commit()
+        return user_id
 
     def create_invite(
         self,

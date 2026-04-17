@@ -155,6 +155,16 @@ def admin_reset_password(
     return OkResponse()
 
 
+@router.delete("/users/{user_id}", response_model=OkResponse)
+def delete_user(
+    user_id: int,
+    user: AuthenticatedUser = Depends(require_permission("user.manage")),
+    session: Session = Depends(get_db_session),
+) -> OkResponse:
+    AdminUserService().delete_user(session, user_id=user_id, actor_user_id=user.id)
+    return OkResponse()
+
+
 @router.get("/auth-audit", response_model=AuthAuditListResponse)
 def list_auth_audit(
     user_id: int | None = Query(default=None),

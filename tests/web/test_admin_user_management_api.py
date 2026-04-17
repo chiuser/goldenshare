@@ -56,7 +56,29 @@ def test_admin_user_management_flow(app_client, user_factory) -> None:
     managed_login_new = app_client.post("/api/v1/auth/login", json={"username": "managed_user", "password": "newsecret123"})
     assert managed_login_new.status_code == 200
 
+    delete_resp = app_client.delete(f"/api/v1/admin/users/{user_id}", headers=headers)
+    assert delete_resp.status_code == 200
+
+    listed_after_delete = app_client.get("/api/v1/admin/users", headers=headers)
+    assert listed_after_delete.status_code == 200
+    assert all(item["username"] != "managed_user" for item in listed_after_delete.json()["items"])
+
+    managed_login_deleted = app_client.post("/api/v1/auth/login", json={"username": "managed_user", "password": "newsecret123"})
+    assert managed_login_deleted.status_code == 401
+
     audit = app_client.get("/api/v1/admin/auth-audit", headers=headers)
     assert audit.status_code == 200
     assert audit.json()["total"] >= 1
 
+
+def test_admin_can_not_delete_self(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    users = app_client.get("/api/v1/admin/users", headers=headers)
+    admin_user = next(item for item in users.json()["items"] if item["username"] == "admin")
+
+    delete_self = app_client.delete(f"/api/v1/admin/users/{admin_user['id']}", headers=headers)
+    assert delete_self.status_code == 422

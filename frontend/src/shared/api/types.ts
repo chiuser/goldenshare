@@ -43,6 +43,60 @@ export interface LookupAccountResponse {
   token_debug: string | null;
 }
 
+export interface AdminUserListItem {
+  id: number;
+  username: string;
+  display_name: string | null;
+  email: string | null;
+  account_state: string;
+  is_admin: boolean;
+  is_active: boolean;
+  roles: string[];
+  email_verified_at: string | null;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUserListResponse {
+  total: number;
+  items: AdminUserListItem[];
+}
+
+export interface AdminInviteItem {
+  id: number;
+  code_hint: string;
+  role_key: string;
+  assigned_email: string | null;
+  max_uses: number;
+  used_count: number;
+  expires_at: string | null;
+  disabled_at: string | null;
+  last_used_at: string | null;
+  created_by_user_id: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminInviteListResponse {
+  total: number;
+  items: AdminInviteItem[];
+}
+
+export interface AdminInviteCreateResponse {
+  id: number;
+  code: string;
+  role_key: string;
+  assigned_email: string | null;
+  max_uses: number;
+  used_count: number;
+  expires_at: string | null;
+  disabled_at: string | null;
+  note: string | null;
+  created_at: string;
+}
+
 export interface HealthResponse {
   status: string;
   service: string;

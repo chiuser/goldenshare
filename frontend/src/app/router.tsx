@@ -21,6 +21,7 @@ import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
+import { OpsV21AccountPage } from "../pages/ops-v21-account-page";
 import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
 import { OpsV21OverviewPage } from "../pages/ops-v21-overview-page";
 import { OpsV21ReviewBoardPage } from "../pages/ops-v21-review-board-page";
@@ -351,6 +352,12 @@ const opsV21OverviewRoute = createRoute({
   component: OpsV21OverviewPage,
 });
 
+const opsV21AccountRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/account",
+  component: OpsV21AccountPage,
+});
+
 const opsV21ReviewIndexRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/review/index",
@@ -459,6 +466,7 @@ const routeTree = rootRoute.addChildren([
     opsManualSyncRoute,
     opsExecutionsRoute,
     opsExecutionDetailRoute,
+    opsV21AccountRoute,
     opsLegacyOverviewRoute,
     opsLegacyFreshnessRoute,
     opsLegacySchedulesRoute,
