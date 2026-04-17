@@ -5,6 +5,7 @@ from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_dividend import EquityDividend
+from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_margin import EquityMargin
@@ -111,6 +112,7 @@ from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stock_st import RawStockSt
+from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
@@ -135,6 +137,7 @@ __all__ = [
     "EquityDailyBar",
     "EquityDailyBasic",
     "EquityDividend",
+    "EquityFactorPro",
     "EquityHolderNumber",
     "EquityLimitList",
     "EquityMargin",
@@ -206,6 +209,7 @@ __all__ = [
     "RawMoneyflow",
     "RawStockBasic",
     "RawStockSt",
+    "RawStkFactorPro",
     "RawSuspendD",
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",

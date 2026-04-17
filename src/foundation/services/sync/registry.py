@@ -35,6 +35,7 @@ from src.foundation.services.sync.sync_limit_list_ths_service import SyncLimitLi
 from src.foundation.services.sync.sync_limit_step_service import SyncLimitStepService
 from src.foundation.services.sync.sync_margin_service import SyncMarginService
 from src.foundation.services.sync.sync_stk_limit_service import SyncStkLimitService
+from src.foundation.services.sync.sync_stk_factor_pro_service import SyncStkFactorProService
 from src.foundation.services.sync.sync_stk_nineturn_service import SyncStkNineTurnService
 from src.foundation.services.sync.sync_suspend_d_service import SyncSuspendDService
 from src.foundation.services.sync.sync_stock_st_service import SyncStockStService
@@ -97,6 +98,7 @@ SYNC_SERVICE_REGISTRY = {
     "stk_holdernumber": SyncHolderNumberService,
     "limit_list_d": SyncLimitListService,
     "stk_limit": SyncStkLimitService,
+    "stk_factor_pro": SyncStkFactorProService,
     "stk_nineturn": SyncStkNineTurnService,
     "suspend_d": SyncSuspendDService,
     "stock_st": SyncStockStService,

@@ -242,6 +242,7 @@ DAILY_SYNC_RESOURCES = (
     "margin",
     "limit_list_d",
     "stk_limit",
+    "stk_factor_pro",
     "stock_st",
     "stk_nineturn",
     "suspend_d",
@@ -380,6 +381,8 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     if resource == "stk_limit":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
+    if resource == "stk_factor_pro":
+        return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "stock_st":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "stk_nineturn":
@@ -440,6 +443,8 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
     elif resource == "limit_list_d":
         supported_params = (TRADE_DATE_PARAM, LIMIT_TYPE_PARAM, LIMIT_LIST_EXCHANGE_PARAM)
     elif resource == "stk_limit":
+        supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
+    elif resource == "stk_factor_pro":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     elif resource == "stock_st":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
@@ -535,7 +540,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade", "limit_list_d", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
+for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade", "limit_list_d", "stk_factor_pro", "stk_nineturn", "suspend_d", "ths_hot", "dc_hot", "kpl_concept_cons", "limit_list_ths", "limit_step", "limit_cpt_list"):
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -588,6 +593,14 @@ for _resource in ("daily_basic", "moneyflow", "margin", "top_list", "block_trade
         _supported_params = (
             START_DATE_PARAM,
             END_DATE_PARAM,
+            OFFSET_PARAM,
+            LIMIT_PARAM,
+        )
+    elif _resource == "stk_factor_pro":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
@@ -756,6 +769,7 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("adj_factor", "sync_daily.adj_factor", "复权因子"),
             WorkflowStepSpec("daily_basic", "sync_daily.daily_basic", "股票日指标"),
             WorkflowStepSpec("cyq_perf", "sync_daily.cyq_perf", "每日筹码及胜率"),
+            WorkflowStepSpec("stk_factor_pro", "sync_daily.stk_factor_pro", "股票技术面因子(专业版)"),
             WorkflowStepSpec("moneyflow", "sync_daily.moneyflow", "资金流"),
             WorkflowStepSpec("margin", "sync_daily.margin", "融资融券交易汇总"),
             WorkflowStepSpec("stk_limit", "sync_daily.stk_limit", "每日涨跌停价格"),
@@ -840,6 +854,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily", "trade_date"),
+    "stk_factor_pro": ("股票技术面因子(专业版)", "equity", "股票", "daily", "trade_date"),
     "moneyflow": ("资金流", "equity", "股票", "daily", "trade_date"),
     "margin": ("融资融券交易汇总", "equity", "股票", "daily", "trade_date"),
     "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),

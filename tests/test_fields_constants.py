@@ -31,6 +31,7 @@ from src.foundation.services.sync.fields import (
     LIMIT_LIST_FIELDS,
     STK_LIMIT_FIELDS,
     STOCK_ST_FIELDS,
+    STK_FACTOR_PRO_FIELDS,
     STK_NINETURN_FIELDS,
     SUSPEND_D_FIELDS,
     MONEYFLOW_FIELDS,
@@ -201,3 +202,5 @@ def test_existing_field_constants_still_cover_core_resources() -> None:
         "nine_up_turn",
         "nine_down_turn",
     )
+    assert "macd_qfq" in STK_FACTOR_PRO_FIELDS
+    assert "xsii_td4_qfq" in STK_FACTOR_PRO_FIELDS

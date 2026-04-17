@@ -32,6 +32,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "sync_daily.fund_adj" in job_keys
     assert "sync_daily.margin" in job_keys
     assert "sync_daily.cyq_perf" in job_keys
+    assert "sync_daily.stk_factor_pro" in job_keys
     assert "sync_daily.stock_st" in job_keys
     assert "sync_daily.stk_period_bar_month" in job_keys
     assert "sync_daily.stk_period_bar_adj_month" in job_keys
@@ -99,6 +100,7 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert margin_exchange["options"] == ["SSE", "SZSE", "BSE"]
     assert margin_exchange["multi_value"] is True
     assert [param["key"] for param in jobs["sync_daily.cyq_perf"]["supported_params"]] == ["trade_date", "ts_code"]
+    assert [param["key"] for param in jobs["sync_daily.stk_factor_pro"]["supported_params"]] == ["trade_date", "ts_code"]
     limit_list_daily = jobs["sync_daily.limit_list_d"]
     assert [param["key"] for param in limit_list_daily["supported_params"]] == ["trade_date", "limit_type", "exchange"]
     limit_type = next(param for param in limit_list_daily["supported_params"] if param["key"] == "limit_type")
