@@ -68,7 +68,7 @@ def test_ops_review_ths_board_list_returns_members(app_client, user_factory, db_
     db_session.add_all(
         [
             ThsIndex(ts_code="885001.TI", name="人工智能", exchange="A", type_="N"),
-            ThsIndex(ts_code="885002.TI", name="新能源", exchange="A", type_="N"),
+            ThsIndex(ts_code="885002.TI", name="新能源", exchange="A", type_="I"),
             ThsMember(ts_code="885001.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
             ThsMember(ts_code="885001.TI", con_code="000002.SZ", con_name="万科A", out_date=None),
             ThsMember(ts_code="885002.TI", con_code="000001.SZ", con_name="平安银行", out_date=None),
@@ -78,7 +78,7 @@ def test_ops_review_ths_board_list_returns_members(app_client, user_factory, db_
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/ops/review/board/ths?min_constituent_count=2&page=1&page_size=10",
+        "/api/v1/ops/review/board/ths?board_type=N&min_constituent_count=2&page=1&page_size=10",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
@@ -102,6 +102,7 @@ def test_ops_review_dc_board_list_defaults_to_latest_trade_date(app_client, user
         [
             DcIndex(ts_code="BK001", trade_date=date(2026, 4, 14), name="算力", idx_type="概念"),
             DcIndex(ts_code="BK001", trade_date=date(2026, 4, 15), name="算力", idx_type="概念"),
+            DcIndex(ts_code="BK002", trade_date=date(2026, 4, 15), name="消费", idx_type="行业"),
             DcMember(trade_date=date(2026, 4, 15), ts_code="BK001", con_code="000001.SZ", name="平安银行"),
             DcMember(trade_date=date(2026, 4, 15), ts_code="BK001", con_code="000002.SZ", name="万科A"),
         ]
@@ -115,7 +116,8 @@ def test_ops_review_dc_board_list_defaults_to_latest_trade_date(app_client, user
     assert response.status_code == 200
     payload = response.json()
     assert payload["trade_date"] == "2026-04-15"
-    assert payload["total"] == 1
+    assert payload["idx_type_options"] == ["概念", "行业"]
+    assert payload["total"] == 2
     assert payload["items"][0]["constituent_count"] == 2
 
 
@@ -155,3 +157,37 @@ def test_ops_review_equity_membership_aggregates_ths_and_dc(app_client, user_fac
     assert item["board_count"] == 2
     providers = sorted(board["provider"] for board in item["boards"])
     assert providers == ["dc", "ths"]
+
+
+def test_ops_review_equity_suggest_supports_ts_code_and_cnspell(app_client, user_factory, db_session) -> None:
+    from src.foundation.models.core_serving.security_serving import Security
+
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add_all(
+        [
+            Security(ts_code="000001.SZ", name="平安银行", symbol="000001", cnspell="payh"),
+            Security(ts_code="000002.SZ", name="万科A", symbol="000002", cnspell="wka"),
+        ]
+    )
+    db_session.commit()
+
+    code_response = app_client.get(
+        "/api/v1/ops/review/board/equity-suggest?keyword=0000",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert code_response.status_code == 200
+    code_payload = code_response.json()
+    assert len(code_payload["items"]) == 2
+    assert code_payload["items"][0]["ts_code"] == "000001.SZ"
+
+    cnspell_response = app_client.get(
+        "/api/v1/ops/review/board/equity-suggest?keyword=pay",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert cnspell_response.status_code == 200
+    cnspell_payload = cnspell_response.json()
+    assert len(cnspell_payload["items"]) == 1
+    assert cnspell_payload["items"][0]["ts_code"] == "000001.SZ"

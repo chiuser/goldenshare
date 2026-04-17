@@ -50,6 +50,7 @@ class ReviewDcBoardItem(BaseModel):
 
 class ReviewDcBoardListResponse(BaseModel):
     trade_date: date | None
+    idx_type_options: list[str]
     total: int
     items: list[ReviewDcBoardItem]
 
@@ -71,3 +72,12 @@ class ReviewEquityBoardMembershipListResponse(BaseModel):
     dc_trade_date: date | None
     total: int
     items: list[ReviewEquityBoardMembershipItem]
+
+
+class ReviewEquitySuggestItem(BaseModel):
+    ts_code: str
+    name: str | None
+
+
+class ReviewEquitySuggestResponse(BaseModel):
+    items: list[ReviewEquitySuggestItem]

@@ -562,6 +562,7 @@ export interface OpsReviewThsBoardsResponse {
 
 export interface OpsReviewDcBoardsResponse {
   trade_date: string | null;
+  idx_type_options: string[];
   total: number;
   items: Array<{
     board_code: string;
@@ -589,5 +590,12 @@ export interface OpsReviewEquityMembershipResponse {
       board_code: string;
       board_name: string | null;
     }>;
+  }>;
+}
+
+export interface OpsReviewEquitySuggestResponse {
+  items: Array<{
+    ts_code: string;
+    name: string | null;
   }>;
 }

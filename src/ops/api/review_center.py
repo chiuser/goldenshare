@@ -10,6 +10,7 @@ from src.ops.schemas.review_center import (
     ReviewActiveIndexListResponse,
     ReviewDcBoardListResponse,
     ReviewEquityBoardMembershipListResponse,
+    ReviewEquitySuggestResponse,
     ReviewThsBoardListResponse,
 )
 from src.platform.auth.dependencies import require_admin
@@ -42,6 +43,7 @@ def list_active_indexes(
 def list_ths_boards(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
+    board_type: str | None = Query(default=None),
     keyword: str | None = Query(default=None),
     min_constituent_count: int = Query(0, ge=0),
     include_members: bool = Query(default=True),
@@ -50,6 +52,7 @@ def list_ths_boards(
 ) -> ReviewThsBoardListResponse:
     return ReviewCenterQueryService().list_ths_boards(
         session,
+        board_type=board_type,
         keyword=keyword,
         min_constituent_count=min_constituent_count,
         include_members=include_members,
@@ -101,4 +104,18 @@ def list_equity_board_membership(
         provider=provider,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/ops/review/board/equity-suggest", response_model=ReviewEquitySuggestResponse)
+def suggest_equities_for_review(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    keyword: str = Query(min_length=1),
+    limit: int = Query(20, ge=1, le=50),
+) -> ReviewEquitySuggestResponse:
+    return ReviewCenterQueryService().suggest_equities(
+        session,
+        keyword=keyword,
+        limit=limit,
     )

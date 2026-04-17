@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import and_, desc, false, func, literal, or_, select, union_all
+from sqlalchemy import and_, case, desc, false, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.index_basic import IndexBasic
@@ -21,6 +21,8 @@ from src.ops.schemas.review_center import (
     ReviewEquityBoardItem,
     ReviewEquityBoardMembershipItem,
     ReviewEquityBoardMembershipListResponse,
+    ReviewEquitySuggestItem,
+    ReviewEquitySuggestResponse,
     ReviewThsBoardItem,
     ReviewThsBoardListResponse,
 )
@@ -80,6 +82,7 @@ class ReviewCenterQueryService:
         self,
         session: Session,
         *,
+        board_type: str | None = None,
         keyword: str | None = None,
         min_constituent_count: int = 0,
         include_members: bool = True,
@@ -111,6 +114,8 @@ class ReviewCenterQueryService:
             .select_from(ThsIndex)
             .outerjoin(ths_count_subq, ths_count_subq.c.board_code == ThsIndex.ts_code)
         )
+        if board_type:
+            stmt = stmt.where(ThsIndex.type_ == board_type)
         if keyword:
             pattern = f"%{keyword.strip()}%"
             stmt = stmt.where(or_(ThsIndex.ts_code.ilike(pattern), ThsIndex.name.ilike(pattern)))
@@ -181,7 +186,19 @@ class ReviewCenterQueryService:
         offset = (page - 1) * page_size
         resolved_trade_date = trade_date or session.scalar(select(func.max(DcIndex.trade_date)))
         if resolved_trade_date is None:
-            return ReviewDcBoardListResponse(trade_date=None, total=0, items=[])
+            return ReviewDcBoardListResponse(trade_date=None, idx_type_options=[], total=0, items=[])
+
+        idx_type_options = [
+            row[0]
+            for row in session.execute(
+                select(DcIndex.idx_type)
+                .where(DcIndex.trade_date == resolved_trade_date)
+                .where(DcIndex.idx_type.is_not(None))
+                .distinct()
+                .order_by(DcIndex.idx_type.asc())
+            ).all()
+            if row[0]
+        ]
 
         dc_count_subq = (
             select(
@@ -242,6 +259,7 @@ class ReviewCenterQueryService:
 
         return ReviewDcBoardListResponse(
             trade_date=resolved_trade_date,
+            idx_type_options=idx_type_options,
             total=int(total),
             items=[
                 ReviewDcBoardItem(
@@ -253,6 +271,44 @@ class ReviewCenterQueryService:
                 )
                 for row in rows
             ],
+        )
+
+    def suggest_equities(
+        self,
+        session: Session,
+        *,
+        keyword: str,
+        limit: int = 20,
+    ) -> ReviewEquitySuggestResponse:
+        normalized_keyword = keyword.strip()
+        if not normalized_keyword:
+            return ReviewEquitySuggestResponse(items=[])
+        limit = max(1, min(limit, 50))
+        prefix_pattern = f"{normalized_keyword}%"
+        contains_pattern = f"%{normalized_keyword}%"
+        score_expr = case(
+            (Security.ts_code.ilike(prefix_pattern), 0),
+            (Security.symbol.ilike(prefix_pattern), 1),
+            (Security.cnspell.ilike(prefix_pattern), 2),
+            (Security.name.ilike(prefix_pattern), 3),
+            else_=4,
+        )
+        rows = session.execute(
+            select(Security.ts_code, Security.name)
+            .where(Security.security_type == "EQUITY")
+            .where(
+                or_(
+                    Security.ts_code.ilike(prefix_pattern),
+                    Security.symbol.ilike(prefix_pattern),
+                    Security.cnspell.ilike(prefix_pattern),
+                    Security.name.ilike(contains_pattern),
+                )
+            )
+            .order_by(score_expr.asc(), Security.ts_code.asc())
+            .limit(limit)
+        ).all()
+        return ReviewEquitySuggestResponse(
+            items=[ReviewEquitySuggestItem(ts_code=row.ts_code, name=row.name) for row in rows],
         )
 
     def list_equity_membership(
