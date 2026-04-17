@@ -6,7 +6,8 @@ import { useState } from "react";
 
 import { useAuth } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
-import type { CurrentUserResponse, LoginResponse, RegisterResponse } from "../shared/api/types";
+import { ApiError } from "../shared/api/errors";
+import type { CurrentUserResponse, LoginResponse, LookupAccountResponse, RegisterResponse } from "../shared/api/types";
 
 
 export function RegisterPage() {
@@ -22,6 +23,21 @@ export function RegisterPage() {
   const [verifyToken, setVerifyToken] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [tipText, setTipText] = useState<string | null>(null);
+  const [showVerifySection, setShowVerifySection] = useState(false);
+
+  const renderRegisterError = (error: unknown): string => {
+    if (error instanceof ApiError) {
+      if (error.code === "registration_closed") {
+        return "当前后端未开启注册，请管理员在环境配置中设置 AUTH_REGISTER_MODE=invite_only。";
+      }
+      if (error.code === "validation_error" && error.message.includes("Invite code is required")) {
+        return "请输入邀请码后再注册。";
+      }
+    }
+    return error instanceof Error ? error.message : "注册失败，请稍后重试";
+  };
+
+  const resolveVerifyIdentifier = (): string => (email.trim() || username.trim());
 
   const verifyMutation = useMutation({
     mutationFn: (token: string) =>
@@ -36,7 +52,33 @@ export function RegisterPage() {
       await navigate({ to: data.is_admin ? "/ops/v21/overview" : "/user/overview" });
     },
     onError: (error) => {
+      setShowVerifySection(true);
       setErrorText(error instanceof Error ? error.message : "验证失败，请稍后重试");
+    },
+  });
+
+  const resendVerifyMutation = useMutation({
+    mutationFn: () => {
+      const usernameOrEmail = resolveVerifyIdentifier();
+      if (!usernameOrEmail) {
+        throw new Error("请先填写用户名或邮箱");
+      }
+      return apiRequest<LookupAccountResponse>("/api/v1/auth/register/resend-verification", {
+        method: "POST",
+        body: { username_or_email: usernameOrEmail },
+      });
+    },
+    onSuccess: (data) => {
+      setErrorText(null);
+      if (data.token_debug) {
+        setVerifyToken(data.token_debug);
+        setTipText("已重新生成验证令牌，请点击“完成激活并登录”。");
+        return;
+      }
+      setTipText("验证请求已提交。当前环境未返回调试令牌，请联系管理员或确认邮件服务。");
+    },
+    onError: (error) => {
+      setErrorText(error instanceof Error ? error.message : "重新获取验证令牌失败");
     },
   });
 
@@ -54,21 +96,28 @@ export function RegisterPage() {
       }),
     onSuccess: async (data) => {
       setErrorText(null);
+      setShowVerifySection(false);
       if (data.token) {
         setToken(data.token, data.refresh_token);
         const profile = await apiRequest<CurrentUserResponse>("/api/v1/auth/me", { token: data.token });
         await navigate({ to: profile.is_admin ? "/ops/v21/overview" : "/user/overview" });
         return;
       }
-      if (data.verification_token_debug) {
-        setVerifyToken(data.verification_token_debug);
-        setTipText("注册成功。当前环境未接入邮件服务，请使用下方验证令牌完成激活。");
+      if (!data.requires_email_verification) {
+        setTipText("注册成功，请返回登录。");
         return;
       }
-      setTipText("注册成功，但当前环境未返回验证令牌。请联系管理员完成账号激活。");
+      setShowVerifySection(true);
+      if (data.verification_token_debug) {
+        setVerifyToken(data.verification_token_debug);
+        setTipText("注册成功，正在自动完成激活...");
+        verifyMutation.mutate(data.verification_token_debug);
+        return;
+      }
+      setTipText("注册成功。当前环境未返回验证令牌，请点击“重新获取验证令牌”或联系管理员。");
     },
     onError: (error) => {
-      setErrorText(error instanceof Error ? error.message : "注册失败，请稍后重试");
+      setErrorText(renderRegisterError(error));
     },
   });
 
@@ -82,6 +131,9 @@ export function RegisterPage() {
       return;
     }
     setErrorText(null);
+    setTipText(null);
+    setShowVerifySection(false);
+    setVerifyToken("");
     registerMutation.mutate();
   };
 
@@ -144,19 +196,31 @@ export function RegisterPage() {
           >
             提交注册
           </Button>
-
-          <TextInput
-            label="验证令牌（无邮件时使用）"
-            value={verifyToken}
-            onChange={(event) => setVerifyToken(event.currentTarget.value)}
-          />
-          <Button
-            variant="light"
-            loading={verifyMutation.isPending}
-            onClick={submitVerify}
-          >
-            完成激活并登录
-          </Button>
+          {showVerifySection ? (
+            <>
+              <TextInput
+                label="验证令牌（无邮件时使用）"
+                value={verifyToken}
+                onChange={(event) => setVerifyToken(event.currentTarget.value)}
+              />
+              <Button
+                variant="light"
+                loading={verifyMutation.isPending}
+                onClick={submitVerify}
+                disabled={!verifyToken.trim()}
+              >
+                完成激活并登录
+              </Button>
+              <Button
+                variant="subtle"
+                loading={resendVerifyMutation.isPending}
+                onClick={() => resendVerifyMutation.mutate()}
+                disabled={!resolveVerifyIdentifier()}
+              >
+                重新获取验证令牌
+              </Button>
+            </>
+          ) : null}
 
           <Button component={Link} to="/login" variant="subtle" size="sm">
             返回登录
