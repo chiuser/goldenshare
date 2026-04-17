@@ -227,6 +227,16 @@ export function OpsShell(_props: PropsWithChildren) {
             <Stack gap={2} mt={8} px="sm">
               <Text size="xs" c="dimmed">版本：{versionText}</Text>
               <Text size="xs" c="dimmed">构建：{buildTimeText}</Text>
+              <Group gap={4} align="center" wrap="nowrap">
+                <img
+                  src="/app/brand/gxbicon.png"
+                  alt="京ICP备图标"
+                  style={{ width: "1em", height: "1em", display: "block", flex: "0 0 auto" }}
+                />
+                <Text size="xs" style={{ color: "var(--mantine-color-black)" }}>
+                  京ICP备2026018630号-1
+                </Text>
+              </Group>
             </Stack>
           </Stack>
         </AppShell.Section>
