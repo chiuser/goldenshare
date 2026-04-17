@@ -275,3 +275,13 @@ def disable_invite(
 ) -> OkResponse:
     AdminUserService().disable_invite(session, invite_id=invite_id, actor_user_id=user.id)
     return OkResponse()
+
+
+@router.delete("/invites/{invite_id}/hard-delete", response_model=OkResponse)
+def delete_invite(
+    invite_id: int,
+    user: AuthenticatedUser = Depends(require_permission("user.manage")),
+    session: Session = Depends(get_db_session),
+) -> OkResponse:
+    AdminUserService().delete_invite(session, invite_id=invite_id, actor_user_id=user.id)
+    return OkResponse()

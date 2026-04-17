@@ -265,6 +265,18 @@ export function OpsV21AccountPage() {
     },
   });
 
+  const deleteInviteMutation = useMutation({
+    mutationFn: (inviteId: number) =>
+      apiRequest<void>(`/api/v1/admin/invites/${inviteId}/hard-delete`, { method: "DELETE" }),
+    onSuccess: () => {
+      setActionError(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "invites"] });
+    },
+    onError: (error) => {
+      setActionError(error instanceof Error ? error.message : "删除邀请码失败");
+    },
+  });
+
   const copyInviteCode = async (code: string) => {
     if (!code.trim()) return;
     try {
@@ -690,19 +702,31 @@ export function OpsV21AccountPage() {
                           </Table.Td>
                           <Table.Td>{item.note || "—"}</Table.Td>
                           <Table.Td>
-                            {!item.disabled_at ? (
+                            <Group gap={6}>
+                              {!item.disabled_at ? (
+                                <Button
+                                  size="xs"
+                                  variant="light"
+                                  color="orange"
+                                  loading={disableInviteMutation.isPending}
+                                  onClick={() => disableInviteMutation.mutate(item.id)}
+                                >
+                                  停用
+                                </Button>
+                              ) : null}
                               <Button
                                 size="xs"
                                 variant="light"
-                                color="orange"
-                                loading={disableInviteMutation.isPending}
-                                onClick={() => disableInviteMutation.mutate(item.id)}
+                                color="red"
+                                loading={deleteInviteMutation.isPending}
+                                onClick={() => {
+                                  if (!window.confirm("确定删除该邀请码吗？删除后不可恢复。")) return;
+                                  deleteInviteMutation.mutate(item.id);
+                                }}
                               >
-                                停用
+                                删除
                               </Button>
-                            ) : (
-                              <Text size="xs" c="dimmed">无需操作</Text>
-                            )}
+                            </Group>
                           </Table.Td>
                         </Table.Tr>
                       ))}

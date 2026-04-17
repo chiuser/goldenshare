@@ -304,6 +304,15 @@ class AdminUserService:
         session.commit()
         return row.id
 
+    def delete_invite(self, session: Session, *, invite_id: int, actor_user_id: int | None) -> int:
+        row = session.get(AuthInviteCode, invite_id)
+        if row is None:
+            raise WebAppError(status_code=404, code="not_found", message="Invite does not exist")
+        session.delete(row)
+        self._audit(session, event_type="admin.invite.delete", user_id=actor_user_id, detail={"invite_id": invite_id})
+        session.commit()
+        return invite_id
+
     def list_auth_audit(
         self,
         session: Session,
