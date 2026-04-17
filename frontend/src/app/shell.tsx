@@ -31,6 +31,7 @@ import type { PropsWithChildren } from "react";
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 const opsV21Links = [
   { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
+  { to: "/ops/v21/today", label: "今日运行", icon: IconGauge },
   { to: "/ops/v21/account", label: "帐号管理", icon: IconShieldLock },
 ];
 
@@ -47,7 +48,6 @@ const opsV21ReviewLinks = [
 
 const opsLegacyLinks = [
   { to: "/ops/data-status", label: "数据状态", icon: IconGauge },
-  { to: "/ops/today", label: "今日运行", icon: IconGauge },
   { to: "/ops/automation", label: "自动运行", icon: IconCalendarTime },
   { to: "/ops/manual-sync", label: "手动同步", icon: IconPlayerPlay },
   { to: "/ops/tasks", label: "任务记录", icon: IconListDetails },

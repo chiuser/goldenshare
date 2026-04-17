@@ -352,6 +352,12 @@ const opsV21OverviewRoute = createRoute({
   component: OpsV21OverviewPage,
 });
 
+const opsV21TodayRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/today",
+  component: OpsTodayPage,
+});
+
 const opsV21AccountRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/account",
@@ -400,7 +406,7 @@ const opsV21DatasetDetailRoute = createRoute({
 const opsLegacyOverviewRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/overview",
-  component: () => <RedirectTo to="/ops/today" />,
+  component: () => <RedirectTo to="/ops/v21/today" />,
 });
 
 const opsLegacyFreshnessRoute = createRoute({
@@ -457,6 +463,7 @@ const routeTree = rootRoute.addChildren([
     opsSchedulesRoute,
     opsSourceManagementRoute,
     opsV21OverviewRoute,
+    opsV21TodayRoute,
     opsV21ReviewIndexRoute,
     opsV21ReviewBoardRoute,
     opsV21DatasetsTushareRoute,
