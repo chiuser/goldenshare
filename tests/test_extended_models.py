@@ -18,11 +18,6 @@ from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_margin import EquityMargin
-from src.foundation.models.core.indicator_meta import IndicatorMeta
-from src.foundation.models.core.indicator_state import IndicatorState
-from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
-from src.foundation.models.core_serving.ind_macd import IndicatorMacd
-from src.foundation.models.core_serving.ind_rsi import IndicatorRsi
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
@@ -78,36 +73,6 @@ def test_index_supplement_models_match_expected_keys() -> None:
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexWeight.__table__.primary_key.columns] == ["index_code", "trade_date", "con_code"]
     assert [column.name for column in IndexDailyBasic.__table__.primary_key.columns] == ["ts_code", "trade_date"]
-    assert [column.name for column in IndicatorMeta.__table__.primary_key.columns] == ["indicator_name", "version"]
-    assert [column.name for column in IndicatorState.__table__.primary_key.columns] == [
-        "ts_code",
-        "source_key",
-        "adjustment",
-        "indicator_name",
-        "version",
-    ]
-    assert [column.name for column in IndicatorMacd.__table__.primary_key.columns] == [
-        "ts_code",
-        "trade_date",
-        "adjustment",
-        "version",
-    ]
-    assert [column.name for column in IndicatorKdj.__table__.primary_key.columns] == [
-        "ts_code",
-        "trade_date",
-        "adjustment",
-        "version",
-    ]
-    assert [column.name for column in IndicatorRsi.__table__.primary_key.columns] == [
-        "ts_code",
-        "trade_date",
-        "adjustment",
-        "version",
-    ]
-    assert "is_valid" in IndicatorMacd.__table__.columns
-    assert "rsv" in IndicatorKdj.__table__.columns
-    assert "is_valid" in IndicatorKdj.__table__.columns
-    assert "is_valid" in IndicatorRsi.__table__.columns
 
 
 def test_overseas_basic_models_match_expected_keys() -> None:

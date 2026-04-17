@@ -10,8 +10,7 @@ from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
-from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
-from src.foundation.models.core_serving.ind_macd import IndicatorMacd
+from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
@@ -34,8 +33,7 @@ def _ensure_quote_tables(db_session) -> None:
         EquityDailyBar.__table__,
         EquityDailyBasic.__table__,
         EquityAdjFactor.__table__,
-        IndicatorMacd.__table__,
-        IndicatorKdj.__table__,
+        EquityFactorPro.__table__,
         IndexBasic.__table__,
         IndexDailyServing.__table__,
         IndexDailyBasic.__table__,
@@ -520,30 +518,18 @@ def test_quote_kline_uses_precomputed_macd_kdj_for_stock_day(app_client, db_sess
             EquityAdjFactor(ts_code="300002.SZ", trade_date=date(2026, 4, 2), adj_factor=Decimal("1.00000000")),
         ]
     )
-    db_session.add_all(
-        [
-            IndicatorMacd(
-                ts_code="300002.SZ",
-                trade_date=date(2026, 4, 2),
-                adjustment="forward",
-                version=9,
-                dif=Decimal("1.11111111"),
-                dea=Decimal("0.22222222"),
-                macd_bar=Decimal("1.77777778"),
-                is_valid=True,
-            ),
-            IndicatorKdj(
-                ts_code="300002.SZ",
-                trade_date=date(2026, 4, 2),
-                adjustment="forward",
-                version=9,
-                rsv=Decimal("88.00000000"),
-                k=Decimal("66.66666666"),
-                d=Decimal("55.55555555"),
-                j=Decimal("88.88888888"),
-                is_valid=True,
-            ),
-        ]
+    db_session.add(
+        EquityFactorPro(
+            ts_code="300002.SZ",
+            trade_date=date(2026, 4, 2),
+            macd_dif_qfq=1.11111111,
+            macd_dea_qfq=0.22222222,
+            macd_qfq=1.77777778,
+            kdj_k_qfq=66.66666666,
+            kdj_d_qfq=55.55555555,
+            kdj_j_qfq=88.88888888,
+            source="tushare",
+        )
     )
     db_session.commit()
 

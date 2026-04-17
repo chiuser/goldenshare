@@ -42,9 +42,6 @@ from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
-from src.foundation.models.core_serving.ind_macd import IndicatorMacd
-from src.foundation.models.core_serving.ind_rsi import IndicatorRsi
 from src.foundation.models.core.limit_cpt_list import LimitCptList
 from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
@@ -147,13 +144,6 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.index_monthly_serving": IndexMonthlyServing,
     "core_serving.index_daily_basic": IndexDailyBasic,
     "core_serving.index_weight": IndexWeight,
-    "core_serving.ind_macd": IndicatorMacd,
-    "core_serving.ind_kdj": IndicatorKdj,
-    "core_serving.ind_rsi": IndicatorRsi,
-    # 兼容历史 snapshot/sync_state 中仍为 core.* 的记录
-    "core.ind_macd": IndicatorMacd,
-    "core.ind_kdj": IndicatorKdj,
-    "core.ind_rsi": IndicatorRsi,
     "core.equity_cyq_perf": EquityCyqPerf,
     "core.equity_margin": EquityMargin,
     "core.equity_stk_limit": EquityStkLimit,

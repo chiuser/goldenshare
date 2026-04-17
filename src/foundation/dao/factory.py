@@ -52,14 +52,6 @@ from src.foundation.models.core_serving.index_monthly_serving import IndexMonthl
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
-from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
-from src.foundation.models.core_serving.ind_macd import IndicatorMacd
-from src.foundation.models.core.indicator_meta import IndicatorMeta
-from src.foundation.models.core_serving.ind_rsi import IndicatorRsi
-from src.foundation.models.core.indicator_state import IndicatorState
-from src.foundation.models.core_multi.indicator_kdj_std import IndicatorKdjStd
-from src.foundation.models.core_multi.indicator_macd_std import IndicatorMacdStd
-from src.foundation.models.core_multi.indicator_rsi_std import IndicatorRsiStd
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
@@ -163,14 +155,6 @@ class DAOFactory:
         self.index_monthly_serving = GenericDAO(session, IndexMonthlyServing)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
-        self.indicator_meta = GenericDAO(session, IndicatorMeta)
-        self.indicator_state = GenericDAO(session, IndicatorState)
-        self.indicator_macd = GenericDAO(session, IndicatorMacd)
-        self.indicator_kdj = GenericDAO(session, IndicatorKdj)
-        self.indicator_rsi = GenericDAO(session, IndicatorRsi)
-        self.indicator_macd_std = GenericDAO(session, IndicatorMacdStd)
-        self.indicator_kdj_std = GenericDAO(session, IndicatorKdjStd)
-        self.indicator_rsi_std = GenericDAO(session, IndicatorRsiStd)
         self.moneyflow_std = GenericDAO(session, MoneyflowStd)
         self.ths_index = GenericDAO(session, ThsIndex)
         self.ths_member = GenericDAO(session, ThsMember)

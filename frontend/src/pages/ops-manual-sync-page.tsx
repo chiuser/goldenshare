@@ -70,7 +70,6 @@ const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "i
 const MARKET_REFERENCE_RESOURCES = new Set(["ths_index", "ths_member", "broker_recommend"]);
 const EQUITY_RESOURCES = new Set([
   "daily",
-  "equity_indicators",
   "adj_factor",
   "daily_basic",
   "moneyflow",

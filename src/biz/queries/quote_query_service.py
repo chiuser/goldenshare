@@ -14,10 +14,9 @@ from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
+from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core_serving.etf_basic import EtfBasic
 from src.foundation.models.core_serving.fund_daily_bar import FundDailyBar
-from src.foundation.models.core_serving.ind_kdj import IndicatorKdj
-from src.foundation.models.core_serving.ind_macd import IndicatorMacd
 from src.foundation.models.core_serving.index_basic import IndexBasic
 from src.foundation.models.core_serving.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -363,69 +362,74 @@ class QuoteQueryService:
         start_date = bars[0].trade_date
         end_date = bars[-1].trade_date
 
+        adjustment_suffix = self._adjustment_suffix(adjustment)
+        macd_dif_column = getattr(EquityFactorPro, f"macd_dif_{adjustment_suffix}", None)
+        macd_dea_column = getattr(EquityFactorPro, f"macd_dea_{adjustment_suffix}", None)
+        macd_column = getattr(EquityFactorPro, f"macd_{adjustment_suffix}", None)
+        kdj_k_column = getattr(EquityFactorPro, f"kdj_k_{adjustment_suffix}", None)
+        kdj_d_column = getattr(EquityFactorPro, f"kdj_d_{adjustment_suffix}", None)
+        kdj_j_column = getattr(EquityFactorPro, f"kdj_j_{adjustment_suffix}", None)
+
+        if not all(
+            (
+                macd_dif_column,
+                macd_dea_column,
+                macd_column,
+                kdj_k_column,
+                kdj_d_column,
+                kdj_j_column,
+            )
+        ):
+            return
+
         try:
-            macd_version = session.scalar(select(func.max(IndicatorMacd.version)))
-            kdj_version = session.scalar(select(func.max(IndicatorKdj.version)))
+            indicator_rows = session.execute(
+                select(
+                    EquityFactorPro.trade_date,
+                    macd_dif_column,
+                    macd_dea_column,
+                    macd_column,
+                    kdj_k_column,
+                    kdj_d_column,
+                    kdj_j_column,
+                ).where(
+                    EquityFactorPro.ts_code == ts_code,
+                    EquityFactorPro.trade_date >= start_date,
+                    EquityFactorPro.trade_date <= end_date,
+                )
+            ).all()
         except SQLAlchemyError:
             # Some environments/tests may not have indicator tables initialized yet.
             return
-        if macd_version is None and kdj_version is None:
-            return
 
-        macd_map: dict[date, tuple[Decimal | None, Decimal | None, Decimal | None]] = {}
-        if macd_version is not None:
-            macd_rows = session.execute(
-                select(
-                    IndicatorMacd.trade_date,
-                    IndicatorMacd.dif,
-                    IndicatorMacd.dea,
-                    IndicatorMacd.macd_bar,
-                ).where(
-                    IndicatorMacd.ts_code == ts_code,
-                    IndicatorMacd.adjustment == adjustment,
-                    IndicatorMacd.version == macd_version,
-                    IndicatorMacd.trade_date >= start_date,
-                    IndicatorMacd.trade_date <= end_date,
-                    IndicatorMacd.is_valid.is_(True),
-                )
-            ).all()
-            macd_map = {
-                trade_date: (dif, dea, macd_bar)
-                for trade_date, dif, dea, macd_bar in macd_rows
-            }
-
-        kdj_map: dict[date, tuple[Decimal | None, Decimal | None, Decimal | None]] = {}
-        if kdj_version is not None:
-            kdj_rows = session.execute(
-                select(
-                    IndicatorKdj.trade_date,
-                    IndicatorKdj.k,
-                    IndicatorKdj.d,
-                    IndicatorKdj.j,
-                ).where(
-                    IndicatorKdj.ts_code == ts_code,
-                    IndicatorKdj.adjustment == adjustment,
-                    IndicatorKdj.version == kdj_version,
-                    IndicatorKdj.trade_date >= start_date,
-                    IndicatorKdj.trade_date <= end_date,
-                    IndicatorKdj.is_valid.is_(True),
-                )
-            ).all()
-            kdj_map = {
-                trade_date: (k_value, d_value, j_value)
-                for trade_date, k_value, d_value, j_value in kdj_rows
-            }
+        indicator_map: dict[date, tuple[Decimal | None, Decimal | None, Decimal | None, Decimal | None, Decimal | None, Decimal | None]] = {
+            trade_date: (
+                self._as_decimal(dif),
+                self._as_decimal(dea),
+                self._as_decimal(macd_value),
+                self._as_decimal(k_value),
+                self._as_decimal(d_value),
+                self._as_decimal(j_value),
+            )
+            for trade_date, dif, dea, macd_value, k_value, d_value, j_value in indicator_rows
+        }
 
         for bar in bars:
-            macd_values = macd_map.get(bar.trade_date)
-            bar.dif = macd_values[0] if macd_values is not None else None
-            bar.dea = macd_values[1] if macd_values is not None else None
-            bar.macd = macd_values[2] if macd_values is not None else None
+            indicator_values = indicator_map.get(bar.trade_date)
+            bar.dif = indicator_values[0] if indicator_values is not None else None
+            bar.dea = indicator_values[1] if indicator_values is not None else None
+            bar.macd = indicator_values[2] if indicator_values is not None else None
+            bar.k = indicator_values[3] if indicator_values is not None else None
+            bar.d = indicator_values[4] if indicator_values is not None else None
+            bar.j = indicator_values[5] if indicator_values is not None else None
 
-            kdj_values = kdj_map.get(bar.trade_date)
-            bar.k = kdj_values[0] if kdj_values is not None else None
-            bar.d = kdj_values[1] if kdj_values is not None else None
-            bar.j = kdj_values[2] if kdj_values is not None else None
+    @staticmethod
+    def _adjustment_suffix(adjustment: str) -> str:
+        if adjustment == "forward":
+            return "qfq"
+        if adjustment == "backward":
+            return "hfq"
+        return "bfq"
 
     def build_related_info(
         self,

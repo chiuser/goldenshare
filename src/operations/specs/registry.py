@@ -234,7 +234,6 @@ DAILY_SYNC_RESOURCES = (
     "biying_equity_daily",
     "biying_moneyflow",
     "daily",
-    "equity_indicators",
     "adj_factor",
     "daily_basic",
     "cyq_perf",
@@ -293,7 +292,6 @@ SECURITY_RANGE_RESOURCES = {
 }
 
 TRADE_DATE_RANGE_RESOURCES = {
-    "equity_indicators",
     "daily_basic",
     "moneyflow",
     "margin",
@@ -373,8 +371,6 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TAG_PARAM)
     if resource == "kpl_concept_cons":
         return (TRADE_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM)
-    if resource == "equity_indicators":
-        return (TS_CODE_PARAM,)
     if resource == "cyq_perf":
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM)
     if resource == "limit_list_d":
@@ -458,8 +454,6 @@ def _sync_daily_job_spec(resource: str) -> JobSpec:
         supported_params = (TRADE_DATE_PARAM, MARGIN_EXCHANGE_ID_PARAM)
     elif resource == "broker_recommend":
         supported_params = (MONTH_PARAM,)
-    elif resource == "equity_indicators":
-        supported_params = (TS_CODE_PARAM,)
     elif resource == "cyq_perf":
         supported_params = (TRADE_DATE_PARAM, TS_CODE_PARAM)
     return JobSpec(
@@ -850,7 +844,6 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "reference", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
-    "equity_indicators": ("股票技术指标", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
     "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
     "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily", "trade_date"),
@@ -908,8 +901,6 @@ def _primary_execution_spec_key_for_resource(resource: str) -> str | None:
 
 
 def _raw_table_for_resource(resource: str) -> str | None:
-    if resource == "equity_indicators":
-        return None
     if resource == "stk_period_bar_week" or resource == "stk_period_bar_month":
         return "raw_tushare.stk_period_bar"
     if resource == "stk_period_bar_adj_week" or resource == "stk_period_bar_adj_month":
