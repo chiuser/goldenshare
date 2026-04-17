@@ -129,11 +129,6 @@ export function OpsTodayPage() {
           <SectionCard
             title="需要关注的数据"
             description="这里显示当前不是“正常”状态的数据，方便快速判断要不要补同步。"
-            action={
-              <Button component={Link} to="/ops/data-status" size="xs" variant="light">
-                查看全部数据
-              </Button>
-            }
           >
             <OpsTable>
                 <Table.Thead>
@@ -143,9 +138,9 @@ export function OpsTodayPage() {
                     <OpsTableHeaderCell width="18%">当前状态</OpsTableHeaderCell>
                     <OpsTableHeaderCell width="20%">操作</OpsTableHeaderCell>
                   </Table.Tr>
-                </Table.Thead>
+              </Table.Thead>
               <Table.Tbody>
-                {overview.lagging_datasets.slice(0, 5).map((item) => (
+                {overview.lagging_datasets.map((item) => (
                   <Table.Tr key={item.dataset_key}>
                     <OpsTableCell align="left" width="38%">
                       <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
