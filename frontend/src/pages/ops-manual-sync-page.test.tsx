@@ -307,6 +307,41 @@ vi.mock("../shared/api/client", () => ({
             ],
           },
           {
+            key: "sync_daily.stk_factor_pro",
+            display_name: "日常同步 / stk_factor_pro",
+            resource_display_name: "股票技术面因子(专业版)",
+            category: "sync_daily",
+            description: "按单个交易日同步股票技术面因子(专业版)。",
+            strategy_type: "incremental_by_date",
+            executor_kind: "sync_service",
+            target_tables: ["core.equity_factor_pro"],
+            supports_manual_run: true,
+            supports_schedule: true,
+            supports_retry: true,
+            schedule_binding_count: 0,
+            active_schedule_count: 0,
+            supported_params: [
+              {
+                key: "trade_date",
+                display_name: "交易日期",
+                param_type: "date",
+                description: "单个交易日。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+              {
+                key: "ts_code",
+                display_name: "股票代码",
+                param_type: "string",
+                description: "按股票代码定向同步。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
+            ],
+          },
+          {
             key: "backfill_by_month.broker_recommend",
             display_name: "按月份回补 / broker_recommend",
             category: "backfill_by_month",
@@ -608,5 +643,41 @@ describe("手动同步页", () => {
     expect(screen.getByText("只处理一个月")).toBeInTheDocument();
     expect(screen.getByText("处理一个月份区间")).toBeInTheDocument();
     expect(screen.getByLabelText("选择月份")).toBeInTheDocument();
+  });
+
+  it("优先使用后端资源显示名称，避免新增数据集出现占位文案", async () => {
+    window.history.replaceState({}, "", "/app/ops/manual-sync?spec_key=sync_daily.stk_factor_pro&spec_type=job");
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const rootRoute = createRootRoute({
+      component: () => <OpsManualSyncPage />,
+    });
+    const indexRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/manual-sync",
+      component: () => <OpsManualSyncPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([indexRoute]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/manual-sync?spec_key=sync_daily.stk_factor_pro&spec_type=job"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByText("维护股票技术面因子(专业版)")).toBeInTheDocument();
+    expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();
   });
 });

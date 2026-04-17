@@ -147,6 +147,18 @@ function extractResourceKey(specKey: string) {
   return parts.length >= 2 ? parts[1] : specKey;
 }
 
+function resolveResourceDisplayName(resourceKey: string, resourceDisplayName: string | null | undefined) {
+  const explicit = (resourceDisplayName || "").trim();
+  if (explicit) {
+    return explicit;
+  }
+  const mapped = formatResourceLabel(resourceKey);
+  if (mapped.startsWith("未配置显示名称（")) {
+    return resourceKey || "未知资源";
+  }
+  return mapped;
+}
+
 function isSinglePoint(resource: ManualAction, draft: ReturnType<typeof buildEmptyDraft>) {
   if (resource.timeCapability.supportsPoint && resource.timeCapability.supportsRange) {
     return draft.date_mode === "single_point";
@@ -183,6 +195,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
     string,
     {
       resourceKey: string;
+      resourceDisplayName: string | null;
       category: string;
       description: string;
       syncDailySpec: CatalogJobSpec | null;
@@ -206,6 +219,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
 
     const current = resourceMap.get(resourceKey) || {
       resourceKey,
+      resourceDisplayName: job.resource_display_name || null,
       category: job.category,
       description: job.description,
       syncDailySpec: null,
@@ -222,6 +236,9 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       }
     }
     current.supportedParams = Array.from(dedupedParams.values());
+    if (!current.resourceDisplayName && job.resource_display_name) {
+      current.resourceDisplayName = job.resource_display_name;
+    }
 
     if (prefix === "sync_daily") {
       current.syncDailySpec = job;
@@ -252,7 +269,7 @@ function buildManualActions(catalog: OpsCatalogResponse | undefined) {
       type: "job",
       domainLabel: inferActionDomain(item.resourceKey, item.category, "job"),
       categoryLabel: formatCategoryLabel(item.category),
-      displayName: `维护${formatResourceLabel(item.resourceKey)}`,
+      displayName: `维护${resolveResourceDisplayName(item.resourceKey, item.resourceDisplayName)}`,
       description: item.description,
       syncDailySpecKey: item.syncDailySpec?.key || null,
       backfillSpecKey: item.backfillSpec?.key || null,

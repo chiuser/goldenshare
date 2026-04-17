@@ -330,6 +330,8 @@ export interface OpsCatalogResponse {
   job_specs: Array<{
     key: string;
     display_name: string;
+    resource_key?: string | null;
+    resource_display_name?: string | null;
     category: string;
     description: string;
     strategy_type: string;

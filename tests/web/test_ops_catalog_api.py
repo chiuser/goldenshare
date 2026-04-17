@@ -46,6 +46,10 @@ def test_ops_catalog_returns_registered_specs_for_admin(app_client, user_factory
     assert "index_kline_sync_pipeline" in workflow_keys
     workflows = {item["key"]: item for item in payload["workflow_specs"]}
     jobs = {item["key"]: item for item in payload["job_specs"]}
+    assert jobs["sync_daily.stk_factor_pro"]["resource_key"] == "stk_factor_pro"
+    assert jobs["sync_daily.stk_factor_pro"]["resource_display_name"] == "股票技术面因子(专业版)"
+    assert jobs["maintenance.rebuild_dm"]["resource_key"] == "rebuild_dm"
+    assert jobs["maintenance.rebuild_dm"]["resource_display_name"] is None
     assert jobs["sync_history.ths_member"]["supports_schedule"] is True
     assert [param["key"] for param in jobs["sync_history.hk_basic"]["supported_params"]] == ["list_status"]
     hk_list_status = next(param for param in jobs["sync_history.hk_basic"]["supported_params"] if param["key"] == "list_status")

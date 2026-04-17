@@ -143,6 +143,7 @@ const resourceLabelMap: Record<string, string> = {
   stk_holdernumber: "股东户数",
   limit_list_d: "涨跌停明细",
   stk_limit: "每日涨跌停价格",
+  stk_factor_pro: "股票技术面因子(专业版)",
   stock_st: "ST股票列表",
   stk_nineturn: "神奇九转指标",
   suspend_d: "每日停复牌信息",
