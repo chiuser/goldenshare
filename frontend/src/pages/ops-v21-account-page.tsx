@@ -332,43 +332,64 @@ export function OpsV21AccountPage() {
                     <TextInput
                       label="用户名"
                       value={createDraft.username}
-                      onChange={(event) => setCreateDraft((prev) => ({ ...prev, username: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setCreateDraft((prev) => ({ ...prev, username: value }));
+                      }}
                     />
                     <TextInput
                       label="初始密码"
                       value={createDraft.password}
-                      onChange={(event) => setCreateDraft((prev) => ({ ...prev, password: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setCreateDraft((prev) => ({ ...prev, password: value }));
+                      }}
                     />
                   </Group>
                   <Group grow>
                     <TextInput
                       label="显示名称"
                       value={createDraft.displayName}
-                      onChange={(event) => setCreateDraft((prev) => ({ ...prev, displayName: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setCreateDraft((prev) => ({ ...prev, displayName: value }));
+                      }}
                     />
                     <TextInput
                       label="邮箱"
                       value={createDraft.email}
-                      onChange={(event) => setCreateDraft((prev) => ({ ...prev, email: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setCreateDraft((prev) => ({ ...prev, email: value }));
+                      }}
                     />
                   </Group>
                   <Group grow>
                     <TextInput
                       label="账号状态"
                       value={createDraft.accountState}
-                      onChange={(event) => setCreateDraft((prev) => ({ ...prev, accountState: event.currentTarget.value }))}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setCreateDraft((prev) => ({ ...prev, accountState: value }));
+                      }}
                       placeholder="active / suspended / locked / pending_verification"
                     />
                     <Group gap="md" align="center" mt={26}>
                       <Checkbox
                         label="管理员"
                         checked={createDraft.isAdmin}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, isAdmin: event.currentTarget.checked }))}
+                        onChange={(event) => {
+                          const checked = event.currentTarget.checked;
+                          setCreateDraft((prev) => ({ ...prev, isAdmin: checked }));
+                        }}
                       />
                       <Checkbox
                         label="启用"
                         checked={createDraft.isActive}
-                        onChange={(event) => setCreateDraft((prev) => ({ ...prev, isActive: event.currentTarget.checked }))}
+                        onChange={(event) => {
+                          const checked = event.currentTarget.checked;
+                          setCreateDraft((prev) => ({ ...prev, isActive: checked }));
+                        }}
                       />
                     </Group>
                   </Group>
@@ -379,9 +400,10 @@ export function OpsV21AccountPage() {
                         label={role}
                         checked={createDraft.roles.includes(role)}
                         onChange={(event) => {
+                          const checked = event.currentTarget.checked;
                           setCreateDraft((prev) => ({
                             ...prev,
-                            roles: event.currentTarget.checked
+                            roles: checked
                               ? [...prev.roles, role]
                               : prev.roles.filter((item) => item !== role),
                           }));
@@ -500,31 +522,46 @@ export function OpsV21AccountPage() {
                       <TextInput
                         label="显示名称"
                         value={editingUser.displayName}
-                        onChange={(event) => setEditingUser((prev) => (prev ? { ...prev, displayName: event.currentTarget.value } : prev))}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+                          setEditingUser((prev) => (prev ? { ...prev, displayName: value } : prev));
+                        }}
                       />
                       <TextInput
                         label="邮箱"
                         value={editingUser.email}
-                        onChange={(event) => setEditingUser((prev) => (prev ? { ...prev, email: event.currentTarget.value } : prev))}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+                          setEditingUser((prev) => (prev ? { ...prev, email: value } : prev));
+                        }}
                       />
                     </Group>
                     <Group grow>
                       <TextInput
                         label="账号状态"
                         value={editingUser.accountState}
-                        onChange={(event) => setEditingUser((prev) => (prev ? { ...prev, accountState: event.currentTarget.value } : prev))}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+                          setEditingUser((prev) => (prev ? { ...prev, accountState: value } : prev));
+                        }}
                         placeholder={ACCOUNT_STATE_OPTIONS.join(" / ")}
                       />
                       <Group gap="md" align="center" mt={26}>
                         <Checkbox
                           label="管理员"
                           checked={editingUser.isAdmin}
-                          onChange={(event) => setEditingUser((prev) => (prev ? { ...prev, isAdmin: event.currentTarget.checked } : prev))}
+                          onChange={(event) => {
+                            const checked = event.currentTarget.checked;
+                            setEditingUser((prev) => (prev ? { ...prev, isAdmin: checked } : prev));
+                          }}
                         />
                         <Checkbox
                           label="启用"
                           checked={editingUser.isActive}
-                          onChange={(event) => setEditingUser((prev) => (prev ? { ...prev, isActive: event.currentTarget.checked } : prev))}
+                          onChange={(event) => {
+                            const checked = event.currentTarget.checked;
+                            setEditingUser((prev) => (prev ? { ...prev, isActive: checked } : prev));
+                          }}
                         />
                       </Group>
                     </Group>
@@ -535,11 +572,12 @@ export function OpsV21AccountPage() {
                           label={role}
                           checked={editingUser.roles.includes(role)}
                           onChange={(event) => {
+                            const checked = event.currentTarget.checked;
                             setEditingUser((prev) => {
                               if (!prev) return prev;
                               return {
                                 ...prev,
-                                roles: event.currentTarget.checked
+                                roles: checked
                                   ? [...prev.roles, role]
                                   : prev.roles.filter((item) => item !== role),
                               };
