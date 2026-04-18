@@ -797,11 +797,6 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             description="系统更新和步骤明细会直接显示在这里，方便你实时判断处理情况。"
           >
             <Stack gap="md">
-              <Alert color={activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling" ? "blue" : "gray"} title="实时处理记录">
-                {activeStatus === "queued" || activeStatus === "running" || activeStatus === "canceling"
-                  ? "如果这里内容还不多，通常只是任务刚开始。页面会自动刷新，不需要手动反复点。"
-                  : "这里保留了完整的过程记录，方便复盘。"}
-              </Alert>
               <Text fw={600}>步骤明细</Text>
               {steps.length ? (
                 <Timeline
