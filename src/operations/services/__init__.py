@@ -24,7 +24,7 @@ from src.operations.services.market_mood_walkforward_validation_service import (
     MoodWalkForwardReport,
 )
 from src.ops.services.operations_schedule_service import OperationsScheduleService
-from src.operations.services.serving_light_refresh_service import (
+from src.ops.services.operations_serving_light_refresh_service import (
     ServingLightRefreshResult,
     ServingLightRefreshService,
 )

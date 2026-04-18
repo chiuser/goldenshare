@@ -17,7 +17,7 @@ from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.ops.specs import get_job_spec, get_workflow_spec
 from src.platform.exceptions import WebAppError
 from src.operations.services.history_backfill_service import HistoryBackfillService
-from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
+from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync.registry import build_sync_service
 from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
 from src.ops.sync_state_store_adapter import OpsSyncJobStateStore, OpsSyncRunLogStore

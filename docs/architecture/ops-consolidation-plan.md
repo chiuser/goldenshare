@@ -293,13 +293,21 @@
 - 本轮严格只迁移上述两项，不扩大到 reconcile/seed 其他服务。
 - 迁移方式保持“`ops` 主实现 + `operations` 兼容壳”。
 
+#### 第三批-B（本轮最小范围，仅一项）
+
+1. `serving_light_refresh_service.py`
+
+说明：
+
+- 本轮严格只迁移 `serving_light_refresh_service`，不扩大到 reconcile/seed 其他服务。
+- 迁移方式保持“`ops` 主实现 + `operations` 兼容壳”。
+
 #### 第三批-B（后续候选，暂不实施）
 
 1. `moneyflow_reconcile_service.py`
 2. `stock_basic_reconcile_service.py`
-3. `serving_light_refresh_service.py`
-4. `moneyflow_multi_source_seed_service.py`
-5. `default_single_source_seed_service.py`
+3. `moneyflow_multi_source_seed_service.py`
+4. `default_single_source_seed_service.py`
 
 ### 继续暂缓处理
 
