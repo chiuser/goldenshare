@@ -26,6 +26,9 @@
 - `platform/auth`
 - `platform/dependencies`
 - `platform/exceptions`
+- `platform/services/{auth_service,admin_user_service,user_service}`
+- `platform/schemas/{auth,user_admin}`
+- `platform/api/v1/{auth,users,admin,admin_users}`
 - 以及最终的 router 聚合职责
 
 ### 未来进入 `biz`
@@ -70,6 +73,7 @@
 原因：
 
 - 它们同时聚合 app-auth、biz、ops 路由，提前切入口会放大回归风险。
+- auth/admin 整链拆分期间，本轮也不允许迁移上述聚合入口。
 
 ---
 

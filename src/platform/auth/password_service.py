@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import bcrypt
+# Deprecated compatibility shim:
+# platform -> app/auth split phase 1 migrated main implementation to src.app.auth.password_service.
+from src.app.auth.password_service import PasswordService
 
-
-class PasswordService:
-    def hash_password(self, password: str) -> str:
-        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-    def verify_password(self, password: str, password_hash: str) -> bool:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+__all__ = ["PasswordService"]

@@ -83,6 +83,98 @@
 
 ---
 
+## auth/admin 整链拆分计划（准备阶段）
+
+本阶段只做规划，不迁移任何实现代码。当前 auth/admin 整链范围如下：
+
+- `src/platform/auth/*`
+- `src/platform/services/auth_service.py`
+- `src/platform/services/admin_user_service.py`
+- `src/platform/services/user_service.py`
+- `src/platform/schemas/auth.py`
+- `src/platform/schemas/user_admin.py`
+- `src/platform/models/app/*`
+- `src/platform/api/v1/auth.py`
+- `src/platform/api/v1/users.py`
+- `src/platform/api/v1/admin.py`
+- `src/platform/api/v1/admin_users.py`
+
+### 归属建议（目标态）
+
+- `platform/auth/*` -> `app/auth`（认证接线、当前用户/权限依赖、JWT/密码/安全工具、认证域对象）
+- `platform/services/{auth,admin_user,user}_service.py` -> `app/auth/services`
+- `platform/schemas/{auth,user_admin}.py` -> `app/auth/schemas`
+- `platform/models/app/*` -> `app/models`（或 `app/auth/models`，按账户域组织）
+- `platform/api/v1/{auth,users,admin,admin_users}.py` -> `app/auth/api`
+
+### 最安全的第一批候选（下一步执行批）
+
+1. 先迁内部依赖最小、对路由聚合无侵入的模块：
+   - `platform/auth/constants.py`
+   - `platform/auth/domain.py`
+   - `platform/auth/password_service.py`
+2. 再迁账户域 schema / model 壳层组织文件：
+   - `platform/schemas/auth.py`
+   - `platform/schemas/user_admin.py`
+   - `platform/models/app/__init__.py`（仅组织层）
+3. 最后迁 auth/admin API + service 主实现（保持旧路径 shim）：
+   - `platform/services/{auth,admin_user,user}_service.py`
+   - `platform/api/v1/{auth,users,admin,admin_users}.py`
+
+### 继续暂缓项
+
+- `platform/api/router.py`
+- `platform/api/v1/router.py`
+- `platform/web/app.py`
+
+暂缓原因：
+
+- 这三处是当前 HTTP 入口与聚合链路核心，提前切入口会放大全局回归面。
+- 只有当 auth/admin 子路由在 `src/app/auth` 完整落位并通过回归后，才适合做入口切换。
+
+### 迁移顺序建议
+
+1. 先建 `src/app/auth` 目录边界与 AGENTS（本轮完成）
+2. 迁 auth 内核小模块（constants/domain/password）
+3. 迁 schemas/models 组织层
+4. 迁 services
+5. 迁 auth/admin API
+6. 最后处理 `platform/api/v1/router.py` 与 `platform/api/router.py` 聚合切换
+
+### 风险点
+
+1. 鉴权依赖链风险：`dependencies -> jwt -> repository -> services -> schemas`，需要整链回归。
+2. 账户模型风险：`platform/models/app/*` 与 Alembic/metadata 装载需保持兼容。
+3. API 契约风险：登录、权限、管理员接口返回结构不能变化。
+4. 聚合入口风险：过早改 router 会影响 biz/ops/app 三方路由挂载稳定性。
+
+---
+
+## auth 第一批真实迁移（当前批次）
+
+本轮仅执行 `src/platform/auth/*` 内低风险 wiring/helper 模块迁移，实际范围如下：
+
+1. `src/platform/auth/constants.py` -> `src/app/auth/constants.py`
+2. `src/platform/auth/domain.py` -> `src/app/auth/domain.py`
+3. `src/platform/auth/password_service.py` -> `src/app/auth/password_service.py`
+4. `src/platform/auth/security_utils.py` -> `src/app/auth/security_utils.py`
+
+执行原则：
+
+- 仅迁移上述 4 个 helper 模块，不扩大范围
+- `src/platform/auth/*` 旧路径保留 deprecated 兼容壳
+- 外部行为保持不变
+- 不触碰 `auth_service/admin_user_service/user_service`
+- 不触碰 `schemas/models/api/router/web` 聚合链路
+
+本轮明确暂缓：
+
+- `src/platform/auth/dependencies.py`（依赖 DB 会话、角色权限模型与用户仓储，耦合更高）
+- `src/platform/auth/jwt_service.py`（依赖 settings + WebAppError，建议与 dependencies 一起收敛）
+- `src/platform/auth/user_repository.py`（直接 ORM 访问 `AppUser`，属于更高耦合层）
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**
