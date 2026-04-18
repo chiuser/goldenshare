@@ -10,8 +10,8 @@ from src.app.auth.jwt_service import JWTService
 from src.app.auth.user_repository import UserRepository
 from src.app.dependencies import get_db_session
 from src.app.exceptions import WebAppError
-from src.platform.models.app.auth_role_permission import AuthRolePermission
-from src.platform.models.app.auth_user_role import AuthUserRole
+from src.app.models.auth_role_permission import AuthRolePermission
+from src.app.models.auth_user_role import AuthUserRole
 from src.platform.web.settings import get_web_settings
 
 
@@ -132,4 +132,3 @@ def require_quote_access(
     if settings.quote_api_auth_required and user is None:
         raise WebAppError(status_code=401, code="auth_required", message="当前环境要求登录后访问行情接口")
     return user
-

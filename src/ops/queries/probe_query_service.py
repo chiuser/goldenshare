@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
 
-from src.platform.models.app.app_user import AppUser
+from src.app.models.app_user import AppUser
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.platform.exceptions import WebAppError

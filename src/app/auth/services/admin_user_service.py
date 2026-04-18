@@ -11,12 +11,12 @@ from src.app.auth.security_utils import generate_raw_token, hash_raw_token, norm
 from src.app.auth.user_repository import UserRepository
 from src.app.auth.services.auth_service import AuthService
 from src.app.exceptions import WebAppError
+from src.app.models.app_user import AppUser
+from src.app.models.auth_user_role import AuthUserRole
 from src.platform.models.app.auth_action_token import AuthActionToken
 from src.platform.models.app.auth_audit_log import AuthAuditLog
 from src.platform.models.app.auth_invite_code import AuthInviteCode
 from src.platform.models.app.auth_refresh_token import AuthRefreshToken
-from src.platform.models.app.auth_user_role import AuthUserRole
-from src.platform.models.app.app_user import AppUser
 
 
 class AdminUserService:

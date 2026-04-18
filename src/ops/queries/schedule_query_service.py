@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
 
-from src.platform.models.app.app_user import AppUser
+from src.app.models.app_user import AppUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.specs import get_ops_spec_display_name

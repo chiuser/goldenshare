@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.platform.models.app.app_user import AppUser
+from src.app.models.app_user import AppUser
 
 
 class UserRepository:
@@ -61,4 +61,3 @@ class UserRepository:
         user.last_login_at = ts
         session.flush()
         return user
-

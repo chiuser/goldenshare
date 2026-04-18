@@ -5,15 +5,15 @@ from importlib import import_module
 
 MODEL_MODULES: tuple[str, ...] = (
     "src.foundation.models.all_models",
-    "src.platform.models.app.app_user",
+    "src.app.models.app_user",
     "src.platform.models.app.auth_action_token",
     "src.platform.models.app.auth_audit_log",
     "src.platform.models.app.auth_invite_code",
     "src.app.models.auth_permission",
     "src.platform.models.app.auth_refresh_token",
     "src.app.models.auth_role",
-    "src.platform.models.app.auth_role_permission",
-    "src.platform.models.app.auth_user_role",
+    "src.app.models.auth_role_permission",
+    "src.app.models.auth_user_role",
     "src.ops.models.ops.config_revision",
     "src.ops.models.ops.dataset_layer_snapshot_current",
     "src.ops.models.ops.dataset_layer_snapshot_history",

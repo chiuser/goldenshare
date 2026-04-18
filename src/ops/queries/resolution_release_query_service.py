@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, aliased
 
-from src.platform.models.app.app_user import AppUser
+from src.app.models.app_user import AppUser
 from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.platform.exceptions import WebAppError

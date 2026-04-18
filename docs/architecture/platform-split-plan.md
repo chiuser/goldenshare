@@ -486,6 +486,26 @@
 
 ---
 
+## accounts/models 第二批真实迁移（当前批次）
+
+本轮 models 第二批实际执行范围严格限定为以下 3 个文件：
+
+1. `src/platform/models/app/app_user.py` -> `src/app/models/app_user.py`
+2. `src/platform/models/app/auth_user_role.py` -> `src/app/models/auth_user_role.py`
+3. `src/platform/models/app/auth_role_permission.py` -> `src/app/models/auth_role_permission.py`
+
+执行原则：
+
+- 仅迁移上述 3 个模型，不扩大范围
+- 3 个模型按“账户授权核心组”成组迁移，不拆开
+- `src/platform/models/app/*` 旧路径保留 deprecated 兼容壳，保证旧 import 可用
+- 保持表结构、metadata 注册、Alembic 行为不变
+- 仅做最小调用侧切换（`app/auth` 与 `ops/queries` 读取路径收敛）
+- `src/app/model_registry.py` 仅做最小兼容调整，不改变整体设计
+- 不触碰令牌/审计/邀请码模型：`auth_refresh_token` / `auth_action_token` / `auth_audit_log` / `auth_invite_code`
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**
