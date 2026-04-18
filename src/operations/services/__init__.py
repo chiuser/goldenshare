@@ -1,9 +1,9 @@
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
-from src.operations.services.dataset_pipeline_mode_seed_service import (
+from src.ops.services.operations_dataset_pipeline_mode_seed_service import (
     DatasetPipelineModeSeedService,
     SeedDatasetPipelineModeReport,
 )
-from src.operations.services.daily_health_report_service import DailyHealthReport, DailyHealthReportService
+from src.ops.services.operations_daily_health_report_service import DailyHealthReport, DailyHealthReportService
 from src.operations.services.default_single_source_seed_service import (
     DefaultSingleSourceSeedService,
     SeedDefaultSingleSourceReport,

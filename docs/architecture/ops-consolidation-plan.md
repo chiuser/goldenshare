@@ -258,3 +258,57 @@
   - `src/operations/services/execution_service.py`
   - `src/operations/services/schedule_service.py`
   - 仅做模块转发，不承载新逻辑。
+
+---
+
+## 剩余 services 归属判定（第三批前置分析）
+
+本节仅做归属判定与分组，不做实现迁移。
+
+### 逐项判定
+
+| service | 当前主要调用方 | 归属倾向 | 推荐最终归属 | 第三批候选 | 原因 | 风险点 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `daily_health_report_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops | `src/ops/services` | 是（低） | 主要读取 `ops.job_execution/sync_run_log` 与 ops freshness 查询，属于运维日报治理能力 | 报表口径依赖 freshness 结构；迁移时需保持 markdown/json 输出一致 |
+| `dataset_pipeline_mode_seed_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops | `src/ops/services` | 是（低） | 只负责生成/修正 ops 管线模式配置（`ops.dataset_pipeline_mode`） | 与数据集规格枚举耦合，需确认 `ops.specs` 取数路径稳定 |
+| `default_single_source_seed_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops（治理） | `src/ops/services` | 是（中） | 虽写入 `foundation.models.meta`，但职责是“运维初始化规则与策略种子”，语义属于 ops 治理 | 同时写 `ops + meta` 多表，迁移时要防止事务语义和幂等判断漂移 |
+| `history_backfill_service.py` | `src/ops/runtime/dispatcher.py`、`src/cli.py`、大量回填单测 | 暂缓（高歧义） | 暂定 `ops/services`（后续专项） | 否 | 运行时核心执行路径 + foundation sync/backfill 深耦合，改动面广 | 涉及 job spec executor、执行进度、多资源回填策略，误改风险高 |
+| `market_mood_walkforward_validation_service.py` | `src/cli.py`、依赖矩阵白名单、对应单测 | 暂缓（跨域） | 倾向 `biz`（或拆分） | 否 | 直接依赖 `src.biz.services.market_mood_calculator`，不是纯 ops 治理能力 | 现存 `operations -> biz` 历史违规点；需先做边界拆分再迁 |
+| `moneyflow_multi_source_seed_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops（治理） | `src/ops/services` | 是（中） | 负责多源融合配置种子（pipeline/mapping/cleansing/source_status/resolution） | 牵涉策略版本与多表一致性，迁移时要保持 dry-run/apply 行为完全一致 |
+| `moneyflow_reconcile_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops | `src/ops/services` | 是（低） | 纯运维核对/审计服务（raw 对账），无 runtime 编排耦合 | 字段映射口径较多，迁移时需保留 diff 统计与样本抽样规则 |
+| `serving_light_refresh_service.py` | `src/ops/runtime/dispatcher.py`、`src/cli.py`、`src/operations/services/__init__.py`、单测 | ops | `src/ops/services` | 是（中） | 由 ops runtime 触发的维护动作，语义是运维发布/刷新能力 | SQL 直写 + UPSERT，需谨慎保持参数过滤与行数统计语义 |
+| `stock_basic_reconcile_service.py` | `src/cli.py`、`src/operations/services/__init__.py`、对应单测 | ops | `src/ops/services` | 是（低） | 纯运维核对服务（`core_multi.security_std` 双源差异对账） | 规范化规则（名称/交易所）是结果口径关键，迁移要避免细微变化 |
+
+### 第三批候选列表（低到中等歧义）
+
+第三批按当前决策分为两段，先做最小安全范围。
+
+#### 第三批-A（本轮最小范围，仅两项）
+
+1. `daily_health_report_service.py`
+2. `dataset_pipeline_mode_seed_service.py`
+
+说明：
+
+- 本轮严格只迁移上述两项，不扩大到 reconcile/seed 其他服务。
+- 迁移方式保持“`ops` 主实现 + `operations` 兼容壳”。
+
+#### 第三批-B（后续候选，暂不实施）
+
+1. `moneyflow_reconcile_service.py`
+2. `stock_basic_reconcile_service.py`
+3. `serving_light_refresh_service.py`
+4. `moneyflow_multi_source_seed_service.py`
+5. `default_single_source_seed_service.py`
+
+### 继续暂缓处理
+
+继续暂缓（不进入第三批）：
+
+1. `history_backfill_service.py`
+2. `market_mood_walkforward_validation_service.py`
+
+暂缓原因：
+
+- `history_backfill_service`：运行时执行主链路关键节点，跨 foundation/ops/runtime/spec 组合复杂，需单独专项迁移计划。
+- `market_mood_walkforward_validation_service`：当前直接依赖 biz（依赖矩阵白名单点），必须先做跨域职责拆分再迁移。
