@@ -83,7 +83,7 @@ class SyncIndexDailyBasicService(HttpResourceSyncService):
             offset += self.page_limit
 
         if latest_seen_by_code:
-            self.dao.index_series_active.upsert_seen_codes(self.resource_key, latest_seen_by_code)
+            self.index_series_active_store.upsert_seen_codes(self.resource_key, latest_seen_by_code)
         return total_fetched, total_written, trade_date, None
 
     @staticmethod

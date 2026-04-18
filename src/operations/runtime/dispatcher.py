@@ -19,6 +19,8 @@ from src.platform.exceptions import WebAppError
 from src.operations.services.history_backfill_service import HistoryBackfillService
 from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync.registry import build_sync_service
+from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
+from src.ops.sync_state_store_adapter import OpsSyncJobStateStore, OpsSyncRunLogStore
 from src.ops.services.job_execution_sync_context import JobExecutionSyncContext
 from src.utils import truncate_text
 
@@ -218,8 +220,18 @@ class OperationsDispatcher:
         normalized_params = self._normalize_dates(params)
         parsed_trade_date: date | None = None
         execution_context = JobExecutionSyncContext(session)
+        run_log_store = OpsSyncRunLogStore(session)
+        job_state_store = OpsSyncJobStateStore(session)
+        index_series_active_store = OpsIndexSeriesActiveStore(session)
         if job_spec.category == "sync_daily":
-            service = build_sync_service(resource, session, execution_context=execution_context)
+            service = build_sync_service(
+                resource,
+                session,
+                execution_context=execution_context,
+                run_log_store=run_log_store,
+                job_state_store=job_state_store,
+                index_series_active_store=index_series_active_store,
+            )
             supported_param_keys = {param.key for param in (job_spec.supported_params or ())}
             if "month" in supported_param_keys and "trade_date" not in supported_param_keys:
                 result = service.run_incremental(execution_id=execution.id, **normalized_params)
@@ -236,7 +248,14 @@ class OperationsDispatcher:
                 extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
                 result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
         else:
-            service = build_sync_service(resource, session, execution_context=execution_context)
+            service = build_sync_service(
+                resource,
+                session,
+                execution_context=execution_context,
+                run_log_store=run_log_store,
+                job_state_store=job_state_store,
+                index_series_active_store=index_series_active_store,
+            )
             result = service.run_full(execution_id=execution.id, **normalized_params)
 
         light_note = self._refresh_serving_light_if_needed(
@@ -266,6 +285,9 @@ class OperationsDispatcher:
         service = HistoryBackfillService(
             session,
             execution_context=JobExecutionSyncContext(session),
+            run_log_store=OpsSyncRunLogStore(session),
+            job_state_store=OpsSyncJobStateStore(session),
+            index_series_active_store=OpsIndexSeriesActiveStore(session),
         )
         normalized = self._normalize_dates(params)
 

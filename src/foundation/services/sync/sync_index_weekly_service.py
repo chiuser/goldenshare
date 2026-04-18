@@ -93,7 +93,7 @@ class SyncIndexWeeklyService(HttpResourceSyncService):
         return total_fetched, total_written, trade_date, None
 
     def _target_codes(self, ts_code: str | None) -> set[str]:
-        active_codes = set(self.dao.index_series_active.list_active_codes("index_daily"))
+        active_codes = set(self.index_series_active_store.list_active_codes("index_daily"))
         if ts_code:
             return {ts_code} if ts_code in active_codes else set()
         if active_codes:

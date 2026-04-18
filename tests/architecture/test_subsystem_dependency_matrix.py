@@ -27,18 +27,6 @@ def _wl(reason: str, *allowed_modules: str) -> WhitelistEntry:
 
 
 FOUNDATION_WHITELIST: dict[str, WhitelistEntry] = {
-    "src/foundation/dao/index_series_active_dao.py": _wl(
-        "历史 foundation DAO 直接读写 ops 激活池模型，待迁移到 ops 侧查询/服务。",
-        "src.ops.models.ops.index_series_active",
-    ),
-    "src/foundation/dao/sync_job_state_dao.py": _wl(
-        "历史 foundation DAO 直接读写 ops 任务状态模型，待迁移到 ops 侧查询/服务。",
-        "src.ops.models.ops.sync_job_state",
-    ),
-    "src/foundation/dao/sync_run_log_dao.py": _wl(
-        "历史 foundation DAO 直接读写 ops 运行日志模型，待迁移到 ops 侧查询/服务。",
-        "src.ops.models.ops.sync_run_log",
-    ),
 }
 
 OPERATIONS_WHITELIST: dict[str, WhitelistEntry] = {

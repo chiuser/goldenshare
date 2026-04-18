@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
+from src.foundation.kernel.contracts.index_series_active_store import IndexSeriesActiveStore
+from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.services.sync.registry import build_sync_service, list_trade_date_backfill_resources
 from src.operations.services.sync_job_state_reconciliation_service import SyncJobStateReconciliationService
@@ -24,18 +26,44 @@ class BackfillSummary:
 
 
 class HistoryBackfillService:
-    def __init__(self, session: Session, execution_context: SyncExecutionContext | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        execution_context: SyncExecutionContext | None = None,
+        run_log_store: SyncRunLogStore | None = None,
+        job_state_store: SyncJobStateStore | None = None,
+        index_series_active_store: IndexSeriesActiveStore | None = None,
+    ) -> None:
         self.session = session
         self.execution_context = execution_context
+        self.run_log_store = run_log_store
+        self.job_state_store = job_state_store
         self.dao = DAOFactory(session)
+        self._index_series_active_store = index_series_active_store
         self.settings = get_settings()
-        self.sync_job_state_reconciliation = SyncJobStateReconciliationService()
+        self.sync_job_state_reconciliation = SyncJobStateReconciliationService(job_state_store=job_state_store)
+
+    @property
+    def index_series_active_store(self):
+        if self._index_series_active_store is not None:
+            return self._index_series_active_store
+        return self.dao.index_series_active
 
     def _build_sync_service(self, resource: str):
+        if (
+            self.execution_context is None
+            and self.run_log_store is None
+            and self.job_state_store is None
+            and self._index_series_active_store is None
+        ):
+            return build_sync_service(resource, self.session)
         return build_sync_service(
             resource,
             self.session,
             execution_context=self.execution_context,
+            run_log_store=self.run_log_store,
+            job_state_store=self.job_state_store,
+            index_series_active_store=self._index_series_active_store,
         )
 
     def backfill_trade_calendar(
@@ -368,13 +396,13 @@ class HistoryBackfillService:
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
 
         if resource in {"index_daily", "index_daily_basic"}:
-            index_codes = self.dao.index_series_active.list_active_codes(resource)
+            index_codes = self.index_series_active_store.list_active_codes(resource)
             if resource == "index_daily_basic" and not index_codes:
                 latest_open = self.dao.trade_calendar.get_latest_open_date(self.settings.default_exchange, end_date)
                 if latest_open is not None:
                     discovery_service = self._build_sync_service(resource)
                     discovery_service.run_incremental(trade_date=latest_open, execution_id=execution_id)
-                index_codes = self.dao.index_series_active.list_active_codes(resource)
+                index_codes = self.index_series_active_store.list_active_codes(resource)
         else:
             indexes = sorted(self.dao.index_basic.get_active_indexes(), key=lambda item: item.ts_code)
             index_codes = [item.ts_code for item in indexes if item.ts_code]

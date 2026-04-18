@@ -44,7 +44,7 @@ class SyncIndexDailyService(HttpResourceSyncService):
         if kwargs.get("ts_code"):
             fetched, written, latest_seen = self._sync_index_code(run_type=run_type, **kwargs)
             if latest_seen is not None:
-                self.dao.index_series_active.upsert_seen_codes(self.resource_key, {kwargs["ts_code"]: latest_seen})
+                self.index_series_active_store.upsert_seen_codes(self.resource_key, {kwargs["ts_code"]: latest_seen})
             if not suppress_single_code_progress:
                 self._update_progress(
                     execution_id=execution_id,
@@ -54,7 +54,7 @@ class SyncIndexDailyService(HttpResourceSyncService):
                 )
             return fetched, written, trade_date, None
 
-        index_codes = self.dao.index_series_active.list_active_codes(self.resource_key)
+        index_codes = self.index_series_active_store.list_active_codes(self.resource_key)
         if not index_codes:
             index_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
         total_indexes = len(index_codes)
@@ -81,7 +81,7 @@ class SyncIndexDailyService(HttpResourceSyncService):
                 message=f"正在同步指数日线：{index}/{total_indexes} {index_code} fetched={fetched} written={written}",
             )
         if latest_seen_by_code:
-            self.dao.index_series_active.upsert_seen_codes(self.resource_key, latest_seen_by_code)
+            self.index_series_active_store.upsert_seen_codes(self.resource_key, latest_seen_by_code)
         return total_fetched, total_written, trade_date, None
 
     def _sync_index_code(self, *, run_type: str, **kwargs: Any) -> tuple[int, int, date | None]:

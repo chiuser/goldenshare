@@ -5,30 +5,27 @@ from datetime import date
 from src.foundation.dao.sync_job_state_dao import SyncJobStateDAO
 
 
-def test_mark_success_preserves_full_sync_done_for_existing_record(mocker) -> None:
+def test_mark_success_uses_upsert_that_preserves_existing_full_sync_done(mocker) -> None:
     session = mocker.Mock()
     dao = SyncJobStateDAO(session)
-    existing = mocker.Mock()
-    existing.full_sync_done = True
-    mocker.patch.object(dao, "fetch_by_pk", return_value=existing)
-    bulk_upsert = mocker.patch.object(dao, "bulk_upsert")
 
     dao.mark_success("job_a", "core.table_a", last_success_date=date(2026, 3, 24))
 
-    row = bulk_upsert.call_args.args[0][0]
-    assert row["job_name"] == "job_a"
-    assert row["target_table"] == "core.table_a"
-    assert row["last_success_date"] == date(2026, 3, 24)
-    assert "full_sync_done" not in row
+    statement = str(session.execute.call_args.args[0])
+    params = session.execute.call_args.args[1]
+    assert "ON CONFLICT (job_name) DO UPDATE" in statement
+    assert "full_sync_done = ops.sync_job_state.full_sync_done" in statement
+    assert params["job_name"] == "job_a"
+    assert params["target_table"] == "core.table_a"
+    assert params["last_success_date"] == date(2026, 3, 24)
 
 
-def test_mark_success_initializes_full_sync_done_for_new_record(mocker) -> None:
+def test_mark_success_initializes_new_row_full_sync_done_false(mocker) -> None:
     session = mocker.Mock()
     dao = SyncJobStateDAO(session)
-    mocker.patch.object(dao, "fetch_by_pk", return_value=None)
-    bulk_upsert = mocker.patch.object(dao, "bulk_upsert")
 
     dao.mark_success("job_b", "core.table_b")
 
-    row = bulk_upsert.call_args.args[0][0]
-    assert row["full_sync_done"] is False
+    statement = str(session.execute.call_args.args[0])
+    assert "full_sync_done" in statement
+    assert "false" in statement.lower()

@@ -7,8 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.foundation.dao.factory import DAOFactory
+from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore
 from src.ops.models.ops.sync_job_state import SyncJobState
+from src.ops.sync_state_store_adapter import OpsSyncJobStateStore
 from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
 from src.operations.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.foundation.services.sync.registry import build_sync_service
@@ -24,6 +25,12 @@ class ReconciledSyncJobState:
 
 
 class SyncJobStateReconciliationService:
+    def __init__(self, job_state_store: SyncJobStateStore | None = None) -> None:
+        self.job_state_store = job_state_store
+
+    def _resolve_job_state_store(self, session: Session) -> SyncJobStateStore:
+        return self.job_state_store or OpsSyncJobStateStore(session)
+
     def refresh_resource_state_from_observed(self, session: Session, resource_key: str) -> date | None:
         spec = get_dataset_freshness_spec(resource_key)
         if spec is None or spec.observed_date_column is None:
@@ -33,10 +40,10 @@ class SyncJobStateReconciliationService:
             return None
 
         sync_service = build_sync_service(resource_key, session)
-        DAOFactory(session).sync_job_state.mark_success(
-            sync_service.job_name,
-            sync_service.target_table,
-            observed_last_success_date,
+        self._resolve_job_state_store(session).mark_success(
+            job_name=sync_service.job_name,
+            target_table=sync_service.target_table,
+            last_success_date=observed_last_success_date,
         )
         session.commit()
         return observed_last_success_date
@@ -52,9 +59,13 @@ class SyncJobStateReconciliationService:
 
     def reconcile_stale_sync_job_states(self, session: Session) -> list[ReconciledSyncJobState]:
         items = self.preview_stale_sync_job_states(session)
-        dao = DAOFactory(session).sync_job_state
+        store = self._resolve_job_state_store(session)
         for item in items:
-            dao.reconcile_success_date(item.job_name, item.target_table, item.observed_last_success_date)
+            store.reconcile_success_date(
+                job_name=item.job_name,
+                target_table=item.target_table,
+                last_success_date=item.observed_last_success_date,
+            )
         session.commit()
         return items
 

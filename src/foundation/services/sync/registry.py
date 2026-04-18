@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from src.foundation.kernel.contracts.index_series_active_store import IndexSeriesActiveStore
+from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.services.sync.sync_adj_factor_service import SyncAdjFactorService
 from src.foundation.services.sync.sync_block_trade_service import SyncBlockTradeService
@@ -168,9 +170,19 @@ def build_sync_service(
     session: Session,
     *,
     execution_context: SyncExecutionContext | None = None,
+    run_log_store: SyncRunLogStore | None = None,
+    job_state_store: SyncJobStateStore | None = None,
+    index_series_active_store: IndexSeriesActiveStore | None = None,
 ):
     service_cls = SYNC_SERVICE_REGISTRY[resource]
     service = service_cls(session)
     if execution_context is not None and hasattr(service, "set_execution_context"):
         service.set_execution_context(execution_context)
+    if (run_log_store is not None or job_state_store is not None) and hasattr(service, "set_state_stores"):
+        service.set_state_stores(
+            run_log_store=run_log_store,
+            job_state_store=job_state_store,
+        )
+    if index_series_active_store is not None and hasattr(service, "set_index_series_active_store"):
+        service.set_index_series_active_store(index_series_active_store)
     return service
