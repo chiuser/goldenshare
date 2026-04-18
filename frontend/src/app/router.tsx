@@ -14,7 +14,6 @@ import { RegisterPage } from "../pages/register-page";
 import { ForgotPasswordPage } from "../pages/forgot-password-page";
 import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsAutomationPage } from "../pages/ops-automation-page";
-import { OpsDataStatusPage } from "../pages/ops-data-status-page";
 import { OpsManualSyncPage } from "../pages/ops-manual-sync-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTasksPage } from "../pages/ops-tasks-page";
@@ -310,7 +309,7 @@ const opsOverviewRoute = createRoute({
 const opsFreshnessRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/data-status",
-  component: OpsDataStatusPage,
+  component: () => <RedirectTo to="/ops/v21/overview" />,
 });
 
 const opsSchedulesRoute = createRoute({
@@ -412,7 +411,7 @@ const opsLegacyOverviewRoute = createRoute({
 const opsLegacyFreshnessRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/freshness",
-  component: () => <RedirectTo to="/ops/data-status" />,
+  component: () => <RedirectTo to="/ops/v21/overview" />,
 });
 
 const opsLegacySchedulesRoute = createRoute({

@@ -178,7 +178,7 @@ export function OpsTasksPage() {
           在这里看最近跑了什么、结果怎么样，再决定是查看详情、停止处理，还是重新提交。
         </Text>
         <Group gap="xs">
-          <Button component={Link} to="/ops/data-status" size="sm" variant="light" color="brand">
+          <Button component={Link} to="/ops/v21/overview" size="sm" variant="light" color="brand">
             查看数据状态
           </Button>
           <Button component={Link} to="/ops/manual-sync" size="sm">

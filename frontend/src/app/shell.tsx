@@ -14,11 +14,9 @@ import {
   IconActivityHeartbeat,
   IconApps,
   IconBuildingCommunity,
-  IconCalendarTime,
   IconGauge,
   IconLogout,
   IconListDetails,
-  IconPlayerPlay,
   IconShieldLock,
   IconSparkles,
   IconStack2,
@@ -44,13 +42,6 @@ const opsV21SourceLinks = [
 const opsV21ReviewLinks = [
   { to: "/ops/v21/review/index", label: "指数", icon: IconApps },
   { to: "/ops/v21/review/board", label: "板块", icon: IconBuildingCommunity },
-];
-
-const opsLegacyLinks = [
-  { to: "/ops/data-status", label: "数据状态", icon: IconGauge },
-  { to: "/ops/automation", label: "自动运行", icon: IconCalendarTime },
-  { to: "/ops/manual-sync", label: "手动同步", icon: IconPlayerPlay },
-  { to: "/ops/tasks", label: "任务记录", icon: IconListDetails },
 ];
 
 export function OpsShell(_props: PropsWithChildren) {
@@ -192,20 +183,6 @@ export function OpsShell(_props: PropsWithChildren) {
               variant="subtle"
               style={{ marginLeft: 10 }}
             />
-
-            <Text size="xs" c="dimmed" fw={700} px="xs" pt="sm" pb={2}>旧版（过渡）</Text>
-            {opsLegacyLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                component={Link}
-                to={link.to}
-                label={link.label}
-                leftSection={<link.icon size={18} />}
-                active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
-                variant="light"
-                color="brand"
-              />
-            ))}
           </Stack>
         </AppShell.Section>
         <AppShell.Section>

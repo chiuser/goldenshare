@@ -13,7 +13,6 @@ const filesToCheck = [
   "src/pages/ops-manual-sync-page.tsx",
   "src/pages/ops-tasks-page.tsx",
   "src/pages/ops-task-detail-page.tsx",
-  "src/pages/ops-data-status-page.tsx",
 ];
 
 const bannedVisiblePhrases = [
