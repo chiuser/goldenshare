@@ -466,6 +466,26 @@
 
 ---
 
+## accounts/models 第一批真实迁移（当前批次）
+
+本轮 models 第一批实际执行范围严格限定为以下 3 个文件：
+
+1. `src/platform/models/app/__init__.py` -> `src/app/models/__init__.py`
+2. `src/platform/models/app/auth_role.py` -> `src/app/models/auth_role.py`
+3. `src/platform/models/app/auth_permission.py` -> `src/app/models/auth_permission.py`
+
+执行原则：
+
+- 仅迁移上述 3 个文件，不扩大范围
+- `src/platform/models/app/*` 旧路径保留 deprecated 兼容壳
+- 保持表结构、metadata 注册、导入路径兼容稳定
+- 不改字段、不改表名、不改关系定义
+- 不改 Alembic 行为
+- `src/app/model_registry.py` 仅做最小兼容调整，不改变整体设计
+- 不提前迁移 `AppUser` 与关系表模型
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**

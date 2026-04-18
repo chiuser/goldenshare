@@ -9,9 +9,9 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.platform.models.app.auth_action_token",
     "src.platform.models.app.auth_audit_log",
     "src.platform.models.app.auth_invite_code",
-    "src.platform.models.app.auth_permission",
+    "src.app.models.auth_permission",
     "src.platform.models.app.auth_refresh_token",
-    "src.platform.models.app.auth_role",
+    "src.app.models.auth_role",
     "src.platform.models.app.auth_role_permission",
     "src.platform.models.app.auth_user_role",
     "src.ops.models.ops.config_revision",
@@ -39,4 +39,3 @@ def register_all_models() -> None:
     """Register all ORM models in the application composition root."""
     for module in MODEL_MODULES:
         import_module(module)
-
