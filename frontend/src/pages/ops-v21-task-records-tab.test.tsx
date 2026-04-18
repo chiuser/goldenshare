@@ -6,7 +6,7 @@ import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
-import { OpsTasksPage } from "./ops-tasks-page";
+import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 vi.mock("../shared/api/client", () => ({
   apiRequest: vi.fn(async (path: string) => {

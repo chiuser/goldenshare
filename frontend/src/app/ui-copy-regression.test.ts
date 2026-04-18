@@ -9,9 +9,9 @@ const filesToCheck = [
   "src/pages/login-page.tsx",
   "src/pages/platform-check-page.tsx",
   "src/pages/ops-today-page.tsx",
-  "src/pages/ops-automation-page.tsx",
-  "src/pages/ops-manual-sync-page.tsx",
-  "src/pages/ops-tasks-page.tsx",
+  "src/pages/ops-v21-task-auto-tab.tsx",
+  "src/pages/ops-v21-task-manual-tab.tsx",
+  "src/pages/ops-v21-task-records-tab.tsx",
   "src/pages/ops-task-detail-page.tsx",
 ];
 

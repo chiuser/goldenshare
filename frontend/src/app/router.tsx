@@ -5,6 +5,7 @@ import {
   createRoute,
   createRouter,
   useNavigate,
+  useSearch,
 } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -13,10 +14,7 @@ import { LoginPage } from "../pages/login-page";
 import { RegisterPage } from "../pages/register-page";
 import { ForgotPasswordPage } from "../pages/forgot-password-page";
 import { ResetPasswordPage } from "../pages/reset-password-page";
-import { OpsAutomationPage } from "../pages/ops-automation-page";
-import { OpsManualSyncPage } from "../pages/ops-manual-sync-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
-import { OpsTasksPage } from "../pages/ops-tasks-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
@@ -222,6 +220,24 @@ function RedirectTo({ to }: { to: string }) {
   );
 }
 
+function RedirectToTaskCenterTab({ tab }: { tab: "records" | "manual" | "auto" }) {
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false });
+  useEffect(() => {
+    const current = (search as Record<string, unknown>) || {};
+    void navigate({
+      to: "/ops/v21/datasets/tasks",
+      search: { ...current, tab },
+      replace: true,
+    });
+  }, [navigate, search, tab]);
+  return (
+    <Center mih="100vh">
+      <Loader />
+    </Center>
+  );
+}
+
 function NotFoundPage() {
   return (
     <Center mih="100vh">
@@ -315,13 +331,13 @@ const opsFreshnessRoute = createRoute({
 const opsSchedulesRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/automation",
-  component: OpsAutomationPage,
+  component: () => <RedirectToTaskCenterTab tab="auto" />,
 });
 
 const opsExecutionsRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/tasks",
-  component: OpsTasksPage,
+  component: () => <RedirectToTaskCenterTab tab="records" />,
 });
 
 const opsExecutionDetailRoute = createRoute({
@@ -336,7 +352,7 @@ const opsExecutionDetailRoute = createRoute({
 const opsManualSyncRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/manual-sync",
-  component: OpsManualSyncPage,
+  component: () => <RedirectToTaskCenterTab tab="manual" />,
 });
 
 const opsSourceManagementRoute = createRoute({
@@ -417,13 +433,13 @@ const opsLegacyFreshnessRoute = createRoute({
 const opsLegacySchedulesRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/schedules",
-  component: () => <RedirectTo to="/ops/automation" />,
+  component: () => <RedirectToTaskCenterTab tab="auto" />,
 });
 
 const opsLegacyExecutionsRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/executions",
-  component: () => <RedirectTo to="/ops/tasks" />,
+  component: () => <RedirectToTaskCenterTab tab="records" />,
 });
 
 const opsLegacyExecutionDetailRoute = createRoute({
@@ -438,7 +454,7 @@ const opsLegacyExecutionDetailRoute = createRoute({
 const opsLegacyCatalogRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/catalog",
-  component: () => <RedirectTo to="/ops/manual-sync" />,
+  component: () => <RedirectToTaskCenterTab tab="manual" />,
 });
 
 const shareIndexRoute = createRoute({

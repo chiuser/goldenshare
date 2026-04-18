@@ -7,7 +7,7 @@ import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
-import { OpsManualSyncPage, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-manual-sync-page";
+import { OpsManualSyncPage, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-v21-task-manual-tab";
 
 vi.mock("../shared/api/client", () => ({
   apiRequest: vi.fn(async (path: string) => {

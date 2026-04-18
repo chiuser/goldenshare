@@ -2,9 +2,9 @@ import { Stack, Tabs } from "@mantine/core";
 import { useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 
-import { OpsAutomationPage } from "./ops-automation-page";
-import { OpsManualSyncPage } from "./ops-manual-sync-page";
-import { OpsTasksPage } from "./ops-tasks-page";
+import { OpsAutomationPage } from "./ops-v21-task-auto-tab";
+import { OpsManualSyncPage } from "./ops-v21-task-manual-tab";
+import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 
 type TaskTab = "auto" | "manual" | "records";
