@@ -1,4 +1,4 @@
-# AGENTS.md — src/platform 过渡期规则
+# AGENTS.md — src/platform 拆分准备阶段规则
 
 ## 适用范围
 
@@ -6,242 +6,111 @@
 
 ---
 
-## 当前阶段定义
+## 当前阶段定义（已收紧）
 
-`src/platform` 是历史过渡目录，不是未来目标中的长期业务子系统。
+`src/platform` 现已进入 **拆分准备阶段**，目标是按职责拆解到：
 
-未来目标是将 `platform` 消解为两类内容：
+- `src/app`（应用壳 / composition root）
+- `src/biz`（业务 API / Query / Schema / Service）
+- `src/ops`（运维 API / Query / Schema / Service）
 
-1. app 壳职责
-   - `web`
-   - `auth`
-   - `dependencies`
-   - `exceptions`
-   - 少量组合根 glue code
-   - router 聚合入口
-
-2. 应迁出的业务职责
-   - `api`
-   - `queries`
-   - `schemas`
-   - `services`
-   - `models` 中与业务/运维有关的部分
-
-最终目标是：
-
-- app 壳相关内容进入 `src/app/**`
-- 业务 API / Query / Schema / Service 进入 `src/biz/**`
-- 运维 API / Query / Schema / Service 进入 `src/ops/**`
-
-注意：
-- `platform` 不应被直接整体 rename 为 `app`
-- 应先拆职责，再抽壳
+`src/platform` 不再是可持续承接新主实现的目录。
 
 ---
 
-## 本目录当前允许做什么
+## 明确归属方向（硬约束）
+
+### 未来进入 `app`
+
+- `platform/web`
+- `platform/auth`
+- `platform/dependencies`
+- `platform/exceptions`
+- 以及最终的 router 聚合职责
+
+### 未来进入 `biz`
+
+- 业务 API / Query / Schema / Service
+
+### 未来进入 `ops`
+
+- 运维 API / Query / Schema / Service
+
+### 例外说明
+
+- `platform/models` 需按语义细分：认证账户模型通常归 `app`，业务/运维模型分别归 `biz`/`ops`。
+
+---
+
+## 本目录允许做什么
 
 ### 允许
 
-- 修复本目录已有代码中的 bug
-- 为迁移做最小过渡封装
-- 增加 deprecated 注释
-- 将旧实现改为薄转发层
-- 梳理 router / web / auth / dependencies 的 app 壳职责
-- 做不改变外部行为的最小路径调整
+1. 现有 bug 的最小修复
+2. 为拆分准备增加注释与文档化说明
+3. 将旧路径改薄（compat shim / 转发）
+4. 不改变外部行为的最小维护
 
 ### 不允许
 
-- 在 `platform/api` 中新增长期业务 API
-- 在 `platform/queries` 中新增长期业务查询服务
-- 在 `platform/services` 中新增长期业务逻辑
-- 在 `platform/schemas` 中新增长期业务 schema
-- 把本应进入 `biz` 或 `ops` 的新能力继续写进 `platform`
-- 把 `platform` 继续做成“第四个子系统”
-- 一次性整体搬走全部 `platform` 内容
+1. 在 `platform` 新增长期主实现
+2. 在 `platform/api|queries|schemas|services` 新增应归属 `biz/ops` 的新能力
+3. 把 `platform` 当成第四个业务子系统继续扩张
+4. 未经计划直接做大规模搬迁
 
 ---
 
-## 目录归属指导
+## router 聚合层处理规则（必须最后动）
 
-### `platform/web`
+以下文件属于当前入口聚合层，**默认最后迁移**，不在第一批拆分中处理：
 
-未来归属：`app/web`
+- `platform/api/router.py`
+- `platform/api/v1/router.py`
 
-说明：
+原因：
 
-- 这里是应用壳的核心候选目录
-- 可作为未来 `src/app/web` 的迁移来源
-
----
-
-### `platform/auth`
-
-未来归属：`app/auth`
-
-说明：
-
-- 认证接线、当前用户依赖、权限依赖等属于 app 壳，不属于 foundation / ops / biz
+- 它们同时聚合 app-auth、biz、ops 路由，提前切入口会放大回归风险。
 
 ---
 
-### `platform/dependencies`
+## 迁移执行规则
 
-未来归属：`app/dependencies` 或 `app/di`
+当任务涉及 `platform`，先判定目标归属：
 
-说明：
+1. app 壳逻辑 -> `src/app`
+2. 业务逻辑 -> `src/biz`
+3. 运维逻辑 -> `src/ops`
 
-- 这里只应保留 app 级依赖装配
-- 不应长期承载业务查询逻辑
-
----
-
-### `platform/exceptions`
-
-未来归属：`app/exceptions`
+若归属明确，禁止继续把新增主逻辑放在 `platform`。
 
 ---
 
-### `platform/api`
+## 依赖与边界提醒
 
-未来归属：
-
-- 业务 API -> `biz/api`
-- 运维 API -> `ops/api`
-- 少量 router 聚合 -> `app`
-
-规则：
-
-- 不再新增新的长期 endpoint 到本目录
-- 新能力应直接写到未来归属目录
-- 本目录后续只允许保留过渡路由或薄转发
-
-特别说明：
-
-- `platform/api/router.py` 是当前 `/api` 根聚合路由入口的一部分
-- `platform/api/v1/router.py` 是当前 v1 路由聚合入口的一部分
-- 这两个文件不应与普通业务 API 一起提前迁移，默认属于最后迁移对象
+1. 禁止引入 `foundation -> platform` 反向依赖。
+2. `platform` 不应继续承接共享基础设施（db/contracts/utils）。
+3. 拆分过程中优先“路径收敛 + 兼容壳”，避免行为改写。
 
 ---
 
-### `platform/queries`
+## 完成任务后的说明要求
 
-未来归属：
+每次改动 `platform` 后，必须说明：
 
-- 业务查询 -> `biz/queries`
-- 运维查询 -> `ops/queries`
-
----
-
-### `platform/services`
-
-未来归属：
-
-- 业务服务 -> `biz/services`
-- 运维服务 -> `ops/services`
+1. 本次改动是否只做准备/收敛，而非新增主实现
+2. 改动内容更偏 `app` / `biz` / `ops` 哪一类
+3. 是否触及 router 聚合层（如触及需说明必要性）
+4. 下一步建议迁出的最小单元
 
 ---
 
-### `platform/schemas`
+## 禁止扩大范围
 
-未来归属：
+处理 `platform` 相关任务时，不得顺手做：
 
-- 业务 schema -> `biz/schemas`
-- 运维 schema -> `ops/schemas`
+1. 认证体系大重写
+2. router 全量改造
+3. schema 全量重写
+4. 一次性整体搬迁 platform
 
----
-
-### `platform/models`
-
-未来归属需细分：
-
-- app 用户/认证相关 -> `app/models` 或 `app/auth/models`
-- 运维 ORM 模型 -> `ops/models`
-- 业务 ORM / DTO / query model -> `biz/models`
-
-注意：
-
-- 在未判定归属前，不要继续加厚本目录
-- 先说明归属，再做迁移
-
----
-
-## 依赖规则
-
-### 本目录中的代码不应成为基础层依赖源
-
-禁止形成：
-
-- `foundation -> platform`
-
-若发现 foundation 直接依赖 platform，优先作为重构对象处理。
-
----
-
-### 本目录不应继续承接新的共享基础设施
-
-不要把以下能力继续新增到 `platform`：
-
-- db/session 基础能力
-- contracts / ports
-- shared primitives
-- 通用 utils
-
-这些应归入 foundation 或未来的 app 壳。
-
----
-
-## 迁移任务执行规则
-
-当任务涉及 `platform` 时，优先判断：
-
-1. 这个能力其实属于 app 壳？
-2. 这个能力其实属于 biz？
-3. 这个能力其实属于 ops？
-
-若答案明确，就不要继续留在 `platform` 新增逻辑。
-
-若任务命中 `platform/api/router.py` 或 `platform/api/v1/router.py`，默认应按“应用聚合层”对待，而不是按普通业务 API 对待。
-
----
-
-## 完成任务时的输出要求
-
-每次涉及 `platform` 的任务完成后，必须说明：
-
-1. 本次改动属于 app / biz / ops 中的哪类职责
-2. 为什么暂时还保留在 `platform`，还是已经迁出
-3. 是否新增了过渡层
-4. 是否影响 router 挂载
-5. 是否影响 auth / dependencies / exceptions
-6. 后续下一步适合继续迁出什么
-
----
-
-## 当前优先迁出对象
-
-第一批优先迁出：
-
-- 明显属于业务域的 API / Query / Schema / Service
-- 如 share 相关能力
-
-优先保留但收敛：
-
-- `web`
-- `auth`
-- `dependencies`
-- `exceptions`
-- router 聚合链路
-
----
-
-## 禁止顺手扩大范围
-
-处理 `platform` 任务时：
-
-- 不要顺手改整个认证体系
-- 不要顺手重做全部 router
-- 不要顺手重写所有 schema
-- 不要顺手把 app 壳全部一次性搬完
-
-每次只做一个明确迁移目标，并保持外部行为稳定。
+每轮只做一个清晰阶段目标，并保持外部行为稳定。
