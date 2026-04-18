@@ -281,7 +281,7 @@
 
 ### 第三批候选列表（低到中等歧义）
 
-第三批按当前决策分为两段，先做最小安全范围。
+第三批按当前决策分段执行，先做最小安全范围。
 
 #### 第三批-A（本轮最小范围，仅两项）
 
@@ -302,12 +302,20 @@
 - 本轮严格只迁移 `serving_light_refresh_service`，不扩大到 reconcile/seed 其他服务。
 - 迁移方式保持“`ops` 主实现 + `operations` 兼容壳”。
 
-#### 第三批-B（后续候选，暂不实施）
+#### 第三批-C（本轮最小范围，仅两项，seed/config）
+
+1. `default_single_source_seed_service.py`
+2. `moneyflow_multi_source_seed_service.py`
+
+说明：
+
+- 本轮严格只迁移上述两项，不扩大到 reconcile 或其他高歧义服务。
+- 迁移方式保持“`ops` 主实现 + `operations` 兼容壳”。
+
+#### 第三批后续候选（已于最后一批常规迁移执行）
 
 1. `moneyflow_reconcile_service.py`
 2. `stock_basic_reconcile_service.py`
-3. `moneyflow_multi_source_seed_service.py`
-4. `default_single_source_seed_service.py`
 
 ### 继续暂缓处理
 
@@ -320,3 +328,62 @@
 
 - `history_backfill_service`：运行时执行主链路关键节点，跨 foundation/ops/runtime/spec 组合复杂，需单独专项迁移计划。
 - `market_mood_walkforward_validation_service`：当前直接依赖 biz（依赖矩阵白名单点），必须先做跨域职责拆分再迁移。
+
+---
+
+## 剩余 4 个 service 最终归属判定（本轮）
+
+本节覆盖并收口以下 4 个未迁 service 的最终判定结论（仅归属判定，不实施代码迁移）：
+
+- `history_backfill_service.py`
+- `market_mood_walkforward_validation_service.py`
+- `moneyflow_reconcile_service.py`
+- `stock_basic_reconcile_service.py`
+
+### 逐项最终判定
+
+| service | 当前调用链（真实入口） | 依赖面（foundation / ops / biz / CLI / runtime） | 归属倾向 | 推荐最终归属 | 是否建议继续迁入 ops | 若不迁入 ops 的后续路径 | 风险点 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `history_backfill_service.py` | `src/ops/runtime/dispatcher.py`（`_run_backfill_job`） + `src/cli.py`（`backfill-*` 命令） + `src/ops/specs/registry.py`（`executor_kind=history_backfill_service`） | foundation：重依赖（DAOFactory、sync registry、contracts）；ops：通过 `SyncJobStateReconciliationService` 间接耦合；biz：无；CLI：是；runtime 主链路：是（核心） | ops 运行编排域（高耦合） | 目标仍应进入 `src/ops/services`，但需专项拆分后再迁 | 否（本轮不迁） | 进入“backfill 专项重构”：先拆资源路由/进度上报/状态回写 seam，再迁主实现，最后保留兼容壳 | 涉及执行器主链路、spec 执行类型、进度事件与状态一致性，误改会影响任务执行稳定性 |
+| `market_mood_walkforward_validation_service.py` | `src/cli.py`（`ops-validate-market-mood`）+ 对应 CLI/服务单测 | foundation：大量读模型（core/core_serving）；ops：无主依赖；biz：直接依赖 `src.biz.services.market_mood_calculator`；CLI：是；runtime 主链路：否 | biz 分析能力（跨域） | 倾向迁入 `src/biz/services`（或拆为 biz 计算 + CLI 薄编排） | 否 | 进入“跨域边界专项”：先消除 `operations -> biz` 白名单违规，再决定 CLI 入口归属（ops 命令壳 or biz 命令壳） | 指标定义与 walk-forward 口径要保持完全一致；同时要消除依赖矩阵历史白名单 |
+| `moneyflow_reconcile_service.py` | `src/cli.py`（`reconcile-moneyflow`）+ 对应 CLI/服务单测 + `src/operations/services/__init__.py` 导出 | foundation：读 `raw.moneyflow` + `raw_biying.moneyflow`；ops：无 runtime 耦合；biz：无；CLI：是；runtime 主链路：否 | ops 治理审计域 | `src/ops/services`（建议命名 `operations_moneyflow_reconcile_service.py`） | 是（可作为最后一批迁移候选） | 不适用 | 字段映射/阈值/样本抽样规则必须保持一致，避免对账结果漂移 |
+| `stock_basic_reconcile_service.py` | `src/cli.py`（`reconcile-stock-basic`）+ 对应 CLI/服务单测 + `src/operations/services/__init__.py` 导出 | foundation：读 `core_multi.security_std`；ops：无 runtime 耦合；biz：无；CLI：是；runtime 主链路：否 | ops 治理审计域 | `src/ops/services`（建议命名 `operations_stock_basic_reconcile_service.py`） | 是（可作为最后一批迁移候选） | 不适用 | 名称/交易所规范化规则是结果口径核心，迁移时需防止细节变化 |
+
+### 最终分组结论（本轮）
+
+#### 继续暂缓
+
+1. `history_backfill_service.py`
+2. `market_mood_walkforward_validation_service.py`
+
+#### 最后一批常规迁移（本轮仅两项）
+
+1. `moneyflow_reconcile_service.py`
+2. `stock_basic_reconcile_service.py`
+
+#### 应转入专项重构（而非沿用常规迁移套路）
+
+1. `history_backfill_service.py`：归入 backfill 主链路专项（运行时核心路径专项）。
+2. `market_mood_walkforward_validation_service.py`：归入 operations->biz 跨域边界专项（先消除白名单违规，再定目录归属）。
+
+---
+
+## 最后一批常规 service 迁移（本轮执行）
+
+本轮严格限定为两项 reconcile/audit service，不扩大范围：
+
+1. `src/operations/services/moneyflow_reconcile_service.py`
+2. `src/operations/services/stock_basic_reconcile_service.py`
+
+执行策略：
+
+- 主实现迁入 `src/ops/services/operations_moneyflow_reconcile_service.py`
+- 主实现迁入 `src/ops/services/operations_stock_basic_reconcile_service.py`
+- `src/operations/services/*` 旧路径保留 deprecated shim（模块级薄转发）
+- 调用侧仅做最小切换（`src/operations/services/__init__.py` 聚合导出改为指向 `ops` 主实现）
+
+本轮明确不处理：
+
+- `history_backfill_service.py`
+- `market_mood_walkforward_validation_service.py`
+- platform 相关目录与接口
