@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
@@ -231,6 +232,81 @@ def test_ops_rebuild_dataset_status_rebuilds_snapshots(mocker) -> None:
     service_cls.assert_called_once_with()
     service.rebuild_all.assert_called_once_with(session, strict=True)
     assert "ops-rebuild-dataset-status: rebuilt=28" in result.stdout
+
+
+def test_ops_validate_market_mood_runs_service_and_prints_json(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    report = mocker.Mock()
+    report.to_json.return_value = '{"ok": true}'
+    service = mocker.Mock()
+    service.run.return_value = report
+    service_cls = mocker.patch("src.cli.MarketMoodWalkForwardValidationService", return_value=service)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "ops-validate-market-mood",
+            "--start-date",
+            "2026-01-01",
+            "--end-date",
+            "2026-04-17",
+            "--train-days",
+            "120",
+            "--valid-days",
+            "30",
+            "--test-days",
+            "15",
+            "--roll-days",
+            "10",
+            "--min-state-samples",
+            "15",
+            "--max-signal-days",
+            "240",
+            "--delta-temp",
+            "4.0",
+            "--delta-emotion",
+            "7.0",
+            "--include-points",
+        ],
+    )
+
+    assert result.exit_code == 0
+    service_cls.assert_called_once_with()
+    service.run.assert_called_once()
+    run_kwargs = service.run.call_args.kwargs
+    assert run_kwargs["start_date"] == date(2026, 1, 1)
+    assert run_kwargs["end_date"] == date(2026, 4, 17)
+    assert run_kwargs["train_days"] == 120
+    assert run_kwargs["valid_days"] == 30
+    assert run_kwargs["test_days"] == 15
+    assert run_kwargs["roll_days"] == 10
+    assert run_kwargs["min_state_samples"] == 15
+    assert run_kwargs["max_signal_days"] == 240
+    assert run_kwargs["delta_temp"] == 4.0
+    assert run_kwargs["delta_emotion"] == 7.0
+    assert callable(run_kwargs["progress_callback"])
+    report.to_json.assert_called_once_with(include_points=True)
+    assert '{"ok": true}' in result.stdout
+
+
+def test_ops_validate_market_mood_rejects_reverse_date_range() -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "ops-validate-market-mood",
+            "--start-date",
+            "2026-04-17",
+            "--end-date",
+            "2026-01-01",
+        ],
+    )
+
+    assert result.exit_code == 2
 
 
 def test_refresh_serving_light_invokes_refresh_service(mocker) -> None:

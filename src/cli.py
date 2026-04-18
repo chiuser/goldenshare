@@ -23,6 +23,7 @@ from src.operations.services import (
     DatasetPipelineModeSeedService,
     DefaultSingleSourceSeedService,
     DatasetStatusSnapshotService,
+    MarketMoodWalkForwardValidationService,
     MoneyflowMultiSourceSeedService,
     MoneyflowReconcileService,
     OperationsExecutionReconciliationService,
@@ -330,6 +331,54 @@ def ops_daily_health_report(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(rendered, encoding="utf-8")
     typer.echo(f"ops-daily-health-report: written={output}")
+
+
+@app.command("ops-validate-market-mood")
+def ops_validate_market_mood(
+    start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
+    end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
+    exchange: str = typer.Option("SSE", "--exchange", help="交易所，默认 SSE"),
+    train_days: int = typer.Option(140, min=1, help="训练窗口交易日数"),
+    valid_days: int = typer.Option(40, min=1, help="验证窗口交易日数"),
+    test_days: int = typer.Option(20, min=1, help="测试窗口交易日数"),
+    roll_days: int = typer.Option(20, min=1, help="每折向前滚动交易日数"),
+    min_state_samples: int = typer.Option(30, min=1, help="状态最小样本阈值"),
+    max_signal_days: int | None = typer.Option(None, min=1, help="最多使用最近 N 个共同交易日"),
+    delta_temp: float = typer.Option(5.0, "--delta-temp", help="MTI 连续标签容忍阈值"),
+    delta_emotion: float = typer.Option(8.0, "--delta-emotion", help="MSI 连续标签容忍阈值"),
+    include_points: bool = typer.Option(False, "--include-points", help="输出每个测试日的详细点位"),
+    output: Path | None = typer.Option(None, "--output", help="输出文件路径；不传则打印到终端"),
+) -> None:
+    parsed_start = date.fromisoformat(start_date) if start_date else None
+    parsed_end = date.fromisoformat(end_date) if end_date else None
+    if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
+        raise typer.BadParameter("start_date 不能晚于 end_date")
+
+    with SessionLocal() as session:
+        report = MarketMoodWalkForwardValidationService().run(
+            session,
+            start_date=parsed_start,
+            end_date=parsed_end,
+            exchange=exchange,
+            train_days=train_days,
+            valid_days=valid_days,
+            test_days=test_days,
+            roll_days=roll_days,
+            min_state_samples=min_state_samples,
+            max_signal_days=max_signal_days,
+            delta_temp=delta_temp,
+            delta_emotion=delta_emotion,
+            progress_callback=typer.echo,
+        )
+        rendered = report.to_json(include_points=include_points)
+
+    if output is None:
+        typer.echo(rendered)
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(rendered, encoding="utf-8")
+    typer.echo(f"ops-validate-market-mood: written={output}")
 
 
 @app.command("reconcile-stock-basic")

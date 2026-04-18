@@ -19,6 +19,10 @@ from src.operations.services.moneyflow_multi_source_seed_service import (
     SeedMoneyflowMultiSourceReport,
 )
 from src.operations.services.moneyflow_reconcile_service import MoneyflowReconcileReport, MoneyflowReconcileService
+from src.operations.services.market_mood_walkforward_validation_service import (
+    MarketMoodWalkForwardValidationService,
+    MoodWalkForwardReport,
+)
 from src.operations.services.schedule_service import OperationsScheduleService
 from src.operations.services.serving_light_refresh_service import (
     ServingLightRefreshResult,
@@ -48,6 +52,8 @@ __all__ = [
     "SeedMoneyflowMultiSourceReport",
     "MoneyflowReconcileService",
     "MoneyflowReconcileReport",
+    "MarketMoodWalkForwardValidationService",
+    "MoodWalkForwardReport",
     "StockBasicReconcileService",
     "StockBasicReconcileReport",
     "DefaultSingleSourceSeedService",
