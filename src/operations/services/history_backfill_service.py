@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
-from src.foundation.services.sync.registry import build_sync_service
+from src.foundation.services.sync.registry import build_sync_service, list_trade_date_backfill_resources
 from src.operations.services.sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 
 
@@ -171,36 +171,10 @@ class HistoryBackfillService:
         progress: Callable[[str], None] | None = None,
         execution_id: int | None = None,
     ) -> BackfillSummary:
-        trade_date_resources = {
-            "daily_basic",
-            "moneyflow",
-            "moneyflow_ths",
-            "moneyflow_dc",
-            "moneyflow_cnt_ths",
-            "moneyflow_ind_ths",
-            "moneyflow_ind_dc",
-            "moneyflow_mkt_dc",
-            "margin",
-            "top_list",
-            "block_trade",
-            "limit_list_d",
-            "stk_nineturn",
-            "suspend_d",
-            "dc_member",
-            "ths_hot",
-            "dc_hot",
-            "limit_list_ths",
-            "limit_step",
-            "limit_cpt_list",
-            "kpl_concept_cons",
-        }
-        if resource not in trade_date_resources:
-            raise ValueError(
-                "trade-date backfill only supports daily_basic, moneyflow, moneyflow_ths, moneyflow_dc, "
-                "moneyflow_cnt_ths, moneyflow_ind_ths, moneyflow_ind_dc, moneyflow_mkt_dc, margin, top_list, "
-                "block_trade, limit_list_d, stk_nineturn, suspend_d, dc_member, ths_hot, dc_hot, limit_list_ths, "
-                "limit_step, limit_cpt_list, and kpl_concept_cons"
-            )
+        trade_date_resources = list_trade_date_backfill_resources()
+        trade_date_resource_set = set(trade_date_resources)
+        if resource not in trade_date_resource_set:
+            raise ValueError(f"trade-date backfill only supports {', '.join(trade_date_resources)}")
         exchange_name = self.settings.default_exchange if resource == "limit_list_d" else (exchange or self.settings.default_exchange)
         trade_dates = self.dao.trade_calendar.get_open_dates(exchange_name, start_date, end_date)
         if offset:

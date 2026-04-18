@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_job_spec
-from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 
 def test_job_spec_registry_contains_key_operations() -> None:
@@ -78,6 +78,16 @@ def test_job_spec_registry_contains_key_operations() -> None:
     assert "backfill_index_series.index_weekly" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_dm" in JOB_SPEC_REGISTRY
     assert "maintenance.rebuild_index_kline_serving" in JOB_SPEC_REGISTRY
+
+
+def test_backfill_by_trade_date_job_specs_match_sync_capability_registry() -> None:
+    declared_resources = {
+        key.split(".", 1)[1]
+        for key, spec in JOB_SPEC_REGISTRY.items()
+        if spec.category == "backfill_by_trade_date" and "." in key
+    }
+    capability_resources = set(list_trade_date_backfill_resources())
+    assert declared_resources == capability_resources
 
 
 def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:

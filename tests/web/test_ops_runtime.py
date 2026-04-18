@@ -259,6 +259,58 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
     assert stub_service.called is False
 
 
+def test_dispatcher_passes_content_type_to_backfill_by_trade_date(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="backfill_by_trade_date.moneyflow_ind_dc",
+        status="running",
+        params_json={
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-02",
+            "ts_code": "BK1234",
+            "content_type": ["行业", "概念"],
+            "offset": 2,
+            "limit": 5,
+        },
+    )
+    backfill_service = SimpleNamespace(
+        backfill_by_trade_dates=lambda **kwargs: SimpleNamespace(
+            resource=kwargs["resource"],
+            units_processed=1,
+            rows_fetched=7,
+            rows_written=6,
+        )
+    )
+    captured_kwargs: dict[str, object] = {}
+
+    def _stub_backfill_by_trade_dates(**kwargs):  # type: ignore[no-untyped-def]
+        captured_kwargs.update(kwargs)
+        return SimpleNamespace(resource="moneyflow_ind_dc", units_processed=1, rows_fetched=7, rows_written=6)
+
+    backfill_service.backfill_by_trade_dates = _stub_backfill_by_trade_dates
+    monkeypatch.setattr("src.operations.runtime.dispatcher.HistoryBackfillService", lambda session: backfill_service)
+
+    rows_fetched, rows_written, summary = OperationsDispatcher()._run_backfill_job(
+        db_session,
+        execution,
+        SimpleNamespace(key="backfill_by_trade_date.moneyflow_ind_dc", category="backfill_by_trade_date"),
+        dict(execution.params_json or {}),
+        step_id=10,
+    )
+
+    assert rows_fetched == 7
+    assert rows_written == 6
+    assert summary == "units=1"
+    assert captured_kwargs["resource"] == "moneyflow_ind_dc"
+    assert captured_kwargs["start_date"] == date(2026, 4, 1)
+    assert captured_kwargs["end_date"] == date(2026, 4, 2)
+    assert captured_kwargs["ts_code"] == "BK1234"
+    assert captured_kwargs["content_type"] == ["行业", "概念"]
+    assert captured_kwargs["offset"] == 2
+    assert captured_kwargs["limit"] == 5
+    assert captured_kwargs["execution_id"] == execution.id
+
+
 def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_execution_factory, monkeypatch) -> None:
     execution = job_execution_factory(
         spec_type="job",

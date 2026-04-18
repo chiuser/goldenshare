@@ -4,7 +4,7 @@ from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.operations.specs.job_spec import JobSpec, ParameterSpec
 from src.operations.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.operations.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
-from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 
 TRADE_DATE_PARAM = ParameterSpec(
@@ -567,29 +567,7 @@ for _resource in (
         supported_params=(START_DATE_PARAM, END_DATE_PARAM, OFFSET_PARAM, LIMIT_PARAM),
     )
 
-for _resource in (
-    "daily_basic",
-    "moneyflow",
-    "moneyflow_ths",
-    "moneyflow_dc",
-    "moneyflow_cnt_ths",
-    "moneyflow_ind_ths",
-    "moneyflow_ind_dc",
-    "moneyflow_mkt_dc",
-    "margin",
-    "top_list",
-    "block_trade",
-    "limit_list_d",
-    "stk_factor_pro",
-    "stk_nineturn",
-    "suspend_d",
-    "ths_hot",
-    "dc_hot",
-    "kpl_concept_cons",
-    "limit_list_ths",
-    "limit_step",
-    "limit_cpt_list",
-):
+for _resource in list_trade_date_backfill_resources():
     _supported_params: tuple[ParameterSpec, ...] = (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM, OFFSET_PARAM, LIMIT_PARAM)
     if _resource == "limit_list_d":
         _supported_params = (
@@ -696,6 +674,13 @@ for _resource in (
             OFFSET_PARAM,
             LIMIT_PARAM,
         )
+    elif _resource == "dc_member":
+        _supported_params = (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            CON_CODE_PARAM,
+        )
     elif _resource == "margin":
         _supported_params = (
             START_DATE_PARAM,
@@ -713,14 +698,25 @@ for _resource in (
         supported_params=_supported_params,
     )
 
-JOB_SPEC_REGISTRY["backfill_by_trade_date.dc_member"] = _backfill_job_spec(
-    prefix="backfill_by_trade_date",
-    resource="dc_member",
-    display_name="按交易日回补 / dc_member",
-    description="按交易日区间回补东方财富板块成分。",
-    strategy_type="backfill_by_trade_date",
-    supported_params=(START_DATE_PARAM, END_DATE_PARAM, TS_CODE_PARAM, CON_CODE_PARAM),
+_backfill_by_trade_date_declared_resources = {
+    key.split(".", 1)[1]
+    for key, spec in JOB_SPEC_REGISTRY.items()
+    if spec.category == "backfill_by_trade_date" and "." in key
+}
+_backfill_by_trade_date_capability_resources = set(list_trade_date_backfill_resources())
+_backfill_by_trade_date_missing_from_specs = sorted(
+    _backfill_by_trade_date_capability_resources - _backfill_by_trade_date_declared_resources
 )
+_backfill_by_trade_date_missing_from_capabilities = sorted(
+    _backfill_by_trade_date_declared_resources - _backfill_by_trade_date_capability_resources
+)
+if _backfill_by_trade_date_missing_from_specs or _backfill_by_trade_date_missing_from_capabilities:
+    details: list[str] = []
+    if _backfill_by_trade_date_missing_from_specs:
+        details.append(f"missing job specs: {', '.join(_backfill_by_trade_date_missing_from_specs)}")
+    if _backfill_by_trade_date_missing_from_capabilities:
+        details.append(f"unsupported declarations: {', '.join(_backfill_by_trade_date_missing_from_capabilities)}")
+    raise RuntimeError("backfill_by_trade_date contract mismatch: " + "; ".join(details))
 
 for _resource in ("ths_daily", "dc_index", "dc_daily", "kpl_list"):
     _extra_params: tuple[ParameterSpec, ...] = (TS_CODE_PARAM,)
