@@ -318,6 +318,25 @@
 
 ---
 
+## auth 第二批-B 真实迁移（当前批次）
+
+本轮第二批-B 实际执行范围严格限定为“终端用户认证链”5个模块：
+
+1. `src/platform/services/auth_service.py` -> `src/app/auth/services/auth_service.py`
+2. `src/platform/services/user_service.py` -> `src/app/auth/services/user_service.py`
+3. `src/platform/schemas/auth.py` -> `src/app/auth/schemas/auth.py`
+4. `src/platform/api/v1/auth.py` -> `src/app/auth/api/auth.py`
+5. `src/platform/api/v1/users.py` -> `src/app/auth/api/users.py`
+
+执行原则：
+
+- 仅迁移上述 5 个模块，不扩大范围
+- 旧路径保留 deprecated 兼容壳，确保旧 import 路径继续可用
+- 外部行为、返回契约、鉴权链路保持不变
+- 不触碰 `admin` 链、`models/app/*`、`router` 聚合层与 `web/app.py`
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**

@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-# Deprecated compatibility shim:
-# platform -> app/auth split phase 2B migrated main implementation to src.app.auth.schemas.auth.
 from src.app.auth.schemas.auth import (
     CurrentUserResponse,
     LoginRequest,
@@ -17,7 +13,6 @@ from src.app.auth.schemas.auth import (
     TokenResponse,
     VerifyActionTokenRequest,
 )
-
 
 __all__ = [
     "CurrentUserResponse",

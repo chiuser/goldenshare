@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from src.platform.auth.domain import AuthenticatedUser
-
-
-class UserService:
-    def get_self_profile(self, user: AuthenticatedUser) -> AuthenticatedUser:
-        return user
+# Deprecated compatibility shim:
+# platform -> app/auth split phase 2B migrated main implementation to src.app.auth.services.user_service.
+from src.app.auth.services.user_service import UserService
 
 
 __all__ = ["UserService"]
+
