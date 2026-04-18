@@ -1,14 +1,8 @@
-from __future__ import annotations
+"""Deprecated compatibility shim.
 
-from fastapi import APIRouter, Depends
+Use src.app.auth.api.admin instead.
+"""
 
-from src.platform.auth.dependencies import require_admin
-from src.platform.auth.domain import AuthenticatedUser
+from src.app.auth.api.admin import router
 
-
-router = APIRouter(prefix="/admin", tags=["admin"])
-
-
-@router.get("/ping")
-def admin_ping(_user: AuthenticatedUser = Depends(require_admin)) -> dict[str, bool | str]:
-    return {"ok": True, "role": "admin"}
+__all__ = ["router"]

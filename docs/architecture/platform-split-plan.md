@@ -337,6 +337,25 @@
 
 ---
 
+## auth 第二批-C 真实迁移（当前批次）
+
+本轮第二批-C 实际执行范围严格限定为“管理员账户管理链”4个模块：
+
+1. `src/platform/services/admin_user_service.py` -> `src/app/auth/services/admin_user_service.py`
+2. `src/platform/schemas/user_admin.py` -> `src/app/auth/schemas/user_admin.py`
+3. `src/platform/api/v1/admin.py` -> `src/app/auth/api/admin.py`
+4. `src/platform/api/v1/admin_users.py` -> `src/app/auth/api/admin_users.py`
+
+执行原则：
+
+- 仅迁移上述 4 个模块，不扩大范围
+- 旧路径保留 deprecated 兼容壳，确保旧 import 路径继续可用
+- 外部行为、返回契约、权限校验链路保持不变
+- 不触碰 `platform/models/app/*`
+- 不触碰 `platform/api/router.py`、`platform/api/v1/router.py` 与 `platform/web/app.py`
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**

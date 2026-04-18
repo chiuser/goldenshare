@@ -13,6 +13,20 @@ from src.app.auth.schemas.auth import (
     TokenResponse,
     VerifyActionTokenRequest,
 )
+from src.app.auth.schemas.user_admin import (
+    AdminCreateUserRequest,
+    AdminInviteCreateRequest,
+    AdminInviteCreateResponse,
+    AdminInviteItem,
+    AdminInviteListResponse,
+    AdminResetPasswordRequest,
+    AdminSetUserRolesRequest,
+    AdminUpdateUserRequest,
+    AdminUserListItem,
+    AdminUserListResponse,
+    AuthAuditItem,
+    AuthAuditListResponse,
+)
 
 __all__ = [
     "CurrentUserResponse",
@@ -28,5 +42,16 @@ __all__ = [
     "SessionListResponse",
     "TokenResponse",
     "VerifyActionTokenRequest",
+    "AdminUserListItem",
+    "AdminUserListResponse",
+    "AdminCreateUserRequest",
+    "AdminUpdateUserRequest",
+    "AdminSetUserRolesRequest",
+    "AdminResetPasswordRequest",
+    "AdminInviteCreateRequest",
+    "AdminInviteCreateResponse",
+    "AdminInviteItem",
+    "AdminInviteListResponse",
+    "AuthAuditItem",
+    "AuthAuditListResponse",
 ]
-
