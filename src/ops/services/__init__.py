@@ -1,10 +1,3 @@
-from src.ops.services.execution_service import OpsExecutionCommandService
-from src.ops.services.probe_service import OpsProbeCommandService
-from src.ops.services.resolution_release_service import OpsResolutionReleaseCommandService
-from src.ops.services.runtime_service import OpsRuntimeCommandService
-from src.ops.services.schedule_service import OpsScheduleCommandService
-from src.ops.services.std_rule_service import OpsStdRuleCommandService
-
 __all__ = [
     "OpsExecutionCommandService",
     "OpsProbeCommandService",
@@ -13,3 +6,31 @@ __all__ = [
     "OpsScheduleCommandService",
     "OpsStdRuleCommandService",
 ]
+
+
+def __getattr__(name: str):
+    if name == "OpsExecutionCommandService":
+        from src.ops.services.execution_service import OpsExecutionCommandService
+
+        return OpsExecutionCommandService
+    if name == "OpsProbeCommandService":
+        from src.ops.services.probe_service import OpsProbeCommandService
+
+        return OpsProbeCommandService
+    if name == "OpsResolutionReleaseCommandService":
+        from src.ops.services.resolution_release_service import OpsResolutionReleaseCommandService
+
+        return OpsResolutionReleaseCommandService
+    if name == "OpsRuntimeCommandService":
+        from src.ops.services.runtime_service import OpsRuntimeCommandService
+
+        return OpsRuntimeCommandService
+    if name == "OpsScheduleCommandService":
+        from src.ops.services.schedule_service import OpsScheduleCommandService
+
+        return OpsScheduleCommandService
+    if name == "OpsStdRuleCommandService":
+        from src.ops.services.std_rule_service import OpsStdRuleCommandService
+
+        return OpsStdRuleCommandService
+    raise AttributeError(name)

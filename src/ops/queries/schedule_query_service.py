@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from src.platform.models.app.app_user import AppUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.operations.specs import get_ops_spec_display_name
+from src.ops.specs import get_ops_spec_display_name
 from src.platform.exceptions import WebAppError
 from src.ops.schemas.schedule import (
     ScheduleDetailResponse,

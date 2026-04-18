@@ -4,7 +4,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.operations.specs import get_dataset_freshness_spec, list_job_specs, list_workflow_specs
+from src.ops.specs import get_dataset_freshness_spec, list_job_specs, list_workflow_specs
 from src.ops.schemas.catalog import (
     JobSpecCatalogItem,
     OpsCatalogResponse,

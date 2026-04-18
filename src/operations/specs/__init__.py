@@ -1,6 +1,6 @@
-from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
-from src.operations.specs.job_spec import JobSpec, ParameterSpec
-from src.operations.specs.registry import (
+from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.ops.specs.job_spec import JobSpec, ParameterSpec
+from src.ops.specs.registry import (
     DATASET_FRESHNESS_BY_JOB_NAME,
     DATASET_FRESHNESS_SPEC_REGISTRY,
     JOB_SPEC_REGISTRY,
@@ -16,7 +16,7 @@ from src.operations.specs.registry import (
     list_workflow_specs,
     ops_spec_supports_schedule,
 )
-from src.operations.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
+from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
 
 __all__ = [
     "DATASET_FRESHNESS_BY_JOB_NAME",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from src.operations.runtime import OperationsScheduler, OperationsWorker
+from src.ops.runtime import OperationsScheduler, OperationsWorker
 
 
 class OpsRuntimeCommandService:

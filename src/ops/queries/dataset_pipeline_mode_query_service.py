@@ -9,7 +9,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.schemas.dataset_pipeline import DatasetPipelineModeItem, DatasetPipelineModeListResponse
-from src.operations.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
+from src.ops.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
 
 
 class DatasetPipelineModeQueryService:

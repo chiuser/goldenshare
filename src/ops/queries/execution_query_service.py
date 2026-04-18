@@ -9,7 +9,7 @@ from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.ops.models.ops.sync_run_log import SyncRunLog
-from src.operations.specs import get_ops_spec_display_name, get_workflow_spec
+from src.ops.specs import get_ops_spec_display_name, get_workflow_spec
 from src.platform.exceptions import WebAppError
 from src.ops.schemas.execution import (
     ExecutionDetailResponse,

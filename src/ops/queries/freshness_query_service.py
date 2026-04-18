@@ -61,14 +61,14 @@ from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
-from src.operations.specs import (
+from src.ops.specs import (
     DatasetFreshnessSpec,
     get_dataset_freshness_spec,
     get_dataset_freshness_spec_by_job_name,
     get_workflow_spec,
     list_dataset_freshness_specs,
 )
-from src.operations.specs.observed_dataset_registry import (
+from src.ops.specs.observed_dataset_registry import (
     OBSERVED_DATE_AUTHORITATIVE_KEYS,
     OBSERVED_DATE_FILTERS,
     OBSERVED_DATE_MODEL_REGISTRY,

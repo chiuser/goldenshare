@@ -1,22 +1,12 @@
+"""Deprecated compatibility shim for src.operations.specs.dataset_freshness_spec.
+
+Use src.ops.specs.dataset_freshness_spec instead.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+import sys
 
+from src.ops.specs import dataset_freshness_spec as _impl
 
-DatasetCadence = Literal["reference", "daily", "weekly", "monthly", "event"]
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetFreshnessSpec:
-    dataset_key: str
-    resource_key: str
-    job_name: str
-    display_name: str
-    domain_key: str
-    domain_display_name: str
-    target_table: str
-    cadence: DatasetCadence
-    raw_table: str | None = None
-    observed_date_column: str | None = None
-    primary_execution_spec_key: str | None = None
+sys.modules[__name__] = _impl

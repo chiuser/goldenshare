@@ -206,7 +206,10 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
             return SimpleNamespace(rows_fetched=5, rows_written=5, message="ok")
 
     stub_service = StubSyncService()
-    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+    monkeypatch.setattr(
+        "src.operations.runtime.dispatcher.build_sync_service",
+        lambda resource, session, **kwargs: stub_service,
+    )
 
     rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
         db_session,
@@ -244,7 +247,10 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
             return SimpleNamespace(rows_fetched=1, rows_written=1, message="unexpected")
 
     stub_service = StubSyncService()
-    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+    monkeypatch.setattr(
+        "src.operations.runtime.dispatcher.build_sync_service",
+        lambda resource, session, **kwargs: stub_service,
+    )
 
     rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
         db_session,
@@ -288,7 +294,10 @@ def test_dispatcher_passes_content_type_to_backfill_by_trade_date(db_session, jo
         return SimpleNamespace(resource="moneyflow_ind_dc", units_processed=1, rows_fetched=7, rows_written=6)
 
     backfill_service.backfill_by_trade_dates = _stub_backfill_by_trade_dates
-    monkeypatch.setattr("src.operations.runtime.dispatcher.HistoryBackfillService", lambda session: backfill_service)
+    monkeypatch.setattr(
+        "src.operations.runtime.dispatcher.HistoryBackfillService",
+        lambda session, **kwargs: backfill_service,
+    )
 
     rows_fetched, rows_written, summary = OperationsDispatcher()._run_backfill_job(
         db_session,
@@ -325,7 +334,10 @@ def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_exe
             return SimpleNamespace(rows_fetched=5, rows_written=5, message="ok")
 
     stub_service = StubSyncService()
-    monkeypatch.setattr("src.operations.runtime.dispatcher.build_sync_service", lambda resource, session: stub_service)
+    monkeypatch.setattr(
+        "src.operations.runtime.dispatcher.build_sync_service",
+        lambda resource, session, **kwargs: stub_service,
+    )
 
     refresh_calls: list[dict] = []
 

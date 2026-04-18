@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from src.platform.exceptions import WebAppError
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.operations.specs import list_dataset_freshness_specs
+from src.ops.specs import list_dataset_freshness_specs
 from src.ops.schemas.std_rule import (
     StdCleansingRuleItem,
     StdCleansingRuleListResponse,
