@@ -175,6 +175,149 @@
 
 ---
 
+## auth 第二批链路判定与迁移顺序（本轮仅设计，不改代码）
+
+### 1) 调用链判定（基于当前代码实扫）
+
+#### `src/platform/auth/dependencies.py`
+
+- 直接被以下 API 层消费：
+  - `src/platform/api/v1/auth.py`（`require_authenticated`）
+  - `src/platform/api/v1/users.py`（`require_authenticated`）
+  - `src/platform/api/v1/admin.py`（`require_admin`）
+  - `src/platform/api/v1/admin_users.py`（`require_permission(...)`）
+  - `src/ops/api/*` 多个路由（大量 `require_admin` / 少量 `require_authenticated`）
+  - `src/biz/api/quote.py`、`src/biz/api/market.py`（`require_quote_access`）
+  - `src/biz/api/share.py`（`require_admin`）
+- 内部依赖：
+  - `src/platform/auth/jwt_service.py`
+  - `src/platform/auth/user_repository.py`
+  - `src/platform/models/app/auth_user_role.py`
+  - `src/platform/models/app/auth_role_permission.py`
+  - `src/platform/dependencies`（DB session）
+  - `src/platform/exceptions`、`src/platform/web/settings`
+
+#### `src/platform/auth/jwt_service.py`
+
+- 被以下模块直接调用：
+  - `src/platform/auth/dependencies.py`
+  - `src/platform/services/auth_service.py`
+  - `src/ops/api/schedules.py`（流式 token 校验）
+- 依赖：
+  - `src/platform/web/settings`
+  - `src/platform/exceptions`
+  - `src/app/auth/domain.py`（通过 `TokenPayload`）
+
+#### `src/platform/auth/user_repository.py`
+
+- 被以下模块直接调用：
+  - `src/platform/auth/dependencies.py`
+  - `src/platform/services/auth_service.py`
+  - `src/platform/services/admin_user_service.py`
+  - `src/ops/api/schedules.py`
+- 依赖：
+  - `src/platform/models/app/app_user.py`（ORM）
+
+#### services / schemas / models / api 关联链
+
+- `src/platform/services/auth_service.py`
+  - 当前由 `src/platform/api/v1/auth.py` 独占调用
+  - 直接依赖 `JWTService` + `UserRepository` + `platform.models.app/*` 全套账户模型
+- `src/platform/services/admin_user_service.py`
+  - 当前由 `src/platform/api/v1/admin_users.py` 独占调用
+  - 依赖 `UserRepository` + `AuthService` + 账户模型
+- `src/platform/services/user_service.py`
+  - 当前仅被 `src/platform/api/v1/users.py` 调用
+  - 逻辑轻（仅透传当前用户）
+- `src/platform/schemas/auth.py`
+  - 由 `src/platform/api/v1/auth.py` 与 `src/platform/api/v1/users.py` 使用
+- `src/platform/schemas/user_admin.py`
+  - 由 `src/platform/api/v1/admin_users.py` 使用
+- `src/platform/models/app/*`
+  - 被 `auth_service/admin_user_service/dependencies` 使用
+  - 另有 `src/ops/queries/*`（如 execution/schedule/probe/resolution query）直接读 `AppUser`
+
+### 2) 必须成组迁移 vs 可单独迁移
+
+#### 必须成组迁移
+
+1. **鉴权基础组三件套**
+   - `platform/auth/dependencies.py`
+   - `platform/auth/jwt_service.py`
+   - `platform/auth/user_repository.py`
+   - 原因：`dependencies` 同时依赖后两者，且被 `platform + ops + biz` 路由横向复用，拆分时必须保持同一批次兼容切换。
+
+2. **终端用户认证链**
+   - `platform/services/auth_service.py`
+   - `platform/services/user_service.py`
+   - `platform/schemas/auth.py`
+   - `platform/api/v1/auth.py`
+   - `platform/api/v1/users.py`
+   - 原因：API 与 schema/service 强绑定，拆分中不能把 service/schema/api 分开漂移。
+
+3. **管理员账户管理链**
+   - `platform/services/admin_user_service.py`
+   - `platform/schemas/user_admin.py`
+   - `platform/api/v1/admin.py`
+   - `platform/api/v1/admin_users.py`
+   - 原因：管理端接口依赖用户/角色/邀请/审计同一套服务语义，拆分应成组完成。
+
+#### 可单独先迁（但收益有限）
+
+- `platform/services/user_service.py` 理论上可单独迁，但因其仅被 `/users/me` 一处调用，单迁收益低，建议放入“终端用户认证链”成组处理。
+
+### 3) 第二批推荐顺序（仅计划）
+
+#### 第二批-A（最安全候选）
+
+- 仅做鉴权基础组三件套迁移：
+  - `dependencies.py` + `jwt_service.py` + `user_repository.py`
+- 并同步维护 `platform/auth/__init__.py` 导出与旧路径 deprecated 兼容壳。
+- 目标：先把跨 `platform/ops/biz` 共用的 auth ingress 稳定收敛到 `src/app/auth`。
+
+#### 第二批-B（中风险，成组）
+
+- 迁移“终端用户认证链”：
+  - `auth_service.py`、`user_service.py`、`schemas/auth.py`、`api/v1/auth.py`、`api/v1/users.py`
+- 前提：第二批-A 已稳定，且登录/刷新/登出链路回归通过。
+
+#### 第二批-C（中高风险，成组）
+
+- 迁移“管理员账户管理链”：
+  - `admin_user_service.py`、`schemas/user_admin.py`、`api/v1/admin.py`、`api/v1/admin_users.py`
+- 前提：第二批-B 稳定，且 admin 权限链回归通过。
+
+#### 最后处理项（继续暂缓）
+
+- `platform/models/app/*` 的目录归位与统一命名（需联动 `ops/queries` 对 `AppUser` 的引用）
+- `platform/api/v1/router.py`、`platform/api/router.py`、`platform/web/app.py` 聚合与入口切换
+
+### 4) 继续暂缓原因与风险点
+
+1. `platform/models/app/*` 仍是 auth/admin 与 ops 查询共用模型层，过早迁移会放大回归面。
+2. `platform/api/router.py` 与 `platform/api/v1/router.py` 属全局聚合入口，必须最后切。
+3. `platform/web/app.py` 是运行入口，需在子路由稳定后再做组合根切换。
+
+---
+
+## auth 第二批-A 真实迁移（当前批次）
+
+本轮第二批-A 实际执行范围严格限定为鉴权基础组三件套：
+
+1. `src/platform/auth/dependencies.py` -> `src/app/auth/dependencies.py`
+2. `src/platform/auth/jwt_service.py` -> `src/app/auth/jwt_service.py`
+3. `src/platform/auth/user_repository.py` -> `src/app/auth/user_repository.py`
+
+执行原则：
+
+- 仅迁移上述三个模块，不扩大范围
+- 三者按一组迁移，不拆分
+- `src/platform/auth/*` 旧路径保留 deprecated 兼容壳，保证旧 import 继续可用
+- 外部行为保持不变
+- 不触碰 `services / schemas / models / api / router / web` 链路
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**
