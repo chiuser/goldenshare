@@ -66,6 +66,23 @@
 
 ---
 
+## 第一批 biz 迁移链（当前批次）
+
+本轮第一条 biz 业务线迁移仅包含 share 三件套：
+
+1. `src/platform/queries/share_market_query_service.py` -> `src/biz/queries/share_market_query_service.py`
+2. `src/platform/schemas/share.py` -> `src/biz/schemas/share.py`
+3. `src/platform/api/v1/share.py` -> `src/biz/api/share.py`
+
+执行原则：
+
+- 仅迁移 share query / share schema / share API，不扩大范围
+- `src/platform` 旧路径保留 deprecated 兼容壳
+- 外部行为与返回契约保持不变
+- 不触碰 `platform/api/router.py` 与 `platform/api/v1/router.py` 聚合入口
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**
