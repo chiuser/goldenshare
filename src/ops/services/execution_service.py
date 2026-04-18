@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from src.operations.services import OperationsExecutionService
+from src.ops.services.operations_execution_service import OperationsExecutionService
 from src.platform.auth.domain import AuthenticatedUser
 
 

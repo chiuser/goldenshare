@@ -8,7 +8,7 @@ from src.operations.services.default_single_source_seed_service import (
     DefaultSingleSourceSeedService,
     SeedDefaultSingleSourceReport,
 )
-from src.operations.services.execution_service import OperationsExecutionService
+from src.ops.services.operations_execution_service import OperationsExecutionService
 from src.operations.services.execution_reconciliation_service import (
     OperationsExecutionReconciliationService,
     ReconciledExecution,
@@ -23,7 +23,7 @@ from src.operations.services.market_mood_walkforward_validation_service import (
     MarketMoodWalkForwardValidationService,
     MoodWalkForwardReport,
 )
-from src.operations.services.schedule_service import OperationsScheduleService
+from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.operations.services.serving_light_refresh_service import (
     ServingLightRefreshResult,
     ServingLightRefreshService,

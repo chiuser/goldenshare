@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.job_execution import JobExecution
-from src.operations.services import OperationsScheduleService
+from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.operations.services.probe_runtime_service import ProbeRuntimeService
 
 

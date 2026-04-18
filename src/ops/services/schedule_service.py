@@ -4,8 +4,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from src.operations.services import OperationsScheduleService
-from src.operations.services.schedule_planner import preview_schedule_runs
+from src.ops.services.operations_schedule_service import OperationsScheduleService
+from src.ops.services.schedule_planner import preview_schedule_runs
 from src.platform.auth.domain import AuthenticatedUser
 
 
