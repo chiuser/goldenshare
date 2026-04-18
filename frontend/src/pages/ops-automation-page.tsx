@@ -814,10 +814,7 @@ export function OpsAutomationPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
-        <Text c="dimmed" size="sm">
-          把系统要自动执行的任务安排好，平时只需要看结果，不需要手动盯着跑。
-        </Text>
+      <Group justify="flex-end" align="center">
         <Button onClick={openCreate}>新建自动任务</Button>
       </Group>
 
