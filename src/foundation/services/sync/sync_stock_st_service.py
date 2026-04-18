@@ -7,7 +7,6 @@ from src.foundation.clients.tushare_client import TushareHttpClient
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.fields import STOCK_ST_FIELDS
-from src.ops.models.ops.job_execution import JobExecution
 from src.utils import coerce_row, parse_tushare_date
 
 

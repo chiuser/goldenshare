@@ -13,7 +13,6 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.sync_moneyflow_service import publish_moneyflow_serving_for_keys
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
-from src.ops.models.ops.job_execution import JobExecution
 
 
 WINDOW_DAYS = 100

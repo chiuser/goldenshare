@@ -7,7 +7,6 @@ from src.foundation.clients.tushare_client import TushareHttpClient
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.fields import STK_FACTOR_PRO_FIELDS
-from src.ops.models.ops.job_execution import JobExecution
 from src.utils import coerce_row, parse_tushare_date
 
 
@@ -147,4 +146,3 @@ class SyncStkFactorProService(BaseSyncService):
 
     def _update_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
         self._update_execution_progress(execution_id=execution_id, current=current, total=total, message=message)
-

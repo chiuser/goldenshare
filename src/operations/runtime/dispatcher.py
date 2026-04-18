@@ -19,6 +19,7 @@ from src.platform.exceptions import WebAppError
 from src.operations.services.history_backfill_service import HistoryBackfillService
 from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync.registry import build_sync_service
+from src.ops.services.job_execution_sync_context import JobExecutionSyncContext
 from src.utils import truncate_text
 
 
@@ -216,8 +217,9 @@ class OperationsDispatcher:
         _, resource = job_spec.key.split(".", 1)
         normalized_params = self._normalize_dates(params)
         parsed_trade_date: date | None = None
+        execution_context = JobExecutionSyncContext(session)
         if job_spec.category == "sync_daily":
-            service = build_sync_service(resource, session)
+            service = build_sync_service(resource, session, execution_context=execution_context)
             supported_param_keys = {param.key for param in (job_spec.supported_params or ())}
             if "month" in supported_param_keys and "trade_date" not in supported_param_keys:
                 result = service.run_incremental(execution_id=execution.id, **normalized_params)
@@ -234,7 +236,7 @@ class OperationsDispatcher:
                 extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
                 result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
         else:
-            service = build_sync_service(resource, session)
+            service = build_sync_service(resource, session, execution_context=execution_context)
             result = service.run_full(execution_id=execution.id, **normalized_params)
 
         light_note = self._refresh_serving_light_if_needed(
@@ -261,7 +263,10 @@ class OperationsDispatcher:
         params: dict[str, Any],
         step_id: int,
     ) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        service = HistoryBackfillService(session)
+        service = HistoryBackfillService(
+            session,
+            execution_context=JobExecutionSyncContext(session),
+        )
         normalized = self._normalize_dates(params)
 
         def on_progress(message: str) -> None:

@@ -1,12 +1,10 @@
-from src.platform.models.app.app_user import AppUser
-from src.platform.models.app.auth_action_token import AuthActionToken
-from src.platform.models.app.auth_audit_log import AuthAuditLog
-from src.platform.models.app.auth_invite_code import AuthInviteCode
-from src.platform.models.app.auth_permission import AuthPermission
-from src.platform.models.app.auth_refresh_token import AuthRefreshToken
-from src.platform.models.app.auth_role import AuthRole
-from src.platform.models.app.auth_role_permission import AuthRolePermission
-from src.platform.models.app.auth_user_role import AuthUserRole
+"""Foundation-only model registry.
+
+Deprecated as global model loader:
+- Full application-wide ORM registration has moved to ``src.app.model_registry``.
+- This module is kept as a compatibility shell for foundation model imports only.
+"""
+
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
@@ -67,24 +65,6 @@ from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
-from src.ops.models.ops.config_revision import ConfigRevision
-from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
-from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.models.ops.index_series_active import IndexSeriesActive
-from src.ops.models.ops.job_execution import JobExecution
-from src.ops.models.ops.job_execution_event import JobExecutionEvent
-from src.ops.models.ops.job_execution_step import JobExecutionStep
-from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.models.ops.probe_rule import ProbeRule
-from src.ops.models.ops.probe_run_log import ProbeRunLog
-from src.ops.models.ops.resolution_release import ResolutionRelease
-from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
-from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
-from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.ops.models.ops.sync_job_state import SyncJobState
-from src.ops.models.ops.sync_run_log import SyncRunLog
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_daily import RawDaily
@@ -142,15 +122,6 @@ from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyf
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 __all__ = [
-    "AppUser",
-    "AuthActionToken",
-    "AuthAuditLog",
-    "AuthInviteCode",
-    "AuthPermission",
-    "AuthRefreshToken",
-    "AuthRole",
-    "AuthRolePermission",
-    "AuthUserRole",
     "EquityAdjFactor",
     "EquityBlockTrade",
     "EquityCyqPerf",
@@ -249,27 +220,9 @@ __all__ = [
     "RawTopList",
     "RawTradeCal",
     "RawUsBasic",
-    "ConfigRevision",
-    "DatasetLayerSnapshotCurrent",
-    "DatasetLayerSnapshotHistory",
-    "DatasetPipelineMode",
-    "DatasetStatusSnapshot",
-    "IndexSeriesActive",
-    "JobExecution",
-    "JobExecutionEvent",
-    "JobExecutionStep",
-    "JobSchedule",
-    "ProbeRule",
-    "ProbeRunLog",
-    "ResolutionRelease",
-    "ResolutionReleaseStageStatus",
     "Security",
-    "StdCleansingRule",
-    "StdMappingRule",
     "StkPeriodBar",
     "StkPeriodBarAdj",
-    "SyncJobState",
-    "SyncRunLog",
     "ThsDaily",
     "ThsHot",
     "ThsIndex",

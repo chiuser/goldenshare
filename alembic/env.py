@@ -5,8 +5,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from src.app.model_registry import register_all_models
 from src.foundation.config.settings import get_settings
-from src.foundation.models import all_models  # noqa: F401
 from src.foundation.models.base import Base
 
 config = context.config
@@ -16,6 +16,7 @@ config.set_main_option("sqlalchemy.url", settings.database_url)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+register_all_models()
 target_metadata = Base.metadata
 
 

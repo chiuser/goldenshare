@@ -6,7 +6,6 @@ from sqlalchemy import select
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.dc_index import DcIndex
-from src.ops.models.ops.job_execution import JobExecution
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.fields import DC_DAILY_FIELDS
 from src.foundation.services.sync.sync_dc_index_service import SyncDcIndexService

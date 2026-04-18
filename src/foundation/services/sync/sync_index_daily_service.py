@@ -4,7 +4,6 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from src.foundation.config.settings import get_settings
-from src.ops.models.ops.job_execution import JobExecution
 from src.foundation.services.sync.fields import INDEX_DAILY_FIELDS
 from src.foundation.services.sync.resource_sync import HttpResourceSyncService
 from src.utils import coerce_row

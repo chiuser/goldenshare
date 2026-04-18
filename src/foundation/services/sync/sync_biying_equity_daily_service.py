@@ -11,7 +11,6 @@ from src.foundation.connectors.factory import create_source_connector
 from src.foundation.config.settings import get_settings
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 from src.foundation.services.sync.base_sync_service import BaseSyncService
-from src.ops.models.ops.job_execution import JobExecution
 
 
 ADJ_TYPES: tuple[tuple[str, str], ...] = (

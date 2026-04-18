@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.services.sync.sync_adj_factor_service import SyncAdjFactorService
 from src.foundation.services.sync.sync_block_trade_service import SyncBlockTradeService
 from src.foundation.services.sync.sync_biying_equity_daily_service import SyncBiyingEquityDailyService
@@ -162,6 +163,14 @@ def list_trade_date_backfill_resources() -> tuple[str, ...]:
     return TRADE_DATE_BACKFILL_RESOURCE_KEYS
 
 
-def build_sync_service(resource: str, session: Session):
+def build_sync_service(
+    resource: str,
+    session: Session,
+    *,
+    execution_context: SyncExecutionContext | None = None,
+):
     service_cls = SYNC_SERVICE_REGISTRY[resource]
-    return service_cls(session)
+    service = service_cls(session)
+    if execution_context is not None and hasattr(service, "set_execution_context"):
+        service.set_execution_context(execution_context)
+    return service

@@ -6,7 +6,6 @@ from sqlalchemy import select
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.ths_index import ThsIndex
-from src.ops.models.ops.job_execution import JobExecution
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.foundation.services.sync.fields import THS_DAILY_FIELDS
 from src.foundation.services.sync.sync_ths_index_service import SyncThsIndexService

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
+from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.services.sync.registry import build_sync_service, list_trade_date_backfill_resources
 from src.operations.services.sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 
@@ -23,11 +24,19 @@ class BackfillSummary:
 
 
 class HistoryBackfillService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, execution_context: SyncExecutionContext | None = None) -> None:
         self.session = session
+        self.execution_context = execution_context
         self.dao = DAOFactory(session)
         self.settings = get_settings()
         self.sync_job_state_reconciliation = SyncJobStateReconciliationService()
+
+    def _build_sync_service(self, resource: str):
+        return build_sync_service(
+            resource,
+            self.session,
+            execution_context=self.execution_context,
+        )
 
     def backfill_trade_calendar(
         self,
@@ -36,7 +45,7 @@ class HistoryBackfillService:
         exchange: str | None = None,
         execution_id: int | None = None,
     ) -> BackfillSummary:
-        service = build_sync_service("trade_cal", self.session)
+        service = self._build_sync_service("trade_cal")
         result = service.run_full(
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
@@ -81,7 +90,7 @@ class HistoryBackfillService:
             rows_written = 0
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
-                service = build_sync_service(resource, self.session)
+                service = self._build_sync_service(resource)
                 result = service.run_incremental(
                     trade_date=trade_date,
                     execution_id=execution_id,
@@ -109,7 +118,7 @@ class HistoryBackfillService:
             rows_written = 0
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
-                service = build_sync_service(resource, self.session)
+                service = self._build_sync_service(resource)
                 result = service.run_incremental(
                     trade_date=trade_date,
                     execution_id=execution_id,
@@ -133,7 +142,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(securities)
         for index, security in enumerate(securities, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             result = service.run_full(
                 ts_code=security.ts_code,
                 start_date=start_date.isoformat(),
@@ -185,7 +194,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(trade_dates)
         for index, trade_date in enumerate(trade_dates, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             incremental_kwargs = {
                 "trade_date": trade_date,
                 "execution_id": execution_id,
@@ -244,7 +253,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(securities)
         for index, security in enumerate(securities, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             result = service.run_full(ts_code=security.ts_code, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
@@ -276,7 +285,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(trade_dates)
         for index, trade_date in enumerate(trade_dates, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             result = service.run_incremental(
                 trade_date=trade_date,
                 execution_id=execution_id,
@@ -323,7 +332,7 @@ class HistoryBackfillService:
             rows_written = 0
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
-                service = build_sync_service(resource, self.session)
+                service = self._build_sync_service(resource)
                 result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
                 rows_fetched += result.rows_fetched
                 rows_written += result.rows_written
@@ -346,7 +355,7 @@ class HistoryBackfillService:
             rows_written = 0
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
-                service = build_sync_service(resource, self.session)
+                service = self._build_sync_service(resource)
                 result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
                 rows_fetched += result.rows_fetched
                 rows_written += result.rows_written
@@ -363,7 +372,7 @@ class HistoryBackfillService:
             if resource == "index_daily_basic" and not index_codes:
                 latest_open = self.dao.trade_calendar.get_latest_open_date(self.settings.default_exchange, end_date)
                 if latest_open is not None:
-                    discovery_service = build_sync_service(resource, self.session)
+                    discovery_service = self._build_sync_service(resource)
                     discovery_service.run_incremental(trade_date=latest_open, execution_id=execution_id)
                 index_codes = self.dao.index_series_active.list_active_codes(resource)
         else:
@@ -379,7 +388,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(index_codes)
         for index_number, index_code in enumerate(index_codes, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             kwargs = {
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
@@ -427,7 +436,7 @@ class HistoryBackfillService:
         rows_written = 0
         total = len(months)
         for index, month in enumerate(months, start=1):
-            service = build_sync_service(resource, self.session)
+            service = self._build_sync_service(resource)
             result = service.run_full(month=month, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
