@@ -1,4 +1,4 @@
-from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
+from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.operations.services.dataset_pipeline_mode_seed_service import (
     DatasetPipelineModeSeedService,
     SeedDatasetPipelineModeReport,
@@ -9,7 +9,7 @@ from src.operations.services.default_single_source_seed_service import (
     SeedDefaultSingleSourceReport,
 )
 from src.ops.services.operations_execution_service import OperationsExecutionService
-from src.operations.services.execution_reconciliation_service import (
+from src.ops.services.operations_execution_reconciliation_service import (
     OperationsExecutionReconciliationService,
     ReconciledExecution,
 )
@@ -29,7 +29,7 @@ from src.operations.services.serving_light_refresh_service import (
     ServingLightRefreshService,
 )
 from src.operations.services.stock_basic_reconcile_service import StockBasicReconcileReport, StockBasicReconcileService
-from src.operations.services.sync_job_state_reconciliation_service import (
+from src.ops.services.operations_sync_job_state_reconciliation_service import (
     ReconciledSyncJobState,
     SyncJobStateReconciliationService,
 )

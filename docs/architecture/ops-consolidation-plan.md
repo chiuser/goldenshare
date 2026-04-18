@@ -147,12 +147,13 @@
 
 - 明确暂缓：
   - `market_mood_walkforward_validation_service`（按任务要求禁止处理）
-- 本轮不处理的其余高歧义/跨域项（示例）：
-  - `history_backfill_service`
+- 第一批暂缓（已在第二批迁移）的项：
   - `probe_runtime_service`
   - `execution_reconciliation_service`
   - `sync_job_state_reconciliation_service`
   - `dataset_status_snapshot_service`
+- 本轮不处理的其余高歧义/跨域项（示例）：
+  - `history_backfill_service`
   - `daily_health_report_service`
   - `stock_basic_reconcile_service`
   - `moneyflow_reconcile_service`
@@ -181,3 +182,79 @@
    - 只做 import 路径切换，不改业务分支与事务语义。
 3. **后续清理难度**
    - 每轮仅迁移低歧义服务，并在文档维护“暂缓列表”，避免一次性大迁移。
+
+---
+
+## services 第二批归并章节（ops 治理域）
+
+### 为什么这一批属于 ops 治理域
+
+本批迁移对象：
+
+- `execution_reconciliation_service`
+- `sync_job_state_reconciliation_service`
+- `dataset_status_snapshot_service`
+- `probe_runtime_service`
+
+共同特征：
+
+- 主要读写 `ops.*` 元数据/状态表（执行状态、探测日志、快照层状态等）；
+- 职责集中在 ops 运维治理（修正、对账、快照、探测触发）；
+- 不承载平台业务 API 语义，不依赖 platform 的 controller/query 层；
+- 可通过兼容壳平滑切换调用路径，外部行为可保持稳定。
+
+### 为什么暂不处理剩余服务
+
+继续暂缓的服务具备至少一项高歧义特征：
+
+- 跨域/跨层写入（foundation/core_serving/ops 多层耦合）；
+- 属于分析验证类或业务特化逻辑；
+- seed/一次性修复脚本语义，归属与生命周期不稳定。
+
+明确继续暂缓：
+
+- `market_mood_walkforward_validation_service`
+- `history_backfill_service`
+- `stock_basic_reconcile_service`
+- `moneyflow_reconcile_service`
+- seed 系列：`dataset_pipeline_mode_seed_service` / `default_single_source_seed_service` / `moneyflow_multi_source_seed_service`
+- 其余未迁移项暂按原路径保留，后续再分批判定。
+
+### 第二批迁移最小范围（本轮实施）
+
+1. 将以下主实现迁入 `src/ops/services/*`：
+   - `operations_execution_reconciliation_service.py`
+   - `operations_sync_job_state_reconciliation_service.py`
+   - `operations_dataset_status_snapshot_service.py`
+   - `operations_probe_runtime_service.py`
+2. 旧路径 `src/operations/services/*.py` 保留 deprecated 兼容壳（模块别名转发）。
+3. 最小调用侧切换：
+   - `src/ops/runtime/scheduler.py` -> `src.ops.services.operations_probe_runtime_service`
+   - `src/ops/runtime/worker.py` -> `src.ops.services.operations_dataset_status_snapshot_service`
+4. 不改 CLI 命令设计，不改 query/api/schema 大结构。
+
+### 风险点与兼容策略（第二批）
+
+1. **CLI/测试仍引用旧路径**
+   - 用 `operations/services` 兼容壳兜底，避免一次性改动测试与命令入口。
+2. **循环依赖风险**
+   - 迁移后优先切换到 `src.ops.specs`，避免 `ops -> operations -> ops` 闭环。
+3. **行为漂移风险**
+   - 严格限定为 import/路径迁移，不改业务流程与 SQL 语义。
+
+### `execution_service` / `schedule_service` 的命名与角色关系
+
+当前采用“双名并存、角色分离”：
+
+- **主实现（core implementation）**
+  - `src/ops/services/operations_execution_service.py`
+  - `src/ops/services/operations_schedule_service.py`
+  - 负责真实业务逻辑。
+- **façade / 命令层封装（command façade）**
+  - `src/ops/services/execution_service.py`（`OpsExecutionCommandService`）
+  - `src/ops/services/schedule_service.py`（`OpsScheduleCommandService`）
+  - 面向 API/命令入口做参数编排与权限上下文接入。
+- **旧路径兼容层（deprecated shim）**
+  - `src/operations/services/execution_service.py`
+  - `src/operations/services/schedule_service.py`
+  - 仅做模块转发，不承载新逻辑。
