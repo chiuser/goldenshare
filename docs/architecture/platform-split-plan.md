@@ -356,6 +356,116 @@
 
 ---
 
+## accounts/models 拆分计划（准备阶段）
+
+本节只做拆分准备，不做任何模型实现迁移。本节覆盖范围仅限：
+
+- `src/platform/models/app/*`
+
+当前模型清单：
+
+1. `app_user.py`
+2. `auth_role.py`
+3. `auth_permission.py`
+4. `auth_role_permission.py`
+5. `auth_user_role.py`
+6. `auth_refresh_token.py`
+7. `auth_action_token.py`
+8. `auth_audit_log.py`
+9. `auth_invite_code.py`
+10. `__init__.py`
+
+### 当前调用链（基于代码实扫）
+
+#### 1) `src/app/auth/*`（当前主消费方）
+
+- `src/app/auth/dependencies.py`
+  - 直接读取：`AuthUserRole`、`AuthRolePermission`
+- `src/app/auth/user_repository.py`
+  - 直接读取：`AppUser`
+- `src/app/auth/services/auth_service.py`
+  - 直接读取：`AppUser`、`AuthRole`、`AuthPermission`、`AuthRolePermission`、`AuthUserRole`、`AuthRefreshToken`、`AuthActionToken`、`AuthAuditLog`、`AuthInviteCode`
+- `src/app/auth/services/admin_user_service.py`
+  - 直接读取：`AppUser`、`AuthUserRole`、`AuthRefreshToken`、`AuthActionToken`、`AuthAuditLog`、`AuthInviteCode`
+
+#### 2) `src/platform/auth/*` 与 `src/platform/services/*`（过渡兼容层）
+
+- 当前 `platform/auth/*`、`platform/services/*` 已以 deprecated shim 为主，主实现已转发到 `src/app/auth/*`。
+- 因此模型的“真实主消费”已在 `src/app/auth/*`，`platform` 侧更多是旧路径兼容入口。
+
+#### 3) `src/ops/queries/*`（ops 查询读取）
+
+- `src/ops/queries/execution_query_service.py` 读取 `AppUser`
+- `src/ops/queries/schedule_query_service.py` 读取 `AppUser`
+- `src/ops/queries/probe_query_service.py` 读取 `AppUser`
+- `src/ops/queries/resolution_release_query_service.py` 读取 `AppUser`
+
+#### 4) model registry / Alembic 关系
+
+- `alembic/env.py` 通过 `src.app.model_registry.register_all_models()` 注册 ORM 模型。
+- `src/app/model_registry.py` 当前仍显式导入 `src/platform/models/app/*`。
+- 因此模型迁移必须与 model registry 的导入路径兼容策略联动，确保 Alembic metadata 装载稳定。
+
+### 哪些可以先迁，哪些必须成组迁
+
+#### 可先迁（低风险先手）
+
+- `src/platform/models/app/__init__.py`（组织导出层）
+- `auth_role.py` 与 `auth_permission.py`（相对独立的角色/权限字典模型）
+
+说明：即使先迁，也需要保留旧路径 shim，避免调用侧提前切换造成连锁改动。
+
+#### 必须成组迁（中高耦合）
+
+1. **账户授权核心组（建议同批）**
+   - `app_user.py`
+   - `auth_user_role.py`
+   - `auth_role_permission.py`
+   - （并建议同批带上）`auth_role.py`、`auth_permission.py`
+
+原因：`dependencies + auth_service + ops/queries` 对该链路耦合紧，拆散迁移会增加行为漂移风险。
+
+2. **令牌/审计/邀请码组（建议同批）**
+   - `auth_refresh_token.py`
+   - `auth_action_token.py`
+   - `auth_audit_log.py`
+   - `auth_invite_code.py`
+
+原因：`auth_service/admin_user_service` 对这一组存在组合读写语义，拆开迁移会放大回归面。
+
+### 最安全的第一批候选（建议）
+
+第一批真实迁移优先采用“实现平移 + 旧路径 shim”策略，且严格不改字段与表结构：
+
+1. 先平移 `src/platform/models/app/__init__.py` 到 `src/app/models/__init__.py`（保留 platform shim）。
+2. 再按“成组迁移”执行两组模型（授权核心组、令牌审计组）。
+3. 在模型路径切换稳定后，再考虑调用方 import 的逐步切换（本阶段不做）。
+
+### 继续暂缓项
+
+以下项在模型迁移完成前继续暂缓：
+
+- `platform/api/router.py`
+- `platform/api/v1/router.py`
+- `platform/web/app.py`
+
+原因：
+
+- 这三处仍是全局入口/聚合层，提前处理会把模型迁移风险扩散到整站路由与启动链路，不符合“低风险分阶段”策略。
+
+### 风险点与迁移约束
+
+1. **Alembic/metadata 稳定性风险**
+   - 模型迁移必须保证 `register_all_models()` 在任意阶段都能成功加载目标模型。
+2. **ops 查询兼容风险**
+   - `ops/queries/*` 直接读取 `AppUser`，必须依赖旧路径 shim 或同批安全切换。
+3. **导入路径回归风险**
+   - `app/auth/*` 当前大量直接 import `src.platform.models.app.*`，迁移必须保留兼容导出。
+4. **强约束**
+   - 不允许为迁移顺手改字段、表名、关系定义、schema 名称、Alembic 行为。
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**

@@ -29,6 +29,7 @@
 - `platform/services/{auth_service,admin_user_service,user_service}`
 - `platform/schemas/{auth,user_admin}`
 - `platform/api/v1/{auth,users,admin,admin_users}`
+- `platform/models/app/*`（账户/认证模型，未来归 `src/app/models`）
 - 以及最终的 router 聚合职责
 
 ### 未来进入 `biz`
@@ -41,7 +42,7 @@
 
 ### 例外说明
 
-- `platform/models` 需按语义细分：认证账户模型通常归 `app`，业务/运维模型分别归 `biz`/`ops`。
+- `platform/models` 仍需按语义细分：账户/认证模型归 `app/models`，业务/运维模型分别归 `biz`/`ops`。
 
 ---
 
@@ -74,6 +75,7 @@
 
 - 它们同时聚合 app-auth、biz、ops 路由，提前切入口会放大回归风险。
 - auth/admin 整链拆分期间，本轮也不允许迁移上述聚合入口。
+- 账户模型拆分准备期间，本轮同样不允许迁移上述聚合入口与 `platform/web/app.py`。
 
 ---
 
