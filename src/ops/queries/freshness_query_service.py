@@ -135,6 +135,14 @@ class OpsFreshnessQueryService:
                 for spec in all_specs
                 if spec.resource_key in FORCE_LIVE_RESOURCE_KEYS
             ]
+            cadence_mismatch_resource_keys = [
+                spec.resource_key
+                for spec in all_specs
+                if (
+                    spec.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[spec.dataset_key].cadence != spec.cadence
+                )
+            ]
             missing_business_date_resource_keys = [
                 spec.resource_key
                 for spec in all_specs
@@ -161,6 +169,7 @@ class OpsFreshnessQueryService:
                     [
                         *missing_resource_keys,
                         *live_override_resource_keys,
+                        *cadence_mismatch_resource_keys,
                         *missing_business_date_resource_keys,
                         *missing_business_range_resource_keys,
                     ]

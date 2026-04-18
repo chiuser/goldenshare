@@ -484,3 +484,9 @@ def test_daily_moneyflow_sync_contains_only_moneyflow_resources() -> None:
 
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:
     assert set(SYNC_SERVICE_REGISTRY) == set(DATASET_FRESHNESS_METADATA)
+
+
+def test_broker_recommend_freshness_metadata_uses_monthly_cadence() -> None:
+    _, _, _, cadence, observed_date_column = DATASET_FRESHNESS_METADATA["broker_recommend"]
+    assert cadence == "monthly"
+    assert observed_date_column is None

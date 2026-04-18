@@ -931,7 +931,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
     "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
     "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
     "etf_index": ("ETF 基准指数列表", "reference_data", "基础主数据", "reference", None),
-    "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "reference", None),
+    "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "monthly", None),
     "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
     "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
     "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),

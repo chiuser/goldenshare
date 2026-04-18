@@ -461,6 +461,91 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
     assert "ths_hot" in dataset_keys
 
 
+def test_build_freshness_refreshes_snapshot_when_cadence_changed(
+    db_session,
+    monkeypatch,
+) -> None:
+    service = OpsFreshnessQueryService()
+    snapshot_item = DatasetFreshnessItem(
+        dataset_key="broker_recommend",
+        resource_key="broker_recommend",
+        display_name="券商每月荐股",
+        domain_key="reference_data",
+        domain_display_name="基础主数据",
+        job_name="sync_broker_recommend",
+        target_table="core_serving.broker_recommend",
+        cadence="reference",
+        latest_business_date=date(2026, 4, 1),
+        freshness_status="stale",
+        primary_execution_spec_key="sync_daily.broker_recommend",
+        full_sync_done=True,
+    )
+    live_item = DatasetFreshnessItem(
+        dataset_key="broker_recommend",
+        resource_key="broker_recommend",
+        display_name="券商每月荐股",
+        domain_key="reference_data",
+        domain_display_name="基础主数据",
+        job_name="sync_broker_recommend",
+        target_table="core_serving.broker_recommend",
+        cadence="monthly",
+        latest_business_date=date(2026, 4, 1),
+        freshness_status="fresh",
+        primary_execution_spec_key="sync_daily.broker_recommend",
+        full_sync_done=True,
+    )
+    snapshot_response = OpsFreshnessResponse(
+        summary=OpsFreshnessSummary(
+            total_datasets=1,
+            fresh_datasets=0,
+            lagging_datasets=0,
+            stale_datasets=1,
+            unknown_datasets=0,
+            disabled_datasets=0,
+        ),
+        groups=[
+            FreshnessGroup(
+                domain_key="reference_data",
+                domain_display_name="基础主数据",
+                items=[snapshot_item],
+            )
+        ],
+    )
+    monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
+    monkeypatch.setattr(
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_specs",
+        lambda: [
+            DatasetFreshnessSpec(
+                dataset_key="broker_recommend",
+                resource_key="broker_recommend",
+                job_name="sync_broker_recommend",
+                display_name="券商每月荐股",
+                domain_key="reference_data",
+                domain_display_name="基础主数据",
+                target_table="core_serving.broker_recommend",
+                cadence="monthly",
+                observed_date_column=None,
+                primary_execution_spec_key="sync_daily.broker_recommend",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "build_live_items",
+        lambda _session, *, today=None, resource_keys=None: [live_item] if resource_keys == ["broker_recommend"] else [],
+    )
+
+    response = service.build_freshness(db_session)
+    item = next(
+        item
+        for group in response.groups
+        for item in group.items
+        if item.dataset_key == "broker_recommend"
+    )
+    assert item.cadence == "monthly"
+    assert item.freshness_status == "fresh"
+
+
 def test_observed_snapshot_for_stk_period_week_adds_freq_filter(mocker) -> None:
     service = OpsFreshnessQueryService()
     spec = DatasetFreshnessSpec(
@@ -785,6 +870,42 @@ def test_stk_period_month_prefers_observed_business_date_over_state_date() -> No
     assert item.observed_business_date == date(2026, 2, 28)
     assert item.latest_business_date == date(2026, 2, 28)
     assert item.business_date_source == "observed"
+
+
+def test_broker_recommend_monthly_dataset_synced_at_month_start_is_fresh() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="broker_recommend",
+        resource_key="broker_recommend",
+        job_name="sync_broker_recommend",
+        display_name="券商每月荐股",
+        domain_key="reference_data",
+        domain_display_name="基础主数据",
+        target_table="core_serving.broker_recommend",
+        cadence="monthly",
+        observed_date_column=None,
+        primary_execution_spec_key="sync_daily.broker_recommend",
+    )
+    state = Mock(
+        last_success_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+        last_success_date=date(2026, 4, 1),
+        full_sync_done=True,
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=state,
+        latest_open_date=date(2026, 4, 16),
+        reference_date=date(2026, 4, 16),
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=None,
+        observed_sync_date=None,
+    )
+
+    assert item.latest_business_date == date(2026, 4, 1)
+    assert item.lag_days == 15
+    assert item.freshness_status == "fresh"
 
 
 def test_reference_dataset_uses_last_sync_date_as_business_date_when_no_observed_date() -> None:
