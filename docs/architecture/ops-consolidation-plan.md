@@ -387,3 +387,48 @@
 - `history_backfill_service.py`
 - `market_mood_walkforward_validation_service.py`
 - platform 相关目录与接口
+
+---
+
+## post-cutover cleanup：`operations/services` 常规 shim 清理（本轮执行）
+
+本轮目标（单目标）：
+
+1. 删除 `src/operations/services` 中已迁移且无运行引用的常规 shim，保留两个专项真实实现不动。
+
+迁移/删除前审计结果：
+
+1. `src/tests/scripts` 里对常规 shim 的引用主要来自 `cli + tests`，均可机械切至 `src.ops.services.*` 主实现。
+2. `history_backfill_service.py` 与 `market_mood_walkforward_validation_service.py` 仍为专项真实实现，保持原位。
+3. 删除前完成旧导入路径替换后，常规 shim 模块路径在运行代码与测试中无残留引用。
+
+本轮动作（已执行）：
+
+1. 将 `src/cli.py` 中常规 services 导入从 `src.operations.services` 切到 `src.ops.services.operations_*`。
+2. 将相关测试导入/monkeypatch 路径同步切到 `src.ops.services.operations_*`。
+3. `history_backfill_service.py` 内部对 `SyncJobStateReconciliationService` 的依赖切到 `src.ops.services.operations_sync_job_state_reconciliation_service`。
+4. 删除以下常规 shim 文件：
+   - `daily_health_report_service.py`
+   - `dataset_pipeline_mode_seed_service.py`
+   - `dataset_status_snapshot_service.py`
+   - `default_single_source_seed_service.py`
+   - `execution_reconciliation_service.py`
+   - `execution_service.py`
+   - `moneyflow_multi_source_seed_service.py`
+   - `moneyflow_reconcile_service.py`
+   - `probe_runtime_service.py`
+   - `schedule_planner.py`
+   - `schedule_probe_binding_service.py`
+   - `schedule_service.py`
+   - `serving_light_refresh_service.py`
+   - `stock_basic_reconcile_service.py`
+   - `sync_job_state_reconciliation_service.py`
+
+本轮结果：
+
+1. `src/operations/services` 目录从“多 shim 混杂”收敛为“两个专项实现 + 最小导出壳”。
+2. 常规 ops 治理服务主路径统一为 `src/ops/services/*`。
+3. 当前剩余未迁专项仅两项：
+   - `history_backfill_service.py`
+   - `market_mood_walkforward_validation_service.py`
+4. 新增护栏测试 `tests/architecture/test_operations_legacy_guardrails.py`，防止常规 shim 回流与旧导入反弹。

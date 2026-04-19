@@ -8,7 +8,7 @@ from sqlalchemy import select
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
-from src.operations.services.probe_runtime_service import ProbeTickResult
+from src.ops.services.operations_probe_runtime_service import ProbeTickResult
 
 
 class StubDispatcher:
@@ -106,7 +106,7 @@ def test_scheduler_creates_probe_execution_when_rule_matches(
     )
 
     def _stub_run_once(self, session, *, now=None, limit=100):  # type: ignore[no-untyped-def]
-        from src.operations.services.execution_service import OperationsExecutionService
+        from src.ops.services.operations_execution_service import OperationsExecutionService
 
         execution = OperationsExecutionService().create_execution(
             session,

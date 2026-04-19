@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
-from src.operations.services.moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
+from src.ops.services.operations_moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule

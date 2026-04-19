@@ -5,7 +5,7 @@ from datetime import date
 from typer.testing import CliRunner
 
 from src.cli import app
-from src.operations.services.moneyflow_reconcile_service import MoneyflowDiffSample, MoneyflowReconcileReport
+from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowDiffSample, MoneyflowReconcileReport
 
 
 def _build_report(comparable_diff: int) -> MoneyflowReconcileReport:

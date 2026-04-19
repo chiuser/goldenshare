@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.ops.models.ops.sync_job_state import SyncJobState
-from src.operations.services import SyncJobStateReconciliationService
+from src.ops.services.operations_sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 
 
 @pytest.fixture()

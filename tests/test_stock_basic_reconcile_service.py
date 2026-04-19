@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from src.operations.services.stock_basic_reconcile_service import StockBasicReconcileService
+from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 
 
 def test_stock_basic_reconcile_service_counts_and_normalization(mocker) -> None:

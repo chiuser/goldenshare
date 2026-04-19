@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
-from src.operations.services.daily_health_report_service import DailyHealthReportService
+from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
 
 
 def _freshness_response() -> SimpleNamespace:
@@ -51,7 +51,7 @@ def _freshness_response() -> SimpleNamespace:
 
 def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) -> None:
     service = DailyHealthReportService()
-    mocker.patch("src.operations.services.daily_health_report_service.OpsFreshnessQueryService.build_freshness", return_value=_freshness_response())
+    mocker.patch("src.ops.services.operations_daily_health_report_service.OpsFreshnessQueryService.build_freshness", return_value=_freshness_response())
     mocker.patch.object(
         service,
         "_load_executions",

@@ -13,7 +13,7 @@ from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.operations.services.dataset_status_snapshot_service import DatasetStatusSnapshotService
+from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.schemas.freshness import DatasetFreshnessItem
 
 

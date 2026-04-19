@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.operations.services.dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
+from src.ops.services.operations_dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
 from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 
@@ -93,7 +93,7 @@ def db_session() -> Generator[Session, None, None]:
 
 
 def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> None:
-    monkeypatch.setattr("src.operations.services.dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
+    monkeypatch.setattr("src.ops.services.operations_dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
     report = DatasetPipelineModeSeedService().run(db_session, dry_run=False)
     assert report.dataset_total == 5
     assert report.created == 5
@@ -122,7 +122,7 @@ def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> N
 
 
 def test_seed_dataset_pipeline_mode_dry_run(monkeypatch, db_session: Session) -> None:
-    monkeypatch.setattr("src.operations.services.dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
+    monkeypatch.setattr("src.ops.services.operations_dataset_pipeline_mode_seed_service.list_dataset_freshness_specs", _fake_specs)
     report = DatasetPipelineModeSeedService().run(db_session, dry_run=True)
     assert report.created == 5
     assert db_session.get(DatasetPipelineMode, "stock_basic") is None

@@ -14,7 +14,7 @@ from src.foundation.kernel.contracts.index_series_active_store import IndexSerie
 from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.services.sync.registry import build_sync_service, list_trade_date_backfill_resources
-from src.operations.services.sync_job_state_reconciliation_service import SyncJobStateReconciliationService
+from src.ops.services.operations_sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 
 
 @dataclass

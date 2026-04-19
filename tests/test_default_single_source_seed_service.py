@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
-from src.operations.services.default_single_source_seed_service import (
+from src.ops.services.operations_default_single_source_seed_service import (
     DISABLED_DEFAULT_DATASET_KEYS,
     DefaultSingleSourceSeedService,
 )

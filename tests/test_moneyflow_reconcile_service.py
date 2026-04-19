@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
-from src.operations.services.moneyflow_reconcile_service import MoneyflowReconcileService
+from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
 
 
 def _tushare_row(

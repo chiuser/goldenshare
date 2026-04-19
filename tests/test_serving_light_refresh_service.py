@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from src.operations.services.serving_light_refresh_service import ServingLightRefreshService
+from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 
 
 def test_refresh_equity_daily_bar_without_optional_filters(mocker) -> None:
@@ -17,4 +17,3 @@ def test_refresh_equity_daily_bar_without_optional_filters(mocker) -> None:
     assert "WHERE 1=1" in str(stmt)
     assert params == {}
     session.commit.assert_called_once()
-

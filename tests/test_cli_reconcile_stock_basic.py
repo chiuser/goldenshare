@@ -3,7 +3,7 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from src.cli import app
-from src.operations.services.stock_basic_reconcile_service import StockBasicDiffSample, StockBasicReconcileReport
+from src.ops.services.operations_stock_basic_reconcile_service import StockBasicDiffSample, StockBasicReconcileReport
 
 
 def _build_report(comparable_diff: int) -> StockBasicReconcileReport:
