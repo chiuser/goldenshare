@@ -1057,3 +1057,30 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 1. 上述 7 条旧路径在 `src/tests/scripts` 中均未检出直接引用。
 2. `platform/models/app/*` shim 仍有测试引用，继续保留（不在本轮删除范围）。
 3. `platform/web/*` 运行链路与 `platform/api*` 聚合兼容层继续后置，未触碰。
+
+### 11) 第二批真实删除执行结果（platform/models/app shim）
+
+本轮仅处理 `platform/models/app/*` 兼容壳删除，删除前再次完成引用审计（`src + tests + scripts`）。
+
+删除前审计结果：
+
+1. `src.platform.models.app.*` 在 `src/tests/scripts` 中未检出直接引用。
+2. 触发条件满足，进入本轮真实删除。
+
+已删除 shim（10 个）：
+
+1. `src/platform/models/app/__init__.py`
+2. `src/platform/models/app/app_user.py`
+3. `src/platform/models/app/auth_role.py`
+4. `src/platform/models/app/auth_permission.py`
+5. `src/platform/models/app/auth_user_role.py`
+6. `src/platform/models/app/auth_role_permission.py`
+7. `src/platform/models/app/auth_refresh_token.py`
+8. `src/platform/models/app/auth_action_token.py`
+9. `src/platform/models/app/auth_audit_log.py`
+10. `src/platform/models/app/auth_invite_code.py`
+
+删除后状态：
+
+1. `platform/models/app/*` shim 已完成清理。
+2. `platform/web/*`、`platform/api*`、`platform/schemas/common.py` 等后置兼容层仍保持不动。
