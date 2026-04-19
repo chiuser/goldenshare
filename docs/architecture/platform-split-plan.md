@@ -1084,3 +1084,28 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 
 1. `platform/models/app/*` shim 已完成清理。
 2. `platform/web/*`、`platform/api*`、`platform/schemas/common.py` 等后置兼容层仍保持不动。
+
+### 12) cleanup 单点迁移执行结果（platform/web/run.py）
+
+本轮 cleanup 实际范围严格限定为：
+
+1. `src/platform/web/run.py`
+
+执行结果：
+
+1. `src/app/web/run.py` 新增为运行入口主实现。
+2. `src/platform/web/run.py` 降级为 deprecated 兼容壳，仅转发 `main()` 到 `src.app.web.run`。
+3. 启动参数解析与运行语义保持兼容（host/port/reload/env-file 行为不变）。
+4. `uvicorn` 目标字符串保持兼容（仍使用 `src.platform.web.app:app`），避免启动语义漂移。
+
+本轮未触碰：
+
+1. `src/platform/web/app.py`
+2. `src/platform/api/router.py`
+3. `src/platform/api/v1/router.py`
+4. `src/platform/schemas/common.py`
+5. `src/platform/web/settings.py`
+6. `src/platform/web/lifespan.py`
+7. `src/platform/web/logging.py`
+8. `src/platform/web/middleware/*`
+9. `src/platform/web/static/*`
