@@ -360,7 +360,7 @@ PLATFORM_CHECK_ENABLED=true
 统一入口：
 
 ```bash
-uvicorn src.platform.web.app:app
+uvicorn src.app.web.app:app
 ```
 
 同时建议提供一个配置驱动的 Python 启动入口：
@@ -410,7 +410,7 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/.venv/bin/uvicorn src.platform.web.app:app --host 0.0.0.0 --port 8000
+ExecStart=/opt/goldenshare/.venv/bin/uvicorn src.app.web.app:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -1065,7 +1065,7 @@ WantedBy=multi-user.target
 
 一期开发完成后，应满足：
 
-1. `uvicorn src.platform.web.app:app --reload` 可在本地启动
+1. `uvicorn src.app.web.app:app --reload` 可在本地启动
 2. 通过 `GOLDENSHARE_ENV_FILE` 可切换本地与生产配置
 3. 数据库已创建 `app.app_user`
 4. 可通过脚本创建管理员用户

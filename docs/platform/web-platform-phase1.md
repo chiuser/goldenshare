@@ -310,14 +310,14 @@ Local:
 
 ```bash
 export GOLDENSHARE_ENV_FILE=.env.web.local
-uvicorn src.platform.web.app:app --reload
+uvicorn src.app.web.app:app --reload
 ```
 
 Production:
 
 ```bash
 export GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-uvicorn src.platform.web.app:app --host 0.0.0.0 --port 8000
+uvicorn src.app.web.app:app --host 0.0.0.0 --port 8000
 ```
 
 ### Deployment Requirements
