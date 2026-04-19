@@ -46,25 +46,14 @@ def test_no_runtime_imports_from_platform_legacy_package() -> None:
     assert not violations, "运行代码/测试代码仍依赖 legacy src.platform 路径:\n" + "\n".join(sorted(violations))
 
 
-def test_platform_contains_only_package_skeleton_python_files() -> None:
+def test_platform_contains_no_python_files() -> None:
     if not PLATFORM_ROOT.exists():
         return
-    allowed_python_files = {
-        "src/platform/__init__.py",
-        "src/platform/api/__init__.py",
-        "src/platform/api/v1/__init__.py",
-        "src/platform/models/__init__.py",
-        "src/platform/queries/__init__.py",
-        "src/platform/schemas/__init__.py",
-        "src/platform/services/__init__.py",
-        "src/platform/web/__init__.py",
-    }
     current_python_files = {
         path.relative_to(REPO_ROOT).as_posix()
         for path in _iter_python_files(PLATFORM_ROOT)
     }
-    unexpected = sorted(current_python_files - allowed_python_files)
-    assert not unexpected, "src/platform 出现了非兼容骨架 Python 文件:\n" + "\n".join(unexpected)
+    assert not current_python_files, "src/platform 不应存在 Python 源文件:\n" + "\n".join(sorted(current_python_files))
 
 
 def test_web_static_assets_path_is_converged_to_app_web() -> None:

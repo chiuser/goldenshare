@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OPERATIONS_SERVICES_ROOT = REPO_ROOT / "src/operations/services"
 OPERATIONS_RUNTIME_ROOT = REPO_ROOT / "src/operations/runtime"
 OPERATIONS_SPECS_ROOT = REPO_ROOT / "src/operations/specs"
+OPERATIONS_ROOT = REPO_ROOT / "src/operations"
 SCAN_ROOTS = ("src", "tests", "scripts")
 
 
@@ -39,6 +40,18 @@ def test_operations_services_contains_only_special_case_files() -> None:
     }
     unexpected = sorted(current_files - expected_files)
     assert not unexpected, "operations/services 出现了计划外文件:\n" + "\n".join(unexpected)
+
+
+def test_operations_root_contains_no_python_files() -> None:
+    if not OPERATIONS_ROOT.exists():
+        return
+    current_python_files = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in _iter_python_files(OPERATIONS_ROOT)
+    }
+    expected = set()
+    unexpected = sorted(current_python_files - expected)
+    assert not unexpected, "operations 根目录不应出现 Python 文件:\n" + "\n".join(unexpected)
 
 
 def test_no_legacy_operations_services_imports() -> None:
