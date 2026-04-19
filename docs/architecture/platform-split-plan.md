@@ -734,9 +734,26 @@
 
 ---
 
-## health/common/web 最终切换准备（health 已迁移，common/web 待切换）
+## final cutover 第四步真实迁移（当前批次）
 
-本节用于 `health` 与 `common schema` 迁移后，继续收口 `web` 入口切换准备。
+本轮实际范围严格限定为以下单点迁移：
+
+1. `src/platform/web/app.py` -> `src/app/web/app.py`
+
+执行原则：
+
+- 仅迁移 `platform/web/app.py` 主实现，不扩大范围
+- `src/platform/web/app.py` 保留 deprecated 兼容壳（入口兼容）
+- 保持 FastAPI app 创建、middleware 顺序、lifespan、异常处理装配行为不变
+- 保持静态资源挂载、`/`、`/app`、`/ops`、`/api`、`/api/v1/*`、`/api/docs`、`/api/openapi.json` 行为不变
+- 不处理 `src/platform/api/router.py`
+- 不处理 `src/platform/api/v1/router.py`
+
+---
+
+## health/common/web 最终切换准备（health/common/web 已迁移，入口收口待清理）
+
+本节用于 `health`、`common schema` 与 `web` 入口迁移后，继续做 post-cutover 收口准备。
 
 ### 1) `src/platform/api/v1/health.py` 当前职责与推荐归属
 
@@ -773,7 +790,7 @@
 
 ### 3) `src/platform/web/app.py` 当前职责与最终落位方式
 
-当前职责：
+当前职责（迁移前）：
 
 1. FastAPI app 创建与 docs/openapi 配置
 2. middleware、lifespan、异常处理安装
@@ -786,18 +803,23 @@
 2. 再将主实现平移到 `src/app/web/app.py`
 3. `src/platform/web/app.py` 最终保留 deprecated shim（入口兼容）
 
+当前状态：
+
+1. `src/app/web/app.py` 已承接主实现（已完成）
+2. `src/platform/web/app.py` 已降级为 deprecated shim（已完成）
+
 ### 4) final cutover 前仍缺的前置条件
 
-1. `src/platform/web/app.py` 切换回归清单冻结（docs/openapi、静态资源、重定向）
-2. 切换窗口执行顺序与回滚步骤冻结
+1. post-cutover 清理范围冻结（本轮不执行）
+2. shim 保留期与下线窗口策略冻结
 
 ### 5) 最安全的最终切换顺序（建议）
 
 1. 迁 `common schema` 主实现到 `src/app/schemas/common.py`，platform 保留 shim（已完成）
 2. 迁 `health` 主实现到 `src/app/api/v1/health.py`，platform 保留 shim（已完成）
-3. 将 `platform/web/app.py` 的 `api_router` 引用切到 `src.app.api.router`
-4. 回归通过后平移 `platform/web/app.py` 主实现到 `src/app/web/app.py`
-5. `platform/web/app.py` 降级为 shim
+3. 将 `platform/web/app.py` 的 `api_router` 引用切到 `src.app.api.router`（已完成）
+4. 回归通过后平移 `platform/web/app.py` 主实现到 `src/app/web/app.py`（已完成）
+5. `platform/web/app.py` 降级为 shim（已完成）
 
 ### 6) 风险点与回归重点
 
