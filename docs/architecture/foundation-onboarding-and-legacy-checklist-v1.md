@@ -1,12 +1,15 @@
 # Foundation 开发上手指南与历史遗留清单 v1
 
 > 目标：让新同学在不了解历史上下文的情况下，也能准确理解工程现状、开发边界和正确流程，避免重复踩坑。
+>
+> 角色说明：本文件是“入门与遗留清单专题文档”，用于 onboarding 与排坑。  
+> 当前统一强约束请以 [foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md) 为准。
 
 ---
 
 ## 1. 这套工程在做什么
 
-当前仓库包含三类子系统：
+当前仓库的主子系统分工如下：
 
 1. Foundation（数据基座）
 - 负责多源采集、原始落库、标准化、融合发布、对外数据供给。
@@ -14,46 +17,31 @@
 2. Ops（数据运营管理）
 - 负责任务执行、状态观测、手动/自动维护、规则管理、发布审计。
 
-3. Biz / Platform（业务接口）
-- 面向业务消费方提供稳定接口，只读服务层口径。
+3. App / Biz（运行入口与业务接口）
+- `app` 负责运行壳与聚合入口；
+- `biz` 面向业务消费方提供稳定查询接口。
+
+补充：`platform` 目录当前定位为 legacy/compat 层，不再承接新主实现。
 
 核心原则：**业务层不直接读 raw/std；以 serving 为唯一对外口径。**
 
 ---
 
-## 2. 当前运行模式（必须先理解）
+## 2. 当前运行模式（入口说明）
 
-每个数据集有且仅有一种 pipeline mode：
+运行模式、层级语义与状态定义已统一收口到：
 
-1. `single_source_direct`
-- 链路：`raw -> serving`
-- 含义：单源直出，不物化 std/resolution。
+- [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+- [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
 
-2. `multi_source_pipeline`
-- 链路：`raw -> std -> resolution -> serving`
-- 含义：多源对齐与策略融合完整链路。
-
-3. `raw_only`
-- 链路：`raw-only`
-- 含义：仅采集原始数据，不提供 serving。
-
-4. `legacy_core_direct`
-- 链路：历史兼容口径（待清理）。
-
-状态语义（Ops 页面）：
-
-- `fresh/lagging/stale/failed`：真实健康状态。
-- `skipped`：该层在当前 mode 下未启用。
-- `unobserved`：该层已启用，但暂未接入独立观测指标。
-- `unknown`：无法判定（异常态，不应长期存在）。
-- `disabled`：数据集停用，不纳入健康度统计。
+本文件不再重复维护同一套定义，避免口径漂移。
 
 ---
 
 ## 3. 新人第一天上手顺序
 
 1. 先读文档
-- [当前架构基线](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md)
+- [子系统边界基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [数据集发布治理规范](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [数据集总目录](/Users/congming/github/goldenshare/docs/datasets/dataset-catalog.md)
 
@@ -74,22 +62,13 @@
 
 ---
 
-## 4. 新增数据集标准流程（强约束）
+## 4. 新增数据集标准流程（入口说明）
 
-1. 先文档，后编码
-- 新增数据集文档（接口来源、字段、参数、落库、规则、测试范围）。
-- 变更 [数据集开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md) 时先改模板再改实现。
+新增数据集请直接按以下文档执行，不在本文件重复维护流程细节：
 
-2. 先 raw，再考虑 std/resolution/serving
-- 若仅单源且暂无融合诉求，可先 `single_source_direct`。
-- 若存在多源融合诉求，必须补齐 `std+resolution` 规则对象。
-
-3. Ops 同步接入
-- 必须能被手动维护触发。
-- 必须可观测（freshness + layer snapshot + pipeline mode）。
-
-4. 测试与回归
-- 至少覆盖：参数校验、落库正确性、Ops 接口可见性、状态语义。
+1. [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+2. [数据集发布治理规范](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+3. [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 
 ---
 
@@ -118,7 +97,7 @@
 ### A. 口径与表层收口
 
 - [ ] 指标与因子保留项迁移策略明确并落地：
-  - `equity_indicators`（`ind_macd/ind_kdj/ind_rsi`）已于 2026-04-17 下线，统一改读 `stk_factor_pro`
+  - `equity_indicators`（`ind_macd/ind_kdj/ind_rsi`）已下线，统一改读 `stk_factor_pro`
   - `adj_factor`（`equity_adj_factor`）
   - `fund_adj`（`fund_adj_factor`）
 - [ ] 历史 `core.*` 兼容路径最终下线计划（按白名单逐个收口）。

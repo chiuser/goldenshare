@@ -1,75 +1,106 @@
-# 文档目录索引
+# 文档目录索引（重构后）
 
-## 架构治理
+## 1. 快速必读（S0）
+
+- [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
+- [子系统依赖矩阵](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)
+- [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+- [Platform 拆分与 cleanup 基线](/Users/congming/github/goldenshare/docs/architecture/platform-split-plan.md)
+- [Ops 收敛基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/ops-consolidation-plan.md)
+- [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
+- [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
+- [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
+- [工作流开发说明模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)
+
+## 2. 目录结构（当前）
+
+```text
+docs/
+  architecture/  # 架构基线、边界、收敛计划
+  ops/           # 运营后台契约、流程与专题
+  datasets/      # 数据集研发与策略文档
+  frontend/      # 前端治理、设计与交付规范
+  platform/      # 对上业务接口规范
+  release/       # 发布流程
+  product/       # 产品需求与原始材料
+  templates/     # 开发模板
+  sources/       # 数据源接口说明（源站文档镜像/摘要）
+  governance/    # 文档治理与待整合清单
+```
+
+## 3. 架构与治理（S1）
 
 - [设计原则](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
-- [当前架构基线](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md)
-- [三子系统治理规范](/Users/congming/github/goldenshare/docs/architecture/subsystems-architecture-governance-v1.md)
-- [虚拟拆仓重构方案](/Users/congming/github/goldenshare/docs/architecture/virtual-split-repo-refactor-plan-v1.md)
-- [数据同步统一架构与全量矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
-- [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+- [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+- [Foundation 多源数据基座升级与停机迁移方案 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-multi-source-upgrade-and-migration-v1.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
+- [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
+- [数据同步统一架构与全量数据集矩阵 v2](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
-- [架构设计问题清单 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-v1.md)
-- [架构问题 P0 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p0-remediation-v1.md)
-- [架构问题 P1 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p1-remediation-v1.md)
-- [架构问题 P2 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p2-remediation-v1.md)
-- [架构问题 P3 修复方案 V1](/Users/congming/github/goldenshare/docs/architecture/architecture-design-issues-p3-remediation-v1.md)
 
-## 前端设计与实现
+## 4. Ops 运营（S2）
 
-- [前端技术与组件选型](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
-- [前端一期方案](/Users/congming/github/goldenshare/docs/frontend/frontend-application-phase1.md)
-
-## 运维系统
-
-- [运维系统一期](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1.md)
-- [运维系统一期 LLD](/Users/congming/github/goldenshare/docs/ops/ops-system-phase1-lld.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-- [执行解耦设计](/Users/congming/github/goldenshare/docs/ops/ops-execution-decoupling.md)
-- [新鲜度问题复盘](/Users/congming/github/goldenshare/docs/ops/ops-freshness-review-20260330.md)
-- [数据集停用策略 v1（过渡方案）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-disable-policy-v1.md)
-- [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
-- [数据集模式与层级观测补齐方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-dataset-pipeline-mode-and-layer-observability-v1.md)
-- [融合策略中心开发准备度与待办清单 v1](/Users/congming/github/goldenshare/docs/ops/ops-fusion-strategy-center-readiness-todo-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
+- [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 
-## 业务平台
+说明：数据集停用策略与融合策略中心准备度已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。
 
-- [Web 平台一期](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1.md)
-- [Web 平台一期 LLD](/Users/congming/github/goldenshare/docs/platform/web-platform-phase1-lld.md)
-- [行情详情接口规格](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
-
-## 数据集文档
+## 5. 数据集研发（S3）
 
 - [数据集总目录](/Users/congming/github/goldenshare/docs/datasets/dataset-catalog.md)
 - [板块与榜单数据集一期](/Users/congming/github/goldenshare/docs/datasets/board-and-ranking-datasets-phase1.md)
-- [ETF 基准指数列表开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
-- [ETF 日线行情开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
-- [基金复权因子开发说明](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
-- [每日涨跌停价格开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
-- [神奇九转指标开发说明](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
-- [每日停复牌信息开发说明](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
-- [融资融券交易汇总开发说明](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [指数筛选池同步机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
-- [个股资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ths-dataset-development.md)
-- [个股资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-dc-dataset-development.md)
-- [概念板块资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-cnt-ths-dataset-development.md)
-- [行业资金流向（THS）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-ths-dataset-development.md)
-- [板块资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-dc-dataset-development.md)
-- [大盘资金流向（DC）开发说明](/Users/congming/github/goldenshare/docs/datasets/moneyflow-mkt-dc-dataset-development.md)
-- [资金流 6 数据集拍板清单](/Users/congming/github/goldenshare/docs/datasets/moneyflow-overview-six-datasets-decisions.md)
+- [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
+- [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 
-## 发布与运维流程
+说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
+主要数据集开发说明：
+- [BIYING 股票日线](/Users/congming/github/goldenshare/docs/datasets/biying-equity-daily-dataset-development.md)
+- [BIYING 资金流向](/Users/congming/github/goldenshare/docs/datasets/biying-moneyflow-dataset-development.md)
+- [ETF 基准指数列表](/Users/congming/github/goldenshare/docs/datasets/etf-index-dataset-development.md)
+- [ETF 日线行情](/Users/congming/github/goldenshare/docs/datasets/etf-fund-daily-dataset-development.md)
+- [基金复权因子](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
+- [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
+- [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
+- [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
+- [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
+- [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
+- [ST 股票列表](/Users/congming/github/goldenshare/docs/datasets/stock-st-dataset-development.md)
+- [个股资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ths-dataset-development.md)
+- [个股资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-dc-dataset-development.md)
+- [概念板块资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-cnt-ths-dataset-development.md)
+- [行业资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-ths-dataset-development.md)
+- [板块资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-dc-dataset-development.md)
+- [大盘资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-mkt-dc-dataset-development.md)
+- [券商每月荐股](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)
+- [每日筹码及胜率](/Users/congming/github/goldenshare/docs/datasets/cyq-perf-dataset-development.md)
+
+## 6. 前端、业务与发布（S4）
+
+- [前端技术与组件体系选型建议](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
+- [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
+- [前端应用一期设计](/Users/congming/github/goldenshare/docs/frontend/frontend-application-phase1.md)
+- [前端交付流程规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-delivery-workflow-v1.md)
+- [前端设计 Tokens 与组件目录 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)
+- [前端治理落地总计划与评审记录 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md)
+- [前端 Phase 2 执行简报 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase2-execution-brief-v1.md)
+- [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
 - [发版流程 v1](/Users/congming/github/goldenshare/docs/release/release-process-v1.md)
 
-## 产品资料
+## 7. 数据源接口说明
+
+- [数据源接口说明目录规范](/Users/congming/github/goldenshare/docs/sources/README.md)
+- [Tushare 接口说明目录](/Users/congming/github/goldenshare/docs/sources/tushare/README.md)
+- [Tushare 接口总索引（CSV）](/Users/congming/github/goldenshare/docs/sources/tushare/docs_index.csv)
+- [BIYING 接口说明目录](/Users/congming/github/goldenshare/docs/sources/biying/README.md)
+
+## 8. 文档治理
+
+- [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
+
+## 9. 产品原始材料
 
 - [行情图表页接口需求说明](/Users/congming/github/goldenshare/docs/product/行情图表页接口需求说明_基于当前数据基座.md)
 - [财势乾坤交易系统需求说明（PDF）](/Users/congming/github/goldenshare/docs/product/财势乾坤交易系统需求说明.pdf)
-
-## 模板
-
-- [数据集开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
-- [工作流开发模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)
