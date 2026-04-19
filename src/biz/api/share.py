@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from src.platform.auth.dependencies import require_admin
-from src.platform.auth.domain import AuthenticatedUser
-from src.platform.dependencies import get_db_session
+from src.app.auth.dependencies import require_admin
+from src.app.auth.domain import AuthenticatedUser
+from src.app.dependencies import get_db_session
 from src.biz.queries.share_market_query_service import safe_build_market_overview
 from src.biz.schemas.share import ShareMarketOverviewResponse
 

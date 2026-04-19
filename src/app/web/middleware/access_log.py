@@ -4,7 +4,7 @@ from time import perf_counter
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.platform.web.logging import get_web_logger
+from src.app.web.logging import get_web_logger
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):

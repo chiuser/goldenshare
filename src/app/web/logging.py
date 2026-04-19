@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 LOGGER_NAME = "goldenshare.web"

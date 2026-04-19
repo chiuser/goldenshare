@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from src.platform.auth.domain import AuthenticatedUser
+from src.app.auth.domain import AuthenticatedUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.queries.std_rule_query_service import StdRuleQueryService
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 class OpsStdRuleCommandService:

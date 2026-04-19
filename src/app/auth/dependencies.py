@@ -12,7 +12,7 @@ from src.app.dependencies import get_db_session
 from src.app.exceptions import WebAppError
 from src.app.models.auth_role_permission import AuthRolePermission
 from src.app.models.auth_user_role import AuthUserRole
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 bearer_scheme = HTTPBearer(auto_error=False)

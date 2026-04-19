@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from src.platform.web.logging import configure_web_logging, get_web_logger
-from src.platform.web.settings import get_web_settings
+from src.app.web.logging import configure_web_logging, get_web_logger
+from src.app.web.settings import get_web_settings
 
 
 @asynccontextmanager

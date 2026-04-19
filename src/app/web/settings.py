@@ -5,7 +5,7 @@ from pathlib import Path
 from src.foundation.config.settings import Settings, get_settings
 
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR = Path(__file__).resolve().parents[2] / "platform" / "web" / "static"
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 

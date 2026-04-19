@@ -11,12 +11,12 @@ from sqlalchemy.orm import Session
 
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.platform.auth.dependencies import require_admin
-from src.platform.auth.domain import AuthenticatedUser
-from src.platform.auth.jwt_service import JWTService
-from src.platform.auth.user_repository import UserRepository
-from src.platform.dependencies import get_db_session
-from src.platform.exceptions import WebAppError
+from src.app.auth.dependencies import require_admin
+from src.app.auth.domain import AuthenticatedUser
+from src.app.auth.jwt_service import JWTService
+from src.app.auth.user_repository import UserRepository
+from src.app.dependencies import get_db_session
+from src.app.exceptions import WebAppError
 from src.ops.queries import ScheduleQueryService
 from src.ops.schemas.schedule import (
     CreateScheduleRequest,

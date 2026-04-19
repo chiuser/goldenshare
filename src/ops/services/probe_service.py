@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.platform.auth.domain import AuthenticatedUser
+from src.app.auth.domain import AuthenticatedUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.probe_rule import ProbeRule
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 class OpsProbeCommandService:

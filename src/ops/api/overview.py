@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from src.platform.auth.dependencies import require_admin, require_authenticated
-from src.platform.auth.domain import AuthenticatedUser
-from src.platform.dependencies import get_db_session
+from src.app.auth.dependencies import require_admin, require_authenticated
+from src.app.auth.domain import AuthenticatedUser
+from src.app.dependencies import get_db_session
 from src.ops.queries import OpsOverviewQueryService
 from src.ops.schemas.overview import OpsOverviewResponse, OpsOverviewSummaryResponse
 

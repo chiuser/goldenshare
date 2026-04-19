@@ -49,7 +49,7 @@ from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.sync_run_log import SyncRunLog
-from src.platform.auth.password_service import PasswordService
+from src.app.auth.password_service import PasswordService
 
 
 @pytest.fixture(autouse=True)
@@ -164,7 +164,7 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
 @pytest.fixture()
 def app_client(db_session: Session) -> Generator[TestClient, None, None]:
     from src.app.web.app import app
-    from src.platform.dependencies.db import get_db_session
+    from src.app.dependencies.db import get_db_session
 
     get_settings.cache_clear()
 

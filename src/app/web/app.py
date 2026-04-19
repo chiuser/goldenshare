@@ -9,9 +9,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 from src.app.api.router import router as api_router
 from src.app.exceptions import install_exception_handlers
-from src.platform.web.lifespan import web_lifespan
-from src.platform.web.middleware import AccessLogMiddleware, RequestIdMiddleware
-from src.platform.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, get_web_settings
+from src.app.web.lifespan import web_lifespan
+from src.app.web.middleware import AccessLogMiddleware, RequestIdMiddleware
+from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, get_web_settings
 
 
 settings = get_web_settings()

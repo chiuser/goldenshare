@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 SUPPORTED_SCHEDULE_TYPES = {"once", "cron"}

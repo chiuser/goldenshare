@@ -17,10 +17,10 @@ from src.biz.schemas.quote import (
     QuotePageInitResponse,
     QuoteRelatedInfoResponse,
 )
-from src.platform.auth.dependencies import require_quote_access
-from src.platform.auth.domain import AuthenticatedUser
-from src.platform.dependencies import get_db_session
-from src.platform.exceptions import WebAppError
+from src.app.auth.dependencies import require_quote_access
+from src.app.auth.domain import AuthenticatedUser
+from src.app.dependencies import get_db_session
+from src.app.exceptions import WebAppError
 
 
 router = APIRouter(prefix="/quote", tags=["quote"])

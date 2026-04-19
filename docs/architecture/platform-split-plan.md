@@ -1184,5 +1184,421 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 
 切换后残留说明：
 
-1. `src.platform.web.run` 仍作为兼容壳存在（预期保留）
+1. `platform/web/run.py` 仍作为兼容壳存在（预期保留）
 2. `src.platform.web.app` 仍作为兼容壳存在（预期保留）
+
+### 15) 运行入口 shim 删除执行结果（仅 `platform/web/run.py`）
+
+本轮删除范围严格限定为：
+
+1. `src/platform/web/run.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts/docs/README.md/pyproject.toml/.github` 范围内，未检出旧运行入口表达（模块路径、`python -m` 启动命令、脚本入口字符串）残留。
+
+删除后状态：
+
+1. `src/platform/web/run.py` 已删除。
+2. `src/platform/web/app.py` 与 `platform/api*`、`platform/schemas/common.py` 等后置兼容层未触碰。
+
+### 16) `platform/auth` helper shim 删除执行结果（4 项）
+
+目标 shim：
+
+1. `src/platform/auth/constants.py`
+2. `src/platform/auth/domain.py`
+3. `src/platform/auth/password_service.py`
+4. `src/platform/auth/security_utils.py`
+
+审计范围：
+
+1. `src`
+2. `tests`
+3. `scripts`
+4. `docs`
+5. `README.md`
+6. `pyproject.toml`
+7. `.github`
+
+删除前审计与收敛结果：
+
+1. 已完成 import 路径收敛：`src/ops/*`、`src/biz/*`、`src/scripts/*`、相关测试中的 `src.platform.auth.*` 已切至 `src.app.auth.*`。
+2. 当前 `src/tests/scripts` 范围内已无 `src.platform.auth.domain` / `password_service` / `security_utils` / `constants` 的直接引用。
+3. 旧路径字符串仅保留在本节历史说明文本中，不影响运行链路。
+
+本轮动作（已执行）：
+
+1. 已删除以下 4 个 compat shim：
+   - `src/platform/auth/constants.py`
+   - `src/platform/auth/domain.py`
+   - `src/platform/auth/password_service.py`
+   - `src/platform/auth/security_utils.py`
+2. 未触碰 `src/platform/auth/dependencies.py`、`jwt_service.py`、`user_repository.py`。
+
+删除后状态：
+
+1. 仓库中不再存在上述 4 个 shim 文件。
+2. `src.platform.auth.(constants|domain|password_service|security_utils)` 在 `src/tests/scripts/docs/README/pyproject/.github` 范围内无运行引用残留（仅本节历史文本描述中出现）。
+
+### 17) `platform/auth` 剩余 3 个 shim 删除执行结果（3 项）
+
+本轮目标（单目标）：
+
+1. `src/platform/auth/dependencies.py`
+2. `src/platform/auth/jwt_service.py`
+3. `src/platform/auth/user_repository.py`
+
+删除前审计结果：
+
+1. 先做全路径审计（`src/tests/scripts/docs/README/pyproject/.github`）。
+2. 审计范围内已无 `src.platform.auth.(dependencies|jwt_service|user_repository)` 真实运行引用。
+
+本轮动作（已执行）：
+
+1. 已删除以下 3 个 compat shim：
+   - `src/platform/auth/dependencies.py`
+   - `src/platform/auth/jwt_service.py`
+   - `src/platform/auth/user_repository.py`
+2. 未触碰 `src/platform/auth/__init__.py`（保留包级兼容导出）。
+
+删除后状态：
+
+1. 仓库中不再存在上述 3 个 shim 文件。
+2. 旧路径字符串仅出现在本节历史说明文本中，不影响运行链路。
+
+### 18) 高风险后置项引用审计（仅审计，不删除）
+
+本轮审计对象：
+
+1. `src/platform/web/app.py`
+2. `src/platform/api/router.py`
+3. `src/platform/api/v1/router.py`
+4. `src/platform/schemas/common.py`
+
+审计范围：
+
+1. `src`
+2. `tests`
+3. `scripts`
+4. `docs`
+5. `README*`
+6. `pyproject.toml`
+7. `.github`
+
+审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.web.app`、`src.platform.api.router`、`src.platform.api.v1.router`、`src.platform.schemas.common` 的直接导入引用。
+2. 上述旧路径当前仅在文档示例中仍有历史文本（不影响运行链路）。
+3. 4 个文件当前均为 shim 实现，主实现已分别落位：
+   - `src.app.web.app`
+   - `src.app.api.router`
+   - `src.app.api.v1.router`
+   - `src.app.schemas.common`
+4. 但 `src.app.api.v1.router` 目前仍通过 `src.platform.api.v1.{auth,users,admin,admin_users,share}` 聚合子路由，属于下一轮应先收敛的依赖点。
+
+本轮动作：
+
+1. 仅执行审计与文档更新。
+2. 未删除上述 4 个后置 shim 文件。
+
+下一步建议（单独一轮）：
+
+1. 先把 `src.app.api.v1.router` 对 `src.platform.api.v1.*` 的聚合导入切到主路径（`src.app.auth.api.*` / `src.biz.api.share`），并跑最小回归。
+2. 收敛完成后，再进入 `platform/api/*.py`、`platform/web/app.py`、`platform/schemas/common.py` 的删除窗口评估。
+
+### 19) `app/api/v1/router` 聚合导入收敛执行结果（单点）
+
+本轮目标（单目标）：
+
+1. 仅收敛 `src/app/api/v1/router.py` 对 `src.platform.api.v1.*` 的聚合导入。
+
+本轮动作（已执行）：
+
+1. `src.platform.api.v1.{admin,admin_users,auth,users}` -> `src.app.auth.api.{admin,admin_users,auth,users}`
+2. `src.platform.api.v1.share` -> `src.biz.api.share`
+3. 保持 `include_router` 顺序不变，未改路由行为。
+
+本轮结果：
+
+1. `src/app/api/v1/router.py` 已不再依赖 `src.platform.api.v1.*`。
+2. `platform/api/v1/*` 兼容壳仍保留，尚未进入删除动作。
+
+### 20) `platform/api` 聚合 shim 删除执行结果（2 项）
+
+本轮目标（单目标）：
+
+1. `src/platform/api/router.py`
+2. `src/platform/api/v1/router.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对上述 2 个 shim 的直接导入引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅出现在 `platform-split-plan.md` 的历史说明文本。
+3. 对应主实现已稳定落位于：
+   - `src.app.api.router`
+   - `src.app.api.v1.router`
+
+本轮动作（已执行）：
+
+1. 删除 `src/platform/api/router.py`
+2. 删除 `src/platform/api/v1/router.py`
+
+删除后状态：
+
+1. `platform/api` 聚合 shim 已清零。
+2. `platform/web/app.py` 与 `platform/schemas/common.py` 仍为后置 compat 文件，未触碰。
+
+### 21) `platform/schemas/common.py` shim 删除执行结果（单文件）
+
+本轮目标（单目标）：
+
+1. `src/platform/schemas/common.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.schemas.common` 的直接导入引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅出现在 `platform-split-plan.md` 的历史说明文本。
+3. 主实现已稳定落位于 `src.app.schemas.common`。
+
+本轮动作（已执行）：
+
+1. 删除 `src/platform/schemas/common.py`
+
+删除后状态：
+
+1. `platform/schemas/common.py` compat shim 已删除。
+2. 高风险后置 compat 目前仅剩 `src/platform/web/app.py`（其余未迁/未删项需单独审计）。
+
+### 22) `platform/api/v1` 子路由 shim 删除执行结果（6 项）
+
+本轮目标（单目标）：
+
+1. `src/platform/api/v1/auth.py`
+2. `src/platform/api/v1/users.py`
+3. `src/platform/api/v1/admin.py`
+4. `src/platform/api/v1/admin_users.py`
+5. `src/platform/api/v1/share.py`
+6. `src/platform/api/v1/health.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出 `src.platform.api.v1.*` 的直接运行引用。
+2. 在 `docs/README/pyproject/.github` 范围内，仅有历史说明文本提及旧路径。
+3. 对应主实现已稳定落位于：
+   - `src.app.auth.api.{auth,users,admin,admin_users}`
+   - `src.biz.api.share`
+   - `src.app.api.v1.health`
+
+本轮动作（已执行）：
+
+1. 删除上述 6 个 compat shim 文件。
+
+删除后状态：
+
+1. `platform/api/v1` 子路由 shim 已清零（保留包目录 `__init__.py`）。
+2. 平台后置 compat 重点剩余项收敛为：`src/platform/web/app.py`。
+
+### 23) `platform/web/app.py` shim 删除执行结果（单文件）
+
+本轮目标（单目标）：
+
+1. `src/platform/web/app.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.web.app` 的直接导入引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅出现在历史文档文本示例。
+3. 运行入口主实现已稳定落位于 `src.app.web.app`，且 `src.app.web.run` 默认 app target 已切换到新路径。
+
+本轮动作（已执行）：
+
+1. 删除 `src/platform/web/app.py`
+
+删除后状态：
+
+1. `platform/web/app.py` compat shim 已删除。
+2. `platform` 目录下 web 运行入口 compat 已清零（`run.py` 与 `app.py` 均已删除）。
+
+### 24) `platform/dependencies` 与 `platform/exceptions` 引用收敛（不删 shim）
+
+本轮目标（单目标）：
+
+1. 将运行链路中的 `src.platform.dependencies*` 与 `src.platform.exceptions*` 导入收敛到 `src.app.dependencies*` 与 `src.app.exceptions*`。
+
+本轮动作（已执行）：
+
+1. 将 `src/ops/api/*`、`src/ops/services/*`、`src/ops/queries/*`、`src/ops/runtime/*` 中相关导入切到 `src.app.*`。
+2. 将 `src/biz/api/*` 中相关导入切到 `src.app.*`。
+3. 将 `tests/web/conftest.py`、`tests/web/test_auth_services.py` 的相关导入切到 `src.app.*`。
+4. 本轮不删除 `platform/dependencies` 与 `platform/exceptions` shim 文件。
+
+本轮结果：
+
+1. 运行链路已不再依赖 `src.platform.dependencies*` 与 `src.platform.exceptions*`。
+2. `platform/dependencies` 与 `platform/exceptions` 当前仅保留兼容壳角色，可进入下一轮“二次审计 + 实删”评估窗口。
+
+### 25) `platform/dependencies` shim 删除执行结果（2 项）
+
+本轮目标（单目标）：
+
+1. `src/platform/dependencies/__init__.py`
+2. `src/platform/dependencies/db.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.dependencies*` 的直接运行引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅在 `platform-split-plan.md` 的历史说明文本出现。
+3. 主实现已稳定落位于 `src.app.dependencies.db` / `src.app.dependencies`。
+
+本轮动作（已执行）：
+
+1. 删除上述 2 个 compat shim 文件。
+
+删除后状态：
+
+1. `platform/dependencies` compat shim 已清零。
+2. `platform/exceptions` 仍保留 compat shim（下一轮可评估删除）。
+
+### 26) `platform/exceptions` shim 删除执行结果（2 项）
+
+本轮目标（单目标）：
+
+1. `src/platform/exceptions/__init__.py`
+2. `src/platform/exceptions/web.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.exceptions*` 的直接运行引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅在 `platform-split-plan.md` 的历史说明文本出现。
+3. 主实现已稳定落位于 `src.app.exceptions.web` / `src.app.exceptions`。
+
+本轮动作（已执行）：
+
+1. 删除上述 2 个 compat shim 文件。
+
+删除后状态：
+
+1. `platform/exceptions` compat shim 已清零。
+2. 平台目录下 app/auth/api/schemas 主兼容壳已大幅收敛；剩余需单独审计的重点转为 `platform` 包级与 `platform/web` 非 shim 文件。
+
+### 27) `platform/auth` 包级 shim 删除执行结果（单文件）
+
+本轮目标（单目标）：
+
+1. `src/platform/auth/__init__.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对 `src.platform.auth` 包级导入的直接运行引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅在 `platform-split-plan.md` 历史说明文本出现。
+3. 认证主实现已稳定落位于 `src.app.auth.*`。
+
+本轮动作（已执行）：
+
+1. 删除 `src/platform/auth/__init__.py`
+
+删除后状态：
+
+1. `platform/auth` 目录下 compat shim 已清零（仅剩 `__pycache__` 产物目录）。
+2. 平台目录 cleanup 重点继续收敛到 `platform/api` 包级壳与 `platform/web` 非 shim 子模块。
+
+### 28) `platform/web` 支撑模块主实现迁移到 `app/web`（保留 compat 壳）
+
+本轮目标（单目标）：
+
+1. 将 `platform/web` 中仍承载主实现的支撑模块迁移到 `app/web`：
+   - `settings.py`
+   - `logging.py`
+   - `lifespan.py`
+   - `middleware/*`
+2. 同时保留 `platform/web` 薄 compat 壳，不删除目录和静态资源。
+
+本轮动作（已执行）：
+
+1. 新增主实现：
+   - `src/app/web/settings.py`
+   - `src/app/web/logging.py`
+   - `src/app/web/lifespan.py`
+   - `src/app/web/middleware/{__init__,access_log,request_id}.py`
+2. 更新调用侧导入到 `src.app.web.*`：
+   - `src/app/web/app.py`
+   - `src/app/web/run.py`
+   - `tests/web/test_health_api.py`
+3. 将 `src/platform/web/{settings,logging,lifespan,middleware/*}.py` 改为 deprecated compat shim（仅转发）。
+
+本轮结果：
+
+1. `app/web` 已承接 web 支撑模块主实现。
+2. `platform/web` 当前仅承担 compat + 静态资源目录角色，后续可按窗口继续评估清理。
+
+### 29) `platform.web.settings` 剩余引用收敛（不删文件）
+
+本轮目标（单目标）：
+
+1. 收敛 app 运行链路中剩余 `src.platform.web.settings` 导入到 `src.app.web.settings`。
+
+本轮动作（已执行）：
+
+1. 更新以下文件导入路径：
+   - `src/app/api/v1/health.py`
+   - `src/app/auth/dependencies.py`
+   - `src/app/auth/jwt_service.py`
+   - `src/app/auth/services/auth_service.py`
+
+本轮结果：
+
+1. `src/tests/scripts` 范围内已无 `src.platform.web.settings` 运行引用。
+2. `platform/web/settings.py` 继续仅保留 compat 壳角色，等待下一轮删除评估。
+
+### 30) `platform/web` 支撑 shim 删除执行结果（6 项）
+
+本轮目标（单目标）：
+
+1. 删除以下 `platform/web` compat shim：
+   - `src/platform/web/settings.py`
+   - `src/platform/web/logging.py`
+   - `src/platform/web/lifespan.py`
+   - `src/platform/web/middleware/__init__.py`
+   - `src/platform/web/middleware/access_log.py`
+   - `src/platform/web/middleware/request_id.py`
+
+删除前审计结果：
+
+1. 在 `src/tests/scripts` 范围内，未检出对上述 `src.platform.web.*` shim 的运行导入引用。
+2. 在 `docs/README/pyproject/.github` 范围内，旧路径仅保留在历史说明文本。
+3. 主实现已稳定落位于：
+   - `src.app.web.settings`
+   - `src.app.web.logging`
+   - `src.app.web.lifespan`
+   - `src.app.web.middleware.*`
+
+本轮动作（已执行）：
+
+1. 删除上述 6 个 compat shim 文件。
+
+删除后状态：
+
+1. `platform/web` 目录已从“实现+shim混合”收敛为“静态资源目录为主”。
+2. 运行入口与 web 支撑实现均由 `src.app.web.*` 承接。
+
+### 31) 收口里程碑：运行代码对 `src.platform.*` 直接导入清零
+
+本轮审计范围：
+
+1. `src`
+2. `tests`
+3. `scripts`
+
+审计结果：
+
+1. `from src.platform ...` / `import src.platform ...` 在运行代码与测试代码中已清零。
+2. `platform` 目录当前主要保留：
+   - 架构说明与过渡目录结构（`AGENTS.md`、少量包目录）
+   - 静态资源目录（`src/platform/web/static/*`）
+   - `__pycache__` 产物目录
+
+后续建议（收尾可选）：
+
+1. 如需进一步收口，可在单独轮次评估是否清理 `platform` 下仅用于包声明的 `__init__.py` 文件（需先确认对外部启动/工具链无隐性依赖）。
+2. 文档层旧路径示例可在后续“文档清扫轮次”统一替换，不与代码清理轮次混做。

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.app.dependencies import get_db_session
 from src.app.exceptions import WebAppError
 from src.app.schemas.common import HealthResponse
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 router = APIRouter(tags=["platform"])

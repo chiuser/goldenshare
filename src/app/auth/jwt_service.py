@@ -6,7 +6,7 @@ import jwt
 
 from src.app.auth.domain import TokenPayload
 from src.app.exceptions import WebAppError
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 class JWTService:
@@ -44,4 +44,3 @@ class JWTService:
             username=str(payload.get("username", "")),
             is_admin=bool(payload.get("is_admin", False)),
         )
-

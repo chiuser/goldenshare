@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from src.app.models.app_user import AppUser
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 from src.ops.schemas.probe import (
     ProbeRuleDetailResponse,
     ProbeRuleListItem,

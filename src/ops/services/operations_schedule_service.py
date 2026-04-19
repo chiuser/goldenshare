@@ -13,7 +13,7 @@ from src.ops.services.schedule_probe_binding_service import ScheduleProbeBinding
 from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.ops.services.operations_execution_service import OperationsExecutionService
 from src.ops.specs import get_ops_spec_display_name, ops_spec_supports_schedule
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 class OperationsScheduleService:

@@ -7,7 +7,7 @@ import uvicorn
 
 from src.db import reset_db
 from src.foundation.config.settings import get_settings
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 def _parse_args() -> argparse.Namespace:

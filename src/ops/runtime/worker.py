@@ -9,7 +9,7 @@ from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.runtime.dispatcher import DispatchOutcome, OperationsDispatcher
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 from src.utils import truncate_text
 
 

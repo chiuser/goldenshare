@@ -5,8 +5,8 @@ import argparse
 from sqlalchemy.exc import IntegrityError
 
 from src.db import SessionLocal
-from src.platform.auth.password_service import PasswordService
-from src.platform.auth.user_repository import UserRepository
+from src.app.auth.password_service import PasswordService
+from src.app.auth.user_repository import UserRepository
 
 
 def main() -> None:

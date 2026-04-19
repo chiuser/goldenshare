@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.platform.auth.domain import AuthenticatedUser
+from src.app.auth.domain import AuthenticatedUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.ops.queries.resolution_release_query_service import ResolutionReleaseQueryService
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 class OpsResolutionReleaseCommandService:

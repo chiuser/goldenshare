@@ -32,7 +32,7 @@ from src.app.models.auth_refresh_token import AuthRefreshToken
 from src.app.models.auth_role import AuthRole
 from src.app.models.auth_role_permission import AuthRolePermission
 from src.app.models.auth_user_role import AuthUserRole
-from src.platform.web.settings import get_web_settings
+from src.app.web.settings import get_web_settings
 
 
 class AuthService:

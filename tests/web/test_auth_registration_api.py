@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 
 from src.foundation.config.settings import get_settings
-from src.platform.auth.security_utils import hash_raw_token
+from src.app.auth.security_utils import hash_raw_token
 from src.app.models.auth_refresh_token import AuthRefreshToken
 
 

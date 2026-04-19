@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.ops.services.schedule_planner import preview_schedule_runs
-from src.platform.auth.domain import AuthenticatedUser
+from src.app.auth.domain import AuthenticatedUser
 
 
 class OpsScheduleCommandService:

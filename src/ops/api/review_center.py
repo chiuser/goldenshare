@@ -13,9 +13,9 @@ from src.ops.schemas.review_center import (
     ReviewEquitySuggestResponse,
     ReviewThsBoardListResponse,
 )
-from src.platform.auth.dependencies import require_admin
-from src.platform.auth.domain import AuthenticatedUser
-from src.platform.dependencies import get_db_session
+from src.app.auth.dependencies import require_admin
+from src.app.auth.domain import AuthenticatedUser
+from src.app.dependencies import get_db_session
 
 
 router = APIRouter(tags=["ops"])

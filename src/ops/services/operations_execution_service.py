@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.specs import get_job_spec, get_workflow_spec
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 @dataclass(frozen=True, slots=True)

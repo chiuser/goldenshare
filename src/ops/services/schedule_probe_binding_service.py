@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.specs import get_job_spec, get_workflow_spec
-from src.platform.exceptions import WebAppError
+from src.app.exceptions import WebAppError
 
 
 SUPPORTED_TRIGGER_MODES = {"schedule", "probe", "schedule_probe_fallback"}

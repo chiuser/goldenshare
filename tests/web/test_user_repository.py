@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.platform.auth.user_repository import UserRepository
+from src.app.auth.user_repository import UserRepository
 
 
 def test_user_repository_create_and_get(db_session) -> None:
