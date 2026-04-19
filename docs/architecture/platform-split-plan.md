@@ -506,6 +506,27 @@
 
 ---
 
+## accounts/models 第三批真实迁移（当前批次）
+
+本轮 models 第三批实际执行范围严格限定为以下 4 个文件：
+
+1. `src/platform/models/app/auth_refresh_token.py` -> `src/app/models/auth_refresh_token.py`
+2. `src/platform/models/app/auth_action_token.py` -> `src/app/models/auth_action_token.py`
+3. `src/platform/models/app/auth_audit_log.py` -> `src/app/models/auth_audit_log.py`
+4. `src/platform/models/app/auth_invite_code.py` -> `src/app/models/auth_invite_code.py`
+
+执行原则：
+
+- 仅迁移上述 4 个模型，不扩大范围
+- 4 个模型按“令牌/审计/邀请码组”成组迁移，不拆开
+- `src/platform/models/app/*` 旧路径保留 deprecated 兼容壳，保证旧 import 可用
+- 保持表结构、metadata 注册、Alembic 行为不变
+- 仅做最小调用侧切换（`src/app/auth/services/auth_service.py` 与 `src/app/auth/services/admin_user_service.py`）
+- `src/app/model_registry.py` 仅做最小兼容调整，不改变整体设计
+- 不触碰 `platform/api/router.py`、`platform/api/v1/router.py` 与 `platform/web/app.py`
+
+---
+
 ## 需继续暂缓的部分
 
 1. **router 聚合层**

@@ -9,11 +9,11 @@ from typing import Any
 
 _EXPORT_TO_MODULE: dict[str, str] = {
     "AppUser": "src.app.models.app_user",
-    "AuthActionToken": "src.platform.models.app.auth_action_token",
-    "AuthAuditLog": "src.platform.models.app.auth_audit_log",
-    "AuthInviteCode": "src.platform.models.app.auth_invite_code",
+    "AuthActionToken": "src.app.models.auth_action_token",
+    "AuthAuditLog": "src.app.models.auth_audit_log",
+    "AuthInviteCode": "src.app.models.auth_invite_code",
     "AuthPermission": "src.app.models.auth_permission",
-    "AuthRefreshToken": "src.platform.models.app.auth_refresh_token",
+    "AuthRefreshToken": "src.app.models.auth_refresh_token",
     "AuthRole": "src.app.models.auth_role",
     "AuthRolePermission": "src.app.models.auth_role_permission",
     "AuthUserRole": "src.app.models.auth_user_role",
