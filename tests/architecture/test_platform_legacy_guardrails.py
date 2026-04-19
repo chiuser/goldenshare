@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from src.app.web.settings import STATIC_DIR
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = ("src", "tests", "scripts")
@@ -63,3 +65,11 @@ def test_platform_contains_only_package_skeleton_python_files() -> None:
     }
     unexpected = sorted(current_python_files - allowed_python_files)
     assert not unexpected, "src/platform 出现了非兼容骨架 Python 文件:\n" + "\n".join(unexpected)
+
+
+def test_web_static_assets_path_is_converged_to_app_web() -> None:
+    static_dir = STATIC_DIR.resolve()
+    expected_static_dir = (REPO_ROOT / "src/app/web/static").resolve()
+    legacy_static_dir = (REPO_ROOT / "src/platform/web/static").resolve()
+    assert static_dir == expected_static_dir, f"STATIC_DIR 应指向 {expected_static_dir}, 当前为 {static_dir}"
+    assert not legacy_static_dir.exists(), f"legacy 静态资源目录不应存在: {legacy_static_dir}"

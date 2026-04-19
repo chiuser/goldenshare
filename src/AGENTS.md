@@ -35,6 +35,14 @@ src/
 
 仍然存在，但它们都是过渡目录，不应继续无约束增长。
 
+当前基线补充（必须守住）：
+
+1. `src/platform` 已进入 compat-only 阶段，不得新增主实现。
+2. 运行代码与测试代码禁止重新依赖 `src.platform.*`。
+3. 对上述基线的自动化护栏由以下测试负责：
+   - `tests/architecture/test_platform_legacy_guardrails.py`
+   - `tests/architecture/test_subsystem_dependency_matrix.py`
+
 ---
 
 ## 总规则

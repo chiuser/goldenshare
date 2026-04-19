@@ -1647,6 +1647,9 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 1. `git mv src/platform/web/static -> src/app/web/static`
 2. 更新 `src/app/web/settings.py`：
    - `STATIC_DIR` 从 `.../platform/web/static` 改为 `src/app/web/static` 同目录定位
+3. 在 `tests/architecture/test_platform_legacy_guardrails.py` 增加静态资源路径护栏：
+   - `STATIC_DIR` 必须指向 `src/app/web/static`
+   - `src/platform/web/static` 不允许回归存在
 
 本轮结果：
 
