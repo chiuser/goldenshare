@@ -13,11 +13,13 @@ interface SectionCardProps {
 
 export function SectionCard({ title, description, action, children }: SectionCardProps) {
   return (
-    <Paper className="glass-card" radius="xl" p="lg">
+    <Paper className="glass-card section-card" radius="md" p="lg">
       <Stack gap="md">
         <Group justify="space-between" align="flex-start" gap="md">
           <Group gap={8} align="center">
-            <Text fw={800} size="lg" lh={1.2}>{title}</Text>
+            <Text className="section-card__title" fw={600} size="lg" lh={1.35}>
+              {title}
+            </Text>
             {description ? <HelpTip label={description} maxWidth={360} /> : null}
           </Group>
           {action}

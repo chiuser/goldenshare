@@ -37,19 +37,19 @@ function toCardStatus(rawStatus: string | null | undefined): CardStatus {
 }
 
 function statusDotColor(status: CardStatus) {
-  if (status === "running") return "rgb(59, 130, 246)";
-  if (status === "healthy") return "rgb(34, 197, 94)";
-  if (status === "failed") return "rgb(244, 63, 94)";
-  if (status === "warning") return "rgb(245, 158, 11)";
-  return "rgb(148, 163, 184)";
+  if (status === "running") return "var(--mantine-color-info-5)";
+  if (status === "healthy") return "var(--mantine-color-success-5)";
+  if (status === "failed") return "var(--mantine-color-error-5)";
+  if (status === "warning") return "var(--mantine-color-warning-5)";
+  return "var(--mantine-color-neutral-5)";
 }
 
 function statusTag(status: CardStatus): { text: string; color: string } {
-  if (status === "running") return { text: "执行中", color: "blue" };
-  if (status === "healthy") return { text: "成功", color: "green" };
-  if (status === "failed") return { text: "失败", color: "red" };
-  if (status === "warning") return { text: "滞后", color: "yellow" };
-  return { text: "未知", color: "gray" };
+  if (status === "running") return { text: "执行中", color: "info" };
+  if (status === "healthy") return { text: "成功", color: "success" };
+  if (status === "failed") return { text: "失败", color: "error" };
+  if (status === "warning") return { text: "滞后", color: "warning" };
+  return { text: "未知", color: "neutral" };
 }
 
 function cadenceLabel(cadence: string): string {
@@ -208,14 +208,14 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       >
         {isLoading ? <Loader size="sm" /> : null}
         {error ? (
-          <Alert color="red" title="读取数据源状态失败">
+          <Alert color="error" title="读取数据源状态失败">
             {error instanceof Error ? error.message : "未知错误"}
           </Alert>
         ) : null}
       </SectionCard>
 
       {!isLoading && !error && cards.length === 0 ? (
-        <Alert color="blue" title={`暂无 ${title} 数据`}>
+        <Alert color="info" title={`暂无 ${title} 数据`}>
           当前没有可展示的 raw 数据源状态。
         </Alert>
       ) : null}
@@ -227,13 +227,13 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing="md" verticalSpacing="md">
               {items.map((item) => (
                 <Paper
+                  className="glass-card"
                   key={item.datasetKey}
                   radius="md"
                   p="md"
                   style={{
-                    border: "1px solid rgba(15, 23, 42, 0.18)",
-                    background: "rgba(250, 204, 21, 0.10)",
                     minHeight: 228,
+                    height: "100%",
                   }}
                 >
                   <Stack gap={10} h="100%">
@@ -270,14 +270,14 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                       <Group gap={6}>
                         {item.autoEnabled ? (
                           <Tooltip label={item.autoTooltip} withArrow multiline w={280}>
-                            <Badge variant="light" color="orange">
+                            <Badge variant="light" color="warning">
                               自动
                             </Badge>
                           </Tooltip>
                         ) : null}
                         {item.probeEnabled ? (
                           <Tooltip label={item.probeTooltip} withArrow multiline w={260}>
-                            <Badge variant="light" color="violet">
+                            <Badge variant="light" color="info">
                               自动探测
                             </Badge>
                           </Tooltip>

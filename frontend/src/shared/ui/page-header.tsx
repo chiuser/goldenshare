@@ -12,10 +12,12 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
-    <Group justify="space-between" align="flex-start" gap="md">
-      <Stack gap={4}>
+    <Group className="page-header" justify="space-between" align="flex-start" gap="md">
+      <Stack className="page-header__body" gap={2}>
         <Group gap={8} align="center">
-          <Title order={2}>{title}</Title>
+          <Title className="page-header__title" order={2}>
+            {title}
+          </Title>
           {description ? <HelpTip label={description} maxWidth={360} size={18} /> : null}
         </Group>
       </Stack>

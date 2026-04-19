@@ -241,5 +241,5 @@ CREATE INDEX idx_example_daily_trade_date
 ## 12. 与现有规范关系
 
 1. 继承 [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md) 中 pipeline mode 规则。  
-2. 与 [Core 表统一为 Serving 语义方案 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-unification-cutover-plan-v1.md) 不冲突；本方案是其性能层补充。  
+2. 与 [子系统边界基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 的分层边界一致；本方案属于 serving 查询性能补充层。  
 3. 与 [数据集开发模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md) 联动，后续新增数据集必须声明是否启用 light。

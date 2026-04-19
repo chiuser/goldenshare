@@ -5,6 +5,7 @@ import {
   Grid,
   Group,
   Loader,
+  Paper,
   Progress,
   ScrollArea,
   SimpleGrid,
@@ -18,7 +19,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { IconCheck, IconClock, IconPlayerPause, IconPlayerStop, IconX } from "@tabler/icons-react";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
@@ -35,6 +36,7 @@ import {
   formatTriggerSourceLabel,
   formatUnitKindLabel,
 } from "../shared/ops-display";
+import { MetricPanel } from "../shared/ui/metric-panel";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
@@ -148,48 +150,48 @@ function buildStatusHeadline(detail: ExecutionDetailResponse) {
     return {
       title: "任务已经提交",
       description: "系统已经收到你的请求，正在准备开始处理。页面会自动刷新。",
-      color: "blue" as const,
+      color: "info" as const,
     };
   }
   if (detail.status === "running") {
     return {
       title: "任务正在处理中",
       description: "系统正在处理你这次同步请求。你可以留在这里等待，也可以稍后回来查看结果。",
-      color: "blue" as const,
+      color: "info" as const,
     };
   }
   if (detail.status === "canceling") {
     return {
       title: "任务正在停止中",
       description: detail.progress_message || "系统已收到停止请求，正在结束当前处理。",
-      color: "violet" as const,
+      color: "warning" as const,
     };
   }
   if (detail.status === "success") {
     return {
       title: "任务已经处理完成",
       description: detail.summary_message || "这次处理已经顺利完成。",
-      color: "teal" as const,
+      color: "success" as const,
     };
   }
   if (detail.status === "failed") {
     return {
       title: "任务处理失败",
       description: detail.summary_message || detail.error_message || "请先查看问题摘要，再决定是否重新提交。",
-      color: "red" as const,
+      color: "error" as const,
     };
   }
   if (detail.status === "canceled") {
     return {
       title: "任务已经停止",
       description: "这次处理已经被停止。如果还需要继续，可以重新提交。",
-      color: "yellow" as const,
+      color: "neutral" as const,
     };
   }
   return {
     title: "任务已结束",
     description: detail.summary_message || "可以查看下方结果和处理记录。",
-    color: "gray" as const,
+    color: "neutral" as const,
   };
 }
 
@@ -277,7 +279,7 @@ function buildServingLightRefreshUpdate(events: ExecutionEventsResponse["items"]
   const normalizedTouchedRows = Number.isFinite(touchedRows) ? touchedRows : null;
   if (targetEvent.event_type === "serving_light_refreshed") {
     return {
-      color: "teal" as const,
+      color: "success" as const,
       title: "轻量层刷新成功",
       message: targetEvent.message || "轻量层已完成刷新。",
       touchedRows: normalizedTouchedRows,
@@ -286,7 +288,7 @@ function buildServingLightRefreshUpdate(events: ExecutionEventsResponse["items"]
   }
   if (targetEvent.event_type === "serving_light_refresh_failed") {
     return {
-      color: "red" as const,
+      color: "error" as const,
       title: "轻量层刷新失败",
       message: targetEvent.message || "轻量层刷新失败，请查看系统更新记录。",
       touchedRows: normalizedTouchedRows,
@@ -294,7 +296,7 @@ function buildServingLightRefreshUpdate(events: ExecutionEventsResponse["items"]
     };
   }
   return {
-    color: "gray" as const,
+    color: "neutral" as const,
     title: "轻量层刷新已跳过",
     message: targetEvent.message || "本次任务写入为 0，已跳过轻量层刷新。",
     touchedRows: normalizedTouchedRows,
@@ -426,41 +428,41 @@ function buildLiveResult(
 function renderStepStatusIcon(status: string) {
   if (status === "success") {
     return (
-      <ThemeIcon color="teal" variant="light" radius="xl" size="lg">
+      <ThemeIcon color="success" variant="light" radius="md" size="lg">
         <IconCheck size={18} />
       </ThemeIcon>
     );
   }
   if (status === "failed") {
     return (
-      <ThemeIcon color="red" variant="light" radius="xl" size="lg">
+      <ThemeIcon color="error" variant="light" radius="md" size="lg">
         <IconX size={18} />
       </ThemeIcon>
     );
   }
   if (status === "running") {
     return (
-      <ThemeIcon color="blue" variant="light" radius="xl" size="lg">
+      <ThemeIcon color="info" variant="light" radius="md" size="lg">
         <Loader size={16} />
       </ThemeIcon>
     );
   }
   if (status === "canceling") {
     return (
-      <ThemeIcon color="violet" variant="light" radius="xl" size="lg">
+      <ThemeIcon color="warning" variant="light" radius="md" size="lg">
         <IconPlayerPause size={18} />
       </ThemeIcon>
     );
   }
   if (status === "canceled") {
     return (
-      <ThemeIcon color="yellow" variant="light" radius="xl" size="lg">
+      <ThemeIcon color="neutral" variant="light" radius="md" size="lg">
         <IconPlayerStop size={18} />
       </ThemeIcon>
     );
   }
   return (
-    <ThemeIcon color="gray" variant="light" radius="xl" size="lg">
+    <ThemeIcon color="neutral" variant="light" radius="md" size="lg">
       <IconClock size={18} />
     </ThemeIcon>
   );
@@ -476,9 +478,17 @@ function getStepStatusLabel(status: string) {
 }
 
 function renderStepBullet(sequenceNo: number) {
-  const palette = ["blue", "teal", "cyan", "indigo", "grape", "orange"];
+  const palette = ["brand", "info", "success", "warning", "error", "neutral"] as const;
   const color = palette[(sequenceNo - 1) % palette.length];
-  return <ThemeIcon color={color} variant="filled" radius="xl" size="sm" />;
+  return <ThemeIcon color={color} variant="filled" radius="sm" size="sm" />;
+}
+
+function DetailSurfaceCard({ children }: { children: ReactNode }) {
+  return (
+    <Paper withBorder radius="md" p="md">
+      {children}
+    </Paper>
+  );
 }
 
 export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
@@ -518,7 +528,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
       }),
     onSuccess: async (data) => {
       notifications.show({
-        color: "green",
+        color: "success",
         title: "任务已重新提交",
         message: "系统已经收到新的任务请求。",
       });
@@ -534,7 +544,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
       }),
     onSuccess: async () => {
       notifications.show({
-        color: "green",
+        color: "success",
         title: "已经请求停止当前任务",
         message: `任务 #${executionId}`,
       });
@@ -574,7 +584,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
 
       {(detailQuery.isLoading || stepsQuery.isLoading || eventsQuery.isLoading) ? <Loader size="sm" /> : null}
       {detailQuery.error ? (
-        <Alert color="red" title="无法读取任务详情">
+        <Alert color="error" title="无法读取任务详情">
           {detailQuery.error instanceof Error ? detailQuery.error.message : "未知错误"}
         </Alert>
       ) : null}
@@ -595,7 +605,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                   </Button>
                 ) : null}
                 {(detail.status === "queued" || detail.status === "running") ? (
-                  <Button color="orange" variant="light" onClick={() => cancelMutation.mutate()} loading={cancelMutation.isPending}>
+                  <Button color="warning" variant="light" onClick={() => cancelMutation.mutate()} loading={cancelMutation.isPending}>
                     停止处理
                   </Button>
                 ) : null}
@@ -606,54 +616,18 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               {buildStatusHeadline(detail).description}
             </Alert>
             <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md" verticalSpacing="md">
-              <Stack
-                gap={8}
-                p="md"
-                bg="var(--mantine-color-gray-0)"
-                bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
-              >
-                <Text c="dimmed" size="xl" fw={600}>当前状态</Text>
-                <Group justify="flex-end" align="flex-end">
-                  <StatusBadge value={detail.status} size="lg" />
-                </Group>
-              </Stack>
-              <Stack
-                gap={8}
-                p="md"
-                bg="var(--mantine-color-gray-0)"
-                bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
-              >
-                <Text c="dimmed" size="xl" fw={600}>发起方式</Text>
-                <Group justify="flex-end" align="flex-end">
-                  <Text fw={700} size="xl">{formatTriggerSourceLabel(detail.trigger_source)}</Text>
-                </Group>
-              </Stack>
-              <Stack
-                gap={8}
-                p="md"
-                bg="var(--mantine-color-gray-0)"
-                bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
-              >
-                <Text c="dimmed" size="xl" fw={600}>提交时间</Text>
-                <Group justify="flex-end" align="flex-end">
-                  <Text ff="monospace" fw={700} size="xl">{formatDateTimeLabel(detail.requested_at)}</Text>
-                </Group>
-              </Stack>
-              <Stack
-                gap={8}
-                p="md"
-                bg="var(--mantine-color-gray-0)"
-                bd="1px solid var(--mantine-color-gray-2)"
-                style={{ borderRadius: "var(--mantine-radius-lg)", minHeight: 132, justifyContent: "space-between" }}
-              >
-                <Text c="dimmed" size="xl" fw={600}>当前结果</Text>
-                <Group justify="flex-end" align="flex-end">
-                  <Text fw={700} size="xl">{liveResult?.value || "暂无结果"}</Text>
-                </Group>
-              </Stack>
+              <MetricPanel label="当前状态">
+                <StatusBadge value={detail.status} size="lg" />
+              </MetricPanel>
+              <MetricPanel label="发起方式">
+                <Text fw={700} size="xl">{formatTriggerSourceLabel(detail.trigger_source)}</Text>
+              </MetricPanel>
+              <MetricPanel label="提交时间">
+                <Text ff="monospace" fw={700} size="xl">{formatDateTimeLabel(detail.requested_at)}</Text>
+              </MetricPanel>
+              <MetricPanel label="当前结果">
+                <Text fw={700} size="xl">{liveResult?.value || "暂无结果"}</Text>
+              </MetricPanel>
             </SimpleGrid>
           </SectionCard>
 
@@ -662,34 +636,29 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               <SectionCard title="当前进展" description="这里只保留最关键的进展信息，帮助你快速判断任务是不是在正常推进。">
                 <Stack gap="md">
                   {latestUpdate ? (
-                    <Alert color={detail.status === "failed" ? "red" : "blue"} title={`最近更新：${latestUpdate.label}`}>
+                    <Alert color={detail.status === "failed" ? "error" : "info"} title={`最近更新：${latestUpdate.label}`}>
                       <Text size="sm">{latestUpdate.message}</Text>
                       <Text size="xs" c="dimmed" mt={6}>{latestUpdate.time}</Text>
                     </Alert>
                   ) : null}
                   {progressSnapshot ? (
-                    <Stack
-                      gap={8}
-                      p="md"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
-                    >
+                    <DetailSurfaceCard>
+                      <Stack gap={8}>
                       <Group justify="space-between" align="end">
                         <Stack gap={2}>
                           <Text c="dimmed" size="sm">阶段性进度</Text>
-                      <Text fw={700} size="xl">{progressSnapshot.current} / {progressSnapshot.total}</Text>
-                    </Stack>
-                    <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">{progressSnapshot.percent}%</Text>
-                  </Group>
-                  <Progress value={progressSnapshot.percent} radius="xl" size="lg" />
-                  <Text size="sm" c="dimmed">
-                    {`进度单位：${progressSnapshot.unitLabel || "任务单元"}`}
-                  </Text>
-                  <Text size="sm">{progressSnapshot.message}</Text>
-                  {progressSnapshot.cursorLabel ? (
-                    <Text size="sm">{progressSnapshot.cursorLabel}</Text>
-                  ) : null}
+                          <Text fw={700} size="xl">{progressSnapshot.current} / {progressSnapshot.total}</Text>
+                        </Stack>
+                        <Text fw={700} size="lg" c="var(--mantine-color-brand-6)">{progressSnapshot.percent}%</Text>
+                      </Group>
+                      <Progress value={progressSnapshot.percent} radius="md" size="lg" color="brand" />
+                      <Text size="sm" c="dimmed">
+                        {`进度单位：${progressSnapshot.unitLabel || "任务单元"}`}
+                      </Text>
+                      <Text size="sm">{progressSnapshot.message}</Text>
+                      {progressSnapshot.cursorLabel ? (
+                        <Text size="sm">{progressSnapshot.cursorLabel}</Text>
+                      ) : null}
                       {(progressSnapshot.fetched !== null || progressSnapshot.written !== null) ? (
                         <Text size="sm">
                           当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条
@@ -698,14 +667,15 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       <Text size="sm" c="dimmed">
                         最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
                       </Text>
-                    </Stack>
+                      </Stack>
+                    </DetailSurfaceCard>
                   ) : (
                     (detail.status === "queued" || detail.status === "running" || detail.status === "canceling") ? (
-                      <Alert color="blue" title="处理中，等待进展写回">
+                      <Alert color="info" title="处理中，等待进展写回">
                         任务正在执行。进度与当前处理对象写回后，这里会自动更新。
                       </Alert>
                     ) : (
-                      <Alert color={detail.status === "failed" ? "red" : "teal"} title="任务已结束">
+                      <Alert color={detail.status === "failed" ? "error" : "success"} title="任务已结束">
                         {detail.summary_message || detail.error_message || "任务已结束。"}
                       </Alert>
                     )
@@ -722,28 +692,20 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                     </Alert>
                   ) : null}
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                    <Stack
-                      gap={4}
-                      p="md"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
-                    >
-                      <Text c="dimmed" size="sm">当前结果</Text>
-                      <Text fw={700}>{liveResult?.value || "暂无结果"}</Text>
-                      <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
-                    </Stack>
-                    <Stack
-                      gap={4}
-                      p="md"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-lg)" }}
-                    >
-                      <Text c="dimmed" size="sm">最近更新</Text>
-                      <Text fw={700}>{latestUpdate?.time || "刚刚"}</Text>
-                      <Text size="sm" c="dimmed">{latestUpdate?.message || "系统正在等待新的处理进展。"}</Text>
-                    </Stack>
+                    <DetailSurfaceCard>
+                      <Stack gap={4}>
+                        <Text c="dimmed" size="sm">当前结果</Text>
+                        <Text fw={700}>{liveResult?.value || "暂无结果"}</Text>
+                        <Text size="sm" c="dimmed">{liveResult?.hint}</Text>
+                      </Stack>
+                    </DetailSurfaceCard>
+                    <DetailSurfaceCard>
+                      <Stack gap={4}>
+                        <Text c="dimmed" size="sm">最近更新</Text>
+                        <Text fw={700}>{latestUpdate?.time || "刚刚"}</Text>
+                        <Text size="sm" c="dimmed">{latestUpdate?.message || "系统正在等待新的处理进展。"}</Text>
+                      </Stack>
+                    </DetailSurfaceCard>
                   </SimpleGrid>
                 </Stack>
               </SectionCard>
@@ -782,7 +744,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                   <Stack gap="sm">
                     <Text>{buildActionSuggestion(detail)}</Text>
                     {detail.status === "failed" ? (
-                      <Alert color="red" title="问题摘要">
+                      <Alert color="error" title="问题摘要">
                         {detail.summary_message || detail.error_message || "系统已经记录到失败，但还没有生成更具体的摘要。你可以查看实时处理记录继续排查。"}
                       </Alert>
                     ) : null}

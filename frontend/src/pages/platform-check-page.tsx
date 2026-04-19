@@ -1,4 +1,4 @@
-import { Alert, Grid, Loader, Paper, Stack, Table, Text } from "@mantine/core";
+import { Alert, Grid, Loader, Stack, Table } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { useCurrentUser } from "../features/auth/auth-context";
@@ -6,6 +6,7 @@ import { apiRequest } from "../shared/api/client";
 import type { HealthResponse } from "../shared/api/types";
 import { formatEnvironmentLabel, formatHealthStatusLabel, formatServiceNameLabel } from "../shared/ops-display";
 import { PageHeader } from "../shared/ui/page-header";
+import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 
 
@@ -52,9 +53,8 @@ export function PlatformCheckPage() {
         </Grid.Col>
       </Grid>
 
-      <Paper className="glass-card" radius="xl" p="lg">
+      <SectionCard title="当前状态" description="这里用于快速确认服务、环境和当前登录上下文是否一致。">
         <Stack gap="md">
-          <Text fw={700}>当前状态</Text>
           {healthQuery.isLoading ? <Loader size="sm" /> : null}
           {healthQuery.error ? (
             <Alert color="red" title="健康检查失败">
@@ -84,7 +84,7 @@ export function PlatformCheckPage() {
             </Table>
           ) : null}
         </Stack>
-      </Paper>
+      </SectionCard>
     </Stack>
   );
 }

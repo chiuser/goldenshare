@@ -76,11 +76,86 @@ code {
   background: var(--gs-page-background);
 }
 
+.app-centered-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app-shell-header {
+  background: rgba(247, 248, 250, 0.92);
+  border-bottom: 1px solid var(--gs-neutral-3);
+  backdrop-filter: blur(10px);
+}
+
+.app-shell-navbar {
+  background: var(--gs-neutral-0);
+  border-inline-end: 1px solid var(--gs-neutral-3);
+}
+
+.app-shell-main {
+  background: transparent;
+}
+
 .glass-card {
   --paper-radius: var(--gs-radius-md);
   background: var(--gs-neutral-0);
   border: 1px solid var(--gs-neutral-3);
   box-shadow: none;
+}
+
+.section-card,
+.stat-card {
+  height: 100%;
+}
+
+.section-card__title {
+  color: var(--gs-neutral-9);
+  letter-spacing: -0.01em;
+}
+
+.page-header {
+  min-width: 0;
+}
+
+.page-header__body {
+  min-width: 0;
+}
+
+.page-header__title {
+  color: var(--gs-neutral-9);
+  letter-spacing: -0.01em;
+}
+
+.auth-page-layout {
+  width: 100%;
+}
+
+.auth-page-layout__kicker {
+  color: var(--gs-neutral-6);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-page-layout__title {
+  color: var(--gs-neutral-9);
+  letter-spacing: -0.01em;
+}
+
+.auth-page-layout__description {
+  color: var(--gs-neutral-6);
+}
+
+.stat-card__label {
+  color: var(--gs-neutral-6);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stat-card__value {
+  color: var(--gs-neutral-9);
+  letter-spacing: -0.01em;
 }
 
 .app-brand-mark {
@@ -90,6 +165,42 @@ code {
   border-radius: 0;
   box-shadow: none;
   background: transparent;
+}
+
+.app-shell-brand-title {
+  color: var(--gs-neutral-9);
+  letter-spacing: -0.01em;
+}
+
+.app-shell-brand-subtitle {
+  color: var(--gs-neutral-6);
+}
+
+.app-shell-user-meta {
+  min-width: 0;
+}
+
+.app-shell-user-name {
+  color: var(--gs-neutral-9);
+}
+
+.app-shell-user-role {
+  color: var(--gs-neutral-6);
+}
+
+.app-shell-section-caption {
+  color: var(--gs-neutral-6);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.app-shell-footer-meta {
+  border-top: 1px solid var(--gs-neutral-3);
+  padding-top: 12px;
+}
+
+.app-shell-license {
+  color: var(--gs-neutral-8);
 }
 
 .login-brand-logo {

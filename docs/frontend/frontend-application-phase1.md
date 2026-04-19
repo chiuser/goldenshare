@@ -1,5 +1,8 @@
 # 前端应用一期设计
 
+> 角色说明：本文件是“前端一期建设专题文档”。  
+> 当前前端强约束与交付门禁请以 [frontend-current-standards.md](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md) 为准。
+
 ## 1. 目标
 
 本文档定义 `goldenshare` 前端应用一期的实现边界与工程结构。

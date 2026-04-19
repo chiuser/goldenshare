@@ -61,11 +61,11 @@ export function OpsShell(_props: PropsWithChildren) {
   return (
     <AppShell
       className="app-gradient-shell"
-      header={{ height: 76 }}
+      header={{ height: 72 }}
       navbar={{ width: 280, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"
     >
-      <AppShell.Header px="lg">
+      <AppShell.Header className="app-shell-header" px="lg">
         <Group justify="space-between" h="100%">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
@@ -75,26 +75,28 @@ export function OpsShell(_props: PropsWithChildren) {
               className="app-brand-mark"
             />
             <Stack gap={0}>
-              <Text fw={800} size="xl">
+              <Text className="app-shell-brand-title" fw={600} size="lg">
                 财势乾坤
               </Text>
-              <Text c="dimmed" size="sm">
+              <Text className="app-shell-brand-subtitle" size="xs">
                 数据运营管理综合平台
               </Text>
             </Stack>
           </Group>
           <Group gap="sm">
-            <Badge radius="xl" size="lg" color="brand" variant="filled">
+            <Badge size="md" color="brand" variant="light">
               运行管理
             </Badge>
-            <Stack gap={0} align="flex-end">
-              <Text fw={600}>{userQuery.data?.display_name || userQuery.data?.username || "管理员"}</Text>
-              <Text c="dimmed" size="xs">
+            <Stack className="app-shell-user-meta" gap={2} align="flex-end">
+              <Text className="app-shell-user-name" fw={600} size="sm">
+                {userQuery.data?.display_name || userQuery.data?.username || "管理员"}
+              </Text>
+              <Text className="app-shell-user-role" size="xs">
                 {userQuery.data?.is_admin ? "管理员" : "操作员"}
               </Text>
             </Stack>
             <Tooltip label="退出登录">
-              <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={() => void logout()}>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => void logout()}>
                 <IconLogout size={18} />
               </ActionIcon>
             </Tooltip>
@@ -102,12 +104,16 @@ export function OpsShell(_props: PropsWithChildren) {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="md">
+      <AppShell.Navbar className="app-shell-navbar" p="md">
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap="xs">
             <Group justify="space-between" px="xs" pb={2}>
-              <Text size="xs" c="dimmed" fw={700}>V2.1</Text>
-              <Badge size="xs" radius="xl" variant="light" color="brand">新</Badge>
+              <Text className="app-shell-section-caption" size="xs" fw={600}>
+                V2.1
+              </Text>
+              <Badge size="xs" variant="light" color="brand">
+                新
+              </Badge>
             </Group>
             {opsV21Links.map((link) => (
               <NavLink
@@ -121,16 +127,7 @@ export function OpsShell(_props: PropsWithChildren) {
                 color="brand"
               />
             ))}
-            <NavLink
-              label="数据源"
-              leftSection={<IconStack2 size={18} />}
-              variant="light"
-              color="brand"
-              styles={{
-                root: { pointerEvents: "none" },
-                label: { fontWeight: 600, color: "var(--mantine-color-text)" },
-              }}
-            />
+            <ShellSectionLabel label="数据源" />
             {opsV21SourceLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -141,20 +138,11 @@ export function OpsShell(_props: PropsWithChildren) {
                 active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
                 variant="subtle"
                 color="brand"
-                style={{ marginLeft: 10 }}
+                style={{ marginLeft: 8 }}
               />
             ))}
 
-            <NavLink
-              label="审查中心"
-              leftSection={<IconStack2 size={18} />}
-              variant="light"
-              color="brand"
-              styles={{
-                root: { pointerEvents: "none" },
-                label: { fontWeight: 600, color: "var(--mantine-color-text)" },
-              }}
-            />
+            <ShellSectionLabel label="审查中心" />
             {opsV21ReviewLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -165,7 +153,7 @@ export function OpsShell(_props: PropsWithChildren) {
                 active={location.pathname === link.to || location.pathname.startsWith(`${link.to}/`)}
                 variant="subtle"
                 color="brand"
-                style={{ marginLeft: 10 }}
+                style={{ marginLeft: 8 }}
               />
             ))}
 
@@ -200,18 +188,22 @@ export function OpsShell(_props: PropsWithChildren) {
               label="当前重点：先看今日运行，再处理任务记录里的失败项。"
               leftSection={<IconSparkles size={18} />}
               disabled
-              variant="light"
+              variant="subtle"
             />
-            <Stack gap={2} mt={8} px="sm">
-              <Text size="xs" c="dimmed">版本：{versionText}</Text>
-              <Text size="xs" c="dimmed">构建：{buildTimeText}</Text>
+            <Stack className="app-shell-footer-meta" gap={2} mt={8} px="sm">
+              <Text size="xs" c="dimmed">
+                版本：{versionText}
+              </Text>
+              <Text size="xs" c="dimmed">
+                构建：{buildTimeText}
+              </Text>
               <Group gap={4} align="center" wrap="nowrap">
                 <img
                   src="/app/brand/gxbicon.png"
                   alt="京ICP备图标"
                   style={{ width: "1em", height: "1em", display: "block", flex: "0 0 auto" }}
                 />
-                <Text size="xs" style={{ color: "var(--mantine-color-black)" }}>
+                <Text className="app-shell-license" size="xs">
                   京ICP备2026018630号-1
                 </Text>
               </Group>
@@ -220,9 +212,20 @@ export function OpsShell(_props: PropsWithChildren) {
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main className="app-shell-main">
         <Outlet />
       </AppShell.Main>
     </AppShell>
+  );
+}
+
+function ShellSectionLabel({ label }: { label: string }) {
+  return (
+    <Group gap={8} px="xs" pt="sm" pb={4}>
+      <IconStack2 size={16} color="var(--gs-neutral-6)" />
+      <Text className="app-shell-section-caption" size="xs" fw={600}>
+        {label}
+      </Text>
+    </Group>
   );
 }

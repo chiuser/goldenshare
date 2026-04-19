@@ -17,7 +17,17 @@ src/
   app/          # 组合根（web/api/auth/models/schemas 装配）
   platform/     # legacy 占位目录（冻结）
   operations/   # legacy 占位目录（冻结）
+  scripts/      # 工程脚本（部署、发版、自检）
+  shared/       # 共享契约与工具
 ```
+
+---
+
+## 运行入口（当前唯一有效）
+
+1. CLI：`goldenshare = src.cli:app`
+2. Web：`goldenshare-web = src.app.web.run:main`
+3. systemd 参考：`scripts/goldenshare-web.service` 使用 `python -m src.app.web.run`
 
 ---
 
@@ -128,3 +138,11 @@ src/
 2. 是否删除 legacy 目录空包骨架（需先做外部入口影响审计）
 
 > 注：该清单是治理类收尾，不影响当前功能可用性。
+
+---
+
+## 最小验证基线
+
+1. 架构护栏：`pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
+2. 关键健康检查：`GET /api/health`、`GET /api/v1/health`
+3. 发布脚本可用性：`bash scripts/deploy-systemd.sh --help`

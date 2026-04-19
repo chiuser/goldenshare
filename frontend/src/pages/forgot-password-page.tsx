@@ -1,4 +1,4 @@
-import { Alert, Button, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Stack, TextInput } from "@mantine/core";
 import { IconKey, IconMailOpened } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type { LookupAccountResponse } from "../shared/api/types";
+import { AuthPageLayout } from "../shared/ui/auth-page-layout";
 
 
 export function ForgotPasswordPage() {
@@ -32,64 +33,53 @@ export function ForgotPasswordPage() {
   });
 
   return (
-    <div
-      className="app-gradient-shell"
-      style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}
+    <AuthPageLayout
+      kicker="密码重置"
+      title="忘记密码"
+      description="输入用户名或邮箱。当前环境未接入邮件时，可使用调试令牌继续重置。"
     >
-      <Paper className="glass-card" radius="xl" p={36} miw={360} maw={500}>
-        <Stack gap="lg">
-          <Stack gap={6}>
-            <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-              密码重置
-            </Text>
-            <Title order={1}>忘记密码</Title>
-            <Text c="dimmed" size="sm">
-              输入用户名或邮箱。当前环境未接入邮件时，可使用调试令牌继续重置。
-            </Text>
-          </Stack>
+      <Stack gap="lg">
+        {errorText ? (
+          <Alert color="red" title="提交失败">
+            {errorText}
+          </Alert>
+        ) : null}
+        {messageText ? (
+          <Alert color="blue" title="已受理">
+            {messageText}
+          </Alert>
+        ) : null}
 
-          {errorText ? (
-            <Alert color="red" title="提交失败">
-              {errorText}
-            </Alert>
-          ) : null}
-          {messageText ? (
-            <Alert color="blue" title="已受理">
-              {messageText}
-            </Alert>
-          ) : null}
+        <TextInput
+          label="用户名或邮箱"
+          value={usernameOrEmail}
+          onChange={(event) => setUsernameOrEmail(event.currentTarget.value)}
+          leftSection={<IconMailOpened size={16} />}
+        />
+        <Button loading={forgotMutation.isPending} onClick={() => forgotMutation.mutate()}>
+          提交重置请求
+        </Button>
 
-          <TextInput
-            label="用户名或邮箱"
-            value={usernameOrEmail}
-            onChange={(event) => setUsernameOrEmail(event.currentTarget.value)}
-            leftSection={<IconMailOpened size={16} />}
-          />
-          <Button loading={forgotMutation.isPending} onClick={() => forgotMutation.mutate()}>
-            提交重置请求
-          </Button>
+        <TextInput
+          label="重置令牌（无邮件时使用）"
+          value={tokenDebug}
+          onChange={(event) => setTokenDebug(event.currentTarget.value)}
+          leftSection={<IconKey size={16} />}
+        />
+        <Button
+          variant="light"
+          onClick={async () => {
+            await navigate({ to: `/reset-password?token=${encodeURIComponent(tokenDebug)}` });
+          }}
+          disabled={!tokenDebug.trim()}
+        >
+          进入重置页面
+        </Button>
 
-          <TextInput
-            label="重置令牌（无邮件时使用）"
-            value={tokenDebug}
-            onChange={(event) => setTokenDebug(event.currentTarget.value)}
-            leftSection={<IconKey size={16} />}
-          />
-          <Button
-            variant="light"
-            onClick={async () => {
-              await navigate({ to: `/reset-password?token=${encodeURIComponent(tokenDebug)}` });
-            }}
-            disabled={!tokenDebug.trim()}
-          >
-            进入重置页面
-          </Button>
-
-          <Button component={Link} to="/login" variant="subtle" size="sm">
-            返回登录
-          </Button>
-        </Stack>
-      </Paper>
-    </div>
+        <Button component={Link} to="/login" variant="subtle" size="sm">
+          返回登录
+        </Button>
+      </Stack>
+    </AuthPageLayout>
   );
 }

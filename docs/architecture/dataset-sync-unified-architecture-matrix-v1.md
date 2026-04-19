@@ -1,5 +1,8 @@
 # 数据同步统一架构与全量数据集矩阵 v2
 
+> 角色说明：本文件是“同步架构矩阵专题文档”，用于沉淀切面模型与数据集矩阵映射。  
+> 强约束口径请以 [foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md) 为准。
+
 ## 1. 设计总纲（先统一思想）
 
 数据同步最本质只有一件事：**下载数据 -> 落库数据**。  

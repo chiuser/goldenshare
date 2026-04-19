@@ -1,4 +1,4 @@
-import { Alert, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { IconKey, IconUserPlus } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -8,6 +8,7 @@ import { useAuth } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
 import { ApiError } from "../shared/api/errors";
 import type { CurrentUserResponse, LoginResponse, LookupAccountResponse, RegisterResponse } from "../shared/api/types";
+import { AuthPageLayout } from "../shared/ui/auth-page-layout";
 
 
 export function RegisterPage() {
@@ -147,86 +148,75 @@ export function RegisterPage() {
   };
 
   return (
-    <div
-      className="app-gradient-shell"
-      style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}
+    <AuthPageLayout
+      kicker="邀请码注册"
+      title="创建账号"
+      description="当前仅支持邀请码注册。未接入邮件服务时，可在本页使用调试验证令牌完成激活。"
     >
-      <Paper className="glass-card" radius="xl" p={36} miw={360} maw={500}>
-        <Stack gap="lg">
-          <Stack gap={6}>
-            <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-              邀请码注册
-            </Text>
-            <Title order={1}>创建账号</Title>
-            <Text c="dimmed" size="sm">
-              当前仅支持邀请码注册。未接入邮件服务时，可在本页使用调试验证令牌完成激活。
-            </Text>
-          </Stack>
+      <Stack gap="lg">
+        {errorText ? (
+          <Alert color="red" title="提交失败">
+            {errorText}
+          </Alert>
+        ) : null}
+        {tipText ? (
+          <Alert color="blue" title="提示">
+            {tipText}
+          </Alert>
+        ) : null}
 
-          {errorText ? (
-            <Alert color="red" title="提交失败">
-              {errorText}
-            </Alert>
-          ) : null}
-          {tipText ? (
-            <Alert color="blue" title="提示">
-              {tipText}
-            </Alert>
-          ) : null}
+        <TextInput label="用户名" value={username} onChange={(event) => setUsername(event.currentTarget.value)} />
+        <TextInput label="显示名称（可选）" value={displayName} onChange={(event) => setDisplayName(event.currentTarget.value)} />
+        <TextInput label="邮箱（建议填写）" value={email} onChange={(event) => setEmail(event.currentTarget.value)} />
+        <TextInput
+          label="邀请码"
+          value={inviteCode}
+          onChange={(event) => setInviteCode(event.currentTarget.value)}
+          leftSection={<IconKey size={16} />}
+        />
+        <PasswordInput label="密码" value={password} onChange={(event) => setPassword(event.currentTarget.value)} />
+        <PasswordInput
+          label="确认密码"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.currentTarget.value)}
+        />
+        <Button
+          leftSection={<IconUserPlus size={16} />}
+          loading={registerMutation.isPending}
+          onClick={submitRegister}
+        >
+          提交注册
+        </Button>
+        {showVerifySection ? (
+          <>
+            <TextInput
+              label="验证令牌（无邮件时使用）"
+              value={verifyToken}
+              onChange={(event) => setVerifyToken(event.currentTarget.value)}
+            />
+            <Button
+              variant="light"
+              loading={verifyMutation.isPending}
+              onClick={submitVerify}
+              disabled={!verifyToken.trim()}
+            >
+              完成激活并登录
+            </Button>
+            <Button
+              variant="subtle"
+              loading={resendVerifyMutation.isPending}
+              onClick={() => resendVerifyMutation.mutate()}
+              disabled={!resolveVerifyIdentifier()}
+            >
+              重新获取验证令牌
+            </Button>
+          </>
+        ) : null}
 
-          <TextInput label="用户名" value={username} onChange={(event) => setUsername(event.currentTarget.value)} />
-          <TextInput label="显示名称（可选）" value={displayName} onChange={(event) => setDisplayName(event.currentTarget.value)} />
-          <TextInput label="邮箱（建议填写）" value={email} onChange={(event) => setEmail(event.currentTarget.value)} />
-          <TextInput
-            label="邀请码"
-            value={inviteCode}
-            onChange={(event) => setInviteCode(event.currentTarget.value)}
-            leftSection={<IconKey size={16} />}
-          />
-          <PasswordInput label="密码" value={password} onChange={(event) => setPassword(event.currentTarget.value)} />
-          <PasswordInput
-            label="确认密码"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.currentTarget.value)}
-          />
-          <Button
-            leftSection={<IconUserPlus size={16} />}
-            loading={registerMutation.isPending}
-            onClick={submitRegister}
-          >
-            提交注册
-          </Button>
-          {showVerifySection ? (
-            <>
-              <TextInput
-                label="验证令牌（无邮件时使用）"
-                value={verifyToken}
-                onChange={(event) => setVerifyToken(event.currentTarget.value)}
-              />
-              <Button
-                variant="light"
-                loading={verifyMutation.isPending}
-                onClick={submitVerify}
-                disabled={!verifyToken.trim()}
-              >
-                完成激活并登录
-              </Button>
-              <Button
-                variant="subtle"
-                loading={resendVerifyMutation.isPending}
-                onClick={() => resendVerifyMutation.mutate()}
-                disabled={!resolveVerifyIdentifier()}
-              >
-                重新获取验证令牌
-              </Button>
-            </>
-          ) : null}
-
-          <Button component={Link} to="/login" variant="subtle" size="sm">
-            返回登录
-          </Button>
-        </Stack>
-      </Paper>
-    </div>
+        <Button component={Link} to="/login" variant="subtle" size="sm">
+          返回登录
+        </Button>
+      </Stack>
+    </AuthPageLayout>
   );
 }

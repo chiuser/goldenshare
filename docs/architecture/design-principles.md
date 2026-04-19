@@ -1,6 +1,6 @@
 # Goldenshare Design Principles
 
-> 说明：本文中的目录示例若与当前代码不一致，请以 [current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md) 为准。
+> 说明：本文中的目录示例若与当前代码不一致，请以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 为准。
 
 ## Purpose
 

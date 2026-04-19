@@ -17,11 +17,8 @@ export function UserOverviewPage() {
   });
 
   return (
-    <div
-      className="app-gradient-shell"
-      style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}
-    >
-      <Paper className="glass-card" radius="xl" p={32} miw={360} maw={1100} w="100%">
+    <div className="app-gradient-shell app-centered-shell">
+      <Paper className="glass-card" radius="md" p={32} miw={360} maw={1100} w="100%">
         <Stack gap="lg">
           <Stack gap={6}>
             <Text c="dimmed" fw={700} size="sm" tt="uppercase">

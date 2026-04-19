@@ -91,7 +91,7 @@
 ## 4. 历史回补行为（`backfill_index_series`）
 
 实现文件：
-- [src/operations/services/history_backfill_service.py](/Users/congming/github/goldenshare/src/operations/services/history_backfill_service.py)
+- [src/ops/services/operations_history_backfill_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)
 
 关键点：
 1. `resource in {"index_daily", "index_daily_basic"}` 时：
@@ -147,4 +147,3 @@ where resource = 'index_daily';
 1. `index_daily` 与 `index_weekly/index_monthly` 的回退策略不一致（前者可回退到 `index_basic`，后者不可）。
 2. 周/月线默认把 `index_daily` 视为代码池“上游来源”。
 3. 该机制本质上是“先发现，再收敛”的索引池模式，适合控制同步范围，但需注意初始化顺序。
-

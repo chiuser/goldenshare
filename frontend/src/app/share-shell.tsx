@@ -36,28 +36,38 @@ export function ShareShell() {
   return (
     <AppShell
       className="app-gradient-shell"
-      header={{ height: 76 }}
+      header={{ height: 72 }}
       navbar={{ width: 280, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"
     >
-      <AppShell.Header px="lg">
+      <AppShell.Header className="app-shell-header" px="lg">
         <Group justify="space-between" h="100%">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
             <img src="/app/brand/logo-icon.png" alt="财势乾坤图标" className="app-brand-mark" />
             <Stack gap={0}>
-              <Text fw={800} size="xl">财势乾坤</Text>
-              <Text c="dimmed" size="sm">行情展示台</Text>
+              <Text className="app-shell-brand-title" fw={600} size="lg">
+                财势乾坤
+              </Text>
+              <Text className="app-shell-brand-subtitle" size="xs">
+                行情展示台
+              </Text>
             </Stack>
           </Group>
           <Group gap="sm">
-            <Badge radius="xl" size="lg" color="brand" variant="filled">行情展示</Badge>
-            <Stack gap={0} align="flex-end">
-              <Text fw={600}>{userQuery.data?.display_name || userQuery.data?.username || "管理员"}</Text>
-              <Text c="dimmed" size="xs">{userQuery.data?.is_admin ? "管理员" : "操作员"}</Text>
+            <Badge size="md" color="brand" variant="light">
+              行情展示
+            </Badge>
+            <Stack className="app-shell-user-meta" gap={2} align="flex-end">
+              <Text className="app-shell-user-name" fw={600} size="sm">
+                {userQuery.data?.display_name || userQuery.data?.username || "管理员"}
+              </Text>
+              <Text className="app-shell-user-role" size="xs">
+                {userQuery.data?.is_admin ? "管理员" : "操作员"}
+              </Text>
             </Stack>
             <Tooltip label="退出登录">
-              <ActionIcon variant="light" color="gray" radius="xl" size="lg" onClick={() => void logout()}>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => void logout()}>
                 <IconLogout size={18} />
               </ActionIcon>
             </Tooltip>
@@ -65,7 +75,7 @@ export function ShareShell() {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="md">
+      <AppShell.Navbar className="app-shell-navbar" p="md">
         <AppShell.Section grow component={ScrollArea}>
           <Stack gap="xs">
             {shareLinks.map((link) => (
@@ -96,7 +106,7 @@ export function ShareShell() {
         </AppShell.Section>
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main className="app-shell-main">
         <Outlet />
       </AppShell.Main>
     </AppShell>

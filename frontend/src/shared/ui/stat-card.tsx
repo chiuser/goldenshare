@@ -14,17 +14,19 @@ interface StatCardProps {
 
 export function StatCard({ label, value, hint, hintDisplay = "tooltip", accent }: StatCardProps) {
   return (
-    <Paper className="glass-card" radius="xl" p="lg">
+    <Paper className="glass-card stat-card" radius="md" p="lg">
       <Stack gap={6}>
         <LabelWithHelp
           label={(
-            <Text c="dimmed" fw={600} size="sm" tt="uppercase">
+            <Text className="stat-card__label" c="dimmed" fw={600} size="xs">
               {label}
             </Text>
           )}
           help={hintDisplay === "tooltip" ? hint : undefined}
         />
-        <Title order={3}>{value}</Title>
+        <Title className="stat-card__value" order={3}>
+          {value}
+        </Title>
         {hint && hintDisplay === "inline" ? (
           <Text size="sm" c="dimmed">
             {hint}

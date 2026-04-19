@@ -2,7 +2,10 @@
 
 更新时间：2026-04-12  
 适用范围：`src/foundation/*`（本期不改 Ops 页面交互与 Ops 数据状态展示逻辑）  
-关联基线：[current-architecture-baseline.md](/Users/congming/github/goldenshare/docs/architecture/current-architecture-baseline.md)
+关联基线：[subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
+
+> 角色说明：本文件是“多源升级专题方案（含历史迁移语境）”。  
+> 当前开发强约束与日常交付口径请优先参考 [foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)。
 
 ---
 
@@ -37,14 +40,14 @@
 
 典型表（如 `core.equity_daily_bar`）虽然有 `source` 字段，但主键仍是 `(ts_code, trade_date)`：
 
-- [equity_daily_bar.py](/Users/congming/github/goldenshare/src/foundation/models/core/equity_daily_bar.py)
+- [equity_daily_bar.py](/Users/congming/github/goldenshare/src/foundation/models/core_serving/equity_daily_bar.py)
 
 多数 core 表（如 `equity_adj_factor`, `equity_daily_basic`, `stk_period_bar`, `stk_period_bar_adj`）主键不含 source：
 
-- [equity_adj_factor.py](/Users/congming/github/goldenshare/src/foundation/models/core/equity_adj_factor.py)
-- [equity_daily_basic.py](/Users/congming/github/goldenshare/src/foundation/models/core/equity_daily_basic.py)
-- [stk_period_bar.py](/Users/congming/github/goldenshare/src/foundation/models/core/stk_period_bar.py)
-- [stk_period_bar_adj.py](/Users/congming/github/goldenshare/src/foundation/models/core/stk_period_bar_adj.py)
+- [equity_adj_factor.py](/Users/congming/github/goldenshare/src/foundation/models/core_serving/equity_adj_factor.py)
+- [equity_daily_basic.py](/Users/congming/github/goldenshare/src/foundation/models/core_serving/equity_daily_basic.py)
+- [stk_period_bar.py](/Users/congming/github/goldenshare/src/foundation/models/core_serving/stk_period_bar.py)
+- [stk_period_bar_adj.py](/Users/congming/github/goldenshare/src/foundation/models/core_serving/stk_period_bar_adj.py)
 
 结论：多源数据无法“并存”，只能互相覆盖。
 

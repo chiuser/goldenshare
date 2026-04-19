@@ -2,6 +2,9 @@
 
 > 目标：把“字段定义、跨源 mapping、清洗、入 std、发布 serving”做成强约束流程。  
 > 结论：**缺任一项，不允许进入开发阶段。**
+>
+> 角色说明：本文件是“数据发布治理专题文档”。  
+> 子系统边界与统一强约束请以 [foundation-current-standards.md](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md) 为准。
 
 ## 1. 适用范围
 

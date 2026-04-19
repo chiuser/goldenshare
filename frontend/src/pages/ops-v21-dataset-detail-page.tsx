@@ -14,6 +14,7 @@ import type {
   StdMappingRuleListResponse,
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { MetricPanel } from "../shared/ui/metric-panel";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -159,7 +160,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
               返回总览
             </Button>
             <StatusBadge value={recentExecution?.status || "unknown"} />
-            {latestRelease ? <Badge variant="light" color="green">策略 v{latestRelease.target_policy_version}</Badge> : null}
+            {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
             <Button component="a" href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(recentExecution?.spec_key || "")}&spec_type=job`} variant="light" color="brand">
@@ -177,42 +178,40 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
       {isLoading ? <Loader size="sm" /> : null}
       {error ? (
-        <Alert color="red" title="读取数据集详情失败">
+        <Alert color="error" title="读取数据集详情失败">
           {error instanceof Error ? error.message : "未知错误"}
         </Alert>
       ) : null}
       {!isLoading && !error && latestItems.length === 0 && executionItems.length === 0 ? (
-        <Alert color="blue" title="该数据集暂无可展示记录">
+        <Alert color="info" title="该数据集暂无可展示记录">
           还没有该数据集的层级快照与执行记录。先执行一次同步任务后再查看详情。
         </Alert>
       ) : null}
 
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <Paper p="md" radius="md" withBorder>
-            <Text c="dimmed" size="sm">serving 版本</Text>
-            <Text fw={800} size="xl">{stageMap.get("serving") ? formatDateTimeLabel(stageMap.get("serving")?.calculated_at) : "—"}</Text>
-          </Paper>
+          <MetricPanel label="serving 版本">
+            <Text ff="var(--mantine-font-family-monospace)" fw={700} size="lg">
+              {stageMap.get("serving") ? formatDateTimeLabel(stageMap.get("serving")?.calculated_at) : "—"}
+            </Text>
+          </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <Paper p="md" radius="md" withBorder>
-            <Text c="dimmed" size="sm">今日写入行数</Text>
-            <Text fw={800} size="xl">{recentExecution?.rows_written ?? 0}</Text>
-          </Paper>
+          <MetricPanel label="今日写入行数">
+            <Text fw={700} size="xl">{recentExecution?.rows_written ?? 0}</Text>
+          </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <Paper p="md" radius="md" withBorder>
-            <Text c="dimmed" size="sm">serving lag</Text>
-            <Text fw={800} size="xl">
+          <MetricPanel label="serving lag">
+            <Text fw={700} size="xl">
               {stageMap.get("serving")?.lag_seconds ? `${Math.floor((stageMap.get("serving")?.lag_seconds || 0) / 3600)}h ${Math.floor(((stageMap.get("serving")?.lag_seconds || 0) % 3600) / 60)}m` : "—"}
             </Text>
-          </Paper>
+          </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <Paper p="md" radius="md" withBorder>
-            <Text c="dimmed" size="sm">今日执行次数</Text>
-            <Text fw={800} size="xl">{executionItems.length}</Text>
-          </Paper>
+          <MetricPanel label="今日执行次数">
+            <Text fw={700} size="xl">{executionItems.length}</Text>
+          </MetricPanel>
         </Grid.Col>
       </Grid>
 
@@ -223,7 +222,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             return (
               <Grid.Col key={stage} span={{ base: 12, md: 6, xl: 3 }}>
                 <Paper withBorder radius="md" p="md">
-                  <Text ff="IBM Plex Mono, SFMono-Regular, monospace" c="dimmed">{stageTitle(stage)}</Text>
+                  <Text ff="var(--mantine-font-family-monospace)" c="dimmed">{stageTitle(stage)}</Text>
                   <Group gap={8} mt={4}>
                     <StatusBadge value={item?.status || "unknown"} />
                   </Group>
@@ -247,15 +246,15 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
                 <Paper withBorder radius="md" p="md">
                   <Group justify="space-between">
                     <Group gap={8}>
-                      <Text fw={800} size="xl">{source}</Text>
-                      <Badge color={failedCount > 0 ? "red" : "green"} variant="light">{failedCount > 0 ? "失败" : "正常"}</Badge>
+                      <Text fw={600} size="lg">{source}</Text>
+                      <Badge color={failedCount > 0 ? "error" : "success"} variant="light">{failedCount > 0 ? "失败" : "正常"}</Badge>
                     </Group>
                     <Text c="dimmed" size="sm">条目数：{items.length}</Text>
                   </Group>
                   <Divider my="sm" />
                   {items.map((item) => (
                     <Group key={`${source}-${item.stage}`} justify="space-between" mb={6}>
-                      <Text ff="IBM Plex Mono, SFMono-Regular, monospace">{item.stage}</Text>
+                      <Text ff="var(--mantine-font-family-monospace)">{item.stage}</Text>
                       <Group gap={8}>
                         <StatusBadge value={item.status} />
                         <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>
@@ -274,7 +273,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           {probeQuery.data?.items?.map((item) => (
             <Group key={item.id} justify="space-between">
               <Group gap={8}>
-                <Badge variant="light" color="violet">probe</Badge>
+                <Badge variant="light" color="info">probe</Badge>
                 <Text>{item.name}</Text>
               </Group>
               <Group gap={8}>
@@ -303,13 +302,13 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           <Table.Tbody>
             {executionItems.slice(0, 10).map((item) => (
               <Table.Tr key={item.id}>
-                <OpsTableCell align="left"><OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace">{item.id}</OpsTableCellText></OpsTableCell>
+                <OpsTableCell align="left"><OpsTableCellText ff="var(--mantine-font-family-monospace)">{item.id}</OpsTableCellText></OpsTableCell>
                 <OpsTableCell><OpsTableCellText>{item.trigger_source}</OpsTableCellText></OpsTableCell>
                 <OpsTableCell><StatusBadge value={item.status} /></OpsTableCell>
                 <OpsTableCell><OpsTableCellText>{item.rows_fetched}</OpsTableCellText></OpsTableCell>
                 <OpsTableCell><OpsTableCellText>{item.rows_written}</OpsTableCellText></OpsTableCell>
                 <OpsTableCell align="left"><OpsTableCellText>{formatDateTimeLabel(item.requested_at)}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell align="left"><OpsTableCellText c={item.error_code ? "var(--gs-magenta)" : "dimmed"}>{item.error_code || "—"}</OpsTableCellText></OpsTableCell>
+                <OpsTableCell align="left"><OpsTableCellText c={item.error_code ? "var(--mantine-color-error-6)" : "dimmed"}>{item.error_code || "—"}</OpsTableCellText></OpsTableCell>
               </Table.Tr>
             ))}
           </Table.Tbody>
@@ -319,29 +318,27 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       <SectionCard title="当前生效融合策略" description="先展示发布版本与规则规模，策略细节后续补充独立页面。">
         <Grid>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <Paper withBorder radius="md" p="md">
-              <Text c="dimmed" size="sm">生效版本</Text>
-              <Text fw={800} size="xl">{latestRelease ? `v${latestRelease.target_policy_version}` : "待补充"}</Text>
-              <Text size="sm" c="dimmed">{latestRelease?.triggered_at ? formatDateLabel(latestRelease.triggered_at) : "—"}</Text>
-            </Paper>
+            <MetricPanel label="生效版本" align="start">
+              <Stack gap={2}>
+                <Text fw={700} size="xl">{latestRelease ? `v${latestRelease.target_policy_version}` : "待补充"}</Text>
+                <Text size="sm" c="dimmed">{latestRelease?.triggered_at ? formatDateLabel(latestRelease.triggered_at) : "—"}</Text>
+              </Stack>
+            </MetricPanel>
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <Paper withBorder radius="md" p="md">
-              <Text c="dimmed" size="sm">映射规则</Text>
-              <Text fw={800} size="xl">{mappingQuery.data?.total ?? 0}</Text>
-            </Paper>
+            <MetricPanel label="映射规则">
+              <Text fw={700} size="xl">{mappingQuery.data?.total ?? 0}</Text>
+            </MetricPanel>
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <Paper withBorder radius="md" p="md">
-              <Text c="dimmed" size="sm">清洗规则</Text>
-              <Text fw={800} size="xl">{cleansingQuery.data?.total ?? 0}</Text>
-            </Paper>
+            <MetricPanel label="清洗规则">
+              <Text fw={700} size="xl">{cleansingQuery.data?.total ?? 0}</Text>
+            </MetricPanel>
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <Paper withBorder radius="md" p="md">
-              <Text c="dimmed" size="sm">快照样本</Text>
-              <Text fw={800} size="xl">{historyQuery.data?.total ?? 0}</Text>
-            </Paper>
+            <MetricPanel label="快照样本">
+              <Text fw={700} size="xl">{historyQuery.data?.total ?? 0}</Text>
+            </MetricPanel>
           </Grid.Col>
         </Grid>
       </SectionCard>
