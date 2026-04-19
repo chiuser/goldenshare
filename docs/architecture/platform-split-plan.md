@@ -699,9 +699,27 @@
 
 ---
 
-## health/common/web 最终切换准备（本轮仅规划，不迁代码）
+## final cutover 第二步真实迁移（当前批次）
 
-本节用于 final cutover 前最后一轮准备，严格不迁移实现代码。
+本轮实际范围严格限定为以下单点迁移：
+
+1. `src/platform/api/v1/health.py` -> `src/app/api/v1/health.py`
+
+执行原则：
+
+- 仅迁移 `health.py` 主实现，不扩大范围
+- `src/platform/api/v1/health.py` 保留 deprecated 兼容壳（仅转发）
+- 保持 `/api/health`、`/api/v1/health`、`/api/docs`、`/api/openapi.json` 行为不变
+- 不处理 `src/platform/schemas/common.py`
+- 不处理 `src/platform/web/app.py`
+- 不处理 `src/platform/api/router.py`
+- 不处理 `src/platform/api/v1/router.py`
+
+---
+
+## health/common/web 最终切换准备（health 已迁移，common/web 待切换）
+
+本节用于 `health` 迁移后，继续收口 `common schema` 与 `web` 入口切换准备。
 
 ### 1) `src/platform/api/v1/health.py` 当前职责与推荐归属
 
@@ -721,7 +739,7 @@
 当前直接使用方（基于代码扫描）：
 
 1. `src/app/api/router.py`（`HealthResponse`）
-2. `src/platform/api/v1/health.py`（`HealthResponse`）
+2. `src/app/api/v1/health.py`（`HealthResponse`）
 3. `src/app/auth/api/auth.py`（`OkResponse`）
 4. `src/app/auth/api/admin_users.py`（`OkResponse`）
 
@@ -752,15 +770,14 @@
 
 ### 4) final cutover 前仍缺的前置条件
 
-1. `src/app/schemas/common.py` 承接方案落位（本轮仅确定，不实施）
-2. `src/app/api/v1/health.py` 目标文件与 shim 路径确定（本轮仅确定，不实施）
-3. `src/platform/web/app.py` 切换回归清单冻结（docs/openapi、静态资源、重定向）
-4. 切换窗口执行顺序与回滚步骤冻结
+1. `src/app/schemas/common.py` 承接方案落位（待实施）
+2. `src/platform/web/app.py` 切换回归清单冻结（docs/openapi、静态资源、重定向）
+3. 切换窗口执行顺序与回滚步骤冻结
 
 ### 5) 最安全的最终切换顺序（建议）
 
 1. 迁 `common schema` 主实现到 `src/app/schemas/common.py`，platform 保留 shim
-2. 迁 `health` 主实现到 `src/app/api/v1/health.py`，platform 保留 shim
+2. 迁 `health` 主实现到 `src/app/api/v1/health.py`，platform 保留 shim（已完成）
 3. 将 `platform/web/app.py` 的 `api_router` 引用切到 `src.app.api.router`
 4. 回归通过后平移 `platform/web/app.py` 主实现到 `src/app/web/app.py`
 5. `platform/web/app.py` 降级为 shim

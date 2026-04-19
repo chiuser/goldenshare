@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from src.platform.api.v1 import admin, admin_users, auth, health, share, users
+from src.app.api.v1 import health
+from src.platform.api.v1 import admin, admin_users, auth, share, users
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
 from src.ops.api.router import router as ops_router

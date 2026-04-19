@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from src.app.api.v1.router import router as v1_router
-from src.platform.api.v1.health import build_health_response
+from src.app.api.v1.health import build_health_response
 from src.platform.dependencies import get_db_session
 from src.platform.schemas.common import HealthResponse
 
