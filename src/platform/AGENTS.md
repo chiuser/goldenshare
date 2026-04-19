@@ -1,4 +1,4 @@
-# AGENTS.md — src/platform 拆分准备阶段规则
+# AGENTS.md — src/platform legacy / compatibility 规则
 
 ## 适用范围
 
@@ -6,138 +6,114 @@
 
 ---
 
-## 当前阶段定义（已收紧）
+## 当前目录定位（硬约束）
 
-`src/platform` 现已进入 **拆分准备阶段**，目标是按职责拆解到：
+`src/platform` 现阶段定位为 **compatibility / legacy 目录**。
 
-- `src/app`（应用壳 / composition root）
-- `src/biz`（业务 API / Query / Schema / Service）
-- `src/ops`（运维 API / Query / Schema / Service）
+它的目标是：
 
-`src/platform` 不再是可持续承接新主实现的目录。
+1. 承接历史导入路径的兼容壳（shim）
+2. 在清理前维持外部行为稳定
+3. 为 post-cutover 清理提供最小过渡
 
----
+它不是：
 
-## 明确归属方向（硬约束）
-
-### 未来进入 `app`
-
-- `platform/web`
-- `platform/auth`
-- `platform/dependencies`
-- `platform/exceptions`
-- `platform/services/{auth_service,admin_user_service,user_service}`
-- `platform/schemas/{auth,user_admin}`
-- `platform/api/v1/{auth,users,admin,admin_users}`
-- `platform/models/app/*`（账户/认证模型，未来归 `src/app/models`）
-- 以及最终的 router 聚合职责
-
-### 未来进入 `biz`
-
-- 业务 API / Query / Schema / Service
-
-### 未来进入 `ops`
-
-- 运维 API / Query / Schema / Service
-
-### 例外说明
-
-- `platform/models` 仍需按语义细分：账户/认证模型归 `app/models`，业务/运维模型分别归 `biz`/`ops`。
+1. 新主实现目录
+2. 新功能开发目录
+3. 长期业务逻辑归属目录
 
 ---
 
-## 本目录允许做什么
+## 允许与禁止
 
-### 允许
+### 允许（严格最小化）
 
-1. 现有 bug 的最小修复
-2. 为拆分准备增加注释与文档化说明
-3. 将旧路径改薄（compat shim / 转发）
-4. 不改变外部行为的最小维护
+1. shim/compat 转发文件维护
+2. 不改变外部行为的最小 bugfix
+3. 与清理相关的最小收敛（注释、文档、导出路径对齐）
+4. 为删除兼容层做引用核对与回归验证准备
 
-### 不允许
+### 禁止
 
-1. 在 `platform` 新增长期主实现
-2. 在 `platform/api|queries|schemas|services` 新增应归属 `biz/ops` 的新能力
-3. 把 `platform` 当成第四个业务子系统继续扩张
-4. 未经计划直接做大规模搬迁
-
----
-
-## router 聚合层处理规则（必须最后动）
-
-以下文件属于当前入口聚合层，**默认最后迁移**，不在第一批拆分中处理：
-
-- `platform/api/router.py`
-- `platform/api/v1/router.py`
-
-原因：
-
-- 它们同时聚合 app-auth、biz、ops 路由，提前切入口会放大回归风险。
-- auth/admin 整链拆分期间，本轮也不允许迁移上述聚合入口。
-- 账户模型拆分准备期间，本轮同样不允许迁移上述聚合入口与 `platform/web/app.py`。
-
-### final cutover 准备阶段（当前）
-
-以下文件已进入 final cutover 准备阶段：
-
-- `platform/api/router.py`
-- `platform/api/v1/router.py`
-- `platform/web/app.py`
-- `platform/api/v1/health.py`
-- `platform/schemas/common.py`
-
-当前阶段仅允许：
-
-1. 规划文档完善
-2. AGENTS 边界补位
-
-当前阶段明确禁止：
-
-1. 真实代码迁移
-2. 入口行为改写
-3. import 路径大切换
+1. 在 `platform` 新增任何主实现
+2. 将 `app/biz/ops` 主逻辑写回 `platform`
+3. 在 `platform` 扩展新业务接口、schema、service、query
+4. 未经明确计划做大规模迁移或大改行为
+5. 以“临时兼容”为由长期堆叠新逻辑
 
 ---
 
-## 迁移执行规则
+## 处理 platform 任务的默认决策顺序
 
-当任务涉及 `platform`，先判定目标归属：
+每次改动前先问三个问题：
 
-1. app 壳逻辑 -> `src/app`
-2. 业务逻辑 -> `src/biz`
-3. 运维逻辑 -> `src/ops`
+1. 这段逻辑是否已经在 `src/app` / `src/biz` / `src/ops` 有主实现？
+2. 本次需求是否可以通过“保持 shim 不变 + 文档化”完成？
+3. 这次动作是否在为“删除兼容层”创造条件？
 
-若归属明确，禁止继续把新增主逻辑放在 `platform`。
+如果答案是“主实现已存在”，优先考虑：
+
+- 是否应删除或收紧兼容层（在允许的轮次）
+- 而不是继续在 `platform` 扩展功能
+
+---
+
+## 当前 compat-only 优先视角
+
+`src/platform` 下大量文件已是 shim。处理时默认按 compat-only 对待，除非有明确证据表明该文件仍承载真实实现。
+
+尤其对以下路径，默认先按 compat-only 思路审视：
+
+1. `platform/api/**`
+2. `platform/auth/**`
+3. `platform/dependencies/**`
+4. `platform/exceptions/**`
+5. `platform/models/app/**`
+6. `platform/queries/**`
+7. `platform/schemas/**`
+8. `platform/services/**`
+9. `platform/web/app.py`
+
+---
+
+## 仍可能存在真实实现的区域（谨慎）
+
+在 post-cutover 阶段，`platform` 仍可能保留少量真实实现（例如运行入口支撑与静态资源目录）。这些文件不得被“按 shim 误删”。
+
+删除任何 compat 前，必须先完成：
+
+1. 引用审计（代码 + 脚本 + 部署命令）
+2. 最小回归用例执行
+3. 回滚方案确认
 
 ---
 
 ## 依赖与边界提醒
 
 1. 禁止引入 `foundation -> platform` 反向依赖。
-2. `platform` 不应继续承接共享基础设施（db/contracts/utils）。
-3. 拆分过程中优先“路径收敛 + 兼容壳”，避免行为改写。
+2. `platform` 不再承接共享基础设施扩展。
+3. 所有新增主实现应直接落到 `src/app`、`src/biz`、`src/ops`。
 
 ---
 
-## 完成任务后的说明要求
+## 完成任务时说明要求
 
 每次改动 `platform` 后，必须说明：
 
-1. 本次改动是否只做准备/收敛，而非新增主实现
-2. 改动内容更偏 `app` / `biz` / `ops` 哪一类
-3. 是否触及 router 聚合层（如触及需说明必要性）
-4. 下一步建议迁出的最小单元
+1. 本次是否仅为 shim/compat 或最小稳定化修复
+2. 是否引入了任何新主实现（必须为否；若是则需回滚）
+3. 本次动作是否有助于后续删除兼容层
+4. 后续可安全清理候选是什么（若有）
 
 ---
 
 ## 禁止扩大范围
 
-处理 `platform` 相关任务时，不得顺手做：
+处理 `platform` 任务时，不得顺手做：
 
-1. 认证体系大重写
-2. router 全量改造
-3. schema 全量重写
-4. 一次性整体搬迁 platform
+1. 新功能开发
+2. 大规模架构重写
+3. 与清理无关的代码风格重构
+4. 未经计划的一次性删除兼容层
 
-每轮只做一个清晰阶段目标，并保持外部行为稳定。
+每轮只做明确目标，优先稳定，再清理。

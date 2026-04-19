@@ -836,3 +836,83 @@
 2. `/api/docs`、`/api/openapi.json` 可访问性
 3. `/`、`/app`、`/ops` 重定向与前端静态资源挂载
 4. auth/admin、biz、ops 关键路由冒烟回归
+
+---
+
+## post-cutover cleanup plan（仅规划，不执行删除）
+
+### 1) 当前 `platform` 下已转为 shim/compat layer 的内容
+
+已明确为 compat-only（主实现已迁出）：
+
+1. `platform/api/router.py`
+2. `platform/api/v1/{router,health,auth,users,admin,admin_users,share}.py`
+3. `platform/auth/{constants,domain,password_service,security_utils,dependencies,jwt_service,user_repository}.py`
+4. `platform/dependencies/db.py`
+5. `platform/exceptions/web.py`
+6. `platform/queries/share_market_query_service.py`
+7. `platform/schemas/{share,auth,user_admin,common}.py`
+8. `platform/services/{auth_service,user_service,admin_user_service}.py`
+9. `platform/models/app/*`
+10. `platform/web/app.py`
+
+注：以上文件当前职责是兼容旧 import 路径，不再承接主实现。
+
+### 2) 第一批清理候选（优先）
+
+候选原则：仅清理“无运行入口依赖、无外部脚本默认引用、无测试直接 import”的 shim。
+
+建议第一批候选：
+
+1. `platform/models/app/*` shim（前提：确认 `app/models/*` 被统一引用）
+2. `platform/services/*` shim（前提：确认调用全部切到 `app/auth/services/*`）
+3. `platform/schemas/{auth,user_admin,share}.py` shim
+4. `platform/queries/share_market_query_service.py` shim
+
+### 3) 仍需后置保留的 shim
+
+以下 shim 建议延后删除：
+
+1. `platform/web/app.py`
+理由：`platform/web/run.py` 当前仍以 `src.platform.web.app:app` 作为运行入口字符串。
+2. `platform/api/router.py` 与 `platform/api/v1/router.py`
+理由：仍是历史入口路径，需等待运行入口与测试引用全部切换后再删。
+3. `platform/schemas/common.py`
+理由：属于 app 入口通用返回模型，建议在全量 import 收敛后再下线，避免残留调用方断裂。
+
+### 4) 当前仍有真实实现的目录（禁止误删）
+
+post-cutover 当前仍有真实实现，不应按 shim 删除：
+
+1. `platform/web/run.py`（当前运行命令入口）
+2. `platform/web/settings.py`
+3. `platform/web/lifespan.py`
+4. `platform/web/logging.py`
+5. `platform/web/middleware/*`
+6. `platform/web/static/*`
+7. `platform/*/__init__.py`（包结构与兼容导出承载）
+
+### 5) cleanup 建议顺序
+
+1. 先做“调用链审计”：确认 compat shim 的真实引用清单（代码 + 脚本 + 部署命令）。
+2. 清理第一批低风险 shim（models/services/schemas/queries）。
+3. 切换运行入口引用（`platform/web/run.py` 指向 app 路径）后，再评估 `platform/web/app.py` 删除。
+4. 最后处理 `platform/api/router.py`、`platform/api/v1/router.py`、`platform/schemas/common.py`。
+5. 每批删除后都保留回滚窗口（tag 或可回滚提交点）。
+
+### 6) 每批删除前的回归基线
+
+每一批 cleanup 之前至少执行：
+
+1. `tests/architecture/test_subsystem_dependency_matrix.py`
+2. `tests/web/test_health_api.py`
+3. `tests/web/test_ops_pages.py`
+4. `tests/web/test_platform_check_page.py`
+5. 关键接口冒烟：
+   - `/api/health`
+   - `/api/v1/health`
+   - `/api/docs`
+   - `/api/openapi.json`
+   - `/`
+   - `/app`
+   - `/ops`
