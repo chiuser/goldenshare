@@ -677,3 +677,22 @@
 3. biz 端 `share/quote/market` 核心只读接口
 4. ops 端任务/调度核心接口
 5. `GET /`、`GET /app`、`GET /ops` 与前端资源挂载行为
+
+---
+
+## final cutover 第一步真实迁移（当前批次）
+
+本轮实际范围严格限定为以下两个聚合入口：
+
+1. `src/platform/api/router.py` -> `src/app/api/router.py`
+2. `src/platform/api/v1/router.py` -> `src/app/api/v1/router.py`
+
+执行原则：
+
+- 仅迁移上述两个聚合入口，不扩大范围
+- `src/platform/api/*` 旧路径保留 deprecated 兼容壳，保证 `platform/web/app.py` 继续可用
+- 保持 `/api`、`/api/v1/*` 路由行为不变
+- 保持 `include_router` 顺序不变
+- 不处理 `src/platform/web/app.py`
+- 不处理 `src/app/web/*`
+- 不处理 `src/platform/schemas/common.py`
