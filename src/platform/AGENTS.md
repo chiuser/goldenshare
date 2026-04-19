@@ -84,6 +84,8 @@
 - `platform/api/router.py`
 - `platform/api/v1/router.py`
 - `platform/web/app.py`
+- `platform/api/v1/health.py`
+- `platform/schemas/common.py`
 
 当前阶段仅允许：
 

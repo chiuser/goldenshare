@@ -696,3 +696,87 @@
 - 不处理 `src/platform/web/app.py`
 - 不处理 `src/app/web/*`
 - 不处理 `src/platform/schemas/common.py`
+
+---
+
+## health/common/web 最终切换准备（本轮仅规划，不迁代码）
+
+本节用于 final cutover 前最后一轮准备，严格不迁移实现代码。
+
+### 1) `src/platform/api/v1/health.py` 当前职责与推荐归属
+
+当前职责：
+
+1. 提供 `/api/v1/health` 路由
+2. 提供 `build_health_response(session)` 供 `/api/health` 与 `/api/v1/health` 共用
+3. 执行 DB 连通检查（`SELECT 1`）并构造 `HealthResponse`
+
+推荐最终归属：
+
+- 主实现迁至 `src/app/api/v1/health.py`
+- `src/platform/api/v1/health.py` 降级为 deprecated shim（仅转发）
+
+### 2) `src/platform/schemas/common.py` 当前使用方与推荐归属
+
+当前直接使用方（基于代码扫描）：
+
+1. `src/app/api/router.py`（`HealthResponse`）
+2. `src/platform/api/v1/health.py`（`HealthResponse`）
+3. `src/app/auth/api/auth.py`（`OkResponse`）
+4. `src/app/auth/api/admin_users.py`（`OkResponse`）
+
+推荐最终归属：
+
+- 主实现迁至 `src/app/schemas/common.py`
+- `src/platform/schemas/common.py` 保留 deprecated shim
+
+归属原则：
+
+1. 仅承接 app 壳层通用响应 schema
+2. 不混入 biz/ops 领域返回模型
+
+### 3) `src/platform/web/app.py` 当前职责与最终落位方式
+
+当前职责：
+
+1. FastAPI app 创建与 docs/openapi 配置
+2. middleware、lifespan、异常处理安装
+3. 静态资源挂载与前端入口/重定向
+4. 挂载 API 聚合入口（当前仍通过 `src.platform.api.router`）
+
+最终落位方式：
+
+1. 先将 `api_router` 引用切到 `src.app.api.router`
+2. 再将主实现平移到 `src/app/web/app.py`
+3. `src/platform/web/app.py` 最终保留 deprecated shim（入口兼容）
+
+### 4) final cutover 前仍缺的前置条件
+
+1. `src/app/schemas/common.py` 承接方案落位（本轮仅确定，不实施）
+2. `src/app/api/v1/health.py` 目标文件与 shim 路径确定（本轮仅确定，不实施）
+3. `src/platform/web/app.py` 切换回归清单冻结（docs/openapi、静态资源、重定向）
+4. 切换窗口执行顺序与回滚步骤冻结
+
+### 5) 最安全的最终切换顺序（建议）
+
+1. 迁 `common schema` 主实现到 `src/app/schemas/common.py`，platform 保留 shim
+2. 迁 `health` 主实现到 `src/app/api/v1/health.py`，platform 保留 shim
+3. 将 `platform/web/app.py` 的 `api_router` 引用切到 `src.app.api.router`
+4. 回归通过后平移 `platform/web/app.py` 主实现到 `src/app/web/app.py`
+5. `platform/web/app.py` 降级为 shim
+
+### 6) 风险点与回归重点
+
+风险点：
+
+1. `HealthResponse/OkResponse` 路径切换引发导入断裂
+2. `platform/web/app.py` 切换后 docs/openapi 与前端挂载行为漂移
+3. `/api/health` 与 `/api/v1/health` 返回一致性被破坏
+4. 入口切换引起 auth/admin 与 ops/biz 路由可达性回归
+
+回归重点：
+
+1. `GET /api/health`、`GET /api/v1/health` 响应结构与状态码
+2. `/api/docs`、`/api/openapi.json` 可访问性
+3. `/`、`/app`、`/ops` 重定向与前端静态资源挂载
+4. auth/admin、biz、ops 关键路由冒烟回归
