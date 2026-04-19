@@ -575,3 +575,43 @@
 
 1. 对 `src/operations/specs/*` 五个 shim 做同样审计（先收敛引用，再单轮删除）。
 2. 删除时仅处理 `dataset_freshness_spec.py/job_spec.py/observed_dataset_registry.py/registry.py/workflow_spec.py`，保留 `src/operations/specs/__init__.py` 作为包级过渡壳。
+
+---
+
+## post-cutover cleanup：`operations/specs` shim 删除执行结果（5 项）
+
+本轮目标（单目标）：
+
+1. 仅删除 `src/operations/specs` 下五个已无引用的 shim：
+   - `dataset_freshness_spec.py`
+   - `job_spec.py`
+   - `observed_dataset_registry.py`
+   - `registry.py`
+   - `workflow_spec.py`
+
+删除前审计结果：
+
+1. 在 `src + tests + scripts + docs + README* + pyproject.toml + .github` 范围内，未检出对上述五个 `src.operations.specs.*` 子模块的导入引用。
+2. 命中仅为两类：
+   - 五个文件自身文档字符串
+   - `ops-consolidation-plan` 的历史记录条目
+
+本轮动作（已执行）：
+
+1. 删除上述 5 个 shim 文件。
+2. 保留：
+   - `src/operations/specs/__init__.py`（包级兼容壳，继续导出 `src.ops.specs`）
+3. 护栏增强：
+   - `tests/architecture/test_operations_legacy_guardrails.py` 新增两条检查：
+     - `operations/specs` 目录仅允许保留 `__init__.py`
+     - 禁止重新引入五个已删除 `src.operations.specs.*` 旧路径导入
+
+回归结果：
+
+1. `pytest -q tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过。
+2. `pytest -q tests/test_ops_specs.py tests/web/test_ops_freshness_api.py tests/test_dataset_freshness_registry_validation.py` 通过。
+
+下一步建议：
+
+1. 评估是否删除 `src/operations/runtime/__init__.py` 与 `src/operations/specs/__init__.py` 这两个包级过渡壳（需要先做全仓导入审计并判定是否仍有外部依赖窗口）。
+2. 若暂不删，至少在 guardrail 中把 `operations/runtime|specs` 目录状态固定为“仅 `__init__.py` 可存在”。

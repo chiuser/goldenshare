@@ -7,6 +7,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OPERATIONS_SERVICES_ROOT = REPO_ROOT / "src/operations/services"
 OPERATIONS_RUNTIME_ROOT = REPO_ROOT / "src/operations/runtime"
+OPERATIONS_SPECS_ROOT = REPO_ROOT / "src/operations/specs"
 SCAN_ROOTS = ("src", "tests", "scripts")
 
 
@@ -88,3 +89,33 @@ def test_no_legacy_runtime_submodule_imports() -> None:
                 if module in forbidden_modules:
                     violations.append(f"{rel_path} -> {module}")
     assert not violations, "发现对 operations/runtime 已删除 shim 的旧路径引用:\n" + "\n".join(sorted(violations))
+
+
+def test_operations_specs_contains_only_package_init() -> None:
+    expected_files = {"src/operations/specs/__init__.py"}
+    current_files = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in OPERATIONS_SPECS_ROOT.glob("*")
+        if path.is_file()
+    }
+    unexpected = sorted(current_files - expected_files)
+    assert not unexpected, "operations/specs 出现了计划外文件:\n" + "\n".join(unexpected)
+
+
+def test_no_legacy_specs_submodule_imports() -> None:
+    forbidden_modules = {
+        "src.operations.specs.dataset_freshness_spec",
+        "src.operations.specs.job_spec",
+        "src.operations.specs.observed_dataset_registry",
+        "src.operations.specs.registry",
+        "src.operations.specs.workflow_spec",
+    }
+    violations: list[str] = []
+    for scan_root in SCAN_ROOTS:
+        root = REPO_ROOT / scan_root
+        for file_path in _iter_python_files(root):
+            rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+            for module in _iter_import_modules(file_path):
+                if module in forbidden_modules:
+                    violations.append(f"{rel_path} -> {module}")
+    assert not violations, "发现对 operations/specs 已删除 shim 的旧路径引用:\n" + "\n".join(sorted(violations))
