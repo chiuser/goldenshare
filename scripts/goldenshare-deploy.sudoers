@@ -1,5 +1,6 @@
-# Adjust SYSTEMCTL_BIN if your distro uses a different path.
-Cmnd_Alias GOLDENSHARE_DEPLOY_SYSTEMD = \
+# Deployment sudo whitelist for user `goldenshare`.
+# Keep commands explicit to avoid broad root permissions.
+goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl daemon-reload, \
   /usr/bin/systemctl cat goldenshare-web.service, \
   /usr/bin/systemctl restart goldenshare-web.service, \
@@ -7,11 +8,7 @@ Cmnd_Alias GOLDENSHARE_DEPLOY_SYSTEMD = \
   /usr/bin/systemctl restart goldenshare-ops-scheduler.service, \
   /usr/bin/systemctl status goldenshare-web.service, \
   /usr/bin/systemctl status goldenshare-ops-worker.service, \
-  /usr/bin/systemctl status goldenshare-ops-scheduler.service
-
-Cmnd_Alias GOLDENSHARE_DEPLOY_UNIT_SYNC = \
+  /usr/bin/systemctl status goldenshare-ops-scheduler.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-web.service /etc/systemd/system/goldenshare-web.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-worker.service /etc/systemd/system/goldenshare-ops-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-scheduler.service /etc/systemd/system/goldenshare-ops-scheduler.service
-
-goldenshare ALL=(root) NOPASSWD: GOLDENSHARE_DEPLOY_SYSTEMD, GOLDENSHARE_DEPLOY_UNIT_SYNC
