@@ -615,3 +615,39 @@
 
 1. 评估是否删除 `src/operations/runtime/__init__.py` 与 `src/operations/specs/__init__.py` 这两个包级过渡壳（需要先做全仓导入审计并判定是否仍有外部依赖窗口）。
 2. 若暂不删，至少在 guardrail 中把 `operations/runtime|specs` 目录状态固定为“仅 `__init__.py` 可存在”。
+
+---
+
+## post-cutover cleanup：`operations/runtime|specs` 包级兼容壳删除执行结果（2 项）
+
+本轮目标（单目标）：
+
+1. 删除 `src/operations/runtime/__init__.py` 与 `src/operations/specs/__init__.py` 两个包级兼容壳。
+
+删除前审计结果：
+
+1. 在 `src + tests + scripts` 范围内，未检出 `src.operations.runtime` 与 `src.operations.specs` 的导入引用。
+2. 文档侧仅存在历史迁移记录，不构成运行依赖。
+
+本轮动作（已执行）：
+
+1. 删除：
+   - `src/operations/runtime/__init__.py`
+   - `src/operations/specs/__init__.py`
+2. 护栏同步：
+   - `tests/architecture/test_operations_legacy_guardrails.py`
+     - `operations/runtime` 与 `operations/specs` 目录预期文件集均收紧为“空集合”
+     - 禁止重新引入 `src.operations.runtime` / `src.operations.specs` 包级导入以及已删除子模块导入
+
+回归结果：
+
+1. `pytest -q tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过。
+2. `pytest -q tests/web/test_ops_runtime.py tests/test_ops_specs.py tests/web/test_ops_freshness_api.py` 通过。
+
+当前状态：
+
+1. `src/operations/runtime/*` shim 清零（目录无受控源码文件）。
+2. `src/operations/specs/*` shim 清零（目录无受控源码文件）。
+3. `operations` 兼容层收敛重点仅剩：
+   - `src/operations/services/history_backfill_service.py`（专项兼容壳）
+   - `src/operations/services/__init__.py`（过渡导出壳）

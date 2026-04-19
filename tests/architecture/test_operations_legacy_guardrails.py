@@ -64,7 +64,7 @@ def test_operations_services_imports_are_limited_to_special_cases() -> None:
 
 
 def test_operations_runtime_contains_only_package_init() -> None:
-    expected_files = {"src/operations/runtime/__init__.py"}
+    expected_files: set[str] = set()
     current_files = {
         path.relative_to(REPO_ROOT).as_posix()
         for path in OPERATIONS_RUNTIME_ROOT.glob("*")
@@ -76,6 +76,7 @@ def test_operations_runtime_contains_only_package_init() -> None:
 
 def test_no_legacy_runtime_submodule_imports() -> None:
     forbidden_modules = {
+        "src.operations.runtime",
         "src.operations.runtime.dispatcher",
         "src.operations.runtime.scheduler",
         "src.operations.runtime.worker",
@@ -92,7 +93,7 @@ def test_no_legacy_runtime_submodule_imports() -> None:
 
 
 def test_operations_specs_contains_only_package_init() -> None:
-    expected_files = {"src/operations/specs/__init__.py"}
+    expected_files: set[str] = set()
     current_files = {
         path.relative_to(REPO_ROOT).as_posix()
         for path in OPERATIONS_SPECS_ROOT.glob("*")
@@ -104,6 +105,7 @@ def test_operations_specs_contains_only_package_init() -> None:
 
 def test_no_legacy_specs_submodule_imports() -> None:
     forbidden_modules = {
+        "src.operations.specs",
         "src.operations.specs.dataset_freshness_spec",
         "src.operations.specs.job_spec",
         "src.operations.specs.observed_dataset_registry",
