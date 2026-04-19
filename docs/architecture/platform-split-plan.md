@@ -1602,3 +1602,53 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 
 1. 如需进一步收口，可在单独轮次评估是否清理 `platform` 下仅用于包声明的 `__init__.py` 文件（需先确认对外部启动/工具链无隐性依赖）。
 2. 文档层旧路径示例可在后续“文档清扫轮次”统一替换，不与代码清理轮次混做。
+
+### 32) 基线护栏固化（防回退）
+
+本轮目标（单目标）：
+
+1. 将 post-cutover 的平台收口状态固化为可执行护栏，避免后续开发把主实现写回 `platform` 或重新引入 `src.platform.*` 运行依赖。
+
+本轮动作（已执行）：
+
+1. 新增架构护栏测试：`tests/architecture/test_platform_legacy_guardrails.py`
+2. 护栏规则：
+   - `src/tests/scripts` 范围内（排除 `src/platform` 自身）禁止 import `src.platform.*`
+   - `src/platform` 仅允许保留包骨架 Python 文件（`__init__.py` 级）；出现新增实现文件即失败
+3. 收紧 `src/platform/AGENTS.md`，将上述测试作为长期硬约束写入目录规则。
+
+本轮结果：
+
+1. 平台目录从“靠约定维护”升级为“约定 + 自动化测试”双护栏。
+2. 后续新增代码若出现以下回退，会在 CI/本地测试中立即暴露：
+   - 运行代码再次直接依赖 `src.platform.*`
+   - `src/platform` 出现新的主实现 Python 文件
+
+当前剩余阻塞项（非本轮处理）：
+
+1. 文档历史章节中仍有旧路径描述（属于历史记录，不影响运行）
+2. `platform` 目录静态资源与包骨架是否做最终归档/裁剪，需在独立轮次评估
+3. `operations/services` 剩余专项项（`history_backfill_service.py`、`market_mood_walkforward_validation_service.py`）仍按既定策略暂缓
+
+### 33) web 静态资源主路径收口到 `app/web/static`
+
+本轮目标（单目标）：
+
+1. 将 web 运行所需静态资源从 legacy `src/platform/web/static` 收口到 `src/app/web/static`，让运行资源与 `app/web` 主实现共址。
+
+删除/迁移前审计：
+
+1. `src/tests/scripts` 范围内无 `src.platform.web*` 运行导入。
+2. 静态目录引用仅来自 `src/app/web/settings.py` 的 `STATIC_DIR` 配置。
+3. `src/app/web/app.py` 通过 `STATIC_DIR` 挂载 `/static` 与 `platform-check.html`，迁移不涉及路由语义变化。
+
+本轮动作（已执行）：
+
+1. `git mv src/platform/web/static -> src/app/web/static`
+2. 更新 `src/app/web/settings.py`：
+   - `STATIC_DIR` 从 `.../platform/web/static` 改为 `src/app/web/static` 同目录定位
+
+本轮结果：
+
+1. 运行静态资源完全由 `app/web` 承接。
+2. `platform/web` 不再承接任何运行时代码或静态资源主路径，仅保留目录骨架（compat/legacy）。

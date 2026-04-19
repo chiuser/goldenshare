@@ -24,6 +24,22 @@
 
 ---
 
+## 自动护栏（必须长期保持通过）
+
+为防止回退，本目录的边界由以下测试持续守护：
+
+1. `tests/architecture/test_platform_legacy_guardrails.py`
+2. `tests/architecture/test_subsystem_dependency_matrix.py`
+
+其中 `test_platform_legacy_guardrails.py` 的硬约束包括：
+
+1. `src/tests/scripts` 运行代码禁止 import `src.platform.*`
+2. `src/platform` 只允许保留兼容包骨架 Python 文件（`__init__.py` 级）
+
+若新增改动导致上述测试失败，默认应回退改动方向，而不是放宽护栏。
+
+---
+
 ## 允许与禁止
 
 ### 允许（严格最小化）
