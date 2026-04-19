@@ -31,8 +31,6 @@ def _iter_import_modules(file_path: Path) -> list[str]:
 def test_operations_services_contains_only_special_case_files() -> None:
     expected_files = {
         "src/operations/services/AGENTS.md",
-        "src/operations/services/__init__.py",
-        "src/operations/services/history_backfill_service.py",
     }
     current_files = {
         path.relative_to(REPO_ROOT).as_posix()
@@ -43,11 +41,8 @@ def test_operations_services_contains_only_special_case_files() -> None:
     assert not unexpected, "operations/services 出现了计划外文件:\n" + "\n".join(unexpected)
 
 
-def test_operations_services_imports_are_limited_to_special_cases() -> None:
-    allowed_modules = {
-        "src.operations.services",
-        "src.operations.services.history_backfill_service",
-    }
+def test_no_legacy_operations_services_imports() -> None:
+    forbidden_prefixes = ("src.operations.services",)
     violations: list[str] = []
     for scan_root in SCAN_ROOTS:
         root = REPO_ROOT / scan_root
@@ -56,11 +51,9 @@ def test_operations_services_imports_are_limited_to_special_cases() -> None:
             if rel_path.startswith("src/operations/services/"):
                 continue
             for module in _iter_import_modules(file_path):
-                if not (module == "src.operations.services" or module.startswith("src.operations.services.")):
-                    continue
-                if module not in allowed_modules:
+                if any(module == prefix or module.startswith(f"{prefix}.") for prefix in forbidden_prefixes):
                     violations.append(f"{rel_path} -> {module}")
-    assert not violations, "发现对 operations/services 已收敛模块的旧路径引用:\n" + "\n".join(sorted(violations))
+    assert not violations, "发现对 operations/services legacy 路径的旧引用:\n" + "\n".join(sorted(violations))
 
 
 def test_operations_runtime_contains_only_package_init() -> None:

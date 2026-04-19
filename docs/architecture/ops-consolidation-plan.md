@@ -741,3 +741,46 @@
 
 1. `operations` 的结构与 AGENTS 规则已一致。
 2. 后续收尾重点聚焦在 `history_backfill` 兼容壳的最终策略（保留窗口或下线窗口）。
+
+---
+
+## post-cutover cleanup：`history_backfill` compat 壳彻底清理执行结果（本轮）
+
+本轮目标（单目标）：
+
+1. 清理 `operations/services` 最后两个 compat 壳：
+   - `src/operations/services/history_backfill_service.py`
+   - `src/operations/services/__init__.py`
+
+删除前审计结果：
+
+1. 运行主链路（`src/cli.py`、`src/ops/runtime/dispatcher.py`）已全部走 `src.ops.services.operations_history_backfill_service`。
+2. 仓库内旧路径引用仅剩测试文件 `tests/test_history_backfill_service.py` 与 guardrail 规则中的允许项。
+3. 在切换测试导入/patch 路径后，`src + tests + scripts + docs + README* + pyproject.toml + .github` 不再存在 `src.operations.services*` 运行引用。
+
+本轮动作（已执行）：
+
+1. 测试路径切换：
+   - `tests/test_history_backfill_service.py` 全量替换为 `src.ops.services.operations_history_backfill_service`。
+2. 删除 compat 壳：
+   - 删除 `src/operations/services/history_backfill_service.py`
+   - 删除 `src/operations/services/__init__.py`
+3. 护栏收紧：
+   - `tests/architecture/test_operations_legacy_guardrails.py`
+     - `operations/services` 目录收敛为仅允许 `AGENTS.md`
+     - 禁止任何 `src.operations.services*` legacy 导入回流
+4. baseline 文档收口：
+   - `src/operations/AGENTS.md`
+   - `src/operations/services/AGENTS.md`
+
+回归结果：
+
+1. `pytest -q tests/test_history_backfill_service.py tests/test_cli_backfill_index_series.py tests/test_cli_backfill_fund_series.py tests/web/test_ops_runtime.py tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过（61 passed）。
+
+当前状态（收口后）：
+
+1. `src/operations` 目录仅保留：
+   - `src/operations/__init__.py`
+   - `src/operations/AGENTS.md`
+   - `src/operations/services/AGENTS.md`
+2. `operations` 运行与服务 compat Python 壳已清零，不再承担任何主实现或转发实现。
