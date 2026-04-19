@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.ops.services.operations_dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
-from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 
 

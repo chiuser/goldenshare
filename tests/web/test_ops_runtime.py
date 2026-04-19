@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.probe_run_log import ProbeRunLog
-from src.operations.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
+from src.ops.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
 from src.ops.services.operations_probe_runtime_service import ProbeTickResult
 
 
@@ -132,7 +132,7 @@ def test_scheduler_creates_probe_execution_when_rule_matches(
         session.commit()
         return [execution], ProbeTickResult(processed_rules=1, triggered_rules=1, created_executions=1)
 
-    monkeypatch.setattr("src.operations.runtime.scheduler.ProbeRuntimeService.run_once", _stub_run_once)
+    monkeypatch.setattr("src.ops.runtime.scheduler.ProbeRuntimeService.run_once", _stub_run_once)
 
     created = OperationsScheduler().run_once(
         db_session,
@@ -207,7 +207,7 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
 
     stub_service = StubSyncService()
     monkeypatch.setattr(
-        "src.operations.runtime.dispatcher.build_sync_service",
+        "src.ops.runtime.dispatcher.build_sync_service",
         lambda resource, session, **kwargs: stub_service,
     )
 
@@ -248,7 +248,7 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
 
     stub_service = StubSyncService()
     monkeypatch.setattr(
-        "src.operations.runtime.dispatcher.build_sync_service",
+        "src.ops.runtime.dispatcher.build_sync_service",
         lambda resource, session, **kwargs: stub_service,
     )
 
@@ -295,7 +295,7 @@ def test_dispatcher_passes_content_type_to_backfill_by_trade_date(db_session, jo
 
     backfill_service.backfill_by_trade_dates = _stub_backfill_by_trade_dates
     monkeypatch.setattr(
-        "src.operations.runtime.dispatcher.HistoryBackfillService",
+        "src.ops.runtime.dispatcher.HistoryBackfillService",
         lambda session, **kwargs: backfill_service,
     )
 
@@ -335,7 +335,7 @@ def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_exe
 
     stub_service = StubSyncService()
     monkeypatch.setattr(
-        "src.operations.runtime.dispatcher.build_sync_service",
+        "src.ops.runtime.dispatcher.build_sync_service",
         lambda resource, session, **kwargs: stub_service,
     )
 
@@ -346,7 +346,7 @@ def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_exe
         return SimpleNamespace(touched_rows=12)
 
     monkeypatch.setattr(
-        "src.operations.runtime.dispatcher.ServingLightRefreshService.refresh_equity_daily_bar",
+        "src.ops.runtime.dispatcher.ServingLightRefreshService.refresh_equity_daily_bar",
         _stub_refresh,
     )
 

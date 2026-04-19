@@ -13,7 +13,7 @@ from src.ops.services.operations_default_single_source_seed_service import (
     DISABLED_DEFAULT_DATASET_KEYS,
     DefaultSingleSourceSeedService,
 )
-from src.operations.specs import list_dataset_freshness_specs
+from src.ops.specs import list_dataset_freshness_specs
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 

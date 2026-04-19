@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_job_spec
+from src.ops.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_job_spec
 from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 

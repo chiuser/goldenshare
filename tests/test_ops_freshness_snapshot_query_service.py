@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.operations.specs import list_dataset_freshness_specs
+from src.ops.specs import list_dataset_freshness_specs
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OBSERVED_DATE_MODEL_REGISTRY, OpsFreshnessQueryService
 

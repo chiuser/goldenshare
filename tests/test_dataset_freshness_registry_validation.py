@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
-from src.operations.specs.registry import (
+from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.ops.specs.registry import (
     find_missing_freshness_metadata_resources,
     validate_dataset_freshness_registry,
 )

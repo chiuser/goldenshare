@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.foundation.dao.factory import DAOFactory
-from src.operations.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY
+from src.ops.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY
 from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
 
 

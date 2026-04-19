@@ -497,3 +497,42 @@
 2. `src/operations/services` 目录不再包含真实业务分析实现，仅剩最小兼容壳：
    - `history_backfill_service.py`（compat shim）
    - `__init__.py`（过渡导出壳）
+
+---
+
+## post-cutover cleanup：`operations/runtime` 与 `operations/specs` 旧引用收敛（本轮执行）
+
+本轮目标（单目标）：
+
+1. 仅清理 `tests + scripts` 对 `src.operations.runtime/*` 与 `src.operations.specs/*` 的旧导入，统一切到 `src.ops.*` 主路径。
+2. 本轮不删除任何 `operations/runtime` 或 `operations/specs` 兼容壳文件。
+
+迁移前审计结论：
+
+1. 旧引用集中在测试与脚本，代码主链路已经走 `src.ops.*`。
+2. `operations/runtime/*.py` 与 `operations/specs/*.py` 当前均为 deprecated shim（薄转发），可先做引用收敛再评估删除。
+
+本轮动作（已执行）：
+
+1. 脚本导入切换：
+   - `scripts/generate_dataset_catalog.py`：`src.operations.specs.registry` -> `src.ops.specs.registry`
+2. 测试导入切换：
+   - `tests/web/test_ops_runtime.py`：`src.operations.runtime` 及 monkeypatch 路径 -> `src.ops.runtime`
+   - `tests/test_ops_specs.py`
+   - `tests/test_dataset_pipeline_mode_seed_service.py`
+   - `tests/test_dataset_freshness_registry_validation.py`
+   - `tests/test_default_single_source_seed_service.py`
+   - `tests/test_ops_freshness_snapshot_query_service.py`
+   - `tests/web/test_ops_freshness_api.py`
+   以上均从 `src.operations.specs*` 切换到 `src.ops.specs*`
+3. 本轮结束后，`tests + scripts` 范围内不再存在 `src.operations.runtime` / `src.operations.specs` 的直接引用。
+
+回归结果：
+
+1. `pytest -q tests/web/test_ops_runtime.py tests/test_ops_specs.py tests/test_dataset_pipeline_mode_seed_service.py tests/test_dataset_freshness_registry_validation.py tests/test_default_single_source_seed_service.py tests/test_ops_freshness_snapshot_query_service.py tests/web/test_ops_freshness_api.py` 通过（54 passed）。
+2. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_operations_legacy_guardrails.py` 通过（4 passed）。
+
+下一步建议：
+
+1. 进入单点删除评估轮次：先审计 `src + tests + scripts + docs` 对 `src.operations.runtime.{dispatcher,scheduler,worker}` 与 `src.operations.specs.{dataset_freshness_spec,job_spec,observed_dataset_registry,registry,workflow_spec}` 的残留引用。
+2. 若审计清零，再分两小轮删除 shim（先 runtime，后 specs），每轮只删一组并保留 `__init__.py` 聚合壳。

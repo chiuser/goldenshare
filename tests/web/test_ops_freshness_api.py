@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
-from src.operations.specs.dataset_freshness_spec import DatasetFreshnessSpec
+from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 
