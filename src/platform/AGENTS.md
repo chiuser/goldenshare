@@ -77,6 +77,25 @@
 - auth/admin 整链拆分期间，本轮也不允许迁移上述聚合入口。
 - 账户模型拆分准备期间，本轮同样不允许迁移上述聚合入口与 `platform/web/app.py`。
 
+### final cutover 准备阶段（当前）
+
+以下文件已进入 final cutover 准备阶段：
+
+- `platform/api/router.py`
+- `platform/api/v1/router.py`
+- `platform/web/app.py`
+
+当前阶段仅允许：
+
+1. 规划文档完善
+2. AGENTS 边界补位
+
+当前阶段明确禁止：
+
+1. 真实代码迁移
+2. 入口行为改写
+3. import 路径大切换
+
 ---
 
 ## 迁移执行规则

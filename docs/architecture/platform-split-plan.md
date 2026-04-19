@@ -591,3 +591,89 @@
 - 本计划不触碰 `history_backfill_service.py` 与 `market_mood_walkforward_validation_service.py` 两个专项项。
 - 本计划不修改 CLI 与依赖矩阵测试规则。
 - 本计划只定义拆分路线与边界，不执行实现迁移。
+
+---
+
+## final cutover 准备（本轮仅规划，不迁代码）
+
+本节只定义最终切换方案，不进行任何实现迁移。
+
+### 1) 当前三处敏感入口职责（基于现状代码）
+
+1. `src/platform/api/router.py`
+   - 定义 `/api` 根路由
+   - 提供 `/api/health`（依赖 `build_health_response` + `HealthResponse`）
+   - 挂载 `platform/api/v1/router.py`
+
+2. `src/platform/api/v1/router.py`
+   - 作为 `/api/v1` 聚合入口
+   - 聚合 app-auth 子路由（`auth/users/admin/admin_users`）
+   - 聚合 ops 路由（`src.ops.api.router`）
+   - 聚合 biz 路由（`share/quote/market`）
+
+3. `src/platform/web/app.py`
+   - 创建 FastAPI app
+   - 注册 middleware / lifespan / 异常处理
+   - 挂载静态资源与前端入口
+   - 挂载 `api_router`
+   - 提供 `/`、`/app`、`/ops` 等重定向与前端路由兜底
+
+### 2) 目标落位（最终态）
+
+1. `platform/api/router.py` -> `src/app/api/router.py`
+2. `platform/api/v1/router.py` -> `src/app/api/v1/router.py`
+3. `platform/web/app.py` -> `src/app/web/app.py`
+
+约束：
+
+- 新 `src/app/api/*` 仅做聚合与入口编排，不承载业务实现。
+- 新 `src/app/web/*` 仅做运行入口装配，不承载业务逻辑。
+
+### 3) 哪些子路由已具备切入 app 聚合层条件
+
+已具备条件（主实现已不在 platform）：
+
+1. app-auth 路由：`src/app/auth/api/*`
+2. biz 路由：`src/biz/api/{share,quote,market}.py`
+3. ops 路由：`src/ops/api/router.py`
+
+因此，`platform/api/v1/router.py` 已具备“迁聚合壳、不迁业务实现”的切换前提。
+
+### 4) `platform/schemas/common.py` 归属判定建议
+
+判定：优先归 `app` 壳层。
+
+理由：
+
+1. 当前主要承载 `HealthResponse` / `OkResponse` / `ApiErrorResponse` 这类入口通用响应模型。
+2. 它既被 health 入口用，也被 auth/admin API 用，更偏“应用入口契约”，不偏 biz/ops 任一子系统。
+
+建议路径：
+
+1. 最终迁到 `src/app/schemas/common.py`（或 `src/app/api/schemas/common.py`，二选一保持单点）。
+2. `src/platform/schemas/common.py` 保留 deprecated 兼容壳直到 final cutover 完成。
+
+### 5) 最安全的最终切换顺序（建议）
+
+1. 先在 `src/app/api/*` 落位新聚合入口（仅复制聚合行为，不变更挂载集合与顺序）。
+2. 将 `platform/schemas/common.py` 主实现迁到 app 壳位置，platform 保留 shim。
+3. 在不改其他行为的前提下，把 `platform/web/app.py` 对 `api_router` 的引用切到 `src/app/api/router.py`。
+4. 完成 `/api/health`、`/api/v1/*`、`/api/docs`、`/app`、`/ops` 回归后，将 `platform/api/router.py` 与 `platform/api/v1/router.py` 降为 shim。
+5. 最后将 `platform/web/app.py` 主实现迁到 `src/app/web/app.py`，platform 保留入口 shim。
+
+### 6) 风险点与回归重点
+
+风险点：
+
+1. `/api/v1` 路由聚合顺序变化导致覆盖关系变化。
+2. `platform/schemas/common.py` 迁移后 import 路径断裂。
+3. 入口切换影响 docs/openapi 路径、静态资源与前端重定向逻辑。
+4. auth/admin 依赖链与 ops/biz 路由在聚合层的兼容性回归。
+
+回归重点：
+
+1. `GET /api/health`、`GET /api/v1/health`
+2. auth/admin/user 全链路登录鉴权与权限接口
+3. biz 端 `share/quote/market` 核心只读接口
+4. ops 端任务/调度核心接口
+5. `GET /`、`GET /app`、`GET /ops` 与前端资源挂载行为
