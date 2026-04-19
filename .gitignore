@@ -151,6 +151,11 @@ node_modules/
 frontend/node_modules/
 *.tsbuildinfo
 
+# Local agent notes (may include machine paths/connection hints)
+AGENTS.local.md
+AGENTS.local.*
+!AGENTS.local.example.md
+
 # Spyder project settings
 .spyderproject
 .spyproject
