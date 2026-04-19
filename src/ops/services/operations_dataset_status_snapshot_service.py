@@ -13,7 +13,7 @@ from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
-from src.operations.dataset_status_projection import snapshot_row_to_freshness_item
+from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.specs import (
     get_dataset_freshness_spec,
     get_job_spec,

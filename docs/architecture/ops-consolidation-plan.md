@@ -651,3 +651,39 @@
 3. `operations` 兼容层收敛重点仅剩：
    - `src/operations/services/history_backfill_service.py`（专项兼容壳）
    - `src/operations/services/__init__.py`（过渡导出壳）
+
+---
+
+## post-cutover cleanup：`dataset_status_projection` 主实现迁入 ops（本轮执行）
+
+本轮目标（单目标）：
+
+1. 消除 `ops -> operations` 的残留反向依赖：将 `dataset_status_projection` 主实现迁入 `src/ops`，`operations` 仅保留 compat 壳。
+
+迁移前审计结论：
+
+1. `src/ops/queries/freshness_query_service.py` 与 `src/ops/services/operations_dataset_status_snapshot_service.py` 仍从 `src.operations.dataset_status_projection` 导入。
+2. `dataset_status_projection` 语义属于 ops 查询/快照投影能力，不应停留在 operations legacy 层。
+
+本轮动作（已执行）：
+
+1. 新增主实现：
+   - `src/ops/dataset_status_projection.py`
+2. 调用侧切换：
+   - `src/ops/queries/freshness_query_service.py` -> `src.ops.dataset_status_projection`
+   - `src/ops/services/operations_dataset_status_snapshot_service.py` -> `src.ops.dataset_status_projection`
+3. 旧路径保留 compat：
+   - `src/operations/dataset_status_projection.py` 改为 deprecated shim（模块薄转发）
+4. 护栏同步：
+   - `tests/architecture/test_operations_legacy_guardrails.py` 新增检查：
+     - 禁止重新从 `src.operations.dataset_status_projection` 导入（shim 本身除外）
+
+回归结果：
+
+1. `pytest -q tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过。
+2. `pytest -q tests/test_ops_freshness_snapshot_query_service.py tests/web/test_ops_freshness_api.py` 通过。
+
+当前状态：
+
+1. `ops` 侧不再依赖 `src.operations.dataset_status_projection`。
+2. `operations` 目录继续只承担最小 compat 角色。

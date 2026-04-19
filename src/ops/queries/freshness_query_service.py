@@ -73,7 +73,7 @@ from src.ops.specs.observed_dataset_registry import (
     OBSERVED_DATE_FILTERS,
     OBSERVED_DATE_MODEL_REGISTRY,
 )
-from src.operations.dataset_status_projection import snapshot_row_to_freshness_item
+from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
