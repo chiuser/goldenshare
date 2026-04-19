@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.platform.models.app.app_user import AppUser
+from src.app.models.app_user import AppUser
 
 
 def test_login_success_updates_last_login(app_client, db_session, user_factory) -> None:

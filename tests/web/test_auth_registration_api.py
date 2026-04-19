@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from src.foundation.config.settings import get_settings
 from src.platform.auth.security_utils import hash_raw_token
-from src.platform.models.app.auth_refresh_token import AuthRefreshToken
+from src.app.models.auth_refresh_token import AuthRefreshToken
 
 
 def _set_auth_mode(monkeypatch, *, mode: str, require_email_verification: bool = True) -> None:
