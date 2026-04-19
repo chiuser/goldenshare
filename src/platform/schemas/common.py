@@ -1,22 +1,8 @@
-from __future__ import annotations
+"""Deprecated compatibility shim.
 
-from pydantic import BaseModel
+Use src.app.schemas.common instead.
+"""
 
-
-class HealthResponse(BaseModel):
-    status: str
-    service: str
-    env: str
-
-
-class OkResponse(BaseModel):
-    ok: bool = True
-
-
-class ApiErrorResponse(BaseModel):
-    code: str
-    message: str
-    request_id: str | None = None
-
+from src.app.schemas.common import ApiErrorResponse, HealthResponse, OkResponse
 
 __all__ = ["ApiErrorResponse", "HealthResponse", "OkResponse"]

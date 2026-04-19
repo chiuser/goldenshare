@@ -22,7 +22,7 @@ from src.app.auth.schemas.user_admin import (
 from src.app.auth.services.admin_user_service import AdminUserService
 from src.app.dependencies import get_db_session
 from src.app.exceptions import WebAppError
-from src.platform.schemas.common import OkResponse
+from src.app.schemas.common import OkResponse
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])

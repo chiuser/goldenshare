@@ -24,7 +24,7 @@ from src.app.auth.schemas.auth import (
 )
 from src.app.auth.services.auth_service import AuthService
 from src.app.dependencies import get_db_session
-from src.platform.schemas.common import OkResponse
+from src.app.schemas.common import OkResponse
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
