@@ -35,7 +35,7 @@ def main() -> None:
     if args.no_reload:
         reload_flag = False
     uvicorn.run(
-        "src.platform.web.app:app",
+        "src.app.web.app:app",
         host=args.host or settings.web_host,
         port=args.port or settings.web_port,
         reload=reload_flag,

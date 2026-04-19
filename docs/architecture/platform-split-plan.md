@@ -1167,3 +1167,22 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 1. 先完成测试入口与 `app-target` 默认值切换
 2. 回归验证 web 入口与路由行为
 3. 最后评估删除 `platform/web/run.py`，再评估删除 `platform/web/app.py`
+
+### 14) 运行入口 cleanup 第二步执行结果（测试入口 + app-target）
+
+本轮范围（仅两项）：
+
+1. `tests/web/conftest.py` 中测试 app 入口切换到 `src.app.web.app`
+2. `src/app/web/run.py` 默认 `uvicorn` app target 切换到 `src.app.web.app:app`
+
+本轮明确未触碰：
+
+1. `src/platform/web/run.py`
+2. `src/platform/web/app.py`
+3. `src/platform/api/router.py`
+4. `src/platform/api/v1/router.py`
+
+切换后残留说明：
+
+1. `src.platform.web.run` 仍作为兼容壳存在（预期保留）
+2. `src.platform.web.app` 仍作为兼容壳存在（预期保留）

@@ -163,7 +163,7 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
 
 @pytest.fixture()
 def app_client(db_session: Session) -> Generator[TestClient, None, None]:
-    from src.platform.web.app import app
+    from src.app.web.app import app
     from src.platform.dependencies.db import get_db_session
 
     get_settings.cache_clear()
