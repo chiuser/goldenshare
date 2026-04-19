@@ -63,7 +63,7 @@ Web 环境相关变量见 `.env.web.example`。
 1. 启动后端 Web：
 
 ```bash
-GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.platform.web.run
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.app.web.run
 ```
 
 2. 启动前端 dev server：
@@ -98,7 +98,7 @@ npm run build
 然后启动后端：
 
 ```bash
-GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.platform.web.run
+GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.app.web.run
 ```
 
 此时访问：
@@ -454,7 +454,7 @@ python3 -m src.scripts.create_user --username admin --password your_password --a
 启动 Web：
 
 ```bash
-python3 -m src.platform.web.run
+python3 -m src.app.web.run
 ```
 
 或者直接使用安装后的命令：
@@ -500,7 +500,7 @@ pytest tests/web
 
 生产发版建议：
 
-- 不要在服务器上手工运行 `python -m src.platform.web.run` 或 `goldenshare ops-worker-serve`
+- 不要在服务器上手工运行 `python -m src.app.web.run` 或 `goldenshare ops-worker-serve`
 - Web、Scheduler、Worker 应统一交给 systemd 管理
 - 如果需要由 `goldenshare` 用户直接执行发版脚本，请先安装 `scripts/goldenshare-deploy.sudoers`
 - 发版脚本示例：

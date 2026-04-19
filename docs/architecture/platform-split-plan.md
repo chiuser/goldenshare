@@ -1016,7 +1016,7 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 
 后置原因摘要：
 
-1. `platform/web/run.py` 当前仍是部署入口（systemd 命令仍指向 `python -m src.platform.web.run`）。
+1. `platform/web/run.py` 当前仍是兼容入口（systemd 命令已切到 `python -m src.app.web.run`，但代码/测试链路仍有后置项）。
 2. `platform/web/settings.py`、`lifespan.py`、`logging.py`、`middleware/*` 仍被 app/web 与 auth 运行链路直接使用。
 3. `platform/web/app.py`、`platform/api/router.py`、`platform/api/v1/router.py`、`platform/schemas/common.py` 属 final cutover 后置兼容层，需在入口切换策略窗口中统一处理，避免误删造成运行入口与聚合路由抖动。
 
@@ -1109,3 +1109,61 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 7. `src/platform/web/logging.py`
 8. `src/platform/web/middleware/*`
 9. `src/platform/web/static/*`
+
+### 13) 运行入口 cleanup 配置/文档切换执行结果（本轮）
+
+本轮目标：只切配置/文档层到 `src.app.web.run`，不改实现、不删 shim、不改测试入口与 `app-target` 默认值。
+
+审计范围（已执行）：
+
+1. `src`
+2. `tests`
+3. `scripts`
+4. `docs`
+5. `README.md`
+6. `pyproject.toml`
+7. `.github`（仓库内 CI/脚本检索）
+
+#### A. 本轮已完成切换（配置/文档层）
+
+1. `pyproject.toml`
+   - `goldenshare-web` 入口已改为 `src.app.web.run:main`
+2. `scripts/goldenshare-web.service`
+   - `ExecStart` 已改为 `python -m src.app.web.run`
+3. `README.md`
+   - 本地/构建/运维示例命令已改为 `python3 -m src.app.web.run` / `python -m src.app.web.run`
+4. `docs/architecture/current-architecture-baseline.md`
+   - Web 入口与 systemd 示例均改为 `src.app.web.run`
+5. `docs/platform/web-platform-phase1-lld.md`
+   - 文档示例中的模块运行命令已改为 `src.app.web.run`
+
+#### B. 本轮明确未触碰（后置项）
+
+1. `tests/web/conftest.py` 仍导入 `src.platform.web.app`（按本轮约束保留）
+2. `src/app/web/run.py` 默认 `--app-target` 仍为 `src.platform.web.app:app`（按本轮约束保留）
+3. `src/platform/web/run.py` 与 `src/platform/web/app.py` shim 均未删除
+
+#### C. 删除 `platform/web/run.py` 前的最小前置条件
+
+1. 配置/文档层已经完成切换（本轮已完成）
+2. 测试入口切换到 `src.app.web.app`（后置）
+3. `src/app/web/run.py` 默认 `--app-target` 切到 `src.app.web.app:app`（后置）
+4. 至少完成以下回归：
+   - `/api/health`
+   - `/api/v1/health`
+   - `/api/docs`
+   - `/api/openapi.json`
+   - `pytest -q tests/web/test_health_api.py`
+   - `pytest -q tests/web/test_ops_pages.py`
+
+#### D. 删除 `platform/web/app.py` 前的最小前置条件
+
+1. 全仓无 `src.platform.web.app` 运行级引用（含测试、脚本、部署配置）
+2. `src/app/web/run.py` 默认 `--app-target` 已切到 `src.app.web.app:app`
+3. 测试与启动链路验证通过后，再进入 shim 删除评估
+
+#### E. 下一步最安全切换目标（建议顺序）
+
+1. 先完成测试入口与 `app-target` 默认值切换
+2. 回归验证 web 入口与路由行为
+3. 最后评估删除 `platform/web/run.py`，再评估删除 `platform/web/app.py`

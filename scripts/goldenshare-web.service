@@ -5,7 +5,7 @@ After=network.target
 [Service]
 WorkingDirectory=/opt/goldenshare/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/goldenshare/.venv/bin/python -m src.platform.web.run
+ExecStart=/opt/goldenshare/goldenshare/.venv/bin/python -m src.app.web.run
 Restart=always
 RestartSec=3
 

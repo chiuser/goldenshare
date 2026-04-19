@@ -20,8 +20,8 @@ src/
 ## 2. 服务入口
 
 - CLI：`goldenshare = src.cli:app`
-- Web：`goldenshare-web = src.platform.web.run:main`
-- systemd 示例：`scripts/goldenshare-web.service` 使用 `python -m src.platform.web.run`
+- Web：`goldenshare-web = src.app.web.run:main`
+- systemd 示例：`scripts/goldenshare-web.service` 使用 `python -m src.app.web.run`
 
 ## 3. 关键约束
 

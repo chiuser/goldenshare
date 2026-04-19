@@ -366,7 +366,7 @@ uvicorn src.platform.web.app:app
 同时建议提供一个配置驱动的 Python 启动入口：
 
 ```bash
-python -m src.platform.web.run
+python -m src.app.web.run
 ```
 
 如果项目已安装，也可以提供命令行入口：
@@ -379,14 +379,14 @@ goldenshare-web
 
 ```bash
 export GOLDENSHARE_ENV_FILE=.env.web.local
-python -m src.platform.web.run
+python -m src.app.web.run
 ```
 
 ### 6.3 远程生产启动方式
 
 ```bash
 export GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-python -m src.platform.web.run
+python -m src.app.web.run
 ```
 
 ### 6.4 部署建议
