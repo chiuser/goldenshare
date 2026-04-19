@@ -687,3 +687,36 @@
 
 1. `ops` 侧不再依赖 `src.operations.dataset_status_projection`。
 2. `operations` 目录继续只承担最小 compat 角色。
+
+---
+
+## post-cutover cleanup：`operations/dataset_status_projection.py` shim 删除执行结果（单文件）
+
+本轮目标（单目标）：
+
+1. 删除已零引用的 `src/operations/dataset_status_projection.py` compat 壳。
+
+删除前审计结果：
+
+1. 在 `src + tests + scripts + docs + README* + pyproject.toml + .github` 范围内，未检出代码导入 `src.operations.dataset_status_projection`。
+2. 残留命中仅为架构文档历史记录与护栏测试中的“禁止规则”描述。
+
+本轮动作（已执行）：
+
+1. 删除 `src/operations/dataset_status_projection.py`。
+2. 护栏同步（`tests/architecture/test_operations_legacy_guardrails.py`）：
+   - 保留并强化“禁止导入 `src.operations.dataset_status_projection`”规则。
+   - 新增“文件已删除且不应回流”断言。
+
+回归结果：
+
+1. `pytest -q tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过。
+2. `pytest -q tests/test_ops_freshness_snapshot_query_service.py tests/web/test_ops_freshness_api.py` 通过。
+
+当前状态：
+
+1. `operations` 包中仅剩：
+   - `src/operations/services/history_backfill_service.py`（专项 compat 壳）
+   - `src/operations/services/__init__.py`（过渡导出壳）
+   - `src/operations/__init__.py`
+   - `src/operations/AGENTS.md`

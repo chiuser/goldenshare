@@ -130,9 +130,12 @@ def test_no_legacy_dataset_status_projection_imports() -> None:
         root = REPO_ROOT / scan_root
         for file_path in _iter_python_files(root):
             rel_path = file_path.relative_to(REPO_ROOT).as_posix()
-            if rel_path == "src/operations/dataset_status_projection.py":
-                continue
             for module in _iter_import_modules(file_path):
                 if module in forbidden_modules:
                     violations.append(f"{rel_path} -> {module}")
     assert not violations, "发现对 operations/dataset_status_projection 旧路径引用:\n" + "\n".join(sorted(violations))
+
+
+def test_operations_dataset_status_projection_shim_removed() -> None:
+    legacy_projection = REPO_ROOT / "src/operations/dataset_status_projection.py"
+    assert not legacy_projection.exists(), "operations/dataset_status_projection.py 已删除，不应回流"
