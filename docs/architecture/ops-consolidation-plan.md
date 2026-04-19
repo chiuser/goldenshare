@@ -432,3 +432,68 @@
    - `history_backfill_service.py`
    - `market_mood_walkforward_validation_service.py`
 4. 新增护栏测试 `tests/architecture/test_operations_legacy_guardrails.py`，防止常规 shim 回流与旧导入反弹。
+
+---
+
+## 专项收口：`history_backfill_service` 主实现迁入 ops（本轮执行）
+
+本轮目标（单目标）：
+
+1. 将 `history_backfill_service` 主实现从 `src/operations/services` 迁入 `src/ops/services`，保留旧路径兼容壳。
+
+迁移前审计结论：
+
+1. `history_backfill_service` 为 runtime/CLI 主链路关键服务，已进入专项迁移窗口。
+2. 当前调用点可控（`src/cli.py`、`src/ops/runtime/dispatcher.py`、`src/operations/services/__init__.py`）。
+3. `tests/test_history_backfill_service.py` 大量使用旧路径 patch，迁移后需保留旧路径模块兼容。
+
+本轮动作（已执行）：
+
+1. 主实现迁移：
+   - `src/operations/services/history_backfill_service.py` -> `src/ops/services/operations_history_backfill_service.py`
+2. 旧路径兼容壳保留：
+   - `src/operations/services/history_backfill_service.py` 改为 deprecated shim（模块薄转发）
+3. 最小调用侧切换：
+   - `src/ops/runtime/dispatcher.py` 改为从 `src.ops.services.operations_history_backfill_service` 导入
+   - `src/cli.py` 改为从 `src.ops.services.operations_history_backfill_service` 导入
+   - `src/operations/services/__init__.py` 中 `HistoryBackfillService/BackfillSummary` 导出改为指向 ops 主实现
+
+本轮结果：
+
+1. backfill 主实现已进入 `src/ops/services` 主承接目录。
+2. 旧路径仍可用，确保测试 patch 与外部兼容不被破坏。
+3. `src/operations/services` 剩余“真实专项实现”收敛为 1 项：
+   - `market_mood_walkforward_validation_service.py`
+
+---
+
+## 专项收口：`market_mood_walkforward_validation_service` 迁入 biz（本轮执行）
+
+本轮目标（单目标）：
+
+1. 将跨域分析服务 `market_mood_walkforward_validation_service` 从 `operations/services` 迁入 `biz/services`，清理 `operations -> biz` 历史违规白名单。
+
+迁移前审计结论：
+
+1. 运行调用点集中在 `src/cli.py`，未进入 runtime 主链路。
+2. 该服务语义属于业务分析域，且内部直接依赖 `src.biz.services.market_mood_calculator`。
+3. `src/operations/services` 目录收尾目标要求继续减少真实实现。
+
+本轮动作（已执行）：
+
+1. 主实现迁移：
+   - `src/operations/services/market_mood_walkforward_validation_service.py` -> `src/biz/services/market_mood_walkforward_validation_service.py`
+2. 调用侧切换：
+   - `src/cli.py` 改为从 `src.biz.services.market_mood_walkforward_validation_service` 导入
+3. 过渡导出收敛：
+   - `src/operations/services/__init__.py` 移除 `MarketMoodWalkForwardValidationService` 与 `MoodWalkForwardReport` 的导出
+4. 护栏同步：
+   - `tests/architecture/test_subsystem_dependency_matrix.py` 移除 `operations -> biz` 白名单项
+   - `tests/architecture/test_operations_legacy_guardrails.py` 同步 `operations/services` 允许文件/导入集合
+
+本轮结果：
+
+1. `operations -> biz` 的历史白名单已清零。
+2. `src/operations/services` 目录不再包含真实业务分析实现，仅剩最小兼容壳：
+   - `history_backfill_service.py`（compat shim）
+   - `__init__.py`（过渡导出壳）

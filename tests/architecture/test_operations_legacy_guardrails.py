@@ -31,7 +31,6 @@ def test_operations_services_contains_only_special_case_files() -> None:
         "src/operations/services/AGENTS.md",
         "src/operations/services/__init__.py",
         "src/operations/services/history_backfill_service.py",
-        "src/operations/services/market_mood_walkforward_validation_service.py",
     }
     current_files = {
         path.relative_to(REPO_ROOT).as_posix()
@@ -46,7 +45,6 @@ def test_operations_services_imports_are_limited_to_special_cases() -> None:
     allowed_modules = {
         "src.operations.services",
         "src.operations.services.history_backfill_service",
-        "src.operations.services.market_mood_walkforward_validation_service",
     }
     violations: list[str] = []
     for scan_root in SCAN_ROOTS:

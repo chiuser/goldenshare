@@ -13,7 +13,7 @@ from src.ops.services.operations_execution_reconciliation_service import (
     OperationsExecutionReconciliationService,
     ReconciledExecution,
 )
-from src.operations.services.history_backfill_service import BackfillSummary, HistoryBackfillService
+from src.ops.services.operations_history_backfill_service import BackfillSummary, HistoryBackfillService
 from src.ops.services.operations_moneyflow_multi_source_seed_service import (
     MoneyflowMultiSourceSeedService,
     SeedMoneyflowMultiSourceReport,
@@ -21,10 +21,6 @@ from src.ops.services.operations_moneyflow_multi_source_seed_service import (
 from src.ops.services.operations_moneyflow_reconcile_service import (
     MoneyflowReconcileReport,
     MoneyflowReconcileService,
-)
-from src.operations.services.market_mood_walkforward_validation_service import (
-    MarketMoodWalkForwardValidationService,
-    MoodWalkForwardReport,
 )
 from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.ops.services.operations_serving_light_refresh_service import (
@@ -58,8 +54,6 @@ __all__ = [
     "SeedMoneyflowMultiSourceReport",
     "MoneyflowReconcileService",
     "MoneyflowReconcileReport",
-    "MarketMoodWalkForwardValidationService",
-    "MoodWalkForwardReport",
     "StockBasicReconcileService",
     "StockBasicReconcileReport",
     "DefaultSingleSourceSeedService",

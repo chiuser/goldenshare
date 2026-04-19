@@ -30,10 +30,6 @@ FOUNDATION_WHITELIST: dict[str, WhitelistEntry] = {
 }
 
 OPERATIONS_WHITELIST: dict[str, WhitelistEntry] = {
-    "src/operations/services/market_mood_walkforward_validation_service.py": _wl(
-        "历史 operations 服务直接依赖 biz 计算服务，后续需在 ops/biz 归属收敛时拆分。",
-        "src.biz.services.market_mood_calculator",
-    ),
 }
 
 

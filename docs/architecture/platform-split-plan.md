@@ -1628,7 +1628,7 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
 
 1. 文档历史章节中仍有旧路径描述（属于历史记录，不影响运行）
 2. `platform` 目录静态资源与包骨架是否做最终归档/裁剪，需在独立轮次评估
-3. `operations/services` 剩余专项项（`history_backfill_service.py`、`market_mood_walkforward_validation_service.py`）仍按既定策略暂缓
+3. `operations/services` 专项残留已继续收敛（`history_backfill` 主实现已迁入 ops、`market_mood` 主实现已迁入 biz），当前仅保留最小兼容壳
 
 ### 33) web 静态资源主路径收口到 `app/web/static`
 

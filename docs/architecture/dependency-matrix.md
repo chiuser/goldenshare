@@ -84,13 +84,13 @@ src/
 
 ---
 
-### operations 与 biz 跨层调用
+### operations 与 biz 跨层调用（已收敛）
 
-#### 3. operations 直接引用 biz 逻辑
+#### 3. 历史 operations -> biz 违规已清理
 
-- 文件：`src/operations/services/market_mood_walkforward_validation_service.py`
-- 问题：ops 侧编排/运行逻辑与 biz 业务语义混杂
-- 目标修复：后续专项判定其最终归属
+- 历史文件：`src/operations/services/market_mood_walkforward_validation_service.py`
+- 收敛结果：主实现已迁到 `src/biz/services/market_mood_walkforward_validation_service.py`
+- 当前状态：`tests/architecture/test_subsystem_dependency_matrix.py` 中该违规白名单已移除
 
 ---
 

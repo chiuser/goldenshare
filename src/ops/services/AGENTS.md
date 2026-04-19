@@ -54,6 +54,7 @@
 - `operations_probe_runtime_service.py`
 - `operations_daily_health_report_service.py`
 - `operations_dataset_pipeline_mode_seed_service.py`
+- `operations_history_backfill_service.py`
 
 规则：
 - 历史从 `operations/services` 迁来的主实现，优先采用 `operations_<name>_service.py` 命名，直到后续统一命名收口
