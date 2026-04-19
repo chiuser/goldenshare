@@ -916,3 +916,124 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
    - `/`
    - `/app`
    - `/ops`
+
+### 7) cleanup 候选真实引用审计（本轮，仅审计不删除）
+
+审计范围（代码 + 测试 + 脚本）：
+
+- `src`
+- `tests`
+- `scripts`
+
+审计方式：`rg` 按候选 shim 路径逐项扫描 import/引用。
+
+#### A. `platform/models/app/*` shim
+
+审计结论：**仍有真实引用，暂不能删**。
+
+当前引用方（已确认）：
+
+1. `tests/web/conftest.py`
+   - 引用了 `src.platform.models.app.*` 全套账户模型 shim。
+2. `tests/web/test_auth_api.py`
+   - 引用 `src.platform.models.app.app_user.AppUser`。
+3. `tests/web/test_auth_registration_api.py`
+   - 引用 `src.platform.models.app.auth_refresh_token.AuthRefreshToken`。
+
+是否可进入第一批真实删除候选：**否**。
+
+删除前前置条件：
+
+1. 先将上述测试 import 切换到 `src.app.models.*`。
+2. 确认无残留脚本/测试引用后再进入删除批次。
+
+#### B. `platform/services/*` shim
+
+审计结论：在 `src/tests/scripts` 中未检出直接引用。
+
+检索项（已扫）：
+
+1. `src.platform.services.auth_service`
+2. `src.platform.services.admin_user_service`
+3. `src.platform.services.user_service`
+4. `from src.platform.services import ...`
+
+是否可进入第一批真实删除候选：**是（候选）**。
+
+删除前前置条件：
+
+1. 以当前分支代码再次跑一次全量引用扫描，确认仍为 0。
+2. 通过下文“第一批删除前回归清单”后再执行删除。
+
+#### C. `platform/schemas/{auth,user_admin,share}.py` shim
+
+审计结论：在 `src/tests/scripts` 中未检出直接引用。
+
+检索项（已扫）：
+
+1. `src.platform.schemas.auth`
+2. `src.platform.schemas.user_admin`
+3. `src.platform.schemas.share`
+4. `from src.platform.schemas import ...`
+
+是否可进入第一批真实删除候选：**是（候选）**。
+
+删除前前置条件：
+
+1. 删除前再次扫描确认 0 引用。
+2. 回归通过后再删除。
+
+#### D. `platform/queries/share_market_query_service.py` shim
+
+审计结论：在 `src/tests/scripts` 中未检出直接引用。
+
+检索项（已扫）：
+
+1. `src.platform.queries.share_market_query_service`
+2. `from src.platform.queries import ...`
+
+是否可进入第一批真实删除候选：**是（候选）**。
+
+删除前前置条件：
+
+1. 删除前再次扫描确认 0 引用。
+2. 回归通过后再删除。
+
+### 8) 明确继续后置（本轮排除项）
+
+以下项按策略明确排除，不进入第一批真实删除：
+
+1. `platform/web/app.py`
+2. `platform/api/router.py`
+3. `platform/api/v1/router.py`
+4. `platform/schemas/common.py`
+5. `platform/web/run.py`
+6. `platform/web/settings.py`
+7. `platform/web/lifespan.py`
+8. `platform/web/logging.py`
+9. `platform/web/middleware/*`
+10. `platform/web/static/*`
+
+后置原因摘要：
+
+1. `platform/web/run.py` 当前仍是部署入口（systemd 命令仍指向 `python -m src.platform.web.run`）。
+2. `platform/web/settings.py`、`lifespan.py`、`logging.py`、`middleware/*` 仍被 app/web 与 auth 运行链路直接使用。
+3. `platform/web/app.py`、`platform/api/router.py`、`platform/api/v1/router.py`、`platform/schemas/common.py` 属 final cutover 后置兼容层，需在入口切换策略窗口中统一处理，避免误删造成运行入口与聚合路由抖动。
+
+### 9) 第一批真实删除前必须跑的回归清单
+
+1. 架构约束：
+   - `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
+2. Web 核心回归：
+   - `pytest -q tests/web/test_health_api.py`
+   - `pytest -q tests/web/test_ops_pages.py`
+   - `pytest -q tests/web/test_platform_check_page.py`
+3. 关键接口冒烟：
+   - `GET /api/health`
+   - `GET /api/v1/health`
+   - `GET /api/docs`
+   - `GET /api/openapi.json`
+   - `GET /`
+   - `GET /app`
+   - `GET /ops`
+4. 删除前再次执行引用审计（`src + tests + scripts`）并记录结果；仅当候选项均为 0 引用才进入真实删除。
