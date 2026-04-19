@@ -1037,3 +1037,23 @@ post-cutover 当前仍有真实实现，不应按 shim 删除：
    - `GET /app`
    - `GET /ops`
 4. 删除前再次执行引用审计（`src + tests + scripts`）并记录结果；仅当候选项均为 0 引用才进入真实删除。
+
+### 10) 第一批真实删除执行结果（当前批次）
+
+本轮按“仅删除低风险 shim”的范围执行，删除前后均完成引用审计（`src + tests + scripts`）。
+
+已删除 shim（7 个）：
+
+1. `src/platform/services/auth_service.py`
+2. `src/platform/services/user_service.py`
+3. `src/platform/services/admin_user_service.py`
+4. `src/platform/schemas/auth.py`
+5. `src/platform/schemas/user_admin.py`
+6. `src/platform/schemas/share.py`
+7. `src/platform/queries/share_market_query_service.py`
+
+删除后复审结果：
+
+1. 上述 7 条旧路径在 `src/tests/scripts` 中均未检出直接引用。
+2. `platform/models/app/*` shim 仍有测试引用，继续保留（不在本轮删除范围）。
+3. `platform/web/*` 运行链路与 `platform/api*` 聚合兼容层继续后置，未触碰。
