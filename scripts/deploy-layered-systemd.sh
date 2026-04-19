@@ -4,6 +4,7 @@ export SYSTEMD_PAGER=""
 export SYSTEMD_LESS=""
 export PAGER=cat
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="${REPO_DIR:-/opt/goldenshare/goldenshare}"
 BRANCH="${1:-main}"
 ENV_FILE="${ENV_FILE:-/etc/goldenshare/web.env}"
@@ -22,9 +23,18 @@ RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
 RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-1}"
+RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
+PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
+DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/tmp/goldenshare-deploy.lock}"
+DEPLOY_LOCK_WAIT_SECONDS="${DEPLOY_LOCK_WAIT_SECONDS:-30}"
+SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+WEB_UNIT_SRC="${WEB_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-web.service}"
+WORKER_UNIT_SRC="${WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-worker.service}"
+SCHEDULER_UNIT_SRC="${SCHEDULER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-scheduler.service}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
+EXPECTED_WEB_ENTRY_MODULE="${EXPECTED_WEB_ENTRY_MODULE:-src.app.web.run}"
 
 log() {
   echo "[$(date '+%F %T')] $*"
@@ -46,6 +56,77 @@ require_file() {
 
 sudo_systemctl() {
   sudo -n "${SYSTEMCTL_BIN}" "$@"
+}
+
+sync_systemd_unit() {
+  local src="$1"
+  local dst="$2"
+  if [[ ! -f "${src}" ]]; then
+    echo "缺少 unit 源文件: ${src}"
+    exit 1
+  fi
+  if [[ -f "${dst}" ]] && cmp -s "${src}" "${dst}"; then
+    return 1
+  fi
+  if ! sudo -n install -m 644 "${src}" "${dst}" >/dev/null 2>&1; then
+    echo "同步 unit 失败: ${dst}"
+    echo "请确认部署用户具备 sudo 安装 unit 权限，或使用 --skip-sync-units 跳过。"
+    exit 1
+  fi
+  log "已同步 unit: ${dst}"
+  return 0
+}
+
+sync_units_if_needed() {
+  if [[ "${RUN_SYNC_UNITS}" != "1" ]]; then
+    log "4/13 跳过 unit 同步（RUN_SYNC_UNITS=0）"
+    return
+  fi
+  local changed=0
+  local web_dst="${SYSTEMD_UNIT_DIR}/${WEB_SERVICE}"
+  local worker_dst="${SYSTEMD_UNIT_DIR}/${WORKER_SERVICE}"
+  local scheduler_dst="${SYSTEMD_UNIT_DIR}/${SCHEDULER_SERVICE}"
+
+  if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${WORKER_UNIT_SRC}" "${worker_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${SCHEDULER_UNIT_SRC}" "${scheduler_dst}"; then
+    changed=1
+  fi
+
+  if [[ "${changed}" == "1" ]]; then
+    log "检测到 unit 变更，执行 systemd daemon-reload"
+    sudo_systemctl daemon-reload
+  else
+    log "unit 无变化，跳过同步写入"
+  fi
+}
+
+assert_web_entry_module() {
+  local output
+  output="$(sudo_systemctl cat "${WEB_SERVICE}" 2>/dev/null || true)"
+  if [[ -z "${output}" ]]; then
+    echo "无法读取 ${WEB_SERVICE} 配置，请检查 systemd 状态。"
+    exit 1
+  fi
+  if ! printf '%s\n' "${output}" | grep -q "${EXPECTED_WEB_ENTRY_MODULE}"; then
+    echo "当前 ${WEB_SERVICE} 未指向期望入口模块: ${EXPECTED_WEB_ENTRY_MODULE}"
+    echo "请同步 unit 后重试。"
+    exit 1
+  fi
+}
+
+acquire_deploy_lock() {
+  require_cmd flock
+  mkdir -p "$(dirname "${DEPLOY_LOCK_FILE}")"
+  exec 9>"${DEPLOY_LOCK_FILE}"
+  if ! flock -w "${DEPLOY_LOCK_WAIT_SECONDS}" 9; then
+    echo "获取部署锁超时（${DEPLOY_LOCK_FILE}），请稍后重试。"
+    exit 1
+  fi
 }
 
 ensure_sudo_ready() {
@@ -130,8 +211,11 @@ main() {
   require_cmd npm
   require_cmd curl
   require_cmd sudo
+  require_cmd cmp
+  require_cmd install
   require_cmd "${SYSTEMCTL_BIN}"
 
+  acquire_deploy_lock
   ensure_sudo_ready
   ensure_runtime_ready
 
@@ -142,8 +226,8 @@ main() {
   git checkout "${BRANCH}"
   git pull --ff-only origin "${BRANCH}"
 
-  log "2/12 安装后端依赖"
-  .venv/bin/pip install -e ".[dev]"
+  log "2/12 安装后端依赖（target=${PIP_INSTALL_TARGET}）"
+  .venv/bin/pip install -e "${PIP_INSTALL_TARGET}"
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
     log "3/12 构建前端"
@@ -155,18 +239,21 @@ main() {
     log "3/12 跳过前端构建（RUN_FRONTEND_BUILD=0）"
   fi
 
+  sync_units_if_needed
+  assert_web_entry_module
+
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
-    log "4/12 执行数据库迁移"
+    log "5/12 执行数据库迁移"
     set -a
     source "${ENV_FILE}"
     set +a
     .venv/bin/goldenshare init-db
   else
-    log "4/12 跳过数据库迁移（RUN_DB_MIGRATION=0）"
+    log "5/12 跳过数据库迁移（RUN_DB_MIGRATION=0）"
   fi
 
   if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
-    log "5/12 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
+    log "6/12 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -185,11 +272,11 @@ main() {
       log "未检测到缺失规则，跳过初始化写入"
     fi
   else
-    log "5/12 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
+    log "6/12 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
   fi
 
   if [[ "${RUN_DATASET_PIPELINE_MODE_SEED}" == "1" ]]; then
-    log "6/12 检测数据集 pipeline_mode 缺失/漂移"
+    log "7/12 检测数据集 pipeline_mode 缺失/漂移"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -208,11 +295,11 @@ main() {
       log "未检测到 pipeline_mode 变更，跳过初始化写入"
     fi
   else
-    log "6/12 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
+    log "7/12 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
   fi
 
   if [[ "${RUN_MONEYFLOW_MULTI_SOURCE_SEED}" == "1" ]]; then
-    log "7/12 检测 moneyflow 多源融合骨架"
+    log "8/12 检测 moneyflow 多源融合骨架"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -231,10 +318,10 @@ main() {
       log "未检测到 moneyflow 多源骨架变更，跳过初始化写入"
     fi
   else
-    log "7/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
+    log "8/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
   fi
 
-  log "8/12 重新加载 systemd 配置"
+  log "9/12 重新加载 systemd 配置"
   sudo_systemctl daemon-reload
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
@@ -255,17 +342,17 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
-  log "9/12 Foundation 自检"
+  log "10/12 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
-  log "10/12 Ops 自检"
+  log "11/12 Ops 自检"
   .venv/bin/goldenshare ops-reconcile-executions --stale-for-minutes 30 >/dev/null
 
-  log "11/12 Platform 健康检查"
+  log "12/12 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
-  log "12/12 服务状态"
+  log "13/13 服务状态"
   print_service_status "${WEB_SERVICE}"
   print_service_status "${WORKER_SERVICE}"
   print_service_status "${SCHEDULER_SERVICE}"

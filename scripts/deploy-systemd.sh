@@ -26,6 +26,10 @@ usage() {
   --skip-seed-pipeline-mode 关闭“pipeline_mode 缺失/漂移检测 + 按需初始化”
   --seed-moneyflow-multi-source    启用“moneyflow 多源骨架检测 + 按需初始化”（默认启用）
   --skip-seed-moneyflow-multi-source 关闭“moneyflow 多源骨架检测 + 按需初始化”
+  --sync-units            启用“systemd unit 差异检测 + 按需同步”（默认启用）
+  --skip-sync-units       关闭“systemd unit 差异检测 + 按需同步”
+  --with-dev-deps         安装开发依赖（等价 pip install -e '.[dev]'）
+  --pip-install-target <spec> 覆盖 pip 安装目标（默认 .）
   --skip-build            跳过前端构建
   --skip-migration        跳过数据库迁移
   --full                  全量发布（默认）
@@ -48,6 +52,8 @@ export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 export RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
 export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-1}"
+export RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
+export PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
   BRANCH="$1"
@@ -101,6 +107,20 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-seed-moneyflow-multi-source)
       export RUN_MONEYFLOW_MULTI_SOURCE_SEED=0
+      ;;
+    --sync-units)
+      export RUN_SYNC_UNITS=1
+      ;;
+    --skip-sync-units)
+      export RUN_SYNC_UNITS=0
+      ;;
+    --with-dev-deps)
+      export PIP_INSTALL_TARGET=".[dev]"
+      ;;
+    --pip-install-target)
+      shift
+      [[ $# -gt 0 ]] || { echo "缺少 --pip-install-target 参数值"; exit 1; }
+      export PIP_INSTALL_TARGET="$1"
       ;;
     --skip-migration)
       export RUN_DB_MIGRATION=0

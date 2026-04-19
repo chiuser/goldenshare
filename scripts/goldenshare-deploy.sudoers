@@ -8,4 +8,9 @@ Cmnd_Alias GOLDENSHARE_SYSTEMD = \
   /usr/bin/systemctl status goldenshare-ops-worker.service, \
   /usr/bin/systemctl status goldenshare-ops-scheduler.service
 
-goldenshare ALL=(root) NOPASSWD: GOLDENSHARE_SYSTEMD
+Cmnd_Alias GOLDENSHARE_UNIT_SYNC = \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-web.service /etc/systemd/system/goldenshare-web.service, \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-worker.service /etc/systemd/system/goldenshare-ops-worker.service, \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-scheduler.service /etc/systemd/system/goldenshare-ops-scheduler.service
+
+goldenshare ALL=(root) NOPASSWD: GOLDENSHARE_SYSTEMD, GOLDENSHARE_UNIT_SYNC
