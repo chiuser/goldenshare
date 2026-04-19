@@ -6,6 +6,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OPERATIONS_SERVICES_ROOT = REPO_ROOT / "src/operations/services"
+OPERATIONS_RUNTIME_ROOT = REPO_ROOT / "src/operations/runtime"
 SCAN_ROOTS = ("src", "tests", "scripts")
 
 
@@ -59,3 +60,31 @@ def test_operations_services_imports_are_limited_to_special_cases() -> None:
                 if module not in allowed_modules:
                     violations.append(f"{rel_path} -> {module}")
     assert not violations, "发现对 operations/services 已收敛模块的旧路径引用:\n" + "\n".join(sorted(violations))
+
+
+def test_operations_runtime_contains_only_package_init() -> None:
+    expected_files = {"src/operations/runtime/__init__.py"}
+    current_files = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in OPERATIONS_RUNTIME_ROOT.glob("*")
+        if path.is_file()
+    }
+    unexpected = sorted(current_files - expected_files)
+    assert not unexpected, "operations/runtime 出现了计划外文件:\n" + "\n".join(unexpected)
+
+
+def test_no_legacy_runtime_submodule_imports() -> None:
+    forbidden_modules = {
+        "src.operations.runtime.dispatcher",
+        "src.operations.runtime.scheduler",
+        "src.operations.runtime.worker",
+    }
+    violations: list[str] = []
+    for scan_root in SCAN_ROOTS:
+        root = REPO_ROOT / scan_root
+        for file_path in _iter_python_files(root):
+            rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+            for module in _iter_import_modules(file_path):
+                if module in forbidden_modules:
+                    violations.append(f"{rel_path} -> {module}")
+    assert not violations, "发现对 operations/runtime 已删除 shim 的旧路径引用:\n" + "\n".join(sorted(violations))

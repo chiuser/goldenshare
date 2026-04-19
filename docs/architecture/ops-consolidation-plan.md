@@ -536,3 +536,42 @@
 
 1. 进入单点删除评估轮次：先审计 `src + tests + scripts + docs` 对 `src.operations.runtime.{dispatcher,scheduler,worker}` 与 `src.operations.specs.{dataset_freshness_spec,job_spec,observed_dataset_registry,registry,workflow_spec}` 的残留引用。
 2. 若审计清零，再分两小轮删除 shim（先 runtime，后 specs），每轮只删一组并保留 `__init__.py` 聚合壳。
+
+---
+
+## post-cutover cleanup：`operations/runtime` shim 删除执行结果（3 项）
+
+本轮目标（单目标）：
+
+1. 仅删除 `src/operations/runtime` 下三个已无引用的 shim：
+   - `dispatcher.py`
+   - `scheduler.py`
+   - `worker.py`
+
+删除前审计结果：
+
+1. 在 `src + tests + scripts + docs + README* + pyproject.toml + .github` 范围内，未检出对 `src.operations.runtime.dispatcher/scheduler/worker` 的导入引用。
+2. 残留命中仅为三文件自身的模块文档字符串，不构成调用依赖。
+
+本轮动作（已执行）：
+
+1. 删除：
+   - `src/operations/runtime/dispatcher.py`
+   - `src/operations/runtime/scheduler.py`
+   - `src/operations/runtime/worker.py`
+2. 保留：
+   - `src/operations/runtime/__init__.py`（兼容包壳，导出仍指向 `src.ops.runtime`）
+3. 护栏增强：
+   - `tests/architecture/test_operations_legacy_guardrails.py` 新增两条检查：
+     - `operations/runtime` 目录仅允许保留 `__init__.py`
+     - 禁止重新引入 `src.operations.runtime.dispatcher/scheduler/worker` 旧路径导入
+
+回归结果：
+
+1. `pytest -q tests/architecture/test_operations_legacy_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py` 通过。
+2. `pytest -q tests/web/test_ops_runtime.py` 通过。
+
+下一步建议：
+
+1. 对 `src/operations/specs/*` 五个 shim 做同样审计（先收敛引用，再单轮删除）。
+2. 删除时仅处理 `dataset_freshness_spec.py/job_spec.py/observed_dataset_registry.py/registry.py/workflow_spec.py`，保留 `src/operations/specs/__init__.py` 作为包级过渡壳。
