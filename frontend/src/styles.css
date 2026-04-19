@@ -4,22 +4,32 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --gs-rose: #f72585;
-  --gs-magenta: #b5179e;
-  --gs-violet: #7209b7;
-  --gs-purple: #560bad;
-  --gs-deep-purple: #480ca8;
-  --gs-indigo: #3a0ca3;
-  --gs-electric: #3f37c9;
-  --gs-royal: #4361ee;
-  --gs-sky: #4895ef;
-  --gs-cyan: #4cc9f0;
-  background:
-    radial-gradient(circle at top left, rgba(247, 37, 133, 0.18), transparent 26%),
-    radial-gradient(circle at 78% 0%, rgba(76, 201, 240, 0.18), transparent 30%),
-    radial-gradient(circle at 50% 18%, rgba(63, 55, 201, 0.14), transparent 32%),
-    linear-gradient(180deg, #f7f4ff 0%, #edf4ff 52%, #f8fbff 100%);
-  color: #1e2242;
+  --gs-neutral-0: #ffffff;
+  --gs-neutral-1: #f7f8fa;
+  --gs-neutral-2: #f0f2f5;
+  --gs-neutral-3: #e5e7eb;
+  --gs-neutral-4: #d1d5db;
+  --gs-neutral-5: #9ca3af;
+  --gs-neutral-6: #6b7280;
+  --gs-neutral-7: #4b5563;
+  --gs-neutral-8: #1f2937;
+  --gs-neutral-9: #0f172a;
+  --gs-brand-0: #eaf1fa;
+  --gs-brand-5: #1f5499;
+  --gs-brand-6: #154173;
+  --gs-up-4: #e04848;
+  --gs-down-4: #1f9d6a;
+  --gs-success-5: #0f8a5f;
+  --gs-warning-5: #b07b00;
+  --gs-error-5: #b42626;
+  --gs-shadow-popover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --gs-shadow-modal: 0 12px 32px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --gs-radius-md: 6px;
+  --gs-page-background:
+    radial-gradient(circle at 50% -12%, rgba(31, 84, 153, 0.08), transparent 28%),
+    linear-gradient(180deg, #f7f8fa 0%, #f3f6f9 100%);
+  background: var(--gs-neutral-1);
+  color: var(--gs-neutral-8);
 }
 
 body {
@@ -27,12 +37,20 @@ body {
   min-width: 320px;
   min-height: 100vh;
   font-family:
-    "IBM Plex Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
     "PingFang SC",
     "Hiragino Sans GB",
+    "Microsoft YaHei UI",
     "Microsoft YaHei",
+    Roboto,
+    "Helvetica Neue",
     sans-serif;
-  background: transparent;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  background: var(--gs-neutral-1);
+  color: var(--gs-neutral-8);
 }
 
 #root {
@@ -46,7 +64,7 @@ a {
 
 code {
   font-family:
-    "IBM Plex Mono",
+    "JetBrains Mono",
     "SFMono-Regular",
     "SF Mono",
     Consolas,
@@ -55,23 +73,19 @@ code {
 
 .app-gradient-shell {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(247, 37, 133, 0.16), transparent 22%),
-    radial-gradient(circle at top right, rgba(76, 201, 240, 0.18), transparent 26%),
-    radial-gradient(circle at 48% 8%, rgba(63, 55, 201, 0.14), transparent 30%),
-    linear-gradient(180deg, #f7f4ff 0%, #edf4ff 54%, #f9fbff 100%);
+  background: var(--gs-page-background);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(63, 55, 201, 0.08);
-  box-shadow: 0 24px 64px rgba(58, 12, 163, 0.1);
+  --paper-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+  border: 1px solid var(--gs-neutral-3);
+  box-shadow: none;
 }
 
 .app-brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
   border-radius: 0;
   box-shadow: none;
@@ -82,5 +96,10 @@ code {
   width: min(280px, 72vw);
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 20px 32px rgba(58, 12, 163, 0.16));
+  filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.08));
+}
+
+:focus-visible {
+  outline: 2px solid var(--gs-brand-5);
+  outline-offset: 2px;
 }
