@@ -720,3 +720,24 @@
    - `src/operations/services/__init__.py`（过渡导出壳）
    - `src/operations/__init__.py`
    - `src/operations/AGENTS.md`
+
+---
+
+## baseline 对齐：`src/operations/AGENTS.md` 收口更新（本轮执行）
+
+本轮目标（单目标）：
+
+1. 将 `src/operations/AGENTS.md` 与当前真实目录状态对齐，避免后续按过时迁移阶段误操作。
+
+本轮动作（已执行）：
+
+1. 重写 `src/operations/AGENTS.md`，明确：
+   - `operations` 已进入 legacy/compat 收尾阶段
+   - `runtime/specs/dataset_status_projection` 已清理完成，不得回流
+   - 当前仅允许维护 `history_backfill` 兼容壳与最小导出壳
+2. 固化“禁止新增主实现到 operations”与“改动后必须同步文档/护栏”的执行要求。
+
+当前状态：
+
+1. `operations` 的结构与 AGENTS 规则已一致。
+2. 后续收尾重点聚焦在 `history_backfill` 兼容壳的最终策略（保留窗口或下线窗口）。
