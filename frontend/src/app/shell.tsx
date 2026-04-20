@@ -207,6 +207,16 @@ export function OpsShell(_props: PropsWithChildren) {
                   京ICP备2026018630号-1
                 </Text>
               </Group>
+              <Group gap={4} align="center" wrap="nowrap">
+                <img
+                  src="/app/brand/logoga.png"
+                  alt="公安备案图标"
+                  style={{ width: "1em", height: "1em", display: "block", flex: "0 0 auto" }}
+                />
+                <Text className="app-shell-license" size="xs">
+                  京公网安备11010502060216号
+                </Text>
+              </Group>
             </Stack>
           </Stack>
         </AppShell.Section>
