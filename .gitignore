@@ -149,6 +149,9 @@ env.bak/
 venv.bak/
 node_modules/
 frontend/node_modules/
+frontend/.playwright/
+frontend/playwright-report/
+frontend/test-results/
 *.tsbuildinfo
 
 # Local agent notes (may include machine paths/connection hints)

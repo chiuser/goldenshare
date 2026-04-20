@@ -86,6 +86,7 @@ docs/
 - [前端设计 Tokens 与组件目录 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)
 - [前端治理落地总计划与评审记录 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-governance-rollout-plan-v1.md)
 - [前端 Phase 2 执行简报 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase2-execution-brief-v1.md)
+- [前端 Smoke 与视觉回归门禁 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-smoke-visual-gate-v1.md)
 - [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
 - [发版流程 v1](/Users/congming/github/goldenshare/docs/release/release-process-v1.md)
 
