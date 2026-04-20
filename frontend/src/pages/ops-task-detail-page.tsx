@@ -12,7 +12,6 @@ import {
   Table,
   Text,
   ThemeIcon,
-  Timeline,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +35,7 @@ import {
   formatUnitKindLabel,
 } from "../shared/ops-display";
 import { AlertBar, AlertBarNote } from "../shared/ui/alert-bar";
+import { ActivityTimeline } from "../shared/ui/activity-timeline";
 import { MetricPanel } from "../shared/ui/metric-panel";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -759,34 +759,31 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             <Stack gap="md">
               <Text fw={600}>步骤明细</Text>
               {steps.length ? (
-                <Timeline
+                <ActivityTimeline
                   active={steps.findIndex((item) => item.status === "running" || item.status === "canceling")}
-                  bulletSize={18}
-                  lineWidth={2}
-                >
-                  {[...steps]
+                  items={[...steps]
                     .sort((left, right) => left.sequence_no - right.sequence_no)
-                    .map((item) => (
-                      <Timeline.Item key={item.id} bullet={renderStepBullet(item.sequence_no)}>
-                        <Stack gap={6} pb="sm">
-                          <Group justify="space-between" align="flex-start">
-                            <Text fw={700}>{item.display_name}</Text>
-                            <Group gap="xs">
-                              <Text size="sm" fw={600}>{getStepStatusLabel(item.status)}</Text>
-                              {renderStepStatusIcon(item.status)}
-                            </Group>
-                          </Group>
-                          <Text size="sm" c="dimmed">
-                            {item.started_at ? `开始：${formatDateTimeLabel(item.started_at)}` : "等待开始"}
-                          </Text>
+                    .map((item) => ({
+                      id: item.id,
+                      title: item.display_name,
+                      bullet: renderStepBullet(item.sequence_no),
+                      meta: (
+                        <Group gap="xs">
+                          <Text size="sm" fw={600}>{getStepStatusLabel(item.status)}</Text>
+                          {renderStepStatusIcon(item.status)}
+                        </Group>
+                      ),
+                      time: item.started_at ? `开始：${formatDateTimeLabel(item.started_at)}` : "等待开始",
+                      body: (
+                        <Stack gap={6}>
                           {item.unit_kind ? (
                             <Text size="sm">{`${formatUnitKindLabel(item.unit_kind)}：${item.unit_value || "未提供"}`}</Text>
                           ) : null}
                           {item.message ? <Text size="sm">{item.message}</Text> : null}
                         </Stack>
-                      </Timeline.Item>
-                    ))}
-                </Timeline>
+                      ),
+                    }))}
+                />
               ) : (
                 <Text c="dimmed" size="sm">暂时还没有步骤明细。</Text>
               )}

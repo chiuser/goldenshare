@@ -70,7 +70,7 @@ export function DateField({ value, onChange, selectionRule = "any", ...props }: 
   const parsed = toDateString(parseInputDate(value));
   const pickerValue: string | null = parsed || null;
   const placeholder = props.placeholder || "请选择日期";
-  const excludeDate =
+  const selectionExcludeDate =
     selectionRule === "any"
       ? undefined
       : (date: string) => {
@@ -80,6 +80,10 @@ export function DateField({ value, onChange, selectionRule = "any", ...props }: 
         }
         return !isDateAllowedByRule(normalized, selectionRule);
       };
+  const excludeDate =
+    props.excludeDate || selectionExcludeDate
+      ? (date: string) => Boolean(props.excludeDate?.(date)) || Boolean(selectionExcludeDate?.(date))
+      : undefined;
 
   return (
     <DatePickerInput

@@ -420,12 +420,12 @@ Menlo, Consolas, monospace
 | `StatusBadge` / `StatusPill` | 基础 | 已有基础 | 区分系统状态与市场态，不混用语义色 |
 | `EmptyState` | 基础 | 已有 | 统一空图标、文案、动作 |
 | `StatCard` | 高 | 已有基础 | 对齐数字规则、单位和 delta 语义 |
-| `FilterBar` | 高 | 需新增 | 统一筛选区布局、主次操作、折叠策略 |
-| `DataTable` / `TableShell` | 高 | 需新增 | 统一表格密度、toolbar、空态、loading |
-| `AlertBar` | 中 | 需新增 | 页面内持续提示，不替代 Toast |
-| `DetailDrawer` | 高 | 需新增 | 统一详情查看与复杂筛选抽屉 |
+| `FilterBar` | 高 | 已有基础 | 统一筛选区布局、主次操作、折叠策略 |
+| `DataTable` / `TableShell` | 高 | 已有基础 | 当前仓库先以 `TableShell + OpsTable` 作为 v1 基线，统一表格壳、空态、loading 与横向滚动 |
+| `AlertBar` | 中 | 已有基础 | 页面内持续提示，不替代 Toast |
+| `DetailDrawer` | 高 | 已有基础 | 统一详情查看与复杂筛选抽屉 |
 | `AsyncTaskFeedback` | 中 | 需新增 | 提交成功、查看进度、失败重试路径 |
-| `Timeline` | 中 | 需新增 | 任务历史、事件追踪、审计流水 |
+| `Timeline` | 中 | 已有基础 | 当前仓库以 `ActivityTimeline` 承接任务步骤与配置变更时间线 |
 | `DateField` | 基础 | 已有 | 标准日期输入 |
 | `MonthField` | 基础 | 已有 | 标准月份输入 |
 | `HelpTip` | 基础 | 已有 | 渐进式解释与术语补充 |
@@ -434,11 +434,11 @@ Menlo, Consolas, monospace
 
 | 组件 | 级别 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| `PriceText` | 高 | 需新增 | 价格值展示，默认不直接染涨跌色 |
-| `ChangeText` | 高 | 需新增 | 涨跌额 / 涨跌幅展示，严格使用 up/down 语义 |
+| `PriceText` | 高 | 已有最小版本 | 价格值展示，默认不直接染涨跌色 |
+| `ChangeText` | 高 | 已有最小版本 | 涨跌额 / 涨跌幅展示，严格使用 up/down 语义 |
 | `StockBadge` | 中 | 需新增 | 股票代码/市场/板块等轻标识 |
 | `LimitUpChip` / `LimitUpLadder` | 中 | 需新增 | 涨停 / 跌停 / 连板类强化表达 |
-| `TradeDateField` | 高 | 需新增 | A 股交易日输入，屏蔽非交易日 |
+| `TradeDateField` | 高 | 已有最小版本 | A 股交易日输入，当前最小版本先屏蔽周末并预留节假日禁用能力 |
 | `KLineChart` | 中 | 需新增 | K 线 / 技术指标图的标准包装 |
 
 ---

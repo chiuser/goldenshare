@@ -146,6 +146,18 @@ code {
   min-width: 0;
 }
 
+.activity-timeline {
+  min-width: 0;
+}
+
+.activity-timeline__time {
+  color: var(--gs-neutral-6);
+}
+
+.activity-timeline__meta {
+  min-width: 0;
+}
+
 .auth-page-layout {
   width: 100%;
 }
@@ -174,6 +186,27 @@ code {
 .stat-card__value {
   color: var(--gs-neutral-9);
   letter-spacing: -0.01em;
+}
+
+.price-text,
+.change-text {
+  font-variant-numeric: tabular-nums;
+}
+
+.price-text {
+  color: var(--gs-neutral-9);
+}
+
+.change-text--up {
+  color: var(--gs-up-4);
+}
+
+.change-text--down {
+  color: var(--gs-down-4);
+}
+
+.change-text--neutral {
+  color: var(--gs-neutral-6);
 }
 
 .app-brand-mark {

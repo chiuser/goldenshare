@@ -329,6 +329,13 @@
 - 后续页面接入标准件成本明显下降
 - 组件边界、使用场景、禁用场景可复述
 
+当前落地状态（2026-04-20）：
+
+- 通用组件已收敛：`PageHeader`、`SectionCard`、`StatusBadge`、`StatCard`、`FilterBar`、`TableShell`、`EmptyState`、`AlertBar`、`DetailDrawer`、`ActivityTimeline`
+- 领域组件已落下最小版本：`PriceText`、`ChangeText`、`TradeDateField`
+- 当前仓库的表格基线采用 `TableShell + OpsTable`
+- 任务中心链路已经开始消费这些标准件，可作为 `Phase 4` 试点页重构的稳定起点
+
 风险：
 
 - 组件抽得过早、过大，容易变成新的大而全抽象
@@ -387,10 +394,50 @@
 
 建议试点顺序：
 
-1. `task records`：最能验证 `DataTable / StatusPill / FilterBar / EmptyState`
-2. `task manual`：验证表单、任务反馈、日期类组件
-3. `task auto`：验证复杂筛选、状态块与详情入口
-4. `task detail`：验证 Timeline、DetailDrawer、状态摘要
+1. `DataTable v1` 支持任务：先在不引入重型表格栈的前提下，定义并验证试点页需要的表格外部契约
+2. `TradeDateField v2` 支持任务：补齐交易日历读取层与组件边界，为试点页中的日期输入提供真实交易日能力
+3. `task records`：最能验证 `DataTable / StatusPill / FilterBar / EmptyState`
+4. `task manual`：验证表单、任务反馈、日期类组件
+5. `task auto`：验证复杂筛选、状态块与详情入口
+6. `task detail`：验证 Timeline、DetailDrawer、状态摘要
+
+Phase 4 的支持任务要求：
+
+### `DataTable v1`
+
+- 目标：在当前 `TableShell + OpsTable` 基线之上，先收敛一版稳定的表格外部契约
+- 默认实现：优先继续使用 Mantine Table 与现有表格壳，不把 TanStack Table 作为 Phase 4 前置条件
+- 当前边界：
+  - 先定义 `columns / rows / loading / emptyState / toolbar / density / stickyHeader` 这类外部契约
+  - 数字列右对齐与 `tabular-nums` 继续作为强约束
+  - 先服务任务中心主链路，不外扩到无关页面
+- 暂不做：
+  - 虚拟滚动
+  - 列拖拽与重排
+  - 大规模列配置中心
+  - 因为抽象表格而引入页面级业务状态回流
+- 升级到 TanStack Table 的触发条件：
+  - 列排序 / 过滤 / 显隐配置开始明显复杂
+  - 多页开始共享同一套列定义模式
+  - 行数与交互复杂度足以证明现有实现已经不够
+
+### `TradeDateField v2`
+
+- 目标：把当前“跳过周末 + 预留节假日能力”的最小版本升级成真实交易日输入
+- 默认架构：
+  - 交易日历读取层放在 `features/*` 或 `shared/api + hook`
+  - `shared/ui/TradeDateField` 继续保持展示型组件，不在组件内部直接发请求
+- 当前边界：
+  - 先提供可缓存、可注入的交易日判断能力
+  - 先服务 `task manual` 与 `task auto`
+  - 优先支持 A 股交易日场景
+- 暂不做：
+  - 多市场统一交易日历平台化
+  - 复杂交易所差异建模
+  - 为组件引入页面级查询逻辑
+- 完成标准：
+  - 组件层能接收真实交易日能力输入
+  - 手动任务页和自动任务页的关键日期输入不再只按周末规则判断
 
 每轮试点前新增一项准备动作：
 
@@ -435,6 +482,7 @@
 2. 视觉收敛和结构重构可以同轮发生，但必须有主次关系
 3. 不因为“顺手”扩大到无关页面
 4. 未写明边界的重构不进入实现阶段
+5. `DataTable v1` 与 `TradeDateField v2` 虽然属于试点支持任务，但仍然必须按“单一主目标 + 约束卡”推进
 
 试点阶段的质量门禁：
 
@@ -451,6 +499,7 @@
 - 共享组件开始真正复用
 - 页面状态更完整
 - 测试覆盖比当前更稳定
+- `DataTable v1` 与 `TradeDateField v2` 的边界、外部契约和接入范围可复述
 
 ## 6.6 Phase 5：自动化与门禁
 

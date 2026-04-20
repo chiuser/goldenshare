@@ -6,7 +6,7 @@ import { LabelWithHelp } from "./label-with-help";
 
 interface StatCardProps {
   label: string;
-  value: string | number;
+  value: ReactNode;
   hint?: string;
   hintDisplay?: "inline" | "tooltip";
   accent?: ReactNode;

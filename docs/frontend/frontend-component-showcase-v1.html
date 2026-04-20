@@ -1740,12 +1740,12 @@ a:hover { color: var(--brand-6); }
                   </select>
                 </div>
                 <div class="field">
-                  <label class="field-label">交易日</label>
+                  <label class="field-label">交易日（TradeDateField）</label>
                   <div class="input-wrap">
                     <svg class="icon icon-sm input-icon"><use href="#i-calendar"/></svg>
                     <input type="text" class="input" value="2026-04-18" readonly>
                   </div>
-                  <div class="field-help">自动跳过节假日</div>
+                  <div class="field-help">当前仓库最小版本先跳过周末，并预留节假日禁用能力。</div>
                 </div>
                 <div class="field">
                   <label class="field-label">勾选</label>
@@ -1974,6 +1974,7 @@ a:hover { color: var(--brand-6); }
           <h2>数据表 DataTable</h2>
           <span class="section-en">数字列一律右对齐，开启 tabular-nums</span>
         </div>
+        <div class="field-help" style="margin:8px 0 16px">当前仓库实现口径：TableShell + OpsTable 作为 v1 表格基线。</div>
 
         <div class="demo-block">
           <div class="demo-block-header">
@@ -2230,6 +2231,7 @@ a:hover { color: var(--brand-6); }
           <h2>时间轴 Timeline</h2>
           <span class="section-en">仅进行中节点动，其余静止</span>
         </div>
+        <div class="field-help" style="margin:8px 0 16px">当前仓库实现口径：ActivityTimeline 承接任务步骤和配置变更时间线。</div>
 
         <div class="card">
           <div class="card-body">
@@ -2681,6 +2683,7 @@ a:hover { color: var(--brand-6); }
           <h2>价格与涨跌</h2>
           <span class="section-en">PriceText · ChangeText · 金融场景核心</span>
         </div>
+        <div class="field-help" style="margin:8px 0 16px">当前仓库实现口径：PriceText / ChangeText 已用于行情表格与汇总指标。</div>
 
         <div class="demo-block">
           <div class="demo-block-body">

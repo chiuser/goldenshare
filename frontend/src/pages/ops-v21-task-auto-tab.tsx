@@ -42,6 +42,7 @@ import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
+import { ActivityTimeline } from "../shared/ui/activity-timeline";
 import { AlertBar } from "../shared/ui/alert-bar";
 import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { EmptyState } from "../shared/ui/empty-state";
@@ -50,6 +51,8 @@ import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "..
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
+import { TableShell } from "../shared/ui/table-shell";
+import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
 type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
@@ -874,7 +877,16 @@ export function OpsAutomationPage() {
             title="自动任务列表"
             description="这里列出系统会自动运行的任务。点中一条后，可以在右侧查看详情和修改。"
           >
-            {(schedulesQuery.data?.items?.length ?? 0) > 0 ? (
+            <TableShell
+              hasData={(schedulesQuery.data?.items?.length ?? 0) > 0}
+              emptyState={(
+                <EmptyState
+                  title="还没有自动任务"
+                  description="你可以先新建一个自动任务，让系统在固定时间自动同步数据。"
+                  action={<Button onClick={openCreate}>立即新建</Button>}
+                />
+              )}
+            >
               <OpsTable>
                 <Table.Thead>
                   <Table.Tr>
@@ -916,13 +928,7 @@ export function OpsAutomationPage() {
                   ))}
                 </Table.Tbody>
               </OpsTable>
-            ) : (
-              <EmptyState
-                title="还没有自动任务"
-                description="你可以先新建一个自动任务，让系统在固定时间自动同步数据。"
-                action={<Button onClick={openCreate}>立即新建</Button>}
-              />
-            )}
+            </TableShell>
           </SectionCard>
         </Grid.Col>
 
@@ -1123,34 +1129,18 @@ export function OpsAutomationPage() {
 
             <SectionCard title="最近变更" description="记录自动任务配置最近几次调整，方便快速回看。">
               {revisionsQuery.data?.items?.length ? (
-                <OpsTable>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <OpsTableHeaderCell align="left" width="34%">变更动作</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="26%">操作人</OpsTableHeaderCell>
-                      <OpsTableHeaderCell align="left" width="40%">变更时间</OpsTableHeaderCell>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {revisionsQuery.data.items.slice(0, 5).map((item) => (
-                      <Table.Tr key={item.id}>
-                        <OpsTableCell align="left" width="34%">
-                          <OpsTableCellText fw={600} size="sm">
-                            {formatRevisionActionLabel(item.action)}
-                          </OpsTableCellText>
-                        </OpsTableCell>
-                        <OpsTableCell align="left" width="26%">
-                          <OpsTableCellText size="xs">{item.changed_by_username || "系统"}</OpsTableCellText>
-                        </OpsTableCell>
-                        <OpsTableCell align="left" width="40%">
-                          <OpsTableCellText ff="var(--mantine-font-family-monospace)" size="xs">
-                            {formatDateTimeLabel(item.changed_at)}
-                          </OpsTableCellText>
-                        </OpsTableCell>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </OpsTable>
+                <ActivityTimeline
+                  items={revisionsQuery.data.items.slice(0, 5).map((item) => ({
+                    id: item.id,
+                    title: formatRevisionActionLabel(item.action),
+                    time: formatDateTimeLabel(item.changed_at),
+                    body: (
+                      <Text size="sm">
+                        操作人：{item.changed_by_username || "系统"}
+                      </Text>
+                    ),
+                  }))}
+                />
               ) : (
                 <Text c="dimmed" size="sm">
                   当前还没有变更记录。
@@ -1451,7 +1441,7 @@ export function OpsAutomationPage() {
                         </Group>
                       ) : null}
                       {(supportsSingleDay && (!supportsDateRange || form.date_mode === "single_day")) ? (
-                        <DateField
+                        <TradeDateField
                           label="同步日期（可留空）"
                           placeholder="留空表示按系统自动判断业务日期"
                           value={form.selected_date}
@@ -1469,7 +1459,7 @@ export function OpsAutomationPage() {
                       {(supportsDateRange && (!supportsSingleDay || form.date_mode === "date_range")) ? (
                         <Grid>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
-                            <DateField
+                            <TradeDateField
                               label="开始日期（可留空）"
                               placeholder="留空表示按系统自动判断业务日期"
                               value={form.start_date}
@@ -1477,7 +1467,7 @@ export function OpsAutomationPage() {
                             />
                           </Grid.Col>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
-                            <DateField
+                            <TradeDateField
                               label="结束日期（可留空）"
                               placeholder="留空表示按系统自动判断业务日期"
                               value={form.end_date}

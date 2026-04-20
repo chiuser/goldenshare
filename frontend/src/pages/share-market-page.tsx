@@ -1,10 +1,13 @@
-import { Alert, Grid, Loader, Stack, Table, Text } from "@mantine/core";
+import { Grid, Loader, Stack, Table, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
 import type { ShareMarketOverviewResponse } from "../shared/api/types";
 import { formatDateLabel } from "../shared/date-format";
+import { AlertBar } from "../shared/ui/alert-bar";
+import { ChangeText } from "../shared/ui/change-text";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
+import { PriceText } from "../shared/ui/price-text";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 
@@ -57,22 +60,10 @@ function renderSnapshotTable(
                 <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">{formatDateLabel(item.trade_date)}</OpsTableCellText>
               </OpsTableCell>
               <OpsTableCell width="12%">
-                <OpsTableCellText size="xs">{formatDecimal(item.close, 2)}</OpsTableCellText>
+                <PriceText size="xs" value={item.close} />
               </OpsTableCell>
               <OpsTableCell width="12%">
-                <OpsTableCellText
-                  size="xs"
-                  style={{
-                    color:
-                      (item.pct_change && Number(item.pct_change) > 0)
-                        ? "var(--mantine-color-up-6)"
-                        : (item.pct_change && Number(item.pct_change) < 0)
-                          ? "var(--mantine-color-down-6)"
-                          : undefined,
-                  }}
-                >
-                  {item.pct_change ? `${formatDecimal(item.pct_change, 2)}%` : "—"}
-                </OpsTableCellText>
+                <ChangeText size="xs" suffix="%" value={item.pct_change} />
               </OpsTableCell>
               <OpsTableCell width="14%">
                 <OpsTableCellText size="xs">{formatAmount(item.amount)}</OpsTableCellText>
@@ -109,15 +100,15 @@ export function ShareMarketPage() {
 
       {overviewQuery.isLoading ? <Loader size="sm" /> : null}
       {overviewQuery.error ? (
-        <Alert color="error" title="无法读取市场快照">
+        <AlertBar tone="error" title="无法读取市场快照">
           {overviewQuery.error instanceof Error ? overviewQuery.error.message : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       {(overview && !overview.available) ? (
-        <Alert color="warning" title="数据集市暂不可用">
+        <AlertBar tone="warning" title="数据集市暂不可用">
           {overview.unavailable_reason || "暂时无法读取 dm.equity_daily_snapshot。"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       {(overview && overview.available && overview.summary) ? (
@@ -140,7 +131,12 @@ export function ShareMarketPage() {
                 <StatCard label="下跌家数" value={overview.summary.down_count ?? "—"} />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-                <StatCard label="平均涨跌幅" value={overview.summary.avg_pct_change ? `${formatDecimal(overview.summary.avg_pct_change, 2)}%` : "—"} />
+                <StatCard
+                  label="平均涨跌幅"
+                  value={(
+                    <ChangeText size="xl" suffix="%" value={overview.summary.avg_pct_change} />
+                  )}
+                />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
                 <StatCard label="总成交额" value={formatAmount(overview.summary.total_amount)} />
