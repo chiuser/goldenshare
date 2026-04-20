@@ -32,6 +32,35 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
   });
 
+  test("task center manual keeps the guided maintenance baseline", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "task-manual");
+    await page.goto("/app/ops/manual-sync");
+    await expect(page.getByText("这里只做一件事：维护你选中的数据。")).toBeVisible();
+    await expect(page.getByText("第一步：选择要维护的数据")).toBeVisible();
+    await stabilizeUi(page);
+    await expect(page).toHaveScreenshot();
+  });
+
+  test("task center auto keeps the schedule list and detail baseline", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "task-auto");
+    await page.goto("/app/ops/automation");
+    await expect(page.getByRole("button", { name: "新建自动任务" })).toBeVisible();
+    await stabilizeUi(page);
+    await expect(page).toHaveScreenshot();
+  });
+
+  test("task detail keeps the progress and event stream baseline", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "task-detail");
+    await page.goto("/app/ops/tasks/1");
+    await expect(page.getByText("实时处理记录", { exact: true })).toBeVisible();
+    await expect(page.getByText("股票日线维护")).toBeVisible();
+    await stabilizeUi(page);
+    await expect(page).toHaveScreenshot();
+  });
+
   test("review index keeps the review center list baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "review-index");

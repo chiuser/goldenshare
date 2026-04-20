@@ -1,12 +1,11 @@
 import { DatePickerInput } from "@mantine/dates";
 import type { ComponentPropsWithoutRef } from "react";
 
-export type DateSelectionRule = "any" | "week_friday" | "month_end";
+export type DateSelectionRule = "any" | "week_last_trading_day" | "month_end";
 
 type DateFieldProps = Omit<ComponentPropsWithoutRef<typeof DatePickerInput>, "value" | "onChange" | "type"> & {
   value: string;
   onChange: (value: string) => void;
-  selectionRule?: DateSelectionRule;
 };
 
 function parseInputDate(value: string): Date | null {
@@ -41,10 +40,6 @@ function normalizePickerValue(
   return "";
 }
 
-function normalizeExcludeDateInput(value: string): Date | null {
-  return parseInputDate(value);
-}
-
 function toDateString(value: Date | null): string {
   if (!value) {
     return "";
@@ -55,35 +50,10 @@ function toDateString(value: Date | null): string {
   return `${year}-${month}-${day}`;
 }
 
-function isDateAllowedByRule(date: Date, rule: DateSelectionRule): boolean {
-  if (rule === "week_friday") {
-    return date.getDay() === 5;
-  }
-  if (rule === "month_end") {
-    const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-    return next.getMonth() !== date.getMonth();
-  }
-  return true;
-}
-
-export function DateField({ value, onChange, selectionRule = "any", ...props }: DateFieldProps) {
+export function DateField({ value, onChange, ...props }: DateFieldProps) {
   const parsed = toDateString(parseInputDate(value));
   const pickerValue: string | null = parsed || null;
   const placeholder = props.placeholder || "请选择日期";
-  const selectionExcludeDate =
-    selectionRule === "any"
-      ? undefined
-      : (date: string) => {
-        const normalized = normalizeExcludeDateInput(date);
-        if (!normalized) {
-          return false;
-        }
-        return !isDateAllowedByRule(normalized, selectionRule);
-      };
-  const excludeDate =
-    props.excludeDate || selectionExcludeDate
-      ? (date: string) => Boolean(props.excludeDate?.(date)) || Boolean(selectionExcludeDate?.(date))
-      : undefined;
 
   return (
     <DatePickerInput
@@ -93,7 +63,6 @@ export function DateField({ value, onChange, selectionRule = "any", ...props }: 
       onChange={(next) => onChange(normalizePickerValue(next))}
       valueFormat="YYYY-MM-DD"
       clearable
-      excludeDate={excludeDate}
     />
   );
 }

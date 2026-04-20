@@ -17,6 +17,7 @@
 - `features/auth`
 
 后续应优先把真正属于某个领域的前端逻辑收敛到这里，而不是继续堆在页面里。
+当前最值得预留的下一类 feature，是试点期将要出现的“交易日历读取与缓存能力”。
 
 ---
 
@@ -93,6 +94,16 @@
 - `features/ops-task-*`
 - `features/ops-review-*`
 - `features/share-*`
+- `features/trade-calendar`
+
+当前试点准备期的额外口径：
+
+- 若后续升级 `TradeDateField v2`，真实交易日能力应优先来自 `features/*` 或 `shared/api + hook`
+- `shared/ui/TradeDateField` 仍应保持展示边界，不在组件内部直接发请求
+- `features/trade-calendar` 若出现，应优先承接：
+  - 交易日历读取
+  - 月度或区间缓存
+  - 面向组件的只读判断能力
 
 ---
 
@@ -111,4 +122,3 @@
 - 多页面复用的 hook
 
 应优先补测试或更新测试。
-

@@ -18,6 +18,7 @@
 - 共享表单输入模式
 - 共享状态展示模式
 - 共享空状态 / 帮助提示 / 卡片 / 表格壳
+- 领域展示组件（如价格、涨跌、交易日输入）
 - 与当前设计 token 对齐的 UI 标准件
 
 ---
@@ -73,6 +74,22 @@
 - 明确属于设计系统标准件
 - 是计划中的高频基础组件
 
+### 5. 领域组件仍然优先保持展示边界
+
+像 `PriceText`、`ChangeText`、`TradeDateField` 这类领域组件可以进入 `shared/ui`，但默认仍应保持展示边界。
+
+不要在组件内部直接承接：
+
+- 页面级查询
+- 交易日历请求
+- 页面状态组合
+- 与单页绑定的业务流程
+
+补充约束：
+
+- `TradeDateField` 若承接周/月锚点规则，应表达“最后一个交易日”语义
+- 不再使用 `week_friday` 这类自然日命名表示周锚点业务规则
+
 ---
 
 ## 推荐依赖
@@ -95,6 +112,7 @@
 ## 当前目录的重点方向
 
 当前这一层已经有基础，但还没有形成完整标准库。
+当前这一层已经形成第一批可复用标准件，后续重点从“补空白”转向“稳定边界并服务试点页”。
 
 当前优先方向是：
 
@@ -108,10 +126,21 @@
 - `StatusBadge`
 - `EmptyState`
 - `StatCard`
+- `AlertBar`
+- `DetailDrawer`
 - `DateField`
 - `MonthField`
-- 后续的 `FilterBar`
-- 后续的 `TableShell`
+- `FilterBar`
+- `TableShell`
+- `ActivityTimeline`
+- `PriceText`
+- `ChangeText`
+- `TradeDateField`
+
+当前表格基线说明：
+
+- `TableShell + OpsTable` 是当前仓库的 `DataTable v1` 基线
+- 若后续进入更完整的 `DataTable`，应优先保持外部契约稳定，而不是急着替换内部实现
 
 ---
 
@@ -124,6 +153,12 @@
 3. props 是否稳定
 4. 是否需要测试
 5. 是否已经遵守 token 规则
+
+若组件属于以下类型，还应额外明确：
+
+- 表格壳：当前是否仍沿用 `TableShell + OpsTable`
+- 领域输入组件：能力来自哪里，是否保持展示边界
+- 高可见标准件：是否需要同步更新组件目录文档与 HTML Showcase
 
 优先避免：
 
@@ -140,6 +175,7 @@
 - 组件行为变化
 - 组件样式语义变化
 - 组件 props 契约变化
+- 组件被新增到组件目录或 HTML Showcase 的标准清单中
 
 至少考虑：
 
@@ -147,3 +183,8 @@
 - `npm run test`
 - `npm run build`
 
+若影响的是高可见组件或试点页正在消费的组件，还应评估：
+
+- `npm run test:smoke`
+- 组件目录文档是否需要同步
+- HTML Showcase 是否需要同步

@@ -1,6 +1,13 @@
 import type { Page, Route } from "@playwright/test";
 
-type SmokeScenario = "ops-overview" | "task-records" | "review-index" | "share-market";
+type SmokeScenario =
+  | "ops-overview"
+  | "task-records"
+  | "task-manual"
+  | "task-auto"
+  | "task-detail"
+  | "review-index"
+  | "share-market";
 
 const AUTH_TOKEN_KEY = "goldenshare.frontend.auth.token";
 const AUTH_REFRESH_TOKEN_KEY = "goldenshare.frontend.auth.refresh-token";
@@ -265,6 +272,297 @@ function mockTaskRecords(route: Route, pathname: string) {
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
+function mockTaskManual(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/catalog") {
+    return fulfillJson(route, {
+      job_specs: [
+        {
+          key: "sync_daily.daily",
+          display_name: "日常同步 / daily",
+          category: "sync_daily",
+          description: "按单个交易日同步股票日线。",
+          strategy_type: "incremental_by_date",
+          executor_kind: "sync_service",
+          target_tables: ["core.equity_daily_bar"],
+          supports_manual_run: true,
+          supports_schedule: true,
+          supports_retry: true,
+          schedule_binding_count: 0,
+          active_schedule_count: 0,
+          supported_params: [
+            {
+              key: "trade_date",
+              display_name: "交易日期",
+              param_type: "date",
+              description: "单个交易日。",
+              required: false,
+              multi_value: false,
+              options: [],
+            },
+          ],
+        },
+        {
+          key: "backfill_equity_series.daily",
+          display_name: "股票纵向回补 / daily",
+          category: "backfill_equity_series",
+          description: "按日期区间补股票日线。",
+          strategy_type: "backfill_by_security",
+          executor_kind: "history_backfill_service",
+          target_tables: ["core.equity_daily_bar"],
+          supports_manual_run: true,
+          supports_schedule: false,
+          supports_retry: true,
+          schedule_binding_count: 0,
+          active_schedule_count: 0,
+          supported_params: [
+            {
+              key: "start_date",
+              display_name: "开始日期",
+              param_type: "date",
+              description: "开始日期。",
+              required: false,
+              multi_value: false,
+              options: [],
+            },
+            {
+              key: "end_date",
+              display_name: "结束日期",
+              param_type: "date",
+              description: "结束日期。",
+              required: false,
+              multi_value: false,
+              options: [],
+            },
+          ],
+        },
+      ],
+      workflow_specs: [],
+    });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
+function mockTaskAuto(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/catalog") {
+    return fulfillJson(route, {
+      job_specs: [
+        {
+          key: "sync_daily.daily",
+          display_name: "日常同步 / daily",
+          category: "sync_daily",
+          description: "按单个交易日同步股票日线。",
+          strategy_type: "incremental_by_date",
+          executor_kind: "sync_service",
+          target_tables: ["core.equity_daily_bar"],
+          supports_manual_run: true,
+          supports_schedule: true,
+          supports_retry: true,
+          schedule_binding_count: 1,
+          active_schedule_count: 1,
+          supported_params: [
+            {
+              key: "trade_date",
+              display_name: "交易日期",
+              param_type: "date",
+              description: "单个交易日。",
+              required: false,
+              multi_value: false,
+              options: [],
+            },
+            {
+              key: "market",
+              display_name: "市场",
+              param_type: "enum",
+              description: "按市场筛选。",
+              required: false,
+              multi_value: true,
+              options: ["A股"],
+            },
+          ],
+        },
+      ],
+      workflow_specs: [],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/schedules") {
+    return fulfillJson(route, {
+      total: 1,
+      items: [
+        {
+          id: 201,
+          spec_key: "sync_daily.daily",
+          spec_display_name: "股票日线同步",
+          display_name: "股票日线自动同步",
+          status: "active",
+          schedule_type: "cron",
+          trigger_mode: "schedule",
+          cron_expr: "0 19 * * 1,2,3,4,5",
+          timezone: "Asia/Shanghai",
+          next_run_at: "2026-04-20T19:00:00+08:00",
+          updated_at: "2026-04-20T10:00:00+08:00",
+        },
+      ],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/schedules/201") {
+    return fulfillJson(route, {
+      id: 201,
+      spec_type: "job",
+      spec_key: "sync_daily.daily",
+      spec_display_name: "股票日线同步",
+      display_name: "股票日线自动同步",
+      status: "active",
+      schedule_type: "cron",
+      trigger_mode: "schedule",
+      cron_expr: "0 19 * * 1,2,3,4,5",
+      timezone: "Asia/Shanghai",
+      calendar_policy: null,
+      probe_config: null,
+      params_json: { trade_date: "2026-04-17", market: ["A股"] },
+      retry_policy_json: {},
+      concurrency_policy_json: {},
+      next_run_at: "2026-04-20T19:00:00+08:00",
+      last_triggered_at: "2026-04-19T19:00:00+08:00",
+      created_by_username: "admin",
+      updated_by_username: "admin",
+      created_at: "2026-04-10T09:00:00+08:00",
+      updated_at: "2026-04-20T10:00:00+08:00",
+    });
+  }
+
+  if (pathname === "/api/v1/ops/schedules/201/revisions") {
+    return fulfillJson(route, {
+      total: 1,
+      items: [
+        {
+          id: 401,
+          action: "updated",
+          before_json: null,
+          after_json: null,
+          changed_by_username: "admin",
+          changed_at: "2026-04-20T10:00:00+08:00",
+        },
+      ],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions") {
+    return fulfillJson(route, {
+      total: 1,
+      items: [
+        {
+          id: 301,
+          spec_key: "sync_daily.daily",
+          spec_display_name: "股票日线同步",
+          trigger_source: "scheduled",
+          status: "success",
+          requested_at: "2026-04-19T19:00:00+08:00",
+          rows_fetched: 5200,
+          rows_written: 5200,
+          summary_message: "最近一次自动运行已完成。",
+        },
+      ],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/probes") {
+    return fulfillJson(route, {
+      total: 0,
+      items: [],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/schedules/stream") {
+    return route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: "",
+    });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
+function mockTaskDetail(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/executions/1") {
+    return fulfillJson(route, {
+      id: 1,
+      schedule_id: null,
+      spec_type: "job",
+      spec_key: "backfill_equity_series.daily",
+      spec_display_name: "股票日线维护",
+      schedule_display_name: null,
+      trigger_source: "manual",
+      status: "running",
+      requested_by_username: "admin",
+      requested_at: "2026-03-31T01:00:00Z",
+      queued_at: "2026-03-31T01:00:01Z",
+      started_at: "2026-03-31T01:00:02Z",
+      ended_at: null,
+      params_json: {
+        start_date: "2026-03-23",
+        end_date: "2026-03-30",
+      },
+      summary_message: null,
+      rows_fetched: 0,
+      rows_written: 0,
+      progress_current: 651,
+      progress_total: 5814,
+      progress_percent: 11,
+      progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
+      last_progress_at: "2026-03-31T01:00:05Z",
+      cancel_requested_at: null,
+      canceled_at: null,
+      error_code: null,
+      error_message: null,
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/1/steps") {
+    return fulfillJson(route, {
+      execution_id: 1,
+      items: [
+        {
+          id: 10,
+          step_key: "backfill_equity_series.daily",
+          display_name: "股票日线维护",
+          sequence_no: 1,
+          unit_kind: null,
+          unit_value: null,
+          status: "running",
+          started_at: "2026-03-31T01:00:02Z",
+          ended_at: null,
+          rows_fetched: 0,
+          rows_written: 0,
+          message: null,
+        },
+      ],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/1/events") {
+    return fulfillJson(route, {
+      execution_id: 1,
+      items: [
+        {
+          id: 100,
+          step_id: 10,
+          event_type: "step_progress",
+          level: "info",
+          message: "正在拉取 2026-03-23 到 2026-03-30 的股票日线数据",
+          payload_json: {},
+          occurred_at: "2026-03-31T01:00:05Z",
+        },
+      ],
+    });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
 function mockReviewIndex(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/review/index/active") {
     return fulfillJson(route, {
@@ -340,6 +638,15 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     }
     if (scenario === "task-records") {
       return mockTaskRecords(route, pathname);
+    }
+    if (scenario === "task-manual") {
+      return mockTaskManual(route, pathname);
+    }
+    if (scenario === "task-auto") {
+      return mockTaskAuto(route, pathname);
+    }
+    if (scenario === "task-detail") {
+      return mockTaskDetail(route, pathname);
     }
     if (scenario === "review-index") {
       return mockReviewIndex(route, pathname);

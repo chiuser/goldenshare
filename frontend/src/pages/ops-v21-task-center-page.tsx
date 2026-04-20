@@ -10,7 +10,7 @@ import { OpsTasksPage } from "./ops-v21-task-records-tab";
 type TaskTab = "auto" | "manual" | "records";
 
 function resolveTab(value: unknown): TaskTab {
-  if (value === "manual" || value === "records") return value;
+  if (value === "auto" || value === "manual" || value === "records") return value;
   return "records";
 }
 

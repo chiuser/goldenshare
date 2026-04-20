@@ -60,6 +60,7 @@
 - `auth-types.ts`
 - `ops-types.ts`
 - `share-types.ts`
+- `calendar-types.ts`
 
 ### 4. API 层不直接承接页面语义
 
@@ -98,6 +99,12 @@
 - 是否应该拆到更小的领域文件
 - 是否只是页面局部视图模型
 
+若后续新增交易日历、试点任务支持项或更复杂的表格契约类型，优先考虑：
+
+- 先判断是否应该拆到 `calendar-types.ts`、`ops-types.ts` 等更小文件
+- API 层只提供只读 contract，不承接页面文案和交互语义
+- 不因为服务 `TradeDateField v2` 或 `DataTable v1`，把页面层规则塞回 `shared/api`
+
 ### `errors.ts`
 
 错误模型应保持稳定、可测试、可被页面理解。
@@ -118,4 +125,3 @@
 - 401 处理
 - 超时处理
 - 错误模型变化
-

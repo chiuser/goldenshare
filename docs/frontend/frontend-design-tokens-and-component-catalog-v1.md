@@ -421,7 +421,7 @@ Menlo, Consolas, monospace
 | `EmptyState` | 基础 | 已有 | 统一空图标、文案、动作 |
 | `StatCard` | 高 | 已有基础 | 对齐数字规则、单位和 delta 语义 |
 | `FilterBar` | 高 | 已有基础 | 统一筛选区布局、主次操作、折叠策略 |
-| `DataTable` / `TableShell` | 高 | 已有基础 | 当前仓库先以 `TableShell + OpsTable` 作为 v1 基线，统一表格壳、空态、loading 与横向滚动 |
+| `DataTable` / `TableShell` | 高 | 已落地 v1 | 当前仓库先以 `TableShell + OpsTable` 作为 v1 基线，并已在任务中心试点页中验证 `columns / rows / emptyState / summary` 外部契约 |
 | `AlertBar` | 中 | 已有基础 | 页面内持续提示，不替代 Toast |
 | `DetailDrawer` | 高 | 已有基础 | 统一详情查看与复杂筛选抽屉 |
 | `AsyncTaskFeedback` | 中 | 需新增 | 提交成功、查看进度、失败重试路径 |
@@ -438,7 +438,7 @@ Menlo, Consolas, monospace
 | `ChangeText` | 高 | 已有最小版本 | 涨跌额 / 涨跌幅展示，严格使用 up/down 语义 |
 | `StockBadge` | 中 | 需新增 | 股票代码/市场/板块等轻标识 |
 | `LimitUpChip` / `LimitUpLadder` | 中 | 需新增 | 涨停 / 跌停 / 连板类强化表达 |
-| `TradeDateField` | 高 | 已有最小版本 | A 股交易日输入，当前最小版本先屏蔽周末并预留节假日禁用能力 |
+| `TradeDateField` | 高 | 已升级 v2 | A 股交易日输入，已接入真实交易日历读取层，组件继续保持展示边界 |
 | `KLineChart` | 中 | 需新增 | K 线 / 技术指标图的标准包装 |
 
 ---

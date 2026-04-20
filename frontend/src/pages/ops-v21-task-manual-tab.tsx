@@ -17,6 +17,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 
+import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
 import { apiRequest } from "../shared/api/client";
 import type {
   ExecutionDetailResponse,
@@ -37,6 +38,7 @@ import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
+import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type ManualSpecType = "job" | "workflow";
 
@@ -185,7 +187,7 @@ function inferSinglePointDateRule(action: ManualAction | null): DateSelectionRul
   }
   const resourceKey = action.id.startsWith("job:") ? action.id.slice(4) : "";
   if (WEEKLY_ANCHOR_RESOURCES.has(resourceKey)) {
-    return "week_friday";
+    return "week_last_trading_day";
   }
   if (MONTHLY_ANCHOR_RESOURCES.has(resourceKey)) {
     return "month_end";
@@ -637,6 +639,9 @@ export function OpsManualSyncPage() {
     [draft.action_id, manualActions],
   );
   const selectedActionDateRule = useMemo(() => inferSinglePointDateRule(selectedAction), [selectedAction]);
+  const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
+  const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
+  const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
   const prefillSpecAppliedRef = useRef(false);
   const prefillExecutionAppliedRef = useRef(false);
@@ -891,7 +896,9 @@ export function OpsManualSyncPage() {
                             }
                           />
                         ) : (
-                          <DateField
+                          <TradeDateField
+                            {...singleTradeCalendar.calendarProps}
+                            isTradingDay={singleTradeCalendar.isTradingDay}
                             label="选择日期"
                             placeholder="请选择日期"
                             value={draft.selected_date}
@@ -935,7 +942,9 @@ export function OpsManualSyncPage() {
                             </>
                           ) : (
                             <>
-                              <DateField
+                              <TradeDateField
+                                {...rangeStartTradeCalendar.calendarProps}
+                                isTradingDay={rangeStartTradeCalendar.isTradingDay}
                                 label="开始日期"
                                 placeholder="请选择开始日期"
                                 value={draft.start_date}
@@ -946,7 +955,9 @@ export function OpsManualSyncPage() {
                                   }))
                                 }
                               />
-                              <DateField
+                              <TradeDateField
+                                {...rangeEndTradeCalendar.calendarProps}
+                                isTradingDay={rangeEndTradeCalendar.isTradingDay}
                                 label="结束日期"
                                 placeholder="请选择结束日期"
                                 value={draft.end_date}

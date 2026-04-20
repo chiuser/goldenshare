@@ -10,25 +10,29 @@
 
 ## 当前阶段说明
 
-当前前端处于“从可用走向可持续交付”的治理收敛阶段。
+当前前端处于“共享组件基线已形成，准备进入试点页重构”的治理收敛阶段。
 
 已有基础：
 
 - React 19 + TypeScript + Vite
 - Mantine 作为主 UI 基座
 - TanStack Query / Router
-- 若干共享组件与页面测试
+- 第一批共享组件标准件与领域组件最小版本
+- HTML Showcase 视觉对照
+- `typecheck + test + build + smoke/visual gate` 基础门禁
 
 当前主要问题不是“没有前端”，而是：
 
 1. 缺少完整的前端交付流程
 2. 缺少统一的交互与视觉 token 规则
-3. 缺少共享组件的标准目录与准入规则
+3. 共享组件虽然已经起步，但还需要在试点页中验证边界与够用性
 4. 缺少前端任务专用的协同与审查约束
+5. `DataTable v1` 与 `TradeDateField v2` 这类试点支持任务还需要按边界推进
 
 因此，当前阶段的默认目标是：
 
-- 优先建立流程、规范、组件标准和测试门禁
+- 优先维护流程、规范、组件标准和测试门禁
+- 在试点页中验证现有共享标准件与最小领域组件
 - 在新页面和被修改页面中逐步收敛风格
 - 不做一次性大改全部页面的 big bang 重写
 
@@ -43,7 +47,9 @@
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. `docs/frontend/frontend-delivery-workflow-v1.md`
 5. `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
-6. 当前目标文件及其相邻目录中的已有实现
+6. `docs/frontend/frontend-current-standards.md`
+7. `docs/frontend/frontend-governance-rollout-plan-v1.md`
+8. 当前目标文件及其相邻目录中的已有实现
 
 不要在未确认现有共享组件、页面模式、API 类型和测试方式前直接写页面。
 
@@ -122,6 +128,15 @@
 
 除非任务明确要求，或页面改动必须伴随后端契约变更。
 
+### 7. 试点支持任务也必须守住单一主目标
+
+当前 `Phase 4` 中的以下任务虽然属于试点支持项，但仍然必须按“单一主目标 + 边界卡”推进：
+
+- `DataTable v1`
+- `TradeDateField v2`
+
+不要因为它们属于基础设施支持任务，就顺手扩大到无关页面或无关能力。
+
 ---
 
 ## 页面与组件分层规则
@@ -199,6 +214,11 @@
 
 再开始改代码。
 
+若任务属于试点支持项，还必须明确：
+
+6. 当前外部契约是否已经稳定
+7. 本轮是否会影响已有 smoke / visual gate
+
 ### 大任务 / 页面重做 / 多页联动
 
 先补文档或方案，不要直接开写。
@@ -211,6 +231,11 @@
 - 组件拆分
 - 测试与验收口径
 - 风险与待决策项
+
+若属于试点页或试点支持任务，默认还应明确：
+
+- 是否需要边界卡
+- 是否需要定向 smoke 或视觉回归确认
 
 ---
 

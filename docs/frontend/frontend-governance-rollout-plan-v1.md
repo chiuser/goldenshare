@@ -420,6 +420,9 @@ Phase 4 的支持任务要求：
   - 列排序 / 过滤 / 显隐配置开始明显复杂
   - 多页开始共享同一套列定义模式
   - 行数与交互复杂度足以证明现有实现已经不够
+- 当前结果：
+  - 已在 `task records`、`task auto`、`task detail` 中接入
+  - 当前外部契约已稳定到 `columns / rows / emptyState / summary / getRowProps`
 
 ### `TradeDateField v2`
 
@@ -438,6 +441,11 @@ Phase 4 的支持任务要求：
 - 完成标准：
   - 组件层能接收真实交易日能力输入
   - 手动任务页和自动任务页的关键日期输入不再只按周末规则判断
+- 当前结果：
+  - 交易日历读取层已进入 `features/trade-calendar`
+  - `task manual` 与 `task auto` 已接入真实交易日判断
+  - 周/月锚点口径已确认统一为“每周最后一个交易日 / 每月最后一个交易日”
+  - 前端不再沿用 `week_friday` 作为周锚点业务语义
 
 每轮试点前新增一项准备动作：
 

@@ -19,13 +19,13 @@ import { formatDateTimeLabel } from "../shared/date-format";
 import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { AlertBar } from "../shared/ui/alert-bar";
+import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { EmptyState } from "../shared/ui/empty-state";
 import { FilterBar, FilterBarItem } from "../shared/ui/filter-bar";
-import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
+import { OpsTableActionGroup, OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { TableShell } from "../shared/ui/table-shell";
 
 function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
   if (!data?.items?.length) {
@@ -173,6 +173,85 @@ export function OpsTasksPage() {
     return `当前状态：${formatStatusLabel(item.status)}`;
   }
 
+  const executionColumns = useMemo<DataTableColumn<ExecutionListResponse["items"][number]>[]>(() => [
+    {
+      key: "spec",
+      header: "任务名称",
+      align: "left",
+      width: "34%",
+      render: (item) => (
+        <Stack gap={2}>
+          <OpsTableCellText fw={600} size="sm">
+            {formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}
+          </OpsTableCellText>
+        </Stack>
+      ),
+    },
+    {
+      key: "trigger",
+      header: "发起方式",
+      width: "14%",
+      render: (item) => <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>,
+    },
+    {
+      key: "requested_at",
+      header: "提交时间",
+      align: "left",
+      width: "24%",
+      render: (item) => (
+        <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
+          {formatDateTimeLabel(item.requested_at)}
+        </OpsTableCellText>
+      ),
+    },
+    {
+      key: "status",
+      header: "当前状态",
+      width: "12%",
+      render: (item) => <StatusBadge value={item.status} />,
+    },
+    {
+      key: "actions",
+      header: "操作",
+      width: "16%",
+      render: (item) => (
+        <OpsTableActionGroup>
+          <Button
+            component="a"
+            href={`/app/ops/tasks/${item.id}`}
+            size="xs"
+            variant="light"
+            color="brand"
+          >
+            查看详情
+          </Button>
+          {item.status === "failed" ? (
+            <Button
+              type="button"
+              onClick={() => retryMutation.mutate(item.id)}
+              size="xs"
+              variant="light"
+              color="brand"
+            >
+              重新提交
+            </Button>
+          ) : null}
+          {item.status === "queued" || item.status === "running" ? (
+            <Button
+              type="button"
+              onClick={() => cancelMutation.mutate(item.id)}
+              size="xs"
+              variant="light"
+              color="error"
+            >
+              停止处理
+            </Button>
+          ) : null}
+        </OpsTableActionGroup>
+      ),
+    },
+  ], [cancelMutation, retryMutation]);
+
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="center">
@@ -275,8 +354,10 @@ export function OpsTasksPage() {
       </SectionCard>
 
       <SectionCard title="任务记录" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
-        <TableShell
-          hasData={(executionsQuery.data?.items?.length ?? 0) > 0}
+        <DataTable
+          columns={executionColumns}
+          getRowKey={(item) => item.id}
+          rows={executionsQuery.data?.items || []}
           summary={lastAction ? (
             <ActionSummaryCard
               title="最近一次任务操作"
@@ -298,76 +379,7 @@ export function OpsTasksPage() {
               }
             />
           )}
-        >
-            <OpsTable>
-              <Table.Thead>
-                <Table.Tr>
-                  <OpsTableHeaderCell align="left" width="34%">任务名称</OpsTableHeaderCell>
-                  <OpsTableHeaderCell width="14%">发起方式</OpsTableHeaderCell>
-                  <OpsTableHeaderCell align="left" width="24%">提交时间</OpsTableHeaderCell>
-                  <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
-                  <OpsTableHeaderCell width="16%">操作</OpsTableHeaderCell>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {(executionsQuery.data?.items || []).map((item) => (
-                  <Table.Tr key={item.id}>
-                    <OpsTableCell align="left" width="34%">
-                      <Stack gap={2}>
-                        <OpsTableCellText fw={600} size="sm">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
-                      </Stack>
-                    </OpsTableCell>
-                    <OpsTableCell width="14%">
-                      <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
-                    </OpsTableCell>
-                    <OpsTableCell align="left" width="24%">
-                      <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
-                        {formatDateTimeLabel(item.requested_at)}
-                      </OpsTableCellText>
-                    </OpsTableCell>
-                    <OpsTableCell width="12%">
-                      <StatusBadge value={item.status} />
-                    </OpsTableCell>
-                    <OpsTableCell width="16%">
-                      <OpsTableActionGroup>
-                        <Button
-                          component="a"
-                          href={`/app/ops/tasks/${item.id}`}
-                          size="xs"
-                          variant="light"
-                          color="brand"
-                        >
-                          查看详情
-                        </Button>
-                        {item.status === "failed" ? (
-                          <Button
-                            type="button"
-                            onClick={() => retryMutation.mutate(item.id)}
-                            size="xs"
-                            variant="light"
-                            color="brand"
-                          >
-                            重新提交
-                          </Button>
-                        ) : null}
-                        {item.status === "queued" || item.status === "running" ? (
-                          <Button
-                            type="button"
-                            onClick={() => cancelMutation.mutate(item.id)}
-                            size="xs"
-                            variant="light"
-                            color="error"
-                          >
-                            停止处理
-                          </Button>
-                        ) : null}
-                      </OpsTableActionGroup>
-                    </OpsTableCell>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </OpsTable>
-        </TableShell>
+        />
       </SectionCard>
     </Stack>
   );

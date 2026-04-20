@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
+import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
 import { apiRequest } from "../shared/api/client";
 import type {
   ExecutionListResponse,
@@ -44,14 +45,14 @@ import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { ActivityTimeline } from "../shared/ui/activity-timeline";
 import { AlertBar } from "../shared/ui/alert-bar";
+import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
-import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
+import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { TableShell } from "../shared/ui/table-shell";
 import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
@@ -459,13 +460,16 @@ export function OpsAutomationPage() {
     }
     const resourceKey = extractResourceKeyFromSpecKey(selectedJobSpec.key);
     if (WEEKLY_ANCHOR_RESOURCES.has(resourceKey)) {
-      return "week_friday";
+      return "week_last_trading_day";
     }
     if (MONTHLY_ANCHOR_RESOURCES.has(resourceKey)) {
       return "month_end";
     }
     return "any";
   }, [selectedJobSpec]);
+  const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
+  const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
+  const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
 
   const selectedJobParamSpecs = useMemo<CatalogParamSpec[]>(
     () =>
@@ -603,6 +607,46 @@ export function OpsAutomationPage() {
       cron: items.filter((item) => item.schedule_type === "cron").length,
     };
   }, [schedulesQuery.data?.items]);
+
+  const scheduleColumns = useMemo<DataTableColumn<ScheduleListResponse["items"][number]>[]>(() => [
+    {
+      key: "display_name",
+      header: "任务名称",
+      align: "left",
+      width: "26%",
+      render: (item) => <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>,
+    },
+    {
+      key: "target",
+      header: "执行对象",
+      align: "left",
+      width: "28%",
+      render: (item) => <OpsTableCellText size="xs">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>,
+    },
+    {
+      key: "status",
+      header: "当前状态",
+      width: "14%",
+      render: (item) => <StatusBadge value={item.status} />,
+    },
+    {
+      key: "schedule_type",
+      header: "执行方式",
+      width: "12%",
+      render: (item) => <OpsTableCellText size="xs">{formatScheduleTypeLabel(item.schedule_type)}</OpsTableCellText>,
+    },
+    {
+      key: "next_run_at",
+      header: "下次运行",
+      align: "left",
+      width: "20%",
+      render: (item) => (
+        <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
+          {formatDateTimeLabel(item.next_run_at)}
+        </OpsTableCellText>
+      ),
+    },
+  ], []);
 
   const previewPayload = useMemo(() => {
     try {
@@ -877,8 +921,8 @@ export function OpsAutomationPage() {
             title="自动任务列表"
             description="这里列出系统会自动运行的任务。点中一条后，可以在右侧查看详情和修改。"
           >
-            <TableShell
-              hasData={(schedulesQuery.data?.items?.length ?? 0) > 0}
+            <DataTable
+              columns={scheduleColumns}
               emptyState={(
                 <EmptyState
                   title="还没有自动任务"
@@ -886,49 +930,16 @@ export function OpsAutomationPage() {
                   action={<Button onClick={openCreate}>立即新建</Button>}
                 />
               )}
-            >
-              <OpsTable>
-                <Table.Thead>
-                  <Table.Tr>
-                    <OpsTableHeaderCell align="left" width="26%">任务名称</OpsTableHeaderCell>
-                    <OpsTableHeaderCell align="left" width="28%">执行对象</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="14%">当前状态</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="12%">执行方式</OpsTableHeaderCell>
-                    <OpsTableHeaderCell align="left" width="20%">下次运行</OpsTableHeaderCell>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {(schedulesQuery.data?.items || []).map((item) => (
-                    <Table.Tr
-                      key={item.id}
-                      onClick={() => setSelectedScheduleId(item.id)}
-                      style={{
-                        cursor: "pointer",
-                        background: selectedScheduleId === item.id ? "rgba(72, 149, 239, 0.10)" : undefined,
-                      }}
-                    >
-                      <OpsTableCell align="left" width="26%">
-                        <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell align="left" width="28%">
-                        <OpsTableCellText size="xs">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell width="14%">
-                        <StatusBadge value={item.status} />
-                      </OpsTableCell>
-                      <OpsTableCell width="12%">
-                        <OpsTableCellText size="xs">{formatScheduleTypeLabel(item.schedule_type)}</OpsTableCellText>
-                      </OpsTableCell>
-                      <OpsTableCell align="left" width="20%">
-                        <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
-                          {formatDateTimeLabel(item.next_run_at)}
-                        </OpsTableCellText>
-                      </OpsTableCell>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </OpsTable>
-            </TableShell>
+              getRowKey={(item) => item.id}
+              getRowProps={(item) => ({
+                onClick: () => setSelectedScheduleId(item.id),
+                style: {
+                  cursor: "pointer",
+                  background: selectedScheduleId === item.id ? "rgba(72, 149, 239, 0.10)" : undefined,
+                },
+              })}
+              rows={schedulesQuery.data?.items || []}
+            />
           </SectionCard>
         </Grid.Col>
 
@@ -1442,6 +1453,8 @@ export function OpsAutomationPage() {
                       ) : null}
                       {(supportsSingleDay && (!supportsDateRange || form.date_mode === "single_day")) ? (
                         <TradeDateField
+                          {...singleTradeCalendar.calendarProps}
+                          isTradingDay={singleTradeCalendar.isTradingDay}
                           label="同步日期（可留空）"
                           placeholder="留空表示按系统自动判断业务日期"
                           value={form.selected_date}
@@ -1460,6 +1473,8 @@ export function OpsAutomationPage() {
                         <Grid>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
                             <TradeDateField
+                              {...rangeStartTradeCalendar.calendarProps}
+                              isTradingDay={rangeStartTradeCalendar.isTradingDay}
                               label="开始日期（可留空）"
                               placeholder="留空表示按系统自动判断业务日期"
                               value={form.start_date}
@@ -1468,6 +1483,8 @@ export function OpsAutomationPage() {
                           </Grid.Col>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
                             <TradeDateField
+                              {...rangeEndTradeCalendar.calendarProps}
+                              isTradingDay={rangeEndTradeCalendar.isTradingDay}
                               label="结束日期（可留空）"
                               placeholder="留空表示按系统自动判断业务日期"
                               value={form.end_date}

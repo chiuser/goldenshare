@@ -1,5 +1,13 @@
 # 股票周/月线同步逻辑说明（stk_weekly_monthly / stk_week_month_adj）
 
+> 状态说明
+>
+> 本文档记录的是一版历史实现说明，其中“自然周五 / 自然月末”口径已经不再作为现行统一口径。
+>
+> 当前已确认的统一业务口径请以
+> [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
+> 为准。
+
 ## 1. 适用数据集
 
 - `stk_period_bar_week`（股票周线）

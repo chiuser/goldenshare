@@ -6,10 +6,8 @@ import {
   Loader,
   Paper,
   Progress,
-  ScrollArea,
   SimpleGrid,
   Stack,
-  Table,
   Text,
   ThemeIcon,
 } from "@mantine/core";
@@ -36,7 +34,9 @@ import {
 } from "../shared/ops-display";
 import { AlertBar, AlertBarNote } from "../shared/ui/alert-bar";
 import { ActivityTimeline } from "../shared/ui/activity-timeline";
+import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { MetricPanel } from "../shared/ui/metric-panel";
+import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
@@ -556,6 +556,39 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const detail = detailQuery.data;
   const steps = stepsQuery.data?.items || [];
   const events = eventsQuery.data?.items || [];
+  const sortedEvents = useMemo(() => sortByTimeDesc(events), [events]);
+  const eventColumns = useMemo<DataTableColumn<ExecutionEventsResponse["items"][number]>[]>(() => [
+    {
+      key: "occurred_at",
+      header: "时间",
+      align: "left",
+      width: "20%",
+      render: (item) => (
+        <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
+          {formatDateTimeLabel(item.occurred_at)}
+        </OpsTableCellText>
+      ),
+    },
+    {
+      key: "event_type",
+      header: "更新内容",
+      align: "left",
+      width: "26%",
+      render: (item) => (
+        <Group gap="xs">
+          <Badge variant="light">{formatEventTypeLabel(item.event_type)}</Badge>
+          <StatusBadge value={item.level} />
+        </Group>
+      ),
+    },
+    {
+      key: "message",
+      header: "说明",
+      align: "left",
+      width: "54%",
+      render: (item) => <Text size="sm">{item.message || "系统记录了一次新的处理更新。"}</Text>,
+    },
+  ], []);
   const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
   const liveResult = detail ? buildLiveResult(detail, progressSnapshot) : null;
   const latestUpdate = detail ? buildLatestUpdate(detail, events, steps) : null;
@@ -789,35 +822,13 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               )}
 
               <Text fw={600}>系统更新</Text>
-              <ScrollArea h={260} type="auto" offsetScrollbars>
-                {events.length ? (
-                  <Table highlightOnHover striped>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>时间</Table.Th>
-                        <Table.Th>更新内容</Table.Th>
-                        <Table.Th>说明</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {sortByTimeDesc(events).map((item) => (
-                        <Table.Tr key={item.id}>
-                          <Table.Td>{formatDateTimeLabel(item.occurred_at)}</Table.Td>
-                          <Table.Td>
-                            <Group gap="xs">
-                              <Badge variant="light">{formatEventTypeLabel(item.event_type)}</Badge>
-                              <StatusBadge value={item.level} />
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>{item.message || "系统记录了一次新的处理更新。"}</Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                ) : (
-                  <Text c="dimmed" size="sm">暂时还没有更细的系统更新记录。</Text>
-                )}
-              </ScrollArea>
+              <DataTable
+                columns={eventColumns}
+                emptyState={<Text c="dimmed" size="sm">暂时还没有更细的系统更新记录。</Text>}
+                getRowKey={(item) => item.id}
+                minWidth={780}
+                rows={sortedEvents}
+              />
             </Stack>
           </SectionCard>
         </>
