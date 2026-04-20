@@ -439,6 +439,18 @@ cp .env.web.example .env.web.local
 export GOLDENSHARE_ENV_FILE=.env.web.local
 ```
 
+本地一键“编译 + 启动”（推荐）：
+
+```bash
+bash scripts/local-build-and-run.sh
+```
+
+该脚本会默认执行：
+
+1. 后端编译检查（`compileall`）
+2. 前端构建（`npm run build`）
+3. 同时启动 Web（`8000`）与前端 dev server（`5173`）
+
 初始化或升级数据库：
 
 ```bash
@@ -461,6 +473,13 @@ python3 -m src.app.web.run
 
 ```bash
 goldenshare-web
+```
+
+如果只想启动单侧服务，可用：
+
+```bash
+bash scripts/local-build-and-run.sh --web-only
+bash scripts/local-build-and-run.sh --frontend-only
 ```
 
 启动后可访问：

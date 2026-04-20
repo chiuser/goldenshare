@@ -16,8 +16,10 @@
 允许：
 
 1. 启动 Web 与前端：
-   - `GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.app.web.run`
-   - `cd frontend && npm run dev`
+   - 推荐一键：`bash scripts/local-build-and-run.sh`
+   - 或手工分别启动：
+     - `GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.app.web.run`
+     - `cd frontend && npm run dev`
 2. 页面交互验证、接口展示检查（以只读为主）。
 3. 前端构建、单测、文档校验。
 
@@ -61,7 +63,7 @@
 
 ## 4. 推荐流程（最小版）
 
-1. 本地开发并验证 UI。
+1. 本地执行 `bash scripts/local-build-and-run.sh`，完成编译并启动 UI 验证。
 2. 本地执行 `bash scripts/release-preflight.sh`。
 3. 远程执行 `bash scripts/deploy-systemd.sh dev-interface`。
 4. 检查三项 systemd 服务状态。

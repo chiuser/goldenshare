@@ -1,5 +1,5 @@
 ---
-name: "Goldenshare Remote Deploy"
+name: "远程部署技能"
 description: "Use when the user asks to deploy, restart, or verify Goldenshare services on the remote production server."
 ---
 
