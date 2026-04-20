@@ -36,6 +36,8 @@ docs/
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [数据同步统一架构与全量数据集矩阵 v2](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
+- [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
+- [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
 
 ## 4. Ops 运营（S2）
