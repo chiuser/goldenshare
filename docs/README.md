@@ -99,6 +99,7 @@ docs/
 ## 8. 文档治理
 
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
+- [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 
 ## 9. 产品原始材料
 

@@ -61,3 +61,9 @@ docs/sources/
 
 1. 先补 `sources` 接口说明（可简版）。
 2. 再写 `datasets` 开发方案。
+
+提交前建议执行：
+
+```bash
+python3 scripts/check_docs_integrity.py
+```

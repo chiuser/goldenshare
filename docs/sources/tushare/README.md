@@ -65,3 +65,17 @@ docs/sources/tushare/
 1. 只记录源站事实（输入参数、输出字段、限速、分页、更新时间、错误返回）；
 2. 不把“我方实现选择”写进本目录；
 3. 发现目录新增大类时，先更新本 README，再新增批量文档。
+
+---
+
+## 6. 提交前最小校验
+
+1. 校验 `docs_index.csv` 的 `local_path` 都能命中本地文件；
+2. 校验本目录没有噪音文件（如 `.DS_Store`）；
+3. 若新增/改名文档，确认 `docs/README.md` 与 `docs/sources/README.md` 的索引仍然可读。
+
+推荐直接执行：
+
+```bash
+python3 scripts/check_docs_integrity.py
+```

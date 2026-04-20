@@ -155,3 +155,23 @@ docs/
 2. 整合动作必须同步更新 `docs/README.md`。
 3. 删除文档前，先确认无代码路径与流程说明依赖。
 4. 文档链接必须可达，禁止保留死链。
+
+文档维护日常基线见：
+
+- [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
+
+---
+
+## 6. 第二轮收尾检查（已完成）
+
+1. `docs/*.md` 绝对路径链接检查：无死链。
+2. `docs/sources/tushare/docs_index.csv` 与本地 `local_path` 一致性检查：无缺失文件。
+3. 噪音文件清理：已移除 `docs/**/.DS_Store`。
+
+后续新增源文档时，建议继续执行以上三项检查再提交。
+
+推荐命令：
+
+```bash
+python3 scripts/check_docs_integrity.py
+```
