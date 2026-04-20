@@ -38,6 +38,10 @@ class ProbeRuleListItem(BaseModel):
     schedule_id: int | None = None
     name: str
     dataset_key: str
+    trigger_mode: str | None = None
+    workflow_key: str | None = None
+    step_key: str | None = None
+    rule_version: int | None = None
     source_key: str | None = None
     status: str
     window_start: str | None = None
@@ -81,6 +85,10 @@ class ProbeRunLogItem(BaseModel):
     probed_at: datetime
     triggered_execution_id: int | None = None
     duration_ms: int | None = None
+    rule_version: int | None = None
+    result_code: str | None = None
+    result_reason: str | None = None
+    correlation_id: str | None = None
 
 
 class ProbeRunLogListResponse(BaseModel):

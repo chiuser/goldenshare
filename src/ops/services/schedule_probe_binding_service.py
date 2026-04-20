@@ -17,6 +17,9 @@ SUPPORTED_TRIGGER_MODES = {"schedule", "probe", "schedule_probe_fallback"}
 @dataclass(slots=True, frozen=True)
 class ProbeRuleTemplate:
     dataset_key: str
+    trigger_mode: str
+    workflow_key: str | None
+    step_key: str | None
     source_key: str | None
     window_start: str | None
     window_end: str | None
@@ -44,6 +47,9 @@ class ScheduleProbeBindingService:
                     schedule_id=schedule.id,
                     name=f"{schedule.display_name} / {template.dataset_key}",
                     dataset_key=template.dataset_key,
+                    trigger_mode=template.trigger_mode,
+                    workflow_key=template.workflow_key,
+                    step_key=template.step_key,
                     source_key=template.source_key,
                     status=template.status,
                     window_start=template.window_start,
@@ -53,6 +59,7 @@ class ScheduleProbeBindingService:
                     on_success_action_json=template.on_success_action_json,
                     max_triggers_per_day=template.max_triggers_per_day,
                     timezone_name=template.timezone_name,
+                    rule_version=1,
                     created_by_user_id=actor_user_id,
                     updated_by_user_id=actor_user_id,
                 )
@@ -73,9 +80,9 @@ class ScheduleProbeBindingService:
         if min_rows_in is not None and str(min_rows_in).strip() != "":
             condition_json["min_rows_in"] = max(int(min_rows_in), 0)
 
-        dataset_keys = self._resolve_dataset_keys(schedule=schedule, config=config)
+        dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []
-        for dataset_key in dataset_keys:
+        for dataset_key, step_key in dataset_targets:
             action_json = {
                 "spec_type": "job",
                 "spec_key": self._resolve_probe_job_spec(dataset_key),
@@ -86,6 +93,9 @@ class ScheduleProbeBindingService:
             templates.append(
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,
+                    trigger_mode="dataset_execution",
+                    workflow_key=schedule.spec_key if schedule.spec_type == "workflow" else None,
+                    step_key=step_key,
                     source_key=source_key,
                     window_start=window_start,
                     window_end=window_end,
@@ -99,18 +109,21 @@ class ScheduleProbeBindingService:
             )
         return templates
 
-    def _resolve_dataset_keys(self, *, schedule: JobSchedule, config: dict) -> list[str]:
+    def _resolve_dataset_targets(self, *, schedule: JobSchedule, config: dict) -> list[tuple[str, str | None]]:
         if schedule.spec_type == "job":
-            return [self._dataset_from_job_spec(schedule.spec_key)]
+            return [(self._dataset_from_job_spec(schedule.spec_key), None)]
         if schedule.spec_type == "workflow":
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
-                return sorted(set(raw_dataset_keys))
+                return sorted({(item, None) for item in raw_dataset_keys})
             workflow = get_workflow_spec(schedule.spec_key)
             if workflow is None:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
-            dataset_keys = [self._dataset_from_job_spec(step.job_key) for step in workflow.steps]
-            return sorted(set(dataset_keys))
+            dataset_targets = []
+            for step in workflow.steps:
+                dataset_key = step.dataset_key or self._dataset_from_job_spec(step.job_key)
+                dataset_targets.append((dataset_key, step.step_key))
+            return sorted(set(dataset_targets))
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported schedule spec_type for probe")
 
     @staticmethod

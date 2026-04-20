@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,6 +17,8 @@ class JobExecution(TimestampMixin, Base):
         Index("idx_job_execution_spec_requested_at", "spec_type", "spec_key", "requested_at"),
         Index("idx_job_execution_dataset_requested_at", "dataset_key", "requested_at"),
         Index("idx_job_execution_source_stage_requested_at", "source_key", "stage", "requested_at"),
+        Index("idx_job_execution_correlation_requested_at", "correlation_id", "requested_at"),
+        Index("idx_job_execution_run_profile_requested_at", "run_profile", "requested_at"),
         {"schema": "ops"},
     )
 
@@ -49,3 +52,10 @@ class JobExecution(TimestampMixin, Base):
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_code: Mapped[str | None] = mapped_column(String(64))
     error_message: Mapped[str | None] = mapped_column(Text)
+    run_profile: Mapped[str] = mapped_column(String(32), nullable=False, default="point_incremental", server_default="point_incremental")
+    workflow_profile: Mapped[str | None] = mapped_column(String(32))
+    failure_policy_default: Mapped[str] = mapped_column(String(32), nullable=False, default="fail_fast", server_default="fail_fast")
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False, default=lambda: uuid4().hex)
+    rerun_id: Mapped[str | None] = mapped_column(String(64))
+    resume_from_step_key: Mapped[str | None] = mapped_column(String(128))
+    status_reason_code: Mapped[str | None] = mapped_column(String(64))

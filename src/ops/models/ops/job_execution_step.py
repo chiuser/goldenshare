@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -29,3 +29,10 @@ class JobExecutionStep(TimestampMixin, Base):
     rows_fetched: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_written: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     message: Mapped[str | None] = mapped_column(Text)
+    failure_policy_effective: Mapped[str | None] = mapped_column(String(32))
+    depends_on_step_keys_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    blocked_by_step_key: Mapped[str | None] = mapped_column(String(128))
+    skip_reason_code: Mapped[str | None] = mapped_column(String(64))
+    unit_total: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    unit_done: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    unit_failed: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")

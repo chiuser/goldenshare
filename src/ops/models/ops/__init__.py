@@ -9,6 +9,7 @@ from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
@@ -29,6 +30,7 @@ __all__ = [
     "JobExecution",
     "JobExecutionEvent",
     "JobExecutionStep",
+    "JobExecutionUnit",
     "JobSchedule",
     "ProbeRule",
     "ProbeRunLog",

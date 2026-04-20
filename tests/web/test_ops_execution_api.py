@@ -114,14 +114,21 @@ def test_ops_execution_detail_returns_steps_and_events(
     assert payload["requested_by_username"] == "admin"
     assert payload["spec_display_name"] == "指数纵向回补 / index_weight"
     assert payload["params_json"]["start_date"] == "2020-01-01"
+    assert payload["run_profile"] == "point_incremental"
+    assert payload["correlation_id"]
     assert payload["progress_current"] == 651
     assert payload["progress_total"] == 5814
     assert payload["progress_percent"] == 11
     assert payload["progress_message"] == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
     assert len(payload["steps"]) == 1
     assert payload["steps"][0]["step_key"] == "index_weight"
+    assert payload["steps"][0]["unit_total"] == 0
+    assert payload["steps"][0]["unit_done"] == 0
+    assert payload["steps"][0]["unit_failed"] == 0
     assert len(payload["events"]) == 2
     assert payload["events"][1]["payload_json"]["index_code"] == "000300.SH"
+    assert payload["events"][0]["event_id"]
+    assert payload["events"][0]["event_version"] == 1
 
 
 def test_ops_execution_endpoints_truncate_oversized_messages(
@@ -238,6 +245,8 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
     assert payload["spec_key"] == "backfill_index_series.index_weekly"
     assert payload["status"] == "queued"
     assert payload["params_json"]["limit"] == 10
+    assert payload["run_profile"] == "range_rebuild"
+    assert payload["correlation_id"]
     assert [event["event_type"] for event in payload["events"]] == ["created", "queued"]
 
 

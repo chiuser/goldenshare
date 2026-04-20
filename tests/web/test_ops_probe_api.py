@@ -129,6 +129,8 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_rule_payload["total"] == 1
     assert by_rule_payload["items"][0]["probe_rule_id"] == equity_rule.id
     assert by_rule_payload["items"][0]["status"] == "success"
+    assert by_rule_payload["items"][0]["rule_version"] == 1
+    assert by_rule_payload["items"][0]["result_code"] in {"miss", "hit", "error"}
 
     by_dataset = app_client.get(
         "/api/v1/ops/probes/runs?dataset_key=etf_daily",
@@ -139,3 +141,4 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_dataset_payload["total"] == 1
     assert by_dataset_payload["items"][0]["dataset_key"] == "etf_daily"
     assert by_dataset_payload["items"][0]["status"] == "failed"
+    assert by_dataset_payload["items"][0]["rule_version"] == 1

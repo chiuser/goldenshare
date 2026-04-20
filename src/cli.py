@@ -15,10 +15,12 @@ from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
 from src.foundation.services.migration import RawTushareBootstrapService
+from src.foundation.services.sync_v2.linter import lint_all_sync_v2_contracts
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.runtime import OperationsScheduler, OperationsWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
+from src.ops.services.operations_dataset_reconcile_service import DatasetReconcileService
 from src.ops.services.operations_dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
@@ -297,6 +299,63 @@ def refresh_serving_light(
 def list_resources() -> None:
     for resource in SYNC_SERVICE_REGISTRY:
         typer.echo(resource)
+
+
+@app.command("sync-v2-lint-contracts")
+def sync_v2_lint_contracts() -> None:
+    report = lint_all_sync_v2_contracts()
+    if report.passed:
+        typer.echo("sync-v2-lint-contracts: passed")
+        return
+    typer.echo(f"sync-v2-lint-contracts: failed issues={len(report.issues)}")
+    for issue in report.issues:
+        typer.echo(f" - dataset={issue.dataset_key} code={issue.code} message={issue.message}")
+    raise typer.Exit(code=1)
+
+
+@app.command("reconcile-dataset")
+def reconcile_dataset(
+    dataset: str = typer.Option(..., "--dataset", "-d", help="当前支持 trade_cal/stk_limit/margin/moneyflow_ind_dc"),
+    start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
+    end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
+    sample_limit: int = typer.Option(20, "--sample-limit", min=0, max=200, help="输出每日差异样例上限"),
+    abs_diff_threshold: int = typer.Option(
+        -1,
+        "--abs-diff-threshold",
+        help="总行数绝对差阈值；-1 表示不校验。超过阈值时返回非 0。",
+    ),
+) -> None:
+    parsed_start = date.fromisoformat(start_date) if start_date else None
+    parsed_end = date.fromisoformat(end_date) if end_date else None
+    with SessionLocal() as session:
+        report = DatasetReconcileService().run(
+            session,
+            dataset_key=dataset.strip(),
+            start_date=parsed_start,
+            end_date=parsed_end,
+            sample_limit=sample_limit,
+        )
+
+    typer.echo("reconcile-dataset summary")
+    typer.echo(f"dataset={report.dataset_key}")
+    typer.echo(f"date_range={report.start_date.isoformat()}~{report.end_date.isoformat()}")
+    typer.echo(f"raw_rows={report.raw_rows}")
+    typer.echo(f"serving_rows={report.serving_rows}")
+    typer.echo(f"abs_diff={report.abs_diff}")
+
+    if sample_limit > 0 and report.daily_diffs:
+        typer.echo(f"\n[daily_diff] samples={len(report.daily_diffs)}")
+        for item in report.daily_diffs:
+            typer.echo(
+                f" - {item.trade_date.isoformat()} raw={item.raw_rows} "
+                f"serving={item.serving_rows} diff={item.diff}"
+            )
+
+    if abs_diff_threshold >= 0 and report.abs_diff > abs_diff_threshold:
+        typer.echo(
+            f"\nreconcile-dataset gate failed: abs_diff={report.abs_diff} > threshold={abs_diff_threshold}"
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("ops-rebuild-dataset-status")

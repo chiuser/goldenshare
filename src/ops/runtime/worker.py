@@ -198,6 +198,9 @@ class OperationsWorker:
                 message=self._sanitize_summary_message(outcome.summary_message),
                 payload_json={},
                 occurred_at=execution.ended_at,
+                correlation_id=execution.correlation_id,
+                producer="runtime",
+                dedupe_key=f"{execution.id}:{final_event_type}:{int(execution.ended_at.timestamp())}",
             )
         )
         session.commit()
@@ -231,6 +234,9 @@ class OperationsWorker:
                 message=self._sanitize_summary_message(message),
                 payload_json={},
                 occurred_at=execution.ended_at,
+                correlation_id=execution.correlation_id,
+                producer="runtime",
+                dedupe_key=f"{execution.id}:failed:{int(execution.ended_at.timestamp())}",
             )
         )
         session.commit()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateExecutionRequest(BaseModel):
@@ -20,6 +20,12 @@ class ExecutionListItem(BaseModel):
     stage: str | None = None
     policy_version: int | None = None
     run_scope: str | None = None
+    run_profile: str | None = None
+    workflow_profile: str | None = None
+    correlation_id: str | None = None
+    rerun_id: str | None = None
+    resume_from_step_key: str | None = None
+    status_reason_code: str | None = None
     spec_display_name: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str
@@ -57,6 +63,13 @@ class ExecutionStepItem(BaseModel):
     rows_fetched: int
     rows_written: int
     message: str | None = None
+    failure_policy_effective: str | None = None
+    depends_on_step_keys_json: list[str] = Field(default_factory=list)
+    blocked_by_step_key: str | None = None
+    skip_reason_code: str | None = None
+    unit_total: int = 0
+    unit_done: int = 0
+    unit_failed: int = 0
 
 
 class ExecutionEventItem(BaseModel):
@@ -67,6 +80,12 @@ class ExecutionEventItem(BaseModel):
     message: str | None = None
     payload_json: dict
     occurred_at: datetime
+    event_id: str | None = None
+    event_version: int | None = None
+    correlation_id: str | None = None
+    unit_id: str | None = None
+    producer: str | None = None
+    dedupe_key: str | None = None
 
 
 class ExecutionLogItem(BaseModel):
@@ -92,6 +111,12 @@ class ExecutionDetailResponse(BaseModel):
     stage: str | None = None
     policy_version: int | None = None
     run_scope: str | None = None
+    run_profile: str | None = None
+    workflow_profile: str | None = None
+    correlation_id: str | None = None
+    rerun_id: str | None = None
+    resume_from_step_key: str | None = None
+    status_reason_code: str | None = None
     spec_display_name: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str

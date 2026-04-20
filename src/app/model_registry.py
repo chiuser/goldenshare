@@ -23,6 +23,7 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.job_execution",
     "src.ops.models.ops.job_execution_event",
     "src.ops.models.ops.job_execution_step",
+    "src.ops.models.ops.job_execution_unit",
     "src.ops.models.ops.job_schedule",
     "src.ops.models.ops.probe_rule",
     "src.ops.models.ops.probe_run_log",

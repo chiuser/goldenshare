@@ -117,6 +117,12 @@ class ExecutionQueryService:
             stage=execution.stage,
             policy_version=execution.policy_version,
             run_scope=execution.run_scope,
+            run_profile=execution.run_profile,
+            workflow_profile=execution.workflow_profile,
+            correlation_id=execution.correlation_id,
+            rerun_id=execution.rerun_id,
+            resume_from_step_key=execution.resume_from_step_key,
+            status_reason_code=execution.status_reason_code,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,
@@ -195,6 +201,12 @@ class ExecutionQueryService:
             stage=execution.stage,
             policy_version=execution.policy_version,
             run_scope=execution.run_scope,
+            run_profile=execution.run_profile,
+            workflow_profile=execution.workflow_profile,
+            correlation_id=execution.correlation_id,
+            rerun_id=execution.rerun_id,
+            resume_from_step_key=execution.resume_from_step_key,
+            status_reason_code=execution.status_reason_code,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,
@@ -228,6 +240,13 @@ class ExecutionQueryService:
             rows_fetched=step.rows_fetched,
             rows_written=step.rows_written,
             message=self._clip(step.message, self.MAX_STEP_MESSAGE_LENGTH),
+            failure_policy_effective=step.failure_policy_effective,
+            depends_on_step_keys_json=list(step.depends_on_step_keys_json or []),
+            blocked_by_step_key=step.blocked_by_step_key,
+            skip_reason_code=step.skip_reason_code,
+            unit_total=step.unit_total,
+            unit_done=step.unit_done,
+            unit_failed=step.unit_failed,
         )
 
     def _event_item(self, event: JobExecutionEvent) -> ExecutionEventItem:
@@ -239,6 +258,12 @@ class ExecutionQueryService:
             message=self._clip(event.message, self.MAX_EVENT_MESSAGE_LENGTH),
             payload_json=event.payload_json,
             occurred_at=event.occurred_at,
+            event_id=event.event_id,
+            event_version=event.event_version,
+            correlation_id=event.correlation_id,
+            unit_id=event.unit_id,
+            producer=event.producer,
+            dedupe_key=event.dedupe_key,
         )
 
     @staticmethod
@@ -305,6 +330,13 @@ class ExecutionQueryService:
                     rows_fetched=0,
                     rows_written=0,
                     message=None,
+                    failure_policy_effective=workflow_step.failure_policy_override,
+                    depends_on_step_keys_json=list(workflow_step.depends_on),
+                    blocked_by_step_key=None,
+                    skip_reason_code=None,
+                    unit_total=0,
+                    unit_done=0,
+                    unit_failed=0,
                 )
             )
         return items

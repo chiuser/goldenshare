@@ -34,3 +34,7 @@ class ProbeRule(TimestampMixin, Base):
     last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by_user_id: Mapped[int | None] = mapped_column(BigInteger)
     updated_by_user_id: Mapped[int | None] = mapped_column(BigInteger)
+    trigger_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="dataset_execution", server_default="dataset_execution")
+    workflow_key: Mapped[str | None] = mapped_column(String(128))
+    step_key: Mapped[str | None] = mapped_column(String(128))
+    rule_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")

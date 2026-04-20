@@ -164,6 +164,9 @@ class DatasetStatusSnapshotService:
                     lag_seconds=(item.lag_days * 86400) if item.lag_days is not None else None,
                     message=item.freshness_note,
                     calculated_at=calculated_at,
+                    snapshot_at=calculated_at,
+                    execution_id=None,
+                    status_reason_code=DatasetStatusSnapshotService._status_reason_code(item.freshness_status),
                 )
             )
 
@@ -199,6 +202,10 @@ class DatasetStatusSnapshotService:
                 row.lag_seconds = (item.lag_days * 86400) if (item.lag_days is not None and stage == "serving") else None
                 row.message = message
                 row.calculated_at = calculated_at
+                row.state_updated_at = calculated_at
+                row.status_reason_code = DatasetStatusSnapshotService._status_reason_code(status)
+                row.execution_id = None
+                row.run_profile = None
 
             upsert_stage("raw", item.freshness_status if mode.raw_enabled else "skipped", mode.notes)
             if mode.std_enabled:
@@ -251,6 +258,29 @@ class DatasetStatusSnapshotService:
                         else "轻量层暂无可用数据。"
                     )
                 row.calculated_at = calculated_at
+
+            snapshot_row = session.get(DatasetStatusSnapshot, item.dataset_key)
+            if snapshot_row is not None:
+                snapshot_row.pipeline_mode = mode.mode
+                snapshot_row.raw_stage_status = item.freshness_status if mode.raw_enabled else "skipped"
+                snapshot_row.std_stage_status = "unobserved" if mode.std_enabled else "skipped"
+                snapshot_row.resolution_stage_status = "unobserved" if mode.resolution_enabled else "skipped"
+                snapshot_row.serving_stage_status = item.freshness_status if mode.serving_enabled else "skipped"
+                snapshot_row.state_updated_at = calculated_at
+
+    @staticmethod
+    def _status_reason_code(status: str | None) -> str | None:
+        if status in {"healthy", "success"}:
+            return "ok"
+        if status in {"lagging", "stale"}:
+            return "lagging"
+        if status in {"unknown", "unobserved"}:
+            return "unobserved"
+        if status in {"failed", "error"}:
+            return "failed"
+        if status == "skipped":
+            return "skipped"
+        return None
 
     @staticmethod
     def _load_light_snapshot_by_dataset(session: Session, dataset_keys: list[str]) -> dict[str, dict[str, object | None]]:

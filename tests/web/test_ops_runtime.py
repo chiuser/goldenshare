@@ -6,8 +6,11 @@ from types import SimpleNamespace
 from sqlalchemy import select
 
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
+from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.runtime import DispatchOutcome, OperationsDispatcher, OperationsScheduler, OperationsWorker
+from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
 from src.ops.services.operations_probe_runtime_service import ProbeTickResult
 
 
@@ -185,6 +188,144 @@ def test_dispatcher_progress_snapshot_updates_execution_fields(db_session, job_e
     assert execution.progress_percent == 11
     assert execution.progress_message == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
     assert execution.last_progress_at is not None
+
+
+def test_dispatcher_workflow_continue_on_error_keeps_following_steps(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="workflow",
+        spec_key="wf.mock",
+        status="running",
+        params_json={"run_profile": "snapshot_refresh"},
+    )
+    workflow_spec = WorkflowSpec(
+        key="wf.mock",
+        display_name="Mock Workflow",
+        description="mock workflow",
+        steps=(
+            WorkflowStepSpec(
+                step_key="s1",
+                job_key="sync_daily.daily",
+                display_name="Step 1",
+                failure_policy_override="continue_on_error",
+            ),
+            WorkflowStepSpec(
+                step_key="s2",
+                job_key="sync_daily.daily_basic",
+                display_name="Step 2",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "src.ops.runtime.dispatcher.get_job_spec",
+        lambda key: SimpleNamespace(key=key, display_name=key),
+    )
+
+    call_count = {"value": 0}
+
+    def _stub_run_job(session, step_execution, job_spec, step_id):  # type: ignore[no-untyped-def]
+        call_count["value"] += 1
+        if call_count["value"] == 1:
+            raise RuntimeError("step failed")
+        return 3, 2, "ok"
+
+    dispatcher = OperationsDispatcher()
+    monkeypatch.setattr(
+        dispatcher,
+        "_create_step_unit",
+        lambda session, execution_id, step_id, unit_id: SimpleNamespace(id=step_id, unit_id=unit_id, started_at=datetime.now(timezone.utc)),
+    )
+    monkeypatch.setattr(dispatcher, "_finalize_step_unit", lambda unit, **kwargs: None)
+    monkeypatch.setattr(dispatcher, "_run_job", _stub_run_job)
+    original_get = db_session.get
+    monkeypatch.setattr(
+        db_session,
+        "get",
+        lambda model, ident, **kwargs: (
+            SimpleNamespace(id=ident, unit_id=f"mock-unit-{ident}", started_at=datetime.now(timezone.utc))
+            if model is JobExecutionUnit
+            else original_get(model, ident, **kwargs)
+        ),
+    )
+
+    outcome = dispatcher._dispatch_workflow(db_session, execution, workflow_spec)
+
+    assert outcome.status == "partial_success"
+    assert outcome.rows_fetched == 3
+    assert outcome.rows_written == 2
+    assert call_count["value"] == 2
+
+    steps = list(db_session.scalars(select(JobExecutionStep).where(JobExecutionStep.execution_id == execution.id).order_by(JobExecutionStep.sequence_no)))
+    assert len(steps) == 2
+    assert steps[0].status == "failed"
+    assert steps[0].failure_policy_effective == "continue_on_error"
+    assert steps[0].unit_total == 1
+    assert steps[0].unit_done == 0
+    assert steps[0].unit_failed == 1
+    assert steps[1].status == "success"
+
+
+def test_dispatcher_blocks_dependent_step_after_failed_dependency(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="workflow",
+        spec_key="wf.dep",
+        status="running",
+    )
+    workflow_spec = WorkflowSpec(
+        key="wf.dep",
+        display_name="Mock Workflow",
+        description="mock workflow",
+        steps=(
+            WorkflowStepSpec(
+                step_key="s1",
+                job_key="sync_daily.daily",
+                display_name="Step 1",
+                failure_policy_override="continue_on_error",
+            ),
+            WorkflowStepSpec(
+                step_key="s2",
+                job_key="sync_daily.daily_basic",
+                display_name="Step 2",
+                depends_on=("s1",),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "src.ops.runtime.dispatcher.get_job_spec",
+        lambda key: SimpleNamespace(key=key, display_name=key),
+    )
+
+    dispatcher = OperationsDispatcher()
+    monkeypatch.setattr(
+        dispatcher,
+        "_create_step_unit",
+        lambda session, execution_id, step_id, unit_id: SimpleNamespace(id=step_id, unit_id=unit_id, started_at=datetime.now(timezone.utc)),
+    )
+    monkeypatch.setattr(dispatcher, "_finalize_step_unit", lambda unit, **kwargs: None)
+    original_get = db_session.get
+    monkeypatch.setattr(
+        db_session,
+        "get",
+        lambda model, ident, **kwargs: (
+            SimpleNamespace(id=ident, unit_id=f"mock-unit-{ident}", started_at=datetime.now(timezone.utc))
+            if model is JobExecutionUnit
+            else original_get(model, ident, **kwargs)
+        ),
+    )
+
+    def _raise_failed(session, step_execution, job_spec, step_id):  # type: ignore[no-untyped-def]
+        raise RuntimeError("failed")
+
+    monkeypatch.setattr(dispatcher, "_run_job", _raise_failed)
+
+    outcome = dispatcher._dispatch_workflow(db_session, execution, workflow_spec)
+
+    assert outcome.status == "partial_success"
+    steps = list(db_session.scalars(select(JobExecutionStep).where(JobExecutionStep.execution_id == execution.id).order_by(JobExecutionStep.sequence_no)))
+    assert len(steps) == 2
+    assert steps[0].status == "failed"
+    assert steps[1].status == "blocked"
+    assert steps[1].skip_reason_code == "dependency_failed"
+    assert steps[1].depends_on_step_keys_json == ["s1"]
 
 
 def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_factory, monkeypatch) -> None:

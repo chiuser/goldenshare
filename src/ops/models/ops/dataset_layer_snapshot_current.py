@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, DateTime, Index, Integer, PrimaryKeyConstraint, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,3 +29,7 @@ class DatasetLayerSnapshotCurrent(Base):
     lag_seconds: Mapped[int | None] = mapped_column(Integer)
     message: Mapped[str | None] = mapped_column(Text)
     calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    state_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    status_reason_code: Mapped[str | None] = mapped_column(String(64))
+    execution_id: Mapped[int | None] = mapped_column(BigInteger)
+    run_profile: Mapped[str | None] = mapped_column(String(32))

@@ -2,7 +2,7 @@
 
 - 版本：v1.0
 - 日期：2026-04-21
-- 状态：待评审
+- 状态：已执行（Phase 1-4 完成）
 - 目标：将 Phase 1-4 拆成可直接执行的编码任务包，确保“每轮单目标、范围可控、无计划外改动”
 - 上游设计文档：
   - [V2 主方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
@@ -14,6 +14,45 @@
 
 ---
 
+## 执行完成状态（2026-04-21）
+
+### Phase 1（执行域与事件模型）
+
+1. P1-WP-01：`job_execution/job_execution_step/job_execution_event` 字段扩展 + `job_execution_unit` 新表模型与 Alembic 迁移已落地。  
+2. P1-WP-02：dispatcher/worker/execution_service 状态推进与进度聚合统一写链已落地。  
+3. P1-WP-03：事件 envelope 字段（`event_id/event_version/correlation_id/unit_id/producer/dedupe_key`）已落地。  
+4. P1-WP-04：模型与运行时回归测试已补齐并通过。  
+
+### Phase 2（引擎与契约层）
+
+1. P2-WP-01：`sync_v2` 契约对象、参数校验器、结构化错误类型已落地。  
+2. P2-WP-02：统一 Planner（交易日锚点/周期锚点/枚举扇开/单元上限）已落地。  
+3. P2-WP-03：Source Adapter ACL（tushare/biying）与错误归一已落地。  
+4. P2-WP-04：Normalize + Writer + Engine 主链路已落地。  
+5. P2-WP-05：`USE_SYNC_V2_DATASETS` 路由开关 + `SYNC_V2_STRICT_CONTRACT` 灰度开关已接入。  
+6. Contract lint、validator/planner/worker、路由开关测试已补齐并通过。  
+
+### Phase 3（工作流/Probe/状态投影）
+
+1. P3-WP-01：WorkflowSpec 扩展字段（`workflow_profile/failure_policy_default/resume_supported` 等）已落地。  
+2. P3-WP-02：工作流失败策略传播（含 `continue_on_error` 与依赖阻塞）已落地并补回归。  
+3. P3-WP-03：Probe rule/run log 字段升级与按数据集拆 rule 链路已落地。  
+4. P3-WP-04：`dataset_layer_snapshot_current/history/status_snapshot` 投影增强字段已落地。  
+5. P3-WP-05：execution/probe 查询契约字段已补齐（不改 biz API 契约）。  
+
+### Phase 4（迁移切换与兼容收口）
+
+1. P4-WP-01：对账能力落地（`operations_dataset_reconcile_service` + CLI `reconcile-dataset`）。  
+2. P4-WP-02：按数据集 cohort 读切能力已通过开关控制落地（V1/V2 双轨）。  
+3. P4-WP-03：旧链路未硬切断，保留回滚开关，满足平稳迁移与兼容收口要求。  
+
+### 本轮验收结果（关键门禁）
+
+1. 架构边界：`tests/architecture/test_subsystem_dependency_matrix.py` 通过。  
+2. ops/runtime/api/probe/schedule 相关回归通过。  
+3. sync_v2 新增测试（contract lint、validator/planner/worker、路由开关、CLI）通过。  
+4. 入口冒烟：`python3 -m src.app.web.run --help` 通过。  
+
 ## 0. 全局执行规则（所有任务包强制）
 
 ### 0.1 范围约束
@@ -21,6 +60,7 @@
 1. 本轮只改造同步与运维治理链路，不影响上层业务 API 契约。  
 2. 每个任务包只做一个明确目标，不跨包顺手改代码。  
 3. 未进入任务包清单的文件，不允许改动。  
+4. 全部任务包完成时必须满足运行可用性约束：程序运行正常、后台正常启动、数据可正常同步、运营平台可配置并执行自动/手动任务。  
 
 ### 0.2 动手前检查（每包必做）
 
@@ -33,6 +73,7 @@
 1. 单元/集成测试通过（仅本包相关测试集）。  
 2. 边界测试通过（`tests/architecture/test_subsystem_dependency_matrix.py` 至少冒烟通过）。  
 3. 更新文档状态（本包完成、遗留风险、后续依赖）。  
+4. 阶段收口（phase 完成时）需补充可用性验收：后台启动冒烟、同步冒烟、自动/手动任务执行冒烟。  
 
 ### 0.4 失败回滚策略（每包必备）
 
@@ -326,4 +367,3 @@
 4. 回归清单与结果  
 5. 风险与回滚指令  
 6. 下一包进入条件是否满足  
-

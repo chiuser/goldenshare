@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
@@ -14,6 +15,7 @@ from src.foundation.services.sync.errors import ExecutionCanceledError
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.specs import get_job_spec, get_workflow_spec
 from src.app.exceptions import WebAppError
 from src.ops.services.operations_history_backfill_service import HistoryBackfillService
@@ -61,7 +63,8 @@ class OperationsDispatcher:
 
     def _dispatch_job(self, session: Session, execution: JobExecution, job_spec) -> DispatchOutcome:  # type: ignore[no-untyped-def]
         step = self._create_step(session, execution_id=execution.id, step_key=job_spec.key, display_name=job_spec.display_name, sequence_no=1)
-        self._event(session, execution.id, "step_started", step_id=step.id, message=job_spec.display_name)
+        unit = self._create_step_unit(session, execution_id=execution.id, step_id=step.id, unit_id=f"{step.step_key}:1")
+        self._event(session, execution.id, "step_started", step_id=step.id, unit_id=unit.unit_id, message=job_spec.display_name)
         session.commit()
         try:
             rows_fetched, rows_written, summary_message = self._run_job(session, execution, job_spec, step.id)
@@ -70,7 +73,16 @@ class OperationsDispatcher:
             step.rows_fetched = rows_fetched
             step.rows_written = rows_written
             step.message = summary_message
-            self._event(session, execution.id, "step_succeeded", step_id=step.id, message=summary_message)
+            step.unit_total = 1
+            step.unit_done = 1
+            step.unit_failed = 0
+            self._finalize_step_unit(
+                unit,
+                status="success",
+                rows_fetched=rows_fetched,
+                rows_written=rows_written,
+            )
+            self._event(session, execution.id, "step_succeeded", step_id=step.id, unit_id=unit.unit_id, message=summary_message)
             session.commit()
             return DispatchOutcome(
                 status="success",
@@ -82,11 +94,25 @@ class OperationsDispatcher:
             safe_message = self._sanitize_error_message(str(exc))
             session.rollback()
             step = session.get(JobExecutionStep, step.id)
+            unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
             if step is not None:
                 step.status = "canceled"
                 step.ended_at = datetime.now(timezone.utc)
                 step.message = self._sanitize_step_message(safe_message)
-            self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=safe_message, level="WARNING")
+                step.unit_total = 1
+                step.unit_done = 0
+                step.unit_failed = 1
+            if unit is not None:
+                self._finalize_step_unit(unit, status="canceled", error_message=safe_message)
+            self._event(
+                session,
+                execution.id,
+                "step_canceled",
+                step_id=step.id if step else None,
+                unit_id=unit.unit_id if unit is not None else None,
+                message=safe_message,
+                level="WARNING",
+            )
             session.commit()
             return DispatchOutcome(
                 status="canceled",
@@ -96,11 +122,25 @@ class OperationsDispatcher:
             safe_message = self._sanitize_error_message(str(exc))
             session.rollback()
             step = session.get(JobExecutionStep, step.id)
+            unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
             if step is not None:
                 step.status = "failed"
                 step.ended_at = datetime.now(timezone.utc)
                 step.message = self._sanitize_step_message(safe_message)
-            self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=safe_message, level="ERROR")
+                step.unit_total = 1
+                step.unit_done = 0
+                step.unit_failed = 1
+            if unit is not None:
+                self._finalize_step_unit(unit, status="failed", error_code="execution_failed", error_message=safe_message)
+            self._event(
+                session,
+                execution.id,
+                "step_failed",
+                step_id=step.id if step else None,
+                unit_id=unit.unit_id if unit is not None else None,
+                message=safe_message,
+                level="ERROR",
+            )
             session.commit()
             return DispatchOutcome(
                 status="failed",
@@ -114,7 +154,37 @@ class OperationsDispatcher:
         total_written = 0
         completed = 0
         last_message: str | None = None
+        failed_step_keys: set[str] = set()
+        had_failures = False
         for sequence_no, workflow_step in enumerate(workflow_spec.steps, start=1):
+            dependency_failed = any(dep in failed_step_keys for dep in workflow_step.depends_on)
+            if dependency_failed:
+                step = self._create_step(
+                    session,
+                    execution_id=execution.id,
+                    step_key=workflow_step.step_key,
+                    display_name=workflow_step.display_name,
+                    sequence_no=sequence_no,
+                )
+                step.status = "blocked"
+                step.ended_at = datetime.now(timezone.utc)
+                step.message = self._sanitize_step_message("依赖步骤失败，当前步骤被阻塞。")
+                step.skip_reason_code = "dependency_failed"
+                step.depends_on_step_keys_json = list(workflow_step.depends_on)
+                step.unit_total = 0
+                step.unit_done = 0
+                step.unit_failed = 0
+                self._event(
+                    session,
+                    execution.id,
+                    "step_blocked",
+                    step_id=step.id,
+                    message=step.message,
+                    level="WARNING",
+                )
+                session.commit()
+                continue
+
             job_spec = get_job_spec(workflow_step.job_key)
             if job_spec is None:
                 message = f"Workflow step job spec does not exist: {workflow_step.job_key}"
@@ -124,6 +194,8 @@ class OperationsDispatcher:
 
             params = dict(execution.params_json or {})
             params.update(workflow_step.default_params)
+            params.update(workflow_step.params_override)
+            effective_failure_policy = workflow_step.failure_policy_override or workflow_spec.failure_policy_default or "fail_fast"
             step_execution = JobExecution(
                 id=execution.id,
                 spec_type="job",
@@ -132,6 +204,9 @@ class OperationsDispatcher:
                 status=execution.status,
                 requested_at=execution.requested_at,
                 params_json=params,
+                correlation_id=execution.correlation_id,
+                run_profile=execution.run_profile,
+                workflow_profile=execution.workflow_profile,
             )
             step = self._create_step(
                 session,
@@ -140,7 +215,10 @@ class OperationsDispatcher:
                 display_name=workflow_step.display_name,
                 sequence_no=sequence_no,
             )
-            self._event(session, execution.id, "step_started", step_id=step.id, message=workflow_step.display_name)
+            unit = self._create_step_unit(session, execution_id=execution.id, step_id=step.id, unit_id=f"{step.step_key}:1")
+            step.depends_on_step_keys_json = list(workflow_step.depends_on)
+            step.failure_policy_effective = effective_failure_policy
+            self._event(session, execution.id, "step_started", step_id=step.id, unit_id=unit.unit_id, message=workflow_step.display_name)
             session.commit()
             try:
                 rows_fetched, rows_written, summary_message = self._run_job(session, step_execution, job_spec, step.id)
@@ -149,7 +227,16 @@ class OperationsDispatcher:
                 step.rows_fetched = rows_fetched
                 step.rows_written = rows_written
                 step.message = summary_message
-                self._event(session, execution.id, "step_succeeded", step_id=step.id, message=summary_message)
+                step.unit_total = 1
+                step.unit_done = 1
+                step.unit_failed = 0
+                self._finalize_step_unit(
+                    unit,
+                    status="success",
+                    rows_fetched=rows_fetched,
+                    rows_written=rows_written,
+                )
+                self._event(session, execution.id, "step_succeeded", step_id=step.id, unit_id=unit.unit_id, message=summary_message)
                 session.commit()
                 total_fetched += rows_fetched
                 total_written += rows_written
@@ -159,11 +246,25 @@ class OperationsDispatcher:
                 safe_message = self._sanitize_error_message(str(exc))
                 session.rollback()
                 step = session.get(JobExecutionStep, step.id)
+                unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
                 if step is not None:
                     step.status = "canceled"
                     step.ended_at = datetime.now(timezone.utc)
                     step.message = self._sanitize_step_message(safe_message)
-                self._event(session, execution.id, "step_canceled", step_id=step.id if step else None, message=safe_message, level="WARNING")
+                    step.unit_total = 1
+                    step.unit_done = 0
+                    step.unit_failed = 1
+                if unit is not None:
+                    self._finalize_step_unit(unit, status="canceled", error_message=safe_message)
+                self._event(
+                    session,
+                    execution.id,
+                    "step_canceled",
+                    step_id=step.id if step else None,
+                    unit_id=unit.unit_id if unit is not None else None,
+                    message=safe_message,
+                    level="WARNING",
+                )
                 session.commit()
                 return DispatchOutcome(
                     status="canceled",
@@ -175,12 +276,32 @@ class OperationsDispatcher:
                 safe_message = self._sanitize_error_message(str(exc))
                 session.rollback()
                 step = session.get(JobExecutionStep, step.id)
+                unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
                 if step is not None:
                     step.status = "failed"
                     step.ended_at = datetime.now(timezone.utc)
                     step.message = self._sanitize_step_message(safe_message)
-                self._event(session, execution.id, "step_failed", step_id=step.id if step else None, message=safe_message, level="ERROR")
+                    step.failure_policy_effective = effective_failure_policy
+                    step.unit_total = 1
+                    step.unit_done = 0
+                    step.unit_failed = 1
+                if unit is not None:
+                    self._finalize_step_unit(unit, status="failed", error_code="workflow_step_failed", error_message=safe_message)
+                self._event(
+                    session,
+                    execution.id,
+                    "step_failed",
+                    step_id=step.id if step else None,
+                    unit_id=unit.unit_id if unit is not None else None,
+                    message=safe_message,
+                    level="ERROR",
+                )
                 session.commit()
+                had_failures = True
+                failed_step_keys.add(workflow_step.step_key)
+                last_message = safe_message
+                if effective_failure_policy == "continue_on_error":
+                    continue
                 return DispatchOutcome(
                     status="partial_success" if completed else "failed",
                     rows_fetched=total_fetched,
@@ -190,11 +311,14 @@ class OperationsDispatcher:
                     error_message=safe_message,
                 )
 
+        final_status = "partial_success" if had_failures else "success"
         return DispatchOutcome(
-            status="success",
+            status=final_status,
             rows_fetched=total_fetched,
             rows_written=total_written,
             summary_message=last_message or workflow_spec.display_name,
+            error_code="workflow_step_failed" if had_failures else None,
+            error_message=last_message if had_failures else None,
         )
 
     def _run_job(self, session: Session, execution: JobExecution, job_spec, step_id: int) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
@@ -619,16 +743,68 @@ class OperationsDispatcher:
         return step
 
     @staticmethod
+    def _create_step_unit(
+        session: Session,
+        *,
+        execution_id: int,
+        step_id: int,
+        unit_id: str,
+    ) -> JobExecutionUnit:
+        unit = JobExecutionUnit(
+            execution_id=execution_id,
+            step_id=step_id,
+            unit_id=unit_id,
+            status="running",
+            attempt=0,
+            retryable=False,
+            started_at=datetime.now(timezone.utc),
+            unit_payload_json={},
+        )
+        session.add(unit)
+        session.flush()
+        return unit
+
+    @staticmethod
+    def _finalize_step_unit(
+        unit: JobExecutionUnit | None,
+        *,
+        status: str,
+        rows_fetched: int = 0,
+        rows_written: int = 0,
+        error_code: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        if unit is None:
+            return
+        ended_at = datetime.now(timezone.utc)
+        started_at = unit.started_at or ended_at
+        unit.status = status
+        unit.rows_fetched = rows_fetched
+        unit.rows_written = rows_written
+        unit.error_code = error_code
+        unit.error_message = error_message
+        unit.ended_at = ended_at
+        unit.duration_ms = max(int((ended_at - started_at).total_seconds() * 1000), 0)
+
     def _event(
+        self,
         session: Session,
         execution_id: int,
         event_type: str,
         *,
         step_id: int | None = None,
+        unit_id: str | None = None,
         level: str = "INFO",
         message: str | None = None,
         payload_json: dict[str, Any] | None = None,
     ) -> None:
+        execution = session.get(JobExecution, execution_id)
+        correlation_id = execution.correlation_id if execution is not None else None
+        dedupe_key = None
+        if payload_json:
+            dedupe_key = str(payload_json.get("dedupe_key") or "") or None
+        if dedupe_key is None:
+            dedupe_key = f"{execution_id}:{step_id or 0}:{event_type}:{uuid4().hex[:8]}"
         session.add(
             JobExecutionEvent(
                 execution_id=execution_id,
@@ -638,6 +814,12 @@ class OperationsDispatcher:
                 message=truncate_text(message, OperationsDispatcher.MAX_EVENT_MESSAGE_LENGTH),
                 payload_json=payload_json or {},
                 occurred_at=datetime.now(timezone.utc),
+                event_id=uuid4().hex,
+                event_version=1,
+                correlation_id=correlation_id,
+                unit_id=unit_id,
+                dedupe_key=dedupe_key,
+                producer="runtime",
             )
         )
 

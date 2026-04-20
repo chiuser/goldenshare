@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from src.foundation.config.settings import get_settings
 from src.foundation.kernel.contracts.index_series_active_store import IndexSeriesActiveStore
 from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
@@ -61,6 +62,8 @@ from src.foundation.services.sync.sync_ths_hot_service import SyncThsHotService
 from src.foundation.services.sync.sync_ths_index_service import SyncThsIndexService
 from src.foundation.services.sync.sync_ths_member_service import SyncThsMemberService
 from src.foundation.services.sync.sync_us_basic_service import SyncUsBasicService
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract, has_sync_v2_contract
+from src.foundation.services.sync_v2.service import SyncV2Service
 
 
 SYNC_SERVICE_REGISTRY = {
@@ -174,8 +177,7 @@ def build_sync_service(
     job_state_store: SyncJobStateStore | None = None,
     index_series_active_store: IndexSeriesActiveStore | None = None,
 ):
-    service_cls = SYNC_SERVICE_REGISTRY[resource]
-    service = service_cls(session)
+    service = _build_service_for_resource(resource=resource, session=session)
     if execution_context is not None and hasattr(service, "set_execution_context"):
         service.set_execution_context(execution_context)
     if (run_log_store is not None or job_state_store is not None) and hasattr(service, "set_state_stores"):
@@ -186,3 +188,20 @@ def build_sync_service(
     if index_series_active_store is not None and hasattr(service, "set_index_series_active_store"):
         service.set_index_series_active_store(index_series_active_store)
     return service
+
+
+def _build_service_for_resource(*, resource: str, session: Session):
+    settings = get_settings()
+    enabled_set = {
+        key.strip()
+        for key in str(settings.use_sync_v2_datasets or "").split(",")
+        if key.strip()
+    }
+    if resource in enabled_set and has_sync_v2_contract(resource):
+        return SyncV2Service(
+            session,
+            contract=get_sync_v2_contract(resource),
+            strict_contract=bool(settings.sync_v2_strict_contract),
+        )
+    service_cls = SYNC_SERVICE_REGISTRY[resource]
+    return service_cls(session)

@@ -4,6 +4,7 @@ from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_run_log import SyncRunLog
 
@@ -17,7 +18,9 @@ def test_ops_control_plane_models_expose_primary_keys_and_indexes() -> None:
 
     assert [column.name for column in JobExecution.__table__.primary_key.columns] == ["id"]
     assert {index.name for index in JobExecution.__table__.indexes} == {
+        "idx_job_execution_correlation_requested_at",
         "idx_job_execution_dataset_requested_at",
+        "idx_job_execution_run_profile_requested_at",
         "idx_job_execution_schedule_id_requested_at",
         "idx_job_execution_source_stage_requested_at",
         "idx_job_execution_spec_requested_at",
@@ -32,8 +35,15 @@ def test_ops_control_plane_models_expose_primary_keys_and_indexes() -> None:
 
     assert [column.name for column in JobExecutionEvent.__table__.primary_key.columns] == ["id"]
     assert {index.name for index in JobExecutionEvent.__table__.indexes} == {
+        "idx_job_execution_event_correlation_occurred",
         "idx_job_execution_event_execution_occurred_at",
+        "idx_job_execution_event_execution_step_unit_occurred",
         "idx_job_execution_event_step_occurred_at",
+    }
+    assert [column.name for column in JobExecutionUnit.__table__.primary_key.columns] == ["id"]
+    assert {index.name for index in JobExecutionUnit.__table__.indexes} == {
+        "idx_job_execution_unit_execution_status",
+        "idx_job_execution_unit_step_status",
     }
 
     assert [column.name for column in ConfigRevision.__table__.primary_key.columns] == ["id"]

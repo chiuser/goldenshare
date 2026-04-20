@@ -332,3 +332,6 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     assert probe_payload["total"] == 2
     dataset_keys = sorted(item["dataset_key"] for item in probe_payload["items"])
     assert dataset_keys == ["daily", "daily_basic"]
+    assert all(item["trigger_mode"] == "dataset_execution" for item in probe_payload["items"])
+    assert all(item["workflow_key"] == "daily_market_close_sync" for item in probe_payload["items"])
+    assert all(item["rule_version"] == 1 for item in probe_payload["items"])

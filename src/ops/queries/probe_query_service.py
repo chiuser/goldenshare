@@ -126,6 +126,10 @@ class ProbeQueryService:
                     probed_at=log.probed_at,
                     triggered_execution_id=log.triggered_execution_id,
                     duration_ms=log.duration_ms,
+                    rule_version=log.rule_version,
+                    result_code=log.result_code,
+                    result_reason=log.result_reason,
+                    correlation_id=log.correlation_id,
                 )
                 for log, rule_name, resolved_dataset_key, resolved_source_key in rows
             ],
@@ -138,6 +142,10 @@ class ProbeQueryService:
             schedule_id=rule.schedule_id,
             name=rule.name,
             dataset_key=rule.dataset_key,
+            trigger_mode=rule.trigger_mode,
+            workflow_key=rule.workflow_key,
+            step_key=rule.step_key,
+            rule_version=rule.rule_version,
             source_key=rule.source_key,
             status=rule.status,
             window_start=rule.window_start,

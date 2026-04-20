@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,6 +21,10 @@ class ExecutionContext:
     stage: str | None = None
     policy_version: int | None = None
     run_scope: str | None = None
+    run_profile: str | None = None
+    workflow_profile: str | None = None
+    failure_policy_default: str | None = None
+    resume_from_step_key: str | None = None
 
 
 class OperationsExecutionService:
@@ -53,6 +58,12 @@ class OperationsExecutionService:
             run_scope=resolved_context.run_scope,
             trigger_source=trigger_source,
             status="queued",
+            run_profile=resolved_context.run_profile or self._derive_run_profile(spec_type=spec_type, params_json=params_json or {}),
+            workflow_profile=resolved_context.workflow_profile,
+            failure_policy_default=resolved_context.failure_policy_default or "fail_fast",
+            correlation_id=str((params_json or {}).get("correlation_id") or uuid4().hex),
+            rerun_id=self._to_optional_text((params_json or {}).get("rerun_id")),
+            resume_from_step_key=resolved_context.resume_from_step_key,
             requested_by_user_id=requested_by_user_id,
             requested_at=now,
             queued_at=now,
@@ -74,8 +85,13 @@ class OperationsExecutionService:
                         "stage": resolved_context.stage,
                         "policy_version": resolved_context.policy_version,
                         "run_scope": resolved_context.run_scope,
+                        "run_profile": resolved_context.run_profile,
+                        "workflow_profile": resolved_context.workflow_profile,
                     },
                     occurred_at=now,
+                    correlation_id=execution.correlation_id,
+                    producer="service",
+                    dedupe_key=f"{execution.id}:created:{int(now.timestamp())}",
                 ),
                 JobExecutionEvent(
                     execution_id=execution.id,
@@ -84,6 +100,9 @@ class OperationsExecutionService:
                     message="Execution queued",
                     payload_json={},
                     occurred_at=now,
+                    correlation_id=execution.correlation_id,
+                    producer="service",
+                    dedupe_key=f"{execution.id}:queued:{int(now.timestamp())}",
                 ),
             ]
         )
@@ -109,6 +128,10 @@ class OperationsExecutionService:
                 stage=existing.stage,
                 policy_version=existing.policy_version,
                 run_scope=existing.run_scope,
+                run_profile=existing.run_profile,
+                workflow_profile=existing.workflow_profile,
+                failure_policy_default=existing.failure_policy_default,
+                resume_from_step_key=existing.resume_from_step_key,
             ),
         )
 
@@ -141,6 +164,9 @@ class OperationsExecutionService:
                 message="Cancel requested",
                 payload_json={"requested_by_user_id": requested_by_user_id},
                 occurred_at=now,
+                correlation_id=execution.correlation_id,
+                producer="service",
+                dedupe_key=f"{execution.id}:cancel_requested:{int(now.timestamp())}",
             )
         )
         if execution.status == "canceled":
@@ -152,6 +178,9 @@ class OperationsExecutionService:
                     message="Execution canceled before start",
                     payload_json={"requested_by_user_id": requested_by_user_id},
                     occurred_at=now,
+                    correlation_id=execution.correlation_id,
+                    producer="service",
+                    dedupe_key=f"{execution.id}:canceled:{int(now.timestamp())}",
                 )
             )
         session.commit()
@@ -177,14 +206,28 @@ class OperationsExecutionService:
         stage = str(params_json.get("stage") or "").strip().lower() or None
         policy_version = OperationsExecutionService._to_optional_int(params_json.get("policy_version"))
         run_scope = str(params_json.get("run_scope") or "").strip() or None
+        resume_from_step_key = str(params_json.get("resume_from_step_key") or "").strip() or None
         if run_scope is None:
             run_scope = OperationsExecutionService._derive_run_scope(spec_type=spec_type, spec_key=spec_key, params_json=params_json)
+        run_profile = OperationsExecutionService._derive_run_profile(spec_type=spec_type, params_json=params_json)
+        workflow_profile = None
+        failure_policy_default = str(params_json.get("failure_policy_default") or "").strip() or None
+        if spec_type == "workflow":
+            workflow_spec = get_workflow_spec(spec_key)
+            if workflow_spec is not None:
+                workflow_profile = workflow_spec.workflow_profile
+                if failure_policy_default is None:
+                    failure_policy_default = workflow_spec.failure_policy_default
         return ExecutionContext(
             dataset_key=dataset_key,
             source_key=source_key,
             stage=stage,
             policy_version=policy_version,
             run_scope=run_scope,
+            run_profile=run_profile,
+            workflow_profile=workflow_profile,
+            failure_policy_default=failure_policy_default,
+            resume_from_step_key=resume_from_step_key,
         )
 
     @staticmethod
@@ -198,11 +241,13 @@ class OperationsExecutionService:
         workflow_spec = get_workflow_spec(spec_key)
         if workflow_spec is None:
             return None
-        datasets = {
-            step.job_key.split(".", 1)[1]
-            for step in workflow_spec.steps
-            if "." in step.job_key
-        }
+        datasets: set[str] = set()
+        for step in workflow_spec.steps:
+            if step.dataset_key:
+                datasets.add(step.dataset_key)
+                continue
+            if "." in step.job_key:
+                datasets.add(step.job_key.split(".", 1)[1])
         if len(datasets) == 1:
             return next(iter(datasets))
         return None
@@ -220,6 +265,17 @@ class OperationsExecutionService:
         return "single"
 
     @staticmethod
+    def _derive_run_profile(*, spec_type: str, params_json: dict[str, Any]) -> str:
+        explicit = str(params_json.get("run_profile") or "").strip()
+        if explicit in {"point_incremental", "range_rebuild", "snapshot_refresh"}:
+            return explicit
+        if spec_type == "workflow":
+            return "snapshot_refresh"
+        if any(params_json.get(key) for key in ("start_date", "end_date", "start_month", "end_month")):
+            return "range_rebuild"
+        return "point_incremental"
+
+    @staticmethod
     def _to_optional_int(value: Any) -> int | None:
         if value is None or value == "":
             return None
@@ -227,3 +283,10 @@ class OperationsExecutionService:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _to_optional_text(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None

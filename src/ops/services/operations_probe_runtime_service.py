@@ -54,21 +54,32 @@ class ProbeRuntimeService:
             message: str | None = None
             payload: dict = {}
             execution_id: int | None = None
+            execution_correlation_id: str | None = None
             status = "success"
+            result_code = "miss"
+            result_reason = skip_reason
             try:
                 matched, message, payload = self._evaluate_rule(session, rule, current=current)
                 rule.last_probed_at = started_at
                 if matched:
                     execution = self._enqueue_on_match(session, rule)
                     execution_id = execution.id
+                    execution_correlation_id = execution.correlation_id
                     executions.append(execution)
                     triggered += 1
                     rule.last_triggered_at = datetime.now(timezone.utc)
+                    result_code = "hit"
+                    result_reason = "condition_hit"
+                else:
+                    result_code = "miss"
+                    result_reason = "condition_miss"
             except Exception as exc:  # pragma: no cover - defensive
                 status = "failed"
                 matched = False
                 message = str(exc)
                 payload = {"error": str(exc)}
+                result_code = "error"
+                result_reason = "probe_runtime_error"
             finally:
                 ended_at = datetime.now(timezone.utc)
                 run_log = ProbeRunLog(
@@ -80,6 +91,10 @@ class ProbeRuntimeService:
                     probed_at=started_at,
                     triggered_execution_id=execution_id,
                     duration_ms=max(int((ended_at - started_at).total_seconds() * 1000), 0),
+                    rule_version=rule.rule_version,
+                    result_code=result_code,
+                    result_reason=result_reason,
+                    correlation_id=execution_correlation_id,
                 )
                 session.add(run_log)
                 session.commit()
