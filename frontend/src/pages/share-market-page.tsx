@@ -48,19 +48,29 @@ function renderSnapshotTable(
           {items.map((item) => (
             <Table.Tr key={`${item.ts_code}-${item.trade_date || "na"}`}>
               <OpsTableCell align="left" width="20%">
-                <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">{item.ts_code}</OpsTableCellText>
+                <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">{item.ts_code}</OpsTableCellText>
               </OpsTableCell>
               <OpsTableCell align="left" width="24%">
                 <OpsTableCellText fw={600} size="sm">{item.name || "—"}</OpsTableCellText>
               </OpsTableCell>
               <OpsTableCell align="left" width="18%">
-                <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">{formatDateLabel(item.trade_date)}</OpsTableCellText>
+                <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">{formatDateLabel(item.trade_date)}</OpsTableCellText>
               </OpsTableCell>
               <OpsTableCell width="12%">
                 <OpsTableCellText size="xs">{formatDecimal(item.close, 2)}</OpsTableCellText>
               </OpsTableCell>
               <OpsTableCell width="12%">
-                <OpsTableCellText size="xs" c={(item.pct_change && Number(item.pct_change) > 0) ? "var(--gs-teal)" : (item.pct_change && Number(item.pct_change) < 0) ? "var(--gs-magenta)" : undefined}>
+                <OpsTableCellText
+                  size="xs"
+                  style={{
+                    color:
+                      (item.pct_change && Number(item.pct_change) > 0)
+                        ? "var(--mantine-color-up-6)"
+                        : (item.pct_change && Number(item.pct_change) < 0)
+                          ? "var(--mantine-color-down-6)"
+                          : undefined,
+                  }}
+                >
                   {item.pct_change ? `${formatDecimal(item.pct_change, 2)}%` : "—"}
                 </OpsTableCellText>
               </OpsTableCell>
@@ -99,13 +109,13 @@ export function ShareMarketPage() {
 
       {overviewQuery.isLoading ? <Loader size="sm" /> : null}
       {overviewQuery.error ? (
-        <Alert color="red" title="无法读取市场快照">
+        <Alert color="error" title="无法读取市场快照">
           {overviewQuery.error instanceof Error ? overviewQuery.error.message : "未知错误"}
         </Alert>
       ) : null}
 
       {(overview && !overview.available) ? (
-        <Alert color="yellow" title="数据集市暂不可用">
+        <Alert color="warning" title="数据集市暂不可用">
           {overview.unavailable_reason || "暂时无法读取 dm.equity_daily_snapshot。"}
         </Alert>
       ) : null}

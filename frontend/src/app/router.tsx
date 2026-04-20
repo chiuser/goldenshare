@@ -102,7 +102,7 @@ function RequireAuthenticated({ children }: { children: ReactNode }) {
     if (stuck) {
       return (
         <Center mih="100vh">
-          <Alert color="yellow" title="登录态恢复超时">
+          <Alert color="warning" title="登录态恢复超时">
             <Stack gap="sm">
               <Text size="sm">
                 当前前端在恢复本地登录态时超时了。为了避免页面一直卡在中间转圈，我已经准备好帮你回到登录页重新进入。
@@ -512,7 +512,7 @@ export const router = createRouter({
   ),
   defaultErrorComponent: ({ error }) => (
     <Center mih="100vh">
-      <Alert color="red" title="页面加载失败">
+      <Alert color="error" title="页面加载失败">
         {error instanceof Error ? error.message : "未知错误"}
       </Alert>
     </Center>

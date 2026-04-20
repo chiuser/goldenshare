@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Grid,
   Group,
@@ -19,11 +18,14 @@ import type { ExecutionDetailResponse, ExecutionListResponse, OpsCatalogResponse
 import { formatDateTimeLabel } from "../shared/date-format";
 import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
+import { AlertBar } from "../shared/ui/alert-bar";
 import { EmptyState } from "../shared/ui/empty-state";
+import { FilterBar, FilterBarItem } from "../shared/ui/filter-bar";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
+import { TableShell } from "../shared/ui/table-shell";
 
 function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
   if (!data?.items?.length) {
@@ -115,7 +117,7 @@ export function OpsTasksPage() {
     onSuccess: async (data) => {
       setLastAction(data);
       notifications.show({
-        color: "green",
+        color: "success",
         title: "任务已重新提交",
         message: "系统已经收到新的任务请求。",
       });
@@ -132,7 +134,7 @@ export function OpsTasksPage() {
     onSuccess: async (data) => {
       setLastAction(data);
       notifications.show({
-        color: "green",
+        color: "success",
         title: "已请求停止当前任务",
         message: `任务 #${data.id}`,
       });
@@ -189,11 +191,11 @@ export function OpsTasksPage() {
 
       {(catalogQuery.isLoading || executionsQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || executionsQuery.error ? (
-        <Alert color="red" title="无法读取任务记录">
+        <AlertBar tone="error" title="无法读取任务记录">
           {(catalogQuery.error || executionsQuery.error) instanceof Error
             ? ((catalogQuery.error || executionsQuery.error) as Error).message
             : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       <SectionCard title="任务概览" description="先看当前任务分布，再按状态筛选处理。">
@@ -217,8 +219,18 @@ export function OpsTasksPage() {
       </SectionCard>
 
       <SectionCard title="筛选任务" description="先按状态、发起方式或任务名称筛一遍，再进入详情处理。">
-        <Grid align="end">
-          <Grid.Col span={{ base: 12, md: 4 }}>
+        <FilterBar
+          actions={(
+            <Button
+              variant="light"
+              color="brand"
+              onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}
+            >
+              清空筛选
+            </Button>
+          )}
+        >
+          <FilterBarItem>
             <Select
               label="当前状态"
               clearable
@@ -234,8 +246,8 @@ export function OpsTasksPage() {
               value={filters.status}
               onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
             />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          </FilterBarItem>
+          <FilterBarItem>
             <Select
               label="发起方式"
               clearable
@@ -248,8 +260,8 @@ export function OpsTasksPage() {
               value={filters.trigger_source}
               onChange={(value) => setFilters((current) => ({ ...current, trigger_source: value }))}
             />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
+          </FilterBarItem>
+          <FilterBarItem>
             <Select
               label="任务名称"
               searchable
@@ -258,35 +270,35 @@ export function OpsTasksPage() {
               value={filters.spec_key}
               onChange={(value) => setFilters((current) => ({ ...current, spec_key: value }))}
             />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12 }}>
-            <Group justify="flex-end" gap="xs">
-              <Button
-                variant="light"
-                color="brand"
-                onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}
-              >
-                清空筛选
-              </Button>
-            </Group>
-          </Grid.Col>
-        </Grid>
+          </FilterBarItem>
+        </FilterBar>
       </SectionCard>
 
       <SectionCard title="任务记录" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
-        {(executionsQuery.data?.items?.length ?? 0) > 0 ? (
-          <Stack gap="lg">
-            {lastAction ? (
-              <ActionSummaryCard
-                title="最近一次任务操作"
-                rows={[
-                  { label: "任务名称", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
-                  { label: "当前状态", value: formatStatusLabel(lastAction.status) },
-                  { label: "处理结果", value: buildResultSummary(lastAction) },
-                ]}
-              />
-            ) : null}
-
+        <TableShell
+          hasData={(executionsQuery.data?.items?.length ?? 0) > 0}
+          summary={lastAction ? (
+            <ActionSummaryCard
+              title="最近一次任务操作"
+              rows={[
+                { label: "任务名称", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
+                { label: "当前状态", value: formatStatusLabel(lastAction.status) },
+                { label: "处理结果", value: buildResultSummary(lastAction) },
+              ]}
+            />
+          ) : null}
+          emptyState={(
+            <EmptyState
+              title="当前筛选下没有任务记录"
+              description="可以清空筛选后再看，或者直接去“手动同步”发起新的任务。"
+              action={
+                <Button variant="light" onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}>
+                  清空筛选
+                </Button>
+              }
+            />
+          )}
+        >
             <OpsTable>
               <Table.Thead>
                 <Table.Tr>
@@ -309,7 +321,7 @@ export function OpsTasksPage() {
                       <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell align="left" width="24%">
-                      <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                      <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
                         {formatDateTimeLabel(item.requested_at)}
                       </OpsTableCellText>
                     </OpsTableCell>
@@ -344,7 +356,7 @@ export function OpsTasksPage() {
                             onClick={() => cancelMutation.mutate(item.id)}
                             size="xs"
                             variant="light"
-                            color="red"
+                            color="error"
                           >
                             停止处理
                           </Button>
@@ -355,18 +367,7 @@ export function OpsTasksPage() {
                 ))}
               </Table.Tbody>
             </OpsTable>
-          </Stack>
-        ) : (
-          <EmptyState
-            title="当前筛选下没有任务记录"
-            description="可以清空筛选后再看，或者直接去“手动同步”发起新的任务。"
-            action={
-              <Button variant="light" onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}>
-                清空筛选
-              </Button>
-            }
-          />
-        )}
+        </TableShell>
       </SectionCard>
     </Stack>
   );

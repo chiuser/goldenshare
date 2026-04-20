@@ -40,12 +40,12 @@ export function ForgotPasswordPage() {
     >
       <Stack gap="lg">
         {errorText ? (
-          <Alert color="red" title="提交失败">
+          <Alert color="error" title="提交失败">
             {errorText}
           </Alert>
         ) : null}
         {messageText ? (
-          <Alert color="blue" title="已受理">
+          <Alert color="info" title="已受理">
             {messageText}
           </Alert>
         ) : null}

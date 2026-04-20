@@ -54,7 +54,7 @@ export function LoginPage() {
     >
       <Stack gap="xl">
         {errorText ? (
-          <Alert color="red" title="登录失败">
+          <Alert color="error" title="登录失败">
             {errorText}
           </Alert>
         ) : null}

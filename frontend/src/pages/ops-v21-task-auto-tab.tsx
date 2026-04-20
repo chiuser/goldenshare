@@ -1,14 +1,13 @@
 import {
   Accordion,
-  Alert,
   Badge,
   Button,
   Checkbox,
-  Drawer,
   Grid,
   Group,
   Loader,
   MultiSelect,
+  Paper,
   Select,
   SimpleGrid,
   Stack,
@@ -20,6 +19,7 @@ import { notifications } from "@mantine/notifications";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
@@ -42,6 +42,8 @@ import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
+import { AlertBar } from "../shared/ui/alert-bar";
+import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
@@ -231,6 +233,25 @@ function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextR
     return `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`;
   }
   return `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+}
+
+function DetailInfoPanel({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Paper withBorder radius="md" p="sm" style={{ minHeight: "100%" }}>
+      <Stack gap={6}>
+        <Text c="dimmed" size="xs">
+          {label}
+        </Text>
+        {children}
+      </Stack>
+    </Paper>
+  );
 }
 
 function formatTriggerModeLabel(triggerMode: string): string {
@@ -692,7 +713,7 @@ export function OpsAutomationPage() {
     onSuccess: async (data) => {
       setLastAction(data);
       notifications.show({
-        color: "green",
+        color: "success",
         title: form.id ? "自动任务已更新" : "自动任务已创建",
         message: data.display_name,
       });
@@ -709,7 +730,7 @@ export function OpsAutomationPage() {
     },
     onError: (error) => {
       notifications.show({
-        color: "red",
+        color: "error",
         title: "保存自动任务失败",
         message: error instanceof Error ? error.message : "未知错误",
       });
@@ -724,7 +745,7 @@ export function OpsAutomationPage() {
     onSuccess: async (data) => {
       setLastAction(data);
       notifications.show({
-        color: "green",
+        color: "success",
         title: data.status === "active" ? "自动任务已恢复" : "自动任务已暂停",
         message: data.display_name,
       });
@@ -744,7 +765,7 @@ export function OpsAutomationPage() {
     }),
     onSuccess: async (data) => {
       notifications.show({
-        color: "green",
+        color: "success",
         title: "自动任务已删除",
         message: `任务 #${data.id}`,
       });
@@ -757,7 +778,7 @@ export function OpsAutomationPage() {
     },
     onError: (error) => {
       notifications.show({
-        color: "red",
+        color: "error",
         title: "删除自动任务失败",
         message: error instanceof Error ? error.message : "未知错误",
       });
@@ -820,11 +841,11 @@ export function OpsAutomationPage() {
 
       {(catalogQuery.isLoading || schedulesQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || schedulesQuery.error ? (
-        <Alert color="red" title="无法读取自动运行配置">
+        <AlertBar tone="error" title="无法读取自动运行配置">
           {(catalogQuery.error || schedulesQuery.error) instanceof Error
             ? ((catalogQuery.error || schedulesQuery.error) as Error).message
             : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       <SectionCard title="自动运行概览" description="先看自动任务的整体分布，再选择左侧具体任务继续处理。">
@@ -887,7 +908,7 @@ export function OpsAutomationPage() {
                         <OpsTableCellText size="xs">{formatScheduleTypeLabel(item.schedule_type)}</OpsTableCellText>
                       </OpsTableCell>
                       <OpsTableCell align="left" width="20%">
-                        <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                        <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
                           {formatDateTimeLabel(item.next_run_at)}
                         </OpsTableCellText>
                       </OpsTableCell>
@@ -917,7 +938,7 @@ export function OpsAutomationPage() {
                       修改
                     </Button>
                     <Button
-                      color={detailQuery.data.status === "active" ? "orange" : "brand"}
+                      color={detailQuery.data.status === "active" ? "warning" : "brand"}
                       onClick={() =>
                         toggleMutation.mutate(detailQuery.data?.status === "active" ? "pause" : "resume")
                       }
@@ -925,7 +946,7 @@ export function OpsAutomationPage() {
                       {detailQuery.data.status === "active" ? "暂停自动运行" : "恢复自动运行"}
                     </Button>
                     <Button
-                      color="red"
+                      color="error"
                       variant="light"
                       loading={deleteMutation.isPending}
                       onClick={() => {
@@ -944,90 +965,48 @@ export function OpsAutomationPage() {
               {detailQuery.isLoading ? <Loader size="sm" /> : null}
               {detailQuery.data ? (
                 <Stack gap="md">
-                  <Text fw={800} size="lg">{detailQuery.data.display_name}</Text>
+                  <Text fw={600} size="lg">{detailQuery.data.display_name}</Text>
                   <Group gap="xs">
                     <StatusBadge value={detailQuery.data.status} />
                     <Badge variant="light">{formatScheduleTypeLabel(detailQuery.data.schedule_type)}</Badge>
-                    <Badge variant="light" color="violet">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Badge>
+                    <Badge variant="light" color="info">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Badge>
                     <Badge variant="light">{formatTimezoneLabel(detailQuery.data.timezone)}</Badge>
                   </Group>
                   <Grid gutter="sm">
                     <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Stack
-                        gap={4}
-                        p="sm"
-                        bg="var(--mantine-color-gray-0)"
-                        bd="1px solid var(--mantine-color-gray-2)"
-                        style={{ borderRadius: "var(--mantine-radius-md)" }}
-                      >
-                        <Text c="dimmed" size="xs">执行对象</Text>
+                      <DetailInfoPanel label="执行对象">
                         <Text size="sm">{formatSpecDisplayLabel(detailQuery.data.spec_key, detailQuery.data.spec_display_name)}</Text>
-                      </Stack>
+                      </DetailInfoPanel>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Stack
-                        gap={4}
-                        p="sm"
-                        bg="var(--mantine-color-gray-0)"
-                        bd="1px solid var(--mantine-color-gray-2)"
-                        style={{ borderRadius: "var(--mantine-radius-md)" }}
-                      >
-                        <Text c="dimmed" size="xs">下次运行</Text>
-                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
+                      <DetailInfoPanel label="下次运行">
+                        <Text ff="var(--mantine-font-family-monospace)" size="sm">
                           {formatDateTimeLabel(detailQuery.data.next_run_at)}
                         </Text>
-                      </Stack>
+                      </DetailInfoPanel>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Stack
-                        gap={4}
-                        p="sm"
-                        bg="var(--mantine-color-gray-0)"
-                        bd="1px solid var(--mantine-color-gray-2)"
-                        style={{ borderRadius: "var(--mantine-radius-md)" }}
-                      >
-                        <Text c="dimmed" size="xs">上次触发</Text>
-                        <Text ff="IBM Plex Mono, SFMono-Regular, monospace" size="sm">
+                      <DetailInfoPanel label="上次触发">
+                        <Text ff="var(--mantine-font-family-monospace)" size="sm">
                           {formatDateTimeLabel(detailQuery.data.last_triggered_at)}
                         </Text>
-                      </Stack>
+                      </DetailInfoPanel>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Stack
-                        gap={4}
-                        p="sm"
-                        bg="var(--mantine-color-gray-0)"
-                        bd="1px solid var(--mantine-color-gray-2)"
-                        style={{ borderRadius: "var(--mantine-radius-md)" }}
-                      >
-                        <Text c="dimmed" size="xs">调度策略</Text>
+                      <DetailInfoPanel label="调度策略">
                         <Text size="sm">
                           {formatScheduleRule(detailQuery.data.schedule_type, detailQuery.data.cron_expr, detailQuery.data.next_run_at)}
                         </Text>
-                      </Stack>
+                      </DetailInfoPanel>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <Stack
-                        gap={4}
-                        p="sm"
-                        bg="var(--mantine-color-gray-0)"
-                        bd="1px solid var(--mantine-color-gray-2)"
-                        style={{ borderRadius: "var(--mantine-radius-md)" }}
-                      >
-                        <Text c="dimmed" size="xs">触发方式</Text>
+                      <DetailInfoPanel label="触发方式">
                         <Text size="sm">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Text>
-                      </Stack>
+                      </DetailInfoPanel>
                     </Grid.Col>
                   </Grid>
                   {(detailQuery.data.trigger_mode !== "schedule" && detailQuery.data.probe_config) ? (
-                    <Stack
-                      gap={6}
-                      p="sm"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-md)" }}
-                    >
-                      <Text c="dimmed" size="xs">探测配置</Text>
+                    <DetailInfoPanel label="探测配置">
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测窗口</Text><Text size="sm">{detailQuery.data.probe_config.window_start || "—"} ~ {detailQuery.data.probe_config.window_end || "—"}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
@@ -1042,17 +1021,10 @@ export function OpsAutomationPage() {
                           </Text>
                         </Group>
                       ) : null}
-                    </Stack>
+                    </DetailInfoPanel>
                   ) : null}
                   {(detailQuery.data.trigger_mode !== "schedule") ? (
-                    <Stack
-                      gap={6}
-                      p="sm"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-md)" }}
-                    >
-                      <Text c="dimmed" size="xs">探测规则运行状态</Text>
+                    <DetailInfoPanel label="探测规则运行状态">
                       {probeRulesQuery.isLoading ? <Text size="sm" c="dimmed">正在读取探测规则…</Text> : null}
                       {probeRulesQuery.data?.items?.length ? (
                         probeRulesQuery.data.items.map((rule) => (
@@ -1068,16 +1040,9 @@ export function OpsAutomationPage() {
                       ) : (
                         <Text size="sm" c="dimmed">当前还没有探测规则。</Text>
                       )}
-                    </Stack>
+                    </DetailInfoPanel>
                   ) : null}
-                  <Stack
-                    gap={6}
-                    p="sm"
-                    bg="var(--mantine-color-gray-0)"
-                    bd="1px solid var(--mantine-color-gray-2)"
-                    style={{ borderRadius: "var(--mantine-radius-md)" }}
-                  >
-                    <Text c="dimmed" size="xs">任务参数</Text>
+                  <DetailInfoPanel label="任务参数">
                     {Object.keys(detailQuery.data.params_json || {}).length ? (
                       Object.entries(detailQuery.data.params_json || {}).map(([key, value]) => (
                         <Group key={key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
@@ -1088,16 +1053,9 @@ export function OpsAutomationPage() {
                     ) : (
                       <Text size="sm">无额外参数（系统使用默认策略）</Text>
                     )}
-                  </Stack>
+                  </DetailInfoPanel>
                   {detailQuery.data.last_triggered_at ? (
-                    <Stack
-                      gap={6}
-                      p="sm"
-                      bg="var(--mantine-color-gray-0)"
-                      bd="1px solid var(--mantine-color-gray-2)"
-                      style={{ borderRadius: "var(--mantine-radius-md)" }}
-                    >
-                      <Text c="dimmed" size="xs">上次执行结果</Text>
+                    <DetailInfoPanel label="上次执行结果">
                       {latestExecutionQuery.isLoading ? (
                         <Text size="sm" c="dimmed">正在读取上次执行结果…</Text>
                       ) : latestExecutionQuery.data ? (
@@ -1108,7 +1066,7 @@ export function OpsAutomationPage() {
                           </Group>
                           <Group justify="space-between" align="center">
                             <Text size="sm" c="dimmed">触发时间</Text>
-                            <Text size="sm" ff="IBM Plex Mono, SFMono-Regular, monospace">
+                            <Text size="sm" ff="var(--mantine-font-family-monospace)">
                               {formatDateTimeLabel(latestExecutionQuery.data.requested_at)}
                             </Text>
                           </Group>
@@ -1134,7 +1092,7 @@ export function OpsAutomationPage() {
                       ) : (
                         <Text size="sm" c="dimmed">该任务已有触发记录，但暂未查到执行明细。</Text>
                       )}
-                    </Stack>
+                    </DetailInfoPanel>
                   ) : null}
                   <Button
                     component="a"
@@ -1185,7 +1143,7 @@ export function OpsAutomationPage() {
                           <OpsTableCellText size="xs">{item.changed_by_username || "系统"}</OpsTableCellText>
                         </OpsTableCell>
                         <OpsTableCell align="left" width="40%">
-                          <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">
+                          <OpsTableCellText ff="var(--mantine-font-family-monospace)" size="xs">
                             {formatDateTimeLabel(item.changed_at)}
                           </OpsTableCellText>
                         </OpsTableCell>
@@ -1203,10 +1161,20 @@ export function OpsAutomationPage() {
         </Grid.Col>
       </Grid>
 
-      <Drawer
+      <DetailDrawer
+        description="统一维护调度规则、探测触发与同步参数。"
+        footer={
+          <>
+            <Button variant="default" onClick={close}>
+              取消
+            </Button>
+            <Button loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+              {form.id ? "保存修改" : "创建自动任务"}
+            </Button>
+          </>
+        }
         opened={opened}
         onClose={close}
-        position="right"
         size="lg"
         title={form.id ? "修改自动任务" : "新建自动任务"}
       >
@@ -1602,7 +1570,7 @@ export function OpsAutomationPage() {
                       </Grid>
                     </Stack>
                   ) : null}
-                  <Alert color="indigo" variant="light" title="系统将按以下参数执行（只读）">
+                  <AlertBar title="系统将按以下参数执行（只读）">
                     <Stack gap={6}>
                       <Text size="sm">触发方式：{formatTriggerModeLabel(form.trigger_mode)}</Text>
                       <Text size="sm">调度策略：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}</Text>
@@ -1619,20 +1587,14 @@ export function OpsAutomationPage() {
                         {JSON.stringify(resolvedParamsJson, null, 2)}
                       </Text>
                     </Stack>
-                  </Alert>
+                  </AlertBar>
                 </Stack>
               </Accordion.Panel>
             </Accordion.Item>
           </Accordion>
 
-          <Group justify="flex-end">
-            <Button loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
-              {form.id ? "保存修改" : "创建自动任务"}
-            </Button>
-          </Group>
-
           {previewQuery.data ? (
-            <Alert color="blue" variant="light" title="预览未来 5 次运行时间（自动更新）">
+            <AlertBar title="预览未来 5 次运行时间（自动更新）">
               <Stack gap={4}>
                 {previewQuery.data.preview_times.map((item) => (
                   <Text key={item} size="sm">
@@ -1640,10 +1602,10 @@ export function OpsAutomationPage() {
                   </Text>
                 ))}
               </Stack>
-            </Alert>
+            </AlertBar>
           ) : null}
         </Stack>
-      </Drawer>
+      </DetailDrawer>
     </Stack>
   );
 }

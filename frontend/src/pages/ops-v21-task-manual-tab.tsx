@@ -1,5 +1,4 @@
 import {
-  Alert,
   Badge,
   Button,
   Checkbox,
@@ -33,6 +32,7 @@ import {
   type TimeCapability,
   type TimeMode,
 } from "../shared/ops-time-capability";
+import { AlertBar } from "../shared/ui/alert-bar";
 import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
@@ -738,7 +738,7 @@ export function OpsManualSyncPage() {
     },
     onSuccess: async (data) => {
       notifications.show({
-        color: "green",
+        color: "success",
         title: "任务已提交",
         message: "系统已经收到这次同步请求，正在为你打开任务详情页。",
       });
@@ -746,7 +746,7 @@ export function OpsManualSyncPage() {
     },
     onError: (error) => {
       notifications.show({
-        color: "red",
+        color: "error",
         title: "启动任务失败",
         message: error instanceof Error ? error.message : "未知错误",
       });
@@ -761,11 +761,11 @@ export function OpsManualSyncPage() {
 
       {(catalogQuery.isLoading || prefillExecutionQuery.isLoading || prefillScheduleQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || prefillExecutionQuery.error || prefillScheduleQuery.error ? (
-        <Alert color="red" title="无法打开手动同步">
+        <AlertBar tone="error" title="无法打开手动同步">
           {(catalogQuery.error || prefillExecutionQuery.error || prefillScheduleQuery.error) instanceof Error
             ? ((catalogQuery.error || prefillExecutionQuery.error || prefillScheduleQuery.error) as Error).message
             : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       <Grid align="stretch">
@@ -835,15 +835,15 @@ export function OpsManualSyncPage() {
 
               {selectedAction ? (
                 <>
-                  <Alert color="blue" variant="light" title={selectedAction.displayName}>
+                  <AlertBar title={selectedAction.displayName}>
                     <Stack gap={4}>
                       <Text size="sm">所属类型：{selectedAction.categoryLabel}</Text>
                       {selectedAction.description ? <Text size="sm">{selectedAction.description}</Text> : null}
                     </Stack>
-                  </Alert>
+                  </AlertBar>
 
                   {actionGuidance ? (
-                    <Alert color="teal" variant="light" title={actionGuidance.title}>
+                    <AlertBar title={actionGuidance.title}>
                       <Stack gap={4}>
                         {actionGuidance.lines.map((line) => (
                           <Text size="sm" key={line}>
@@ -851,7 +851,7 @@ export function OpsManualSyncPage() {
                           </Text>
                         ))}
                       </Stack>
-                    </Alert>
+                    </AlertBar>
                   ) : null}
 
                   {selectedAction.timeCapability.hasTimeInput ? (

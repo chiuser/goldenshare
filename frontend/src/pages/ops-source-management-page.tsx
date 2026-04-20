@@ -42,7 +42,7 @@ export function OpsSourceManagementPage() {
       >
         {loading ? <Loader size="sm" /> : null}
         {error ? (
-          <Alert color="red" title="读取新版能力数据失败">
+          <Alert color="error" title="读取新版能力数据失败">
             {error instanceof Error ? error.message : "未知错误"}
           </Alert>
         ) : null}

@@ -1,0 +1,3058 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A 股数据平台 · 组件库 v1.0</title>
+<style>
+/* ============================================================ */
+/* 0. TOKENS                                                    */
+/* ============================================================ */
+:root {
+  /* Neutral ramp */
+  --neutral-0: #FFFFFF;
+  --neutral-1: #F7F8FA;
+  --neutral-2: #F0F2F5;
+  --neutral-3: #E5E7EB;
+  --neutral-4: #D1D5DB;
+  --neutral-5: #9CA3AF;
+  --neutral-6: #6B7280;
+  --neutral-7: #4B5563;
+  --neutral-8: #1F2937;
+  --neutral-9: #0F172A;
+
+  /* Brand (海军蓝) */
+  --brand-0: #EAF1FA;
+  --brand-1: #C8DAF0;
+  --brand-2: #9FBDE2;
+  --brand-3: #6E97CD;
+  --brand-4: #3F73B8;
+  --brand-5: #1F5499;
+  --brand-6: #154173;
+  --brand-7: #0E325A;
+
+  /* Up (红涨) */
+  --up-0: #FDECEC;
+  --up-1: #FAD3D3;
+  --up-4: #E04848;
+  --up-6: #A82828;
+  --up-7: #8A1F1F;
+
+  /* Down (绿跌) */
+  --down-0: #E6F4EE;
+  --down-1: #C3E6D4;
+  --down-4: #1F9D6A;
+  --down-6: #0B6E47;
+
+  /* Semantic */
+  --info: #1F5499;        --info-bg: #EAF1FA;
+  --success: #0F8A5F;     --success-bg: #E4F4EC;
+  --warning: #B07B00;     --warning-bg: #FBEFCC;
+  --error: #B42626;       --error-bg: #FBE9E9;
+
+  /* Semantic surface mapping */
+  --bg-page: var(--neutral-1);
+  --bg-surface: var(--neutral-0);
+  --bg-muted: var(--neutral-2);
+  --bg-hover: var(--neutral-2);
+  --bg-selected: var(--brand-0);
+
+  --border-default: var(--neutral-3);
+  --border-hover: var(--neutral-4);
+  --border-strong: var(--neutral-5);
+
+  --text-title: var(--neutral-8);
+  --text-body: var(--neutral-7);
+  --text-muted: var(--neutral-6);
+  --text-hint: var(--neutral-5);
+  --text-on-brand: #FFFFFF;
+
+  /* Shadow — only popovers */
+  --shadow-popover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-modal:   0 12px 32px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04);
+
+  /* Radius */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-full: 9999px;
+
+  /* Fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --neutral-0: #0E1116;
+  --neutral-1: #151921;
+  --neutral-2: #1B2029;
+  --neutral-3: #262C36;
+  --neutral-4: #39414E;
+  --neutral-5: #6E7681;
+  --neutral-6: #8B949E;
+  --neutral-7: #C9D1D9;
+  --neutral-8: #E6EDF3;
+  --neutral-9: #F0F6FC;
+
+  --brand-0: #15243A;
+  --brand-1: #1D355A;
+  --brand-4: #5B8FD9;
+  --brand-5: #3F73B8;
+  --brand-6: #6E97CD;
+
+  --up-0: #3A1A1A;
+  --up-4: #FF5D5D;
+  --up-6: #FF8585;
+
+  --down-0: #0E2A1E;
+  --down-4: #3DD598;
+  --down-6: #74E5B6;
+
+  --info: #5B8FD9;        --info-bg: #15243A;
+  --success: #3DD598;     --success-bg: #0E2A1E;
+  --warning: #E5B23A;     --warning-bg: #3A2D0A;
+  --error: #FF6B6B;       --error-bg: #3A1414;
+
+  --bg-page: var(--neutral-0);
+  --bg-surface: var(--neutral-1);
+  --bg-muted: var(--neutral-2);
+
+  --text-title: var(--neutral-8);
+  --text-body: var(--neutral-7);
+  --text-muted: var(--neutral-6);
+  --text-hint: var(--neutral-5);
+}
+
+/* ============================================================ */
+/* 1. RESET & BASE                                              */
+/* ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-body);
+  background: var(--bg-page);
+  font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; padding: 0; color: inherit; }
+input, select, textarea { font-family: inherit; }
+a { color: var(--brand-5); text-decoration: none; }
+a:hover { color: var(--brand-6); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ============================================================ */
+/* 2. LAYOUT                                                    */
+/* ============================================================ */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px;
+  background: var(--bg-page);
+  border-right: 1px solid var(--border-default);
+  padding: 20px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-title);
+  padding: 0 8px 20px;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-logo-mark {
+  width: 20px; height: 20px;
+  background: var(--brand-5);
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 11px; font-weight: 500;
+}
+.sidebar-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-hint);
+  letter-spacing: 0.04em;
+  padding: 14px 8px 4px;
+}
+.sidebar-link {
+  display: block;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-body);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  text-decoration: none;
+}
+.sidebar-link:hover { background: var(--bg-muted); color: var(--text-title); }
+.sidebar-link.active {
+  background: var(--brand-0);
+  color: var(--brand-6);
+  font-weight: 500;
+  border-left: 3px solid var(--brand-5);
+  padding-left: 5px;
+}
+
+.main { flex: 1; min-width: 0; }
+
+.topbar {
+  height: 56px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-title { font-size: 14px; font-weight: 500; color: var(--text-title); }
+.topbar-title .badge-env {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px; font-weight: 500;
+  padding: 1px 6px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border-radius: var(--r-sm);
+}
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+.content {
+  padding: 24px;
+  max-width: 1400px;
+}
+
+/* ============================================================ */
+/* 3. SECTION / DEMO BLOCKS                                     */
+/* ============================================================ */
+.page-header {
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px; font-weight: 500; color: var(--text-title);
+  line-height: 1.35;
+}
+.page-header p {
+  margin: 0;
+  font-size: 13px; color: var(--text-muted);
+}
+.section {
+  margin-bottom: 48px;
+  scroll-margin-top: 72px;
+}
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+}
+.section-header h2 {
+  margin: 0;
+  font-size: 18px; font-weight: 500; color: var(--text-title);
+}
+.section-header .section-en {
+  font-size: 12px; color: var(--text-hint); letter-spacing: 0.04em;
+}
+
+.demo-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.demo-block-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+.demo-block-title {
+  margin: 0; font-size: 14px; font-weight: 500; color: var(--text-title);
+}
+.demo-block-title .hint {
+  font-size: 12px; color: var(--text-muted); font-weight: 400; margin-left: 8px;
+}
+.demo-block-desc {
+  margin: 4px 0 0; font-size: 12px; color: var(--text-muted);
+}
+.demo-block-body { padding: 20px; }
+.demo-block-body.pad-sm { padding: 16px 20px; }
+.demo-block-body.no-pad { padding: 0; }
+
+.example-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 12px 0;
+}
+.example-row:first-child { padding-top: 0; }
+.example-row:last-child { padding-bottom: 0; }
+.example-row + .example-row { border-top: 1px dashed var(--border-default); }
+.example-label {
+  flex-shrink: 0;
+  width: 80px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 6px;
+}
+.example-content {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.example-content.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.example-content.wide > * { width: 100%; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+/* ============================================================ */
+/* 4. COMPONENTS                                                */
+/* ============================================================ */
+
+/* ---- Button ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+}
+.btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.btn .icon { width: 14px; height: 14px; }
+
+.btn-filled {
+  background: var(--brand-5);
+  color: #fff;
+  border-color: var(--brand-5);
+}
+.btn-filled:hover:not(:disabled) { background: var(--brand-6); border-color: var(--brand-6); }
+.btn-filled:active:not(:disabled) { background: var(--brand-7); border-color: var(--brand-7); }
+
+.btn-default {
+  background: var(--bg-surface);
+  color: var(--text-body);
+  border-color: var(--border-default);
+}
+.btn-default:hover:not(:disabled) { background: var(--bg-muted); border-color: var(--border-hover); color: var(--text-title); }
+
+.btn-subtle {
+  background: transparent;
+  color: var(--text-body);
+}
+.btn-subtle:hover:not(:disabled) { background: var(--bg-muted); color: var(--text-title); }
+
+.btn-danger {
+  background: var(--bg-surface);
+  color: var(--error);
+  border-color: var(--border-default);
+}
+.btn-danger:hover:not(:disabled) { background: var(--error-bg); border-color: var(--error); }
+
+.btn-filled.btn-danger {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+
+.btn-xs { height: 24px; padding: 0 8px; font-size: 12px; }
+.btn-sm { height: 28px; padding: 0 12px; font-size: 12px; }
+.btn-md { height: 32px; padding: 0 14px; font-size: 13px; }
+.btn-lg { height: 40px; padding: 0 18px; font-size: 14px; }
+
+.btn-icon { width: 32px; padding: 0; }
+.btn-icon.btn-sm { width: 28px; }
+.btn-icon.btn-xs { width: 24px; }
+
+.btn-group { display: inline-flex; }
+.btn-group .btn { border-radius: 0; border-right-width: 0; }
+.btn-group .btn:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
+.btn-group .btn:last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; border-right-width: 1px; }
+
+/* ---- Input / Select / Textarea ---- */
+.input, .select, .textarea {
+  display: block;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--text-title);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+  outline: none;
+}
+.input::placeholder, .textarea::placeholder { color: var(--text-hint); }
+.input:hover, .select:hover, .textarea:hover { border-color: var(--border-hover); }
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--brand-5);
+  box-shadow: 0 0 0 3px var(--brand-0);
+}
+.input.error, .select.error, .textarea.error { border-color: var(--error); }
+.input.error:focus { box-shadow: 0 0 0 3px var(--error-bg); }
+.input:disabled { background: var(--bg-muted); color: var(--text-hint); cursor: not-allowed; }
+.textarea { height: auto; min-height: 96px; padding: 8px 10px; resize: vertical; line-height: 1.55; }
+.select { padding-right: 28px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='1.75'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+
+.input-wrap { position: relative; display: block; }
+.input-wrap .input { padding-left: 32px; }
+.input-wrap .input-icon {
+  position: absolute;
+  left: 10px; top: 50%;
+  transform: translateY(-50%);
+  width: 14px; height: 14px;
+  color: var(--text-hint);
+  pointer-events: none;
+}
+
+/* Label / help text */
+.field { display: block; }
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-body);
+  margin-bottom: 6px;
+}
+.field-label .req { color: var(--up-4); margin-right: 2px; }
+.field-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.field-help.error { color: var(--error); }
+
+/* Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 32px; height: 18px;
+  background: var(--border-default);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: background 120ms ease-out;
+  vertical-align: middle;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 150ms ease-out;
+}
+.switch.on { background: var(--brand-5); }
+.switch.on::after { transform: translateX(14px); }
+.switch.disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Checkbox */
+.chk {
+  display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; user-select: none;
+  font-size: 13px; color: var(--text-body);
+}
+.chk-box {
+  width: 14px; height: 14px;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--r-xs);
+  background: var(--bg-surface);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 120ms ease-out;
+}
+.chk.checked .chk-box {
+  background: var(--brand-5);
+  border-color: var(--brand-5);
+  color: #fff;
+}
+.chk.checked .chk-box::after {
+  content: ''; width: 3px; height: 6px; border: solid #fff; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translate(-0.5px, -0.5px);
+}
+
+/* Radio */
+.rdo {
+  display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; user-select: none;
+  font-size: 13px; color: var(--text-body);
+}
+.rdo-dot {
+  width: 14px; height: 14px;
+  border: 1px solid var(--border-hover);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  position: relative;
+  transition: all 120ms ease-out;
+}
+.rdo.checked .rdo-dot { border-color: var(--brand-5); border-width: 4px; background: var(--bg-surface); }
+
+/* ---- Badge / Tag ---- */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--r-sm);
+  background: var(--bg-muted);
+  color: var(--text-body);
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge-md { height: 22px; font-size: 12px; }
+.badge-sm { height: 18px; font-size: 11px; padding: 0 6px; }
+.badge-info    { background: var(--info-bg); color: var(--info); }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-error   { background: var(--error-bg); color: var(--error); }
+.badge-up      { background: var(--up-0); color: var(--up-6); }
+.badge-down    { background: var(--down-0); color: var(--down-6); }
+
+.dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  vertical-align: middle;
+}
+.dot-info    { background: var(--info); }
+.dot-success { background: var(--success); }
+.dot-warning { background: var(--warning); }
+.dot-error   { background: var(--error); }
+
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-body);
+}
+
+/* ---- Card ---- */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.card-header-main { min-width: 0; }
+.card-header-title { font-size: 14px; font-weight: 500; color: var(--text-title); }
+.card-header-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.card-header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.card-body { padding: 16px; }
+.card-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-page);
+  font-size: 12px; color: var(--text-muted);
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ---- StatCard (KPI) ---- */
+.stat {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--text-title);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.stat-value .unit { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+.stat-delta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Table ---- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.table th, .table td {
+  padding: 0 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+.table th {
+  height: 36px;
+  font-size: 12px; font-weight: 500; color: var(--text-muted);
+  background: var(--bg-muted);
+  position: sticky; top: 0;
+}
+.table.dense td, .table.dense th { padding: 0 12px; }
+.table.dense td { height: 32px; font-size: 13px; color: var(--text-body); }
+.table td { height: 40px; font-size: 13px; color: var(--text-body); }
+.table.comfy td { height: 48px; }
+.table tbody tr { transition: background 120ms ease-out; }
+.table tbody tr:hover { background: var(--bg-muted); }
+.table tbody tr.selected { background: var(--brand-0); box-shadow: inset 2px 0 0 var(--brand-5); }
+.table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table td.code { color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
+.table td.strong { color: var(--text-title); font-weight: 500; }
+.table thead th.sortable { cursor: pointer; user-select: none; }
+.table thead th.sortable .sort-arrow {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--text-hint);
+  font-size: 10px;
+}
+.table thead th.sortable.asc .sort-arrow,
+.table thead th.sortable.desc .sort-arrow { color: var(--brand-5); }
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+.table-toolbar-search { width: 280px; }
+.table-toolbar-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Price / Change text */
+.price {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-title);
+  font-weight: 500;
+}
+.change-up   { color: var(--up-4); font-variant-numeric: tabular-nums; }
+.change-down { color: var(--down-4); font-variant-numeric: tabular-nums; }
+.change-flat { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.chip-limit-up {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--up-0);
+  color: var(--up-6);
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.chip-limit-up.strong {
+  background: var(--up-6);
+  color: #fff;
+}
+.chip-limit-down {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--down-0);
+  color: var(--down-6);
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- List ---- */
+.list { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--r-md); overflow: hidden; }
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+}
+.list-item:last-child { border-bottom: none; }
+.list-item-main { flex: 1; min-width: 0; }
+.list-item-title { font-size: 13px; font-weight: 500; color: var(--text-title); }
+.list-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.list-item-action { flex-shrink: 0; }
+.list-item-icon {
+  width: 32px; height: 32px;
+  background: var(--bg-muted);
+  border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ---- Timeline ---- */
+.timeline { padding: 4px 0; }
+.timeline-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.timeline-time {
+  flex-shrink: 0;
+  width: 100px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+.timeline-track {
+  position: relative;
+  width: 1px;
+  background: var(--border-default);
+  align-self: stretch;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.timeline-dot {
+  position: absolute;
+  top: -3px; left: -4px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  border: 2px solid var(--bg-surface);
+}
+.timeline-dot.info    { background: var(--info); }
+.timeline-dot.success { background: var(--success); }
+.timeline-dot.warning { background: var(--warning); }
+.timeline-dot.error   { background: var(--error); }
+.timeline-dot.pending {
+  box-shadow: 0 0 0 3px var(--info-bg);
+  animation: tl-pulse 1.5s ease-in-out infinite;
+}
+@keyframes tl-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--info-bg); }
+  50% { box-shadow: 0 0 0 5px var(--info-bg); }
+}
+.timeline-content {
+  flex: 1;
+  padding-bottom: 16px;
+  min-width: 0;
+}
+.timeline-row:last-child .timeline-content { padding-bottom: 0; }
+.timeline-title { font-size: 13px; font-weight: 500; color: var(--text-title); }
+.timeline-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* ---- Alert ---- */
+.alert {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-left-width: 3px;
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  font-size: 13px;
+  color: var(--text-body);
+}
+.alert-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--text-muted); }
+.alert-main { flex: 1; min-width: 0; }
+.alert-title { font-weight: 500; color: var(--text-title); margin-bottom: 2px; }
+.alert-desc { color: var(--text-muted); font-size: 12px; }
+.alert-info    { border-left-color: var(--info); }
+.alert-info .alert-icon    { color: var(--info); }
+.alert-success { border-left-color: var(--success); }
+.alert-success .alert-icon { color: var(--success); }
+.alert-warning { border-left-color: var(--warning); }
+.alert-warning .alert-icon { color: var(--warning); }
+.alert-error   { border-left-color: var(--error); }
+.alert-error .alert-icon   { color: var(--error); }
+
+/* ---- Toast / Notification ---- */
+.toast {
+  width: 360px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  box-shadow: var(--shadow-popover);
+}
+.toast-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.toast-main { flex: 1; min-width: 0; }
+.toast-title { font-size: 13px; font-weight: 500; color: var(--text-title); margin-bottom: 2px; }
+.toast-desc  { font-size: 12px; color: var(--text-muted); }
+.toast.success .toast-icon { color: var(--success); }
+.toast.error   .toast-icon { color: var(--error); }
+.toast.warning .toast-icon { color: var(--warning); }
+.toast.info    .toast-icon { color: var(--info); }
+
+/* ---- Modal (inline preview) ---- */
+.modal-shell {
+  position: relative;
+  height: 360px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.modal-shell::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+}
+.modal-panel {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  background: var(--bg-surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+.modal-header { padding: 14px 20px; border-bottom: 1px solid var(--border-default); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; font-size: 15px; font-weight: 500; color: var(--text-title); }
+.modal-body { padding: 16px 20px; font-size: 13px; color: var(--text-body); }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--border-default); display: flex; gap: 8px; justify-content: flex-end; background: var(--bg-page); }
+
+/* ---- Drawer (inline preview) ---- */
+.drawer-shell {
+  position: relative;
+  height: 360px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-end;
+}
+.drawer-shell::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+}
+.drawer-panel {
+  position: relative;
+  width: 380px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-default);
+  box-shadow: var(--shadow-modal);
+  display: flex; flex-direction: column;
+}
+.drawer-header { padding: 14px 20px; border-bottom: 1px solid var(--border-default); display: flex; justify-content: space-between; align-items: center; }
+.drawer-header h3 { margin: 0; font-size: 15px; font-weight: 500; color: var(--text-title); }
+.drawer-body { padding: 20px; flex: 1; font-size: 13px; color: var(--text-body); }
+.drawer-footer { padding: 12px 20px; border-top: 1px solid var(--border-default); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ---- Skeleton ---- */
+.skeleton {
+  background: var(--bg-muted);
+  border-radius: var(--r-xs);
+  animation: sk-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes sk-shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.skeleton.text { height: 12px; }
+.skeleton.title { height: 18px; }
+.skeleton.circle { border-radius: 50%; }
+
+/* ---- Progress ---- */
+.progress {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--brand-5);
+  border-radius: var(--r-full);
+  transition: width 200ms ease-out;
+}
+.progress-fill.success { background: var(--success); }
+.progress-fill.warning { background: var(--warning); }
+.progress-fill.error   { background: var(--error); }
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Empty ---- */
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+}
+.empty-icon { margin: 0 auto 12px; width: 32px; height: 32px; color: var(--text-hint); }
+.empty-title { font-size: 14px; font-weight: 500; color: var(--text-body); margin-bottom: 4px; }
+.empty-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+
+/* ---- Tabs ---- */
+.tabs {
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  gap: 0;
+}
+.tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  font-weight: 400;
+  transition: color 120ms ease-out;
+}
+.tab:hover { color: var(--text-body); }
+.tab.active {
+  color: var(--text-title);
+  font-weight: 500;
+}
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 12px; right: 12px;
+  height: 2px;
+  background: var(--brand-5);
+}
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-size: 11px;
+  border-radius: var(--r-full);
+  font-weight: 400;
+}
+.tab.active .tab-count { background: var(--brand-0); color: var(--brand-6); }
+
+/* ---- Breadcrumb ---- */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  gap: 6px;
+}
+.breadcrumb a { color: var(--text-muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--text-title); }
+.breadcrumb .separator { color: var(--text-hint); }
+.breadcrumb .current { color: var(--text-body); }
+
+/* ---- Pagination ---- */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-body);
+}
+.pagination-btn {
+  min-width: 28px; height: 28px;
+  padding: 0 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-body);
+  font-size: 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.pagination-btn:hover { background: var(--bg-muted); border-color: var(--border-hover); }
+.pagination-btn.active {
+  background: var(--brand-5);
+  color: #fff;
+  border-color: var(--brand-5);
+}
+.pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination-info { margin-right: 12px; font-size: 12px; color: var(--text-muted); }
+
+/* ---- Steps ---- */
+.steps { display: flex; align-items: flex-start; gap: 0; }
+.step { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; }
+.step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 11px; left: calc(50% + 14px); right: calc(-50% + 14px);
+  height: 1px;
+  background: var(--border-default);
+}
+.step.done:not(:last-child)::after { background: var(--brand-5); }
+.step-mark {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 500;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+  position: relative;
+}
+.step.done .step-mark {
+  background: var(--brand-5);
+  color: #fff;
+  border-color: var(--brand-5);
+}
+.step.current .step-mark {
+  background: var(--bg-surface);
+  color: var(--brand-5);
+  border-color: var(--brand-5);
+  box-shadow: 0 0 0 3px var(--brand-0);
+}
+.step-title { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+.step.current .step-title, .step.done .step-title { color: var(--text-title); }
+
+/* ---- Dropdown Menu (static preview) ---- */
+.menu {
+  width: 200px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 4px;
+  box-shadow: var(--shadow-popover);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-body);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--bg-muted); color: var(--text-title); }
+.menu-item.danger { color: var(--error); }
+.menu-item.danger:hover { background: var(--error-bg); }
+.menu-shortcut { margin-left: auto; font-size: 11px; color: var(--text-hint); font-family: var(--font-mono); }
+.menu-divider { height: 1px; background: var(--border-default); margin: 4px -4px; }
+.menu-section { padding: 6px 8px 2px; font-size: 11px; font-weight: 500; color: var(--text-hint); letter-spacing: 0.04em; }
+
+/* ---- Tooltip (static preview) ---- */
+.tooltip-preview {
+  position: relative;
+  display: inline-block;
+  padding-top: 32px;
+}
+.tooltip {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  background: var(--neutral-8);
+  color: var(--neutral-0);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  white-space: nowrap;
+  box-shadow: var(--shadow-popover);
+}
+[data-theme="dark"] .tooltip {
+  background: var(--neutral-3);
+  color: var(--neutral-8);
+}
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%; left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--neutral-8);
+}
+[data-theme="dark"] .tooltip::after { border-top-color: var(--neutral-3); }
+
+/* ---- Avatar ---- */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand-0);
+  color: var(--brand-6);
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatar-xs { width: 20px; height: 20px; font-size: 10px; }
+.avatar-sm { width: 24px; height: 24px; font-size: 11px; }
+.avatar-md { width: 32px; height: 32px; font-size: 13px; }
+.avatar-lg { width: 40px; height: 40px; font-size: 14px; }
+.avatar-group { display: inline-flex; }
+.avatar-group .avatar { border: 2px solid var(--bg-surface); margin-left: -8px; }
+.avatar-group .avatar:first-child { margin-left: 0; }
+
+/* ---- Limit-Up Ladder (连板天梯) ---- */
+.ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ladder-rung {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+}
+.ladder-mark {
+  flex-shrink: 0;
+  width: 44px;
+  background: var(--up-0);
+  color: var(--up-6);
+  border-radius: var(--r-sm);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 500;
+}
+.ladder-mark.strong { background: var(--up-4); color: #fff; }
+.ladder-mark.ultra  { background: var(--up-6); color: #fff; }
+.ladder-mark b { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ladder-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.ladder-stock {
+  min-width: 120px;
+  padding: 6px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 120ms ease-out;
+}
+.ladder-stock:hover { border-color: var(--up-4); background: var(--up-0); }
+.ladder-stock-name { font-size: 13px; font-weight: 500; color: var(--text-title); }
+.ladder-stock-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ladder-stock-meta .change-up { color: var(--up-4); font-weight: 500; }
+
+/* ---- Mini-chart placeholders ---- */
+.chart-placeholder {
+  border: 1px dashed var(--border-default);
+  background: var(--bg-page);
+  border-radius: var(--r-md);
+  padding: 24px;
+  text-align: center;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+/* ---- Heatmap ---- */
+.heatmap { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; }
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: var(--r-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.heatmap-cell.u1 { background: #FEE2E2; color: #A82828; }
+.heatmap-cell.u2 { background: #FCBFBF; color: #8A1F1F; }
+.heatmap-cell.u3 { background: #F59E9E; color: #fff; }
+.heatmap-cell.u4 { background: #E04848; color: #fff; }
+.heatmap-cell.u5 { background: #A82828; color: #fff; }
+.heatmap-cell.d1 { background: #D1ECDD; color: #0B6E47; }
+.heatmap-cell.d2 { background: #9ED6B6; color: #0B6E47; }
+.heatmap-cell.d3 { background: #5DBC8E; color: #fff; }
+.heatmap-cell.d4 { background: #1F9D6A; color: #fff; }
+.heatmap-cell.flat { background: var(--bg-muted); color: var(--text-muted); }
+
+/* ---- Code block ---- */
+.code {
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-body);
+  overflow-x: auto;
+}
+
+/* ---- Color swatch ---- */
+.swatch-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.swatch {
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 8px;
+}
+.swatch-chip { width: 100%; aspect-ratio: 2; border-radius: var(--r-xs); margin-bottom: 6px; border: 1px solid var(--border-default); }
+.swatch-name { font-size: 11px; color: var(--text-body); font-family: var(--font-mono); }
+.swatch-value { font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); }
+
+/* ---- Typography demo ---- */
+.type-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px dashed var(--border-default); }
+.type-row:last-child { border-bottom: none; }
+.type-row .type-label { width: 140px; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); flex-shrink: 0; }
+.type-row .type-sample { color: var(--text-title); }
+
+/* ---- Icons ---- */
+.icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.15em; }
+.icon-xs { width: 12px; height: 12px; }
+.icon-sm { width: 14px; height: 14px; }
+.icon-md { width: 16px; height: 16px; }
+.icon-lg { width: 20px; height: 20px; }
+
+/* ---- Theme toggle ---- */
+.theme-toggle {
+  display: inline-flex;
+  background: var(--bg-muted);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+.theme-toggle button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-radius: 3px;
+}
+.theme-toggle button.active {
+  background: var(--bg-surface);
+  color: var(--text-title);
+  font-weight: 500;
+}
+
+/* ---- Top KPI row demo ---- */
+.sample-page {
+  background: var(--bg-page);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 24px;
+}
+</style>
+</head>
+<body>
+
+<!-- Inline SVG icon library -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 10"/></symbol>
+    <symbol id="i-alert-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-mark">A</div>
+      <span>组件库 v1.0</span>
+    </div>
+    <div class="sidebar-section-label">概览</div>
+    <a class="sidebar-link active" href="#sample">样板页</a>
+    <a class="sidebar-link" href="#tokens">Tokens</a>
+    <a class="sidebar-link" href="#typography">排版</a>
+    <div class="sidebar-section-label">基础</div>
+    <a class="sidebar-link" href="#buttons">按钮</a>
+    <a class="sidebar-link" href="#forms">表单控件</a>
+    <a class="sidebar-link" href="#badges">标签与状态</a>
+    <a class="sidebar-link" href="#avatars">头像</a>
+    <div class="sidebar-section-label">数据展示</div>
+    <a class="sidebar-link" href="#cards">卡片</a>
+    <a class="sidebar-link" href="#stats">KPI 卡</a>
+    <a class="sidebar-link" href="#tables">数据表</a>
+    <a class="sidebar-link" href="#lists">列表</a>
+    <a class="sidebar-link" href="#timelines">时间轴</a>
+    <div class="sidebar-section-label">反馈</div>
+    <a class="sidebar-link" href="#alerts">Alert</a>
+    <a class="sidebar-link" href="#toasts">通知</a>
+    <a class="sidebar-link" href="#modals">Modal / Drawer</a>
+    <a class="sidebar-link" href="#empty">空状态</a>
+    <a class="sidebar-link" href="#loading">加载与进度</a>
+    <div class="sidebar-section-label">导航</div>
+    <a class="sidebar-link" href="#navigation">面包屑 / Tabs / 分页</a>
+    <a class="sidebar-link" href="#menus">下拉菜单</a>
+    <a class="sidebar-link" href="#steps">步骤条</a>
+    <div class="sidebar-section-label">数据后台特色</div>
+    <a class="sidebar-link" href="#price">价格与涨跌</a>
+    <a class="sidebar-link" href="#ladder">连板天梯</a>
+    <a class="sidebar-link" href="#charts">图表占位</a>
+    <a class="sidebar-link" href="#heatmap">热力图</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-title">
+        A 股数据基座 · 组件库
+        <span class="badge-env">v1.0</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="theme-toggle">
+          <button class="active" onclick="setTheme('light', this)">亮色</button>
+          <button onclick="setTheme('dark', this)">暗色</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <div class="page-header">
+        <h1>组件库 · A 股数据运营管理后台</h1>
+        <p>本展示页所有组件遵循《设计系统 v1.0》规范。所有样例不使用阴影（浮层除外）、不使用紫色、不使用渐变、不使用大圆角，字重锁定 400/500，数字开启 tabular-nums。</p>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- SAMPLE PAGE                                    -->
+      <!-- ============================================== -->
+      <section id="sample" class="section">
+        <div class="section-header">
+          <h2>样板页</h2>
+          <span class="section-en">Sample Page · 组件在真实业务场景中的协同呈现</span>
+        </div>
+
+        <div class="sample-page">
+          <!-- Page header -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+            <div>
+              <div class="breadcrumb" style="margin-bottom:8px">
+                <a href="#">监控</a>
+                <span class="separator">/</span>
+                <span class="current">监控看板</span>
+              </div>
+              <h1 style="margin:0 0 4px;font-size:22px;font-weight:500;color:var(--text-title);line-height:1.35">监控看板</h1>
+              <p style="margin:0;font-size:13px;color:var(--text-muted)">实时监控采集、计算与服务状态 · <span class="num">2026-04-19 14:32</span></p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-default btn-md"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>刷新</button>
+              <button class="btn btn-default btn-md"><svg class="icon icon-sm"><use href="#i-download"/></svg>导出</button>
+              <button class="btn btn-filled btn-md"><svg class="icon icon-sm"><use href="#i-plus"/></svg>新建任务</button>
+            </div>
+          </div>
+
+          <!-- KPI -->
+          <div class="grid-4" style="margin-bottom:16px">
+            <div class="stat">
+              <div class="stat-label">今日同步表数</div>
+              <div class="stat-value">1,284</div>
+              <div class="stat-delta"><span class="change-down">▼ 12</span> · 较昨日</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">指标成功率</div>
+              <div class="stat-value">99.42<span class="unit">%</span></div>
+              <div class="stat-delta"><span class="change-up">▲ 0.18%</span> · 7 日均</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">活跃订阅</div>
+              <div class="stat-value">86</div>
+              <div class="stat-delta"><span class="change-flat">—</span> · 持平</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">告警（24h）</div>
+              <div class="stat-value">3</div>
+              <div class="stat-delta"><span class="badge badge-warning badge-sm">2 待处理</span></div>
+            </div>
+          </div>
+
+          <!-- Two column -->
+          <div style="display:grid;grid-template-columns:1.7fr 1fr;gap:16px">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-header-main">
+                  <div class="card-header-title">活跃监控对象</div>
+                  <div class="card-header-sub">前 6 条 · <a href="#">查看全部</a></div>
+                </div>
+                <div class="card-header-actions">
+                  <button class="btn btn-subtle btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-filter"/></svg></button>
+                </div>
+              </div>
+              <table class="table dense">
+                <thead>
+                  <tr>
+                    <th>代码</th><th>名称</th><th class="num">现价</th><th class="num">涨跌幅</th><th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="code">300763</td><td class="strong">锦浪科技</td><td class="num price">62.48</td><td class="num change-up">+3.21%</td><td><span class="badge badge-success badge-sm">正常</span></td></tr>
+                  <tr><td class="code">600519</td><td class="strong">贵州茅台</td><td class="num price">1,438.20</td><td class="num change-down">-0.85%</td><td><span class="badge badge-success badge-sm">正常</span></td></tr>
+                  <tr><td class="code">002230</td><td class="strong">科大讯飞</td><td class="num price">48.62</td><td class="num"><span class="chip-limit-up">+10.00%</span></td><td><span class="badge badge-success badge-sm">正常</span></td></tr>
+                  <tr><td class="code">601318</td><td class="strong">中国平安</td><td class="num price">52.31</td><td class="num change-up">+1.47%</td><td><span class="badge badge-warning badge-sm">延迟</span></td></tr>
+                  <tr><td class="code">000858</td><td class="strong">五粮液</td><td class="num price">142.85</td><td class="num change-down">-1.32%</td><td><span class="badge badge-error badge-sm">失败</span></td></tr>
+                  <tr><td class="code">300750</td><td class="strong">宁德时代</td><td class="num price">218.40</td><td class="num change-flat">0.00%</td><td><span class="badge badge-success badge-sm">正常</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div class="card-header-main"><div class="card-header-title">最近任务流水</div></div>
+              </div>
+              <div class="card-body">
+                <div class="timeline">
+                  <div class="timeline-row">
+                    <div class="timeline-time num">14:30</div>
+                    <div class="timeline-track"><div class="timeline-dot info pending"></div></div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">日线行情同步</div>
+                      <div class="timeline-desc">进行中 · 1,847 / 5,231</div>
+                    </div>
+                  </div>
+                  <div class="timeline-row">
+                    <div class="timeline-time num">14:12</div>
+                    <div class="timeline-track"><div class="timeline-dot success"></div></div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">MACD 增量计算</div>
+                      <div class="timeline-desc">完成 · 用时 38s</div>
+                    </div>
+                  </div>
+                  <div class="timeline-row">
+                    <div class="timeline-time num">13:55</div>
+                    <div class="timeline-track"><div class="timeline-dot error"></div></div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">复权因子拉取失败</div>
+                      <div class="timeline-desc">3 只股票超时 · <a href="#">查看</a></div>
+                    </div>
+                  </div>
+                  <div class="timeline-row">
+                    <div class="timeline-time num">13:30</div>
+                    <div class="timeline-track"><div class="timeline-dot success"></div></div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">基础信息全量校验</div>
+                      <div class="timeline-desc">5,231 条全部一致</div>
+                    </div>
+                  </div>
+                  <div class="timeline-row">
+                    <div class="timeline-time num">12:00</div>
+                    <div class="timeline-track"><div class="timeline-dot"></div></div>
+                    <div class="timeline-content">
+                      <div class="timeline-title">午间检查点</div>
+                      <div class="timeline-desc">系统状态正常</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TOKENS                                         -->
+      <!-- ============================================== -->
+      <section id="tokens" class="section">
+        <div class="section-header">
+          <h2>Tokens · 颜色</h2>
+          <span class="section-en">所有 UI 只用以下四类色板</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header">
+            <div class="demo-block-title">Neutral · 中性灰阶<span class="hint">90% 的界面靠它承担层次</span></div>
+          </div>
+          <div class="demo-block-body">
+            <div class="swatch-grid">
+              <div class="swatch"><div class="swatch-chip" style="background:#FFFFFF"></div><div class="swatch-name">neutral.0</div><div class="swatch-value">#FFFFFF</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#F7F8FA"></div><div class="swatch-name">neutral.1</div><div class="swatch-value">#F7F8FA</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#F0F2F5"></div><div class="swatch-name">neutral.2</div><div class="swatch-value">#F0F2F5</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#E5E7EB"></div><div class="swatch-name">neutral.3</div><div class="swatch-value">#E5E7EB</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#D1D5DB"></div><div class="swatch-name">neutral.4</div><div class="swatch-value">#D1D5DB</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#9CA3AF"></div><div class="swatch-name">neutral.5</div><div class="swatch-value">#9CA3AF</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#6B7280"></div><div class="swatch-name">neutral.6</div><div class="swatch-value">#6B7280</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#4B5563"></div><div class="swatch-name">neutral.7</div><div class="swatch-value">#4B5563</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#1F2937"></div><div class="swatch-name">neutral.8</div><div class="swatch-value">#1F2937</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#0F172A"></div><div class="swatch-name">neutral.9</div><div class="swatch-value">#0F172A</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header">
+            <div class="demo-block-title">Brand · 深海军蓝<span class="hint">主 token 为 brand.5；一屏出现 ≤ 3 处</span></div>
+          </div>
+          <div class="demo-block-body">
+            <div class="swatch-grid">
+              <div class="swatch"><div class="swatch-chip" style="background:#EAF1FA"></div><div class="swatch-name">brand.0</div><div class="swatch-value">#EAF1FA</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#C8DAF0"></div><div class="swatch-name">brand.1</div><div class="swatch-value">#C8DAF0</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#9FBDE2"></div><div class="swatch-name">brand.2</div><div class="swatch-value">#9FBDE2</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#6E97CD"></div><div class="swatch-name">brand.3</div><div class="swatch-value">#6E97CD</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#3F73B8"></div><div class="swatch-name">brand.4</div><div class="swatch-value">#3F73B8</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#1F5499"></div><div class="swatch-name">brand.5 ★</div><div class="swatch-value">#1F5499</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#154173"></div><div class="swatch-name">brand.6</div><div class="swatch-value">#154173</div></div>
+              <div class="swatch"><div class="swatch-chip" style="background:#0E325A"></div><div class="swatch-name">brand.7</div><div class="swatch-value">#0E325A</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Up · 上涨（A 股红）</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+                <div class="swatch"><div class="swatch-chip" style="background:#FDECEC"></div><div class="swatch-name">up.0</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#FAD3D3"></div><div class="swatch-name">up.1</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#E04848"></div><div class="swatch-name">up.4 ★</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#A82828"></div><div class="swatch-name">up.6</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#8A1F1F"></div><div class="swatch-name">up.7</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Down · 下跌（A 股绿）</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+                <div class="swatch"><div class="swatch-chip" style="background:#E6F4EE"></div><div class="swatch-name">down.0</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#C3E6D4"></div><div class="swatch-name">down.1</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#1F9D6A"></div><div class="swatch-name">down.4 ★</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#0B6E47"></div><div class="swatch-name">down.6</div></div>
+                <div class="swatch"><div class="swatch-chip" style="background:#053220"></div><div class="swatch-name">down.9</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header">
+            <div class="demo-block-title">Semantic · 状态色<span class="hint">仅用于系统反馈，不用于数据本身</span></div>
+          </div>
+          <div class="demo-block-body">
+            <div class="grid-4">
+              <div style="padding:12px;background:#EAF1FA;border-radius:6px"><span style="color:#1F5499;font-weight:500;font-size:13px">Info · #1F5499</span><div style="font-size:11px;color:#1F5499;opacity:.7;margin-top:4px">bg: #EAF1FA</div></div>
+              <div style="padding:12px;background:#E4F4EC;border-radius:6px"><span style="color:#0F8A5F;font-weight:500;font-size:13px">Success · #0F8A5F</span><div style="font-size:11px;color:#0F8A5F;opacity:.7;margin-top:4px">bg: #E4F4EC</div></div>
+              <div style="padding:12px;background:#FBEFCC;border-radius:6px"><span style="color:#B07B00;font-weight:500;font-size:13px">Warning · #B07B00</span><div style="font-size:11px;color:#B07B00;opacity:.7;margin-top:4px">bg: #FBEFCC</div></div>
+              <div style="padding:12px;background:#FBE9E9;border-radius:6px"><span style="color:#B42626;font-weight:500;font-size:13px">Error · #B42626</span><div style="font-size:11px;color:#B42626;opacity:.7;margin-top:4px">bg: #FBE9E9</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TYPOGRAPHY                                     -->
+      <!-- ============================================== -->
+      <section id="typography" class="section">
+        <div class="section-header">
+          <h2>排版</h2>
+          <span class="section-en">Typography · 仅 400/500 两种字重</span>
+        </div>
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="type-row"><div class="type-label">h1 · 28 / 500</div><div class="type-sample" style="font-size:28px;font-weight:500;line-height:1.35">行情监控看板</div></div>
+            <div class="type-row"><div class="type-label">h2 · 22 / 500</div><div class="type-sample" style="font-size:22px;font-weight:500;line-height:1.35">监控看板</div></div>
+            <div class="type-row"><div class="type-label">h3 · 18 / 500</div><div class="type-sample" style="font-size:18px;font-weight:500;line-height:1.4">任务执行流水</div></div>
+            <div class="type-row"><div class="type-label">xl · 16 / 500</div><div class="type-sample" style="font-size:16px;font-weight:500">卡片标题 Card Title</div></div>
+            <div class="type-row"><div class="type-label">lg · 14 / 400</div><div class="type-sample" style="font-size:14px">正文 · 默认字号，用于按钮、菜单、链接</div></div>
+            <div class="type-row"><div class="type-label">md · 13 / 400</div><div class="type-sample" style="font-size:13px;color:var(--text-body)">表格正文 · 表单 Label</div></div>
+            <div class="type-row"><div class="type-label">sm · 12 / 400</div><div class="type-sample" style="font-size:12px;color:var(--text-muted)">次级说明、帮助文字、Tag 文字</div></div>
+            <div class="type-row"><div class="type-label">xs · 11 / 500</div><div class="type-sample" style="font-size:11px;color:var(--text-hint);letter-spacing:.04em">NAV GROUP LABEL · 角标</div></div>
+            <div class="type-row"><div class="type-label">num · tabular</div><div class="type-sample num" style="font-size:24px;font-weight:500">1,438.20 · 62.48 · +3.21%</div></div>
+            <div class="type-row"><div class="type-label">mono</div><div class="type-sample" style="font-family:var(--font-mono);font-size:13px">const ratio = 0.382 // fibonacci</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- BUTTONS                                        -->
+      <!-- ============================================== -->
+      <section id="buttons" class="section">
+        <div class="section-header">
+          <h2>按钮 Button</h2>
+          <span class="section-en">主操作一屏 ≤ 1 次，按钮组主按钮在右</span>
+        </div>
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="example-row">
+              <div class="example-label">类型</div>
+              <div class="example-content">
+                <button class="btn btn-filled">主操作</button>
+                <button class="btn btn-default">次操作</button>
+                <button class="btn btn-subtle">弱操作</button>
+                <button class="btn btn-default btn-danger">危险次操作</button>
+                <button class="btn btn-filled btn-danger">危险主操作</button>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">尺寸</div>
+              <div class="example-content">
+                <button class="btn btn-default btn-xs">XS · 24</button>
+                <button class="btn btn-default btn-sm">SM · 28</button>
+                <button class="btn btn-default btn-md">MD · 32</button>
+                <button class="btn btn-default btn-lg">LG · 40</button>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">带图标</div>
+              <div class="example-content">
+                <button class="btn btn-filled"><svg class="icon icon-sm"><use href="#i-plus"/></svg>新建任务</button>
+                <button class="btn btn-default"><svg class="icon icon-sm"><use href="#i-download"/></svg>导出 CSV</button>
+                <button class="btn btn-subtle"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>刷新</button>
+                <button class="btn btn-default btn-icon" aria-label="设置"><svg class="icon icon-sm"><use href="#i-settings"/></svg></button>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">按钮组</div>
+              <div class="example-content">
+                <div class="btn-group">
+                  <button class="btn btn-default btn-sm">日</button>
+                  <button class="btn btn-default btn-sm" style="background:var(--bg-muted);color:var(--text-title)">周</button>
+                  <button class="btn btn-default btn-sm">月</button>
+                </div>
+                <span style="flex:1"></span>
+                <button class="btn btn-default">取消</button>
+                <button class="btn btn-filled">确认提交</button>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">状态</div>
+              <div class="example-content">
+                <button class="btn btn-filled">默认</button>
+                <button class="btn btn-filled" style="background:var(--brand-6);border-color:var(--brand-6)">Hover</button>
+                <button class="btn btn-filled" style="background:var(--brand-7);border-color:var(--brand-7)">Active</button>
+                <button class="btn btn-filled" disabled>Disabled</button>
+                <button class="btn btn-filled"><svg class="icon icon-sm" style="animation:sk-shimmer 1s ease infinite"><use href="#i-refresh"/></svg>加载中</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- FORMS                                          -->
+      <!-- ============================================== -->
+      <section id="forms" class="section">
+        <div class="section-header">
+          <h2>表单控件</h2>
+          <span class="section-en">Form controls · 统一高度 32px</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">文本输入</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="field">
+                  <label class="field-label">股票代码</label>
+                  <input type="text" class="input" placeholder="请输入 6 位代码">
+                  <div class="field-help">支持主板、创业板、科创板</div>
+                </div>
+                <div class="field">
+                  <label class="field-label"><span class="req">*</span>数据源地址</label>
+                  <div class="input-wrap">
+                    <svg class="icon icon-sm input-icon"><use href="#i-search"/></svg>
+                    <input type="text" class="input" value="tushare://daily" placeholder="搜索">
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label"><span class="req">*</span>校验规则（错误态）</label>
+                  <input type="text" class="input error" value="invalid_name@@">
+                  <div class="field-help error">名称只能包含字母、数字和下划线</div>
+                </div>
+                <div class="field">
+                  <label class="field-label">已禁用</label>
+                  <input type="text" class="input" value="system_default" disabled>
+                </div>
+                <div class="field">
+                  <label class="field-label">备注</label>
+                  <textarea class="textarea" placeholder="详细说明此任务的用途..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">选择与开关</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="field">
+                  <label class="field-label">复权类型</label>
+                  <select class="select">
+                    <option>前复权 (qfq)</option>
+                    <option>后复权 (hfq)</option>
+                    <option>不复权</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label">交易日</label>
+                  <div class="input-wrap">
+                    <svg class="icon icon-sm input-icon"><use href="#i-calendar"/></svg>
+                    <input type="text" class="input" value="2026-04-18" readonly>
+                  </div>
+                  <div class="field-help">自动跳过节假日</div>
+                </div>
+                <div class="field">
+                  <label class="field-label">勾选</label>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+                    <span class="chk checked"><span class="chk-box"></span>包含 ST 股票</span>
+                    <span class="chk"><span class="chk-box"></span>包含科创板</span>
+                    <span class="chk checked"><span class="chk-box"></span>自动重试失败任务</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">单选</label>
+                  <div style="display:flex;gap:16px;margin-top:4px">
+                    <span class="rdo checked"><span class="rdo-dot"></span>日线</span>
+                    <span class="rdo"><span class="rdo-dot"></span>60 分钟</span>
+                    <span class="rdo"><span class="rdo-dot"></span>30 分钟</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">开关</label>
+                  <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+                    <span style="display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--text-body)"><span class="switch on"></span> 启用增量模式</span>
+                    <span style="display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--text-body)"><span class="switch"></span> 关闭</span>
+                    <span style="display:inline-flex;align-items:center;gap:10px;font-size:13px;color:var(--text-hint)"><span class="switch on disabled"></span> 已锁定</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- BADGES                                         -->
+      <!-- ============================================== -->
+      <section id="badges" class="section">
+        <div class="section-header">
+          <h2>标签与状态</h2>
+          <span class="section-en">Badge · Tag · Status</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="example-row">
+              <div class="example-label">状态标签</div>
+              <div class="example-content">
+                <span class="badge">默认</span>
+                <span class="badge badge-info">运行中</span>
+                <span class="badge badge-success">已完成</span>
+                <span class="badge badge-warning">待处理</span>
+                <span class="badge badge-error">失败</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">涨跌标签</div>
+              <div class="example-content">
+                <span class="badge badge-up">涨停</span>
+                <span class="badge badge-down">跌停</span>
+                <span class="badge badge-up">连板 3</span>
+                <span class="badge">一字板</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">带状态点</div>
+              <div class="example-content">
+                <span class="status-pill"><span class="dot dot-success"></span> 服务正常</span>
+                <span class="status-pill"><span class="dot dot-warning"></span> 延迟上升</span>
+                <span class="status-pill"><span class="dot dot-error"></span> 已离线</span>
+                <span class="status-pill"><span class="dot dot-info"></span> 同步中</span>
+                <span class="status-pill"><span class="dot"></span> 未启用</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">涨停胶囊</div>
+              <div class="example-content">
+                <span class="chip-limit-up">+10.00%</span>
+                <span class="chip-limit-up strong">+20.00%</span>
+                <span class="chip-limit-down">-10.00%</span>
+                <span class="chip-limit-down">-20.00%</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">尺寸</div>
+              <div class="example-content">
+                <span class="badge badge-info badge-sm">SM</span>
+                <span class="badge badge-info">MD</span>
+                <span class="badge badge-info badge-md">默认</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- AVATARS                                        -->
+      <!-- ============================================== -->
+      <section id="avatars" class="section">
+        <div class="section-header">
+          <h2>头像</h2>
+          <span class="section-en">Avatar · 仅用于人员/机构标识</span>
+        </div>
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="example-row">
+              <div class="example-label">尺寸</div>
+              <div class="example-content">
+                <span class="avatar avatar-xs">M</span>
+                <span class="avatar avatar-sm">M</span>
+                <span class="avatar avatar-md">M</span>
+                <span class="avatar avatar-lg">MR</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">头像组</div>
+              <div class="example-content">
+                <div class="avatar-group">
+                  <span class="avatar avatar-md">M</span>
+                  <span class="avatar avatar-md" style="background:#E4F4EC;color:#0F8A5F">L</span>
+                  <span class="avatar avatar-md" style="background:#FBEFCC;color:#B07B00">W</span>
+                  <span class="avatar avatar-md" style="background:var(--bg-muted);color:var(--text-muted)">+3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- CARDS                                          -->
+      <!-- ============================================== -->
+      <section id="cards" class="section">
+        <div class="section-header">
+          <h2>卡片 Card</h2>
+          <span class="section-en">Card · 数据岛屿，靠边框而非阴影制造层次</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main">
+                <div class="card-header-title">基础卡片</div>
+                <div class="card-header-sub">含 Header / Body / Footer</div>
+              </div>
+              <div class="card-header-actions">
+                <button class="btn btn-subtle btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-dots"/></svg></button>
+              </div>
+            </div>
+            <div class="card-body">
+              <p style="margin:0;font-size:13px;color:var(--text-body)">卡片背景为 <code style="font-family:var(--font-mono);background:var(--bg-muted);padding:1px 4px;border-radius:2px">neutral.0</code>，与页面底色 <code style="font-family:var(--font-mono);background:var(--bg-muted);padding:1px 4px;border-radius:2px">neutral.1</code> 形成层次。无阴影。</p>
+            </div>
+            <div class="card-footer">
+              <span>更新于 2026-04-18 14:32</span>
+              <a href="#">查看详情</a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main">
+                <div class="card-header-title">锦浪科技 · 300763</div>
+                <div class="card-header-sub">光伏设备 · 创业板</div>
+              </div>
+              <div class="card-header-actions">
+                <button class="btn btn-subtle btn-sm">关注</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px">
+                <span class="price" style="font-size:28px;line-height:1.1">62.48</span>
+                <span class="change-up num">+1.94 (+3.21%)</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:12px">
+                <div><div style="color:var(--text-muted)">今开</div><div class="num" style="color:var(--text-title);margin-top:2px">60.80</div></div>
+                <div><div style="color:var(--text-muted)">最高</div><div class="num" style="color:var(--text-title);margin-top:2px">62.88</div></div>
+                <div><div style="color:var(--text-muted)">最低</div><div class="num" style="color:var(--text-title);margin-top:2px">60.50</div></div>
+                <div><div style="color:var(--text-muted)">成交量</div><div class="num" style="color:var(--text-title);margin-top:2px">3.42 万手</div></div>
+                <div><div style="color:var(--text-muted)">成交额</div><div class="num" style="color:var(--text-title);margin-top:2px">2.13 亿</div></div>
+                <div><div style="color:var(--text-muted)">换手率</div><div class="num" style="color:var(--text-title);margin-top:2px">1.28%</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- STATS                                          -->
+      <!-- ============================================== -->
+      <section id="stats" class="section">
+        <div class="section-header">
+          <h2>KPI 卡</h2>
+          <span class="section-en">StatCard · 顶部概览最常见的卡片形态</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="grid-4">
+              <div class="stat">
+                <div class="stat-label">总资产</div>
+                <div class="stat-value">238.42<span class="unit">万</span></div>
+                <div class="stat-delta"><span class="change-up">▲ 2.14%</span> · 日内</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">持仓市值</div>
+                <div class="stat-value">186.30<span class="unit">万</span></div>
+                <div class="stat-delta"><span class="change-up">▲ 3,218</span> · 浮盈</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">可用资金</div>
+                <div class="stat-value">52.12<span class="unit">万</span></div>
+                <div class="stat-delta">仓位 78.1%</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">今日信号</div>
+                <div class="stat-value">14</div>
+                <div class="stat-delta"><span class="badge badge-info badge-sm">8 买入</span> <span class="badge badge-warning badge-sm">6 观察</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TABLES                                         -->
+      <!-- ============================================== -->
+      <section id="tables" class="section">
+        <div class="section-header">
+          <h2>数据表 DataTable</h2>
+          <span class="section-en">数字列一律右对齐，开启 tabular-nums</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header">
+            <div class="demo-block-title">默认密度 · 带工具栏<span class="hint">行高 40px</span></div>
+          </div>
+          <div class="demo-block-body no-pad">
+            <div class="table-toolbar">
+              <div class="input-wrap table-toolbar-search">
+                <svg class="icon icon-sm input-icon"><use href="#i-search"/></svg>
+                <input type="text" class="input" placeholder="搜索代码或名称" style="padding-left:32px">
+              </div>
+              <div class="table-toolbar-actions">
+                <button class="btn btn-default btn-sm"><svg class="icon icon-sm"><use href="#i-filter"/></svg>筛选</button>
+                <button class="btn btn-default btn-sm"><svg class="icon icon-sm"><use href="#i-download"/></svg>导出</button>
+                <button class="btn btn-default btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-settings"/></svg></button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:40px"><span class="chk"><span class="chk-box"></span></span></th>
+                  <th class="sortable">代码</th>
+                  <th>名称</th>
+                  <th>行业</th>
+                  <th class="num sortable desc">现价 <span class="sort-arrow">▼</span></th>
+                  <th class="num">涨跌幅</th>
+                  <th class="num">成交额</th>
+                  <th>状态</th>
+                  <th style="width:80px">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected">
+                  <td><span class="chk checked"><span class="chk-box"></span></span></td>
+                  <td class="code">300763</td>
+                  <td class="strong">锦浪科技</td>
+                  <td>光伏设备</td>
+                  <td class="num price">62.48</td>
+                  <td class="num change-up">+3.21%</td>
+                  <td class="num">2.13 亿</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+                <tr>
+                  <td><span class="chk"><span class="chk-box"></span></span></td>
+                  <td class="code">600519</td>
+                  <td class="strong">贵州茅台</td>
+                  <td>白酒</td>
+                  <td class="num price">1,438.20</td>
+                  <td class="num change-down">-0.85%</td>
+                  <td class="num">18.32 亿</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+                <tr>
+                  <td><span class="chk"><span class="chk-box"></span></span></td>
+                  <td class="code">002230</td>
+                  <td class="strong">科大讯飞</td>
+                  <td>软件服务</td>
+                  <td class="num price">48.62</td>
+                  <td class="num"><span class="chip-limit-up">+10.00%</span></td>
+                  <td class="num">24.88 亿</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+                <tr>
+                  <td><span class="chk"><span class="chk-box"></span></span></td>
+                  <td class="code">601318</td>
+                  <td class="strong">中国平安</td>
+                  <td>保险</td>
+                  <td class="num price">52.31</td>
+                  <td class="num change-up">+1.47%</td>
+                  <td class="num">12.45 亿</td>
+                  <td><span class="badge badge-warning">延迟 4s</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+                <tr>
+                  <td><span class="chk"><span class="chk-box"></span></span></td>
+                  <td class="code">000858</td>
+                  <td class="strong">五粮液</td>
+                  <td>白酒</td>
+                  <td class="num price">142.85</td>
+                  <td class="num change-down">-1.32%</td>
+                  <td class="num">5.27 亿</td>
+                  <td><span class="badge badge-error">同步失败</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+                <tr>
+                  <td><span class="chk"><span class="chk-box"></span></span></td>
+                  <td class="code">300750</td>
+                  <td class="strong">宁德时代</td>
+                  <td>电池</td>
+                  <td class="num price">218.40</td>
+                  <td class="num change-flat">0.00%</td>
+                  <td class="num">8.91 亿</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td><button class="btn btn-subtle btn-xs">查看</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border-default)">
+              <div style="font-size:12px;color:var(--text-muted)">共 6 条 · 已选 1 条</div>
+              <div class="pagination">
+                <button class="pagination-btn" disabled><svg class="icon icon-sm"><use href="#i-chevron-left"/></svg></button>
+                <button class="pagination-btn active">1</button>
+                <button class="pagination-btn">2</button>
+                <button class="pagination-btn">3</button>
+                <button class="pagination-btn"><svg class="icon icon-sm"><use href="#i-chevron-right"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header">
+            <div class="demo-block-title">紧凑密度<span class="hint">行高 32px · 适用于行情、技术指标、天梯</span></div>
+          </div>
+          <div class="demo-block-body no-pad">
+            <table class="table dense">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th class="num">开盘</th>
+                  <th class="num">收盘</th>
+                  <th class="num">最高</th>
+                  <th class="num">最低</th>
+                  <th class="num">成交量</th>
+                  <th class="num">涨跌幅</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="num">2026-04-18</td><td class="num">60.80</td><td class="num price">62.48</td><td class="num">62.88</td><td class="num">60.50</td><td class="num">342,180</td><td class="num change-up">+3.21%</td></tr>
+                <tr><td class="num">2026-04-17</td><td class="num">61.50</td><td class="num price">60.54</td><td class="num">61.80</td><td class="num">60.20</td><td class="num">298,450</td><td class="num change-down">-1.56%</td></tr>
+                <tr><td class="num">2026-04-16</td><td class="num">60.30</td><td class="num price">61.50</td><td class="num">61.90</td><td class="num">60.10</td><td class="num">412,330</td><td class="num change-up">+1.99%</td></tr>
+                <tr><td class="num">2026-04-15</td><td class="num">62.10</td><td class="num price">60.30</td><td class="num">62.40</td><td class="num">60.20</td><td class="num">386,720</td><td class="num change-down">-2.90%</td></tr>
+                <tr><td class="num">2026-04-14</td><td class="num">62.80</td><td class="num price">62.10</td><td class="num">63.20</td><td class="num">61.90</td><td class="num">257,890</td><td class="num change-down">-1.12%</td></tr>
+                <tr><td class="num">2026-04-11</td><td class="num">61.00</td><td class="num price">62.80</td><td class="num">63.00</td><td class="num">60.80</td><td class="num">478,560</td><td class="num change-up">+2.95%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- LISTS                                          -->
+      <!-- ============================================== -->
+      <section id="lists" class="section">
+        <div class="section-header">
+          <h2>列表 List</h2>
+          <span class="section-en">List · 用于设置项、通知、活动流</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main"><div class="card-header-title">设置项列表</div></div>
+            </div>
+            <div>
+              <div class="list-item">
+                <div class="list-item-main">
+                  <div class="list-item-title">夜间模式</div>
+                  <div class="list-item-sub">跟随系统或手动切换</div>
+                </div>
+                <div class="list-item-action">
+                  <span class="switch on"></span>
+                </div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-main">
+                  <div class="list-item-title">涨跌色习惯</div>
+                  <div class="list-item-sub">A 股默认红涨绿跌</div>
+                </div>
+                <div class="list-item-action">
+                  <div class="btn-group">
+                    <button class="btn btn-default btn-sm" style="background:var(--bg-muted);color:var(--text-title)">红涨</button>
+                    <button class="btn btn-default btn-sm">绿涨</button>
+                  </div>
+                </div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-main">
+                  <div class="list-item-title">默认时间频度</div>
+                  <div class="list-item-sub">K 线默认周期</div>
+                </div>
+                <div class="list-item-action" style="width:140px">
+                  <select class="select" style="height:28px"><option>日线</option><option>周线</option></select>
+                </div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-main">
+                  <div class="list-item-title">自动刷新间隔</div>
+                  <div class="list-item-sub">监控面板轮询周期</div>
+                </div>
+                <div class="list-item-action" style="width:120px">
+                  <select class="select" style="height:28px"><option>30 秒</option><option>1 分钟</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main"><div class="card-header-title">通知列表</div></div>
+              <div class="card-header-actions">
+                <button class="btn btn-subtle btn-sm">全部已读</button>
+              </div>
+            </div>
+            <div>
+              <div class="list-item">
+                <div class="list-item-icon" style="background:var(--error-bg);color:var(--error)">
+                  <svg class="icon icon-md"><use href="#i-alert-circle"/></svg>
+                </div>
+                <div class="list-item-main">
+                  <div class="list-item-title">复权因子拉取失败</div>
+                  <div class="list-item-sub">3 只股票超时 · 14:32</div>
+                </div>
+                <div class="list-item-action"><span class="dot dot-error"></span></div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-icon" style="background:var(--info-bg);color:var(--info)">
+                  <svg class="icon icon-md"><use href="#i-database"/></svg>
+                </div>
+                <div class="list-item-main">
+                  <div class="list-item-title">日线同步已完成</div>
+                  <div class="list-item-sub">5,231 条全部入库 · 14:12</div>
+                </div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-icon" style="background:var(--warning-bg);color:var(--warning)">
+                  <svg class="icon icon-md"><use href="#i-alert"/></svg>
+                </div>
+                <div class="list-item-main">
+                  <div class="list-item-title">订阅即将到期</div>
+                  <div class="list-item-sub">Tushare Pro · 还有 7 天 · 13:00</div>
+                </div>
+              </div>
+              <div class="list-item" style="border-top:1px solid var(--border-default)">
+                <div class="list-item-icon"><svg class="icon icon-md"><use href="#i-inbox"/></svg></div>
+                <div class="list-item-main">
+                  <div class="list-item-title">新的周报已生成</div>
+                  <div class="list-item-sub">2026-W16 · 11:00</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TIMELINES                                      -->
+      <!-- ============================================== -->
+      <section id="timelines" class="section">
+        <div class="section-header">
+          <h2>时间轴 Timeline</h2>
+          <span class="section-en">仅进行中节点动，其余静止</span>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <div class="timeline">
+              <div class="timeline-row">
+                <div class="timeline-time num">2026-04-19 14:30</div>
+                <div class="timeline-track"><div class="timeline-dot info pending"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">日线行情同步</div>
+                  <div class="timeline-desc">进行中 · 已完成 1,847 / 5,231 · 预计 8 分钟</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-time num">2026-04-19 14:12</div>
+                <div class="timeline-track"><div class="timeline-dot success"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">MACD 增量计算</div>
+                  <div class="timeline-desc">完成 · 用时 38s · 更新 5,231 条记录</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-time num">2026-04-19 13:55</div>
+                <div class="timeline-track"><div class="timeline-dot error"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">复权因子拉取失败</div>
+                  <div class="timeline-desc">3 只股票超时（000001、600000、601988） · <a href="#">查看堆栈</a></div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-time num">2026-04-19 13:30</div>
+                <div class="timeline-track"><div class="timeline-dot warning"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">基础信息校验</div>
+                  <div class="timeline-desc">完成 · 2 条股票名称已变更</div>
+                </div>
+              </div>
+              <div class="timeline-row">
+                <div class="timeline-time num">2026-04-19 12:00</div>
+                <div class="timeline-track"><div class="timeline-dot"></div></div>
+                <div class="timeline-content">
+                  <div class="timeline-title">午间检查点</div>
+                  <div class="timeline-desc">系统状态正常 · 数据库连接池 12 / 20</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- ALERTS                                         -->
+      <!-- ============================================== -->
+      <section id="alerts" class="section">
+        <div class="section-header">
+          <h2>Alert 内嵌提示</h2>
+          <span class="section-en">用于页面内持续展示的提示信息</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="alert alert-info">
+                <svg class="alert-icon"><use href="#i-info"/></svg>
+                <div class="alert-main">
+                  <div class="alert-title">MACD 指标已升级至 v2</div>
+                  <div class="alert-desc">新版本支持 EMA 中间状态持久化，历史任务无需重算。旧版本将在 30 天后下线。</div>
+                </div>
+              </div>
+              <div class="alert alert-success">
+                <svg class="alert-icon"><use href="#i-check-circle"/></svg>
+                <div class="alert-main">
+                  <div class="alert-title">所有系统运行正常</div>
+                </div>
+              </div>
+              <div class="alert alert-warning">
+                <svg class="alert-icon"><use href="#i-alert"/></svg>
+                <div class="alert-main">
+                  <div class="alert-title">Tushare Pro 订阅剩余 7 天</div>
+                  <div class="alert-desc">到期后将自动降级至免费版，每日请求上限将降至 500 次。</div>
+                </div>
+              </div>
+              <div class="alert alert-error">
+                <svg class="alert-icon"><use href="#i-alert-circle"/></svg>
+                <div class="alert-main">
+                  <div class="alert-title">数据库磁盘使用率达到 92%</div>
+                  <div class="alert-desc">请立即清理过期的 intraday 数据或扩容，否则将影响今日写入。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- TOASTS                                         -->
+      <!-- ============================================== -->
+      <section id="toasts" class="section">
+        <div class="section-header">
+          <h2>通知 Toast</h2>
+          <span class="section-en">右下角堆叠，同时最多 3 条</span>
+        </div>
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end">
+              <div class="toast success">
+                <svg class="toast-icon"><use href="#i-check-circle"/></svg>
+                <div class="toast-main">
+                  <div class="toast-title">任务已提交</div>
+                  <div class="toast-desc">可在任务中心查看进度 · <a href="#">查看</a></div>
+                </div>
+                <button class="btn btn-subtle btn-xs btn-icon" style="margin:-4px -4px 0 0"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="toast warning">
+                <svg class="toast-icon"><use href="#i-alert"/></svg>
+                <div class="toast-main">
+                  <div class="toast-title">部分股票获取失败</div>
+                  <div class="toast-desc">000001、600519 网络超时，已加入重试队列</div>
+                </div>
+                <button class="btn btn-subtle btn-xs btn-icon" style="margin:-4px -4px 0 0"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="toast error">
+                <svg class="toast-icon"><use href="#i-alert-circle"/></svg>
+                <div class="toast-main">
+                  <div class="toast-title">保存失败</div>
+                  <div class="toast-desc">服务端返回 500，<a href="#">重试</a></div>
+                </div>
+                <button class="btn btn-subtle btn-xs btn-icon" style="margin:-4px -4px 0 0"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- MODAL & DRAWER                                 -->
+      <!-- ============================================== -->
+      <section id="modals" class="section">
+        <div class="section-header">
+          <h2>Modal · Drawer</h2>
+          <span class="section-en">下方为静态预览</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Modal · 关键确认</div>
+              <div class="demo-block-desc">用于关键确认和极短表单，宽度档位 400 / 560 / 720</div>
+            </div>
+            <div class="demo-block-body">
+              <div class="modal-shell">
+                <div class="modal-panel">
+                  <div class="modal-header">
+                    <h3>删除数据集</h3>
+                    <button class="btn btn-subtle btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+                  </div>
+                  <div class="modal-body">
+                    <div style="margin-bottom:12px">确认删除数据集 <strong style="color:var(--text-title)">daily_kline_2023</strong>？</div>
+                    <div style="color:var(--text-muted);font-size:12px">该操作不可撤销。依赖此数据集的 3 个指标任务将自动暂停。</div>
+                  </div>
+                  <div class="modal-footer">
+                    <button class="btn btn-default">取消</button>
+                    <button class="btn btn-filled btn-danger">确认删除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Drawer · 复杂表单 / 筛选</div>
+              <div class="demo-block-desc">从右滑入，宽度档位 400 / 600 / 800</div>
+            </div>
+            <div class="demo-block-body">
+              <div class="drawer-shell">
+                <div class="drawer-panel">
+                  <div class="drawer-header">
+                    <h3>高级筛选</h3>
+                    <button class="btn btn-subtle btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+                  </div>
+                  <div class="drawer-body">
+                    <div style="display:flex;flex-direction:column;gap:14px">
+                      <div class="field">
+                        <label class="field-label">行业</label>
+                        <select class="select"><option>全部行业</option></select>
+                      </div>
+                      <div class="field">
+                        <label class="field-label">市值区间</label>
+                        <div style="display:flex;gap:8px;align-items:center">
+                          <input type="text" class="input" placeholder="最小" value="50">
+                          <span style="color:var(--text-muted)">—</span>
+                          <input type="text" class="input" placeholder="最大" value="500">
+                          <span style="color:var(--text-muted);font-size:12px">亿</span>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label class="field-label">包含</label>
+                        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+                          <span class="chk checked"><span class="chk-box"></span>主板</span>
+                          <span class="chk checked"><span class="chk-box"></span>创业板</span>
+                          <span class="chk"><span class="chk-box"></span>科创板</span>
+                          <span class="chk"><span class="chk-box"></span>ST</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="drawer-footer">
+                    <button class="btn btn-default">重置</button>
+                    <button class="btn btn-filled">应用筛选</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- EMPTY                                          -->
+      <!-- ============================================== -->
+      <section id="empty" class="section">
+        <div class="section-header">
+          <h2>空状态 Empty</h2>
+          <span class="section-en">不用插画，线性图标 + 极短文字</span>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-body" style="padding:0">
+              <div class="empty">
+                <svg class="icon empty-icon"><use href="#i-inbox"/></svg>
+                <div class="empty-title">暂无任务</div>
+                <div class="empty-desc">当前时间段内没有待执行的数据任务</div>
+                <button class="btn btn-default btn-sm"><svg class="icon icon-sm"><use href="#i-plus"/></svg>新建任务</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body" style="padding:0">
+              <div class="empty">
+                <svg class="icon empty-icon"><use href="#i-search"/></svg>
+                <div class="empty-title">未找到匹配结果</div>
+                <div class="empty-desc">尝试更换关键词或清除筛选条件</div>
+                <button class="btn btn-subtle btn-sm">清除筛选</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- LOADING                                        -->
+      <!-- ============================================== -->
+      <section id="loading" class="section">
+        <div class="section-header">
+          <h2>加载与进度</h2>
+          <span class="section-en">Skeleton · Progress</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Skeleton 骨架</div>
+              <div class="demo-block-desc">页面首次加载、卡片首次加载</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+                <div class="skeleton circle" style="width:32px;height:32px"></div>
+                <div style="flex:1">
+                  <div class="skeleton title" style="width:40%;margin-bottom:6px"></div>
+                  <div class="skeleton text" style="width:60%"></div>
+                </div>
+              </div>
+              <div class="skeleton text" style="width:100%;margin-bottom:6px"></div>
+              <div class="skeleton text" style="width:85%;margin-bottom:6px"></div>
+              <div class="skeleton text" style="width:70%"></div>
+            </div>
+          </div>
+
+          <div class="demo-block">
+            <div class="demo-block-header">
+              <div class="demo-block-title">Progress 进度</div>
+              <div class="demo-block-desc">长任务、磁盘占用、完成率</div>
+            </div>
+            <div class="demo-block-body">
+              <div style="margin-bottom:16px">
+                <div class="progress-label"><span>日线同步</span><span class="num">35.3%</span></div>
+                <div class="progress"><div class="progress-fill" style="width:35.3%"></div></div>
+              </div>
+              <div style="margin-bottom:16px">
+                <div class="progress-label"><span>入库成功率</span><span class="num">99.4%</span></div>
+                <div class="progress"><div class="progress-fill success" style="width:99.4%"></div></div>
+              </div>
+              <div style="margin-bottom:16px">
+                <div class="progress-label"><span>磁盘占用</span><span class="num">78.0%</span></div>
+                <div class="progress"><div class="progress-fill warning" style="width:78%"></div></div>
+              </div>
+              <div>
+                <div class="progress-label"><span>Worker 队列积压</span><span class="num">92.1%</span></div>
+                <div class="progress"><div class="progress-fill error" style="width:92%"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- NAVIGATION                                     -->
+      <!-- ============================================== -->
+      <section id="navigation" class="section">
+        <div class="section-header">
+          <h2>导航</h2>
+          <span class="section-en">Breadcrumb · Tabs · Pagination</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header"><div class="demo-block-title">面包屑 Breadcrumb</div></div>
+          <div class="demo-block-body">
+            <div class="breadcrumb">
+              <a href="#">首页</a>
+              <span class="separator">/</span>
+              <a href="#">数据</a>
+              <span class="separator">/</span>
+              <a href="#">指标库</a>
+              <span class="separator">/</span>
+              <span class="current">MACD v2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header"><div class="demo-block-title">Tabs 下划线风格</div></div>
+          <div class="demo-block-body pad-sm" style="padding-top:0;padding-bottom:0">
+            <div class="tabs">
+              <div class="tab active">概览<span class="tab-count">12</span></div>
+              <div class="tab">数据表</div>
+              <div class="tab">指标<span class="tab-count">3</span></div>
+              <div class="tab">权限</div>
+              <div class="tab">日志</div>
+            </div>
+          </div>
+          <div class="demo-block-body">
+            <p style="font-size:13px;color:var(--text-muted);margin:0">Tab 下划线颜色为 <code>brand.5</code>，选中文字 <code>neutral.8 / 500</code>，其余 <code>neutral.6 / 400</code>。当前 Tab 的 count 徽标用 <code>brand.0</code> 底色。</p>
+          </div>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-header"><div class="demo-block-title">分页 Pagination</div></div>
+          <div class="demo-block-body">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="pagination-info">共 2,847 条 · 每页 20 条</div>
+              <div class="pagination">
+                <button class="pagination-btn"><svg class="icon icon-sm"><use href="#i-chevron-left"/></svg></button>
+                <button class="pagination-btn">1</button>
+                <button class="pagination-btn active">2</button>
+                <button class="pagination-btn">3</button>
+                <button class="pagination-btn">4</button>
+                <button class="pagination-btn">5</button>
+                <span style="color:var(--text-hint);padding:0 4px">…</span>
+                <button class="pagination-btn">143</button>
+                <button class="pagination-btn"><svg class="icon icon-sm"><use href="#i-chevron-right"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- MENUS & TOOLTIP                                -->
+      <!-- ============================================== -->
+      <section id="menus" class="section">
+        <div class="section-header">
+          <h2>下拉菜单 · Tooltip</h2>
+          <span class="section-en">Menu · Tooltip · 浮层类组件</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="demo-block">
+            <div class="demo-block-header"><div class="demo-block-title">Menu 下拉菜单</div></div>
+            <div class="demo-block-body">
+              <div class="menu">
+                <div class="menu-section">操作</div>
+                <div class="menu-item"><svg class="icon icon-sm"><use href="#i-edit"/></svg> 编辑 <span class="menu-shortcut">⌘E</span></div>
+                <div class="menu-item"><svg class="icon icon-sm"><use href="#i-copy"/></svg> 复制 <span class="menu-shortcut">⌘D</span></div>
+                <div class="menu-item"><svg class="icon icon-sm"><use href="#i-external"/></svg> 在新窗口打开</div>
+                <div class="menu-divider"></div>
+                <div class="menu-item"><svg class="icon icon-sm"><use href="#i-download"/></svg> 下载结果</div>
+                <div class="menu-divider"></div>
+                <div class="menu-item danger"><svg class="icon icon-sm"><use href="#i-trash"/></svg> 删除 <span class="menu-shortcut">⌫</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="demo-block">
+            <div class="demo-block-header"><div class="demo-block-title">Tooltip</div></div>
+            <div class="demo-block-body" style="padding-top:60px">
+              <div style="display:flex;gap:40px;flex-wrap:wrap">
+                <div class="tooltip-preview">
+                  <div class="tooltip">股票代码（6 位）</div>
+                  <button class="btn btn-default btn-sm btn-icon"><svg class="icon icon-sm"><use href="#i-info"/></svg></button>
+                </div>
+                <div class="tooltip-preview">
+                  <div class="tooltip">刷新数据</div>
+                  <button class="btn btn-default btn-sm"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>刷新</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- STEPS                                          -->
+      <!-- ============================================== -->
+      <section id="steps" class="section">
+        <div class="section-header">
+          <h2>步骤条 Steps</h2>
+          <span class="section-en">用于向导式流程、任务执行阶段</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="steps">
+              <div class="step done">
+                <div class="step-mark"><svg class="icon icon-sm"><use href="#i-check"/></svg></div>
+                <div class="step-title">选择数据源</div>
+              </div>
+              <div class="step done">
+                <div class="step-mark"><svg class="icon icon-sm"><use href="#i-check"/></svg></div>
+                <div class="step-title">配置字段</div>
+              </div>
+              <div class="step current">
+                <div class="step-mark">3</div>
+                <div class="step-title">设置调度</div>
+              </div>
+              <div class="step">
+                <div class="step-mark">4</div>
+                <div class="step-title">校验与保存</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- PRICE & CHANGE                                 -->
+      <!-- ============================================== -->
+      <section id="price" class="section">
+        <div class="section-header">
+          <h2>价格与涨跌</h2>
+          <span class="section-en">PriceText · ChangeText · 金融场景核心</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="example-row">
+              <div class="example-label">基本排版</div>
+              <div class="example-content">
+                <span style="font-size:28px" class="price">62.48</span>
+                <span style="font-size:14px" class="change-up num">+1.94</span>
+                <span style="font-size:14px" class="change-up num">+3.21%</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">涨/跌/平</div>
+              <div class="example-content">
+                <span class="change-up num">+3.21%</span>
+                <span class="change-down num">-1.32%</span>
+                <span class="change-flat num">0.00%</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">涨停/跌停</div>
+              <div class="example-content">
+                <span class="chip-limit-up">+10.00%</span>
+                <span class="chip-limit-up strong">+20.00%</span>
+                <span class="chip-limit-down">-10.00%</span>
+              </div>
+            </div>
+            <div class="example-row">
+              <div class="example-label">行情报价卡</div>
+              <div class="example-content" style="display:block">
+                <div style="display:flex;gap:24px;padding:16px;background:var(--bg-page);border-radius:6px;border:1px solid var(--border-default)">
+                  <div>
+                    <div style="font-size:12px;color:var(--text-muted)">锦浪科技 · 300763</div>
+                    <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px">
+                      <span class="price num" style="font-size:28px;line-height:1.1">62.48</span>
+                      <span class="change-up num">+1.94 (+3.21%)</span>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px 20px;font-size:12px;flex:1">
+                    <div><span style="color:var(--text-muted)">今开</span> <span class="num" style="color:var(--text-title);margin-left:4px">60.80</span></div>
+                    <div><span style="color:var(--text-muted)">最高</span> <span class="num change-up" style="margin-left:4px">62.88</span></div>
+                    <div><span style="color:var(--text-muted)">最低</span> <span class="num change-down" style="margin-left:4px">60.50</span></div>
+                    <div><span style="color:var(--text-muted)">换手</span> <span class="num" style="color:var(--text-title);margin-left:4px">1.28%</span></div>
+                    <div><span style="color:var(--text-muted)">成交量</span> <span class="num" style="color:var(--text-title);margin-left:4px">3.42 万</span></div>
+                    <div><span style="color:var(--text-muted)">成交额</span> <span class="num" style="color:var(--text-title);margin-left:4px">2.13 亿</span></div>
+                    <div><span style="color:var(--text-muted)">市盈率</span> <span class="num" style="color:var(--text-title);margin-left:4px">33.4</span></div>
+                    <div><span style="color:var(--text-muted)">市值</span> <span class="num" style="color:var(--text-title);margin-left:4px">247 亿</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- LADDER                                         -->
+      <!-- ============================================== -->
+      <section id="ladder" class="section">
+        <div class="section-header">
+          <h2>连板天梯</h2>
+          <span class="section-en">LimitUpLadder · 业务特色组件</span>
+        </div>
+
+        <div class="demo-block">
+          <div class="demo-block-body">
+            <div class="ladder">
+              <div class="ladder-rung">
+                <div class="ladder-mark ultra"><b>7</b><span>连板</span></div>
+                <div class="ladder-items">
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">天和磁材</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.02%</span> · 1.2 亿</div>
+                  </div>
+                </div>
+              </div>
+              <div class="ladder-rung">
+                <div class="ladder-mark strong"><b>5</b><span>连板</span></div>
+                <div class="ladder-items">
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">未来电器</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.01%</span> · 8,430 万</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">云天励飞</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+20.00%</span> · 3.8 亿</div>
+                  </div>
+                </div>
+              </div>
+              <div class="ladder-rung">
+                <div class="ladder-mark"><b>3</b><span>连板</span></div>
+                <div class="ladder-items">
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">华工科技</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.00%</span> · 4.1 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">光迅科技</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+9.98%</span> · 2.7 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">中际旭创</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.01%</span> · 5.2 亿</div>
+                  </div>
+                </div>
+              </div>
+              <div class="ladder-rung">
+                <div class="ladder-mark"><b>2</b><span>连板</span></div>
+                <div class="ladder-items">
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">赛意信息</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.03%</span> · 1.8 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">恒为科技</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.00%</span> · 2.2 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">软通动力</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.01%</span> · 3.5 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">新易盛</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.00%</span> · 2.9 亿</div>
+                  </div>
+                  <div class="ladder-stock">
+                    <div class="ladder-stock-name">太辰光</div>
+                    <div class="ladder-stock-meta"><span class="change-up">+10.02%</span> · 1.4 亿</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- CHARTS                                         -->
+      <!-- ============================================== -->
+      <section id="charts" class="section">
+        <div class="section-header">
+          <h2>图表占位</h2>
+          <span class="section-en">Chart · 推荐使用 ECharts，严格遵守色彩规范</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main"><div class="card-header-title">K 线图</div></div>
+              <div class="card-header-actions">
+                <div class="btn-group">
+                  <button class="btn btn-default btn-sm" style="background:var(--bg-muted);color:var(--text-title)">日</button>
+                  <button class="btn btn-default btn-sm">周</button>
+                  <button class="btn btn-default btn-sm">月</button>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <svg width="100%" viewBox="0 0 400 200" style="display:block">
+                <!-- grid -->
+                <g stroke="var(--border-default)" stroke-dasharray="2 4" fill="none" stroke-width="1">
+                  <line x1="0" y1="40" x2="400" y2="40"/>
+                  <line x1="0" y1="80" x2="400" y2="80"/>
+                  <line x1="0" y1="120" x2="400" y2="120"/>
+                  <line x1="0" y1="160" x2="400" y2="160"/>
+                </g>
+                <!-- candles -->
+                <g>
+                  <line x1="20"  y1="60"  x2="20"  y2="130" stroke="var(--up-4)" stroke-width="1"/><rect x="15"  y="80"  width="10" height="40" fill="var(--up-4)"/>
+                  <line x1="40"  y1="55"  x2="40"  y2="140" stroke="var(--down-4)" stroke-width="1"/><rect x="35"  y="75"  width="10" height="50" fill="var(--down-4)"/>
+                  <line x1="60"  y1="75"  x2="60"  y2="130" stroke="var(--up-4)" stroke-width="1"/><rect x="55"  y="90"  width="10" height="30" fill="var(--up-4)"/>
+                  <line x1="80"  y1="50"  x2="80"  y2="135" stroke="var(--down-4)" stroke-width="1"/><rect x="75"  y="70"  width="10" height="55" fill="var(--down-4)"/>
+                  <line x1="100" y1="45"  x2="100" y2="110" stroke="var(--up-4)" stroke-width="1"/><rect x="95"  y="60"  width="10" height="40" fill="var(--up-4)"/>
+                  <line x1="120" y1="55"  x2="120" y2="125" stroke="var(--up-4)" stroke-width="1"/><rect x="115" y="70"  width="10" height="45" fill="var(--up-4)"/>
+                  <line x1="140" y1="60"  x2="140" y2="140" stroke="var(--down-4)" stroke-width="1"/><rect x="135" y="80"  width="10" height="50" fill="var(--down-4)"/>
+                  <line x1="160" y1="40"  x2="160" y2="120" stroke="var(--up-4)" stroke-width="1"/><rect x="155" y="55"  width="10" height="55" fill="var(--up-4)"/>
+                  <line x1="180" y1="35"  x2="180" y2="95"  stroke="var(--up-4)" stroke-width="1"/><rect x="175" y="50"  width="10" height="35" fill="var(--up-4)"/>
+                  <line x1="200" y1="45"  x2="200" y2="110" stroke="var(--down-4)" stroke-width="1"/><rect x="195" y="60"  width="10" height="40" fill="var(--down-4)"/>
+                  <line x1="220" y1="30"  x2="220" y2="100" stroke="var(--up-4)" stroke-width="1"/><rect x="215" y="45"  width="10" height="45" fill="var(--up-4)"/>
+                  <line x1="240" y1="25"  x2="240" y2="85"  stroke="var(--up-4)" stroke-width="1"/><rect x="235" y="40"  width="10" height="35" fill="var(--up-4)"/>
+                  <line x1="260" y1="40"  x2="260" y2="105" stroke="var(--down-4)" stroke-width="1"/><rect x="255" y="55"  width="10" height="40" fill="var(--down-4)"/>
+                  <line x1="280" y1="30"  x2="280" y2="95"  stroke="var(--up-4)" stroke-width="1"/><rect x="275" y="45"  width="10" height="40" fill="var(--up-4)"/>
+                  <line x1="300" y1="20"  x2="300" y2="80"  stroke="var(--up-4)" stroke-width="1"/><rect x="295" y="35"  width="10" height="35" fill="var(--up-4)"/>
+                  <line x1="320" y1="35"  x2="320" y2="100" stroke="var(--down-4)" stroke-width="1"/><rect x="315" y="50"  width="10" height="40" fill="var(--down-4)"/>
+                  <line x1="340" y1="25"  x2="340" y2="85"  stroke="var(--up-4)" stroke-width="1"/><rect x="335" y="40"  width="10" height="35" fill="var(--up-4)"/>
+                  <line x1="360" y1="15"  x2="360" y2="70"  stroke="var(--up-4)" stroke-width="1"/><rect x="355" y="30"  width="10" height="30" fill="var(--up-4)"/>
+                  <line x1="380" y1="25"  x2="380" y2="85"  stroke="var(--up-4)" stroke-width="1"/><rect x="375" y="40"  width="10" height="30" fill="var(--up-4)"/>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-header-main"><div class="card-header-title">MACD (12, 26, 9)</div></div>
+            </div>
+            <div class="card-body">
+              <svg width="100%" viewBox="0 0 400 200" style="display:block">
+                <g stroke="var(--border-default)" stroke-dasharray="2 4" fill="none" stroke-width="1">
+                  <line x1="0" y1="100" x2="400" y2="100"/>
+                  <line x1="0" y1="40" x2="400" y2="40" opacity="0.5"/>
+                  <line x1="0" y1="160" x2="400" y2="160" opacity="0.5"/>
+                </g>
+                <!-- MACD histogram -->
+                <g>
+                  <rect x="12"  y="100" width="6" height="-20" transform="translate(0,20)" fill="var(--down-4)"/>
+                  <rect x="22"  y="100" width="6" height="-15" transform="translate(0,15)" fill="var(--down-4)"/>
+                  <rect x="32"  y="100" width="6" height="-8"  transform="translate(0,8)"  fill="var(--down-4)"/>
+                  <rect x="42"  y="100" width="6" height="5"  fill="var(--up-4)"/>
+                  <rect x="52"  y="100" width="6" height="12" fill="var(--up-4)"/>
+                  <rect x="62"  y="100" width="6" height="18" fill="var(--up-4)"/>
+                  <rect x="72"  y="100" width="6" height="22" fill="var(--up-4)"/>
+                  <rect x="82"  y="100" width="6" height="28" fill="var(--up-4)"/>
+                  <rect x="92"  y="100" width="6" height="30" fill="var(--up-4)"/>
+                  <rect x="102" y="100" width="6" height="26" fill="var(--up-4)"/>
+                  <rect x="112" y="100" width="6" height="20" fill="var(--up-4)"/>
+                  <rect x="122" y="100" width="6" height="12" fill="var(--up-4)"/>
+                  <rect x="132" y="100" width="6" height="6"  fill="var(--up-4)"/>
+                  <rect x="142" y="100" width="6" height="-4" transform="translate(0,4)" fill="var(--down-4)"/>
+                  <rect x="152" y="100" width="6" height="-10" transform="translate(0,10)" fill="var(--down-4)"/>
+                  <rect x="162" y="100" width="6" height="-14" transform="translate(0,14)" fill="var(--down-4)"/>
+                  <rect x="172" y="100" width="6" height="-12" transform="translate(0,12)" fill="var(--down-4)"/>
+                  <rect x="182" y="100" width="6" height="-6" transform="translate(0,6)" fill="var(--down-4)"/>
+                  <rect x="192" y="100" width="6" height="4"  fill="var(--up-4)"/>
+                  <rect x="202" y="100" width="6" height="14" fill="var(--up-4)"/>
+                  <rect x="212" y="100" width="6" height="22" fill="var(--up-4)"/>
+                  <rect x="222" y="100" width="6" height="28" fill="var(--up-4)"/>
+                  <rect x="232" y="100" width="6" height="32" fill="var(--up-4)"/>
+                  <rect x="242" y="100" width="6" height="30" fill="var(--up-4)"/>
+                  <rect x="252" y="100" width="6" height="24" fill="var(--up-4)"/>
+                  <rect x="262" y="100" width="6" height="18" fill="var(--up-4)"/>
+                  <rect x="272" y="100" width="6" height="10" fill="var(--up-4)"/>
+                  <rect x="282" y="100" width="6" height="4"  fill="var(--up-4)"/>
+                  <rect x="292" y="100" width="6" height="-6" transform="translate(0,6)" fill="var(--down-4)"/>
+                  <rect x="302" y="100" width="6" height="-12" transform="translate(0,12)" fill="var(--down-4)"/>
+                  <rect x="312" y="100" width="6" height="-8" transform="translate(0,8)" fill="var(--down-4)"/>
+                  <rect x="322" y="100" width="6" height="2"  fill="var(--up-4)"/>
+                  <rect x="332" y="100" width="6" height="10" fill="var(--up-4)"/>
+                  <rect x="342" y="100" width="6" height="18" fill="var(--up-4)"/>
+                  <rect x="352" y="100" width="6" height="24" fill="var(--up-4)"/>
+                  <rect x="362" y="100" width="6" height="22" fill="var(--up-4)"/>
+                  <rect x="372" y="100" width="6" height="16" fill="var(--up-4)"/>
+                  <rect x="382" y="100" width="6" height="10" fill="var(--up-4)"/>
+                </g>
+                <!-- DIF line (brand) -->
+                <path d="M15,95 L25,92 L35,88 L45,82 L55,75 L65,68 L75,60 L85,55 L95,52 L105,55 L115,60 L125,68 L135,75 L145,82 L155,88 L165,92 L175,90 L185,85 L195,78 L205,70 L215,62 L225,55 L235,48 L245,50 L255,55 L265,62 L275,70 L285,78 L295,85 L305,90 L315,88 L325,82 L335,75 L345,68 L355,62 L365,65 L375,70 L385,75" stroke="#1F5499" stroke-width="1.5" fill="none"/>
+                <!-- DEA line (warning) -->
+                <path d="M15,90 L25,88 L35,85 L45,82 L55,78 L65,73 L75,68 L85,63 L95,60 L105,60 L115,62 L125,65 L135,70 L145,75 L155,80 L165,85 L175,87 L185,85 L195,82 L205,77 L215,72 L225,67 L235,62 L245,60 L255,60 L265,63 L275,67 L285,73 L295,78 L305,83 L315,85 L325,83 L335,78 L345,73 L355,68 L365,65 L375,67 L385,70" stroke="#B07B00" stroke-width="1.5" fill="none"/>
+              </svg>
+              <div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);margin-top:8px;justify-content:center">
+                <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:2px;background:#1F5499"></span>DIF</span>
+                <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:2px;background:#B07B00"></span>DEA</span>
+                <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;background:var(--up-4)"></span>多头柱</span>
+                <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;background:var(--down-4)"></span>空头柱</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================== -->
+      <!-- HEATMAP                                        -->
+      <!-- ============================================== -->
+      <section id="heatmap" class="section">
+        <div class="section-header">
+          <h2>涨跌热力图</h2>
+          <span class="section-en">板块涨跌分布 · 用 up/down 色系梯度</span>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-main"><div class="card-header-title">行业板块 · 今日涨跌</div></div>
+          </div>
+          <div class="card-body">
+            <div class="heatmap">
+              <div class="heatmap-cell u5">+8.2</div>
+              <div class="heatmap-cell u4">+5.1</div>
+              <div class="heatmap-cell u3">+3.8</div>
+              <div class="heatmap-cell u3">+3.2</div>
+              <div class="heatmap-cell u2">+2.4</div>
+              <div class="heatmap-cell u2">+1.9</div>
+              <div class="heatmap-cell u1">+1.2</div>
+              <div class="heatmap-cell u1">+0.8</div>
+              <div class="heatmap-cell flat">0.0</div>
+              <div class="heatmap-cell flat">0.0</div>
+              <div class="heatmap-cell d1">-0.5</div>
+              <div class="heatmap-cell d1">-0.9</div>
+              <div class="heatmap-cell u4">+4.8</div>
+              <div class="heatmap-cell u3">+3.5</div>
+              <div class="heatmap-cell u2">+2.1</div>
+              <div class="heatmap-cell u2">+1.8</div>
+              <div class="heatmap-cell u1">+1.3</div>
+              <div class="heatmap-cell u1">+0.6</div>
+              <div class="heatmap-cell flat">0.1</div>
+              <div class="heatmap-cell d1">-0.3</div>
+              <div class="heatmap-cell d1">-0.8</div>
+              <div class="heatmap-cell d2">-1.4</div>
+              <div class="heatmap-cell d2">-2.1</div>
+              <div class="heatmap-cell d3">-3.5</div>
+              <div class="heatmap-cell u3">+3.1</div>
+              <div class="heatmap-cell u2">+2.5</div>
+              <div class="heatmap-cell u2">+1.6</div>
+              <div class="heatmap-cell u1">+1.1</div>
+              <div class="heatmap-cell u1">+0.4</div>
+              <div class="heatmap-cell flat">-0.1</div>
+              <div class="heatmap-cell d1">-0.6</div>
+              <div class="heatmap-cell d2">-1.7</div>
+              <div class="heatmap-cell d2">-2.3</div>
+              <div class="heatmap-cell d3">-3.1</div>
+              <div class="heatmap-cell d3">-3.8</div>
+              <div class="heatmap-cell d4">-5.2</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:11px;color:var(--text-muted)">
+              <div style="display:flex;align-items:center;gap:4px">
+                <span>跌</span>
+                <span class="heatmap-cell d4" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell d3" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell d2" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell d1" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell flat" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell u1" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell u2" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell u3" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell u4" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span class="heatmap-cell u5" style="width:12px;height:12px;aspect-ratio:auto"></span>
+                <span>涨</span>
+              </div>
+              <div>36 个行业板块 · 2026-04-19</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style="padding:24px 0;text-align:center;font-size:12px;color:var(--text-hint);border-top:1px solid var(--border-default);margin-top:48px">
+        A 股数据基座 · 组件库 v1.0 · 依据《设计系统 v1.0》落地
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+<script>
+function setTheme(theme, btn) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+// Smooth scroll for sidebar links
+document.querySelectorAll('.sidebar-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    const href = link.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      e.preventDefault();
+      const target = document.querySelector(href);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+      }
+    }
+  });
+});
+// Interactive checkboxes
+document.querySelectorAll('.chk').forEach(chk => {
+  chk.addEventListener('click', () => chk.classList.toggle('checked'));
+});
+document.querySelectorAll('.switch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    if (!sw.classList.contains('disabled')) sw.classList.toggle('on');
+  });
+});
+</script>
+</body>
+</html>

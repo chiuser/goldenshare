@@ -665,7 +665,7 @@ export function OpsV21ReviewBoardPage() {
       <SectionCard title="审查结果">
         {activeQuery.isLoading ? <Loader size="sm" /> : null}
         {activeQuery.error ? (
-          <Alert color="red" title="读取审查数据失败">
+          <Alert color="error" title="读取审查数据失败">
             {activeQuery.error instanceof Error ? activeQuery.error.message : "未知错误"}
           </Alert>
         ) : null}
@@ -775,7 +775,7 @@ export function OpsV21ReviewBoardPage() {
         ) : null}
 
         {!activeQuery.isLoading && !activeQuery.error && total === 0 ? (
-          <Alert color="blue" title="没有符合条件的数据">
+          <Alert color="info" title="没有符合条件的数据">
             你可以放宽筛选条件后重试。
           </Alert>
         ) : null}

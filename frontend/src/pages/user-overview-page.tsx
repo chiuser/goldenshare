@@ -34,7 +34,7 @@ export function UserOverviewPage() {
           ) : null}
 
           {summaryQuery.error ? (
-            <Alert color="red" title="读取状态概览失败">
+            <Alert color="error" title="读取状态概览失败">
               {summaryQuery.error instanceof Error ? summaryQuery.error.message : "未知错误"}
             </Alert>
           ) : null}

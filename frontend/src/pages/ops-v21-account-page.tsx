@@ -291,12 +291,12 @@ export function OpsV21AccountPage() {
     <Stack gap="lg">
       <SectionCard title="帐号管理" description="管理员统一管理账号与邀请码。">
         {actionError ? (
-          <Alert color="red" title="操作失败">
+          <Alert color="error" title="操作失败">
             {actionError}
           </Alert>
         ) : null}
         {createdInviteCode ? (
-          <Alert color="blue" title="邀请码已创建">
+          <Alert color="info" title="邀请码已创建">
             当前邀请码：<Text span fw={700}>{createdInviteCode}</Text>
           </Alert>
         ) : null}
@@ -422,7 +422,7 @@ export function OpsV21AccountPage() {
               <Paper p="md" radius="md" withBorder>
                 {usersQuery.isLoading ? <Text size="sm">加载中...</Text> : null}
                 {usersQuery.error ? (
-                  <Alert color="red" title="读取用户失败">
+                  <Alert color="error" title="读取用户失败">
                     {usersQuery.error instanceof Error ? usersQuery.error.message : "未知错误"}
                   </Alert>
                 ) : null}
@@ -446,10 +446,10 @@ export function OpsV21AccountPage() {
                           <Table.Td>{item.roles.join(", ") || "—"}</Table.Td>
                           <Table.Td>
                             <Group gap={6}>
-                              <Badge color={item.is_active ? "green" : "gray"} variant="light">
+                              <Badge color={item.is_active ? "success" : "neutral"} variant="light">
                                 {item.is_active ? "启用" : "停用"}
                               </Badge>
-                              <Badge color="blue" variant="light">{item.account_state}</Badge>
+                              <Badge color="info" variant="light">{item.account_state}</Badge>
                             </Group>
                           </Table.Td>
                           <Table.Td>{formatDateTimeLabel(item.last_login_at)}</Table.Td>
@@ -468,7 +468,7 @@ export function OpsV21AccountPage() {
                               <Button
                                 size="xs"
                                 variant="light"
-                                color={item.is_active ? "orange" : "teal"}
+                                color={item.is_active ? "warning" : "success"}
                                 loading={suspendOrActivateMutation.isPending}
                                 onClick={() => suspendOrActivateMutation.mutate(item)}
                               >
@@ -477,7 +477,7 @@ export function OpsV21AccountPage() {
                               <Button
                                 size="xs"
                                 variant="light"
-                                color="violet"
+                                color="info"
                                 onClick={() => {
                                   setResetTarget(item);
                                   setResetPassword("");
@@ -489,7 +489,7 @@ export function OpsV21AccountPage() {
                               <Button
                                 size="xs"
                                 variant="light"
-                                color="red"
+                                color="error"
                                 loading={deleteUserMutation.isPending}
                                 onClick={() => {
                                   if (!window.confirm(`确定删除账号 ${item.username} 吗？`)) return;
@@ -693,7 +693,7 @@ export function OpsV21AccountPage() {
               <Paper p="md" radius="md" withBorder>
                 {invitesQuery.isLoading ? <Text size="sm">加载中...</Text> : null}
                 {invitesQuery.error ? (
-                  <Alert color="red" title="读取邀请码失败">
+                  <Alert color="error" title="读取邀请码失败">
                     {invitesQuery.error instanceof Error ? invitesQuery.error.message : "未知错误"}
                   </Alert>
                 ) : null}
@@ -714,7 +714,7 @@ export function OpsV21AccountPage() {
                         <Table.Tr key={`invite-row-${item.id}`}>
                           <Table.Td>
                             <Group gap={4} wrap="nowrap" style={{ width: "fit-content" }}>
-                              <Text span style={{ whiteSpace: "nowrap" }}>
+                              <Text span ff="var(--mantine-font-family-monospace)" fw={600} style={{ whiteSpace: "nowrap" }}>
                                 {item.code_hint}
                               </Text>
                               <Tooltip label="复制邀请码">
@@ -734,7 +734,7 @@ export function OpsV21AccountPage() {
                           <Table.Td>{item.role_key}</Table.Td>
                           <Table.Td>{item.used_count}/{item.max_uses}</Table.Td>
                           <Table.Td>
-                            <Badge color={item.disabled_at ? "gray" : "green"} variant="light">
+                            <Badge color={item.disabled_at ? "neutral" : "success"} variant="light">
                               {item.disabled_at ? "已停用" : "有效"}
                             </Badge>
                           </Table.Td>
@@ -745,7 +745,7 @@ export function OpsV21AccountPage() {
                                 <Button
                                   size="xs"
                                   variant="light"
-                                  color="orange"
+                                  color="warning"
                                   loading={disableInviteMutation.isPending}
                                   onClick={() => disableInviteMutation.mutate(item.id)}
                                 >
@@ -755,7 +755,7 @@ export function OpsV21AccountPage() {
                               <Button
                                 size="xs"
                                 variant="light"
-                                color="red"
+                                color="error"
                                 loading={deleteInviteMutation.isPending}
                                 onClick={() => {
                                   if (!window.confirm("确定删除该邀请码吗？删除后不可恢复。")) return;

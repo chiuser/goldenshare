@@ -58,6 +58,11 @@ docs/sources/tushare/
 2. 再写 `docs/datasets/*-dataset-development.md`（工程实现决策）；
 3. 在数据集文档中引用对应的 `doc_id` 和本地说明路径。
 
+补充：
+
+1. 代码已接入数据集的总览文档见：
+   - `/Users/congming/github/goldenshare/docs/sources/tushare/tushare-integration-overview-v1.md`
+
 ---
 
 ## 5. 维护约束

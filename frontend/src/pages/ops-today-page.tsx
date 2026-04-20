@@ -40,7 +40,7 @@ export function OpsTodayPage() {
 
       {overviewQuery.isLoading ? <Loader size="sm" /> : null}
       {overviewQuery.error ? (
-        <Alert color="red" title="无法读取今日运行">
+        <Alert color="error" title="无法读取今日运行">
           {overviewQuery.error instanceof Error ? overviewQuery.error.message : "未知错误"}
         </Alert>
       ) : null}
@@ -106,7 +106,7 @@ export function OpsTodayPage() {
                       <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell align="left" width="24%">
-                      <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                      <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
                         {formatDateTimeLabel(item.requested_at)}
                       </OpsTableCellText>
                     </OpsTableCell>
@@ -131,15 +131,15 @@ export function OpsTodayPage() {
             description="这里显示当前不是“正常”状态的数据，方便快速判断要不要补同步。"
           >
             <OpsTable>
-                <Table.Thead>
-                  <Table.Tr>
-                    <OpsTableHeaderCell align="left" width="26%">数据名称</OpsTableHeaderCell>
-                    <OpsTableHeaderCell align="left" width="20%">日期范围 / 最近同步日期</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
-                    <OpsTableHeaderCell align="left" width="30%">最近异常</OpsTableHeaderCell>
-                    <OpsTableHeaderCell width="12%">操作</OpsTableHeaderCell>
-                  </Table.Tr>
-                </Table.Thead>
+              <Table.Thead>
+                <Table.Tr>
+                  <OpsTableHeaderCell align="left" width="26%">数据名称</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left" width="20%">日期范围 / 最近同步日期</OpsTableHeaderCell>
+                  <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left" width="30%">最近异常</OpsTableHeaderCell>
+                  <OpsTableHeaderCell width="12%">操作</OpsTableHeaderCell>
+                </Table.Tr>
+              </Table.Thead>
               <Table.Tbody>
                 {overview.lagging_datasets.map((item) => (
                   <Table.Tr key={item.dataset_key}>
@@ -147,7 +147,7 @@ export function OpsTodayPage() {
                       <OpsTableCellText fw={600} size="sm">{item.display_name}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell align="left" width="20%">
-                      <OpsTableCellText ff="IBM Plex Mono, SFMono-Regular, monospace" fw={500} size="xs">
+                      <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
                         {formatDateRangeLabel(
                           item.earliest_business_date ?? null,
                           item.latest_business_date ?? null,
@@ -161,11 +161,11 @@ export function OpsTodayPage() {
                     <OpsTableCell align="left" width="30%">
                       {(item.recent_failure_summary || item.recent_failure_message) ? (
                         <Stack gap={2}>
-                          <OpsTableCellText c="red" size="xs">
+                          <OpsTableCellText c="error" size="xs">
                             {item.recent_failure_summary || item.recent_failure_message}
                           </OpsTableCellText>
                           {item.recent_failure_at ? (
-                            <OpsTableCellText c="dimmed" ff="IBM Plex Mono, SFMono-Regular, monospace" size="xs">
+                            <OpsTableCellText c="dimmed" ff="var(--mantine-font-family-monospace)" size="xs">
                               {formatDateTimeLabel(item.recent_failure_at)}
                             </OpsTableCellText>
                           ) : null}

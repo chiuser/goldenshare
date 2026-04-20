@@ -7,6 +7,8 @@ RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_COMPILE_CHECK="${RUN_COMPILE_CHECK:-1}"
 RUN_MINIMAL_TESTS="${RUN_MINIMAL_TESTS:-1}"
 RUN_ARCH_TESTS="${RUN_ARCH_TESTS:-1}"
+RUN_ENTRYPOINT_SMOKE="${RUN_ENTRYPOINT_SMOKE:-1}"
+RUN_LEGACY_COMPILE="${RUN_LEGACY_COMPILE:-1}"
 
 log() {
   echo "[$(date '+%F %T')] $*"
@@ -22,23 +24,37 @@ require_cmd() {
 main() {
   cd "${ROOT_DIR}"
   require_cmd python3
-  require_cmd pytest
-  require_cmd npm
+
+  if [[ "${RUN_MINIMAL_TESTS}" == "1" || "${RUN_WEB_TESTS}" == "1" || "${RUN_ARCH_TESTS}" == "1" ]]; then
+    require_cmd pytest
+  fi
+  if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
+    require_cmd npm
+  fi
 
   log "发版预检开始"
 
   if [[ "${RUN_COMPILE_CHECK}" == "1" ]]; then
-    log "1/5 Python 编译检查"
-    python3 -m compileall src/foundation src/ops src/biz src/platform src/operations src/shared src/scripts
+    log "1/6 Python 编译检查"
+    compile_targets=(src/foundation src/ops src/biz src/app src/shared src/scripts)
+    if [[ "${RUN_LEGACY_COMPILE}" == "1" ]]; then
+      compile_targets+=(src/platform src/operations)
+    fi
+    python3 -m compileall "${compile_targets[@]}"
+  fi
+
+  if [[ "${RUN_ENTRYPOINT_SMOKE}" == "1" ]]; then
+    log "2/6 Web 运行入口冒烟检查"
+    python3 -m src.app.web.run --help >/dev/null
   fi
 
   if [[ "${RUN_MINIMAL_TESTS}" == "1" ]]; then
-    log "2/5 最小回归测试"
+    log "3/6 最小回归测试"
     pytest -q tests/web/test_health_api.py tests/web/test_quote_api.py
   fi
 
   if [[ "${RUN_WEB_TESTS}" == "1" ]]; then
-    log "3/5 Web 关键测试"
+    log "4/6 Web 关键测试"
     pytest -q \
       tests/web/test_auth_api.py \
       tests/web/test_admin_api.py \
@@ -49,12 +65,14 @@ main() {
   fi
 
   if [[ "${RUN_ARCH_TESTS}" == "1" ]]; then
-    log "4/5 架构边界测试"
-    pytest -q tests/architecture/test_virtual_split_boundaries.py
+    log "5/6 架构边界测试"
+    pytest -q \
+      tests/architecture/test_subsystem_dependency_matrix.py \
+      tests/architecture/test_virtual_split_boundaries.py
   fi
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
-    log "5/5 前端构建检查"
+    log "6/6 前端构建检查"
     npm --prefix frontend run build
   fi
 

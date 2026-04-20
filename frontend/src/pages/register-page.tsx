@@ -155,12 +155,12 @@ export function RegisterPage() {
     >
       <Stack gap="lg">
         {errorText ? (
-          <Alert color="red" title="提交失败">
+          <Alert color="error" title="提交失败">
             {errorText}
           </Alert>
         ) : null}
         {tipText ? (
-          <Alert color="blue" title="提示">
+          <Alert color="info" title="提示">
             {tipText}
           </Alert>
         ) : null}

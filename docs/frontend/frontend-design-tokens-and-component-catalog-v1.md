@@ -1,4 +1,4 @@
-# 前端设计 Tokens 与组件目录 v1
+# 前端设计 Tokens 与组件目录 v2
 
 > 角色说明：本文件是“前端设计 token 与组件目录专题文档”。  
 > 当前前端强约束与统一门禁请以 [frontend-current-standards.md](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md) 为准。
@@ -24,12 +24,22 @@
 2. `docs/frontend/frontend-application-phase1.md`
 3. `docs/frontend/frontend-technology-and-component-selection.md`
 4. 用户提供的 `design-system.md`
-5. 当前前端已有实现与共享组件
+5. 用户提供的 `component-catalog.md`
+6. 用户提供的 `component-showcase.html`
+7. 当前前端已有实现与共享组件
 
 说明：
 
 - `design-system.md` 中大量内容可直接吸收，尤其是 token、表格、卡片、空状态、异步任务反馈。
+- `component-catalog.md` 中关于组件边界、默认尺寸、开发流程与 PR 清单的内容，可直接吸收进 `Phase 3`。
+- `component-showcase.html` 提供了真实页面级视觉对照，应作为当前组件样式展示的单一视觉参考。
 - 对其中过于绝对、与当前实现冲突或仍需产品拍板的部分，本文改写为“默认规范 + 例外条件”。
+
+当前吸收口径：
+
+1. 吸收组件使用边界、默认形态、开发流程与评审清单。
+2. 吸收“通用组件 / 领域组件”的分类方法，但不强制立即改目录结构。
+3. 暗色模式、Storybook 全面落地、硬规则门禁化暂列后续事项。
 
 ---
 
@@ -385,28 +395,51 @@ Menlo, Consolas, monospace
 
 ---
 
-## 7. 高优先级共享组件目录
+## 7. 高频共享组件目录与分层
 
-以下是 v1 应优先收敛的共享组件。
+当前仓库的真实目录以 `frontend/src/**` 为准，不因为设计稿建议立即做目录级迁移。
+
+但在组件治理上，应明确区分两类组件：
+
+1. 通用组件：
+   - 跨业务页面复用
+   - 主要表达布局、信息组织、反馈和表单模式
+2. 领域组件：
+   - 带明显金融/行情/A 股语义
+   - 需要市场涨跌色、交易日、K 线等专门规则
+
+这是一种“逻辑分层”，不是当前就要大改目录路径的要求。
+
+### 7.1 通用组件
 
 | 组件 | 级别 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| `AppShell` | 基础 | 已有基础 | 需要统一 Header / Sidebar 结构 |
-| `PageHeader` | 基础 | 已有 | 继续扩展副标题、说明、操作组 |
-| `SectionCard` | 基础 | 已有 | 从 `glass-card` 收敛到标准 Panel |
-| `StatusBadge` | 基础 | 已有 | 需补齐市场态与系统态分离 |
+| `AppShell` | 基础 | 已有基础 | 统一 Header / Sidebar 结构与布局秩序 |
+| `PageHeader` | 基础 | 已有 | 承接标题、副标题、说明、操作组 |
+| `SectionCard` | 基础 | 已有 | 标准 Panel，替代页面局部卡片样式 |
+| `StatusBadge` / `StatusPill` | 基础 | 已有基础 | 区分系统状态与市场态，不混用语义色 |
 | `EmptyState` | 基础 | 已有 | 统一空图标、文案、动作 |
-| `DateField` | 基础 | 已有 | 继续标准化时间交互 |
-| `MonthField` | 基础 | 已有 | 与日期输入对齐 |
-| `HelpTip` | 基础 | 已有 | 继续用于渐进式解释 |
-| `FilterBar` | 高 | 需新增 | 统一筛选区布局、按钮和折叠策略 |
-| `DataTable` / `TableShell` | 高 | 需新增 | 统一表格密度、空态、loading、toolbar |
-| `StatCard` | 高 | 已有基础 | 需对齐新 token 和数字规范 |
-| `ActionBar` | 中 | 需新增 | 页头 / 抽屉 / Modal 底部动作一致性 |
+| `StatCard` | 高 | 已有基础 | 对齐数字规则、单位和 delta 语义 |
+| `FilterBar` | 高 | 需新增 | 统一筛选区布局、主次操作、折叠策略 |
+| `DataTable` / `TableShell` | 高 | 需新增 | 统一表格密度、toolbar、空态、loading |
+| `AlertBar` | 中 | 需新增 | 页面内持续提示，不替代 Toast |
 | `DetailDrawer` | 高 | 需新增 | 统一详情查看与复杂筛选抽屉 |
-| `AsyncTaskFeedback` | 中 | 需新增 | 任务提交成功、查看进度、失败重试提示 |
-| `Timeline` | 中 | 需新增 | 任务历史、事件追踪统一样式 |
-| `TradeDateField` | 中 | 需新增 | A 股交易日输入专用控件 |
+| `AsyncTaskFeedback` | 中 | 需新增 | 提交成功、查看进度、失败重试路径 |
+| `Timeline` | 中 | 需新增 | 任务历史、事件追踪、审计流水 |
+| `DateField` | 基础 | 已有 | 标准日期输入 |
+| `MonthField` | 基础 | 已有 | 标准月份输入 |
+| `HelpTip` | 基础 | 已有 | 渐进式解释与术语补充 |
+
+### 7.2 领域组件
+
+| 组件 | 级别 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| `PriceText` | 高 | 需新增 | 价格值展示，默认不直接染涨跌色 |
+| `ChangeText` | 高 | 需新增 | 涨跌额 / 涨跌幅展示，严格使用 up/down 语义 |
+| `StockBadge` | 中 | 需新增 | 股票代码/市场/板块等轻标识 |
+| `LimitUpChip` / `LimitUpLadder` | 中 | 需新增 | 涨停 / 跌停 / 连板类强化表达 |
+| `TradeDateField` | 高 | 需新增 | A 股交易日输入，屏蔽非交易日 |
+| `KLineChart` | 中 | 需新增 | K 线 / 技术指标图的标准包装 |
 
 ---
 
@@ -420,11 +453,24 @@ Menlo, Consolas, monospace
 - `default`：次操作
 - `subtle`：行内操作
 
+默认尺寸：
+
+- `md=32`：默认按钮尺寸
+- `sm=28`：工具栏和次级动作
+- `xs=24`：表格行内弱操作
+- `lg=40`：少量大表单或重点确认
+
 默认不鼓励：
 
 - 大面积 `light`
 - 装饰性 `outline`
 - 渐变按钮
+
+补充规则：
+
+- 一屏主按钮应 `<= 1` 个，且位于按钮组最右侧
+- 图标默认放左侧，右侧只允许下拉或外链类图标
+- 加载状态使用 `loading`，不要把文案切成“加载中...”
 
 说明：
 
@@ -436,9 +482,16 @@ Menlo, Consolas, monospace
 默认：
 
 - Label 在上
-- 输入控件统一高度
+- 输入控件统一高度，默认按 `32px` 基线收敛
 - 帮助文案与错误文案有固定位置
 - 日期与时间优先用共享控件
+
+补充规则：
+
+- 数字输入优先 `NumberInput`，而不是 `TextInput + regex`
+- `Switch` 用于立即生效的设置项
+- `Checkbox` / `Radio` 用于待提交的单选/多选
+- 交易日输入应优先使用 `TradeDateField`
 
 ## 8.3 Table
 
@@ -453,6 +506,8 @@ Menlo, Consolas, monospace
 - 状态列用 Badge
 - 空值统一 `—`
 - 行数大时考虑虚拟滚动
+- 数字列默认开启 `tabular-nums`
+- toolbar 搜索建议放左侧，筛选/导出/列设置放右侧
 
 ## 8.4 Card / Panel
 
@@ -473,6 +528,12 @@ Menlo, Consolas, monospace
 - 市场涨跌色
 - 中性默认色
 
+角色区分：
+
+- `Badge`：静态状态、分类、轻标签
+- `StatusPill`：实时状态，点 + 文案，不靠整块背景强调
+- 涨停 / 跌停 / 连板等特殊态优先使用领域胶囊组件
+
 不建议：
 
 - filled 实心 Badge 泛滥
@@ -485,6 +546,58 @@ Menlo, Consolas, monospace
 - Empty：线性图标 + 一句标题 + 一句说明 + 可选动作
 - Loading：优先 skeleton，而非整页大转圈
 - Notification：只用于真正需要反馈的用户动作
+
+补充规则：
+
+- EmptyState 必须尽量给出下一步动作
+- Notification 默认右下角堆叠，error 不自动关闭
+- 页面内持续提示优先 `AlertBar`，不要滥用 Toast
+
+## 8.7 Alert / Modal / Drawer
+
+默认分工：
+
+- `Alert`：页面内持续提示、降级提示、配额提醒
+- `Modal`：需要明确确认的短流程
+- `Drawer`：详情查看、长表单、高级筛选
+
+默认规则：
+
+- `Modal` 宽度优先固定档位 `400 / 560 / 720`
+- `Drawer` 宽度优先固定档位 `400 / 600 / 800`
+- 不嵌套 `Modal`
+- `Drawer` 底部动作区应固定，不随长内容滚走
+
+## 8.8 Timeline / List
+
+默认分工：
+
+- `Timeline`：任务执行流水、审计日志、阶段性进度
+- `List`：设置项、通知项、活动流
+- 表格型数据一律走 `DataTable`
+
+默认规则：
+
+- 时间列和数字列优先使用 `tabular-nums`
+- `pending` 节点可以有轻微脉冲，其余节点静止
+- 列表行不做“整行可点”的误导式 hover
+
+## 8.9 领域组件
+
+以下组件应在 `Phase 3` 作为重点候选：
+
+- `PriceText`
+- `ChangeText`
+- `StockBadge`
+- `LimitUpChip` / `LimitUpLadder`
+- `TradeDateField`
+- `KLineChart`
+
+默认规则：
+
+- 组件 props 面向前端展示语义，不直接暴露后端原始字段名
+- 市场涨跌色严格使用 `up/down` 语义，不借用 `success/error`
+- 领域组件应优先服务任务中心、行情页和审查/详情类页面
 
 ---
 
@@ -510,7 +623,70 @@ Menlo, Consolas, monospace
 
 ---
 
-## 10. 从现有实现到新标准的迁移策略
+## 10. 组件研发流程与评审
+
+## 10.1 新增组件的最小产物
+
+当前不要求所有组件立刻 Storybook 化，但至少应具备：
+
+1. 组件说明：
+   - 用途
+   - 何时使用
+   - 何时不使用
+   - 关键 props
+   - 状态与异常态
+2. 视觉对照：
+   - 进入 HTML Showcase 对应 section
+3. 组件实现：
+   - 优先落在共享层
+   - 不混入页面级业务状态
+4. 最小测试：
+   - 默认渲染
+   - 关键交互
+   - 主要语义约束
+5. 必要时补 smoke：
+   - 当组件直接影响高可见页面模式或回归面较大时
+
+## 10.2 当前默认流程
+
+1. 先判断这是通用组件还是领域组件。
+2. 先在文档和 Showcase 中明确组件形态与边界。
+3. 再在 `frontend/src/shared/ui/**` 中实现共享组件。
+4. 再补测试与必要的页面级 smoke。
+5. 最后接入试点页或目标页面。
+
+说明：
+
+- 这里吸收了设计师文档中“先定义、后编码”的思路。
+- 但结合当前仓库现状，先采用“组件说明 + Showcase + 测试 + smoke”组合，而不是立刻全面 Storybook。
+
+## 10.3 评审清单
+
+组件相关改动至少对照以下问题自查：
+
+- 是否仍只使用 token / Mantine theme 颜色，而不是硬编码 hex
+- 数字与日期是否使用 `tabular-nums`
+- Card / Button / List Item 是否避免了不必要阴影
+- 圆角是否仍处在默认档位内
+- 是否把市场涨跌色与系统语义色分开了
+- DataTable 是否仍满足 sticky header、数字右对齐、空值统一
+- EmptyState 是否给了下一步动作
+- 是否同步更新了 Showcase 与相关文档
+- 是否已经补了最小测试
+
+## 10.4 Showcase 口径
+
+当前视觉对照以 [前端组件 Showcase v1](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html) 为准。
+
+使用方式：
+
+1. 先看组件在真实页面中的组合效果。
+2. 再对照组件目录文档确定边界与实现口径。
+3. 最后再进入具体共享组件实现。
+
+---
+
+## 11. 从现有实现到新标准的迁移策略
 
 当前已知旧风格包括：
 
@@ -527,7 +703,7 @@ Menlo, Consolas, monospace
 
 ---
 
-## 11. 已确认基线
+## 12. 已确认基线
 
 以下事项已确认，可直接作为后续实现前提。
 
@@ -558,11 +734,11 @@ Menlo, Consolas, monospace
 
 ---
 
-## 12. 下一步建议
+## 13. 下一步建议
 
 文档定稿后，建议优先落地：
 
-1. `theme.ts` 的新 token 结构
-2. `SectionCard`、`StatusBadge`、`EmptyState` 的收敛
-3. `FilterBar` 与 `TableShell` 两个高频共享组件
-4. 选择一个任务中心相关页面做试点重构
+1. `Button / PageHeader / SectionCard / StatusPill / DataTable` 的第一批组件说明与标准化
+2. `EmptyState / AlertBar / DetailDrawer / Timeline` 的共享模式收敛
+3. `PriceText / ChangeText / TradeDateField` 这批领域组件的最小版本
+4. 结合任务中心链路开始试点页重构

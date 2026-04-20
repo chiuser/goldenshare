@@ -48,10 +48,10 @@ function toCardStatus(rawStatus: string | null | undefined): CardStatus {
 }
 
 function statusDotColor(status: CardStatus) {
-  if (status === "healthy") return "rgb(34, 197, 94)";
-  if (status === "failed") return "rgb(244, 63, 94)";
-  if (status === "warning") return "rgb(245, 158, 11)";
-  return "rgb(148, 163, 184)";
+  if (status === "healthy") return "var(--mantine-color-success-5)";
+  if (status === "failed") return "var(--mantine-color-error-5)";
+  if (status === "warning") return "var(--mantine-color-warning-5)";
+  return "var(--mantine-color-neutral-5)";
 }
 
 function modeLabel(mode: string): string {
@@ -63,24 +63,11 @@ function modeLabel(mode: string): string {
 }
 
 function modeColor(mode: string): string {
-  if (mode === "single_source_direct") return "teal";
-  if (mode === "multi_source_pipeline") return "indigo";
-  if (mode === "raw_only") return "gray";
-  if (mode === "legacy_core_direct") return "orange";
-  return "gray";
-}
-
-function modeTone(mode: string) {
-  if (mode === "single_source_direct") {
-    return { background: "rgba(34, 197, 94, 0.14)", color: "#166534", border: "rgba(34, 197, 94, 0.28)" };
-  }
-  if (mode === "multi_source_pipeline") {
-    return { background: "rgba(79, 70, 229, 0.14)", color: "#3730a3", border: "rgba(79, 70, 229, 0.26)" };
-  }
-  if (mode === "legacy_core_direct") {
-    return { background: "rgba(251, 146, 60, 0.14)", color: "#9a3412", border: "rgba(251, 146, 60, 0.24)" };
-  }
-  return { background: "rgba(100, 116, 139, 0.14)", color: "#334155", border: "rgba(100, 116, 139, 0.24)" };
+  if (mode === "single_source_direct") return "success";
+  if (mode === "multi_source_pipeline") return "info";
+  if (mode === "raw_only") return "neutral";
+  if (mode === "legacy_core_direct") return "warning";
+  return "neutral";
 }
 
 function canonicalDatasetKey(rawKey: string): string {
@@ -285,7 +272,7 @@ export function OpsV21OverviewPage() {
       >
         {summaryQuery.isLoading ? <Loader size="sm" /> : null}
         {summaryQuery.error ? (
-          <Alert color="red" title="读取状态概览失败">
+          <Alert color="error" title="读取状态概览失败">
             {summaryQuery.error instanceof Error ? summaryQuery.error.message : "未知错误"}
           </Alert>
         ) : null}
@@ -315,13 +302,13 @@ export function OpsV21OverviewPage() {
 
       {isLoading ? <Loader size="sm" /> : null}
       {error ? (
-        <Alert color="red" title="读取数据状态总览失败">
+        <Alert color="error" title="读取数据状态总览失败">
           {error instanceof Error ? error.message : "未知错误"}
         </Alert>
       ) : null}
 
       {!isLoading && !error && cards.length === 0 ? (
-        <Alert color="blue" title="暂无可展示的数据集">
+        <Alert color="info" title="暂无可展示的数据集">
           当前还没有 pipeline_mode 记录，请先执行一次初始化。
         </Alert>
       ) : null}
@@ -357,13 +344,11 @@ export function OpsV21OverviewPage() {
                 return (
                   <Paper
                     key={item.cardKey}
+                    className="glass-card"
+                    withBorder
                     radius="md"
                     p="md"
-                    style={{
-                      border: "1px solid rgba(15, 23, 42, 0.16)",
-                      background: "rgba(250, 204, 21, 0.10)",
-                      minHeight: 278,
-                    }}
+                    style={{ minHeight: 278 }}
                   >
                     <Stack gap={8} h="100%">
                       <Group justify="space-between" align="center" wrap="nowrap" gap={10}>
@@ -374,7 +359,7 @@ export function OpsV21OverviewPage() {
                               h={9}
                               style={{ borderRadius: "50%", background: statusDotColor(status), flex: "0 0 auto" }}
                             />
-                            <Text fw={800} size="xl" lineClamp={1} style={{ minWidth: 0 }}>
+                            <Text fw={600} size="lg" lineClamp={1} style={{ minWidth: 0 }}>
                               {item.displayName}
                             </Text>
                           </Group>
@@ -383,10 +368,10 @@ export function OpsV21OverviewPage() {
                           </Text>
                         </Stack>
                         <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto", minWidth: 0 }}>
-                          <Badge variant="light" color="blue" size="sm" styles={{ root: { background: "rgba(59, 130, 246, 0.12)", border: "1px solid rgba(59,130,246,0.25)" } }}>
+                          <Badge variant="light" color="info" size="sm">
                             最新业务日期：{item.latestBusinessDate ? formatDateLabel(item.latestBusinessDate) : "—"}
                           </Badge>
-                          <Badge variant="light" color="gray" size="sm" styles={{ root: { background: "rgba(100, 116, 139, 0.12)", border: "1px solid rgba(100,116,139,0.22)" } }}>
+                          <Badge variant="light" color="neutral" size="sm">
                             状态更新时间：{statusUpdatedAt ? formatDateTimeLabel(statusUpdatedAt) : "—"}
                           </Badge>
                         </Stack>
@@ -395,14 +380,6 @@ export function OpsV21OverviewPage() {
                           color={modeColor(item.mode)}
                           size="md"
                           style={{ flex: "0 0 auto", fontSize: 14 }}
-                          styles={{
-                            root: {
-                              background: modeTone(item.mode).background,
-                              color: modeTone(item.mode).color,
-                              border: `1px solid ${modeTone(item.mode).border}`,
-                              fontWeight: 700,
-                            },
-                          }}
                         >
                           {modeLabel(item.mode)}
                         </Badge>

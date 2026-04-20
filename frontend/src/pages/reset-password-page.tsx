@@ -60,7 +60,7 @@ export function ResetPasswordPage() {
     >
       <Stack gap="lg">
         {errorText ? (
-          <Alert color="red" title="提交失败">
+          <Alert color="error" title="提交失败">
             {errorText}
           </Alert>
         ) : null}

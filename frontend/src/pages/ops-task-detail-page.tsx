@@ -1,5 +1,4 @@
 import {
-  Alert,
   Badge,
   Button,
   Grid,
@@ -36,6 +35,7 @@ import {
   formatTriggerSourceLabel,
   formatUnitKindLabel,
 } from "../shared/ops-display";
+import { AlertBar, AlertBarNote } from "../shared/ui/alert-bar";
 import { MetricPanel } from "../shared/ui/metric-panel";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -584,9 +584,9 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
 
       {(detailQuery.isLoading || stepsQuery.isLoading || eventsQuery.isLoading) ? <Loader size="sm" /> : null}
       {detailQuery.error ? (
-        <Alert color="error" title="无法读取任务详情">
+        <AlertBar tone="error" title="无法读取任务详情">
           {detailQuery.error instanceof Error ? detailQuery.error.message : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       {detail ? (
@@ -612,9 +612,9 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               </Group>
             }
           >
-            <Alert color={buildStatusHeadline(detail).color} title={buildStatusHeadline(detail).title}>
+            <AlertBar tone={buildStatusHeadline(detail).color} title={buildStatusHeadline(detail).title}>
               {buildStatusHeadline(detail).description}
-            </Alert>
+            </AlertBar>
             <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md" verticalSpacing="md">
               <MetricPanel label="当前状态">
                 <StatusBadge value={detail.status} size="lg" />
@@ -636,10 +636,10 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               <SectionCard title="当前进展" description="这里只保留最关键的进展信息，帮助你快速判断任务是不是在正常推进。">
                 <Stack gap="md">
                   {latestUpdate ? (
-                    <Alert color={detail.status === "failed" ? "error" : "info"} title={`最近更新：${latestUpdate.label}`}>
+                    <AlertBar tone={detail.status === "failed" ? "error" : "info"} title={`最近更新：${latestUpdate.label}`}>
                       <Text size="sm">{latestUpdate.message}</Text>
-                      <Text size="xs" c="dimmed" mt={6}>{latestUpdate.time}</Text>
-                    </Alert>
+                      <AlertBarNote>更新时间：{latestUpdate.time}</AlertBarNote>
+                    </AlertBar>
                   ) : null}
                   {progressSnapshot ? (
                     <DetailSurfaceCard>
@@ -671,25 +671,23 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                     </DetailSurfaceCard>
                   ) : (
                     (detail.status === "queued" || detail.status === "running" || detail.status === "canceling") ? (
-                      <Alert color="info" title="处理中，等待进展写回">
+                      <AlertBar title="处理中，等待进展写回">
                         任务正在执行。进度与当前处理对象写回后，这里会自动更新。
-                      </Alert>
+                      </AlertBar>
                     ) : (
-                      <Alert color={detail.status === "failed" ? "error" : "success"} title="任务已结束">
+                      <AlertBar tone={detail.status === "failed" ? "error" : "success"} title="任务已结束">
                         {detail.summary_message || detail.error_message || "任务已结束。"}
-                      </Alert>
+                      </AlertBar>
                     )
                   )}
                   {servingLightUpdate ? (
-                    <Alert color={servingLightUpdate.color} title={servingLightUpdate.title}>
+                    <AlertBar tone={servingLightUpdate.color} title={servingLightUpdate.title}>
                       <Text size="sm">{servingLightUpdate.message}</Text>
                       {servingLightUpdate.touchedRows !== null ? (
                         <Text size="sm" mt={6}>刷新行数：{servingLightUpdate.touchedRows}</Text>
                       ) : null}
-                      <Text size="xs" c="dimmed" mt={6}>
-                        更新时间：{formatDateTimeLabel(servingLightUpdate.occurredAt)}
-                      </Text>
-                    </Alert>
+                      <AlertBarNote>更新时间：{formatDateTimeLabel(servingLightUpdate.occurredAt)}</AlertBarNote>
+                    </AlertBar>
                   ) : null}
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                     <DetailSurfaceCard>
@@ -744,9 +742,9 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                   <Stack gap="sm">
                     <Text>{buildActionSuggestion(detail)}</Text>
                     {detail.status === "failed" ? (
-                      <Alert color="error" title="问题摘要">
+                      <AlertBar tone="error" title="问题摘要">
                         {detail.summary_message || detail.error_message || "系统已经记录到失败，但还没有生成更具体的摘要。你可以查看实时处理记录继续排查。"}
-                      </Alert>
+                      </AlertBar>
                     ) : null}
                   </Stack>
                 </SectionCard>

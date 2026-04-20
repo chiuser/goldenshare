@@ -72,7 +72,7 @@ export function OpsV21ReviewIndexPage() {
             <Stack gap={4}>
               <Text size="sm" fw={600}>资源池</Text>
               <Group gap={8}>
-                <Badge variant="light" color="blue">指数日线池</Badge>
+                <Badge variant="light" color="info">指数日线池</Badge>
                 <Text size="xs" c="dimmed">周线/月线与日线共用同一激活池</Text>
               </Group>
             </Stack>
@@ -155,7 +155,7 @@ export function OpsV21ReviewIndexPage() {
       <SectionCard title="激活指数列表">
         {query.isLoading ? <Loader size="sm" /> : null}
         {query.error ? (
-          <Alert color="red" title="读取激活指数失败">
+          <Alert color="error" title="读取激活指数失败">
             {query.error instanceof Error ? query.error.message : "未知错误"}
           </Alert>
         ) : null}

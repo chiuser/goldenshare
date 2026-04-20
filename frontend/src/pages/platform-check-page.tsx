@@ -57,7 +57,7 @@ export function PlatformCheckPage() {
         <Stack gap="md">
           {healthQuery.isLoading ? <Loader size="sm" /> : null}
           {healthQuery.error ? (
-            <Alert color="red" title="健康检查失败">
+            <Alert color="error" title="健康检查失败">
               {healthQuery.error instanceof Error ? healthQuery.error.message : "未知错误"}
             </Alert>
           ) : null}
