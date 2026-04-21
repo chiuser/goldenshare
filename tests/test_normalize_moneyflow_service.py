@@ -11,23 +11,23 @@ def test_normalize_moneyflow_service_maps_tushare_to_std() -> None:
     row = {
         "ts_code": "000001.SZ",
         "trade_date": date(2026, 4, 16),
-        "buy_sm_vol": Decimal("1"),
+        "buy_sm_vol": 1,
         "buy_sm_amount": Decimal("2"),
-        "sell_sm_vol": Decimal("3"),
+        "sell_sm_vol": 3,
         "sell_sm_amount": Decimal("4"),
-        "buy_md_vol": Decimal("5"),
+        "buy_md_vol": 5,
         "buy_md_amount": Decimal("6"),
-        "sell_md_vol": Decimal("7"),
+        "sell_md_vol": 7,
         "sell_md_amount": Decimal("8"),
-        "buy_lg_vol": Decimal("9"),
+        "buy_lg_vol": 9,
         "buy_lg_amount": Decimal("10"),
-        "sell_lg_vol": Decimal("11"),
+        "sell_lg_vol": 11,
         "sell_lg_amount": Decimal("12"),
-        "buy_elg_vol": Decimal("13"),
+        "buy_elg_vol": 13,
         "buy_elg_amount": Decimal("14"),
-        "sell_elg_vol": Decimal("15"),
+        "sell_elg_vol": 15,
         "sell_elg_amount": Decimal("16"),
-        "net_mf_vol": Decimal("17"),
+        "net_mf_vol": 17,
         "net_mf_amount": Decimal("18"),
     }
 
@@ -36,6 +36,7 @@ def test_normalize_moneyflow_service_maps_tushare_to_std() -> None:
     assert std_row["source_key"] == "tushare"
     assert std_row["ts_code"] == "000001.SZ"
     assert std_row["trade_date"] == date(2026, 4, 16)
+    assert std_row["net_mf_vol"] == 17
     assert std_row["net_mf_amount"] == Decimal("18")
 
 
@@ -69,5 +70,5 @@ def test_normalize_moneyflow_service_maps_biying_to_std_and_computes_net() -> No
     assert std_row["trade_date"] == date(2026, 4, 16)
     assert std_row["buy_elg_amount"] == Decimal("400")
     assert std_row["sell_elg_amount"] == Decimal("40")
-    assert std_row["net_mf_vol"] == Decimal("86")
+    assert std_row["net_mf_vol"] == 86
     assert std_row["net_mf_amount"] == Decimal("900")
