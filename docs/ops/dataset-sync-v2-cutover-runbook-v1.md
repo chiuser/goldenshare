@@ -40,11 +40,12 @@
 10. `moneyflow_ind_ths`
 11. `moneyflow_ind_dc`
 12. `moneyflow_mkt_dc`
+13. `moneyflow`
 
 说明：
 
-1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）当前仍走 V1 稳定链路，暂未纳入本轮 V2 切换名单。  
-2. 待 V2 writer 支持“std + publish”语义后，再单独开专项切换与对账。  
+1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）V2 contract 与 writer（`std + publish`）已在代码中落地并完成远程部署。  
+2. 已按 runbook 完成 `sync-history + sync-daily + reconcile-dataset` 门禁对账（`abs_diff=0`）。  
 
 建议切换顺序（低风险到高风险）：
 
@@ -209,6 +210,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 10. 批次 10：`moneyflow_ind_ths`
 11. 批次 11：`moneyflow_ind_dc`
 12. 批次 12：`moneyflow_mkt_dc`
+13. 批次 13：`moneyflow`
 
 ## 6.2 每批固定动作
 
@@ -220,7 +222,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ## 6.3 当前已落地状态（2026-04-21）
 
 1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
-   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc`
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow`
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
@@ -236,7 +238,13 @@ curl -s http://127.0.0.1:8000/api/v1/health
 6. `moneyflow_ind_ths` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
-7. `moneyflow_mkt_dc` 已完成切换后门禁对账：
+7. `moneyflow_ind_dc` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+8. `moneyflow_mkt_dc` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+9. `moneyflow` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
 
