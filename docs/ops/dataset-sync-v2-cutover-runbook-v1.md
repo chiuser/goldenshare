@@ -41,6 +41,11 @@
 11. `moneyflow_ind_dc`
 12. `moneyflow_mkt_dc`
 
+说明：
+
+1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）当前仍走 V1 稳定链路，暂未纳入本轮 V2 切换名单。  
+2. 待 V2 writer 支持“std + publish”语义后，再单独开专项切换与对账。  
+
 建议切换顺序（低风险到高风险）：
 
 1. `trade_cal`
