@@ -8,6 +8,8 @@ from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
     CYQ_PERF_FIELDS,
     DAILY_BASIC_FIELDS,
+    LIMIT_CPT_LIST_FIELDS,
+    LIMIT_STEP_FIELDS,
     MARGIN_FIELDS,
     MONEYFLOW_FIELDS,
     MONEYFLOW_CNT_THS_FIELDS,
@@ -122,6 +124,29 @@ def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any
         "trade_date": anchor_date.strftime("%Y%m%d"),
         "exchange_id": exchange_id,
     }
+
+
+def _limit_step_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("limit_step requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    nums = request.params.get("nums")
+    if nums not in (None, ""):
+        params["nums"] = str(nums).strip()
+    return params
+
+
+def _limit_cpt_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("limit_cpt_list requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
 
 
 def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -480,6 +505,78 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.equity_margin",
         ),
         observe_spec=ObserveSpec(progress_label="margin"),
+    ),
+    "limit_step": DatasetSyncContract(
+        dataset_key="limit_step",
+        display_name="连板梯队",
+        job_name="sync_limit_step",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("nums", "string", required=False, description="几连板"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="limit_step",
+            fields=tuple(LIMIT_STEP_FIELDS),
+            unit_params_builder=_limit_step_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code", "nums"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_limit_step",
+            core_dao_name="limit_step",
+            target_table="core_serving.limit_step",
+        ),
+        observe_spec=ObserveSpec(progress_label="limit_step"),
+    ),
+    "limit_cpt_list": DatasetSyncContract(
+        dataset_key="limit_cpt_list",
+        display_name="涨停概念列表",
+        job_name="sync_limit_cpt_list",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="limit_cpt_list",
+            fields=tuple(LIMIT_CPT_LIST_FIELDS),
+            unit_params_builder=_limit_cpt_list_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("pct_chg",),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_limit_cpt_list",
+            core_dao_name="limit_cpt_list",
+            target_table="core_serving.limit_cpt_list",
+        ),
+        observe_spec=ObserveSpec(progress_label="limit_cpt_list"),
     ),
     "moneyflow": DatasetSyncContract(
         dataset_key="moneyflow",

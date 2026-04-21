@@ -41,11 +41,14 @@
 11. `moneyflow_ind_dc`
 12. `moneyflow_mkt_dc`
 13. `moneyflow`
+14. `limit_step`
+15. `limit_cpt_list`
 
 说明：
 
 1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）V2 contract 与 writer（`std + publish`）已在代码中落地并完成远程部署。  
 2. 已按 runbook 完成 `sync-history + sync-daily + reconcile-dataset` 门禁对账（`abs_diff=0`）。  
+3. `limit_step` / `limit_cpt_list` 已完成 V2 contract 与 reconcile 支持落地，待进入远程切换批次。  
 
 建议切换顺序（低风险到高风险）：
 
@@ -61,6 +64,8 @@
 10. `moneyflow_ind_ths`
 11. `moneyflow_ind_dc`
 12. `moneyflow_mkt_dc`
+13. `limit_step`
+14. `limit_cpt_list`
 
 ---
 
@@ -194,7 +199,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（12 个数据集）
+## 6. 本轮执行建议（15 个数据集，已完成 13 个）
 
 ## 6.1 批次计划
 
@@ -211,6 +216,8 @@ curl -s http://127.0.0.1:8000/api/v1/health
 11. 批次 11：`moneyflow_ind_dc`
 12. 批次 12：`moneyflow_mkt_dc`
 13. 批次 13：`moneyflow`
+14. 批次 14：`limit_step`
+15. 批次 15：`limit_cpt_list`
 
 ## 6.2 每批固定动作
 
@@ -247,6 +254,9 @@ curl -s http://127.0.0.1:8000/api/v1/health
 9. `moneyflow` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
+10. `limit_step` / `limit_cpt_list`：
+   - 已落地 V2 contract + `reconcile-dataset` 支持
+   - 尚未加入生产 `USE_SYNC_V2_DATASETS`（待下一批切换）
 
 ---
 

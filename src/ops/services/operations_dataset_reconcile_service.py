@@ -13,6 +13,8 @@ from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.equity_margin import EquityMargin
+from src.foundation.models.core.limit_cpt_list import LimitCptList
+from src.foundation.models.core.limit_step import LimitStep
 from src.foundation.models.core.market_moneyflow_dc import MarketMoneyflowDc
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
@@ -20,6 +22,8 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_margin import RawMargin
+from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
+from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
@@ -64,6 +68,8 @@ class DatasetReconcileService:
         "stk_limit": (RawStkLimit, "trade_date", EquityStkLimit, "trade_date"),
         "suspend_d": (RawSuspendD, "trade_date", EquitySuspendD, "trade_date"),
         "margin": (RawMargin, "trade_date", EquityMargin, "trade_date"),
+        "limit_step": (RawLimitStep, "trade_date", LimitStep, "trade_date"),
+        "limit_cpt_list": (RawLimitCptList, "trade_date", LimitCptList, "trade_date"),
         "moneyflow": (RawMoneyflow, "trade_date", EquityMoneyflow, "trade_date"),
         "moneyflow_ths": (RawMoneyflowThs, "trade_date", EquityMoneyflowThs, "trade_date"),
         "moneyflow_dc": (RawMoneyflowDc, "trade_date", EquityMoneyflowDc, "trade_date"),

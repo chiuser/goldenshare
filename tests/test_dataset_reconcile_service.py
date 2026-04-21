@@ -49,6 +49,8 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "cyq_perf" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "suspend_d" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "limit_step" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "limit_cpt_list" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "moneyflow" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "moneyflow_ths" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "moneyflow_dc" in DatasetReconcileService.SUPPORTED_DATASETS
