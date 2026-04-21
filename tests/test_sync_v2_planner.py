@@ -157,3 +157,57 @@ def test_planner_dc_member_fanout_falls_back_to_source_when_dc_index_empty(mocke
     assert len(units) == 2
     assert {unit.request_params["ts_code"] for unit in units} == {"BK2001.DC", "BK2002.DC"}
     connector.call.assert_called_once()
+
+
+def test_planner_index_daily_fanout_uses_active_index_pool(mocker) -> None:
+    session = mocker.Mock()
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000001.SH", "399001.SZ"]),
+        index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+    )
+    contract = get_sync_v2_contract("index_daily")
+    request = RunRequest(
+        request_id="req-index-daily",
+        dataset_key="index_daily",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
+    assert {unit.request_params["trade_date"] for unit in units} == {"20260421"}
+
+
+def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocker) -> None:
+    session = mocker.Mock()
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=lambda resource: []),
+        index_basic=SimpleNamespace(
+            get_active_indexes=lambda: [
+                SimpleNamespace(ts_code="000001.SH"),
+                SimpleNamespace(ts_code="399001.SZ"),
+            ]
+        ),
+    )
+    contract = get_sync_v2_contract("index_daily")
+    request = RunRequest(
+        request_id="req-index-daily-range",
+        dataset_key="index_daily",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260415", "end_date": "20260417"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
+    assert {unit.request_params["start_date"] for unit in units} == {"20260415"}
+    assert {unit.request_params["end_date"] for unit in units} == {"20260417"}

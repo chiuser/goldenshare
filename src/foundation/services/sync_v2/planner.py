@@ -153,6 +153,26 @@ class SyncV2Planner:
         policy = contract.planning_spec.universe_policy
         if policy == "none":
             return [{}]
+        if policy == "index_active_codes":
+            ts_code = str(request.params.get("ts_code") or "").strip().upper()
+            if ts_code:
+                return [{"ts_code": ts_code}]
+
+            codes = self.dao.index_series_active.list_active_codes(request.dataset_key)
+            if not codes:
+                codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
+            normalized_codes = sorted({str(code).strip().upper() for code in codes if str(code).strip()})
+            if not normalized_codes:
+                raise SyncV2PlanningError(
+                    StructuredError(
+                        error_code="universe_empty",
+                        error_type="planning",
+                        phase="planner",
+                        message=f"no active index codes found for dataset={request.dataset_key}",
+                        retryable=False,
+                    )
+                )
+            return [{"ts_code": code} for code in normalized_codes]
         if policy != "dc_index_board_codes":
             raise SyncV2PlanningError(
                 StructuredError(

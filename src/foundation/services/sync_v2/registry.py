@@ -161,13 +161,22 @@ def _index_daily_basic_params(request, anchor_date: date | None, enum_values: di
 
 
 def _index_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
-    if anchor_date is None:
-        raise ValueError("index_daily requires trade_date anchor")
-    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
-    ts_code = request.params.get("ts_code")
-    if ts_code not in (None, ""):
-        params["ts_code"] = str(ts_code).strip().upper()
-    return params
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code in (None, ""):
+        raise ValueError("index_daily requires ts_code")
+    params: dict[str, Any] = {"ts_code": str(ts_code).strip().upper()}
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise ValueError("index_daily point_incremental requires trade_date")
+        params["trade_date"] = request.trade_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("index_daily range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"index_daily unsupported run_profile: {request.run_profile}")
 
 
 def _limit_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -713,8 +722,8 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=PlanningSpec(
-            date_anchor_policy="trade_date",
-            universe_policy="none",
+            date_anchor_policy="none",
+            universe_policy="index_active_codes",
             pagination_policy="offset_limit",
         ),
         source_adapter_key="tushare",
