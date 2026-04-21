@@ -1880,6 +1880,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("ts_code", "string", required=False, description="指数代码"),
             )
         ),
@@ -1913,6 +1914,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("ts_code", "string", required=False, description="ETF 代码"),
                 InputField("index_code", "string", required=False, description="指数代码"),
                 InputField("exchange", "string", required=False, description="交易所"),
@@ -1951,6 +1953,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("ts_code", "string", required=False, description="ETF 代码"),
                 InputField("pub_date", "date", required=False, description="发布日期"),
                 InputField("base_date", "date", required=False, description="基期日期"),
@@ -1986,6 +1989,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("list_status", "list", required=False, description="上市状态"),
             )
         ),
@@ -2019,6 +2023,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("classify", "list", required=False, description="证券分类"),
                 InputField("ts_code", "string", required=False, description="证券代码"),
             )
@@ -2053,6 +2058,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
         input_schema=InputSchema(
             fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
                 InputField("ts_code", "string", required=False, description="板块代码"),
                 InputField("exchange", "string", required=False, description="交易所"),
                 InputField("type", "string", required=False, description="板块类型"),
