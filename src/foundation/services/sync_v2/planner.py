@@ -4,10 +4,14 @@ from datetime import date
 from itertools import product
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.foundation.connectors.factory import create_source_connector
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
+from src.foundation.models.core.dc_index import DcIndex
+from src.foundation.services.sync.fields import DC_INDEX_FIELDS
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, PlanUnit, ValidatedRunRequest
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2PlanningError
 
@@ -20,24 +24,27 @@ class SyncV2Planner:
 
     def plan(self, request: ValidatedRunRequest, contract: DatasetSyncContract) -> list[PlanUnit]:
         anchors = self._resolve_anchors(request, contract)
-        fanout_values = self._resolve_enum_fanout_values(request, contract)
 
         units: list[PlanUnit] = []
         for anchor in anchors:
-            for enum_values in fanout_values:
-                request_params = contract.source_spec.unit_params_builder(request, anchor, enum_values)
-                source_key = request.source_key or contract.source_spec.source_key_default
-                units.append(
-                    PlanUnit(
-                        unit_id=self._build_unit_id(request.dataset_key, anchor, enum_values),
-                        dataset_key=request.dataset_key,
-                        source_key=source_key,
-                        trade_date=anchor,
-                        request_params=request_params,
-                        attempt=0,
-                        priority=0,
+            enum_fanout_values = self._resolve_enum_fanout_values(request, contract)
+            universe_values = self._resolve_universe_values(request, contract, anchor)
+            for enum_values in enum_fanout_values:
+                for universe_value in universe_values:
+                    merged_values = {**enum_values, **universe_value}
+                    request_params = contract.source_spec.unit_params_builder(request, anchor, merged_values)
+                    source_key = request.source_key or contract.source_spec.source_key_default
+                    units.append(
+                        PlanUnit(
+                            unit_id=self._build_unit_id(request.dataset_key, anchor, merged_values),
+                            dataset_key=request.dataset_key,
+                            source_key=source_key,
+                            trade_date=anchor,
+                            request_params=request_params,
+                            attempt=0,
+                            priority=0,
+                        )
                     )
-                )
 
         max_units = contract.planning_spec.max_units_per_execution
         if max_units is not None and len(units) > max_units:
@@ -136,6 +143,88 @@ class SyncV2Planner:
         for row in product(*options):
             combinations.append({keys[index]: row[index] for index in range(len(keys))})
         return combinations
+
+    def _resolve_universe_values(
+        self,
+        request: ValidatedRunRequest,
+        contract: DatasetSyncContract,
+        anchor: date | None,
+    ) -> list[dict[str, Any]]:
+        policy = contract.planning_spec.universe_policy
+        if policy == "none":
+            return [{}]
+        if policy != "dc_index_board_codes":
+            raise SyncV2PlanningError(
+                StructuredError(
+                    error_code="unknown_universe_policy",
+                    error_type="planning",
+                    phase="planner",
+                    message=f"unsupported universe_policy={policy}",
+                    retryable=False,
+                )
+            )
+
+        ts_code = str(request.params.get("ts_code") or "").strip().upper()
+        con_code = str(request.params.get("con_code") or "").strip().upper()
+        if ts_code:
+            return [{"ts_code": ts_code}]
+        if con_code:
+            return [{"con_code": con_code}]
+        if anchor is None:
+            raise SyncV2PlanningError(
+                StructuredError(
+                    error_code="trade_date_anchor_required",
+                    error_type="planning",
+                    phase="planner",
+                    message="dc_index_board_codes requires trade_date anchor",
+                    retryable=False,
+                )
+            )
+
+        idx_type = str(request.params.get("idx_type") or "").strip()
+        board_codes = self._load_board_codes_from_dc_index(anchor=anchor, idx_type=idx_type or None)
+        if not board_codes:
+            board_codes = self._load_board_codes_from_source(anchor=anchor, idx_type=idx_type or None)
+        if not board_codes:
+            raise SyncV2PlanningError(
+                StructuredError(
+                    error_code="universe_empty",
+                    error_type="planning",
+                    phase="planner",
+                    message=f"no dc_index board codes found for trade_date={anchor.isoformat()}",
+                    retryable=False,
+                )
+            )
+        return [{"ts_code": code} for code in board_codes]
+
+    def _load_board_codes_from_dc_index(self, *, anchor: date, idx_type: str | None) -> list[str]:
+        stmt = select(DcIndex.ts_code).where(DcIndex.trade_date == anchor)
+        if idx_type:
+            stmt = stmt.where(DcIndex.idx_type == idx_type)
+        codes = [
+            str(item).strip().upper()
+            for item in self.session.scalars(stmt.distinct().order_by(DcIndex.ts_code))
+            if str(item).strip()
+        ]
+        return sorted(set(codes))
+
+    @staticmethod
+    def _load_board_codes_from_source(*, anchor: date, idx_type: str | None) -> list[str]:
+        connector = create_source_connector("tushare")
+        params: dict[str, Any] = {"trade_date": anchor.strftime("%Y%m%d")}
+        if idx_type:
+            params["idx_type"] = idx_type
+        rows = connector.call(
+            api_name="dc_index",
+            params=params,
+            fields=tuple(DC_INDEX_FIELDS),
+        )
+        codes = [
+            str(row.get("ts_code")).strip().upper()
+            for row in rows
+            if str(row.get("ts_code") or "").strip()
+        ]
+        return sorted(set(codes))
 
     @staticmethod
     def _build_unit_id(dataset_key: str, anchor: date | None, enum_values: dict[str, Any]) -> str:

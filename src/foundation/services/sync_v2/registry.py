@@ -6,8 +6,10 @@ from typing import Any
 
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    BLOCK_TRADE_FIELDS,
     CYQ_PERF_FIELDS,
     DAILY_BASIC_FIELDS,
+    DC_MEMBER_FIELDS,
     LIMIT_CPT_LIST_FIELDS,
     LIMIT_STEP_FIELDS,
     MARGIN_FIELDS,
@@ -18,10 +20,14 @@ from src.foundation.services.sync.fields import (
     MONEYFLOW_IND_THS_FIELDS,
     MONEYFLOW_MKT_DC_FIELDS,
     MONEYFLOW_THS_FIELDS,
+    STOCK_ST_FIELDS,
     STK_LIMIT_FIELDS,
+    STK_NINETURN_FIELDS,
     SUSPEND_D_FIELDS,
+    TOP_LIST_FIELDS,
     TRADE_CAL_FIELDS,
 )
+from src.foundation.services.transform.top_list_reason import hash_top_list_reason
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
@@ -149,6 +155,59 @@ def _limit_cpt_list_params(request, anchor_date: date | None, enum_values: dict[
     return params
 
 
+def _top_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("top_list requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _block_trade_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("block_trade requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _stock_st_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("stock_st requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _stk_nineturn_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("stk_nineturn requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d"), "freq": "daily"}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _dc_member_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("dc_member requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    con_code = enum_values.get("con_code") or request.params.get("con_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if con_code not in (None, ""):
+        params["con_code"] = str(con_code).strip().upper()
+    return params
+
+
 def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("moneyflow requires trade_date anchor")
@@ -251,6 +310,13 @@ def _trade_cal_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 def _suspend_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["row_key_hash"] = build_suspend_d_row_key_hash(transformed)
+    return transformed
+
+
+def _top_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["pct_chg"] = transformed.get("pct_change")
+    transformed["reason_hash"] = hash_top_list_reason(transformed.get("reason"))
     return transformed
 
 
@@ -577,6 +643,204 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.limit_cpt_list",
         ),
         observe_spec=ObserveSpec(progress_label="limit_cpt_list"),
+    ),
+    "top_list": DatasetSyncContract(
+        dataset_key="top_list",
+        display_name="龙虎榜",
+        job_name="sync_top_list",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="top_list",
+            fields=tuple(TOP_LIST_FIELDS),
+            unit_params_builder=_top_list_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "close",
+                "pct_change",
+                "turnover_rate",
+                "amount",
+                "l_sell",
+                "l_buy",
+                "l_amount",
+                "net_amount",
+                "net_rate",
+                "amount_rate",
+                "float_values",
+            ),
+            required_fields=("trade_date", "ts_code", "reason", "reason_hash"),
+            row_transform=_top_list_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_top_list",
+            core_dao_name="equity_top_list",
+            target_table="core_serving.equity_top_list",
+        ),
+        observe_spec=ObserveSpec(progress_label="top_list"),
+        pagination_spec=PaginationSpec(page_limit=10000),
+    ),
+    "block_trade": DatasetSyncContract(
+        dataset_key="block_trade",
+        display_name="大宗交易",
+        job_name="sync_block_trade",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="block_trade",
+            fields=tuple(BLOCK_TRADE_FIELDS),
+            unit_params_builder=_block_trade_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("price", "vol", "amount"),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_block_trade",
+            core_dao_name="equity_block_trade",
+            target_table="core_serving.equity_block_trade",
+            write_path="raw_core_snapshot_insert_by_trade_date",
+        ),
+        observe_spec=ObserveSpec(progress_label="block_trade"),
+        pagination_spec=PaginationSpec(page_limit=1000),
+    ),
+    "stock_st": DatasetSyncContract(
+        dataset_key="stock_st",
+        display_name="ST股票列表",
+        job_name="sync_stock_st",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="stock_st",
+            fields=tuple(STOCK_ST_FIELDS),
+            unit_params_builder=_stock_st_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code", "type"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_stock_st",
+            core_dao_name="equity_stock_st",
+            target_table="core_serving.equity_stock_st",
+        ),
+        observe_spec=ObserveSpec(progress_label="stock_st"),
+        pagination_spec=PaginationSpec(page_limit=1000),
+    ),
+    "stk_nineturn": DatasetSyncContract(
+        dataset_key="stk_nineturn",
+        display_name="神奇九转指标",
+        job_name="sync_stk_nineturn",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="stk_nineturn",
+            fields=tuple(STK_NINETURN_FIELDS),
+            unit_params_builder=_stk_nineturn_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("open", "high", "low", "close", "vol", "amount", "up_count", "down_count"),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_stk_nineturn",
+            core_dao_name="equity_nineturn",
+            target_table="core_serving.equity_nineturn",
+        ),
+        observe_spec=ObserveSpec(progress_label="stk_nineturn"),
+        pagination_spec=PaginationSpec(page_limit=10000),
+    ),
+    "dc_member": DatasetSyncContract(
+        dataset_key="dc_member",
+        display_name="东方财富板块成分",
+        job_name="sync_dc_member",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="板块代码"),
+                InputField("con_code", "string", required=False, description="成分股票代码"),
+                InputField("idx_type", "string", required=False, description="东财板块类型"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="dc_index_board_codes",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="dc_member",
+            fields=tuple(DC_MEMBER_FIELDS),
+            unit_params_builder=_dc_member_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code", "con_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_dc_member",
+            core_dao_name="dc_member",
+            target_table="core_serving.dc_member",
+        ),
+        observe_spec=ObserveSpec(progress_label="dc_member"),
     ),
     "moneyflow": DatasetSyncContract(
         dataset_key="moneyflow",

@@ -43,6 +43,11 @@
 13. `moneyflow`
 14. `limit_step`
 15. `limit_cpt_list`
+16. `top_list`
+17. `block_trade`
+18. `stock_st`
+19. `stk_nineturn`
+20. `dc_member`
 
 说明：
 
@@ -66,6 +71,11 @@
 12. `moneyflow_mkt_dc`
 13. `limit_step`
 14. `limit_cpt_list`
+15. `top_list`
+16. `block_trade`
+17. `stock_st`
+18. `stk_nineturn`
+19. `dc_member`
 
 ---
 
@@ -195,7 +205,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（15 个数据集，已完成 15 个）
+## 6. 本轮执行建议（20 个数据集，已完成 15 个）
 
 ## 6.1 批次计划
 
@@ -214,6 +224,11 @@ curl -s http://127.0.0.1:8000/api/v1/health
 13. 批次 13：`moneyflow`
 14. 批次 14：`limit_step`
 15. 批次 15：`limit_cpt_list`
+16. 批次 16：`top_list`
+17. 批次 17：`block_trade`
+18. 批次 18：`stock_st`
+19. 批次 19：`stk_nineturn`
+20. 批次 20：`dc_member`
 
 ## 6.2 每批固定动作
 
@@ -260,6 +275,31 @@ curl -s http://127.0.0.1:8000/api/v1/health
    - `raw_rows=60`
    - `serving_rows=60`
    - `abs_diff=0`
+12. 下一批待切（尚未纳入生产 `USE_SYNC_V2_DATASETS`）：
+   - `top_list`
+   - `block_trade`
+   - `stock_st`
+   - `stk_nineturn`
+   - `dc_member`
+
+---
+
+## 8. 下一批（Batch-2）执行清单（待执行）
+
+建议顺序：
+
+1. `top_list`
+2. `block_trade`
+3. `stock_st`
+4. `stk_nineturn`
+5. `dc_member`
+
+每个数据集按“第 4 章单数据集切换步骤”逐个执行，不允许并行扩面。
+
+`dc_member` 额外门禁建议：
+
+1. 在切 `dc_member` 前，先确认同窗口 `dc_index` 已有可用板块池（`trade_date` 对应板块代码可查询）。
+2. 如板块池为空，先补跑 `dc_index` 同窗口，再执行 `dc_member` 切换。
 
 ---
 

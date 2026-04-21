@@ -5,7 +5,12 @@ from dataclasses import dataclass, field
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract
 from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 
-ALLOWED_WRITE_PATHS = {"raw_core_upsert", "raw_std_publish_moneyflow"}
+ALLOWED_WRITE_PATHS = {
+    "raw_core_upsert",
+    "raw_std_publish_moneyflow",
+    "raw_core_snapshot_insert_by_trade_date",
+}
+ALLOWED_UNIVERSE_POLICIES = {"none", "dc_index_board_codes"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -35,6 +40,14 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
                 contract.dataset_key,
                 "invalid_write_path",
                 f"write_spec.write_path={contract.write_spec.write_path} is not supported",
+            )
+        )
+    if contract.planning_spec.universe_policy not in ALLOWED_UNIVERSE_POLICIES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_universe_policy",
+                f"planning_spec.universe_policy={contract.planning_spec.universe_policy} is not supported",
             )
         )
     for enum_key in contract.planning_spec.enum_fanout_fields:

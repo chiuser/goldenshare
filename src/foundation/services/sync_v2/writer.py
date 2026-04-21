@@ -53,6 +53,13 @@ class SyncV2Writer:
                     raw_dao=raw_dao,
                     std_dao=core_dao,
                 )
+            if contract.write_spec.write_path == "raw_core_snapshot_insert_by_trade_date":
+                return self._write_snapshot_insert_by_trade_date(
+                    contract=contract,
+                    batch=batch,
+                    raw_dao=raw_dao,
+                    core_dao=core_dao,
+                )
             if contract.write_spec.write_path != "raw_core_upsert":
                 raise ValueError(f"unsupported write_path: {contract.write_spec.write_path}")
             rows_upserted = self._write_raw_and_core(
@@ -130,4 +137,28 @@ class SyncV2Writer:
             rows_skipped=batch.rows_rejected,
             target_table=contract.write_spec.target_table,
             conflict_strategy="upsert",
+        )
+
+    @staticmethod
+    def _write_snapshot_insert_by_trade_date(
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        raw_dao,
+        core_dao,
+    ) -> WriteResult:
+        target_dates = sorted({row["trade_date"] for row in batch.rows_normalized if row.get("trade_date") is not None})
+        for current_date in target_dates:
+            raw_dao.delete_by_date_range(current_date, current_date)
+            core_dao.delete_by_date_range(current_date, current_date)
+
+        raw_dao.bulk_insert(batch.rows_normalized)
+        written = core_dao.bulk_insert(batch.rows_normalized)
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=written,
+            rows_upserted=written,
+            rows_skipped=batch.rows_rejected,
+            target_table=contract.write_spec.target_table,
+            conflict_strategy="snapshot_insert_by_trade_date",
         )

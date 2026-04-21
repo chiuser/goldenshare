@@ -58,6 +58,11 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "moneyflow_ind_ths" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "moneyflow_ind_dc" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "moneyflow_mkt_dc" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "top_list" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "block_trade" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stock_st" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_nineturn" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "dc_member" in DatasetReconcileService.SUPPORTED_DATASETS
 
 
 def test_dataset_reconcile_service_rejects_invalid_date_range(mocker) -> None:

@@ -345,7 +345,8 @@ def reconcile_dataset(
         help=(
             "当前支持 trade_cal/daily_basic/cyq_perf/stk_limit/suspend_d/margin/"
             "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
-            "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc"
+            "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc/"
+            "top_list/block_trade/stock_st/stk_nineturn/dc_member"
         ),
     ),
     start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),

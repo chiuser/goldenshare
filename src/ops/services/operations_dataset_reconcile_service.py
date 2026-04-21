@@ -8,8 +8,13 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
+from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
+from src.foundation.models.core.equity_nineturn import EquityNineTurn
+from src.foundation.models.core.equity_stock_st import EquityStockSt
+from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.equity_margin import EquityMargin
@@ -31,8 +36,13 @@ from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
+from src.foundation.models.raw.raw_block_trade import RawBlockTrade
+from src.foundation.models.raw.raw_dc_member import RawDcMember
+from src.foundation.models.raw.raw_stock_st import RawStockSt
+from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
+from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.core.equity_moneyflow_dc import EquityMoneyflowDc
 from src.foundation.models.core.equity_moneyflow_ths import EquityMoneyflowThs
@@ -77,6 +87,11 @@ class DatasetReconcileService:
         "moneyflow_ind_ths": (RawMoneyflowIndThs, "trade_date", IndustryMoneyflowThs, "trade_date"),
         "moneyflow_ind_dc": (RawMoneyflowIndDc, "trade_date", BoardMoneyflowDc, "trade_date"),
         "moneyflow_mkt_dc": (RawMoneyflowMktDc, "trade_date", MarketMoneyflowDc, "trade_date"),
+        "top_list": (RawTopList, "trade_date", EquityTopList, "trade_date"),
+        "block_trade": (RawBlockTrade, "trade_date", EquityBlockTrade, "trade_date"),
+        "stock_st": (RawStockSt, "trade_date", EquityStockSt, "trade_date"),
+        "stk_nineturn": (RawStkNineTurn, "trade_date", EquityNineTurn, "trade_date"),
+        "dc_member": (RawDcMember, "trade_date", DcMember, "trade_date"),
     }
 
     def run(

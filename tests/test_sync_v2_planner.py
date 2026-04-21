@@ -99,3 +99,61 @@ def test_planner_rejects_when_planned_units_exceed_limit(mocker) -> None:
         planner.plan(validated, limited_contract)
 
     assert exc_info.value.structured_error.error_code == "units_exceeded"
+
+
+def test_planner_dc_member_fanout_uses_dc_index_board_pool(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = ["BK1184.DC", "BK0999.DC"]
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [date(2026, 4, 21)]
+        )
+    )
+    contract = get_sync_v2_contract("dc_member")
+    request = RunRequest(
+        request_id="req-dc-member",
+        dataset_key="dc_member",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"BK1184.DC", "BK0999.DC"}
+    assert {unit.trade_date for unit in units} == {date(2026, 4, 21)}
+
+
+def test_planner_dc_member_fanout_falls_back_to_source_when_dc_index_empty(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = []
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [date(2026, 4, 21)]
+        )
+    )
+    connector = mocker.Mock()
+    connector.call.return_value = [
+        {"ts_code": "BK2001.DC"},
+        {"ts_code": "BK2002.DC"},
+    ]
+    mocker.patch("src.foundation.services.sync_v2.planner.create_source_connector", return_value=connector)
+    contract = get_sync_v2_contract("dc_member")
+    request = RunRequest(
+        request_id="req-dc-member-fallback",
+        dataset_key="dc_member",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"BK2001.DC", "BK2002.DC"}
+    connector.call.assert_called_once()

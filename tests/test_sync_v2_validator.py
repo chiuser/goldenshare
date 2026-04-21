@@ -216,3 +216,89 @@ def test_validator_accepts_limit_cpt_list_range_rebuild() -> None:
     assert validated.start_date == date(2026, 4, 18)
     assert validated.end_date == date(2026, 4, 21)
     assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_accepts_top_list_incremental_with_ts_code() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("top_list")
+    request = RunRequest(
+        request_id="req-13",
+        dataset_key="top_list",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421", "ts_code": "000001.SZ"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 21)
+    assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_accepts_block_trade_range_rebuild() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("block_trade")
+    request = RunRequest(
+        request_id="req-14",
+        dataset_key="block_trade",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260418", "end_date": "20260421"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 18)
+    assert validated.end_date == date(2026, 4, 21)
+
+
+def test_validator_accepts_stock_st_incremental() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stock_st")
+    request = RunRequest(
+        request_id="req-15",
+        dataset_key="stock_st",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 21)
+
+
+def test_validator_accepts_stk_nineturn_range_with_ts_code() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stk_nineturn")
+    request = RunRequest(
+        request_id="req-16",
+        dataset_key="stk_nineturn",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260418", "end_date": "20260421", "ts_code": "000001.SZ"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 18)
+    assert validated.end_date == date(2026, 4, 21)
+    assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_accepts_dc_member_range_with_idx_type() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("dc_member")
+    request = RunRequest(
+        request_id="req-17",
+        dataset_key="dc_member",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260418", "end_date": "20260421", "idx_type": "概念板块"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 18)
+    assert validated.end_date == date(2026, 4, 21)
+    assert validated.params["idx_type"] == "概念板块"
