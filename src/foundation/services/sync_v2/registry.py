@@ -6,11 +6,19 @@ from typing import Any
 
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    ADJ_FACTOR_FIELDS,
     BLOCK_TRADE_FIELDS,
     CYQ_PERF_FIELDS,
+    DAILY_FIELDS,
     DAILY_BASIC_FIELDS,
     DC_MEMBER_FIELDS,
+    DC_INDEX_FIELDS,
+    FUND_DAILY_FIELDS,
+    INDEX_DAILY_BASIC_FIELDS,
+    INDEX_DAILY_FIELDS,
     LIMIT_CPT_LIST_FIELDS,
+    LIMIT_LIST_FIELDS,
+    LIMIT_LIST_THS_FIELDS,
     LIMIT_STEP_FIELDS,
     MARGIN_FIELDS,
     MONEYFLOW_FIELDS,
@@ -42,6 +50,8 @@ from src.foundation.services.sync_v2.contracts import (
 )
 
 ALL_MARGIN_EXCHANGE_IDS = ("SSE", "SZSE", "BSE")
+ALL_LIMIT_LIST_EXCHANGES = ("SH", "SZ", "BJ")
+ALL_LIMIT_LIST_TYPES = ("U", "D", "Z")
 ALL_MONEYFLOW_IND_DC_CONTENT_TYPES = ("行业", "概念", "地域")
 MONEYFLOW_VOLUME_FIELDS = (
     "buy_sm_vol",
@@ -94,6 +104,105 @@ def _daily_basic_params(request, anchor_date: date | None, enum_values: dict[str
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("daily requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _adj_factor_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("adj_factor requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _fund_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("fund_daily requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _dc_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("dc_index requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    idx_type = request.params.get("idx_type")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if idx_type not in (None, ""):
+        params["idx_type"] = str(idx_type).strip()
+    return params
+
+
+def _index_daily_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("index_daily_basic requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _index_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("index_daily requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _limit_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("limit_list_d requires trade_date anchor")
+    limit_type = str(enum_values.get("limit_type") or "").strip().upper()
+    exchange = str(enum_values.get("exchange") or "").strip().upper()
+    if not limit_type:
+        raise ValueError("limit_list_d requires limit_type fanout")
+    if not exchange:
+        raise ValueError("limit_list_d requires exchange fanout")
+    params: dict[str, Any] = {
+        "trade_date": anchor_date.strftime("%Y%m%d"),
+        "limit_type": limit_type,
+        "exchange": exchange,
+    }
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _limit_list_ths_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("limit_list_ths requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    limit_type = request.params.get("limit_type")
+    market = request.params.get("market")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if limit_type not in (None, ""):
+        params["limit_type"] = str(limit_type).strip()
+    if market not in (None, ""):
+        params["market"] = str(market).strip()
     return params
 
 
@@ -320,6 +429,38 @@ def _top_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["change_amount"] = transformed.get("change")
+    transformed["source"] = "tushare"
+    return transformed
+
+
+def _fund_daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["change_amount"] = transformed.get("change")
+    return transformed
+
+
+def _index_daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["change_amount"] = transformed.get("change")
+    return transformed
+
+
+def _limit_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["limit_type"] = transformed.get("limit")
+    return transformed
+
+
+def _limit_list_ths_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["query_limit_type"] = str(transformed.get("limit_type") or "__ALL__")
+    transformed["query_market"] = str(transformed.get("market_type") or "__ALL__")
+    return transformed
+
+
 SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
     "trade_cal": DatasetSyncContract(
         dataset_key="trade_cal",
@@ -356,6 +497,337 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.trade_calendar",
         ),
         observe_spec=ObserveSpec(progress_label="trade_cal"),
+    ),
+    "daily": DatasetSyncContract(
+        dataset_key="daily",
+        display_name="股票日线行情",
+        job_name="sync_equity_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="daily",
+            fields=tuple(DAILY_FIELDS),
+            unit_params_builder=_daily_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"),
+            required_fields=("trade_date", "ts_code"),
+            row_transform=_daily_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_daily",
+            core_dao_name="equity_daily_bar",
+            target_table="core_serving.equity_daily_bar",
+        ),
+        observe_spec=ObserveSpec(progress_label="daily"),
+    ),
+    "adj_factor": DatasetSyncContract(
+        dataset_key="adj_factor",
+        display_name="复权因子",
+        job_name="sync_adj_factor",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="adj_factor",
+            fields=tuple(ADJ_FACTOR_FIELDS),
+            unit_params_builder=_adj_factor_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("adj_factor",),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_adj_factor",
+            core_dao_name="equity_adj_factor",
+            target_table="core.equity_adj_factor",
+        ),
+        observe_spec=ObserveSpec(progress_label="adj_factor"),
+    ),
+    "fund_daily": DatasetSyncContract(
+        dataset_key="fund_daily",
+        display_name="基金日线行情",
+        job_name="sync_fund_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="基金代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="fund_daily",
+            fields=tuple(FUND_DAILY_FIELDS),
+            unit_params_builder=_fund_daily_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"),
+            required_fields=("trade_date", "ts_code"),
+            row_transform=_fund_daily_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_fund_daily",
+            core_dao_name="fund_daily_bar",
+            target_table="core_serving.fund_daily_bar",
+        ),
+        observe_spec=ObserveSpec(progress_label="fund_daily"),
+        pagination_spec=PaginationSpec(page_limit=5000),
+    ),
+    "dc_index": DatasetSyncContract(
+        dataset_key="dc_index",
+        display_name="东方财富板块列表",
+        job_name="sync_dc_index",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="板块代码"),
+                InputField("idx_type", "string", required=False, description="板块类型"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="dc_index",
+            fields=tuple(DC_INDEX_FIELDS),
+            unit_params_builder=_dc_index_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("pct_change", "leading_pct", "total_mv", "turnover_rate"),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_dc_index",
+            core_dao_name="dc_index",
+            target_table="core_serving.dc_index",
+        ),
+        observe_spec=ObserveSpec(progress_label="dc_index"),
+    ),
+    "index_daily_basic": DatasetSyncContract(
+        dataset_key="index_daily_basic",
+        display_name="指数每日指标",
+        job_name="sync_index_daily_basic",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="指数代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="index_dailybasic",
+            fields=tuple(INDEX_DAILY_BASIC_FIELDS),
+            unit_params_builder=_index_daily_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "total_mv",
+                "float_mv",
+                "total_share",
+                "float_share",
+                "free_share",
+                "turnover_rate",
+                "turnover_rate_f",
+                "pe",
+                "pe_ttm",
+                "pb",
+            ),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_index_daily_basic",
+            core_dao_name="index_daily_basic",
+            target_table="core_serving.index_daily_basic",
+        ),
+        observe_spec=ObserveSpec(progress_label="index_daily_basic"),
+        pagination_spec=PaginationSpec(page_limit=1000),
+    ),
+    "index_daily": DatasetSyncContract(
+        dataset_key="index_daily",
+        display_name="指数日线行情",
+        job_name="sync_index_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="指数代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="index_daily",
+            fields=tuple(INDEX_DAILY_FIELDS),
+            unit_params_builder=_index_daily_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"),
+            required_fields=("trade_date", "ts_code"),
+            row_transform=_index_daily_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_index_daily",
+            core_dao_name="index_daily_serving",
+            target_table="core_serving.index_daily_serving",
+        ),
+        observe_spec=ObserveSpec(progress_label="index_daily"),
+        pagination_spec=PaginationSpec(page_limit=2000),
+    ),
+    "limit_list_d": DatasetSyncContract(
+        dataset_key="limit_list_d",
+        display_name="每日涨跌停名单",
+        job_name="sync_limit_list",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("limit_type", "list", required=False, description="涨跌停类型"),
+                InputField("exchange", "list", required=False, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            enum_fanout_fields=("limit_type", "exchange"),
+            enum_fanout_defaults={"limit_type": ALL_LIMIT_LIST_TYPES, "exchange": ALL_LIMIT_LIST_EXCHANGES},
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="limit_list_d",
+            fields=tuple(LIMIT_LIST_FIELDS),
+            unit_params_builder=_limit_list_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("close", "pct_chg", "amount", "limit_amount", "float_mv", "total_mv", "turnover_ratio", "fd_amount"),
+            required_fields=("trade_date", "ts_code", "limit_type"),
+            row_transform=_limit_list_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_limit_list",
+            core_dao_name="equity_limit_list",
+            target_table="core_serving.equity_limit_list",
+        ),
+        observe_spec=ObserveSpec(progress_label="limit_list_d"),
+    ),
+    "limit_list_ths": DatasetSyncContract(
+        dataset_key="limit_list_ths",
+        display_name="同花顺涨停名单",
+        job_name="sync_limit_list_ths",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("limit_type", "string", required=False, description="同花顺涨跌停类型"),
+                InputField("market", "string", required=False, description="市场"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="limit_list_ths",
+            fields=tuple(LIMIT_LIST_THS_FIELDS),
+            unit_params_builder=_limit_list_ths_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "price",
+                "pct_chg",
+                "limit_order",
+                "limit_amount",
+                "turnover_rate",
+                "free_float",
+                "lu_limit_order",
+                "limit_up_suc_rate",
+                "turnover",
+                "rise_rate",
+                "sum_float",
+            ),
+            required_fields=("trade_date", "ts_code", "query_limit_type", "query_market"),
+            row_transform=_limit_list_ths_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_limit_list_ths",
+            core_dao_name="limit_list_ths",
+            target_table="core_serving.limit_list_ths",
+        ),
+        observe_spec=ObserveSpec(progress_label="limit_list_ths"),
     ),
     "stk_limit": DatasetSyncContract(
         dataset_key="stk_limit",

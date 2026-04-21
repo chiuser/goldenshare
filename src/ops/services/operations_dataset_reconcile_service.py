@@ -6,16 +6,24 @@ from datetime import date, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.models.core.dc_index import DcIndex
+from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
+from src.foundation.models.core.fund_daily_bar import FundDailyBar
+from src.foundation.models.core.index_daily_basic import IndexDailyBasic
+from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
 from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_top_list import EquityTopList
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.limit_cpt_list import LimitCptList
@@ -25,7 +33,15 @@ from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
+from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_dc_index import RawDcIndex
+from src.foundation.models.raw.raw_fund_daily import RawFundDaily
+from src.foundation.models.raw.raw_index_daily import RawIndexDaily
+from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
+from src.foundation.models.raw.raw_limit_list import RawLimitList
+from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
@@ -72,9 +88,17 @@ class DatasetReconcileReport:
 
 class DatasetReconcileService:
     SUPPORTED_DATASETS: dict[str, tuple[type, str, type, str]] = {
+        "adj_factor": (RawAdjFactor, "trade_date", EquityAdjFactor, "trade_date"),
+        "daily": (RawDaily, "trade_date", EquityDailyBar, "trade_date"),
         "trade_cal": (RawTradeCal, "cal_date", TradeCalendar, "trade_date"),
         "daily_basic": (RawDailyBasic, "trade_date", EquityDailyBasic, "trade_date"),
         "cyq_perf": (RawCyqPerf, "trade_date", EquityCyqPerf, "trade_date"),
+        "dc_index": (RawDcIndex, "trade_date", DcIndex, "trade_date"),
+        "fund_daily": (RawFundDaily, "trade_date", FundDailyBar, "trade_date"),
+        "index_daily": (RawIndexDaily, "trade_date", IndexDailyServing, "trade_date"),
+        "index_daily_basic": (RawIndexDailyBasic, "trade_date", IndexDailyBasic, "trade_date"),
+        "limit_list_d": (RawLimitList, "trade_date", EquityLimitList, "trade_date"),
+        "limit_list_ths": (RawLimitListThs, "trade_date", LimitListThs, "trade_date"),
         "stk_limit": (RawStkLimit, "trade_date", EquityStkLimit, "trade_date"),
         "suspend_d": (RawSuspendD, "trade_date", EquitySuspendD, "trade_date"),
         "margin": (RawMargin, "trade_date", EquityMargin, "trade_date"),

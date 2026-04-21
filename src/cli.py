@@ -403,7 +403,9 @@ def reconcile_dataset(
         "--dataset",
         "-d",
         help=(
-            "当前支持 trade_cal/daily_basic/cyq_perf/stk_limit/suspend_d/margin/"
+            "当前支持 trade_cal/daily/daily_basic/fund_daily/adj_factor/stk_limit/"
+            "suspend_d/margin/dc_index/index_daily/index_daily_basic/"
+            "limit_list_d/limit_list_ths/"
             "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
             "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc/"
             "top_list/block_trade/stock_st/stk_nineturn/dc_member"

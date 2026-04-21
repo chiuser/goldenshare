@@ -46,8 +46,16 @@ def test_dataset_reconcile_service_rejects_unknown_dataset(mocker) -> None:
 
 
 def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
+    assert "adj_factor" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "daily" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "cyq_perf" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "dc_index" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "fund_daily" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_daily" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "limit_list_d" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "limit_list_ths" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "suspend_d" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "limit_step" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "limit_cpt_list" in DatasetReconcileService.SUPPORTED_DATASETS
