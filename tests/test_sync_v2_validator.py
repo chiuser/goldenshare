@@ -302,3 +302,40 @@ def test_validator_accepts_dc_member_range_with_idx_type() -> None:
     assert validated.start_date == date(2026, 4, 18)
     assert validated.end_date == date(2026, 4, 21)
     assert validated.params["idx_type"] == "概念板块"
+
+
+def test_validator_accepts_index_basic_point_incremental_with_external_trade_date() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("index_basic")
+    request = RunRequest(
+        request_id="req-18",
+        dataset_key="index_basic",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"ts_code": "000001.SH"},
+        trade_date=date(2026, 4, 21),
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 21)
+    assert validated.params["ts_code"] == "000001.SH"
+
+
+def test_validator_accepts_hk_basic_snapshot_refresh_with_list_status() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("hk_basic")
+    request = RunRequest(
+        request_id="req-19",
+        dataset_key="hk_basic",
+        run_profile="snapshot_refresh",
+        trigger_source="manual",
+        params={"list_status": "L,D"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date is None
+    assert validated.start_date is None
+    assert validated.end_date is None
+    assert validated.params["list_status"] == ["L", "D"]

@@ -408,7 +408,9 @@ def reconcile_dataset(
             "limit_list_d/limit_list_ths/"
             "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
             "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc/"
-            "top_list/block_trade/stock_st/stk_nineturn/dc_member"
+            "top_list/block_trade/stock_st/stk_nineturn/dc_member/"
+            "fund_adj/index_basic/etf_basic/etf_index/hk_basic/us_basic/"
+            "ths_index/kpl_list/kpl_concept_cons/broker_recommend"
         ),
     ),
     start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
@@ -437,6 +439,11 @@ def reconcile_dataset(
     typer.echo(f"raw_rows={report.raw_rows}")
     typer.echo(f"serving_rows={report.serving_rows}")
     typer.echo(f"abs_diff={report.abs_diff}")
+    typer.echo(f"reconcile_mode={report.reconcile_mode}")
+    if report.raw_distinct_keys is not None and report.serving_distinct_keys is not None:
+        typer.echo(f"raw_distinct_keys={report.raw_distinct_keys}")
+        typer.echo(f"serving_distinct_keys={report.serving_distinct_keys}")
+        typer.echo(f"distinct_abs_diff={report.distinct_abs_diff}")
 
     if sample_limit > 0 and report.daily_diffs:
         typer.echo(f"\n[daily_diff] samples={len(report.daily_diffs)}")
@@ -445,12 +452,22 @@ def reconcile_dataset(
                 f" - {item.trade_date.isoformat()} raw={item.raw_rows} "
                 f"serving={item.serving_rows} diff={item.diff}"
             )
+    if sample_limit > 0 and report.snapshot_key_diffs:
+        typer.echo(f"\n[key_diff] samples={len(report.snapshot_key_diffs)}")
+        for item in report.snapshot_key_diffs:
+            typer.echo(f" - {item}")
 
-    if abs_diff_threshold >= 0 and report.abs_diff > abs_diff_threshold:
-        typer.echo(
-            f"\nreconcile-dataset gate failed: abs_diff={report.abs_diff} > threshold={abs_diff_threshold}"
-        )
-        raise typer.Exit(code=1)
+    if abs_diff_threshold >= 0:
+        gate_failures: list[str] = []
+        if report.abs_diff > abs_diff_threshold:
+            gate_failures.append(f"abs_diff={report.abs_diff}")
+        distinct_abs_diff = report.distinct_abs_diff
+        if distinct_abs_diff is not None and distinct_abs_diff > abs_diff_threshold:
+            gate_failures.append(f"distinct_abs_diff={distinct_abs_diff}")
+        if gate_failures:
+            failure_text = ", ".join(gate_failures)
+            typer.echo(f"\nreconcile-dataset gate failed: {failure_text} > threshold={abs_diff_threshold}")
+            raise typer.Exit(code=1)
 
 
 @app.command("ops-rebuild-dataset-status")

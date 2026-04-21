@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, except_, func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.dc_index import DcIndex
@@ -62,6 +62,36 @@ from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 from src.foundation.models.core.equity_moneyflow_dc import EquityMoneyflowDc
 from src.foundation.models.core.equity_moneyflow_ths import EquityMoneyflowThs
+from src.foundation.models.core.fund_adj_factor import FundAdjFactor
+from src.foundation.models.core.index_basic import IndexBasic
+from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.core.etf_index import EtfIndex
+from src.foundation.models.core.hk_security import HkSecurity
+from src.foundation.models.core.us_security import UsSecurity
+from src.foundation.models.core.ths_index import ThsIndex
+from src.foundation.models.core.kpl_list import KplList
+from src.foundation.models.core.kpl_concept_cons import KplConceptCons
+from src.foundation.models.core.broker_recommend import BrokerRecommend
+from src.foundation.models.raw.raw_fund_adj import RawFundAdj
+from src.foundation.models.raw.raw_index_basic import RawIndexBasic
+from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+from src.foundation.models.raw.raw_etf_index import RawEtfIndex
+from src.foundation.models.raw.raw_hk_basic import RawHkBasic
+from src.foundation.models.raw.raw_us_basic import RawUsBasic
+from src.foundation.models.raw.raw_ths_index import RawThsIndex
+from src.foundation.models.raw.raw_kpl_list import RawKplList
+from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
+from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
+
+
+@dataclass(slots=True, frozen=True)
+class DatasetReconcileConfig:
+    raw_model: type
+    serving_model: type
+    mode: str
+    raw_date_field: str | None = None
+    serving_date_field: str | None = None
+    key_fields: tuple[str, ...] | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -79,43 +109,279 @@ class DatasetReconcileReport:
     end_date: date
     raw_rows: int
     serving_rows: int
+    reconcile_mode: str = "daily"
+    raw_distinct_keys: int | None = None
+    serving_distinct_keys: int | None = None
+    snapshot_key_diffs: list[str] = field(default_factory=list)
     daily_diffs: list[DatasetReconcileDailyDiff] = field(default_factory=list)
 
     @property
     def abs_diff(self) -> int:
         return abs(self.raw_rows - self.serving_rows)
 
+    @property
+    def distinct_abs_diff(self) -> int | None:
+        if self.raw_distinct_keys is None or self.serving_distinct_keys is None:
+            return None
+        return abs(self.raw_distinct_keys - self.serving_distinct_keys)
+
 
 class DatasetReconcileService:
-    SUPPORTED_DATASETS: dict[str, tuple[type, str, type, str]] = {
-        "adj_factor": (RawAdjFactor, "trade_date", EquityAdjFactor, "trade_date"),
-        "daily": (RawDaily, "trade_date", EquityDailyBar, "trade_date"),
-        "trade_cal": (RawTradeCal, "cal_date", TradeCalendar, "trade_date"),
-        "daily_basic": (RawDailyBasic, "trade_date", EquityDailyBasic, "trade_date"),
-        "cyq_perf": (RawCyqPerf, "trade_date", EquityCyqPerf, "trade_date"),
-        "dc_index": (RawDcIndex, "trade_date", DcIndex, "trade_date"),
-        "fund_daily": (RawFundDaily, "trade_date", FundDailyBar, "trade_date"),
-        "index_daily": (RawIndexDaily, "trade_date", IndexDailyServing, "trade_date"),
-        "index_daily_basic": (RawIndexDailyBasic, "trade_date", IndexDailyBasic, "trade_date"),
-        "limit_list_d": (RawLimitList, "trade_date", EquityLimitList, "trade_date"),
-        "limit_list_ths": (RawLimitListThs, "trade_date", LimitListThs, "trade_date"),
-        "stk_limit": (RawStkLimit, "trade_date", EquityStkLimit, "trade_date"),
-        "suspend_d": (RawSuspendD, "trade_date", EquitySuspendD, "trade_date"),
-        "margin": (RawMargin, "trade_date", EquityMargin, "trade_date"),
-        "limit_step": (RawLimitStep, "trade_date", LimitStep, "trade_date"),
-        "limit_cpt_list": (RawLimitCptList, "trade_date", LimitCptList, "trade_date"),
-        "moneyflow": (RawMoneyflow, "trade_date", EquityMoneyflow, "trade_date"),
-        "moneyflow_ths": (RawMoneyflowThs, "trade_date", EquityMoneyflowThs, "trade_date"),
-        "moneyflow_dc": (RawMoneyflowDc, "trade_date", EquityMoneyflowDc, "trade_date"),
-        "moneyflow_cnt_ths": (RawMoneyflowCntThs, "trade_date", ConceptMoneyflowThs, "trade_date"),
-        "moneyflow_ind_ths": (RawMoneyflowIndThs, "trade_date", IndustryMoneyflowThs, "trade_date"),
-        "moneyflow_ind_dc": (RawMoneyflowIndDc, "trade_date", BoardMoneyflowDc, "trade_date"),
-        "moneyflow_mkt_dc": (RawMoneyflowMktDc, "trade_date", MarketMoneyflowDc, "trade_date"),
-        "top_list": (RawTopList, "trade_date", EquityTopList, "trade_date"),
-        "block_trade": (RawBlockTrade, "trade_date", EquityBlockTrade, "trade_date"),
-        "stock_st": (RawStockSt, "trade_date", EquityStockSt, "trade_date"),
-        "stk_nineturn": (RawStkNineTurn, "trade_date", EquityNineTurn, "trade_date"),
-        "dc_member": (RawDcMember, "trade_date", DcMember, "trade_date"),
+    SUPPORTED_DATASETS: dict[str, DatasetReconcileConfig] = {
+        "adj_factor": DatasetReconcileConfig(
+            raw_model=RawAdjFactor,
+            serving_model=EquityAdjFactor,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "daily": DatasetReconcileConfig(
+            raw_model=RawDaily,
+            serving_model=EquityDailyBar,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "trade_cal": DatasetReconcileConfig(
+            raw_model=RawTradeCal,
+            serving_model=TradeCalendar,
+            mode="daily",
+            raw_date_field="cal_date",
+            serving_date_field="trade_date",
+        ),
+        "daily_basic": DatasetReconcileConfig(
+            raw_model=RawDailyBasic,
+            serving_model=EquityDailyBasic,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "cyq_perf": DatasetReconcileConfig(
+            raw_model=RawCyqPerf,
+            serving_model=EquityCyqPerf,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "dc_index": DatasetReconcileConfig(
+            raw_model=RawDcIndex,
+            serving_model=DcIndex,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "fund_daily": DatasetReconcileConfig(
+            raw_model=RawFundDaily,
+            serving_model=FundDailyBar,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "index_daily": DatasetReconcileConfig(
+            raw_model=RawIndexDaily,
+            serving_model=IndexDailyServing,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "index_daily_basic": DatasetReconcileConfig(
+            raw_model=RawIndexDailyBasic,
+            serving_model=IndexDailyBasic,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "limit_list_d": DatasetReconcileConfig(
+            raw_model=RawLimitList,
+            serving_model=EquityLimitList,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "limit_list_ths": DatasetReconcileConfig(
+            raw_model=RawLimitListThs,
+            serving_model=LimitListThs,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "stk_limit": DatasetReconcileConfig(
+            raw_model=RawStkLimit,
+            serving_model=EquityStkLimit,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "suspend_d": DatasetReconcileConfig(
+            raw_model=RawSuspendD,
+            serving_model=EquitySuspendD,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "margin": DatasetReconcileConfig(
+            raw_model=RawMargin,
+            serving_model=EquityMargin,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "limit_step": DatasetReconcileConfig(
+            raw_model=RawLimitStep,
+            serving_model=LimitStep,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "limit_cpt_list": DatasetReconcileConfig(
+            raw_model=RawLimitCptList,
+            serving_model=LimitCptList,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow": DatasetReconcileConfig(
+            raw_model=RawMoneyflow,
+            serving_model=EquityMoneyflow,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_ths": DatasetReconcileConfig(
+            raw_model=RawMoneyflowThs,
+            serving_model=EquityMoneyflowThs,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_dc": DatasetReconcileConfig(
+            raw_model=RawMoneyflowDc,
+            serving_model=EquityMoneyflowDc,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_cnt_ths": DatasetReconcileConfig(
+            raw_model=RawMoneyflowCntThs,
+            serving_model=ConceptMoneyflowThs,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_ind_ths": DatasetReconcileConfig(
+            raw_model=RawMoneyflowIndThs,
+            serving_model=IndustryMoneyflowThs,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_ind_dc": DatasetReconcileConfig(
+            raw_model=RawMoneyflowIndDc,
+            serving_model=BoardMoneyflowDc,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "moneyflow_mkt_dc": DatasetReconcileConfig(
+            raw_model=RawMoneyflowMktDc,
+            serving_model=MarketMoneyflowDc,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "top_list": DatasetReconcileConfig(
+            raw_model=RawTopList,
+            serving_model=EquityTopList,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "block_trade": DatasetReconcileConfig(
+            raw_model=RawBlockTrade,
+            serving_model=EquityBlockTrade,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "stock_st": DatasetReconcileConfig(
+            raw_model=RawStockSt,
+            serving_model=EquityStockSt,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "stk_nineturn": DatasetReconcileConfig(
+            raw_model=RawStkNineTurn,
+            serving_model=EquityNineTurn,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "dc_member": DatasetReconcileConfig(
+            raw_model=RawDcMember,
+            serving_model=DcMember,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "fund_adj": DatasetReconcileConfig(
+            raw_model=RawFundAdj,
+            serving_model=FundAdjFactor,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "index_basic": DatasetReconcileConfig(
+            raw_model=RawIndexBasic,
+            serving_model=IndexBasic,
+            mode="snapshot",
+        ),
+        "etf_basic": DatasetReconcileConfig(
+            raw_model=RawEtfBasic,
+            serving_model=EtfBasic,
+            mode="snapshot",
+        ),
+        "etf_index": DatasetReconcileConfig(
+            raw_model=RawEtfIndex,
+            serving_model=EtfIndex,
+            mode="snapshot",
+        ),
+        "hk_basic": DatasetReconcileConfig(
+            raw_model=RawHkBasic,
+            serving_model=HkSecurity,
+            mode="snapshot",
+        ),
+        "us_basic": DatasetReconcileConfig(
+            raw_model=RawUsBasic,
+            serving_model=UsSecurity,
+            mode="snapshot",
+        ),
+        "ths_index": DatasetReconcileConfig(
+            raw_model=RawThsIndex,
+            serving_model=ThsIndex,
+            mode="snapshot",
+        ),
+        "kpl_list": DatasetReconcileConfig(
+            raw_model=RawKplList,
+            serving_model=KplList,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "kpl_concept_cons": DatasetReconcileConfig(
+            raw_model=RawKplConceptCons,
+            serving_model=KplConceptCons,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "broker_recommend": DatasetReconcileConfig(
+            raw_model=RawBrokerRecommend,
+            serving_model=BrokerRecommend,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
     }
 
     def run(
@@ -131,27 +397,53 @@ class DatasetReconcileService:
         if config is None:
             supported = ", ".join(sorted(self.SUPPORTED_DATASETS.keys()))
             raise ValueError(f"dataset={dataset_key} is not supported. supported={supported}")
-        raw_model, raw_date_field, serving_model, serving_date_field = config
 
         resolved_end = end_date or date.today()
         resolved_start = start_date or (resolved_end - timedelta(days=7))
         if resolved_start > resolved_end:
             raise ValueError("start_date must be <= end_date")
 
-        raw_date_col = getattr(raw_model, raw_date_field)
-        serving_date_col = getattr(serving_model, serving_date_field)
+        if config.mode == "snapshot":
+            raw_rows = self._count_rows(session, stmt=select(func.count()).select_from(config.raw_model))
+            serving_rows = self._count_rows(session, stmt=select(func.count()).select_from(config.serving_model))
+            raw_distinct = self._count_distinct_keys(session, model=config.raw_model, key_fields=config.key_fields)
+            serving_distinct = self._count_distinct_keys(session, model=config.serving_model, key_fields=config.key_fields)
+            key_diffs = self._load_key_diff_samples(
+                session,
+                raw_model=config.raw_model,
+                serving_model=config.serving_model,
+                key_fields=config.key_fields,
+                sample_limit=sample_limit,
+            )
+            return DatasetReconcileReport(
+                dataset_key=dataset_key,
+                start_date=resolved_start,
+                end_date=resolved_end,
+                raw_rows=raw_rows,
+                serving_rows=serving_rows,
+                reconcile_mode="snapshot",
+                raw_distinct_keys=raw_distinct,
+                serving_distinct_keys=serving_distinct,
+                snapshot_key_diffs=key_diffs,
+            )
+
+        if not config.raw_date_field or not config.serving_date_field:
+            raise ValueError(f"dataset={dataset_key} missing date fields for daily reconcile mode")
+
+        raw_date_col = getattr(config.raw_model, config.raw_date_field)
+        serving_date_col = getattr(config.serving_model, config.serving_date_field)
 
         raw_rows = self._count_rows(
             session,
-            stmt=select(func.count()).select_from(raw_model).where(raw_date_col >= resolved_start, raw_date_col <= resolved_end),
+            stmt=select(func.count()).select_from(config.raw_model).where(raw_date_col >= resolved_start, raw_date_col <= resolved_end),
         )
         serving_rows = self._count_rows(
             session,
-            stmt=select(func.count()).select_from(serving_model).where(serving_date_col >= resolved_start, serving_date_col <= resolved_end),
+            stmt=select(func.count()).select_from(config.serving_model).where(serving_date_col >= resolved_start, serving_date_col <= resolved_end),
         )
 
-        raw_daily = self._load_daily_counts(session, raw_model, raw_date_col, resolved_start, resolved_end)
-        serving_daily = self._load_daily_counts(session, serving_model, serving_date_col, resolved_start, resolved_end)
+        raw_daily = self._load_daily_counts(session, config.raw_model, raw_date_col, resolved_start, resolved_end)
+        serving_daily = self._load_daily_counts(session, config.serving_model, serving_date_col, resolved_start, resolved_end)
         merged_dates = sorted(set(raw_daily.keys()) | set(serving_daily.keys()))
         daily_diffs: list[DatasetReconcileDailyDiff] = []
         for current_date in merged_dates:
@@ -176,12 +468,71 @@ class DatasetReconcileService:
             end_date=resolved_end,
             raw_rows=raw_rows,
             serving_rows=serving_rows,
+            reconcile_mode="daily",
             daily_diffs=daily_diffs,
         )
 
     @staticmethod
     def _count_rows(session: Session, *, stmt: Select) -> int:
         return int(session.scalar(stmt) or 0)
+
+    @staticmethod
+    def _resolve_key_columns(model: type, key_fields: tuple[str, ...] | None = None) -> list:
+        if key_fields:
+            return [getattr(model, key) for key in key_fields]
+        return [getattr(model, col.name) for col in model.__table__.primary_key.columns]
+
+    def _count_distinct_keys(
+        self,
+        session: Session,
+        *,
+        model: type,
+        key_fields: tuple[str, ...] | None = None,
+    ) -> int:
+        key_columns = self._resolve_key_columns(model, key_fields)
+        if not key_columns:
+            return 0
+        stmt = select(*key_columns).distinct().subquery()
+        return self._count_rows(session, stmt=select(func.count()).select_from(stmt))
+
+    def _load_key_diff_samples(
+        self,
+        session: Session,
+        *,
+        raw_model: type,
+        serving_model: type,
+        key_fields: tuple[str, ...] | None = None,
+        sample_limit: int,
+    ) -> list[str]:
+        if sample_limit <= 0:
+            return []
+        raw_keys = self._resolve_key_columns(raw_model, key_fields)
+        serving_keys = self._resolve_key_columns(serving_model, key_fields)
+        if not raw_keys or not serving_keys:
+            return []
+
+        raw_only_stmt = except_(
+            select(*raw_keys).distinct(),
+            select(*serving_keys).distinct(),
+        ).limit(sample_limit)
+        raw_only_rows = session.execute(raw_only_stmt).all()
+        samples = [f"raw_only:{self._format_key_row(row)}" for row in raw_only_rows]
+        if len(samples) >= sample_limit:
+            return samples
+
+        remaining = sample_limit - len(samples)
+        serving_only_stmt = except_(
+            select(*serving_keys).distinct(),
+            select(*raw_keys).distinct(),
+        ).limit(remaining)
+        serving_only_rows = session.execute(serving_only_stmt).all()
+        samples.extend(f"serving_only:{self._format_key_row(row)}" for row in serving_only_rows)
+        return samples
+
+    @staticmethod
+    def _format_key_row(row) -> str:  # type: ignore[no-untyped-def]
+        values = [str(value) if value is not None else "NULL" for value in tuple(row)]
+        return "|".join(values)
 
     @staticmethod
     def _load_daily_counts(

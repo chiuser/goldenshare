@@ -32,6 +32,7 @@ def test_dataset_reconcile_service_builds_diff_report(mocker) -> None:
     assert report.raw_rows == 10
     assert report.serving_rows == 8
     assert report.abs_diff == 2
+    assert report.reconcile_mode == "daily"
     assert len(report.daily_diffs) == 1
     assert report.daily_diffs[0].trade_date == date(2026, 4, 2)
     assert report.daily_diffs[0].diff == 2
@@ -71,6 +72,16 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "stock_st" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "stk_nineturn" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "dc_member" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "fund_adj" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "etf_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "etf_index" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "hk_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "us_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "ths_index" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "kpl_list" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "kpl_concept_cons" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "broker_recommend" in DatasetReconcileService.SUPPORTED_DATASETS
 
 
 def test_dataset_reconcile_service_rejects_invalid_date_range(mocker) -> None:
@@ -84,3 +95,32 @@ def test_dataset_reconcile_service_rejects_invalid_date_range(mocker) -> None:
             start_date=date(2026, 4, 3),
             end_date=date(2026, 4, 1),
         )
+
+
+def test_dataset_reconcile_service_builds_snapshot_diff_report(mocker) -> None:
+    service = DatasetReconcileService()
+    session = mocker.Mock()
+    mocker.patch.object(service, "_count_rows", side_effect=[120, 118])
+    mocker.patch.object(service, "_count_distinct_keys", side_effect=[120, 118])
+    mocker.patch.object(
+        service,
+        "_load_key_diff_samples",
+        return_value=["raw_only:000001.SZ", "serving_only:000002.SZ"],
+    )
+
+    report = service.run(
+        session,
+        dataset_key="index_basic",
+        sample_limit=10,
+    )
+
+    assert report.dataset_key == "index_basic"
+    assert report.reconcile_mode == "snapshot"
+    assert report.raw_rows == 120
+    assert report.serving_rows == 118
+    assert report.abs_diff == 2
+    assert report.raw_distinct_keys == 120
+    assert report.serving_distinct_keys == 118
+    assert report.distinct_abs_diff == 2
+    assert report.daily_diffs == []
+    assert report.snapshot_key_diffs == ["raw_only:000001.SZ", "serving_only:000002.SZ"]

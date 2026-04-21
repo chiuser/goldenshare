@@ -8,14 +8,22 @@ from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
     ADJ_FACTOR_FIELDS,
     BLOCK_TRADE_FIELDS,
+    BROKER_RECOMMEND_FIELDS,
     CYQ_PERF_FIELDS,
     DAILY_FIELDS,
     DAILY_BASIC_FIELDS,
     DC_MEMBER_FIELDS,
     DC_INDEX_FIELDS,
+    ETF_BASIC_FIELDS,
+    ETF_INDEX_FIELDS,
+    FUND_ADJ_FIELDS,
     FUND_DAILY_FIELDS,
+    HK_BASIC_FIELDS,
+    INDEX_BASIC_FIELDS,
     INDEX_DAILY_BASIC_FIELDS,
     INDEX_DAILY_FIELDS,
+    KPL_CONCEPT_CONS_FIELDS,
+    KPL_LIST_FIELDS,
     LIMIT_CPT_LIST_FIELDS,
     LIMIT_LIST_FIELDS,
     LIMIT_LIST_THS_FIELDS,
@@ -32,8 +40,10 @@ from src.foundation.services.sync.fields import (
     STK_LIMIT_FIELDS,
     STK_NINETURN_FIELDS,
     SUSPEND_D_FIELDS,
+    THS_INDEX_FIELDS,
     TOP_LIST_FIELDS,
     TRADE_CAL_FIELDS,
+    US_BASIC_FIELDS,
 )
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
@@ -135,6 +145,169 @@ def _fund_daily_params(request, anchor_date: date | None, enum_values: dict[str,
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     return params
+
+
+def _fund_adj_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    if request.run_profile == "point_incremental":
+        if anchor_date is None:
+            raise ValueError("fund_adj point_incremental requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("fund_adj range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+    else:
+        history_start = str(get_settings().history_start_date or "2000-01-01").replace("-", "")
+        params["start_date"] = history_start
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _etf_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    list_status = request.params.get("list_status")
+    if isinstance(list_status, (list, tuple, set)):
+        normalized = [str(item).strip() for item in list_status if str(item).strip()]
+        if normalized:
+            params["list_status"] = ",".join(normalized)
+    elif list_status not in (None, ""):
+        params["list_status"] = str(list_status).strip()
+    for key in ("ts_code", "index_code", "exchange", "mgr"):
+        value = request.params.get(key)
+        if value not in (None, ""):
+            params[key] = str(value).strip()
+    list_date = request.params.get("list_date")
+    if list_date not in (None, ""):
+        params["list_date"] = str(list_date).replace("-", "")
+    return params
+
+
+def _etf_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    for key in ("pub_date", "base_date"):
+        value = request.params.get(key)
+        if value not in (None, ""):
+            params[key] = str(value).replace("-", "")
+    return params
+
+
+def _hk_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    list_status = request.params.get("list_status")
+    if isinstance(list_status, (list, tuple, set)):
+        normalized = [str(item).strip() for item in list_status if str(item).strip()]
+        if normalized:
+            params["list_status"] = ",".join(normalized)
+    elif list_status not in (None, ""):
+        params["list_status"] = str(list_status).strip()
+    return params
+
+
+def _normalize_us_classify(value: Any) -> str:
+    normalized = str(value).strip().upper()
+    return "EQT" if normalized == "EQ" else normalized
+
+
+def _us_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    classify = request.params.get("classify")
+    if isinstance(classify, (list, tuple, set)):
+        normalized = [_normalize_us_classify(item) for item in classify if str(item).strip()]
+        if normalized:
+            params["classify"] = ",".join(normalized)
+    elif classify not in (None, ""):
+        params["classify"] = _normalize_us_classify(classify)
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _ths_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    exchange = request.params.get("exchange")
+    if exchange not in (None, ""):
+        params["exchange"] = str(exchange).strip()
+    ths_type = request.params.get("type")
+    if ths_type not in (None, ""):
+        params["type"] = str(ths_type).strip()
+    return params
+
+
+def _kpl_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("kpl_list requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    tag = enum_values.get("tag")
+    if tag not in (None, "", "__ALL__"):
+        params["tag"] = str(tag).strip()
+    return params
+
+
+def _kpl_concept_cons_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("kpl_concept_cons requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    con_code = request.params.get("con_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if con_code not in (None, ""):
+        params["con_code"] = str(con_code).strip().upper()
+    return params
+
+
+def _broker_recommend_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    month = str(request.params.get("month") or "").strip().replace("-", "")
+    if month:
+        if len(month) != 6 or not month.isdigit():
+            raise ValueError("month must be YYYYMM or YYYY-MM")
+        return {"month": month}
+
+    anchor = anchor_date or request.trade_date
+    if anchor is not None:
+        return {"month": anchor.strftime("%Y%m")}
+    return {}
+
+
+def _hk_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["source"] = "tushare"
+    return transformed
+
+
+def _us_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["source"] = "tushare"
+    return transformed
+
+
+def _kpl_concept_cons_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    if transformed.get("con_name") in (None, "") and transformed.get("ts_name"):
+        transformed["con_name"] = transformed["ts_name"]
+    return transformed
 
 
 def _dc_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -1662,6 +1835,377 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         observe_spec=ObserveSpec(progress_label="moneyflow_mkt_dc"),
         pagination_spec=PaginationSpec(page_limit=5000),
+    ),
+    "fund_adj": DatasetSyncContract(
+        dataset_key="fund_adj",
+        display_name="基金复权因子",
+        job_name="sync_fund_adj",
+        run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="基金代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="fund_adj",
+            fields=tuple(FUND_ADJ_FIELDS),
+            unit_params_builder=_fund_adj_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("adj_factor",),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_fund_adj",
+            core_dao_name="fund_adj_factor",
+            target_table="core.fund_adj_factor",
+        ),
+        observe_spec=ObserveSpec(progress_label="fund_adj"),
+        pagination_spec=PaginationSpec(page_limit=2000),
+    ),
+    "index_basic": DatasetSyncContract(
+        dataset_key="index_basic",
+        display_name="指数基础信息",
+        job_name="sync_index_basic",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("ts_code", "string", required=False, description="指数代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="index_basic",
+            fields=tuple(INDEX_BASIC_FIELDS),
+            unit_params_builder=_index_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("base_date", "list_date", "exp_date"),
+            decimal_fields=("base_point",),
+            required_fields=("ts_code",),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_index_basic",
+            core_dao_name="index_basic",
+            target_table="core_serving.index_basic",
+        ),
+        observe_spec=ObserveSpec(progress_label="index_basic"),
+    ),
+    "etf_basic": DatasetSyncContract(
+        dataset_key="etf_basic",
+        display_name="ETF 基础信息",
+        job_name="sync_etf_basic",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("ts_code", "string", required=False, description="ETF 代码"),
+                InputField("index_code", "string", required=False, description="指数代码"),
+                InputField("exchange", "string", required=False, description="交易所"),
+                InputField("mgr", "string", required=False, description="管理人"),
+                InputField("list_status", "list", required=False, description="上市状态"),
+                InputField("list_date", "date", required=False, description="上市日期"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="etf_basic",
+            fields=tuple(ETF_BASIC_FIELDS),
+            unit_params_builder=_etf_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("setup_date", "list_date"),
+            decimal_fields=("mgt_fee",),
+            required_fields=("ts_code",),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_etf_basic",
+            core_dao_name="etf_basic",
+            target_table="core_serving.etf_basic",
+        ),
+        observe_spec=ObserveSpec(progress_label="etf_basic"),
+    ),
+    "etf_index": DatasetSyncContract(
+        dataset_key="etf_index",
+        display_name="ETF 跟踪指数",
+        job_name="sync_etf_index",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("ts_code", "string", required=False, description="ETF 代码"),
+                InputField("pub_date", "date", required=False, description="发布日期"),
+                InputField("base_date", "date", required=False, description="基期日期"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="etf_index",
+            fields=tuple(ETF_INDEX_FIELDS),
+            unit_params_builder=_etf_index_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("pub_date", "base_date"),
+            decimal_fields=("bp",),
+            required_fields=("ts_code",),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_etf_index",
+            core_dao_name="etf_index",
+            target_table="core_serving.etf_index",
+        ),
+        observe_spec=ObserveSpec(progress_label="etf_index"),
+    ),
+    "hk_basic": DatasetSyncContract(
+        dataset_key="hk_basic",
+        display_name="港股基础信息",
+        job_name="sync_hk_basic",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("list_status", "list", required=False, description="上市状态"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="hk_basic",
+            fields=tuple(HK_BASIC_FIELDS),
+            unit_params_builder=_hk_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("list_date", "delist_date"),
+            required_fields=("ts_code",),
+            row_transform=_hk_security_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_hk_basic",
+            core_dao_name="hk_security",
+            target_table="core_serving.hk_security",
+        ),
+        observe_spec=ObserveSpec(progress_label="hk_basic"),
+    ),
+    "us_basic": DatasetSyncContract(
+        dataset_key="us_basic",
+        display_name="美股基础信息",
+        job_name="sync_us_basic",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("classify", "list", required=False, description="证券分类"),
+                InputField("ts_code", "string", required=False, description="证券代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="us_basic",
+            fields=tuple(US_BASIC_FIELDS),
+            unit_params_builder=_us_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("list_date", "delist_date"),
+            required_fields=("ts_code",),
+            row_transform=_us_security_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_us_basic",
+            core_dao_name="us_security",
+            target_table="core_serving.us_security",
+        ),
+        observe_spec=ObserveSpec(progress_label="us_basic"),
+    ),
+    "ths_index": DatasetSyncContract(
+        dataset_key="ths_index",
+        display_name="同花顺板块列表",
+        job_name="sync_ths_index",
+        run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("ts_code", "string", required=False, description="板块代码"),
+                InputField("exchange", "string", required=False, description="交易所"),
+                InputField("type", "string", required=False, description="板块类型"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="none",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="ths_index",
+            fields=tuple(THS_INDEX_FIELDS),
+            unit_params_builder=_ths_index_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("list_date",),
+            required_fields=("ts_code",),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_ths_index",
+            core_dao_name="ths_index",
+            target_table="core_serving.ths_index",
+        ),
+        observe_spec=ObserveSpec(progress_label="ths_index"),
+    ),
+    "kpl_list": DatasetSyncContract(
+        dataset_key="kpl_list",
+        display_name="开盘啦榜单",
+        job_name="sync_kpl_list",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("tag", "list", required=False, description="榜单标签"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            enum_fanout_fields=("tag",),
+            enum_fanout_defaults={"tag": ("__ALL__",)},
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="kpl_list",
+            fields=tuple(KPL_LIST_FIELDS),
+            unit_params_builder=_kpl_list_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "net_change",
+                "bid_amount",
+                "bid_change",
+                "bid_turnover",
+                "lu_bid_vol",
+                "pct_chg",
+                "bid_pct_chg",
+                "rt_pct_chg",
+                "limit_order",
+                "amount",
+                "turnover_rate",
+                "free_float",
+                "lu_limit_order",
+            ),
+            required_fields=("ts_code", "trade_date", "tag"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_kpl_list",
+            core_dao_name="kpl_list",
+            target_table="core_serving.kpl_list",
+        ),
+        observe_spec=ObserveSpec(progress_label="kpl_list"),
+    ),
+    "kpl_concept_cons": DatasetSyncContract(
+        dataset_key="kpl_concept_cons",
+        display_name="开盘啦板块成分",
+        job_name="sync_kpl_concept_cons",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("con_code", "string", required=False, description="板块代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="kpl_concept_cons",
+            fields=tuple(KPL_CONCEPT_CONS_FIELDS),
+            unit_params_builder=_kpl_concept_cons_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code", "con_code"),
+            row_transform=_kpl_concept_cons_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_kpl_concept_cons",
+            core_dao_name="kpl_concept_cons",
+            target_table="core_serving.kpl_concept_cons",
+        ),
+        observe_spec=ObserveSpec(progress_label="kpl_concept_cons"),
+    ),
+    "broker_recommend": DatasetSyncContract(
+        dataset_key="broker_recommend",
+        display_name="券商月度金股推荐",
+        job_name="sync_broker_recommend",
+        run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("month", "string", required=False, description="月份，YYYYMM"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="month_end_trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="broker_recommend",
+            fields=tuple(BROKER_RECOMMEND_FIELDS),
+            unit_params_builder=_broker_recommend_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=("close", "pct_change", "target_price"),
+            required_fields=("month", "ts_code", "broker"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_broker_recommend",
+            core_dao_name="broker_recommend",
+            target_table="core_serving.broker_recommend",
+        ),
+        observe_spec=ObserveSpec(progress_label="broker_recommend"),
+        pagination_spec=PaginationSpec(page_limit=1000),
     ),
 }
 

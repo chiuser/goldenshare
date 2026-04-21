@@ -211,3 +211,33 @@ def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocke
     assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
     assert {unit.request_params["start_date"] for unit in units} == {"20260415"}
     assert {unit.request_params["end_date"] for unit in units} == {"20260417"}
+
+
+def test_planner_broker_recommend_range_rebuild_compresses_to_month_end(mocker) -> None:
+    session = mocker.Mock()
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [
+                date(2026, 4, 29),
+                date(2026, 4, 30),
+                date(2026, 5, 28),
+                date(2026, 5, 29),
+            ]
+        )
+    )
+    contract = get_sync_v2_contract("broker_recommend")
+    request = RunRequest(
+        request_id="req-broker-range",
+        dataset_key="broker_recommend",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260401", "end_date": "20260531"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.trade_date for unit in units} == {date(2026, 4, 30), date(2026, 5, 29)}
+    assert {unit.request_params["month"] for unit in units} == {"202604", "202605"}
