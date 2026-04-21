@@ -30,19 +30,21 @@
 
 1. `trade_cal`
 2. `daily_basic`
-3. `stk_limit`
-4. `suspend_d`
-5. `margin`
-6. `moneyflow_ind_dc`
+3. `cyq_perf`
+4. `stk_limit`
+5. `suspend_d`
+6. `margin`
+7. `moneyflow_ind_dc`
 
 建议切换顺序（低风险到高风险）：
 
 1. `trade_cal`
 2. `daily_basic`
-3. `stk_limit`
-4. `suspend_d`
-5. `margin`
-6. `moneyflow_ind_dc`
+3. `cyq_perf`
+4. `stk_limit`
+5. `suspend_d`
+6. `margin`
+7. `moneyflow_ind_dc`
 
 ---
 
@@ -176,16 +178,17 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（6 个数据集）
+## 6. 本轮执行建议（7 个数据集）
 
 ## 6.1 批次计划
 
 1. 批次 1：`trade_cal`
 2. 批次 2：`daily_basic`
-3. 批次 3：`stk_limit`
-4. 批次 4：`suspend_d`
-5. 批次 5：`margin`
-6. 批次 6：`moneyflow_ind_dc`
+3. 批次 3：`cyq_perf`
+4. 批次 4：`stk_limit`
+5. 批次 5：`suspend_d`
+6. 批次 6：`margin`
+7. 批次 7：`moneyflow_ind_dc`
 
 ## 6.2 每批固定动作
 
@@ -193,6 +196,14 @@ curl -s http://127.0.0.1:8000/api/v1/health
 2. 跑一次增量 + 一次短区间历史（最近 3~7 个交易日）。
 3. 执行 `reconcile-dataset` 门禁（阈值 0）。
 4. 通过后再进入下一批。
+
+## 6.3 当前已落地状态（2026-04-21）
+
+1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf`
+2. `cyq_perf` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
 
 ---
 
