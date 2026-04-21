@@ -1,6 +1,6 @@
 # 数据同步 V2 切换运行手册 v1（Runbook）
 
-- 版本：v1.0
+- 版本：v1.2
 - 日期：2026-04-21
 - 状态：可执行
 - 适用环境：远程生产（`goldenshare-prod`）
@@ -26,7 +26,7 @@
 
 ## 2. 本轮可切数据集（已落地 V2 contract）
 
-当前代码中已注册 V2 contract 的数据集：
+当前代码中已注册 V2 contract 的数据集（共 28 个）：
 
 1. `trade_cal`
 2. `daily_basic`
@@ -48,12 +48,20 @@
 18. `stock_st`
 19. `stk_nineturn`
 20. `dc_member`
+21. `daily`
+22. `fund_daily`
+23. `dc_index`
+24. `index_daily_basic`
+25. `index_daily`
+26. `limit_list_d`
+27. `limit_list_ths`
+28. `adj_factor`
 
 说明：
 
 1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）V2 contract 与 writer（`std + publish`）已在代码中落地并完成远程部署。  
-2. 已按 runbook 完成 `sync-history + sync-daily + reconcile-dataset` 门禁对账（`abs_diff=0`）。  
-3. `limit_step` / `limit_cpt_list` 已完成远程切换与门禁对账（`abs_diff=0`）。  
+2. `daily/fund_daily/dc_index/index_daily_basic/index_daily/limit_list_d/limit_list_ths/adj_factor` 已完成 R0+R1 扩展并通过门禁。  
+3. 当前线上 `USE_SYNC_V2_DATASETS` 已与这 28 个 contract 覆盖口径对齐。  
 
 建议切换顺序（低风险到高风险）：
 
@@ -69,13 +77,22 @@
 10. `moneyflow_ind_ths`
 11. `moneyflow_ind_dc`
 12. `moneyflow_mkt_dc`
-13. `limit_step`
-14. `limit_cpt_list`
-15. `top_list`
-16. `block_trade`
-17. `stock_st`
-18. `stk_nineturn`
-19. `dc_member`
+13. `moneyflow`
+14. `limit_step`
+15. `limit_cpt_list`
+16. `top_list`
+17. `block_trade`
+18. `stock_st`
+19. `stk_nineturn`
+20. `dc_member`
+21. `daily`
+22. `fund_daily`
+23. `dc_index`
+24. `index_daily_basic`
+25. `index_daily`
+26. `limit_list_d`
+27. `limit_list_ths`
+28. `adj_factor`
 
 ---
 
@@ -205,9 +222,9 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（20 个数据集，已完成 20 个）
+## 6. 本轮执行状态（38 个数据集，已完成 38 个）
 
-## 6.1 批次计划
+## 6.1 已完成批次（共 38 项）
 
 1. 批次 1：`trade_cal`
 2. 批次 2：`daily_basic`
@@ -229,6 +246,24 @@ curl -s http://127.0.0.1:8000/api/v1/health
 18. 批次 18：`stock_st`
 19. 批次 19：`stk_nineturn`
 20. 批次 20：`dc_member`
+21. 批次 21：`daily`
+22. 批次 22：`fund_daily`
+23. 批次 23：`dc_index`
+24. 批次 24：`index_daily_basic`
+25. 批次 25：`index_daily`
+26. 批次 26：`limit_list_d`
+27. 批次 27：`limit_list_ths`
+28. 批次 28：`adj_factor`
+29. 批次 29：`fund_adj`
+30. 批次 30：`index_basic`
+31. 批次 31：`etf_basic`
+32. 批次 32：`etf_index`
+33. 批次 33：`hk_basic`
+34. 批次 34：`us_basic`
+35. 批次 35：`ths_index`
+36. 批次 36：`kpl_list`
+37. 批次 37：`kpl_concept_cons`
+38. 批次 38：`broker_recommend`
 
 ## 6.2 每批固定动作
 
@@ -240,7 +275,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ## 6.3 当前已落地状态（2026-04-21）
 
 1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
-   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list,top_list,block_trade,stock_st,stk_nineturn,dc_member`
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list,top_list,block_trade,stock_st,stk_nineturn,dc_member,daily,fund_daily,dc_index,index_daily_basic,index_daily,limit_list_d,limit_list_ths,adj_factor,fund_adj,index_basic,etf_basic,etf_index,hk_basic,us_basic,ths_index,kpl_list,kpl_concept_cons,broker_recommend`
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
@@ -300,79 +335,136 @@ curl -s http://127.0.0.1:8000/api/v1/health
    - `raw_rows=260215`
    - `serving_rows=260215`
    - `abs_diff=0`
-17. Batch-2 已全部完成，当前 runbook 进入 Batch-3 准备阶段（先审计、后分批切换）。
+17. Batch-3（R0+R1）与 Batch-4（R2）均已完成，当前 runbook 进入 Batch-5（R3）计划阶段。
 
 ---
 
-## 8. 下一批（Batch-3）审计与编排（先审计、后分批切换）
+## 8. 下一批（Batch-5）审计与编排（R3 可执行计划）
 
-### 8.1 Batch-3 目标范围（V2 未覆盖资源）
+### 8.1 Batch-5 目标范围（V2 未覆盖资源）
 
-截至当前，`sync` 资源总数为 56 个，V2 contract 已覆盖 20 个，尚未覆盖 36 个：
+截至当前，`sync` 资源总数为 56 个，V2 contract 已覆盖 38 个，尚未覆盖 18 个：
 
-1. `adj_factor`
+1. `biying_equity_daily`
+2. `biying_moneyflow`
+3. `dc_daily`
+4. `dc_hot`
+5. `dividend`
+6. `index_monthly`
+7. `index_weekly`
+8. `index_weight`
+9. `stk_factor_pro`
+10. `stk_holdernumber`
+11. `stk_period_bar_adj_month`
+12. `stk_period_bar_adj_week`
+13. `stk_period_bar_month`
+14. `stk_period_bar_week`
+15. `stock_basic`
+16. `ths_daily`
+17. `ths_hot`
+18. `ths_member`
+
+### 8.2 下一阶段执行节奏（R3 -> R4）
+
+执行总原则：
+
+1. 先补门禁能力，再切换数据集。
+2. 每次只切 1 个数据集，不并行。
+3. 任一门禁失败立即回切并冻结当前批次。
+
+R3（扇出/周期语义）目标集：
+
+1. `ths_daily`
+2. `dc_daily`
+3. `ths_member`
+4. `ths_hot`
+5. `dc_hot`
+6. `index_weekly`
+7. `index_monthly`
+8. `stk_period_bar_week`
+9. `stk_period_bar_month`
+10. `stk_period_bar_adj_week`
+11. `stk_period_bar_adj_month`
+
+R4（高复杂专项）目标集：
+
+1. `stock_basic`
 2. `biying_equity_daily`
 3. `biying_moneyflow`
-4. `broker_recommend`
-5. `daily`
-6. `dc_daily`
-7. `dc_hot`
-8. `dc_index`
-9. `dividend`
-10. `etf_basic`
-11. `etf_index`
-12. `fund_adj`
-13. `fund_daily`
-14. `hk_basic`
-15. `index_basic`
-16. `index_daily`
-17. `index_daily_basic`
-18. `index_monthly`
-19. `index_weekly`
-20. `index_weight`
-21. `kpl_concept_cons`
-22. `kpl_list`
-23. `limit_list_d`
-24. `limit_list_ths`
-25. `stk_factor_pro`
-26. `stk_holdernumber`
-27. `stk_period_bar_adj_month`
-28. `stk_period_bar_adj_week`
-29. `stk_period_bar_month`
-30. `stk_period_bar_week`
-31. `stock_basic`
-32. `ths_daily`
-33. `ths_hot`
-34. `ths_index`
-35. `ths_member`
-36. `us_basic`
+4. `stk_factor_pro`
+5. `index_weight`
+6. `dividend`
+7. `stk_holdernumber`
 
-### 8.2 Batch-3-A（低歧义日频）建议候选
+### 8.3 Batch-5（R3）固定任务包
 
-建议优先进入 Batch-3-A 的数据集：
+R3-WP-01（门禁先行）：
 
-1. `daily`
-2. `index_daily`
-3. `fund_daily`
-4. `ths_daily`
-5. `dc_daily`
-6. `dc_index`
+1. 扩充 `reconcile-dataset` 到 R3 目标集。
+2. 对板块/成分与周期栏资源补充“业务口径对账”（锚点日 + 主键去重 + 样本键差异），保证“切后可验”。
 
-选择原则：
+R3-WP-02（contract 落地）：
 
-1. 交易日锚点清晰（`trade_date`）。
-2. 写入路径可沿用 `raw_core_upsert` 模式。
-3. 对账口径易建立（按 `trade_date` 做 `raw vs serving`）。
+1. 为 R3 目标集补齐 V2 contract。
+2. 通过 `sync-v2-lint-contracts`。
 
-### 8.3 Batch-3 执行门禁（固定）
+R3-WP-03（命令面回归）：
 
-1. 每次只切 1 个数据集，不并行。
-2. 先实现 contract + reconcile 支持，再切生产开关。
-3. 切换后固定执行：
-   - `sync-history`（近 3~7 个交易日）
+1. 在 `SYNC_V2_STRICT_CONTRACT=true` 下执行 `sync-history`/`sync-daily` 回归。
+2. 禁止出现 `unknown_params`。
+
+R3-WP-04（远程切换）：
+
+1. 按 R3 列表顺序单数据集串行切换。
+2. 每个数据集固定执行：
+   - `sync-history`（3~7 交易日窗口）
    - `sync-daily`（最新交易日）
    - `reconcile-dataset --abs-diff-threshold 0`
-4. 任一门禁失败，立即回切并冻结扩面。
+### 8.4 R3 冻结与回滚规则（固定）
+
+触发冻结（任一满足）：
+
+1. 对账不通过（`abs_diff > 0`）。
+2. 同步命令报结构化错误（contract/planner/writer）。
+3. 服务状态异常或健康检查失败。
+
+回滚动作：
+
+1. 从 `USE_SYNC_V2_DATASETS` 移除当前数据集。
+2. 重启 `web/worker/scheduler`。
+3. 重新执行一次对应数据集同步，确认 V1 恢复。
+4. 在执行记录模板中标记 `是否回滚=是`，并暂停后续波次。
+### 8.5 R0+R1+R2 执行结果（2026-04-21）
+
+1. R0 出口条件已全部满足：
+   - `sync-v2-lint-contracts: passed`
+   - `reconcile-dataset` 已覆盖 `daily/fund_daily/dc_index/index_daily_basic/index_daily/limit_list_d/limit_list_ths/adj_factor`
+   - `SYNC_V2_STRICT_CONTRACT=true` 下命令面可正常执行
+2. R1-A 已完成且门禁通过（`abs_diff=0`）：
+   - `daily`
+   - `fund_daily`
+   - `dc_index`
+   - `index_daily_basic`
+3. R1-B 已完成且门禁通过（`abs_diff=0`）：
+   - `index_daily`
+   - `limit_list_d`
+   - `limit_list_ths`
+   - `adj_factor`
+4. 当前生产 `USE_SYNC_V2_DATASETS` 已包含以上 8 个 R1 目标集，且 `web/worker/scheduler` 服务状态均为 `active`。
+5. R2 已全部完成并通过门禁（`abs_diff=0`）：
+   - `fund_adj`（daily 对账）
+   - `index_basic`（snapshot 对账）
+   - `etf_basic`（snapshot 对账）
+   - `etf_index`（snapshot 对账）
+   - `hk_basic`（snapshot 对账）
+   - `us_basic`（snapshot 对账）
+   - `ths_index`（snapshot 对账）
+   - `kpl_list`（daily 对账）
+   - `kpl_concept_cons`（daily 对账）
+   - `broker_recommend`（snapshot 对账）
+6. 线上已启用的 V2 数据集总数为 38，服务健康检查通过：
+   - `/api/health -> ok`
+   - `/api/v1/health -> ok`
 
 ---
 
