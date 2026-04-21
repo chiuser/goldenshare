@@ -7,19 +7,31 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
+from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
+from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.equity_margin import EquityMargin
+from src.foundation.models.core.market_moneyflow_dc import MarketMoneyflowDc
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_margin import RawMargin
+from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
+from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
+from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
+from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
+from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
+from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
+from src.foundation.models.core.equity_moneyflow_dc import EquityMoneyflowDc
+from src.foundation.models.core.equity_moneyflow_ths import EquityMoneyflowThs
 
 
 @dataclass(slots=True, frozen=True)
@@ -52,7 +64,13 @@ class DatasetReconcileService:
         "stk_limit": (RawStkLimit, "trade_date", EquityStkLimit, "trade_date"),
         "suspend_d": (RawSuspendD, "trade_date", EquitySuspendD, "trade_date"),
         "margin": (RawMargin, "trade_date", EquityMargin, "trade_date"),
+        "moneyflow": (RawMoneyflow, "trade_date", EquityMoneyflow, "trade_date"),
+        "moneyflow_ths": (RawMoneyflowThs, "trade_date", EquityMoneyflowThs, "trade_date"),
+        "moneyflow_dc": (RawMoneyflowDc, "trade_date", EquityMoneyflowDc, "trade_date"),
+        "moneyflow_cnt_ths": (RawMoneyflowCntThs, "trade_date", ConceptMoneyflowThs, "trade_date"),
+        "moneyflow_ind_ths": (RawMoneyflowIndThs, "trade_date", IndustryMoneyflowThs, "trade_date"),
         "moneyflow_ind_dc": (RawMoneyflowIndDc, "trade_date", BoardMoneyflowDc, "trade_date"),
+        "moneyflow_mkt_dc": (RawMoneyflowMktDc, "trade_date", MarketMoneyflowDc, "trade_date"),
     }
 
     def run(

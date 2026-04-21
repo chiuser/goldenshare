@@ -342,7 +342,11 @@ def reconcile_dataset(
         ...,
         "--dataset",
         "-d",
-        help="当前支持 trade_cal/daily_basic/cyq_perf/stk_limit/suspend_d/margin/moneyflow_ind_dc",
+        help=(
+            "当前支持 trade_cal/daily_basic/cyq_perf/stk_limit/suspend_d/margin/"
+            "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
+            "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc"
+        ),
     ),
     start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
     end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
