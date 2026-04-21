@@ -48,7 +48,7 @@
 
 1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）V2 contract 与 writer（`std + publish`）已在代码中落地并完成远程部署。  
 2. 已按 runbook 完成 `sync-history + sync-daily + reconcile-dataset` 门禁对账（`abs_diff=0`）。  
-3. `limit_step` / `limit_cpt_list` 已完成 V2 contract 与 reconcile 支持落地，待进入远程切换批次。  
+3. `limit_step` / `limit_cpt_list` 已完成远程切换与门禁对账（`abs_diff=0`）。  
 
 建议切换顺序（低风险到高风险）：
 
@@ -83,9 +83,8 @@
 
 ```bash
 cd /opt/goldenshare/goldenshare
-source /etc/goldenshare/web.env
-goldenshare init-db
-goldenshare sync-v2-lint-contracts
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare init-db
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-v2-lint-contracts
 ```
 
 通过标准：
@@ -135,15 +134,13 @@ sudo -n systemctl restart goldenshare-web.service
 增量（示例）：
 
 ```bash
-source /etc/goldenshare/web.env
-goldenshare sync-daily -r <dataset_key> --trade-date YYYY-MM-DD
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-daily -r <dataset_key> --trade-date YYYY-MM-DD
 ```
 
 历史（示例）：
 
 ```bash
-source /etc/goldenshare/web.env
-goldenshare sync-history -r <dataset_key> --start-date YYYY-MM-DD --end-date YYYY-MM-DD
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-history -r <dataset_key> --start-date YYYY-MM-DD --end-date YYYY-MM-DD
 ```
 
 当前执行口径（2026-04-21 更新）：
@@ -155,8 +152,7 @@ goldenshare sync-history -r <dataset_key> --start-date YYYY-MM-DD --end-date YYY
 ## 4.5 对账门禁（必须）
 
 ```bash
-source /etc/goldenshare/web.env
-goldenshare reconcile-dataset \
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare reconcile-dataset \
   --dataset <dataset_key> \
   --start-date YYYY-MM-DD \
   --end-date YYYY-MM-DD \
@@ -199,7 +195,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（15 个数据集，已完成 13 个）
+## 6. 本轮执行建议（15 个数据集，已完成 15 个）
 
 ## 6.1 批次计划
 
@@ -229,7 +225,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ## 6.3 当前已落地状态（2026-04-21）
 
 1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
-   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow`
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list`
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
@@ -254,9 +250,16 @@ curl -s http://127.0.0.1:8000/api/v1/health
 9. `moneyflow` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
-10. `limit_step` / `limit_cpt_list`：
-   - 已落地 V2 contract + `reconcile-dataset` 支持
-   - 尚未加入生产 `USE_SYNC_V2_DATASETS`（待下一批切换）
+10. `limit_step` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=43`
+   - `serving_rows=43`
+   - `abs_diff=0`
+11. `limit_cpt_list` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=60`
+   - `serving_rows=60`
+   - `abs_diff=0`
 
 ---
 
