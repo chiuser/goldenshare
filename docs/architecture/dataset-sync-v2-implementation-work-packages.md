@@ -174,7 +174,7 @@
 - 目标：用统一 Planner 替换分散扇开逻辑。
 - 改动范围：
   - `src/foundation/services/sync_v2/planner/*`（新增）
-  - 适配 `trade_date/week_end_trade_date/month_end` 口径
+  - 适配 `trade_date/week_end_trade_date/month_end_trade_date/month_range_natural/month_key_yyyymm/natural_date_range` 口径
 - 前置阅读：
   - Phase 2 第 3 章
   - V2 主方案第 2 章全局口径
@@ -367,3 +367,62 @@
 4. 回归清单与结果  
 5. 风险与回滚指令  
 6. 下一包进入条件是否满足  
+
+---
+
+## 7. 收尾增强任务包（AnchorType 落地 + 大文件治理联动）
+
+> 本节用于当前 V2 收尾阶段，目标是把“时间锚点重划分”与“超大文件治理”合并推进；每包仍然单目标、可回滚。
+
+### P5-WP-01：AnchorType 契约字段与校验落地
+
+- 目标：把 `anchor_type + window_policy + source_time_param_policy` 变成可执行契约。  
+- 改动范围：
+  - `src/foundation/services/sync_v2/contracts.py`
+  - `src/foundation/services/sync_v2/validator.py`
+  - `src/foundation/services/sync_v2/linter.py`
+- 验收：
+  1. `index_weight=month_range_natural`、`broker_recommend=month_key_yyyymm` 可通过 lint + validator。
+  2. 非法组合（如 `none + point_or_range`）被阻断。
+
+### P5-WP-02：Planner/Adapter 时间语义映射统一
+
+- 目标：统一锚点展开与时间参数映射，移除“调度层隐式注入 trade_date”假设。  
+- 改动范围：
+  - `src/foundation/services/sync_v2/planner.py`
+  - `src/foundation/services/sync_v2/adapters/*.py`
+  - `src/ops/runtime/dispatcher.py`（仅最小参数传递）
+- 验收：
+  1. 交易日锚点、自然月区间、月键三类都能稳定产出 `PlanUnit`。
+  2. 旧入口兼容不破坏（V1/V2 双轨仍可切换）。
+
+### P5-WP-03：`sync_v2/registry.py` 拆分治理（无行为变更）
+
+- 目标：将 2k+ 行注册表拆为可维护模块，先结构收敛，不改外部行为。  
+- 改动范围：
+  - `src/foundation/services/sync_v2/registry.py`（薄装配）
+  - 新增 `src/foundation/services/sync_v2/registry_parts/*`（或等价目录）
+- 验收：
+  1. 导出接口保持不变（`list_sync_v2_contracts/get_sync_v2_contract`）。
+  2. 合同总数与 key 集合完全一致。
+
+### P5-WP-04：`cli.py` 薄入口化（无行为变更）
+
+- 目标：把 `src/cli.py` 从“命令实现大杂糅”收敛为“命令注册入口”。  
+- 改动范围：
+  - `src/cli.py`（保留入口）
+  - 新增命令分组模块（如 `src/app/cli/commands/*`）
+- 验收：
+  1. 所有既有 CLI 命令名、参数名、返回语义保持兼容。
+  2. `--help` 与关键命令冒烟通过。
+
+### P5-WP-05：联动回归与切换门禁
+
+- 目标：保证“锚点重划分 + 文件治理”联动后系统可运行、可同步、可运维。  
+- 必跑门禁：
+  1. `tests/architecture/test_subsystem_dependency_matrix.py`
+  2. sync_v2 contract/planner/validator/CLI 相关测试
+  3. 后台启动与手动/自动任务最小冒烟
+- 验收：
+  1. 程序运行正常、后台可启动、数据可同步。
+  2. 运营平台自动/手动任务均可执行。

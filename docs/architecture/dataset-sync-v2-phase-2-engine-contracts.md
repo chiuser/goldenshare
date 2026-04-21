@@ -89,9 +89,10 @@
 | `dataset_key` | `str` | 是 | 无 | 硬约束 | 不可空 | 目标数据集 |
 | `source_key` | `str` | 否 | `null` | 软约束 | 可空-透传 | 指定数据源 |
 | `run_profile` | `str` | 是 | 无 | 硬约束 | 不可空 | `point_incremental/range_rebuild/snapshot_refresh` |
-| `trade_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 单点运行业务日 |
-| `start_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 区间起始 |
-| `end_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 区间结束 |
+| `trade_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 交易日锚点（仅适用于交易日语义） |
+| `start_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 区间起始（交易日或自然日） |
+| `end_date` | `date` | 条件 | `null` | 硬约束 | 可空-条件必填 | 区间结束（交易日或自然日） |
+| `month` | `str` | 条件 | `null` | 硬约束 | 可空-条件必填 | 月键（`YYYYMM`） |
 | `params` | `dict[str,Any]` | 是 | `{}` | 硬约束 | 不可空 | 数据集自定义参数 |
 | `trigger_source` | `str` | 是 | 无 | 硬约束 | 不可空 | `manual/scheduled/probe/workflow` |
 | `correlation_id` | `str` | 是 | 生成 | 硬约束 | 不可空 | 链路 ID |
@@ -99,9 +100,11 @@
 
 不变量：
 
-1. `run_profile=point_incremental` 时必须有 `trade_date`，禁止 `start_date/end_date`。  
-2. `run_profile=range_rebuild` 时必须有 `start_date/end_date` 且 `start_date<=end_date`。  
-3. `run_profile=snapshot_refresh` 默认不接受时间参数。  
+1. `run_profile=point_incremental` 时，必须满足该数据集 contract 声明的锚点输入（如 `trade_date` 或 `month`）。  
+2. `run_profile=range_rebuild` 时，仅当该数据集 `window_policy` 支持区间才允许执行；且必须满足 `start_date<=end_date`。  
+3. `run_profile=snapshot_refresh` 默认不接受时间参数，除非 contract 显式声明。  
+4. `date_anchor_policy=week_end_trade_date/month_end_trade_date` 时，`trade_date` 必须通过交易日历锚点校验。  
+5. `date_anchor_policy=month_range_natural` 时，`start_date/end_date` 必须是同月自然月首日/末日。  
 
 ## 3.2 DatasetSyncContract（每数据集必备）
 
@@ -144,8 +147,11 @@
 
 | 字段 | 类型 | 必填 | 默认 | 约束级别 | 可空策略 | 说明 |
 |---|---|---|---|---|---|---|
-| `date_anchor_policy` | `str` | 是 | 无 | 硬约束 | 不可空 | `trade_date/week_end_trade_date/month_end/none` |
+| `date_anchor_policy` | `str` | 是 | 无 | 硬约束 | 不可空 | `trade_date/week_end_trade_date/month_end_trade_date/month_range_natural/month_key_yyyymm/natural_date_range/none` |
+| `window_policy` | `str` | 是 | 无 | 硬约束 | 不可空 | `point/range/point_or_range/none` |
 | `universe_policy` | `str` | 是 | 无 | 硬约束 | 不可空 | `none/security_pool/index_pool/fund_pool` |
+| `anchor_required_fields` | `list[str]` | 是 | 无 | 硬约束 | 不可空 | 当前语义必须满足的锚点字段（如 `trade_date/month/start_date,end_date`） |
+| `source_time_param_policy` | `str` | 是 | 无 | 硬约束 | 不可空 | `trade_date/start_end/month_key/ann_date_window/none` |
 | `enum_fanout_fields` | `list[str]` | 否 | `[]` | 软约束 | 可空-透传 | 需要枚举扇开的参数字段 |
 | `pagination_policy` | `str` | 是 | `none` | 硬约束 | 不可空 | `none/offset_limit/page_no/cursor` |
 | `chunk_size` | `int` | 否 | `null` | 软约束 | 可空-透传 | 区间切块大小 |
@@ -320,9 +326,11 @@
 检查项：
 
 1. `run_profiles_supported` 非空。  
-2. `input_schema` 与 `planning_spec` 一致（如需要 trade_date 但未声明锚点则失败）。  
-3. pagination 策略与 adapter 能力匹配。  
-4. write_spec 必填（含幂等键）。  
+2. `input_schema` 与 `planning_spec` 一致（如 `anchor_required_fields` 要求 `month` 但 input 未声明则失败）。  
+3. `date_anchor_policy` 与 `window_policy` 组合合法（如 `none + point_or_range` 非法）。  
+4. `source_time_param_policy` 与 adapter 能力匹配。  
+5. pagination 策略与 adapter 能力匹配。  
+6. write_spec 必填（含幂等键）。  
 
 ## 8.2 引擎集成测试
 

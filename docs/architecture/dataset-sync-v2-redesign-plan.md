@@ -53,16 +53,38 @@
 
 ## 2. 全局业务口径（强约束）
 
-以下口径在 V2 全局统一，任何数据集不得自定义：
+V2 不再把“时间语义”混成一个口径，而是统一为“锚点类型（anchor_type）+ 窗口模式（window_policy）”的二维模型。  
+所有数据集必须归入下表之一，不允许私有命名。
 
-1. `trade_date`：交易日（交易日历 `is_open=true`）。  
-2. `month_end`：每月最后一个交易日。  
-3. `week_end_trade_date`：每周最后一个交易日。  
-   - 禁止继续使用 `week_friday` 表示“周最后交易日”。  
-4. 周线/月线回补：必须按对应周期最后交易日扇开，并将该日期作为 `trade_date` 传入。  
-5. 上述口径适用于所有入口与所有运行模式。  
+### 2.0 时间语义底线
 
-### 2.1 核心术语严格定义（含反例）
+1. `trade_date` 永远表示交易日历 `is_open=true` 的日期。  
+2. 禁止再使用 `week_friday` 表示“每周最后交易日”。  
+3. 周/月“最后交易日”必须显式区分于“自然周五/自然月末”。  
+4. `sync_daily/sync_history/backfill_*` 仅保留为兼容别名；主语义由 `run_profile + anchor_type + window_policy` 决定。  
+
+### 2.1 `anchor_type` 统一划分
+
+| anchor_type | 语义定义 | 时间基准 | 典型参数形态 | 典型数据集 |
+|---|---|---|---|---|
+| `trade_date` | 单个交易日锚点 | 交易日 | `trade_date` | `daily, moneyflow, stk_limit` |
+| `week_end_trade_date` | 每周最后一个交易日锚点 | 交易日 | `trade_date`（由 planner 约束为周末交易锚点） | `index_weekly, stk_period_bar_week` |
+| `month_end_trade_date` | 每月最后一个交易日锚点 | 交易日 | `trade_date`（由 planner 约束为月末交易锚点） | `index_monthly, stk_period_bar_month` |
+| `month_range_natural` | 自然月区间锚点（自然月首日~末日） | 自然日 | `start_date + end_date` | `index_weight` |
+| `month_key_yyyymm` | 月键锚点（`YYYYMM`） | 月键 | `month` | `broker_recommend` |
+| `natural_date_range` | 自然日区间（非交易日历语义） | 自然日 | `start_date + end_date`（必要时映射 `ann_date`） | `dividend, stk_holdernumber` |
+| `none` | 无时间锚点（快照/主数据） | 无 | 无时间参数或仅业务筛选参数 | `stock_basic, ths_member, etf_basic` |
+
+### 2.2 `window_policy` 统一划分
+
+| window_policy | 说明 | 允许的典型输入 |
+|---|---|---|
+| `point` | 单点执行 | `trade_date` 或 `month` |
+| `range` | 区间执行 | `start_date + end_date` |
+| `point_or_range` | 单点和区间都支持 | `trade_date` 或 `start_date + end_date` |
+| `none` | 不接受时间窗口 | 无时间参数 |
+
+### 2.3 核心术语严格定义（含反例）
 
 | 术语 | 严格定义 | 反例/易混词（禁止） |
 |---|---|---|
@@ -542,9 +564,10 @@ V2 主语义仅保留：
 
 按语义的参数要求：
 
-1. `point_incremental`：必须有 `trade_date`，禁止 `start_date/end_date`。  
-2. `range_rebuild`：必须有 `start_date/end_date`，`trade_date` 仅可作为锚点补充。  
-3. `snapshot_refresh`：默认无时间参数；若某数据集要求时间参数，必须在该数据集 contract 明确。  
+1. `point_incremental`：必须满足该 `dataset` 的 `anchor_type + window_policy=point` 所要求的输入（可能是 `trade_date`，也可能是 `month`）。  
+2. `range_rebuild`：仅当该 `dataset.window_policy` 支持区间时可用，且必须满足区间输入（通常为 `start_date/end_date`）。  
+3. `snapshot_refresh`：默认无时间参数；若某数据集要求时间参数，必须在该数据集 contract 明确（禁止调度层隐式注入）。  
+4. 调度与 CLI 不得对所有数据集统一注入 `trade_date`。  
 
 #### 7.6.3 Step 合法性校验
 
@@ -561,10 +584,12 @@ V2 主语义仅保留：
 
 工作流只定义“统一业务窗口”，具体扇开由数据集 planner 负责：
 
-1. 日线类：按交易日展开。  
-2. 周线类：按 `week_end_trade_date`（每周最后交易日）展开。  
-3. 月线类：按 `month_end`（每月最后交易日）展开。  
-4. 无时间维数据集：忽略窗口，但需在 contract 中明确 `snapshot_refresh` 语义。  
+1. 日频交易日类：按 `trade_date` 展开。  
+2. 周频类：按 `week_end_trade_date`（每周最后交易日）展开。  
+3. 月频交易日类：按 `month_end_trade_date`（每月最后交易日）展开。  
+4. 自然月区间类：按 `month_range_natural` 展开（自然月首日到末日），如 `index_weight`。  
+5. 月键类：按 `month_key_yyyymm` 展开，如 `broker_recommend`。  
+6. 无时间维数据集：忽略窗口，但需在 contract 中明确 `snapshot_refresh` 语义。  
 
 #### 7.6.5 Probe 与工作流关系
 
@@ -821,7 +846,55 @@ ACL 目标：隔离外部数据源 schema 变化，避免 vendor 字段反向污
 
 ---
 
-## 12. 配套改造清单
+## 12. AnchorType 落地技术方案（含 `cli.py` 与 `sync_v2/registry.py` 治理联动）
+
+### 12.1 契约层改造目标
+
+在 `DatasetSyncContract.planning_spec` 补齐以下能力（保持向后兼容）：
+
+1. `date_anchor_policy`：扩展为  
+   `trade_date/week_end_trade_date/month_end_trade_date/month_range_natural/month_key_yyyymm/natural_date_range/none`。  
+2. `window_policy`：`point/range/point_or_range/none`。  
+3. `anchor_required_fields`：该数据集在不同运行语义下必须提供的关键字段。  
+4. `source_time_param_policy`：时间参数映射策略（如 `trade_date`、`start_end`、`month_key`、`ann_date_window`）。  
+
+### 12.2 引擎落地改造点
+
+1. Validator：基于 `anchor_type + window_policy + run_profile` 做硬校验，不再做“全局 trade_date 必填”假设。  
+2. Planner：将周/月最后交易日、自然月区间、月键三类锚点生成逻辑内聚到统一策略模块。  
+3. Adapter：仅接收标准时间语义对象，内部完成源站参数映射。  
+4. Observe/Error：错误码新增 `invalid_anchor_type`、`invalid_window_for_profile`、`missing_anchor_fields`。  
+
+### 12.3 与 `cli.py` 治理结合（可行，建议联动）
+
+可行性结论：**高可行、低行为风险**（前提：先做“薄入口化”，不改命令语义）。
+
+建议拆分：
+
+1. `src/cli.py` 保留为薄入口（Typer app 初始化 + 命令组注册）。  
+2. 迁出命令实现到按职责分组模块（如 `sync/backfill/ops/reconcile`）。  
+3. 在命令层统一走 `run_profile + anchor_type` 参数适配，不再在 CLI 侧散落“按资源特判”的注入逻辑。  
+
+### 12.4 与 `sync_v2/registry.py` 治理结合（可行，建议联动）
+
+可行性结论：**高可行、收益显著**（当前 2231 行，规则与数据集定义强耦合）。
+
+建议拆分：
+
+1. 将合同定义按“时间语义或领域”拆成子模块（如 `trade_date`, `snapshot`, `monthly`, `moneyflow`）。  
+2. 保留统一装配入口（`build_sync_v2_contracts()`），集中做去重校验、lint 和导出。  
+3. 先保持旧导出函数签名不变（兼容调用方），再逐步清理旧拼接逻辑。  
+
+### 12.5 联动实施顺序（建议）
+
+1. 先落地 `anchor_type/window_policy` 契约字段与校验，不动命令和注册表拆分。  
+2. 再做 `registry.py` 内部拆分（纯结构重排，零行为变化）。  
+3. 最后做 `cli.py` 薄入口化与命令分组迁移（保持参数与返回兼容）。  
+4. 每一步都以“引用审计 + 最小回归”门禁推进，不做一次性大改。  
+
+---
+
+## 13. 配套改造清单
 
 本方案的 ops 数据表改造与迁移节奏，见配套文档：
 
