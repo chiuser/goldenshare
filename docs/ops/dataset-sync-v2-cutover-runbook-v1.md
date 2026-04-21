@@ -34,7 +34,12 @@
 4. `stk_limit`
 5. `suspend_d`
 6. `margin`
-7. `moneyflow_ind_dc`
+7. `moneyflow_ths`
+8. `moneyflow_dc`
+9. `moneyflow_cnt_ths`
+10. `moneyflow_ind_ths`
+11. `moneyflow_ind_dc`
+12. `moneyflow_mkt_dc`
 
 建议切换顺序（低风险到高风险）：
 
@@ -44,7 +49,12 @@
 4. `stk_limit`
 5. `suspend_d`
 6. `margin`
-7. `moneyflow_ind_dc`
+7. `moneyflow_ths`
+8. `moneyflow_dc`
+9. `moneyflow_cnt_ths`
+10. `moneyflow_ind_ths`
+11. `moneyflow_ind_dc`
+12. `moneyflow_mkt_dc`
 
 ---
 
@@ -178,7 +188,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（7 个数据集）
+## 6. 本轮执行建议（12 个数据集）
 
 ## 6.1 批次计划
 
@@ -188,7 +198,12 @@ curl -s http://127.0.0.1:8000/api/v1/health
 4. 批次 4：`stk_limit`
 5. 批次 5：`suspend_d`
 6. 批次 6：`margin`
-7. 批次 7：`moneyflow_ind_dc`
+7. 批次 7：`moneyflow_ths`
+8. 批次 8：`moneyflow_dc`
+9. 批次 9：`moneyflow_cnt_ths`
+10. 批次 10：`moneyflow_ind_ths`
+11. 批次 11：`moneyflow_ind_dc`
+12. 批次 12：`moneyflow_mkt_dc`
 
 ## 6.2 每批固定动作
 
@@ -204,6 +219,8 @@ curl -s http://127.0.0.1:8000/api/v1/health
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
+3. `moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/moneyflow_ind_ths/moneyflow_mkt_dc`：
+   - 已在代码层落地 V2 contract，待按批次执行切换与对账门禁
 
 ---
 
