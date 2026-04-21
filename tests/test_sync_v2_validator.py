@@ -95,3 +95,20 @@ def test_validator_accepts_daily_basic_range_rebuild() -> None:
     assert validated.start_date == date(2026, 4, 18)
     assert validated.end_date == date(2026, 4, 21)
     assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_accepts_suspend_d_incremental_with_suspend_type() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-6",
+        dataset_key="suspend_d",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421", "suspend_type": "S"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 21)
+    assert validated.params["suspend_type"] == "S"

@@ -31,16 +31,18 @@
 1. `trade_cal`
 2. `daily_basic`
 3. `stk_limit`
-4. `margin`
-5. `moneyflow_ind_dc`
+4. `suspend_d`
+5. `margin`
+6. `moneyflow_ind_dc`
 
 建议切换顺序（低风险到高风险）：
 
 1. `trade_cal`
 2. `daily_basic`
 3. `stk_limit`
-4. `margin`
-5. `moneyflow_ind_dc`
+4. `suspend_d`
+5. `margin`
+6. `moneyflow_ind_dc`
 
 ---
 
@@ -174,15 +176,16 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（5 个数据集）
+## 6. 本轮执行建议（6 个数据集）
 
 ## 6.1 批次计划
 
 1. 批次 1：`trade_cal`
 2. 批次 2：`daily_basic`
 3. 批次 3：`stk_limit`
-4. 批次 4：`margin`
-5. 批次 5：`moneyflow_ind_dc`
+4. 批次 4：`suspend_d`
+5. 批次 5：`margin`
+6. 批次 6：`moneyflow_ind_dc`
 
 ## 6.2 每批固定动作
 

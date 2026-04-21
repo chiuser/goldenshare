@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core.equity_margin import EquityMargin
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
 
@@ -45,6 +47,7 @@ class DatasetReconcileService:
         "trade_cal": (RawTradeCal, "cal_date", TradeCalendar, "trade_date"),
         "daily_basic": (RawDailyBasic, "trade_date", EquityDailyBasic, "trade_date"),
         "stk_limit": (RawStkLimit, "trade_date", EquityStkLimit, "trade_date"),
+        "suspend_d": (RawSuspendD, "trade_date", EquitySuspendD, "trade_date"),
         "margin": (RawMargin, "trade_date", EquityMargin, "trade_date"),
         "moneyflow_ind_dc": (RawMoneyflowIndDc, "trade_date", BoardMoneyflowDc, "trade_date"),
     }

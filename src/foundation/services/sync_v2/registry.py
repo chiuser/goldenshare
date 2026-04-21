@@ -9,8 +9,10 @@ from src.foundation.services.sync.fields import (
     MARGIN_FIELDS,
     MONEYFLOW_IND_DC_FIELDS,
     STK_LIMIT_FIELDS,
+    SUSPEND_D_FIELDS,
     TRADE_CAL_FIELDS,
 )
+from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
     InputField,
@@ -68,6 +70,19 @@ def _daily_basic_params(request, anchor_date: date | None, enum_values: dict[str
     return params
 
 
+def _suspend_d_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("suspend_d requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    suspend_type = request.params.get("suspend_type")
+    if suspend_type not in (None, ""):
+        params["suspend_type"] = str(suspend_type).strip().upper()
+    return params
+
+
 def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("margin requires trade_date anchor")
@@ -104,6 +119,12 @@ def _trade_cal_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     elif value is not None:
         transformed["is_open"] = bool(value)
     transformed["trade_date"] = transformed.get("cal_date")
+    return transformed
+
+
+def _suspend_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["row_key_hash"] = build_suspend_d_row_key_hash(transformed)
     return transformed
 
 
@@ -233,6 +254,45 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.equity_daily_basic",
         ),
         observe_spec=ObserveSpec(progress_label="daily_basic"),
+    ),
+    "suspend_d": DatasetSyncContract(
+        dataset_key="suspend_d",
+        display_name="每日停复牌信息",
+        job_name="sync_suspend_d",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("suspend_type", "string", required=False, description="停复牌类型"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="suspend_d",
+            fields=tuple(SUSPEND_D_FIELDS),
+            unit_params_builder=_suspend_d_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code", "row_key_hash"),
+            row_transform=_suspend_d_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_suspend_d",
+            core_dao_name="equity_suspend_d",
+            target_table="core_serving.equity_suspend_d",
+            conflict_columns=("row_key_hash",),
+        ),
+        observe_spec=ObserveSpec(progress_label="suspend_d"),
+        pagination_spec=PaginationSpec(page_limit=5000),
     ),
     "margin": DatasetSyncContract(
         dataset_key="margin",
