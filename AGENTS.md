@@ -13,6 +13,8 @@ src/
   ops/
   biz/
   app/
+  platform/      # legacy/compat（冻结）
+  operations/    # legacy/compat（冻结）
 ```
 
 - `foundation` / `ops` / `biz` 是三个业务子系统
