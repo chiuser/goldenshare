@@ -5,6 +5,7 @@ from typing import Any
 
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    CYQ_PERF_FIELDS,
     DAILY_BASIC_FIELDS,
     MARGIN_FIELDS,
     MONEYFLOW_IND_DC_FIELDS,
@@ -80,6 +81,16 @@ def _suspend_d_params(request, anchor_date: date | None, enum_values: dict[str, 
     suspend_type = request.params.get("suspend_type")
     if suspend_type not in (None, ""):
         params["suspend_type"] = str(suspend_type).strip().upper()
+    return params
+
+
+def _cyq_perf_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("cyq_perf requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
     return params
 
 
@@ -292,6 +303,54 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             conflict_columns=("row_key_hash",),
         ),
         observe_spec=ObserveSpec(progress_label="suspend_d"),
+        pagination_spec=PaginationSpec(page_limit=5000),
+    ),
+    "cyq_perf": DatasetSyncContract(
+        dataset_key="cyq_perf",
+        display_name="每日筹码及胜率",
+        job_name="sync_cyq_perf",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="cyq_perf",
+            fields=tuple(CYQ_PERF_FIELDS),
+            unit_params_builder=_cyq_perf_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "his_low",
+                "his_high",
+                "cost_5pct",
+                "cost_15pct",
+                "cost_50pct",
+                "cost_85pct",
+                "cost_95pct",
+                "weight_avg",
+                "winner_rate",
+            ),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_cyq_perf",
+            core_dao_name="equity_cyq_perf",
+            target_table="core_serving.equity_cyq_perf",
+        ),
+        observe_spec=ObserveSpec(progress_label="cyq_perf"),
         pagination_spec=PaginationSpec(page_limit=5000),
     ),
     "margin": DatasetSyncContract(

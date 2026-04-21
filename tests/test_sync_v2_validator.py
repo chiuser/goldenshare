@@ -112,3 +112,20 @@ def test_validator_accepts_suspend_d_incremental_with_suspend_type() -> None:
 
     assert validated.trade_date == date(2026, 4, 21)
     assert validated.params["suspend_type"] == "S"
+
+
+def test_validator_accepts_cyq_perf_incremental_with_ts_code() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("cyq_perf")
+    request = RunRequest(
+        request_id="req-7",
+        dataset_key="cyq_perf",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421", "ts_code": "000001.SZ"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 21)
+    assert validated.params["ts_code"] == "000001.SZ"

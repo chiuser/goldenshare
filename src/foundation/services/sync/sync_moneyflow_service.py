@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select, tuple_
@@ -59,24 +60,26 @@ class SyncMoneyflowService(BaseSyncService):
     api_name = "moneyflow"
     fields = MONEYFLOW_FIELDS
     date_fields = ("trade_date",)
-    decimal_fields = (
+    volume_fields = (
         "buy_sm_vol",
-        "buy_sm_amount",
         "sell_sm_vol",
-        "sell_sm_amount",
         "buy_md_vol",
-        "buy_md_amount",
         "sell_md_vol",
-        "sell_md_amount",
         "buy_lg_vol",
-        "buy_lg_amount",
         "sell_lg_vol",
-        "sell_lg_amount",
         "buy_elg_vol",
-        "buy_elg_amount",
         "sell_elg_vol",
-        "sell_elg_amount",
         "net_mf_vol",
+    )
+    decimal_fields = (
+        "buy_sm_amount",
+        "sell_sm_amount",
+        "buy_md_amount",
+        "sell_md_amount",
+        "buy_lg_amount",
+        "sell_lg_amount",
+        "buy_elg_amount",
+        "sell_elg_amount",
         "net_mf_amount",
     )
     params_builder = staticmethod(build_trade_date_only)
@@ -86,6 +89,22 @@ class SyncMoneyflowService(BaseSyncService):
         super().__init__(session)
         self.client = TushareHttpClient()
 
+    @classmethod
+    def _coerce_integer_volumes(cls, row: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(row)
+        for field in cls.volume_fields:
+            if field not in normalized:
+                continue
+            value = normalized.get(field)
+            if value in (None, ""):
+                normalized[field] = None
+                continue
+            decimal_value = Decimal(str(value))
+            if decimal_value != decimal_value.to_integral_value():
+                raise ValueError(f"moneyflow field `{field}` must be integer-like, got: {value}")
+            normalized[field] = int(decimal_value)
+        return normalized
+
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         trade_date = kwargs.get("trade_date")
         rows = self.client.call(
@@ -93,7 +112,12 @@ class SyncMoneyflowService(BaseSyncService):
             params=self.params_builder(run_type, **kwargs),
             fields=self.fields,
         )
-        normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
+        normalized = [
+            self._coerce_integer_volumes(
+                coerce_row(row, self.date_fields, self.decimal_fields),
+            )
+            for row in rows
+        ]
         self.dao.raw_moneyflow.bulk_upsert(normalized)
 
         std_rows = [self._normalizer.to_std_from_tushare(row) for row in normalized]

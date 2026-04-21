@@ -47,6 +47,7 @@ def test_dataset_reconcile_service_rejects_unknown_dataset(mocker) -> None:
 
 def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "cyq_perf" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "suspend_d" in DatasetReconcileService.SUPPORTED_DATASETS
 
 
