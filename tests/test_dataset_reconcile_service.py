@@ -82,6 +82,7 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "kpl_list" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "kpl_concept_cons" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "broker_recommend" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert DatasetReconcileService.SUPPORTED_DATASETS["broker_recommend"].mode == "snapshot"
 
 
 def test_dataset_reconcile_service_rejects_invalid_date_range(mocker) -> None:

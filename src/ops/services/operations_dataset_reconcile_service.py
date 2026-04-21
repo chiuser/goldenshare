@@ -378,9 +378,7 @@ class DatasetReconcileService:
         "broker_recommend": DatasetReconcileConfig(
             raw_model=RawBrokerRecommend,
             serving_model=BrokerRecommend,
-            mode="daily",
-            raw_date_field="trade_date",
-            serving_date_field="trade_date",
+            mode="snapshot",
         ),
     }
 
