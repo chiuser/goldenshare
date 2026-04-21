@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract
 from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 
+ALLOWED_WRITE_PATHS = {"raw_core_upsert", "raw_std_publish_moneyflow"}
+
 
 @dataclass(slots=True, frozen=True)
 class ContractLintIssue:
@@ -27,6 +29,14 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
         issues.append(ContractLintIssue(contract.dataset_key, "missing_source_fields", "source_spec.fields must not be empty"))
     if not contract.write_spec.raw_dao_name or not contract.write_spec.core_dao_name:
         issues.append(ContractLintIssue(contract.dataset_key, "missing_writer_dao", "write_spec.raw_dao_name/core_dao_name must not be empty"))
+    if contract.write_spec.write_path not in ALLOWED_WRITE_PATHS:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_write_path",
+                f"write_spec.write_path={contract.write_spec.write_path} is not supported",
+            )
+        )
     for enum_key in contract.planning_spec.enum_fanout_fields:
         defaults = contract.planning_spec.enum_fanout_defaults.get(enum_key)
         if defaults is None or len(defaults) == 0:

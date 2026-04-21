@@ -163,3 +163,21 @@ def test_validator_accepts_moneyflow_mkt_dc_incremental() -> None:
     validated = validator.validate(request=request, contract=contract, strict=True)
 
     assert validated.trade_date == date(2026, 4, 21)
+
+
+def test_validator_accepts_moneyflow_range_rebuild() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("moneyflow")
+    request = RunRequest(
+        request_id="req-10",
+        dataset_key="moneyflow",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260415", "end_date": "20260417", "ts_code": "000001.SZ"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 15)
+    assert validated.end_date == date(2026, 4, 17)
+    assert validated.params["ts_code"] == "000001.SZ"

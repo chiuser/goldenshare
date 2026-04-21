@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 from src.foundation.config.settings import get_settings
@@ -8,6 +9,7 @@ from src.foundation.services.sync.fields import (
     CYQ_PERF_FIELDS,
     DAILY_BASIC_FIELDS,
     MARGIN_FIELDS,
+    MONEYFLOW_FIELDS,
     MONEYFLOW_CNT_THS_FIELDS,
     MONEYFLOW_DC_FIELDS,
     MONEYFLOW_IND_DC_FIELDS,
@@ -33,6 +35,17 @@ from src.foundation.services.sync_v2.contracts import (
 
 ALL_MARGIN_EXCHANGE_IDS = ("SSE", "SZSE", "BSE")
 ALL_MONEYFLOW_IND_DC_CONTENT_TYPES = ("行业", "概念", "地域")
+MONEYFLOW_VOLUME_FIELDS = (
+    "buy_sm_vol",
+    "sell_sm_vol",
+    "buy_md_vol",
+    "sell_md_vol",
+    "buy_lg_vol",
+    "sell_lg_vol",
+    "buy_elg_vol",
+    "sell_elg_vol",
+    "net_mf_vol",
+)
 
 
 def _trade_cal_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -111,6 +124,16 @@ def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any
     }
 
 
+def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("moneyflow requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _moneyflow_ind_dc_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("moneyflow_ind_dc requires trade_date anchor")
@@ -171,6 +194,22 @@ def _moneyflow_mkt_dc_params(request, anchor_date: date | None, enum_values: dic
     if anchor_date is None:
         raise ValueError("moneyflow_mkt_dc requires trade_date anchor")
     return {"trade_date": anchor_date.strftime("%Y%m%d")}
+
+
+def _moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    for field in MONEYFLOW_VOLUME_FIELDS:
+        if field not in transformed:
+            continue
+        value = transformed.get(field)
+        if value in (None, ""):
+            transformed[field] = None
+            continue
+        decimal_value = Decimal(str(value))
+        if decimal_value != decimal_value.to_integral_value():
+            raise ValueError(f"moneyflow field `{field}` must be integer-like, got: {value}")
+        transformed[field] = int(decimal_value)
+    return transformed
 
 
 def _trade_cal_row_transform(row: dict[str, Any]) -> dict[str, Any]:
@@ -441,6 +480,54 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.equity_margin",
         ),
         observe_spec=ObserveSpec(progress_label="margin"),
+    ),
+    "moneyflow": DatasetSyncContract(
+        dataset_key="moneyflow",
+        display_name="个股资金流向",
+        job_name="sync_moneyflow",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="moneyflow",
+            fields=tuple(MONEYFLOW_FIELDS),
+            unit_params_builder=_moneyflow_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "buy_sm_amount",
+                "sell_sm_amount",
+                "buy_md_amount",
+                "sell_md_amount",
+                "buy_lg_amount",
+                "sell_lg_amount",
+                "buy_elg_amount",
+                "sell_elg_amount",
+                "net_mf_amount",
+            ),
+            required_fields=("trade_date", "ts_code"),
+            row_transform=_moneyflow_row_transform,
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_moneyflow",
+            core_dao_name="moneyflow_std",
+            target_table="core_serving.equity_moneyflow",
+            write_path="raw_std_publish_moneyflow",
+        ),
+        observe_spec=ObserveSpec(progress_label="moneyflow"),
     ),
     "moneyflow_ths": DatasetSyncContract(
         dataset_key="moneyflow_ths",

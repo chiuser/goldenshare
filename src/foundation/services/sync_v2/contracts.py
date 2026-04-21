@@ -66,6 +66,7 @@ class WriteSpec:
     core_dao_name: str
     target_table: str
     conflict_columns: tuple[str, ...] | None = None
+    write_path: str = "raw_core_upsert"
 
 
 @dataclass(slots=True, frozen=True)
