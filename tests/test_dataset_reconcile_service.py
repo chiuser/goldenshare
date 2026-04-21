@@ -45,6 +45,10 @@ def test_dataset_reconcile_service_rejects_unknown_dataset(mocker) -> None:
         service.run(session, dataset_key="unknown_dataset")
 
 
+def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
+    assert "daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
+
+
 def test_dataset_reconcile_service_rejects_invalid_date_range(mocker) -> None:
     service = DatasetReconcileService()
     session = mocker.Mock()

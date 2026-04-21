@@ -5,6 +5,7 @@ from typing import Any
 
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    DAILY_BASIC_FIELDS,
     MARGIN_FIELDS,
     MONEYFLOW_IND_DC_FIELDS,
     STK_LIMIT_FIELDS,
@@ -50,6 +51,16 @@ def _trade_cal_params(request, anchor_date: date | None, enum_values: dict[str, 
 def _stk_limit_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("stk_limit requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _daily_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("daily_basic requires trade_date anchor")
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
@@ -169,6 +180,59 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         observe_spec=ObserveSpec(progress_label="stk_limit"),
         pagination_spec=PaginationSpec(page_limit=5800),
+    ),
+    "daily_basic": DatasetSyncContract(
+        dataset_key="daily_basic",
+        display_name="每日指标",
+        job_name="sync_daily_basic",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=InputSchema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=PlanningSpec(
+            date_anchor_policy="trade_date",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="daily_basic",
+            fields=tuple(DAILY_BASIC_FIELDS),
+            unit_params_builder=_daily_basic_params,
+        ),
+        normalization_spec=NormalizationSpec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "close",
+                "turnover_rate",
+                "turnover_rate_f",
+                "volume_ratio",
+                "pe",
+                "pe_ttm",
+                "pb",
+                "ps",
+                "ps_ttm",
+                "dv_ratio",
+                "dv_ttm",
+                "total_share",
+                "float_share",
+                "free_share",
+                "total_mv",
+                "circ_mv",
+            ),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=WriteSpec(
+            raw_dao_name="raw_daily_basic",
+            core_dao_name="equity_daily_basic",
+            target_table="core_serving.equity_daily_basic",
+        ),
+        observe_spec=ObserveSpec(progress_label="daily_basic"),
     ),
     "margin": DatasetSyncContract(
         dataset_key="margin",

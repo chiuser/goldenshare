@@ -45,6 +45,7 @@ docs/
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
+- [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
 
 说明：数据集停用策略与融合策略中心准备度已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。
 

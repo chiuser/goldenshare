@@ -85,6 +85,26 @@ def _auto_reconcile_stale_executions(
     return len(reconciled)
 
 
+def _prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
+    filtered = {key: value for key, value in kwargs.items() if value is not None}
+    service_vars = vars(service)
+    if "contract" not in service_vars:
+        return filtered
+    contract = service_vars.get("contract")
+    input_schema = getattr(contract, "input_schema", None)
+    fields = getattr(input_schema, "fields", None)
+    if not isinstance(fields, (list, tuple)) or not fields:
+        return filtered
+
+    allowed = {
+        getattr(field, "name", "")
+        for field in fields
+        if getattr(field, "name", "")
+    }
+    passthrough = {"run_profile", "source_key", "correlation_id", "rerun_id", "trigger_source", "request_id"}
+    return {key: value for key, value in filtered.items() if key in allowed or key in passthrough}
+
+
 @app.callback()
 def main() -> None:
     configure_logging()
@@ -184,7 +204,7 @@ def sync_history(
                 "start_date": start_date,
                 "end_date": end_date,
             }
-            result = service.run_full(**{k: v for k, v in kwargs.items() if v is not None})
+            result = service.run_full(**_prepare_sync_kwargs_for_service(service, kwargs))
             if result.trade_date is None:
                 reconciliation_service.refresh_resource_state_from_observed(session, resource)
             snapshot_service.refresh_resources(session, [resource])
@@ -238,19 +258,22 @@ def sync_daily(
             target_date = _resolve_default_sync_date(session)
         for resource in resources:
             service = build_sync_service(resource, session)
-            service.run_incremental(
-                trade_date=target_date,
-                ts_code=ts_code,
-                exchange=exchange,
-                exchange_id=exchange_id,
-                limit_type=limit_type,
-                con_code=con_code,
-                idx_type=idx_type,
-                market=market,
-                hot_type=hot_type,
-                is_new=is_new,
-                tag=tag,
+            kwargs = _prepare_sync_kwargs_for_service(
+                service,
+                {
+                    "ts_code": ts_code,
+                    "exchange": exchange,
+                    "exchange_id": exchange_id,
+                    "limit_type": limit_type,
+                    "con_code": con_code,
+                    "idx_type": idx_type,
+                    "market": market,
+                    "hot_type": hot_type,
+                    "is_new": is_new,
+                    "tag": tag,
+                },
             )
+            service.run_incremental(trade_date=target_date, **kwargs)
             snapshot_service.refresh_resources(session, [resource])
 
 
@@ -315,7 +338,12 @@ def sync_v2_lint_contracts() -> None:
 
 @app.command("reconcile-dataset")
 def reconcile_dataset(
-    dataset: str = typer.Option(..., "--dataset", "-d", help="当前支持 trade_cal/stk_limit/margin/moneyflow_ind_dc"),
+    dataset: str = typer.Option(
+        ...,
+        "--dataset",
+        "-d",
+        help="当前支持 trade_cal/daily_basic/stk_limit/margin/moneyflow_ind_dc",
+    ),
     start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
     end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
     sample_limit: int = typer.Option(20, "--sample-limit", min=0, max=200, help="输出每日差异样例上限"),

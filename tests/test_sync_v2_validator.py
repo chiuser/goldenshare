@@ -77,3 +77,21 @@ def test_validator_rejects_snapshot_refresh_with_time_anchor() -> None:
         validator.validate(request=request, contract=contract, strict=True)
 
     assert exc_info.value.structured_error.error_code == "time_anchor_not_allowed"
+
+
+def test_validator_accepts_daily_basic_range_rebuild() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("daily_basic")
+    request = RunRequest(
+        request_id="req-5",
+        dataset_key="daily_basic",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260418", "end_date": "20260421", "ts_code": "000001.SZ"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 18)
+    assert validated.end_date == date(2026, 4, 21)
+    assert validated.params["ts_code"] == "000001.SZ"
