@@ -824,6 +824,7 @@ SYNC_V2_CONTRACTS: dict[str, DatasetSyncContract] = {
             date_anchor_policy="trade_date",
             universe_policy="dc_index_board_codes",
             pagination_policy="none",
+            max_units_per_execution=5000,
         ),
         source_adapter_key="tushare",
         source_spec=SourceSpec(

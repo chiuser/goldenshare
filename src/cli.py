@@ -105,6 +105,48 @@ def _prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) 
     return {key: value for key, value in filtered.items() if key in allowed or key in passthrough}
 
 
+def _attach_cli_progress_reporter(service, *, resource: str) -> None:
+    if not hasattr(service, "set_cli_progress_reporter"):
+        return
+    service_vars = vars(service)
+    if "contract" not in service_vars:
+        return
+
+    state: dict[str, float | int] = {
+        "last_emit_at": 0.0,
+        "last_emit_current": 0,
+    }
+    min_emit_seconds = 8.0
+    min_emit_delta = 50
+
+    def progress_reporter(progress_snapshot, _: str) -> None:  # type: ignore[no-untyped-def]
+        current = int(progress_snapshot.unit_done + progress_snapshot.unit_failed)
+        total = int(progress_snapshot.unit_total)
+        rows_fetched = int(progress_snapshot.rows_fetched)
+        rows_written = int(progress_snapshot.rows_written)
+        last_emit_current = int(state["last_emit_current"])
+        now = time.monotonic()
+        elapsed = float(now - float(state["last_emit_at"]))
+
+        should_emit = (
+            current in (0, total)
+            or current - last_emit_current >= min_emit_delta
+            or elapsed >= min_emit_seconds
+        )
+        if not should_emit:
+            return
+
+        percent = f"{(current / total * 100):.1f}%" if total else "-"
+        typer.echo(
+            f"[{resource}] progress {current}/{total} ({percent}) "
+            f"fetched={rows_fetched} written={rows_written}"
+        )
+        state["last_emit_at"] = now
+        state["last_emit_current"] = current
+
+    service.set_cli_progress_reporter(progress_reporter)
+
+
 @app.callback()
 def main() -> None:
     configure_logging()
@@ -186,6 +228,7 @@ def sync_history(
         snapshot_service = DatasetStatusSnapshotService()
         for resource in resources:
             service = build_sync_service(resource, session)
+            _attach_cli_progress_reporter(service, resource=resource)
             kwargs = {
                 "ts_code": ts_code,
                 "list_status": list_status,
@@ -204,10 +247,18 @@ def sync_history(
                 "start_date": start_date,
                 "end_date": end_date,
             }
+            typer.echo(f"[{resource}] sync-history start")
+            started_at = time.perf_counter()
             result = service.run_full(**_prepare_sync_kwargs_for_service(service, kwargs))
             if result.trade_date is None:
                 reconciliation_service.refresh_resource_state_from_observed(session, resource)
             snapshot_service.refresh_resources(session, [resource])
+            elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
+            typer.echo(
+                f"[{resource}] sync-history done "
+                f"fetched={result.rows_fetched} written={result.rows_written} "
+                f"elapsed={elapsed_seconds:.1f}s"
+            )
 
 
 @app.command("sync-daily")
@@ -258,6 +309,7 @@ def sync_daily(
             target_date = _resolve_default_sync_date(session)
         for resource in resources:
             service = build_sync_service(resource, session)
+            _attach_cli_progress_reporter(service, resource=resource)
             kwargs = _prepare_sync_kwargs_for_service(
                 service,
                 {
@@ -273,8 +325,16 @@ def sync_daily(
                     "tag": tag,
                 },
             )
-            service.run_incremental(trade_date=target_date, **kwargs)
+            typer.echo(f"[{resource}] sync-daily start trade_date={target_date.isoformat()}")
+            started_at = time.perf_counter()
+            result = service.run_incremental(trade_date=target_date, **kwargs)
             snapshot_service.refresh_resources(session, [resource])
+            elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
+            typer.echo(
+                f"[{resource}] sync-daily done "
+                f"fetched={result.rows_fetched} written={result.rows_written} "
+                f"elapsed={elapsed_seconds:.1f}s"
+            )
 
 
 @app.command("rebuild-dm")

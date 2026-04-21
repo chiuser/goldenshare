@@ -17,9 +17,13 @@ class SyncV2Service(BaseSyncService):
         self.contract = contract
         self.strict_contract = strict_contract
         self.engine = SyncV2Engine(session)
+        self._cli_progress_reporter = None
         self.job_name = contract.job_name
         self.target_table = contract.write_spec.target_table
         super().__init__(session)
+
+    def set_cli_progress_reporter(self, progress_reporter) -> None:  # type: ignore[no-untyped-def]
+        self._cli_progress_reporter = progress_reporter
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         execution_id = kwargs.get("execution_id")
@@ -45,6 +49,11 @@ class SyncV2Service(BaseSyncService):
                 total=progress_snapshot.unit_total,
                 message=message,
             )
+            if callable(self._cli_progress_reporter):
+                try:
+                    self._cli_progress_reporter(progress_snapshot, message)
+                except Exception:
+                    pass
 
         def cancel_checker(current_execution_id: int) -> bool:
             return self.execution_context.is_cancel_requested(execution_id=current_execution_id)

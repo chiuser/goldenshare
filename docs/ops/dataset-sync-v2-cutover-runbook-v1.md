@@ -205,7 +205,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 6. 本轮执行建议（20 个数据集，已完成 15 个）
+## 6. 本轮执行建议（20 个数据集，已完成 20 个）
 
 ## 6.1 批次计划
 
@@ -240,7 +240,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ## 6.3 当前已落地状态（2026-04-21）
 
 1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
-   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list`
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list,top_list,block_trade,stock_st,stk_nineturn,dc_member`
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
@@ -275,31 +275,104 @@ curl -s http://127.0.0.1:8000/api/v1/health
    - `raw_rows=60`
    - `serving_rows=60`
    - `abs_diff=0`
-12. 下一批待切（尚未纳入生产 `USE_SYNC_V2_DATASETS`）：
-   - `top_list`
-   - `block_trade`
-   - `stock_st`
-   - `stk_nineturn`
-   - `dc_member`
+12. `top_list` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=213`
+   - `serving_rows=213`
+   - `abs_diff=0`
+13. `block_trade` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=312`
+   - `serving_rows=312`
+   - `abs_diff=0`
+14. `stock_st` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=538`
+   - `serving_rows=538`
+   - `abs_diff=0`
+15. `stk_nineturn` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=16488`
+   - `serving_rows=16488`
+   - `abs_diff=0`
+16. `dc_member` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `raw_rows=260215`
+   - `serving_rows=260215`
+   - `abs_diff=0`
+17. Batch-2 已全部完成，当前 runbook 进入 Batch-3 准备阶段（先审计、后分批切换）。
 
 ---
 
-## 8. 下一批（Batch-2）执行清单（待执行）
+## 8. 下一批（Batch-3）审计与编排（先审计、后分批切换）
 
-建议顺序：
+### 8.1 Batch-3 目标范围（V2 未覆盖资源）
 
-1. `top_list`
-2. `block_trade`
-3. `stock_st`
-4. `stk_nineturn`
-5. `dc_member`
+截至当前，`sync` 资源总数为 56 个，V2 contract 已覆盖 20 个，尚未覆盖 36 个：
 
-每个数据集按“第 4 章单数据集切换步骤”逐个执行，不允许并行扩面。
+1. `adj_factor`
+2. `biying_equity_daily`
+3. `biying_moneyflow`
+4. `broker_recommend`
+5. `daily`
+6. `dc_daily`
+7. `dc_hot`
+8. `dc_index`
+9. `dividend`
+10. `etf_basic`
+11. `etf_index`
+12. `fund_adj`
+13. `fund_daily`
+14. `hk_basic`
+15. `index_basic`
+16. `index_daily`
+17. `index_daily_basic`
+18. `index_monthly`
+19. `index_weekly`
+20. `index_weight`
+21. `kpl_concept_cons`
+22. `kpl_list`
+23. `limit_list_d`
+24. `limit_list_ths`
+25. `stk_factor_pro`
+26. `stk_holdernumber`
+27. `stk_period_bar_adj_month`
+28. `stk_period_bar_adj_week`
+29. `stk_period_bar_month`
+30. `stk_period_bar_week`
+31. `stock_basic`
+32. `ths_daily`
+33. `ths_hot`
+34. `ths_index`
+35. `ths_member`
+36. `us_basic`
 
-`dc_member` 额外门禁建议：
+### 8.2 Batch-3-A（低歧义日频）建议候选
 
-1. 在切 `dc_member` 前，先确认同窗口 `dc_index` 已有可用板块池（`trade_date` 对应板块代码可查询）。
-2. 如板块池为空，先补跑 `dc_index` 同窗口，再执行 `dc_member` 切换。
+建议优先进入 Batch-3-A 的数据集：
+
+1. `daily`
+2. `index_daily`
+3. `fund_daily`
+4. `ths_daily`
+5. `dc_daily`
+6. `dc_index`
+
+选择原则：
+
+1. 交易日锚点清晰（`trade_date`）。
+2. 写入路径可沿用 `raw_core_upsert` 模式。
+3. 对账口径易建立（按 `trade_date` 做 `raw vs serving`）。
+
+### 8.3 Batch-3 执行门禁（固定）
+
+1. 每次只切 1 个数据集，不并行。
+2. 先实现 contract + reconcile 支持，再切生产开关。
+3. 切换后固定执行：
+   - `sync-history`（近 3~7 个交易日）
+   - `sync-daily`（最新交易日）
+   - `reconcile-dataset --abs-diff-threshold 0`
+4. 任一门禁失败，立即回切并冻结扩面。
 
 ---
 
