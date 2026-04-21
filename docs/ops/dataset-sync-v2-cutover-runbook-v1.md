@@ -220,12 +220,25 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ## 6.3 当前已落地状态（2026-04-21）
 
 1. 生产环境 `USE_SYNC_V2_DATASETS` 当前为：
-   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf`
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc`
 2. `cyq_perf` 已完成切换后门禁对账：
    - 窗口 `2026-04-15~2026-04-17`
    - `abs_diff=0`
-3. `moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/moneyflow_ind_ths/moneyflow_mkt_dc`：
-   - 已在代码层落地 V2 contract，待按批次执行切换与对账门禁
+3. `moneyflow_ths` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+4. `moneyflow_dc` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+5. `moneyflow_cnt_ths` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+6. `moneyflow_ind_ths` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
+7. `moneyflow_mkt_dc` 已完成切换后门禁对账：
+   - 窗口 `2026-04-15~2026-04-17`
+   - `abs_diff=0`
 
 ---
 
