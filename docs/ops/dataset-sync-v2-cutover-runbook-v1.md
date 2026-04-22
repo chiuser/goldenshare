@@ -1,8 +1,8 @@
 # 数据同步 V2 切换运行手册 v1（Runbook）
 
 - 版本：v1.4
-- 日期：2026-04-22
-- 状态：执行中（R0+R1+R2+R3+R4-A 已完成，待完成 R4 余项）
+- 日期：2026-04-23
+- 状态：执行中（R0+R1+R2+R3+R4-A+R4-B 已完成，待完成 R4-C）
 - 适用环境：远程生产（`goldenshare-prod`）
 - 关联设计：
   - [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
@@ -30,17 +30,15 @@
 当前注册规模（代码事实）：
 
 1. `SYNC_SERVICE_REGISTRY` 总资源：`56`
-2. `SYNC_V2_CONTRACTS` 已覆盖：`50`
-3. 未迁移（仍走 V1）：`6`
+2. `SYNC_V2_CONTRACTS` 已覆盖：`52`
+3. 未迁移（仍走 V1）：`4`
 
-未迁移 6 个数据集：
+未迁移 4 个数据集：
 
 1. `biying_equity_daily`
 2. `biying_moneyflow`
-3. `index_monthly`
-4. `index_weekly`
-5. `stk_factor_pro`
-6. `stock_basic`
+3. `stk_factor_pro`
+4. `stock_basic`
 
 当前 V2 contract 覆盖的 50 个数据集：
 
@@ -215,14 +213,12 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ## 7. 当前下一批计划（R4）
 
-R4 专项目标（当前未迁移 6 个）：
+R4 专项目标（当前未迁移 4 个）：
 
 1. `stock_basic`
 2. `biying_equity_daily`
 3. `biying_moneyflow`
 4. `stk_factor_pro`
-5. `index_weekly`
-6. `index_monthly`
 
 执行总原则：
 
