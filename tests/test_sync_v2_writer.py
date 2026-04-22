@@ -185,7 +185,12 @@ def test_sync_v2_writer_supports_index_period_serving_upsert_path(mocker) -> Non
     core_dao = SimpleNamespace(model=SimpleNamespace())
     mocker.patch(
         "src.foundation.services.sync_v2.writer.DAOFactory",
-        return_value=SimpleNamespace(raw_index_weekly_bar=raw_dao, index_weekly_serving=core_dao),
+        return_value=SimpleNamespace(
+            raw_index_weekly_bar=raw_dao,
+            index_weekly_serving=core_dao,
+            index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000300.SH"]),
+            index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+        ),
     )
     writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
     replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows", return_value=2)
@@ -219,6 +224,8 @@ def test_sync_v2_writer_supports_index_period_serving_upsert_path(mocker) -> Non
     result = writer.write(contract=contract, batch=batch)
 
     assert len(raw_dao.calls) == 1
+    assert len(raw_dao.calls[0][0]) == 1
+    assert raw_dao.calls[0][0][0]["ts_code"] == "000300.SH"
     assert start_date_spy.call_count == 1
     replace_spy.assert_called_once()
     kwargs = replace_spy.call_args.kwargs
@@ -235,7 +242,12 @@ def test_sync_v2_writer_index_period_uses_derived_daily_fallback_for_missing_cod
     core_dao = SimpleNamespace(model=SimpleNamespace())
     mocker.patch(
         "src.foundation.services.sync_v2.writer.DAOFactory",
-        return_value=SimpleNamespace(raw_index_weekly_bar=raw_dao, index_weekly_serving=core_dao),
+        return_value=SimpleNamespace(
+            raw_index_weekly_bar=raw_dao,
+            index_weekly_serving=core_dao,
+            index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000300.SH"]),
+            index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+        ),
     )
     writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
     derived_spy = mocker.patch.object(
@@ -285,3 +297,100 @@ def test_sync_v2_writer_index_period_uses_derived_daily_fallback_for_missing_cod
     assert replace_spy.call_args.kwargs["keep_api"] is True
     assert result.rows_written == 1
     assert result.conflict_strategy == "derived_daily_fallback"
+
+
+def test_sync_v2_writer_index_period_filters_active_pool_and_appends_derived_missing_codes(mocker) -> None:
+    raw_dao = _StubDao(written=1)
+    core_dao = SimpleNamespace(model=SimpleNamespace())
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(
+            raw_index_weekly_bar=raw_dao,
+            index_weekly_serving=core_dao,
+            index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000300.SH", "000905.SH"]),
+            index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+            trade_calendar=SimpleNamespace(
+                settings=SimpleNamespace(default_exchange="SSE"),
+                get_open_dates=lambda exchange, start_date, end_date: [start_date, end_date],
+            ),
+        ),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    derived_spy = mocker.patch.object(
+        writer,
+        "_build_index_period_derived_rows_for_codes",
+        return_value=[
+            {
+                "ts_code": "000905.SH",
+                "period_start_date": date(2026, 4, 14),
+                "trade_date": date(2026, 4, 17),
+                "open": 20.0,
+                "high": 21.0,
+                "low": 19.0,
+                "close": 20.5,
+                "pre_close": 20.0,
+                "change_amount": 0.5,
+                "pct_chg": 2.5,
+                "vol": 2000.0,
+                "amount": 2000000.0,
+                "source": "derived_daily",
+            }
+        ],
+    )
+    replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows", return_value=2)
+    contract = get_sync_v2_contract("index_weekly")
+    batch = NormalizedBatch(
+        unit_id="u-index-weekly-active-filter",
+        rows_normalized=[
+            {
+                "ts_code": "000300.SH",
+                "trade_date": date(2026, 4, 17),
+                "open": 10.0,
+                "high": 11.0,
+                "low": 9.0,
+                "close": 10.5,
+                "pre_close": 10.0,
+                "change": 0.5,
+                "pct_chg": 5.0,
+                "vol": 1000.0,
+                "amount": 1000000.0,
+            },
+            {
+                "ts_code": "999999.SH",
+                "trade_date": date(2026, 4, 17),
+                "open": 30.0,
+                "high": 31.0,
+                "low": 29.0,
+                "close": 30.5,
+                "pre_close": 30.0,
+                "change": 0.5,
+                "pct_chg": 1.6,
+                "vol": 3000.0,
+                "amount": 3000000.0,
+            },
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    plan_unit = SimpleNamespace(
+        unit_id="u-index-weekly-active-filter",
+        request_params={"trade_date": "20260417"},
+        trade_date=date(2026, 4, 17),
+    )
+
+    result = writer.write(
+        contract=contract,
+        batch=batch,
+        plan_unit=plan_unit,  # type: ignore[arg-type]
+        run_profile="point_incremental",
+    )
+
+    assert len(raw_dao.calls) == 1
+    filtered_rows, _ = raw_dao.calls[0]
+    assert {row["ts_code"] for row in filtered_rows} == {"000300.SH"}
+    derived_spy.assert_called_once()
+    assert derived_spy.call_args.kwargs["ts_codes"] == ["000905.SH"]
+    replace_spy.assert_called_once()
+    assert replace_spy.call_args.kwargs["keep_api"] is False
+    assert result.rows_written == 2
+    assert result.conflict_strategy == "index_period_upsert"

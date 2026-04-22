@@ -119,15 +119,49 @@ class SyncV2Writer:
     ) -> WriteResult:
         rows_written = 0
         conflict_strategy = "upsert"
+        active_codes = self._resolve_active_index_codes()
+        explicit_ts_code = bool(
+            plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
+        )
         if batch.rows_normalized:
-            if contract.write_spec.conflict_columns:
-                raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(contract.write_spec.conflict_columns))
-            else:
-                raw_dao.bulk_upsert(batch.rows_normalized)
-            serving_rows = self._build_index_period_serving_rows(
+            filtered_rows = self._filter_index_rows_by_active_pool(
                 rows=batch.rows_normalized,
+                active_codes=active_codes,
+            )
+            if not filtered_rows:
+                return WriteResult(
+                    unit_id=batch.unit_id,
+                    rows_written=0,
+                    rows_upserted=0,
+                    rows_skipped=batch.rows_rejected,
+                    target_table=contract.write_spec.target_table,
+                    conflict_strategy="index_period_filtered_empty",
+                )
+            if contract.write_spec.conflict_columns:
+                raw_dao.bulk_upsert(filtered_rows, conflict_columns=list(contract.write_spec.conflict_columns))
+            else:
+                raw_dao.bulk_upsert(filtered_rows)
+            serving_rows = self._build_index_period_serving_rows(
+                rows=filtered_rows,
                 dataset_key=contract.dataset_key,
             )
+            if run_profile == "point_incremental" and plan_unit is not None and not explicit_ts_code:
+                trade_date = plan_unit.trade_date
+                if isinstance(trade_date, date):
+                    existing_codes = {
+                        str(row.get("ts_code")).strip().upper()
+                        for row in serving_rows
+                        if row.get("ts_code")
+                    }
+                    missing_codes = sorted(active_codes - existing_codes)
+                    if missing_codes:
+                        serving_rows.extend(
+                            self._build_index_period_derived_rows_for_codes(
+                                contract=contract,
+                                trade_date=trade_date,
+                                ts_codes=missing_codes,
+                            )
+                        )
             rows_written = self._replace_index_period_serving_rows(
                 core_dao=core_dao,
                 rows=serving_rows,
@@ -135,10 +169,22 @@ class SyncV2Writer:
             )
             conflict_strategy = "index_period_upsert"
         elif run_profile == "point_incremental" and plan_unit is not None:
-            derived_rows = self._build_index_period_derived_rows(
-                contract=contract,
-                plan_unit=plan_unit,
-            )
+            if explicit_ts_code:
+                derived_rows = self._build_index_period_derived_rows(
+                    contract=contract,
+                    plan_unit=plan_unit,
+                )
+            else:
+                trade_date = plan_unit.trade_date
+                derived_rows = (
+                    self._build_index_period_derived_rows_for_codes(
+                        contract=contract,
+                        trade_date=trade_date,
+                        ts_codes=sorted(active_codes),
+                    )
+                    if isinstance(trade_date, date)
+                    else []
+                )
             rows_written = self._replace_index_period_serving_rows(
                 core_dao=core_dao,
                 rows=derived_rows,
@@ -189,6 +235,40 @@ class SyncV2Writer:
         trade_date = plan_unit.trade_date
         if not ts_code or not isinstance(trade_date, date):
             return []
+        return self._build_index_period_derived_rows_for_codes(
+            contract=contract,
+            trade_date=trade_date,
+            ts_codes=[ts_code],
+        )
+
+    def _build_index_period_derived_rows_for_codes(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        trade_date: date,
+        ts_codes: list[str],
+    ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for code in ts_codes:
+            ts_code = str(code or "").strip().upper()
+            if not ts_code:
+                continue
+            results.extend(
+                self._build_index_period_derived_rows_for_single_code(
+                    contract=contract,
+                    trade_date=trade_date,
+                    ts_code=ts_code,
+                )
+            )
+        return results
+
+    def _build_index_period_derived_rows_for_single_code(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        trade_date: date,
+        ts_code: str,
+    ) -> list[dict[str, Any]]:
         period_start_date = self._resolve_index_period_start_date(
             dataset_key=contract.dataset_key,
             trade_date=trade_date,
@@ -294,6 +374,34 @@ class SyncV2Writer:
                 continue
             deduped_by_key[(str(ts_code), period_start_date)] = row
         return list(deduped_by_key.values())
+
+    @staticmethod
+    def _filter_index_rows_by_active_pool(
+        *,
+        rows: list[dict[str, Any]],
+        active_codes: set[str],
+    ) -> list[dict[str, Any]]:
+        if not active_codes:
+            return []
+        filtered_rows: list[dict[str, Any]] = []
+        for row in rows:
+            ts_code = str(row.get("ts_code") or "").strip().upper()
+            if ts_code and ts_code in active_codes:
+                filtered_rows.append(row)
+        return filtered_rows
+
+    def _resolve_active_index_codes(self) -> set[str]:
+        active_codes = self.dao.index_series_active.list_active_codes("index_daily")
+        if not active_codes:
+            active_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
+        normalized = {
+            str(code).strip().upper()
+            for code in active_codes
+            if str(code).strip()
+        }
+        if not normalized:
+            raise ValueError("no active index codes found for index period serving")
+        return normalized
 
     def _resolve_index_period_start_date(
         self,
