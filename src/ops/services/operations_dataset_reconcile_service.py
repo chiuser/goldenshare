@@ -11,6 +11,8 @@ from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
 from src.foundation.models.core.dc_member import DcMember
+from src.foundation.models.core.dc_daily import DcDaily
+from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
@@ -54,12 +56,19 @@ from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_dc_member import RawDcMember
+from src.foundation.models.raw.raw_dc_daily import RawDcDaily
+from src.foundation.models.raw.raw_dc_hot import RawDcHot
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
+from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
+from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
+from src.foundation.models.raw.raw_ths_daily import RawThsDaily
+from src.foundation.models.raw.raw_ths_hot import RawThsHot
+from src.foundation.models.raw.raw_ths_member import RawThsMember
 from src.foundation.models.core.equity_moneyflow_dc import EquityMoneyflowDc
 from src.foundation.models.core.equity_moneyflow_ths import EquityMoneyflowThs
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -72,6 +81,8 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.broker_recommend import BrokerRecommend
+from src.foundation.models.core.ths_daily import ThsDaily
+from src.foundation.models.core.ths_hot import ThsHot
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
@@ -82,6 +93,9 @@ from src.foundation.models.raw.raw_ths_index import RawThsIndex
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
+from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
+from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
+from src.foundation.models.core_serving.ths_member import ThsMember
 
 
 @dataclass(slots=True, frozen=True)
@@ -92,6 +106,8 @@ class DatasetReconcileConfig:
     raw_date_field: str | None = None
     serving_date_field: str | None = None
     key_fields: tuple[str, ...] | None = None
+    raw_filters: dict[str, str] | None = None
+    serving_filters: dict[str, str] | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -324,6 +340,75 @@ class DatasetReconcileService:
             raw_date_field="trade_date",
             serving_date_field="trade_date",
         ),
+        "ths_member": DatasetReconcileConfig(
+            raw_model=RawThsMember,
+            serving_model=ThsMember,
+            mode="snapshot",
+        ),
+        "ths_daily": DatasetReconcileConfig(
+            raw_model=RawThsDaily,
+            serving_model=ThsDaily,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "dc_daily": DatasetReconcileConfig(
+            raw_model=RawDcDaily,
+            serving_model=DcDaily,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "ths_hot": DatasetReconcileConfig(
+            raw_model=RawThsHot,
+            serving_model=ThsHot,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "dc_hot": DatasetReconcileConfig(
+            raw_model=RawDcHot,
+            serving_model=DcHot,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "stk_period_bar_week": DatasetReconcileConfig(
+            raw_model=RawStkPeriodBar,
+            serving_model=StkPeriodBar,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+            raw_filters={"freq": "week"},
+            serving_filters={"freq": "week"},
+        ),
+        "stk_period_bar_month": DatasetReconcileConfig(
+            raw_model=RawStkPeriodBar,
+            serving_model=StkPeriodBar,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+            raw_filters={"freq": "month"},
+            serving_filters={"freq": "month"},
+        ),
+        "stk_period_bar_adj_week": DatasetReconcileConfig(
+            raw_model=RawStkPeriodBarAdj,
+            serving_model=StkPeriodBarAdj,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+            raw_filters={"freq": "week"},
+            serving_filters={"freq": "week"},
+        ),
+        "stk_period_bar_adj_month": DatasetReconcileConfig(
+            raw_model=RawStkPeriodBarAdj,
+            serving_model=StkPeriodBarAdj,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+            raw_filters={"freq": "month"},
+            serving_filters={"freq": "month"},
+        ),
         "fund_adj": DatasetReconcileConfig(
             raw_model=RawFundAdj,
             serving_model=FundAdjFactor,
@@ -402,15 +487,35 @@ class DatasetReconcileService:
             raise ValueError("start_date must be <= end_date")
 
         if config.mode == "snapshot":
-            raw_rows = self._count_rows(session, stmt=select(func.count()).select_from(config.raw_model))
-            serving_rows = self._count_rows(session, stmt=select(func.count()).select_from(config.serving_model))
-            raw_distinct = self._count_distinct_keys(session, model=config.raw_model, key_fields=config.key_fields)
-            serving_distinct = self._count_distinct_keys(session, model=config.serving_model, key_fields=config.key_fields)
+            raw_count_stmt = select(func.count()).select_from(config.raw_model)
+            serving_count_stmt = select(func.count()).select_from(config.serving_model)
+            raw_rows = self._count_rows(
+                session,
+                stmt=self._apply_filters(raw_count_stmt, config.raw_model, config.raw_filters),
+            )
+            serving_rows = self._count_rows(
+                session,
+                stmt=self._apply_filters(serving_count_stmt, config.serving_model, config.serving_filters),
+            )
+            raw_distinct = self._count_distinct_keys(
+                session,
+                model=config.raw_model,
+                key_fields=config.key_fields,
+                static_filters=config.raw_filters,
+            )
+            serving_distinct = self._count_distinct_keys(
+                session,
+                model=config.serving_model,
+                key_fields=config.key_fields,
+                static_filters=config.serving_filters,
+            )
             key_diffs = self._load_key_diff_samples(
                 session,
                 raw_model=config.raw_model,
                 serving_model=config.serving_model,
                 key_fields=config.key_fields,
+                raw_filters=config.raw_filters,
+                serving_filters=config.serving_filters,
                 sample_limit=sample_limit,
             )
             return DatasetReconcileReport(
@@ -433,15 +538,39 @@ class DatasetReconcileService:
 
         raw_rows = self._count_rows(
             session,
-            stmt=select(func.count()).select_from(config.raw_model).where(raw_date_col >= resolved_start, raw_date_col <= resolved_end),
+            stmt=self._apply_filters(
+                select(func.count()).select_from(config.raw_model).where(raw_date_col >= resolved_start, raw_date_col <= resolved_end),
+                config.raw_model,
+                config.raw_filters,
+            ),
         )
         serving_rows = self._count_rows(
             session,
-            stmt=select(func.count()).select_from(config.serving_model).where(serving_date_col >= resolved_start, serving_date_col <= resolved_end),
+            stmt=self._apply_filters(
+                select(func.count()).select_from(config.serving_model).where(
+                    serving_date_col >= resolved_start, serving_date_col <= resolved_end
+                ),
+                config.serving_model,
+                config.serving_filters,
+            ),
         )
 
-        raw_daily = self._load_daily_counts(session, config.raw_model, raw_date_col, resolved_start, resolved_end)
-        serving_daily = self._load_daily_counts(session, config.serving_model, serving_date_col, resolved_start, resolved_end)
+        raw_daily = self._load_daily_counts(
+            session,
+            config.raw_model,
+            raw_date_col,
+            resolved_start,
+            resolved_end,
+            static_filters=config.raw_filters,
+        )
+        serving_daily = self._load_daily_counts(
+            session,
+            config.serving_model,
+            serving_date_col,
+            resolved_start,
+            resolved_end,
+            static_filters=config.serving_filters,
+        )
         merged_dates = sorted(set(raw_daily.keys()) | set(serving_daily.keys()))
         daily_diffs: list[DatasetReconcileDailyDiff] = []
         for current_date in merged_dates:
@@ -486,11 +615,14 @@ class DatasetReconcileService:
         *,
         model: type,
         key_fields: tuple[str, ...] | None = None,
+        static_filters: dict[str, str] | None = None,
     ) -> int:
         key_columns = self._resolve_key_columns(model, key_fields)
         if not key_columns:
             return 0
-        stmt = select(*key_columns).distinct().subquery()
+        key_stmt = select(*key_columns).distinct()
+        key_stmt = self._apply_filters(key_stmt, model, static_filters)
+        stmt = key_stmt.subquery()
         return self._count_rows(session, stmt=select(func.count()).select_from(stmt))
 
     def _load_key_diff_samples(
@@ -500,6 +632,8 @@ class DatasetReconcileService:
         raw_model: type,
         serving_model: type,
         key_fields: tuple[str, ...] | None = None,
+        raw_filters: dict[str, str] | None = None,
+        serving_filters: dict[str, str] | None = None,
         sample_limit: int,
     ) -> list[str]:
         if sample_limit <= 0:
@@ -509,9 +643,13 @@ class DatasetReconcileService:
         if not raw_keys or not serving_keys:
             return []
 
+        raw_stmt = select(*raw_keys).distinct()
+        raw_stmt = self._apply_filters(raw_stmt, raw_model, raw_filters)
+        serving_stmt = select(*serving_keys).distinct()
+        serving_stmt = self._apply_filters(serving_stmt, serving_model, serving_filters)
         raw_only_stmt = except_(
-            select(*raw_keys).distinct(),
-            select(*serving_keys).distinct(),
+            raw_stmt,
+            serving_stmt,
         ).limit(sample_limit)
         raw_only_rows = session.execute(raw_only_stmt).all()
         samples = [f"raw_only:{self._format_key_row(row)}" for row in raw_only_rows]
@@ -520,8 +658,8 @@ class DatasetReconcileService:
 
         remaining = sample_limit - len(samples)
         serving_only_stmt = except_(
-            select(*serving_keys).distinct(),
-            select(*raw_keys).distinct(),
+            serving_stmt,
+            raw_stmt,
         ).limit(remaining)
         serving_only_rows = session.execute(serving_only_stmt).all()
         samples.extend(f"serving_only:{self._format_key_row(row)}" for row in serving_only_rows)
@@ -539,11 +677,22 @@ class DatasetReconcileService:
         date_col,
         start_date: date,
         end_date: date,
+        static_filters: dict[str, str] | None = None,
     ) -> dict[date, int]:
-        rows = session.execute(
+        stmt = (
             select(date_col, func.count())
             .select_from(model)
             .where(date_col >= start_date, date_col <= end_date)
             .group_by(date_col)
-        ).all()
+        )
+        stmt = DatasetReconcileService._apply_filters(stmt, model, static_filters)
+        rows = session.execute(stmt).all()
         return {trade_date: int(count) for trade_date, count in rows if trade_date is not None}
+
+    @staticmethod
+    def _apply_filters(stmt, model: type, filters: dict[str, str] | None):  # type: ignore[no-untyped-def]
+        if not filters:
+            return stmt
+        for field_name, expected in filters.items():
+            stmt = stmt.where(getattr(model, field_name) == expected)
+        return stmt

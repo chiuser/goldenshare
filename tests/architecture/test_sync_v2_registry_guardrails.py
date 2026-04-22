@@ -40,11 +40,26 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "block_trade",
         "stock_st",
         "stk_nineturn",
+        "stk_period_bar_week",
+        "stk_period_bar_month",
+        "stk_period_bar_adj_week",
+        "stk_period_bar_adj_month",
         "broker_recommend",
     },
     "market_fund": {"fund_daily", "fund_adj"},
     "index_series": {"index_daily", "index_daily_basic", "index_basic", "etf_index"},
-    "board_hotspot": {"ths_index", "dc_index", "dc_member", "kpl_list", "kpl_concept_cons"},
+    "board_hotspot": {
+        "ths_index",
+        "dc_index",
+        "dc_member",
+        "ths_member",
+        "ths_daily",
+        "dc_daily",
+        "ths_hot",
+        "dc_hot",
+        "kpl_list",
+        "kpl_concept_cons",
+    },
     "moneyflow": {
         "moneyflow",
         "moneyflow_ths",
@@ -141,4 +156,3 @@ def test_contract_modules_must_use_builder_templates_for_schema_specs() -> None:
             "请改用 builders（build_input_schema/build_planning_spec/"
             "build_normalization_spec/build_write_spec）。"
         )
-

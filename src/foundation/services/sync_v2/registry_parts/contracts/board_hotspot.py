@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    DC_DAILY_FIELDS,
+    DC_HOT_FIELDS,
     DC_INDEX_FIELDS,
     DC_MEMBER_FIELDS,
     KPL_CONCEPT_CONS_FIELDS,
     KPL_LIST_FIELDS,
+    THS_DAILY_FIELDS,
+    THS_HOT_FIELDS,
     THS_INDEX_FIELDS,
+    THS_MEMBER_FIELDS,
 )
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
@@ -24,7 +28,9 @@ from src.foundation.services.sync_v2.registry_parts.builders import (
 from src.foundation.services.sync_v2.registry_parts.common.param_policies import *  # noqa: F403
 from src.foundation.services.sync_v2.registry_parts.common.row_transforms import *  # noqa: F403
 
-CONTRACTS: dict[str, DatasetSyncContract] = {    "ths_index": DatasetSyncContract(
+
+CONTRACTS: dict[str, DatasetSyncContract] = {
+    "ths_index": DatasetSyncContract(
         dataset_key="ths_index",
         display_name="同花顺板块列表",
         job_name="sync_ths_index",
@@ -134,6 +140,225 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "ths_index": DatasetSyncContrac
         ),
         observe_spec=ObserveSpec(progress_label="dc_member"),
     ),
+    "ths_member": DatasetSyncContract(
+        dataset_key="ths_member",
+        display_name="同花顺板块成分",
+        job_name="sync_ths_member",
+        run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="板块代码"),
+                InputField("con_code", "string", required=False, description="成分股票代码"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="ths_index_board_codes",
+            pagination_policy="none",
+            max_units_per_execution=5000,
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="ths_member",
+            fields=tuple(THS_MEMBER_FIELDS),
+            unit_params_builder=_ths_member_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("in_date", "out_date"),
+            decimal_fields=("weight",),
+            required_fields=("ts_code", "con_code"),
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_ths_member",
+            core_dao_name="ths_member",
+            target_table="core_serving.ths_member",
+        ),
+        observe_spec=ObserveSpec(progress_label="ths_member"),
+    ),
+    "ths_daily": DatasetSyncContract(
+        dataset_key="ths_daily",
+        display_name="同花顺板块日线行情",
+        job_name="sync_ths_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="板块代码"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="ths_index_board_codes",
+            pagination_policy="none",
+            max_units_per_execution=5000,
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="ths_daily",
+            fields=tuple(THS_DAILY_FIELDS),
+            unit_params_builder=_ths_daily_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            decimal_fields=(
+                "close",
+                "open",
+                "high",
+                "low",
+                "pre_close",
+                "avg_price",
+                "change",
+                "pct_change",
+                "vol",
+                "turnover_rate",
+                "total_mv",
+                "float_mv",
+            ),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_ths_daily",
+            core_dao_name="ths_daily",
+            target_table="core_serving.ths_daily",
+        ),
+        observe_spec=ObserveSpec(progress_label="ths_daily"),
+    ),
+    "dc_daily": DatasetSyncContract(
+        dataset_key="dc_daily",
+        display_name="东方财富板块日线行情",
+        job_name="sync_dc_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="板块代码"),
+                InputField("idx_type", "string", required=False, description="板块类型"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="dc_index_board_codes",
+            pagination_policy="none",
+            max_units_per_execution=5000,
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="dc_daily",
+            fields=tuple(DC_DAILY_FIELDS),
+            unit_params_builder=_dc_daily_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            decimal_fields=("close", "open", "high", "low", "change", "pct_change", "vol", "amount", "swing", "turnover_rate"),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_dc_daily",
+            core_dao_name="dc_daily",
+            target_table="core_serving.dc_daily",
+        ),
+        observe_spec=ObserveSpec(progress_label="dc_daily"),
+    ),
+    "ths_hot": DatasetSyncContract(
+        dataset_key="ths_hot",
+        display_name="同花顺热榜",
+        job_name="sync_ths_hot",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="证券代码"),
+                InputField("market", "string", required=False, description="市场筛选"),
+                InputField("is_new", "string", required=False, description="是否最新"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="none",
+            enum_fanout_fields=("market", "is_new"),
+            enum_fanout_defaults={"market": ("__ALL__",), "is_new": ("__ALL__",)},
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="ths_hot",
+            fields=tuple(THS_HOT_FIELDS),
+            unit_params_builder=_ths_hot_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            decimal_fields=("pct_change", "current_price", "hot"),
+            required_fields=("trade_date", "data_type", "ts_code", "rank_time", "query_market", "query_is_new"),
+            row_transform=_ths_hot_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_ths_hot",
+            core_dao_name="ths_hot",
+            target_table="core_serving.ths_hot",
+        ),
+        observe_spec=ObserveSpec(progress_label="ths_hot"),
+    ),
+    "dc_hot": DatasetSyncContract(
+        dataset_key="dc_hot",
+        display_name="东方财富热榜",
+        job_name="sync_dc_hot",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="证券代码"),
+                InputField("market", "string", required=False, description="市场筛选"),
+                InputField("hot_type", "string", required=False, description="热榜类型"),
+                InputField("is_new", "string", required=False, description="是否最新"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="none",
+            enum_fanout_fields=("market", "hot_type", "is_new"),
+            enum_fanout_defaults={"market": ("__ALL__",), "hot_type": ("__ALL__",), "is_new": ("__ALL__",)},
+            pagination_policy="none",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="dc_hot",
+            fields=tuple(DC_HOT_FIELDS),
+            unit_params_builder=_dc_hot_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            decimal_fields=("pct_change", "current_price", "hot"),
+            required_fields=("trade_date", "data_type", "ts_code", "rank_time", "query_market", "query_hot_type", "query_is_new"),
+            row_transform=_dc_hot_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_dc_hot",
+            core_dao_name="dc_hot",
+            target_table="core_serving.dc_hot",
+        ),
+        observe_spec=ObserveSpec(progress_label="dc_hot"),
+    ),
     "kpl_list": DatasetSyncContract(
         dataset_key="kpl_list",
         display_name="开盘啦榜单",
@@ -225,3 +450,4 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "ths_index": DatasetSyncContrac
         observe_spec=ObserveSpec(progress_label="kpl_concept_cons"),
     ),
 }
+

@@ -80,6 +80,33 @@ def _limit_list_ths_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed["query_market"] = str(transformed.get("market_type") or "__ALL__")
     return transformed
 
+
+def _ths_hot_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["query_market"] = str(transformed.get("query_market") or "__ALL__")
+    transformed["query_is_new"] = str(transformed.get("query_is_new") or "__ALL__")
+    return transformed
+
+
+def _dc_hot_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["query_market"] = str(transformed.get("query_market") or "__ALL__")
+    transformed["query_hot_type"] = str(transformed.get("query_hot_type") or "__ALL__")
+    transformed["query_is_new"] = str(transformed.get("query_is_new") or "__ALL__")
+    return transformed
+
+
+def _stk_period_bar_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["change_amount"] = transformed.get("change")
+    return transformed
+
+
+def _stk_period_bar_adj_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["change_amount"] = transformed.get("change")
+    return transformed
+
 __all__ = [
     "MONEYFLOW_VOLUME_FIELDS",
     "_moneyflow_row_transform",
@@ -91,4 +118,8 @@ __all__ = [
     "_index_daily_row_transform",
     "_limit_list_row_transform",
     "_limit_list_ths_row_transform",
+    "_ths_hot_row_transform",
+    "_dc_hot_row_transform",
+    "_stk_period_bar_row_transform",
+    "_stk_period_bar_adj_row_transform",
 ]

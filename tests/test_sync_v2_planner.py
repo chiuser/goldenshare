@@ -294,3 +294,51 @@ def test_planner_trade_cal_range_rebuild_uses_single_natural_window(mocker) -> N
     assert units[0].trade_date is None
     assert units[0].request_params["start_date"] == "20260401"
     assert units[0].request_params["end_date"] == "20260403"
+
+
+def test_planner_ths_member_fanout_uses_ths_index_board_pool(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = ["885001.TI", "885002.TI"]
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: [])
+    )
+    contract = get_sync_v2_contract("ths_member")
+    request = RunRequest(
+        request_id="req-ths-member",
+        dataset_key="ths_member",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"885001.TI", "885002.TI"}
+
+
+def test_planner_dc_daily_range_rebuild_uses_dc_index_range_pool(mocker) -> None:
+    session = mocker.Mock()
+    session.scalars.return_value = ["BK1001.DC", "BK1002.DC"]
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: [])
+    )
+    contract = get_sync_v2_contract("dc_daily")
+    request = RunRequest(
+        request_id="req-dc-daily-range",
+        dataset_key="dc_daily",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260415", "end_date": "20260417"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 2
+    assert {unit.request_params["ts_code"] for unit in units} == {"BK1001.DC", "BK1002.DC"}
+    assert {unit.request_params["start_date"] for unit in units} == {"20260415"}
+    assert {unit.request_params["end_date"] for unit in units} == {"20260417"}

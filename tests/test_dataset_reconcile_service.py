@@ -72,6 +72,16 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "stock_st" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "stk_nineturn" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "dc_member" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "ths_member" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert DatasetReconcileService.SUPPORTED_DATASETS["ths_member"].mode == "snapshot"
+    assert "ths_daily" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "dc_daily" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "ths_hot" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "dc_hot" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_period_bar_week" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_period_bar_month" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_period_bar_adj_week" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_period_bar_adj_month" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "fund_adj" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "index_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "etf_basic" in DatasetReconcileService.SUPPORTED_DATASETS

@@ -11,6 +11,7 @@ from src.foundation.connectors.factory import create_source_connector
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.models.core.dc_index import DcIndex
+from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.services.sync.fields import DC_INDEX_FIELDS
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
@@ -222,6 +223,27 @@ class SyncV2Planner:
                     )
                 )
             return [{"ts_code": code} for code in normalized_codes]
+        if policy == "ths_index_board_codes":
+            ts_code = str(request.params.get("ts_code") or "").strip().upper()
+            con_code = str(request.params.get("con_code") or "").strip().upper()
+            if ts_code:
+                return [{"ts_code": ts_code}]
+            if con_code:
+                return [{"con_code": con_code}]
+
+            board_codes = self._load_board_codes_from_ths_index()
+            if not board_codes:
+                raise SyncV2PlanningError(
+                    StructuredError(
+                        error_code="universe_empty",
+                        error_type="planning",
+                        phase="planner",
+                        message="no ths_index board codes found",
+                        retryable=False,
+                    )
+                )
+            return [{"ts_code": code} for code in board_codes]
+
         if policy != "dc_index_board_codes":
             raise SyncV2PlanningError(
                 StructuredError(
@@ -239,28 +261,43 @@ class SyncV2Planner:
             return [{"ts_code": ts_code}]
         if con_code:
             return [{"con_code": con_code}]
-        if anchor is None:
-            raise SyncV2PlanningError(
-                StructuredError(
-                    error_code="trade_date_anchor_required",
-                    error_type="planning",
-                    phase="planner",
-                    message="dc_index_board_codes requires trade_date anchor",
-                    retryable=False,
-                )
-            )
 
         idx_type = str(request.params.get("idx_type") or "").strip()
-        board_codes = self._load_board_codes_from_dc_index(anchor=anchor, idx_type=idx_type or None)
+        board_codes: list[str] = []
+        if anchor is not None:
+            board_codes = self._load_board_codes_from_dc_index(anchor=anchor, idx_type=idx_type or None)
+        elif request.trade_date is not None:
+            board_codes = self._load_board_codes_from_dc_index(anchor=request.trade_date, idx_type=idx_type or None)
+        elif request.start_date is not None and request.end_date is not None:
+            board_codes = self._load_board_codes_from_dc_index_range(
+                start_date=request.start_date,
+                end_date=request.end_date,
+                idx_type=idx_type or None,
+            )
         if not board_codes:
-            board_codes = self._load_board_codes_from_source(anchor=anchor, idx_type=idx_type or None)
+            fallback_anchor = anchor or request.trade_date
+            if fallback_anchor is not None:
+                board_codes = self._load_board_codes_from_source(anchor=fallback_anchor, idx_type=idx_type or None)
         if not board_codes:
+            if anchor is None and request.trade_date is None and request.start_date is None and request.end_date is None:
+                raise SyncV2PlanningError(
+                    StructuredError(
+                        error_code="trade_date_anchor_required",
+                        error_type="planning",
+                        phase="planner",
+                        message="dc_index_board_codes requires trade_date or start/end range",
+                        retryable=False,
+                    )
+                )
             raise SyncV2PlanningError(
                 StructuredError(
                     error_code="universe_empty",
                     error_type="planning",
                     phase="planner",
-                    message=f"no dc_index board codes found for trade_date={anchor.isoformat()}",
+                    message=(
+                        "no dc_index board codes found for requested anchor/range "
+                        f"(trade_date={request.trade_date}, start_date={request.start_date}, end_date={request.end_date})"
+                    ),
                     retryable=False,
                 )
             )
@@ -275,6 +312,28 @@ class SyncV2Planner:
             for item in self.session.scalars(stmt.distinct().order_by(DcIndex.ts_code))
             if str(item).strip()
         ]
+        return sorted(set(codes))
+
+    def _load_board_codes_from_dc_index_range(
+        self,
+        *,
+        start_date: date,
+        end_date: date,
+        idx_type: str | None,
+    ) -> list[str]:
+        stmt = select(DcIndex.ts_code).where(DcIndex.trade_date >= start_date, DcIndex.trade_date <= end_date)
+        if idx_type:
+            stmt = stmt.where(DcIndex.idx_type == idx_type)
+        codes = [
+            str(item).strip().upper()
+            for item in self.session.scalars(stmt.distinct().order_by(DcIndex.ts_code))
+            if str(item).strip()
+        ]
+        return sorted(set(codes))
+
+    def _load_board_codes_from_ths_index(self) -> list[str]:
+        stmt = select(ThsIndex.ts_code).distinct().order_by(ThsIndex.ts_code)
+        codes = [str(item).strip().upper() for item in self.session.scalars(stmt) if str(item).strip()]
         return sorted(set(codes))
 
     @staticmethod

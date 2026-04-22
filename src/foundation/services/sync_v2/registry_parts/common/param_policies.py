@@ -434,6 +434,153 @@ def _dc_member_params(request, anchor_date: date | None, enum_values: dict[str, 
     return params
 
 
+def _ths_member_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    con_code = enum_values.get("con_code") or request.params.get("con_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if con_code not in (None, ""):
+        params["con_code"] = str(con_code).strip().upper()
+    return params
+
+
+def _ths_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("ths_daily point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("ths_daily range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"ths_daily unsupported run_profile: {request.run_profile}")
+
+
+def _dc_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    idx_type = request.params.get("idx_type")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if idx_type not in (None, ""):
+        params["idx_type"] = str(idx_type).strip()
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("dc_daily point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("dc_daily range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"dc_daily unsupported run_profile: {request.run_profile}")
+
+
+def _ths_hot_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = request.params.get("ts_code")
+    market = enum_values.get("market", request.params.get("market"))
+    is_new = enum_values.get("is_new", request.params.get("is_new"))
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if market not in (None, "", "__ALL__"):
+        params["market"] = str(market).strip()
+    if is_new not in (None, "", "__ALL__"):
+        params["is_new"] = str(is_new).strip()
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("ths_hot point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("ths_hot range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"ths_hot unsupported run_profile: {request.run_profile}")
+
+
+def _dc_hot_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {}
+    ts_code = request.params.get("ts_code")
+    market = enum_values.get("market", request.params.get("market"))
+    hot_type = enum_values.get("hot_type", request.params.get("hot_type"))
+    is_new = enum_values.get("is_new", request.params.get("is_new"))
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if market not in (None, "", "__ALL__"):
+        params["market"] = str(market).strip()
+    if hot_type not in (None, "", "__ALL__"):
+        params["hot_type"] = str(hot_type).strip()
+    if is_new not in (None, "", "__ALL__"):
+        params["is_new"] = str(is_new).strip()
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("dc_hot point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("dc_hot range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"dc_hot unsupported run_profile: {request.run_profile}")
+
+
+def _stk_period_bar_week_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params: dict[str, Any] = {"freq": "week"}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("stk_period_bar_week point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        target_date = anchor_date
+        if target_date is not None:
+            params["trade_date"] = target_date.strftime("%Y%m%d")
+        else:
+            if request.start_date is None or request.end_date is None:
+                raise ValueError("stk_period_bar_week range_rebuild requires start_date and end_date")
+            params["start_date"] = request.start_date.strftime("%Y%m%d")
+            params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"stk_period_bar_week unsupported run_profile: {request.run_profile}")
+
+
+def _stk_period_bar_month_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    params = _stk_period_bar_week_params(request, anchor_date, enum_values)
+    params["freq"] = "month"
+    return params
+
+
+def _stk_period_bar_adj_week_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return _stk_period_bar_week_params(request, anchor_date, enum_values)
+
+
+def _stk_period_bar_adj_month_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return _stk_period_bar_month_params(request, anchor_date, enum_values)
+
+
 def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("moneyflow requires trade_date anchor")
@@ -545,6 +692,15 @@ __all__ = [
     "_stock_st_params",
     "_stk_nineturn_params",
     "_dc_member_params",
+    "_ths_member_params",
+    "_ths_daily_params",
+    "_dc_daily_params",
+    "_ths_hot_params",
+    "_dc_hot_params",
+    "_stk_period_bar_week_params",
+    "_stk_period_bar_month_params",
+    "_stk_period_bar_adj_week_params",
+    "_stk_period_bar_adj_month_params",
     "_moneyflow_params",
     "_moneyflow_ind_dc_params",
     "_moneyflow_ths_params",

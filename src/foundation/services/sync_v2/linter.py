@@ -14,7 +14,7 @@ ALLOWED_WRITE_PATHS = {
     "raw_std_publish_moneyflow",
     "raw_core_snapshot_insert_by_trade_date",
 }
-ALLOWED_UNIVERSE_POLICIES = {"none", "dc_index_board_codes", "index_active_codes"}
+ALLOWED_UNIVERSE_POLICIES = {"none", "dc_index_board_codes", "index_active_codes", "ths_index_board_codes"}
 ALLOWED_ANCHOR_TYPES = {
     "trade_date",
     "week_end_trade_date",

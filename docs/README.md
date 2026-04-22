@@ -48,6 +48,7 @@ docs/
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
+- [数据同步 V2 R3 切换方案 v1（板块/热榜/周期栏）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
 - [Tushare Contract 输入参数审计 v1（先审计，不下锚点结论）](/Users/congming/github/goldenshare/docs/ops/tushare-contract-parameter-audit-v1.md)
 
 说明：数据集停用策略与融合策略中心准备度已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。

@@ -34,8 +34,23 @@ class TushareSyncV2Adapter(SourceAdapter):
         )
 
     def execute(self, request: SourceRequest) -> list[dict]:
-        return self.connector.call(
+        rows = self.connector.call(
             api_name=request.api_name,
             params=request.params,
             fields=request.fields,
         )
+        if request.api_name == "ths_hot":
+            query_market = str(request.params.get("market") or "__ALL__")
+            query_is_new = str(request.params.get("is_new") or "__ALL__")
+            for row in rows:
+                row["query_market"] = query_market
+                row["query_is_new"] = query_is_new
+        if request.api_name == "dc_hot":
+            query_market = str(request.params.get("market") or "__ALL__")
+            query_hot_type = str(request.params.get("hot_type") or "__ALL__")
+            query_is_new = str(request.params.get("is_new") or "__ALL__")
+            for row in rows:
+                row["query_market"] = query_market
+                row["query_hot_type"] = query_hot_type
+                row["query_is_new"] = query_is_new
+        return rows

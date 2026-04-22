@@ -411,6 +411,10 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ## 8. 下一批（Batch-5）审计与编排（R3 可执行计划）
 
+R3 详细执行方案见：
+
+- [数据同步 V2 R3 切换方案 v1](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
+
 ### 8.1 Batch-5 目标范围（V2 未覆盖资源）
 
 截至当前，`sync` 资源总数为 56 个，V2 contract 已覆盖 38 个，尚未覆盖 18 个：
@@ -449,12 +453,10 @@ R3（扇出/周期语义）目标集：
 3. `ths_member`
 4. `ths_hot`
 5. `dc_hot`
-6. `index_weekly`
-7. `index_monthly`
-8. `stk_period_bar_week`
-9. `stk_period_bar_month`
-10. `stk_period_bar_adj_week`
-11. `stk_period_bar_adj_month`
+6. `stk_period_bar_week`
+7. `stk_period_bar_month`
+8. `stk_period_bar_adj_week`
+9. `stk_period_bar_adj_month`
 
 R4（高复杂专项）目标集：
 
@@ -462,9 +464,11 @@ R4（高复杂专项）目标集：
 2. `biying_equity_daily`
 3. `biying_moneyflow`
 4. `stk_factor_pro`
-5. `index_weight`
-6. `dividend`
-7. `stk_holdernumber`
+5. `index_weekly`
+6. `index_monthly`
+7. `index_weight`
+8. `dividend`
+9. `stk_holdernumber`
 
 ### 8.3 Batch-5（R3）固定任务包
 

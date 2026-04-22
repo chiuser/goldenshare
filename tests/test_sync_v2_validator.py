@@ -323,6 +323,50 @@ def test_validator_accepts_index_basic_point_incremental_with_external_trade_dat
     assert validated.params["ts_code"] == "000001.SH"
 
 
+def test_validator_accepts_ths_member_snapshot_refresh() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("ths_member")
+    request = RunRequest(
+        request_id="req-ths-member-snapshot",
+        dataset_key="ths_member",
+        run_profile="snapshot_refresh",
+        trigger_source="manual",
+        params={},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date is None
+    assert validated.start_date is None
+    assert validated.end_date is None
+
+
+def test_validator_accepts_dc_hot_range_rebuild_with_filters() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("dc_hot")
+    request = RunRequest(
+        request_id="req-dc-hot-range",
+        dataset_key="dc_hot",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={
+            "start_date": "20260415",
+            "end_date": "20260417",
+            "market": "A股市场",
+            "hot_type": "概念",
+            "is_new": "Y",
+        },
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 15)
+    assert validated.end_date == date(2026, 4, 17)
+    assert validated.params["market"] == "A股市场"
+    assert validated.params["hot_type"] == "概念"
+    assert validated.params["is_new"] == "Y"
+
+
 def test_validator_accepts_hk_basic_snapshot_refresh_with_list_status() -> None:
     validator = ContractValidator()
     contract = get_sync_v2_contract("hk_basic")
