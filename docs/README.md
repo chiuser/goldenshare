@@ -51,6 +51,7 @@ docs/
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
 - [数据同步 V2 R3 切换方案 v1（板块/热榜/周期栏，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
+- [数据同步 V2 R4-A 切换方案 v1（dividend / stk_holdernumber / index_weight）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4a-cutover-plan-v1.md)
 - [数据集接口请求策略重审 v1（逐数据集）](/Users/congming/github/goldenshare/docs/ops/dataset-request-strategy-reassessment-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 

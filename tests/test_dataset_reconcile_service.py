@@ -83,6 +83,9 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "stk_period_bar_adj_week" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "stk_period_bar_adj_month" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "fund_adj" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "dividend" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_holdernumber" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_weight" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "index_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "etf_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "etf_index" in DatasetReconcileService.SUPPORTED_DATASETS

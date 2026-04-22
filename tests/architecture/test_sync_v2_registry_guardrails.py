@@ -47,7 +47,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "broker_recommend",
     },
     "market_fund": {"fund_daily", "fund_adj"},
-    "index_series": {"index_daily", "index_daily_basic", "index_basic", "etf_index"},
+    "index_series": {"index_daily", "index_daily_basic", "index_basic", "etf_index", "index_weight"},
     "board_hotspot": {
         "ths_index",
         "dc_index",
@@ -70,7 +70,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "moneyflow_mkt_dc",
     },
     "reference_master": {"trade_cal", "hk_basic", "us_basic", "etf_basic"},
-    "low_frequency": set(),
+    "low_frequency": {"dividend", "stk_holdernumber"},
 }
 
 REQUIRED_BUILDERS = {

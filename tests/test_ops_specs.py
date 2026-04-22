@@ -333,6 +333,28 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert index_weight_spec is not None
     assert [param.key for param in index_weight_spec.supported_params] == ["index_code", "start_date", "end_date"]
 
+    dividend_spec = get_job_spec("sync_history.dividend")
+    assert dividend_spec is not None
+    assert [param.key for param in dividend_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "ts_code",
+        "ann_date",
+        "record_date",
+        "ex_date",
+        "imp_ann_date",
+    ]
+
+    holdernumber_spec = get_job_spec("sync_history.stk_holdernumber")
+    assert holdernumber_spec is not None
+    assert [param.key for param in holdernumber_spec.supported_params] == [
+        "start_date",
+        "end_date",
+        "ts_code",
+        "ann_date",
+        "enddate",
+    ]
+
     dc_index_spec = get_job_spec("backfill_by_date_range.dc_index")
     assert dc_index_spec is not None
     assert [param.key for param in dc_index_spec.supported_params] == ["start_date", "end_date", "ts_code", "idx_type"]

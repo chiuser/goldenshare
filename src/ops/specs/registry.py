@@ -131,6 +131,36 @@ INDEX_CODE_PARAM = ParameterSpec(
     param_type="string",
     description="用于指数成分权重等按 index_code 执行的任务。",
 )
+ANN_DATE_PARAM = ParameterSpec(
+    key="ann_date",
+    display_name="公告日期",
+    param_type="date",
+    description="用于低频事件数据按公告日期过滤。",
+)
+RECORD_DATE_PARAM = ParameterSpec(
+    key="record_date",
+    display_name="股权登记日",
+    param_type="date",
+    description="用于分红送股按股权登记日过滤。",
+)
+EX_DATE_PARAM = ParameterSpec(
+    key="ex_date",
+    display_name="除权除息日",
+    param_type="date",
+    description="用于分红送股按除权除息日过滤。",
+)
+IMP_ANN_DATE_PARAM = ParameterSpec(
+    key="imp_ann_date",
+    display_name="实施公告日",
+    param_type="date",
+    description="用于分红送股按实施公告日过滤。",
+)
+ENDDATE_PARAM = ParameterSpec(
+    key="enddate",
+    display_name="截止日期",
+    param_type="date",
+    description="用于股东户数按报告期截止日过滤。",
+)
 CON_CODE_PARAM = ParameterSpec(
     key="con_code",
     display_name="板块代码",
@@ -368,6 +398,24 @@ def _history_params_for_resource(resource: str) -> tuple[ParameterSpec, ...]:
         return (TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM)
     if resource == "trade_cal":
         return (START_DATE_PARAM, END_DATE_PARAM, EXCHANGE_PARAM)
+    if resource == "dividend":
+        return (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            ANN_DATE_PARAM,
+            RECORD_DATE_PARAM,
+            EX_DATE_PARAM,
+            IMP_ANN_DATE_PARAM,
+        )
+    if resource == "stk_holdernumber":
+        return (
+            START_DATE_PARAM,
+            END_DATE_PARAM,
+            TS_CODE_PARAM,
+            ANN_DATE_PARAM,
+            ENDDATE_PARAM,
+        )
     if resource == "hk_basic":
         return (LIST_STATUS_PARAM,)
     if resource == "us_basic":

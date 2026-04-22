@@ -15,8 +15,11 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
+from src.foundation.models.core.equity_dividend import EquityDividend
+from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
+from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.equity_moneyflow import EquityMoneyflow
 from src.foundation.models.core.equity_nineturn import EquityNineTurn
@@ -58,6 +61,7 @@ from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_dc_member import RawDcMember
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_dc_hot import RawDcHot
+from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
@@ -66,6 +70,8 @@ from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_top_list import RawTopList
 from src.foundation.models.raw.raw_trade_cal import RawTradeCal
+from src.foundation.models.raw.raw_holdernumber import RawHolderNumber
+from src.foundation.models.raw.raw_index_weight import RawIndexWeight
 from src.foundation.models.raw.raw_ths_daily import RawThsDaily
 from src.foundation.models.raw.raw_ths_hot import RawThsHot
 from src.foundation.models.raw.raw_ths_member import RawThsMember
@@ -412,6 +418,27 @@ class DatasetReconcileService:
         "fund_adj": DatasetReconcileConfig(
             raw_model=RawFundAdj,
             serving_model=FundAdjFactor,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "dividend": DatasetReconcileConfig(
+            raw_model=RawDividend,
+            serving_model=EquityDividend,
+            mode="daily",
+            raw_date_field="ann_date",
+            serving_date_field="ann_date",
+        ),
+        "stk_holdernumber": DatasetReconcileConfig(
+            raw_model=RawHolderNumber,
+            serving_model=EquityHolderNumber,
+            mode="daily",
+            raw_date_field="ann_date",
+            serving_date_field="ann_date",
+        ),
+        "index_weight": DatasetReconcileConfig(
+            raw_model=RawIndexWeight,
+            serving_model=IndexWeight,
             mode="daily",
             raw_date_field="trade_date",
             serving_date_field="trade_date",

@@ -367,6 +367,74 @@ def test_validator_accepts_dc_hot_range_rebuild_with_filters() -> None:
     assert validated.params["is_new"] == "Y"
 
 
+def test_validator_accepts_dividend_range_rebuild_with_event_filters() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("dividend")
+    request = RunRequest(
+        request_id="req-dividend-range",
+        dataset_key="dividend",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={
+            "start_date": "20260401",
+            "end_date": "20260403",
+            "ts_code": "000001.SZ",
+            "record_date": "20260402",
+        },
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 1)
+    assert validated.end_date == date(2026, 4, 3)
+    assert validated.params["ts_code"] == "000001.SZ"
+    assert validated.params["record_date"] == date(2026, 4, 2)
+
+
+def test_validator_accepts_holdernumber_range_rebuild_with_enddate() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stk_holdernumber")
+    request = RunRequest(
+        request_id="req-holdernumber-range",
+        dataset_key="stk_holdernumber",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={
+            "start_date": "20260401",
+            "end_date": "20260402",
+            "enddate": "20260331",
+        },
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 1)
+    assert validated.end_date == date(2026, 4, 2)
+    assert validated.params["enddate"] == date(2026, 3, 31)
+
+
+def test_validator_accepts_index_weight_range_rebuild() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("index_weight")
+    request = RunRequest(
+        request_id="req-index-weight-range",
+        dataset_key="index_weight",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={
+            "index_code": "000300.SH",
+            "start_date": "20260401",
+            "end_date": "20260430",
+        },
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 1)
+    assert validated.end_date == date(2026, 4, 30)
+    assert validated.params["index_code"] == "000300.SH"
+
+
 def test_validator_accepts_hk_basic_snapshot_refresh_with_list_status() -> None:
     validator = ContractValidator()
     contract = get_sync_v2_contract("hk_basic")

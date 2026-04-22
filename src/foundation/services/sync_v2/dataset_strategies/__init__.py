@@ -10,6 +10,7 @@ from src.foundation.services.sync_v2.dataset_strategies.dc_daily import build_dc
 from src.foundation.services.sync_v2.dataset_strategies.dc_hot import build_dc_hot_units
 from src.foundation.services.sync_v2.dataset_strategies.dc_index import build_dc_index_units
 from src.foundation.services.sync_v2.dataset_strategies.dc_member import build_dc_member_units
+from src.foundation.services.sync_v2.dataset_strategies.dividend import build_dividend_units
 from src.foundation.services.sync_v2.dataset_strategies.etf_basic import build_etf_basic_units
 from src.foundation.services.sync_v2.dataset_strategies.etf_index import build_etf_index_units
 from src.foundation.services.sync_v2.dataset_strategies.fund_adj import build_fund_adj_units
@@ -18,6 +19,7 @@ from src.foundation.services.sync_v2.dataset_strategies.hk_basic import build_hk
 from src.foundation.services.sync_v2.dataset_strategies.index_basic import build_index_basic_units
 from src.foundation.services.sync_v2.dataset_strategies.index_daily import build_index_daily_units
 from src.foundation.services.sync_v2.dataset_strategies.index_daily_basic import build_index_daily_basic_units
+from src.foundation.services.sync_v2.dataset_strategies.index_weight import build_index_weight_units
 from src.foundation.services.sync_v2.dataset_strategies.kpl_concept_cons import build_kpl_concept_cons_units
 from src.foundation.services.sync_v2.dataset_strategies.kpl_list import build_kpl_list_units
 from src.foundation.services.sync_v2.dataset_strategies.limit_cpt_list import build_limit_cpt_list_units
@@ -34,6 +36,7 @@ from src.foundation.services.sync_v2.dataset_strategies.moneyflow_mkt_dc import 
 from src.foundation.services.sync_v2.dataset_strategies.moneyflow_ths import build_moneyflow_ths_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_limit import build_stk_limit_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_nineturn import build_stk_nineturn_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_holdernumber import build_stk_holdernumber_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_adj_month import (
     build_stk_period_bar_adj_month_units,
 )
@@ -63,6 +66,7 @@ DATASET_STRATEGY_REGISTRY = {
     "dc_hot": build_dc_hot_units,
     "dc_index": build_dc_index_units,
     "dc_member": build_dc_member_units,
+    "dividend": build_dividend_units,
     "etf_basic": build_etf_basic_units,
     "etf_index": build_etf_index_units,
     "fund_adj": build_fund_adj_units,
@@ -71,6 +75,7 @@ DATASET_STRATEGY_REGISTRY = {
     "index_basic": build_index_basic_units,
     "index_daily": build_index_daily_units,
     "index_daily_basic": build_index_daily_basic_units,
+    "index_weight": build_index_weight_units,
     "kpl_concept_cons": build_kpl_concept_cons_units,
     "kpl_list": build_kpl_list_units,
     "limit_cpt_list": build_limit_cpt_list_units,
@@ -87,6 +92,7 @@ DATASET_STRATEGY_REGISTRY = {
     "moneyflow_ths": build_moneyflow_ths_units,
     "stk_limit": build_stk_limit_units,
     "stk_nineturn": build_stk_nineturn_units,
+    "stk_holdernumber": build_stk_holdernumber_units,
     "stk_period_bar_adj_month": build_stk_period_bar_adj_month_units,
     "stk_period_bar_adj_week": build_stk_period_bar_adj_week_units,
     "stk_period_bar_month": build_stk_period_bar_month_units,
@@ -108,4 +114,3 @@ def get_dataset_strategy(dataset_key: str):
 
 
 __all__ = ["DATASET_STRATEGY_REGISTRY", "get_dataset_strategy"]
-

@@ -6,6 +6,8 @@ from typing import Any
 
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason
+from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
+from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.services.sync_v2.registry_parts.common.constants import MONEYFLOW_VOLUME_FIELDS
 from src.utils import coerce_row
 
@@ -107,6 +109,29 @@ def _stk_period_bar_adj_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed["change_amount"] = transformed.get("change")
     return transformed
 
+
+def _dividend_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    if transformed.get("div_proc") == "实施" and transformed.get("ex_date") is None:
+        stk_div = transformed.get("stk_div")
+        cash_div = transformed.get("cash_div")
+        record_date = transformed.get("record_date")
+        pay_date = transformed.get("pay_date")
+        if stk_div is not None and stk_div > 0 and record_date is not None:
+            transformed["ex_date"] = record_date
+        elif stk_div is not None and stk_div == 0 and cash_div is not None and cash_div > 0 and pay_date is not None:
+            transformed["ex_date"] = pay_date
+    transformed["row_key_hash"] = build_dividend_row_key_hash(transformed)
+    transformed["event_key_hash"] = build_dividend_event_key_hash(transformed)
+    return transformed
+
+
+def _holdernumber_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    transformed["row_key_hash"] = build_holdernumber_row_key_hash(transformed)
+    transformed["event_key_hash"] = build_holdernumber_event_key_hash(transformed)
+    return transformed
+
 __all__ = [
     "MONEYFLOW_VOLUME_FIELDS",
     "_moneyflow_row_transform",
@@ -122,4 +147,6 @@ __all__ = [
     "_dc_hot_row_transform",
     "_stk_period_bar_row_transform",
     "_stk_period_bar_adj_row_transform",
+    "_dividend_row_transform",
+    "_holdernumber_row_transform",
 ]

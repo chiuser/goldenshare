@@ -1,8 +1,8 @@
 # 数据同步 V2 切换运行手册 v1（Runbook）
 
-- 版本：v1.3
+- 版本：v1.4
 - 日期：2026-04-22
-- 状态：执行中（R0+R1+R2 已完成，R3 已纳入 V2 contract，待完成 R4 余项）
+- 状态：执行中（R0+R1+R2+R3+R4-A 已完成，待完成 R4 余项）
 - 适用环境：远程生产（`goldenshare-prod`）
 - 关联设计：
   - [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
@@ -30,22 +30,19 @@
 当前注册规模（代码事实）：
 
 1. `SYNC_SERVICE_REGISTRY` 总资源：`56`
-2. `SYNC_V2_CONTRACTS` 已覆盖：`47`
-3. 未迁移（仍走 V1）：`9`
+2. `SYNC_V2_CONTRACTS` 已覆盖：`50`
+3. 未迁移（仍走 V1）：`6`
 
-未迁移 9 个数据集：
+未迁移 6 个数据集：
 
 1. `biying_equity_daily`
 2. `biying_moneyflow`
-3. `dividend`
-4. `index_monthly`
-5. `index_weekly`
-6. `index_weight`
-7. `stk_factor_pro`
-8. `stk_holdernumber`
-9. `stock_basic`
+3. `index_monthly`
+4. `index_weekly`
+5. `stk_factor_pro`
+6. `stock_basic`
 
-当前 V2 contract 覆盖的 47 个数据集：
+当前 V2 contract 覆盖的 50 个数据集：
 
 1. `adj_factor`
 2. `block_trade`
@@ -94,6 +91,9 @@
 45. `top_list`
 46. `trade_cal`
 47. `us_basic`
+48. `dividend`
+49. `stk_holdernumber`
+50. `index_weight`
 
 说明：
 
@@ -215,7 +215,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ## 7. 当前下一批计划（R4）
 
-R4 专项目标（当前未迁移 9 个）：
+R4 专项目标（当前未迁移 6 个）：
 
 1. `stock_basic`
 2. `biying_equity_daily`
@@ -223,9 +223,6 @@ R4 专项目标（当前未迁移 9 个）：
 4. `stk_factor_pro`
 5. `index_weekly`
 6. `index_monthly`
-7. `index_weight`
-8. `dividend`
-9. `stk_holdernumber`
 
 执行总原则：
 

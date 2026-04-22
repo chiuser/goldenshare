@@ -6,6 +6,7 @@ from src.foundation.services.sync.fields import (
     INDEX_BASIC_FIELDS,
     INDEX_DAILY_BASIC_FIELDS,
     INDEX_DAILY_FIELDS,
+    INDEX_WEIGHT_FIELDS,
 )
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
@@ -182,5 +183,44 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "index_daily": DatasetSyncContr
             target_table="core_serving.etf_index",
         ),
         observe_spec=ObserveSpec(progress_label="etf_index"),
+    ),
+    "index_weight": DatasetSyncContract(
+        dataset_key="index_weight",
+        display_name="指数成分权重",
+        job_name="sync_index_weight",
+        run_profiles_supported=("range_rebuild",),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("index_code", "string", required=False, description="指数代码"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="month_range_natural",
+            window_policy="range",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="index_weight",
+            fields=tuple(INDEX_WEIGHT_FIELDS),
+            unit_params_builder=_index_weight_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            decimal_fields=("weight",),
+            required_fields=("index_code", "trade_date", "con_code"),
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_index_weight",
+            core_dao_name="index_weight",
+            target_table="core_serving.index_weight",
+        ),
+        observe_spec=ObserveSpec(progress_label="index_weight"),
+        pagination_spec=PaginationSpec(page_limit=6000),
     ),
 }
