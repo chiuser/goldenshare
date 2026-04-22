@@ -29,6 +29,8 @@ from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.limit_cpt_list import LimitCptList
@@ -45,6 +47,8 @@ from src.foundation.models.raw.raw_dc_index import RawDcIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
+from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
+from src.foundation.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.foundation.models.raw.raw_limit_list import RawLimitList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_margin import RawMargin
@@ -209,6 +213,20 @@ class DatasetReconcileService:
         "index_daily_basic": DatasetReconcileConfig(
             raw_model=RawIndexDailyBasic,
             serving_model=IndexDailyBasic,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "index_weekly": DatasetReconcileConfig(
+            raw_model=RawIndexWeeklyBar,
+            serving_model=IndexWeeklyServing,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "index_monthly": DatasetReconcileConfig(
+            raw_model=RawIndexMonthlyBar,
+            serving_model=IndexMonthlyServing,
             mode="daily",
             raw_date_field="trade_date",
             serving_date_field="trade_date",

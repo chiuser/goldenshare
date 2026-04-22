@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
+from datetime import timedelta
+from typing import Any
 
+from sqlalchemy import delete, or_, text, tuple_
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
-from src.foundation.services.sync_v2.contracts import DatasetSyncContract, NormalizedBatch, WriteResult
+from src.foundation.services.sync_v2.contracts import DatasetSyncContract, NormalizedBatch, PlanUnit, WriteResult
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2WriteError
 from src.foundation.services.sync.sync_moneyflow_service import publish_moneyflow_serving_for_keys
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
@@ -17,7 +20,14 @@ class SyncV2Writer:
         self.dao = DAOFactory(session)
         self._moneyflow_normalizer = NormalizeMoneyflowService()
 
-    def write(self, *, contract: DatasetSyncContract, batch: NormalizedBatch) -> WriteResult:
+    def write(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnit | None = None,
+        run_profile: str | None = None,
+    ) -> WriteResult:
         raw_dao = getattr(self.dao, contract.write_spec.raw_dao_name, None)
         core_dao = getattr(self.dao, contract.write_spec.core_dao_name, None)
         if raw_dao is None or core_dao is None:
@@ -35,17 +45,25 @@ class SyncV2Writer:
                 )
             )
 
-        if not batch.rows_normalized:
-            return WriteResult(
-                unit_id=batch.unit_id,
-                rows_written=0,
-                rows_upserted=0,
-                rows_skipped=batch.rows_rejected,
-                target_table=contract.write_spec.target_table,
-                conflict_strategy="upsert",
-            )
-
         try:
+            if contract.write_spec.write_path == "raw_index_period_serving_upsert":
+                return self._write_index_period_serving(
+                    contract=contract,
+                    batch=batch,
+                    raw_dao=raw_dao,
+                    core_dao=core_dao,
+                    plan_unit=plan_unit,
+                    run_profile=run_profile,
+                )
+            if not batch.rows_normalized:
+                return WriteResult(
+                    unit_id=batch.unit_id,
+                    rows_written=0,
+                    rows_upserted=0,
+                    rows_skipped=batch.rows_rejected,
+                    target_table=contract.write_spec.target_table,
+                    conflict_strategy="upsert",
+                )
             if contract.write_spec.write_path == "raw_std_publish_moneyflow":
                 return self._write_moneyflow_std_publish(
                     contract=contract,
@@ -88,6 +106,219 @@ class SyncV2Writer:
             target_table=contract.write_spec.target_table,
             conflict_strategy="upsert",
         )
+
+    def _write_index_period_serving(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        raw_dao,
+        core_dao,
+        plan_unit: PlanUnit | None,
+        run_profile: str | None,
+    ) -> WriteResult:
+        rows_written = 0
+        conflict_strategy = "upsert"
+        if batch.rows_normalized:
+            if contract.write_spec.conflict_columns:
+                raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(contract.write_spec.conflict_columns))
+            else:
+                raw_dao.bulk_upsert(batch.rows_normalized)
+            serving_rows = self._build_index_period_serving_rows(
+                rows=batch.rows_normalized,
+                dataset_key=contract.dataset_key,
+            )
+            rows_written = self._replace_index_period_serving_rows(
+                core_dao=core_dao,
+                rows=serving_rows,
+                keep_api=False,
+            )
+            conflict_strategy = "index_period_upsert"
+        elif run_profile == "point_incremental" and plan_unit is not None:
+            derived_rows = self._build_index_period_derived_rows(
+                contract=contract,
+                plan_unit=plan_unit,
+            )
+            rows_written = self._replace_index_period_serving_rows(
+                core_dao=core_dao,
+                rows=derived_rows,
+                keep_api=True,
+            )
+            conflict_strategy = "derived_daily_fallback"
+
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_written,
+            rows_upserted=rows_written,
+            rows_skipped=batch.rows_rejected,
+            target_table=contract.write_spec.target_table,
+            conflict_strategy=conflict_strategy,
+        )
+
+    def _build_index_period_serving_rows(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        dataset_key: str,
+    ) -> list[dict[str, Any]]:
+        period_start_cache: dict[date, date] = {}
+        serving_rows: list[dict[str, Any]] = []
+        for row in rows:
+            trade_date = row.get("trade_date")
+            ts_code = row.get("ts_code")
+            if not isinstance(trade_date, date) or ts_code in (None, ""):
+                continue
+            transformed = dict(row)
+            transformed["period_start_date"] = self._resolve_index_period_start_date(
+                dataset_key=dataset_key,
+                trade_date=trade_date,
+                cache=period_start_cache,
+            )
+            transformed["source"] = "api"
+            transformed.setdefault("change_amount", transformed.get("change"))
+            serving_rows.append(transformed)
+        return serving_rows
+
+    def _build_index_period_derived_rows(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        plan_unit: PlanUnit,
+    ) -> list[dict[str, Any]]:
+        ts_code = str(plan_unit.request_params.get("ts_code") or "").strip().upper()
+        trade_date = plan_unit.trade_date
+        if not ts_code or not isinstance(trade_date, date):
+            return []
+        period_start_date = self._resolve_index_period_start_date(
+            dataset_key=contract.dataset_key,
+            trade_date=trade_date,
+            cache={},
+        )
+        sql = text(
+            """
+            with win as (
+                select
+                    d.ts_code,
+                    d.trade_date,
+                    d.open,
+                    d.high,
+                    d.low,
+                    d.close,
+                    d.pre_close,
+                    d.vol,
+                    d.amount,
+                    row_number() over (partition by d.ts_code order by d.trade_date asc) as rn_first,
+                    row_number() over (partition by d.ts_code order by d.trade_date desc) as rn_last
+                from core_serving.index_daily_serving d
+                where d.trade_date between :start_date and :trade_date
+                  and d.ts_code = :ts_code
+            ),
+            agg as (
+                select
+                    ts_code,
+                    max(case when rn_first = 1 then open end) as open,
+                    max(high) as high,
+                    min(low) as low,
+                    max(case when rn_last = 1 then close end) as close,
+                    max(case when rn_first = 1 then pre_close end) as pre_close,
+                    sum(vol) as vol,
+                    sum(amount) as amount
+                from win
+                group by ts_code
+            )
+            select
+                a.ts_code as ts_code,
+                :period_start_date as period_start_date,
+                :trade_date as trade_date,
+                a.open as open,
+                a.high as high,
+                a.low as low,
+                a.close as close,
+                a.pre_close as pre_close,
+                case when a.pre_close is null or a.close is null then null else a.close - a.pre_close end as change_amount,
+                case
+                    when a.pre_close is null or a.pre_close = 0 or a.close is null then null
+                    else round(((a.close / a.pre_close) - 1) * 100, 4)
+                end as pct_chg,
+                a.vol as vol,
+                a.amount as amount,
+                'derived_daily' as source
+            from agg a
+            """
+        )
+        rows = self.session.execute(
+            sql,
+            {
+                "ts_code": ts_code,
+                "trade_date": trade_date,
+                "period_start_date": period_start_date,
+                "start_date": period_start_date,
+            },
+        ).mappings()
+        return [dict(row) for row in rows]
+
+    def _replace_index_period_serving_rows(
+        self,
+        *,
+        core_dao,
+        rows: list[dict[str, Any]],
+        keep_api: bool,
+    ) -> int:
+        if not rows:
+            return 0
+        deduped_rows = self._dedupe_index_period_rows(rows)
+        if not deduped_rows:
+            return 0
+        model = core_dao.model
+        period_keys = [(row["ts_code"], row["period_start_date"]) for row in deduped_rows]
+        trade_keys = [(row["ts_code"], row["trade_date"]) for row in deduped_rows]
+        stmt = delete(model).where(
+            or_(
+                tuple_(model.ts_code, model.period_start_date).in_(period_keys),
+                tuple_(model.ts_code, model.trade_date).in_(trade_keys),
+            )
+        )
+        if keep_api:
+            stmt = stmt.where(model.source != "api")
+        self.session.execute(stmt)
+        return core_dao.bulk_insert(deduped_rows)
+
+    @staticmethod
+    def _dedupe_index_period_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deduped_by_key: dict[tuple[str, date], dict[str, Any]] = {}
+        for row in rows:
+            ts_code = row.get("ts_code")
+            period_start_date = row.get("period_start_date")
+            trade_date = row.get("trade_date")
+            if ts_code in (None, "") or not isinstance(period_start_date, date) or not isinstance(trade_date, date):
+                continue
+            deduped_by_key[(str(ts_code), period_start_date)] = row
+        return list(deduped_by_key.values())
+
+    def _resolve_index_period_start_date(
+        self,
+        *,
+        dataset_key: str,
+        trade_date: date,
+        cache: dict[date, date] | None,
+    ) -> date:
+        natural_start = self._resolve_natural_period_start(dataset_key=dataset_key, trade_date=trade_date)
+        if cache is not None and natural_start in cache:
+            return cache[natural_start]
+        exchange = self.dao.trade_calendar.settings.default_exchange
+        open_dates = self.dao.trade_calendar.get_open_dates(exchange, natural_start, trade_date)
+        period_start = open_dates[0] if open_dates else natural_start
+        if cache is not None:
+            cache[natural_start] = period_start
+        return period_start
+
+    @staticmethod
+    def _resolve_natural_period_start(*, dataset_key: str, trade_date: date) -> date:
+        if dataset_key == "index_monthly":
+            return trade_date.replace(day=1)
+        if dataset_key == "index_weekly":
+            return trade_date - timedelta(days=trade_date.weekday())
+        raise ValueError(f"unsupported dataset for index period serving: {dataset_key}")
 
     @staticmethod
     def _write_raw_and_core(

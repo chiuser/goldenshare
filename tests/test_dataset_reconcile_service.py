@@ -54,6 +54,8 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "dc_index" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "fund_daily" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "index_daily" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_weekly" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "index_monthly" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "index_daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "limit_list_d" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "limit_list_ths" in DatasetReconcileService.SUPPORTED_DATASETS

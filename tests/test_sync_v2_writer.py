@@ -178,3 +178,110 @@ def test_sync_v2_writer_moneyflow_rejects_fractional_volume(mocker) -> None:
         writer.write(contract=contract, batch=batch)
 
     assert exc_info.value.structured_error.error_code == "write_failed"
+
+
+def test_sync_v2_writer_supports_index_period_serving_upsert_path(mocker) -> None:
+    raw_dao = _StubDao(written=2)
+    core_dao = SimpleNamespace(model=SimpleNamespace())
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(raw_index_weekly_bar=raw_dao, index_weekly_serving=core_dao),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows", return_value=2)
+    start_date_spy = mocker.patch.object(
+        writer,
+        "_resolve_index_period_start_date",
+        return_value=date(2026, 4, 14),
+    )
+    contract = get_sync_v2_contract("index_weekly")
+    batch = NormalizedBatch(
+        unit_id="u-index-weekly",
+        rows_normalized=[
+            {
+                "ts_code": "000300.SH",
+                "trade_date": date(2026, 4, 17),
+                "open": 10.0,
+                "high": 11.0,
+                "low": 9.0,
+                "close": 10.5,
+                "pre_close": 10.0,
+                "change": 0.5,
+                "pct_chg": 5.0,
+                "vol": 1000.0,
+                "amount": 1000000.0,
+            }
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = writer.write(contract=contract, batch=batch)
+
+    assert len(raw_dao.calls) == 1
+    assert start_date_spy.call_count == 1
+    replace_spy.assert_called_once()
+    kwargs = replace_spy.call_args.kwargs
+    assert kwargs["keep_api"] is False
+    assert kwargs["rows"][0]["period_start_date"] == date(2026, 4, 14)
+    assert kwargs["rows"][0]["source"] == "api"
+    assert kwargs["rows"][0]["change_amount"] == 0.5
+    assert result.rows_written == 2
+    assert result.conflict_strategy == "index_period_upsert"
+
+
+def test_sync_v2_writer_index_period_uses_derived_daily_fallback_for_missing_code(mocker) -> None:
+    raw_dao = _StubDao(written=0)
+    core_dao = SimpleNamespace(model=SimpleNamespace())
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(raw_index_weekly_bar=raw_dao, index_weekly_serving=core_dao),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    derived_spy = mocker.patch.object(
+        writer,
+        "_build_index_period_derived_rows",
+        return_value=[
+            {
+                "ts_code": "000300.SH",
+                "period_start_date": date(2026, 4, 14),
+                "trade_date": date(2026, 4, 17),
+                "open": 10.0,
+                "high": 11.0,
+                "low": 9.0,
+                "close": 10.5,
+                "pre_close": 10.0,
+                "change_amount": 0.5,
+                "pct_chg": 5.0,
+                "vol": 1000.0,
+                "amount": 1000000.0,
+                "source": "derived_daily",
+            }
+        ],
+    )
+    replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows", return_value=1)
+    contract = get_sync_v2_contract("index_weekly")
+    batch = NormalizedBatch(
+        unit_id="u-index-weekly-empty",
+        rows_normalized=[],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    plan_unit = SimpleNamespace(
+        unit_id="u-index-weekly-empty",
+        request_params={"ts_code": "000300.SH", "trade_date": "20260417"},
+        trade_date=date(2026, 4, 17),
+    )
+
+    result = writer.write(
+        contract=contract,
+        batch=batch,
+        plan_unit=plan_unit,  # type: ignore[arg-type]
+        run_profile="point_incremental",
+    )
+
+    derived_spy.assert_called_once()
+    replace_spy.assert_called_once()
+    assert replace_spy.call_args.kwargs["keep_api"] is True
+    assert result.rows_written == 1
+    assert result.conflict_strategy == "derived_daily_fallback"

@@ -19,6 +19,8 @@ from src.foundation.services.sync_v2.dataset_strategies.hk_basic import build_hk
 from src.foundation.services.sync_v2.dataset_strategies.index_basic import build_index_basic_units
 from src.foundation.services.sync_v2.dataset_strategies.index_daily import build_index_daily_units
 from src.foundation.services.sync_v2.dataset_strategies.index_daily_basic import build_index_daily_basic_units
+from src.foundation.services.sync_v2.dataset_strategies.index_monthly import build_index_monthly_units
+from src.foundation.services.sync_v2.dataset_strategies.index_weekly import build_index_weekly_units
 from src.foundation.services.sync_v2.dataset_strategies.index_weight import build_index_weight_units
 from src.foundation.services.sync_v2.dataset_strategies.kpl_concept_cons import build_kpl_concept_cons_units
 from src.foundation.services.sync_v2.dataset_strategies.kpl_list import build_kpl_list_units
@@ -75,6 +77,8 @@ DATASET_STRATEGY_REGISTRY = {
     "index_basic": build_index_basic_units,
     "index_daily": build_index_daily_units,
     "index_daily_basic": build_index_daily_basic_units,
+    "index_monthly": build_index_monthly_units,
+    "index_weekly": build_index_weekly_units,
     "index_weight": build_index_weight_units,
     "kpl_concept_cons": build_kpl_concept_cons_units,
     "kpl_list": build_kpl_list_units,

@@ -47,7 +47,15 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "broker_recommend",
     },
     "market_fund": {"fund_daily", "fund_adj"},
-    "index_series": {"index_daily", "index_daily_basic", "index_basic", "etf_index", "index_weight"},
+    "index_series": {
+        "index_daily",
+        "index_weekly",
+        "index_monthly",
+        "index_daily_basic",
+        "index_basic",
+        "etf_index",
+        "index_weight",
+    },
     "board_hotspot": {
         "ths_index",
         "dc_index",

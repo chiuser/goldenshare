@@ -435,6 +435,46 @@ def test_validator_accepts_index_weight_range_rebuild() -> None:
     assert validated.params["index_code"] == "000300.SH"
 
 
+def test_validator_accepts_index_weekly_point_incremental_without_ts_code() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("index_weekly")
+    request = RunRequest(
+        request_id="req-index-weekly-point",
+        dataset_key="index_weekly",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260417"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date == date(2026, 4, 17)
+    assert validated.params["trade_date"] == date(2026, 4, 17)
+    assert validated.params.get("ts_code") is None
+
+
+def test_validator_accepts_index_monthly_range_rebuild_with_optional_ts_code() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("index_monthly")
+    request = RunRequest(
+        request_id="req-index-monthly-range",
+        dataset_key="index_monthly",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={
+            "start_date": "20260401",
+            "end_date": "20260430",
+            "ts_code": "000300.SH",
+        },
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 1)
+    assert validated.end_date == date(2026, 4, 30)
+    assert validated.params["ts_code"] == "000300.SH"
+
+
 def test_validator_accepts_hk_basic_snapshot_refresh_with_list_status() -> None:
     validator = ContractValidator()
     contract = get_sync_v2_contract("hk_basic")

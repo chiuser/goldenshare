@@ -67,7 +67,12 @@ class SyncV2Engine:
                 fetched = self.worker.fetch(contract=contract, unit=unit)
                 normalized = self.normalizer.normalize(contract=contract, fetch_result=fetched)
                 self.normalizer.raise_if_all_rejected(normalized)
-                written = self.writer.write(contract=contract, batch=normalized)
+                written = self.writer.write(
+                    contract=contract,
+                    batch=normalized,
+                    plan_unit=unit,
+                    run_profile=validated.run_profile,
+                )
                 rows_fetched += len(fetched.rows_raw)
                 rows_written += written.rows_written
                 unit_done += 1

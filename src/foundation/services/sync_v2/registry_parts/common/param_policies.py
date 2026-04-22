@@ -354,6 +354,48 @@ def _index_weight_params(request, anchor_date: date | None, enum_values: dict[st
     return params
 
 
+def _index_weekly_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code in (None, ""):
+        raise ValueError("index_weekly requires ts_code")
+
+    params: dict[str, Any] = {"ts_code": str(ts_code).strip().upper()}
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("index_weekly point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("index_weekly range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"index_weekly unsupported run_profile: {request.run_profile}")
+
+
+def _index_monthly_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code in (None, ""):
+        raise ValueError("index_monthly requires ts_code")
+
+    params: dict[str, Any] = {"ts_code": str(ts_code).strip().upper()}
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("index_monthly point_incremental requires trade_date")
+        params["trade_date"] = target_date.strftime("%Y%m%d")
+        return params
+    if request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("index_monthly range_rebuild requires start_date and end_date")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        return params
+    raise ValueError(f"index_monthly unsupported run_profile: {request.run_profile}")
+
+
 def _limit_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("limit_list_d requires trade_date anchor")
@@ -744,6 +786,8 @@ __all__ = [
     "_index_daily_basic_params",
     "_index_daily_params",
     "_index_weight_params",
+    "_index_weekly_params",
+    "_index_monthly_params",
     "_limit_list_params",
     "_limit_list_ths_params",
     "_suspend_d_params",
