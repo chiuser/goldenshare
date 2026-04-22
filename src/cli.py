@@ -2,14 +2,51 @@ from __future__ import annotations
 
 import time
 from datetime import date
-from decimal import Decimal
 from pathlib import Path
 
 import typer
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 
+from src.cli_parts.shared import (
+    attach_cli_progress_reporter as _attach_cli_progress_reporter_impl,
+    auto_reconcile_stale_executions as _auto_reconcile_stale_executions_impl,
+    open_execution_counts as _open_execution_counts_impl,
+    prepare_sync_kwargs_for_service as _prepare_sync_kwargs_for_service_impl,
+    resolve_default_sync_date as _resolve_default_sync_date_impl,
+)
+from src.cli_parts.sync_handlers import (
+    run_sync_daily as _run_sync_daily_impl,
+    run_sync_history as _run_sync_history_impl,
+)
+from src.cli_parts.ops_handlers import (
+    run_ops_daily_health_report as _run_ops_daily_health_report_impl,
+    run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
+    run_ops_reconcile_executions as _run_ops_reconcile_executions_impl,
+    run_ops_reconcile_sync_job_state as _run_ops_reconcile_sync_job_state_impl,
+    run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
+    run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
+    run_ops_seed_dataset_pipeline_mode as _run_ops_seed_dataset_pipeline_mode_impl,
+    run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
+    run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
+    run_ops_validate_market_mood as _run_ops_validate_market_mood_impl,
+    run_ops_worker_run as _run_ops_worker_run_impl,
+    run_ops_worker_serve as _run_ops_worker_serve_impl,
+    run_reconcile_moneyflow as _run_reconcile_moneyflow_impl,
+    run_reconcile_stock_basic as _run_reconcile_stock_basic_impl,
+)
+from src.cli_parts.backfill_handlers import (
+    run_backfill_by_date_range as _run_backfill_by_date_range_impl,
+    run_backfill_by_trade_date as _run_backfill_by_trade_date_impl,
+    run_backfill_equity_series as _run_backfill_equity_series_impl,
+    run_backfill_fund_series as _run_backfill_fund_series_impl,
+    run_backfill_index_series as _run_backfill_index_series_impl,
+    run_backfill_low_frequency as _run_backfill_low_frequency_impl,
+    run_backfill_trade_cal as _run_backfill_trade_cal_impl,
+    run_reconcile_dataset as _run_reconcile_dataset_impl,
+    run_refresh_serving_light as _run_refresh_serving_light_impl,
+)
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
@@ -45,27 +82,15 @@ def _alembic_config() -> Config:
 
 
 def _resolve_default_sync_date(session) -> date:
-    trade_cal = build_sync_service("trade_cal", session)
-    trade_cal.run_incremental()
-    exchange = get_settings().default_exchange
-    today = date.today()
-    latest = trade_cal.dao.trade_calendar.get_latest_open_date(exchange, today)
-    if latest is None:
-        raise typer.BadParameter("No open trade date found in trade calendar.")
-    today_row = trade_cal.dao.trade_calendar.fetch_by_pk(exchange, today)
-    if today_row is None:
-        raise typer.BadParameter("Today's trade calendar row is missing.")
-    if today_row.is_open:
-        if today_row.pretrade_date is None:
-            raise typer.BadParameter("Today's trade calendar row has no pretrade_date.")
-        return today_row.pretrade_date
-    return latest
+    return _resolve_default_sync_date_impl(
+        session,
+        build_sync_service_fn=build_sync_service,
+        default_exchange=get_settings().default_exchange,
+    )
 
 
 def _open_execution_counts(session) -> tuple[int, int]:
-    queued = session.scalar(select(func.count()).select_from(JobExecution).where(JobExecution.status == "queued")) or 0
-    running = session.scalar(select(func.count()).select_from(JobExecution).where(JobExecution.status == "running")) or 0
-    return int(queued), int(running)
+    return _open_execution_counts_impl(session, job_execution_model=JobExecution)
 
 
 def _auto_reconcile_stale_executions(
@@ -74,77 +99,20 @@ def _auto_reconcile_stale_executions(
     stale_for_minutes: int,
     limit: int,
 ) -> int:
-    if stale_for_minutes <= 0:
-        return 0
-    service = OperationsExecutionReconciliationService()
-    reconciled = service.reconcile_stale_executions(
+    return _auto_reconcile_stale_executions_impl(
         session,
         stale_for_minutes=stale_for_minutes,
         limit=limit,
+        reconciliation_service=OperationsExecutionReconciliationService(),
     )
-    return len(reconciled)
 
 
 def _prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
-    filtered = {key: value for key, value in kwargs.items() if value is not None}
-    service_vars = vars(service)
-    if "contract" not in service_vars:
-        return filtered
-    contract = service_vars.get("contract")
-    input_schema = getattr(contract, "input_schema", None)
-    fields = getattr(input_schema, "fields", None)
-    if not isinstance(fields, (list, tuple)) or not fields:
-        return filtered
-
-    allowed = {
-        getattr(field, "name", "")
-        for field in fields
-        if getattr(field, "name", "")
-    }
-    passthrough = {"run_profile", "source_key", "correlation_id", "rerun_id", "trigger_source", "request_id"}
-    return {key: value for key, value in filtered.items() if key in allowed or key in passthrough}
+    return _prepare_sync_kwargs_for_service_impl(service, kwargs)
 
 
 def _attach_cli_progress_reporter(service, *, resource: str) -> None:
-    if not hasattr(service, "set_cli_progress_reporter"):
-        return
-    service_vars = vars(service)
-    if "contract" not in service_vars:
-        return
-
-    state: dict[str, float | int] = {
-        "last_emit_at": 0.0,
-        "last_emit_current": 0,
-    }
-    min_emit_seconds = 8.0
-    min_emit_delta = 50
-
-    def progress_reporter(progress_snapshot, _: str) -> None:  # type: ignore[no-untyped-def]
-        current = int(progress_snapshot.unit_done + progress_snapshot.unit_failed)
-        total = int(progress_snapshot.unit_total)
-        rows_fetched = int(progress_snapshot.rows_fetched)
-        rows_written = int(progress_snapshot.rows_written)
-        last_emit_current = int(state["last_emit_current"])
-        now = time.monotonic()
-        elapsed = float(now - float(state["last_emit_at"]))
-
-        should_emit = (
-            current in (0, total)
-            or current - last_emit_current >= min_emit_delta
-            or elapsed >= min_emit_seconds
-        )
-        if not should_emit:
-            return
-
-        percent = f"{(current / total * 100):.1f}%" if total else "-"
-        typer.echo(
-            f"[{resource}] progress {current}/{total} ({percent}) "
-            f"fetched={rows_fetched} written={rows_written}"
-        )
-        state["last_emit_at"] = now
-        state["last_emit_current"] = current
-
-    service.set_cli_progress_reporter(progress_reporter)
+    _attach_cli_progress_reporter_impl(service, resource=resource)
 
 
 @app.callback()
@@ -223,42 +191,32 @@ def sync_history(
     start_date: str | None = typer.Option(None),
     end_date: str | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        reconciliation_service = SyncJobStateReconciliationService()
-        snapshot_service = DatasetStatusSnapshotService()
-        for resource in resources:
-            service = build_sync_service(resource, session)
-            _attach_cli_progress_reporter(service, resource=resource)
-            kwargs = {
-                "ts_code": ts_code,
-                "list_status": list_status,
-                "classify": classify,
-                "index_code": index_code,
-                "con_code": con_code,
-                "exchange": exchange,
-                "exchange_id": exchange_id,
-                "type": ths_type,
-                "idx_type": idx_type,
-                "market": market,
-                "hot_type": hot_type,
-                "is_new": is_new,
-                "tag": tag,
-                "limit_type": limit_type,
-                "start_date": start_date,
-                "end_date": end_date,
-            }
-            typer.echo(f"[{resource}] sync-history start")
-            started_at = time.perf_counter()
-            result = service.run_full(**_prepare_sync_kwargs_for_service(service, kwargs))
-            if result.trade_date is None:
-                reconciliation_service.refresh_resource_state_from_observed(session, resource)
-            snapshot_service.refresh_resources(session, [resource])
-            elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
-            typer.echo(
-                f"[{resource}] sync-history done "
-                f"fetched={result.rows_fetched} written={result.rows_written} "
-                f"elapsed={elapsed_seconds:.1f}s"
-            )
+    _run_sync_history_impl(
+        session_local=SessionLocal,
+        build_sync_service_fn=build_sync_service,
+        attach_progress_fn=_attach_cli_progress_reporter,
+        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
+        reconciliation_service_cls=SyncJobStateReconciliationService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resources=resources,
+        ts_code=ts_code,
+        list_status=list_status,
+        classify=classify,
+        index_code=index_code,
+        con_code=con_code,
+        exchange=exchange,
+        exchange_id=exchange_id,
+        ths_type=ths_type,
+        idx_type=idx_type,
+        market=market,
+        hot_type=hot_type,
+        is_new=is_new,
+        tag=tag,
+        limit_type=limit_type,
+        start_date=start_date,
+        end_date=end_date,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("sync-daily")
@@ -302,39 +260,27 @@ def sync_daily(
         "-r",
     ),
 ) -> None:
-    target_date = date.fromisoformat(trade_date) if trade_date else None
-    with SessionLocal() as session:
-        snapshot_service = DatasetStatusSnapshotService()
-        if target_date is None:
-            target_date = _resolve_default_sync_date(session)
-        for resource in resources:
-            service = build_sync_service(resource, session)
-            _attach_cli_progress_reporter(service, resource=resource)
-            kwargs = _prepare_sync_kwargs_for_service(
-                service,
-                {
-                    "ts_code": ts_code,
-                    "exchange": exchange,
-                    "exchange_id": exchange_id,
-                    "limit_type": limit_type,
-                    "con_code": con_code,
-                    "idx_type": idx_type,
-                    "market": market,
-                    "hot_type": hot_type,
-                    "is_new": is_new,
-                    "tag": tag,
-                },
-            )
-            typer.echo(f"[{resource}] sync-daily start trade_date={target_date.isoformat()}")
-            started_at = time.perf_counter()
-            result = service.run_incremental(trade_date=target_date, **kwargs)
-            snapshot_service.refresh_resources(session, [resource])
-            elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
-            typer.echo(
-                f"[{resource}] sync-daily done "
-                f"fetched={result.rows_fetched} written={result.rows_written} "
-                f"elapsed={elapsed_seconds:.1f}s"
-            )
+    _run_sync_daily_impl(
+        session_local=SessionLocal,
+        resolve_default_sync_date_fn=_resolve_default_sync_date,
+        build_sync_service_fn=build_sync_service,
+        attach_progress_fn=_attach_cli_progress_reporter,
+        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resources=resources,
+        trade_date_text=trade_date,
+        ts_code=ts_code,
+        exchange=exchange,
+        exchange_id=exchange_id,
+        limit_type=limit_type,
+        con_code=con_code,
+        idx_type=idx_type,
+        market=market,
+        hot_type=hot_type,
+        is_new=is_new,
+        tag=tag,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("rebuild-dm")
@@ -351,30 +297,14 @@ def refresh_serving_light(
     end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
     ts_code: str | None = typer.Option(None, "--ts-code", help="可选：仅刷新指定股票代码"),
 ) -> None:
-    dataset_key = dataset.strip().lower()
-    if dataset_key != "equity_daily_bar":
-        raise typer.BadParameter("当前仅支持 --dataset equity_daily_bar")
-
-    parsed_start = date.fromisoformat(start_date) if start_date else None
-    parsed_end = date.fromisoformat(end_date) if end_date else None
-    if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
-        raise typer.BadParameter("start_date 不能晚于 end_date")
-
-    normalized_ts_code = ts_code.strip().upper() if ts_code else None
-    with SessionLocal() as session:
-        result = ServingLightRefreshService().refresh_equity_daily_bar(
-            session,
-            start_date=parsed_start,
-            end_date=parsed_end,
-            ts_code=normalized_ts_code,
-        )
-    typer.echo(
-        "refresh-serving-light done "
-        f"dataset={dataset_key} "
-        f"ts_code={normalized_ts_code or '*'} "
-        f"start_date={parsed_start} "
-        f"end_date={parsed_end} "
-        f"touched_rows={result.touched_rows}"
+    _run_refresh_serving_light_impl(
+        session_local=SessionLocal,
+        refresh_service_cls=ServingLightRefreshService,
+        dataset=dataset,
+        start_date=start_date,
+        end_date=end_date,
+        ts_code=ts_code,
+        echo_fn=typer.echo,
     )
 
 
@@ -422,59 +352,25 @@ def reconcile_dataset(
         help="总行数绝对差阈值；-1 表示不校验。超过阈值时返回非 0。",
     ),
 ) -> None:
-    parsed_start = date.fromisoformat(start_date) if start_date else None
-    parsed_end = date.fromisoformat(end_date) if end_date else None
-    with SessionLocal() as session:
-        report = DatasetReconcileService().run(
-            session,
-            dataset_key=dataset.strip(),
-            start_date=parsed_start,
-            end_date=parsed_end,
-            sample_limit=sample_limit,
-        )
-
-    typer.echo("reconcile-dataset summary")
-    typer.echo(f"dataset={report.dataset_key}")
-    typer.echo(f"date_range={report.start_date.isoformat()}~{report.end_date.isoformat()}")
-    typer.echo(f"raw_rows={report.raw_rows}")
-    typer.echo(f"serving_rows={report.serving_rows}")
-    typer.echo(f"abs_diff={report.abs_diff}")
-    typer.echo(f"reconcile_mode={report.reconcile_mode}")
-    if report.raw_distinct_keys is not None and report.serving_distinct_keys is not None:
-        typer.echo(f"raw_distinct_keys={report.raw_distinct_keys}")
-        typer.echo(f"serving_distinct_keys={report.serving_distinct_keys}")
-        typer.echo(f"distinct_abs_diff={report.distinct_abs_diff}")
-
-    if sample_limit > 0 and report.daily_diffs:
-        typer.echo(f"\n[daily_diff] samples={len(report.daily_diffs)}")
-        for item in report.daily_diffs:
-            typer.echo(
-                f" - {item.trade_date.isoformat()} raw={item.raw_rows} "
-                f"serving={item.serving_rows} diff={item.diff}"
-            )
-    if sample_limit > 0 and report.snapshot_key_diffs:
-        typer.echo(f"\n[key_diff] samples={len(report.snapshot_key_diffs)}")
-        for item in report.snapshot_key_diffs:
-            typer.echo(f" - {item}")
-
-    if abs_diff_threshold >= 0:
-        gate_failures: list[str] = []
-        if report.abs_diff > abs_diff_threshold:
-            gate_failures.append(f"abs_diff={report.abs_diff}")
-        distinct_abs_diff = report.distinct_abs_diff
-        if distinct_abs_diff is not None and distinct_abs_diff > abs_diff_threshold:
-            gate_failures.append(f"distinct_abs_diff={distinct_abs_diff}")
-        if gate_failures:
-            failure_text = ", ".join(gate_failures)
-            typer.echo(f"\nreconcile-dataset gate failed: {failure_text} > threshold={abs_diff_threshold}")
-            raise typer.Exit(code=1)
+    _run_reconcile_dataset_impl(
+        session_local=SessionLocal,
+        reconcile_service_cls=DatasetReconcileService,
+        dataset=dataset,
+        start_date=start_date,
+        end_date=end_date,
+        sample_limit=sample_limit,
+        abs_diff_threshold=abs_diff_threshold,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-rebuild-dataset-status")
 def ops_rebuild_dataset_status() -> None:
-    with SessionLocal() as session:
-        count = DatasetStatusSnapshotService().rebuild_all(session, strict=True)
-        typer.echo(f"ops-rebuild-dataset-status: rebuilt={count}")
+    _run_ops_rebuild_dataset_status_impl(
+        session_local=SessionLocal,
+        dataset_status_snapshot_service_cls=DatasetStatusSnapshotService,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-daily-health-report")
@@ -483,23 +379,14 @@ def ops_daily_health_report(
     output_format: str = typer.Option("md", "--format", help="输出格式：md 或 json"),
     output: Path | None = typer.Option(None, "--output", help="输出文件路径；不传则打印到终端"),
 ) -> None:
-    target_date = date.fromisoformat(report_date) if report_date else date.today()
-    format_key = output_format.strip().lower()
-    if format_key not in {"md", "json"}:
-        raise typer.BadParameter("--format 仅支持 md 或 json")
-
-    with SessionLocal() as session:
-        service = DailyHealthReportService()
-        report = service.build_report(session, report_date=target_date)
-        rendered = service.render_markdown(report) if format_key == "md" else report.to_json()
-
-    if output is None:
-        typer.echo(rendered)
-        return
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(rendered, encoding="utf-8")
-    typer.echo(f"ops-daily-health-report: written={output}")
+    _run_ops_daily_health_report_impl(
+        session_local=SessionLocal,
+        daily_health_report_service_cls=DailyHealthReportService,
+        report_date_text=report_date,
+        output_format=output_format,
+        output=output,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-validate-market-mood")
@@ -518,36 +405,24 @@ def ops_validate_market_mood(
     include_points: bool = typer.Option(False, "--include-points", help="输出每个测试日的详细点位"),
     output: Path | None = typer.Option(None, "--output", help="输出文件路径；不传则打印到终端"),
 ) -> None:
-    parsed_start = date.fromisoformat(start_date) if start_date else None
-    parsed_end = date.fromisoformat(end_date) if end_date else None
-    if parsed_start is not None and parsed_end is not None and parsed_start > parsed_end:
-        raise typer.BadParameter("start_date 不能晚于 end_date")
-
-    with SessionLocal() as session:
-        report = MarketMoodWalkForwardValidationService().run(
-            session,
-            start_date=parsed_start,
-            end_date=parsed_end,
-            exchange=exchange,
-            train_days=train_days,
-            valid_days=valid_days,
-            test_days=test_days,
-            roll_days=roll_days,
-            min_state_samples=min_state_samples,
-            max_signal_days=max_signal_days,
-            delta_temp=delta_temp,
-            delta_emotion=delta_emotion,
-            progress_callback=typer.echo,
-        )
-        rendered = report.to_json(include_points=include_points)
-
-    if output is None:
-        typer.echo(rendered)
-        return
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(rendered, encoding="utf-8")
-    typer.echo(f"ops-validate-market-mood: written={output}")
+    _run_ops_validate_market_mood_impl(
+        session_local=SessionLocal,
+        validation_service_cls=MarketMoodWalkForwardValidationService,
+        start_date_text=start_date,
+        end_date_text=end_date,
+        exchange=exchange,
+        train_days=train_days,
+        valid_days=valid_days,
+        test_days=test_days,
+        roll_days=roll_days,
+        min_state_samples=min_state_samples,
+        max_signal_days=max_signal_days,
+        delta_temp=delta_temp,
+        delta_emotion=delta_emotion,
+        include_points=include_points,
+        output=output,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("reconcile-stock-basic")
@@ -566,45 +441,15 @@ def reconcile_stock_basic(
         help="comparable_diff 阈值；-1 表示不校验。超过阈值时命令返回非 0。",
     ),
 ) -> None:
-    with SessionLocal() as session:
-        report = StockBasicReconcileService().run(session, sample_limit=sample_limit)
-
-    typer.echo("reconcile-stock-basic summary")
-    typer.echo(f"total_union={report.total_union}")
-    typer.echo(f"comparable={report.comparable}")
-    typer.echo(f"only_tushare={report.only_tushare}")
-    typer.echo(f"only_biying={report.only_biying}")
-    typer.echo(f"comparable_diff={report.comparable_diff}")
-
-    if sample_limit > 0:
-        for diff_type in ("only_tushare", "only_biying", "comparable_diff"):
-            items = report.samples[diff_type]
-            if not items:
-                continue
-            typer.echo(f"\n[{diff_type}] samples={len(items)}")
-            for item in items:
-                typer.echo(
-                    " - "
-                    f"{item.ts_code} "
-                    f"t_name={item.tushare_name!r} b_name={item.biying_name!r} "
-                    f"t_exchange={item.tushare_exchange!r} b_exchange={item.biying_exchange!r} "
-                    f"t_name_norm={item.tushare_name_norm!r} b_name_norm={item.biying_name_norm!r} "
-                    f"t_exchange_norm={item.tushare_exchange_norm!r} b_exchange_norm={item.biying_exchange_norm!r}"
-                )
-
-    failed_checks: list[str] = []
-    if threshold_only_tushare >= 0 and report.only_tushare > threshold_only_tushare:
-        failed_checks.append(f"only_tushare={report.only_tushare} > threshold={threshold_only_tushare}")
-    if threshold_only_biying >= 0 and report.only_biying > threshold_only_biying:
-        failed_checks.append(f"only_biying={report.only_biying} > threshold={threshold_only_biying}")
-    if threshold_comparable_diff >= 0 and report.comparable_diff > threshold_comparable_diff:
-        failed_checks.append(f"comparable_diff={report.comparable_diff} > threshold={threshold_comparable_diff}")
-
-    if failed_checks:
-        typer.echo("\nreconcile-stock-basic gate failed:")
-        for check in failed_checks:
-            typer.echo(f" - {check}")
-        raise typer.Exit(code=1)
+    _run_reconcile_stock_basic_impl(
+        session_local=SessionLocal,
+        reconcile_service_cls=StockBasicReconcileService,
+        sample_limit=sample_limit,
+        threshold_only_tushare=threshold_only_tushare,
+        threshold_only_biying=threshold_only_biying,
+        threshold_comparable_diff=threshold_comparable_diff,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("reconcile-moneyflow")
@@ -619,57 +464,20 @@ def reconcile_moneyflow(
     threshold_only_biying: int = typer.Option(-1, help="only_biying 阈值；-1 表示不校验。"),
     threshold_comparable_diff: int = typer.Option(-1, help="comparable_diff 阈值；-1 表示不校验。"),
 ) -> None:
-    parsed_start = date.fromisoformat(start_date) if start_date else None
-    parsed_end = date.fromisoformat(end_date) if end_date else None
-    with SessionLocal() as session:
-        report = MoneyflowReconcileService().run(
-            session,
-            start_date=parsed_start,
-            end_date=parsed_end,
-            range_days=range_days,
-            sample_limit=sample_limit,
-            abs_tol=Decimal(str(abs_tol)),
-            rel_tol=Decimal(str(rel_tol)),
-        )
-
-    typer.echo("reconcile-moneyflow summary")
-    typer.echo(f"date_range={report.start_date.isoformat()}~{report.end_date.isoformat()}")
-    typer.echo(f"total_union={report.total_union}")
-    typer.echo(f"comparable={report.comparable}")
-    typer.echo(f"only_tushare={report.only_tushare}")
-    typer.echo(f"only_biying={report.only_biying}")
-    typer.echo(f"comparable_diff={report.comparable_diff}")
-    typer.echo(f"direction_mismatch={report.direction_mismatch}")
-
-    if sample_limit > 0:
-        for diff_type in ("only_tushare", "only_biying", "comparable_diff"):
-            items = report.samples[diff_type]
-            if not items:
-                continue
-            typer.echo(f"\n[{diff_type}] samples={len(items)}")
-            for item in items:
-                typer.echo(
-                    " - "
-                    f"{item.ts_code} {item.trade_date.isoformat()} "
-                    f"field={item.field or '-'} "
-                    f"t={item.tushare_value} b={item.biying_value} "
-                    f"abs_diff={item.abs_diff} rel_diff={item.rel_diff} "
-                    f"note={item.note or '-'}"
-                )
-
-    failed_checks: list[str] = []
-    if threshold_only_tushare >= 0 and report.only_tushare > threshold_only_tushare:
-        failed_checks.append(f"only_tushare={report.only_tushare} > threshold={threshold_only_tushare}")
-    if threshold_only_biying >= 0 and report.only_biying > threshold_only_biying:
-        failed_checks.append(f"only_biying={report.only_biying} > threshold={threshold_only_biying}")
-    if threshold_comparable_diff >= 0 and report.comparable_diff > threshold_comparable_diff:
-        failed_checks.append(f"comparable_diff={report.comparable_diff} > threshold={threshold_comparable_diff}")
-
-    if failed_checks:
-        typer.echo("\nreconcile-moneyflow gate failed:")
-        for check in failed_checks:
-            typer.echo(f" - {check}")
-        raise typer.Exit(code=1)
+    _run_reconcile_moneyflow_impl(
+        session_local=SessionLocal,
+        reconcile_service_cls=MoneyflowReconcileService,
+        start_date_text=start_date,
+        end_date_text=end_date,
+        range_days=range_days,
+        sample_limit=sample_limit,
+        abs_tol=abs_tol,
+        rel_tol=rel_tol,
+        threshold_only_tushare=threshold_only_tushare,
+        threshold_only_biying=threshold_only_biying,
+        threshold_comparable_diff=threshold_comparable_diff,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-seed-default-single-source")
@@ -677,51 +485,37 @@ def ops_seed_default_single_source(
     source_key: str = typer.Option("tushare", "--source-key", help="默认来源键（例如 tushare）。"),
     apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
 ) -> None:
-    with SessionLocal() as session:
-        report = DefaultSingleSourceSeedService().run(
-            session,
-            source_key=source_key,
-            dry_run=not apply,
-        )
-
-    mode = "apply" if apply else "dry-run"
-    typer.echo(f"ops-seed-default-single-source [{mode}] source={report.source_key}")
-    typer.echo(f"dataset_total={report.dataset_total}")
-    typer.echo(f"created_mapping_rules={report.created_mapping_rules}")
-    typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
-    typer.echo(f"created_resolution_policies={report.created_resolution_policies}")
-    typer.echo(f"created_source_statuses={report.created_source_statuses}")
+    _run_ops_seed_default_single_source_impl(
+        session_local=SessionLocal,
+        service_cls=DefaultSingleSourceSeedService,
+        source_key=source_key,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-seed-moneyflow-multi-source")
 def ops_seed_moneyflow_multi_source(
     apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
 ) -> None:
-    with SessionLocal() as session:
-        report = MoneyflowMultiSourceSeedService().run(session, dry_run=not apply)
-
-    mode = "apply" if apply else "dry-run"
-    typer.echo(f"ops-seed-moneyflow-multi-source [{mode}] dataset={report.dataset_key}")
-    typer.echo(f"created_pipeline_mode={report.created_pipeline_mode}")
-    typer.echo(f"updated_pipeline_mode={report.updated_pipeline_mode}")
-    typer.echo(f"created_mapping_rules={report.created_mapping_rules}")
-    typer.echo(f"created_cleansing_rules={report.created_cleansing_rules}")
-    typer.echo(f"created_source_statuses={report.created_source_statuses}")
-    typer.echo(f"created_resolution_policy={report.created_resolution_policy}")
-    typer.echo(f"updated_resolution_policy={report.updated_resolution_policy}")
+    _run_ops_seed_moneyflow_multi_source_impl(
+        session_local=SessionLocal,
+        service_cls=MoneyflowMultiSourceSeedService,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-seed-dataset-pipeline-mode")
 def ops_seed_dataset_pipeline_mode(
     apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
 ) -> None:
-    with SessionLocal() as session:
-        report = DatasetPipelineModeSeedService().run(session, dry_run=not apply)
-    mode = "apply" if apply else "dry-run"
-    typer.echo(f"ops-seed-dataset-pipeline-mode [{mode}]")
-    typer.echo(f"dataset_total={report.dataset_total}")
-    typer.echo(f"created={report.created}")
-    typer.echo(f"updated={report.updated}")
+    _run_ops_seed_dataset_pipeline_mode_impl(
+        session_local=SessionLocal,
+        service_cls=DatasetPipelineModeSeedService,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-trade-cal")
@@ -730,11 +524,15 @@ def backfill_trade_cal(
     end_date: str = typer.Option(..., help="YYYY-MM-DD"),
     exchange: str | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_trade_calendar(date.fromisoformat(start_date), date.fromisoformat(end_date), exchange=exchange)
-        DatasetStatusSnapshotService().refresh_resources(session, ["trade_cal"])
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_trade_cal_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        start_date=start_date,
+        end_date=end_date,
+        exchange=exchange,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-equity-series")
@@ -749,18 +547,17 @@ def backfill_equity_series(
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_equity_series(
-            resource=resource,
-            start_date=date.fromisoformat(start_date),
-            end_date=date.fromisoformat(end_date),
-            offset=offset,
-            limit=limit,
-            progress=typer.echo,
-        )
-        DatasetStatusSnapshotService().refresh_resources(session, [resource])
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_equity_series_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resource=resource,
+        start_date=start_date,
+        end_date=end_date,
+        offset=offset,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-by-trade-date")
@@ -783,27 +580,26 @@ def backfill_by_trade_date(
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_by_trade_dates(
-            resource=resource,
-            start_date=date.fromisoformat(start_date),
-            end_date=date.fromisoformat(end_date),
-            exchange=exchange,
-            exchange_id=exchange_id,
-            limit_type=limit_type,
-            ts_code=ts_code,
-            con_code=con_code,
-            idx_type=idx_type,
-            market=market,
-            hot_type=hot_type,
-            is_new=is_new,
-            offset=offset,
-            limit=limit,
-            progress=typer.echo,
-        )
-        DatasetStatusSnapshotService().refresh_resources(session, [resource])
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_by_trade_date_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resource=resource,
+        start_date=start_date,
+        end_date=end_date,
+        exchange=exchange,
+        exchange_id=exchange_id,
+        limit_type=limit_type,
+        ts_code=ts_code,
+        con_code=con_code,
+        idx_type=idx_type,
+        market=market,
+        hot_type=hot_type,
+        is_new=is_new,
+        offset=offset,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-by-date-range")
@@ -815,24 +611,19 @@ def backfill_by_date_range(
     idx_type: str | None = typer.Option(None, "--idx-type"),
     tag: str | None = typer.Option(None, "--tag"),
 ) -> None:
-    if resource not in {"ths_daily", "dc_index", "dc_daily", "kpl_list"}:
-        raise typer.BadParameter("resource must be one of: ths_daily, dc_index, dc_daily, kpl_list")
-    with SessionLocal() as session:
-        reconciliation_service = SyncJobStateReconciliationService()
-        snapshot_service = DatasetStatusSnapshotService()
-        service = build_sync_service(resource, session)
-        run_kwargs = {
-            "ts_code": ts_code,
-            "idx_type": idx_type,
-            "start_date": start_date,
-            "end_date": end_date,
-        }
-        if resource == "kpl_list":
-            run_kwargs["tag"] = tag
-        result = service.run_full(**run_kwargs)
-        reconciliation_service.refresh_resource_state_from_observed(session, resource)
-        snapshot_service.refresh_resources(session, [resource])
-        typer.echo(f"{resource}: units=1 fetched={result.rows_fetched} written={result.rows_written}")
+    _run_backfill_by_date_range_impl(
+        session_local=SessionLocal,
+        build_sync_service_fn=build_sync_service,
+        reconciliation_service_cls=SyncJobStateReconciliationService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resource=resource,
+        start_date=start_date,
+        end_date=end_date,
+        ts_code=ts_code,
+        idx_type=idx_type,
+        tag=tag,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-low-frequency")
@@ -841,16 +632,15 @@ def backfill_low_frequency(
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_low_frequency_by_security(
-            resource=resource,
-            offset=offset,
-            limit=limit,
-            progress=typer.echo,
-        )
-        DatasetStatusSnapshotService().refresh_resources(session, [resource])
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_low_frequency_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resource=resource,
+        offset=offset,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-fund-series")
@@ -861,17 +651,16 @@ def backfill_fund_series(
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_fund_series(
-            resource=resource,
-            start_date=date.fromisoformat(start_date),
-            end_date=date.fromisoformat(end_date),
-            offset=offset,
-            limit=limit,
-            progress=typer.echo,
-        )
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_fund_series_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        resource=resource,
+        start_date=start_date,
+        end_date=end_date,
+        offset=offset,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("backfill-index-series")
@@ -882,34 +671,28 @@ def backfill_index_series(
     offset: int = typer.Option(0),
     limit: int | None = typer.Option(None),
 ) -> None:
-    with SessionLocal() as session:
-        service = HistoryBackfillService(session)
-        summary = service.backfill_index_series(
-            resource=resource,
-            start_date=date.fromisoformat(start_date),
-            end_date=date.fromisoformat(end_date),
-            offset=offset,
-            limit=limit,
-            progress=typer.echo,
-        )
-        typer.echo(f"{summary.resource}: units={summary.units_processed} fetched={summary.rows_fetched} written={summary.rows_written}")
+    _run_backfill_index_series_impl(
+        session_local=SessionLocal,
+        history_backfill_service_cls=HistoryBackfillService,
+        resource=resource,
+        start_date=start_date,
+        end_date=end_date,
+        offset=offset,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-scheduler-tick")
 def ops_scheduler_tick(
     limit: int = typer.Option(100, min=1, max=1000, help="Maximum due schedules to enqueue in one tick."),
 ) -> None:
-    with SessionLocal() as session:
-        executions = OperationsScheduler().run_once(session, limit=limit)
-        for execution in executions:
-            typer.echo(
-                "scheduled "
-                f"execution#{execution.id} "
-                f"schedule_id={execution.schedule_id} "
-                f"spec={execution.spec_type}:{execution.spec_key} "
-                f"status={execution.status}"
-            )
-        typer.echo(f"ops-scheduler-tick: scheduled={len(executions)}")
+    _run_ops_scheduler_tick_impl(
+        session_local=SessionLocal,
+        scheduler_cls=OperationsScheduler,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-worker-run")
@@ -922,34 +705,16 @@ def ops_worker_run(
     ),
     auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
 ) -> None:
-    with SessionLocal() as session:
-        reconciled = _auto_reconcile_stale_executions(
-            session,
-            stale_for_minutes=auto_reconcile_stale_for_minutes,
-            limit=auto_reconcile_limit,
-        )
-        worker = OperationsWorker()
-        processed = 0
-        for _ in range(limit):
-            execution = worker.run_next(session)
-            if execution is None:
-                break
-            processed += 1
-            typer.echo(
-                "processed "
-                f"execution#{execution.id} "
-                f"status={execution.status} "
-                f"rows_fetched={execution.rows_fetched} "
-                f"rows_written={execution.rows_written}"
-            )
-        queued, running = _open_execution_counts(session)
-        typer.echo(
-            "ops-worker-run: "
-            f"本轮新接任务={processed} "
-            f"等待中={queued} "
-            f"执行中={running} "
-            f"自动收敛={reconciled}"
-        )
+    _run_ops_worker_run_impl(
+        session_local=SessionLocal,
+        worker_cls=OperationsWorker,
+        auto_reconcile_fn=_auto_reconcile_stale_executions,
+        open_execution_counts_fn=_open_execution_counts,
+        limit=limit,
+        auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
+        auto_reconcile_limit=auto_reconcile_limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-scheduler-serve")
@@ -958,15 +723,14 @@ def ops_scheduler_serve(
     sleep_seconds: float = typer.Option(30.0, min=1.0, help="Seconds to sleep between scheduler cycles."),
     max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
 ) -> None:
-    cycles = 0
-    while True:
-        with SessionLocal() as session:
-            executions = OperationsScheduler().run_once(session, limit=limit)
-            typer.echo(f"ops-scheduler-serve: scheduled={len(executions)}")
-        cycles += 1
-        if max_cycles is not None and cycles >= max_cycles:
-            break
-        time.sleep(sleep_seconds)
+    _run_ops_scheduler_serve_impl(
+        session_local=SessionLocal,
+        scheduler_cls=OperationsScheduler,
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-worker-serve")
@@ -981,33 +745,18 @@ def ops_worker_serve(
     ),
     auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
 ) -> None:
-    cycles = 0
-    while True:
-        with SessionLocal() as session:
-            reconciled = _auto_reconcile_stale_executions(
-                session,
-                stale_for_minutes=auto_reconcile_stale_for_minutes,
-                limit=auto_reconcile_limit,
-            )
-            worker = OperationsWorker()
-            processed = 0
-            for _ in range(limit):
-                execution = worker.run_next(session)
-                if execution is None:
-                    break
-                processed += 1
-            queued, running = _open_execution_counts(session)
-            typer.echo(
-                "ops-worker-serve: "
-                f"本轮新接任务={processed} "
-                f"等待中={queued} "
-                f"执行中={running} "
-                f"自动收敛={reconciled}"
-            )
-        cycles += 1
-        if max_cycles is not None and cycles >= max_cycles:
-            break
-        time.sleep(sleep_seconds)
+    _run_ops_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_cls=OperationsWorker,
+        auto_reconcile_fn=_auto_reconcile_stale_executions,
+        open_execution_counts_fn=_open_execution_counts,
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
+        auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
+        auto_reconcile_limit=auto_reconcile_limit,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-reconcile-executions")
@@ -1016,49 +765,23 @@ def ops_reconcile_executions(
     limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect."),
     apply: bool = typer.Option(False, "--apply", help="Actually repair stale execution statuses. Without this flag, only preview."),
 ) -> None:
-    with SessionLocal() as session:
-        service = OperationsExecutionReconciliationService()
-        if apply:
-            reconciled = service.reconcile_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
-            for item in reconciled:
-                typer.echo(
-                    f"reconciled execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
-                )
-            typer.echo(f"ops-reconcile-executions: reconciled={len(reconciled)}")
-            return
-
-        previews = service.preview_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
-        for item in previews:
-            typer.echo(
-                f"stale execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
-            )
-        typer.echo(f"ops-reconcile-executions: stale={len(previews)}")
+    _run_ops_reconcile_executions_impl(
+        session_local=SessionLocal,
+        service_cls=OperationsExecutionReconciliationService,
+        stale_for_minutes=stale_for_minutes,
+        limit=limit,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
 
 
 @app.command("ops-reconcile-sync-job-state")
 def ops_reconcile_sync_job_state(
     apply: bool = typer.Option(False, "--apply", help="Actually repair stale sync_job_state rows. Without this flag, only preview."),
 ) -> None:
-    with SessionLocal() as session:
-        service = SyncJobStateReconciliationService()
-        if apply:
-            reconciled = service.reconcile_stale_sync_job_states(session)
-            for item in reconciled:
-                typer.echo(
-                    "reconciled "
-                    f"{item.job_name} "
-                    f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
-                    f"target_table={item.target_table}"
-                )
-            typer.echo(f"ops-reconcile-sync-job-state: reconciled={len(reconciled)}")
-            return
-
-        previews = service.preview_stale_sync_job_states(session)
-        for item in previews:
-            typer.echo(
-                "stale "
-                f"{item.job_name} "
-                f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
-                f"target_table={item.target_table}"
-            )
-        typer.echo(f"ops-reconcile-sync-job-state: stale={len(previews)}")
+    _run_ops_reconcile_sync_job_state_impl(
+        session_local=SessionLocal,
+        service_cls=SyncJobStateReconciliationService,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
