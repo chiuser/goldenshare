@@ -123,6 +123,7 @@ class SyncV2Writer:
         explicit_ts_code = bool(
             plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
         )
+        full_date_refresh = (not explicit_ts_code) and run_profile in {"point_incremental", "range_rebuild"}
         if batch.rows_normalized:
             filtered_rows = self._filter_index_rows_by_active_pool(
                 rows=batch.rows_normalized,
@@ -137,6 +138,8 @@ class SyncV2Writer:
                     target_table=contract.write_spec.target_table,
                     conflict_strategy="index_period_filtered_empty",
                 )
+            if full_date_refresh:
+                self._purge_index_period_raw_rows_by_trade_dates(raw_dao=raw_dao, rows=filtered_rows)
             if contract.write_spec.conflict_columns:
                 raw_dao.bulk_upsert(filtered_rows, conflict_columns=list(contract.write_spec.conflict_columns))
             else:
@@ -162,11 +165,17 @@ class SyncV2Writer:
                                 ts_codes=missing_codes,
                             )
                         )
-            rows_written = self._replace_index_period_serving_rows(
-                core_dao=core_dao,
-                rows=serving_rows,
-                keep_api=False,
-            )
+            if full_date_refresh:
+                rows_written = self._replace_index_period_serving_rows_by_trade_dates(
+                    core_dao=core_dao,
+                    rows=serving_rows,
+                )
+            else:
+                rows_written = self._replace_index_period_serving_rows(
+                    core_dao=core_dao,
+                    rows=serving_rows,
+                    keep_api=False,
+                )
             conflict_strategy = "index_period_upsert"
         elif run_profile == "point_incremental" and plan_unit is not None:
             if explicit_ts_code:
@@ -185,11 +194,17 @@ class SyncV2Writer:
                     if isinstance(trade_date, date)
                     else []
                 )
-            rows_written = self._replace_index_period_serving_rows(
-                core_dao=core_dao,
-                rows=derived_rows,
-                keep_api=True,
-            )
+            if full_date_refresh:
+                rows_written = self._replace_index_period_serving_rows_by_trade_dates(
+                    core_dao=core_dao,
+                    rows=derived_rows,
+                )
+            else:
+                rows_written = self._replace_index_period_serving_rows(
+                    core_dao=core_dao,
+                    rows=derived_rows,
+                    keep_api=True,
+                )
             conflict_strategy = "derived_daily_fallback"
 
         return WriteResult(
@@ -363,6 +378,28 @@ class SyncV2Writer:
         self.session.execute(stmt)
         return core_dao.bulk_insert(deduped_rows)
 
+    def _replace_index_period_serving_rows_by_trade_dates(
+        self,
+        *,
+        core_dao,
+        rows: list[dict[str, Any]],
+    ) -> int:
+        trade_dates = sorted(
+            {
+                row["trade_date"]
+                for row in rows
+                if isinstance(row.get("trade_date"), date)
+            }
+        )
+        if not trade_dates:
+            return 0
+        model = core_dao.model
+        self.session.execute(delete(model).where(model.trade_date.in_(trade_dates)))
+        deduped_rows = self._dedupe_index_period_rows(rows)
+        if not deduped_rows:
+            return 0
+        return core_dao.bulk_insert(deduped_rows)
+
     @staticmethod
     def _dedupe_index_period_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deduped_by_key: dict[tuple[str, date], dict[str, Any]] = {}
@@ -402,6 +439,12 @@ class SyncV2Writer:
         if not normalized:
             raise ValueError("no active index codes found for index period serving")
         return normalized
+
+    @staticmethod
+    def _purge_index_period_raw_rows_by_trade_dates(*, raw_dao, rows: list[dict[str, Any]]) -> None:
+        trade_dates = sorted({row["trade_date"] for row in rows if isinstance(row.get("trade_date"), date)})
+        for current_date in trade_dates:
+            raw_dao.delete_by_date_range(current_date, current_date)
 
     def _resolve_index_period_start_date(
         self,

@@ -15,10 +15,15 @@ class _StubDao:
     def __init__(self, written: int) -> None:
         self.written = written
         self.calls: list[tuple[list[dict], list[str] | None]] = []
+        self.deleted_ranges: list[tuple[date, date]] = []
 
     def bulk_upsert(self, rows: list[dict], conflict_columns: list[str] | None = None) -> int:
         self.calls.append((rows, conflict_columns))
         return self.written
+
+    def delete_by_date_range(self, start_date: date, end_date: date) -> int:
+        self.deleted_ranges.append((start_date, end_date))
+        return 0
 
 
 class _StubSnapshotDao:
@@ -337,7 +342,7 @@ def test_sync_v2_writer_index_period_filters_active_pool_and_appends_derived_mis
             }
         ],
     )
-    replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows", return_value=2)
+    replace_spy = mocker.patch.object(writer, "_replace_index_period_serving_rows_by_trade_dates", return_value=2)
     contract = get_sync_v2_contract("index_weekly")
     batch = NormalizedBatch(
         unit_id="u-index-weekly-active-filter",
@@ -388,9 +393,9 @@ def test_sync_v2_writer_index_period_filters_active_pool_and_appends_derived_mis
     assert len(raw_dao.calls) == 1
     filtered_rows, _ = raw_dao.calls[0]
     assert {row["ts_code"] for row in filtered_rows} == {"000300.SH"}
+    assert raw_dao.deleted_ranges == [(date(2026, 4, 17), date(2026, 4, 17))]
     derived_spy.assert_called_once()
     assert derived_spy.call_args.kwargs["ts_codes"] == ["000905.SH"]
     replace_spy.assert_called_once()
-    assert replace_spy.call_args.kwargs["keep_api"] is False
     assert result.rows_written == 2
     assert result.conflict_strategy == "index_period_upsert"
