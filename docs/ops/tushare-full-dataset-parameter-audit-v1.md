@@ -9,6 +9,9 @@
   - `src/ops/specs/registry.py`（`sync_daily/sync_history/backfill` 对外参数）
   - `src/foundation/services/sync_v2/registry.py`（V2 contract 覆盖）
 
+> 说明：本文是 `2026-04-21` 的历史审计快照。  
+> 当前代码口径已更新为 `56` 总资源、`47` 个 V2 contract、`9` 个未迁移；请与 [数据同步 V2 切换运行手册 v1](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md) 一并阅读。
+
 ## 1. 总体结论
 
 - 资源总数：`56`（Tushare `54` + Biying `2`）

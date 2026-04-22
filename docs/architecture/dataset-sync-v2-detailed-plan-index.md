@@ -2,7 +2,7 @@
 
 - 版本：v1.0
 - 日期：2026-04-21
-- 状态：待评审
+- 状态：已执行（归档索引）
 - 主方案基线：[数据同步 V2 重设计方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
 - 表改造配套：[Ops 数据表改造清单](/Users/congming/github/goldenshare/docs/architecture/ops-schema-migration-checklist-v2.md)
 - 编码执行版：[V2 分期可执行编码任务包](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-implementation-work-packages.md)

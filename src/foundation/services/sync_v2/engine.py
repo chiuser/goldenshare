@@ -15,6 +15,7 @@ from src.foundation.services.sync_v2.errors import StructuredError, SyncV2Error
 from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
 from src.foundation.services.sync_v2.observer import SyncV2Observer
 from src.foundation.services.sync_v2.planner import SyncV2Planner
+from src.foundation.services.sync_v2.runtime_contract import to_runtime_contract
 from src.foundation.services.sync_v2.validator import ContractValidator
 from src.foundation.services.sync_v2.worker_client import SyncV2WorkerClient
 from src.foundation.services.sync_v2.writer import SyncV2Writer
@@ -40,7 +41,17 @@ class SyncV2Engine:
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> EngineRunSummary:
         validated = self.validator.validate(request=request, contract=contract, strict=strict_contract)
-        units = self.planner.plan(validated, contract)
+        runtime_contract = to_runtime_contract(contract)
+        if runtime_contract.strategy_fn is not None:
+            units = runtime_contract.strategy_fn(
+                validated,
+                contract,
+                self.planner.dao,
+                self.planner.settings,
+                self.session,
+            )
+        else:
+            units = self.planner.plan(validated, contract)
         observer = SyncV2Observer(progress_reporter=progress_reporter)
 
         rows_fetched = 0

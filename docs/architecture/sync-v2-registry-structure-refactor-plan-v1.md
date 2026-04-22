@@ -2,8 +2,8 @@
 
 - 版本：v1
 - 日期：2026-04-22
-- 状态：评审稿（先文档，后编码）
-- 适用范围：`src/foundation/services/sync_v2/registry_parts/contracts.py` 与 `src/cli.py`
+- 状态：阶段 A/B 已落地（文档归档）
+- 适用范围：`src/foundation/services/sync_v2/registry_parts/**`、`src/foundation/services/sync_v2/dataset_strategies/**`、`src/cli_parts/**`
 
 ---
 
@@ -73,18 +73,18 @@ src/foundation/services/sync_v2/
       low_frequency.py                # 低频事件（预留）
 ```
 
-当前已迁移数据集（以 `SYNC_V2_CONTRACTS` 为准，共 38 个）的分组清单如下：
+当前已迁移数据集（以 `SYNC_V2_CONTRACTS` 为准，共 47 个）的分组清单如下：
 
 1. `market_equity.py`
-`daily, adj_factor, daily_basic, stk_limit, suspend_d, cyq_perf, margin, limit_list_d, limit_list_ths, limit_step, limit_cpt_list, top_list, block_trade, stock_st, stk_nineturn, broker_recommend`
+`adj_factor, block_trade, broker_recommend, cyq_perf, daily, daily_basic, limit_cpt_list, limit_list_d, limit_list_ths, limit_step, margin, stk_limit, stk_nineturn, stk_period_bar_adj_month, stk_period_bar_adj_week, stk_period_bar_month, stk_period_bar_week, stock_st, suspend_d, top_list`
 2. `market_fund.py`
 `fund_daily, fund_adj`
 3. `index_series.py`
-`index_daily, index_daily_basic, index_basic, etf_index`
+`etf_index, index_basic, index_daily, index_daily_basic`
 4. `board_hotspot.py`
-`ths_index, dc_index, dc_member, kpl_list, kpl_concept_cons`
+`dc_daily, dc_hot, dc_index, dc_member, kpl_concept_cons, kpl_list, ths_daily, ths_hot, ths_index, ths_member`
 5. `moneyflow.py`
-`moneyflow, moneyflow_ths, moneyflow_dc, moneyflow_cnt_ths, moneyflow_ind_ths, moneyflow_ind_dc, moneyflow_mkt_dc`
+`moneyflow, moneyflow_cnt_ths, moneyflow_dc, moneyflow_ind_dc, moneyflow_ind_ths, moneyflow_mkt_dc, moneyflow_ths`
 6. `reference_master.py`
 `trade_cal, hk_basic, us_basic, etf_basic`
 7. `low_frequency.py`
@@ -92,18 +92,18 @@ src/foundation/services/sync_v2/
 
 说明：`index_weight` 当前未在 `SYNC_V2_CONTRACTS` 中，后续迁入时归 `index_series.py`。
 
-### 4.2.1 待迁移数据集（18 个）归属规则（必须遵守）
+### 4.2.1 待迁移数据集（9 个）归属规则（必须遵守）
 
-以下按 `SYNC_SERVICE_REGISTRY(56)` 与 `SYNC_V2_CONTRACTS(38)` 差集审计得到的 18 个待迁移数据集，已经预先指定到目标分组文件。后续迁移必须按此归属落位，不再临时决定。
+以下按 `SYNC_SERVICE_REGISTRY(56)` 与 `SYNC_V2_CONTRACTS(47)` 差集审计得到的 9 个待迁移数据集，已经预先指定到目标分组文件。后续迁移必须按此归属落位，不再临时决定。
 
 1. `market_equity.py`
-`stock_basic, biying_equity_daily, stk_factor_pro, stk_period_bar_week, stk_period_bar_month, stk_period_bar_adj_week, stk_period_bar_adj_month`
+`stock_basic, biying_equity_daily, stk_factor_pro`
 2. `market_fund.py`
 无待迁移项
 3. `index_series.py`
 `index_weekly, index_monthly, index_weight`
 4. `board_hotspot.py`
-`ths_member, ths_daily, ths_hot, dc_daily, dc_hot`
+无待迁移项
 5. `moneyflow.py`
 `biying_moneyflow`
 6. `reference_master.py`
@@ -116,15 +116,15 @@ src/foundation/services/sync_v2/
 为避免后续迁移过程分组漂移，以下给出“迁移完成态”的全量分组（已迁移+待迁移）：
 
 1. `market_equity.py`（23）
-`daily, adj_factor, daily_basic, stk_limit, suspend_d, cyq_perf, margin, limit_list_d, limit_list_ths, limit_step, limit_cpt_list, top_list, block_trade, stock_st, stk_nineturn, broker_recommend, stock_basic, biying_equity_daily, stk_factor_pro, stk_period_bar_week, stk_period_bar_month, stk_period_bar_adj_week, stk_period_bar_adj_month`
+`adj_factor, block_trade, broker_recommend, cyq_perf, daily, daily_basic, limit_cpt_list, limit_list_d, limit_list_ths, limit_step, margin, stk_limit, stk_nineturn, stk_period_bar_adj_month, stk_period_bar_adj_week, stk_period_bar_month, stk_period_bar_week, stock_st, suspend_d, top_list, stock_basic, biying_equity_daily, stk_factor_pro`
 2. `market_fund.py`（2）
 `fund_daily, fund_adj`
 3. `index_series.py`（7）
-`index_daily, index_daily_basic, index_basic, etf_index, index_weekly, index_monthly, index_weight`
+`etf_index, index_basic, index_daily, index_daily_basic, index_weekly, index_monthly, index_weight`
 4. `board_hotspot.py`（10）
-`ths_index, dc_index, dc_member, kpl_list, kpl_concept_cons, ths_member, ths_daily, ths_hot, dc_daily, dc_hot`
+`dc_daily, dc_hot, dc_index, dc_member, kpl_concept_cons, kpl_list, ths_daily, ths_hot, ths_index, ths_member`
 5. `moneyflow.py`（8）
-`moneyflow, moneyflow_ths, moneyflow_dc, moneyflow_cnt_ths, moneyflow_ind_ths, moneyflow_ind_dc, moneyflow_mkt_dc, biying_moneyflow`
+`moneyflow, moneyflow_cnt_ths, moneyflow_dc, moneyflow_ind_dc, moneyflow_ind_ths, moneyflow_mkt_dc, moneyflow_ths, biying_moneyflow`
 6. `reference_master.py`（4）
 `trade_cal, hk_basic, us_basic, etf_basic`
 7. `low_frequency.py`（2）

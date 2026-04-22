@@ -7,6 +7,7 @@ from src.foundation.services.sync_v2.adapters.registry import get_source_adapter
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, FetchResult, PlanUnit
 from src.foundation.services.sync_v2.error_mapper import SyncV2ErrorMapper
 from src.foundation.services.sync_v2.errors import SyncV2SourceError
+from src.foundation.services.sync_v2.strategy_helpers.pagination_loop import fetch_rows_with_pagination
 
 
 class SyncV2WorkerClient:
@@ -15,38 +16,25 @@ class SyncV2WorkerClient:
 
     def fetch(self, *, contract: DatasetSyncContract, unit: PlanUnit) -> FetchResult:
         adapter = get_source_adapter(contract.source_adapter_key)
-        page_limit = contract.pagination_spec.page_limit
-        pagination_policy = contract.planning_spec.pagination_policy
+        page_limit = (
+            unit.page_limit
+            if unit.page_limit is not None
+            else contract.pagination_spec.page_limit
+        )
+        pagination_policy = unit.pagination_policy or contract.planning_spec.pagination_policy
 
-        rows_raw: list[dict] = []
-        request_count = 0
-        retry_count = 0
-        offset = 0
         started_at = perf_counter()
-        while True:
-            request = adapter.build_request(
-                contract=contract,
-                unit=unit,
-                offset=offset if pagination_policy == "offset_limit" else None,
-                page_limit=page_limit if pagination_policy == "offset_limit" else None,
-            )
-            rows, retries = self._execute_with_retry(
+        rows_raw, request_count, retry_count = fetch_rows_with_pagination(
+            pagination_policy=pagination_policy,
+            page_limit=page_limit,
+            fetch_page=lambda offset, limit: self._fetch_page(
                 contract=contract,
                 adapter=adapter,
-                request=request,
-                unit_id=unit.unit_id,
-            )
-            request_count += 1
-            retry_count += retries
-            rows_raw.extend(rows)
-
-            if pagination_policy != "offset_limit":
-                break
-            if page_limit is None:
-                break
-            if len(rows) < page_limit:
-                break
-            offset += page_limit
+                unit=unit,
+                offset=offset,
+                page_limit=limit,
+            ),
+        )
 
         latency_ms = max(int((perf_counter() - started_at) * 1000), 0)
         return FetchResult(
@@ -56,6 +44,28 @@ class SyncV2WorkerClient:
             latency_ms=latency_ms,
             rows_raw=rows_raw,
             source_http_status=None,
+        )
+
+    def _fetch_page(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        adapter,
+        unit: PlanUnit,
+        offset: int | None,
+        page_limit: int | None,
+    ) -> tuple[list[dict], int]:
+        request = adapter.build_request(
+            contract=contract,
+            unit=unit,
+            offset=offset,
+            page_limit=page_limit,
+        )
+        return self._execute_with_retry(
+            contract=contract,
+            adapter=adapter,
+            request=request,
+            unit_id=unit.unit_id,
         )
 
     def _execute_with_retry(self, *, contract: DatasetSyncContract, adapter, request, unit_id: str) -> tuple[list[dict], int]:  # type: ignore[no-untyped-def]

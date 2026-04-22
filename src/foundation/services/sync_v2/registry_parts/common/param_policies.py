@@ -107,22 +107,35 @@ def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
+    for key in ("name", "publisher"):
+        value = request.params.get(key)
+        if value not in (None, ""):
+            params[key] = str(value).strip()
+    market = enum_values.get("market", request.params.get("market"))
+    category = enum_values.get("category", request.params.get("category"))
+    if market not in (None, "", "__ALL__"):
+        params["market"] = str(market).strip()
+    if category not in (None, "", "__ALL__"):
+        params["category"] = str(category).strip()
     return params
 
 
 def _etf_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
-    list_status = request.params.get("list_status")
+    list_status = enum_values.get("list_status", request.params.get("list_status"))
     if isinstance(list_status, (list, tuple, set)):
         normalized = [str(item).strip() for item in list_status if str(item).strip()]
         if normalized:
             params["list_status"] = ",".join(normalized)
     elif list_status not in (None, ""):
         params["list_status"] = str(list_status).strip()
-    for key in ("ts_code", "index_code", "exchange", "mgr"):
+    for key in ("ts_code", "index_code", "mgr"):
         value = request.params.get(key)
         if value not in (None, ""):
             params[key] = str(value).strip()
+    exchange = enum_values.get("exchange", request.params.get("exchange"))
+    if exchange not in (None, "", "__ALL__"):
+        params["exchange"] = str(exchange).strip()
     list_date = request.params.get("list_date")
     if list_date not in (None, ""):
         params["list_date"] = str(list_date).replace("-", "")
@@ -250,7 +263,7 @@ def _dc_index_params(request, anchor_date: date | None, enum_values: dict[str, A
         raise ValueError("dc_index requires trade_date anchor")
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
     ts_code = request.params.get("ts_code")
-    idx_type = request.params.get("idx_type")
+    idx_type = enum_values.get("idx_type", request.params.get("idx_type"))
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     if idx_type not in (None, ""):
@@ -290,17 +303,13 @@ def _index_daily_params(request, anchor_date: date | None, enum_values: dict[str
 def _limit_list_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("limit_list_d requires trade_date anchor")
-    limit_type = str(enum_values.get("limit_type") or "").strip().upper()
-    exchange = str(enum_values.get("exchange") or "").strip().upper()
-    if not limit_type:
-        raise ValueError("limit_list_d requires limit_type fanout")
-    if not exchange:
-        raise ValueError("limit_list_d requires exchange fanout")
-    params: dict[str, Any] = {
-        "trade_date": anchor_date.strftime("%Y%m%d"),
-        "limit_type": limit_type,
-        "exchange": exchange,
-    }
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    limit_type = enum_values.get("limit_type", request.params.get("limit_type"))
+    exchange = enum_values.get("exchange", request.params.get("exchange"))
+    if limit_type not in (None, "", "__ALL__"):
+        params["limit_type"] = str(limit_type).strip().upper()
+    if exchange not in (None, "", "__ALL__"):
+        params["exchange"] = str(exchange).strip().upper()
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
@@ -312,8 +321,8 @@ def _limit_list_ths_params(request, anchor_date: date | None, enum_values: dict[
         raise ValueError("limit_list_ths requires trade_date anchor")
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
     ts_code = request.params.get("ts_code")
-    limit_type = request.params.get("limit_type")
-    market = request.params.get("market")
+    limit_type = enum_values.get("limit_type", request.params.get("limit_type"))
+    market = enum_values.get("market", request.params.get("market"))
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     if limit_type not in (None, ""):
@@ -349,13 +358,11 @@ def _cyq_perf_params(request, anchor_date: date | None, enum_values: dict[str, A
 def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("margin requires trade_date anchor")
-    exchange_id = str(enum_values.get("exchange_id") or "").strip().upper()
-    if not exchange_id:
-        raise ValueError("margin requires exchange_id fanout")
-    return {
-        "trade_date": anchor_date.strftime("%Y%m%d"),
-        "exchange_id": exchange_id,
-    }
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    exchange_id = enum_values.get("exchange_id", request.params.get("exchange_id"))
+    if exchange_id not in (None, "", "__ALL__"):
+        params["exchange_id"] = str(exchange_id).strip().upper()
+    return params
 
 
 def _limit_step_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
@@ -468,7 +475,7 @@ def _ths_daily_params(request, anchor_date: date | None, enum_values: dict[str, 
 def _dc_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
-    idx_type = request.params.get("idx_type")
+    idx_type = enum_values.get("idx_type", request.params.get("idx_type"))
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     if idx_type not in (None, ""):
@@ -594,7 +601,7 @@ def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, 
 def _moneyflow_ind_dc_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("moneyflow_ind_dc requires trade_date anchor")
-    content_type = str(enum_values.get("content_type") or "").strip()
+    content_type = str(enum_values.get("content_type", request.params.get("content_type")) or "").strip()
     if not content_type:
         raise ValueError("moneyflow_ind_dc requires content_type fanout")
     params: dict[str, Any] = {

@@ -2,7 +2,7 @@
 
 - 版本：v1.0（执行清单）
 - 日期：2026-04-21
-- 状态：待评审
+- 状态：执行中（按 V2 切换节奏推进）
 - 关联主方案：[数据同步 V2 重设计方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
 
 ---
@@ -322,4 +322,3 @@
 2. 先做 `job_execution_unit` + `job_execution_event` envelope 改造。  
 3. 再做 `snapshot_at` 扩展与 freshness 读链兼容。  
 4. 最后进入双写验证与首批数据集试点。  
-

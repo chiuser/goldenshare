@@ -1,8 +1,8 @@
 # 数据同步 V2 重设计方案（含平稳迁移）
 
-- 版本：v2.1（架构评审稿）
+- 版本：v2.2（执行基线）
 - 日期：2026-04-20
-- 状态：已进入执行并完成 Phase 1-4 首轮落地（保留 V1/V2 双轨）
+- 状态：执行中（Phase 1-4 首轮已落地，V1/V2 双轨持续切换）
 - 适用范围：`src/foundation`、`src/ops`（数据拉取、落库、编排、观测全链路）
 - 详细分期方案索引：[dataset-sync-v2-detailed-plan-index.md](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-detailed-plan-index.md)
 

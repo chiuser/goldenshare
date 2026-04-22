@@ -2,7 +2,7 @@
 
 - 版本：v1.0
 - 日期：2026-04-21
-- 状态：待评审
+- 状态：执行中（切换阶段持续推进）
 - 关联文档：
   - [V2 主方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
   - [Phase 1：执行域与事件模型](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-phase-1-execution-domain.md)
