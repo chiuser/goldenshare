@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -339,3 +340,41 @@ def test_validator_accepts_hk_basic_snapshot_refresh_with_list_status() -> None:
     assert validated.start_date is None
     assert validated.end_date is None
     assert validated.params["list_status"] == ["L", "D"]
+
+
+def test_validator_accepts_broker_recommend_point_incremental_with_month_key() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("broker_recommend")
+    request = RunRequest(
+        request_id="req-20",
+        dataset_key="broker_recommend",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"month": "2026-04"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.trade_date is None
+    assert validated.params["month"] == "202604"
+
+
+def test_validator_rejects_point_incremental_when_window_policy_is_none() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stk_limit")
+    broken_contract = replace(
+        contract,
+        planning_spec=replace(contract.planning_spec, window_policy="none"),
+    )
+    request = RunRequest(
+        request_id="req-21",
+        dataset_key="stk_limit",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421"},
+    )
+
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        validator.validate(request=request, contract=broken_contract, strict=True)
+
+    assert exc_info.value.structured_error.error_code == "invalid_window_for_profile"

@@ -24,9 +24,59 @@
 
 ---
 
+## 1.1 本轮前期准备锁定（2026-04-22）
+
+本小节用于锁定“anchor_type 落地 + registry/cli 治理”这一轮的执行边界与回滚基线。
+
+### A. 锁定范围
+
+1. 本轮只做：`anchor_type` 契约落地 + `sync_v2/registry.py` 结构治理 + `src/cli.py` 薄入口治理。  
+2. 本轮禁止：任何数据集切换、`USE_SYNC_V2_DATASETS` 扩面、远程同步批次推进。  
+
+### B. 锁定基线（可回滚提交点）
+
+1. 代码基线提交：`7a7fdbe63b96db640f7c5bdd6a89c51c29687eca`（短 SHA：`7a7fdbe`）。  
+2. 失败回退时，代码回到该提交点再重启服务验证。  
+
+### C. 锁定门禁（本轮必须通过）
+
+本轮改动完成后，至少通过以下门禁：
+
+1. `pytest -q tests/test_sync_v2_validator.py`
+2. `pytest -q tests/test_sync_v2_planner.py`
+3. `pytest -q tests/test_sync_v2_registry_routing.py`
+4. `pytest -q tests/test_cli_sync_v2_commands.py`
+5. `pytest -q tests/test_cli_sync_v2_param_filtering.py`
+6. `pytest -q tests/test_cli_sync_daily.py`
+7. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
+8. `python3 -m src.app.web.run --help`
+9. `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
+
+### D. 锁定开关（远程现值记录）
+
+远程环境文件：`/etc/goldenshare/web.env`
+
+1. `USE_SYNC_V2_DATASETS`（已配置）当前值：
+   - `trade_cal,daily_basic,stk_limit,suspend_d,margin,moneyflow_ind_dc,cyq_perf,moneyflow_ths,moneyflow_dc,moneyflow_cnt_ths,moneyflow_ind_ths,moneyflow_mkt_dc,moneyflow,limit_step,limit_cpt_list,top_list,block_trade,stock_st,stk_nineturn,dc_member,daily,fund_daily,dc_index,index_daily_basic,index_daily,limit_list_d,limit_list_ths,adj_factor,fund_adj,index_basic,etf_basic,etf_index,hk_basic,us_basic,ths_index,kpl_list,kpl_concept_cons,broker_recommend`
+2. `SYNC_V2_STRICT_CONTRACT`（未在远程 env 显式配置）：
+   - 运行时生效值依赖代码默认值，当前为 `true`（见 [settings.py](/Users/congming/github/goldenshare/src/foundation/config/settings.py):50）。
+
+### E. 锁定回滚（失败动作）
+
+1. 代码回滚：
+   - 回退到基线提交 `7a7fdbe`，重新发版并重启 `web/worker/scheduler`。  
+2. 开关回滚：
+   - 本轮不应改动 `USE_SYNC_V2_DATASETS`；若误改，恢复到本节 D 中记录值并重启三服务。  
+   - 若误改 `SYNC_V2_STRICT_CONTRACT`，回退到“未显式配置（或显式 `true`）”并重启三服务。  
+3. 回滚后校验：
+   - `systemctl is-active` 三服务均 `active`
+   - `/api/health` 与 `/api/v1/health` 返回 `ok`
+
+---
+
 ## 2. 本轮可切数据集（已落地 V2 contract）
 
-当前代码中已注册 V2 contract 的数据集（共 28 个）：
+当前代码中已注册 V2 contract 的数据集（共 38 个）：
 
 1. `trade_cal`
 2. `daily_basic`
@@ -56,12 +106,22 @@
 26. `limit_list_d`
 27. `limit_list_ths`
 28. `adj_factor`
+29. `fund_adj`
+30. `index_basic`
+31. `etf_basic`
+32. `etf_index`
+33. `hk_basic`
+34. `us_basic`
+35. `ths_index`
+36. `kpl_list`
+37. `kpl_concept_cons`
+38. `broker_recommend`
 
 说明：
 
 1. `moneyflow`（主资金流，`raw -> std -> serving` 多源发布链）V2 contract 与 writer（`std + publish`）已在代码中落地并完成远程部署。  
 2. `daily/fund_daily/dc_index/index_daily_basic/index_daily/limit_list_d/limit_list_ths/adj_factor` 已完成 R0+R1 扩展并通过门禁。  
-3. 当前线上 `USE_SYNC_V2_DATASETS` 已与这 28 个 contract 覆盖口径对齐。  
+3. 当前线上 `USE_SYNC_V2_DATASETS` 已与这 38 个 contract 覆盖口径对齐。  
 
 建议切换顺序（低风险到高风险）：
 
@@ -93,6 +153,16 @@
 26. `limit_list_d`
 27. `limit_list_ths`
 28. `adj_factor`
+29. `fund_adj`
+30. `index_basic`
+31. `etf_basic`
+32. `etf_index`
+33. `hk_basic`
+34. `us_basic`
+35. `ths_index`
+36. `kpl_list`
+37. `kpl_concept_cons`
+38. `broker_recommend`
 
 ---
 

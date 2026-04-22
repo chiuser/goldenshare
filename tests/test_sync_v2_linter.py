@@ -35,3 +35,19 @@ def test_lint_contract_reports_invalid_universe_policy() -> None:
     issues = lint_contract(broken_contract)
 
     assert any(issue.code == "invalid_universe_policy" for issue in issues)
+
+
+def test_lint_contract_reports_invalid_anchor_window_combo() -> None:
+    contract = get_sync_v2_contract("stk_limit")
+    broken_contract = replace(
+        contract,
+        planning_spec=replace(
+            contract.planning_spec,
+            anchor_type="none",
+            window_policy="point_or_range",
+        ),
+    )
+
+    issues = lint_contract(broken_contract)
+
+    assert any(issue.code == "invalid_anchor_window_combo" for issue in issues)

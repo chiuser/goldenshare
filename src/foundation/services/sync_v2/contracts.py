@@ -8,6 +8,7 @@ from typing import Any, Callable
 RunProfile = str
 DateAnchorPolicy = str
 PaginationPolicy = str
+WindowPolicy = str
 
 
 @dataclass(slots=True, frozen=True)
@@ -32,6 +33,8 @@ class InputSchema:
 @dataclass(slots=True, frozen=True)
 class PlanningSpec:
     date_anchor_policy: DateAnchorPolicy
+    anchor_type: DateAnchorPolicy | None = None
+    window_policy: WindowPolicy | None = None
     universe_policy: str = "none"
     enum_fanout_fields: tuple[str, ...] = ()
     enum_fanout_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
@@ -186,3 +189,42 @@ class EngineRunSummary:
     result_date: date | None
     message: str | None
     error_counts: dict[str, int]
+
+
+def resolve_contract_anchor_type(contract: DatasetSyncContract) -> DateAnchorPolicy:
+    planning_spec = contract.planning_spec
+    explicit = str(planning_spec.anchor_type or "").strip()
+    if explicit:
+        return explicit
+    legacy = str(planning_spec.date_anchor_policy or "").strip()
+    return legacy or "none"
+
+
+def resolve_contract_window_policy(contract: DatasetSyncContract) -> WindowPolicy:
+    planning_spec = contract.planning_spec
+    explicit = str(planning_spec.window_policy or "").strip()
+    if explicit:
+        return explicit
+    return infer_window_policy_from_profiles(
+        run_profiles_supported=contract.run_profiles_supported,
+        anchor_type=resolve_contract_anchor_type(contract),
+    )
+
+
+def infer_window_policy_from_profiles(
+    *,
+    run_profiles_supported: tuple[RunProfile, ...],
+    anchor_type: DateAnchorPolicy,
+) -> WindowPolicy:
+    profiles = set(run_profiles_supported)
+    has_point = "point_incremental" in profiles
+    has_range = "range_rebuild" in profiles
+    if has_point and has_range:
+        return "point_or_range"
+    if has_point:
+        return "point"
+    if has_range:
+        return "range"
+    if anchor_type == "none":
+        return "none"
+    return "point"

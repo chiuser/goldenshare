@@ -241,3 +241,56 @@ def test_planner_broker_recommend_range_rebuild_compresses_to_month_end(mocker) 
     assert len(units) == 2
     assert {unit.trade_date for unit in units} == {date(2026, 4, 30), date(2026, 5, 29)}
     assert {unit.request_params["month"] for unit in units} == {"202604", "202605"}
+
+
+def test_planner_broker_recommend_point_incremental_with_month_key_keeps_single_unit(mocker) -> None:
+    session = mocker.Mock()
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: [])
+    )
+    contract = get_sync_v2_contract("broker_recommend")
+    request = RunRequest(
+        request_id="req-broker-point-month",
+        dataset_key="broker_recommend",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"month": "202604"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 1
+    assert units[0].trade_date is None
+    assert units[0].request_params["month"] == "202604"
+
+
+def test_planner_trade_cal_range_rebuild_uses_single_natural_window(mocker) -> None:
+    session = mocker.Mock()
+    planner = SyncV2Planner(session)
+    planner.dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [
+                date(2026, 4, 1),
+                date(2026, 4, 2),
+                date(2026, 4, 3),
+            ]
+        )
+    )
+    contract = get_sync_v2_contract("trade_cal")
+    request = RunRequest(
+        request_id="req-trade-cal-range",
+        dataset_key="trade_cal",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260401", "end_date": "20260403"},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = planner.plan(validated, contract)
+
+    assert len(units) == 1
+    assert units[0].trade_date is None
+    assert units[0].request_params["start_date"] == "20260401"
+    assert units[0].request_params["end_date"] == "20260403"

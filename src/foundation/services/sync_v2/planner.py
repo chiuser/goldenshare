@@ -12,7 +12,13 @@ from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.services.sync.fields import DC_INDEX_FIELDS
-from src.foundation.services.sync_v2.contracts import DatasetSyncContract, PlanUnit, ValidatedRunRequest
+from src.foundation.services.sync_v2.contracts import (
+    DatasetSyncContract,
+    PlanUnit,
+    ValidatedRunRequest,
+    resolve_contract_anchor_type,
+    resolve_contract_window_policy,
+)
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2PlanningError
 
 
@@ -60,13 +66,46 @@ class SyncV2Planner:
         return units
 
     def _resolve_anchors(self, request: ValidatedRunRequest, contract: DatasetSyncContract) -> list[date | None]:
-        policy = contract.planning_spec.date_anchor_policy
-        if request.run_profile == "snapshot_refresh" or policy == "none":
+        anchor_type = resolve_contract_anchor_type(contract)
+        window_policy = resolve_contract_window_policy(contract)
+        if request.run_profile == "snapshot_refresh":
             return [None]
         if request.run_profile == "point_incremental":
-            return [request.trade_date]
+            if window_policy not in {"point", "point_or_range"}:
+                raise SyncV2PlanningError(
+                    StructuredError(
+                        error_code="invalid_window_for_profile",
+                        error_type="planning",
+                        phase="planner",
+                        message=(
+                            f"run_profile=point_incremental is not allowed "
+                            f"for window_policy={window_policy}"
+                        ),
+                        retryable=False,
+                    )
+                )
+            if anchor_type in {
+                "trade_date",
+                "week_end_trade_date",
+                "month_end_trade_date",
+                "month_key_yyyymm",
+                "month_range_natural",
+                "natural_date_range",
+            }:
+                return [request.trade_date]
+            return [None]
         if request.run_profile != "range_rebuild":
             return [request.trade_date]
+        if window_policy not in {"range", "point_or_range"}:
+            raise SyncV2PlanningError(
+                StructuredError(
+                    error_code="invalid_window_for_profile",
+                    error_type="planning",
+                    phase="planner",
+                    message=f"run_profile=range_rebuild is not allowed for window_policy={window_policy}",
+                    retryable=False,
+                )
+            )
         if request.start_date is None or request.end_date is None:
             raise SyncV2PlanningError(
                 StructuredError(
@@ -77,18 +116,28 @@ class SyncV2Planner:
                     retryable=False,
                 )
             )
+        if anchor_type in {"none", "month_range_natural", "natural_date_range"}:
+            return [None]
         open_dates = self.dao.trade_calendar.get_open_dates(
             str(request.params.get("exchange") or self.settings.default_exchange),
             request.start_date,
             request.end_date,
         )
-        if policy == "trade_date":
+        if anchor_type == "trade_date":
             return list(open_dates)
-        if policy == "week_end_trade_date":
+        if anchor_type == "week_end_trade_date":
             return self._compress_to_week_end(open_dates)
-        if policy == "month_end_trade_date":
+        if anchor_type in {"month_end_trade_date", "month_key_yyyymm"}:
             return self._compress_to_month_end(open_dates)
-        return [None]
+        raise SyncV2PlanningError(
+            StructuredError(
+                error_code="invalid_anchor_type",
+                error_type="planning",
+                phase="planner",
+                message=f"unsupported anchor_type={anchor_type}",
+                retryable=False,
+            )
+        )
 
     @staticmethod
     def _compress_to_week_end(open_dates: list[date]) -> list[date]:

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.foundation.services.sync_v2.contracts import DatasetSyncContract
+from src.foundation.services.sync_v2.contracts import (
+    DatasetSyncContract,
+    resolve_contract_anchor_type,
+    resolve_contract_window_policy,
+)
 from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 
 ALLOWED_WRITE_PATHS = {
@@ -11,6 +15,16 @@ ALLOWED_WRITE_PATHS = {
     "raw_core_snapshot_insert_by_trade_date",
 }
 ALLOWED_UNIVERSE_POLICIES = {"none", "dc_index_board_codes", "index_active_codes"}
+ALLOWED_ANCHOR_TYPES = {
+    "trade_date",
+    "week_end_trade_date",
+    "month_end_trade_date",
+    "month_range_natural",
+    "month_key_yyyymm",
+    "natural_date_range",
+    "none",
+}
+ALLOWED_WINDOW_POLICIES = {"point", "range", "point_or_range", "none"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -48,6 +62,59 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
                 contract.dataset_key,
                 "invalid_universe_policy",
                 f"planning_spec.universe_policy={contract.planning_spec.universe_policy} is not supported",
+            )
+        )
+    anchor_type = resolve_contract_anchor_type(contract)
+    if anchor_type not in ALLOWED_ANCHOR_TYPES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_anchor_type",
+                f"planning_spec.anchor_type={anchor_type} is not supported",
+            )
+        )
+    window_policy = resolve_contract_window_policy(contract)
+    if window_policy not in ALLOWED_WINDOW_POLICIES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_window_policy",
+                f"planning_spec.window_policy={window_policy} is not supported",
+            )
+        )
+    if anchor_type == "none" and window_policy == "point_or_range":
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_anchor_window_combo",
+                "anchor_type=none cannot use window_policy=point_or_range",
+            )
+        )
+    profiles = set(contract.run_profiles_supported)
+    has_point = "point_incremental" in profiles
+    has_range = "range_rebuild" in profiles
+    if window_policy == "point" and has_range:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "window_profile_mismatch",
+                "window_policy=point does not match range_rebuild support",
+            )
+        )
+    if window_policy == "range" and has_point:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "window_profile_mismatch",
+                "window_policy=range does not match point_incremental support",
+            )
+        )
+    if window_policy == "none" and (has_point or has_range):
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "window_profile_mismatch",
+                "window_policy=none cannot be used with point_incremental/range_rebuild",
             )
         )
     for enum_key in contract.planning_spec.enum_fanout_fields:
