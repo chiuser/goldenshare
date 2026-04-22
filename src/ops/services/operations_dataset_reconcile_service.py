@@ -223,6 +223,7 @@ class DatasetReconcileService:
             mode="daily",
             raw_date_field="trade_date",
             serving_date_field="trade_date",
+            serving_filters={"source": "api"},
         ),
         "index_monthly": DatasetReconcileConfig(
             raw_model=RawIndexMonthlyBar,
@@ -230,6 +231,7 @@ class DatasetReconcileService:
             mode="daily",
             raw_date_field="trade_date",
             serving_date_field="trade_date",
+            serving_filters={"source": "api"},
         ),
         "limit_list_d": DatasetReconcileConfig(
             raw_model=RawLimitList,
