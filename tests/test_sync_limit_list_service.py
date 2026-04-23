@@ -1,90 +1,76 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
-from src.foundation.services.sync.sync_limit_list_service import SyncLimitListService, build_limit_list_params
+from src.foundation.services.sync_v2.contracts import RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.limit_list_d import build_limit_list_d_units
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_build_limit_list_params_supports_incremental_filters() -> None:
-    params = build_limit_list_params(
-        "INCREMENTAL",
+def _fake_dao(open_dates: list[date]) -> SimpleNamespace:
+    return SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start, end: open_dates)
+    )
+
+
+def test_limit_list_d_point_incremental_with_single_filters() -> None:
+    contract = get_sync_v2_contract("limit_list_d")
+    request = RunRequest(
+        request_id="req-limit-list-point-single",
+        dataset_key="limit_list_d",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 3),
-        limit_type="U",
-        exchange="SH",
+        params={"limit_type": "U", "exchange": "SH"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_list_d_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260403", "limit_type": "U", "exchange": "SH"}
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 2500
+
+
+def test_limit_list_d_point_incremental_default_request_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("limit_list_d")
+    request = RunRequest(
+        request_id="req-limit-list-point-default",
+        dataset_key="limit_list_d",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 3),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_list_d_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260403"}
+
+
+def test_limit_list_d_range_rebuild_fans_out_dates_and_filters() -> None:
+    contract = get_sync_v2_contract("limit_list_d")
+    request = RunRequest(
+        request_id="req-limit-list-range",
+        dataset_key="limit_list_d",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 2),
+        params={"limit_type": "D", "exchange": "BJ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_list_d_units(
+        validated,
+        contract,
+        dao=_fake_dao([date(2026, 3, 1), date(2026, 3, 2)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert params == {
-        "trade_date": "20260403",
-        "limit_type": "U",
-        "exchange": "SH",
-    }
-
-
-def test_build_limit_list_params_supports_full_range_filters() -> None:
-    params = build_limit_list_params(
-        "FULL",
-        start_date="2026-03-01",
-        end_date="2026-03-31",
-        limit_type="D",
-        exchange="BJ",
-    )
-
-    assert params == {
-        "start_date": "20260301",
-        "end_date": "20260331",
-        "limit_type": "D",
-        "exchange": "BJ",
-    }
-
-
-def test_sync_limit_list_execute_fans_out_when_filters_not_provided(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncLimitListService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = []
-    service.dao.raw_limit_list = mocker.Mock()
-    service.dao.equity_limit_list = mocker.Mock()
-    service.dao.equity_limit_list.bulk_upsert.return_value = 0
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 4, 3))
-
-    assert fetched == 0
-    assert written == 0
-    assert result_date == date(2026, 4, 3)
-    assert message is None
-    assert service.client.call.call_count == 9
-
-    called_pairs = {
-        (call.kwargs["params"]["limit_type"], call.kwargs["params"]["exchange"])
-        for call in service.client.call.call_args_list
-    }
-    assert called_pairs == {
-        ("U", "SH"),
-        ("U", "SZ"),
-        ("U", "BJ"),
-        ("D", "SH"),
-        ("D", "SZ"),
-        ("D", "BJ"),
-        ("Z", "SH"),
-        ("Z", "SZ"),
-        ("Z", "BJ"),
-    }
-
-
-def test_sync_limit_list_execute_calls_once_when_single_filters_given(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncLimitListService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = []
-    service.dao.raw_limit_list = mocker.Mock()
-    service.dao.equity_limit_list = mocker.Mock()
-    service.dao.equity_limit_list.bulk_upsert.return_value = 0
-
-    service.execute("INCREMENTAL", trade_date=date(2026, 4, 3), limit_type="U", exchange="SH")
-
-    assert service.client.call.call_count == 1
-    assert service.client.call.call_args.kwargs["params"] == {
-        "trade_date": "20260403",
-        "limit_type": "U",
-        "exchange": "SH",
-    }
+    assert len(units) == 2
+    assert units[0].request_params == {"trade_date": "20260301", "limit_type": "D", "exchange": "BJ"}
+    assert units[1].request_params == {"trade_date": "20260302", "limit_type": "D", "exchange": "BJ"}

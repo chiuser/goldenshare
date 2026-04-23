@@ -2,167 +2,108 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.foundation.services.sync.sync_dividend_service import SyncDividendService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.dividend import build_dividend_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 
 
-def _build_service(mocker) -> SyncDividendService:
-    session = mocker.Mock()
-    service = SyncDividendService(session)
-    service.dao = mocker.Mock()
-    service.dao.raw_dividend = mocker.Mock()
-    service.dao.equity_dividend = mocker.Mock()
-    service.client = mocker.Mock()
-    service.logger = mocker.Mock()
-    return service
+def test_dividend_range_rebuild_expands_natural_dates() -> None:
+    contract = get_sync_v2_contract("dividend")
+    request = RunRequest(
+        request_id="req-dividend-range",
+        dataset_key="dividend",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 21),
+        end_date=date(2026, 3, 23),
+        params={"ts_code": "000001.SZ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dividend_units(validated, contract, dao=None, settings=None, session=None)
 
-
-def test_dividend_execute_writes_valid_core_rows(mocker) -> None:
-    service = _build_service(mocker)
-    service.client.call.return_value = [
-        {
-            "ts_code": "000001.SZ",
-            "end_date": "20251231",
-            "ann_date": "20260321",
-            "div_proc": "预案",
-            "record_date": None,
-            "ex_date": None,
-            "cash_div_tax": 0.36,
-        }
+    assert [unit.request_params for unit in units] == [
+        {"ann_date": "20260321", "ts_code": "000001.SZ"},
+        {"ann_date": "20260322", "ts_code": "000001.SZ"},
+        {"ann_date": "20260323", "ts_code": "000001.SZ"},
     ]
-    service.dao.raw_dividend.bulk_upsert.return_value = 1
-    service.dao.equity_dividend.bulk_upsert.return_value = 1
-
-    fetched, written, _, message = service.execute("FULL", ts_code="000001.SZ")
-
-    assert fetched == 1
-    assert written == 1
-    assert message is None
-    raw_rows = service.dao.raw_dividend.bulk_upsert.call_args.args[0]
-    assert len(raw_rows) == 1
-    assert raw_rows[0]["ts_code"] == "000001.SZ"
-    assert raw_rows[0]["row_key_hash"] == build_dividend_row_key_hash(raw_rows[0])
-    assert service.dao.raw_dividend.bulk_upsert.call_args.kwargs["conflict_columns"] == ["row_key_hash"]
-    core_rows = service.dao.equity_dividend.bulk_upsert.call_args.args[0]
-    assert core_rows[0]["ts_code"] == "000001.SZ"
-    assert core_rows[0]["end_date"] == date(2025, 12, 31)
-    assert core_rows[0]["ann_date"] == date(2026, 3, 21)
-    assert core_rows[0]["div_proc"] == "预案"
-    assert core_rows[0]["row_key_hash"] == build_dividend_row_key_hash(core_rows[0])
-    assert core_rows[0]["event_key_hash"] == build_dividend_event_key_hash(core_rows[0])
-    assert service.dao.equity_dividend.bulk_upsert.call_args.kwargs["conflict_columns"] == ["row_key_hash"]
+    assert all(unit.pagination_policy == "offset_limit" for unit in units)
+    assert all(unit.page_limit == 6000 for unit in units)
 
 
-def test_dividend_execute_skips_rows_missing_required_core_keys(mocker) -> None:
-    service = _build_service(mocker)
-    service.client.call.return_value = [
-        {
-            "ts_code": "000001.SZ",
-            "ann_date": "20260321",
-            "div_proc": None,
-            "cash_div_tax": 0.36,
-        }
-    ]
-    service.dao.equity_dividend.bulk_upsert.return_value = 0
+def test_dividend_snapshot_refresh_without_anchor_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("dividend")
+    request = RunRequest(
+        request_id="req-dividend-snapshot",
+        dataset_key="dividend",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={"ts_code": "000001.SZ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dividend_units(validated, contract, dao=None, settings=None, session=None)
 
-    fetched, written, _, message = service.execute("FULL", ts_code="000001.SZ")
-
-    assert fetched == 1
-    assert written == 0
-    assert message == "skipped 1 core dividend rows missing required business keys"
-    raw_rows = service.dao.raw_dividend.bulk_upsert.call_args.args[0]
-    assert len(raw_rows) == 1
-    assert raw_rows[0]["ts_code"] == "000001.SZ"
-    service.dao.equity_dividend.bulk_upsert.assert_called_once_with([], conflict_columns=["row_key_hash"])
-    service.logger.warning.assert_called_once()
-    service.logger.debug.assert_called_once()
+    assert len(units) == 1
+    assert units[0].request_params == {"ts_code": "000001.SZ"}
 
 
-def test_dividend_execute_preserves_raw_rows_even_when_core_skips(mocker) -> None:
-    service = _build_service(mocker)
-    service.client.call.return_value = [
-        {
-            "ts_code": "000001.SZ",
-            "end_date": None,
-            "ann_date": None,
-            "div_proc": "预案",
-        }
-    ]
-    service.dao.equity_dividend.bulk_upsert.return_value = 0
+def test_dividend_normalizer_autofills_ex_date_and_generates_hashes() -> None:
+    contract = get_sync_v2_contract("dividend")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-dividend",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.SZ",
+                    "end_date": "20251231",
+                    "ann_date": "20260321",
+                    "div_proc": "实施",
+                    "record_date": "20260401",
+                    "ex_date": None,
+                    "pay_date": None,
+                    "cash_div": "0",
+                    "cash_div_tax": "0",
+                    "stk_div": "1",
+                }
+            ],
+        ),
+    )
 
-    _, written, _, message = service.execute("FULL", ts_code="000001.SZ")
-
-    assert written == 0
-    assert message == "skipped 1 core dividend rows missing required business keys"
-    raw_rows = service.dao.raw_dividend.bulk_upsert.call_args.args[0]
-    assert len(raw_rows) == 1
-    assert raw_rows[0]["end_date"] is None
-
-
-def test_dividend_execute_same_record_uses_stable_row_key_hash(mocker) -> None:
-    service = _build_service(mocker)
-    record = {
-        "ts_code": "000001.SZ",
-        "end_date": "20251231",
-        "ann_date": "20260321",
-        "div_proc": "预案",
-        "record_date": None,
-        "ex_date": None,
-        "cash_div_tax": 0.36,
-    }
-    service.client.call.return_value = [record]
-    service.dao.raw_dividend.bulk_upsert.return_value = 1
-    service.dao.equity_dividend.bulk_upsert.return_value = 1
-
-    service.execute("FULL", ts_code="000001.SZ")
-    first_raw = service.dao.raw_dividend.bulk_upsert.call_args.args[0][0]["row_key_hash"]
-    first_core = service.dao.equity_dividend.bulk_upsert.call_args.args[0][0]["row_key_hash"]
-
-    service.execute("FULL", ts_code="000001.SZ")
-    second_raw = service.dao.raw_dividend.bulk_upsert.call_args.args[0][0]["row_key_hash"]
-    second_core = service.dao.equity_dividend.bulk_upsert.call_args.args[0][0]["row_key_hash"]
-
-    assert first_raw == second_raw
-    assert first_core == second_core
+    assert batch.rows_rejected == 0
+    row = batch.rows_normalized[0]
+    assert row["end_date"] == date(2025, 12, 31)
+    assert row["ann_date"] == date(2026, 3, 21)
+    assert row["ex_date"] == date(2026, 4, 1)
+    assert row["row_key_hash"] == build_dividend_row_key_hash(row)
+    assert row["event_key_hash"] == build_dividend_event_key_hash(row)
 
 
-def test_dividend_execute_autofills_ex_date_and_emits_quality_warning(mocker) -> None:
-    service = _build_service(mocker)
-    service.client.call.return_value = [
-        {
-            "ts_code": "000001.SZ",
-            "end_date": "20251231",
-            "ann_date": "20260321",
-            "div_proc": "实施",
-            "record_date": "20260401",
-            "ex_date": None,
-            "pay_date": None,
-            "cash_div": "0",
-            "cash_div_tax": "0",
-            "stk_div": "1",
-        },
-        {
-            "ts_code": "000002.SZ",
-            "end_date": "20251231",
-            "ann_date": "20260321",
-            "div_proc": "实施",
-            "record_date": None,
-            "ex_date": None,
-            "pay_date": "20260402",
-            "cash_div": "0.2",
-            "cash_div_tax": "0.2",
-            "stk_div": "0",
-        },
-    ]
-    service.dao.raw_dividend.bulk_upsert.return_value = 2
-    service.dao.equity_dividend.bulk_upsert.return_value = 2
+def test_dividend_normalizer_rejects_rows_missing_required_keys() -> None:
+    contract = get_sync_v2_contract("dividend")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-dividend-invalid",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.SZ",
+                    "ann_date": None,
+                    "div_proc": None,
+                    "cash_div_tax": 0.36,
+                }
+            ],
+        ),
+    )
 
-    fetched, written, _, message = service.execute("FULL", ts_code="000001.SZ")
-
-    assert fetched == 2
-    assert written == 2
-    assert message is not None
-    assert "data_quality_warning: dividend_ex_date_autofill total=2 by_record_date=1 by_pay_date=1" in message
-    core_rows = service.dao.equity_dividend.bulk_upsert.call_args.args[0]
-    assert core_rows[0]["ex_date"] == date(2026, 4, 1)
-    assert core_rows[1]["ex_date"] == date(2026, 4, 2)
+    assert batch.rows_normalized == []
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"ValueError": 1}

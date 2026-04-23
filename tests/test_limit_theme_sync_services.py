@@ -2,139 +2,95 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.foundation.services.sync.sync_limit_cpt_list_service import SyncLimitCptListService, build_limit_cpt_list_params
-from src.foundation.services.sync.sync_limit_list_ths_service import SyncLimitListThsService, build_limit_list_ths_params
-from src.foundation.services.sync.sync_limit_step_service import SyncLimitStepService, build_limit_step_params
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.limit_cpt_list import build_limit_cpt_list_units
+from src.foundation.services.sync_v2.dataset_strategies.limit_list_ths import build_limit_list_ths_units
+from src.foundation.services.sync_v2.dataset_strategies.limit_step import build_limit_step_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_limit_list_ths_supports_incremental_and_range_params() -> None:
-    incremental = build_limit_list_ths_params(
-        "INCREMENTAL",
+def test_limit_list_ths_point_incremental_expands_enum_combinations() -> None:
+    contract = get_sync_v2_contract("limit_list_ths")
+    request = RunRequest(
+        request_id="req-limit-list-ths",
+        dataset_key="limit_list_ths",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 3),
-        limit_type="涨停池",
-        market="HS",
+        params={"limit_type": "涨停池,炸板池", "market": "HS,GEM"},
     )
-    assert incremental == {"trade_date": "20260403", "limit_type": "涨停池", "market": "HS"}
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_list_ths_units(validated, contract, dao=None, settings=None, session=None)
 
-    full = build_limit_list_ths_params(
-        "FULL",
-        start_date="2026-03-01",
-        end_date="2026-03-31",
-        limit_type="炸板池",
-        market="GEM",
+    assert len(units) == 4
+    combo_params = sorted((u.request_params["limit_type"], u.request_params["market"]) for u in units)
+    assert combo_params == [("涨停池", "GEM"), ("涨停池", "HS"), ("炸板池", "GEM"), ("炸板池", "HS")]
+    assert all(u.request_params["trade_date"] == "20260403" for u in units)
+    assert all(u.page_limit == 4000 for u in units)
+
+
+def test_limit_list_ths_normalizer_sets_query_context() -> None:
+    contract = get_sync_v2_contract("limit_list_ths")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-limit-list-ths",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260403",
+                    "ts_code": "000001.SZ",
+                    "name": "平安银行",
+                    "price": "11.20",
+                    "pct_chg": "10.01",
+                    "limit_type": "涨停池",
+                    "market_type": "HS",
+                }
+            ],
+        ),
     )
-    assert full == {"start_date": "20260301", "end_date": "20260331", "limit_type": "炸板池", "market": "GEM"}
+
+    assert batch.rows_rejected == 0
+    row = batch.rows_normalized[0]
+    assert row["query_limit_type"] == "涨停池"
+    assert row["query_market"] == "HS"
 
 
-def test_limit_step_supports_incremental_and_range_params() -> None:
-    assert build_limit_step_params("INCREMENTAL", trade_date=date(2026, 4, 3)) == {"trade_date": "20260403"}
-    assert build_limit_step_params("FULL", start_date="2026-03-01", end_date="2026-03-31") == {
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
-
-
-def test_limit_cpt_list_supports_incremental_and_range_params() -> None:
-    assert build_limit_cpt_list_params("INCREMENTAL", trade_date=date(2026, 4, 3)) == {"trade_date": "20260403"}
-    assert build_limit_cpt_list_params("FULL", start_date="2026-03-01", end_date="2026-03-31") == {
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
-
-
-def test_limit_list_ths_persists_query_context_keys(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncLimitListThsService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260403",
-            "ts_code": "000001.SZ",
-            "name": "平安银行",
-            "price": "11.20",
-            "pct_chg": "10.01",
-            "limit_type": "涨停池",
-            "market_type": "HS",
-        }
-    ]
-    service.dao.raw_limit_list_ths = mocker.Mock()
-    service.dao.limit_list_ths = mocker.Mock()
-    service.dao.limit_list_ths.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
+def test_limit_step_point_incremental_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("limit_step")
+    request = RunRequest(
+        request_id="req-limit-step",
+        dataset_key="limit_step",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 3),
-        limit_type="涨停池",
-        market="HS",
+        params={},
     )
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_step_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 3)
-    assert message is None
-    persisted_row = service.dao.limit_list_ths.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["query_limit_type"] == "涨停池"
-    assert persisted_row["query_market"] == "HS"
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260403"}
+    assert units[0].page_limit == 2000
 
 
-def test_limit_step_service_normalizes_and_upserts_rows(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncLimitStepService(session)
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {
-                "ts_code": "000001.SZ",
-                "name": "平安银行",
-                "trade_date": "20260403",
-                "nums": "2",
-            }
-        ],
+def test_limit_cpt_list_point_incremental_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("limit_cpt_list")
+    request = RunRequest(
+        request_id="req-limit-cpt-list",
+        dataset_key="limit_cpt_list",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 3),
+        params={},
     )
-    raw_upsert = mocker.patch.object(service.dao.raw_limit_step, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.limit_step, "bulk_upsert", return_value=1)
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_cpt_list_units(validated, contract, dao=None, settings=None, session=None)
 
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 4, 3))
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 3)
-    assert message is None
-    raw_rows = raw_upsert.call_args.args[0]
-    assert raw_rows[0]["trade_date"].isoformat() == "2026-04-03"
-    core_upsert.assert_called_once_with(raw_rows)
-
-
-def test_limit_cpt_list_service_normalizes_and_upserts_rows(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncLimitCptListService(session)
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {
-                "ts_code": "CPT001",
-                "name": "AI算力",
-                "trade_date": "20260403",
-                "days": 3,
-                "up_stat": "3天2板",
-                "cons_nums": 5,
-                "up_nums": 12,
-                "pct_chg": "8.32",
-                "rank": "1",
-            }
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_limit_cpt_list, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.limit_cpt_list, "bulk_upsert", return_value=1)
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 4, 3))
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 3)
-    assert message is None
-    raw_rows = raw_upsert.call_args.args[0]
-    assert raw_rows[0]["trade_date"].isoformat() == "2026-04-03"
-    core_upsert.assert_called_once_with(raw_rows)
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260403"}
+    assert units[0].page_limit == 2000

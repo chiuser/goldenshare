@@ -1,109 +1,60 @@
 from __future__ import annotations
 
-from src.foundation.services.sync.sync_hk_basic_service import SyncHkBasicService, build_hk_basic_params
-from src.foundation.services.sync.sync_us_basic_service import SyncUsBasicService, build_us_basic_params
+from src.foundation.services.sync_v2.contracts import RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.hk_basic import build_hk_basic_units
+from src.foundation.services.sync_v2.dataset_strategies.us_basic import build_us_basic_units
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_build_hk_basic_params_supports_ts_code_and_list_status() -> None:
-    assert build_hk_basic_params("FULL") == {}
-    assert build_hk_basic_params("FULL", list_status="L") == {
-        "list_status": "L",
-    }
-    assert build_hk_basic_params("FULL", list_status=["L", "P"]) == {
-        "list_status": "L,P",
-    }
-
-
-def test_build_us_basic_params_supports_filters_and_paging() -> None:
-    assert build_us_basic_params("FULL") == {}
-    assert build_us_basic_params("FULL", classify="EQ", offset=100, limit=200) == {
-        "classify": "EQT",
-        "offset": 100,
-        "limit": 200,
-    }
-    assert build_us_basic_params("FULL", classify=["ADR", "EQ"]) == {
-        "classify": "ADR,EQT",
-    }
-
-
-def test_sync_hk_basic_service_normalizes_and_upserts_rows(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncHkBasicService(session)
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {
-                "ts_code": "00005.HK",
-                "name": "汇丰控股",
-                "fullname": "汇丰控股有限公司",
-                "enname": "HSBC Holdings plc",
-                "cn_spell": "huifengkonggu",
-                "market": "主板",
-                "list_status": "L",
-                "list_date": "2000-01-03",
-                "delist_date": None,
-                "trade_unit": 400,
-                "isin": "GB0005405286",
-                "curr_type": "HKD",
-            }
-        ],
+def test_build_hk_basic_units_supports_list_status_and_paging() -> None:
+    contract = get_sync_v2_contract("hk_basic")
+    request = RunRequest(
+        request_id="req-hk-basic",
+        dataset_key="hk_basic",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={"list_status": ["L", "P"]},
     )
-    raw_upsert = mocker.patch.object(service.dao.raw_hk_basic, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.hk_security, "bulk_upsert", return_value=1)
+    validated = ContractValidator().validate(request, contract)
 
-    fetched, written, result_date, message = service.execute("FULL")
+    units = build_hk_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date is None
-    assert message is None
-    raw_rows = raw_upsert.call_args.args[0]
-    assert raw_rows[0]["list_date"].isoformat() == "2000-01-03"
-    assert raw_rows[0]["trade_unit"] == 400
-    core_upsert.assert_called_once_with(
-        [
-            {
-                **raw_rows[0],
-                "source": "tushare",
-            }
-        ]
+    assert len(units) == 1
+    assert units[0].trade_date is None
+    assert units[0].request_params == {"list_status": "L,P"}
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 6000
+
+
+def test_build_us_basic_units_supports_filters_and_paging() -> None:
+    contract = get_sync_v2_contract("us_basic")
+    request = RunRequest(
+        request_id="req-us-basic",
+        dataset_key="us_basic",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={"classify": ["ADR", "EQ"], "ts_code": "aapl"},
     )
+    validated = ContractValidator().validate(request, contract)
+
+    units = build_us_basic_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 1
+    assert units[0].trade_date is None
+    assert units[0].request_params == {"classify": "ADR,EQT", "ts_code": "AAPL"}
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 6000
 
 
-def test_sync_us_basic_service_normalizes_and_upserts_rows(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncUsBasicService(session)
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {
-                "ts_code": "AAPL",
-                "name": "苹果",
-                "enname": "Apple Inc.",
-                "classify": "EQ",
-                "list_date": "1980-12-12",
-                "delist_date": None,
-            }
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_us_basic, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.us_security, "bulk_upsert", return_value=1)
+def test_hk_us_basic_row_transform_keeps_source_tushare() -> None:
+    hk_contract = get_sync_v2_contract("hk_basic")
+    us_contract = get_sync_v2_contract("us_basic")
 
-    fetched, written, result_date, message = service.execute("FULL")
+    hk_transform = hk_contract.normalization_spec.row_transform
+    us_transform = us_contract.normalization_spec.row_transform
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date is None
-    assert message is None
-    raw_rows = raw_upsert.call_args.args[0]
-    assert raw_rows[0]["list_date"].isoformat() == "1980-12-12"
-    core_upsert.assert_called_once_with(
-        [
-            {
-                **raw_rows[0],
-                "source": "tushare",
-            }
-        ]
-    )
+    assert hk_transform is not None
+    assert us_transform is not None
+    assert hk_transform({"ts_code": "00005.HK"})["source"] == "tushare"
+    assert us_transform({"ts_code": "AAPL"})["source"] == "tushare"

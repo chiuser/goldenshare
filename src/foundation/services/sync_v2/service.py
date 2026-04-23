@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from src.foundation.services.sync.base_sync_service import BaseSyncService
+from src.foundation.services.sync_v2.base_sync_service import BaseSyncService
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, RunRequest
 from src.foundation.services.sync_v2.engine import SyncV2Engine
 from src.foundation.services.sync_v2.errors import SyncV2Error

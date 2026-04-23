@@ -2,319 +2,147 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.foundation.services.sync.sync_dc_hot_service import SyncDcHotService, build_dc_hot_params
-from src.foundation.services.sync.sync_kpl_concept_cons_service import build_kpl_concept_cons_params
-from src.foundation.services.sync.sync_kpl_list_service import SyncKplListService, build_kpl_list_params
-from src.foundation.services.sync.sync_ths_hot_service import SyncThsHotService, build_ths_hot_params
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.dc_hot import build_dc_hot_units
+from src.foundation.services.sync_v2.dataset_strategies.kpl_concept_cons import build_kpl_concept_cons_units
+from src.foundation.services.sync_v2.dataset_strategies.kpl_list import build_kpl_list_units
+from src.foundation.services.sync_v2.dataset_strategies.ths_hot import build_ths_hot_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_ths_hot_supports_incremental_and_range_params() -> None:
-    incremental = build_ths_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="热股", is_new="Y")
-    assert incremental == {"trade_date": "20260402", "market": "热股", "is_new": "Y"}
-
-    full = build_ths_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", market="热股", is_new="N")
-    assert full == {"start_date": "20260301", "end_date": "20260331", "market": "热股", "is_new": "N"}
-
-
-def test_dc_hot_supports_incremental_and_range_params() -> None:
-    incremental = build_dc_hot_params("INCREMENTAL", trade_date=date(2026, 4, 2), market="A股市场", hot_type="人气榜", is_new="Y")
-    assert incremental == {"trade_date": "20260402", "market": "A股市场", "hot_type": "人气榜", "is_new": "Y"}
-
-    full = build_dc_hot_params("FULL", start_date="2026-03-01", end_date="2026-03-31", hot_type="飙升榜")
-    assert full == {"start_date": "20260301", "end_date": "20260331", "hot_type": "飙升榜"}
-
-
-def test_kpl_list_supports_incremental_and_range_params() -> None:
-    incremental = build_kpl_list_params("INCREMENTAL", trade_date=date(2026, 4, 2), tag="龙虎榜")
-    assert incremental == {"trade_date": "20260402", "tag": "龙虎榜"}
-
-    full = build_kpl_list_params("FULL", start_date="2026-03-01", end_date="2026-03-31", tag="涨停池")
-    assert full == {"tag": "涨停池", "start_date": "20260301", "end_date": "20260331"}
-
-
-def test_kpl_concept_cons_supports_incremental_params() -> None:
-    incremental = build_kpl_concept_cons_params("INCREMENTAL", trade_date=date(2026, 4, 2), con_code="GN001")
-    assert incremental == {"trade_date": "20260402", "con_code": "GN001"}
-
-
-def test_kpl_list_expands_multi_value_tag_filters(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncKplListService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260402", "ts_code": "000001.SZ", "tag": "涨停"}],
-        [{"trade_date": "20260402", "ts_code": "000002.SZ", "tag": "炸板"}],
-    ]
-    service.dao.raw_kpl_list = mocker.Mock()
-    service.dao.kpl_list = mocker.Mock()
-    service.dao.kpl_list.bulk_upsert.side_effect = [1, 1]
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
+def test_ths_hot_point_incremental_expands_market_and_is_new() -> None:
+    contract = get_sync_v2_contract("ths_hot")
+    request = RunRequest(
+        request_id="req-ths-hot",
+        dataset_key="ths_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 2),
-        tag=["涨停", "炸板"],
+        params={"market": "热股,港股", "is_new": "Y,N"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_ths_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 4
+    combos = sorted((u.request_params["market"], u.request_params["is_new"]) for u in units)
+    assert combos == [("港股", "N"), ("港股", "Y"), ("热股", "N"), ("热股", "Y")]
+    assert all(u.request_params["trade_date"] == "20260402" for u in units)
+    assert all(u.page_limit == 2000 for u in units)
+
+
+def test_ths_hot_normalizer_sets_default_query_context() -> None:
+    contract = get_sync_v2_contract("ths_hot")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-ths-hot",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260402",
+                    "data_type": "热度",
+                    "ts_code": "000001.SZ",
+                    "rank_time": "10:00:00",
+                    "ts_name": "平安银行",
+                    "rank": 1,
+                }
+            ],
+        ),
     )
 
-    assert fetched == 2
-    assert written == 2
-    assert result_date == date(2026, 4, 2)
-    assert message is None
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260402", "tag": "涨停"}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260402", "tag": "炸板"}
+    assert batch.rows_rejected == 0
+    row = batch.rows_normalized[0]
+    assert row["query_market"] == "__ALL__"
+    assert row["query_is_new"] == "__ALL__"
 
 
-def test_ths_hot_persists_query_context_keys(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncThsHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260402",
-            "data_type": "热度",
-            "ts_code": "000001.SZ",
-            "rank_time": "10:00:00",
-            "ts_name": "平安银行",
-            "rank": 1,
-        }
-    ]
-    service.dao.raw_ths_hot = mocker.Mock()
-    service.dao.ths_hot = mocker.Mock()
-    service.dao.ths_hot.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
+def test_dc_hot_point_incremental_expands_three_enum_dimensions() -> None:
+    contract = get_sync_v2_contract("dc_hot")
+    request = RunRequest(
+        request_id="req-dc-hot",
+        dataset_key="dc_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 2),
-        market="热股",
-        is_new="Y",
+        params={
+            "market": "A股市场,ETF基金",
+            "hot_type": "人气榜,飙升榜",
+            "is_new": "N",
+        },
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 4
+    assert all(u.request_params["is_new"] == "N" for u in units)
+    assert all(u.request_params["trade_date"] == "20260402" for u in units)
+
+
+def test_dc_hot_normalizer_sets_default_query_context() -> None:
+    contract = get_sync_v2_contract("dc_hot")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-dc-hot",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260402",
+                    "data_type": "热度",
+                    "ts_code": "000001.SZ",
+                    "rank_time": "10:00:00",
+                    "ts_name": "平安银行",
+                    "rank": 1,
+                }
+            ],
+        ),
     )
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 2)
-    assert message is None
-    persisted_row = service.dao.ths_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["query_market"] == "热股"
-    assert persisted_row["query_is_new"] == "Y"
+    assert batch.rows_rejected == 0
+    row = batch.rows_normalized[0]
+    assert row["query_market"] == "__ALL__"
+    assert row["query_hot_type"] == "__ALL__"
+    assert row["query_is_new"] == "__ALL__"
 
 
-def test_ths_hot_expands_multi_value_filters(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncThsHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [
-            {
-                "trade_date": "20260402",
-                "data_type": "热度",
-                "ts_code": "000001.SZ",
-                "rank_time": "10:00:00",
-                "ts_name": "平安银行",
-                "rank": 1,
-            }
-        ],
-        [],
-    ]
-    service.dao.raw_ths_hot = mocker.Mock()
-    service.dao.ths_hot = mocker.Mock()
-    service.dao.ths_hot.bulk_upsert.side_effect = [1, 0]
-
-    fetched, written, _, _ = service.execute(
-        "INCREMENTAL",
+def test_kpl_list_point_incremental_expands_tag_values() -> None:
+    contract = get_sync_v2_contract("kpl_list")
+    request = RunRequest(
+        request_id="req-kpl-list",
+        dataset_key="kpl_list",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 2),
-        market=["热股", "港股"],
-        is_new="N",
+        params={"tag": "涨停,炸板"},
     )
+    validated = ContractValidator().validate(request, contract)
+    units = build_kpl_list_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert fetched == 1
-    assert written == 1
-    assert service.client.call.call_count == 2
+    assert len(units) == 2
+    assert sorted(u.request_params["tag"] for u in units) == ["涨停", "炸板"]
+    assert all(u.request_params["trade_date"] == "20260402" for u in units)
+    assert all(u.page_limit == 8000 for u in units)
 
 
-def test_ths_hot_accepts_long_concept_and_rank_reason_text(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncThsHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260402",
-            "data_type": "热度",
-            "ts_code": "000001.SZ",
-            "rank_time": "10:00:00",
-            "ts_name": "平安银行",
-            "rank": 1,
-            "concept": "概念" * 400,
-            "rank_reason": "原因" * 400,
-        }
-    ]
-    service.dao.raw_ths_hot = mocker.Mock()
-    service.dao.ths_hot = mocker.Mock()
-    service.dao.raw_ths_hot.bulk_upsert.return_value = 1
-    service.dao.ths_hot.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
+def test_kpl_concept_cons_point_incremental_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("kpl_concept_cons")
+    request = RunRequest(
+        request_id="req-kpl-cons",
+        dataset_key="kpl_concept_cons",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 2),
-        market="热股",
-        is_new="N",
+        params={"con_code": "GN001"},
     )
+    validated = ContractValidator().validate(request, contract)
+    units = build_kpl_concept_cons_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 2)
-    assert message is None
-    raw_row = service.dao.raw_ths_hot.bulk_upsert.call_args.args[0][0]
-    assert raw_row["concept"] == "概念" * 400
-    assert raw_row["rank_reason"] == "原因" * 400
-
-
-def test_dc_hot_persists_query_context_keys(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncDcHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260402",
-            "data_type": "热度",
-            "ts_code": "000001.SZ",
-            "rank_time": "10:00:00",
-            "ts_name": "平安银行",
-            "rank": 1,
-        }
-    ]
-    service.dao.raw_dc_hot = mocker.Mock()
-    service.dao.dc_hot = mocker.Mock()
-    service.dao.dc_hot.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
-        trade_date=date(2026, 4, 2),
-        market="A股市场",
-        hot_type="人气榜",
-        is_new="Y",
-    )
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 2)
-    assert message is None
-    persisted_row = service.dao.dc_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["query_market"] == "A股市场"
-    assert persisted_row["query_hot_type"] == "人气榜"
-    assert persisted_row["query_is_new"] == "Y"
-
-
-def test_dc_hot_expands_multi_value_filters(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncDcHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [
-            {
-                "trade_date": "20260402",
-                "data_type": "热度",
-                "ts_code": "000001.SZ",
-                "rank_time": "10:00:00",
-                "ts_name": "平安银行",
-                "rank": 1,
-            }
-        ],
-        [],
-        [],
-        [],
-    ]
-    service.dao.raw_dc_hot = mocker.Mock()
-    service.dao.dc_hot = mocker.Mock()
-    service.dao.dc_hot.bulk_upsert.side_effect = [1, 0, 0, 0]
-
-    fetched, written, _, _ = service.execute(
-        "INCREMENTAL",
-        trade_date=date(2026, 4, 2),
-        market=["A股市场", "ETF基金"],
-        hot_type=["人气榜", "飙升榜"],
-        is_new="N",
-    )
-
-    assert fetched == 1
-    assert written == 1
-    assert service.client.call.call_count == 4
-    first_call = service.client.call.call_args_list[0]
-    assert first_call.kwargs["params"] == {
-        "trade_date": "20260402",
-        "market": "A股市场",
-        "hot_type": "人气榜",
-        "is_new": "N",
-    }
-
-
-def test_dc_hot_enriches_missing_us_ts_code_from_us_security(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncDcHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260105",
-            "data_type": "美股市场",
-            "ts_code": None,
-            "ts_name": "苹果",
-            "rank": 1,
-            "pct_change": "-0.31",
-            "current_price": "271.01",
-            "rank_time": "2026-01-05 08:00:26",
-        }
-    ]
-    mocker.patch.object(service.session, "scalars", return_value=iter(["AAPL"]))
-    service.dao.raw_dc_hot = mocker.Mock()
-    service.dao.dc_hot = mocker.Mock()
-    service.dao.raw_dc_hot.bulk_upsert.return_value = 1
-    service.dao.dc_hot.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
-        trade_date=date(2026, 1, 5),
-        market="美股市场",
-        hot_type="人气榜",
-        is_new="N",
-    )
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 1, 5)
-    assert message is None
-    persisted_row = service.dao.raw_dc_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["ts_code"] == "AAPL"
-
-
-def test_dc_hot_reports_unresolved_us_rows_when_lookup_fails(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncDcHotService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260105",
-            "data_type": "美股市场",
-            "ts_code": None,
-            "ts_name": "苹果",
-            "rank": 1,
-            "rank_time": "2026-01-05 08:00:26",
-        }
-    ]
-    mocker.patch.object(service.session, "scalars", return_value=iter([]))
-    service.dao.raw_dc_hot = mocker.Mock()
-    service.dao.dc_hot = mocker.Mock()
-    service.dao.raw_dc_hot.bulk_upsert.return_value = 1
-    service.dao.dc_hot.bulk_upsert.return_value = 1
-
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
-        trade_date=date(2026, 1, 5),
-        market="美股市场",
-        hot_type="人气榜",
-        is_new="N",
-    )
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 1, 5)
-    assert message == "unresolved 1 dc_hot rows missing ts_code after us_security lookup"
-    persisted_row = service.dao.raw_dc_hot.bulk_upsert.call_args.args[0][0]
-    assert persisted_row["ts_code"] is None
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260402", "con_code": "GN001"}
+    assert units[0].page_limit == 3000

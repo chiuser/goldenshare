@@ -6,7 +6,7 @@ from sqlalchemy import Date, Float, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
-from src.foundation.services.sync.fields import STK_FACTOR_PRO_FIELDS
+from src.foundation.services.sync_v2.fields import STK_FACTOR_PRO_FIELDS
 
 
 class EquityFactorPro(TimestampMixin, Base):
@@ -27,4 +27,3 @@ class EquityFactorPro(TimestampMixin, Base):
     del _field
 
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="tushare", server_default="tushare")
-

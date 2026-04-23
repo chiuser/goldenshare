@@ -70,7 +70,7 @@ from src.ops.services.operations_serving_light_refresh_service import ServingLig
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 from src.ops.services.operations_sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
-from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, build_sync_service
+from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
 
 app = typer.Typer(help="goldenshare market data foundation CLI")

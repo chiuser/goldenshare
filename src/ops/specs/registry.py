@@ -4,7 +4,7 @@ from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.specs.job_spec import JobSpec, ParameterSpec
 from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
-from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
+from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 
 TRADE_DATE_PARAM = ParameterSpec(

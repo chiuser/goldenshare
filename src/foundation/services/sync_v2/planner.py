@@ -12,7 +12,7 @@ from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.ths_index import ThsIndex
-from src.foundation.services.sync.fields import DC_INDEX_FIELDS
+from src.foundation.services.sync_v2.fields import DC_INDEX_FIELDS
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
     PlanUnit,

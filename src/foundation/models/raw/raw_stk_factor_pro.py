@@ -6,7 +6,7 @@ from sqlalchemy import Date, DateTime, Float, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base
-from src.foundation.services.sync.fields import STK_FACTOR_PRO_FIELDS
+from src.foundation.services.sync_v2.fields import STK_FACTOR_PRO_FIELDS
 
 
 class RawStkFactorPro(Base):
@@ -29,4 +29,3 @@ class RawStkFactorPro(Base):
     api_name: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'stk_factor_pro'"))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     raw_payload: Mapped[str | None] = mapped_column(Text)
-

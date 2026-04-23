@@ -2,50 +2,46 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.foundation.services.sync.sync_fund_daily_service import SyncFundDailyService, build_fund_daily_params
+import pytest
+
+from src.foundation.services.sync_v2.contracts import RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.fund_daily import build_fund_daily_units
+from src.foundation.services.sync_v2.errors import SyncV2ValidationError
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_build_fund_daily_params_does_not_include_ts_code_for_full() -> None:
-    params = build_fund_daily_params(
-        "FULL",
-        start_date="2026-03-01",
-        end_date="2026-03-31",
-        ts_code="510300.SH",
+def test_build_fund_daily_units_point_incremental_includes_trade_date_and_ts_code() -> None:
+    contract = get_sync_v2_contract("fund_daily")
+    request = RunRequest(
+        request_id="req-fund-daily",
+        dataset_key="fund_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 31),
+        params={"ts_code": "510300.SH"},
     )
-    assert params == {
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
+    validated = ContractValidator().validate(request, contract)
+    units = build_fund_daily_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 1
+    assert units[0].trade_date == date(2026, 3, 31)
+    assert units[0].request_params == {"trade_date": "20260331", "ts_code": "510300.SH"}
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 5000
 
 
-def test_sync_fund_daily_incremental_paginates_by_limit_and_offset(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncFundDailyService(session)
-    service.page_limit = 2
-
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [
-                {"ts_code": "510300.SH", "trade_date": "2026-03-31", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-                {"ts_code": "159915.SZ", "trade_date": "2026-03-31", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
-            ],
-            [
-                {"ts_code": "512880.SH", "trade_date": "2026-03-31", "open": "3", "high": "3", "low": "3", "close": "3", "pre_close": "3", "change": "0", "pct_chg": "0", "vol": "3", "amount": "3"},
-            ],
-        ],
+def test_fund_daily_validator_rejects_missing_trade_date_for_point_incremental() -> None:
+    contract = get_sync_v2_contract("fund_daily")
+    request = RunRequest(
+        request_id="req-fund-daily-missing-trade-date",
+        dataset_key="fund_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={},
     )
-    raw_upsert = mocker.patch.object(service.dao.raw_fund_daily, "bulk_upsert", side_effect=[2, 1])
-    core_upsert = mocker.patch.object(service.dao.fund_daily_bar, "bulk_upsert", side_effect=[2, 1])
 
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 31))
-
-    assert fetched == 3
-    assert written == 3
-    assert result_date == date(2026, 3, 31)
-    assert message is None
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260331", "limit": 2, "offset": 0}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260331", "limit": 2, "offset": 2}
-    assert raw_upsert.call_count == 2
-    assert core_upsert.call_count == 2
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        ContractValidator().validate(request, contract)
+    exc = exc_info.value
+    assert exc.structured_error.error_code == "missing_anchor_fields"

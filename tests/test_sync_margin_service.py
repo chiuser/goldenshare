@@ -2,102 +2,127 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
-from src.foundation.services.sync.sync_margin_service import SyncMarginService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.margin import build_margin_units
+from src.foundation.services.sync_v2.errors import SyncV2ValidationError
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_sync_margin_incremental_fans_out_all_exchanges_by_default(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncMarginService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = [
-        {
-            "trade_date": "20260416",
-            "exchange_id": "SSE",
-            "rzye": "1.2",
-            "rzmre": "2.3",
-            "rzche": "3.4",
-            "rqye": "4.5",
-            "rqmcl": "5.6",
-            "rzrqye": "6.7",
-            "rqyl": "7.8",
-        }
-    ]
-    raw_upsert = mocker.patch.object(service.dao.raw_margin, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.equity_margin, "bulk_upsert", return_value=1)
+def _fake_dao(open_dates: list[date]) -> SimpleNamespace:
+    return SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start, end: open_dates)
+    )
 
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 4, 16))
 
-    assert fetched == 3
-    assert written == 3
-    assert result_date == date(2026, 4, 16)
-    assert message == "trade_date=2026-04-16 exchanges=SSE,SZSE,BSE"
-    assert service.client.call.call_count == 3
-    assert {call.kwargs["params"]["exchange_id"] for call in service.client.call.call_args_list} == {"SSE", "SZSE", "BSE"}
-    raw_upsert.assert_called()
-    core_upsert.assert_called()
-    row = core_upsert.call_args.args[0][0]
+def test_margin_point_incremental_requires_trade_date() -> None:
+    contract = get_sync_v2_contract("margin")
+    request = RunRequest(
+        request_id="req-margin-missing-trade-date",
+        dataset_key="margin",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={},
+    )
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        ContractValidator().validate(request, contract)
+    assert exc_info.value.structured_error.error_code == "missing_anchor_fields"
+
+
+def test_margin_point_incremental_default_request_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("margin")
+    request = RunRequest(
+        request_id="req-margin-point-default",
+        dataset_key="margin",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 16),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_margin_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260416"}
+
+
+def test_margin_point_incremental_with_selected_exchanges() -> None:
+    contract = get_sync_v2_contract("margin")
+    request = RunRequest(
+        request_id="req-margin-point-selected",
+        dataset_key="margin",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 16),
+        params={"exchange_id": ["SSE", "BSE"]},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_margin_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
+
+    assert len(units) == 2
+    exchanges = {unit.request_params["exchange_id"] for unit in units}
+    assert exchanges == {"SSE", "BSE"}
+
+
+def test_margin_range_rebuild_fans_out_trade_dates_and_exchanges() -> None:
+    contract = get_sync_v2_contract("margin")
+    request = RunRequest(
+        request_id="req-margin-range",
+        dataset_key="margin",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 4, 14),
+        end_date=date(2026, 4, 15),
+        params={"exchange_id": "SSE,SZSE"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_margin_units(
+        validated,
+        contract,
+        dao=_fake_dao([date(2026, 4, 14), date(2026, 4, 15)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+
+    assert len(units) == 4
+    pairs = {(u.request_params["trade_date"], u.request_params["exchange_id"]) for u in units}
+    assert pairs == {
+        ("20260414", "SSE"),
+        ("20260414", "SZSE"),
+        ("20260415", "SSE"),
+        ("20260415", "SZSE"),
+    }
+
+
+def test_margin_normalizer_coerces_numeric_fields() -> None:
+    contract = get_sync_v2_contract("margin")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-margin",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260416",
+                    "exchange_id": "SSE",
+                    "rzye": "1.2",
+                    "rzmre": "2.3",
+                    "rzche": "3.4",
+                    "rqye": "4.5",
+                    "rqmcl": "5.6",
+                    "rzrqye": "6.7",
+                    "rqyl": "7.8",
+                }
+            ],
+        ),
+    )
+    row = batch.rows_normalized[0]
     assert row["trade_date"] == date(2026, 4, 16)
     assert row["rzye"] == Decimal("1.2")
-
-
-def test_sync_margin_incremental_with_selected_exchange_ids(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncMarginService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = []
-    mocker.patch.object(service.dao.raw_margin, "bulk_upsert", return_value=0)
-    mocker.patch.object(service.dao.equity_margin, "bulk_upsert", return_value=0)
-
-    fetched, written, _, message = service.execute(
-        "INCREMENTAL",
-        trade_date=date(2026, 4, 16),
-        exchange_id=["SSE", "BSE"],
-    )
-
-    assert fetched == 0
-    assert written == 0
-    assert message == "trade_date=2026-04-16 exchanges=SSE,BSE"
-    assert service.client.call.call_count == 2
-    assert {call.kwargs["params"]["exchange_id"] for call in service.client.call.call_args_list} == {"SSE", "BSE"}
-
-
-def test_sync_margin_history_range_uses_trade_calendar_and_exchange_fanout(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncMarginService(session)
-    service.client = mocker.Mock()
-    service.client.call.return_value = []
-    service.dao = mocker.Mock()
-    service.dao.trade_calendar.get_open_dates.return_value = [date(2026, 4, 14), date(2026, 4, 15)]
-    service.dao.raw_margin.bulk_upsert.return_value = 0
-    service.dao.equity_margin.bulk_upsert.return_value = 0
-
-    fetched, written, result_date, message = service.execute(
-        "FULL",
-        start_date="2026-04-14",
-        end_date="2026-04-15",
-        exchange_id="SSE,SZSE",
-    )
-
-    assert fetched == 0
-    assert written == 0
-    assert result_date == date(2026, 4, 15)
-    assert message == "trade_dates=2 exchanges=SSE,SZSE"
-    assert service.client.call.call_count == 4
-    assert service.dao.trade_calendar.get_open_dates.call_args.args == ("SSE", date(2026, 4, 14), date(2026, 4, 15))
-
-
-def test_sync_margin_requires_explicit_time_params_for_history(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncMarginService(session)
-
-    with pytest.raises(ValueError, match="sync_history.margin requires explicit time params"):
-        service.execute("FULL")
-
-
-def test_sync_margin_rejects_invalid_exchange_id() -> None:
-    with pytest.raises(ValueError, match="exchange_id contains unsupported values"):
-        SyncMarginService._normalize_exchange_ids("SSE,UNKNOWN")
-

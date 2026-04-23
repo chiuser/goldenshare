@@ -2,74 +2,98 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
-from src.foundation.services.sync.sync_biying_moneyflow_service import SyncBiyingMoneyflowService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.biying_moneyflow import build_biying_moneyflow_units
+from src.foundation.services.sync_v2.errors import SyncV2ValidationError
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_sync_biying_moneyflow_full_writes_raw_rows(mocker) -> None:
-    session = mocker.Mock()
-    connector = mocker.Mock()
-    connector.call.return_value = [
-        {
-            "t": "2026-04-10 00:00:00",
-            "zmbzds": 2567,
-            "zmszds": 2113,
-            "dddx": -5.3,
-            "zmbtdcje": 643556632.0,
-            "zmbtdcjl": 534893,
-            "zmbtdcjzlv": 534893,
-        }
-    ]
-    mocker.patch("src.foundation.services.sync.sync_biying_moneyflow_service.create_source_connector", return_value=connector)
+def _fake_session(stocks: list[tuple[str, str]]) -> SimpleNamespace:
+    rows = [SimpleNamespace(dm=dm, mc=mc) for dm, mc in stocks]
+    return SimpleNamespace(execute=lambda stmt: SimpleNamespace(all=lambda: rows))
 
-    service = SyncBiyingMoneyflowService(session)
-    mocker.patch.object(service, "_load_stocks", return_value=[("000001.SZ", "平安银行")])
-    mocker.patch.object(service, "_build_windows", return_value=[(date(2026, 4, 1), date(2026, 4, 10))])
-    raw_upsert = mocker.patch.object(service.dao.raw_biying_moneyflow, "bulk_upsert", return_value=1)
-    std_upsert = mocker.patch.object(service.dao.moneyflow_std, "bulk_upsert", return_value=1)
-    publish = mocker.patch(
-        "src.foundation.services.sync.sync_biying_moneyflow_service.publish_moneyflow_serving_for_keys",
-        return_value=1,
+
+def test_biying_moneyflow_point_incremental_requires_trade_date() -> None:
+    contract = get_sync_v2_contract("biying_moneyflow")
+    request = RunRequest(
+        request_id="req-biying-moneyflow-missing-trade-date",
+        dataset_key="biying_moneyflow",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={},
     )
 
-    fetched, written, result_date, message = service.execute(
-        "FULL",
-        start_date="2026-04-01",
-        end_date="2026-04-10",
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        ContractValidator().validate(request, contract)
+    assert exc_info.value.structured_error.error_code == "missing_anchor_fields"
+
+
+def test_biying_moneyflow_range_rebuild_builds_units() -> None:
+    contract = get_sync_v2_contract("biying_moneyflow")
+    request = RunRequest(
+        request_id="req-biying-moneyflow-range",
+        dataset_key="biying_moneyflow",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 10),
+        params={"ts_code": "000001.SZ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_biying_moneyflow_units(
+        validated,
+        contract,
+        dao=None,
+        settings=None,
+        session=_fake_session([("000001", "平安银行")]),
     )
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 10)
-    assert message == "stocks=1 windows=1 std=1 serving=1"
-    connector.call.assert_called_once_with(
-        "moneyflow",
-        params={"dm": "000001.SZ", "st": "20260401", "et": "20260410"},
+    assert len(units) == 1
+    assert units[0].request_params == {
+        "dm": "000001",
+        "mc": "平安银行",
+        "st": "20260401",
+        "et": "20260410",
+    }
+    assert units[0].source_key == "biying"
+
+
+def test_biying_moneyflow_normalizer_maps_fields_and_types() -> None:
+    contract = get_sync_v2_contract("biying_moneyflow")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-biying-moneyflow",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "dm": "000001.SZ",
+                    "mc": "平安银行",
+                    "t": "2026-04-10 00:00:00",
+                    "zmbzds": 2567,
+                    "zmszds": 2113,
+                    "dddx": "-5.3",
+                    "zmbtdcje": "643556632.0",
+                    "zmbtdcjl": 534893,
+                    "zmbtdcjzlv": 534893,
+                }
+            ],
+        ),
     )
-    std_upsert.assert_called_once()
-    publish.assert_called_once()
-
-    first_row = raw_upsert.call_args.args[0][0]
-    assert first_row["dm"] == "000001.SZ"
-    assert first_row["trade_date"] == date(2026, 4, 10)
-    assert first_row["mc"] == "平安银行"
-    assert first_row["zmbzds"] == 2567
-    assert first_row["dddx"] == Decimal("-5.3")
-    assert first_row["zmbtdcje"] == Decimal("643556632.0")
-    assert first_row["zmbtdcjl"] == 534893
-    assert first_row["zmbtdcjzlv"] == 534893
-
-    std_row = std_upsert.call_args.args[0][0]
-    assert std_row["source_key"] == "biying"
-    assert std_row["ts_code"] == "000001.SZ"
-    assert std_row["trade_date"] == date(2026, 4, 10)
-
-
-def test_sync_biying_moneyflow_incremental_requires_trade_date(mocker) -> None:
-    session = mocker.Mock()
-    mocker.patch("src.foundation.services.sync.sync_biying_moneyflow_service.create_source_connector", return_value=mocker.Mock())
-    service = SyncBiyingMoneyflowService(session)
-    with pytest.raises(ValueError, match="trade_date is required"):
-        service.execute("INCREMENTAL")
+    row = batch.rows_normalized[0]
+    assert row["dm"] == "000001.SZ"
+    assert row["trade_date"] == date(2026, 4, 10)
+    assert row["mc"] == "平安银行"
+    assert row["zmbzds"] == 2567
+    assert row["dddx"] == Decimal("-5.3")
+    assert row["zmbtdcje"] == Decimal("643556632.0")
+    assert row["zmbtdcjl"] == 534893
+    assert row["zmbtdcjzlv"] == 534893

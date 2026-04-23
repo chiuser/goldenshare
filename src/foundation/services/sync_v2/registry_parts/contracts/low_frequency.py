@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.foundation.services.sync.fields import DIVIDEND_FIELDS, HOLDERNUMBER_FIELDS
+from src.foundation.services.sync_v2.fields import DIVIDEND_FIELDS, HOLDERNUMBER_FIELDS
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
     InputField,

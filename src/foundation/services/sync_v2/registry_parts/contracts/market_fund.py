@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.foundation.config.settings import get_settings
-from src.foundation.services.sync.fields import (
+from src.foundation.services.sync_v2.fields import (
     FUND_ADJ_FIELDS,
     FUND_DAILY_FIELDS,
 )

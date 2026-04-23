@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.foundation.config.settings import get_settings
-from src.foundation.services.sync.fields import (
+from src.foundation.services.sync_v2.fields import (
     ETF_INDEX_FIELDS,
     INDEX_BASIC_FIELDS,
     INDEX_DAILY_BASIC_FIELDS,

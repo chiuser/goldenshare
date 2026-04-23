@@ -1,143 +1,87 @@
 from __future__ import annotations
 
-from src.foundation.services.sync import sync_stock_basic_service
-from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.stock_basic import build_stock_basic_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_sync_stock_basic_tushare_writes_std_and_serving(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    mocker.patch.object(
-        service,
-        "_get_rows_from_source",
-        return_value=[
-            {
-                "ts_code": "000001.SZ",
-                "symbol": "000001",
-                "name": "平安银行",
-                "exchange": "SZSE",
-                "list_status": "L",
-            }
-        ],
+def test_stock_basic_tushare_default_builds_single_unit_with_all_statuses() -> None:
+    contract = get_sync_v2_contract("stock_basic")
+    request = RunRequest(
+        request_id="req-stock-basic-tushare-default",
+        dataset_key="stock_basic",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={},
+        source_key="tushare",
     )
-    mocker.patch.object(service.dao.raw_tushare_stock_basic, "bulk_upsert", return_value=1)
-    std_upsert = mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=1)
-    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=1)
+    validated = ContractValidator().validate(request, contract)
+    units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    fetched, written, result_date, message = service.execute("FULL", source_key="tushare")
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date is None
-    assert message == "source=tushare"
-    std_upsert.assert_called_once()
-    serving_upsert.assert_called_once()
+    assert len(units) == 1
+    assert units[0].request_params["list_status"] == "L,D,P,G"
+    assert all(unit.source_key == "tushare" for unit in units)
+    assert all(unit.pagination_policy == "offset_limit" for unit in units)
+    assert all(unit.page_limit == 6000 for unit in units)
 
 
-def test_sync_stock_basic_biying_only_inserts_missing_codes(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    mocker.patch.object(
-        service,
-        "_get_rows_from_source",
-        return_value=[
-            {"dm": "000001.SZ", "mc": "平安银行", "jys": "SZ"},
-            {"dm": "000002.SZ", "mc": "万科A", "jys": "SZ"},
-        ],
+def test_stock_basic_biying_builds_single_snapshot_unit() -> None:
+    contract = get_sync_v2_contract("stock_basic")
+    request = RunRequest(
+        request_id="req-stock-basic-biying",
+        dataset_key="stock_basic",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={},
+        source_key="biying",
     )
-    mocker.patch.object(service.dao.raw_biying_stock_basic, "bulk_upsert", return_value=2)
-    mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=2)
-    mocker.patch.object(service.dao.security, "get_existing_ts_codes", return_value={"000001.SZ"})
-    serving_upsert = mocker.patch.object(service.dao.security, "upsert_many", return_value=1)
+    validated = ContractValidator().validate(request, contract)
+    units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    fetched, written, result_date, message = service.execute("FULL", source_key="biying")
-
-    assert fetched == 2
-    assert written == 1
-    assert result_date is None
-    assert message == "source=biying"
-    serving_rows = serving_upsert.call_args.args[0]
-    assert len(serving_rows) == 1
-    assert serving_rows[0]["ts_code"] == "000002.SZ"
+    assert len(units) == 1
+    assert units[0].source_key == "biying"
+    assert units[0].request_params == {}
+    assert units[0].pagination_policy == "none"
+    assert units[0].page_limit is None
 
 
-def test_sync_stock_basic_all_runs_both_sources_and_accumulates_counts(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    get_rows = mocker.patch.object(
-        service,
-        "_get_rows_from_source",
-        side_effect=[
-            [
-                {
-                    "ts_code": "000001.SZ",
-                    "symbol": "000001",
-                    "name": "平安银行",
-                    "exchange": "SZSE",
-                    "list_status": "L",
-                }
+def test_stock_basic_all_builds_tushare_plus_biying_units() -> None:
+    contract = get_sync_v2_contract("stock_basic")
+    request = RunRequest(
+        request_id="req-stock-basic-all",
+        dataset_key="stock_basic",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={},
+        source_key="all",
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 2
+    assert sum(1 for unit in units if unit.source_key == "tushare") == 1
+    assert sum(1 for unit in units if unit.source_key == "biying") == 1
+    assert all(unit.requested_source_key == "all" for unit in units)
+
+
+def test_stock_basic_normalizer_normalizes_ts_code_and_dm() -> None:
+    contract = get_sync_v2_contract("stock_basic")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-stock-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {"ts_code": "000001.sz", "symbol": "000001", "name": "平安银行"},
+                {"dm": "000002.sh", "mc": "万科A", "jys": "SH"},
             ],
-            [{"dm": "000002.SZ", "mc": "万科A", "jys": "SZ"}],
-        ],
-    )
-    raw_tushare_upsert = mocker.patch.object(service.dao.raw_tushare_stock_basic, "bulk_upsert", return_value=1)
-    raw_biying_upsert = mocker.patch.object(service.dao.raw_biying_stock_basic, "bulk_upsert", return_value=1)
-    security_std_upsert = mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=1)
-    publish = mocker.patch.object(service, "_publish_serving_by_resolution", return_value=(2, "primary@v1"))
-
-    fetched, written, result_date, message = service.execute("FULL", source_key="all")
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date is None
-    assert message == "source=all policy=primary@v1"
-    assert get_rows.call_args_list[0].args == ("tushare",)
-    assert get_rows.call_args_list[1].args == ("biying",)
-    raw_tushare_upsert.assert_called_once()
-    raw_biying_upsert.assert_called_once()
-    assert security_std_upsert.call_count == 2
-    publish.assert_called_once()
-
-
-def test_sync_stock_basic_tushare_requests_include_g_status(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    connector = mocker.Mock()
-    connector.call.return_value = []
-    mocker.patch.object(sync_stock_basic_service, "create_source_connector", return_value=connector)
-
-    service._get_rows_from_source("tushare")
-
-    connector.call.assert_called_once_with(
-        "stock_basic",
-        params={"list_status": "L,D,P,G"},
-        fields=service.fields,
+        ),
     )
 
-
-def test_sync_stock_basic_all_respects_resolution_policy(mocker) -> None:
-    service = SyncStockBasicService(mocker.Mock())
-    mocker.patch.object(
-        service,
-        "_get_rows_from_source",
-        side_effect=[
-            [
-                {
-                    "ts_code": "000001.SZ",
-                    "symbol": "000001",
-                    "name": "平安银行",
-                    "exchange": "SZSE",
-                    "list_status": "L",
-                }
-            ],
-            [{"dm": "000001.SZ", "mc": "平 安 银 行", "jys": "SZ"}],
-        ],
-    )
-    mocker.patch.object(service.dao.raw_tushare_stock_basic, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.raw_biying_stock_basic, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.security_std, "bulk_upsert", return_value=1)
-    publish = mocker.patch.object(service, "_publish_serving_by_resolution", return_value=(1, "primary@v9"))
-
-    fetched, written, result_date, message = service.execute("FULL", source_key="all")
-
-    assert fetched == 2
-    assert written == 1
-    assert result_date is None
-    assert message == "source=all policy=primary@v9"
-    publish.assert_called_once()
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["ts_code"] == "000001.SZ"
+    assert batch.rows_normalized[1]["dm"] == "000002.SH"

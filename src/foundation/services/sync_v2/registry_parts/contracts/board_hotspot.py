@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.foundation.services.sync.fields import (
+from src.foundation.services.sync_v2.fields import (
     DC_DAILY_FIELDS,
     DC_HOT_FIELDS,
     DC_INDEX_FIELDS,
@@ -450,4 +450,3 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         observe_spec=ObserveSpec(progress_label="kpl_concept_cons"),
     ),
 }
-

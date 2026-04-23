@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, NormalizedBatch, PlanUnit, WriteResult
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2WriteError
-from src.foundation.services.sync.sync_moneyflow_service import publish_moneyflow_serving_for_keys
+from src.foundation.services.sync_v2.moneyflow_publish import publish_moneyflow_serving_for_keys
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
 from src.foundation.serving.publish_service import ServingPublishService

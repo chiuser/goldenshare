@@ -12,7 +12,7 @@ from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.sync_state_store_adapter import OpsSyncJobStateStore
 from src.ops.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
 from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
-from src.foundation.services.sync.registry import build_sync_service
+from src.foundation.services.sync_v2.runtime_registry import build_sync_service
 
 @dataclass(slots=True)
 class ReconciledSyncJobState:

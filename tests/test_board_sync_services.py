@@ -1,228 +1,175 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
-from src.foundation.services.sync.sync_dc_member_service import SyncDcMemberService, build_dc_member_params
-from src.foundation.services.sync.sync_ths_member_service import SyncThsMemberService, build_ths_member_params
-from src.foundation.services.sync.sync_dc_daily_service import SyncDcDailyService, build_dc_daily_params
-from src.foundation.services.sync.sync_dc_index_service import build_dc_index_params
-from src.foundation.services.sync.sync_ths_daily_service import SyncThsDailyService, build_ths_daily_params
-from src.foundation.services.sync.sync_ths_index_service import build_ths_index_params
-
-
-def test_ths_index_builds_filter_params() -> None:
-    params = build_ths_index_params("FULL", ts_code="885001.TI", exchange="A", type="N")
-    assert params == {"ts_code": "885001.TI", "exchange": "A", "type": "N"}
-
-
-def test_ths_member_builds_filter_params() -> None:
-    params = build_ths_member_params("FULL", ts_code="000001.SZ", con_code="885001.TI")
-    assert params == {"ts_code": "000001.SZ", "con_code": "885001.TI"}
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.dc_daily import build_dc_daily_units
+from src.foundation.services.sync_v2.dataset_strategies.dc_index import build_dc_index_units
+from src.foundation.services.sync_v2.dataset_strategies.dc_member import build_dc_member_units
+from src.foundation.services.sync_v2.dataset_strategies.ths_daily import build_ths_daily_units
+from src.foundation.services.sync_v2.dataset_strategies.ths_index import build_ths_index_units
+from src.foundation.services.sync_v2.dataset_strategies.ths_member import build_ths_member_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_ths_daily_supports_incremental_and_range_params() -> None:
-    incremental = build_ths_daily_params("INCREMENTAL", trade_date=date(2026, 4, 1), ts_code="885001.TI")
-    assert incremental == {"trade_date": "20260401", "ts_code": "885001.TI"}
-
-    full = build_ths_daily_params("FULL", ts_code="885001.TI", start_date="2020-01-01", end_date="2026-03-31")
-    assert full == {"ts_code": "885001.TI", "start_date": "20200101", "end_date": "20260331"}
-
-
-def test_dc_index_supports_incremental_and_range_params() -> None:
-    incremental = build_dc_index_params("INCREMENTAL", trade_date=date(2026, 4, 1), idx_type="concept")
-    assert incremental == {"trade_date": "20260401", "idx_type": "concept"}
-
-    full = build_dc_index_params("FULL", start_date="2020-01-01", end_date="2026-03-31", idx_type="concept")
-    assert full == {"start_date": "20200101", "end_date": "20260331", "idx_type": "concept"}
-
-
-def test_dc_member_builds_incremental_params() -> None:
-    params = build_dc_member_params("INCREMENTAL", trade_date=date(2026, 4, 1), con_code="BK1234")
-    assert params == {"trade_date": "20260401", "con_code": "BK1234"}
-
-
-def test_dc_daily_supports_incremental_and_range_params() -> None:
-    incremental = build_dc_daily_params("INCREMENTAL", trade_date=date(2026, 4, 1), idx_type="concept")
-    assert incremental == {"trade_date": "20260401", "idx_type": "concept"}
-
-    full = build_dc_daily_params("FULL", ts_code="BK1234", start_date="2020-01-01", end_date="2026-03-31")
-    assert full == {"ts_code": "BK1234", "start_date": "20200101", "end_date": "20260331"}
-
-
-def test_ths_member_full_sync_refreshes_indices_then_fetches_members_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.foundation.services.sync.sync_ths_member_service.SyncThsIndexService.run_full")
-    service = SyncThsMemberService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"ts_code": "885001.TI", "con_code": "000001.SZ"}],
-        [{"ts_code": "885002.TI", "con_code": "000002.SZ"}],
-    ]
-    service.dao.raw_ths_member = mocker.Mock()
-    service.dao.ths_member = mocker.Mock()
-    service.dao.ths_member.bulk_upsert.side_effect = [1, 1]
-
-    fetched, written, result_date, message = service.execute("FULL")
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date is None
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"ts_code": "885001.TI"}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"ts_code": "885002.TI"}
-
-
-def test_dc_member_incremental_refreshes_board_index_then_fetches_members_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.foundation.services.sync.sync_dc_member_service.SyncDcIndexService.run_incremental")
-    service = SyncDcMemberService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260401", "ts_code": "BK001", "con_code": "000001.SZ", "name": "A"}],
-        [{"trade_date": "20260401", "ts_code": "BK002", "con_code": "000002.SZ", "name": "B"}],
-    ]
-    service.dao.raw_dc_member = mocker.Mock()
-    service.dao.dc_member = mocker.Mock()
-    service.dao.dc_member.bulk_upsert.side_effect = [1, 1]
-    trade_date = date(2026, 4, 1)
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=trade_date)
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date == trade_date
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260401", "ts_code": "BK001"}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260401", "ts_code": "BK002"}
-
-
-def test_dc_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.foundation.services.sync.sync_dc_daily_service.SyncDcIndexService.run_incremental")
-    service = SyncDcDailyService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260401", "ts_code": "BK001", "close": "1"}],
-        [{"trade_date": "20260401", "ts_code": "BK002", "close": "2"}],
-    ]
-    service.dao.raw_dc_daily = mocker.Mock()
-    service.dao.dc_daily = mocker.Mock()
-    service.dao.dc_daily.bulk_upsert.side_effect = [1, 1]
-    trade_date = date(2026, 4, 1)
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=trade_date)
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date == trade_date
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260401", "ts_code": "BK001"}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260401", "ts_code": "BK002"}
-
-
-def test_dc_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["BK001", "BK002"]
-    mocker.patch("src.foundation.services.sync.sync_dc_daily_service.SyncDcIndexService.run_full")
-    service = SyncDcDailyService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260331", "ts_code": "BK001", "close": "1"}],
-        [{"trade_date": "20260331", "ts_code": "BK002", "close": "2"}],
-    ]
-    service.dao.raw_dc_daily = mocker.Mock()
-    service.dao.dc_daily = mocker.Mock()
-    service.dao.dc_daily.bulk_upsert.side_effect = [1, 1]
-
-    fetched, written, result_date, message = service.execute(
-        "FULL",
-        start_date="2026-03-01",
-        end_date="2026-03-31",
+def _fake_dao(open_dates: list[date]) -> SimpleNamespace:
+    return SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: list(open_dates)
+        )
     )
 
-    assert fetched == 2
-    assert written == 2
-    assert result_date is None
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {
-        "ts_code": "BK001",
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
-    assert service.client.call.call_args_list[1].kwargs["params"] == {
-        "ts_code": "BK002",
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
 
-
-def test_ths_daily_incremental_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.foundation.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
-    service = SyncThsDailyService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260401", "ts_code": "885001.TI", "close": "1"}],
-        [{"trade_date": "20260401", "ts_code": "885002.TI", "close": "2"}],
-    ]
-    service.dao.raw_ths_daily = mocker.Mock()
-    service.dao.ths_daily = mocker.Mock()
-    service.dao.ths_daily.bulk_upsert.side_effect = [1, 1]
-    trade_date = date(2026, 4, 1)
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=trade_date)
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date == trade_date
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {
-        "ts_code": "885001.TI",
-        "start_date": "20260401",
-        "end_date": "20260401",
-    }
-    assert service.client.call.call_args_list[1].kwargs["params"] == {
-        "ts_code": "885002.TI",
-        "start_date": "20260401",
-        "end_date": "20260401",
-    }
-
-
-def test_ths_daily_full_refreshes_board_index_then_fetches_daily_by_board(mocker) -> None:
-    session = mocker.Mock()
-    session.scalars.return_value = ["885001.TI", "885002.TI"]
-    mocker.patch("src.foundation.services.sync.sync_ths_daily_service.SyncThsIndexService.run_full")
-    service = SyncThsDailyService(session)
-    service.client = mocker.Mock()
-    service.client.call.side_effect = [
-        [{"trade_date": "20260331", "ts_code": "885001.TI", "close": "1"}],
-        [{"trade_date": "20260331", "ts_code": "885002.TI", "close": "2"}],
-    ]
-    service.dao.raw_ths_daily = mocker.Mock()
-    service.dao.ths_daily = mocker.Mock()
-    service.dao.ths_daily.bulk_upsert.side_effect = [1, 1]
-
-    fetched, written, result_date, message = service.execute(
-        "FULL",
-        start_date="2026-03-01",
-        end_date="2026-03-31",
+def test_ths_index_snapshot_refresh_builds_single_unit_with_filters() -> None:
+    contract = get_sync_v2_contract("ths_index")
+    request = RunRequest(
+        request_id="req-ths-index",
+        dataset_key="ths_index",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={"ts_code": "885001.TI", "exchange": "A", "type": "N"},
     )
+    validated = ContractValidator().validate(request, contract)
+    units = build_ths_index_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert fetched == 2
-    assert written == 2
-    assert result_date == date(2026, 3, 31)
-    assert message == "boards=2"
-    assert service.client.call.call_args_list[0].kwargs["params"] == {
+    assert len(units) == 1
+    assert units[0].request_params == {"ts_code": "885001.TI", "exchange": "A", "type": "N"}
+
+
+def test_ths_member_snapshot_refresh_builds_single_unit_with_filters() -> None:
+    contract = get_sync_v2_contract("ths_member")
+    request = RunRequest(
+        request_id="req-ths-member",
+        dataset_key="ths_member",
+        run_profile="snapshot_refresh",
+        trigger_source="test",
+        params={"ts_code": "885001.TI", "con_code": "000001.SZ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_ths_member_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {"ts_code": "885001.TI", "con_code": "000001.SZ"}
+    assert units[0].page_limit == 5000
+
+
+def test_ths_daily_point_and_range_build_expected_params() -> None:
+    contract = get_sync_v2_contract("ths_daily")
+    point_request = RunRequest(
+        request_id="req-ths-daily-point",
+        dataset_key="ths_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 1),
+        params={"ts_code": "885001.TI"},
+    )
+    point_validated = ContractValidator().validate(point_request, contract)
+    point_units = build_ths_daily_units(point_validated, contract, dao=None, settings=None, session=None)
+    assert point_units[0].request_params == {"ts_code": "885001.TI", "trade_date": "20260401"}
+
+    range_request = RunRequest(
+        request_id="req-ths-daily-range",
+        dataset_key="ths_daily",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        params={"ts_code": "885001.TI"},
+    )
+    range_validated = ContractValidator().validate(range_request, contract)
+    range_units = build_ths_daily_units(
+        range_validated,
+        contract,
+        dao=_fake_dao([date(2026, 3, 31)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+    assert len(range_units) == 1
+    assert range_units[0].request_params == {
         "ts_code": "885001.TI",
         "start_date": "20260301",
         "end_date": "20260331",
     }
-    assert service.client.call.call_args_list[1].kwargs["params"] == {
-        "ts_code": "885002.TI",
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
+
+
+def test_dc_index_point_and_range_build_expected_params() -> None:
+    contract = get_sync_v2_contract("dc_index")
+    point_request = RunRequest(
+        request_id="req-dc-index-point",
+        dataset_key="dc_index",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 1),
+        params={"idx_type": "concept"},
+    )
+    point_validated = ContractValidator().validate(point_request, contract)
+    point_units = build_dc_index_units(point_validated, contract, dao=None, settings=None, session=None)
+    assert point_units[0].request_params == {"trade_date": "20260401", "idx_type": "concept"}
+
+    range_request = RunRequest(
+        request_id="req-dc-index-range",
+        dataset_key="dc_index",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        params={"idx_type": "concept"},
+    )
+    range_validated = ContractValidator().validate(range_request, contract)
+    range_units = build_dc_index_units(
+        range_validated,
+        contract,
+        dao=_fake_dao([date(2026, 3, 30), date(2026, 3, 31)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+    assert len(range_units) == 2
+    assert sorted(unit.request_params["trade_date"] for unit in range_units) == ["20260330", "20260331"]
+    assert all(unit.request_params["idx_type"] == "concept" for unit in range_units)
+
+
+def test_dc_member_and_dc_daily_point_incremental_build_expected_params() -> None:
+    member_contract = get_sync_v2_contract("dc_member")
+    member_request = RunRequest(
+        request_id="req-dc-member",
+        dataset_key="dc_member",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 1),
+        params={"ts_code": "BK001"},
+    )
+    member_validated = ContractValidator().validate(member_request, member_contract)
+    member_units = build_dc_member_units(member_validated, member_contract, dao=None, settings=None, session=None)
+    assert member_units[0].request_params == {"trade_date": "20260401", "ts_code": "BK001"}
+
+    daily_contract = get_sync_v2_contract("dc_daily")
+    daily_request = RunRequest(
+        request_id="req-dc-daily",
+        dataset_key="dc_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 1),
+        params={"idx_type": "concept", "ts_code": "BK001"},
+    )
+    daily_validated = ContractValidator().validate(daily_request, daily_contract)
+    daily_units = build_dc_daily_units(daily_validated, daily_contract, dao=None, settings=None, session=None)
+    assert daily_units[0].request_params == {"ts_code": "BK001", "idx_type": "concept", "trade_date": "20260401"}
+
+
+def test_dc_daily_normalizer_keeps_required_fields() -> None:
+    contract = get_sync_v2_contract("dc_daily")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-dc-daily",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[{"trade_date": "20260401", "ts_code": "BK001", "close": "1"}],
+        ),
+    )
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["trade_date"] == date(2026, 4, 1)

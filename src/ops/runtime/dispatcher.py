@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.services.sync.errors import ExecutionCanceledError
+from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
@@ -20,7 +20,7 @@ from src.ops.specs import get_job_spec, get_workflow_spec
 from src.app.exceptions import WebAppError
 from src.ops.services.operations_history_backfill_service import HistoryBackfillService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
-from src.foundation.services.sync.registry import build_sync_service
+from src.foundation.services.sync_v2.runtime_registry import build_sync_service
 from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
 from src.ops.sync_state_store_adapter import OpsSyncJobStateStore, OpsSyncRunLogStore
 from src.ops.services.job_execution_sync_context import JobExecutionSyncContext

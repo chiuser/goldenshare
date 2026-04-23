@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.foundation.config.settings import get_settings
-from src.foundation.services.sync.fields import (
+from src.foundation.services.sync_v2.fields import (
     BIYING_MONEYFLOW_FIELDS,
     MONEYFLOW_CNT_THS_FIELDS,
     MONEYFLOW_DC_FIELDS,

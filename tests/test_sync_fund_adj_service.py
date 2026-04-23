@@ -2,39 +2,83 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
-from src.foundation.services.sync.sync_fund_adj_service import SyncFundAdjService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.fund_adj import build_fund_adj_units
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_sync_fund_adj_incremental_paginates_with_default_limit(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncFundAdjService(session)
-    service.page_limit = 2
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [
-                {"ts_code": "510300.SH", "trade_date": "20260331", "adj_factor": "1.001"},
-                {"ts_code": "159915.SZ", "trade_date": "20260331", "adj_factor": "1.002"},
-            ],
-            [
-                {"ts_code": "512880.SH", "trade_date": "20260331", "adj_factor": "1.003"},
-            ],
-        ],
+def test_fund_adj_point_incremental_builds_single_trade_date_unit() -> None:
+    contract = get_sync_v2_contract("fund_adj")
+    request = RunRequest(
+        request_id="req-fund-adj-point",
+        dataset_key="fund_adj",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 31),
+        params={"ts_code": "510300.SH"},
     )
-    raw_upsert = mocker.patch.object(service.dao.raw_fund_adj, "bulk_upsert", side_effect=[2, 1])
-    core_upsert = mocker.patch.object(service.dao.fund_adj_factor, "bulk_upsert", side_effect=[2, 1])
+    validated = ContractValidator().validate(request, contract)
+    units = build_fund_adj_units(validated, contract, dao=None, settings=None, session=None)
 
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 31))
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260331", "ts_code": "510300.SH"}
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 2000
 
-    assert fetched == 3
-    assert written == 3
-    assert result_date == date(2026, 3, 31)
-    assert message is None
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260331", "limit": 2, "offset": 0}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260331", "limit": 2, "offset": 2}
-    rows = raw_upsert.call_args_list[0].args[0]
-    assert rows[0]["adj_factor"] == Decimal("1.001")
-    assert raw_upsert.call_count == 2
-    assert core_upsert.call_count == 2
+
+def test_fund_adj_range_rebuild_uses_start_end_window() -> None:
+    contract = get_sync_v2_contract("fund_adj")
+    request = RunRequest(
+        request_id="req-fund-adj-range",
+        dataset_key="fund_adj",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        params={"ts_code": "159915.SZ"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [date(2026, 3, 31)]
+        )
+    )
+    settings = SimpleNamespace(default_exchange="SSE")
+    units = build_fund_adj_units(validated, contract, dao=dao, settings=settings, session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {
+        "start_date": "20260301",
+        "end_date": "20260331",
+        "ts_code": "159915.SZ",
+    }
+
+
+def test_fund_adj_normalizer_coerces_types() -> None:
+    contract = get_sync_v2_contract("fund_adj")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-fund-adj",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "510300.SH",
+                    "trade_date": "20260331",
+                    "adj_factor": "1.001",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    row = batch.rows_normalized[0]
+    assert row["ts_code"] == "510300.SH"
+    assert row["trade_date"] == date(2026, 3, 31)
+    assert row["adj_factor"] == Decimal("1.001")

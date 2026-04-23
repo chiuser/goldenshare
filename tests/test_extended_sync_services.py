@@ -1,510 +1,265 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
-from src.foundation.services.sync.sync_etf_basic_service import SyncEtfBasicService, build_etf_basic_params
-from src.foundation.services.sync.sync_etf_index_service import build_etf_index_params
-from src.foundation.services.sync.sync_fund_adj_service import build_fund_adj_params
-from src.foundation.services.sync.sync_index_daily_service import SyncIndexDailyService, build_index_daily_params
-from src.foundation.services.sync.sync_index_daily_basic_service import SyncIndexDailyBasicService, build_index_daily_basic_params
-from src.foundation.services.sync.sync_index_monthly_service import SyncIndexMonthlyService
-from src.foundation.services.sync.sync_index_weekly_service import SyncIndexWeeklyService
-from src.foundation.services.sync.sync_index_weight_service import build_index_weight_params
-from src.foundation.services.sync.sync_stk_period_bar_adj_month_service import SyncStkPeriodBarAdjMonthService
-from src.foundation.services.sync.sync_stk_period_bar_adj_week_service import SyncStkPeriodBarAdjWeekService
-from src.foundation.services.sync.sync_stk_period_bar_month_service import SyncStkPeriodBarMonthService
-from src.foundation.services.sync.sync_stk_period_bar_week_service import SyncStkPeriodBarWeekService
-
-
-def test_stk_period_bar_week_builds_trade_date_params() -> None:
-    params = SyncStkPeriodBarWeekService.params_builder("FULL", trade_date=date(2026, 3, 27))
-    assert params == {"freq": "week", "trade_date": "20260327"}
+from src.foundation.services.sync_v2.contracts import RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.index_daily import build_index_daily_units
+from src.foundation.services.sync_v2.dataset_strategies.index_daily_basic import build_index_daily_basic_units
+from src.foundation.services.sync_v2.dataset_strategies.index_monthly import build_index_monthly_units
+from src.foundation.services.sync_v2.dataset_strategies.index_weight import build_index_weight_units
+from src.foundation.services.sync_v2.dataset_strategies.index_weekly import build_index_weekly_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_adj_month import build_stk_period_bar_adj_month_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_adj_week import build_stk_period_bar_adj_week_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_month import build_stk_period_bar_month_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_week import build_stk_period_bar_week_units
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_etf_index_params_accepts_ts_code_and_date_filters() -> None:
-    params = build_etf_index_params(
-        "FULL",
-        ts_code="CSI931151.CSI",
-        pub_date="2025-01-31",
-        base_date="2025-01-02",
-    )
-    assert params == {
-        "ts_code": "CSI931151.CSI",
-        "pub_date": "20250131",
-        "base_date": "20250102",
-    }
-
-
-def test_fund_adj_params_accepts_full_range_and_incremental_trade_date() -> None:
-    full_params = build_fund_adj_params("FULL", start_date="2026-03-01", end_date="2026-03-31")
-    assert full_params == {"start_date": "20260301", "end_date": "20260331"}
-
-    incremental_params = build_fund_adj_params("INCREMENTAL", trade_date=date(2026, 3, 31))
-    assert incremental_params == {"trade_date": "20260331"}
-
-
-def test_stk_period_bar_adj_week_builds_full_range_params() -> None:
-    params = SyncStkPeriodBarAdjWeekService.params_builder(
-        "FULL",
-        ts_code="000001.SZ",
-        start_date="2010-01-01",
-        end_date="2026-03-24",
-    )
-    assert params == {
-        "freq": "week",
-        "ts_code": "000001.SZ",
-        "start_date": "20100101",
-        "end_date": "20260324",
-    }
-
-
-def test_stk_period_bar_month_builds_full_range_params() -> None:
-    params = SyncStkPeriodBarMonthService.params_builder(
-        "FULL",
-        ts_code="000001.SZ",
-        start_date="2010-01-01",
-        end_date="2026-03-24",
-    )
-    assert params == {
-        "freq": "month",
-        "ts_code": "000001.SZ",
-        "start_date": "20100101",
-        "end_date": "20260324",
-    }
-
-
-def test_stk_period_bar_adj_month_builds_full_range_params() -> None:
-    params = SyncStkPeriodBarAdjMonthService.params_builder(
-        "FULL",
-        ts_code="000001.SZ",
-        start_date="2010-01-01",
-        end_date="2026-03-24",
-    )
-    assert params == {
-        "freq": "month",
-        "ts_code": "000001.SZ",
-        "start_date": "20100101",
-        "end_date": "20260324",
-    }
-
-
-def test_index_weight_prefers_index_code_and_builds_month_bounds() -> None:
-    params = build_index_weight_params("INCREMENTAL", trade_date=date(2026, 3, 25), index_code="000300.SH", ts_code="ignored")
-    assert params == {"index_code": "000300.SH", "start_date": "20260301", "end_date": "20260331"}
-
-
-def test_index_daily_includes_ts_code_when_provided_for_incremental() -> None:
-    params = build_index_daily_params("INCREMENTAL", trade_date=date(2026, 3, 25), ts_code="000001.SH")
-    assert params == {"trade_date": "20260325", "ts_code": "000001.SH"}
-
-
-def test_index_daily_basic_accepts_sparse_trade_date_queries() -> None:
-    params = build_index_daily_basic_params("INCREMENTAL", trade_date=date(2026, 3, 25))
-    assert params == {"trade_date": "20260325"}
-
-
-def test_index_daily_basic_service_fields_are_explicit() -> None:
-    assert SyncIndexDailyBasicService.fields
-
-
-def test_index_daily_basic_updates_active_pool_when_rows_returned(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexDailyBasicService(session)
-    mocker.patch.object(service.dao.trade_calendar, "fetch_by_pk", return_value=mocker.Mock(is_open=True))
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {
-                "ts_code": "000300.SH",
-                "trade_date": "20260325",
-                "total_mv": "1",
-                "float_mv": "1",
-                "total_share": "1",
-                "float_share": "1",
-                "free_share": "1",
-                "turnover_rate": "1",
-                "turnover_rate_f": "1",
-                "pe": "1",
-                "pe_ttm": "1",
-                "pb": "1",
-            }
-        ],
-    )
-    mocker.patch.object(service.dao.raw_index_daily_basic, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_daily_basic, "bulk_upsert", return_value=1)
-    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes", return_value=1)
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
-
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 3, 25)
-    assert message is None
-    upsert_active.assert_called_once()
-    assert upsert_active.call_args.args[0] == "index_daily_basic"
-    assert upsert_active.call_args.args[1] == {"000300.SH": date(2026, 3, 25)}
-
-
-def test_index_daily_basic_skips_closed_trade_date_and_does_not_pollute_active_pool(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexDailyBasicService(session)
-    mocker.patch.object(service.dao.trade_calendar, "fetch_by_pk", return_value=mocker.Mock(is_open=False))
-    client_call = mocker.patch.object(service.client, "call")
-    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 1, 1))
-
-    assert fetched == 0
-    assert written == 0
-    assert result_date == date(2026, 1, 1)
-    assert "非交易日" in (message or "")
-    client_call.assert_not_called()
-    upsert_active.assert_not_called()
-
-
-def test_index_daily_service_iterates_index_pool_when_ts_code_missing(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexDailyService(session)
-    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=[])
-    mocker.patch.object(
-        service.dao.index_basic,
-        "get_active_indexes",
-        return_value=[
-            mocker.Mock(ts_code="000001.SH"),
-            mocker.Mock(ts_code="399001.SZ"),
-        ],
-    )
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [{"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"}],
-            [{"ts_code": "399001.SZ", "trade_date": "20260325", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"}],
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
-    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
-
-    assert fetched == 2
-    assert written == 2
-    assert result_date == date(2026, 3, 25)
-    assert message is None
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260325", "ts_code": "000001.SH", "limit": 2000, "offset": 0}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260325", "ts_code": "399001.SZ", "limit": 2000, "offset": 0}
-    assert raw_upsert.call_count == 2
-    assert core_upsert.call_count == 2
-    upsert_active.assert_called_once()
-    assert upsert_active.call_args.args[0] == "index_daily"
-    assert upsert_active.call_args.args[1] == {"000001.SH": date(2026, 3, 25), "399001.SZ": date(2026, 3, 25)}
-
-
-def test_index_daily_service_updates_progress_for_index_pool(mocker) -> None:
-    session = mocker.Mock()
-    session.get.return_value = None
-    service = SyncIndexDailyService(session)
-    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=[])
-    mocker.patch.object(
-        service.dao.index_basic,
-        "get_active_indexes",
-        return_value=[
-            mocker.Mock(ts_code="000001.SH"),
-            mocker.Mock(ts_code="399001.SZ"),
-        ],
-    )
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [{"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"}],
-            [{"ts_code": "399001.SZ", "trade_date": "20260325", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"}],
-        ],
-    )
-    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[1, 1])
-    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-    progress = mocker.patch.object(service, "_update_progress")
-
-    service.execute("INCREMENTAL", trade_date=date(2026, 3, 25), execution_id=99)
-
-    assert progress.call_count == 3
-    assert progress.call_args_list[0].kwargs == {
-        "execution_id": 99,
-        "current": 0,
-        "total": 2,
-        "message": "准备按 2 个指数逐个同步日线行情。",
-    }
-    assert progress.call_args_list[1].kwargs["current"] == 1
-    assert progress.call_args_list[2].kwargs["current"] == 2
-
-
-def test_index_daily_service_prefers_active_code_pool(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexDailyService(session)
-    mocker.patch.object(service.dao.index_series_active, "list_active_codes", return_value=["000300.SH"])
-    get_active_indexes = mocker.patch.object(service.dao.index_basic, "get_active_indexes")
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {"ts_code": "000300.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-        ],
-    )
-    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-
-    fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 25))
-
-    assert fetched == 1
-    assert written == 1
-    get_active_indexes.assert_not_called()
-    assert service.client.call.call_args.kwargs["params"]["ts_code"] == "000300.SH"
-
-
-def test_index_daily_service_paginates_for_single_ts_code(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexDailyService(session)
-    service.page_limit = 2
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [
-                {"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-                {"ts_code": "000001.SH", "trade_date": "20260318", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-            ],
-            [
-                {"ts_code": "000001.SH", "trade_date": "20260311", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-            ],
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", side_effect=[2, 1])
-    upsert_active = mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-
-    fetched, written, _, _ = service.execute(
-        "FULL",
-        ts_code="000001.SH",
-        start_date="2026-03-01",
-        end_date="2026-03-25",
+def _fake_dao(
+    *,
+    open_dates: list[date] | None = None,
+    active_codes: list[str] | None = None,
+    fallback_codes: list[str] | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: list(open_dates or [])
+        ),
+        index_series_active=SimpleNamespace(
+            list_active_codes=lambda dataset_key: list(active_codes or [])
+        ),
+        index_basic=SimpleNamespace(
+            get_active_indexes=lambda: [SimpleNamespace(ts_code=code) for code in (fallback_codes or [])]
+        ),
     )
 
-    assert fetched == 3
-    assert written == 3
-    assert raw_upsert.call_count == 2
-    assert core_upsert.call_count == 2
-    upsert_active.assert_called_once_with("index_daily", {"000001.SH": date(2026, 3, 25)})
 
-
-def test_index_daily_service_can_suppress_single_code_progress_update(mocker) -> None:
-    session = mocker.Mock()
-    session.get.return_value = None
-    service = SyncIndexDailyService(session)
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {"ts_code": "000001.SH", "trade_date": "20260325", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-        ],
+def test_index_daily_point_incremental_uses_active_index_pool() -> None:
+    contract = get_sync_v2_contract("index_daily")
+    request = RunRequest(
+        request_id="req-index-daily-point",
+        dataset_key="index_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 25),
+        params={},
     )
-    mocker.patch.object(service.dao.raw_index_daily, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_daily_serving, "bulk_upsert", return_value=1)
-    mocker.patch.object(service.dao.index_series_active, "upsert_seen_codes")
-    update_progress = mocker.patch.object(service, "_update_progress")
-
-    fetched, written, _, _ = service.execute(
-        "FULL",
-        ts_code="000001.SH",
-        start_date="2026-03-01",
-        end_date="2026-03-25",
-        execution_id=123,
-        suppress_single_code_progress=True,
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_daily_units(
+        validated,
+        contract,
+        dao=_fake_dao(active_codes=["000001.SH", "399001.SZ"]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert fetched == 1
-    assert written == 1
-    update_progress.assert_not_called()
-    assert service.client.call.call_args_list[0].kwargs["params"]["offset"] == 0
+    assert len(units) == 2
+    assert sorted(u.request_params["ts_code"] for u in units) == ["000001.SH", "399001.SZ"]
+    assert all(u.request_params["trade_date"] == "20260325" for u in units)
+    assert all(u.page_limit == 8000 for u in units)
 
 
-def test_index_weekly_service_paginates(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexWeeklyService(session)
-    service.page_limit = 2
-    mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
-    mocker.patch.object(
-        service.dao.index_series_active,
-        "list_active_codes",
-        return_value=["000001.SH", "000300.SH", "000905.SH"],
+def test_index_daily_falls_back_to_index_basic_when_active_pool_empty() -> None:
+    contract = get_sync_v2_contract("index_daily")
+    request = RunRequest(
+        request_id="req-index-daily-fallback",
+        dataset_key="index_daily",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 25),
+        params={},
     )
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
-    )
-    mocker.patch.object(
-        service.client,
-        "call",
-        side_effect=[
-            [
-                {"ts_code": "000001.SH", "trade_date": "20260320", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-                {"ts_code": "000300.SH", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
-            ],
-            [
-                {"ts_code": "000905.SH", "trade_date": "20260320", "open": "3", "high": "3", "low": "3", "close": "3", "pre_close": "3", "change": "0", "pct_chg": "0", "vol": "3", "amount": "3"},
-            ],
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", side_effect=[2, 1])
-
-    fetched, written, result_date, message = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
-
-    assert fetched == 3
-    assert written == 3
-    assert result_date == date(2026, 3, 20)
-    assert message is None
-    assert raw_upsert.call_count == 2
-    assert core_insert.call_count == 2
-    assert service.client.call.call_args_list[0].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 0}
-    assert service.client.call.call_args_list[1].kwargs["params"] == {"trade_date": "20260320", "limit": 2, "offset": 2}
-
-
-def test_index_weekly_service_filters_codes_outside_active_pool(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexWeeklyService(session)
-    service.page_limit = 1000
-    mocker.patch.object(service, "_fill_missing_from_daily", return_value=0)
-    mocker.patch.object(
-        service.dao.index_series_active,
-        "list_active_codes",
-        return_value=["000001.SH"],
-    )
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
-    )
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {"ts_code": "000001.SH", "trade_date": "20260320", "open": "1", "high": "1", "low": "1", "close": "1", "pre_close": "1", "change": "0", "pct_chg": "0", "vol": "1", "amount": "1"},
-            {"ts_code": "470006", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
-        ],
-    )
-    raw_upsert = mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", return_value=1)
-
-    fetched, written, _, _ = service.execute("INCREMENTAL", trade_date=date(2026, 3, 20))
-
-    assert fetched == 2
-    assert written == 1
-    raw_rows = raw_upsert.call_args.args[0]
-    assert len(raw_rows) == 2
-    transformed_rows = core_insert.call_args.args[0]
-    assert len(transformed_rows) == 1
-    assert transformed_rows[0]["ts_code"] == "000001.SH"
-    assert transformed_rows[0]["source"] == "api"
-
-
-def test_index_weekly_service_rejects_single_code_outside_active_pool(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexWeeklyService(session)
-    mocker.patch.object(
-        service.dao.index_series_active,
-        "list_active_codes",
-        return_value=["000001.SH"],
-    )
-    mocker.patch.object(
-        service.client,
-        "call",
-        return_value=[
-            {"ts_code": "000300.SH", "trade_date": "20260320", "open": "2", "high": "2", "low": "2", "close": "2", "pre_close": "2", "change": "0", "pct_chg": "0", "vol": "2", "amount": "2"},
-        ],
-    )
-    mocker.patch.object(service.dao.raw_index_weekly_bar, "bulk_upsert", return_value=1)
-    core_insert = mocker.patch.object(service.dao.index_weekly_serving, "bulk_insert", return_value=0)
-
-    fetched, written, _, _ = service.execute("FULL", ts_code="000300.SH", start_date="2026-03-01", end_date="2026-03-20")
-
-    assert fetched == 1
-    assert written == 0
-    core_insert.assert_not_called()
-
-
-def test_index_weekly_fill_missing_uses_valid_cte_sql(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexWeeklyService(session)
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 3, 16), date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
-    )
-    execute_result = mocker.Mock()
-    execute_result.mappings.return_value = []
-    session.execute.return_value = execute_result
-
-    service._fill_missing_from_daily(date(2026, 3, 20), ["000001.SH"])
-
-    sql = session.execute.call_args.args[0]
-    assert "with win as" in sql.text.lower()
-
-
-def test_index_weekly_period_start_uses_first_open_trade_date(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexWeeklyService(session)
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 3, 17), date(2026, 3, 18), date(2026, 3, 19), date(2026, 3, 20)],
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_daily_units(
+        validated,
+        contract,
+        dao=_fake_dao(active_codes=[], fallback_codes=["000300.SH"]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert service._period_start_date(date(2026, 3, 18)) == date(2026, 3, 17)
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260325", "ts_code": "000300.SH"}
 
 
-def test_index_monthly_period_start_uses_first_open_trade_date(mocker) -> None:
-    session = mocker.Mock()
-    service = SyncIndexMonthlyService(session)
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 3, 2), date(2026, 3, 3), date(2026, 3, 4)],
+def test_index_weekly_range_rebuild_compresses_to_week_end_anchors() -> None:
+    contract = get_sync_v2_contract("index_weekly")
+    request = RunRequest(
+        request_id="req-index-weekly-range",
+        dataset_key="index_weekly",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 16),
+        end_date=date(2026, 3, 27),
+        params={"ts_code": "000001.SH"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_weekly_units(
+        validated,
+        contract,
+        dao=_fake_dao(
+            open_dates=[
+                date(2026, 3, 16),
+                date(2026, 3, 17),
+                date(2026, 3, 18),
+                date(2026, 3, 19),
+                date(2026, 3, 20),
+                date(2026, 3, 23),
+                date(2026, 3, 24),
+                date(2026, 3, 25),
+                date(2026, 3, 26),
+                date(2026, 3, 27),
+            ]
+        ),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert service._period_start_date(date(2026, 3, 20)) == date(2026, 3, 2)
+    assert len(units) == 2
+    assert sorted(u.request_params["trade_date"] for u in units) == ["20260320", "20260327"]
 
 
-def test_etf_basic_builds_default_full_sync_params() -> None:
-    params = build_etf_basic_params("FULL")
-
-    assert params == {}
-
-
-def test_etf_basic_builds_filtered_params() -> None:
-    params = build_etf_basic_params(
-        "FULL",
-        ts_code="510300.SH",
-        index_code="000300.SH",
-        list_date="2026-03-29",
-        exchange="SSE",
-        mgr="华泰柏瑞基金",
-        list_status="L",
+def test_index_monthly_range_rebuild_compresses_to_month_end_anchor() -> None:
+    contract = get_sync_v2_contract("index_monthly")
+    request = RunRequest(
+        request_id="req-index-monthly-range",
+        dataset_key="index_monthly",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 16),
+        end_date=date(2026, 3, 31),
+        params={"ts_code": "000001.SH"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_monthly_units(
+        validated,
+        contract,
+        dao=_fake_dao(
+            open_dates=[
+                date(2026, 3, 16),
+                date(2026, 3, 17),
+                date(2026, 3, 18),
+                date(2026, 3, 19),
+                date(2026, 3, 20),
+                date(2026, 3, 23),
+                date(2026, 3, 24),
+                date(2026, 3, 25),
+                date(2026, 3, 26),
+                date(2026, 3, 27),
+                date(2026, 3, 30),
+                date(2026, 3, 31),
+            ]
+        ),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert params == {
-        "list_status": "L",
-        "ts_code": "510300.SH",
-        "index_code": "000300.SH",
-        "list_date": "20260329",
-        "exchange": "SSE",
-        "mgr": "华泰柏瑞基金",
-    }
+    assert len(units) == 1
+    assert units[0].request_params["trade_date"] == "20260331"
 
 
-def test_etf_basic_service_fields_are_explicit() -> None:
-    assert SyncEtfBasicService.fields
+def test_stk_period_bar_week_and_month_point_params() -> None:
+    week_contract = get_sync_v2_contract("stk_period_bar_week")
+    week_request = RunRequest(
+        request_id="req-stk-week",
+        dataset_key="stk_period_bar_week",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 27),
+        params={"ts_code": "000001.SZ"},
+    )
+    week_validated = ContractValidator().validate(week_request, week_contract)
+    week_units = build_stk_period_bar_week_units(week_validated, week_contract, dao=None, settings=None, session=None)
+    assert week_units[0].request_params == {"freq": "week", "ts_code": "000001.SZ", "trade_date": "20260327"}
+
+    month_contract = get_sync_v2_contract("stk_period_bar_month")
+    month_request = RunRequest(
+        request_id="req-stk-month",
+        dataset_key="stk_period_bar_month",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 31),
+        params={"ts_code": "000001.SZ"},
+    )
+    month_validated = ContractValidator().validate(month_request, month_contract)
+    month_units = build_stk_period_bar_month_units(month_validated, month_contract, dao=None, settings=None, session=None)
+    assert month_units[0].request_params == {"freq": "month", "ts_code": "000001.SZ", "trade_date": "20260331"}
+
+
+def test_stk_period_bar_adj_week_and_month_point_params() -> None:
+    week_contract = get_sync_v2_contract("stk_period_bar_adj_week")
+    week_request = RunRequest(
+        request_id="req-stk-adj-week",
+        dataset_key="stk_period_bar_adj_week",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 27),
+        params={"ts_code": "000001.SZ"},
+    )
+    week_validated = ContractValidator().validate(week_request, week_contract)
+    week_units = build_stk_period_bar_adj_week_units(
+        week_validated, week_contract, dao=None, settings=None, session=None
+    )
+    assert week_units[0].request_params == {"freq": "week", "ts_code": "000001.SZ", "trade_date": "20260327"}
+
+    month_contract = get_sync_v2_contract("stk_period_bar_adj_month")
+    month_request = RunRequest(
+        request_id="req-stk-adj-month",
+        dataset_key="stk_period_bar_adj_month",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 31),
+        params={"ts_code": "000001.SZ"},
+    )
+    month_validated = ContractValidator().validate(month_request, month_contract)
+    month_units = build_stk_period_bar_adj_month_units(
+        month_validated, month_contract, dao=None, settings=None, session=None
+    )
+    assert month_units[0].request_params == {"freq": "month", "ts_code": "000001.SZ", "trade_date": "20260331"}
+
+
+def test_index_weight_range_rebuild_builds_units_from_active_index_pool() -> None:
+    contract = get_sync_v2_contract("index_weight")
+    request = RunRequest(
+        request_id="req-index-weight-range",
+        dataset_key="index_weight",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_weight_units(
+        validated,
+        contract,
+        dao=_fake_dao(active_codes=["000300.SH", "000905.SH"]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+
+    assert len(units) == 2
+    assert sorted(unit.request_params["index_code"] for unit in units) == ["000300.SH", "000905.SH"]
+    assert all(unit.request_params["start_date"] == "20260301" for unit in units)
+    assert all(unit.request_params["end_date"] == "20260331" for unit in units)
+    assert all(unit.page_limit == 6000 for unit in units)
+
+
+def test_index_daily_basic_point_incremental_builds_single_unit() -> None:
+    contract = get_sync_v2_contract("index_daily_basic")
+    request = RunRequest(
+        request_id="req-index-daily-basic",
+        dataset_key="index_daily_basic",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 3, 25),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_index_daily_basic_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260325"}
+    assert units[0].page_limit == 3000

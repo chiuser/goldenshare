@@ -1,101 +1,108 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 
-from src.foundation.services.sync.sync_suspend_d_service import SyncSuspendDService
+from src.foundation.services.sync_v2.contracts import FetchResult, RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.suspend_d import build_suspend_d_units
+from src.foundation.services.sync_v2.errors import SyncV2ValidationError
+from src.foundation.services.sync_v2.normalizer import SyncV2Normalizer
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_sync_suspend_d_incremental_requires_trade_date(mocker) -> None:
-    session = mocker.Mock()
-    mocker.patch("src.foundation.services.sync.sync_suspend_d_service.TushareHttpClient", return_value=mocker.Mock())
-    service = SyncSuspendDService(session)
-
-    with pytest.raises(ValueError, match="trade_date is required"):
-        service.execute("INCREMENTAL")
+def _fake_dao(open_dates: list[date]) -> SimpleNamespace:
+    return SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start, end: open_dates)
+    )
 
 
-def test_sync_suspend_d_incremental_paginates_and_writes_with_row_hash(mocker) -> None:
-    session = mocker.Mock()
-    client = mocker.Mock()
-    client.call.side_effect = [
-        [
-            {
-                "trade_date": "20260410",
-                "ts_code": "000001.SZ",
-                "suspend_timing": "09:30-10:30",
-                "suspend_type": "S",
-            }
-        ]
-    ]
-    mocker.patch("src.foundation.services.sync.sync_suspend_d_service.TushareHttpClient", return_value=client)
-    service = SyncSuspendDService(session)
-    raw_upsert = mocker.patch.object(service.dao.raw_suspend_d, "bulk_upsert", return_value=1)
-    core_upsert = mocker.patch.object(service.dao.equity_suspend_d, "bulk_upsert", return_value=1)
-    progress = mocker.patch.object(service, "_update_progress")
+def test_suspend_d_point_incremental_requires_trade_date() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-suspend-d-missing-trade-date",
+        dataset_key="suspend_d",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={},
+    )
 
-    fetched, written, result_date, message = service.execute(
-        "INCREMENTAL",
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        ContractValidator().validate(request, contract)
+    assert exc_info.value.structured_error.error_code == "missing_anchor_fields"
+
+
+def test_suspend_d_point_incremental_builds_unit_with_upper_suspend_type() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-suspend-d-point",
+        dataset_key="suspend_d",
+        run_profile="point_incremental",
+        trigger_source="test",
         trade_date=date(2026, 4, 10),
-        suspend_type="s",
+        params={"suspend_type": "s", "ts_code": "000001.sz"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_suspend_d_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
+
+    assert len(units) == 1
+    assert units[0].request_params == {
+        "trade_date": "20260410",
+        "ts_code": "000001.SZ",
+        "suspend_type": "S",
+    }
+    assert units[0].pagination_policy == "offset_limit"
+    assert units[0].page_limit == 5000
+
+
+def test_suspend_d_range_rebuild_fans_out_by_trade_calendar() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-suspend-d-range",
+        dataset_key="suspend_d",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 2),
+        params={"suspend_type": "R"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_suspend_d_units(
+        validated,
+        contract,
+        dao=_fake_dao([date(2026, 4, 1), date(2026, 4, 2)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
     )
 
-    assert fetched == 1
-    assert written == 1
-    assert result_date == date(2026, 4, 10)
-    assert message is None
-    client.call.assert_called_once_with(
-        "suspend_d",
-        params={"trade_date": "20260410", "suspend_type": "S", "limit": 5000, "offset": 0},
-        fields=service.fields,
+    assert len(units) == 2
+    assert units[0].request_params["trade_date"] == "20260401"
+    assert units[0].request_params["suspend_type"] == "R"
+    assert units[1].request_params["trade_date"] == "20260402"
+
+
+def test_suspend_d_normalizer_generates_row_key_hash() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    batch = SyncV2Normalizer().normalize(
+        contract=contract,
+        fetch_result=FetchResult(
+            unit_id="u-suspend-d",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260410",
+                    "ts_code": "000001.SZ",
+                    "suspend_timing": "09:30-10:30",
+                    "suspend_type": "S",
+                }
+            ],
+        ),
     )
-    raw_row = raw_upsert.call_args.args[0][0]
-    assert raw_row["trade_date"] == date(2026, 4, 10)
-    assert raw_row["row_key_hash"]
-    assert len(raw_row["row_key_hash"]) == 64
-    assert raw_row["suspend_timing"] == "09:30-10:30"
-    assert raw_row["suspend_type"] == "S"
-    assert raw_upsert.call_args.kwargs["conflict_columns"] == ["row_key_hash"]
-    assert core_upsert.call_args.kwargs["conflict_columns"] == ["row_key_hash"]
-    assert progress.call_count == 1
-
-
-def test_sync_suspend_d_history_requires_explicit_time_params(mocker) -> None:
-    session = mocker.Mock()
-    mocker.patch("src.foundation.services.sync.sync_suspend_d_service.TushareHttpClient", return_value=mocker.Mock())
-    service = SyncSuspendDService(session)
-
-    with pytest.raises(ValueError, match="requires explicit time params"):
-        service.execute("FULL")
-
-
-def test_sync_suspend_d_history_fans_out_by_trade_calendar(mocker) -> None:
-    session = mocker.Mock()
-    mocker.patch("src.foundation.services.sync.sync_suspend_d_service.TushareHttpClient", return_value=mocker.Mock())
-    service = SyncSuspendDService(session)
-    mocker.patch.object(
-        service.dao.trade_calendar,
-        "get_open_dates",
-        return_value=[date(2026, 4, 1), date(2026, 4, 2)],
-    )
-    sync_one_day = mocker.patch.object(service, "_sync_trade_date", side_effect=[(10, 8), (11, 9)])
-    progress = mocker.patch.object(service, "_update_progress")
-
-    fetched, written, result_date, message = service.execute(
-        "FULL",
-        start_date="2026-04-01",
-        end_date="2026-04-02",
-        suspend_type="R",
-    )
-
-    assert fetched == 21
-    assert written == 17
-    assert result_date == date(2026, 4, 2)
-    assert message == "trade_dates=2"
-    assert sync_one_day.call_count == 2
-    assert sync_one_day.call_args_list[0].kwargs["trade_date"] == date(2026, 4, 1)
-    assert sync_one_day.call_args_list[0].kwargs["suspend_type"] == "R"
-    assert sync_one_day.call_args_list[1].kwargs["trade_date"] == date(2026, 4, 2)
-    assert progress.call_count == 3
-
+    row = batch.rows_normalized[0]
+    assert row["trade_date"] == date(2026, 4, 10)
+    assert row["row_key_hash"]
+    assert len(row["row_key_hash"]) == 64

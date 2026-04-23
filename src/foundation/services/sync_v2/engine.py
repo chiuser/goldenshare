@@ -4,7 +4,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from src.foundation.services.sync.errors import ExecutionCanceledError
+from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
     EngineRunSummary,
