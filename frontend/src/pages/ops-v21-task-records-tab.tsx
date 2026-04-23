@@ -1,7 +1,6 @@
 import {
   Button,
   Grid,
-  Group,
   Loader,
   Select,
   Stack,
@@ -10,7 +9,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
@@ -27,6 +26,8 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
+const ALL_FILTER_VALUE = "all";
+
 function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
   if (!data?.items?.length) {
     return false;
@@ -39,13 +40,13 @@ export function OpsTasksPage() {
   const queryClient = useQueryClient();
   const appliedSearchRef = useRef(false);
   const [filters, setFilters] = useState<{
-    status: string | null;
-    trigger_source: string | null;
-    spec_key: string | null;
+    status: string;
+    trigger_source: string;
+    spec_key: string;
   }>({
-    status: null,
-    trigger_source: null,
-    spec_key: null,
+    status: ALL_FILTER_VALUE,
+    trigger_source: ALL_FILTER_VALUE,
+    spec_key: ALL_FILTER_VALUE,
   });
   const [lastAction, setLastAction] = useState<ExecutionDetailResponse | null>(null);
 
@@ -57,17 +58,17 @@ export function OpsTasksPage() {
     const triggerSource = search.get("trigger_source");
     const specKey = search.get("spec_key");
     setFilters({
-      status,
-      trigger_source: triggerSource,
-      spec_key: specKey,
+      status: status || ALL_FILTER_VALUE,
+      trigger_source: triggerSource || ALL_FILTER_VALUE,
+      spec_key: specKey || ALL_FILTER_VALUE,
     });
   }, [setFilters]);
 
   const filterQueryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (filters.status) params.set("status", filters.status);
-    if (filters.trigger_source) params.set("trigger_source", filters.trigger_source);
-    if (filters.spec_key) params.set("spec_key", filters.spec_key);
+    if (filters.status !== ALL_FILTER_VALUE) params.set("status", filters.status);
+    if (filters.trigger_source !== ALL_FILTER_VALUE) params.set("trigger_source", filters.trigger_source);
+    if (filters.spec_key !== ALL_FILTER_VALUE) params.set("spec_key", filters.spec_key);
     return params.toString();
   }, [filters]);
 
@@ -85,8 +86,7 @@ export function OpsTasksPage() {
 
   const specOptions = useMemo(() => {
     const catalog = catalogQuery.data;
-    if (!catalog) return [];
-    return [
+    const items = catalog ? [
       ...catalog.job_specs.map((item) => ({
         value: item.key,
         label: formatSpecDisplayLabel(item.key, item.display_name),
@@ -95,8 +95,34 @@ export function OpsTasksPage() {
         value: item.key,
         label: formatSpecDisplayLabel(item.key, item.display_name),
       })),
-    ];
+    ] : [];
+    return [{ value: ALL_FILTER_VALUE, label: "全选" }, ...items];
   }, [catalogQuery.data]);
+
+  const statusOptions = useMemo(
+    () => [
+      { value: ALL_FILTER_VALUE, label: "全选" },
+      { value: "queued", label: "等待处理" },
+      { value: "running", label: "正在处理" },
+      { value: "canceling", label: "停止中" },
+      { value: "success", label: "执行成功" },
+      { value: "failed", label: "执行失败" },
+      { value: "canceled", label: "已取消" },
+      { value: "partial_success", label: "部分成功" },
+    ],
+    [],
+  );
+
+  const triggerSourceOptions = useMemo(
+    () => [
+      { value: ALL_FILTER_VALUE, label: "全选" },
+      { value: "manual", label: "手动" },
+      { value: "scheduled", label: "自动" },
+      { value: "retry", label: "重新提交" },
+      { value: "system", label: "系统触发" },
+    ],
+    [],
+  );
 
   const stats = useMemo(() => {
     const items = executionsQuery.data?.items || [];
@@ -254,20 +280,6 @@ export function OpsTasksPage() {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="center">
-        <Text c="dimmed" size="sm">
-          在这里看最近跑了什么、结果怎么样，再决定是查看详情、停止处理，还是重新提交。
-        </Text>
-        <Group gap="xs">
-          <Button component={Link} to="/ops/v21/overview" size="sm" variant="light" color="brand">
-            查看数据状态
-          </Button>
-          <Button component={Link} to="/ops/manual-sync" size="sm">
-            去手动同步
-          </Button>
-        </Group>
-      </Group>
-
       {(catalogQuery.isLoading || executionsQuery.isLoading) ? <Loader size="sm" /> : null}
       {catalogQuery.error || executionsQuery.error ? (
         <AlertBar tone="error" title="无法读取任务记录">
@@ -297,67 +309,50 @@ export function OpsTasksPage() {
         </Grid>
       </SectionCard>
 
-      <SectionCard title="筛选任务" description="先按状态、发起方式或任务名称筛一遍，再进入详情处理。">
-        <FilterBar
-          actions={(
-            <Button
-              variant="light"
-              color="brand"
-              onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}
-            >
-              清空筛选
-            </Button>
-          )}
-        >
-          <FilterBarItem>
-            <Select
-              label="当前状态"
-              clearable
-              data={[
-                { value: "queued", label: "等待处理" },
-                { value: "running", label: "正在处理" },
-                { value: "canceling", label: "停止中" },
-                { value: "success", label: "执行成功" },
-                { value: "failed", label: "执行失败" },
-                { value: "canceled", label: "已取消" },
-                { value: "partial_success", label: "部分成功" },
-              ]}
-              value={filters.status}
-              onChange={(value) => setFilters((current) => ({ ...current, status: value }))}
-            />
-          </FilterBarItem>
-          <FilterBarItem>
-            <Select
-              label="发起方式"
-              clearable
-              data={[
-                { value: "manual", label: "手动" },
-                { value: "scheduled", label: "自动" },
-                { value: "retry", label: "重新提交" },
-                { value: "system", label: "系统触发" },
-              ]}
-              value={filters.trigger_source}
-              onChange={(value) => setFilters((current) => ({ ...current, trigger_source: value }))}
-            />
-          </FilterBarItem>
-          <FilterBarItem>
-            <Select
-              label="任务名称"
-              searchable
-              clearable
-              data={specOptions}
-              value={filters.spec_key}
-              onChange={(value) => setFilters((current) => ({ ...current, spec_key: value }))}
-            />
-          </FilterBarItem>
-        </FilterBar>
-      </SectionCard>
-
-      <SectionCard title="任务记录" description="这里查看任务状态，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
+      <SectionCard title="任务记录" description="先筛选，再查看详情、停止处理，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
         <DataTable
           columns={executionColumns}
           getRowKey={(item) => item.id}
           rows={executionsQuery.data?.items || []}
+          toolbar={(
+            <FilterBar
+              actions={(
+                <Button
+                  variant="light"
+                  color="brand"
+                  onClick={() => setFilters({ status: ALL_FILTER_VALUE, trigger_source: ALL_FILTER_VALUE, spec_key: ALL_FILTER_VALUE })}
+                >
+                  清空筛选
+                </Button>
+              )}
+            >
+              <FilterBarItem>
+                <Select
+                  label="当前状态"
+                  data={statusOptions}
+                  value={filters.status}
+                  onChange={(value) => setFilters((current) => ({ ...current, status: value || ALL_FILTER_VALUE }))}
+                />
+              </FilterBarItem>
+              <FilterBarItem>
+                <Select
+                  label="发起方式"
+                  data={triggerSourceOptions}
+                  value={filters.trigger_source}
+                  onChange={(value) => setFilters((current) => ({ ...current, trigger_source: value || ALL_FILTER_VALUE }))}
+                />
+              </FilterBarItem>
+              <FilterBarItem>
+                <Select
+                  label="任务名称"
+                  searchable
+                  data={specOptions}
+                  value={filters.spec_key}
+                  onChange={(value) => setFilters((current) => ({ ...current, spec_key: value || ALL_FILTER_VALUE }))}
+                />
+              </FilterBarItem>
+            </FilterBar>
+          )}
           summary={lastAction ? (
             <ActionSummaryCard
               title="最近一次任务操作"
@@ -371,9 +366,18 @@ export function OpsTasksPage() {
           emptyState={(
             <EmptyState
               title="当前筛选下没有任务记录"
-              description="可以清空筛选后再看，或者直接去“手动同步”发起新的任务。"
+              description="可以清空筛选后再看，或调整筛选条件重新查看。"
               action={
-                <Button variant="light" onClick={() => setFilters({ status: null, trigger_source: null, spec_key: null })}>
+                <Button
+                  variant="light"
+                  onClick={() =>
+                    setFilters({
+                      status: ALL_FILTER_VALUE,
+                      trigger_source: ALL_FILTER_VALUE,
+                      spec_key: ALL_FILTER_VALUE,
+                    })
+                  }
+                >
                   清空筛选
                 </Button>
               }

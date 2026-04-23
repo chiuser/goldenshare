@@ -131,4 +131,54 @@ describe("任务记录页", () => {
     expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
     expect((await screen.findAllByText("手动")).length).toBeGreaterThan(0);
   });
+
+  it("移除顶部冗余说明后，将筛选栏并入任务记录板块并默认显示全选", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    const rootRoute = createRootRoute({
+      component: () => <OpsTasksPage />,
+    });
+    const route = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/tasks",
+      component: () => <OpsTasksPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([route]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/tasks"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByText("任务记录")).toBeInTheDocument();
+    expect(screen.queryByText("在这里看最近跑了什么、结果怎么样，再决定是查看详情、停止处理，还是重新提交。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "查看数据状态" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "去手动同步" })).not.toBeInTheDocument();
+    expect(screen.queryByText("筛选任务")).not.toBeInTheDocument();
+
+    const taskRecordsCard = screen.getByText("任务记录").closest(".mantine-Paper-root");
+    expect(taskRecordsCard).not.toBeNull();
+
+    const statusFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "当前状态" });
+    const triggerFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "发起方式" });
+    const specFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "任务名称" });
+
+    expect(statusFilter).toHaveValue("全选");
+    expect(triggerFilter).toHaveValue("全选");
+    expect(specFilter).toHaveValue("全选");
+  });
 });
