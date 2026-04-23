@@ -6,9 +6,10 @@ import {
   Pagination,
   Select,
   Stack,
+  Text,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
@@ -132,6 +133,7 @@ export function OpsTasksPage() {
     queryKey: ["ops", "executions", executionListQueryString],
     queryFn: () => apiRequest<ExecutionListResponse>(`/api/v1/ops/executions?${executionListQueryString}`),
     enabled: searchReady,
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => buildExecutionsRefetchInterval(query.state.data),
   });
 
@@ -140,6 +142,7 @@ export function OpsTasksPage() {
     queryFn: () =>
       apiRequest<ExecutionSummaryResponse>(`/api/v1/ops/executions/summary${filterQueryString ? `?${filterQueryString}` : ""}`),
     enabled: searchReady,
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => buildExecutionSummaryRefetchInterval(query.state.data),
   });
 
@@ -187,6 +190,9 @@ export function OpsTasksPage() {
     const total = executionsQuery.data?.total ?? 0;
     return total > 0 ? Math.ceil(total / PAGE_SIZE) : 1;
   }, [executionsQuery.data?.total]);
+  const isInitialExecutionsLoading = executionsQuery.isLoading && !executionsQuery.data;
+  const isRefreshing =
+    !isInitialExecutionsLoading && (executionsQuery.isFetching || executionSummaryQuery.isFetching);
 
   const retryMutation = useMutation({
     mutationFn: (executionId: number) =>
@@ -340,7 +346,7 @@ export function OpsTasksPage() {
 
   return (
     <Stack gap="lg">
-      {executionsQuery.isLoading ? <Loader size="sm" /> : null}
+      {isInitialExecutionsLoading ? <Loader size="sm" /> : null}
       {executionsQuery.error ? (
         <AlertBar tone="error" title="无法读取任务记录">
           {executionsQuery.error instanceof Error
@@ -380,13 +386,23 @@ export function OpsTasksPage() {
           toolbar={(
             <FilterBar
               actions={(
-                <Button
-                  variant="light"
-                  color="brand"
-                  onClick={() => updateFilters(createDefaultFilters())}
-                >
-                  清空筛选
-                </Button>
+                <Group gap="sm">
+                  {isRefreshing ? (
+                    <Group gap={6}>
+                      <Loader size="xs" />
+                      <Text size="sm" c="dimmed">
+                        正在刷新...
+                      </Text>
+                    </Group>
+                  ) : null}
+                  <Button
+                    variant="light"
+                    color="brand"
+                    onClick={() => updateFilters(createDefaultFilters())}
+                  >
+                    清空筛选
+                  </Button>
+                </Group>
               )}
             >
               <FilterBarItem>

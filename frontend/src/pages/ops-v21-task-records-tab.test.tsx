@@ -2,11 +2,13 @@ import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
+import type { ExecutionListResponse, ExecutionSummaryResponse } from "../shared/api/types";
 import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 vi.mock("../shared/api/client", () => ({
@@ -212,6 +214,86 @@ describe("任务记录页", () => {
     await waitFor(() => {
       expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/executions?page=1&limit=20&offset=0")).toBe(true);
       expect(window.location.search).toBe("?page=1");
+    });
+  });
+
+  it("第一次切换到未缓存筛选项时，保留上一份列表并显示刷新提示", async () => {
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    let resolveFilteredExecutions!: (value: ExecutionListResponse) => void;
+    let resolveFilteredSummary!: (value: ExecutionSummaryResponse) => void;
+    vi.mocked(apiRequest).mockImplementation((path: string) => {
+      const url = new URL(path, "https://example.test");
+      if (url.pathname === "/api/v1/ops/catalog") {
+        return Promise.resolve({
+          job_specs: [
+            {
+              key: "backfill_equity_series.daily",
+              display_name: "股票日线维护",
+            },
+          ],
+          workflow_specs: [],
+        });
+      }
+      if (path === "/api/v1/ops/executions/summary") {
+        return Promise.resolve({
+          total: 41,
+          queued: 3,
+          running: 4,
+          success: 28,
+          failed: 5,
+          canceled: 1,
+        });
+      }
+      if (path === "/api/v1/ops/executions?page=1&limit=20&offset=0") {
+        return Promise.resolve({
+          total: 41,
+          items: [createExecutionItem(1, { spec_display_name: "股票日线维护" })],
+        });
+      }
+      if (path === "/api/v1/ops/executions/summary?status=failed") {
+        return new Promise<ExecutionSummaryResponse>((resolve) => {
+          resolveFilteredSummary = resolve;
+        });
+      }
+      if (path === "/api/v1/ops/executions?status=failed&page=1&limit=20&offset=0") {
+        return new Promise<ExecutionListResponse>((resolve) => {
+          resolveFilteredExecutions = resolve;
+        });
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const user = userEvent.setup();
+    renderTaskRecordsPage();
+
+    expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("textbox", { name: "当前状态" }));
+    await user.click(await screen.findByRole("option", { name: "执行失败", hidden: true }));
+
+    expect(screen.getByRole("link", { name: "查看详情" })).toBeInTheDocument();
+    expect(screen.getByText("正在刷新...")).toBeInTheDocument();
+    expect(screen.queryByLabelText("表格加载中")).not.toBeInTheDocument();
+
+    resolveFilteredSummary({
+      total: 0,
+      queued: 0,
+      running: 0,
+      success: 0,
+      failed: 0,
+      canceled: 0,
+    });
+    resolveFilteredExecutions({
+      total: 0,
+      items: [],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("当前筛选下没有任务记录")).toBeInTheDocument();
+      expect(screen.queryByText("正在刷新...")).not.toBeInTheDocument();
     });
   });
 });
