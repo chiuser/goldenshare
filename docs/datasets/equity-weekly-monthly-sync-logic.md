@@ -1,82 +1,102 @@
-# 股票周/月线同步逻辑说明（stk_weekly_monthly / stk_week_month_adj）
-
-> 状态说明
->
-> 本文档记录的是一版历史实现说明，其中“自然周五 / 自然月末”口径已经不再作为现行统一口径。
->
-> 当前已确认的统一业务口径请以
-> [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
-> 为准。
+# 股票周/月线同步逻辑说明（现行 V2 口径）
 
 ## 1. 适用数据集
 
-- `stk_period_bar_week`（股票周线）
-- `stk_period_bar_month`（股票月线）
-- `stk_period_bar_adj_week`（股票复权周线）
-- `stk_period_bar_adj_month`（股票复权月线）
+1. `stk_period_bar_week`（股票周线）
+2. `stk_period_bar_month`（股票月线）
+3. `stk_period_bar_adj_week`（股票复权周线）
+4. `stk_period_bar_adj_month`（股票复权月线）
 
 对应接口：
 
-- `stk_weekly_monthly`
-- `stk_week_month_adj`
+1. `stk_weekly_monthly`
+2. `stk_week_month_adj`
 
-## 2. 参数与锚点规则
+---
 
-### 2.1 日常同步（`sync_daily.*`）
+## 2. 统一时间口径（当前）
 
-- 运行入口：`sync_daily.<resource>`
-- 参数：`trade_date`（可显式传入，不传时由调度层兜底）
-- 调度兜底：若未传 `trade_date`，由调度器取“默认交易所最近开市日”。
-- 重要说明：
-  - 目前周/月线资源未加入自动任务可选列表（`DAILY_SYNC_RESOURCES`），因此默认不会出现在自动任务创建页。
-  - 但底层 `sync_daily` 任务链路本身可执行。
+以交易日历开市日为基准：
 
-### 2.2 历史回补（`backfill_equity_series.*`）
+1. 周线：`week_end_trade_date`（每周最后一个交易日）
+2. 月线：`month_end_trade_date`（每月最后一个交易日）
 
-- 运行入口：`backfill_equity_series.<resource>`
-- 参数：`start_date`、`end_date`（可带 `offset/limit` 做分段）
-- 执行锚点（本次已统一优化）：
-  - 周线/复权周线：在 `[start_date, end_date]` 内按自然周生成每周五日期序列。
-  - 月线/复权月线：在 `[start_date, end_date]` 内按自然月生成每月最后一天日期序列。
-- 每个锚点日期调用一次对应 `run_incremental(trade_date=...)`。
+不再使用“自然周五 / 自然月末”作为执行锚点。
 
-## 3. 与交易日历关系
+关联基线：
 
-### 3.1 周/月线回补不做交易日校验
+1. [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 
-根据接口特性，周/月线请求锚点应使用“周五/每月最后一天”，该日期可能是休市日。  
-因此周/月线回补链路不再基于交易日历筛选开市日，也不校验“是否交易日”。
+---
 
-### 3.2 其他数据集不受影响
+## 3. 入口语义（当前）
 
-- `daily`、`adj_factor` 仍按交易日历开市日逐日回补。
-- 基金、榜单、板块等其它回补模式保持原有逻辑。
+### 3.1 `sync-daily`
 
-## 4. 执行流程（回补）
+1. 输入：`trade_date`
+2. 行为：按对应 contract 的锚点语义校验该日期并执行单点同步。
 
-1. 接收 `start_date/end_date`。
-2. 依据资源类型生成锚点序列（周五或月末）。
-3. 应用 `offset/limit`。
-4. 对每个锚点执行 `service.run_incremental(trade_date=anchor)`。
-5. 累加 `rows_fetched/rows_written`，写入进度消息：
-   - `resource: i/total trade_date=YYYY-MM-DD fetched=x written=y`
-6. 完成后刷新资源状态快照。
+### 3.2 `sync-history`
 
-## 5. 当前实现位置
+1. 输入：`start_date` + `end_date`（支持 `ts_code` 可选筛选）
+2. 行为：区间内按锚点展开交易日序列后执行。
 
-- 回补主逻辑：`src/operations/services/history_backfill_service.py`
-- 周/月线 sync service：
-  - `src/foundation/services/sync/sync_stk_period_bar_week_service.py`
-  - `src/foundation/services/sync/sync_stk_period_bar_month_service.py`
-  - `src/foundation/services/sync/sync_stk_period_bar_adj_week_service.py`
-  - `src/foundation/services/sync/sync_stk_period_bar_adj_month_service.py`
+### 3.3 `backfill_equity_series`
 
-## 6. 测试覆盖
+1. 输入：`start_date` + `end_date`（支持 `offset/limit`）
+2. 行为：由回补服务先筛出区间开市日，再压缩为周末/月末交易锚点执行。
 
-已覆盖以下关键场景：
+---
 
-- 周线回补走“周五锚点”且不读取交易日历开市日。
-- 月线回补走“月末锚点”且不读取交易日历开市日。
-- 周/月线（含复权）回补进度与计数正确。
+## 4. 实现落位（当前代码）
 
-对应测试文件：`tests/test_history_backfill_service.py`
+### 4.1 V2 contract
+
+文件：
+
+1. [market_equity.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/market_equity.py)
+
+关键字段：
+
+1. `stk_period_bar_week` / `stk_period_bar_adj_week`：`anchor_type=week_end_trade_date`
+2. `stk_period_bar_month` / `stk_period_bar_adj_month`：`anchor_type=month_end_trade_date`
+3. 四个数据集都为 `window_policy=point_or_range`
+
+### 4.2 策略函数
+
+文件：
+
+1. [stk_period_bar_week.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_week.py)
+2. [stk_period_bar_month.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_month.py)
+3. [stk_period_bar_adj_week.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_adj_week.py)
+4. [stk_period_bar_adj_month.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_adj_month.py)
+
+共用锚点展开与分页能力：
+
+1. [common.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/common.py)
+2. [trade_date_expand.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/strategy_helpers/trade_date_expand.py)
+
+### 4.3 回补服务
+
+文件：
+
+1. [operations_history_backfill_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)
+
+其中 `backfill_equity_series` 对周/月线采用“开市日 -> 周末/月末交易日锚点”压缩执行。
+
+---
+
+## 5. 观测与测试
+
+关键测试覆盖：
+
+1. [test_history_backfill_service.py](/Users/congming/github/goldenshare/tests/test_history_backfill_service.py)（回补锚点与进度）
+2. [test_extended_sync_services.py](/Users/congming/github/goldenshare/tests/test_extended_sync_services.py)（周/月线策略参数）
+3. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
+
+---
+
+## 6. 历史说明
+
+旧实现曾位于 `src/foundation/services/sync/sync_stk_period_bar*_service.py`，该路径已在 V1 清理阶段移除。本文不再以旧路径作为现行依据。
+

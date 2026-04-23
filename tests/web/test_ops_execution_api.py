@@ -296,50 +296,13 @@ def test_ops_execution_retry_creates_new_execution(app_client, user_factory, job
     assert payload["params_json"] == {"exchange": "SSE"}
 
 
-def test_ops_execution_retry_now_keeps_backward_compatible_path_but_only_requeues(app_client, user_factory, job_execution_factory, mocker) -> None:
+def test_ops_execution_retry_now_route_is_removed(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     existing = job_execution_factory(
         spec_type="job",
         spec_key="sync_history.stock_basic",
         status="failed",
         requested_by_user_id=admin.id,
-    )
-    mocker.patch(
-        "src.ops.api.executions.OpsExecutionCommandService.retry_execution",
-        return_value=existing.id + 1,
-    )
-    mocker.patch(
-        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
-        return_value=ExecutionDetailResponse(
-            id=existing.id + 1,
-            schedule_id=None,
-            spec_type="job",
-            spec_key="sync_history.stock_basic",
-            spec_display_name="股票基础信息",
-            schedule_display_name=None,
-            trigger_source="retry",
-            status="queued",
-            requested_by_username="admin",
-            requested_at=datetime.now(timezone.utc),
-            queued_at=datetime.now(timezone.utc),
-            started_at=None,
-            ended_at=None,
-            params_json={},
-            summary_message="任务已提交",
-            rows_fetched=0,
-            rows_written=0,
-            progress_current=None,
-            progress_total=None,
-            progress_percent=None,
-            progress_message=None,
-            last_progress_at=None,
-            cancel_requested_at=None,
-            canceled_at=None,
-            error_code=None,
-            error_message=None,
-            steps=[],
-            events=[],
-        ),
     )
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -349,53 +312,16 @@ def test_ops_execution_retry_now_keeps_backward_compatible_path_but_only_requeue
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["id"] != existing.id
-    assert payload["trigger_source"] == "retry"
-    assert payload["status"] == "queued"
+    assert response.status_code == 404
 
 
-def test_ops_execution_run_now_returns_current_execution_without_starting_it(app_client, user_factory, job_execution_factory, mocker) -> None:
+def test_ops_execution_run_now_route_is_removed(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
         spec_type="job",
         spec_key="sync_history.stock_basic",
         status="queued",
         requested_by_user_id=admin.id,
-    )
-    mocker.patch(
-        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
-        return_value=ExecutionDetailResponse(
-            id=execution.id,
-            schedule_id=None,
-            spec_type="job",
-            spec_key="sync_history.stock_basic",
-            spec_display_name="股票基础信息",
-            schedule_display_name=None,
-            trigger_source="manual",
-            status="queued",
-            requested_by_username="admin",
-            requested_at=datetime.now(timezone.utc),
-            queued_at=datetime.now(timezone.utc),
-            started_at=None,
-            ended_at=None,
-            params_json={},
-            summary_message="任务已提交",
-            rows_fetched=0,
-            rows_written=0,
-            progress_current=None,
-            progress_total=None,
-            progress_percent=None,
-            progress_message=None,
-            last_progress_at=None,
-            cancel_requested_at=None,
-            canceled_at=None,
-            error_code=None,
-            error_message=None,
-            steps=[],
-            events=[],
-        ),
     )
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -405,51 +331,11 @@ def test_ops_execution_run_now_returns_current_execution_without_starting_it(app
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["id"] == execution.id
-    assert payload["status"] == "queued"
+    assert response.status_code == 404
 
 
-def test_ops_execution_create_run_now_keeps_backward_compatible_path_but_only_creates_queued_execution(app_client, user_factory, mocker) -> None:
+def test_ops_execution_create_run_now_route_is_removed(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
-    mocker.patch(
-        "src.ops.api.executions.OpsExecutionCommandService.create_manual_execution",
-        return_value=88,
-    )
-    mocker.patch(
-        "src.ops.api.executions.ExecutionQueryService.get_execution_detail",
-        return_value=ExecutionDetailResponse(
-            id=88,
-            schedule_id=None,
-            spec_type="job",
-            spec_key="sync_history.stock_basic",
-            spec_display_name="股票基础信息",
-            schedule_display_name=None,
-            trigger_source="manual",
-            status="queued",
-            requested_by_username="admin",
-            requested_at=datetime.now(timezone.utc),
-            queued_at=datetime.now(timezone.utc),
-            started_at=None,
-            ended_at=None,
-            params_json={},
-            summary_message="任务已提交",
-            rows_fetched=0,
-            rows_written=0,
-            progress_current=None,
-            progress_total=None,
-            progress_percent=None,
-            progress_message=None,
-            last_progress_at=None,
-            cancel_requested_at=None,
-            canceled_at=None,
-            error_code=None,
-            error_message=None,
-            steps=[],
-            events=[],
-        ),
-    )
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
@@ -463,10 +349,7 @@ def test_ops_execution_create_run_now_keeps_backward_compatible_path_but_only_cr
         },
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["spec_key"] == "sync_history.stock_basic"
-    assert payload["status"] == "queued"
+    assert response.status_code == 405
 
 
 def test_ops_execution_cancel_marks_queued_execution_as_canceled(app_client, user_factory, job_execution_factory) -> None:

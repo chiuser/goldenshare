@@ -105,22 +105,6 @@ def create_ops_execution(
     return ExecutionQueryService().get_execution_detail(session, execution_id)
 
 
-@router.post("/run-now", response_model=ExecutionDetailResponse)
-def create_ops_execution_and_run_now(
-    body: CreateExecutionRequest,
-    user: AuthenticatedUser = Depends(require_admin),
-    session: Session = Depends(get_db_session),
-) -> ExecutionDetailResponse:
-    execution_id = OpsExecutionCommandService().create_manual_execution(
-        session,
-        user=user,
-        spec_type=body.spec_type,
-        spec_key=body.spec_key,
-        params_json=body.params_json,
-    )
-    return ExecutionQueryService().get_execution_detail(session, execution_id)
-
-
 @router.post("/{execution_id}/retry", response_model=ExecutionDetailResponse)
 def retry_ops_execution(
     execution_id: int,
@@ -129,25 +113,6 @@ def retry_ops_execution(
 ) -> ExecutionDetailResponse:
     new_execution_id = OpsExecutionCommandService().retry_execution(session, user=user, execution_id=execution_id)
     return ExecutionQueryService().get_execution_detail(session, new_execution_id)
-
-
-@router.post("/{execution_id}/retry-now", response_model=ExecutionDetailResponse)
-def retry_ops_execution_and_run_now(
-    execution_id: int,
-    user: AuthenticatedUser = Depends(require_admin),
-    session: Session = Depends(get_db_session),
-) -> ExecutionDetailResponse:
-    new_execution_id = OpsExecutionCommandService().retry_execution(session, user=user, execution_id=execution_id)
-    return ExecutionQueryService().get_execution_detail(session, new_execution_id)
-
-
-@router.post("/{execution_id}/run-now", response_model=ExecutionDetailResponse)
-def run_ops_execution_now(
-    execution_id: int,
-    _user: AuthenticatedUser = Depends(require_admin),
-    session: Session = Depends(get_db_session),
-) -> ExecutionDetailResponse:
-    return ExecutionQueryService().get_execution_detail(session, execution_id)
 
 
 @router.post("/{execution_id}/cancel", response_model=ExecutionDetailResponse)

@@ -1,6 +1,6 @@
 # Ops 当前契约（统一版）
 
-更新时间：2026-04-19  
+更新时间：2026-04-23
 适用范围：`src/ops/*`、`src/app/*`、`src/foundation/*`（Ops 相关）
 
 ---
@@ -47,6 +47,27 @@
 1. 调度支持 cron/probe
 2. 任务详情可追踪层级进度与错误摘要
 3. 保持与 `job_execution` 体系一致
+
+### 2.3.1 任务中心执行语义（已确认）
+
+当前确认口径：
+
+1. 任务中心采用**队列模型**
+2. Web/API 负责创建、查询、重试、取消 execution 请求
+3. Web 不是长任务执行 owner，不在请求内直接跑同步任务
+4. 真正执行由独立 scheduler / worker 进程推进
+
+前端展示口径：
+
+1. 使用“提交任务”“重新提交”“请求停止”“等待处理”“正在处理”
+2. 不再使用“run-now”“立即执行”“立即重跑”作为主文案
+3. 用户点击动作后，默认预期是“任务进入队列并等待 worker 处理”
+
+后端契约要求：
+
+1. execution API 命名与返回语义应与队列模型一致
+2. 兼容路径若继续保留，必须明确标注为 queue-only alias，不得继续暗示“立即执行”
+3. `/api/v1/ops/runtime/*` 不作为新 UI 的正常执行入口
 
 ### 2.4 审查中心
 
@@ -147,6 +168,8 @@
 4. 页面文案优先业务语义，不暴露底层字段实现细节
 5. `disabled` 数据集可见但不计入滞后/失败告警统计
 6. 停用能力当前为代码级控制，后续应收敛到配置化控制表
+7. 任务动作默认采用队列语义，不在 Web 层暴露“立即执行长任务”的主交互
+8. 新增任务 API 时，优先围绕 `execution request -> queued -> worker claim -> running -> terminal` 生命周期设计
 
 ---
 
@@ -211,6 +234,8 @@
 1. `ops-workflow-catalog-v1.md`：工作流目录与实现清单
 2. `ops-review-center-design-v1.md`：审查中心设计
 3. `reconcile-capability-requirements-v1.md`：多源对账专项
+4. `ops-web-api-capability-review-memo-v1.md`：当前 ops Web API 能力审查备忘
+5. `ops-execution-api-queue-semantics-alignment-plan-v1.md`：execution API 队列语义收口方案
 
 ---
 
