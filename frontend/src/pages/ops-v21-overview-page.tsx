@@ -1,4 +1,4 @@
-import { Alert, Badge, Box, Button, Grid, Group, Loader, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Badge, Box, Button, Grid, Group, Loader, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
@@ -8,6 +8,7 @@ import type {
   OpsOverviewResponse,
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { AlertBar } from "../shared/ui/alert-bar";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -137,6 +138,12 @@ function stageTableName(stage: StageKey, item: MergedCardItem): string | null {
   if (stage === "light") return item.canonicalDatasetKey === "daily" ? "core_serving_light.equity_daily_bar_light" : null;
   if (stage === "serving") return item.servingTable;
   return null;
+}
+
+function configFlagPresentation(isOn: boolean) {
+  return isOn
+    ? { value: "active", label: "已配置" }
+    : { value: "disabled", label: "未配置" };
 }
 
 export function OpsV21OverviewPage() {
@@ -272,9 +279,9 @@ export function OpsV21OverviewPage() {
       >
         {summaryQuery.isLoading ? <Loader size="sm" /> : null}
         {summaryQuery.error ? (
-          <Alert color="error" title="读取状态概览失败">
+          <AlertBar tone="error" title="读取状态概览失败">
             {summaryQuery.error instanceof Error ? summaryQuery.error.message : "未知错误"}
-          </Alert>
+          </AlertBar>
         ) : null}
         {summaryQuery.data ? (
           <Grid>
@@ -302,15 +309,15 @@ export function OpsV21OverviewPage() {
 
       {isLoading ? <Loader size="sm" /> : null}
       {error ? (
-        <Alert color="error" title="读取数据状态总览失败">
+        <AlertBar tone="error" title="读取数据状态总览失败">
           {error instanceof Error ? error.message : "未知错误"}
-        </Alert>
+        </AlertBar>
       ) : null}
 
       {!isLoading && !error && cards.length === 0 ? (
-        <Alert color="info" title="暂无可展示的数据集">
+        <AlertBar tone="info" title="暂无可展示的数据集">
           当前还没有 pipeline_mode 记录，请先执行一次初始化。
-        </Alert>
+        </AlertBar>
       ) : null}
 
       {Array.from(groupedCards.entries()).map(([groupKey, groupItems]) => {
@@ -344,10 +351,10 @@ export function OpsV21OverviewPage() {
                 return (
                   <Paper
                     key={item.cardKey}
-                    className="glass-card"
+                    data-testid={`overview-dataset-card-${item.cardKey}`}
                     withBorder
                     radius="md"
-                    p="md"
+                    p="lg"
                     style={{ minHeight: 278 }}
                   >
                     <Stack gap={8} h="100%">
@@ -425,34 +432,15 @@ export function OpsV21OverviewPage() {
                       <Grid gutter={6}>
                         {flags.map((flag) => (
                           <Grid.Col key={flag.label} span={4}>
-                            <Paper
-                              radius="sm"
-                              p="xs"
-                              style={{
-                                background: "rgba(254, 249, 220, 0.92)",
-                                border: "1px solid rgba(180, 160, 90, 0.24)",
-                              }}
-                            >
-                              <Text size="xs" c="dimmed">{flag.label}</Text>
-                              <Badge
-                                size="xs"
-                                variant="light"
-                                styles={{
-                                  root: flag.on
-                                    ? {
-                                      background: "rgba(34, 197, 94, 0.16)",
-                                      color: "#166534",
-                                      border: "1px solid rgba(34, 197, 94, 0.28)",
-                                    }
-                                    : {
-                                      background: "rgba(148, 163, 184, 0.14)",
-                                      color: "#475569",
-                                      border: "1px solid rgba(148, 163, 184, 0.24)",
-                                    },
-                                }}
-                              >
-                                {flag.on ? "已配置" : "未配置"}
-                              </Badge>
+                            <Paper withBorder radius="sm" p="xs">
+                              <Stack gap={6}>
+                                <Text size="xs" c="dimmed" fw={600}>{flag.label}</Text>
+                                <StatusBadge
+                                  value={configFlagPresentation(flag.on).value}
+                                  label={configFlagPresentation(flag.on).label}
+                                  size="xs"
+                                />
+                              </Stack>
                             </Paper>
                           </Grid.Col>
                         ))}

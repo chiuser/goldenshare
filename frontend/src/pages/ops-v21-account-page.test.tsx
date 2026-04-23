@@ -53,4 +53,44 @@ describe("帐号管理", () => {
 
     expect((usernameInput as HTMLInputElement).value).toBe("new_user");
   });
+
+  it("用户列表使用统一状态标签，并通过抽屉承接编辑动作", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path.startsWith("/api/v1/admin/users?")) {
+        return {
+          total: 1,
+          items: [
+            {
+              id: 1,
+              username: "operator_01",
+              display_name: "运营同学",
+              email: "ops@example.com",
+              is_admin: false,
+              is_active: true,
+              account_state: "pending_verification",
+              roles: ["operator"],
+              last_login_at: "2026-04-23T10:00:00+08:00",
+            },
+          ],
+        };
+      }
+      if (path.startsWith("/api/v1/admin/invites?")) {
+        return { total: 0, items: [] };
+      }
+      throw new Error(`unexpected api path: ${path}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("共 1 个账号")).toBeInTheDocument();
+    expect(await screen.findByText("运营同学")).toBeInTheDocument();
+    expect((await screen.findAllByText("启用")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("待验证")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+
+    expect(await screen.findByText("编辑账号 · operator_01")).toBeInTheDocument();
+    const displayNameInputs = await screen.findAllByLabelText("显示名称");
+    expect(displayNameInputs.some((input) => (input as HTMLInputElement).value === "运营同学")).toBe(true);
+  });
 });

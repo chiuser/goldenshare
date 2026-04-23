@@ -206,6 +206,10 @@
 - `npm run build`
 - `npm run test:smoke`
 
+当前边界卡：
+
+- [frontend-phase6-p6-2-boundary-card-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-2-boundary-card-v1.md)
+
 ---
 
 ## 5.4 P6-3：数据详情推广批
@@ -249,6 +253,16 @@
 - `npm run build`
 - 视触及页面情况评估 `npm run test:smoke`
 
+当前边界卡：
+
+- [frontend-phase6-p6-3-boundary-card-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-3-boundary-card-v1.md)
+
+当前结果：
+
+1. `ops-v21-source-page.tsx` 已清理页面级 `glass-card` 数据卡面，并把状态表达收回统一 `StatusBadge`。
+2. `ops-v21-dataset-detail-page.tsx` 已将局部详情卡面和近期执行记录收敛到 `MetricPanel / DataTable`。
+3. 本批已补页级测试，但经评估暂不纳入 smoke / visual gate，避免本轮扩成大规模 fixture 工程。
+
 ---
 
 ## 5.5 P6-4：管理配置推广批
@@ -289,6 +303,16 @@
 - `npm run build`
 - 视改动面评估 `npm run test:smoke`
 
+当前边界卡：
+
+- [frontend-phase6-p6-4-boundary-card-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-4-boundary-card-v1.md)
+
+当前结果：
+
+1. `ops-v21-account-page.tsx` 已将操作反馈收敛到 `AlertBar`，并将用户状态与邀请码状态收回统一 `StatusBadge`。
+2. 用户列表与邀请码列表已进入 `TableShell`，编辑账号与重置密码动作已进入 `DetailDrawer`。
+3. 本批已补页级测试；经评估本轮暂不进入 smoke / visual gate，避免把管理配置批扩大成新的 fixture 工程。
+
 ---
 
 ## 5.6 P6-5：收口与残留清单
@@ -307,6 +331,13 @@
 
 - 只做结果整理与评审结论
 - 不新增页面改造任务
+
+当前结果：
+
+1. `Phase 6` 第一轮推广已覆盖 `8` 个页面、`4` 个批次。
+2. 已形成正式收口文档与残留清单：
+   - [frontend-phase6-rollout-summary-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)
+3. 当前判断为：`Phase 6` 第一轮规模化推广已完成，下一步不建议默认继续开新批次。
 
 ---
 
@@ -386,7 +417,7 @@
 
 ## 10. 当前下一步
 
-当前已进入 `P6-0`。
+当前已完成 `P6-5`。
 下一步只建议做一件事：
 
-- 先按本文档确认第一批 `P6-1` 的改动边界卡，再进入具体页面实现。
+- 先评审 [frontend-phase6-rollout-summary-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)，再按残留清单决定是否进入专项治理或新一轮推广。

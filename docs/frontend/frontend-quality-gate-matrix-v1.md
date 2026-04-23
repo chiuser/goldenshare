@@ -64,7 +64,7 @@ CI 当前执行顺序：
 
 ## 3. 当前页面级覆盖矩阵
 
-当前仓库已落下 `10` 条 smoke / visual 基线，对应 `8` 个高价值页面入口或关键状态。
+当前仓库已落下 `11` 条 smoke / visual 基线，对应 `9` 个高价值页面入口或关键状态。
 
 | 页面 / 路径 | smoke / visual | 页级单测 | 当前判断 |
 | --- | --- | --- | --- |
@@ -74,7 +74,8 @@ CI 当前执行顺序：
 | `ops/manual-sync` | 有 | 有 | 手动维护主路径保护较稳 |
 | `ops/automation` | 有 | 无 | 依赖 smoke 保护，缺少页级单测 |
 | `ops/tasks/:id` | 有 | 有 | 详情页主路径保护较稳 |
-| `ops/v21/review/index` | 有 | 无 | 依赖 smoke 保护，缺少页级单测 |
+| `ops/v21/review/index` | 有 | 有 | 审查中心指数页已形成 smoke + 页测双层保护 |
+| `ops/v21/review/board` | 有 | 有 | 审查中心板块页已进入统一回归口径 |
 | `share` | 有 | 无 | 依赖 smoke 保护，缺少页级单测 |
 
 补充说明：
@@ -88,12 +89,11 @@ CI 当前执行顺序：
 
 当前未进入 smoke 的高可见页面包括：
 
-1. `ops-v21-review-board-page.tsx`
-2. `platform-check-page.tsx`
-3. `user-overview-page.tsx`
-4. `ops-v21-account-page.tsx`
-5. `ops-v21-source-page.tsx`
-6. `ops-v21-dataset-detail-page.tsx`
+1. `platform-check-page.tsx`
+2. `user-overview-page.tsx`
+3. `ops-v21-account-page.tsx`
+4. `ops-v21-source-page.tsx`
+5. `ops-v21-dataset-detail-page.tsx`
 
 这些页面不应在 `P5-1` 直接扩 smoke，但应作为 `P5-2` 的候选风险池。
 
@@ -110,7 +110,7 @@ CI 当前执行顺序：
 | `AuthPageLayout` | 组件单测 + `login` smoke |
 | `AlertBar` | 组件单测 + `task-manual / task-auto / task-detail / share` smoke |
 | `StatusBadge` | 组件单测 + `overview / task-records / task-auto / task-detail` smoke |
-| `FilterBar` | 组件单测 + `task-records` smoke |
+| `FilterBar` | 组件单测 + `task-records / review-index / review-board` smoke |
 | `DetailDrawer` | 组件单测 + `task-auto` smoke |
 | `ActivityTimeline` | 组件单测 + `task-auto / task-detail` smoke |
 | `TradeDateField` | 组件单测 + `task-manual / task-auto` smoke |
@@ -124,7 +124,7 @@ CI 当前执行顺序：
 
 | 组件 | 当前情况 | 风险 |
 | --- | --- | --- |
-| `PageHeader` | 有组件单测，但主要落在 `platform-check-page.tsx`，该页未进入 smoke | 高可见头部模式仍主要靠单测保护 |
+| `PageHeader` | 有组件单测，且当前已进入 `review-index / review-board` smoke | 保护已增强，但低风险页仍未全部进入 smoke |
 
 ## 4.3 高频可见，但缺少独立组件单测
 
@@ -143,7 +143,7 @@ CI 当前执行顺序：
 
 ## 5. 当前 feature 与页面测试基线
 
-截至当前仓库状态，前端共有 `28` 个测试文件。
+截至当前仓库状态，前端共有 `34` 个测试文件。
 
 覆盖类型包括：
 
@@ -156,8 +156,9 @@ CI 当前执行顺序：
 当前薄弱点：
 
 1. `task-auto` 仍主要依赖 smoke，没有独立页级单测
-2. `review-index` 与 `share` 仍主要依赖 smoke，没有独立页级单测
+2. `share` 仍主要依赖 smoke，没有独立页级单测
 3. smoke fixtures 目前以“主路径、数据存在”为主，未系统覆盖空态 / 错误态
+4. `ops-v21-source-page.tsx` 与 `ops-v21-dataset-detail-page.tsx` 已补页级测试，但当前仍未进入 smoke / visual gate
 
 结论：
 
@@ -187,7 +188,7 @@ CI 当前执行顺序：
 当前残留证据示例：
 
 1. `ops-v21-overview-page.tsx`、`user-overview-page.tsx`、`ops-v21-source-page.tsx` 仍直接使用 `glass-card`
-2. `ops-v21-review-board-page.tsx` 仍存在 `violet` 颜色返回
+2. 旧遗留点已从 `ops-v21-review-board-page.tsx` 清出，但其他页面仍有局部历史展示入口
 3. 这些遗留点当前通过规则脚本白名单显式记录，避免继续无意识扩散
 
 结论：
@@ -245,8 +246,8 @@ CI 当前执行顺序：
 当前前端已经具备：
 
 1. 一条统一的本地与 CI 质量门禁链
-2. `8` 个关键页面的 smoke / visual gate
-3. `28` 个测试文件组成的组件、页面、feature 基线
+2. `9` 个关键页面的 smoke / visual gate
+3. `32` 个测试文件组成的组件、页面、feature 基线
 4. 一批已经形成双层保护的高频共享组件
 
 但当前还没有完成的，是：

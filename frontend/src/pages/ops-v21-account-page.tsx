@@ -26,7 +26,11 @@ import type {
   AdminUserListResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
+import { AlertBar } from "../shared/ui/alert-bar";
+import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { SectionCard } from "../shared/ui/section-card";
+import { StatusBadge } from "../shared/ui/status-badge";
+import { TableShell } from "../shared/ui/table-shell";
 
 
 const ROLE_OPTIONS = ["admin", "operator", "analyst", "viewer"] as const;
@@ -90,6 +94,28 @@ function normalizeRoles(roles: RoleKey[], isAdmin: boolean): RoleKey[] {
   return Array.from(set.values());
 }
 
+function userEnabledPresentation(isActive: boolean) {
+  return {
+    value: isActive ? "active" : "disabled",
+    label: isActive ? "启用" : "停用",
+  };
+}
+
+function accountStatePresentation(accountState: string) {
+  const normalized = accountState.trim().toLowerCase();
+  if (normalized === "active") return { value: "success", label: "正常" };
+  if (normalized === "suspended") return { value: "warning", label: "已停用" };
+  if (normalized === "locked") return { value: "error", label: "已锁定" };
+  if (normalized === "pending_verification") return { value: "warning", label: "待验证" };
+  return { value: "unknown", label: accountState || "未知" };
+}
+
+function inviteStatusPresentation(disabledAt: string | null) {
+  return disabledAt
+    ? { value: "disabled", label: "已停用" }
+    : { value: "active", label: "有效" };
+}
+
 export function OpsV21AccountPage() {
   const queryClient = useQueryClient();
   const [keyword, setKeyword] = useState("");
@@ -122,6 +148,9 @@ export function OpsV21AccountPage() {
     queryKey: ["admin", "invites"],
     queryFn: () => apiRequest<AdminInviteListResponse>("/api/v1/admin/invites?include_disabled=true&limit=200&offset=0"),
   });
+
+  const userTotal = usersQuery.data?.total ?? 0;
+  const inviteTotal = invitesQuery.data?.total ?? 0;
 
   const createUserMutation = useMutation({
     mutationFn: () =>
@@ -291,14 +320,18 @@ export function OpsV21AccountPage() {
     <Stack gap="lg">
       <SectionCard title="帐号管理" description="管理员统一管理账号与邀请码。">
         {actionError ? (
-          <Alert color="error" title="操作失败">
+          <AlertBar tone="error" title="操作失败">
             {actionError}
-          </Alert>
+          </AlertBar>
         ) : null}
         {createdInviteCode ? (
-          <Alert color="info" title="邀请码已创建">
-            当前邀请码：<Text span fw={700}>{createdInviteCode}</Text>
-          </Alert>
+          <AlertBar tone="success" title="邀请码已创建">
+            <Text size="sm">
+              当前邀请码：
+              {" "}
+              <Text span fw={700}>{createdInviteCode}</Text>
+            </Text>
+          </AlertBar>
         ) : null}
         <Tabs defaultValue="users">
           <Tabs.List>
@@ -321,7 +354,6 @@ export function OpsV21AccountPage() {
                       刷新列表
                     </Button>
                   </Group>
-                  <Text size="xs" c="dimmed">共 {usersQuery.data?.total ?? 0} 个账号</Text>
                 </Stack>
               </Paper>
 
@@ -420,104 +452,140 @@ export function OpsV21AccountPage() {
               </Paper>
 
               <Paper p="md" radius="md" withBorder>
-                {usersQuery.isLoading ? <Text size="sm">加载中...</Text> : null}
                 {usersQuery.error ? (
                   <Alert color="error" title="读取用户失败">
                     {usersQuery.error instanceof Error ? usersQuery.error.message : "未知错误"}
                   </Alert>
                 ) : null}
                 {!usersQuery.isLoading && !usersQuery.error ? (
-                  <Table striped highlightOnHover withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>用户名</Table.Th>
-                        <Table.Th>显示名</Table.Th>
-                        <Table.Th>角色</Table.Th>
-                        <Table.Th>状态</Table.Th>
-                        <Table.Th>最后登录</Table.Th>
-                        <Table.Th>操作</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {(usersQuery.data?.items || []).map((item) => (
-                        <Table.Tr key={`user-row-${item.id}`}>
-                          <Table.Td>{item.username}</Table.Td>
-                          <Table.Td>{item.display_name || "—"}</Table.Td>
-                          <Table.Td>{item.roles.join(", ") || "—"}</Table.Td>
-                          <Table.Td>
-                            <Group gap={6}>
-                              <Badge color={item.is_active ? "success" : "neutral"} variant="light">
-                                {item.is_active ? "启用" : "停用"}
-                              </Badge>
-                              <Badge color="info" variant="light">{item.account_state}</Badge>
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>{formatDateTimeLabel(item.last_login_at)}</Table.Td>
-                          <Table.Td>
-                            <Group gap={6}>
-                              <Button
-                                size="xs"
-                                variant="light"
-                                onClick={() => {
-                                  setEditingUser(toEditDraft(item));
-                                  setActionError(null);
-                                }}
-                              >
-                                编辑
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="light"
-                                color={item.is_active ? "warning" : "success"}
-                                loading={suspendOrActivateMutation.isPending}
-                                onClick={() => suspendOrActivateMutation.mutate(item)}
-                              >
-                                {item.is_active ? "停用" : "激活"}
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="light"
-                                color="info"
-                                onClick={() => {
-                                  setResetTarget(item);
-                                  setResetPassword("");
-                                  setActionError(null);
-                                }}
-                              >
-                                重置密码
-                              </Button>
-                              <Button
-                                size="xs"
-                                variant="light"
-                                color="error"
-                                loading={deleteUserMutation.isPending}
-                                onClick={() => {
-                                  if (!window.confirm(`确定删除账号 ${item.username} 吗？`)) return;
-                                  deleteUserMutation.mutate(item);
-                                }}
-                              >
-                                删除
-                              </Button>
-                            </Group>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                      {(usersQuery.data?.items || []).length === 0 ? (
+                  <TableShell
+                    loading={usersQuery.isLoading}
+                    hasData={(usersQuery.data?.items || []).length > 0}
+                    summary={<Text size="xs" c="dimmed">共 {userTotal} 个账号</Text>}
+                    emptyState={<Text size="sm" c="dimmed" ta="center" py="lg">暂无账号数据</Text>}
+                  >
+                    <Table striped highlightOnHover withTableBorder>
+                      <Table.Thead>
                         <Table.Tr>
-                          <Table.Td colSpan={6}>
-                            <Text size="sm" c="dimmed">暂无账号数据</Text>
-                          </Table.Td>
+                          <Table.Th>用户名</Table.Th>
+                          <Table.Th>显示名</Table.Th>
+                          <Table.Th>角色</Table.Th>
+                          <Table.Th>状态</Table.Th>
+                          <Table.Th>最后登录</Table.Th>
+                          <Table.Th>操作</Table.Th>
                         </Table.Tr>
-                      ) : null}
-                    </Table.Tbody>
-                  </Table>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {(usersQuery.data?.items || []).map((item) => {
+                          const enabled = userEnabledPresentation(item.is_active);
+                          const accountState = accountStatePresentation(item.account_state);
+                          return (
+                            <Table.Tr key={`user-row-${item.id}`}>
+                              <Table.Td>{item.username}</Table.Td>
+                              <Table.Td>{item.display_name || "—"}</Table.Td>
+                              <Table.Td>{item.roles.join(", ") || "—"}</Table.Td>
+                              <Table.Td>
+                                <Group gap={6} wrap="wrap">
+                                  <StatusBadge value={enabled.value} label={enabled.label} size="xs" />
+                                  <StatusBadge value={accountState.value} label={accountState.label} size="xs" />
+                                </Group>
+                              </Table.Td>
+                              <Table.Td>{formatDateTimeLabel(item.last_login_at)}</Table.Td>
+                              <Table.Td>
+                                <Group gap={6}>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    onClick={() => {
+                                      setEditingUser(toEditDraft(item));
+                                      setActionError(null);
+                                    }}
+                                  >
+                                    编辑
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color={item.is_active ? "warning" : "success"}
+                                    loading={suspendOrActivateMutation.isPending}
+                                    onClick={() => suspendOrActivateMutation.mutate(item)}
+                                  >
+                                    {item.is_active ? "停用" : "激活"}
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="info"
+                                    onClick={() => {
+                                      setResetTarget(item);
+                                      setResetPassword("");
+                                      setActionError(null);
+                                    }}
+                                  >
+                                    重置密码
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="error"
+                                    loading={deleteUserMutation.isPending}
+                                    onClick={() => {
+                                      if (!window.confirm(`确定删除账号 ${item.username} 吗？`)) return;
+                                      deleteUserMutation.mutate(item);
+                                    }}
+                                  >
+                                    删除
+                                  </Button>
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  </TableShell>
+                ) : usersQuery.isLoading ? (
+                  <TableShell
+                    loading
+                    hasData={false}
+                    emptyState={null}
+                    summary={<Text size="xs" c="dimmed">共 {userTotal} 个账号</Text>}
+                  >
+                    <Table />
+                  </TableShell>
                 ) : null}
               </Paper>
 
-              {editingUser ? (
-                <Paper p="md" radius="md" withBorder>
+              <DetailDrawer
+                opened={!!editingUser}
+                onClose={() => setEditingUser(null)}
+                title={editingUser ? `编辑账号 · ${editingUser.username}` : "编辑账号"}
+                description="只调整展示资料、角色与账号状态，不改账号管理契约。"
+                size="md"
+                withinPortal={false}
+                footer={(
+                  <>
+                    <Button variant="subtle" color="gray" onClick={() => setEditingUser(null)}>
+                      取消编辑
+                    </Button>
+                    <Button
+                      variant="light"
+                      loading={updateRolesMutation.isPending}
+                      onClick={() => editingUser && updateRolesMutation.mutate(editingUser)}
+                    >
+                      保存角色
+                    </Button>
+                    <Button
+                      loading={updateUserMutation.isPending}
+                      onClick={() => editingUser && updateUserMutation.mutate(editingUser)}
+                    >
+                      保存资料
+                    </Button>
+                  </>
+                )}
+              >
+                {editingUser ? (
                   <Stack gap="sm">
-                    <Text fw={700}>编辑账号：{editingUser.username}</Text>
                     <Group grow>
                       <TextInput
                         label="显示名称"
@@ -586,59 +654,45 @@ export function OpsV21AccountPage() {
                         />
                       ))}
                     </Group>
-                    <Group justify="space-between">
-                      <Button variant="subtle" color="gray" onClick={() => setEditingUser(null)}>
-                        取消编辑
-                      </Button>
-                      <Group>
-                        <Button
-                          variant="light"
-                          loading={updateRolesMutation.isPending}
-                          onClick={() => editingUser && updateRolesMutation.mutate(editingUser)}
-                        >
-                          保存角色
-                        </Button>
-                        <Button
-                          loading={updateUserMutation.isPending}
-                          onClick={() => editingUser && updateUserMutation.mutate(editingUser)}
-                        >
-                          保存资料
-                        </Button>
-                      </Group>
-                    </Group>
                   </Stack>
-                </Paper>
-              ) : null}
+                ) : null}
+              </DetailDrawer>
 
-              {resetTarget ? (
-                <Paper p="md" radius="md" withBorder>
-                  <Stack gap="sm">
-                    <Text fw={700}>重置密码：{resetTarget.username}</Text>
-                    <TextInput
-                      label="新密码"
-                      value={resetPassword}
-                      onChange={(event) => setResetPassword(event.currentTarget.value)}
-                    />
-                    <Group justify="space-between">
-                      <Button variant="subtle" color="gray" onClick={() => setResetTarget(null)}>
-                        取消
-                      </Button>
-                      <Button
-                        loading={resetPasswordMutation.isPending}
-                        onClick={() => {
-                          if (!resetPassword.trim()) {
-                            setActionError("重置密码不能为空");
-                            return;
-                          }
-                          resetPasswordMutation.mutate();
-                        }}
-                      >
-                        提交重置
-                      </Button>
-                    </Group>
-                  </Stack>
-                </Paper>
-              ) : null}
+              <DetailDrawer
+                opened={!!resetTarget}
+                onClose={() => setResetTarget(null)}
+                title={resetTarget ? `重置密码 · ${resetTarget.username}` : "重置密码"}
+                description="只重置目标账号密码，不在本轮扩大到更深的账号流程改造。"
+                size="sm"
+                withinPortal={false}
+                footer={(
+                  <>
+                    <Button variant="subtle" color="gray" onClick={() => setResetTarget(null)}>
+                      取消
+                    </Button>
+                    <Button
+                      loading={resetPasswordMutation.isPending}
+                      onClick={() => {
+                        if (!resetPassword.trim()) {
+                          setActionError("重置密码不能为空");
+                          return;
+                        }
+                        resetPasswordMutation.mutate();
+                      }}
+                    >
+                      提交重置
+                    </Button>
+                  </>
+                )}
+              >
+                <Stack gap="sm">
+                  <TextInput
+                    label="新密码"
+                    value={resetPassword}
+                    onChange={(event) => setResetPassword(event.currentTarget.value)}
+                  />
+                </Stack>
+              </DetailDrawer>
             </Stack>
           </Tabs.Panel>
 
@@ -691,92 +745,101 @@ export function OpsV21AccountPage() {
               </Paper>
 
               <Paper p="md" radius="md" withBorder>
-                {invitesQuery.isLoading ? <Text size="sm">加载中...</Text> : null}
                 {invitesQuery.error ? (
                   <Alert color="error" title="读取邀请码失败">
                     {invitesQuery.error instanceof Error ? invitesQuery.error.message : "未知错误"}
                   </Alert>
                 ) : null}
                 {!invitesQuery.isLoading && !invitesQuery.error ? (
-                  <Table striped highlightOnHover withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>邀请码</Table.Th>
-                        <Table.Th>角色</Table.Th>
-                        <Table.Th>使用情况</Table.Th>
-                        <Table.Th>状态</Table.Th>
-                        <Table.Th>备注</Table.Th>
-                        <Table.Th>操作</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {(invitesQuery.data?.items || []).map((item) => (
-                        <Table.Tr key={`invite-row-${item.id}`}>
-                          <Table.Td>
-                            <Group gap={4} wrap="nowrap" style={{ width: "fit-content" }}>
-                              <Text span ff="var(--mantine-font-family-monospace)" fw={600} style={{ whiteSpace: "nowrap" }}>
-                                {item.code_hint}
-                              </Text>
-                              <Tooltip label="复制邀请码">
-                                <ActionIcon
-                                  variant="subtle"
-                                  color="gray"
-                                  aria-label="复制邀请码"
-                                  onClick={() => {
-                                    void copyInviteCode(item.code_hint);
-                                  }}
-                                >
-                                  <IconCopy size={16} />
-                                </ActionIcon>
-                              </Tooltip>
-                            </Group>
-                          </Table.Td>
-                          <Table.Td>{item.role_key}</Table.Td>
-                          <Table.Td>{item.used_count}/{item.max_uses}</Table.Td>
-                          <Table.Td>
-                            <Badge color={item.disabled_at ? "neutral" : "success"} variant="light">
-                              {item.disabled_at ? "已停用" : "有效"}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>{item.note || "—"}</Table.Td>
-                          <Table.Td>
-                            <Group gap={6}>
-                              {!item.disabled_at ? (
-                                <Button
-                                  size="xs"
-                                  variant="light"
-                                  color="warning"
-                                  loading={disableInviteMutation.isPending}
-                                  onClick={() => disableInviteMutation.mutate(item.id)}
-                                >
-                                  停用
-                                </Button>
-                              ) : null}
-                              <Button
-                                size="xs"
-                                variant="light"
-                                color="error"
-                                loading={deleteInviteMutation.isPending}
-                                onClick={() => {
-                                  if (!window.confirm("确定删除该邀请码吗？删除后不可恢复。")) return;
-                                  deleteInviteMutation.mutate(item.id);
-                                }}
-                              >
-                                删除
-                              </Button>
-                            </Group>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                      {(invitesQuery.data?.items || []).length === 0 ? (
+                  <TableShell
+                    loading={invitesQuery.isLoading}
+                    hasData={(invitesQuery.data?.items || []).length > 0}
+                    summary={<Text size="xs" c="dimmed">共 {inviteTotal} 个邀请码</Text>}
+                    emptyState={<Text size="sm" c="dimmed" ta="center" py="lg">暂无邀请码</Text>}
+                  >
+                    <Table striped highlightOnHover withTableBorder>
+                      <Table.Thead>
                         <Table.Tr>
-                          <Table.Td colSpan={6}>
-                            <Text size="sm" c="dimmed">暂无邀请码</Text>
-                          </Table.Td>
+                          <Table.Th>邀请码</Table.Th>
+                          <Table.Th>角色</Table.Th>
+                          <Table.Th>使用情况</Table.Th>
+                          <Table.Th>状态</Table.Th>
+                          <Table.Th>备注</Table.Th>
+                          <Table.Th>操作</Table.Th>
                         </Table.Tr>
-                      ) : null}
-                    </Table.Tbody>
-                  </Table>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {(invitesQuery.data?.items || []).map((item) => {
+                          const inviteStatus = inviteStatusPresentation(item.disabled_at);
+                          return (
+                            <Table.Tr key={`invite-row-${item.id}`}>
+                              <Table.Td>
+                                <Group gap={4} wrap="nowrap" style={{ width: "fit-content" }}>
+                                  <Text span ff="var(--mantine-font-family-monospace)" fw={600} style={{ whiteSpace: "nowrap" }}>
+                                    {item.code_hint}
+                                  </Text>
+                                  <Tooltip label="复制邀请码">
+                                    <ActionIcon
+                                      variant="subtle"
+                                      color="gray"
+                                      aria-label="复制邀请码"
+                                      onClick={() => {
+                                        void copyInviteCode(item.code_hint);
+                                      }}
+                                    >
+                                      <IconCopy size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </Group>
+                              </Table.Td>
+                              <Table.Td>{item.role_key}</Table.Td>
+                              <Table.Td>{item.used_count}/{item.max_uses}</Table.Td>
+                              <Table.Td>
+                                <StatusBadge value={inviteStatus.value} label={inviteStatus.label} size="xs" />
+                              </Table.Td>
+                              <Table.Td>{item.note || "—"}</Table.Td>
+                              <Table.Td>
+                                <Group gap={6}>
+                                  {!item.disabled_at ? (
+                                    <Button
+                                      size="xs"
+                                      variant="light"
+                                      color="warning"
+                                      loading={disableInviteMutation.isPending}
+                                      onClick={() => disableInviteMutation.mutate(item.id)}
+                                    >
+                                      停用
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="error"
+                                    loading={deleteInviteMutation.isPending}
+                                    onClick={() => {
+                                      if (!window.confirm("确定删除该邀请码吗？删除后不可恢复。")) return;
+                                      deleteInviteMutation.mutate(item.id);
+                                    }}
+                                  >
+                                    删除
+                                  </Button>
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  </TableShell>
+                ) : invitesQuery.isLoading ? (
+                  <TableShell
+                    loading
+                    hasData={false}
+                    emptyState={null}
+                    summary={<Text size="xs" c="dimmed">共 {inviteTotal} 个邀请码</Text>}
+                  >
+                    <Table />
+                  </TableShell>
                 ) : null}
               </Paper>
             </Stack>

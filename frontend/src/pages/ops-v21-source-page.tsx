@@ -6,6 +6,7 @@ import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsF
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
+import { StatusBadge } from "../shared/ui/status-badge";
 import { dedupeModeItemsForSource, type SourceKey } from "./ops-v21-source-page-utils";
 
 type CardStatus = "running" | "healthy" | "warning" | "failed" | "unknown";
@@ -44,12 +45,12 @@ function statusDotColor(status: CardStatus) {
   return "var(--mantine-color-neutral-5)";
 }
 
-function statusTag(status: CardStatus): { text: string; color: string } {
-  if (status === "running") return { text: "执行中", color: "info" };
-  if (status === "healthy") return { text: "成功", color: "success" };
-  if (status === "failed") return { text: "失败", color: "error" };
-  if (status === "warning") return { text: "滞后", color: "warning" };
-  return { text: "未知", color: "neutral" };
+function statusLabel(status: CardStatus): string {
+  if (status === "running") return "执行中";
+  if (status === "healthy") return "正常";
+  if (status === "failed") return "失败";
+  if (status === "warning") return "滞后";
+  return "未知";
 }
 
 function cadenceLabel(cadence: string): string {
@@ -227,8 +228,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing="md" verticalSpacing="md">
               {items.map((item) => (
                 <Paper
-                  className="glass-card"
                   key={item.datasetKey}
+                  withBorder
                   radius="md"
                   p="md"
                   style={{
@@ -258,9 +259,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                     <Stack gap={6}>
                       <Group gap={6} wrap="wrap">
                         <Text size="sm">最近同步：{item.recentSyncText}</Text>
-                        <Badge size="xs" variant="light" color={statusTag(item.status).color}>
-                          {statusTag(item.status).text}
-                        </Badge>
+                        <StatusBadge value={item.status} label={statusLabel(item.status)} size="xs" />
                       </Group>
                       <Text size="sm">更新频率：{item.cadenceText}</Text>
                       <Text size="sm">时间范围：{item.dateRangeText}</Text>

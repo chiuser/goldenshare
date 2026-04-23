@@ -8,6 +8,7 @@ type SmokeScenario =
   | "task-auto"
   | "task-detail"
   | "review-index"
+  | "review-board"
   | "share-market";
 
 const AUTH_TOKEN_KEY = "goldenshare.frontend.auth.token";
@@ -827,6 +828,30 @@ function mockReviewIndex(route: Route, pathname: string) {
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
+function mockReviewBoard(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/review/board/equity-membership") {
+    return fulfillJson(route, {
+      dc_trade_date: "2026-04-17",
+      total: 1,
+      page: 1,
+      page_size: 30,
+      items: [
+        {
+          ts_code: "600000.SH",
+          equity_name: "浦发银行",
+          board_count: 2,
+          boards: [
+            { provider: "dc", board_code: "BK0475", board_name: "银行" },
+            { provider: "ths", board_code: "881155", board_name: "银行板块" },
+          ],
+        },
+      ],
+    });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
 function mockShareMarket(route: Route, pathname: string) {
   if (pathname === "/api/v1/share/market-overview") {
     return fulfillJson(route, {
@@ -892,6 +917,9 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     }
     if (scenario === "review-index") {
       return mockReviewIndex(route, pathname);
+    }
+    if (scenario === "review-board") {
+      return mockReviewBoard(route, pathname);
     }
     return mockShareMarket(route, pathname);
   });

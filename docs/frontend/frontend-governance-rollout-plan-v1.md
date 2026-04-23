@@ -601,8 +601,8 @@ Phase 4 的支持任务要求：
 
 当前状态：
 
-- `P6-0` 已开始：批次、边界卡与默认验证档位已落档
-- 下一步进入 `P6-1` 前，仍需先写单批“改动边界卡”
+- 已完成第一轮规模化推广
+- 当前已形成收口总结与残留清单，后续不建议默认继续开新批次
 
 ---
 
@@ -685,7 +685,7 @@ Phase 4 的支持任务要求：
 
 状态：
 
-- 已进入执行前准备阶段（`P6-0` 已落档）
+- 已达成（第一轮推广完成，并已形成残留清单）
 
 ---
 
@@ -842,12 +842,12 @@ Phase 4 的支持任务要求：
 
 若本计划继续推进，下一步建议只做一件事：
 
-- 继续 `Phase 6`：先确认 `P6-1` 的单批边界卡，再开始低风险推广批实现
+- 先评审 [frontend-phase6-rollout-summary-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)，再决定进入专项治理还是开启新一轮推广
 
 执行前必须先：
 
 1. 重读相关 AGENTS
-2. 对照 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 确认当前批次的允许范围
+2. 对照 [frontend-phase6-rollout-summary-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md) 确认当前残留点与候选专项
 3. 对照 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 选定本轮验证档位
-4. 明确本轮只推广哪些页面、哪些组件模式
+4. 明确本轮属于专项治理还是新一轮推广
 5. 再进入具体实现

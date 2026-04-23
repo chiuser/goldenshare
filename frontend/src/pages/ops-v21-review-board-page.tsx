@@ -5,7 +5,6 @@ import {
   Button,
   Drawer,
   Group,
-  Loader,
   NumberInput,
   Paper,
   Select,
@@ -29,7 +28,12 @@ import type {
   OpsReviewThsBoardsResponse,
 } from "../shared/api/types";
 import { formatDateLabel } from "../shared/date-format";
+import { EmptyState } from "../shared/ui/empty-state";
+import { FilterBar, FilterBarItem } from "../shared/ui/filter-bar";
+import { OpsTable, OpsTableCell, OpsTableHeaderCell } from "../shared/ui/ops-table";
+import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
+import { TableShell } from "../shared/ui/table-shell";
 
 
 type ReviewBoardTab = "ths" | "dc" | "equity";
@@ -80,8 +84,8 @@ function pickNumber(value: unknown, fallback: number): number {
 }
 
 function badgeColor(provider: string): string {
-  if (provider === "ths") return "blue";
-  if (provider === "dc") return "violet";
+  if (provider === "ths") return "brand";
+  if (provider === "dc") return "info";
   return "gray";
 }
 
@@ -373,7 +377,12 @@ export function OpsV21ReviewBoardPage() {
 
   return (
     <Stack gap="lg">
-      <SectionCard title="审查中心 · 板块" description="同花顺板块、东方财富板块、股票所属板块聚合（只读）。">
+      <PageHeader
+        title="审查中心 · 板块"
+        description="统一查看同花顺板块、东方财富板块和股票所属板块，当前仍保持只读审查。"
+      />
+
+      <SectionCard title="筛选条件" description="按当前 tab 切换筛选条件与结果集，不在本轮扩大到审查规则重构。">
         <Tabs
           value={activeTab}
           onChange={(value) => {
@@ -396,388 +405,406 @@ export function OpsV21ReviewBoardPage() {
           </Tabs.List>
 
           <Tabs.Panel value="ths" pt="md">
-            <Group align="flex-end" wrap="wrap">
-              <Select
-                label="类型"
-                data={THS_TYPE_OPTIONS}
-                value={thsType}
-                onChange={(value) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "ths",
-                      ths_type: value || "",
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={220}
-              />
-              <TextInput
-                label="板块关键词"
-                placeholder="代码或名称"
-                value={thsKeywordInput}
-                onChange={(event) => setThsKeywordInput(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    applyThsKeywordSearch();
-                  }
-                }}
-                w={260}
-              />
-              <Button leftSection={<IconSearch size={14} />} onClick={applyThsKeywordSearch}>
-                搜索
-              </Button>
-              <NumberInput
-                label="成分个数 ≥"
-                min={0}
-                step={10}
-                value={thsMin}
-                onChange={(value) => {
-                  const next = typeof value === "number" ? value : Number(value || 0);
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "ths",
-                      ths_min: Number.isFinite(next) ? Math.max(0, next) : 0,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={160}
-              />
-            </Group>
+            <FilterBar
+              actions={(
+                <Button leftSection={<IconSearch size={14} />} onClick={applyThsKeywordSearch}>
+                  搜索
+                </Button>
+              )}
+            >
+              <FilterBarItem span={{ base: 12, md: 3 }}>
+                <Select
+                  label="类型"
+                  data={THS_TYPE_OPTIONS}
+                  value={thsType}
+                  onChange={(value) => {
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "ths",
+                        ths_type: value || "",
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 5 }}>
+                <TextInput
+                  label="板块关键词"
+                  placeholder="代码或名称"
+                  value={thsKeywordInput}
+                  onChange={(event) => setThsKeywordInput(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      applyThsKeywordSearch();
+                    }
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 3 }}>
+                <NumberInput
+                  label="成分个数 ≥"
+                  min={0}
+                  step={10}
+                  value={thsMin}
+                  onChange={(value) => {
+                    const next = typeof value === "number" ? value : Number(value || 0);
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "ths",
+                        ths_min: Number.isFinite(next) ? Math.max(0, next) : 0,
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+            </FilterBar>
           </Tabs.Panel>
 
           <Tabs.Panel value="dc" pt="md">
-            <Group align="flex-end" wrap="wrap">
-              <TextInput
-                type="date"
-                label="交易日期"
-                value={dcTradeDate}
-                onChange={(event) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "dc",
-                      dc_trade_date: event.currentTarget.value,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={190}
-              />
-              <Select
-                label="板块类型"
-                data={dcTypeSelectData}
-                value={dcIdxType}
-                onChange={(value) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "dc",
-                      dc_idx_type: value || "",
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={220}
-              />
-              <TextInput
-                label="板块关键词"
-                placeholder="代码或名称"
-                value={dcKeywordInput}
-                onChange={(event) => {
-                  setDcKeywordInput(event.currentTarget.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    applyDcKeywordSearch();
-                  }
-                }}
-                leftSection={<IconSearch size={14} />}
-                w={240}
-              />
-              <Button leftSection={<IconSearch size={14} />} onClick={applyDcKeywordSearch}>
-                搜索
-              </Button>
-              <NumberInput
-                label="成分个数 ≥"
-                min={0}
-                step={10}
-                value={dcMin}
-                onChange={(value) => {
-                  const next = typeof value === "number" ? value : Number(value || 0);
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "dc",
-                      dc_min: Number.isFinite(next) ? Math.max(0, next) : 0,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={160}
-              />
-            </Group>
+            <FilterBar
+              actions={(
+                <Button leftSection={<IconSearch size={14} />} onClick={applyDcKeywordSearch}>
+                  搜索
+                </Button>
+              )}
+            >
+              <FilterBarItem span={{ base: 12, md: 3 }}>
+                <TextInput
+                  type="date"
+                  label="交易日期"
+                  value={dcTradeDate}
+                  onChange={(event) => {
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "dc",
+                        dc_trade_date: event.currentTarget.value,
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 3 }}>
+                <Select
+                  label="板块类型"
+                  data={dcTypeSelectData}
+                  value={dcIdxType}
+                  onChange={(value) => {
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "dc",
+                        dc_idx_type: value || "",
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 4 }}>
+                <TextInput
+                  label="板块关键词"
+                  placeholder="代码或名称"
+                  value={dcKeywordInput}
+                  onChange={(event) => {
+                    setDcKeywordInput(event.currentTarget.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      applyDcKeywordSearch();
+                    }
+                  }}
+                  leftSection={<IconSearch size={14} />}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 2 }}>
+                <NumberInput
+                  label="成分个数 ≥"
+                  min={0}
+                  step={10}
+                  value={dcMin}
+                  onChange={(value) => {
+                    const next = typeof value === "number" ? value : Number(value || 0);
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "dc",
+                        dc_min: Number.isFinite(next) ? Math.max(0, next) : 0,
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+            </FilterBar>
           </Tabs.Panel>
 
           <Tabs.Panel value="equity" pt="md">
-            <Group align="flex-end" wrap="wrap">
-              <TextInput
-                type="date"
-                label="东方财富快照日"
-                value={equityTradeDate}
-                onChange={(event) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "equity",
-                      equity_trade_date: event.currentTarget.value,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={190}
-              />
-              <Select
-                label="来源"
-                data={[
-                  { value: "all", label: "全部" },
-                  { value: "ths", label: "同花顺" },
-                  { value: "dc", label: "东方财富" },
-                ]}
-                value={equityProvider}
-                onChange={(value) => {
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "equity",
-                      equity_provider: value || "all",
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={150}
-              />
-              <Autocomplete
-                label="股票关键词"
-                placeholder="代码、名称首字母或中文名"
-                value={equityKeywordInput}
-                onChange={(value) => {
-                  setEquityKeywordInput(value);
-                }}
-                onOptionSubmit={(value) => {
-                  setEquityKeywordInput(value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    applyEquityKeywordSearch();
-                  }
-                }}
-                data={equityKeywordInput.trim() ? equitySuggestionOptions : []}
-                limit={20}
-                filter={({ options }) => options}
-                leftSection={<IconSearch size={14} />}
-                rightSection={equitySuggestQuery.isFetching ? <Loader size={14} /> : undefined}
-                w={240}
-              />
-              <Button leftSection={<IconSearch size={14} />} onClick={applyEquityKeywordSearch}>
-                搜索
-              </Button>
-              <NumberInput
-                label="所属板块数 ≥"
-                min={0}
-                step={1}
-                value={equityMin}
-                onChange={(value) => {
-                  const next = typeof value === "number" ? value : Number(value || 0);
-                  void navigate({
-                    to: "/ops/v21/review/board",
-                    search: {
-                      ...((search as Record<string, unknown>) || {}),
-                      tab: "equity",
-                      equity_min: Number.isFinite(next) ? Math.max(0, next) : 0,
-                      page: 1,
-                    },
-                    replace: true,
-                  });
-                }}
-                w={160}
-              />
-            </Group>
+            <FilterBar
+              actions={(
+                <Button leftSection={<IconSearch size={14} />} onClick={applyEquityKeywordSearch}>
+                  搜索
+                </Button>
+              )}
+            >
+              <FilterBarItem span={{ base: 12, md: 3 }}>
+                <TextInput
+                  type="date"
+                  label="东方财富快照日"
+                  value={equityTradeDate}
+                  onChange={(event) => {
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "equity",
+                        equity_trade_date: event.currentTarget.value,
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 2 }}>
+                <Select
+                  label="来源"
+                  data={[
+                    { value: "all", label: "全部" },
+                    { value: "ths", label: "同花顺" },
+                    { value: "dc", label: "东方财富" },
+                  ]}
+                  value={equityProvider}
+                  onChange={(value) => {
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "equity",
+                        equity_provider: value || "all",
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 5 }}>
+                <Autocomplete
+                  label="股票关键词"
+                  placeholder="代码、名称首字母或中文名"
+                  value={equityKeywordInput}
+                  onChange={(value) => {
+                    setEquityKeywordInput(value);
+                  }}
+                  onOptionSubmit={(value) => {
+                    setEquityKeywordInput(value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      applyEquityKeywordSearch();
+                    }
+                  }}
+                  data={equityKeywordInput.trim() ? equitySuggestionOptions : []}
+                  limit={20}
+                  filter={({ options }) => options}
+                  leftSection={<IconSearch size={14} />}
+                  rightSection={equitySuggestQuery.isFetching ? <Text size="xs" c="dimmed">检索中</Text> : undefined}
+                />
+              </FilterBarItem>
+              <FilterBarItem span={{ base: 12, md: 2 }}>
+                <NumberInput
+                  label="所属板块数 ≥"
+                  min={0}
+                  step={1}
+                  value={equityMin}
+                  onChange={(value) => {
+                    const next = typeof value === "number" ? value : Number(value || 0);
+                    void navigate({
+                      to: "/ops/v21/review/board",
+                      search: {
+                        ...((search as Record<string, unknown>) || {}),
+                        tab: "equity",
+                        equity_min: Number.isFinite(next) ? Math.max(0, next) : 0,
+                        page: 1,
+                      },
+                      replace: true,
+                    });
+                  }}
+                />
+              </FilterBarItem>
+            </FilterBar>
           </Tabs.Panel>
         </Tabs>
-
-        <Group justify="space-between" mt="xs">
-          <Text c="dimmed" size="sm">共 {total} 条</Text>
-          <Group gap="xs">
-            <Button
-              size="xs"
-              variant="light"
-              disabled={page <= 1}
-              onClick={() => {
-                void navigate({
-                  to: "/ops/v21/review/board",
-                  search: { ...((search as Record<string, unknown>) || {}), page: page - 1 },
-                  replace: true,
-                });
-              }}
-            >
-              上一页
-            </Button>
-            <Text size="sm" c="dimmed">{page}/{pageCount}</Text>
-            <Button
-              size="xs"
-              variant="light"
-              disabled={page >= pageCount}
-              onClick={() => {
-                void navigate({
-                  to: "/ops/v21/review/board",
-                  search: { ...((search as Record<string, unknown>) || {}), page: page + 1 },
-                  replace: true,
-                });
-              }}
-            >
-              下一页
-            </Button>
-          </Group>
-        </Group>
       </SectionCard>
 
       <SectionCard title="审查结果">
-        {activeQuery.isLoading ? <Loader size="sm" /> : null}
         {activeQuery.error ? (
           <Alert color="error" title="读取审查数据失败">
             {activeQuery.error instanceof Error ? activeQuery.error.message : "未知错误"}
           </Alert>
         ) : null}
 
-        {!activeQuery.isLoading && !activeQuery.error && activeTab === "ths" ? (
-          <Paper withBorder radius="md" p="sm">
-            <Table striped highlightOnHover withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>板块代码</Table.Th>
-                  <Table.Th>板块名称</Table.Th>
-                  <Table.Th>交易所</Table.Th>
-                  <Table.Th>类型</Table.Th>
-                  <Table.Th>成分数</Table.Th>
-                  <Table.Th>成分股</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {(thsQuery.data?.items || []).map((item) => (
-                  <Table.Tr key={item.board_code}>
-                    <Table.Td>{item.board_code}</Table.Td>
-                    <Table.Td>{item.board_name || "—"}</Table.Td>
-                    <Table.Td>{mapWithFallback(item.exchange, THS_EXCHANGE_LABELS)}</Table.Td>
-                    <Table.Td>{mapWithFallback(item.board_type, THS_BOARD_TYPE_LABELS)}</Table.Td>
-                    <Table.Td>{item.constituent_count}</Table.Td>
-                    <Table.Td>{renderMemberCell({
-                      members: item.members,
-                      boardCode: item.board_code,
-                      boardName: item.board_name,
-                      sourceLabel: "同花顺",
-                    })}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Paper>
-        ) : null}
-
-        {!activeQuery.isLoading && !activeQuery.error && activeTab === "dc" ? (
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">当前快照日期：{dcQuery.data?.trade_date ? formatDateLabel(dcQuery.data.trade_date) : "—"}</Text>
-            <Paper withBorder radius="md" p="sm">
-              <Table striped highlightOnHover withTableBorder>
+        {!activeQuery.error ? (
+          <TableShell
+            loading={activeQuery.isLoading}
+            hasData={total > 0}
+            emptyState={<EmptyState title="没有符合条件的数据" description="你可以放宽筛选条件后重试。" />}
+            summary={(
+              <Group justify="space-between" mt="xs" align="flex-start">
+                <Stack gap={2}>
+                  <Text c="dimmed" size="sm">共 {total} 条</Text>
+                  {activeTab === "dc" ? (
+                    <Text size="sm" c="dimmed">当前快照日期：{dcQuery.data?.trade_date ? formatDateLabel(dcQuery.data.trade_date) : "—"}</Text>
+                  ) : null}
+                  {activeTab === "equity" ? (
+                    <Text size="sm" c="dimmed">当前东财快照日期：{equityQuery.data?.dc_trade_date ? formatDateLabel(equityQuery.data.dc_trade_date) : "—"}</Text>
+                  ) : null}
+                </Stack>
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    variant="light"
+                    disabled={page <= 1}
+                    onClick={() => {
+                      void navigate({
+                        to: "/ops/v21/review/board",
+                        search: { ...((search as Record<string, unknown>) || {}), page: page - 1 },
+                        replace: true,
+                      });
+                    }}
+                  >
+                    上一页
+                  </Button>
+                  <Text size="sm" c="dimmed">{page}/{pageCount}</Text>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    disabled={page >= pageCount}
+                    onClick={() => {
+                      void navigate({
+                        to: "/ops/v21/review/board",
+                        search: { ...((search as Record<string, unknown>) || {}), page: page + 1 },
+                        replace: true,
+                      });
+                    }}
+                  >
+                    下一页
+                  </Button>
+                </Group>
+              </Group>
+            )}
+          >
+            {activeTab === "ths" ? (
+              <OpsTable withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>板块代码</Table.Th>
-                    <Table.Th>板块名称</Table.Th>
-                    <Table.Th>板块类型</Table.Th>
-                    <Table.Th>成分数</Table.Th>
-                    <Table.Th>成分股</Table.Th>
+                    <OpsTableHeaderCell align="left">板块代码</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">板块名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">交易所</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">类型</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>成分数</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">成分股</OpsTableHeaderCell>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {(thsQuery.data?.items || []).map((item) => (
+                    <Table.Tr key={item.board_code}>
+                      <OpsTableCell align="left">{item.board_code}</OpsTableCell>
+                      <OpsTableCell align="left">{item.board_name || "—"}</OpsTableCell>
+                      <OpsTableCell align="left">{mapWithFallback(item.exchange, THS_EXCHANGE_LABELS)}</OpsTableCell>
+                      <OpsTableCell align="left">{mapWithFallback(item.board_type, THS_BOARD_TYPE_LABELS)}</OpsTableCell>
+                      <OpsTableCell>{item.constituent_count}</OpsTableCell>
+                      <OpsTableCell align="left">{renderMemberCell({
+                        members: item.members,
+                        boardCode: item.board_code,
+                        boardName: item.board_name,
+                        sourceLabel: "同花顺",
+                      })}</OpsTableCell>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </OpsTable>
+            ) : null}
+
+            {activeTab === "dc" ? (
+              <OpsTable withTableBorder>
+                <Table.Thead>
+                  <Table.Tr>
+                    <OpsTableHeaderCell align="left">板块代码</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">板块名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">板块类型</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>成分数</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">成分股</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {(dcQuery.data?.items || []).map((item) => (
                     <Table.Tr key={item.board_code}>
-                      <Table.Td>{item.board_code}</Table.Td>
-                      <Table.Td>{item.board_name || "—"}</Table.Td>
-                      <Table.Td>{item.idx_type || "—"}</Table.Td>
-                      <Table.Td>{item.constituent_count}</Table.Td>
-                      <Table.Td>{renderMemberCell({
+                      <OpsTableCell align="left">{item.board_code}</OpsTableCell>
+                      <OpsTableCell align="left">{item.board_name || "—"}</OpsTableCell>
+                      <OpsTableCell align="left">{item.idx_type || "—"}</OpsTableCell>
+                      <OpsTableCell>{item.constituent_count}</OpsTableCell>
+                      <OpsTableCell align="left">{renderMemberCell({
                         members: item.members,
                         boardCode: item.board_code,
                         boardName: item.board_name,
                         sourceLabel: "东方财富",
-                      })}</Table.Td>
+                      })}</OpsTableCell>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
-              </Table>
-            </Paper>
-          </Stack>
-        ) : null}
+              </OpsTable>
+            ) : null}
 
-        {!activeQuery.isLoading && !activeQuery.error && activeTab === "equity" ? (
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">当前东财快照日期：{equityQuery.data?.dc_trade_date ? formatDateLabel(equityQuery.data.dc_trade_date) : "—"}</Text>
-            <Paper withBorder radius="md" p="sm">
-              <Table striped highlightOnHover withTableBorder>
+            {activeTab === "equity" ? (
+              <OpsTable withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>股票代码</Table.Th>
-                    <Table.Th>股票名称</Table.Th>
-                    <Table.Th>板块数</Table.Th>
-                    <Table.Th>所属板块</Table.Th>
+                    <OpsTableHeaderCell align="left">股票代码</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">股票名称</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>板块数</OpsTableHeaderCell>
+                    <OpsTableHeaderCell align="left">所属板块</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {(equityQuery.data?.items || []).map((item) => (
                     <Table.Tr key={item.ts_code}>
-                      <Table.Td>{item.ts_code}</Table.Td>
-                      <Table.Td>{item.equity_name || "—"}</Table.Td>
-                      <Table.Td>{item.board_count}</Table.Td>
-                      <Table.Td>
+                      <OpsTableCell align="left">{item.ts_code}</OpsTableCell>
+                      <OpsTableCell align="left">{item.equity_name || "—"}</OpsTableCell>
+                      <OpsTableCell>{item.board_count}</OpsTableCell>
+                      <OpsTableCell align="left">
                         {renderEquityBoardCell({
                           boards: item.boards,
                           tsCode: item.ts_code,
                           equityName: item.equity_name,
                           providerFilter: equityProvider,
                         })}
-                      </Table.Td>
+                      </OpsTableCell>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
-              </Table>
-            </Paper>
-          </Stack>
-        ) : null}
-
-        {!activeQuery.isLoading && !activeQuery.error && total === 0 ? (
-          <Alert color="info" title="没有符合条件的数据">
-            你可以放宽筛选条件后重试。
-          </Alert>
+              </OpsTable>
+            ) : null}
+          </TableShell>
         ) : null}
       </SectionCard>
       <Drawer

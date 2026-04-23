@@ -122,8 +122,23 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await setAdminSession(page);
     await installApiMocks(page, "review-index");
     await page.goto("/app/ops/v21/review/index");
+    await expect(page.getByText("审查中心 · 指数")).toBeVisible();
+    await expect(page.getByText("筛选与资源池")).toBeVisible();
     await expect(page.getByText("激活指数列表")).toBeVisible();
     await expect(page.getByText("沪深300")).toBeVisible();
+    await stabilizeUi(page);
+    await expect(page).toHaveScreenshot();
+  });
+
+  test("review board keeps the review center board baseline", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "review-board");
+    await page.goto("/app/ops/v21/review/board?tab=equity");
+    await expect(page.getByText("审查中心 · 板块")).toBeVisible();
+    await expect(page.getByText("筛选条件")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "股票所属板块", selected: true })).toBeVisible();
+    await expect(page.getByText("浦发银行")).toBeVisible();
+    await expect(page.getByText("DC · 银行")).toBeVisible();
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();
   });

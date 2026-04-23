@@ -1,6 +1,6 @@
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
@@ -143,6 +143,10 @@ describe("V2.1 数据状态总览页", () => {
     expect(await screen.findByText("状态正常")).toBeInTheDocument();
     expect(await screen.findByText("9")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
+    const datasetCard = screen.getByTestId("overview-dataset-card-daily");
+    expect(datasetCard.className).not.toContain("glass-card");
+    expect(within(datasetCard).getByText("映射规则")).toBeInTheDocument();
+    expect(within(datasetCard).getAllByText("已配置").length).toBeGreaterThan(0);
   });
 
   it("状态概览读取失败时不影响下方数据集卡片展示", async () => {

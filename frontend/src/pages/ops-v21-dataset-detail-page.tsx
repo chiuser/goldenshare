@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Divider, Grid, Group, Loader, Paper, Stack, Table, Text } from "@mantine/core";
+import { Alert, Badge, Button, Grid, Group, Loader, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
@@ -14,12 +14,16 @@ import type {
   StdMappingRuleListResponse,
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { formatStatusLabel } from "../shared/ops-display";
+import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
+import { EmptyState } from "../shared/ui/empty-state";
 import { MetricPanel } from "../shared/ui/metric-panel";
-import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 import { buildFreshnessDisplayNameMap } from "./ops-v21-shared";
 
+
+type ExecutionRow = ExecutionListResponse["items"][number];
 
 function stageTitle(stage: string) {
   if (stage === "raw") return "raw";
@@ -38,6 +42,17 @@ function inferSourceFromTargetTable(
   const table = (targetTable || "").toLowerCase();
   if (table.startsWith("raw_biying.")) return "biying";
   return "tushare";
+}
+
+function formatLagDuration(lagSeconds: number | null | undefined): string {
+  if (!lagSeconds) return "—";
+  return `${Math.floor(lagSeconds / 3600)}h ${Math.floor((lagSeconds % 3600) / 60)}m`;
+}
+
+function formatDetailStatusLabel(value: string | null | undefined): string {
+  const normalized = (value || "unknown").toLowerCase();
+  if (normalized === "healthy") return "正常";
+  return formatStatusLabel(value);
 }
 
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
@@ -140,6 +155,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     stageOrder.push("light");
   }
   const executionItems = executionQuery.data?.items || [];
+  const executionRows = executionItems.slice(0, 10);
   const recentExecution = executionItems[0];
   const sourceGroups = new Map<string, typeof latestItems>();
   for (const item of latestItems) {
@@ -150,6 +166,61 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   }
   const releaseItems = releaseQuery.data?.items || [];
   const latestRelease = releaseItems[0];
+  const executionColumns: DataTableColumn<ExecutionRow>[] = [
+    {
+      key: "id",
+      header: "执行ID",
+      align: "left",
+      width: "20%",
+      render: (item) => (
+        <Text ff="var(--mantine-font-family-monospace)" size="sm">
+          {item.id}
+        </Text>
+      ),
+    },
+    {
+      key: "trigger_source",
+      header: "触发方式",
+      width: "12%",
+      render: (item) => <Text size="sm">{item.trigger_source}</Text>,
+    },
+    {
+      key: "status",
+      header: "状态",
+      width: "12%",
+      render: (item) => <StatusBadge value={item.status} />,
+    },
+    {
+      key: "rows_in",
+      header: "rows_in",
+      width: "12%",
+      render: (item) => <Text size="sm">{item.rows_fetched}</Text>,
+    },
+    {
+      key: "rows_out",
+      header: "rows_out",
+      width: "12%",
+      render: (item) => <Text size="sm">{item.rows_written}</Text>,
+    },
+    {
+      key: "requested_at",
+      header: "请求时间",
+      align: "left",
+      width: "20%",
+      render: (item) => <Text size="sm">{formatDateTimeLabel(item.requested_at)}</Text>,
+    },
+    {
+      key: "error_code",
+      header: "错误",
+      align: "left",
+      width: "12%",
+      render: (item) => (
+        <Text size="sm" c={item.error_code ? "var(--mantine-color-error-6)" : "dimmed"}>
+          {item.error_code || "—"}
+        </Text>
+      ),
+    },
+  ];
 
   return (
     <Stack gap="lg">
@@ -204,7 +275,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="serving lag">
             <Text fw={700} size="xl">
-              {stageMap.get("serving")?.lag_seconds ? `${Math.floor((stageMap.get("serving")?.lag_seconds || 0) / 3600)}h ${Math.floor(((stageMap.get("serving")?.lag_seconds || 0) % 3600) / 60)}m` : "—"}
+              {formatLagDuration(stageMap.get("serving")?.lag_seconds)}
             </Text>
           </MetricPanel>
         </Grid.Col>
@@ -221,16 +292,15 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             const item = stageMap.get(stage);
             return (
               <Grid.Col key={stage} span={{ base: 12, md: 6, xl: 3 }}>
-                <Paper withBorder radius="md" p="md">
-                  <Text ff="var(--mantine-font-family-monospace)" c="dimmed">{stageTitle(stage)}</Text>
-                  <Group gap={8} mt={4}>
-                    <StatusBadge value={item?.status || "unknown"} />
-                  </Group>
-                  <Text size="sm" mt={10}>最近成功：{item?.last_success_at ? formatDateTimeLabel(item.last_success_at) : "—"}</Text>
-                  <Text size="sm">最近失败：{item?.last_failure_at ? formatDateTimeLabel(item.last_failure_at) : "—"}</Text>
-                  <Text size="sm">rows_in：{item?.rows_in ?? "—"}</Text>
-                  <Text size="sm">rows_out：{item?.rows_out ?? "—"}</Text>
-                </Paper>
+                <MetricPanel label={stageTitle(stage)} align="start" minHeight={176}>
+                  <Stack gap={6} w="100%">
+                    <StatusBadge value={item?.status || "unknown"} label={formatDetailStatusLabel(item?.status)} />
+                    <Text size="sm">最近成功：{item?.last_success_at ? formatDateTimeLabel(item.last_success_at) : "—"}</Text>
+                    <Text size="sm">最近失败：{item?.last_failure_at ? formatDateTimeLabel(item.last_failure_at) : "—"}</Text>
+                    <Text size="sm">rows_in：{item?.rows_in ?? "—"}</Text>
+                    <Text size="sm">rows_out：{item?.rows_out ?? "—"}</Text>
+                  </Stack>
+                </MetricPanel>
               </Grid.Col>
             );
           })}
@@ -243,25 +313,28 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             const failedCount = items.filter((item) => item.status === "failed").length;
             return (
               <Grid.Col key={source} span={{ base: 12, xl: 6 }}>
-                <Paper withBorder radius="md" p="md">
-                  <Group justify="space-between">
-                    <Group gap={8}>
-                      <Text fw={600} size="lg">{source}</Text>
-                      <Badge color={failedCount > 0 ? "error" : "success"} variant="light">{failedCount > 0 ? "失败" : "正常"}</Badge>
+                <MetricPanel label={source} align="start" minHeight={220}>
+                  <Stack gap="sm" w="100%">
+                    <Group justify="space-between" wrap="nowrap">
+                      <StatusBadge
+                        value={failedCount > 0 ? "failed" : "healthy"}
+                        label={failedCount > 0 ? "存在失败" : "状态正常"}
+                      />
+                      <Text c="dimmed" size="sm">条目数：{items.length}</Text>
                     </Group>
-                    <Text c="dimmed" size="sm">条目数：{items.length}</Text>
-                  </Group>
-                  <Divider my="sm" />
-                  {items.map((item) => (
-                    <Group key={`${source}-${item.stage}`} justify="space-between" mb={6}>
-                      <Text ff="var(--mantine-font-family-monospace)">{item.stage}</Text>
-                      <Group gap={8}>
-                        <StatusBadge value={item.status} />
-                        <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>
-                      </Group>
-                    </Group>
-                  ))}
-                </Paper>
+                    <Stack gap={6}>
+                      {items.map((item) => (
+                        <Group key={`${source}-${item.stage}`} justify="space-between" wrap="nowrap">
+                          <Text ff="var(--mantine-font-family-monospace)" size="sm">{item.stage}</Text>
+                          <Group gap={8} wrap="nowrap">
+                            <StatusBadge value={item.status} label={formatDetailStatusLabel(item.status)} />
+                            <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>
+                          </Group>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Stack>
+                </MetricPanel>
               </Grid.Col>
             );
           })}
@@ -287,32 +360,13 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       </SectionCard>
 
       <SectionCard title="近期执行记录" description="按 dataset_key 过滤出的最近执行。">
-        <OpsTable>
-          <Table.Thead>
-            <Table.Tr>
-              <OpsTableHeaderCell align="left" width="20%">执行ID</OpsTableHeaderCell>
-              <OpsTableHeaderCell width="12%">触发方式</OpsTableHeaderCell>
-              <OpsTableHeaderCell width="12%">状态</OpsTableHeaderCell>
-              <OpsTableHeaderCell width="12%">rows_in</OpsTableHeaderCell>
-              <OpsTableHeaderCell width="12%">rows_out</OpsTableHeaderCell>
-              <OpsTableHeaderCell align="left" width="20%">请求时间</OpsTableHeaderCell>
-              <OpsTableHeaderCell align="left" width="12%">错误</OpsTableHeaderCell>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {executionItems.slice(0, 10).map((item) => (
-              <Table.Tr key={item.id}>
-                <OpsTableCell align="left"><OpsTableCellText ff="var(--mantine-font-family-monospace)">{item.id}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell><OpsTableCellText>{item.trigger_source}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell><StatusBadge value={item.status} /></OpsTableCell>
-                <OpsTableCell><OpsTableCellText>{item.rows_fetched}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell><OpsTableCellText>{item.rows_written}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell align="left"><OpsTableCellText>{formatDateTimeLabel(item.requested_at)}</OpsTableCellText></OpsTableCell>
-                <OpsTableCell align="left"><OpsTableCellText c={item.error_code ? "var(--mantine-color-error-6)" : "dimmed"}>{item.error_code || "—"}</OpsTableCellText></OpsTableCell>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </OpsTable>
+        <DataTable
+          columns={executionColumns}
+          rows={executionRows}
+          getRowKey={(item) => item.id}
+          emptyState={<EmptyState title="暂无执行记录" description="当前数据集还没有可展示的执行结果。" />}
+          minWidth={920}
+        />
       </SectionCard>
 
       <SectionCard title="当前生效融合策略" description="先展示发布版本与规则规模，策略细节后续补充独立页面。">
