@@ -22,6 +22,7 @@ export function OpsV21TaskCenterPage() {
   return (
     <Stack gap="lg">
       <Tabs
+        keepMounted={false}
         value={activeTab}
         onChange={(value) => {
           const next = resolveTab(value);

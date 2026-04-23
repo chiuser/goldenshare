@@ -280,11 +280,11 @@ export function OpsTasksPage() {
 
   return (
     <Stack gap="lg">
-      {(catalogQuery.isLoading || executionsQuery.isLoading) ? <Loader size="sm" /> : null}
-      {catalogQuery.error || executionsQuery.error ? (
+      {executionsQuery.isLoading ? <Loader size="sm" /> : null}
+      {executionsQuery.error ? (
         <AlertBar tone="error" title="无法读取任务记录">
-          {(catalogQuery.error || executionsQuery.error) instanceof Error
-            ? ((catalogQuery.error || executionsQuery.error) as Error).message
+          {executionsQuery.error instanceof Error
+            ? executionsQuery.error.message
             : "未知错误"}
         </AlertBar>
       ) : null}

@@ -2,10 +2,11 @@ import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { render, screen, within } from "@testing-library/react";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
+import { apiRequest } from "../shared/api/client";
 import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 vi.mock("../shared/api/client", () => ({
@@ -48,6 +49,10 @@ vi.mock("../shared/api/client", () => ({
     throw new Error(`unexpected path: ${path}`);
   }),
 }));
+
+beforeEach(() => {
+  vi.mocked(apiRequest).mockClear();
+});
 
 describe("任务记录页", () => {
   it("从默认入口进入时，不应该带上历史筛选条件", async () => {
@@ -180,5 +185,79 @@ describe("任务记录页", () => {
     expect(statusFilter).toHaveValue("全选");
     expect(triggerFilter).toHaveValue("全选");
     expect(specFilter).toHaveValue("全选");
+  });
+
+  it("列表数据准备好后，不再等待 catalog 请求才能显示任务记录", async () => {
+    const catalogPromise = new Promise<never>(() => undefined);
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/catalog") {
+        return catalogPromise;
+      }
+      if (path === "/api/v1/ops/executions") {
+        return {
+          total: 1,
+          items: [
+            {
+              id: 1,
+              spec_type: "job",
+              spec_key: "backfill_equity_series.daily",
+              spec_display_name: "股票日线维护",
+              schedule_display_name: null,
+              trigger_source: "manual",
+              status: "running",
+              requested_by_username: "admin",
+              requested_at: "2026-03-31T01:00:00Z",
+              started_at: "2026-03-31T01:00:02Z",
+              ended_at: null,
+              rows_fetched: 0,
+              rows_written: 0,
+              progress_current: 651,
+              progress_total: 5814,
+              progress_percent: 11,
+              progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
+              last_progress_at: "2026-03-31T01:00:05Z",
+              summary_message: "正在汇总",
+              error_code: null,
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    const rootRoute = createRootRoute({
+      component: () => <OpsTasksPage />,
+    });
+    const route = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/tasks",
+      component: () => <OpsTasksPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([route]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/tasks"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("表格加载中")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "任务名称" })).toHaveValue("全选");
   });
 });
