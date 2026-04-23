@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import ast
-import inspect
 from datetime import datetime
 from pathlib import Path
 
 from src.foundation.dao.factory import DAOFactory
 from src.ops.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY
-from src.foundation.services.sync.registry import SYNC_SERVICE_REGISTRY
+from src.foundation.services.sync_v2.contracts import DatasetSyncContract
+from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 
 
 OUTPUT_PATH = Path("docs/datasets/dataset-catalog.md")
@@ -89,45 +88,6 @@ FIELD_MEANING_MAP = {
 }
 
 
-def _infer_api_name_from_source(service_cls) -> str | None:  # type: ignore[no-untyped-def]
-    try:
-        source = inspect.getsource(service_cls)
-    except OSError:
-        return None
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return None
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        if not isinstance(node.func, ast.Attribute):
-            continue
-        if node.func.attr != "call":
-            continue
-        if not node.args:
-            continue
-        first = node.args[0]
-        if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            return first.value
-    return None
-
-
-def _raw_dao_name(resource: str, service_cls) -> str | None:  # type: ignore[no-untyped-def]
-    value = getattr(service_cls, "raw_dao_name", None)
-    if value:
-        return str(value)
-    candidate = f"raw_{resource}"
-    return candidate
-
-
-def _core_dao_name(service_cls) -> str | None:  # type: ignore[no-untyped-def]
-    value = getattr(service_cls, "core_dao_name", None)
-    if value:
-        return str(value)
-    return None
-
-
 def _dao_to_table(factory: DAOFactory, dao_name: str | None) -> str | None:
     if not dao_name or not hasattr(factory, dao_name):
         return None
@@ -156,18 +116,19 @@ def _job_keys_for_resource(resource: str) -> list[str]:
     return sorted(keys)
 
 
-def _resource_row(resource: str, service_cls, factory: DAOFactory) -> dict[str, str]:  # type: ignore[no-untyped-def]
-    raw_dao_name = _raw_dao_name(resource, service_cls)
-    core_dao_name = _core_dao_name(service_cls)
-    api_name = getattr(service_cls, "api_name", None) or _infer_api_name_from_source(service_cls) or "-"
-    target_table = getattr(service_cls, "target_table", "-")
-    fields = list(getattr(service_cls, "fields", []) or [])
+def _resource_row(contract: DatasetSyncContract, factory: DAOFactory) -> dict[str, str]:
+    resource = contract.dataset_key
+    raw_dao_name = contract.write_spec.raw_dao_name or "-"
+    core_dao_name = contract.write_spec.core_dao_name or "-"
+    api_name = contract.source_spec.api_name or "-"
+    target_table = contract.write_spec.target_table or "-"
+    fields = list(contract.source_spec.fields or ())
     jobs = _job_keys_for_resource(resource)
     freshness = DATASET_FRESHNESS_METADATA.get(resource)
     observed_date_column = freshness[4] if freshness else "-"
 
-    raw_table = _dao_to_table(factory, raw_dao_name) or "-"
-    core_table = _dao_to_table(factory, core_dao_name) or target_table
+    raw_table = _dao_to_table(factory, raw_dao_name if raw_dao_name != "-" else None) or "-"
+    core_table = _dao_to_table(factory, core_dao_name if core_dao_name != "-" else None) or target_table
     if core_table is None:
         core_table = "-"
 
@@ -210,15 +171,15 @@ def _render_field_dict(columns_text: str) -> list[str]:
 
 def generate_markdown() -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    resources = sorted(SYNC_SERVICE_REGISTRY.items(), key=lambda item: item[0])
+    contracts = list_sync_v2_contracts()
     factory = DAOFactory(None)
-    rows = [_resource_row(resource, service_cls, factory) for resource, service_cls in resources]
+    rows = [_resource_row(contract, factory) for contract in contracts]
 
     lines: list[str] = []
     lines.append("# 数据集能力与字段说明（自动生成）")
     lines.append("")
     lines.append(f"- 生成时间: `{now}`")
-    lines.append("- 数据来源: `SYNC_SERVICE_REGISTRY`、`DAOFactory`、`JOB_SPEC_REGISTRY`")
+    lines.append("- 数据来源: `SYNC_V2_CONTRACTS`、`DAOFactory`、`JOB_SPEC_REGISTRY`")
     lines.append("- 适用范围: 现有可同步数据集（raw/core 主链路）")
     lines.append("")
     lines.append("## 字段语义约定（通用）")

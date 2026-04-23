@@ -22,9 +22,8 @@
 
 该决策依据（代码事实）：
 
-1. `index_weekly/index_monthly` 现有 V1 链路包含“API 拉取 + 日线派生补缺（`derived_daily`）+ period_start 去重写入”复合写入策略，见：
-   - [sync_index_weekly_service.py](/Users/congming/github/goldenshare/src/foundation/services/sync/sync_index_weekly_service.py)
-   - [sync_index_monthly_service.py](/Users/congming/github/goldenshare/src/foundation/services/sync/sync_index_monthly_service.py)
+1. `index_weekly/index_monthly` 现有链路包含“API 拉取 + 日线派生补缺（`derived_daily`）+ period_start 去重写入”复合写入策略，见：
+   - [index_series.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/index_series.py)
 2. 当前 V2 writer 仅有通用 `raw_core_upsert`、资金流专项 `raw_std_publish_moneyflow`、快照 `raw_core_snapshot_insert_by_trade_date` 三种路径，尚无“指数周月派生补缺”专用 write_path，见：
    - [writer.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/writer.py)
 

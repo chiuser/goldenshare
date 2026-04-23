@@ -133,4 +133,3 @@ class DaoSyncJobStateStore(SyncJobStateStore):
 
     def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
         self.dao.mark_full_sync_done(job_name, target_table)
-

@@ -1,4 +1,4 @@
-from src.foundation.services.sync.fields import (
+from src.foundation.services.sync_v2.fields import (
     ADJ_FACTOR_FIELDS,
     BLOCK_TRADE_FIELDS,
     DAILY_BASIC_FIELDS,
@@ -48,15 +48,13 @@ from src.foundation.services.sync.fields import (
     TRADE_CAL_FIELDS,
     US_BASIC_FIELDS,
 )
-from src.foundation.services.sync.sync_fund_daily_service import SyncFundDailyService
-from src.foundation.services.sync.sync_index_daily_service import SyncIndexDailyService
-from src.foundation.services.sync.sync_stock_basic_service import SyncStockBasicService
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
 
 
-def test_existing_field_constants_are_wired_to_services() -> None:
-    assert SyncStockBasicService.fields == STOCK_BASIC_FIELDS
-    assert SyncFundDailyService.fields == FUND_DAILY_FIELDS
-    assert SyncIndexDailyService.fields == INDEX_DAILY_FIELDS
+def test_existing_field_constants_are_wired_to_contracts() -> None:
+    assert tuple(get_sync_v2_contract("stock_basic").source_spec.fields) == tuple(STOCK_BASIC_FIELDS)
+    assert tuple(get_sync_v2_contract("fund_daily").source_spec.fields) == tuple(FUND_DAILY_FIELDS)
+    assert tuple(get_sync_v2_contract("index_daily").source_spec.fields) == tuple(INDEX_DAILY_FIELDS)
 
 
 def test_split_field_constants_are_explicit_lists() -> None:

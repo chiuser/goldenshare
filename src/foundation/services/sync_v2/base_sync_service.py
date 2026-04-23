@@ -12,9 +12,9 @@ from src.foundation.kernel.contracts.index_series_active_store import IndexSerie
 from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.schemas import SyncResult
-from src.foundation.services.sync.errors import ExecutionCanceledError
-from src.foundation.services.sync.sync_execution_context import NullSyncExecutionContext
-from src.foundation.services.sync.sync_state_store import (
+from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
+from src.foundation.services.sync_v2.sync_execution_context import NullSyncExecutionContext
+from src.foundation.services.sync_v2.sync_state_store import (
     DaoSyncJobStateStore,
     DaoSyncRunLogStore,
     NullSyncJobStateStore,

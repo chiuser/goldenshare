@@ -11,6 +11,7 @@
 1. 主体结构已收敛为 `foundation / ops / biz / app`。
 2. `platform` 与 `operations` 已降级为 legacy 目录，只允许最小清理动作。
 3. 新主实现必须直接落在 `foundation`、`ops`、`biz`、`app` 对应目录。
+4. `src/foundation/services/sync`（Sync V1）已移除，不得再新增或回流相关实现。
 
 ---
 
@@ -20,6 +21,7 @@
 2. `ops` 不得依赖 `biz`。
 3. `biz` 不得依赖 `ops` / `operations`。
 4. 不得把主实现写回 `src/platform/**` 或 `src/operations/**`。
+5. 不得新增 `src.foundation.services.sync.*` 导入路径；同步能力统一走 `sync_v2`。
 
 边界违规由以下测试守护：
 
