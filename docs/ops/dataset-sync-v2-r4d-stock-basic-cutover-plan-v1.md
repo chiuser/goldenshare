@@ -2,7 +2,7 @@
 
 - 版本：v1.0
 - 日期：2026-04-23
-- 状态：评审通过，进入执行
+- 状态：已执行（2026-04-23）
 - 范围：仅 `stock_basic`（最后一个未切 V2 的数据集）
 - 关联文档：
   - [数据同步 V2 切换运行手册 v1](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
@@ -204,3 +204,17 @@
 
 1. `stock_basic` 本轮是否继续保持 `source_key=tushare|biying|all` 三模式完整兼容（方案默认：是）。
 2. 快照类入口统一收敛到 `sync-snapshot`（`stock_basic` 先落地，其余 `hk_basic/us_basic/index_basic/etf_basic/ths_index/ths_member` 后续跟进；`dividend/stk_holdernumber` 暂不动）。
+
+---
+
+## 9. 本轮执行记录（2026-04-23）
+
+1. 代码落地：`sync-snapshot` 命令 + `stock_basic` V2 contract/strategy/writer/worker 能力已上线。
+2. 线上开关：`USE_SYNC_V2_DATASETS` 已纳入 `stock_basic`。
+3. 线上验证：
+   - `sync-snapshot -r stock_basic --source-key all` 成功（fetched=11035, written=11034）。
+   - `reconcile-stock-basic` 基线结果：`only_tushare=632, only_biying=1, comparable_diff=6`。
+4. 快照入口收口：
+   - `hk_basic/us_basic/index_basic/etf_basic/ths_index/ths_member` 已按 `sync-snapshot` 执行成功。
+5. 过程修复：
+   - 发现 `index_basic` 写入 `ts_code` 长度不足（16），已通过 Alembic `20260423_000071` 扩为 32，并验证通过。

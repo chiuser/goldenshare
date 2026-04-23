@@ -1,8 +1,8 @@
 # 数据同步 V2 切换运行手册 v1（Runbook）
 
-- 版本：v1.4
+- 版本：v1.5
 - 日期：2026-04-23
-- 状态：执行中（R0+R1+R2+R3+R4-A+R4-B 已完成，待完成 R4-C）
+- 状态：执行中（R0+R1+R2+R3+R4 全部完成，进入稳定化阶段）
 - 适用环境：远程生产（`goldenshare-prod`）
 - 关联设计：
   - [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
@@ -30,17 +30,10 @@
 当前注册规模（代码事实）：
 
 1. `SYNC_SERVICE_REGISTRY` 总资源：`56`
-2. `SYNC_V2_CONTRACTS` 已覆盖：`52`
-3. 未迁移（仍走 V1）：`4`
+2. `SYNC_V2_CONTRACTS` 已覆盖：`56`
+3. 未迁移（仍走 V1）：`0`
 
-未迁移 4 个数据集：
-
-1. `biying_equity_daily`
-2. `biying_moneyflow`
-3. `stk_factor_pro`
-4. `stock_basic`
-
-当前 V2 contract 覆盖的 50 个数据集：
+当前 V2 contract 覆盖的 56 个数据集：
 
 1. `adj_factor`
 2. `block_trade`
@@ -92,6 +85,12 @@
 48. `dividend`
 49. `stk_holdernumber`
 50. `index_weight`
+51. `biying_equity_daily`
+52. `biying_moneyflow`
+53. `stk_factor_pro`
+54. `stock_basic`
+55. `index_monthly`
+56. `index_weekly`
 
 说明：
 
@@ -147,11 +146,24 @@ sudo -n systemctl restart goldenshare-web.service
 
 ### 4.4 运行切换验证命令
 
-先历史再增量：
+按数据集入口语义执行：
+
+1. 快照类（`stock_basic/hk_basic/us_basic/index_basic/etf_basic/ths_index/ths_member`）：
+
+```bash
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-snapshot -r <dataset_key>
+```
+
+2. 交易日增量类：
+
+```bash
+GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-daily -r <dataset_key> --trade-date YYYY-MM-DD
+```
+
+3. 区间回补类：
 
 ```bash
 GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-history -r <dataset_key> --start-date YYYY-MM-DD --end-date YYYY-MM-DD
-GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-daily -r <dataset_key> --trade-date YYYY-MM-DD
 ```
 
 ### 4.5 对账门禁（必须）
@@ -211,20 +223,13 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 7. 当前下一批计划（R4）
+## 7. 当前下一步计划（稳定化）
 
-R4 专项目标（当前未迁移 4 个）：
+当前迁移主线已完成，后续聚焦稳定化：
 
-1. `stock_basic`
-2. `biying_equity_daily`
-3. `biying_moneyflow`
-4. `stk_factor_pro`
-
-执行总原则：
-
-1. 先审计请求策略与对账口径，再切换。
-2. 每次只切 1 个数据集，不并行。
-3. 每个数据集必须执行“历史窗口 + 当日增量 + 对账门禁”三件套。
+1. 持续巡检 `USE_SYNC_V2_DATASETS` 与 contract 覆盖是否漂移。
+2. 按数据集入口语义（`sync-snapshot/sync-daily/sync-history`）固化门禁。
+3. 新增数据集默认走 V2 contract 开发与切换，不再新增 V1 旁路。
 
 ---
 
