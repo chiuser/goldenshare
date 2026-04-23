@@ -359,17 +359,6 @@ class DatasetStatusSnapshotService:
                 serving_enabled=True,
                 notes="按规格推断：双源标准化+融合发布链路",
             )
-        if item.dataset_key == "moneyflow":
-            return DatasetPipelineMode(
-                dataset_key=item.dataset_key,
-                mode="multi_source_pipeline",
-                source_scope="tushare,biying",
-                raw_enabled=True,
-                std_enabled=True,
-                resolution_enabled=True,
-                serving_enabled=True,
-                notes="按规格推断：多源融合骨架（tushare 主，biying 兜底）",
-            )
         target = item.target_table or ""
         raw_table = item.raw_table or ""
         if target.startswith("raw_") or target.startswith("raw."):

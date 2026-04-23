@@ -24,7 +24,7 @@ usage() {
   --seed-source <key>     初始化使用的数据源（默认 tushare）
   --seed-pipeline-mode    启用“pipeline_mode 缺失/漂移检测 + 按需初始化”（默认启用）
   --skip-seed-pipeline-mode 关闭“pipeline_mode 缺失/漂移检测 + 按需初始化”
-  --seed-moneyflow-multi-source    启用“moneyflow 多源骨架检测 + 按需初始化”（默认启用）
+  --seed-moneyflow-multi-source    启用“moneyflow 多源骨架检测 + 按需初始化”（默认关闭）
   --skip-seed-moneyflow-multi-source 关闭“moneyflow 多源骨架检测 + 按需初始化”
   --sync-units            启用“systemd unit 差异检测 + 按需同步”（默认启用）
   --skip-sync-units       关闭“systemd unit 差异检测 + 按需同步”
@@ -51,7 +51,7 @@ export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 export RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
-export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-1}"
+export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
 export RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
 export PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
 

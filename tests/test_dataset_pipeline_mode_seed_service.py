@@ -109,8 +109,8 @@ def test_seed_dataset_pipeline_mode_apply(monkeypatch, db_session: Session) -> N
 
     moneyflow = db_session.get(DatasetPipelineMode, "moneyflow")
     assert moneyflow is not None
-    assert moneyflow.mode == "multi_source_pipeline"
-    assert moneyflow.source_scope == "tushare,biying"
+    assert moneyflow.mode == "single_source_direct"
+    assert moneyflow.source_scope == "tushare"
 
     biying_daily = db_session.get(DatasetPipelineMode, "biying_equity_daily")
     assert biying_daily is not None

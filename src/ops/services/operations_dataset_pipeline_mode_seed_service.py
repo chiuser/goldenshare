@@ -86,17 +86,6 @@ class DatasetPipelineModeSeedService:
                 serving_enabled=True,
                 notes="已落地双源标准化+融合发布链路",
             )
-        if spec.dataset_key == "moneyflow":
-            return _ModeDraft(
-                dataset_key=spec.dataset_key,
-                mode="multi_source_pipeline",
-                source_scope="tushare,biying",
-                raw_enabled=True,
-                std_enabled=True,
-                resolution_enabled=True,
-                serving_enabled=True,
-                notes="多源融合骨架（tushare 主，biying 兜底）",
-            )
         target = spec.target_table
         raw_table = spec.raw_table or ""
         if target.startswith("raw_") or target.startswith("raw."):
