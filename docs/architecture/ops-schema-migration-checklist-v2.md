@@ -2,8 +2,10 @@
 
 - 版本：v1.0（执行清单）
 - 日期：2026-04-21
-- 状态：执行中（按 V2 切换节奏推进）
+- 状态：历史执行清单（归档）
 - 关联主方案：[数据同步 V2 重设计方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
+
+> 说明：本文保留 V2 切换期的表改造执行语境与检查项，作为历史审计依据。当前请优先以 `src/ops/models/ops/*.py` 与现行 runbook/契约文档作为唯一运行口径。
 
 ---
 

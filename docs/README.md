@@ -32,11 +32,11 @@ docs/
 
 - [设计原则](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
 - [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
-- [Foundation 多源数据基座升级与停机迁移方案 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-multi-source-upgrade-and-migration-v1.md)
+- [Foundation 多源数据基座升级与停机迁移方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/architecture/foundation-multi-source-upgrade-and-migration-v1.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [数据同步统一架构与全量数据集矩阵 v2](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
-- [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
+- [数据同步 V2 重设计方案（含平稳迁移，历史主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
 - [Sync V2 数据集策略简化方案 v1（全量 47 个 V2 数据集）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md)
 - [Sync V2 Registry 结构化重构方案 v1（两阶段）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-structure-refactor-plan-v1.md)
 - [Sync V2 Registry 开发指南 v1（新增数据集门禁）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md)
@@ -47,15 +47,17 @@ docs/
 
 ## 4. Ops 运营（S2）
 
+- [Ops Web API 与运维数据能力审查备忘 v1](/Users/congming/github/goldenshare/docs/ops/ops-web-api-capability-review-memo-v1.md)
+- [Ops Execution API 队列语义收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-execution-api-queue-semantics-alignment-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
 - [数据同步 V2 R3 切换方案 v1（板块/热榜/周期栏，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
-- [数据同步 V2 R4-A 切换方案 v1（dividend / stk_holdernumber / index_weight）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4a-cutover-plan-v1.md)
-- [数据同步 V2 R4-B 切换方案 v1（index_weekly / index_monthly）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4b-cutover-plan-v1.md)
-- [数据同步 V2 R4-C 切换方案 v1（biying_equity_daily / biying_moneyflow）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4c-biying-cutover-plan-v1.md)
-- [数据集接口请求策略重审 v1（逐数据集）](/Users/congming/github/goldenshare/docs/ops/dataset-request-strategy-reassessment-v1.md)
+- [数据同步 V2 R4-A 切换方案 v1（dividend / stk_holdernumber / index_weight，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4a-cutover-plan-v1.md)
+- [数据同步 V2 R4-B 切换方案 v1（index_weekly / index_monthly，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4b-cutover-plan-v1.md)
+- [数据同步 V2 R4-C 切换方案 v1（biying_equity_daily / biying_moneyflow，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4c-biying-cutover-plan-v1.md)
+- [数据集接口请求策略重审 v1（逐数据集，历史归档）](/Users/congming/github/goldenshare/docs/ops/dataset-request-strategy-reassessment-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 
 说明：数据集停用策略与融合策略中心准备度已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。
@@ -105,6 +107,11 @@ docs/
 - [前端 Phase 5 执行计划 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase5-execution-plan-v1.md)
 - [前端 Phase 6 执行计划 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md)
 - [前端 Phase 6 P6-1 低风险推广批边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-1-boundary-card-v1.md)
+- [前端 Phase 6 P6-2 审查中心推广批边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-2-boundary-card-v1.md)
+- [前端 Phase 6 P6-3 数据详情推广批边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-3-boundary-card-v1.md)
+- [前端 Phase 6 P6-4 管理配置推广批边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-4-boundary-card-v1.md)
+- [前端 Phase 6 推广收口总结 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)
+- [前端专项：Overview 旧视觉遗留收口边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-overview-legacy-visual-cleanup-boundary-card-v1.md)
 - [前端质量门禁矩阵 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-quality-gate-matrix-v1.md)
 - [前端回归与截图基线流程 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [前端 Smoke 与视觉回归门禁 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-smoke-visual-gate-v1.md)
