@@ -18,7 +18,7 @@ class IndexBasic(TimestampMixin, Base):
         {"schema": "core_serving"},
     )
 
-    ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    ts_code: Mapped[str] = mapped_column(String(32), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(128))
     fullname: Mapped[str | None] = mapped_column(String(256))
     market: Mapped[str | None] = mapped_column(String(32))
