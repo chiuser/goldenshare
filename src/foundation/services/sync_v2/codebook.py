@@ -20,14 +20,35 @@ class SyncCodebookEntry:
         }
 
 
-SYNC_CODEBOOK_VERSION: Final[str] = "2026-04-23.v1"
-SYNC_CODEBOOK_UPDATED_AT: Final[str] = "2026-04-23T00:00:00Z"
+SYNC_CODEBOOK_VERSION: Final[str] = "2026-04-24.v1"
+SYNC_CODEBOOK_UPDATED_AT: Final[str] = "2026-04-24T00:00:00Z"
 
 SYNC_ERROR_CODEBOOK: Final[tuple[SyncCodebookEntry, ...]] = (
+    SyncCodebookEntry("dataset_mismatch", "请求数据集与合同不一致", "validator", "检查 dataset_key 与 contract 绑定"),
     SyncCodebookEntry("run_profile_unsupported", "数据集不支持该运行模式", "validator", "检查任务模式与数据集能力"),
+    SyncCodebookEntry("time_anchor_not_allowed", "当前模式不允许时间锚点参数", "validator", "移除 trade_date/start_date/end_date/month 参数"),
     SyncCodebookEntry("invalid_window_for_profile", "时间窗口与运行模式冲突", "validator/planner", "校验 trade_date/start_date/end_date 组合"),
+    SyncCodebookEntry("range_not_allowed", "当前模式不允许区间参数", "validator", "移除 start_date/end_date 或切换为区间模式"),
+    SyncCodebookEntry("missing_anchor_fields", "缺少锚点必填参数", "validator", "补齐 trade_date/month 等锚点参数"),
     SyncCodebookEntry("range_required", "缺少时间范围参数", "validator/planner", "补齐开始和结束日期"),
+    SyncCodebookEntry("invalid_range", "时间范围非法", "validator", "确保 start_date <= end_date"),
+    SyncCodebookEntry("required_param_missing", "缺少必填参数", "validator", "补齐 required 参数"),
+    SyncCodebookEntry("unknown_params", "存在未定义参数", "validator", "检查并移除不在 input schema 的参数"),
+    SyncCodebookEntry("required_group_unsatisfied", "必选参数组未满足", "validator", "在必选组中至少填写一个参数"),
+    SyncCodebookEntry("mutually_exclusive_violation", "互斥参数同时出现", "validator", "仅保留互斥组中的一个参数"),
+    SyncCodebookEntry("dependency_violation", "参数依赖关系不满足", "validator", "补齐依赖参数"),
+    SyncCodebookEntry("invalid_date", "日期参数格式非法", "validator", "使用 YYYYMMDD 或 YYYY-MM-DD"),
+    SyncCodebookEntry("invalid_integer", "整数参数格式非法", "validator", "检查参数类型并传入整数"),
+    SyncCodebookEntry("invalid_boolean", "布尔参数格式非法", "validator", "使用 true/false 或 1/0"),
+    SyncCodebookEntry("invalid_enum", "枚举参数值非法", "validator", "改为接口允许的枚举值"),
+    SyncCodebookEntry("empty_not_allowed", "参数不允许为空", "validator", "填写非空值"),
+    SyncCodebookEntry("invalid_month_key", "月份参数格式非法", "validator", "使用 YYYYMM 或 YYYY-MM"),
     SyncCodebookEntry("invalid_anchor_type", "锚点类型非法", "validator/planner", "检查 contract 锚点配置"),
+    SyncCodebookEntry("units_exceeded", "执行单元数量超出限制", "planner", "缩小时间窗口或提高 max_units_per_execution"),
+    SyncCodebookEntry("fanout_missing", "枚举分片参数缺失且无默认值", "planner", "补齐 fanout 参数或配置默认值"),
+    SyncCodebookEntry("trade_date_anchor_required", "缺少交易日锚点", "planner", "补齐 trade_date 或 start/end 区间"),
+    SyncCodebookEntry("universe_empty", "规划范围为空", "planner", "检查股票池/板块池或上游基础数据"),
+    SyncCodebookEntry("unknown_universe_policy", "未知的规划范围策略", "planner", "检查 contract.universe_policy 配置"),
     SyncCodebookEntry("source_adapter_not_found", "数据源适配器不存在", "worker/source", "检查 source_key 与适配器注册"),
     SyncCodebookEntry("source_timeout", "上游请求超时", "source", "稍后重试或降低并发"),
     SyncCodebookEntry("source_http_error", "上游 HTTP 异常", "source", "检查状态码和请求参数"),
@@ -40,6 +61,7 @@ SYNC_ERROR_CODEBOOK: Final[tuple[SyncCodebookEntry, ...]] = (
     SyncCodebookEntry("write_failed", "写入异常", "writer", "检查数据库约束、冲突策略和目标表结构"),
     SyncCodebookEntry("internal_error", "未归类内部错误", "runtime", "查看完整堆栈定位内部异常"),
     SyncCodebookEntry("dispatcher_error", "调度器执行异常", "runtime", "检查调度执行链路和步骤事件"),
+    SyncCodebookEntry("worker_finalize_error", "执行收尾阶段异常", "runtime", "检查任务终态写入和快照刷新链路"),
     SyncCodebookEntry("workflow_invalid", "工作流定义异常", "dispatcher", "检查 workflow spec 定义"),
     SyncCodebookEntry("workflow_step_failed", "工作流步骤失败", "dispatcher", "定位失败步骤与上下游依赖"),
     SyncCodebookEntry("execution_failed", "执行失败（统一兜底）", "runtime", "查看 error_message 与运行事件"),

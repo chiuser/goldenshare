@@ -21,7 +21,7 @@ def test_ops_sync_codebook_returns_backend_dictionary(app_client, user_factory) 
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["version"] == "2026-04-23.v1"
-    assert payload["updated_at"] == "2026-04-23T00:00:00Z"
+    assert payload["version"] == "2026-04-24.v1"
+    assert payload["updated_at"] == "2026-04-24T00:00:00Z"
     assert any(item["code"] == "all_rows_rejected" for item in payload["error_codes"])
     assert any(item["code"] == "normalize.required_field_missing" for item in payload["reason_codes"])
