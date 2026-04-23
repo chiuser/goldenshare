@@ -51,6 +51,7 @@ def test_dataset_reconcile_service_supports_daily_basic_dataset() -> None:
     assert "daily" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "daily_basic" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "cyq_perf" in DatasetReconcileService.SUPPORTED_DATASETS
+    assert "stk_factor_pro" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "dc_index" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "fund_daily" in DatasetReconcileService.SUPPORTED_DATASETS
     assert "index_daily" in DatasetReconcileService.SUPPORTED_DATASETS

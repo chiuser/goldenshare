@@ -368,7 +368,11 @@ class QuoteQueryService:
         macd_column = getattr(EquityFactorPro, f"macd_{adjustment_suffix}", None)
         kdj_k_column = getattr(EquityFactorPro, f"kdj_k_{adjustment_suffix}", None)
         kdj_d_column = getattr(EquityFactorPro, f"kdj_d_{adjustment_suffix}", None)
-        kdj_j_column = getattr(EquityFactorPro, f"kdj_j_{adjustment_suffix}", None)
+        kdj_j_column = getattr(EquityFactorPro, f"kdj_{adjustment_suffix}", None) or getattr(
+            EquityFactorPro,
+            f"kdj_j_{adjustment_suffix}",
+            None,
+        )
 
         if not all(
             (

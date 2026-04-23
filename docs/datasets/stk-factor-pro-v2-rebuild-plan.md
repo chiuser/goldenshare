@@ -18,6 +18,18 @@
 2. 按当前业务状态采用“无冻结阶段”执行：直接清理旧链路数据与脏状态，再按新链路回灌。
 3. 新实现以 V2 契约/引擎为主路径，避免再把复杂度堆在 V1。
 4. 对外业务口径保持稳定：`dataset_key=stk_factor_pro`、`core_serving.equity_factor_pro`、现有查询 API 不改契约。
+5. 字段命名口径已拍板：`raw` 与 `serving` 均直接使用 Tushare `stk_factor_pro` 输出参数名，不再使用仓库内历史自定义别名。
+6. 旧表处理已拍板：不做兼容列改造，直接 `drop + create` 重建。
+
+### 0.1 第一阶段（字段契约定稿）执行结论
+
+1. 以源文档 `docs/sources/tushare/股票数据/特色数据/0328_股票技术面因子(专业版).md` 的“输出参数”作为唯一字段真源（single source of truth）。
+2. 现状审计：
+   - 代码字段（`STK_FACTOR_PRO_FIELDS`）=`227`
+   - 源文档输出字段=`261`
+   - 历史代码专有字段（文档无）=`48`
+   - 文档有但代码缺失=`82`
+3. 本次不再引入“canonical 别名字段层”，而是直接把表结构、normalizer、写入逻辑统一到源输出参数命名。
 
 ---
 
@@ -129,18 +141,56 @@
 
 ## 5. 详细设计
 
-### 5.1 数据模型与字段策略
+### 5.1 数据模型与字段策略（已按评审决议修订）
 
 1. 主键维持：`(ts_code, trade_date)`。
 2. 目标表维持：`core_serving.equity_factor_pro`。
 3. 字段处理策略：
-   - 保留外部接口字段全集；
-   - 通过显式映射表管理字段别名；
-   - 类型转换规则集中在 normalizer，不允许写入层做隐式推断。
+   - `raw_tushare.stk_factor_pro` 与 `core_serving.equity_factor_pro` 均直接采用 Tushare 输出参数字段名；
+   - 取消历史别名字段体系（如 `tor/vr`、`open_bfq/close_bfq` 等）；
+   - 类型转换规则集中在 normalizer，不允许写入层做隐式推断；
+   - 历史别名仅允许在“一次性迁移映射”中短暂出现，不进入最终表结构。
 4. 质量门禁：
    - 必填键缺失直接 reject；
    - 类型不合法写入结构化错误；
    - rejected 统计进入事件与进度摘要。
+
+#### 5.1.1 历史字段到目标字段：关键替换清单
+
+| 历史字段 | 新字段（源输出） | 备注 |
+| --- | --- | --- |
+| `open_bfq` | `open` | 不复权默认口径改为源字段名 |
+| `high_bfq` | `high` | 同上 |
+| `low_bfq` | `low` | 同上 |
+| `close_bfq` | `close` | 同上 |
+| `pre_close_bfq` | `pre_close` | 同上 |
+| `change_bfq` | `change` | 同上 |
+| `pct_change_bfq` | `pct_chg` | 源字段使用 `pct_chg` |
+| `vol_bfq` | `vol` | 同上 |
+| `amount_bfq` | `amount` | 同上 |
+| `tor` | `turnover_rate` | 与源文档保持一致 |
+| `vr` | `volume_ratio` | 与源文档保持一致 |
+| `ma_roc_*` | `maroc_*` | 源文档字段为 `maroc_*` |
+| `mamass_*` | `ma_mass_*` | 源文档字段为 `ma_mass_*` |
+| `ar_*` | `brar_ar_*` | 源文档字段命名修正 |
+| `br_*` | `brar_br_*` | 源文档字段命名修正 |
+| `kdj_j_*` | `kdj_*` | 源文档 `kdj_*` 为 J 值；`kdj_k_*`/`kdj_d_*` 仍保留 |
+| `ktn_up_*` | `ktn_upper_*` | 与源文档一致 |
+| `obos_*` | `wr_* / wr1_*` | `obos_*` 非源输出，按源文档替换为 `wr` 系列 |
+
+#### 5.1.2 文档有但代码缺失的字段簇（需纳入新表）
+
+1. 估值/市值基础簇：`pe`, `pe_ttm`, `pb`, `ps`, `ps_ttm`, `dv_ratio`, `dv_ttm`, `total_share`, `float_share`, `free_share`, `total_mv`, `circ_mv`。
+2. 形态/趋势簇：`bias1_*`, `bias2_*`, `bias3_*`, `cr_*`, `dpo_*`, `madpo_*`, `lowdays`, `topdays`, `updays`, `downdays`。
+3. 海龟通道簇：`taq_up_*`, `taq_mid_*`, `taq_down_*`。
+4. 威廉指标簇：`wr_*`, `wr1_*`。
+5. 其余命名修正簇：`brar_ar_*`, `brar_br_*`, `ma_mass_*`, `maroc_*`, `ktn_upper_*`。
+
+#### 5.1.3 历史专有字段（不进入新表）
+
+以下字段属于历史实现残留，不在源文档输出参数中，重建后不保留：
+
+`amount_bfq`, `amount_hfq`, `amount_qfq`, `ar_bfq`, `ar_hfq`, `ar_qfq`, `br_bfq`, `br_hfq`, `br_qfq`, `change_bfq`, `change_hfq`, `change_qfq`, `close_bfq`, `ema_bfq_500`, `ema_hfq_500`, `ema_qfq_500`, `high_bfq`, `kdj_j_bfq`, `kdj_j_hfq`, `kdj_j_qfq`, `ktn_up_bfq`, `ktn_up_hfq`, `ktn_up_qfq`, `low_bfq`, `ma_bfq_500`, `ma_hfq_500`, `ma_qfq_500`, `ma_roc_bfq`, `ma_roc_hfq`, `ma_roc_qfq`, `mamass_bfq`, `mamass_hfq`, `mamass_qfq`, `obos_bfq`, `obos_hfq`, `obos_qfq`, `open_bfq`, `pct_change_bfq`, `pct_change_hfq`, `pct_change_qfq`, `pre_close_bfq`, `pre_close_hfq`, `pre_close_qfq`, `tor`, `vol_bfq`, `vol_hfq`, `vol_qfq`, `vr`。
 
 ### 5.2 V2 Contract 设计要点（`stk_factor_pro`）
 
@@ -184,13 +234,14 @@
 
 ## 6. 执行步骤（实施顺序）
 
-1. 提交“drop + 状态清理”迁移脚本。
-2. 部署迁移并执行清场。
-3. 提交 `stk_factor_pro` V2 contract 与接线。
-4. 打开 `USE_SYNC_V2_DATASETS=stk_factor_pro`。
-5. 执行历史回补（区间）并核验。
-6. 接入日增量任务并核验。
-7. 通过验收后移除 V1 专属实现。
+1. 完成字段契约定稿（本文 5.1，冻结命名口径）。
+2. 提交“drop + 状态清理”迁移脚本。
+3. 部署迁移并执行清场（旧表删除后重建）。
+4. 提交 `stk_factor_pro` V2 contract 与接线（按新字段口径）。
+5. 打开 `USE_SYNC_V2_DATASETS=stk_factor_pro`。
+6. 执行历史回补（区间）并核验。
+7. 接入日增量任务并核验。
+8. 通过验收后移除 V1 专属实现。
 
 ---
 
@@ -239,4 +290,3 @@
 2. 数据清场迁移脚本（alembic）。
 3. `stk_factor_pro` V2 contract 与同步实现代码。
 4. 回归与验收报告（数据一致性 + ops + quote）。
-

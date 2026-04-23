@@ -431,6 +431,16 @@ def _cyq_perf_params(request, anchor_date: date | None, enum_values: dict[str, A
     return params
 
 
+def _stk_factor_pro_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if anchor_date is None:
+        raise ValueError("stk_factor_pro requires trade_date anchor")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("margin requires trade_date anchor")
@@ -772,6 +782,7 @@ __all__ = [
     "_limit_list_ths_params",
     "_suspend_d_params",
     "_cyq_perf_params",
+    "_stk_factor_pro_params",
     "_margin_params",
     "_limit_step_params",
     "_limit_cpt_list_params",

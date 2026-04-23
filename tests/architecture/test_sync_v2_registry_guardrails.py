@@ -40,6 +40,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "block_trade",
         "stock_st",
         "stk_nineturn",
+        "stk_factor_pro",
         "stk_period_bar_week",
         "stk_period_bar_month",
         "stk_period_bar_adj_week",

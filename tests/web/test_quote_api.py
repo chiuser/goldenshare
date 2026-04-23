@@ -527,7 +527,7 @@ def test_quote_kline_uses_precomputed_macd_kdj_for_stock_day(app_client, db_sess
             macd_qfq=1.77777778,
             kdj_k_qfq=66.66666666,
             kdj_d_qfq=55.55555555,
-            kdj_j_qfq=88.88888888,
+            kdj_qfq=88.88888888,
             source="tushare",
         )
     )

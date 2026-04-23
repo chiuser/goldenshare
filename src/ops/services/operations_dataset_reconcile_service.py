@@ -16,6 +16,7 @@ from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_dividend import EquityDividend
+from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_daily_basic import IndexDailyBasic
@@ -43,6 +44,7 @@ from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw.raw_dc_index import RawDcIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
@@ -185,6 +187,13 @@ class DatasetReconcileService:
         "cyq_perf": DatasetReconcileConfig(
             raw_model=RawCyqPerf,
             serving_model=EquityCyqPerf,
+            mode="daily",
+            raw_date_field="trade_date",
+            serving_date_field="trade_date",
+        ),
+        "stk_factor_pro": DatasetReconcileConfig(
+            raw_model=RawStkFactorPro,
+            serving_model=EquityFactorPro,
             mode="daily",
             raw_date_field="trade_date",
             serving_date_field="trade_date",

@@ -39,6 +39,7 @@ from src.foundation.services.sync_v2.dataset_strategies.moneyflow_ths import bui
 from src.foundation.services.sync_v2.dataset_strategies.stk_limit import build_stk_limit_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_nineturn import build_stk_nineturn_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_holdernumber import build_stk_holdernumber_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_factor_pro import build_stk_factor_pro_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_adj_month import (
     build_stk_period_bar_adj_month_units,
 )
@@ -97,6 +98,7 @@ DATASET_STRATEGY_REGISTRY = {
     "stk_limit": build_stk_limit_units,
     "stk_nineturn": build_stk_nineturn_units,
     "stk_holdernumber": build_stk_holdernumber_units,
+    "stk_factor_pro": build_stk_factor_pro_units,
     "stk_period_bar_adj_month": build_stk_period_bar_adj_month_units,
     "stk_period_bar_adj_week": build_stk_period_bar_adj_week_units,
     "stk_period_bar_month": build_stk_period_bar_month_units,

@@ -338,7 +338,7 @@ def reconcile_dataset(
             "limit_list_d/limit_list_ths/"
             "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
             "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc/"
-            "top_list/block_trade/stock_st/stk_nineturn/dc_member/"
+            "top_list/block_trade/stock_st/stk_nineturn/stk_factor_pro/dc_member/"
             "fund_adj/index_basic/etf_basic/etf_index/hk_basic/us_basic/"
             "ths_index/kpl_list/kpl_concept_cons/broker_recommend"
         ),

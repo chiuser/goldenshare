@@ -14,6 +14,7 @@ from src.foundation.services.sync.fields import (
     LIMIT_STEP_FIELDS,
     MARGIN_FIELDS,
     STK_LIMIT_FIELDS,
+    STK_FACTOR_PRO_FIELDS,
     STK_NINETURN_FIELDS,
     STK_PERIOD_BAR_ADJ_FIELDS,
     STK_PERIOD_BAR_FIELDS,
@@ -288,6 +289,44 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "daily": DatasetSyncContract(
         ),
         observe_spec=ObserveSpec(progress_label="cyq_perf"),
         pagination_spec=PaginationSpec(page_limit=5000),
+    ),
+    "stk_factor_pro": DatasetSyncContract(
+        dataset_key="stk_factor_pro",
+        display_name="股票技术面因子(专业版)",
+        job_name="sync_stk_factor_pro",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="trade_date",
+            anchor_type="trade_date",
+            window_policy="point_or_range",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="stk_factor_pro",
+            fields=tuple(STK_FACTOR_PRO_FIELDS),
+            unit_params_builder=_stk_factor_pro_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("trade_date",),
+            required_fields=("trade_date", "ts_code"),
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_stk_factor_pro",
+            core_dao_name="equity_factor_pro",
+            target_table="core_serving.equity_factor_pro",
+        ),
+        observe_spec=ObserveSpec(progress_label="stk_factor_pro"),
+        pagination_spec=PaginationSpec(page_limit=10000),
     ),
     "margin": DatasetSyncContract(
         dataset_key="margin",

@@ -24,8 +24,8 @@ def test_sync_stk_factor_pro_incremental_paginates_and_writes(mocker) -> None:
             {
                 "ts_code": "000001.SZ",
                 "trade_date": "20260410",
-                "close_bfq": 10.11,
-                "open_bfq": 10.01,
+                "close": 10.11,
+                "open": 10.01,
                 "macd_bfq": 0.12,
                 "rsi_bfq_6": 56.78,
             }
@@ -50,7 +50,7 @@ def test_sync_stk_factor_pro_incremental_paginates_and_writes(mocker) -> None:
     )
     row = raw_upsert.call_args.args[0][0]
     assert row["trade_date"] == date(2026, 4, 10)
-    assert row["close_bfq"] == 10.11
+    assert row["close"] == 10.11
     serving_row = serving_upsert.call_args.args[0][0]
     assert serving_row["source"] == "tushare"
     assert progress.call_count == 1
@@ -91,4 +91,3 @@ def test_sync_stk_factor_pro_history_fans_out_by_trade_calendar(mocker) -> None:
     assert sync_one_day.call_args_list[0].kwargs["trade_date"] == date(2026, 4, 1)
     assert sync_one_day.call_args_list[1].kwargs["trade_date"] == date(2026, 4, 2)
     assert progress.call_count == 3
-
