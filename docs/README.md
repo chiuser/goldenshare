@@ -50,6 +50,7 @@ docs/
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 - [Ops Web API 与运维数据能力审查备忘 v1](/Users/congming/github/goldenshare/docs/ops/ops-web-api-capability-review-memo-v1.md)
 - [Ops Execution API 队列语义收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-execution-api-queue-semantics-alignment-plan-v1.md)
+- [Sync 任务 Error/Reason 统一编码与可观测性方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-sync-error-reason-code-observability-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)

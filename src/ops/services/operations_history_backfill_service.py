@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from datetime import date
 from calendar import monthrange
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -119,6 +120,7 @@ class HistoryBackfillService:
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
                 service = self._build_sync_service(resource)
+                rejected_reason_counts = self._bind_sync_progress_capture(service)
                 result = service.run_incremental(
                     trade_date=trade_date,
                     execution_id=execution_id,
@@ -127,8 +129,15 @@ class HistoryBackfillService:
                 rows_written += result.rows_written
                 if progress is not None:
                     progress(
-                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                        self._format_progress_message(
+                            resource,
+                            index,
+                            total,
+                            "trade_date",
+                            trade_date.isoformat(),
+                            result,
+                            rejected_reason_counts=rejected_reason_counts,
+                        )
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -147,6 +156,7 @@ class HistoryBackfillService:
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
                 service = self._build_sync_service(resource)
+                rejected_reason_counts = self._bind_sync_progress_capture(service)
                 result = service.run_incremental(
                     trade_date=trade_date,
                     execution_id=execution_id,
@@ -155,8 +165,15 @@ class HistoryBackfillService:
                 rows_written += result.rows_written
                 if progress is not None:
                     progress(
-                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                        self._format_progress_message(
+                            resource,
+                            index,
+                            total,
+                            "trade_date",
+                            trade_date.isoformat(),
+                            result,
+                            rejected_reason_counts=rejected_reason_counts,
+                        )
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -171,6 +188,7 @@ class HistoryBackfillService:
         total = len(securities)
         for index, security in enumerate(securities, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             result = service.run_full(
                 ts_code=security.ts_code,
                 start_date=start_date.isoformat(),
@@ -181,8 +199,15 @@ class HistoryBackfillService:
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} ts_code={security.ts_code} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index,
+                        total,
+                        "ts_code",
+                        security.ts_code,
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
@@ -223,6 +248,7 @@ class HistoryBackfillService:
         total = len(trade_dates)
         for index, trade_date in enumerate(trade_dates, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             incremental_kwargs = {
                 "trade_date": trade_date,
                 "execution_id": execution_id,
@@ -256,8 +282,15 @@ class HistoryBackfillService:
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index,
+                        total,
+                        "trade_date",
+                        trade_date.isoformat(),
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -282,13 +315,21 @@ class HistoryBackfillService:
         total = len(securities)
         for index, security in enumerate(securities, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             result = service.run_full(ts_code=security.ts_code, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} ts_code={security.ts_code} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index,
+                        total,
+                        "ts_code",
+                        security.ts_code,
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         return BackfillSummary(resource, len(securities), rows_fetched, rows_written)
 
@@ -314,6 +355,7 @@ class HistoryBackfillService:
         total = len(trade_dates)
         for index, trade_date in enumerate(trade_dates, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             result = service.run_incremental(
                 trade_date=trade_date,
                 execution_id=execution_id,
@@ -322,8 +364,15 @@ class HistoryBackfillService:
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index,
+                        total,
+                        "trade_date",
+                        trade_date.isoformat(),
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -361,13 +410,21 @@ class HistoryBackfillService:
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
                 service = self._build_sync_service(resource)
+                rejected_reason_counts = self._bind_sync_progress_capture(service)
                 result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
                 rows_fetched += result.rows_fetched
                 rows_written += result.rows_written
                 if progress is not None:
                     progress(
-                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                        self._format_progress_message(
+                            resource,
+                            index,
+                            total,
+                            "trade_date",
+                            trade_date.isoformat(),
+                            result,
+                            rejected_reason_counts=rejected_reason_counts,
+                        )
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -384,13 +441,21 @@ class HistoryBackfillService:
             total = len(trade_dates)
             for index, trade_date in enumerate(trade_dates, start=1):
                 service = self._build_sync_service(resource)
+                rejected_reason_counts = self._bind_sync_progress_capture(service)
                 result = service.run_incremental(trade_date=trade_date, execution_id=execution_id)
                 rows_fetched += result.rows_fetched
                 rows_written += result.rows_written
                 if progress is not None:
                     progress(
-                        f"{resource}: {index}/{total} trade_date={trade_date.isoformat()} "
-                        f"fetched={result.rows_fetched} written={result.rows_written}"
+                        self._format_progress_message(
+                            resource,
+                            index,
+                            total,
+                            "trade_date",
+                            trade_date.isoformat(),
+                            result,
+                            rejected_reason_counts=rejected_reason_counts,
+                        )
                     )
             self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
             return BackfillSummary(resource, len(trade_dates), rows_fetched, rows_written)
@@ -417,6 +482,7 @@ class HistoryBackfillService:
         total = len(index_codes)
         for index_number, index_code in enumerate(index_codes, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             kwargs = {
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
@@ -435,8 +501,15 @@ class HistoryBackfillService:
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index_number}/{total} {code_label}={index_code} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index_number,
+                        total,
+                        code_label,
+                        index_code,
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(index_codes), rows_fetched, rows_written)
@@ -465,16 +538,96 @@ class HistoryBackfillService:
         total = len(months)
         for index, month in enumerate(months, start=1):
             service = self._build_sync_service(resource)
+            rejected_reason_counts = self._bind_sync_progress_capture(service)
             result = service.run_full(month=month, execution_id=execution_id)
             rows_fetched += result.rows_fetched
             rows_written += result.rows_written
             if progress is not None:
                 progress(
-                    f"{resource}: {index}/{total} month={month} "
-                    f"fetched={result.rows_fetched} written={result.rows_written}"
+                    self._format_progress_message(
+                        resource,
+                        index,
+                        total,
+                        "month",
+                        month,
+                        result,
+                        rejected_reason_counts=rejected_reason_counts,
+                    )
                 )
         self.sync_job_state_reconciliation.refresh_resource_state_from_observed(self.session, resource)
         return BackfillSummary(resource, len(months), rows_fetched, rows_written)
+
+    @staticmethod
+    def _format_progress_message(
+        resource: str,
+        current: int,
+        total: int,
+        cursor_key: str,
+        cursor_value: str,
+        result: object,
+        rejected_reason_counts: dict[str, int] | None = None,
+    ) -> str:
+        fetched = int(getattr(result, "rows_fetched", 0) or 0)
+        written = int(getattr(result, "rows_written", 0) or 0)
+        rejected = max(fetched - written, 0)
+        normalized_reason_counts = HistoryBackfillService._normalize_reason_counts(rejected_reason_counts)
+        if normalized_reason_counts:
+            rejected = max(rejected, sum(normalized_reason_counts.values()))
+        message = f"{resource}: {current}/{total} {cursor_key}={cursor_value} fetched={fetched} written={written}"
+        if rejected > 0:
+            message = f"{message} rejected={rejected}"
+        if normalized_reason_counts:
+            encoded_reasons, is_truncated = HistoryBackfillService._encode_reason_counts(normalized_reason_counts)
+            message = f"{message} reasons={encoded_reasons}"
+            if is_truncated:
+                message = f"{message} reason_stats_truncated=1"
+        return message
+
+    @staticmethod
+    def _normalize_reason_counts(reason_counts: dict[str, int] | None) -> dict[str, int]:
+        if not reason_counts:
+            return {}
+        normalized: dict[str, int] = {}
+        for reason_code, raw_count in reason_counts.items():
+            code = str(reason_code or "").strip()
+            if not code:
+                continue
+            try:
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            normalized[code] = count
+        return normalized
+
+    @staticmethod
+    def _encode_reason_counts(reason_counts: dict[str, int], max_items: int = 3) -> tuple[str, bool]:
+        if not reason_counts:
+            return "", False
+        ordered = sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
+        limited = ordered[:max_items]
+        encoded = "|".join(f"{code}:{count}" for code, count in limited)
+        return encoded, len(ordered) > max_items
+
+    @staticmethod
+    def _bind_sync_progress_capture(service: object) -> dict[str, int]:
+        captured_reason_counts: dict[str, int] = {}
+        set_reporter = getattr(service, "set_cli_progress_reporter", None)
+        if not callable(set_reporter):
+            return captured_reason_counts
+
+        def _capture(progress_snapshot, _message: str) -> None:  # type: ignore[no-untyped-def]
+            raw_counts = getattr(progress_snapshot, "rejected_reason_counts", None)
+            if not isinstance(raw_counts, dict):
+                captured_reason_counts.clear()
+                return
+            normalized = HistoryBackfillService._normalize_reason_counts(raw_counts)
+            captured_reason_counts.clear()
+            captured_reason_counts.update(normalized)
+
+        set_reporter(_capture)
+        return captured_reason_counts
 
     @staticmethod
     def _select_month_end_trade_dates(open_trade_dates: list[date]) -> list[date]:

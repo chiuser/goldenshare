@@ -113,7 +113,7 @@ def test_moneyflow_normalizer_rejects_fractional_volume() -> None:
 
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
-    assert batch.rejected_reasons == {"ValueError": 1}
+    assert batch.rejected_reasons == {"normalize.row_transform_failed": 1}
     try:
         SyncV2Normalizer.raise_if_all_rejected(batch)
         assert False, "expected SyncV2NormalizeError"

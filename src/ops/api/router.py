@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from src.ops.api import (
     catalog,
+    codebook,
     dataset_pipeline_modes,
     executions,
     freshness,
@@ -31,5 +32,6 @@ router.include_router(runtime.router)
 router.include_router(catalog.router)
 router.include_router(dataset_pipeline_modes.router)
 router.include_router(review_center.router)
+router.include_router(codebook.router)
 
 __all__ = ["router"]

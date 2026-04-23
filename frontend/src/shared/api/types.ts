@@ -404,9 +404,30 @@ export interface ExecutionEventsResponse {
     event_type: string;
     level: string;
     message: string | null;
-    payload_json: Record<string, unknown>;
+    payload_json: ExecutionEventPayload;
     occurred_at: string;
   }>;
+}
+
+export interface ExecutionProgressReasonSample {
+  reason_code: string;
+  field?: string;
+  sample_key?: string;
+  sample_message?: string;
+}
+
+export interface ExecutionEventPayload extends Record<string, unknown> {
+  progress_message?: string;
+  progress_current?: number;
+  progress_total?: number;
+  progress_percent?: number;
+  rows_fetched?: number;
+  rows_written?: number;
+  rows_rejected?: number;
+  rejected_reason_counts?: Record<string, number>;
+  rejected_reason_samples?: ExecutionProgressReasonSample[];
+  reason_stats_truncated?: boolean;
+  reason_stats_truncate_note?: string | null;
 }
 
 export interface ExecutionLogsResponse {
@@ -477,6 +498,20 @@ export interface OpsCatalogResponse {
       default_params: Record<string, unknown>;
     }>;
   }>;
+}
+
+export interface SyncCodebookItem {
+  code: string;
+  label: string;
+  phase: string | null;
+  suggested_action: string | null;
+}
+
+export interface SyncCodebookResponse {
+  version: string;
+  updated_at: string;
+  error_codes: SyncCodebookItem[];
+  reason_codes: SyncCodebookItem[];
 }
 
 export interface RuntimeTickResponse {

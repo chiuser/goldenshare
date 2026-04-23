@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+import json
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -188,6 +189,37 @@ def test_dispatcher_progress_snapshot_updates_execution_fields(db_session, job_e
     assert execution.progress_percent == 11
     assert execution.progress_message == "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6"
     assert execution.last_progress_at is not None
+
+
+def test_dispatcher_build_progress_payload_parses_rows_and_reason_counts() -> None:
+    payload = OperationsDispatcher._build_progress_payload(
+        "moneyflow_cnt_ths: 4/4 trade_date=2026-04-23 fetched=387 written=386 rejected=1 "
+        "reasons=normalize.required_field_missing:ts_code:1"
+    )
+
+    assert payload["progress_current"] == 4
+    assert payload["progress_total"] == 4
+    assert payload["rows_fetched"] == 387
+    assert payload["rows_written"] == 386
+    assert payload["rows_rejected"] == 1
+    assert payload["rejected_reason_counts"] == {"normalize.required_field_missing:ts_code": 1}
+    assert payload["reason_stats_truncated"] is False
+    assert payload["reason_stats_truncate_note"] is None
+
+
+def test_dispatcher_build_progress_payload_caps_reason_buckets_and_size() -> None:
+    payload = OperationsDispatcher._build_progress_payload(
+        "moneyflow_cnt_ths: 4/4 fetched=387 written=380 rejected=7 "
+        "reasons=reason_a:1|reason_b:2|reason_c:3|reason_d:4 reason_stats_truncated=1"
+    )
+
+    assert payload["rejected_reason_counts"] == {
+        "reason_d": 4,
+        "reason_c": 3,
+        "reason_b": 2,
+    }
+    assert payload["reason_stats_truncated"] is True
+    assert len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) <= OperationsDispatcher.MAX_PROGRESS_PAYLOAD_BYTES
 
 
 def test_dispatcher_workflow_continue_on_error_keeps_following_steps(db_session, job_execution_factory, monkeypatch) -> None:

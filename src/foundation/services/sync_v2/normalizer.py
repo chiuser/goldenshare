@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import InvalidOperation
+
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, FetchResult, NormalizedBatch
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2NormalizeError
 from src.utils import coerce_row
@@ -12,15 +14,26 @@ class SyncV2Normalizer:
         for raw_row in fetch_result.rows_raw:
             try:
                 normalized = coerce_row(raw_row, contract.normalization_spec.date_fields, contract.normalization_spec.decimal_fields)
+            except Exception as exc:
+                self._increase_reason(rejected_reasons, self._map_coerce_error(exc))
+                continue
+
+            try:
                 if contract.normalization_spec.row_transform is not None:
                     normalized = contract.normalization_spec.row_transform(normalized)
-                for field_name in contract.normalization_spec.required_fields:
-                    if field_name not in normalized or normalized[field_name] in (None, ""):
-                        raise ValueError(f"required field missing: {field_name}")
-                rows_normalized.append(normalized)
-            except Exception as exc:
-                key = exc.__class__.__name__
-                rejected_reasons[key] = rejected_reasons.get(key, 0) + 1
+            except Exception:
+                self._increase_reason(rejected_reasons, "normalize.row_transform_failed")
+                continue
+
+            required_violation = self._resolve_required_field_violation(
+                row=normalized,
+                required_fields=contract.normalization_spec.required_fields,
+            )
+            if required_violation is not None:
+                self._increase_reason(rejected_reasons, required_violation)
+                continue
+
+            rows_normalized.append(normalized)
         return NormalizedBatch(
             unit_id=fetch_result.unit_id,
             rows_normalized=rows_normalized,
@@ -43,3 +56,36 @@ class SyncV2Normalizer:
                     details={"rejected_reasons": batch.rejected_reasons},
                 )
             )
+
+    @staticmethod
+    def _increase_reason(counter: dict[str, int], reason_code: str) -> None:
+        counter[reason_code] = counter.get(reason_code, 0) + 1
+
+    @staticmethod
+    def _with_field(reason_code: str, field: str) -> str:
+        normalized_field = str(field).strip()
+        if not normalized_field:
+            return reason_code
+        return f"{reason_code}:{normalized_field}"
+
+    @classmethod
+    def _resolve_required_field_violation(
+        cls,
+        *,
+        row: dict[str, object],
+        required_fields: tuple[str, ...],
+    ) -> str | None:
+        for field_name in required_fields:
+            if field_name not in row or row[field_name] is None:
+                return cls._with_field("normalize.required_field_missing", field_name)
+            if isinstance(row[field_name], str) and not row[field_name].strip():
+                return cls._with_field("normalize.empty_not_allowed", field_name)
+        return None
+
+    @staticmethod
+    def _map_coerce_error(exc: Exception) -> str:
+        if isinstance(exc, InvalidOperation):
+            return "normalize.invalid_decimal"
+        if isinstance(exc, ValueError | TypeError):
+            return "normalize.invalid_date"
+        return "reason.unknown"

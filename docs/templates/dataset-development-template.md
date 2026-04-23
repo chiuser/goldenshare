@@ -164,6 +164,10 @@
   - 时间推进型：当前处理到哪个日期/周/月
   - 代码推进型：当前处理到哪个代码
   - 统计：读取/写入/失败
+- 结构化错误与拒绝统计（必须）：
+  - 失败场景输出稳定 `error_code`，并在 codebook 中可查中文语义与建议动作
+  - 当 `fetched != written` 时，`step_progress.payload_json` 至少包含 `rows_rejected`
+  - 优先输出 `rejected_reason_counts`（TopN）与 `rejected_reason_samples`（TopN），超长时标记 `reason_stats_truncated`
 
 ---
 
@@ -207,6 +211,9 @@
 - [ ] 有业务日期的数据集已完成“业务日期观测一致性”检查（metadata / model registry / 字段存在 / 页面展示）
 - [ ] 已验证 freshness 守门校验：缺失 metadata 或 observed 映射时，启动期会被直接拦截
 - [ ] 失败可诊断（中文可读 + 原始错误可追踪）
+- [ ] 已完成 `error_code/reason_code` 编码治理：新增 code 已登记 codebook，前端不依赖硬编码语义
+- [ ] 已验证拒绝统计链路：`rows_rejected`、`rejected_reason_counts`、`rejected_reason_samples` 在任务详情页可见
+- [ ] 已验证统计截断兜底：超长时 `reason_stats_truncated` 与提示文案可见，接口与页面均不报错
 - [ ] 测试通过并记录命令
 - [ ] 文档已加入 `docs/README.md` 索引
 

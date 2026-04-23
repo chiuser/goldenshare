@@ -106,4 +106,4 @@ def test_dividend_normalizer_rejects_rows_missing_required_keys() -> None:
 
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
-    assert batch.rejected_reasons == {"ValueError": 1}
+    assert batch.rejected_reasons == {"normalize.required_field_missing:end_date": 1}

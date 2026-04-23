@@ -22,6 +22,8 @@ from src.foundation.services.sync_v2.writer import SyncV2Writer
 
 
 class SyncV2Engine:
+    MAX_REASON_BUCKETS = 3
+
     def __init__(self, session: Session) -> None:
         self.session = session
         self.validator = ContractValidator()
@@ -56,6 +58,8 @@ class SyncV2Engine:
 
         rows_fetched = 0
         rows_written = 0
+        rows_rejected = 0
+        rejected_reason_counts: dict[str, int] = {}
         unit_done = 0
         unit_failed = 0
         error_counts: dict[str, int] = {}
@@ -75,6 +79,9 @@ class SyncV2Engine:
                 )
                 rows_fetched += len(fetched.rows_raw)
                 rows_written += written.rows_written
+                rows_rejected += normalized.rows_rejected
+                for reason_code, count in normalized.rejected_reasons.items():
+                    rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
                 unit_done += 1
             except SyncV2Error as exc:
                 unit_failed += 1
@@ -95,9 +102,16 @@ class SyncV2Engine:
                     unit_failed=unit_failed,
                     rows_fetched=rows_fetched,
                     rows_written=rows_written,
-                    message=(
-                        f"{contract.observe_spec.progress_label}: "
-                        f"{index}/{total_units} fetched={rows_fetched} written={rows_written}"
+                    rows_rejected=rows_rejected,
+                    rejected_reason_counts=rejected_reason_counts,
+                    message=self._build_progress_message(
+                        progress_label=contract.observe_spec.progress_label,
+                        current=index,
+                        total=total_units,
+                        rows_fetched=rows_fetched,
+                        rows_written=rows_written,
+                        rows_rejected=rows_rejected,
+                        rejected_reason_counts=rejected_reason_counts,
                     ),
                 )
 
@@ -109,6 +123,8 @@ class SyncV2Engine:
             unit_failed=unit_failed,
             rows_fetched=rows_fetched,
             rows_written=rows_written,
+            rows_rejected=rows_rejected,
+            rejected_reason_counts=rejected_reason_counts,
             result_date=self._resolve_result_date(validated),
             message=f"units={total_units} done={unit_done} failed={unit_failed}",
             error_counts=error_counts,
@@ -128,3 +144,53 @@ class SyncV2Engine:
             return
         if cancel_checker(execution_id):
             raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
+
+    @classmethod
+    def _build_progress_message(
+        cls,
+        *,
+        progress_label: str,
+        current: int,
+        total: int,
+        rows_fetched: int,
+        rows_written: int,
+        rows_rejected: int,
+        rejected_reason_counts: dict[str, int],
+    ) -> str:
+        message = (
+            f"{progress_label}: "
+            f"{current}/{total} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+        )
+        normalized_counts = cls._normalize_reason_counts(rejected_reason_counts)
+        if not normalized_counts:
+            return message
+        encoded, truncated = cls._encode_reason_counts(normalized_counts, max_items=cls.MAX_REASON_BUCKETS)
+        if encoded:
+            message = f"{message} reasons={encoded}"
+        if truncated:
+            message = f"{message} reason_stats_truncated=1"
+        return message
+
+    @staticmethod
+    def _normalize_reason_counts(reason_counts: dict[str, int]) -> dict[str, int]:
+        normalized: dict[str, int] = {}
+        for reason_code, raw_count in reason_counts.items():
+            code = str(reason_code or "").strip()
+            if not code:
+                continue
+            try:
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            normalized[code] = count
+        return normalized
+
+    @staticmethod
+    def _encode_reason_counts(reason_counts: dict[str, int], *, max_items: int) -> tuple[str, bool]:
+        ordered = sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
+        truncated = len(ordered) > max_items
+        limited = ordered[:max_items]
+        encoded = "|".join(f"{reason_code}:{count}" for reason_code, count in limited)
+        return encoded, truncated

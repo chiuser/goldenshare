@@ -15,13 +15,16 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { IconCheck, IconClock, IconPlayerPause, IconPlayerStop, IconX } from "@tabler/icons-react";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
   ExecutionDetailResponse,
+  ExecutionEventPayload,
   ExecutionEventsResponse,
+  ExecutionProgressReasonSample,
   ScheduleDetailResponse,
+  SyncCodebookResponse,
   ExecutionStepsResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
@@ -35,6 +38,7 @@ import {
 import { AlertBar, AlertBarNote } from "../shared/ui/alert-bar";
 import { ActivityTimeline } from "../shared/ui/activity-timeline";
 import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
+import { DetailDrawer } from "../shared/ui/detail-drawer";
 import { MetricPanel } from "../shared/ui/metric-panel";
 import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
@@ -115,6 +119,8 @@ function parseProgressDetails(message: string | null | undefined) {
               : null;
   const fetched = kv.fetched ? Number(kv.fetched) : null;
   const written = kv.written ? Number(kv.written) : null;
+  const rejected = kv.rejected ? Number(kv.rejected) : null;
+  const reasonCounts = parseReasonCountsToken(kv.reasons);
   return {
     raw,
     current: ratioMatch ? Number(ratioMatch[1]) : null,
@@ -123,7 +129,102 @@ function parseProgressDetails(message: string | null | undefined) {
     cursorLabel,
     fetched: Number.isFinite(fetched) ? fetched : null,
     written: Number.isFinite(written) ? written : null,
+    rejected: Number.isFinite(rejected) ? rejected : null,
+    reasonCounts,
+    reasonStatsTruncated: kv.reason_stats_truncated === "1",
   };
+}
+
+function parseReasonCountsToken(token: string | null | undefined): Record<string, number> {
+  const text = String(token || "").trim();
+  if (!text) {
+    return {};
+  }
+  const counts: Record<string, number> = {};
+  for (const chunk of text.split("|")) {
+    const normalized = chunk.trim();
+    if (!normalized) {
+      continue;
+    }
+    const separatorIndex = normalized.lastIndexOf(":");
+    if (separatorIndex <= 0 || separatorIndex >= normalized.length - 1) {
+      continue;
+    }
+    const reasonKey = normalized.slice(0, separatorIndex).trim();
+    const value = Number(normalized.slice(separatorIndex + 1).trim());
+    if (!reasonKey || !Number.isFinite(value) || value <= 0) {
+      continue;
+    }
+    counts[reasonKey] = (counts[reasonKey] || 0) + Math.floor(value);
+  }
+  return counts;
+}
+
+function toSafeNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function normalizeReasonCounts(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  const normalized: Record<string, number> = {};
+  for (const [reasonKey, rawCount] of entries) {
+    const key = String(reasonKey || "").trim();
+    const count = toSafeNumber(rawCount);
+    if (!key || count === null || count <= 0) {
+      continue;
+    }
+    normalized[key] = Math.floor(count);
+  }
+  return normalized;
+}
+
+function normalizeReasonSamples(value: unknown): ExecutionProgressReasonSample[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const samples: ExecutionProgressReasonSample[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const sample = item as Record<string, unknown>;
+    const reasonCode = String(sample.reason_code || "").trim();
+    if (!reasonCode) {
+      continue;
+    }
+    const field = String(sample.field || "").trim() || undefined;
+    const sampleKey = String(sample.sample_key || "").trim() || undefined;
+    const sampleMessage = String(sample.sample_message || "").trim() || undefined;
+    samples.push({
+      reason_code: reasonCode,
+      field,
+      sample_key: sampleKey,
+      sample_message: sampleMessage,
+    });
+  }
+  return samples;
+}
+
+function splitReasonKey(reasonKey: string): { reasonCode: string; field: string | null } {
+  const separatorIndex = reasonKey.indexOf(":");
+  if (separatorIndex <= 0) {
+    return { reasonCode: reasonKey, field: null };
+  }
+  const reasonCode = reasonKey.slice(0, separatorIndex);
+  const field = reasonKey.slice(separatorIndex + 1);
+  return { reasonCode, field: field || null };
 }
 
 function buildScopeItems(params: Record<string, unknown>) {
@@ -304,31 +405,79 @@ function buildServingLightRefreshUpdate(events: ExecutionEventsResponse["items"]
   };
 }
 
+interface ProgressSnapshot {
+  current: number;
+  total: number;
+  percent: number;
+  message: string;
+  unitLabel: string;
+  cursorLabel: string | null;
+  fetched: number | null;
+  written: number | null;
+  rejected: number | null;
+  reasonCounts: Record<string, number>;
+  reasonSamples: ExecutionProgressReasonSample[];
+  reasonStatsTruncated: boolean;
+  reasonStatsTruncateNote: string | null;
+  occurredAt: string | null;
+}
+
 function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
   const progressEvent = [...events]
-    .reverse()
+    .sort((left, right) => new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime())
     .find((item) => item.event_type === "step_progress" && (item.payload_json?.progress_message || item.message));
   if (!progressEvent) {
     return null;
   }
 
-  const progressMessage = String(progressEvent.payload_json?.progress_message || progressEvent.message || "");
-  const match = progressMessage.match(/(\d+)\s*\/\s*(\d+)/);
-  if (!match) {
+  const payload = (progressEvent.payload_json || {}) as ExecutionEventPayload;
+  const progressMessage = String(payload.progress_message || progressEvent.message || "");
+  const parsedFromText = parseProgressDetails(progressMessage);
+
+  const current = toSafeNumber(payload.progress_current) ?? parsedFromText?.current ?? null;
+  const total = toSafeNumber(payload.progress_total) ?? parsedFromText?.total ?? null;
+  if (current === null || total === null || total <= 0) {
     return null;
   }
 
-  const current = Number(match[1]);
-  const total = Number(match[2]);
-  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
-    return null;
+  const fetched = toSafeNumber(payload.rows_fetched) ?? parsedFromText?.fetched ?? null;
+  const written = toSafeNumber(payload.rows_written) ?? parsedFromText?.written ?? null;
+  let rejected = toSafeNumber(payload.rows_rejected) ?? parsedFromText?.rejected ?? null;
+
+  const reasonCountsFromPayload = normalizeReasonCounts(payload.rejected_reason_counts);
+  const reasonCountsFromText = parsedFromText?.reasonCounts || {};
+  const reasonCounts = Object.keys(reasonCountsFromPayload).length ? reasonCountsFromPayload : reasonCountsFromText;
+  if (Object.keys(reasonCounts).length > 0) {
+    const reasonRejected = Object.values(reasonCounts).reduce((sum, value) => sum + value, 0);
+    rejected = rejected === null ? reasonRejected : Math.max(rejected, reasonRejected);
+  } else if (rejected === null && fetched !== null && written !== null) {
+    rejected = Math.max(fetched - written, 0);
   }
+
+  const reasonSamples = normalizeReasonSamples(payload.rejected_reason_samples);
+  const reasonStatsTruncated = Boolean(payload.reason_stats_truncated || parsedFromText?.reasonStatsTruncated);
+  const truncateNote = typeof payload.reason_stats_truncate_note === "string"
+    ? payload.reason_stats_truncate_note
+    : null;
+
+  const unitLabel = parsedFromText?.unitLabel || "任务单元";
+  const cursorLabel = parsedFromText?.cursorLabel || null;
+  const percent = toSafeNumber(payload.progress_percent) ?? Math.max(0, Math.min(100, Math.round((current / total) * 100)));
 
   return {
     current,
     total,
-    percent: Math.max(0, Math.min(100, Math.round((current / total) * 100))),
+    percent,
     message: progressMessage,
+    unitLabel,
+    cursorLabel,
+    fetched,
+    written,
+    rejected,
+    reasonCounts,
+    reasonSamples,
+    reasonStatsTruncated,
+    reasonStatsTruncateNote: truncateNote,
     occurredAt: progressEvent.occurred_at,
   };
 }
@@ -336,7 +485,8 @@ function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
 function buildStructuredProgressSnapshot(
   detail: ExecutionDetailResponse,
   events: ExecutionEventsResponse["items"],
-) {
+): ProgressSnapshot | null {
+  const fromEvent = extractProgressSnapshot(events);
   const detailProgress = parseProgressDetails(detail.progress_message);
   if (
     detail.progress_current !== null &&
@@ -345,43 +495,46 @@ function buildStructuredProgressSnapshot(
     detail.progress_total !== undefined &&
     detail.progress_total > 0
   ) {
-    const current = detail.progress_current;
-    const total = detail.progress_total;
+    const current = fromEvent?.current ?? detail.progress_current;
+    const total = fromEvent?.total ?? detail.progress_total;
+    const fetched = fromEvent?.fetched ?? detailProgress?.fetched ?? null;
+    const written = fromEvent?.written ?? detailProgress?.written ?? null;
+    const detailRejected = detailProgress?.rejected ?? null;
+    const reasonCounts = fromEvent?.reasonCounts || detailProgress?.reasonCounts || {};
+    let rejected = fromEvent?.rejected ?? detailRejected;
+    if (rejected === null && fetched !== null && written !== null) {
+      rejected = Math.max(fetched - written, 0);
+    }
+    if (Object.keys(reasonCounts).length > 0) {
+      const reasonRejected = Object.values(reasonCounts).reduce((sum, value) => sum + value, 0);
+      rejected = rejected === null ? reasonRejected : Math.max(rejected, reasonRejected);
+    }
     return {
       current,
       total,
-      percent: detail.progress_percent ?? Math.round((current / total) * 100),
-      message: detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。",
-      unitLabel: detailProgress?.unitLabel || "任务单元",
-      cursorLabel: detailProgress?.cursorLabel || null,
-      fetched: detailProgress?.fetched ?? null,
-      written: detailProgress?.written ?? null,
-      occurredAt: detail.last_progress_at,
+      percent: fromEvent?.percent ?? detail.progress_percent ?? Math.round((current / total) * 100),
+      message: fromEvent?.message || detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。",
+      unitLabel: fromEvent?.unitLabel || detailProgress?.unitLabel || "任务单元",
+      cursorLabel: fromEvent?.cursorLabel || detailProgress?.cursorLabel || null,
+      fetched,
+      written,
+      rejected,
+      reasonCounts,
+      reasonSamples: fromEvent?.reasonSamples || [],
+      reasonStatsTruncated: fromEvent?.reasonStatsTruncated || false,
+      reasonStatsTruncateNote: fromEvent?.reasonStatsTruncateNote || null,
+      occurredAt: fromEvent?.occurredAt || detail.last_progress_at,
     };
   }
-  const fromEvent = extractProgressSnapshot(events);
   if (fromEvent) {
-    const parsed = parseProgressDetails(fromEvent.message);
-    return {
-      ...fromEvent,
-      unitLabel: parsed?.unitLabel || "任务单元",
-      cursorLabel: parsed?.cursorLabel || null,
-      fetched: parsed?.fetched ?? null,
-      written: parsed?.written ?? null,
-    };
+    return fromEvent;
   }
   return null;
 }
 
 function buildLiveResult(
   detail: ExecutionDetailResponse,
-  progressSnapshot: {
-    current: number;
-    total: number;
-    unitLabel?: string | null;
-    fetched?: number | null;
-    written?: number | null;
-  } | null,
+  progressSnapshot: ProgressSnapshot | null,
 ) {
   if (progressSnapshot && progressSnapshot.total > 0) {
     const unitLabel = progressSnapshot.unitLabel || "任务单元";
@@ -423,6 +576,44 @@ function buildLiveResult(
     value: "暂无结果",
     hint: detail.status === "success" ? "任务执行完成，但没有可汇总的读取/写入数字。" : "这次任务还没有留下可汇总的处理结果。",
   };
+}
+
+interface RejectionReasonRow {
+  reasonKey: string;
+  reasonCode: string;
+  field: string | null;
+  count: number;
+}
+
+function buildRejectionReasonRows(reasonCounts: Record<string, number>): RejectionReasonRow[] {
+  return Object.entries(reasonCounts)
+    .map(([reasonKey, count]) => {
+      const parsed = splitReasonKey(reasonKey);
+      return {
+        reasonKey,
+        reasonCode: parsed.reasonCode,
+        field: parsed.field,
+        count,
+      };
+    })
+    .filter((item) => item.count > 0)
+    .sort((left, right) => right.count - left.count || left.reasonKey.localeCompare(right.reasonKey));
+}
+
+function getEventRejectedRows(item: ExecutionEventsResponse["items"][number]): number | null {
+  const payload = item.payload_json as ExecutionEventPayload;
+  const fromPayload = toSafeNumber(payload.rows_rejected);
+  if (fromPayload !== null) {
+    return Math.max(fromPayload, 0);
+  }
+  const parsed = parseProgressDetails(payload.progress_message || item.message || "");
+  if (parsed?.rejected !== null && parsed?.rejected !== undefined) {
+    return Math.max(parsed.rejected, 0);
+  }
+  if (parsed && parsed.fetched !== null && parsed.written !== null) {
+    return Math.max(parsed.fetched - parsed.written, 0);
+  }
+  return null;
 }
 
 function renderStepStatusIcon(status: string) {
@@ -494,6 +685,7 @@ function DetailSurfaceCard({ children }: { children: ReactNode }) {
 export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [reasonDrawerOpened, setReasonDrawerOpened] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ["ops", "execution", executionId],
@@ -519,6 +711,12 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
     queryKey: ["ops", "schedule", detailQuery.data?.schedule_id],
     queryFn: () => apiRequest<ScheduleDetailResponse>(`/api/v1/ops/schedules/${detailQuery.data?.schedule_id}`),
     enabled: Boolean(detailQuery.data?.schedule_id),
+  });
+
+  const syncCodebookQuery = useQuery({
+    queryKey: ["ops", "sync-codebook"],
+    queryFn: () => apiRequest<SyncCodebookResponse>("/api/v1/ops/codebook/sync"),
+    staleTime: 5 * 60 * 1000,
   });
 
   const retryMutation = useMutation({
@@ -585,11 +783,42 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
       key: "message",
       header: "说明",
       align: "left",
-      width: "54%",
+      width: "42%",
       render: (item) => <Text size="sm">{item.message || "系统记录了一次新的处理更新。"}</Text>,
+    },
+    {
+      key: "rejected",
+      header: "拒绝",
+      align: "left",
+      width: "12%",
+      render: (item) => {
+        const rejected = getEventRejectedRows(item);
+        if (rejected === null) {
+          return <Text size="sm" c="dimmed">—</Text>;
+        }
+        return rejected > 0
+          ? <Badge color="warning" variant="light">{`有拒绝(${rejected})`}</Badge>
+          : <Text size="sm" c="dimmed">无拒绝</Text>;
+      },
     },
   ], []);
   const progressSnapshot = detail ? buildStructuredProgressSnapshot(detail, events) : null;
+  const reasonRows = useMemo(
+    () => buildRejectionReasonRows(progressSnapshot?.reasonCounts || {}),
+    [progressSnapshot?.reasonCounts],
+  );
+  const totalRejected = useMemo(
+    () => reasonRows.reduce((sum, item) => sum + item.count, 0) || (progressSnapshot?.rejected || 0),
+    [progressSnapshot?.rejected, reasonRows],
+  );
+  const reasonCodebookMap = useMemo(() => {
+    const entries = (syncCodebookQuery.data?.reason_codes || []).map((item) => [item.code, item] as const);
+    return new Map(entries);
+  }, [syncCodebookQuery.data?.reason_codes]);
+  const reasonSampleList = useMemo(
+    () => progressSnapshot?.reasonSamples || [],
+    [progressSnapshot?.reasonSamples],
+  );
   const liveResult = detail ? buildLiveResult(detail, progressSnapshot) : null;
   const latestUpdate = detail ? buildLatestUpdate(detail, events, steps) : null;
   const servingLightUpdate = buildServingLightRefreshUpdate(events);
@@ -692,10 +921,21 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       {progressSnapshot.cursorLabel ? (
                         <Text size="sm">{progressSnapshot.cursorLabel}</Text>
                       ) : null}
-                      {(progressSnapshot.fetched !== null || progressSnapshot.written !== null) ? (
-                        <Text size="sm">
-                          当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条
-                        </Text>
+                      {(progressSnapshot.fetched !== null || progressSnapshot.written !== null || progressSnapshot.rejected !== null) ? (
+                        <Group justify="space-between" align="center">
+                          <Text size="sm">
+                            当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条，拒绝 {progressSnapshot.rejected ?? 0} 条
+                          </Text>
+                          {(progressSnapshot.rejected ?? 0) > 0 ? (
+                            <Button
+                              size="xs"
+                              variant="light"
+                              onClick={() => setReasonDrawerOpened(true)}
+                            >
+                              查看原因
+                            </Button>
+                          ) : null}
+                        </Group>
                       ) : null}
                       <Text size="sm" c="dimmed">
                         最近一次进度更新：{formatDateTimeLabel(progressSnapshot.occurredAt)}
@@ -831,6 +1071,81 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
               />
             </Stack>
           </SectionCard>
+
+          <DetailDrawer
+            opened={reasonDrawerOpened && (progressSnapshot?.rejected ?? 0) > 0}
+            onClose={() => setReasonDrawerOpened(false)}
+            title="拒绝原因详情"
+            description="这里展示当前批次写入拒绝的原因分布。"
+            size="lg"
+          >
+            <Stack gap="md">
+              <AlertBar tone="warning" title={`本批次拒绝 ${totalRejected} 条`}>
+                {reasonRows.length
+                  ? "可直接按原因分布定位问题字段或规则，再决定是否重跑。"
+                  : "当前只有拒绝总数，暂时还没有更细的结构化原因分布。"}
+              </AlertBar>
+
+              {syncCodebookQuery.isError ? (
+                <AlertBar tone="warning" title="编码字典加载失败">
+                  当前先显示原始原因码。刷新页面后会自动重试拉取字典。
+                </AlertBar>
+              ) : null}
+
+              {reasonRows.length ? (
+                <Stack gap="sm">
+                  {reasonRows.map((item) => {
+                    const reasonMeta = reasonCodebookMap.get(item.reasonCode);
+                    const ratio = totalRejected > 0 ? Math.round((item.count / totalRejected) * 100) : 0;
+                    return (
+                      <DetailSurfaceCard key={item.reasonKey}>
+                        <Stack gap={6}>
+                          <Group justify="space-between" align="center">
+                            <Text fw={700}>{item.reasonKey}</Text>
+                            <Badge variant="light" color="warning">{`${item.count} 条`}</Badge>
+                          </Group>
+                          <Text size="sm" c={reasonMeta ? undefined : "dimmed"}>
+                            {reasonMeta?.label || "未收录码"}
+                          </Text>
+                          {item.field ? (
+                            <Text size="sm" c="dimmed">{`字段：${item.field}`}</Text>
+                          ) : null}
+                          {reasonMeta?.suggested_action ? (
+                            <Text size="sm" c="dimmed">{`建议：${reasonMeta.suggested_action}`}</Text>
+                          ) : null}
+                          <Text size="sm" c="dimmed">{`占比：${ratio}%`}</Text>
+                        </Stack>
+                      </DetailSurfaceCard>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                <Text c="dimmed" size="sm">暂时没有可展示的拒绝原因分布。</Text>
+              )}
+
+              {reasonSampleList.length ? (
+                <Stack gap="sm">
+                  <Text fw={600}>样例</Text>
+                  {reasonSampleList.map((sample, index) => (
+                    <DetailSurfaceCard key={`${sample.reason_code}-${sample.sample_key || index}`}>
+                      <Stack gap={4}>
+                        <Text size="sm" fw={600}>{sample.reason_code}</Text>
+                        {sample.field ? <Text size="sm" c="dimmed">{`字段：${sample.field}`}</Text> : null}
+                        {sample.sample_key ? <Text size="sm" c="dimmed">{`样例键：${sample.sample_key}`}</Text> : null}
+                        {sample.sample_message ? <Text size="sm">{sample.sample_message}</Text> : null}
+                      </Stack>
+                    </DetailSurfaceCard>
+                  ))}
+                </Stack>
+              ) : null}
+
+              {progressSnapshot?.reasonStatsTruncated ? (
+                <AlertBar tone="warning" title="原因信息已截断">
+                  {progressSnapshot.reasonStatsTruncateNote || "原因过多时系统会自动截断，只保留部分分布。"}
+                </AlertBar>
+              ) : null}
+            </Stack>
+          </DetailDrawer>
         </>
       ) : null}
     </Stack>

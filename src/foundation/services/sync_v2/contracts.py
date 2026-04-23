@@ -189,6 +189,8 @@ class EngineRunSummary:
     unit_failed: int
     rows_fetched: int
     rows_written: int
+    rows_rejected: int
+    rejected_reason_counts: dict[str, int]
     result_date: date | None
     message: str | None
     error_counts: dict[str, int]

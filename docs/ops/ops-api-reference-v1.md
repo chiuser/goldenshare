@@ -1235,9 +1235,134 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ---
 
-## 13. 维护建议
+## 13. 运营后台页面与接口映射（前端调用）
+
+> 代码依据：  
+> - 路由：[frontend/src/app/router.tsx](/Users/congming/github/goldenshare/frontend/src/app/router.tsx)  
+> - 页面实现：[frontend/src/pages](/Users/congming/github/goldenshare/frontend/src/pages)  
+> - 共享请求客户端：[frontend/src/shared/api/client.ts](/Users/congming/github/goldenshare/frontend/src/shared/api/client.ts)
+
+### 13.1 全局登录态相关（运营页通用）
+
+- 只要进入运营后台壳层（`/ops/**`），都会经过 auth context 的当前用户查询：
+  - `GET /api/v1/auth/me`
+  - 代码：[frontend/src/features/auth/auth-context.tsx](/Users/congming/github/goldenshare/frontend/src/features/auth/auth-context.tsx)
+
+### 13.2 页面 -> 接口清单
+
+1. `OpsTodayPage`（`/ops/today`、`/ops/v21/today`）
+   - `GET /api/v1/ops/overview`
+   - 代码：[ops-today-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-today-page.tsx)
+2. `OpsV21OverviewPage`（`/ops/v21/overview`）
+   - `GET /api/v1/ops/overview`
+   - `GET /api/v1/ops/pipeline-modes?limit=1000`
+   - `GET /api/v1/ops/layer-snapshots/latest?limit=3000`
+   - 代码：[ops-v21-overview-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-overview-page.tsx)
+3. `OpsV21TusharePage`（`/ops/v21/datasets/tushare`，复用 `OpsV21SourcePage`）
+   - `GET /api/v1/ops/pipeline-modes?limit=2000`
+   - `GET /api/v1/ops/freshness`
+   - `GET /api/v1/ops/layer-snapshots/latest?source_key=tushare&stage=raw&limit=1000`
+   - `GET /api/v1/ops/probes?source_key=tushare&limit=200`
+   - 代码：[ops-v21-tushare-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-tushare-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
+4. `OpsV21BiyingPage`（`/ops/v21/datasets/biying`，复用 `OpsV21SourcePage`）
+   - `GET /api/v1/ops/pipeline-modes?limit=2000`
+   - `GET /api/v1/ops/freshness`
+   - `GET /api/v1/ops/layer-snapshots/latest?source_key=biying&stage=raw&limit=1000`
+   - `GET /api/v1/ops/probes?source_key=biying&limit=200`
+   - 代码：[ops-v21-biying-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-biying-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
+5. `OpsV21TaskCenterPage`（`/ops/v21/datasets/tasks`，本体不直接请求 API，三 tab 分别请求）
+   - 代码：[ops-v21-task-center-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-center-page.tsx)
+6. `OpsTasksPage`（任务记录 tab）
+   - `GET /api/v1/ops/catalog`
+   - `GET /api/v1/ops/executions?...`
+   - `POST /api/v1/ops/executions/{execution_id}/retry`
+   - `POST /api/v1/ops/executions/{execution_id}/cancel`
+   - 代码：[ops-v21-task-records-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-records-tab.tsx)
+7. `OpsManualSyncPage`（手动同步 tab）
+   - `GET /api/v1/ops/catalog`
+   - `GET /api/v1/ops/executions/{execution_id}`（预填时）
+   - `GET /api/v1/ops/schedules/{schedule_id}`（预填时）
+   - `POST /api/v1/ops/executions`
+   - 代码：[ops-v21-task-manual-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx)
+8. `OpsAutomationPage`（自动运行 tab）
+   - `GET /api/v1/ops/catalog`
+   - `GET /api/v1/ops/schedules?limit=100`
+   - `GET /api/v1/ops/schedules/stream?token=...`（SSE）
+   - `GET /api/v1/ops/schedules/{schedule_id}`
+   - `GET /api/v1/ops/schedules/{schedule_id}/revisions`
+   - `GET /api/v1/ops/executions?schedule_id={id}&limit=1`
+   - `GET /api/v1/ops/probes?schedule_id={id}&limit=50`
+   - `POST /api/v1/ops/schedules/preview`
+   - `POST /api/v1/ops/schedules`
+   - `PATCH /api/v1/ops/schedules/{schedule_id}`
+   - `POST /api/v1/ops/schedules/{schedule_id}/pause`
+   - `POST /api/v1/ops/schedules/{schedule_id}/resume`
+   - `DELETE /api/v1/ops/schedules/{schedule_id}`
+   - 代码：[ops-v21-task-auto-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx)
+9. `OpsV21DatasetDetailPage`（`/ops/v21/datasets/detail/{datasetKey}`）
+   - `GET /api/v1/ops/freshness`
+   - `GET /api/v1/ops/layer-snapshots/latest?dataset_key=...&limit=200`
+   - `GET /api/v1/ops/layer-snapshots/history?dataset_key=...&limit=50`
+   - `GET /api/v1/ops/executions?dataset_key=...&limit=20`
+   - `GET /api/v1/ops/probes?dataset_key=...&limit=20`
+   - `GET /api/v1/ops/releases?dataset_key=...&limit=20`
+   - `GET /api/v1/ops/std-rules/mapping?dataset_key=...&limit=100`
+   - `GET /api/v1/ops/std-rules/cleansing?dataset_key=...&limit=100`
+   - 代码：[ops-v21-dataset-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-dataset-detail-page.tsx)
+10. `OpsTaskDetailPage`（`/ops/tasks/{executionId}`，旧路径 `/ops/executions/{executionId}` 会重定向到此）
+    - `GET /api/v1/ops/executions/{execution_id}`
+    - `GET /api/v1/ops/executions/{execution_id}/steps`
+    - `GET /api/v1/ops/executions/{execution_id}/events`
+    - `GET /api/v1/ops/schedules/{schedule_id}`
+    - `POST /api/v1/ops/executions/{execution_id}/retry`
+    - `POST /api/v1/ops/executions/{execution_id}/cancel`
+    - 代码：[ops-task-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-page.tsx)
+11. `OpsV21ReviewIndexPage`（`/ops/v21/review/index`）
+    - `GET /api/v1/ops/review/index/active?...`
+    - 代码：[ops-v21-review-index-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-index-page.tsx)
+12. `OpsV21ReviewBoardPage`（`/ops/v21/review/board`）
+    - `GET /api/v1/ops/review/board/ths?...`
+    - `GET /api/v1/ops/review/board/dc?...`
+    - `GET /api/v1/ops/review/board/equity-membership?...`
+    - `GET /api/v1/ops/review/board/equity-suggest?...`
+    - 代码：[ops-v21-review-board-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-board-page.tsx)
+13. `OpsV21AccountPage`（`/ops/v21/account`，账户管理页）
+    - 该页主要调用 `admin` 路由（不是 `/api/v1/ops/*`）：
+    - `GET /api/v1/admin/users?...`
+    - `POST /api/v1/admin/users`
+    - `PATCH /api/v1/admin/users/{id}`
+    - `PATCH /api/v1/admin/users/{id}/roles`
+    - `POST /api/v1/admin/users/{id}/suspend`
+    - `POST /api/v1/admin/users/{id}/activate`
+    - `DELETE /api/v1/admin/users/{id}`
+    - `POST /api/v1/admin/users/{id}/reset-password`
+    - `GET /api/v1/admin/invites?...`
+    - `POST /api/v1/admin/invites`
+    - `DELETE /api/v1/admin/invites/{id}`
+    - `DELETE /api/v1/admin/invites/{id}/hard-delete`
+    - 代码：[ops-v21-account-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-account-page.tsx)
+14. `OpsSourceManagementPage`（`/ops/source-management`，过渡页）
+    - `GET /api/v1/ops/source-management/bridge`
+    - 代码：[ops-source-management-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-source-management-page.tsx)
+
+### 13.3 路由别名与重定向（无直接接口请求）
+
+- `/ops` -> 重定向到 `/ops/v21/overview`
+- `/ops/data-status` -> 重定向到 `/ops/v21/overview`
+- `/ops/automation` -> 重定向到 `/ops/v21/datasets/tasks?tab=auto`
+- `/ops/manual-sync` -> 重定向到 `/ops/v21/datasets/tasks?tab=manual`
+- `/ops/tasks` -> 重定向到 `/ops/v21/datasets/tasks?tab=records`
+- `/ops/overview` -> 重定向到 `/ops/v21/today`
+- `/ops/freshness` -> 重定向到 `/ops/v21/overview`
+- `/ops/schedules` -> 重定向到 `/ops/v21/datasets/tasks?tab=auto`
+- `/ops/executions` -> 重定向到 `/ops/v21/datasets/tasks?tab=records`
+- `/ops/catalog` -> 重定向到 `/ops/v21/datasets/tasks?tab=manual`
+
+---
+
+## 14. 维护建议
 
 1. 新增/删除 `src/ops/api/*` 路由时，同步更新本文。
 2. 新增请求体/响应模型字段时，同步更新第 11、12 节。
-3. 接口行为与本文不一致时，以代码为准，并在一轮提交内修正文档。
-
+3. 前端页面改动（新增/删减页面、页面改调用链）时，同步更新第 13 节。
+4. 接口行为与本文不一致时，以代码为准，并在一轮提交内修正文档。

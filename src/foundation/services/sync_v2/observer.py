@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
@@ -12,6 +12,8 @@ class ProgressSnapshot:
     unit_failed: int
     rows_fetched: int
     rows_written: int
+    rows_rejected: int = 0
+    rejected_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 class SyncV2Observer:
@@ -29,6 +31,8 @@ class SyncV2Observer:
         rows_fetched: int,
         rows_written: int,
         message: str,
+        rows_rejected: int = 0,
+        rejected_reason_counts: dict[str, int] | None = None,
     ) -> None:
         if self.progress_reporter is None:
             return
@@ -40,5 +44,7 @@ class SyncV2Observer:
             unit_failed=unit_failed,
             rows_fetched=rows_fetched,
             rows_written=rows_written,
+            rows_rejected=rows_rejected,
+            rejected_reason_counts=dict(rejected_reason_counts or {}),
         )
         self.progress_reporter(snapshot, message)

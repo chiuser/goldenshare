@@ -763,7 +763,7 @@ def test_backfill_index_weekly_uses_trade_date_mode(mocker) -> None:
     assert build_sync_service.call_count == 2
     sync_service_1.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 20), execution_id=None)
     sync_service_2.run_incremental.assert_called_once_with(trade_date=date(2026, 3, 27), execution_id=None)
-    assert progress.call_args_list[0].args[0] == "index_weekly: 1/2 trade_date=2026-03-20 fetched=1000 written=980"
+    assert progress.call_args_list[0].args[0] == "index_weekly: 1/2 trade_date=2026-03-20 fetched=1000 written=980 rejected=20"
 
 
 def test_backfill_index_monthly_uses_month_end_trade_dates(mocker) -> None:

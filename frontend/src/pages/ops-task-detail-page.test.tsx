@@ -2,6 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 
 import { appTheme } from "../app/theme";
@@ -74,8 +75,34 @@ vi.mock("../shared/api/client", () => ({
             event_type: "step_progress",
             level: "info",
             message: "正在拉取 2026-03-23 到 2026-03-30 的股票日线数据",
-            payload_json: {},
+            payload_json: {
+              progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=5 rejected=1 reasons=normalize.required_field_missing:ts_code:1",
+              progress_current: 651,
+              progress_total: 5814,
+              progress_percent: 11,
+              rows_fetched: 6,
+              rows_written: 5,
+              rows_rejected: 1,
+              rejected_reason_counts: {
+                "normalize.required_field_missing:ts_code": 1,
+              },
+            },
             occurred_at: "2026-03-31T01:00:05Z",
+          },
+        ],
+      };
+    }
+    if (path === "/api/v1/ops/codebook/sync") {
+      return {
+        version: "2026-04-23.v1",
+        updated_at: "2026-04-23T00:00:00Z",
+        error_codes: [],
+        reason_codes: [
+          {
+            code: "normalize.required_field_missing",
+            label: "必填字段缺失",
+            phase: "normalize",
+            suggested_action: "检查字段映射和空值处理",
           },
         ],
       };
@@ -92,6 +119,7 @@ vi.mock("../shared/api/client", () => ({
 
 describe("任务详情页", () => {
   it("默认先展示状态、范围和下一步建议，把实时处理记录后置", async () => {
+    const user = userEvent.setup();
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -131,5 +159,12 @@ describe("任务详情页", () => {
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
     expect(await screen.findByText("11%")).toBeInTheDocument();
     expect((await screen.findAllByText("正在拉取 2026-03-23 到 2026-03-30 的股票日线数据")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("查看原因")).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "查看原因" }));
+
+    expect(await screen.findByText("拒绝原因详情")).toBeInTheDocument();
+    expect(await screen.findByText("normalize.required_field_missing:ts_code")).toBeInTheDocument();
+    expect(await screen.findByText("必填字段缺失")).toBeInTheDocument();
   });
 });

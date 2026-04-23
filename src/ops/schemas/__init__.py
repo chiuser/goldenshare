@@ -5,6 +5,7 @@ from src.ops.schemas.catalog import (
     WorkflowSpecCatalogItem,
     WorkflowStepResponse,
 )
+from src.ops.schemas.sync_codebook import SyncCodebookItem, SyncCodebookResponse
 from src.ops.schemas.dataset_pipeline import (
     DatasetPipelineModeItem,
     DatasetPipelineModeListResponse,
@@ -152,6 +153,8 @@ __all__ = [
     "ScheduleRevisionItem",
     "ScheduleRevisionListResponse",
     "SchedulerTickResponse",
+    "SyncCodebookItem",
+    "SyncCodebookResponse",
     "SourceManagementBridgeResponse",
     "SourceManagementBridgeSummary",
     "StdCleansingRuleItem",

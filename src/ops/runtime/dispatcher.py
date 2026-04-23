@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+import json
+import re
 from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -42,6 +44,9 @@ class OperationsDispatcher:
     MAX_EVENT_MESSAGE_LENGTH = 8_000
     MAX_STEP_MESSAGE_LENGTH = 8_000
     MAX_PROGRESS_MESSAGE_LENGTH = 1_000
+    MAX_PROGRESS_PAYLOAD_BYTES = 2_048
+    MAX_REASON_BUCKETS = 3
+    MAX_REASON_CODE_LENGTH = 64
 
     def __init__(self, serving_light_refresh_service: ServingLightRefreshService | None = None) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
@@ -844,21 +849,118 @@ class OperationsDispatcher:
         if percent is not None:
             execution.progress_percent = max(0, min(100, percent))
 
-    @staticmethod
-    def _build_progress_payload(message: str) -> dict[str, Any]:
+    @classmethod
+    def _build_progress_payload(cls, message: str) -> dict[str, Any]:
         payload: dict[str, Any] = {"progress_message": message}
-        import re
-
         match = re.search(r"(\d+)\s*/\s*(\d+)", message)
-        if not match:
-            return payload
+        if match:
+            current = int(match.group(1))
+            total = int(match.group(2))
+            payload["progress_current"] = current
+            payload["progress_total"] = total
+            payload["progress_percent"] = 0 if total <= 0 else round(current / total * 100)
 
-        current = int(match.group(1))
-        total = int(match.group(2))
-        payload["progress_current"] = current
-        payload["progress_total"] = total
-        payload["progress_percent"] = 0 if total <= 0 else round(current / total * 100)
-        return payload
+        kv_pairs = dict(re.findall(r"([a-zA-Z_]+)=([^\s]+)", message))
+        rows_fetched = cls._safe_int(kv_pairs.get("fetched"))
+        rows_written = cls._safe_int(kv_pairs.get("written"))
+        rows_rejected = cls._safe_int(kv_pairs.get("rejected"))
+
+        if rows_fetched is not None:
+            payload["rows_fetched"] = rows_fetched
+        if rows_written is not None:
+            payload["rows_written"] = rows_written
+        if rows_rejected is None and rows_fetched is not None and rows_written is not None:
+            rows_rejected = max(rows_fetched - rows_written, 0)
+        if rows_rejected is not None:
+            payload["rows_rejected"] = max(rows_rejected, 0)
+
+        reasons_token = kv_pairs.get("reasons")
+        if reasons_token:
+            parsed_reason_counts = cls._parse_reasons_token(reasons_token)
+            if parsed_reason_counts:
+                limited_reason_counts, bucket_truncated = cls._limit_reason_counts(parsed_reason_counts)
+                payload["rejected_reason_counts"] = limited_reason_counts
+                payload["rows_rejected"] = max(
+                    int(payload.get("rows_rejected") or 0),
+                    sum(limited_reason_counts.values()),
+                )
+                message_marked_truncated = kv_pairs.get("reason_stats_truncated") == "1"
+                payload["reason_stats_truncated"] = bool(message_marked_truncated or bucket_truncated)
+                payload["reason_stats_truncate_note"] = (
+                    "拒绝原因过多，仅展示 Top3。"
+                    if payload["reason_stats_truncated"]
+                    else None
+                )
+
+        return cls._enforce_progress_payload_limit(payload)
+
+    @classmethod
+    def _parse_reasons_token(cls, token: str) -> dict[str, int]:
+        parsed: dict[str, int] = {}
+        for chunk in token.split("|"):
+            chunk_text = str(chunk or "").strip()
+            if not chunk_text or ":" not in chunk_text:
+                continue
+            code_text, count_text = chunk_text.rsplit(":", 1)
+            code = str(code_text).strip()[: cls.MAX_REASON_CODE_LENGTH]
+            if not code:
+                continue
+            count = cls._safe_int(count_text)
+            if count is None or count <= 0:
+                continue
+            parsed[code] = parsed.get(code, 0) + count
+        return parsed
+
+    @classmethod
+    def _limit_reason_counts(cls, reason_counts: dict[str, int]) -> tuple[dict[str, int], bool]:
+        ordered = sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
+        truncated = len(ordered) > cls.MAX_REASON_BUCKETS
+        limited = ordered[: cls.MAX_REASON_BUCKETS]
+        return dict(limited), truncated
+
+    @classmethod
+    def _enforce_progress_payload_limit(cls, payload: dict[str, Any]) -> dict[str, Any]:
+        result = dict(payload)
+        if cls._payload_size_bytes(result) <= cls.MAX_PROGRESS_PAYLOAD_BYTES:
+            return result
+
+        if "reason_stats_truncate_note" in result:
+            result["reason_stats_truncate_note"] = "原因信息过长，已截断。"
+        if cls._payload_size_bytes(result) <= cls.MAX_PROGRESS_PAYLOAD_BYTES:
+            return result
+
+        reason_counts = result.get("rejected_reason_counts")
+        if isinstance(reason_counts, dict) and len(reason_counts) > 1:
+            top_reason, top_count = sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))[0]
+            result["rejected_reason_counts"] = {top_reason: top_count}
+            result["reason_stats_truncated"] = True
+            result["reason_stats_truncate_note"] = "原因信息过长，仅展示首个原因。"
+        if cls._payload_size_bytes(result) <= cls.MAX_PROGRESS_PAYLOAD_BYTES:
+            return result
+
+        result.pop("rejected_reason_counts", None)
+        result["reason_stats_truncated"] = True
+        result["reason_stats_truncate_note"] = "原因信息过长，仅保留拒绝总数。"
+        if cls._payload_size_bytes(result) <= cls.MAX_PROGRESS_PAYLOAD_BYTES:
+            return result
+
+        result.pop("reason_stats_truncate_note", None)
+        result.pop("rows_fetched", None)
+        result.pop("rows_written", None)
+        return result
+
+    @staticmethod
+    def _payload_size_bytes(payload: dict[str, Any]) -> int:
+        return len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+    @staticmethod
+    def _safe_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     @classmethod
     def _sanitize_error_message(cls, message: str | None) -> str | None:

@@ -89,4 +89,4 @@ def test_stk_holdernumber_normalizer_rejects_missing_business_keys() -> None:
 
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
-    assert batch.rejected_reasons == {"ValueError": 1}
+    assert batch.rejected_reasons == {"normalize.required_field_missing:end_date": 1}
