@@ -188,3 +188,5 @@
 - `npm run test:smoke`
 - 组件目录文档是否需要同步
 - HTML Showcase 是否需要同步
+
+共享组件的最小验证档位与截图基线更新纪律，以 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 为准。

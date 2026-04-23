@@ -21,17 +21,19 @@
 
 当前前端工作的优先级如下：
 
-1. 建立统一交付流程
-2. 建立统一交互与视觉规范
-3. 建立共享组件标准库
-4. 建立测试与验收门禁
-5. 再逐步重做体验差、结构乱、稳定性不足的页面
+1. 保护 `Phase 2-4` 已收敛下来的页面与组件成果
+2. 深化自动化门禁与回归流程
+3. 保持组件目录、Showcase、测试与 AGENTS 同步
+4. 再逐步推广到相邻页面与更多链路
+
+当前回归与截图基线更新纪律请以 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 为准。
 
 因此，当前阶段不追求：
 
 - 一次性推翻全部已有页面
 - 为了追求“看起来更炫”而脱离业务任务
 - 为单个页面临时发明一套自己的流程
+- 在没有回归保护的前提下继续扩大页面改造面
 
 ---
 
@@ -162,8 +164,9 @@
 默认门禁：
 
 1. `npm run typecheck`
-2. `npm run test`
-3. `npm run build`
+2. `npm run check:rules`
+3. `npm run test`
+4. `npm run build`
 
 验收至少覆盖：
 
@@ -172,6 +175,12 @@
 - 失败可反馈
 - 空状态可理解
 - 文案对非开发者可读
+
+若改动涉及高可见共享组件、任务中心试点页或 smoke 覆盖页，还应按 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 评估是否需要：
+
+- `npm run test:smoke`
+- 刷新截图基线
+- 在交付说明中解释截图基线更新原因
 
 ### 3.8 阶段 7：上线准备
 

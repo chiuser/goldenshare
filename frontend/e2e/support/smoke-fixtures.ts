@@ -2,6 +2,7 @@ import type { Page, Route } from "@playwright/test";
 
 type SmokeScenario =
   | "ops-overview"
+  | "task-center"
   | "task-records"
   | "task-manual"
   | "task-auto"
@@ -25,6 +26,43 @@ function fulfillJson(route: Route, body: unknown, status = 200) {
     status,
     contentType: "application/json",
     body: JSON.stringify(body),
+  });
+}
+
+function mockTradeCalendar(route: Route, pathname: string) {
+  if (pathname !== "/api/v1/market/trade-calendar") {
+    return null;
+  }
+
+  return fulfillJson(route, {
+    exchange: "SSE",
+    items: [
+      { trade_date: "2026-04-13", is_open: true, pretrade_date: "2026-04-10" },
+      { trade_date: "2026-04-14", is_open: true, pretrade_date: "2026-04-13" },
+      { trade_date: "2026-04-15", is_open: true, pretrade_date: "2026-04-14" },
+      { trade_date: "2026-04-16", is_open: true, pretrade_date: "2026-04-15" },
+      { trade_date: "2026-04-17", is_open: true, pretrade_date: "2026-04-16" },
+      { trade_date: "2026-04-18", is_open: false, pretrade_date: "2026-04-17" },
+      { trade_date: "2026-04-19", is_open: false, pretrade_date: "2026-04-17" },
+      { trade_date: "2026-04-20", is_open: true, pretrade_date: "2026-04-17" },
+      { trade_date: "2026-04-21", is_open: true, pretrade_date: "2026-04-20" },
+      { trade_date: "2026-04-22", is_open: true, pretrade_date: "2026-04-21" },
+      { trade_date: "2026-04-23", is_open: true, pretrade_date: "2026-04-22" },
+      { trade_date: "2026-04-24", is_open: true, pretrade_date: "2026-04-23" },
+      { trade_date: "2026-04-25", is_open: false, pretrade_date: "2026-04-24" },
+      { trade_date: "2026-04-26", is_open: false, pretrade_date: "2026-04-24" },
+      { trade_date: "2026-04-27", is_open: true, pretrade_date: "2026-04-24" },
+      { trade_date: "2026-04-28", is_open: true, pretrade_date: "2026-04-27" },
+      { trade_date: "2026-04-29", is_open: true, pretrade_date: "2026-04-28" },
+      { trade_date: "2026-04-30", is_open: true, pretrade_date: "2026-04-29" },
+      { trade_date: "2026-05-01", is_open: false, pretrade_date: "2026-04-30" },
+      { trade_date: "2026-05-02", is_open: false, pretrade_date: "2026-04-30" },
+      { trade_date: "2026-05-03", is_open: false, pretrade_date: "2026-04-30" },
+      { trade_date: "2026-05-04", is_open: true, pretrade_date: "2026-04-30" },
+      { trade_date: "2026-05-05", is_open: true, pretrade_date: "2026-05-04" },
+      { trade_date: "2026-05-06", is_open: true, pretrade_date: "2026-05-05" },
+      { trade_date: "2026-05-07", is_open: true, pretrade_date: "2026-05-06" },
+    ],
   });
 }
 
@@ -273,6 +311,59 @@ function mockTaskRecords(route: Route, pathname: string) {
 }
 
 function mockTaskManual(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/executions" && route.request().method() === "POST") {
+    return fulfillJson(route, {
+      id: 901,
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/901") {
+    return fulfillJson(route, {
+      id: 901,
+      schedule_id: null,
+      spec_type: "job",
+      spec_key: "sync_daily.daily",
+      spec_display_name: "股票日线同步",
+      schedule_display_name: null,
+      trigger_source: "manual",
+      status: "queued",
+      requested_by_username: "admin",
+      requested_at: "2026-04-17T10:00:00+08:00",
+      queued_at: "2026-04-17T10:00:02+08:00",
+      started_at: null,
+      ended_at: null,
+      params_json: {
+        trade_date: "2026-04-17",
+      },
+      summary_message: "系统已经收到同步请求，等待排队执行。",
+      rows_fetched: 0,
+      rows_written: 0,
+      progress_current: 0,
+      progress_total: 0,
+      progress_percent: 0,
+      progress_message: null,
+      last_progress_at: null,
+      cancel_requested_at: null,
+      canceled_at: null,
+      error_code: null,
+      error_message: null,
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/901/steps") {
+    return fulfillJson(route, {
+      execution_id: 901,
+      items: [],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/901/events") {
+    return fulfillJson(route, {
+      execution_id: 901,
+      items: [],
+    });
+  }
+
   if (pathname === "/api/v1/ops/catalog") {
     return fulfillJson(route, {
       job_specs: [
@@ -483,7 +574,150 @@ function mockTaskAuto(route: Route, pathname: string) {
     });
   }
 
+  if (pathname === "/api/v1/ops/schedules/preview" && route.request().method() === "POST") {
+    return fulfillJson(route, {
+      preview_times: [
+        "2026-04-20T19:00:00+08:00",
+        "2026-04-21T19:00:00+08:00",
+        "2026-04-22T19:00:00+08:00",
+        "2026-04-23T19:00:00+08:00",
+        "2026-04-24T19:00:00+08:00",
+      ],
+    });
+  }
+
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
+function mockTaskCenter(route: Route, pathname: string, url: URL) {
+  if (pathname === "/api/v1/ops/catalog") {
+    return fulfillJson(route, {
+      job_specs: [
+        {
+          key: "sync_daily.daily",
+          display_name: "日常同步 / daily",
+          category: "sync_daily",
+          description: "按单个交易日同步股票日线。",
+          strategy_type: "incremental_by_date",
+          executor_kind: "sync_service",
+          target_tables: ["core.equity_daily_bar"],
+          supports_manual_run: true,
+          supports_schedule: true,
+          supports_retry: true,
+          schedule_binding_count: 1,
+          active_schedule_count: 1,
+          supported_params: [
+            {
+              key: "trade_date",
+              display_name: "交易日期",
+              param_type: "date",
+              description: "单个交易日。",
+              required: false,
+              multi_value: false,
+              options: [],
+            },
+            {
+              key: "market",
+              display_name: "市场",
+              param_type: "enum",
+              description: "按市场筛选。",
+              required: false,
+              multi_value: true,
+              options: ["A股"],
+            },
+          ],
+        },
+        {
+          key: "moneyflow_ind_dc",
+          display_name: "板块资金流向（东财）",
+          category: "sync_daily",
+          description: "按单个交易日同步板块资金流。",
+          strategy_type: "incremental_by_date",
+          executor_kind: "sync_service",
+          target_tables: ["core.moneyflow_ind_dc"],
+          supports_manual_run: true,
+          supports_schedule: true,
+          supports_retry: true,
+          schedule_binding_count: 0,
+          active_schedule_count: 0,
+          supported_params: [],
+        },
+      ],
+      workflow_specs: [],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions") {
+    if (url.searchParams.get("schedule_id") === "201") {
+      return fulfillJson(route, {
+        total: 1,
+        items: [
+          {
+            id: 301,
+            spec_key: "sync_daily.daily",
+            spec_display_name: "股票日线同步",
+            trigger_source: "scheduled",
+            status: "success",
+            requested_at: "2026-04-19T19:00:00+08:00",
+            rows_fetched: 5200,
+            rows_written: 5200,
+            summary_message: "最近一次自动运行已完成。",
+          },
+        ],
+      });
+    }
+    return fulfillJson(route, {
+      total: 2,
+      items: [
+        {
+          id: 101,
+          spec_type: "job",
+          spec_key: "sync_daily.daily",
+          spec_display_name: "股票日线同步",
+          schedule_display_name: null,
+          trigger_source: "manual",
+          status: "running",
+          requested_by_username: "admin",
+          requested_at: "2026-04-17T09:30:00+08:00",
+          started_at: "2026-04-17T09:30:02+08:00",
+          ended_at: null,
+          rows_fetched: 5200,
+          rows_written: 5100,
+          progress_current: 68,
+          progress_total: 120,
+          progress_percent: 57,
+          progress_message: "daily: 68/120 trade_date=20260417 fetched=5200 written=5100",
+          last_progress_at: "2026-04-17T09:36:00+08:00",
+          summary_message: "正在汇总最新交易日数据",
+          error_code: null,
+        },
+        {
+          id: 102,
+          spec_type: "job",
+          spec_key: "moneyflow_ind_dc",
+          spec_display_name: "板块资金流向（东财）",
+          schedule_display_name: null,
+          trigger_source: "scheduled",
+          status: "failed",
+          requested_by_username: "system",
+          requested_at: "2026-04-17T08:40:00+08:00",
+          started_at: "2026-04-17T08:40:03+08:00",
+          ended_at: "2026-04-17T08:41:12+08:00",
+          rows_fetched: 0,
+          rows_written: 0,
+          progress_current: 0,
+          progress_total: 0,
+          progress_percent: 0,
+          progress_message: null,
+          last_progress_at: "2026-04-17T08:40:40+08:00",
+          summary_message: "上游接口超时，等待人工重试",
+          error_code: "upstream_timeout",
+        },
+      ],
+    });
+  }
+
+  return mockTaskAuto(route, pathname);
 }
 
 function mockTaskDetail(route: Route, pathname: string) {
@@ -633,8 +867,16 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
       return fulfillJson(route, adminUser);
     }
 
+    const tradeCalendar = mockTradeCalendar(route, pathname);
+    if (tradeCalendar) {
+      return tradeCalendar;
+    }
+
     if (scenario === "ops-overview") {
       return mockOpsOverview(route, pathname);
+    }
+    if (scenario === "task-center") {
+      return mockTaskCenter(route, pathname, url);
     }
     if (scenario === "task-records") {
       return mockTaskRecords(route, pathname);

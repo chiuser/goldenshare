@@ -738,7 +738,7 @@ Menlo, Consolas, monospace
 
 文档定稿后，建议优先落地：
 
-1. `Button / PageHeader / SectionCard / StatusPill / DataTable` 的第一批组件说明与标准化
-2. `EmptyState / AlertBar / DetailDrawer / Timeline` 的共享模式收敛
-3. `PriceText / ChangeText / TradeDateField` 这批领域组件的最小版本
-4. 结合任务中心链路开始试点页重构
+1. 在 `Phase 5` 中把高可见组件与试点页纳入更稳的 smoke / visual gate
+2. 把组件目录、HTML Showcase、测试与门禁要求保持同步
+3. 为 `DataTable v1`、`TradeDateField v2` 这类已落地基线补齐后续演进边界
+4. 进入 `Phase 6` 前，先把组件变更的最小验证流程固化清楚
