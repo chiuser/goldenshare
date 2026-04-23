@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class ProgressSnapshot:
-    execution_id: int
+    execution_id: int | None
     dataset_key: str
     unit_total: int
     unit_done: int
@@ -30,7 +30,7 @@ class SyncV2Observer:
         rows_written: int,
         message: str,
     ) -> None:
-        if execution_id is None or self.progress_reporter is None:
+        if self.progress_reporter is None:
             return
         snapshot = ProgressSnapshot(
             execution_id=execution_id,
