@@ -71,12 +71,25 @@ class SyncV2Writer:
                     raw_dao=raw_dao,
                     std_dao=core_dao,
                 )
+            if contract.write_spec.write_path == "raw_std_publish_moneyflow_biying":
+                return self._write_moneyflow_std_publish_biying(
+                    contract=contract,
+                    batch=batch,
+                    raw_dao=raw_dao,
+                    std_dao=core_dao,
+                )
             if contract.write_spec.write_path == "raw_core_snapshot_insert_by_trade_date":
                 return self._write_snapshot_insert_by_trade_date(
                     contract=contract,
                     batch=batch,
                     raw_dao=raw_dao,
                     core_dao=core_dao,
+                )
+            if contract.write_spec.write_path == "raw_only_upsert":
+                return self._write_raw_only_upsert(
+                    contract=contract,
+                    batch=batch,
+                    raw_dao=raw_dao,
                 )
             if contract.write_spec.write_path != "raw_core_upsert":
                 raise ValueError(f"unsupported write_path: {contract.write_spec.write_path}")
@@ -516,6 +529,65 @@ class SyncV2Writer:
             unit_id=batch.unit_id,
             rows_written=serving_written,
             rows_upserted=serving_written,
+            rows_skipped=batch.rows_rejected,
+            target_table=contract.write_spec.target_table,
+            conflict_strategy="upsert",
+        )
+
+    def _write_moneyflow_std_publish_biying(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        raw_dao,
+        std_dao,
+    ) -> WriteResult:
+        if contract.write_spec.conflict_columns:
+            raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(contract.write_spec.conflict_columns))
+        else:
+            raw_dao.bulk_upsert(batch.rows_normalized)
+        std_rows = [self._moneyflow_normalizer.to_std_from_biying_raw(row) for row in batch.rows_normalized]
+        if contract.write_spec.conflict_columns:
+            std_dao.bulk_upsert(std_rows, conflict_columns=list(contract.write_spec.conflict_columns))
+        else:
+            std_dao.bulk_upsert(std_rows)
+        touched_keys = {
+            (str(row["ts_code"]), row["trade_date"])
+            for row in std_rows
+            if row.get("ts_code") and isinstance(row.get("trade_date"), date)
+        }
+        serving_written = publish_moneyflow_serving_for_keys(
+            self.dao,
+            self.session,
+            touched_keys,
+        )
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=serving_written,
+            rows_upserted=serving_written,
+            rows_skipped=batch.rows_rejected,
+            target_table=contract.write_spec.target_table,
+            conflict_strategy="upsert",
+        )
+
+    @staticmethod
+    def _write_raw_only_upsert(
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        raw_dao,
+    ) -> WriteResult:
+        if contract.write_spec.conflict_columns:
+            rows_written = raw_dao.bulk_upsert(
+                batch.rows_normalized,
+                conflict_columns=list(contract.write_spec.conflict_columns),
+            )
+        else:
+            rows_written = raw_dao.bulk_upsert(batch.rows_normalized)
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_written,
+            rows_upserted=rows_written,
             rows_skipped=batch.rows_rejected,
             target_table=contract.write_spec.target_table,
             conflict_strategy="upsert",

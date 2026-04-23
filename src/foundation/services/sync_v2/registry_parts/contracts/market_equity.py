@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
     ADJ_FACTOR_FIELDS,
+    BIYING_EQUITY_DAILY_FIELDS,
     BLOCK_TRADE_FIELDS,
     BROKER_RECOMMEND_FIELDS,
     CYQ_PERF_FIELDS,
@@ -38,7 +39,49 @@ from src.foundation.services.sync_v2.registry_parts.builders import (
 from src.foundation.services.sync_v2.registry_parts.common.param_policies import *  # noqa: F403
 from src.foundation.services.sync_v2.registry_parts.common.row_transforms import *  # noqa: F403
 
-CONTRACTS: dict[str, DatasetSyncContract] = {    "daily": DatasetSyncContract(
+CONTRACTS: dict[str, DatasetSyncContract] = {
+    "biying_equity_daily": DatasetSyncContract(
+        dataset_key="biying_equity_daily",
+        display_name="BIYING 股票日线",
+        job_name="sync_biying_equity_daily",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+                InputField("adj_type", "string", required=False, description="复权类型 n/f/b"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="natural_date_range",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="biying",
+        source_spec=SourceSpec(
+            api_name="equity_daily_bar",
+            fields=tuple(BIYING_EQUITY_DAILY_FIELDS),
+            unit_params_builder=_biying_equity_daily_params,
+            source_key_default="biying",
+        ),
+        normalization_spec=build_normalization_spec(
+            decimal_fields=("o", "h", "l", "c", "pc", "v", "a"),
+            required_fields=("dm", "trade_date", "adj_type"),
+            row_transform=_biying_equity_daily_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_biying_equity_daily_bar",
+            core_dao_name="raw_biying_equity_daily_bar",
+            target_table="raw_biying.equity_daily_bar",
+            write_path="raw_only_upsert",
+        ),
+        observe_spec=ObserveSpec(progress_label="biying_equity_daily"),
+    ),
+    "daily": DatasetSyncContract(
         dataset_key="daily",
         display_name="股票日线行情",
         job_name="sync_equity_daily",

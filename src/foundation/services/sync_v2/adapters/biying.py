@@ -34,8 +34,23 @@ class BiyingSyncV2Adapter(SourceAdapter):
         )
 
     def execute(self, request: SourceRequest) -> list[dict]:
-        return self.connector.call(
+        rows = self.connector.call(
             api_name=request.api_name,
             params=request.params,
             fields=request.fields,
         )
+        if request.api_name == "equity_daily_bar":
+            dm = str(request.params.get("dm") or "").strip().upper()
+            mc = request.params.get("mc")
+            adj_type = str(request.params.get("adj_type") or "").strip().lower()
+            for row in rows:
+                row["dm"] = dm
+                row["mc"] = mc
+                row["adj_type"] = adj_type
+        if request.api_name == "moneyflow":
+            dm = str(request.params.get("dm") or "").strip().upper()
+            mc = request.params.get("mc")
+            for row in rows:
+                row["dm"] = dm
+                row["mc"] = mc
+        return rows

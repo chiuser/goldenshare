@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from src.foundation.services.sync_v2.dataset_strategies.adj_factor import build_adj_factor_units
+from src.foundation.services.sync_v2.dataset_strategies.biying_equity_daily import build_biying_equity_daily_units
+from src.foundation.services.sync_v2.dataset_strategies.biying_moneyflow import build_biying_moneyflow_units
 from src.foundation.services.sync_v2.dataset_strategies.block_trade import build_block_trade_units
 from src.foundation.services.sync_v2.dataset_strategies.broker_recommend import build_broker_recommend_units
 from src.foundation.services.sync_v2.dataset_strategies.cyq_perf import build_cyq_perf_units
@@ -60,6 +62,8 @@ from src.foundation.services.sync_v2.dataset_strategies.us_basic import build_us
 
 DATASET_STRATEGY_REGISTRY = {
     "adj_factor": build_adj_factor_units,
+    "biying_equity_daily": build_biying_equity_daily_units,
+    "biying_moneyflow": build_biying_moneyflow_units,
     "block_trade": build_block_trade_units,
     "broker_recommend": build_broker_recommend_units,
     "cyq_perf": build_cyq_perf_units,

@@ -153,6 +153,78 @@ def test_sync_v2_writer_supports_moneyflow_std_publish_path(mocker) -> None:
     assert result.target_table == "core_serving.equity_moneyflow"
 
 
+def test_sync_v2_writer_supports_moneyflow_std_publish_biying_path(mocker) -> None:
+    raw_dao = _StubDao(written=2)
+    std_dao = _StubDao(written=2)
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(raw_biying_moneyflow=raw_dao, moneyflow_std=std_dao),
+    )
+    publish_spy = mocker.patch(
+        "src.foundation.services.sync_v2.writer.publish_moneyflow_serving_for_keys",
+        return_value=4,
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    contract = get_sync_v2_contract("biying_moneyflow")
+    batch = NormalizedBatch(
+        unit_id="u-biying-moneyflow",
+        rows_normalized=[
+            {
+                "dm": "000001",
+                "trade_date": date(2026, 4, 17),
+                "zmbtdcjl": 10,
+                "zmstdcjl": 7,
+                "zmbtdcje": 1000.0,
+                "zmstdcje": 800.0,
+            }
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = writer.write(contract=contract, batch=batch)
+
+    assert len(raw_dao.calls) == 1
+    assert len(std_dao.calls) == 1
+    std_rows, _ = std_dao.calls[0]
+    assert std_rows[0]["source_key"] == "biying"
+    assert std_rows[0]["ts_code"] == "000001.SZ"
+    assert std_rows[0]["trade_date"] == date(2026, 4, 17)
+    called_keys = publish_spy.call_args.args[2]
+    assert called_keys == {("000001.SZ", date(2026, 4, 17))}
+    assert result.rows_written == 4
+    assert result.target_table == "core_serving.equity_moneyflow"
+
+
+def test_sync_v2_writer_supports_raw_only_upsert_path(mocker) -> None:
+    raw_dao = _StubDao(written=3)
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(raw_biying_equity_daily_bar=raw_dao),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    contract = get_sync_v2_contract("biying_equity_daily")
+    batch = NormalizedBatch(
+        unit_id="u-biying-equity-daily",
+        rows_normalized=[
+            {
+                "dm": "000001",
+                "trade_date": date(2026, 4, 17),
+                "adj_type": "f",
+                "close": 10.5,
+            }
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = writer.write(contract=contract, batch=batch)
+
+    assert len(raw_dao.calls) == 1
+    assert result.rows_written == 3
+    assert result.target_table == "raw_biying.equity_daily_bar"
+
+
 def test_sync_v2_writer_moneyflow_rejects_fractional_volume(mocker) -> None:
     raw_dao = _StubDao(written=1)
     std_dao = _StubDao(written=1)

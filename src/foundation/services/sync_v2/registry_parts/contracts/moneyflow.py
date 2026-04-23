@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
+    BIYING_MONEYFLOW_FIELDS,
     MONEYFLOW_CNT_THS_FIELDS,
     MONEYFLOW_DC_FIELDS,
     MONEYFLOW_FIELDS,
@@ -26,7 +27,84 @@ from src.foundation.services.sync_v2.registry_parts.builders import (
 from src.foundation.services.sync_v2.registry_parts.common.param_policies import *  # noqa: F403
 from src.foundation.services.sync_v2.registry_parts.common.row_transforms import *  # noqa: F403
 
-CONTRACTS: dict[str, DatasetSyncContract] = {    "moneyflow": DatasetSyncContract(
+CONTRACTS: dict[str, DatasetSyncContract] = {
+    "biying_moneyflow": DatasetSyncContract(
+        dataset_key="biying_moneyflow",
+        display_name="BIYING 资金流向",
+        job_name="sync_biying_moneyflow",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始日期"),
+                InputField("end_date", "date", required=False, description="结束日期"),
+                InputField("ts_code", "string", required=False, description="股票代码"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="natural_date_range",
+            anchor_type="natural_date_range",
+            window_policy="point_or_range",
+            universe_policy="none",
+            pagination_policy="none",
+        ),
+        source_adapter_key="biying",
+        source_spec=SourceSpec(
+            api_name="moneyflow",
+            fields=tuple(BIYING_MONEYFLOW_FIELDS),
+            unit_params_builder=_biying_moneyflow_params,
+            source_key_default="biying",
+        ),
+        normalization_spec=build_normalization_spec(
+            decimal_fields=(
+                "dddx",
+                "zddy",
+                "ddcf",
+                "zmbtdcje",
+                "zmbddcje",
+                "zmbzdcje",
+                "zmbxdcje",
+                "zmstdcje",
+                "zmsddcje",
+                "zmszdcje",
+                "zmsxdcje",
+                "bdmbtdcje",
+                "bdmbddcje",
+                "bdmbzdcje",
+                "bdmbxdcje",
+                "bdmstdcje",
+                "bdmsddcje",
+                "bdmszdcje",
+                "bdmsxdcje",
+                "zmbtdcjzl",
+                "zmbddcjzl",
+                "zmbzdcjzl",
+                "zmbxdcjzl",
+                "zmstdcjzl",
+                "zmsddcjzl",
+                "zmszdcjzl",
+                "zmsxdcjzl",
+                "bdmbtdcjzl",
+                "bdmbddcjzl",
+                "bdmbzdcjzl",
+                "bdmbxdcjzl",
+                "bdmstdcjzl",
+                "bdmsddcjzl",
+                "bdmszdcjzl",
+                "bdmsxdcjzl",
+            ),
+            required_fields=("dm", "trade_date"),
+            row_transform=_biying_moneyflow_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_biying_moneyflow",
+            core_dao_name="moneyflow_std",
+            target_table="core_serving.equity_moneyflow",
+            write_path="raw_std_publish_moneyflow_biying",
+        ),
+        observe_spec=ObserveSpec(progress_label="biying_moneyflow"),
+    ),
+    "moneyflow": DatasetSyncContract(
         dataset_key="moneyflow",
         display_name="个股资金流向",
         job_name="sync_moneyflow",

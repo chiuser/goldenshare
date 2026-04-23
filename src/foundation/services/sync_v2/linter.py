@@ -12,6 +12,8 @@ from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 ALLOWED_WRITE_PATHS = {
     "raw_core_upsert",
     "raw_std_publish_moneyflow",
+    "raw_std_publish_moneyflow_biying",
+    "raw_only_upsert",
     "raw_core_snapshot_insert_by_trade_date",
     "raw_index_period_serving_upsert",
 }

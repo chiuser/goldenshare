@@ -745,6 +745,79 @@ def _moneyflow_mkt_dc_params(request, anchor_date: date | None, enum_values: dic
         raise ValueError("moneyflow_mkt_dc requires trade_date anchor")
     return {"trade_date": anchor_date.strftime("%Y%m%d")}
 
+
+def _biying_equity_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    dm = str(enum_values.get("dm") or request.params.get("dm") or "").strip().upper()
+    if not dm:
+        raise ValueError("biying_equity_daily requires dm")
+    adj_type = str(enum_values.get("adj_type") or request.params.get("adj_type") or "f").strip().lower()
+    if adj_type not in {"n", "f", "b"}:
+        raise ValueError("biying_equity_daily adj_type must be one of n/f/b")
+    window_start = enum_values.get("window_start")
+    window_end = enum_values.get("window_end")
+    if isinstance(window_start, date) and isinstance(window_end, date):
+        st = window_start
+        et = window_end
+    elif request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("biying_equity_daily point_incremental requires trade_date")
+        st = target_date
+        et = target_date
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("biying_equity_daily range_rebuild requires start_date and end_date")
+        st = request.start_date
+        et = request.end_date
+    else:
+        raise ValueError(f"biying_equity_daily unsupported run_profile: {request.run_profile}")
+
+    params: dict[str, Any] = {
+        "dm": dm,
+        "freq": "d",
+        "adj_type": adj_type,
+        "st": st.strftime("%Y%m%d"),
+        "et": et.strftime("%Y%m%d"),
+        "lt": "5000",
+    }
+    mc = enum_values.get("mc")
+    if mc not in (None, ""):
+        params["mc"] = str(mc).strip()
+    return params
+
+
+def _biying_moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    dm = str(enum_values.get("dm") or request.params.get("dm") or "").strip().upper()
+    if not dm:
+        raise ValueError("biying_moneyflow requires dm")
+    window_start = enum_values.get("window_start")
+    window_end = enum_values.get("window_end")
+    if isinstance(window_start, date) and isinstance(window_end, date):
+        st = window_start
+        et = window_end
+    elif request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("biying_moneyflow point_incremental requires trade_date")
+        st = target_date
+        et = target_date
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("biying_moneyflow range_rebuild requires start_date and end_date")
+        st = request.start_date
+        et = request.end_date
+    else:
+        raise ValueError(f"biying_moneyflow unsupported run_profile: {request.run_profile}")
+    params: dict[str, Any] = {
+        "dm": dm,
+        "st": st.strftime("%Y%m%d"),
+        "et": et.strftime("%Y%m%d"),
+    }
+    mc = enum_values.get("mc")
+    if mc not in (None, ""):
+        params["mc"] = str(mc).strip()
+    return params
+
 __all__ = [
     "ALL_LIMIT_LIST_EXCHANGES",
     "ALL_LIMIT_LIST_TYPES",
@@ -807,4 +880,6 @@ __all__ = [
     "_moneyflow_cnt_ths_params",
     "_moneyflow_ind_ths_params",
     "_moneyflow_mkt_dc_params",
+    "_biying_equity_daily_params",
+    "_biying_moneyflow_params",
 ]

@@ -53,6 +53,7 @@ docs/
 - [数据同步 V2 R3 切换方案 v1（板块/热榜/周期栏，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
 - [数据同步 V2 R4-A 切换方案 v1（dividend / stk_holdernumber / index_weight）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4a-cutover-plan-v1.md)
 - [数据同步 V2 R4-B 切换方案 v1（index_weekly / index_monthly）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4b-cutover-plan-v1.md)
+- [数据同步 V2 R4-C 切换方案 v1（biying_equity_daily / biying_moneyflow）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4c-biying-cutover-plan-v1.md)
 - [数据集接口请求策略重审 v1（逐数据集）](/Users/congming/github/goldenshare/docs/ops/dataset-request-strategy-reassessment-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 

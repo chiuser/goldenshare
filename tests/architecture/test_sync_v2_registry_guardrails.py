@@ -25,6 +25,7 @@ EXPECTED_DOMAIN_FILES = {
 
 EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     "market_equity": {
+        "biying_equity_daily",
         "daily",
         "adj_factor",
         "daily_basic",
@@ -70,6 +71,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "kpl_concept_cons",
     },
     "moneyflow": {
+        "biying_moneyflow",
         "moneyflow",
         "moneyflow_ths",
         "moneyflow_dc",

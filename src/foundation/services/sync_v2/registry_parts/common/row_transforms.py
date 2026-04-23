@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from datetime import date
 from decimal import Decimal
+import json
 from typing import Any
 
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
@@ -132,6 +134,138 @@ def _holdernumber_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed["event_key_hash"] = build_holdernumber_event_key_hash(transformed)
     return transformed
 
+
+_BIYING_MONEYFLOW_INT_FIELDS = (
+    "zmbzds",
+    "zmszds",
+    "zmbzdszl",
+    "zmszdszl",
+    "cjbszl",
+    "zmbtdcjl",
+    "zmbddcjl",
+    "zmbzdcjl",
+    "zmbxdcjl",
+    "zmstdcjl",
+    "zmsddcjl",
+    "zmszdcjl",
+    "zmsxdcjl",
+    "bdmbtdcjl",
+    "bdmbddcjl",
+    "bdmbzdcjl",
+    "bdmbxdcjl",
+    "bdmstdcjl",
+    "bdmsddcjl",
+    "bdmszdcjl",
+    "bdmsxdcjl",
+    "zmbtdcjzlv",
+    "zmbddcjzlv",
+    "zmbzdcjzlv",
+    "zmbxdcjzlv",
+    "zmstdcjzlv",
+    "zmsddcjzlv",
+    "zmszdcjzlv",
+    "zmsxdcjzlv",
+    "bdmbtdcjzlv",
+    "bdmbddcjzlv",
+    "bdmbzdcjzlv",
+    "bdmbxdcjzlv",
+    "bdmstdcjzlv",
+    "bdmsddcjzlv",
+    "bdmszdcjzlv",
+    "bdmsxdcjzlv",
+)
+
+_BIYING_MONEYFLOW_DECIMAL_FIELDS = (
+    "dddx",
+    "zddy",
+    "ddcf",
+    "zmbtdcje",
+    "zmbddcje",
+    "zmbzdcje",
+    "zmbxdcje",
+    "zmstdcje",
+    "zmsddcje",
+    "zmszdcje",
+    "zmsxdcje",
+    "bdmbtdcje",
+    "bdmbddcje",
+    "bdmbzdcje",
+    "bdmbxdcje",
+    "bdmstdcje",
+    "bdmsddcje",
+    "bdmszdcje",
+    "bdmsxdcje",
+    "zmbtdcjzl",
+    "zmbddcjzl",
+    "zmbzdcjzl",
+    "zmbxdcjzl",
+    "zmstdcjzl",
+    "zmsddcjzl",
+    "zmszdcjzl",
+    "zmsxdcjzl",
+    "bdmbtdcjzl",
+    "bdmbddcjzl",
+    "bdmbzdcjzl",
+    "bdmbxdcjzl",
+    "bdmstdcjzl",
+    "bdmsddcjzl",
+    "bdmszdcjzl",
+    "bdmsxdcjzl",
+)
+
+
+def _parse_quote_time(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
+
+
+def _to_int_like(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    decimal_value = Decimal(str(value))
+    if decimal_value != decimal_value.to_integral_value():
+        raise ValueError(f"value must be integer-like, got: {value}")
+    return int(decimal_value)
+
+
+def _biying_equity_daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    quote_time = _parse_quote_time(transformed.get("t"))
+    return {
+        "dm": str(transformed.get("dm") or "").strip().upper(),
+        "trade_date": quote_time.date(),
+        "adj_type": str(transformed.get("adj_type") or "").strip().lower(),
+        "mc": transformed.get("mc"),
+        "quote_time": quote_time,
+        "open": transformed.get("o"),
+        "high": transformed.get("h"),
+        "low": transformed.get("l"),
+        "close": transformed.get("c"),
+        "pre_close": transformed.get("pc"),
+        "vol": transformed.get("v"),
+        "amount": transformed.get("a"),
+        "suspend_flag": _to_int_like(transformed.get("sf")),
+        "raw_payload": json.dumps(transformed, ensure_ascii=False, default=str),
+    }
+
+
+def _biying_moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    quote_time = _parse_quote_time(transformed.get("t"))
+    normalized: dict[str, Any] = {
+        "dm": str(transformed.get("dm") or "").strip().upper(),
+        "trade_date": quote_time.date(),
+        "mc": transformed.get("mc"),
+        "quote_time": quote_time,
+        "raw_payload": json.dumps(transformed, ensure_ascii=False, default=str),
+    }
+    for field_name in _BIYING_MONEYFLOW_INT_FIELDS:
+        normalized[field_name] = _to_int_like(transformed.get(field_name))
+    for field_name in _BIYING_MONEYFLOW_DECIMAL_FIELDS:
+        normalized[field_name] = transformed.get(field_name)
+    return normalized
+
 __all__ = [
     "MONEYFLOW_VOLUME_FIELDS",
     "_moneyflow_row_transform",
@@ -149,4 +283,6 @@ __all__ = [
     "_stk_period_bar_adj_row_transform",
     "_dividend_row_transform",
     "_holdernumber_row_transform",
+    "_biying_equity_daily_row_transform",
+    "_biying_moneyflow_row_transform",
 ]
