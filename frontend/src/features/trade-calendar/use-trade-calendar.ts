@@ -74,10 +74,10 @@ export function useTradeCalendarField({ exchange = "SSE", value = "" }: UseTrade
       return;
     }
     const normalized = normalizeCalendarDate(value);
-    if (normalized.slice(0, 7) !== calendarDate.slice(0, 7)) {
-      setCalendarDate(normalized);
-    }
-  }, [calendarDate, value]);
+    setCalendarDate((current) => (
+      normalized.slice(0, 7) === current.slice(0, 7) ? current : normalized
+    ));
+  }, [value]);
 
   const range = useMemo(() => buildTradeCalendarRange(calendarDate), [calendarDate]);
 
@@ -105,8 +105,14 @@ export function useTradeCalendarField({ exchange = "SSE", value = "" }: UseTrade
     calendarProps: {
       date: range.calendarDate,
       onDateChange: handleCalendarDateChange,
+      onMonthSelect: handleCalendarDateChange,
+      onYearSelect: handleCalendarDateChange,
       onNextMonth: handleCalendarDateChange,
       onPreviousMonth: handleCalendarDateChange,
+      onNextYear: handleCalendarDateChange,
+      onPreviousYear: handleCalendarDateChange,
+      onNextDecade: handleCalendarDateChange,
+      onPreviousDecade: handleCalendarDateChange,
     },
     isTradingDay,
   };
