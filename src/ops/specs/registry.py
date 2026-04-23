@@ -872,7 +872,6 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
             WorkflowStepSpec("etf_index", "sync_history.etf_index", "ETF 基准指数列表"),
             WorkflowStepSpec("index_basic", "sync_history.index_basic", "指数基本信息"),
             WorkflowStepSpec("hk_basic", "sync_history.hk_basic", "港股列表"),
-            WorkflowStepSpec("us_basic", "sync_history.us_basic", "美股列表"),
         ),
         supports_schedule=True,
         supports_manual_run=True,

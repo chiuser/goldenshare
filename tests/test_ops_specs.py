@@ -504,6 +504,18 @@ def test_daily_moneyflow_sync_contains_only_moneyflow_resources() -> None:
     ]
 
 
+def test_reference_data_refresh_excludes_us_basic() -> None:
+    workflow = WORKFLOW_SPEC_REGISTRY["reference_data_refresh"]
+    step_job_keys = [step.job_key for step in workflow.steps]
+    assert "sync_history.us_basic" not in step_job_keys
+    assert "sync_history.stock_basic" in step_job_keys
+    assert "sync_history.trade_cal" in step_job_keys
+    assert "sync_history.etf_basic" in step_job_keys
+    assert "sync_history.etf_index" in step_job_keys
+    assert "sync_history.index_basic" in step_job_keys
+    assert "sync_history.hk_basic" in step_job_keys
+
+
 def test_all_sync_resources_are_included_in_data_status_metadata() -> None:
     assert set(SYNC_SERVICE_REGISTRY) == set(DATASET_FRESHNESS_METADATA)
 
