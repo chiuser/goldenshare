@@ -522,10 +522,16 @@ class OperationsDispatcher:
             end_date=self._optional_date(normalized.get("end_date")),
             ts_code=self._normalize_single_ts_code(normalized.get("ts_code")),
         )
-        summary_message = f"units={summary.units_processed}"
+        rows_fetched = int(summary.rows_fetched or 0)
+        rows_written = int(summary.rows_written or 0)
+        summary_message = self._append_backfill_row_stats(
+            f"units={summary.units_processed}",
+            rows_fetched=rows_fetched,
+            rows_written=rows_written,
+        )
         if light_note:
             summary_message = f"{summary_message}；{light_note}"
-        return summary.rows_fetched, summary.rows_written, summary_message
+        return rows_fetched, rows_written, summary_message
 
     def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         if job_spec.key == "maintenance.rebuild_dm":
@@ -961,6 +967,31 @@ class OperationsDispatcher:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _append_backfill_row_stats(
+        summary_message: str | None,
+        *,
+        rows_fetched: int,
+        rows_written: int,
+    ) -> str:
+        base = str(summary_message or "").strip()
+        normalized_fetched = max(int(rows_fetched), 0)
+        normalized_written = max(int(rows_written), 0)
+        normalized_rejected = max(normalized_fetched - normalized_written, 0)
+
+        has_fetched = re.search(r"(?:^|\s)fetched=\d+", base) is not None
+        has_written = re.search(r"(?:^|\s)written=\d+", base) is not None
+        has_rejected = re.search(r"(?:^|\s)rejected=\d+", base) is not None
+
+        parts: list[str] = [base] if base else []
+        if not has_fetched:
+            parts.append(f"fetched={normalized_fetched}")
+        if not has_written:
+            parts.append(f"written={normalized_written}")
+        if not has_rejected:
+            parts.append(f"rejected={normalized_rejected}")
+        return " ".join(parts).strip()
 
     @classmethod
     def _sanitize_error_message(cls, message: str | None) -> str | None:

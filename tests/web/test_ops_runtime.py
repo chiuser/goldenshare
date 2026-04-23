@@ -482,7 +482,7 @@ def test_dispatcher_passes_content_type_to_backfill_by_trade_date(db_session, jo
 
     assert rows_fetched == 7
     assert rows_written == 6
-    assert summary == "units=1"
+    assert summary == "units=1 fetched=7 written=6 rejected=1"
     assert captured_kwargs["resource"] == "moneyflow_ind_dc"
     assert captured_kwargs["start_date"] == date(2026, 4, 1)
     assert captured_kwargs["end_date"] == date(2026, 4, 2)
