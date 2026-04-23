@@ -19,6 +19,7 @@ from src.ops.schemas.execution import (
     ExecutionLogsResponse,
     ExecutionListItem,
     ExecutionListResponse,
+    ExecutionSummaryResponse,
     ExecutionStepItem,
     ExecutionStepsResponse,
 )
@@ -50,25 +51,17 @@ class ExecutionQueryService:
         offset: int = 0,
     ) -> ExecutionListResponse:
         limit = max(1, min(limit, 200))
-        filters = []
-        if status:
-            filters.append(JobExecution.status == status)
-        if trigger_source:
-            filters.append(JobExecution.trigger_source == trigger_source)
-        if spec_type:
-            filters.append(JobExecution.spec_type == spec_type)
-        if spec_key:
-            filters.append(JobExecution.spec_key == spec_key)
-        if dataset_key:
-            filters.append(JobExecution.dataset_key == dataset_key)
-        if source_key:
-            filters.append(JobExecution.source_key == source_key)
-        if stage:
-            filters.append(JobExecution.stage == stage)
-        if run_scope:
-            filters.append(JobExecution.run_scope == run_scope)
-        if schedule_id is not None:
-            filters.append(JobExecution.schedule_id == schedule_id)
+        filters = self._build_filters(
+            status=status,
+            trigger_source=trigger_source,
+            spec_type=spec_type,
+            spec_key=spec_key,
+            dataset_key=dataset_key,
+            source_key=source_key,
+            stage=stage,
+            run_scope=run_scope,
+            schedule_id=schedule_id,
+        )
 
         count_stmt = select(func.count()).select_from(JobExecution)
         if filters:
@@ -90,6 +83,48 @@ class ExecutionQueryService:
         return ExecutionListResponse(
             total=total,
             items=[self._list_item(execution, username, schedule_display_name) for execution, username, schedule_display_name in rows],
+        )
+
+    def get_execution_summary(
+        self,
+        session: Session,
+        *,
+        status: str | None = None,
+        trigger_source: str | None = None,
+        spec_type: str | None = None,
+        spec_key: str | None = None,
+        dataset_key: str | None = None,
+        source_key: str | None = None,
+        stage: str | None = None,
+        run_scope: str | None = None,
+        schedule_id: int | None = None,
+    ) -> ExecutionSummaryResponse:
+        filters = self._build_filters(
+            status=status,
+            trigger_source=trigger_source,
+            spec_type=spec_type,
+            spec_key=spec_key,
+            dataset_key=dataset_key,
+            source_key=source_key,
+            stage=stage,
+            run_scope=run_scope,
+            schedule_id=schedule_id,
+        )
+
+        summary_stmt = select(JobExecution.status, func.count()).select_from(JobExecution).group_by(JobExecution.status)
+        if filters:
+            summary_stmt = summary_stmt.where(*filters)
+        rows = session.execute(summary_stmt).all()
+
+        status_counts = {status_key: count for status_key, count in rows}
+        total = sum(status_counts.values())
+        return ExecutionSummaryResponse(
+            total=total,
+            queued=status_counts.get("queued", 0),
+            running=status_counts.get("running", 0) + status_counts.get("canceling", 0),
+            success=status_counts.get("success", 0),
+            failed=status_counts.get("failed", 0) + status_counts.get("partial_success", 0),
+            canceled=status_counts.get("canceled", 0),
         )
 
     def get_execution_detail(self, session: Session, execution_id: int) -> ExecutionDetailResponse:
@@ -225,6 +260,40 @@ class ExecutionQueryService:
             summary_message=self._clip(execution.summary_message, self.MAX_DETAIL_SUMMARY_LENGTH),
             error_code=execution.error_code,
         )
+
+    @staticmethod
+    def _build_filters(
+        *,
+        status: str | None = None,
+        trigger_source: str | None = None,
+        spec_type: str | None = None,
+        spec_key: str | None = None,
+        dataset_key: str | None = None,
+        source_key: str | None = None,
+        stage: str | None = None,
+        run_scope: str | None = None,
+        schedule_id: int | None = None,
+    ) -> list[object]:
+        filters = []
+        if status:
+            filters.append(JobExecution.status == status)
+        if trigger_source:
+            filters.append(JobExecution.trigger_source == trigger_source)
+        if spec_type:
+            filters.append(JobExecution.spec_type == spec_type)
+        if spec_key:
+            filters.append(JobExecution.spec_key == spec_key)
+        if dataset_key:
+            filters.append(JobExecution.dataset_key == dataset_key)
+        if source_key:
+            filters.append(JobExecution.source_key == source_key)
+        if stage:
+            filters.append(JobExecution.stage == stage)
+        if run_scope:
+            filters.append(JobExecution.run_scope == run_scope)
+        if schedule_id is not None:
+            filters.append(JobExecution.schedule_id == schedule_id)
+        return filters
 
     def _step_item(self, step: JobExecutionStep) -> ExecutionStepItem:
         return ExecutionStepItem(

@@ -25,7 +25,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await installApiMocks(page, "task-records");
     await page.goto("/app/ops/v21/datasets/tasks?tab=records");
     await expect(page.getByRole("tab", { name: "任务记录" })).toBeVisible();
-    await expect(page.getByText("当前结果集")).toBeVisible();
+    await expect(page.getByText("当前筛选任务")).toBeVisible();
     await expect(
       page.getByRole("table").getByRole("link", { name: "查看详情" }).first(),
     ).toBeVisible();

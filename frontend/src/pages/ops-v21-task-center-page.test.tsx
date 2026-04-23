@@ -19,6 +19,7 @@ vi.mock("../shared/api/client", () => ({
 beforeEach(() => {
   apiRequestMock.mockClear();
   apiRequestMock.mockImplementation(async (path: string) => {
+    const url = new URL(path, "https://example.test");
     if (path === "/api/v1/ops/catalog") {
       return {
         job_specs: [
@@ -51,7 +52,20 @@ beforeEach(() => {
         workflow_specs: [],
       };
     }
-    if (path === "/api/v1/ops/executions") {
+    if (url.pathname === "/api/v1/ops/executions/summary") {
+      return {
+        total: 1,
+        queued: 0,
+        running: 1,
+        success: 0,
+        failed: 0,
+        canceled: 0,
+      };
+    }
+    if (url.pathname === "/api/v1/ops/executions" && url.searchParams.get("schedule_id") === "201") {
+      return { total: 0, items: [] };
+    }
+    if (url.pathname === "/api/v1/ops/executions") {
       return {
         total: 1,
         items: [
@@ -126,9 +140,6 @@ beforeEach(() => {
       };
     }
     if (path === "/api/v1/ops/schedules/201/revisions") {
-      return { total: 0, items: [] };
-    }
-    if (path === "/api/v1/ops/executions?schedule_id=201&limit=1") {
       return { total: 0, items: [] };
     }
     if (path === "/api/v1/ops/probes?schedule_id=201&limit=50") {
@@ -211,7 +222,8 @@ describe("任务中心页", () => {
 
     const requestedPaths = apiRequestMock.mock.calls.map(([path]) => path);
     expect(requestedPaths).toContain("/api/v1/ops/catalog");
-    expect(requestedPaths).toContain("/api/v1/ops/executions");
+    expect(requestedPaths).toContain("/api/v1/ops/executions/summary");
+    expect(requestedPaths).toContain("/api/v1/ops/executions?page=1&limit=20&offset=0");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules?limit=100");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules/201");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules/201/revisions");

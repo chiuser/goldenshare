@@ -340,6 +340,15 @@ export interface ExecutionListResponse {
   total: number;
 }
 
+export interface ExecutionSummaryResponse {
+  total: number;
+  queued: number;
+  running: number;
+  success: number;
+  failed: number;
+  canceled: number;
+}
+
 export interface ExecutionDetailResponse {
   id: number;
   schedule_id: number | null;

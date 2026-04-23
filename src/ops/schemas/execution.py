@@ -50,6 +50,15 @@ class ExecutionListResponse(BaseModel):
     total: int
 
 
+class ExecutionSummaryResponse(BaseModel):
+    total: int
+    queued: int
+    running: int
+    success: int
+    failed: int
+    canceled: int
+
+
 class ExecutionStepItem(BaseModel):
     id: int
     step_key: str

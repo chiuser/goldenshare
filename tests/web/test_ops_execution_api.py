@@ -59,6 +59,82 @@ def test_ops_execution_list_returns_latest_first_and_supports_status_filter(
     assert filtered_payload["items"][0]["spec_display_name"] == "指数纵向回补 / index_weekly"
 
 
+def test_ops_execution_summary_returns_filtered_status_counts(
+    app_client,
+    user_factory,
+    job_execution_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    base = datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc)
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="queued",
+        requested_at=base,
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="running",
+        requested_at=base + timedelta(minutes=1),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="canceling",
+        requested_at=base + timedelta(minutes=2),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="success",
+        requested_at=base + timedelta(minutes=3),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="failed",
+        requested_at=base + timedelta(minutes=4),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="partial_success",
+        requested_at=base + timedelta(minutes=5),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="manual",
+        status="canceled",
+        requested_at=base + timedelta(minutes=6),
+    )
+    job_execution_factory(
+        requested_by_user_id=admin.id,
+        trigger_source="scheduled",
+        status="failed",
+        requested_at=base + timedelta(minutes=7),
+    )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get(
+        "/api/v1/ops/executions/summary?trigger_source=manual",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "total": 7,
+        "queued": 1,
+        "running": 2,
+        "success": 1,
+        "failed": 2,
+        "canceled": 1,
+    }
+
+
 def test_ops_execution_detail_returns_steps_and_events(
     app_client,
     user_factory,

@@ -13,6 +13,7 @@ from src.ops.schemas.execution import (
     ExecutionEventsResponse,
     ExecutionLogsResponse,
     ExecutionListResponse,
+    ExecutionSummaryResponse,
     ExecutionStepsResponse,
 )
 from src.ops.services import OpsExecutionCommandService
@@ -50,6 +51,34 @@ def list_ops_executions(
         schedule_id=schedule_id,
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get("/summary", response_model=ExecutionSummaryResponse)
+def get_ops_execution_summary(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    status: str | None = Query(None),
+    trigger_source: str | None = Query(None),
+    spec_type: str | None = Query(None),
+    spec_key: str | None = Query(None),
+    dataset_key: str | None = Query(None),
+    source_key: str | None = Query(None),
+    stage: str | None = Query(None),
+    run_scope: str | None = Query(None),
+    schedule_id: int | None = Query(None),
+) -> ExecutionSummaryResponse:
+    return ExecutionQueryService().get_execution_summary(
+        session,
+        status=status,
+        trigger_source=trigger_source,
+        spec_type=spec_type,
+        spec_key=spec_key,
+        dataset_key=dataset_key,
+        source_key=source_key,
+        stage=stage,
+        run_scope=run_scope,
+        schedule_id=schedule_id,
     )
 
 

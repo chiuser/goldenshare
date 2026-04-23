@@ -256,6 +256,17 @@ function mockTaskRecords(route: Route, pathname: string) {
     });
   }
 
+  if (pathname === "/api/v1/ops/executions/summary") {
+    return fulfillJson(route, {
+      total: 2,
+      queued: 0,
+      running: 1,
+      success: 0,
+      failed: 1,
+      canceled: 0,
+    });
+  }
+
   if (pathname === "/api/v1/ops/executions") {
     return fulfillJson(route, {
       total: 2,
@@ -645,6 +656,17 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
         },
       ],
       workflow_specs: [],
+    });
+  }
+
+  if (pathname === "/api/v1/ops/executions/summary") {
+    return fulfillJson(route, {
+      total: 2,
+      queued: 0,
+      running: 1,
+      success: 0,
+      failed: 1,
+      canceled: 0,
     });
   }
 

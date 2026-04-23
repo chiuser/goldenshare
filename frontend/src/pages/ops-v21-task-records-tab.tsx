@@ -1,19 +1,24 @@
 import {
   Button,
   Grid,
+  Group,
   Loader,
+  Pagination,
   Select,
   Stack,
-  Table,
-  Text,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
-import type { ExecutionDetailResponse, ExecutionListResponse, OpsCatalogResponse } from "../shared/api/types";
+import type {
+  ExecutionDetailResponse,
+  ExecutionListResponse,
+  ExecutionSummaryResponse,
+  OpsCatalogResponse,
+} from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
@@ -27,6 +32,13 @@ import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 const ALL_FILTER_VALUE = "all";
+const PAGE_SIZE = 20;
+
+type TaskFilters = {
+  status: string;
+  trigger_source: string;
+  spec_key: string;
+};
 
 function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
   if (!data?.items?.length) {
@@ -35,42 +47,81 @@ function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined)
   return data.items.some((item) => item.status === "queued" || item.status === "running" || item.status === "canceling") ? 3000 : false;
 }
 
-export function OpsTasksPage() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const appliedSearchRef = useRef(false);
-  const [filters, setFilters] = useState<{
-    status: string;
-    trigger_source: string;
-    spec_key: string;
-  }>({
+function buildExecutionSummaryRefetchInterval(data: ExecutionSummaryResponse | undefined) {
+  if (!data) {
+    return false;
+  }
+  return data.queued > 0 || data.running > 0 ? 3000 : false;
+}
+
+function createDefaultFilters(): TaskFilters {
+  return {
     status: ALL_FILTER_VALUE,
     trigger_source: ALL_FILTER_VALUE,
     spec_key: ALL_FILTER_VALUE,
-  });
+  };
+}
+
+function parsePageValue(raw: string | null): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 1) {
+    return 1;
+  }
+  return Math.floor(value);
+}
+
+function buildFilterParams(filters: TaskFilters) {
+  const params = new URLSearchParams();
+  if (filters.status !== ALL_FILTER_VALUE) params.set("status", filters.status);
+  if (filters.trigger_source !== ALL_FILTER_VALUE) params.set("trigger_source", filters.trigger_source);
+  if (filters.spec_key !== ALL_FILTER_VALUE) params.set("spec_key", filters.spec_key);
+  return params;
+}
+
+function buildListParams(filters: TaskFilters, page: number) {
+  const params = buildFilterParams(filters);
+  params.set("page", String(page));
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String((page - 1) * PAGE_SIZE));
+  return params;
+}
+
+export function OpsTasksPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchReady, setSearchReady] = useState(false);
+  const [filters, setFilters] = useState<TaskFilters>(createDefaultFilters);
+  const [page, setPage] = useState(1);
   const [lastAction, setLastAction] = useState<ExecutionDetailResponse | null>(null);
 
   useEffect(() => {
-    if (appliedSearchRef.current) return;
-    appliedSearchRef.current = true;
     const search = new URLSearchParams(window.location.search);
     const status = search.get("status");
     const triggerSource = search.get("trigger_source");
     const specKey = search.get("spec_key");
+    const pageValue = parsePageValue(search.get("page"));
     setFilters({
       status: status || ALL_FILTER_VALUE,
       trigger_source: triggerSource || ALL_FILTER_VALUE,
       spec_key: specKey || ALL_FILTER_VALUE,
     });
-  }, [setFilters]);
+    setPage(pageValue);
+    setSearchReady(true);
+  }, []);
 
-  const filterQueryString = useMemo(() => {
-    const params = new URLSearchParams();
-    if (filters.status !== ALL_FILTER_VALUE) params.set("status", filters.status);
-    if (filters.trigger_source !== ALL_FILTER_VALUE) params.set("trigger_source", filters.trigger_source);
-    if (filters.spec_key !== ALL_FILTER_VALUE) params.set("spec_key", filters.spec_key);
-    return params.toString();
-  }, [filters]);
+  useEffect(() => {
+    if (!searchReady) {
+      return;
+    }
+    const params = buildFilterParams(filters);
+    params.set("page", String(page));
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState({}, "", nextUrl);
+  }, [filters, page, searchReady]);
+
+  const filterQueryString = useMemo(() => buildFilterParams(filters).toString(), [filters]);
+  const executionListQueryString = useMemo(() => buildListParams(filters, page).toString(), [filters, page]);
 
   const catalogQuery = useQuery({
     queryKey: ["ops", "catalog"],
@@ -78,10 +129,18 @@ export function OpsTasksPage() {
   });
 
   const executionsQuery = useQuery({
-    queryKey: ["ops", "executions", filterQueryString],
-    queryFn: () =>
-      apiRequest<ExecutionListResponse>(`/api/v1/ops/executions${filterQueryString ? `?${filterQueryString}` : ""}`),
+    queryKey: ["ops", "executions", executionListQueryString],
+    queryFn: () => apiRequest<ExecutionListResponse>(`/api/v1/ops/executions?${executionListQueryString}`),
+    enabled: searchReady,
     refetchInterval: (query) => buildExecutionsRefetchInterval(query.state.data),
+  });
+
+  const executionSummaryQuery = useQuery({
+    queryKey: ["ops", "execution-summary", filterQueryString],
+    queryFn: () =>
+      apiRequest<ExecutionSummaryResponse>(`/api/v1/ops/executions/summary${filterQueryString ? `?${filterQueryString}` : ""}`),
+    enabled: searchReady,
+    refetchInterval: (query) => buildExecutionSummaryRefetchInterval(query.state.data),
   });
 
   const specOptions = useMemo(() => {
@@ -124,16 +183,10 @@ export function OpsTasksPage() {
     [],
   );
 
-  const stats = useMemo(() => {
-    const items = executionsQuery.data?.items || [];
-    return {
-      total: items.length,
-      queued: items.filter((item) => item.status === "queued").length,
-      running: items.filter((item) => item.status === "running" || item.status === "canceling").length,
-      success: items.filter((item) => item.status === "success").length,
-      failed: items.filter((item) => item.status === "failed").length,
-    };
-  }, [executionsQuery.data?.items]);
+  const totalPages = useMemo(() => {
+    const total = executionsQuery.data?.total ?? 0;
+    return total > 0 ? Math.ceil(total / PAGE_SIZE) : 1;
+  }, [executionsQuery.data?.total]);
 
   const retryMutation = useMutation({
     mutationFn: (executionId: number) =>
@@ -148,6 +201,7 @@ export function OpsTasksPage() {
         message: "系统已经收到新的任务请求。",
       });
       await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "execution-summary"] });
       await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
     },
   });
@@ -165,8 +219,14 @@ export function OpsTasksPage() {
         message: `任务 #${data.id}`,
       });
       await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "execution-summary"] });
     },
   });
+
+  function updateFilters(next: TaskFilters) {
+    setFilters(next);
+    setPage(1);
+  }
 
   function buildResultSummary(item: ExecutionListResponse["items"][number]) {
     if (
@@ -289,22 +349,25 @@ export function OpsTasksPage() {
         </AlertBar>
       ) : null}
 
-      <SectionCard title="任务概览" description="先看当前任务分布，再按状态筛选处理。">
+      <SectionCard title="任务统计" description="按当前筛选条件统计任务分布，不受当前分页影响。">
         <Grid>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="当前结果集" value={stats.total} />
+            <StatCard label="当前筛选任务" value={executionSummaryQuery.data?.total ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="等待处理" value={stats.queued} />
+            <StatCard label="等待处理" value={executionSummaryQuery.data?.queued ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="正在处理" value={stats.running} />
+            <StatCard label="正在处理" value={executionSummaryQuery.data?.running ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="已完成" value={stats.success} />
+            <StatCard label="执行成功" value={executionSummaryQuery.data?.success ?? "—"} />
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
-            <StatCard label="执行失败" value={stats.failed} hint="失败任务可以重新提交。" />
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="执行失败" value={executionSummaryQuery.data?.failed ?? "—"} hint="含部分成功任务；失败任务可以重新提交。" />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
+            <StatCard label="已取消" value={executionSummaryQuery.data?.canceled ?? "—"} />
           </Grid.Col>
         </Grid>
       </SectionCard>
@@ -320,7 +383,7 @@ export function OpsTasksPage() {
                 <Button
                   variant="light"
                   color="brand"
-                  onClick={() => setFilters({ status: ALL_FILTER_VALUE, trigger_source: ALL_FILTER_VALUE, spec_key: ALL_FILTER_VALUE })}
+                  onClick={() => updateFilters(createDefaultFilters())}
                 >
                   清空筛选
                 </Button>
@@ -331,7 +394,7 @@ export function OpsTasksPage() {
                   label="当前状态"
                   data={statusOptions}
                   value={filters.status}
-                  onChange={(value) => setFilters((current) => ({ ...current, status: value || ALL_FILTER_VALUE }))}
+                  onChange={(value) => updateFilters({ ...filters, status: value || ALL_FILTER_VALUE })}
                 />
               </FilterBarItem>
               <FilterBarItem>
@@ -339,7 +402,7 @@ export function OpsTasksPage() {
                   label="发起方式"
                   data={triggerSourceOptions}
                   value={filters.trigger_source}
-                  onChange={(value) => setFilters((current) => ({ ...current, trigger_source: value || ALL_FILTER_VALUE }))}
+                  onChange={(value) => updateFilters({ ...filters, trigger_source: value || ALL_FILTER_VALUE })}
                 />
               </FilterBarItem>
               <FilterBarItem>
@@ -348,7 +411,7 @@ export function OpsTasksPage() {
                   searchable
                   data={specOptions}
                   value={filters.spec_key}
-                  onChange={(value) => setFilters((current) => ({ ...current, spec_key: value || ALL_FILTER_VALUE }))}
+                  onChange={(value) => updateFilters({ ...filters, spec_key: value || ALL_FILTER_VALUE })}
                 />
               </FilterBarItem>
             </FilterBar>
@@ -367,23 +430,27 @@ export function OpsTasksPage() {
             <EmptyState
               title="当前筛选下没有任务记录"
               description="可以清空筛选后再看，或调整筛选条件重新查看。"
-              action={
+              action={(
                 <Button
                   variant="light"
-                  onClick={() =>
-                    setFilters({
-                      status: ALL_FILTER_VALUE,
-                      trigger_source: ALL_FILTER_VALUE,
-                      spec_key: ALL_FILTER_VALUE,
-                    })
-                  }
+                  onClick={() => updateFilters(createDefaultFilters())}
                 >
                   清空筛选
                 </Button>
-              }
+              )}
             />
           )}
         />
+        {executionsQuery.data && executionsQuery.data.total > PAGE_SIZE ? (
+          <Group justify="flex-end" mt="md">
+            <Pagination
+              aria-label="任务记录分页"
+              total={totalPages}
+              value={page}
+              onChange={setPage}
+            />
+          </Group>
+        ) : null}
       </SectionCard>
     </Stack>
   );

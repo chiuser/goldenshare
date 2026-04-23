@@ -18,6 +18,7 @@ from src.ops.schemas.execution import (
     ExecutionLogsResponse,
     ExecutionListItem,
     ExecutionListResponse,
+    ExecutionSummaryResponse,
     ExecutionStepItem,
     ExecutionStepsResponse,
 )
@@ -107,6 +108,7 @@ __all__ = [
     "ExecutionLogsResponse",
     "ExecutionListItem",
     "ExecutionListResponse",
+    "ExecutionSummaryResponse",
     "ExecutionStepItem",
     "ExecutionStepsResponse",
     "FreshnessGroup",
