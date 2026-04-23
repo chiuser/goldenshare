@@ -51,6 +51,7 @@ from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_adj_week 
 from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_month import build_stk_period_bar_month_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_period_bar_week import build_stk_period_bar_week_units
 from src.foundation.services.sync_v2.dataset_strategies.stock_st import build_stock_st_units
+from src.foundation.services.sync_v2.dataset_strategies.stock_basic import build_stock_basic_units
 from src.foundation.services.sync_v2.dataset_strategies.suspend_d import build_suspend_d_units
 from src.foundation.services.sync_v2.dataset_strategies.ths_daily import build_ths_daily_units
 from src.foundation.services.sync_v2.dataset_strategies.ths_hot import build_ths_hot_units
@@ -108,6 +109,7 @@ DATASET_STRATEGY_REGISTRY = {
     "stk_period_bar_month": build_stk_period_bar_month_units,
     "stk_period_bar_week": build_stk_period_bar_week_units,
     "stock_st": build_stock_st_units,
+    "stock_basic": build_stock_basic_units,
     "suspend_d": build_suspend_d_units,
     "ths_daily": build_ths_daily_units,
     "ths_hot": build_ths_hot_units,

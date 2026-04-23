@@ -13,6 +13,7 @@ ALLOWED_WRITE_PATHS = {
     "raw_core_upsert",
     "raw_std_publish_moneyflow",
     "raw_std_publish_moneyflow_biying",
+    "raw_std_publish_stock_basic",
     "raw_only_upsert",
     "raw_core_snapshot_insert_by_trade_date",
     "raw_index_period_serving_upsert",

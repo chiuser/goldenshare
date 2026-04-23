@@ -97,3 +97,47 @@ def test_sync_history_filters_generic_kwargs_for_v2_contract(mocker) -> None:
     )
     reconciliation.refresh_resource_state_from_observed.assert_called_once_with(session, "trade_cal")
     snapshot_service.refresh_resources.assert_called_once_with(session, ["trade_cal"])
+
+
+def test_sync_snapshot_filters_generic_kwargs_for_v2_contract(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    service = mocker.Mock()
+    service.contract = SimpleNamespace(
+        input_schema=SimpleNamespace(
+            fields=(
+                SimpleNamespace(name="source_key"),
+                SimpleNamespace(name="list_status"),
+            )
+        )
+    )
+    service.run_full.return_value = mocker.Mock(trade_date=None)
+    mocker.patch("src.cli.build_sync_service", return_value=service)
+    snapshot_service = mocker.Mock()
+    mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=snapshot_service)
+    reconciliation = mocker.Mock()
+    mocker.patch("src.cli.SyncJobStateReconciliationService", return_value=reconciliation)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "sync-snapshot",
+            "--resources",
+            "stock_basic",
+            "--source-key",
+            "all",
+            "--list-status",
+            "L,D",
+            "--idx-type",
+            "concept",
+        ],
+    )
+
+    assert result.exit_code == 0
+    service.run_full.assert_called_once_with(source_key="all", list_status="L,D")
+    reconciliation.refresh_resource_state_from_observed.assert_called_once_with(session, "stock_basic")
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["stock_basic"])

@@ -119,3 +119,48 @@ def test_worker_client_raises_source_error_for_non_retryable_exception(mocker) -
         SyncV2WorkerClient().fetch(contract=contract, unit=unit)
 
     assert exc_info.value.structured_error.error_code == "payload_invalid"
+
+
+def test_worker_client_prefers_unit_source_adapter_when_available(mocker) -> None:
+    calls: list[str] = []
+
+    class _SimpleAdapter:
+        def __init__(self, source_key: str) -> None:
+            self.source_key = source_key
+
+        def build_request(self, *, contract, unit, offset=None, page_limit=None):  # type: ignore[no-untyped-def]
+            return SourceRequest(
+                source_key=self.source_key,
+                api_name=contract.source_spec.api_name,
+                params=dict(unit.request_params),
+                fields=contract.source_spec.fields,
+            )
+
+        def execute(self, request: SourceRequest) -> list[dict]:
+            return [{"dm": "000001"}]
+
+    adapters = {
+        "tushare": _SimpleAdapter("tushare"),
+        "biying": _SimpleAdapter("biying"),
+    }
+
+    def _fake_get_source_adapter(source_key: str):  # type: ignore[no-untyped-def]
+        calls.append(source_key)
+        return adapters[source_key]
+
+    mocker.patch("src.foundation.services.sync_v2.worker_client.get_source_adapter", side_effect=_fake_get_source_adapter)
+
+    contract = get_sync_v2_contract("stock_basic")
+    unit = PlanUnit(
+        unit_id="u-stock-basic-biying",
+        dataset_key="stock_basic",
+        source_key="biying",
+        trade_date=None,
+        request_params={},
+    )
+
+    result = SyncV2WorkerClient().fetch(contract=contract, unit=unit)
+
+    assert result.request_count == 1
+    assert len(result.rows_raw) == 1
+    assert calls == ["biying"]

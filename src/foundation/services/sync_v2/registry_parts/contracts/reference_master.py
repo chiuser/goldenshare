@@ -4,6 +4,7 @@ from src.foundation.config.settings import get_settings
 from src.foundation.services.sync.fields import (
     ETF_BASIC_FIELDS,
     HK_BASIC_FIELDS,
+    STOCK_BASIC_FIELDS,
     TRADE_CAL_FIELDS,
     US_BASIC_FIELDS,
 )
@@ -60,6 +61,54 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             target_table="core_serving.trade_calendar",
         ),
         observe_spec=ObserveSpec(progress_label="trade_cal"),
+    ),
+    "stock_basic": DatasetSyncContract(
+        dataset_key="stock_basic",
+        display_name="股票基础信息",
+        job_name="sync_stock_basic",
+        run_profiles_supported=("snapshot_refresh",),
+        input_schema=build_input_schema(
+            fields=(
+                InputField(
+                    "source_key",
+                    "enum",
+                    required=False,
+                    default="tushare",
+                    enum_values=("tushare", "biying", "all"),
+                    description="来源选择",
+                ),
+                InputField("ts_code", "string", required=False, description="证券代码"),
+                InputField("name", "string", required=False, description="证券名称"),
+                InputField("market", "list", required=False, description="市场类型"),
+                InputField("exchange", "list", required=False, description="交易所"),
+                InputField("list_status", "list", required=False, description="上市状态"),
+                InputField("is_hs", "list", required=False, description="沪深港通标识"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            date_anchor_policy="none",
+            anchor_type="none",
+            window_policy="none",
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="stock_basic",
+            fields=tuple(STOCK_BASIC_FIELDS),
+            unit_params_builder=_stock_basic_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            date_fields=("list_date", "delist_date"),
+            row_transform=_stock_basic_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_stock_basic",
+            core_dao_name="security_std",
+            target_table="core_serving.security_serving",
+            write_path="raw_std_publish_stock_basic",
+        ),
+        observe_spec=ObserveSpec(progress_label="stock_basic"),
     ),
     "hk_basic": DatasetSyncContract(
         dataset_key="hk_basic",

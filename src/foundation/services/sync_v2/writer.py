@@ -4,7 +4,7 @@ from datetime import date
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import delete, or_, text, tuple_
+from sqlalchemy import delete, or_, select, text, tuple_
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
@@ -12,6 +12,8 @@ from src.foundation.services.sync_v2.contracts import DatasetSyncContract, Norma
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2WriteError
 from src.foundation.services.sync.sync_moneyflow_service import publish_moneyflow_serving_for_keys
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
+from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
+from src.foundation.serving.publish_service import ServingPublishService
 
 
 class SyncV2Writer:
@@ -19,6 +21,7 @@ class SyncV2Writer:
         self.session = session
         self.dao = DAOFactory(session)
         self._moneyflow_normalizer = NormalizeMoneyflowService()
+        self._security_normalizer = NormalizeSecurityService()
 
     def write(
         self,
@@ -70,6 +73,12 @@ class SyncV2Writer:
                     batch=batch,
                     raw_dao=raw_dao,
                     std_dao=core_dao,
+                )
+            if contract.write_spec.write_path == "raw_std_publish_stock_basic":
+                return self._write_stock_basic_std_publish(
+                    contract=contract,
+                    batch=batch,
+                    plan_unit=plan_unit,
                 )
             if contract.write_spec.write_path == "raw_std_publish_moneyflow_biying":
                 return self._write_moneyflow_std_publish_biying(
@@ -497,6 +506,110 @@ class SyncV2Writer:
             return core_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(conflict_columns))
         raw_dao.bulk_upsert(batch.rows_normalized)
         return core_dao.bulk_upsert(batch.rows_normalized)
+
+    def _write_stock_basic_std_publish(
+        self,
+        *,
+        contract: DatasetSyncContract,
+        batch: NormalizedBatch,
+        plan_unit: PlanUnit | None,
+    ) -> WriteResult:
+        source_key = str(plan_unit.source_key if plan_unit is not None else "tushare").strip().lower()
+        requested_source_key = str(
+            plan_unit.requested_source_key if plan_unit is not None else source_key
+        ).strip().lower()
+        if source_key not in {"tushare", "biying"}:
+            raise ValueError(f"stock_basic writer received unsupported source_key={source_key}")
+
+        raw_dao = self.dao.raw_tushare_stock_basic if source_key == "tushare" else self.dao.raw_biying_stock_basic
+        raw_rows = self._prepare_stock_basic_raw_rows(rows=batch.rows_normalized, source_key=source_key)
+        if raw_rows:
+            raw_dao.bulk_upsert(raw_rows)
+
+        std_rows = [self._security_normalizer.to_std(row, source_key=source_key) for row in batch.rows_normalized]
+        if std_rows:
+            self.dao.security_std.bulk_upsert(std_rows)
+
+        written = 0
+        conflict_strategy = "upsert"
+        if requested_source_key == "all":
+            touched_ts_codes = {
+                str(row.get("ts_code")).strip().upper()
+                for row in std_rows
+                if str(row.get("ts_code") or "").strip()
+            }
+            std_rows_by_source = self._load_security_std_rows_by_source(touched_ts_codes=touched_ts_codes)
+            publish_result = ServingPublishService(self.dao).publish_dataset(
+                dataset_key="stock_basic",
+                std_rows_by_source=std_rows_by_source,
+            )
+            written = int(publish_result.written)
+            conflict_strategy = "resolution_publish"
+        elif source_key == "biying":
+            ts_codes = [str(row["ts_code"]) for row in std_rows if row.get("ts_code")]
+            existing = self.dao.security.get_existing_ts_codes(ts_codes)
+            serving_rows = [
+                {key: value for key, value in row.items() if key != "source_key"}
+                for row in std_rows
+                if str(row.get("ts_code") or "") and str(row["ts_code"]) not in existing
+            ]
+            written = self.dao.security.upsert_many(serving_rows) if serving_rows else 0
+            conflict_strategy = "biying_missing_only"
+        else:
+            serving_rows = [{key: value for key, value in row.items() if key != "source_key"} for row in std_rows]
+            written = self.dao.security.upsert_many(serving_rows) if serving_rows else 0
+            conflict_strategy = "tushare_direct_upsert"
+
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=written,
+            rows_upserted=written,
+            rows_skipped=batch.rows_rejected,
+            target_table=contract.write_spec.target_table,
+            conflict_strategy=conflict_strategy,
+        )
+
+    @staticmethod
+    def _prepare_stock_basic_raw_rows(*, rows: list[dict[str, Any]], source_key: str) -> list[dict[str, Any]]:
+        if source_key == "tushare":
+            prepared: list[dict[str, Any]] = []
+            for row in rows:
+                ts_code = str(row.get("ts_code") or "").strip().upper()
+                if not ts_code:
+                    continue
+                normalized = dict(row)
+                normalized["ts_code"] = ts_code
+                prepared.append(normalized)
+            return prepared
+
+        prepared = []
+        for row in rows:
+            dm = str(row.get("dm") or row.get("ts_code") or "").strip().upper()
+            if not dm:
+                continue
+            prepared.append(
+                {
+                    "dm": dm,
+                    "mc": row.get("mc") or row.get("name"),
+                    "jys": row.get("jys") or row.get("exchange"),
+                }
+            )
+        return prepared
+
+    def _load_security_std_rows_by_source(self, *, touched_ts_codes: set[str]) -> dict[str, list[dict[str, Any]]]:
+        if not touched_ts_codes:
+            return {}
+        model = self.dao.security_std.model
+        columns = [column.name for column in model.__table__.columns if column.name not in {"created_at", "updated_at"}]
+        stmt = select(model).where(model.ts_code.in_(sorted(touched_ts_codes)))
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for item in self.session.scalars(stmt):
+            source = str(getattr(item, "source_key", "") or "").strip()
+            if not source:
+                continue
+            payload = {column_name: getattr(item, column_name) for column_name in columns}
+            grouped.setdefault(source, []).append(payload)
+        return grouped
 
     def _write_moneyflow_std_publish(
         self,

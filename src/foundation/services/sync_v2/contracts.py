@@ -149,6 +149,7 @@ class PlanUnit:
     page_limit: int | None = None
     attempt: int = 0
     priority: int = 0
+    requested_source_key: str | None = None
 
 
 @dataclass(slots=True, frozen=True)

@@ -192,6 +192,29 @@ def _us_basic_params(request, anchor_date: date | None, enum_values: dict[str, A
     return params
 
 
+def _stock_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    source_key = str(enum_values.get("source_key") or request.source_key or request.params.get("source_key") or "tushare").strip().lower()
+    if source_key == "biying":
+        return {}
+
+    params: dict[str, Any] = {}
+    list_status = enum_values.get("list_status", request.params.get("list_status"))
+    if list_status in (None, "", "__ALL__"):
+        params["list_status"] = "L,D,P,G"
+    else:
+        params["list_status"] = str(list_status).strip()
+
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    for key in ("name", "market", "exchange", "is_hs"):
+        value = enum_values.get(key, request.params.get(key))
+        if value not in (None, "", "__ALL__"):
+            params[key] = str(value).strip()
+    return params
+
+
 def _ths_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     ts_code = request.params.get("ts_code")
@@ -836,6 +859,7 @@ __all__ = [
     "_hk_basic_params",
     "_normalize_us_classify",
     "_us_basic_params",
+    "_stock_basic_params",
     "_ths_index_params",
     "_kpl_list_params",
     "_kpl_concept_cons_params",

@@ -15,7 +15,7 @@ class SyncV2WorkerClient:
         self.error_mapper = error_mapper or SyncV2ErrorMapper()
 
     def fetch(self, *, contract: DatasetSyncContract, unit: PlanUnit) -> FetchResult:
-        adapter = get_source_adapter(contract.source_adapter_key)
+        adapter = self._resolve_adapter(contract=contract, unit=unit)
         page_limit = (
             unit.page_limit
             if unit.page_limit is not None
@@ -45,6 +45,16 @@ class SyncV2WorkerClient:
             rows_raw=rows_raw,
             source_http_status=None,
         )
+
+    @staticmethod
+    def _resolve_adapter(*, contract: DatasetSyncContract, unit: PlanUnit):  # type: ignore[no-untyped-def]
+        unit_source_key = str(unit.source_key or "").strip()
+        if unit_source_key:
+            try:
+                return get_source_adapter(unit_source_key)
+            except SyncV2SourceError:
+                pass
+        return get_source_adapter(contract.source_adapter_key)
 
     def _fetch_page(
         self,

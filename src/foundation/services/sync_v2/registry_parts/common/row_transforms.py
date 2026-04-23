@@ -40,6 +40,17 @@ def _trade_cal_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _stock_basic_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    dm = str(transformed.get("dm") or "").strip().upper()
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    if dm:
+        transformed["dm"] = dm
+    return transformed
+
+
 def _suspend_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["row_key_hash"] = build_suspend_d_row_key_hash(transformed)
@@ -270,6 +281,7 @@ __all__ = [
     "MONEYFLOW_VOLUME_FIELDS",
     "_moneyflow_row_transform",
     "_trade_cal_row_transform",
+    "_stock_basic_row_transform",
     "_suspend_d_row_transform",
     "_top_list_row_transform",
     "_daily_row_transform",

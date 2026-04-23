@@ -19,6 +19,7 @@ from src.cli_parts.shared import (
 from src.cli_parts.sync_handlers import (
     run_sync_daily as _run_sync_daily_impl,
     run_sync_history as _run_sync_history_impl,
+    run_sync_snapshot as _run_sync_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
@@ -279,6 +280,52 @@ def sync_daily(
         hot_type=hot_type,
         is_new=is_new,
         tag=tag,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("sync-snapshot")
+def sync_snapshot(
+    resources: list[str] = typer.Option(..., "--resources", "-r"),
+    source_key: str | None = typer.Option(None, "--source-key", help="Optional source selector, e.g. tushare/biying/all."),
+    ts_code: str | None = typer.Option(None),
+    list_status: str | None = typer.Option(None, "--list-status", help="Optional list status filter for hk_basic/stock_basic."),
+    classify: str | None = typer.Option(None, "--classify", help="Optional classify filter for us_basic."),
+    index_code: str | None = typer.Option(None, "--index-code", help="Optional index_code filter for etf_basic."),
+    con_code: str | None = typer.Option(None, "--con-code", help="Optional concept code filter for member resources."),
+    exchange: str | None = typer.Option(None, help="Optional exchange filter for reference resources."),
+    exchange_id: str | None = typer.Option(None, "--exchange-id", help="Optional exchange_id filter for margin resource."),
+    ths_type: str | None = typer.Option(None, "--type", help="Optional type filter for 同花顺板块主数据."),
+    idx_type: str | None = typer.Option(None, "--idx-type", help="Optional 东财板块类型筛选."),
+    market: str | None = typer.Option(None, "--market", help="Optional market filter for hot list resources."),
+    hot_type: str | None = typer.Option(None, "--hot-type", help="Optional hot list type filter."),
+    is_new: str | None = typer.Option(None, "--is-new", help="Optional latest-snapshot tag for hot list resources."),
+    tag: str | None = typer.Option(None, "--tag", help="Optional tag filter for kpl_list."),
+    limit_type: str | None = typer.Option(None, "--limit-type", help="Optional limit list type filter."),
+) -> None:
+    _run_sync_snapshot_impl(
+        session_local=SessionLocal,
+        build_sync_service_fn=build_sync_service,
+        attach_progress_fn=_attach_cli_progress_reporter,
+        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
+        reconciliation_service_cls=SyncJobStateReconciliationService,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        resources=resources,
+        source_key=source_key,
+        ts_code=ts_code,
+        list_status=list_status,
+        classify=classify,
+        index_code=index_code,
+        con_code=con_code,
+        exchange=exchange,
+        exchange_id=exchange_id,
+        ths_type=ths_type,
+        idx_type=idx_type,
+        market=market,
+        hot_type=hot_type,
+        is_new=is_new,
+        tag=tag,
+        limit_type=limit_type,
         echo_fn=typer.echo,
     )
 
