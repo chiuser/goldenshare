@@ -185,6 +185,80 @@ def test_sync_v2_writer_moneyflow_rejects_fractional_volume(mocker) -> None:
     assert exc_info.value.structured_error.error_code == "write_failed"
 
 
+def test_sync_v2_writer_index_daily_filters_to_active_pool_and_replaces_trade_date(mocker) -> None:
+    raw_dao = _StubDao(written=2)
+    core_dao = _StubDao(written=2)
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(
+            raw_index_daily=raw_dao,
+            index_daily_serving=core_dao,
+            index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000300.SH"]),
+            index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+        ),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    contract = get_sync_v2_contract("index_daily")
+    batch = NormalizedBatch(
+        unit_id="u-index-daily",
+        rows_normalized=[
+            {"ts_code": "000300.SH", "trade_date": date(2026, 4, 17), "close": 3000.0},
+            {"ts_code": "000905.SH", "trade_date": date(2026, 4, 17), "close": 5000.0},
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    plan_unit = SimpleNamespace(request_params={"trade_date": "20260417"}, trade_date=date(2026, 4, 17))
+
+    result = writer.write(contract=contract, batch=batch, plan_unit=plan_unit, run_profile="point_incremental")
+
+    assert raw_dao.deleted_ranges == [(date(2026, 4, 17), date(2026, 4, 17))]
+    assert core_dao.deleted_ranges == [(date(2026, 4, 17), date(2026, 4, 17))]
+    assert len(raw_dao.calls) == 1
+    assert len(core_dao.calls) == 1
+    assert [row["ts_code"] for row in raw_dao.calls[0][0]] == ["000300.SH"]
+    assert [row["ts_code"] for row in core_dao.calls[0][0]] == ["000300.SH"]
+    assert result.rows_written == 2
+    assert result.conflict_strategy == "index_daily_active_pool_upsert"
+
+
+def test_sync_v2_writer_index_daily_explicit_ts_code_skips_trade_date_replace(mocker) -> None:
+    raw_dao = _StubDao(written=1)
+    core_dao = _StubDao(written=1)
+    mocker.patch(
+        "src.foundation.services.sync_v2.writer.DAOFactory",
+        return_value=SimpleNamespace(
+            raw_index_daily=raw_dao,
+            index_daily_serving=core_dao,
+            index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000300.SH"]),
+            index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+        ),
+    )
+    writer = SyncV2Writer(session=object())  # type: ignore[arg-type]
+    contract = get_sync_v2_contract("index_daily")
+    batch = NormalizedBatch(
+        unit_id="u-index-daily-explicit",
+        rows_normalized=[
+            {"ts_code": "000300.SH", "trade_date": date(2026, 4, 17), "close": 3000.0},
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    plan_unit = SimpleNamespace(
+        request_params={"trade_date": "20260417", "ts_code": "000300.SH"},
+        trade_date=date(2026, 4, 17),
+    )
+
+    result = writer.write(contract=contract, batch=batch, plan_unit=plan_unit, run_profile="point_incremental")
+
+    assert raw_dao.deleted_ranges == []
+    assert core_dao.deleted_ranges == []
+    assert len(raw_dao.calls) == 1
+    assert len(core_dao.calls) == 1
+    assert result.rows_written == 1
+    assert result.conflict_strategy == "index_daily_active_pool_upsert"
+
+
 def test_sync_v2_writer_supports_index_period_serving_upsert_path(mocker) -> None:
     raw_dao = _StubDao(written=2)
     core_dao = SimpleNamespace(model=SimpleNamespace())

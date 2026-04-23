@@ -14,6 +14,7 @@ ALLOWED_WRITE_PATHS = {
     "raw_std_publish_moneyflow",
     "raw_core_snapshot_insert_by_trade_date",
     "raw_index_period_serving_upsert",
+    "raw_index_daily_active_pool_upsert",
 }
 ALLOWED_UNIVERSE_POLICIES = {"none", "dc_index_board_codes", "index_active_codes", "ths_index_board_codes"}
 ALLOWED_ANCHOR_TYPES = {

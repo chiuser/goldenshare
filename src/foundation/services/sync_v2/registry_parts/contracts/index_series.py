@@ -42,10 +42,10 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
+            date_anchor_policy="trade_date",
+            anchor_type="trade_date",
             window_policy="point_or_range",
-            universe_policy="index_active_codes",
+            universe_policy="none",
             pagination_policy="offset_limit",
         ),
         source_adapter_key="tushare",
@@ -64,6 +64,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             raw_dao_name="raw_index_daily",
             core_dao_name="index_daily_serving",
             target_table="core_serving.index_daily_serving",
+            write_path="raw_index_daily_active_pool_upsert",
         ),
         observe_spec=ObserveSpec(progress_label="index_daily"),
         pagination_spec=PaginationSpec(page_limit=2000),

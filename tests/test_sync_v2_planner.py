@@ -159,12 +159,11 @@ def test_planner_dc_member_fanout_falls_back_to_source_when_dc_index_empty(mocke
     connector.call.assert_called_once()
 
 
-def test_planner_index_daily_fanout_uses_active_index_pool(mocker) -> None:
+def test_planner_index_daily_point_incremental_uses_trade_date_anchor(mocker) -> None:
     session = mocker.Mock()
     planner = SyncV2Planner(session)
     planner.dao = SimpleNamespace(
-        index_series_active=SimpleNamespace(list_active_codes=lambda resource: ["000001.SH", "399001.SZ"]),
-        index_basic=SimpleNamespace(get_active_indexes=lambda: []),
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: []),
     )
     contract = get_sync_v2_contract("index_daily")
     request = RunRequest(
@@ -178,20 +177,20 @@ def test_planner_index_daily_fanout_uses_active_index_pool(mocker) -> None:
 
     units = planner.plan(validated, contract)
 
-    assert len(units) == 2
-    assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
-    assert {unit.request_params["trade_date"] for unit in units} == {"20260421"}
+    assert len(units) == 1
+    assert units[0].request_params["trade_date"] == "20260421"
+    assert units[0].request_params.get("ts_code") is None
 
 
-def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocker) -> None:
+def test_planner_index_daily_range_rebuild_fans_out_trade_dates(mocker) -> None:
     session = mocker.Mock()
     planner = SyncV2Planner(session)
     planner.dao = SimpleNamespace(
-        index_series_active=SimpleNamespace(list_active_codes=lambda resource: []),
-        index_basic=SimpleNamespace(
-            get_active_indexes=lambda: [
-                SimpleNamespace(ts_code="000001.SH"),
-                SimpleNamespace(ts_code="399001.SZ"),
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [
+                date(2026, 4, 15),
+                date(2026, 4, 16),
+                date(2026, 4, 17),
             ]
         ),
     )
@@ -207,10 +206,9 @@ def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocke
 
     units = planner.plan(validated, contract)
 
-    assert len(units) == 2
-    assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
-    assert {unit.request_params["start_date"] for unit in units} == {"20260415"}
-    assert {unit.request_params["end_date"] for unit in units} == {"20260417"}
+    assert len(units) == 3
+    assert {unit.request_params.get("ts_code") for unit in units} == {None}
+    assert {unit.request_params["trade_date"] for unit in units} == {"20260415", "20260416", "20260417"}
 
 
 def test_planner_broker_recommend_range_rebuild_compresses_to_month_end(mocker) -> None:
