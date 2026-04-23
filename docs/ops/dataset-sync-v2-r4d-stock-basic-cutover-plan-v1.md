@@ -13,7 +13,7 @@
 
 ## 1. 背景与目标
 
-当前 `USE_SYNC_V2_DATASETS` 已覆盖除 `stock_basic` 外的全部数据集，`stock_basic` 仍走 V1 `SyncStockBasicService`。
+（历史背景）当时 `USE_SYNC_V2_DATASETS` 已覆盖除 `stock_basic` 外的全部数据集，`stock_basic` 仍走 V1 `SyncStockBasicService`。
 
 本轮目标：
 
@@ -168,7 +168,7 @@
    - `goldenshare init-db`
    - `goldenshare sync-v2-lint-contracts`
 2. 切换开关
-   - 将 `stock_basic` 加入 `USE_SYNC_V2_DATASETS`
+   - （历史执行）将 `stock_basic` 加入 `USE_SYNC_V2_DATASETS`
    - 重启 `web/worker/scheduler`
 3. 切换验证
    - `goldenshare sync-snapshot -r stock_basic --source-key all`
@@ -183,7 +183,7 @@
 
 若门禁失败，立即回滚：
 
-1. 从 `USE_SYNC_V2_DATASETS` 移除 `stock_basic`
+1. （历史执行）从 `USE_SYNC_V2_DATASETS` 移除 `stock_basic`
 2. 重启 `web/worker/scheduler`
 3. 重跑 `sync-snapshot -r stock_basic --source-key all` 验证 V1 恢复
 
@@ -210,7 +210,7 @@
 ## 9. 本轮执行记录（2026-04-23）
 
 1. 代码落地：`sync-snapshot` 命令 + `stock_basic` V2 contract/strategy/writer/worker 能力已上线。
-2. 线上开关：`USE_SYNC_V2_DATASETS` 已纳入 `stock_basic`。
+2. 线上历史开关：`USE_SYNC_V2_DATASETS` 已纳入 `stock_basic`。
 3. 线上验证：
    - `sync-snapshot -r stock_basic --source-key all` 成功（fetched=11035, written=11034）。
    - `reconcile-stock-basic` 基线结果：`only_tushare=632, only_biying=1, comparable_diff=6`。

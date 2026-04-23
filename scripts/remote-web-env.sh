@@ -14,7 +14,7 @@ Commands:
       Show full env file with line numbers.
 
   get <KEY>
-      Show one key with line number, e.g. USE_SYNC_V2_DATASETS.
+      Show one key with line number, e.g. SYNC_V2_STRICT_CONTRACT.
 
   set <KEY> <VALUE>
       Upsert one key to the specified value.
@@ -24,9 +24,9 @@ Commands:
 
 Examples:
   bash scripts/remote-web-env.sh show
-  bash scripts/remote-web-env.sh get USE_SYNC_V2_DATASETS
-  bash scripts/remote-web-env.sh set USE_SYNC_V2_DATASETS stk_factor_pro
-  bash scripts/remote-web-env.sh unset USE_SYNC_V2_DATASETS
+  bash scripts/remote-web-env.sh get SYNC_V2_STRICT_CONTRACT
+  bash scripts/remote-web-env.sh set SYNC_V2_STRICT_CONTRACT true
+  bash scripts/remote-web-env.sh unset SYNC_V2_STRICT_CONTRACT
 
 Notes:
   - This script always uses: ssh <host> + sudo -n + /etc/goldenshare/web.env
@@ -180,4 +180,3 @@ main() {
 
 ARGS=()
 main "$@"
-

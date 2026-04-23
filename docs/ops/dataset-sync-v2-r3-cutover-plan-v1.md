@@ -139,7 +139,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts
 
 每个数据集固定动作：
 
-1. 加入 `USE_SYNC_V2_DATASETS`
+1. （历史执行）将数据集加入 `USE_SYNC_V2_DATASETS`
 2. 重启 `web/worker/scheduler`
 3. `sync-history`（3~7 日）
 4. `sync-daily`（最新交易日）
@@ -158,7 +158,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts
 
 回滚步骤：
 
-1. 从 `USE_SYNC_V2_DATASETS` 移除当前 `dataset_key`
+1. （历史执行）从 `USE_SYNC_V2_DATASETS` 移除当前 `dataset_key`
 2. 重启三服务
 3. 复跑当前数据集一次（确认 V1 可用）
 4. 记录并冻结 R3 后续波次

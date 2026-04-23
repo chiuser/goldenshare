@@ -29,7 +29,7 @@
 2. P2-WP-02：统一 Planner（交易日锚点/周期锚点/枚举扇开/单元上限）已落地。  
 3. P2-WP-03：Source Adapter ACL（tushare/biying）与错误归一已落地。  
 4. P2-WP-04：Normalize + Writer + Engine 主链路已落地。  
-5. P2-WP-05：`USE_SYNC_V2_DATASETS` 路由开关 + `SYNC_V2_STRICT_CONTRACT` 灰度开关已接入。  
+5. P2-WP-05：`SYNC_V2_STRICT_CONTRACT` 灰度开关已接入（`USE_SYNC_V2_DATASETS` 路由开关已在后续收口移除）。  
 6. Contract lint、validator/planner/worker、路由开关测试已补齐并通过。  
 
 ### Phase 3（工作流/Probe/状态投影）
@@ -223,7 +223,7 @@
 - 改动范围：
   - `src/foundation/services/sync/registry.py`（最小接线）
   - `src/ops/runtime/dispatcher.py`（最小路由）
-  - 配置读取点（`USE_SYNC_V2_DATASETS`）
+  - （历史）配置读取点（`USE_SYNC_V2_DATASETS`，现已移除）
 - 前置阅读：
   - Phase 2 第 6.2
 - 验收：

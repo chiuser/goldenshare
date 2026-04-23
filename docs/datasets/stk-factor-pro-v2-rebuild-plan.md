@@ -87,7 +87,7 @@
 
 1. V1：`src/foundation/services/sync/sync_stk_factor_pro_service.py`
 2. V2：`src/foundation/services/sync_v2/*`（需新增 `stk_factor_pro` 合同与注册）
-3. 路由：`src/foundation/services/sync/registry.py`（`USE_SYNC_V2_DATASETS`）
+3. 路由：`src/foundation/services/sync_v2/runtime_registry.py`（V2-only）
 
 ### 3.3 ops 编排与状态
 
@@ -122,7 +122,7 @@
 ### 阶段 C：执行链接线与开关切换
 
 1. 保留 ops 现有 spec key，不改调用入口。
-2. 使用 `USE_SYNC_V2_DATASETS=stk_factor_pro` 切该数据集到 V2。
+2. 当前为 V2-only，无需按数据集开关切换。
 3. 保留快速回切能力（开关移除即退回 V1 路由，作为应急兜底）。
 
 ### 阶段 D：回灌与验证
@@ -238,7 +238,7 @@
 2. 提交“drop + 状态清理”迁移脚本。
 3. 部署迁移并执行清场（旧表删除后重建）。
 4. 提交 `stk_factor_pro` V2 contract 与接线（按新字段口径）。
-5. 打开 `USE_SYNC_V2_DATASETS=stk_factor_pro`。
+5. 确认部署代码已包含 `stk_factor_pro` V2 contract 并重启服务。
 6. 执行历史回补（区间）并核验。
 7. 接入日增量任务并核验。
 8. 通过验收后移除 V1 专属实现。

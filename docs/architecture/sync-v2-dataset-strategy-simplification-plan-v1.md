@@ -237,7 +237,7 @@ src/foundation/services/sync_v2/
 
 ### 7.2 回滚
 
-1. 按数据集粒度回滚：从 `USE_SYNC_V2_DATASETS` 移除对应数据集即可回退到 V1。  
+1. （历史）按数据集粒度回滚曾依赖 `USE_SYNC_V2_DATASETS`；当前运行为 V2-only，回滚按提交粒度执行。  
 2. 编码回滚只回退本 batch，不跨批次回退。  
 3. 出现异常只暂停当前数据集，不影响其他已稳定数据集。  
 

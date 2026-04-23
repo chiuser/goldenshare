@@ -222,7 +222,7 @@
 
 每个数据集执行：
 
-1. 加入 `USE_SYNC_V2_DATASETS`。
+1. （历史执行）加入 `USE_SYNC_V2_DATASETS`。
 2. 重启 `web/worker/scheduler`。
 3. 执行小窗口 `sync-history`（优先 `1~3` 天 + 单代码）。
 4. 执行 `sync-daily --trade-date`。
@@ -238,7 +238,7 @@
 
 任一失败立即按数据集粒度回滚：
 
-1. 从 `USE_SYNC_V2_DATASETS` 移除当前数据集。
+1. （历史执行）从 `USE_SYNC_V2_DATASETS` 移除当前数据集。
 2. 重启三服务。
 3. 复跑同窗口 `sync-history/sync-daily` 验证 V1 恢复。
 4. 记录失败点，冻结 R4-C。

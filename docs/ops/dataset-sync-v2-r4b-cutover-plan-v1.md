@@ -34,7 +34,7 @@
    - `sync-daily --trade-date 2026-03-31` -> `fetched=13983 written=1130`
    - `reconcile-dataset --dataset index_monthly --start-date 2026-03-31 --end-date 2026-03-31 --abs-diff-threshold 0` -> `abs_diff=0`
 
-执行后，`USE_SYNC_V2_DATASETS` 已包含 `index_weekly,index_monthly`。
+执行后（历史），`USE_SYNC_V2_DATASETS` 已包含 `index_weekly,index_monthly`。
 
 ---
 
@@ -196,7 +196,7 @@
 
 每个数据集固定流程：
 
-1. 更新 `USE_SYNC_V2_DATASETS`（只加当前数据集）
+1. （历史执行）更新 `USE_SYNC_V2_DATASETS`（只加当前数据集）
 2. 重启 `web/worker/scheduler`
 3. 执行小窗口 `sync-history`（优先指定单 `ts_code` 缩短验证时间）
 4. 执行单日 `sync-daily --trade-date`
@@ -209,7 +209,7 @@
 
 任一门禁失败即回滚：
 
-1. 从 `USE_SYNC_V2_DATASETS` 移除当前数据集。
+1. （历史执行）从 `USE_SYNC_V2_DATASETS` 移除当前数据集。
 2. 重启三服务。
 3. 复跑一次该数据集同步，确认 V1 路径恢复。
 4. 记录失败原因并冻结 R4-B。

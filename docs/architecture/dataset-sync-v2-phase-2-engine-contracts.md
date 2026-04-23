@@ -285,12 +285,12 @@
 
 新增开关（建议）：
 
-1. `USE_SYNC_V2_DATASETS`：集合型，存 `dataset_key` 列表  
+1. （历史）`USE_SYNC_V2_DATASETS`：集合型，存 `dataset_key` 列表（现已移除）  
 2. `SYNC_V2_STRICT_CONTRACT`：是否启用严格契约检查  
 
 路由规则：
 
-1. dataset 在 `USE_SYNC_V2_DATASETS` 中：走 `sync_v2.engine`。  
+1. （当前）dataset 默认走 `sync_v2.engine`（V2-only）。  
 2. 不在集合中：继续走 V1 `build_sync_service`。  
 
 ## 6.3 兼容要求
@@ -360,6 +360,6 @@
 
 回滚策略：
 
-1. 关闭 `USE_SYNC_V2_DATASETS` 对应数据集开关，秒级回 V1。  
+1. （当前）不再支持按数据集开关回 V1；异常时按提交粒度回退并重发版。  
 2. 保留 V1 同步链路与 DAO，不在本期删除。  
 3. 对于正在运行 execution，只终止 V2 新入队，不强制中断已运行任务。  

@@ -12,6 +12,7 @@ from src.foundation.services.sync_v2.registry_parts.assemble import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY_PARTS_ROOT = REPO_ROOT / "src/foundation/services/sync_v2/registry_parts"
 CONTRACTS_ROOT = REGISTRY_PARTS_ROOT / "contracts"
+SRC_ROOT = REPO_ROOT / "src"
 
 EXPECTED_DOMAIN_FILES = {
     "market_equity",
@@ -98,6 +99,11 @@ DISALLOWED_DIRECT_CONSTRUCTORS = {
     "WriteSpec",
 }
 
+LEGACY_ROUTE_TOGGLE_TOKENS = (
+    "USE_SYNC_V2_DATASETS",
+    "use_sync_v2_datasets",
+)
+
 
 def _module_path(domain: str) -> Path:
     return CONTRACTS_ROOT / f"{domain}.py"
@@ -167,3 +173,19 @@ def test_contract_modules_must_use_builder_templates_for_schema_specs() -> None:
             "请改用 builders（build_input_schema/build_planning_spec/"
             "build_normalization_spec/build_write_spec）。"
         )
+
+
+def test_no_legacy_dataset_route_toggle_in_src_runtime() -> None:
+    violations: list[str] = []
+    for file_path in sorted(SRC_ROOT.rglob("*.py")):
+        rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        for lineno, line in enumerate(lines, start=1):
+            for token in LEGACY_ROUTE_TOGGLE_TOKENS:
+                if token in line:
+                    violations.append(f"{rel_path}:{lineno}: {line.strip()}")
+
+    assert not violations, (
+        "检测到已废弃的 V2 路由开关引用（USE_SYNC_V2_DATASETS）。"
+        "当前为 V2-only 运行，禁止重新引入该开关:\n" + "\n".join(violations)
+    )

@@ -14,7 +14,7 @@
 
 ## 1. 目标与原则
 
-本 Runbook 的目标是：在不影响现网稳定性的前提下，按数据集粒度将同步链路从 V1 平稳切到 V2。
+本 Runbook 的目标是：在不影响现网稳定性的前提下，按数据集粒度稳定运行并持续校验 V2 同步链路。
 
 执行原则：
 
@@ -95,7 +95,7 @@
 说明：
 
 1. `R3` 目标集（`ths_* / dc_* / stk_period_bar_*`）已纳入 V2 contract。
-2. 是否“线上已启用”以远程 `/etc/goldenshare/web.env` 的 `USE_SYNC_V2_DATASETS` 为准，不以本文硬编码值为准。
+2. 当前运行链路为 V2-only（不再依赖 `USE_SYNC_V2_DATASETS` 路由开关）。
 
 ---
 
@@ -122,21 +122,11 @@ GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-v2-lint
 
 ---
 
-## 4. 单数据集切换步骤（标准流程）
+## 4. 单数据集验证步骤（标准流程）
 
 以下步骤中的 `<dataset_key>` 为本次要切的数据集。
 
-### 4.1 审计当前开关值
-
-```bash
-grep -n '^USE_SYNC_V2_DATASETS=' /etc/goldenshare/web.env
-```
-
-### 4.2 更新环境开关
-
-将 `<dataset_key>` 加入 `USE_SYNC_V2_DATASETS`（逗号分隔集合）。
-
-### 4.3 重启服务使配置生效
+### 4.1 重启服务（确保使用当前部署代码）
 
 ```bash
 sudo -n systemctl restart goldenshare-ops-worker.service
@@ -144,7 +134,7 @@ sudo -n systemctl restart goldenshare-ops-scheduler.service
 sudo -n systemctl restart goldenshare-web.service
 ```
 
-### 4.4 运行切换验证命令
+### 4.2 运行验证命令
 
 按数据集入口语义执行：
 
@@ -166,7 +156,7 @@ GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-daily -
 GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare sync-history -r <dataset_key> --start-date YYYY-MM-DD --end-date YYYY-MM-DD
 ```
 
-### 4.5 对账门禁（必须）
+### 4.3 对账门禁（必须）
 
 ```bash
 GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare reconcile-dataset \
@@ -183,7 +173,7 @@ GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env .venv/bin/goldenshare reconcile-da
 2. `abs_diff=0`。
 3. 无异常样本差异。
 
-### 4.6 运行状态核验
+### 4.4 运行状态核验
 
 ```bash
 systemctl is-active goldenshare-web.service
@@ -195,7 +185,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 ---
 
-## 5. 回滚步骤（秒级）
+## 5. 回滚步骤（代码级）
 
 触发条件（任一满足即回滚）：
 
@@ -205,9 +195,9 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 回滚动作：
 
-1. 从 `USE_SYNC_V2_DATASETS` 移除当前 `dataset_key`。
-2. 重启 `web/worker/scheduler`。
-3. 重新执行一次该数据集同步，确认 V1 路径恢复。
+1. 回退到上一稳定提交（`git revert` 或切换到已验证 tag/commit）。
+2. 重新执行发版并重启 `web/worker/scheduler`。
+3. 重新执行一次该数据集同步与对账，确认恢复。
 4. 记录异常并冻结下一批。
 
 ---
@@ -219,7 +209,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 1. R0+R1+R2 阶段曾按 38 个数据集批次执行并通过门禁。
 2. 当时尚未纳入 V2 的 R3 目标（`ths_* / dc_* / stk_period_bar_*`）已在后续代码中补齐 contract。
 
-当前是否启用、启用到哪一批，必须以远程 `USE_SYNC_V2_DATASETS` 实时值为准。
+历史批次中涉及 `USE_SYNC_V2_DATASETS` 的描述仅用于追溯；当前已不再使用该开关。
 
 ---
 
@@ -227,7 +217,7 @@ curl -s http://127.0.0.1:8000/api/v1/health
 
 当前迁移主线已完成，后续聚焦稳定化：
 
-1. 持续巡检 `USE_SYNC_V2_DATASETS` 与 contract 覆盖是否漂移。
+1. 持续巡检 `SYNC_V2_CONTRACTS` 与运行结果是否漂移。
 2. 按数据集入口语义（`sync-snapshot/sync-daily/sync-history`）固化门禁。
 3. 新增数据集默认走 V2 contract 开发与切换，不再新增 V1 旁路。
 
@@ -238,8 +228,6 @@ curl -s http://127.0.0.1:8000/api/v1/health
 ```text
 批次：
 dataset_key：
-切换前 USE_SYNC_V2_DATASETS：
-切换后 USE_SYNC_V2_DATASETS：
 增量同步命令：
 历史同步命令：
 对账窗口：

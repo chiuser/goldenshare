@@ -74,7 +74,7 @@
 
 机制：
 
-1. 开关：`USE_SYNC_V2_DATASETS`（集合）  
+1. （历史）开关：`USE_SYNC_V2_DATASETS`（集合，现已移除）  
 2. 回切：从集合移除 dataset_key 即可。  
 
 门禁：
@@ -233,7 +233,7 @@
 
 ## 7.1 运行级回滚
 
-1. 将 `dataset_key` 从 `USE_SYNC_V2_DATASETS` 移除。  
+1. （当前）按提交粒度回退到上一稳定版本，不再支持按 `USE_SYNC_V2_DATASETS` 数据集粒度回退。  
 2. scheduler 保持运行，但新任务回到 V1。  
 
 ## 7.2 状态级回滚
