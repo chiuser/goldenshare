@@ -2,7 +2,7 @@
 
 - 版本：v1.5
 - 日期：2026-04-23
-- 状态：执行中（R0+R1+R2+R3+R4 全部完成，进入稳定化阶段）
+- 状态：已完成（R0+R1+R2+R3+R4 全部完成，进入稳定维护阶段）
 - 适用环境：远程生产（`goldenshare-prod`）
 - 关联设计：
   - [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)

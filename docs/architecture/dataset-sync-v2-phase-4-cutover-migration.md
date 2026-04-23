@@ -1,8 +1,11 @@
 # Phase 4：迁移切换与兼容收口（P1/P2）
 
-- 版本：v1.0
+> 状态：历史分期文档（归档）。  
+> 说明：本文保留迁移阶段执行语境（含双轨与开关切换内容）；当前现行为 V2-only。
+
+- 版本：v1.0（历史执行稿）
 - 日期：2026-04-21
-- 状态：执行中（切换阶段持续推进）
+- 状态：归档（迁移阶段已完成）
 - 关联文档：
   - [V2 主方案](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
   - [Phase 1：执行域与事件模型](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-phase-1-execution-domain.md)

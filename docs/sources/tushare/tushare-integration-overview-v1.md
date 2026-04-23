@@ -1,8 +1,16 @@
-# Tushare 已接入数据集总说明（代码对齐版）
+# Tushare 已接入数据集总说明（历史快照）
 
-- 统计口径：`src/foundation/services/sync/registry.py` + `src/ops/specs/registry.py` + `docs/sources/tushare/docs_index.csv`
-- 生成时间：2026-04-20
-- 范围说明：仅统计 **Tushare** 已接入数据集（不含 Biying）。
+> 状态：历史归档（2026-04-20 生成）。  
+> 说明：本文保留当时的盘点快照，包含已删除的 V1 路径与实现命名，仅用于追溯。  
+> 当前现行口径请优先参考：
+>
+> 1. [Tushare 请求执行口径 v1](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
+> 2. `src/foundation/services/sync_v2/runtime_registry.py`
+> 3. [docs_index.csv](/Users/congming/github/goldenshare/docs/sources/tushare/docs_index.csv)
+
+- 历史统计口径：`src/foundation/services/sync/registry.py` + `src/ops/specs/registry.py` + `docs/sources/tushare/docs_index.csv`
+- 快照生成时间：2026-04-20
+- 快照范围：仅统计 **Tushare** 已接入数据集（不含 Biying）。
 
 ## 1. 总体统计
 
@@ -48,11 +56,11 @@
 每个数据集按同一模板汇总：
 
 1. **接入信息**：`resource`、展示名、Tushare 接口、源文档。
-2. **实现方式**：服务类（`Sync*Service`）+ 落库链路（`raw -> core/core_serving`）。
+2. **实现方式（历史）**：服务类（`Sync*Service`）+ 落库链路（`raw -> core/core_serving`）。
 3. **同步能力**：`sync_daily` / `sync_history` / `backfill_*`。
 4. **同步维度**：按交易日、按证券池、按日期区间、按月等。
 5. **输入参数对照**：按 `daily/history/backfill` 三段展示。
-6. **输出参数对照**：接口字段数 + 字段示例（完整字段以 `src/foundation/services/sync/fields.py` 与服务实现为准）。
+6. **输出参数对照（历史）**：接口字段数 + 字段示例（完整字段以当时服务实现为准）。
 
 ## 3. 已接入数据集清单（模板化汇总）
 

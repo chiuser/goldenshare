@@ -1,5 +1,8 @@
 # Foundation 多源数据基座升级与停机迁移方案 v1
 
+> 状态：历史专题方案（归档）。  
+> 说明：本文保留多源升级早期设计语境，包含 V1 路径引用；当前以 `sync_v2` 与现行基线文档为准。
+
 更新时间：2026-04-12  
 适用范围：`src/foundation/*`（本期不改 Ops 页面交互与 Ops 数据状态展示逻辑）  
 关联基线：[subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)

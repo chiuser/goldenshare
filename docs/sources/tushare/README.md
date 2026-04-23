@@ -61,7 +61,7 @@ docs/sources/tushare/
 补充：
 
 1. 代码已接入数据集的总览文档见：
-   - `/Users/congming/github/goldenshare/docs/sources/tushare/tushare-integration-overview-v1.md`
+   - `/Users/congming/github/goldenshare/docs/sources/tushare/tushare-integration-overview-v1.md`（历史快照，非现行口径）
 
 ---
 

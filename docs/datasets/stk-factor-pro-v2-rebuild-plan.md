@@ -1,8 +1,11 @@
 # `stk_factor_pro` 全链路重做技术方案（V2 优先）
 
-- 版本：v1.0（评审稿）
+> 状态：历史执行方案（归档）。  
+> 说明：本文记录 `stk_factor_pro` 重做方案与执行过程，当前实现请以代码与 runbook 为准。
+
+- 版本：v1.0（执行归档）
 - 日期：2026-04-21
-- 状态：待实施
+- 状态：已实施
 - 适用范围：`src/foundation`、`src/ops`、`src/biz`、`frontend`、远程 `ops/foundation/raw_tushare/core_serving` 数据库对象
 - 关联基线：
   - [数据同步 V2 重设计方案（含平稳迁移）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)

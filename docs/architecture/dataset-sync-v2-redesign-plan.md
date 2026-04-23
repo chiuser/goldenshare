@@ -1,8 +1,16 @@
 # 数据同步 V2 重设计方案（含平稳迁移）
 
-- 版本：v2.2（执行基线）
+> 状态：历史设计主案（归档）。  
+> 说明：本文保留 V2 设计与迁移阶段语境（含 V1/V2 双轨表述），不再作为现行运行口径。  
+> 当前现行口径请优先参考：
+>
+> 1. [数据同步 V2 切换运行手册 v1](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
+> 2. [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
+> 3. [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+
+- 版本：v2.2（历史执行基线）
 - 日期：2026-04-20
-- 状态：执行中（Phase 1-4 首轮已落地，V1/V2 双轨持续切换）
+- 状态：归档（设计内容已执行完成，当前运行已收敛为 V2-only）
 - 适用范围：`src/foundation`、`src/ops`（数据拉取、落库、编排、观测全链路）
 - 详细分期方案索引：[dataset-sync-v2-detailed-plan-index.md](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-detailed-plan-index.md)
 
@@ -10,9 +18,9 @@
 
 ## 0. 实施快照（2026-04-21）
 
-1. Phase 1-4 对应的核心代码与测试已完成首轮落地。  
-2. 当前保持 V1/V2 双轨可切换，不做一次性硬切断。  
-3. 本轮未改上层业务 API 契约，符合本文边界定义。  
+1. （历史）Phase 1-4 对应的核心代码与测试已完成首轮落地。  
+2. （历史）当时保持 V1/V2 双轨可切换，不做一次性硬切断。  
+3. （历史）该轮未改上层业务 API 契约，符合当期边界定义。  
 
 ## 1. 目标与边界
 
