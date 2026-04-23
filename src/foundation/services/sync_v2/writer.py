@@ -55,15 +55,6 @@ class SyncV2Writer:
                     plan_unit=plan_unit,
                     run_profile=run_profile,
                 )
-            if contract.write_spec.write_path == "raw_index_daily_active_pool_upsert":
-                return self._write_index_daily_active_pool(
-                    contract=contract,
-                    batch=batch,
-                    raw_dao=raw_dao,
-                    core_dao=core_dao,
-                    plan_unit=plan_unit,
-                    run_profile=run_profile,
-                )
             if not batch.rows_normalized:
                 return WriteResult(
                     unit_id=batch.unit_id,
@@ -148,7 +139,7 @@ class SyncV2Writer:
                     conflict_strategy="index_period_filtered_empty",
                 )
             if full_date_refresh:
-                self._purge_rows_by_trade_dates(dao=raw_dao, rows=filtered_rows)
+                self._purge_index_period_raw_rows_by_trade_dates(raw_dao=raw_dao, rows=filtered_rows)
             if contract.write_spec.conflict_columns:
                 raw_dao.bulk_upsert(filtered_rows, conflict_columns=list(contract.write_spec.conflict_columns))
             else:
@@ -223,66 +214,6 @@ class SyncV2Writer:
             rows_skipped=batch.rows_rejected,
             target_table=contract.write_spec.target_table,
             conflict_strategy=conflict_strategy,
-        )
-
-    def _write_index_daily_active_pool(
-        self,
-        *,
-        contract: DatasetSyncContract,
-        batch: NormalizedBatch,
-        raw_dao,
-        core_dao,
-        plan_unit: PlanUnit | None,
-        run_profile: str | None,
-    ) -> WriteResult:
-        if not batch.rows_normalized:
-            return WriteResult(
-                unit_id=batch.unit_id,
-                rows_written=0,
-                rows_upserted=0,
-                rows_skipped=batch.rows_rejected,
-                target_table=contract.write_spec.target_table,
-                conflict_strategy="index_daily_empty",
-            )
-
-        active_codes = self._resolve_active_index_codes()
-        filtered_rows = self._filter_index_rows_by_active_pool(
-            rows=batch.rows_normalized,
-            active_codes=active_codes,
-        )
-        if not filtered_rows:
-            return WriteResult(
-                unit_id=batch.unit_id,
-                rows_written=0,
-                rows_upserted=0,
-                rows_skipped=batch.rows_rejected,
-                target_table=contract.write_spec.target_table,
-                conflict_strategy="index_daily_filtered_empty",
-            )
-
-        explicit_ts_code = bool(
-            plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
-        )
-        full_date_refresh = (not explicit_ts_code) and run_profile in {"point_incremental", "range_rebuild"}
-        if full_date_refresh:
-            self._purge_rows_by_trade_dates(dao=raw_dao, rows=filtered_rows)
-            self._purge_rows_by_trade_dates(dao=core_dao, rows=filtered_rows)
-
-        conflict_columns = list(contract.write_spec.conflict_columns) if contract.write_spec.conflict_columns else None
-        if conflict_columns:
-            raw_dao.bulk_upsert(filtered_rows, conflict_columns=conflict_columns)
-            rows_upserted = core_dao.bulk_upsert(filtered_rows, conflict_columns=conflict_columns)
-        else:
-            raw_dao.bulk_upsert(filtered_rows)
-            rows_upserted = core_dao.bulk_upsert(filtered_rows)
-
-        return WriteResult(
-            unit_id=batch.unit_id,
-            rows_written=rows_upserted,
-            rows_upserted=rows_upserted,
-            rows_skipped=batch.rows_rejected,
-            target_table=contract.write_spec.target_table,
-            conflict_strategy="index_daily_active_pool_upsert",
         )
 
     def _build_index_period_serving_rows(
@@ -510,10 +441,10 @@ class SyncV2Writer:
         return normalized
 
     @staticmethod
-    def _purge_rows_by_trade_dates(*, dao, rows: list[dict[str, Any]]) -> None:
+    def _purge_index_period_raw_rows_by_trade_dates(*, raw_dao, rows: list[dict[str, Any]]) -> None:
         trade_dates = sorted({row["trade_date"] for row in rows if isinstance(row.get("trade_date"), date)})
         for current_date in trade_dates:
-            dao.delete_by_date_range(current_date, current_date)
+            raw_dao.delete_by_date_range(current_date, current_date)
 
     def _resolve_index_period_start_date(
         self,
