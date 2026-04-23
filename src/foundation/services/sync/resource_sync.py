@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from src.foundation.clients.tushare_client import TushareHttpClient, TushareSdkClient
+from src.foundation.clients.tushare_client import TushareHttpClient
 from src.foundation.services.sync.base_sync_service import BaseSyncService
 from src.utils import coerce_row
 
@@ -32,32 +32,4 @@ class HttpResourceSyncService(BaseSyncService):
         core_dao = getattr(self.dao, self.core_dao_name)
         raw_dao.bulk_upsert(normalized)
         written = core_dao.bulk_upsert([self.core_transform(row) for row in normalized])
-        return len(rows), written, trade_date, None
-
-
-class ProBarSyncService(BaseSyncService):
-    asset: str
-    raw_dao_name: str
-    core_dao_name: str
-    date_fields: tuple[str, ...] = ("trade_date",)
-    decimal_fields: tuple[str, ...] = ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount")
-
-    def __init__(self, session: Session) -> None:
-        super().__init__(session)
-        self.client = TushareSdkClient()
-
-    def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
-        ts_code = kwargs.get("ts_code")
-        trade_date = kwargs.get("trade_date")
-        start_date = kwargs.get("start_date") or (trade_date.strftime("%Y%m%d") if trade_date else None)
-        end_date = kwargs.get("end_date") or (trade_date.strftime("%Y%m%d") if trade_date else None)
-        rows = self.client.pro_bar(ts_code=ts_code, asset=self.asset, start_date=start_date, end_date=end_date, freq="D")
-        normalized = [coerce_row(row, self.date_fields, self.decimal_fields) for row in rows]
-        for row in normalized:
-            if "change" in row and "change_amount" not in row:
-                row["change_amount"] = row.pop("change")
-        raw_dao = getattr(self.dao, self.raw_dao_name)
-        core_dao = getattr(self.dao, self.core_dao_name)
-        raw_dao.bulk_upsert(normalized)
-        written = core_dao.bulk_upsert(normalized)
         return len(rows), written, trade_date, None
