@@ -1,6 +1,6 @@
 # 前端当前强约束（统一基线）
 
-更新时间：2026-04-20
+更新时间：2026-04-23
 
 ## 1. 文档定位
 
@@ -13,6 +13,9 @@
 3. `frontend-design-tokens-and-component-catalog-v1.md`
 4. `frontend-governance-rollout-plan-v1.md`
 5. `frontend-phase2-execution-brief-v1.md`
+6. `frontend-phase5-execution-plan-v1.md`
+7. `frontend-phase6-execution-plan-v1.md`
+8. `frontend-regression-and-baseline-workflow-v1.md`
 
 ---
 
@@ -56,6 +59,8 @@
 2. 关键交互路径（含异常分支）。
 3. 与后端契约相关的最小回归（字段与状态渲染）。
 4. 高可见组件或页面模式调整，应评估是否需要截图门禁。
+5. 当前已自动化的前端规则，应通过 `npm run check:rules` 校验。
+6. 具体回归档位、截图基线刷新纪律与 CI 排查顺序，以 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 为准。
 
 ---
 

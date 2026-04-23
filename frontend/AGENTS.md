@@ -10,7 +10,8 @@
 
 ## 当前阶段说明
 
-当前前端处于“共享组件基线已形成，准备进入试点页重构”的治理收敛阶段。
+当前前端处于“任务中心试点与门禁深化已完成，进入规模化推广”的治理收敛阶段。
+当前 `Phase 5` 已完成收口，当前默认按 `Phase 6` 的推广批次与边界卡机制推进。
 
 已有基础：
 
@@ -18,21 +19,24 @@
 - Mantine 作为主 UI 基座
 - TanStack Query / Router
 - 第一批共享组件标准件与领域组件最小版本
+- 任务中心试点页链路
 - HTML Showcase 视觉对照
 - `typecheck + test + build + smoke/visual gate` 基础门禁
+- `Frontend Quality Gate`
 
 当前主要问题不是“没有前端”，而是：
 
 1. 缺少完整的前端交付流程
 2. 缺少统一的交互与视觉 token 规则
-3. 共享组件虽然已经起步，但还需要在试点页中验证边界与够用性
-4. 缺少前端任务专用的协同与审查约束
-5. `DataTable v1` 与 `TradeDateField v2` 这类试点支持任务还需要按边界推进
+3. 已有共享组件与试点页成果还需要更稳的门禁保护
+4. 缺少更多可执行的前端规则自动检查
+5. `DataTable v1` 与 `TradeDateField v2` 这类试点基线仍需要在后续推广中守住边界
 
 因此，当前阶段的默认目标是：
 
 - 优先维护流程、规范、组件标准和测试门禁
-- 在试点页中验证现有共享标准件与最小领域组件
+- 保护试点页和共享标准件已经形成的稳定基线
+- 深化 smoke / visual gate 与规则自动检查
 - 在新页面和被修改页面中逐步收敛风格
 - 不做一次性大改全部页面的 big bang 重写
 
@@ -48,8 +52,10 @@
 4. `docs/frontend/frontend-delivery-workflow-v1.md`
 5. `docs/frontend/frontend-design-tokens-and-component-catalog-v1.md`
 6. `docs/frontend/frontend-current-standards.md`
-7. `docs/frontend/frontend-governance-rollout-plan-v1.md`
-8. 当前目标文件及其相邻目录中的已有实现
+7. `docs/frontend/frontend-regression-and-baseline-workflow-v1.md`
+8. `docs/frontend/frontend-governance-rollout-plan-v1.md`
+9. `docs/frontend/frontend-phase6-execution-plan-v1.md`
+10. 当前目标文件及其相邻目录中的已有实现
 
 不要在未确认现有共享组件、页面模式、API 类型和测试方式前直接写页面。
 
@@ -130,7 +136,7 @@
 
 ### 7. 试点支持任务也必须守住单一主目标
 
-当前 `Phase 4` 中的以下任务虽然属于试点支持项，但仍然必须按“单一主目标 + 边界卡”推进：
+以下能力虽然已经在 `Phase 4` 中落下，但在 `Phase 5/6` 继续演进时，仍然必须按“单一主目标 + 边界卡”推进：
 
 - `DataTable v1`
 - `TradeDateField v2`
@@ -304,8 +310,11 @@
 对前端有效改动，默认验证顺序为：
 
 1. `npm run typecheck`
-2. `npm run test`
-3. `npm run build`
+2. `npm run check:rules`
+3. `npm run test`
+4. `npm run build`
+
+更细的回归档位、截图基线刷新纪律与 CI 排查顺序，以 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 为准。
 
 以下情况必须补测试或更新测试：
 

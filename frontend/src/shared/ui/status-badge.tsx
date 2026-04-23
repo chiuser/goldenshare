@@ -13,6 +13,8 @@ interface ToneConfig {
 }
 
 const toneMap: Record<string, ToneConfig> = {
+  ok: { scale: "success", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  healthy: { scale: "success", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   queued: { scale: "neutral", backgroundIndex: 1, textIndex: 7, borderIndex: 3 },
   running: { scale: "info", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   canceling: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },

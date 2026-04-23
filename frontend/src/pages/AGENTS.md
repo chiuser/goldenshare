@@ -102,7 +102,7 @@
 - 再通过试点重构，把高频模式抽出
 - 暂不做大规模 page 目录重排
 
-当前试点准备期的默认策略是：
+当前规模化推广期的默认策略是：
 
 - 优先复用现有标准件，而不是继续在页面内手写重复模式
 - 当前优先复用的标准件包括：
@@ -137,10 +137,15 @@
 4. 是否新增共享组件
 5. 验证方案
 
-若属于 `Phase 4` 的试点支持任务，还要说明：
+若属于任务中心试点链路维护项或 `Phase 5/6` 的推广支持任务，还要说明：
 
 6. 是否属于 `DataTable v1` 或 `TradeDateField v2`
 7. 本轮边界卡是否已经明确
+
+若属于 `Phase 6` 的页面推广批，还应说明：
+
+8. 当前批次是否已在 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 中定义
+9. 本轮是否触及已存在的 smoke / visual gate
 
 ### 大改动 / 重构
 
@@ -190,3 +195,5 @@
 
 - `npm run test:smoke`
 - 是否影响现有视觉基线
+
+页面改动的最小验证档位、截图基线更新纪律与 CI 失败排查顺序，以 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 为准。

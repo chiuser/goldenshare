@@ -8,6 +8,7 @@ import { formatEnvironmentLabel, formatHealthStatusLabel, formatServiceNameLabel
 import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
+import { StatusBadge } from "../shared/ui/status-badge";
 
 
 export function PlatformCheckPage() {
@@ -17,12 +18,25 @@ export function PlatformCheckPage() {
     staleTime: 10_000,
   });
   const userQuery = useCurrentUser();
+  const healthBadgeLabel = healthQuery.isLoading
+    ? "读取中"
+    : healthQuery.error
+      ? "失败"
+      : healthQuery.data?.status === "ok"
+        ? "服务正常"
+        : formatHealthStatusLabel(healthQuery.data?.status ?? "unknown");
 
   return (
     <Stack gap="lg">
       <PageHeader
         title="平台检查"
         description="这是前端应用的防腐页，用来验证新前端、接口层和认证链路是否健康。"
+        action={(
+          <StatusBadge
+            value={healthQuery.error ? "error" : healthQuery.data?.status}
+            label={healthBadgeLabel}
+          />
+        )}
       />
 
       <Grid>
@@ -70,7 +84,9 @@ export function PlatformCheckPage() {
                 </Table.Tr>
                 <Table.Tr>
                   <Table.Th>状态</Table.Th>
-                  <Table.Td>{formatHealthStatusLabel(healthQuery.data.status)}</Table.Td>
+                  <Table.Td>
+                    <StatusBadge value={healthQuery.data.status} label={healthBadgeLabel} />
+                  </Table.Td>
                 </Table.Tr>
                 <Table.Tr>
                   <Table.Th>环境</Table.Th>

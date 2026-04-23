@@ -6,7 +6,9 @@ import type {
   SourceManagementBridgeResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
+import { EmptyState } from "../shared/ui/empty-state";
 import { OpsTable, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
+import { PageHeader } from "../shared/ui/page-header";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -36,9 +38,14 @@ export function OpsSourceManagementPage() {
 
   return (
     <Stack gap="lg">
+      <PageHeader
+        title="数据源管理"
+        description="这里继续使用桥接看板方式承接新版多源对象，只做查询可视化，不在本批扩出写操作工作区。"
+      />
+
       <SectionCard
-        title="数据源管理（新版）"
-        description="这个页面先作为新版能力桥接看板：在不改动旧页面流程的前提下，承接多源模型的核心对象。"
+        title="桥接看板摘要"
+        description="在不改动旧页面流程的前提下，先承接多源模型中的探测、发布、规则与分层快照。"
       >
         {loading ? <Loader size="sm" /> : null}
         {error ? (
@@ -87,7 +94,7 @@ export function OpsSourceManagementPage() {
             {latestItems.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={6}>
-                  <OpsTableCellText c="dimmed">暂无数据</OpsTableCellText>
+                  <EmptyState title="暂无分层快照" description="当前还没有可展示的最新层级状态。" />
                 </Table.Td>
               </Table.Tr>
             ) : latestItems.slice(0, 30).map((item, index) => (
@@ -137,7 +144,7 @@ export function OpsSourceManagementPage() {
                   </Group>
                 </Group>
               ))}
-              {probeItems.length === 0 ? <Text size="sm" c="dimmed">暂无探测规则</Text> : null}
+              {probeItems.length === 0 ? <EmptyState title="暂无探测规则" description="当前还没有可展示的自动探测规则。" /> : null}
             </Stack>
           </SectionCard>
         </Grid.Col>
@@ -154,7 +161,7 @@ export function OpsSourceManagementPage() {
                   <StatusBadge value={item.status} />
                 </Group>
               ))}
-              {releaseItems.length === 0 ? <Text size="sm" c="dimmed">暂无发布记录</Text> : null}
+              {releaseItems.length === 0 ? <EmptyState title="暂无发布记录" description="当前还没有可展示的策略发布或回滚记录。" /> : null}
             </Stack>
           </SectionCard>
         </Grid.Col>
@@ -176,7 +183,7 @@ export function OpsSourceManagementPage() {
                   </Group>
                 </Group>
               ))}
-              {mappingItems.length === 0 ? <Text size="sm" c="dimmed">暂无映射规则</Text> : null}
+              {mappingItems.length === 0 ? <EmptyState title="暂无映射规则" description="当前还没有可展示的字段映射规则。" /> : null}
             </Stack>
           </SectionCard>
         </Grid.Col>
@@ -196,7 +203,7 @@ export function OpsSourceManagementPage() {
                   </Group>
                 </Group>
               ))}
-              {cleansingItems.length === 0 ? <Text size="sm" c="dimmed">暂无清洗规则</Text> : null}
+              {cleansingItems.length === 0 ? <EmptyState title="暂无清洗规则" description="当前还没有可展示的数据质量清洗规则。" /> : null}
             </Stack>
           </SectionCard>
         </Grid.Col>

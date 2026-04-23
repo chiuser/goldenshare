@@ -10,6 +10,8 @@ describe("StatusBadge", () => {
     render(
       <MantineProvider theme={appTheme}>
         <>
+          <StatusBadge value="ok" label="服务正常" />
+          <StatusBadge value="healthy" label="健康" />
           <StatusBadge value="running" />
           <StatusBadge value="fresh" />
           <StatusBadge value="paused" />
@@ -19,6 +21,8 @@ describe("StatusBadge", () => {
       </MantineProvider>,
     );
 
+    expect(findBadge("服务正常")).toHaveAttribute("data-tone", "success");
+    expect(findBadge("健康")).toHaveAttribute("data-tone", "success");
     expect(findBadge("执行中")).toHaveAttribute("data-tone", "info");
     expect(findBadge("正常")).toHaveAttribute("data-tone", "success");
     expect(findBadge("已暂停")).toHaveAttribute("data-tone", "warning");

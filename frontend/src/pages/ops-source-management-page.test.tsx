@@ -125,7 +125,8 @@ describe("数据源管理（新版）", () => {
 
     renderPage();
 
-    expect(await screen.findByText("数据源管理（新版）")).toBeInTheDocument();
+    expect(await screen.findByText("数据源管理")).toBeInTheDocument();
+    expect(await screen.findByText("桥接看板摘要")).toBeInTheDocument();
     expect(await screen.findByText("探测规则（Probe）")).toBeInTheDocument();
     expect(await screen.findByText("发布流水（Resolution Release）")).toBeInTheDocument();
     expect(await screen.findByText("标准化映射规则（Mapping）")).toBeInTheDocument();

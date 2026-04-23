@@ -81,8 +81,8 @@
 
 ### 4.1 工程规模
 
-- 当前 `frontend/src/pages` 下共有 `33` 个页面/页面相关文件
-- 当前 `frontend/src` 下共有 `17` 个单元/组件测试文件
+- 当前 `frontend/src/pages` 下共有 `34` 个页面/页面相关文件
+- 当前 `frontend/src` 下共有 `28` 个单元/组件测试文件
 - 当前 `frontend/e2e` 下已有 `1` 组 Playwright smoke/视觉门禁用例
 
 ### 4.2 页面膨胀信号
@@ -103,10 +103,13 @@
   - `.github/workflows/frontend-quality-gate.yml`
 - 当前已具备最小视觉回归门禁：
   - `typecheck + test + build + smoke/visual gate`
-- 当前 Playwright smoke 已覆盖 5 个代表页面：
+- 当前 Playwright smoke 已覆盖 8 个代表页面：
   - 登录页
   - `ops/v21/overview`
   - `ops/v21/datasets/tasks?tab=records`
+  - `ops/v21/datasets/tasks?tab=manual`
+  - `ops/v21/datasets/tasks?tab=auto`
+  - `ops/v21/datasets/tasks/detail`
   - `ops/v21/review/index`
   - `share`
 - 当前仍未引入完整 Storybook / Chromatic / Percy，这部分维持后续评估
@@ -119,7 +122,7 @@
 
 - 共享组件标准库还未完全成型
 - 页面中仍可能存在局部重复实现
-- 设计规则已经有了，但还需要通过 `Phase 3` 变成真正可复用的组件体系
+- 设计规则已经有了，但已通过 `Phase 3/4` 变成可复用组件体系与试点页基线
 
 ---
 
@@ -334,7 +337,7 @@
 - 通用组件已收敛：`PageHeader`、`SectionCard`、`StatusBadge`、`StatCard`、`FilterBar`、`TableShell`、`EmptyState`、`AlertBar`、`DetailDrawer`、`ActivityTimeline`
 - 领域组件已落下最小版本：`PriceText`、`ChangeText`、`TradeDateField`
 - 当前仓库的表格基线采用 `TableShell + OpsTable`
-- 任务中心链路已经开始消费这些标准件，可作为 `Phase 4` 试点页重构的稳定起点
+- 任务中心链路已经稳定消费这些标准件，并已支撑 `Phase 4` 试点页重构完成
 
 风险：
 
@@ -515,10 +518,14 @@ Phase 4 的支持任务要求：
 
 - 在已具备基础质量门禁的前提下，把组件研发与试点重构的门禁继续深化
 
+执行基线：
+
+- 具体执行以 `docs/frontend/frontend-phase5-execution-plan-v1.md` 为准
+
 当前基线：
 
 - 已有 `Frontend Quality Gate`
-- 已有 `typecheck + test + build + smoke/visual gate`
+- 已有 `typecheck + check:rules + test + build + smoke/visual gate`
 
 建议交付物：
 
@@ -548,11 +555,36 @@ Phase 4 的支持任务要求：
 - 为后续“前端验收与回归 skill”沉淀输入
 - 把“哪些规则先评审、哪些规则再自动化”写清楚，避免过度卡点
 
+当前状态：
+
+- 已完成
+
 ## 6.7 Phase 6：规模化推广
 
 目标：
 
 - 将试点中验证有效的模式推广到更多页面
+- 在不扩大业务改造面的前提下，把高可见页面继续拉回统一组件、统一回归流程
+
+执行基线：
+
+- 具体执行以 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 为准
+
+当前建议批次：
+
+1. `P6-1` 低风险推广批：
+   - `platform-check-page.tsx`
+   - `user-overview-page.tsx`
+   - `ops-source-management-page.tsx`
+2. `P6-2` 审查中心推广批：
+   - `ops-v21-review-index-page.tsx`
+   - `ops-v21-review-board-page.tsx`
+3. `P6-3` 数据详情推广批：
+   - `ops-v21-source-page.tsx`
+   - `ops-v21-dataset-detail-page.tsx`
+4. `P6-4` 管理配置推广批：
+   - `ops-v21-account-page.tsx`
+5. `P6-5` 收口与残留清单
 
 推广顺序建议：
 
@@ -566,6 +598,11 @@ Phase 4 的支持任务要求：
 - 共享组件使用率上升
 - 新旧风格差异逐步收敛
 - 页面文件膨胀趋势被控制
+
+当前状态：
+
+- `P6-0` 已开始：批次、边界卡与默认验证档位已落档
+- 下一步进入 `P6-1` 前，仍需先写单批“改动边界卡”
 
 ---
 
@@ -598,6 +635,10 @@ Phase 4 的支持任务要求：
 
 - 至少 5 个高频共享组件可稳定复用
 
+状态：
+
+- 已达成
+
 ### M3.5：前端上下文分层 ready
 
 条件：
@@ -605,6 +646,10 @@ Phase 4 的支持任务要求：
 - `frontend` 目录下关键层级 AGENTS 已补齐
 - 各层职责与依赖方向已写清
 - 前端任务进入目录时能快速获得正确上下文
+
+状态：
+
+- 已达成
 
 ### M4：试点页通过验收
 
@@ -614,6 +659,10 @@ Phase 4 的支持任务要求：
 - `typecheck / test / build` 可通过
 - 页面体验明显优于旧版
 - 改动范围、重构优先级与回滚边界可复述
+
+状态：
+
+- 已达成
 
 ### M5：自动化门禁 ready
 
@@ -626,9 +675,27 @@ Phase 4 的支持任务要求：
 - 已达成基础版
 - 后续进入“门禁深化”阶段
 
+### M6：规模化推广 ready
+
+条件：
+
+- 已形成正式推广批次与边界卡机制
+- 推广页默认验证档位已明确
+- 推广过程不再靠口头约定边界
+
+状态：
+
+- 已进入执行前准备阶段（`P6-0` 已落档）
+
 ---
 
 ## 8. 建议试点策略
+
+状态说明：
+
+- `Phase 4` 已完成
+- 本节保留为试点策略回顾
+- 当前实际推进顺序请以 `Phase 5` 与 [frontend-phase5-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase5-execution-plan-v1.md) 为准
 
 当前不建议：
 
@@ -638,10 +705,10 @@ Phase 4 的支持任务要求：
 
 当前建议：
 
-1. 先做高频共享组件与领域组件
-2. 再按任务中心链路做试点页
-3. 再把试点经验固化到组件研发清单与门禁深化
-4. 最后推广到相邻页面与壳层
+1. 先按既有批次推进推广页
+2. 每批都先补“改动边界卡”
+3. 再按回归流程选定验证档位
+4. 最后把推广结果收回到残留清单与下一轮建议
 
 理由：
 
@@ -666,13 +733,13 @@ Phase 4 的支持任务要求：
 - [ ] 当前试点是否应聚焦任务中心链路
 - [ ] 当前是否只做前端治理，不同步拉大后端改造面
 - [ ] 自动化是否先从基础 CI 开始，而不是直接全量 E2E
-- [ ] 任务中心试点是否按“主目标 + 非目标 + 边界卡”推进
+- [ ] 任务中心试点成果是否已有足够的 smoke / visual gate 保护
 
 ### 9.3 落地评审
 
 - [ ] Phase 2 的 token 落地是否足够克制
 - [ ] Phase 3 的组件优先级是否合理
-- [ ] Phase 4 的试点边界是否够小
+- [ ] Phase 5 的门禁深化范围是否够小
 - [ ] M2 / M3 / M4 / M5 的出场条件是否足够明确
 - [ ] 研发流程、技能、规范是否作为阶段产物持续沉淀
 - [ ] 是否同意补齐 `frontend` 内部分层 AGENTS
@@ -707,11 +774,9 @@ Phase 4 的支持任务要求：
 
 按照以下顺序执行最稳：
 
-1. Phase 3：高频共享组件与视觉对照体系
-2. 补齐组件接入规则与评审清单
-3. Phase 4：任务中心试点页
-4. Phase 5：门禁深化
-5. Phase 6：规模化推广
+1. 以 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 为准确认第一批 `P6-1` 的边界卡
+2. 先处理低风险推广批，不并批推进
+3. 每批结束后回看验证结果，再进入下一批
 
 ---
 
@@ -721,7 +786,7 @@ Phase 4 的支持任务要求：
 
 应对：
 
-- 立即进入 Phase 3，把组件目录、Showcase 与共享组件真正联动起来
+- 在 `Phase 6` 中继续把组件目录、Showcase、smoke 与规则检查绑到同一套门禁里
 
 ### 风险 2：组件抽象过度
 
@@ -729,11 +794,11 @@ Phase 4 的支持任务要求：
 
 - 每次只抽当前试点真实复用的模式
 
-### 风险 3：试点范围过大
+### 风险 3：推广范围过大
 
 应对：
 
-- 只选一个主链路页或紧密关联的一小组页面
+- 按批次推进，只处理边界卡中写明的页面
 
 ### 风险 3.1：试点过程中重构范围失控
 
@@ -775,19 +840,14 @@ Phase 4 的支持任务要求：
 
 ## 13. 下一步动作
 
-若本计划评审通过，下一步建议只做一件事：
+若本计划继续推进，下一步建议只做一件事：
 
-- 开始 Phase 3：共享组件标准库与视觉对照体系建设
+- 继续 `Phase 6`：先确认 `P6-1` 的单批边界卡，再开始低风险推广批实现
 
 执行前必须先：
 
 1. 重读相关 AGENTS
-2. 确认将要收敛的第一批共享组件
-3. 对照 HTML Showcase 与组件目录文档
-4. 再进入具体组件实现
-
-Phase 3 完成后，再开第二轮评审，确认：
-
-1. 第一批共享组件与领域组件是否已足够支撑试点
-2. 任务中心试点的第一轮“改动约束卡”如何定义
-3. 哪些组件规则进入门禁深化，哪些继续维持评审口径
+2. 对照 [frontend-phase6-execution-plan-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-execution-plan-v1.md) 确认当前批次的允许范围
+3. 对照 [frontend-regression-and-baseline-workflow-v1.md](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md) 选定本轮验证档位
+4. 明确本轮只推广哪些页面、哪些组件模式
+5. 再进入具体实现

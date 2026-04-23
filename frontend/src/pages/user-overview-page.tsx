@@ -1,10 +1,12 @@
-import { Alert, Button, Center, Grid, Loader, Paper, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Center, Grid, Loader, Stack } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useAuth } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
 import type { OpsOverviewSummaryResponse } from "../shared/api/types";
+import { PageHeader } from "../shared/ui/page-header";
+import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 
 
@@ -18,15 +20,25 @@ export function UserOverviewPage() {
 
   return (
     <div className="app-gradient-shell app-centered-shell">
-      <Paper className="glass-card" radius="md" p={32} miw={360} maw={1100} w="100%">
-        <Stack gap="lg">
-          <Stack gap={6}>
-            <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-              数据状态总览
-            </Text>
-            <Title order={2}>状态概览</Title>
-          </Stack>
+      <Stack gap="lg" miw={360} maw={1100} w="100%">
+        <PageHeader
+          title="状态概览"
+          description="这里用于快速查看当前数据集的新鲜度分布，并在需要时退出前端会话。"
+          action={(
+            <Button
+              variant="light"
+              color="gray"
+              onClick={async () => {
+                clearToken();
+                await navigate({ to: "/login" });
+              }}
+            >
+              退出登录
+            </Button>
+          )}
+        />
 
+        <SectionCard title="数据状态总览" description="按 freshness 状态汇总当前可观测的数据集规模。">
           {summaryQuery.isLoading ? (
             <Center py="md">
               <Loader size="sm" />
@@ -61,19 +73,8 @@ export function UserOverviewPage() {
               </Grid.Col>
             </Grid>
           ) : null}
-
-          <Button
-            variant="light"
-            color="gray"
-            onClick={async () => {
-              clearToken();
-              await navigate({ to: "/login" });
-            }}
-          >
-            退出登录
-          </Button>
-        </Stack>
-      </Paper>
+        </SectionCard>
+      </Stack>
     </div>
   );
 }
