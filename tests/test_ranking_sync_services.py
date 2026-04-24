@@ -125,6 +125,52 @@ def test_dc_hot_point_incremental_expands_frontend_enum_lists() -> None:
     assert all(u.request_params["trade_date"] == "20260402" for u in units)
 
 
+def test_dc_hot_point_incremental_expands_safe_defaults_when_filters_missing() -> None:
+    contract = get_sync_v2_contract("dc_hot")
+    request = RunRequest(
+        request_id="req-dc-hot-defaults",
+        dataset_key="dc_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 2),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 8
+    combos = sorted((u.request_params["market"], u.request_params["hot_type"], u.request_params["is_new"]) for u in units)
+    assert combos == [
+        ("A股市场", "人气榜", "Y"),
+        ("A股市场", "飙升榜", "Y"),
+        ("ETF基金", "人气榜", "Y"),
+        ("ETF基金", "飙升榜", "Y"),
+        ("港股市场", "人气榜", "Y"),
+        ("港股市场", "飙升榜", "Y"),
+        ("美股市场", "人气榜", "Y"),
+        ("美股市场", "飙升榜", "Y"),
+    ]
+    assert all(u.request_params["trade_date"] == "20260402" for u in units)
+    assert all("__ALL__" not in u.request_params.values() for u in units)
+
+
+def test_dc_hot_point_incremental_expands_safe_defaults_when_all_token_is_used() -> None:
+    contract = get_sync_v2_contract("dc_hot")
+    request = RunRequest(
+        request_id="req-dc-hot-all-token",
+        dataset_key="dc_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 2),
+        params={"market": "__ALL__", "hot_type": "__ALL__", "is_new": "__ALL__"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 8
+    assert all("__ALL__" not in u.request_params.values() for u in units)
+
+
 def test_dc_hot_normalizer_sets_default_query_context() -> None:
     contract = get_sync_v2_contract("dc_hot")
     batch = SyncV2Normalizer().normalize(

@@ -110,6 +110,30 @@ def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, 
     }
 
 
+def test_ops_manual_action_execution_applies_dc_hot_safe_defaults(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/dc_hot/executions",
+        headers=headers,
+        json={
+            "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["spec_key"] == "sync_daily.dc_hot"
+    assert payload["run_profile"] == "point_incremental"
+    assert payload["params_json"] == {
+        "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
+        "hot_type": ["人气榜", "飙升榜"],
+        "is_new": "Y",
+        "trade_date": "2026-04-24",
+    }
+
+
 def test_ops_manual_action_execution_routes_natural_day_range_to_sync_history(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 

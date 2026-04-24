@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
+from src.foundation.services.sync_v2.dataset_strategies.dc_hot import (
+    DC_HOT_DEFAULT_HOT_TYPES,
+    DC_HOT_DEFAULT_IS_NEW,
+    DC_HOT_DEFAULT_MARKETS,
+)
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import ManualActionExecutionCreateRequest, ManualActionTimeInput
 from src.ops.services.execution_service import OpsExecutionCommandService
@@ -46,6 +51,7 @@ class ManualActionExecutionResolver:
 
     def resolve(self, body: ManualActionExecutionCreateRequest) -> tuple[str, str, dict[str, Any]]:
         filters = self._normalize_filters(body.filters)
+        filters = self._apply_default_filters(filters)
         time_input = body.time_input
         mode = (time_input.mode or "none").strip()
         if mode not in self.route.time_form.allowed_modes:
@@ -152,6 +158,21 @@ class ManualActionExecutionResolver:
                 continue
             normalized[key] = normalized_value
         return normalized
+
+    def _apply_default_filters(self, filters: dict[str, Any]) -> dict[str, Any]:
+        if self.route.resource_key != "dc_hot":
+            return filters
+        with_defaults = dict(filters)
+        self._fill_default_filter(with_defaults, "market", DC_HOT_DEFAULT_MARKETS)
+        self._fill_default_filter(with_defaults, "hot_type", DC_HOT_DEFAULT_HOT_TYPES)
+        self._fill_default_filter(with_defaults, "is_new", DC_HOT_DEFAULT_IS_NEW)
+        return with_defaults
+
+    @staticmethod
+    def _fill_default_filter(filters: dict[str, Any], key: str, values: tuple[str, ...]) -> None:
+        current = filters.get(key)
+        if current in (None, "", []):
+            filters[key] = list(values) if len(values) > 1 else values[0]
 
     def _normalize_filter_value(self, param: ParameterSpec, value: Any) -> Any:
         if param.multi_value:

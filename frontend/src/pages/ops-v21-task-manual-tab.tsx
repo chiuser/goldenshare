@@ -67,6 +67,51 @@ function normalizeParamOptions(options: string[] | undefined) {
   return Array.isArray(options) ? options : [];
 }
 
+function isEmptyFieldValue(value: string | string[] | undefined) {
+  if (value === undefined || value === null) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).length === 0;
+  }
+  return String(value).trim() === "";
+}
+
+function getDefaultFieldValue(action: ManualAction, param: ManualActionFilter): string | string[] | undefined {
+  if (action.action_key !== "dc_hot") {
+    return undefined;
+  }
+  const options = normalizeParamOptions(param.options);
+  if (param.key === "market" || param.key === "hot_type") {
+    return options;
+  }
+  if (param.key === "is_new") {
+    return options.includes("Y") ? "Y" : options[0] || undefined;
+  }
+  return undefined;
+}
+
+function buildDefaultFieldValues(action: ManualAction) {
+  const defaults: Record<string, string | string[]> = {};
+  for (const param of action.filters) {
+    const value = getDefaultFieldValue(action, param);
+    if (value !== undefined && !isEmptyFieldValue(value)) {
+      defaults[param.key] = value;
+    }
+  }
+  return defaults;
+}
+
+function mergeDefaultFieldValues(action: ManualAction, fieldValues: Record<string, string | string[]>) {
+  const merged = { ...fieldValues };
+  for (const [key, value] of Object.entries(buildDefaultFieldValues(action))) {
+    if (isEmptyFieldValue(merged[key])) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 function flattenManualActions(response: OpsManualActionsResponse | undefined): ManualAction[] {
   if (!response) {
     return [];
@@ -183,7 +228,7 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
 
 function buildDraftFromParams(
   current: ManualDraft,
-  actionId: string,
+  action: ManualAction,
   paramsJson: Record<string, unknown> | undefined,
 ) {
   const fieldValues = buildFieldValues(paramsJson);
@@ -197,7 +242,7 @@ function buildDraftFromParams(
   const dateMode: ManualDateMode = (tradeDate || annDate || month) ? "single_point" : "time_range";
   return {
     ...current,
-    action_id: actionId,
+    action_id: action.action_key,
     date_mode: dateMode,
     selected_date: tradeDate || annDate || startDate || current.selected_date,
     start_date: startDate,
@@ -205,7 +250,7 @@ function buildDraftFromParams(
     selected_month: month || startMonth || current.selected_month,
     start_month: startMonth,
     end_month: endMonth,
-    field_values: fieldValues,
+    field_values: mergeDefaultFieldValues(action, fieldValues),
   };
 }
 
@@ -218,6 +263,7 @@ function buildDraftForActionSelection(action: ManualAction | string): ManualDraf
     ...draft,
     action_id: actionId,
     date_mode: dateMode,
+    field_values: typeof action === "string" ? {} : buildDefaultFieldValues(action),
   };
 }
 
@@ -269,8 +315,9 @@ function normalizeFilterValue(param: ManualActionFilter, rawValue: string | stri
 
 function buildManualActionRequest(action: ManualAction, draft: ManualDraft): OpsManualActionExecutionRequest {
   const filters: Record<string, unknown> = {};
+  const fieldValues = mergeDefaultFieldValues(action, draft.field_values);
   for (const param of action.filters) {
-    const normalized = normalizeFilterValue(param, draft.field_values[param.key]);
+    const normalized = normalizeFilterValue(param, fieldValues[param.key]);
     if (normalized !== undefined) {
       filters[param.key] = normalized;
     }
@@ -394,6 +441,10 @@ export function OpsManualSyncPage() {
     () => findManualAction(manualActions, draft.action_id),
     [draft.action_id, manualActions],
   );
+  const effectiveFieldValues = useMemo(
+    () => selectedAction ? mergeDefaultFieldValues(selectedAction, draft.field_values) : draft.field_values,
+    [draft.field_values, selectedAction],
+  );
   const selectedActionDateRule = useMemo(() => inferSinglePointDateRule(selectedAction), [selectedAction]);
   const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
@@ -444,7 +495,7 @@ export function OpsManualSyncPage() {
     }
     prefillExecutionAppliedRef.current = true;
     setSelectedDomain(action.groupLabel);
-    setDraft((current) => buildDraftFromParams(current, action.action_key, prefillExecutionQuery.data.params_json));
+    setDraft((current) => buildDraftFromParams(current, action, prefillExecutionQuery.data.params_json));
   }, [manualActions, prefillExecutionQuery.data, setDraft, setSelectedDomain]);
 
   useEffect(() => {
@@ -461,7 +512,7 @@ export function OpsManualSyncPage() {
     }
     prefillScheduleAppliedRef.current = true;
     setSelectedDomain(action.groupLabel);
-    setDraft((current) => buildDraftFromParams(current, action.action_key, prefillScheduleQuery.data.params_json));
+    setDraft((current) => buildDraftFromParams(current, action, prefillScheduleQuery.data.params_json));
   }, [manualActions, prefillScheduleQuery.data, setDraft, setSelectedDomain]);
 
   const createExecutionMutation = useMutation({
@@ -759,9 +810,9 @@ export function OpsManualSyncPage() {
                                 label={param.display_name}
                                 description={param.description}
                                 value={
-                                  Array.isArray(draft.field_values[param.key])
-                                    ? (draft.field_values[param.key] as string[])
-                                    : String(draft.field_values[param.key] || "")
+                                  Array.isArray(effectiveFieldValues[param.key])
+                                    ? (effectiveFieldValues[param.key] as string[])
+                                    : String(effectiveFieldValues[param.key] || "")
                                       .split(",")
                                       .map((item) => item.trim())
                                       .filter(Boolean)
@@ -784,9 +835,9 @@ export function OpsManualSyncPage() {
                                 label={param.display_name}
                                 description={param.description}
                                 value={
-                                  Array.isArray(draft.field_values[param.key])
-                                    ? ((draft.field_values[param.key] as string[])[0] || "")
-                                    : (draft.field_values[param.key] as string) || ""
+                                  Array.isArray(effectiveFieldValues[param.key])
+                                    ? ((effectiveFieldValues[param.key] as string[])[0] || "")
+                                    : (effectiveFieldValues[param.key] as string) || ""
                                 }
                                 onChange={(value) =>
                                   setDraft((current) => ({
@@ -810,9 +861,9 @@ export function OpsManualSyncPage() {
                                   label: option,
                                 }))}
                                 value={
-                                  Array.isArray(draft.field_values[param.key])
-                                    ? ((draft.field_values[param.key] as string[])[0] || null)
-                                    : (draft.field_values[param.key] as string) || null
+                                  Array.isArray(effectiveFieldValues[param.key])
+                                    ? ((effectiveFieldValues[param.key] as string[])[0] || null)
+                                    : (effectiveFieldValues[param.key] as string) || null
                                 }
                                 onChange={(value) =>
                                   setDraft((current) => ({
@@ -825,7 +876,7 @@ export function OpsManualSyncPage() {
                               <MonthField
                                 label={param.display_name}
                                 placeholder={param.description}
-                                value={Array.isArray(draft.field_values[param.key]) ? "" : (draft.field_values[param.key] as string) || ""}
+                                value={Array.isArray(effectiveFieldValues[param.key]) ? "" : (effectiveFieldValues[param.key] as string) || ""}
                                 onChange={(value) =>
                                   setDraft((current) => ({
                                     ...current,
@@ -837,7 +888,7 @@ export function OpsManualSyncPage() {
                               <TextInput
                                 label={param.display_name}
                                 placeholder={param.description}
-                                value={Array.isArray(draft.field_values[param.key]) ? "" : (draft.field_values[param.key] as string) || ""}
+                                value={Array.isArray(effectiveFieldValues[param.key]) ? "" : (effectiveFieldValues[param.key] as string) || ""}
                                 onChange={(event) =>
                                   setDraft((current) => ({
                                     ...current,

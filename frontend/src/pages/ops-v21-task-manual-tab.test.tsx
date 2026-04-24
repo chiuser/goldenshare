@@ -1,12 +1,13 @@
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { RouterProvider, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { beforeEach, vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
+import { apiRequest } from "../shared/api/client";
 import { OpsManualSyncPage, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-v21-task-manual-tab";
 
 const textParam = {
@@ -282,9 +283,19 @@ const mockManualActions = {
 };
 
 vi.mock("../shared/api/client", () => ({
-  apiRequest: vi.fn(async (path: string) => {
+  apiRequest: vi.fn(async (path: string, options?: { method?: string }) => {
     if (path === "/api/v1/ops/manual-actions") {
       return mockManualActions;
+    }
+    if (path === "/api/v1/ops/manual-actions/dc_hot/executions" && options?.method === "POST") {
+      return {
+        id: 1234,
+        spec_type: "job",
+        spec_key: "sync_daily.dc_hot",
+        status: "queued",
+        run_profile: "point_incremental",
+        params_json: {},
+      };
     }
     throw new Error(`unexpected path: ${path}`);
   }),
@@ -292,6 +303,7 @@ vi.mock("../shared/api/client", () => ({
 
 beforeEach(() => {
   window.localStorage.clear();
+  vi.mocked(apiRequest).mockClear();
 });
 
 function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=sync_daily.daily&spec_type=job") {
@@ -452,11 +464,49 @@ describe("手动同步页", () => {
     renderPage("/app/ops/manual-sync?spec_key=sync_daily.dc_hot&spec_type=job");
 
     expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
-    expect(screen.getByLabelText("A股市场")).toBeInTheDocument();
-    expect(screen.getByLabelText("ETF基金")).toBeInTheDocument();
-    expect(screen.getByLabelText("人气榜")).toBeInTheDocument();
-    expect(screen.getByLabelText("飙升榜")).toBeInTheDocument();
+    expect(screen.getByLabelText("A股市场")).toBeChecked();
+    expect(screen.getByLabelText("ETF基金")).toBeChecked();
+    expect(screen.getByLabelText("港股市场")).toBeChecked();
+    expect(screen.getByLabelText("美股市场")).toBeChecked();
+    expect(screen.getByLabelText("人气榜")).toBeChecked();
+    expect(screen.getByLabelText("飙升榜")).toBeChecked();
+    expect(screen.getByLabelText("Y")).toBeChecked();
     expect(screen.queryByText("交易所")).not.toBeInTheDocument();
+  });
+
+  it("东方财富热榜默认提交安全筛选条件，避免写出 __ALL__ 上下文", async () => {
+    window.localStorage.setItem(
+      "goldenshare.frontend.ops.manual-sync.draft",
+      JSON.stringify({
+        action_id: "dc_hot",
+        date_mode: "single_point",
+        selected_date: "2026-04-24",
+        start_date: "",
+        end_date: "",
+        selected_month: "",
+        start_month: "",
+        end_month: "",
+        field_values: {},
+      }),
+    );
+    renderPage("/app/ops/manual-sync");
+
+    expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "开始同步" }));
+
+    await waitFor(() =>
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot/executions", {
+        method: "POST",
+        body: {
+          time_input: { mode: "point", trade_date: "2026-04-24" },
+          filters: {
+            market: ["A股市场", "ETF基金", "港股市场", "美股市场"],
+            hot_type: ["人气榜", "飙升榜"],
+            is_new: "Y",
+          },
+        },
+      }),
+    );
   });
 
   it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
