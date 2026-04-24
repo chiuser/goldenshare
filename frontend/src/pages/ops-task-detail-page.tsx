@@ -495,13 +495,23 @@ function buildStructuredProgressSnapshot(
     detail.progress_total !== undefined &&
     detail.progress_total > 0
   ) {
-    const current = fromEvent?.current ?? detail.progress_current;
-    const total = fromEvent?.total ?? detail.progress_total;
-    const fetched = fromEvent?.fetched ?? detailProgress?.fetched ?? null;
-    const written = fromEvent?.written ?? detailProgress?.written ?? null;
+    const detailPercent = detail.progress_percent ?? Math.round((detail.progress_current / detail.progress_total) * 100);
+    const preferDetailProgress = Boolean(fromEvent && detailPercent > fromEvent.percent);
+    const current = preferDetailProgress ? detail.progress_current : (fromEvent?.current ?? detail.progress_current);
+    const total = preferDetailProgress ? detail.progress_total : (fromEvent?.total ?? detail.progress_total);
+    const fetched = preferDetailProgress
+      ? (detailProgress?.fetched ?? fromEvent?.fetched ?? null)
+      : (fromEvent?.fetched ?? detailProgress?.fetched ?? null);
+    const written = preferDetailProgress
+      ? (detailProgress?.written ?? fromEvent?.written ?? null)
+      : (fromEvent?.written ?? detailProgress?.written ?? null);
     const detailRejected = detailProgress?.rejected ?? null;
-    const reasonCounts = fromEvent?.reasonCounts || detailProgress?.reasonCounts || {};
-    let rejected = fromEvent?.rejected ?? detailRejected;
+    const reasonCounts = preferDetailProgress
+      ? (detailProgress?.reasonCounts || {})
+      : (fromEvent?.reasonCounts || detailProgress?.reasonCounts || {});
+    let rejected = preferDetailProgress
+      ? (detailRejected ?? fromEvent?.rejected ?? null)
+      : (fromEvent?.rejected ?? detailRejected);
     if (rejected === null && fetched !== null && written !== null) {
       rejected = Math.max(fetched - written, 0);
     }
@@ -512,18 +522,24 @@ function buildStructuredProgressSnapshot(
     return {
       current,
       total,
-      percent: fromEvent?.percent ?? detail.progress_percent ?? Math.round((current / total) * 100),
-      message: fromEvent?.message || detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。",
-      unitLabel: fromEvent?.unitLabel || detailProgress?.unitLabel || "任务单元",
-      cursorLabel: fromEvent?.cursorLabel || detailProgress?.cursorLabel || null,
+      percent: preferDetailProgress ? detailPercent : (fromEvent?.percent ?? detailPercent),
+      message: preferDetailProgress
+        ? (detailProgress?.raw || detail.progress_message || fromEvent?.message || "系统正在持续更新当前进展。")
+        : (fromEvent?.message || detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。"),
+      unitLabel: preferDetailProgress
+        ? (detailProgress?.unitLabel || fromEvent?.unitLabel || "任务单元")
+        : (fromEvent?.unitLabel || detailProgress?.unitLabel || "任务单元"),
+      cursorLabel: preferDetailProgress
+        ? (detailProgress?.cursorLabel || null)
+        : (fromEvent?.cursorLabel || detailProgress?.cursorLabel || null),
       fetched,
       written,
       rejected,
       reasonCounts,
-      reasonSamples: fromEvent?.reasonSamples || [],
-      reasonStatsTruncated: fromEvent?.reasonStatsTruncated || false,
-      reasonStatsTruncateNote: fromEvent?.reasonStatsTruncateNote || null,
-      occurredAt: fromEvent?.occurredAt || detail.last_progress_at,
+      reasonSamples: preferDetailProgress ? [] : (fromEvent?.reasonSamples || []),
+      reasonStatsTruncated: preferDetailProgress ? false : (fromEvent?.reasonStatsTruncated || false),
+      reasonStatsTruncateNote: preferDetailProgress ? null : (fromEvent?.reasonStatsTruncateNote || null),
+      occurredAt: preferDetailProgress ? detail.last_progress_at : (fromEvent?.occurredAt || detail.last_progress_at),
     };
   }
   if (fromEvent) {

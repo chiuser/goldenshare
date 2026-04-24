@@ -44,6 +44,39 @@ vi.mock("../shared/api/client", () => ({
         error_message: null,
       };
     }
+    if (path === "/api/v1/ops/executions/2") {
+      return {
+        id: 2,
+        schedule_id: null,
+        spec_type: "job",
+        spec_key: "backfill_by_trade_date.dc_hot",
+        spec_display_name: "东方财富热榜维护",
+        schedule_display_name: null,
+        trigger_source: "manual",
+        status: "success",
+        requested_by_username: "admin",
+        requested_at: "2026-04-24T15:55:42Z",
+        queued_at: "2026-04-24T15:55:42Z",
+        started_at: "2026-04-24T15:55:44Z",
+        ended_at: "2026-04-24T15:56:01Z",
+        params_json: {
+          start_date: "2026-04-20",
+          end_date: "2026-04-24",
+        },
+        summary_message: "units=5 fetched=23643 written=23643 rejected=0",
+        rows_fetched: 23643,
+        rows_written: 23643,
+        progress_current: 5,
+        progress_total: 5,
+        progress_percent: 100,
+        progress_message: "units=5 fetched=23643 written=23643 rejected=0",
+        last_progress_at: "2026-04-24T15:56:01Z",
+        cancel_requested_at: null,
+        canceled_at: null,
+        error_code: null,
+        error_message: null,
+      };
+    }
     if (path === "/api/v1/ops/executions/1/steps") {
       return {
         execution_id: 1,
@@ -61,6 +94,27 @@ vi.mock("../shared/api/client", () => ({
             rows_fetched: 0,
             rows_written: 0,
             message: null,
+          },
+        ],
+      };
+    }
+    if (path === "/api/v1/ops/executions/2/steps") {
+      return {
+        execution_id: 2,
+        items: [
+          {
+            id: 20,
+            step_key: "backfill_by_trade_date.dc_hot",
+            display_name: "东方财富热榜维护",
+            sequence_no: 1,
+            unit_kind: null,
+            unit_value: null,
+            status: "success",
+            started_at: "2026-04-24T15:55:44Z",
+            ended_at: "2026-04-24T15:56:01Z",
+            rows_fetched: 23643,
+            rows_written: 23643,
+            message: "units=5 fetched=23643 written=23643 rejected=0",
           },
         ],
       };
@@ -92,6 +146,30 @@ vi.mock("../shared/api/client", () => ({
         ],
       };
     }
+    if (path === "/api/v1/ops/executions/2/events") {
+      return {
+        execution_id: 2,
+        items: [
+          {
+            id: 200,
+            step_id: 20,
+            event_type: "step_progress",
+            level: "info",
+            message: "dc_hot: 4/5 trade_date=2026-04-23 fetched=4751 written=4751",
+            payload_json: {
+              progress_message: "dc_hot: 4/5 trade_date=2026-04-23 fetched=4751 written=4751",
+              progress_current: 4,
+              progress_total: 5,
+              progress_percent: 80,
+              rows_fetched: 4751,
+              rows_written: 4751,
+              rows_rejected: 0,
+            },
+            occurred_at: "2026-04-24T15:55:57Z",
+          },
+        ],
+      };
+    }
     if (path === "/api/v1/ops/codebook/sync") {
       return {
         version: "2026-04-23.v1",
@@ -110,6 +188,12 @@ vi.mock("../shared/api/client", () => ({
     if (path === "/api/v1/ops/executions/1/logs") {
       return {
         execution_id: 1,
+        items: [],
+      };
+    }
+    if (path === "/api/v1/ops/executions/2/logs") {
+      return {
+        execution_id: 2,
         items: [],
       };
     }
@@ -166,5 +250,44 @@ describe("任务详情页", () => {
     expect(await screen.findByText("拒绝原因详情")).toBeInTheDocument();
     expect(await screen.findByText("normalize.required_field_missing:ts_code")).toBeInTheDocument();
     expect(await screen.findByText("必填字段缺失")).toBeInTheDocument();
+  });
+
+  it("终态任务会用详情进度覆盖滞后的进度事件", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    const rootRoute = createRootRoute({
+      component: () => <OpsTaskDetailPage executionId={2} />,
+    });
+    const route = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/tasks/$executionId",
+      component: () => <OpsTaskDetailPage executionId={2} />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([route]),
+      basepath: "/app",
+      history: createMemoryHistory({ initialEntries: ["/app/ops/tasks/2"] }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByText("5 / 5")).toBeInTheDocument();
+    expect(await screen.findByText("100%")).toBeInTheDocument();
+    expect(await screen.findAllByText("units=5 fetched=23643 written=23643 rejected=0")).not.toHaveLength(0);
+    expect(screen.queryByText("4 / 5")).not.toBeInTheDocument();
+    expect(screen.queryByText("80%")).not.toBeInTheDocument();
   });
 });
