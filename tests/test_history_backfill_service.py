@@ -731,7 +731,6 @@ def test_backfill_index_series_emits_progress_for_ts_code_resources(mocker) -> N
         ts_code="000001.SH",
         start_date="2020-01-01",
         end_date="2026-03-29",
-        suppress_single_code_progress=True,
         execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "index_daily: 1/2 ts_code=000001.SH fetched=10 written=10"
@@ -827,7 +826,6 @@ def test_backfill_index_series_supports_index_daily(mocker) -> None:
         ts_code="000001.SH",
         start_date="2020-01-01",
         end_date="2026-03-29",
-        suppress_single_code_progress=True,
         execution_id=None,
     )
     assert progress.call_args_list[0].args[0] == "index_daily: 1/1 ts_code=000001.SH fetched=15 written=15"
