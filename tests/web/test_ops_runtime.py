@@ -393,13 +393,49 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
 
     assert rows_fetched == 5
     assert rows_written == 5
-    assert summary == "ok"
+    assert summary == "ok fetched=5 written=5 rejected=0"
     assert stub_service.kwargs == {
         "trade_date": datetime(2026, 4, 2, 0, 0, tzinfo=timezone.utc).date(),
         "market": ["A股市场", "ETF基金"],
         "hot_type": ["人气榜", "飙升榜"],
         "is_new": "N",
         "execution_id": execution.id,
+    }
+
+
+def test_dispatcher_appends_row_stats_for_direct_date_range_sync(db_session, job_execution_factory, monkeypatch) -> None:
+    execution = job_execution_factory(
+        spec_type="job",
+        spec_key="backfill_by_date_range.ths_daily",
+        status="running",
+        params_json={"start_date": "2026-04-01", "end_date": "2026-04-03"},
+    )
+
+    class StubSyncService:
+        def run_full(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.kwargs = kwargs
+            return SimpleNamespace(rows_fetched=88, rows_written=77, message="units=3 done=3 failed=0")
+
+    stub_service = StubSyncService()
+    monkeypatch.setattr(
+        "src.ops.runtime.dispatcher.build_sync_service",
+        lambda resource, session, **kwargs: stub_service,
+    )
+
+    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
+        db_session,
+        execution,
+        SimpleNamespace(key="backfill_by_date_range.ths_daily", category="backfill_by_date_range", supported_params=()),
+        dict(execution.params_json or {}),
+    )
+
+    assert rows_fetched == 88
+    assert rows_written == 77
+    assert summary == "units=3 done=3 failed=0 fetched=88 written=77 rejected=11"
+    assert stub_service.kwargs == {
+        "execution_id": execution.id,
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-03",
     }
 
 

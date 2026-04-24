@@ -398,7 +398,11 @@ class OperationsDispatcher:
             end_date=self._optional_date(normalized_params.get("end_date")),
             ts_code=self._normalize_single_ts_code(normalized_params.get("ts_code")),
         )
-        summary_message = result.message
+        summary_message = self._append_row_stats_if_missing(
+            result.message,
+            rows_fetched=int(result.rows_fetched or 0),
+            rows_written=int(result.rows_written or 0),
+        )
         if light_note:
             summary_message = f"{summary_message}；{light_note}" if summary_message else light_note
         return result.rows_fetched, result.rows_written, summary_message
@@ -524,7 +528,7 @@ class OperationsDispatcher:
         )
         rows_fetched = int(summary.rows_fetched or 0)
         rows_written = int(summary.rows_written or 0)
-        summary_message = self._append_backfill_row_stats(
+        summary_message = self._append_row_stats_if_missing(
             f"units={summary.units_processed}",
             rows_fetched=rows_fetched,
             rows_written=rows_written,
@@ -969,7 +973,7 @@ class OperationsDispatcher:
             return None
 
     @staticmethod
-    def _append_backfill_row_stats(
+    def _append_row_stats_if_missing(
         summary_message: str | None,
         *,
         rows_fetched: int,
