@@ -53,4 +53,8 @@ class TushareSyncV2Adapter(SourceAdapter):
                 row["query_market"] = query_market
                 row["query_hot_type"] = query_hot_type
                 row["query_is_new"] = query_is_new
+        if request.api_name == "stk_mins":
+            query_freq = str(request.params.get("freq") or "").strip()
+            for row in rows:
+                row["freq"] = query_freq
         return rows

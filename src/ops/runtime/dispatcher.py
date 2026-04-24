@@ -376,6 +376,25 @@ class OperationsDispatcher:
                     return 0, 0, summary
                 extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
                 result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
+        elif job_spec.category == "sync_minute_history":
+            service = build_sync_service(
+                resource,
+                session,
+                execution_context=execution_context,
+                run_log_store=run_log_store,
+                job_state_store=job_state_store,
+                index_series_active_store=index_series_active_store,
+            )
+            trade_date = normalized_params.get("trade_date")
+            if trade_date:
+                parsed_trade_date = self._parse_date(trade_date)
+                if self._is_closed_trade_date(session, parsed_trade_date):
+                    summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
+                    return 0, 0, summary
+                extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
+                result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
+            else:
+                result = service.run_full(execution_id=execution.id, **normalized_params)
         else:
             service = build_sync_service(
                 resource,

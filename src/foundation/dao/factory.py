@@ -108,6 +108,7 @@ from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
+from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
@@ -244,6 +245,7 @@ class DAOFactory:
         self.raw_stock_st = GenericDAO(session, RawStockSt)
         self.raw_suspend_d = GenericDAO(session, RawSuspendD)
         self.raw_stk_factor_pro = GenericDAO(session, RawStkFactorPro)
+        self.raw_stk_mins = GenericDAO(session, RawStkMins)
         self.raw_stk_nineturn = GenericDAO(session, RawStkNineTurn)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)
         self.raw_tushare_stock_basic = self.raw_stock_basic

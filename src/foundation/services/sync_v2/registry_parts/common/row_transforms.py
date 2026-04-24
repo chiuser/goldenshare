@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
 from datetime import date
+from datetime import datetime, time
 from decimal import Decimal
 import json
 from typing import Any
@@ -120,6 +120,30 @@ def _stk_period_bar_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 def _stk_period_bar_adj_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["change_amount"] = transformed.get("change")
+    return transformed
+
+
+def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    trade_time = _parse_quote_time(transformed.get("trade_time"))
+    current_time = trade_time.time()
+    if time(9, 30) <= current_time <= time(11, 30):
+        session_tag = "morning"
+    elif time(13, 0) <= current_time <= time(15, 0):
+        session_tag = "afternoon"
+    else:
+        raise ValueError(f"stk_mins trade_time outside trading sessions: {trade_time}")
+
+    freq = str(transformed.get("freq") or "").strip()
+    if freq not in {"1min", "5min", "15min", "30min", "60min"}:
+        raise ValueError(f"stk_mins invalid freq: {freq}")
+
+    transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
+    transformed["freq"] = freq
+    transformed["trade_time"] = trade_time
+    transformed["trade_date"] = trade_time.date()
+    transformed["session_tag"] = session_tag
+    transformed.pop("raw_payload", None)
     return transformed
 
 
@@ -293,6 +317,7 @@ __all__ = [
     "_dc_hot_row_transform",
     "_stk_period_bar_row_transform",
     "_stk_period_bar_adj_row_transform",
+    "_stk_mins_row_transform",
     "_dividend_row_transform",
     "_holdernumber_row_transform",
     "_biying_equity_daily_row_transform",

@@ -184,6 +184,42 @@ def test_validator_accepts_moneyflow_range_rebuild() -> None:
     assert validated.params["ts_code"] == "000001.SZ"
 
 
+def test_validator_requires_stk_mins_freq() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stk_mins")
+    request = RunRequest(
+        request_id="req-stk-mins-missing-freq",
+        dataset_key="stk_mins",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260423", "ts_code": "600000.SH"},
+    )
+
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        validator.validate(request=request, contract=contract, strict=True)
+
+    assert exc_info.value.structured_error.error_code == "required_param_missing"
+
+
+def test_validator_accepts_stk_mins_range_with_freq_list() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("stk_mins")
+    request = RunRequest(
+        request_id="req-stk-mins-range",
+        dataset_key="stk_mins",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min,60min", "limit": "2"},
+    )
+
+    validated = validator.validate(request=request, contract=contract, strict=True)
+
+    assert validated.start_date == date(2026, 4, 22)
+    assert validated.end_date == date(2026, 4, 23)
+    assert validated.params["freq"] == ["30min", "60min"]
+    assert validated.params["limit"] == 2
+
+
 def test_validator_accepts_limit_step_incremental_with_nums() -> None:
     validator = ContractValidator()
     contract = get_sync_v2_contract("limit_step")

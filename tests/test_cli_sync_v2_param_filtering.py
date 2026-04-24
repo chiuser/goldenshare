@@ -141,3 +141,55 @@ def test_sync_snapshot_filters_generic_kwargs_for_v2_contract(mocker) -> None:
     service.run_full.assert_called_once_with(source_key="all", list_status="L,D")
     reconciliation.refresh_resource_state_from_observed.assert_called_once_with(session, "stock_basic")
     snapshot_service.refresh_resources.assert_called_once_with(session, ["stock_basic"])
+
+
+def test_sync_minute_history_normalizes_freq_and_calls_incremental(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    service = mocker.Mock()
+    service.contract = SimpleNamespace(
+        input_schema=SimpleNamespace(
+            fields=(
+                SimpleNamespace(name="freq"),
+                SimpleNamespace(name="trade_date"),
+                SimpleNamespace(name="ts_code"),
+                SimpleNamespace(name="offset"),
+                SimpleNamespace(name="limit"),
+            )
+        )
+    )
+    service.run_incremental.return_value = SimpleNamespace(rows_fetched=2, rows_written=2)
+    mocker.patch("src.cli.build_sync_service", return_value=service)
+    snapshot_service = mocker.Mock()
+    mocker.patch("src.cli.DatasetStatusSnapshotService", return_value=snapshot_service)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "sync-minute-history",
+            "--freq",
+            "30min,60min",
+            "--trade-date",
+            "2026-04-23",
+            "--ts-code",
+            "600000.SH",
+            "--offset",
+            "0",
+            "--limit",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    service.run_incremental.assert_called_once_with(
+        trade_date=date(2026, 4, 23),
+        freq=["30min", "60min"],
+        ts_code="600000.SH",
+        offset=0,
+        limit=1,
+    )
+    snapshot_service.refresh_resources.assert_called_once_with(session, ["stk_mins"])

@@ -268,6 +268,15 @@ SOURCE_KEY_PARAM = ParameterSpec(
     description="选择执行的数据源：tushare、biying 或 all（顺序执行两源）。",
     options=("tushare", "biying", "all"),
 )
+MINUTE_FREQ_PARAM = ParameterSpec(
+    key="freq",
+    display_name="分钟频度",
+    param_type="enum",
+    description="股票历史分钟行情频度，可多选：1min/5min/15min/30min/60min。",
+    options=("1min", "5min", "15min", "30min", "60min"),
+    multi_value=True,
+    required=True,
+)
 
 
 DAILY_SYNC_RESOURCES = (
@@ -376,6 +385,7 @@ CODE_ONLY_RESOURCES = {
     "ths_index",
     "ths_member",
 }
+SYNC_HISTORY_EXCLUDED_RESOURCES = {"stk_mins"}
 
 
 def _service_target_table(resource: str) -> str:
@@ -580,7 +590,31 @@ def _backfill_job_spec(
 JOB_SPEC_REGISTRY: dict[str, JobSpec] = {}
 
 for _resource in sorted(SYNC_SERVICE_REGISTRY):
+    if _resource in SYNC_HISTORY_EXCLUDED_RESOURCES:
+        continue
     JOB_SPEC_REGISTRY[f"sync_history.{_resource}"] = _sync_history_job_spec(_resource)
+
+JOB_SPEC_REGISTRY["sync_minute_history.stk_mins"] = JobSpec(
+    key="sync_minute_history.stk_mins",
+    display_name="分钟行情同步 / stk_mins",
+    category="sync_minute_history",
+    description="按交易日、股票池分批和分钟频度同步股票历史分钟行情。",
+    strategy_type="sync_minute_history",
+    executor_kind="sync_service",
+    target_tables=(_service_target_table("stk_mins"),),
+    supported_params=(
+        TRADE_DATE_PARAM,
+        START_DATE_PARAM,
+        END_DATE_PARAM,
+        TS_CODE_PARAM,
+        MINUTE_FREQ_PARAM,
+        OFFSET_PARAM,
+        LIMIT_PARAM,
+    ),
+    supports_manual_run=True,
+    supports_schedule=False,
+    supports_retry=True,
+)
 
 for _resource in DAILY_SYNC_RESOURCES:
     JOB_SPEC_REGISTRY[f"sync_daily.{_resource}"] = _sync_daily_job_spec(_resource)
@@ -1000,6 +1034,7 @@ DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str]] = {
     "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily"),
     "stock_st": ("ST股票列表", "equity", "股票", "daily"),
     "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily"),
+    "stk_mins": ("股票历史分钟行情", "equity", "股票", "daily"),
     "suspend_d": ("每日停复牌信息", "equity", "股票", "daily"),
     "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly"),
     "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly"),
@@ -1038,6 +1073,9 @@ def _primary_execution_spec_key_for_resource(resource: str) -> str | None:
     sync_daily_key = f"sync_daily.{resource}"
     if sync_daily_key in JOB_SPEC_REGISTRY:
         return sync_daily_key
+    sync_minute_history_key = f"sync_minute_history.{resource}"
+    if sync_minute_history_key in JOB_SPEC_REGISTRY:
+        return sync_minute_history_key
     sync_history_key = f"sync_history.{resource}"
     if sync_history_key in JOB_SPEC_REGISTRY:
         return sync_history_key

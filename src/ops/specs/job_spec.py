@@ -13,6 +13,7 @@ StrategyType = Literal[
     "backfill_by_month",
     "backfill_by_security",
     "backfill_low_frequency",
+    "sync_minute_history",
     "maintenance_action",
 ]
 ExecutorKind = Literal["sync_service", "history_backfill_service", "maintenance"]

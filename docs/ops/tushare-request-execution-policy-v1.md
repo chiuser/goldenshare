@@ -370,6 +370,15 @@
 - 用户传参规则：用户若显式传 `ts_code`，就原样透传；可组合；未传不补。
 - 时间执行：以交易日为基准；区间任务先筛交易日，再逐日请求。
 
+### `stk_mins`（股票历史分钟行情）
+
+- 接口：`stk_mins`
+- 源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
+- 分页：Tushare 请求分页固定 `limit=8000`，`offset` 递增分页；用户侧 `offset/limit` 仅用于全市场股票池分批，不透传为接口分页边界。
+- 默认请求：按交易日执行，程序内部固定拆为上午 `09:30:00~11:30:00` 与下午 `13:00:00~15:00:00` 两个交易时段；未传 `ts_code` 时按股票池扇出；用户必须选择 `freq`。
+- 用户传参规则：用户可显式传 `ts_code`、`freq`、股票池 `offset/limit`；`freq` 支持 `1min/5min/15min/30min/60min` 多选，按频度扇出请求；不暴露具体小时、分钟、秒输入。
+- 时间执行：以交易日为基准；`trade_date` 单日执行，`start_date/end_date` 先筛交易日后逐日执行；不纳入普通 `sync-history`，单独使用 `sync-minute-history` / `sync_minute_history.stk_mins`。
+
 ### `stk_nineturn`（神奇九转指标）
 
 - 接口：`stk_nineturn`

@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from src.foundation.services.sync_v2.adapters.base import SourceRequest
+from src.foundation.services.sync_v2.adapters.tushare import TushareSyncV2Adapter
 from src.foundation.services.sync_v2.contracts import PaginationSpec, PlanUnit, RateLimitSpec
 from src.foundation.services.sync_v2.errors import SyncV2SourceError
 from src.foundation.services.sync_v2.registry import get_sync_v2_contract
@@ -164,3 +165,23 @@ def test_worker_client_prefers_unit_source_adapter_when_available(mocker) -> Non
     assert result.request_count == 1
     assert len(result.rows_raw) == 1
     assert calls == ["biying"]
+
+
+def test_tushare_adapter_injects_stk_mins_freq_from_request_params() -> None:
+    class _Connector:
+        def call(self, *, api_name, params, fields):  # type: ignore[no-untyped-def]
+            assert api_name == "stk_mins"
+            assert params["freq"] == "30min"
+            return [{"ts_code": "600000.SH", "trade_time": "2026-04-23 09:30:00"}]
+
+    adapter = TushareSyncV2Adapter(connector=_Connector())
+    rows = adapter.execute(
+        SourceRequest(
+            source_key="tushare",
+            api_name="stk_mins",
+            params={"ts_code": "600000.SH", "freq": "30min"},
+            fields=("ts_code", "trade_time"),
+        )
+    )
+
+    assert rows == [{"ts_code": "600000.SH", "trade_time": "2026-04-23 09:30:00", "freq": "30min"}]

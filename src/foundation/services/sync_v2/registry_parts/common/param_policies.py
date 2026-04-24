@@ -48,6 +48,18 @@ def _stk_limit_params(request, anchor_date: date | None, enum_values: dict[str, 
     return params
 
 
+def _stk_mins_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    if anchor_date is None:
+        raise ValueError("stk_mins requires trade_date anchor")
+    return {
+        "ts_code": str(enum_values["ts_code"]).strip().upper(),
+        "freq": str(enum_values["freq"]).strip(),
+        "start_date": str(enum_values["session_start"]).strip(),
+        "end_date": str(enum_values["session_end"]).strip(),
+    }
+
+
 def _daily_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("daily_basic requires trade_date anchor")
@@ -843,6 +855,7 @@ __all__ = [
     "ALL_MONEYFLOW_IND_DC_CONTENT_TYPES",
     "_trade_cal_params",
     "_stk_limit_params",
+    "_stk_mins_params",
     "_daily_basic_params",
     "_daily_params",
     "_adj_factor_params",

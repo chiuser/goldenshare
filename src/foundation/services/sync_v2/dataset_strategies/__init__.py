@@ -39,6 +39,7 @@ from src.foundation.services.sync_v2.dataset_strategies.moneyflow_ind_ths import
 from src.foundation.services.sync_v2.dataset_strategies.moneyflow_mkt_dc import build_moneyflow_mkt_dc_units
 from src.foundation.services.sync_v2.dataset_strategies.moneyflow_ths import build_moneyflow_ths_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_limit import build_stk_limit_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_mins import build_stk_mins_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_nineturn import build_stk_nineturn_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_holdernumber import build_stk_holdernumber_units
 from src.foundation.services.sync_v2.dataset_strategies.stk_factor_pro import build_stk_factor_pro_units
@@ -101,6 +102,7 @@ DATASET_STRATEGY_REGISTRY = {
     "moneyflow_mkt_dc": build_moneyflow_mkt_dc_units,
     "moneyflow_ths": build_moneyflow_ths_units,
     "stk_limit": build_stk_limit_units,
+    "stk_mins": build_stk_mins_units,
     "stk_nineturn": build_stk_nineturn_units,
     "stk_holdernumber": build_stk_holdernumber_units,
     "stk_factor_pro": build_stk_factor_pro_units,

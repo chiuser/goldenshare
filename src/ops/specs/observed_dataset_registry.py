@@ -57,6 +57,7 @@ from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
+from src.foundation.models.raw.raw_stk_mins import RawStkMins
 
 
 # Dataset-specific observed-range filters for shared tables.
@@ -145,6 +146,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.limit_cpt_list": LimitCptList,
     "raw_biying.equity_daily_bar": RawBiyingEquityDailyBar,
     "raw_biying.moneyflow": RawBiyingMoneyflow,
+    "raw_tushare.stk_mins": RawStkMins,
     # Compatible aliases for historical sync_job_state.target_table values.
     "core.trade_calendar": TradeCalendar,
     "core.equity_daily_bar": EquityDailyBar,

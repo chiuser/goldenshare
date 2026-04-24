@@ -66,6 +66,12 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert "offset" not in dc_hot_filter_keys
     assert "limit" not in dc_hot_filter_keys
 
+    assert actions["stk_mins"]["time_form"]["control"] == "trade_date_or_range"
+    assert actions["stk_mins"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["stk_mins"]["route_spec_keys"] == ["sync_minute_history.stk_mins"]
+    stk_mins_filter_keys = [item["key"] for item in actions["stk_mins"]["filters"]]
+    assert stk_mins_filter_keys == ["ts_code", "freq", "offset", "limit"]
+
 
 def test_ops_manual_action_execution_creates_point_job(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
@@ -131,6 +137,31 @@ def test_ops_manual_action_execution_applies_dc_hot_safe_defaults(app_client, us
         "hot_type": ["人气榜", "飙升榜"],
         "is_new": "Y",
         "trade_date": "2026-04-24",
+    }
+
+
+def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/stk_mins/executions",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
+            "filters": {"freq": ["30min", "60min"], "offset": 0, "limit": 5},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["spec_key"] == "sync_minute_history.stk_mins"
+    assert payload["run_profile"] == "range_rebuild"
+    assert payload["params_json"] == {
+        "freq": ["30min", "60min"],
+        "offset": 0,
+        "limit": 5,
+        "start_date": "2026-04-23",
+        "end_date": "2026-04-24",
     }
 
 

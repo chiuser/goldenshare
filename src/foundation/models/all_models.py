@@ -105,6 +105,7 @@ from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
+from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
@@ -208,6 +209,7 @@ __all__ = [
     "RawStockBasic",
     "RawStockSt",
     "RawStkFactorPro",
+    "RawStkMins",
     "RawSuspendD",
     "RawStkPeriodBar",
     "RawStkPeriodBarAdj",

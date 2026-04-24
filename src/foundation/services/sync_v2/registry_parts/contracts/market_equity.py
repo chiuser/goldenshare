@@ -16,6 +16,7 @@ from src.foundation.services.sync_v2.fields import (
     MARGIN_FIELDS,
     STK_LIMIT_FIELDS,
     STK_FACTOR_PRO_FIELDS,
+    STK_MINS_FIELDS,
     STK_NINETURN_FIELDS,
     STK_PERIOD_BAR_ADJ_FIELDS,
     STK_PERIOD_BAR_FIELDS,
@@ -244,6 +245,53 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         observe_spec=ObserveSpec(progress_label="stk_limit"),
         pagination_spec=PaginationSpec(page_limit=5800),
+    ),
+    "stk_mins": DatasetSyncContract(
+        dataset_key="stk_mins",
+        display_name="股票历史分钟行情",
+        job_name="sync_stk_mins",
+        run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_mins"),
+        input_schema=build_input_schema(
+            fields=(
+                InputField("trade_date", "date", required=False, description="交易日"),
+                InputField("start_date", "date", required=False, description="起始交易日"),
+                InputField("end_date", "date", required=False, description="结束交易日"),
+                InputField("ts_code", "string", required=False, description="股票代码；不传则按股票池扇出"),
+                InputField(
+                    "freq",
+                    "list",
+                    required=True,
+                    enum_values=("1min", "5min", "15min", "30min", "60min"),
+                    description="分钟频度，支持逗号分隔或多选",
+                ),
+                InputField("offset", "integer", required=False, description="股票池分页偏移"),
+                InputField("limit", "integer", required=False, description="股票池分页处理数量"),
+            )
+        ),
+        planning_spec=build_planning_spec(
+            universe_policy="none",
+            pagination_policy="offset_limit",
+        ),
+        source_adapter_key="tushare",
+        source_spec=SourceSpec(
+            api_name="stk_mins",
+            fields=tuple(STK_MINS_FIELDS),
+            unit_params_builder=_stk_mins_params,
+        ),
+        normalization_spec=build_normalization_spec(
+            decimal_fields=("open", "close", "high", "low", "vol", "amount"),
+            required_fields=("ts_code", "freq", "trade_time", "trade_date", "session_tag"),
+            row_transform=_stk_mins_row_transform,
+        ),
+        write_spec=build_write_spec(
+            raw_dao_name="raw_stk_mins",
+            core_dao_name="raw_stk_mins",
+            target_table="raw_tushare.stk_mins",
+            write_path="raw_only_upsert",
+        ),
+        observe_spec=ObserveSpec(progress_label="stk_mins"),
+        pagination_spec=PaginationSpec(page_limit=8000),
     ),
     "suspend_d": DatasetSyncContract(
         dataset_key="suspend_d",

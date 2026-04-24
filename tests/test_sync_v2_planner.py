@@ -8,6 +8,7 @@ import pytest
 
 from src.foundation.services.sync_v2.contracts import RunRequest
 from src.foundation.services.sync_v2.dataset_strategies.index_daily import build_index_daily_units
+from src.foundation.services.sync_v2.dataset_strategies.stk_mins import build_stk_mins_units
 from src.foundation.services.sync_v2.errors import SyncV2PlanningError
 from src.foundation.services.sync_v2.planner import SyncV2Planner
 from src.foundation.services.sync_v2.registry import get_sync_v2_contract
@@ -295,6 +296,74 @@ def test_planner_trade_cal_range_rebuild_uses_single_natural_window(mocker) -> N
     assert units[0].trade_date is None
     assert units[0].request_params["start_date"] == "20260401"
     assert units[0].request_params["end_date"] == "20260403"
+
+
+def test_stk_mins_strategy_expands_single_stock_freq_and_sessions(mocker) -> None:
+    session = mocker.Mock()
+    dao = SimpleNamespace(
+        security=SimpleNamespace(get_active_equities=lambda: []),
+        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: []),
+    )
+    contract = get_sync_v2_contract("stk_mins")
+    request = RunRequest(
+        request_id="req-stk-mins-point",
+        dataset_key="stk_mins",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260423", "ts_code": "600000.SH", "freq": ["30min", "60min"]},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = build_stk_mins_units(validated, contract, dao, SimpleNamespace(default_exchange="SSE"), session)
+
+    assert len(units) == 4
+    assert {unit.request_params["ts_code"] for unit in units} == {"600000.SH"}
+    assert {unit.request_params["freq"] for unit in units} == {"30min", "60min"}
+    assert {unit.page_limit for unit in units} == {8000}
+    assert {unit.request_params["start_date"] for unit in units} == {
+        "2026-04-23 09:30:00",
+        "2026-04-23 13:00:00",
+    }
+    assert {unit.request_params["end_date"] for unit in units} == {
+        "2026-04-23 11:30:00",
+        "2026-04-23 15:00:00",
+    }
+
+
+def test_stk_mins_strategy_uses_tushare_stock_pool_with_offset_limit(mocker) -> None:
+    session = mocker.Mock()
+    dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=lambda: [
+                SimpleNamespace(ts_code="600519.SH", source="tushare"),
+                SimpleNamespace(ts_code="000001.SZ", source="tushare"),
+                SimpleNamespace(ts_code="BIYING_ONLY", source="biying"),
+                SimpleNamespace(ts_code="600000.SH", source="tushare"),
+            ]
+        ),
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [
+                date(2026, 4, 22),
+                date(2026, 4, 23),
+            ]
+        ),
+    )
+    contract = get_sync_v2_contract("stk_mins")
+    request = RunRequest(
+        request_id="req-stk-mins-range",
+        dataset_key="stk_mins",
+        run_profile="range_rebuild",
+        trigger_source="manual",
+        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min", "offset": 1, "limit": 2},
+    )
+    validated = ContractValidator().validate(request=request, contract=contract, strict=True)
+
+    units = build_stk_mins_units(validated, contract, dao, SimpleNamespace(default_exchange="SSE"), session)
+
+    assert len(units) == 8
+    assert {unit.trade_date for unit in units} == {date(2026, 4, 22), date(2026, 4, 23)}
+    assert {unit.request_params["ts_code"] for unit in units} == {"600000.SH", "600519.SH"}
+    assert {unit.request_params["freq"] for unit in units} == {"30min"}
 
 
 def test_planner_ths_member_fanout_uses_ths_index_board_pool(mocker) -> None:

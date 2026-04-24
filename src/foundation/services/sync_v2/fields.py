@@ -355,6 +355,16 @@ STK_NINETURN_FIELDS = [
     "nine_up_turn",
     "nine_down_turn",
 ]
+STK_MINS_FIELDS = [
+    "ts_code",
+    "trade_time",
+    "open",
+    "close",
+    "high",
+    "low",
+    "vol",
+    "amount",
+]
 STOCK_ST_FIELDS = [
     "ts_code",
     "name",

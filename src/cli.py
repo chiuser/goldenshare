@@ -19,6 +19,7 @@ from src.cli_parts.shared import (
 from src.cli_parts.sync_handlers import (
     run_sync_daily as _run_sync_daily_impl,
     run_sync_history as _run_sync_history_impl,
+    run_sync_minute_history as _run_sync_minute_history_impl,
     run_sync_snapshot as _run_sync_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
@@ -326,6 +327,33 @@ def sync_snapshot(
         is_new=is_new,
         tag=tag,
         limit_type=limit_type,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("sync-minute-history")
+def sync_minute_history(
+    freq: list[str] = typer.Option(..., "--freq", help="分钟频度，可重复传入或用逗号分隔：1min/5min/15min/30min/60min。"),
+    trade_date: str | None = typer.Option(None, "--trade-date", help="单个交易日 YYYY-MM-DD。"),
+    start_date: str | None = typer.Option(None, "--start-date", help="起始交易日 YYYY-MM-DD。"),
+    end_date: str | None = typer.Option(None, "--end-date", help="结束交易日 YYYY-MM-DD。"),
+    ts_code: str | None = typer.Option(None, "--ts-code", help="可选：单股票代码；不传则按股票池扇出。"),
+    offset: int | None = typer.Option(None, "--offset", min=0, help="可选：股票池分页偏移。"),
+    limit: int | None = typer.Option(None, "--limit", min=1, help="可选：股票池分页处理数量。"),
+) -> None:
+    _run_sync_minute_history_impl(
+        session_local=SessionLocal,
+        build_sync_service_fn=build_sync_service,
+        attach_progress_fn=_attach_cli_progress_reporter,
+        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
+        snapshot_service_cls=DatasetStatusSnapshotService,
+        freq=freq,
+        trade_date=trade_date,
+        start_date=start_date,
+        end_date=end_date,
+        ts_code=ts_code,
+        offset=offset,
+        limit=limit,
         echo_fn=typer.echo,
     )
 
