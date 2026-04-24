@@ -7,6 +7,7 @@ from src.ops.api import (
     executions,
     freshness,
     layer_snapshots,
+    manual_actions,
     overview,
     review_center,
     probes,
@@ -30,6 +31,7 @@ router.include_router(layer_snapshots.router)
 router.include_router(source_management_bridge.router)
 router.include_router(runtime.router)
 router.include_router(catalog.router)
+router.include_router(manual_actions.router)
 router.include_router(dataset_pipeline_modes.router)
 router.include_router(review_center.router)
 router.include_router(codebook.router)

@@ -1,7 +1,10 @@
-# 手动维护动作模型收敛方案 v1
+# 手动维护动作模型收敛方案 v1（历史方案）
 
 更新时间：2026-04-24  
+状态：历史归档，当前执行口径以 [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md) 为准。
 适用范围：`src/ops/specs/*`、`src/ops/queries/*`、`src/ops/api/*`、`frontend/src/pages/ops-v21-task-manual-tab.tsx`
+
+> 归档说明：v1 仍保留“前端不应感知底层 spec 分支”的核心判断，但其中 `time_mode/supported_time_modes` 一节仍带有独立日期枚举设计。当前仓库已经将数据集日期语义收敛到 `DatasetSyncContract.date_model`，手动维护动作模型必须消费该单一事实源，不再另建日期规则。
 
 ---
 

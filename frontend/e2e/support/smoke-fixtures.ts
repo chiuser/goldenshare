@@ -323,7 +323,7 @@ function mockTaskRecords(route: Route, pathname: string) {
 }
 
 function mockTaskManual(route: Route, pathname: string) {
-  if (pathname === "/api/v1/ops/executions" && route.request().method() === "POST") {
+  if (pathname === "/api/v1/ops/manual-actions/daily/executions" && route.request().method() === "POST") {
     return fulfillJson(route, {
       id: 901,
     });
@@ -376,70 +376,46 @@ function mockTaskManual(route: Route, pathname: string) {
     });
   }
 
-  if (pathname === "/api/v1/ops/catalog") {
+  if (pathname === "/api/v1/ops/manual-actions") {
     return fulfillJson(route, {
-      job_specs: [
+      groups: [
         {
-          key: "sync_daily.daily",
-          display_name: "日常同步 / daily",
-          category: "sync_daily",
-          description: "按单个交易日同步股票日线。",
-          strategy_type: "incremental_by_date",
-          executor_kind: "sync_service",
-          target_tables: ["core.equity_daily_bar"],
-          supports_manual_run: true,
-          supports_schedule: true,
-          supports_retry: true,
-          schedule_binding_count: 0,
-          active_schedule_count: 0,
-          supported_params: [
+          group_key: "equity_market",
+          group_label: "股票行情",
+          group_order: 20,
+          actions: [
             {
-              key: "trade_date",
-              display_name: "交易日期",
-              param_type: "date",
-              description: "单个交易日。",
-              required: false,
-              multi_value: false,
-              options: [],
-            },
-          ],
-        },
-        {
-          key: "backfill_equity_series.daily",
-          display_name: "股票纵向回补 / daily",
-          category: "backfill_equity_series",
-          description: "按日期区间补股票日线。",
-          strategy_type: "backfill_by_security",
-          executor_kind: "history_backfill_service",
-          target_tables: ["core.equity_daily_bar"],
-          supports_manual_run: true,
-          supports_schedule: false,
-          supports_retry: true,
-          schedule_binding_count: 0,
-          active_schedule_count: 0,
-          supported_params: [
-            {
-              key: "start_date",
-              display_name: "开始日期",
-              param_type: "date",
-              description: "开始日期。",
-              required: false,
-              multi_value: false,
-              options: [],
-            },
-            {
-              key: "end_date",
-              display_name: "结束日期",
-              param_type: "date",
-              description: "结束日期。",
-              required: false,
-              multi_value: false,
-              options: [],
+              action_key: "daily",
+              action_type: "job",
+              display_name: "维护股票日线",
+              description: "维护股票日线数据。",
+              resource_key: "daily",
+              resource_display_name: "股票日线",
+              date_model: {
+                date_axis: "trade_open_day",
+                bucket_rule: "every_open_day",
+                window_mode: "point_or_range",
+                input_shape: "trade_date_or_start_end",
+                observed_field: "trade_date",
+                audit_applicable: true,
+                not_applicable_reason: null,
+              },
+              time_form: {
+                control: "trade_date_or_range",
+                default_mode: "point",
+                allowed_modes: ["point", "range"],
+                selection_rule: "trading_day_only",
+                point_label: "只处理一天",
+                range_label: "处理一个时间区间",
+              },
+              filters: [],
+              search_keywords: ["daily", "股票日线"],
+              action_order: 100,
+              route_spec_keys: ["sync_daily.daily", "backfill_equity_series.daily", "sync_history.daily"],
             },
           ],
         },
       ],
-      workflow_specs: [],
     });
   }
 

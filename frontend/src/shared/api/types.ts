@@ -500,6 +500,66 @@ export interface OpsCatalogResponse {
   }>;
 }
 
+export interface OpsManualActionsResponse {
+  groups: Array<{
+    group_key: string;
+    group_label: string;
+    group_order: number;
+    actions: Array<{
+      action_key: string;
+      action_type: "job" | "workflow";
+      display_name: string;
+      description: string;
+      resource_key: string | null;
+      resource_display_name: string | null;
+      date_model: {
+        date_axis: string;
+        bucket_rule: string;
+        window_mode: string;
+        input_shape: string;
+        observed_field: string | null;
+        audit_applicable: boolean;
+        not_applicable_reason: string | null;
+      } | null;
+      time_form: {
+        control: "trade_date_or_range" | "calendar_date_or_range" | "month_or_range" | "month_window_range" | "none";
+        default_mode: "point" | "range" | "none";
+        allowed_modes: Array<"point" | "range" | "none">;
+        selection_rule: "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "month_key" | "month_window" | "none";
+        point_label: string;
+        range_label: string;
+      };
+      filters: Array<{
+        key: string;
+        display_name: string;
+        param_type: string;
+        description: string;
+        required: boolean;
+        options: string[];
+        multi_value: boolean;
+      }>;
+      search_keywords: string[];
+      action_order: number;
+      route_spec_keys: string[];
+    }>;
+  }>;
+}
+
+export interface OpsManualActionExecutionRequest {
+  time_input: {
+    mode: "point" | "range" | "none";
+    trade_date?: string;
+    start_date?: string;
+    end_date?: string;
+    month?: string;
+    start_month?: string;
+    end_month?: string;
+    ann_date?: string;
+    date_field?: string;
+  };
+  filters: Record<string, unknown>;
+}
+
 export interface SyncCodebookItem {
   code: string;
   label: string;

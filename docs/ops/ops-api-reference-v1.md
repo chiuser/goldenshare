@@ -107,6 +107,83 @@ curl -H "Authorization: Bearer <TOKEN>" \
 }
 ```
 
+### 2.4.1 GET /api/v1/ops/manual-actions
+
+- 功能：返回手动维护页专用动作目录。该接口面向用户任务语言，隐藏 `sync_daily/backfill/sync_history` 等底层执行分支。
+- Query 参数：无。
+- 返回：`ManualActionListResponse`
+  - `groups[]`
+  - `groups[].actions[]`
+  - `actions[].date_model` 来自 `DatasetSyncContract.date_model`
+  - `actions[].time_form` 用于前端选择日期 / 月份控件
+  - `actions[].filters` 为页面可展示的非时间、非内部参数
+  - `actions[].route_spec_keys` 仅用于从任务记录 / 自动任务返回手动页时匹配上下文，不用于前端决定执行路径
+- 鉴权：管理员。
+- 示例：
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  "http://127.0.0.1:8000/api/v1/ops/manual-actions"
+```
+
+```json
+{
+  "groups": [
+    {
+      "group_key": "equity_market",
+      "group_label": "股票行情",
+      "group_order": 20,
+      "actions": [
+        {
+          "action_key": "daily",
+          "action_type": "job",
+          "display_name": "维护股票日线",
+          "time_form": {
+            "control": "trade_date_or_range",
+            "default_mode": "point",
+            "allowed_modes": ["point", "range"],
+            "selection_rule": "trading_day_only"
+          },
+          "filters": [],
+          "route_spec_keys": ["sync_daily.daily", "backfill_equity_series.daily", "sync_history.daily"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 2.4.2 POST /api/v1/ops/manual-actions/{action_key}/executions
+
+- 功能：按手动维护动作提交一次执行请求。后端将 `action_key + time_input + filters` 解析为现有 `spec_type/spec_key/params_json`，再创建 queued execution。
+- Path 参数：
+  - `action_key`：来自 `GET /api/v1/ops/manual-actions`。
+- Body：`ManualActionExecutionCreateRequest`
+  - `time_input`：日期、月份或无日期输入。
+  - `filters`：对象筛选和附加参数。
+- 返回：`ExecutionDetailResponse`。
+- 鉴权：管理员。
+- 示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/manual-actions/daily/executions" \
+  -d '{
+    "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+    "filters": {}
+  }'
+```
+
+```json
+{
+  "id": 1001,
+  "spec_type": "job",
+  "spec_key": "sync_daily.daily",
+  "status": "queued",
+  "params_json": {"trade_date": "2026-04-24"}
+}
+```
+
 ### 2.5 GET /api/v1/ops/pipeline-modes
 
 - 功能：返回数据集 pipeline mode 列表（单源直出/多源融合等）。

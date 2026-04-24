@@ -1,5 +1,6 @@
 __all__ = [
     "OpsExecutionCommandService",
+    "ManualActionCommandService",
     "OpsProbeCommandService",
     "OpsResolutionReleaseCommandService",
     "OpsRuntimeCommandService",
@@ -13,6 +14,10 @@ def __getattr__(name: str):
         from src.ops.services.execution_service import OpsExecutionCommandService
 
         return OpsExecutionCommandService
+    if name == "ManualActionCommandService":
+        from src.ops.services.manual_action_service import ManualActionCommandService
+
+        return ManualActionCommandService
     if name == "OpsProbeCommandService":
         from src.ops.services.probe_service import OpsProbeCommandService
 

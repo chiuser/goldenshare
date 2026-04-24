@@ -30,6 +30,15 @@ from src.ops.schemas.layer_snapshot import (
     LayerSnapshotLatestItem,
     LayerSnapshotLatestResponse,
 )
+from src.ops.schemas.manual_action import (
+    ManualActionDateModelResponse,
+    ManualActionExecutionCreateRequest,
+    ManualActionGroupResponse,
+    ManualActionItemResponse,
+    ManualActionListResponse,
+    ManualActionTimeFormResponse,
+    ManualActionTimeInput,
+)
 from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse
 from src.ops.schemas.probe import (
     CreateProbeRuleRequest,
@@ -118,6 +127,13 @@ __all__ = [
     "LayerSnapshotHistoryResponse",
     "LayerSnapshotLatestItem",
     "LayerSnapshotLatestResponse",
+    "ManualActionDateModelResponse",
+    "ManualActionExecutionCreateRequest",
+    "ManualActionGroupResponse",
+    "ManualActionItemResponse",
+    "ManualActionListResponse",
+    "ManualActionTimeFormResponse",
+    "ManualActionTimeInput",
     "OpsFreshnessResponse",
     "OpsFreshnessSummary",
     "OpsOverviewKpis",

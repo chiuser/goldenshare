@@ -63,12 +63,12 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await page.addInitScript(() => {
       window.localStorage.setItem(
         "goldenshare.frontend.ops.manual-sync.domain",
-        JSON.stringify("股票"),
+        JSON.stringify("股票行情"),
       );
       window.localStorage.setItem(
         "goldenshare.frontend.ops.manual-sync.draft",
         JSON.stringify({
-          action_id: "job:daily",
+          action_id: "daily",
           date_mode: "single_point",
           selected_date: "2026-04-17",
           start_date: "2026-04-17",
@@ -82,7 +82,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
     });
     await installApiMocks(page, "task-manual");
     await page.goto("/app/ops/manual-sync");
-    await expect(page.getByText("维护股票日线", { exact: true })).toBeVisible();
+    await expect(page.getByText("维护股票日线", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("选择日期")).toBeVisible();
     await expect(page.getByRole("button", { name: "开始同步" })).toBeVisible();
     await stabilizeUi(page);
@@ -97,7 +97,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await installApiMocks(page, "task-auto");
     await page.goto("/app/ops/automation");
     await expect(page.getByRole("button", { name: "新建自动任务" })).toBeVisible();
-    await expect(page.getByText("任务详情")).toBeVisible();
+    await expect(page.getByText("任务详情", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "修改" }).click();
     await expect(page.getByText("修改自动任务")).toBeVisible();
     await expect(page.getByText("预览未来 5 次运行时间（自动更新）")).toBeVisible();

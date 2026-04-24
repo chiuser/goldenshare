@@ -3,6 +3,7 @@ from src.ops.queries.dataset_pipeline_mode_query_service import DatasetPipelineM
 from src.ops.queries.execution_query_service import ExecutionQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
+from src.ops.queries.manual_action_query_service import ManualActionQueryService
 from src.ops.queries.overview_query_service import OpsOverviewQueryService
 from src.ops.queries.probe_query_service import ProbeQueryService
 from src.ops.queries.resolution_release_query_service import ResolutionReleaseQueryService
@@ -14,6 +15,7 @@ __all__ = [
     "ExecutionQueryService",
     "DatasetPipelineModeQueryService",
     "LayerSnapshotQueryService",
+    "ManualActionQueryService",
     "OpsCatalogQueryService",
     "OpsFreshnessQueryService",
     "OpsOverviewQueryService",
