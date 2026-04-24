@@ -70,7 +70,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["stk_mins"]["time_form"]["allowed_modes"] == ["point", "range"]
     assert actions["stk_mins"]["route_spec_keys"] == ["sync_minute_history.stk_mins"]
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins"]["filters"]]
-    assert stk_mins_filter_keys == ["ts_code", "freq", "offset", "limit"]
+    assert stk_mins_filter_keys == ["ts_code", "freq"]
 
 
 def test_ops_manual_action_execution_creates_point_job(app_client, user_factory) -> None:
@@ -148,7 +148,7 @@ def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_clien
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
-            "filters": {"freq": ["30min", "60min"], "offset": 0, "limit": 5},
+            "filters": {"freq": ["30min", "60min"]},
         },
     )
 
@@ -158,8 +158,6 @@ def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_clien
     assert payload["run_profile"] == "range_rebuild"
     assert payload["params_json"] == {
         "freq": ["30min", "60min"],
-        "offset": 0,
-        "limit": 5,
         "start_date": "2026-04-23",
         "end_date": "2026-04-24",
     }

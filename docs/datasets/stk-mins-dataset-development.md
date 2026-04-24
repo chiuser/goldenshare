@@ -228,7 +228,7 @@ afternoon: 13:00:00 ~ 15:00:00
 1. 从 Tushare `stock_basic` 已落库结果读取 `ts_code`。
 2. 建议优先使用 `core_serving.security_serving` 中 `source='tushare'`、`security_type='EQUITY'` 的代码池；如果需要严格按 Raw 源表，则使用 `raw_tushare.stock_basic`。
 3. 默认包括 `L/P/D` 状态，避免历史回补漏掉退市或暂停上市证券；如后续运营侧需要，可再增加上市状态过滤。
-4. 通过 `offset/limit` 对证券池分批，避免一次任务规划出过多 unit。
+4. 不暴露股票池 `offset/limit`；未传 `ts_code` 时，直接按当前 Tushare 股票池全量扇出。
 
 示例：
 
@@ -267,8 +267,6 @@ freq             # 必填，可多选
 trade_date?      # 单日
 start_date?      # 区间开始交易日
 end_date?        # 区间结束交易日
-offset?          # 股票池分页
-limit?           # 股票池分页
 ```
 
 请求 Tushare 参数：
@@ -282,10 +280,7 @@ limit = 8000
 offset = 0, 8000, 16000, ...
 ```
 
-说明：这里有两类分页，不要混淆：
-
-- 股票池 `offset/limit`：控制本次处理哪些 `ts_code`。
-- Tushare 请求 `limit/offset`：控制单个接口请求分页，固定按 `8000` 递增。
+说明：这里只保留 Tushare 请求 `limit/offset` 这一类内部分页，固定按 `8000` 递增，不作为用户输入参数暴露。
 
 ## 8. Sync V2 接入方案
 
@@ -340,15 +335,12 @@ STK_MINS_FIELDS = (
 | `trade_date` | `date` | 否 | 单交易日 |
 | `start_date` | `date` | 否 | 区间开始交易日 |
 | `end_date` | `date` | 否 | 区间结束交易日 |
-| `offset` | `integer` | 否 | 股票池分批起始位移 |
-| `limit` | `integer` | 否 | 股票池分批处理数量 |
-
 约束：
 
 - `trade_date` 与 `start_date/end_date` 二选一。
 - `freq` 不能为空。
 - `freq` 值必须在 `1min/5min/15min/30min/60min`。
-- 如果不传 `ts_code`，建议必须显式给 `offset/limit` 或在 CLI 层二次确认，避免误跑全市场超大任务。
+- 如果不传 `ts_code`，按股票池全量扇出；页面和 CLI 需要清晰提示分钟数据量较大。
 
 ### 8.4 策略文件
 
@@ -359,7 +351,7 @@ STK_MINS_FIELDS = (
 - 校验 `freq` 值。
 - 解析单交易日或交易日区间。
 - 从交易日历展开开市日期。
-- 未传 `ts_code` 时，从 Tushare 股票池加载证券代码，并按 `offset/limit` 分批。
+- 未传 `ts_code` 时，从 Tushare 股票池加载证券代码并全量扇出。
 - 将维度拆成：`ts_code x freq x trade_date x session`。
 - 为每个执行单元生成 Tushare 请求参数。
 - 设置 `pagination_policy="offset_limit"`、`page_limit=8000`。
@@ -411,8 +403,6 @@ STK_MINS_FIELDS = (
 - `freq`：必填，多选枚举。
 - `trade_date`：单日模式。
 - `start_date/end_date`：区间模式。
-- `offset/limit`：全市场股票池分批。
-
 不复用 `sync_history.stk_mins` 的原因：
 
 - 分钟行情虽然是历史数据，但请求语义不是普通日频历史同步。
@@ -428,10 +418,9 @@ STK_MINS_FIELDS = (
 - 日期选择器只允许选择交易日。
 - 单日模式：选择一个交易日。
 - 区间模式：选择开始交易日和结束交易日。
-- 全市场模式展示 `offset/limit`，用于分批同步。
 - 展示固定交易时段说明：上午 `09:30~11:30`，下午 `13:00~15:00`。
 - 不提供小时、分钟、秒输入控件。
-- 提示文案：分钟数据量很大，全市场建议分批执行。
+- 提示文案：分钟数据量很大；未填股票代码时会按当前股票列表全市场扇开请求。
 
 不支持：
 
@@ -460,7 +449,7 @@ STK_MINS_FIELDS = (
 
 - 上游需要单独权限。
 - 分钟数据量巨大。
-- 自动任务应等分批策略、磁盘容量、失败恢复策略验证稳定后再单独评审。
+- 自动任务应等权限、磁盘容量、失败恢复策略验证稳定后再单独评审。
 
 ## 10. CLI 接入
 
@@ -474,23 +463,11 @@ goldenshare sync-minute-history \
   --ts-code 600000.SH
 ```
 
-全市场分批示例：
-
-```bash
-goldenshare sync-minute-history \
-  --freq 30min,60min \
-  --start-date 2026-04-23 \
-  --end-date 2026-04-23 \
-  --offset 0 \
-  --limit 200
-```
-
 CLI 行为：
 
 - `--ts-code` 可选。
 - 未传 `--ts-code` 时，从股票池读取证券代码。
-- `--offset/--limit` 控制股票池分批。
-- 每处理 N 只股票输出进度。
+- 通过 V2 进度上报输出执行单元进度。
 - 每个 unit 输出 `trade_date/session/freq/ts_code fetched/written/rejected`。
 
 ## 11. 对账与数据质量
@@ -505,7 +482,7 @@ CLI 行为：
 - 检查 `trade_time` 是否为空。
 - 检查 `trade_time` 是否落在固定交易时段内。
 - 检查 `freq` 是否为允许值。
-- 抽样检查全市场批次写入行数是否大于 0。
+- 抽样检查全市场写入行数是否大于 0。
 - 检查 `core_serving.equity_minute_bar` View 与 `raw_tushare.stk_mins` 在同一过滤条件下行数一致。
 
 ### 11.2 不纳入日期完整性审计第一期
@@ -563,21 +540,20 @@ CLI 行为：
 - `src/ops/runtime/dispatcher.py`
   - 接入 `sync_minute_history` 到 V2 sync service。
 - `src/ops/queries/manual_action_query_service.py`
-  - 让手动动作能展示该任务的交易日、频度、股票池分页参数。
+  - 让手动动作能展示该任务的交易日和频度参数。
 
 ### 12.4 CLI
 
 - `src/cli.py` 或 `src/cli_parts/*`
   - 新增 `goldenshare sync-minute-history`。
-  - 支持 `--freq`、`--ts-code`、`--trade-date`、`--start-date`、`--end-date`、`--offset`、`--limit`。
-  - 输出全市场批次进度。
+  - 支持 `--freq`、`--ts-code`、`--trade-date`、`--start-date`、`--end-date`。
+  - 输出 V2 执行进度。
 
 ### 12.5 Frontend
 
 - 手动维护表单：
   - `freq` 多选。
   - 日期组件只允许交易日。
-  - 全市场分批参数。
   - 固定交易时段说明。
 
 ### 12.6 文档
@@ -600,7 +576,7 @@ CLI 行为：
   - `trade_date` 与 `start_date/end_date` 二选一。
 - `tests/test_sync_v2_planner.py`
   - 单股票、多 `freq`、单交易日生成 `2 x freq_count` 个时段 unit。
-  - 全市场模式按股票池扇出，并支持 `offset/limit`。
+  - 全市场模式按股票池全量扇出。
   - 区间模式只展开交易日。
 - `tests/test_sync_v2_worker_client.py`
   - Tushare 请求分页 `limit=8000`、`offset` 递增。
@@ -630,14 +606,12 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
   --trade-date 2026-04-23
 ```
 
-全市场小批次冒烟：
+全市场冒烟：
 
 ```bash
 GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
   --freq 60min \
-  --trade-date 2026-04-23 \
-  --offset 0 \
-  --limit 5
+  --trade-date 2026-04-23
 ```
 
 验证：
@@ -654,7 +628,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 | 风险 | 影响 | 控制方式 |
 | --- | --- | --- |
 | 未开通 Tushare 分钟权限 | 真实同步失败 | 实现前或冒烟前先确认权限；错误码透出为权限问题 |
-| 数据量极大 | 任务长、库膨胀、锁压力 | 单物理表 + 普通 View；不写默认 raw_payload；全市场支持 `offset/limit` 分批 |
+| 数据量极大 | 任务长、库膨胀、锁压力 | 单物理表 + 普通 View；不写默认 raw_payload；全市场按股票池扇出，真实执行前先用单股票冒烟确认 |
 | View 被误改成物化视图 | 又产生一份大数据 | 明确只允许普通 View，禁止 materialized view |
 | 全市场 unit 过多 | 任务规划和展示压力大 | `ts_code x freq x trade_date x session` 明确拆分，并输出进度 |
 | 股票池口径不清 | 漏拉退市历史数据或拉取过多 | 默认使用 Tushare stock_basic 全证券池；后续再加上市状态过滤 |
@@ -670,7 +644,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 5. 接入 Ops 手动任务。
 6. 补测试门禁。
 7. 用单股票、单交易日、单频度真实冒烟。
-8. 用全市场小批次真实冒烟。
+8. 再评估全市场真实执行窗口与运行风险。
 9. 再评估是否加入自动任务或更大批量 runbook。
 
 ## 16. 需要评审拍板的问题
@@ -678,5 +652,4 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 1. 物理表只保留 `raw_tushare.stk_mins`，并创建 `core_serving.equity_minute_bar` 普通 View，是否确认？
 2. `raw_payload` 是否按建议保留字段但默认不写入？
 3. 全市场股票池默认是否包括 `L/P/D` 全状态？
-4. 全市场模式是否要求必须传 `offset/limit`，还是允许不传时一次规划全量？
-5. 90 分钟线是否按建议落到 `core_serving.equity_minute_bar_derived`？
+4. 90 分钟线是否按建议落到 `core_serving.equity_minute_bar_derived`？

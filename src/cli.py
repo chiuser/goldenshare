@@ -338,8 +338,6 @@ def sync_minute_history(
     start_date: str | None = typer.Option(None, "--start-date", help="起始交易日 YYYY-MM-DD。"),
     end_date: str | None = typer.Option(None, "--end-date", help="结束交易日 YYYY-MM-DD。"),
     ts_code: str | None = typer.Option(None, "--ts-code", help="可选：单股票代码；不传则按股票池扇出。"),
-    offset: int | None = typer.Option(None, "--offset", min=0, help="可选：股票池分页偏移。"),
-    limit: int | None = typer.Option(None, "--limit", min=1, help="可选：股票池分页处理数量。"),
 ) -> None:
     _run_sync_minute_history_impl(
         session_local=SessionLocal,
@@ -352,8 +350,6 @@ def sync_minute_history(
         start_date=start_date,
         end_date=end_date,
         ts_code=ts_code,
-        offset=offset,
-        limit=limit,
         echo_fn=typer.echo,
     )
 

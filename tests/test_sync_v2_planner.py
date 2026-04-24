@@ -330,7 +330,7 @@ def test_stk_mins_strategy_expands_single_stock_freq_and_sessions(mocker) -> Non
     }
 
 
-def test_stk_mins_strategy_uses_tushare_stock_pool_with_offset_limit(mocker) -> None:
+def test_stk_mins_strategy_uses_full_tushare_stock_pool(mocker) -> None:
     session = mocker.Mock()
     dao = SimpleNamespace(
         security=SimpleNamespace(
@@ -354,15 +354,15 @@ def test_stk_mins_strategy_uses_tushare_stock_pool_with_offset_limit(mocker) -> 
         dataset_key="stk_mins",
         run_profile="range_rebuild",
         trigger_source="manual",
-        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min", "offset": 1, "limit": 2},
+        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min"},
     )
     validated = ContractValidator().validate(request=request, contract=contract, strict=True)
 
     units = build_stk_mins_units(validated, contract, dao, SimpleNamespace(default_exchange="SSE"), session)
 
-    assert len(units) == 8
+    assert len(units) == 12
     assert {unit.trade_date for unit in units} == {date(2026, 4, 22), date(2026, 4, 23)}
-    assert {unit.request_params["ts_code"] for unit in units} == {"600000.SH", "600519.SH"}
+    assert {unit.request_params["ts_code"] for unit in units} == {"000001.SZ", "600000.SH", "600519.SH"}
     assert {unit.request_params["freq"] for unit in units} == {"30min"}
 
 

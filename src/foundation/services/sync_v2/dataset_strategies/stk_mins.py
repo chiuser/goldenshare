@@ -42,15 +42,7 @@ def _resolve_security_codes(request: ValidatedRunRequest, dao) -> list[str]:  # 
     codes = sorted({str(code).strip().upper() for code in (tushare_codes or all_codes) if str(code or "").strip()})
     if not codes:
         raise RuntimeError("stk_mins requires stock_basic/security pool before full-market sync")
-
-    offset = int(request.params.get("offset") or 0)
-    limit_value = request.params.get("limit")
-    limit = int(limit_value) if limit_value not in (None, "") else None
-    if offset < 0:
-        raise RuntimeError("stk_mins offset must be >= 0")
-    if limit is not None and limit <= 0:
-        raise RuntimeError("stk_mins limit must be > 0")
-    return codes[offset : offset + limit] if limit is not None else codes[offset:]
+    return codes
 
 
 def _session_window(anchor: date, *, start_time: str, end_time: str) -> tuple[str, str]:

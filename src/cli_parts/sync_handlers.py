@@ -203,8 +203,6 @@ def run_sync_minute_history(
     start_date: str | None,
     end_date: str | None,
     ts_code: str | None,
-    offset: int | None,
-    limit: int | None,
     echo_fn: Callable[[str], None],
 ) -> None:
     if trade_date and (start_date or end_date):
@@ -230,16 +228,13 @@ def run_sync_minute_history(
                 "start_date": start_date,
                 "end_date": end_date,
                 "ts_code": ts_code,
-                "offset": offset,
-                "limit": limit,
             },
         )
         scope = f"trade_date={trade_date}" if trade_date else f"start_date={start_date} end_date={end_date}"
         echo_fn(
             "[stk_mins] sync-minute-history start "
             f"{scope} freq={','.join(normalized_freqs)} "
-            f"ts_code={ts_code or '__POOL__'} offset={offset if offset is not None else 0} "
-            f"limit={limit if limit is not None else '__ALL__'}"
+            f"ts_code={ts_code or '__POOL__'}"
         )
         started_at = time.perf_counter()
         if trade_date:

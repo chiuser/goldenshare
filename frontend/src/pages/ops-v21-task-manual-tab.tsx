@@ -294,7 +294,7 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
       title: "执行方式说明",
       lines: [
         "系统会按固定交易时段 09:30~11:30、13:00~15:00 请求分钟行情，不支持手动输入具体时分秒。",
-        "分钟数据量很大；全市场同步时请使用 offset/limit 分批执行。",
+        "未填写股票代码时，系统会按当前股票列表全市场扇开请求。",
       ],
     };
   }

@@ -209,7 +209,7 @@ def test_validator_accepts_stk_mins_range_with_freq_list() -> None:
         dataset_key="stk_mins",
         run_profile="range_rebuild",
         trigger_source="manual",
-        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min,60min", "limit": "2"},
+        params={"start_date": "20260422", "end_date": "20260423", "freq": "30min,60min"},
     )
 
     validated = validator.validate(request=request, contract=contract, strict=True)
@@ -217,7 +217,7 @@ def test_validator_accepts_stk_mins_range_with_freq_list() -> None:
     assert validated.start_date == date(2026, 4, 22)
     assert validated.end_date == date(2026, 4, 23)
     assert validated.params["freq"] == ["30min", "60min"]
-    assert validated.params["limit"] == 2
+    assert "limit" not in validated.params
 
 
 def test_validator_accepts_limit_step_incremental_with_nums() -> None:

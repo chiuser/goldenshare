@@ -157,8 +157,6 @@ def test_sync_minute_history_normalizes_freq_and_calls_incremental(mocker) -> No
                 SimpleNamespace(name="freq"),
                 SimpleNamespace(name="trade_date"),
                 SimpleNamespace(name="ts_code"),
-                SimpleNamespace(name="offset"),
-                SimpleNamespace(name="limit"),
             )
         )
     )
@@ -177,10 +175,6 @@ def test_sync_minute_history_normalizes_freq_and_calls_incremental(mocker) -> No
             "2026-04-23",
             "--ts-code",
             "600000.SH",
-            "--offset",
-            "0",
-            "--limit",
-            "1",
         ],
     )
 
@@ -189,7 +183,5 @@ def test_sync_minute_history_normalizes_freq_and_calls_incremental(mocker) -> No
         trade_date=date(2026, 4, 23),
         freq=["30min", "60min"],
         ts_code="600000.SH",
-        offset=0,
-        limit=1,
     )
     snapshot_service.refresh_resources.assert_called_once_with(session, ["stk_mins"])

@@ -162,7 +162,6 @@ class ManualActionQueryService:
         display_name = f"维护{self._display_name_for_resource(draft)}"
         specs = draft.route_specs()
         filters = self._collect_filters(spec.supported_params for spec in specs)
-        filters = self._include_visible_batch_filters(draft=draft, specs=specs, filters=filters)
         time_form = self._time_form_from_date_model(
             date_model,
             supports_point_route=self._resource_supports_point_route(draft, date_model),
@@ -230,22 +229,6 @@ class ManualActionQueryService:
                 if param.key not in filters:
                     filters[param.key] = param
         return tuple(filters.values())
-
-    @staticmethod
-    def _include_visible_batch_filters(
-        *,
-        draft: _ResourceActionDraft,
-        specs: list[JobSpec],
-        filters: tuple[ParameterSpec, ...],
-    ) -> tuple[ParameterSpec, ...]:
-        if draft.resource_key != "stk_mins":
-            return filters
-        collected = {param.key: param for param in filters}
-        for spec in specs:
-            for param in spec.supported_params:
-                if param.key in {"offset", "limit"} and param.key not in collected:
-                    collected[param.key] = param
-        return tuple(collected.values())
 
     @staticmethod
     def _param_keys(spec: JobSpec | WorkflowSpec | None) -> set[str]:

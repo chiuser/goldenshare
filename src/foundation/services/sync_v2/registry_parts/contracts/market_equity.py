@@ -265,8 +265,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
                     enum_values=("1min", "5min", "15min", "30min", "60min"),
                     description="分钟频度，支持逗号分隔或多选",
                 ),
-                InputField("offset", "integer", required=False, description="股票池分页偏移"),
-                InputField("limit", "integer", required=False, description="股票池分页处理数量"),
             )
         ),
         planning_spec=build_planning_spec(
