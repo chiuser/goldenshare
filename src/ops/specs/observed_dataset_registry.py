@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
+from src.foundation.models.core.broker_recommend import BrokerRecommend
 from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_dividend import EquityDividend
@@ -96,6 +97,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "core_serving.equity_margin": EquityMargin,
     "core_serving.equity_top_list": EquityTopList,
     "core_serving.equity_block_trade": EquityBlockTrade,
+    "core_serving.broker_recommend": BrokerRecommend,
     "core_serving.equity_limit_list": EquityLimitList,
     "core_serving.equity_stk_limit": EquityStkLimit,
     "core_serving.equity_stock_st": EquityStockSt,

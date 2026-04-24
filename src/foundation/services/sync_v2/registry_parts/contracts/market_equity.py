@@ -31,6 +31,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -45,6 +46,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="BIYING 股票日线",
         job_name="sync_biying_equity_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("biying_equity_daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -55,9 +57,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="natural_date_range",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -86,6 +85,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票日线行情",
         job_name="sync_equity_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -96,7 +96,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -124,6 +123,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="复权因子",
         job_name="sync_adj_factor",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("adj_factor"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -134,7 +134,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -161,6 +160,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="每日指标",
         job_name="sync_daily_basic",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("daily_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -170,7 +170,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -214,6 +213,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="每日涨跌停价格",
         job_name="sync_stk_limit",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_limit"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -223,7 +223,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -251,6 +250,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="每日停复牌信息",
         job_name="sync_suspend_d",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("suspend_d"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -261,7 +261,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -290,6 +289,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="每日筹码及胜率",
         job_name="sync_cyq_perf",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("cyq_perf"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -300,7 +300,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -338,6 +337,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票技术面因子(专业版)",
         job_name="sync_stk_factor_pro",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_factor_pro"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -347,9 +347,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
-            anchor_type="trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -376,6 +373,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="融资融券汇总",
         job_name="sync_margin",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("margin"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -385,7 +383,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             enum_fanout_fields=("exchange_id",),
             enum_fanout_defaults={"exchange_id": ALL_MARGIN_EXCHANGE_IDS},
@@ -414,6 +411,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="每日涨跌停名单",
         job_name="sync_limit_list",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("limit_list_d"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -425,7 +423,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             enum_fanout_fields=("limit_type", "exchange"),
             enum_fanout_defaults={"limit_type": ALL_LIMIT_LIST_TYPES, "exchange": ALL_LIMIT_LIST_EXCHANGES},
@@ -455,6 +452,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="同花顺涨停名单",
         job_name="sync_limit_list_ths",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("limit_list_ths"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -466,7 +464,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -506,6 +503,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="连板梯队",
         job_name="sync_limit_step",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("limit_step"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -516,7 +514,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -542,6 +539,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="涨停概念列表",
         job_name="sync_limit_cpt_list",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("limit_cpt_list"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -551,7 +549,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -578,6 +575,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="龙虎榜",
         job_name="sync_top_list",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("top_list"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -587,7 +585,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -628,6 +625,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="大宗交易",
         job_name="sync_block_trade",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("block_trade"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -637,7 +635,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -666,6 +663,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="ST股票列表",
         job_name="sync_stock_st",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stock_st"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -675,7 +673,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -702,6 +699,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="神奇九转指标",
         job_name="sync_stk_nineturn",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_nineturn"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -711,7 +709,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -739,6 +736,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票周线行情",
         job_name="sync_stk_period_bar_week",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_period_bar_week"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -748,9 +746,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="week_end_trade_date",
-            anchor_type="week_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -778,6 +773,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票月线行情",
         job_name="sync_stk_period_bar_month",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_period_bar_month"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -787,9 +783,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="month_end_trade_date",
-            anchor_type="month_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -817,6 +810,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票周线行情（复权）",
         job_name="sync_stk_period_bar_adj_week",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_period_bar_adj_week"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -826,9 +820,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="week_end_trade_date",
-            anchor_type="week_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -874,6 +865,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股票月线行情（复权）",
         job_name="sync_stk_period_bar_adj_month",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("stk_period_bar_adj_month"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -883,9 +875,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="month_end_trade_date",
-            anchor_type="month_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -931,6 +920,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="券商月度金股推荐",
         job_name="sync_broker_recommend",
         run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("broker_recommend"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -940,9 +930,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="month_end_trade_date",
-            anchor_type="month_key_yyyymm",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),

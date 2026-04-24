@@ -101,3 +101,7 @@ def test_all_observed_date_specs_have_model_mapping_and_column() -> None:
 
     assert not missing_model
     assert not missing_column
+
+
+def test_normalize_observed_date_accepts_month_key() -> None:
+    assert OpsFreshnessQueryService._normalize_observed_date("202604") == date(2026, 4, 1)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.foundation.services.sync_v2.contracts import InputField
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -23,18 +24,20 @@ def test_build_input_schema_normalizes_fields_to_tuple() -> None:
 
 def test_build_planning_spec_keeps_planning_values() -> None:
     planning = build_planning_spec(
-        date_anchor_policy="trade_date",
-        anchor_type="trade_date_yyyymmdd",
-        window_policy="point_or_range",
         universe_policy="none",
         pagination_policy="none",
     )
 
-    assert planning.date_anchor_policy == "trade_date"
-    assert planning.anchor_type == "trade_date_yyyymmdd"
-    assert planning.window_policy == "point_or_range"
     assert planning.universe_policy == "none"
     assert planning.pagination_policy == "none"
+
+
+def test_build_date_model_returns_registered_dataset_model() -> None:
+    model = build_date_model("daily")
+
+    assert model.date_axis == "trade_open_day"
+    assert model.bucket_rule == "every_open_day"
+    assert model.observed_field == "trade_date"
 
 
 def test_build_normalization_spec_normalizes_iterables_to_tuples() -> None:
@@ -61,4 +64,3 @@ def test_build_write_spec_normalizes_conflict_columns_to_tuple() -> None:
     assert spec.core_dao_name == "equity_suspend_d"
     assert spec.target_table == "core_serving.equity_suspend_d"
     assert spec.conflict_columns == ("row_key_hash",)
-

@@ -83,16 +83,15 @@ def test_ths_daily_point_and_range_build_expected_params() -> None:
     range_units = build_ths_daily_units(
         range_validated,
         contract,
-        dao=_fake_dao([date(2026, 3, 31)]),
+        dao=_fake_dao([date(2026, 3, 30), date(2026, 3, 31)]),
         settings=SimpleNamespace(default_exchange="SSE"),
         session=None,
     )
-    assert len(range_units) == 1
-    assert range_units[0].request_params == {
-        "ts_code": "885001.TI",
-        "start_date": "20260301",
-        "end_date": "20260331",
-    }
+    assert len(range_units) == 2
+    assert [unit.request_params for unit in range_units] == [
+        {"ts_code": "885001.TI", "trade_date": "20260330"},
+        {"ts_code": "885001.TI", "trade_date": "20260331"},
+    ]
 
 
 def test_dc_index_point_and_range_build_expected_params() -> None:
@@ -157,6 +156,28 @@ def test_dc_member_and_dc_daily_point_incremental_build_expected_params() -> Non
     daily_validated = ContractValidator().validate(daily_request, daily_contract)
     daily_units = build_dc_daily_units(daily_validated, daily_contract, dao=None, settings=None, session=None)
     assert daily_units[0].request_params == {"ts_code": "BK001", "idx_type": "concept", "trade_date": "20260401"}
+
+    range_request = RunRequest(
+        request_id="req-dc-daily-range",
+        dataset_key="dc_daily",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        params={"idx_type": "concept", "ts_code": "BK001"},
+    )
+    range_validated = ContractValidator().validate(range_request, daily_contract)
+    range_units = build_dc_daily_units(
+        range_validated,
+        daily_contract,
+        dao=_fake_dao([date(2026, 3, 30), date(2026, 3, 31)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+    assert [unit.request_params for unit in range_units] == [
+        {"ts_code": "BK001", "idx_type": "concept", "trade_date": "20260330"},
+        {"ts_code": "BK001", "idx_type": "concept", "trade_date": "20260331"},
+    ]
 
 
 def test_dc_daily_normalizer_keeps_required_fields() -> None:

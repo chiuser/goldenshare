@@ -17,8 +17,6 @@ def build_default_units(
     *,
     pagination_policy: str = "offset_limit",
     page_limit: int | None = None,
-    anchor_type_override: str | None = None,
-    window_policy_override: str | None = None,
     enum_fields: tuple[str, ...] = (),
     full_selection_values: dict[str, tuple[str, ...]] | None = None,
     missing_field_defaults: dict[str, tuple[str, ...]] | None = None,
@@ -29,8 +27,6 @@ def build_default_units(
         contract=contract,
         dao=dao,
         settings=settings,
-        anchor_type_override=anchor_type_override,
-        window_policy_override=window_policy_override,
     )
     enum_combinations = resolve_enum_combinations(
         request=request,
@@ -47,4 +43,3 @@ def build_default_units(
         pagination_policy_override=pagination_policy,
         page_limit_override=page_limit,
     )
-

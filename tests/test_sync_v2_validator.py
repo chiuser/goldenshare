@@ -516,7 +516,7 @@ def test_validator_rejects_point_incremental_when_window_policy_is_none() -> Non
     contract = get_sync_v2_contract("stk_limit")
     broken_contract = replace(
         contract,
-        planning_spec=replace(contract.planning_spec, window_policy="none"),
+        date_model=replace(contract.date_model, window_mode="none"),
     )
     request = RunRequest(
         request_id="req-21",

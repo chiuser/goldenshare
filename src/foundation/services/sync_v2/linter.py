@@ -29,6 +29,23 @@ ALLOWED_ANCHOR_TYPES = {
     "none",
 }
 ALLOWED_WINDOW_POLICIES = {"point", "range", "point_or_range", "none"}
+ALLOWED_DATE_AXES = {"trade_open_day", "natural_day", "month_key", "month_window", "none"}
+ALLOWED_BUCKET_RULES = {
+    "every_open_day",
+    "week_last_open_day",
+    "month_last_open_day",
+    "every_natural_day",
+    "every_natural_month",
+    "month_window_has_data",
+    "not_applicable",
+}
+ALLOWED_INPUT_SHAPES = {
+    "trade_date_or_start_end",
+    "month_or_range",
+    "start_end_month_window",
+    "ann_date_or_start_end",
+    "none",
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -68,13 +85,71 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
                 f"planning_spec.universe_policy={contract.planning_spec.universe_policy} is not supported",
             )
         )
+    date_model = contract.date_model
+    if date_model.date_axis not in ALLOWED_DATE_AXES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_date_axis",
+                f"date_model.date_axis={date_model.date_axis} is not supported",
+            )
+        )
+    if date_model.bucket_rule not in ALLOWED_BUCKET_RULES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_bucket_rule",
+                f"date_model.bucket_rule={date_model.bucket_rule} is not supported",
+            )
+        )
+    if date_model.input_shape not in ALLOWED_INPUT_SHAPES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_input_shape",
+                f"date_model.input_shape={date_model.input_shape} is not supported",
+            )
+        )
+    if date_model.date_axis == "none":
+        if date_model.bucket_rule != "not_applicable" or date_model.input_shape != "none":
+            issues.append(
+                ContractLintIssue(
+                    contract.dataset_key,
+                    "invalid_date_model_combo",
+                    "date_axis=none requires bucket_rule=not_applicable and input_shape=none",
+                )
+            )
+        if date_model.observed_field is not None or date_model.audit_applicable:
+            issues.append(
+                ContractLintIssue(
+                    contract.dataset_key,
+                    "invalid_audit_model",
+                    "date_axis=none requires observed_field=None and audit_applicable=False",
+                )
+            )
+    elif date_model.audit_applicable and not date_model.observed_field:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_audit_model",
+                "audit_applicable=True requires observed_field",
+            )
+        )
+    if not date_model.audit_applicable and not date_model.not_applicable_reason:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "missing_not_applicable_reason",
+                "audit_applicable=False requires not_applicable_reason",
+            )
+        )
     anchor_type = resolve_contract_anchor_type(contract)
     if anchor_type not in ALLOWED_ANCHOR_TYPES:
         issues.append(
             ContractLintIssue(
                 contract.dataset_key,
                 "invalid_anchor_type",
-                f"planning_spec.anchor_type={anchor_type} is not supported",
+                f"date_model resolved anchor_type={anchor_type} is not supported",
             )
         )
     window_policy = resolve_contract_window_policy(contract)
@@ -83,15 +158,7 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
             ContractLintIssue(
                 contract.dataset_key,
                 "invalid_window_policy",
-                f"planning_spec.window_policy={window_policy} is not supported",
-            )
-        )
-    if anchor_type == "none" and window_policy == "point_or_range":
-        issues.append(
-            ContractLintIssue(
-                contract.dataset_key,
-                "invalid_anchor_window_combo",
-                "anchor_type=none cannot use window_policy=point_or_range",
+                f"date_model.window_mode={window_policy} is not supported",
             )
         )
     profiles = set(contract.run_profiles_supported)

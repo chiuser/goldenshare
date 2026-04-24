@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from src.ops.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_job_spec
+from src.ops.specs.registry import (
+    DATASET_FRESHNESS_METADATA,
+    JOB_SPEC_REGISTRY,
+    WORKFLOW_SPEC_REGISTRY,
+    get_dataset_freshness_spec,
+    get_job_spec,
+)
 from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 
@@ -521,6 +527,6 @@ def test_all_sync_resources_are_included_in_data_status_metadata() -> None:
 
 
 def test_broker_recommend_freshness_metadata_uses_monthly_cadence() -> None:
-    _, _, _, cadence, observed_date_column = DATASET_FRESHNESS_METADATA["broker_recommend"]
+    _, _, _, cadence = DATASET_FRESHNESS_METADATA["broker_recommend"]
     assert cadence == "monthly"
-    assert observed_date_column is None
+    assert get_dataset_freshness_spec("broker_recommend").observed_date_column == "month"

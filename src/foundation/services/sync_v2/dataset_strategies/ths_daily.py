@@ -11,7 +11,4 @@ def build_ths_daily_units(request, contract, dao, settings, session):
         settings,
         session,
         page_limit=2000,
-        anchor_type_override="trade_date",
-        window_policy_override="point_or_range",
     )
-

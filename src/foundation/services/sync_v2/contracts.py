@@ -12,6 +12,17 @@ WindowPolicy = str
 
 
 @dataclass(slots=True, frozen=True)
+class DatasetDateModel:
+    date_axis: str
+    bucket_rule: str
+    window_mode: str
+    input_shape: str
+    observed_field: str | None
+    audit_applicable: bool
+    not_applicable_reason: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class InputField:
     name: str
     field_type: str
@@ -32,9 +43,6 @@ class InputSchema:
 
 @dataclass(slots=True, frozen=True)
 class PlanningSpec:
-    date_anchor_policy: DateAnchorPolicy
-    anchor_type: DateAnchorPolicy | None = None
-    window_policy: WindowPolicy | None = None
     universe_policy: str = "none"
     enum_fanout_fields: tuple[str, ...] = ()
     enum_fanout_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
@@ -94,6 +102,7 @@ class DatasetSyncContract:
     display_name: str
     job_name: str
     run_profiles_supported: tuple[RunProfile, ...]
+    date_model: DatasetDateModel
     input_schema: InputSchema
     planning_spec: PlanningSpec
     source_adapter_key: str
@@ -197,39 +206,21 @@ class EngineRunSummary:
 
 
 def resolve_contract_anchor_type(contract: DatasetSyncContract) -> DateAnchorPolicy:
-    planning_spec = contract.planning_spec
-    explicit = str(planning_spec.anchor_type or "").strip()
-    if explicit:
-        return explicit
-    legacy = str(planning_spec.date_anchor_policy or "").strip()
-    return legacy or "none"
+    date_model = contract.date_model
+    if date_model.date_axis == "trade_open_day":
+        if date_model.bucket_rule == "week_last_open_day":
+            return "week_end_trade_date"
+        if date_model.bucket_rule == "month_last_open_day":
+            return "month_end_trade_date"
+        return "trade_date"
+    if date_model.date_axis == "natural_day":
+        return "natural_date_range"
+    if date_model.date_axis == "month_key":
+        return "month_key_yyyymm"
+    if date_model.date_axis == "month_window":
+        return "month_range_natural"
+    return "none"
 
 
 def resolve_contract_window_policy(contract: DatasetSyncContract) -> WindowPolicy:
-    planning_spec = contract.planning_spec
-    explicit = str(planning_spec.window_policy or "").strip()
-    if explicit:
-        return explicit
-    return infer_window_policy_from_profiles(
-        run_profiles_supported=contract.run_profiles_supported,
-        anchor_type=resolve_contract_anchor_type(contract),
-    )
-
-
-def infer_window_policy_from_profiles(
-    *,
-    run_profiles_supported: tuple[RunProfile, ...],
-    anchor_type: DateAnchorPolicy,
-) -> WindowPolicy:
-    profiles = set(run_profiles_supported)
-    has_point = "point_incremental" in profiles
-    has_range = "range_rebuild" in profiles
-    if has_point and has_range:
-        return "point_or_range"
-    if has_point:
-        return "point"
-    if has_range:
-        return "range"
-    if anchor_type == "none":
-        return "none"
-    return "point"
+    return str(contract.date_model.window_mode or "none").strip() or "none"

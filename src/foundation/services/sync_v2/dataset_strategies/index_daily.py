@@ -5,7 +5,6 @@ from src.foundation.services.sync_v2.strategy_helpers.param_format import (
     resolve_enum_combinations,
     split_multi_values,
 )
-from src.foundation.services.sync_v2.strategy_helpers.trade_date_expand import resolve_anchors
 
 
 def _resolve_index_codes(request, dao) -> list[str]:
@@ -23,12 +22,15 @@ def _resolve_index_codes(request, dao) -> list[str]:
 
 
 def build_index_daily_units(request, contract, dao, settings, session):
-    anchors = resolve_anchors(
-        request=request,
-        contract=contract,
-        dao=dao,
-        settings=settings,
-    )
+    if request.run_profile == "point_incremental":
+        anchors = [request.trade_date]
+    elif request.run_profile == "range_rebuild":
+        # index_daily must fan out by active index code; the source API supports
+        # start_date/end_date windows per code, so we intentionally avoid a
+        # second fanout by trade date here.
+        anchors = [None]
+    else:
+        raise RuntimeError(f"index_daily unsupported run_profile: {request.run_profile}")
     enum_combinations = resolve_enum_combinations(request=request, fields=())
     universe_values = [{"ts_code": code} for code in _resolve_index_codes(request, dao)]
     return build_plan_units(
@@ -40,4 +42,3 @@ def build_index_daily_units(request, contract, dao, settings, session):
         pagination_policy_override="offset_limit",
         page_limit_override=8000,
     )
-

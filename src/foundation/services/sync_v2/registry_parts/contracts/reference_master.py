@@ -16,6 +16,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -29,6 +30,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
         display_name="交易日历",
         job_name="sync_trade_calendar",
         run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("trade_cal"),
         input_schema=build_input_schema(
             fields=(
                 InputField("exchange", "string", required=False, default=get_settings().default_exchange, description="交易所"),
@@ -38,9 +40,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -67,6 +66,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
         display_name="股票基础信息",
         job_name="sync_stock_basic",
         run_profiles_supported=("snapshot_refresh",),
+        date_model=build_date_model("stock_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField(
@@ -86,9 +86,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="none",
-            window_policy="none",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -115,6 +112,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
         display_name="港股基础信息",
         job_name="sync_hk_basic",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("hk_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -122,7 +120,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -149,6 +146,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
         display_name="美股基础信息",
         job_name="sync_us_basic",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("us_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -157,7 +155,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -184,6 +181,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
         display_name="ETF 基础信息",
         job_name="sync_etf_basic",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("etf_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -196,7 +194,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "trade_cal": DatasetSyncContrac
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),

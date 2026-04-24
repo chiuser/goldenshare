@@ -30,7 +30,7 @@ def test_fund_adj_point_incremental_builds_single_trade_date_unit() -> None:
     assert units[0].page_limit == 2000
 
 
-def test_fund_adj_range_rebuild_uses_start_end_window() -> None:
+def test_fund_adj_range_rebuild_expands_trade_date_units() -> None:
     contract = get_sync_v2_contract("fund_adj")
     request = RunRequest(
         request_id="req-fund-adj-range",
@@ -52,8 +52,7 @@ def test_fund_adj_range_rebuild_uses_start_end_window() -> None:
 
     assert len(units) == 1
     assert units[0].request_params == {
-        "start_date": "20260301",
-        "end_date": "20260331",
+        "trade_date": "20260331",
         "ts_code": "159915.SZ",
     }
 

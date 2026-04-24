@@ -18,6 +18,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -32,6 +33,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数日线行情",
         job_name="sync_index_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("index_daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -42,9 +44,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="index_active_codes",
             pagination_policy="offset_limit",
         ),
@@ -73,6 +72,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数周线行情",
         job_name="sync_index_weekly",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("index_weekly"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -82,9 +82,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="week_end_trade_date",
-            anchor_type="week_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -114,6 +111,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数月线行情",
         job_name="sync_index_monthly",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("index_monthly"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -123,9 +121,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="month_end_trade_date",
-            anchor_type="month_end_trade_date",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -155,6 +150,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数每日指标",
         job_name="sync_index_daily_basic",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("index_daily_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -165,7 +161,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -204,6 +199,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数基础信息",
         job_name="sync_index_basic",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("index_basic"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -211,7 +207,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -238,6 +233,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="ETF 跟踪指数",
         job_name="sync_etf_index",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("etf_index"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -247,7 +243,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -274,6 +269,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="指数成分权重",
         job_name="sync_index_weight",
         run_profiles_supported=("range_rebuild",),
+        date_model=build_date_model("index_weight"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -283,9 +279,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="month_range_natural",
-            window_policy="range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),

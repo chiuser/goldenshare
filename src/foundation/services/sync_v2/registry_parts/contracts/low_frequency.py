@@ -9,6 +9,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -23,6 +24,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="分红送股",
         job_name="sync_dividend",
         run_profiles_supported=("range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("dividend"),
         input_schema=build_input_schema(
             fields=(
                 InputField("start_date", "date", required=False, description="起始日期"),
@@ -35,9 +37,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -67,6 +66,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="股东户数",
         job_name="sync_holder_number",
         run_profiles_supported=("range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("stk_holdernumber"),
         input_schema=build_input_schema(
             fields=(
                 InputField("start_date", "date", required=False, description="起始日期"),
@@ -77,9 +77,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="range",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),

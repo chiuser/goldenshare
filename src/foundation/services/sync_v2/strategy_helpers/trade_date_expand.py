@@ -31,11 +31,9 @@ def resolve_anchors(
     contract: DatasetSyncContract,
     dao,
     settings,
-    anchor_type_override: str | None = None,
-    window_policy_override: str | None = None,
 ) -> list[date | None]:
-    anchor_type = anchor_type_override or resolve_contract_anchor_type(contract)
-    window_policy = window_policy_override or resolve_contract_window_policy(contract)
+    anchor_type = resolve_contract_anchor_type(contract)
+    window_policy = resolve_contract_window_policy(contract)
 
     if request.run_profile == "snapshot_refresh":
         return [None]
@@ -80,4 +78,3 @@ def resolve_anchors(
     if anchor_type in {"month_end_trade_date", "month_key_yyyymm"}:
         return compress_to_month_end(list(open_dates))
     raise RuntimeError(f"unsupported anchor_type={anchor_type}")
-

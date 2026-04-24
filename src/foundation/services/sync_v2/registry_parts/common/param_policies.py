@@ -95,10 +95,9 @@ def _fund_adj_params(request, anchor_date: date | None, enum_values: dict[str, A
             raise ValueError("fund_adj point_incremental requires trade_date anchor")
         params["trade_date"] = anchor_date.strftime("%Y%m%d")
     elif request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("fund_adj range_rebuild requires start_date and end_date")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        if anchor_date is None:
+            raise ValueError("fund_adj range_rebuild requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
     else:
         history_start = str(get_settings().history_start_date or "2000-01-01").replace("-", "")
         params["start_date"] = history_start
@@ -573,10 +572,9 @@ def _ths_daily_params(request, anchor_date: date | None, enum_values: dict[str, 
         params["trade_date"] = target_date.strftime("%Y%m%d")
         return params
     if request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("ths_daily range_rebuild requires start_date and end_date")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        if anchor_date is None:
+            raise ValueError("ths_daily range_rebuild requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
         return params
     raise ValueError(f"ths_daily unsupported run_profile: {request.run_profile}")
 
@@ -596,10 +594,9 @@ def _dc_daily_params(request, anchor_date: date | None, enum_values: dict[str, A
         params["trade_date"] = target_date.strftime("%Y%m%d")
         return params
     if request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("dc_daily range_rebuild requires start_date and end_date")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        if anchor_date is None:
+            raise ValueError("dc_daily range_rebuild requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
         return params
     raise ValueError(f"dc_daily unsupported run_profile: {request.run_profile}")
 
@@ -622,10 +619,9 @@ def _ths_hot_params(request, anchor_date: date | None, enum_values: dict[str, An
         params["trade_date"] = target_date.strftime("%Y%m%d")
         return params
     if request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("ths_hot range_rebuild requires start_date and end_date")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        if anchor_date is None:
+            raise ValueError("ths_hot range_rebuild requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
         return params
     raise ValueError(f"ths_hot unsupported run_profile: {request.run_profile}")
 
@@ -651,10 +647,9 @@ def _dc_hot_params(request, anchor_date: date | None, enum_values: dict[str, Any
         params["trade_date"] = target_date.strftime("%Y%m%d")
         return params
     if request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("dc_hot range_rebuild requires start_date and end_date")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
+        if anchor_date is None:
+            raise ValueError("dc_hot range_rebuild requires trade_date anchor")
+        params["trade_date"] = anchor_date.strftime("%Y%m%d")
         return params
     raise ValueError(f"dc_hot unsupported run_profile: {request.run_profile}")
 

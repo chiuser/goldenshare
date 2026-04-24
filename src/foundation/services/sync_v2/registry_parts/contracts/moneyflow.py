@@ -19,6 +19,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -33,6 +34,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="BIYING 资金流向",
         job_name="sync_biying_moneyflow",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("biying_moneyflow"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -42,9 +44,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="natural_date_range",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -109,6 +108,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="个股资金流向",
         job_name="sync_moneyflow",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -118,7 +118,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -157,6 +156,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="个股资金流向(THS)",
         job_name="sync_moneyflow_ths",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_ths"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -166,7 +166,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -205,6 +204,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="个股资金流向(DC)",
         job_name="sync_moneyflow_dc",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_dc"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -214,7 +214,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -255,6 +254,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="概念板块资金流向(THS)",
         job_name="sync_moneyflow_cnt_ths",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_cnt_ths"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -264,7 +264,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -299,6 +298,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="行业资金流向(THS)",
         job_name="sync_moneyflow_ind_ths",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_ind_ths"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -308,7 +308,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -344,6 +343,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="板块资金流向(DC)",
         job_name="sync_moneyflow_ind_dc",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_ind_dc"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -354,7 +354,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             enum_fanout_fields=("content_type",),
             enum_fanout_defaults={"content_type": ALL_MONEYFLOW_IND_DC_CONTENT_TYPES},
@@ -397,6 +396,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="市场资金流向(DC)",
         job_name="sync_moneyflow_mkt_dc",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("moneyflow_mkt_dc"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -405,7 +405,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),

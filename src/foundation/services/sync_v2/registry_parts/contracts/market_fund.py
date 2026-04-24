@@ -13,6 +13,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -26,6 +27,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "fund_daily": DatasetSyncContra
         display_name="基金日线行情",
         job_name="sync_fund_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("fund_daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -36,7 +38,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "fund_daily": DatasetSyncContra
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),
@@ -65,6 +66,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "fund_daily": DatasetSyncContra
         display_name="基金复权因子",
         job_name="sync_fund_adj",
         run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("fund_adj"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -74,7 +76,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {    "fund_daily": DatasetSyncContra
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="offset_limit",
         ),

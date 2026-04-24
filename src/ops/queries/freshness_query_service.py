@@ -732,8 +732,11 @@ class OpsFreshnessQueryService:
         if isinstance(value, date):
             return value
         if isinstance(value, str):
+            text = value.strip()
+            if len(text) == 6 and text.isdigit():
+                return date(int(text[:4]), int(text[4:6]), 1)
             try:
-                return date.fromisoformat(value)
+                return date.fromisoformat(text)
             except ValueError:
                 return None
         return None

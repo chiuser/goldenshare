@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.foundation.services.sync_v2.contracts import RunRequest
+from src.foundation.services.sync_v2.dataset_strategies.index_daily import build_index_daily_units
 from src.foundation.services.sync_v2.errors import SyncV2PlanningError
 from src.foundation.services.sync_v2.planner import SyncV2Planner
 from src.foundation.services.sync_v2.registry import get_sync_v2_contract
@@ -183,7 +184,7 @@ def test_planner_index_daily_fanout_uses_active_index_pool(mocker) -> None:
     assert {unit.request_params["trade_date"] for unit in units} == {"20260421"}
 
 
-def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocker) -> None:
+def test_index_daily_strategy_range_rebuild_uses_start_end_with_active_pool(mocker) -> None:
     session = mocker.Mock()
     planner = SyncV2Planner(session)
     planner.dao = SimpleNamespace(
@@ -205,7 +206,7 @@ def test_planner_index_daily_range_rebuild_uses_start_end_with_active_pool(mocke
     )
     validated = ContractValidator().validate(request=request, contract=contract, strict=True)
 
-    units = planner.plan(validated, contract)
+    units = build_index_daily_units(validated, contract, planner.dao, planner.settings, session)
 
     assert len(units) == 2
     assert {unit.request_params["ts_code"] for unit in units} == {"000001.SH", "399001.SZ"}
@@ -319,12 +320,16 @@ def test_planner_ths_member_fanout_uses_ths_index_board_pool(mocker) -> None:
     assert {unit.request_params["ts_code"] for unit in units} == {"885001.TI", "885002.TI"}
 
 
-def test_planner_dc_daily_range_rebuild_uses_dc_index_range_pool(mocker) -> None:
+def test_planner_dc_daily_range_rebuild_uses_trade_date_anchors(mocker) -> None:
     session = mocker.Mock()
-    session.scalars.return_value = ["BK1001.DC", "BK1002.DC"]
     planner = SyncV2Planner(session)
     planner.dao = SimpleNamespace(
-        trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: [])
+        trade_calendar=SimpleNamespace(
+            get_open_dates=lambda exchange, start_date, end_date: [
+                date(2026, 4, 16),
+                date(2026, 4, 17),
+            ]
+        )
     )
     contract = get_sync_v2_contract("dc_daily")
     request = RunRequest(
@@ -339,6 +344,7 @@ def test_planner_dc_daily_range_rebuild_uses_dc_index_range_pool(mocker) -> None
     units = planner.plan(validated, contract)
 
     assert len(units) == 2
-    assert {unit.request_params["ts_code"] for unit in units} == {"BK1001.DC", "BK1002.DC"}
-    assert {unit.request_params["start_date"] for unit in units} == {"20260415"}
-    assert {unit.request_params["end_date"] for unit in units} == {"20260417"}
+    assert [unit.request_params for unit in units] == [
+        {"trade_date": "20260416"},
+        {"trade_date": "20260417"},
+    ]

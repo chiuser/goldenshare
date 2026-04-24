@@ -20,6 +20,7 @@ from src.foundation.services.sync_v2.contracts import (
     SourceSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
+    build_date_model,
     build_input_schema,
     build_normalization_spec,
     build_planning_spec,
@@ -35,6 +36,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="同花顺板块列表",
         job_name="sync_ths_index",
         run_profiles_supported=("point_incremental", "snapshot_refresh"),
+        date_model=build_date_model("ths_index"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -44,7 +46,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -70,6 +71,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="东方财富板块列表",
         job_name="sync_dc_index",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("dc_index"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -80,7 +82,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),
@@ -107,6 +108,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="东方财富板块成分",
         job_name="sync_dc_member",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("dc_member"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -118,7 +120,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="dc_index_board_codes",
             pagination_policy="none",
             max_units_per_execution=5000,
@@ -145,6 +146,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="同花顺板块成分",
         job_name="sync_ths_member",
         run_profiles_supported=("point_incremental", "range_rebuild", "snapshot_refresh"),
+        date_model=build_date_model("ths_member"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -155,9 +157,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="ths_index_board_codes",
             pagination_policy="none",
             max_units_per_execution=5000,
@@ -185,6 +184,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="同花顺板块日线行情",
         job_name="sync_ths_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("ths_daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -194,11 +194,8 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
-            universe_policy="ths_index_board_codes",
-            pagination_policy="none",
+            universe_policy="none",
+            pagination_policy="offset_limit",
             max_units_per_execution=5000,
         ),
         source_adapter_key="tushare",
@@ -237,6 +234,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="东方财富板块日线行情",
         job_name="sync_dc_daily",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("dc_daily"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -247,11 +245,8 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
-            universe_policy="dc_index_board_codes",
-            pagination_policy="none",
+            universe_policy="none",
+            pagination_policy="offset_limit",
             max_units_per_execution=5000,
         ),
         source_adapter_key="tushare",
@@ -277,6 +272,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="同花顺热榜",
         job_name="sync_ths_hot",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("ths_hot"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -288,9 +284,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="none",
             enum_fanout_fields=("market", "is_new"),
             enum_fanout_defaults={"market": ("__ALL__",), "is_new": ("__ALL__",)},
@@ -320,6 +313,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="东方财富热榜",
         job_name="sync_dc_hot",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("dc_hot"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -332,9 +326,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="none",
-            anchor_type="natural_date_range",
-            window_policy="point_or_range",
             universe_policy="none",
             enum_fanout_fields=("market", "hot_type", "is_new"),
             enum_fanout_defaults={"market": ("__ALL__",), "hot_type": ("__ALL__",), "is_new": ("__ALL__",)},
@@ -364,6 +355,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="开盘啦榜单",
         job_name="sync_kpl_list",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("kpl_list"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -374,7 +366,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             enum_fanout_fields=("tag",),
             enum_fanout_defaults={"tag": ("__ALL__",)},
@@ -417,6 +408,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         display_name="开盘啦板块成分",
         job_name="sync_kpl_concept_cons",
         run_profiles_supported=("point_incremental", "range_rebuild"),
+        date_model=build_date_model("kpl_concept_cons"),
         input_schema=build_input_schema(
             fields=(
                 InputField("trade_date", "date", required=False, description="交易日"),
@@ -427,7 +419,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             )
         ),
         planning_spec=build_planning_spec(
-            date_anchor_policy="trade_date",
             universe_policy="none",
             pagination_policy="none",
         ),

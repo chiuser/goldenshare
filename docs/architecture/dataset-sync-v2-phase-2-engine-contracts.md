@@ -2,6 +2,7 @@
 
 > 状态：历史分期文档（归档）。  
 > 说明：本文记录 Phase 2 设计与执行时语境，含 V1/V2 双轨阶段性表述；当前运行口径以 V2-only 为准。
+> 特别说明：本文中的 `date_anchor_policy/window_policy` 字段设计属于历史阶段；当前代码已收敛为 `DatasetSyncContract.date_model`，详见 [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)。
 
 - 版本：v1.0
 - 日期：2026-04-21

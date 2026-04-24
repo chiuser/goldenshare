@@ -7,6 +7,9 @@
 > 1. [数据同步 V2 切换运行手册 v1](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
 > 2. [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 > 3. [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
+> 4. [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
+>
+> 特别说明：本文第 2 节与第 12 节中的 `anchor_type/window_policy/date_anchor_policy` 属于历史设计语境；当前代码以 `DatasetSyncContract.date_model` 为日期语义单一事实源。
 
 - 版本：v2.2（历史执行基线）
 - 日期：2026-04-20

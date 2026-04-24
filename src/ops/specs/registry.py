@@ -4,6 +4,7 @@ from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.specs.job_spec import JobSpec, ParameterSpec
 from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
+from src.foundation.services.sync_v2.registry import get_sync_v2_contract
 from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, list_trade_date_backfill_resources
 
 
@@ -969,63 +970,63 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
 }
 
 
-DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str, str | None]] = {
-    "biying_equity_daily": ("BIYING 股票日线", "equity", "股票", "daily", "trade_date"),
-    "biying_moneyflow": ("BIYING 资金流向", "equity", "股票", "daily", "trade_date"),
-    "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference", None),
-    "hk_basic": ("港股列表", "reference_data", "基础主数据", "reference", None),
-    "us_basic": ("美股列表", "reference_data", "基础主数据", "reference", None),
-    "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference", "trade_date"),
-    "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference", None),
-    "etf_index": ("ETF 基准指数列表", "reference_data", "基础主数据", "reference", None),
-    "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "monthly", None),
-    "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference", None),
-    "daily": ("股票日线", "equity", "股票", "daily", "trade_date"),
-    "adj_factor": ("复权因子", "equity", "股票", "daily", "trade_date"),
-    "daily_basic": ("股票日指标", "equity", "股票", "daily", "trade_date"),
-    "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily", "trade_date"),
-    "stk_factor_pro": ("股票技术面因子(专业版)", "equity", "股票", "daily", "trade_date"),
-    "moneyflow": ("资金流向（基础）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_ths": ("个股资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_dc": ("个股资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_cnt_ths": ("概念板块资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_ind_ths": ("行业资金流向（同花顺）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_ind_dc": ("板块资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "moneyflow_mkt_dc": ("市场资金流向（东方财富）", "moneyflow", "资金流向", "daily", "trade_date"),
-    "margin": ("融资融券交易汇总", "equity", "股票", "daily", "trade_date"),
-    "top_list": ("龙虎榜", "equity", "股票", "daily", "trade_date"),
-    "block_trade": ("大宗交易", "equity", "股票", "daily", "trade_date"),
-    "limit_list_d": ("涨跌停榜", "equity", "股票", "daily", "trade_date"),
-    "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily", "trade_date"),
-    "stock_st": ("ST股票列表", "equity", "股票", "daily", "trade_date"),
-    "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily", "trade_date"),
-    "suspend_d": ("每日停复牌信息", "equity", "股票", "daily", "trade_date"),
-    "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly", "trade_date"),
-    "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly", "trade_date"),
-    "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly", "trade_date"),
-    "stk_period_bar_adj_month": ("股票复权月线", "equity", "股票", "monthly", "trade_date"),
-    "fund_daily": ("基金日线", "fund", "ETF/Fund", "daily", "trade_date"),
-    "fund_adj": ("基金复权因子", "fund", "ETF/Fund", "daily", "trade_date"),
-    "index_daily": ("指数日线", "index", "指数", "daily", "trade_date"),
-    "index_weekly": ("指数周线", "index", "指数", "weekly", "trade_date"),
-    "index_monthly": ("指数月线", "index", "指数", "monthly", "trade_date"),
-    "index_daily_basic": ("指数日指标", "index", "指数", "daily", "trade_date"),
-    "index_weight": ("指数成分权重", "index", "指数", "monthly", "trade_date"),
-    "ths_index": ("同花顺概念和行业指数", "board", "板块", "reference", None),
-    "ths_member": ("同花顺板块成分", "board", "板块", "reference", None),
-    "ths_daily": ("同花顺板块行情", "board", "板块", "daily", "trade_date"),
-    "dc_index": ("东方财富概念板块", "board", "板块", "daily", "trade_date"),
-    "dc_member": ("东方财富板块成分", "board", "板块", "daily", "trade_date"),
-    "dc_daily": ("东方财富板块行情", "board", "板块", "daily", "trade_date"),
-    "ths_hot": ("同花顺热榜", "ranking", "榜单", "daily", "trade_date"),
-    "dc_hot": ("东方财富热榜", "ranking", "榜单", "daily", "trade_date"),
-    "kpl_list": ("开盘啦榜单", "ranking", "榜单", "daily", "trade_date"),
-    "limit_list_ths": ("同花顺涨跌停榜单", "ranking", "榜单", "daily", "trade_date"),
-    "limit_step": ("涨停天梯", "ranking", "榜单", "daily", "trade_date"),
-    "limit_cpt_list": ("最强板块统计", "ranking", "榜单", "daily", "trade_date"),
-    "kpl_concept_cons": ("开盘啦题材成分", "board", "板块", "daily", "trade_date"),
-    "dividend": ("分红送转", "event", "低频事件", "event", None),
-    "stk_holdernumber": ("股东户数", "event", "低频事件", "event", None),
+DATASET_FRESHNESS_METADATA: dict[str, tuple[str, str, str, str]] = {
+    "biying_equity_daily": ("BIYING 股票日线", "equity", "股票", "daily"),
+    "biying_moneyflow": ("BIYING 资金流向", "equity", "股票", "daily"),
+    "stock_basic": ("股票主数据", "reference_data", "基础主数据", "reference"),
+    "hk_basic": ("港股列表", "reference_data", "基础主数据", "reference"),
+    "us_basic": ("美股列表", "reference_data", "基础主数据", "reference"),
+    "trade_cal": ("交易日历", "reference_data", "基础主数据", "reference"),
+    "etf_basic": ("ETF 基本信息", "reference_data", "基础主数据", "reference"),
+    "etf_index": ("ETF 基准指数列表", "reference_data", "基础主数据", "reference"),
+    "broker_recommend": ("券商每月荐股", "reference_data", "基础主数据", "monthly"),
+    "index_basic": ("指数主数据", "reference_data", "基础主数据", "reference"),
+    "daily": ("股票日线", "equity", "股票", "daily"),
+    "adj_factor": ("复权因子", "equity", "股票", "daily"),
+    "daily_basic": ("股票日指标", "equity", "股票", "daily"),
+    "cyq_perf": ("每日筹码及胜率", "equity", "股票", "daily"),
+    "stk_factor_pro": ("股票技术面因子(专业版)", "equity", "股票", "daily"),
+    "moneyflow": ("资金流向（基础）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_ths": ("个股资金流向（同花顺）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_dc": ("个股资金流向（东方财富）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_cnt_ths": ("概念板块资金流向（同花顺）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_ind_ths": ("行业资金流向（同花顺）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_ind_dc": ("板块资金流向（东方财富）", "moneyflow", "资金流向", "daily"),
+    "moneyflow_mkt_dc": ("市场资金流向（东方财富）", "moneyflow", "资金流向", "daily"),
+    "margin": ("融资融券交易汇总", "equity", "股票", "daily"),
+    "top_list": ("龙虎榜", "equity", "股票", "daily"),
+    "block_trade": ("大宗交易", "equity", "股票", "daily"),
+    "limit_list_d": ("涨跌停榜", "equity", "股票", "daily"),
+    "stk_limit": ("每日涨跌停价格", "equity", "股票", "daily"),
+    "stock_st": ("ST股票列表", "equity", "股票", "daily"),
+    "stk_nineturn": ("神奇九转指标", "equity", "股票", "daily"),
+    "suspend_d": ("每日停复牌信息", "equity", "股票", "daily"),
+    "stk_period_bar_week": ("股票周线", "equity", "股票", "weekly"),
+    "stk_period_bar_month": ("股票月线", "equity", "股票", "monthly"),
+    "stk_period_bar_adj_week": ("股票复权周线", "equity", "股票", "weekly"),
+    "stk_period_bar_adj_month": ("股票复权月线", "equity", "股票", "monthly"),
+    "fund_daily": ("基金日线", "fund", "ETF/Fund", "daily"),
+    "fund_adj": ("基金复权因子", "fund", "ETF/Fund", "daily"),
+    "index_daily": ("指数日线", "index", "指数", "daily"),
+    "index_weekly": ("指数周线", "index", "指数", "weekly"),
+    "index_monthly": ("指数月线", "index", "指数", "monthly"),
+    "index_daily_basic": ("指数日指标", "index", "指数", "daily"),
+    "index_weight": ("指数成分权重", "index", "指数", "monthly"),
+    "ths_index": ("同花顺概念和行业指数", "board", "板块", "reference"),
+    "ths_member": ("同花顺板块成分", "board", "板块", "reference"),
+    "ths_daily": ("同花顺板块行情", "board", "板块", "daily"),
+    "dc_index": ("东方财富概念板块", "board", "板块", "daily"),
+    "dc_member": ("东方财富板块成分", "board", "板块", "daily"),
+    "dc_daily": ("东方财富板块行情", "board", "板块", "daily"),
+    "ths_hot": ("同花顺热榜", "ranking", "榜单", "daily"),
+    "dc_hot": ("东方财富热榜", "ranking", "榜单", "daily"),
+    "kpl_list": ("开盘啦榜单", "ranking", "榜单", "daily"),
+    "limit_list_ths": ("同花顺涨跌停榜单", "ranking", "榜单", "daily"),
+    "limit_step": ("涨停天梯", "ranking", "榜单", "daily"),
+    "limit_cpt_list": ("最强板块统计", "ranking", "榜单", "daily"),
+    "kpl_concept_cons": ("开盘啦题材成分", "board", "板块", "daily"),
+    "dividend": ("分红送转", "event", "低频事件", "event"),
+    "stk_holdernumber": ("股东户数", "event", "低频事件", "event"),
 }
 
 
@@ -1064,7 +1065,7 @@ def _raw_table_for_resource(resource: str) -> str | None:
 def find_missing_freshness_metadata_resources(
     *,
     sync_resources: list[str] | tuple[str, ...],
-    metadata: dict[str, tuple[str, str, str, str, str | None]],
+    metadata: dict[str, tuple[str, str, str, str]],
 ) -> list[str]:
     return sorted(resource for resource in sync_resources if resource not in metadata)
 
@@ -1102,7 +1103,8 @@ if _missing_freshness_metadata:
     raise RuntimeError(f"Missing DATASET_FRESHNESS_METADATA entries for sync resources: {joined_missing}")
 
 for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
-    _display_name, _domain_key, _domain_display_name, _cadence, _observed_date_column = DATASET_FRESHNESS_METADATA[_resource]
+    _display_name, _domain_key, _domain_display_name, _cadence = DATASET_FRESHNESS_METADATA[_resource]
+    _observed_date_column = get_sync_v2_contract(_resource).date_model.observed_field
     _spec = DatasetFreshnessSpec(
         dataset_key=_resource,
         resource_key=_resource,

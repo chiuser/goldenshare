@@ -86,6 +86,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
 }
 
 REQUIRED_BUILDERS = {
+    "date_model": "build_date_model",
     "input_schema": "build_input_schema",
     "planning_spec": "build_planning_spec",
     "normalization_spec": "build_normalization_spec",
