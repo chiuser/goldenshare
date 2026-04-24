@@ -279,8 +279,8 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
                 InputField("start_date", "date", required=False, description="起始日期"),
                 InputField("end_date", "date", required=False, description="结束日期"),
                 InputField("ts_code", "string", required=False, description="证券代码"),
-                InputField("market", "string", required=False, description="市场筛选"),
-                InputField("is_new", "string", required=False, description="是否最新"),
+                InputField("market", "list", required=False, description="市场筛选"),
+                InputField("is_new", "list", required=False, description="是否最新"),
             )
         ),
         planning_spec=build_planning_spec(
@@ -320,9 +320,9 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
                 InputField("start_date", "date", required=False, description="起始日期"),
                 InputField("end_date", "date", required=False, description="结束日期"),
                 InputField("ts_code", "string", required=False, description="证券代码"),
-                InputField("market", "string", required=False, description="市场筛选"),
-                InputField("hot_type", "string", required=False, description="热榜类型"),
-                InputField("is_new", "string", required=False, description="是否最新"),
+                InputField("market", "list", required=False, description="市场筛选"),
+                InputField("hot_type", "list", required=False, description="热榜类型"),
+                InputField("is_new", "list", required=False, description="是否最新"),
             )
         ),
         planning_spec=build_planning_spec(

@@ -362,9 +362,9 @@ def test_validator_accepts_dc_hot_range_rebuild_with_filters() -> None:
 
     assert validated.start_date == date(2026, 4, 15)
     assert validated.end_date == date(2026, 4, 17)
-    assert validated.params["market"] == "A股市场"
-    assert validated.params["hot_type"] == "概念"
-    assert validated.params["is_new"] == "Y"
+    assert validated.params["market"] == ["A股市场"]
+    assert validated.params["hot_type"] == ["概念"]
+    assert validated.params["is_new"] == ["Y"]
 
 
 def test_validator_accepts_dividend_range_rebuild_with_event_filters() -> None:

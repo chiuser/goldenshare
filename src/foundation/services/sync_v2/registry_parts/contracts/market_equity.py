@@ -459,8 +459,8 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
                 InputField("start_date", "date", required=False, description="起始日期"),
                 InputField("end_date", "date", required=False, description="结束日期"),
                 InputField("ts_code", "string", required=False, description="股票代码"),
-                InputField("limit_type", "string", required=False, description="同花顺涨跌停类型"),
-                InputField("market", "string", required=False, description="市场"),
+                InputField("limit_type", "list", required=False, description="同花顺涨跌停类型"),
+                InputField("market", "list", required=False, description="市场"),
             )
         ),
         planning_spec=build_planning_spec(

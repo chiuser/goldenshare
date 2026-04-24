@@ -32,6 +32,25 @@ def test_ths_hot_point_incremental_expands_market_and_is_new() -> None:
     assert all(u.page_limit == 2000 for u in units)
 
 
+def test_ths_hot_point_incremental_expands_frontend_market_list() -> None:
+    contract = get_sync_v2_contract("ths_hot")
+    request = RunRequest(
+        request_id="req-ths-hot-list",
+        dataset_key="ths_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 20),
+        params={"market": ["热股", "行业板块", "概念板块", "ETF"], "is_new": "Y"},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_ths_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 4
+    assert sorted(u.request_params["market"] for u in units) == ["ETF", "概念板块", "热股", "行业板块"]
+    assert all(u.request_params["is_new"] == "Y" for u in units)
+    assert all(u.request_params["trade_date"] == "20260420" for u in units)
+
+
 def test_ths_hot_normalizer_sets_default_query_context() -> None:
     contract = get_sync_v2_contract("ths_hot")
     batch = SyncV2Normalizer().normalize(
@@ -78,6 +97,30 @@ def test_dc_hot_point_incremental_expands_three_enum_dimensions() -> None:
     units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
 
     assert len(units) == 4
+    assert all(u.request_params["is_new"] == "N" for u in units)
+    assert all(u.request_params["trade_date"] == "20260402" for u in units)
+
+
+def test_dc_hot_point_incremental_expands_frontend_enum_lists() -> None:
+    contract = get_sync_v2_contract("dc_hot")
+    request = RunRequest(
+        request_id="req-dc-hot-list",
+        dataset_key="dc_hot",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 2),
+        params={
+            "market": ["A股市场", "ETF基金"],
+            "hot_type": ["人气榜", "飙升榜"],
+            "is_new": "N",
+        },
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 4
+    combos = sorted((u.request_params["market"], u.request_params["hot_type"]) for u in units)
+    assert combos == [("A股市场", "人气榜"), ("A股市场", "飙升榜"), ("ETF基金", "人气榜"), ("ETF基金", "飙升榜")]
     assert all(u.request_params["is_new"] == "N" for u in units)
     assert all(u.request_params["trade_date"] == "20260402" for u in units)
 

@@ -31,6 +31,25 @@ def test_limit_list_ths_point_incremental_expands_enum_combinations() -> None:
     assert all(u.page_limit == 4000 for u in units)
 
 
+def test_limit_list_ths_point_incremental_expands_frontend_enum_lists() -> None:
+    contract = get_sync_v2_contract("limit_list_ths")
+    request = RunRequest(
+        request_id="req-limit-list-ths-list",
+        dataset_key="limit_list_ths",
+        run_profile="point_incremental",
+        trigger_source="test",
+        trade_date=date(2026, 4, 3),
+        params={"limit_type": ["涨停池", "炸板池"], "market": ["HS", "GEM"]},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_limit_list_ths_units(validated, contract, dao=None, settings=None, session=None)
+
+    assert len(units) == 4
+    combo_params = sorted((u.request_params["limit_type"], u.request_params["market"]) for u in units)
+    assert combo_params == [("涨停池", "GEM"), ("涨停池", "HS"), ("炸板池", "GEM"), ("炸板池", "HS")]
+    assert all(u.request_params["trade_date"] == "20260403" for u in units)
+
+
 def test_limit_list_ths_normalizer_sets_query_context() -> None:
     contract = get_sync_v2_contract("limit_list_ths")
     batch = SyncV2Normalizer().normalize(
