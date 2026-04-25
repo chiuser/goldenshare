@@ -51,7 +51,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
   test("task center manual keeps the guided maintenance baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "task-manual");
-    await page.goto("/app/ops/manual-sync");
+    await page.goto("/app/ops/v21/datasets/tasks?tab=manual");
     await expect(page.getByText("这里只做一件事：维护你选中的数据。")).toBeVisible();
     await expect(page.getByText("第一步：选择要维护的数据")).toBeVisible();
     await stabilizeUi(page);
@@ -62,11 +62,11 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await setAdminSession(page);
     await page.addInitScript(() => {
       window.localStorage.setItem(
-        "goldenshare.frontend.ops.manual-sync.domain",
+        "goldenshare.frontend.ops.task-center.manual.domain",
         JSON.stringify("股票行情"),
       );
       window.localStorage.setItem(
-        "goldenshare.frontend.ops.manual-sync.draft",
+        "goldenshare.frontend.ops.task-center.manual.draft",
         JSON.stringify({
           action_id: "daily",
           date_mode: "single_point",
@@ -81,13 +81,16 @@ test.describe("Phase 2 smoke and visual gate", () => {
       );
     });
     await installApiMocks(page, "task-manual");
-    await page.goto("/app/ops/manual-sync");
+    await page.goto("/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action&trade_date=2026-04-17");
     await expect(page.getByText("维护股票日线", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("选择日期")).toBeVisible();
-    await expect(page.getByRole("button", { name: "开始同步" })).toBeVisible();
+    await page.getByRole("button", { name: "选择日期" }).click();
+    await page.getByRole("button", { name: "17" }).click();
+    await expect(page.getByText("2026-04-17")).toBeVisible();
+    await expect(page.getByRole("button", { name: "提交维护任务" })).toBeVisible();
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();
-    await page.getByRole("button", { name: "开始同步" }).click();
+    await page.getByRole("button", { name: "提交维护任务" }).click();
     await expect(page).toHaveURL("/app/ops/tasks/901");
     await expect(page.getByText("任务已经提交", { exact: true })).toBeVisible();
   });

@@ -349,12 +349,6 @@ const opsExecutionDetailRoute = createRoute({
   },
 });
 
-const opsManualSyncRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/manual-sync",
-  component: () => <RedirectToTaskCenterTab tab="manual" />,
-});
-
 const opsSourceManagementRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/source-management",
@@ -406,6 +400,7 @@ const opsV21DatasetsBiyingRoute = createRoute({
 const opsV21DatasetsTasksRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/datasets/tasks",
+  validateSearch: (search: Record<string, unknown>) => search,
   component: OpsV21TaskCenterPage,
 });
 
@@ -416,45 +411,6 @@ const opsV21DatasetDetailRoute = createRoute({
     const params = opsV21DatasetDetailRoute.useParams();
     return <OpsV21DatasetDetailPage datasetKey={params.datasetKey} />;
   },
-});
-
-const opsLegacyOverviewRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/overview",
-  component: () => <RedirectTo to="/ops/v21/today" />,
-});
-
-const opsLegacyFreshnessRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/freshness",
-  component: () => <RedirectTo to="/ops/v21/overview" />,
-});
-
-const opsLegacySchedulesRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/schedules",
-  component: () => <RedirectToTaskCenterTab tab="auto" />,
-});
-
-const opsLegacyExecutionsRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/executions",
-  component: () => <RedirectToTaskCenterTab tab="records" />,
-});
-
-const opsLegacyExecutionDetailRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/executions/$executionId",
-  component: function OpsLegacyExecutionDetailRouteComponent() {
-    const params = opsLegacyExecutionDetailRoute.useParams();
-    return <RedirectTo to={`/ops/tasks/${params.executionId}`} />;
-  },
-});
-
-const opsLegacyCatalogRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/catalog",
-  component: () => <RedirectToTaskCenterTab tab="manual" />,
 });
 
 const shareIndexRoute = createRoute({
@@ -485,16 +441,9 @@ const routeTree = rootRoute.addChildren([
     opsV21DatasetsBiyingRoute,
     opsV21DatasetsTasksRoute,
     opsV21DatasetDetailRoute,
-    opsManualSyncRoute,
     opsExecutionsRoute,
     opsExecutionDetailRoute,
     opsV21AccountRoute,
-    opsLegacyOverviewRoute,
-    opsLegacyFreshnessRoute,
-    opsLegacySchedulesRoute,
-    opsLegacyExecutionsRoute,
-    opsLegacyExecutionDetailRoute,
-    opsLegacyCatalogRoute,
   ]),
   shareLayoutRoute.addChildren([
     shareIndexRoute,

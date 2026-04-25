@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "../shared/api/client";
 import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { buildManualTaskHref } from "../shared/ops-links";
 import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
@@ -51,11 +52,6 @@ function statusLabel(status: CardStatus): string {
   if (status === "failed") return "失败";
   if (status === "warning") return "滞后";
   return "未知";
-}
-
-function manualSyncHref(specKey: string): string {
-  const specType = specKey.endsWith(".maintain") ? "dataset_action" : "job";
-  return `/app/ops/manual-sync?spec_key=${encodeURIComponent(specKey)}&spec_type=${specType}`;
 }
 
 function cadenceLabel(cadence: string): string {
@@ -293,7 +289,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                       {item.status !== "healthy" && item.primaryExecutionSpecKey ? (
                         <Button
                           component="a"
-                          href={manualSyncHref(item.primaryExecutionSpecKey)}
+                          href={buildManualTaskHref({ specKey: item.primaryExecutionSpecKey })}
                           size="xs"
                           variant="light"
                           color="brand"

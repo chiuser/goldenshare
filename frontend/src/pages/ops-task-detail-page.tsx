@@ -27,6 +27,7 @@ import type {
   ExecutionStepsResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
+import { buildManualTaskHref } from "../shared/ops-links";
 import {
   formatEventTypeLabel,
   formatExecutionResourceLabel,
@@ -286,7 +287,7 @@ function buildActionSuggestion(detail: ExecutionDetailResponse) {
     return "系统正在按停止请求收尾。通常会在当前处理单元结束后更新为“已取消”。";
   }
   if (detail.status === "success") {
-    return "这次处理已经完成。如果还要处理别的日期范围，可以返回手动同步页继续发起。";
+    return "这次处理已经完成。如果还要处理别的日期范围，可以返回手动任务页继续发起。";
   }
   if (detail.status === "failed") {
     return "先看问题摘要和最近更新，再决定是重新提交，还是复制原参数后调整再发起。";
@@ -861,7 +862,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             description="这里先告诉你这次任务现在是什么状态，以及你最常用的处理动作。"
             action={
               <Group gap="xs">
-                <Button component="a" href={`/app/ops/manual-sync?from_execution_id=${detail.id}`} variant="light">
+                <Button component="a" href={buildManualTaskHref({ fromExecutionId: detail.id })} variant="light">
                   复制参数
                 </Button>
                 {detail.status === "failed" ? (

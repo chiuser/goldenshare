@@ -63,7 +63,7 @@ vi.mock("../shared/api/client", () => ({
 }));
 
 describe("今日运行页", () => {
-  it("需要关注的数据应直接跳转到手动同步并带上数据项", async () => {
+  it("需要关注的数据应直接跳转到手动任务并带上数据项", async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -79,7 +79,7 @@ describe("今日运行页", () => {
     );
 
     const links = await screen.findAllByRole("link", { name: "去处理" });
-    expect(links.some((link) => link.getAttribute("href") === "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action")).toBe(true);
+    expect(links.some((link) => link.getAttribute("href") === "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action")).toBe(true);
     expect(screen.queryByText("需要优先处理的问题")).not.toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看全部任务" })).toBeInTheDocument();
     expect(await screen.findByText("日期范围 / 最近同步日期")).toBeInTheDocument();

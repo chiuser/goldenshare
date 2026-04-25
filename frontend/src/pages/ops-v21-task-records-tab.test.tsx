@@ -161,7 +161,7 @@ describe("任务记录页", () => {
     expect(await screen.findByText("任务记录")).toBeInTheDocument();
     expect(screen.queryByText("在这里看最近跑了什么、结果怎么样，再决定是查看详情、停止处理，还是重新提交。")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "查看数据状态" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "去手动同步" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "去手动任务" })).not.toBeInTheDocument();
     expect(screen.queryByText("筛选任务")).not.toBeInTheDocument();
 
     const taskRecordsCard = screen.getByText("任务记录").closest(".mantine-Paper-root");

@@ -32,8 +32,8 @@
 2. `ops/v21/overview`
 3. `ops/v21/datasets/tasks?tab=records`
 4. `ops/v21/datasets/tasks` 默认入口与 tab 切换
-5. `ops/manual-sync` 引导态
-6. `ops/manual-sync` 已选维护对象 + 交易日输入 + 提交流程
+5. `ops/v21/datasets/tasks?tab=manual` 引导态
+6. `ops/v21/datasets/tasks?tab=manual` 已选维护对象 + 交易日输入 + 提交流程
 7. `ops/automation` 主表 + 详情 + 修改抽屉
 8. `ops/tasks/:id`
 9. `ops/v21/review/index`

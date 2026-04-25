@@ -55,6 +55,48 @@ beforeEach(() => {
         workflow_specs: [],
       };
     }
+    if (path === "/api/v1/ops/manual-actions") {
+      return {
+        groups: [
+          {
+            group_key: "equity_market",
+            group_label: "股票行情",
+            group_order: 20,
+            actions: [
+              {
+                action_key: "daily",
+                action_type: "dataset_action",
+                display_name: "维护股票日线",
+                description: "维护股票日线。",
+                resource_key: "daily",
+                resource_display_name: "股票日线",
+                date_model: {
+                  date_axis: "trade_open_day",
+                  bucket_rule: "every_open_day",
+                  window_mode: "point_or_range",
+                  input_shape: "trade_date_or_start_end",
+                  observed_field: "trade_date",
+                  audit_applicable: true,
+                  not_applicable_reason: null,
+                },
+                time_form: {
+                  control: "trade_date_or_range",
+                  default_mode: "point",
+                  allowed_modes: ["point", "range"],
+                  selection_rule: "trading_day_only",
+                  point_label: "只处理一天",
+                  range_label: "处理一个时间区间",
+                },
+                filters: [],
+                search_keywords: ["daily", "维护股票日线"],
+                action_order: 100,
+                route_spec_keys: ["daily.maintain"],
+              },
+            ],
+          },
+        ],
+      };
+    }
     if (url.pathname === "/api/v1/ops/executions/summary") {
       return {
         total: 1,
@@ -236,5 +278,46 @@ describe("任务中心页", () => {
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules/201/revisions");
     expect(requestedPaths).not.toContain("/api/v1/ops/executions?schedule_id=201&limit=1");
     expect(requestedPaths).not.toContain("/api/v1/ops/probes?schedule_id=201&limit=50");
+  });
+
+  it("从数据源卡片进入手动页时保留 spec 参数并预选分组和维护对象", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const rootRoute = createRootRoute({
+      component: () => <OpsV21TaskCenterPage />,
+    });
+    const route = createRoute({
+      getParentRoute: () => rootRoute,
+      path: "/ops/v21/datasets/tasks",
+      component: () => <OpsV21TaskCenterPage />,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([route]),
+      basepath: "/app",
+      history: createMemoryHistory({
+        initialEntries: ["/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action"],
+      }),
+    });
+
+    render(
+      <MantineProvider theme={appTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+
+    expect(await screen.findByRole("tab", { name: "手动任务", selected: true })).toBeInTheDocument();
+    expect((await screen.findAllByText("维护股票日线")).length).toBeGreaterThan(0);
+    const domainInput = screen
+      .getAllByLabelText("选择数据分组")
+      .find((element) => element.tagName === "INPUT") as HTMLInputElement;
+    expect(domainInput.value).toBe("股票行情");
   });
 });

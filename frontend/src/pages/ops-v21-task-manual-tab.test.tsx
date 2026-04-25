@@ -8,7 +8,7 @@ import { beforeEach, vi } from "vitest";
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
-import { OpsManualSyncPage, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-v21-task-manual-tab";
+import { OpsManualTaskTab, resolveDraftOnDomainChange, shouldAutoAlignDomain } from "./ops-v21-task-manual-tab";
 
 const textParam = {
   required: false,
@@ -306,7 +306,7 @@ beforeEach(() => {
   vi.mocked(apiRequest).mockClear();
 });
 
-function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action") {
+function renderPage(initialEntry = "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action") {
   window.history.replaceState({}, "", initialEntry);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -316,12 +316,12 @@ function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=daily.maintain
   });
 
   const rootRoute = createRootRoute({
-    component: () => <OpsManualSyncPage />,
+    component: () => <OpsManualTaskTab />,
   });
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: "/ops/manual-sync",
-    component: () => <OpsManualSyncPage />,
+    path: "/ops/v21/datasets/tasks",
+    component: () => <OpsManualTaskTab />,
   });
   const router = createRouter({
     routeTree: rootRoute.addChildren([indexRoute]),
@@ -342,7 +342,7 @@ function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=daily.maintain
 
 function renderPageWithPersistedDraft() {
   window.localStorage.setItem(
-    "goldenshare.frontend.ops.manual-sync.draft",
+    "goldenshare.frontend.ops.task-center.manual.draft",
     JSON.stringify({
       action_id: "stock_basic",
       date_mode: "single_point",
@@ -359,9 +359,9 @@ function renderPageWithPersistedDraft() {
 }
 
 function renderPageWithMismatchedPersistedDomain() {
-  window.localStorage.setItem("goldenshare.frontend.ops.manual-sync.domain", JSON.stringify("基础主数据"));
+  window.localStorage.setItem("goldenshare.frontend.ops.task-center.manual.domain", JSON.stringify("基础主数据"));
   window.localStorage.setItem(
-    "goldenshare.frontend.ops.manual-sync.draft",
+    "goldenshare.frontend.ops.task-center.manual.draft",
     JSON.stringify({
       action_id: "",
       date_mode: "single_point",
@@ -377,13 +377,13 @@ function renderPageWithMismatchedPersistedDomain() {
   renderPage();
 }
 
-describe("手动同步页", () => {
+describe("手动任务页", () => {
   it("用维护动作抽象底层逻辑，并隐藏内部参数", async () => {
     renderPage();
 
     expect(await screen.findByText("这里只做一件事：维护你选中的数据。至于是补一天、补一段时间，还是直接刷新一次，由系统根据你的输入自动决定。")).toBeInTheDocument();
     expect((await screen.findAllByText("维护股票日线")).length).toBeGreaterThan(0);
-    expect(await screen.findByText("开始同步")).toBeInTheDocument();
+    expect(await screen.findByText("提交维护任务")).toBeInTheDocument();
     expect(screen.getByText("只处理一天")).toBeInTheDocument();
     expect(screen.getByText("处理一个时间区间")).toBeInTheDocument();
     expect(screen.queryByText("起始偏移")).not.toBeInTheDocument();
@@ -454,14 +454,14 @@ describe("手动同步页", () => {
   });
 
   it("板块成分任务会展示先板块后成分的执行说明", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=ths_member.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=ths_member.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护同花顺板块成分")).length).toBeGreaterThan(0);
     expect(screen.getByText("系统会先刷新“同花顺概念和行业指数”，再按板块代码逐个同步板块成分。")).toBeInTheDocument();
   });
 
   it("东方财富热榜任务使用复选框展示多值条件，并且不展示交易所参数", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=dc_hot.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=dc_hot.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("A股市场")).toBeChecked();
@@ -476,7 +476,7 @@ describe("手动同步页", () => {
 
   it("东方财富热榜默认提交真实枚举筛选条件", async () => {
     window.localStorage.setItem(
-      "goldenshare.frontend.ops.manual-sync.draft",
+      "goldenshare.frontend.ops.task-center.manual.draft",
       JSON.stringify({
         action_id: "dc_hot",
         date_mode: "single_point",
@@ -489,10 +489,10 @@ describe("手动同步页", () => {
         field_values: {},
       }),
     );
-    renderPage("/app/ops/manual-sync");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual");
 
     expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: "开始同步" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
 
     await waitFor(() =>
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot/executions", {
@@ -510,7 +510,7 @@ describe("手动同步页", () => {
   });
 
   it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=broker_recommend.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=broker_recommend.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护券商每月荐股")).length).toBeGreaterThan(0);
     expect(screen.getByText("第二步：选择时间范围")).toBeInTheDocument();
@@ -520,7 +520,7 @@ describe("手动同步页", () => {
   });
 
   it("优先使用后端资源显示名称，避免新增数据集出现占位文案", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=stk_factor_pro.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=stk_factor_pro.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护股票技术面因子(专业版)")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();

@@ -14,6 +14,7 @@ import type {
   StdMappingRuleListResponse,
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { buildManualTaskHref } from "../shared/ops-links";
 import { formatStatusLabel } from "../shared/ops-display";
 import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { EmptyState } from "../shared/ui/empty-state";
@@ -53,11 +54,6 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
   const normalized = (value || "unknown").toLowerCase();
   if (normalized === "healthy") return "正常";
   return formatStatusLabel(value);
-}
-
-function manualSyncHref(specKey: string): string {
-  const specType = specKey.endsWith(".maintain") ? "dataset_action" : "job";
-  return `/app/ops/manual-sync?spec_key=${encodeURIComponent(specKey)}&spec_type=${specType}`;
 }
 
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
@@ -240,10 +236,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
-            <Button component="a" href={manualSyncHref(manualSpecKey)} variant="light" color="brand">
+            <Button component="a" href={buildManualTaskHref({ specKey: manualSpecKey })} variant="light" color="brand">
               去处理
             </Button>
-            <Button component="a" href={manualSyncHref(manualSpecKey)} variant="light">
+            <Button component="a" href={buildManualTaskHref({ specKey: manualSpecKey })} variant="light">
               手动执行
             </Button>
             <Button variant="light" disabled>

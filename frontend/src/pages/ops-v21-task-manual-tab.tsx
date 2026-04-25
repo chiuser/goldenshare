@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 
 import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
@@ -46,6 +46,10 @@ type ActionGuidance = {
   title: string;
   lines: string[];
 };
+
+const MANUAL_DRAFT_STORAGE_KEY = "goldenshare.frontend.ops.task-center.manual.draft";
+const MANUAL_DOMAIN_STORAGE_KEY = "goldenshare.frontend.ops.task-center.manual.domain";
+const MANUAL_RECENT_ACTIONS_STORAGE_KEY = "goldenshare.frontend.ops.task-center.manual.recent-actions";
 
 function buildEmptyDraft() {
   return {
@@ -385,17 +389,32 @@ function getRangeLabel(action: ManualAction) {
   return action.time_form.range_label || "处理一个时间区间";
 }
 
-export function OpsManualSyncPage() {
-  const navigate = useNavigate();
-  const [draft, setDraft] = usePersistentState("goldenshare.frontend.ops.manual-sync.draft", buildEmptyDraft());
-  const [selectedDomain, setSelectedDomain] = usePersistentState<string>("goldenshare.frontend.ops.manual-sync.domain", "");
-  const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>("goldenshare.frontend.ops.manual-sync.recent-actions", []);
+function readSearchString(search: Record<string, unknown>, key: string): string | null {
+  const value = search[key];
+  if (typeof value === "string") {
+    return value || null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof window !== "undefined") {
+    return new URLSearchParams(window.location.search).get(key);
+  }
+  return null;
+}
 
-  const search = new URLSearchParams(window.location.search);
-  const prefillExecutionId = search.get("from_execution_id");
-  const prefillScheduleId = search.get("from_schedule_id");
-  const prefillSpecKey = search.get("spec_key");
-  const prefillSpecType = search.get("spec_type");
+export function OpsManualTaskTab() {
+  const navigate = useNavigate();
+  const routerSearch = useSearch({ strict: false }) as Record<string, unknown>;
+  const [draft, setDraft] = usePersistentState(MANUAL_DRAFT_STORAGE_KEY, buildEmptyDraft());
+  const [selectedDomain, setSelectedDomain] = usePersistentState<string>(MANUAL_DOMAIN_STORAGE_KEY, "");
+  const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>(MANUAL_RECENT_ACTIONS_STORAGE_KEY, []);
+
+  const prefillExecutionId = readSearchString(routerSearch, "from_execution_id");
+  const prefillScheduleId = readSearchString(routerSearch, "from_schedule_id");
+  const prefillSpecKey = readSearchString(routerSearch, "spec_key");
+  const prefillSpecType = readSearchString(routerSearch, "spec_type");
+  const prefillTradeDate = readSearchString(routerSearch, "trade_date");
 
   const manualActionsQuery = useQuery({
     queryKey: ["ops", "manual-actions"],
@@ -483,12 +502,24 @@ export function OpsManualSyncPage() {
     const prefilledAction = manualActions.find((item) => matchesActionSpec(item, prefillSpecType, prefillSpecKey));
     if (prefilledAction) {
       setSelectedDomain(prefilledAction.groupLabel);
-      if (normalizeDraftActionId(draft.action_id) !== prefilledAction.action_key) {
-        setDraft(() => buildDraftForActionSelection(prefilledAction));
-      }
+      setDraft((current) => {
+        const base = normalizeDraftActionId(current.action_id) === prefilledAction.action_key
+          ? current
+          : buildDraftForActionSelection(prefilledAction);
+        if (!prefillTradeDate) {
+          return base;
+        }
+        return {
+          ...base,
+          date_mode: "single_point",
+          selected_date: prefillTradeDate,
+          start_date: prefillTradeDate,
+          end_date: prefillTradeDate,
+        };
+      });
     }
     prefillSpecAppliedRef.current = true;
-  }, [draft.action_id, manualActions, prefillSpecKey, prefillSpecType, setDraft, setSelectedDomain]);
+  }, [manualActions, prefillSpecKey, prefillSpecType, prefillTradeDate, setDraft, setSelectedDomain]);
 
   useEffect(() => {
     if (prefillExecutionAppliedRef.current) {
@@ -562,7 +593,7 @@ export function OpsManualSyncPage() {
 
       {isLoading ? <Loader size="sm" /> : null}
       {pageError ? (
-        <AlertBar tone="error" title="无法打开手动同步">
+        <AlertBar tone="error" title="无法打开手动任务">
           {pageError instanceof Error ? pageError.message : "未知错误"}
         </AlertBar>
       ) : null}
@@ -918,7 +949,7 @@ export function OpsManualSyncPage() {
                         loading={createExecutionMutation.isPending}
                         onClick={() => createExecutionMutation.mutate()}
                       >
-                        开始同步
+                        提交维护任务
                       </Button>
                     </Group>
                     <Group justify="center">

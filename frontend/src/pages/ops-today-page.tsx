@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "../shared/api/client";
 import type { OpsOverviewResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
+import { buildManualTaskHref } from "../shared/ops-links";
 import { formatSpecDisplayLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
@@ -179,7 +180,7 @@ export function OpsTodayPage() {
                         {item.primary_execution_spec_key ? (
                           <Button
                             component="a"
-                            href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=${item.primary_execution_spec_key.endsWith(".maintain") ? "dataset_action" : "job"}`}
+                            href={buildManualTaskHref({ specKey: item.primary_execution_spec_key })}
                             size="xs"
                             variant="light"
                             color="brand"

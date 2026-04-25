@@ -386,7 +386,7 @@ function mockTaskManual(route: Route, pathname: string) {
           actions: [
             {
               action_key: "daily",
-              action_type: "job",
+              action_type: "dataset_action",
               display_name: "维护股票日线",
               description: "维护股票日线数据。",
               resource_key: "daily",

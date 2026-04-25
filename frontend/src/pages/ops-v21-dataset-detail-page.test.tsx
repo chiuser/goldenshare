@@ -243,11 +243,11 @@ describe("V2.1 数据集详情页", () => {
     expect(await screen.findByText("tushare")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "去处理" })).toHaveAttribute(
       "href",
-      "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action",
+      "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action",
     );
     expect(screen.getByRole("link", { name: "手动执行" })).toHaveAttribute(
       "href",
-      "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action",
+      "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action",
     );
   });
 });

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 
 import { OpsAutomationPage } from "./ops-v21-task-auto-tab";
-import { OpsManualSyncPage } from "./ops-v21-task-manual-tab";
+import { OpsManualTaskTab } from "./ops-v21-task-manual-tab";
 import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 
@@ -35,7 +35,7 @@ export function OpsV21TaskCenterPage() {
       >
         <Tabs.List>
           <Tabs.Tab value="records">任务记录</Tabs.Tab>
-          <Tabs.Tab value="manual">手动同步</Tabs.Tab>
+          <Tabs.Tab value="manual">手动任务</Tabs.Tab>
           <Tabs.Tab value="auto">自动运行</Tabs.Tab>
         </Tabs.List>
 
@@ -43,7 +43,7 @@ export function OpsV21TaskCenterPage() {
           <OpsTasksPage />
         </Tabs.Panel>
         <Tabs.Panel value="manual" pt="md">
-          <OpsManualSyncPage />
+          <OpsManualTaskTab />
         </Tabs.Panel>
         <Tabs.Panel value="auto" pt="md">
           <OpsAutomationPage />

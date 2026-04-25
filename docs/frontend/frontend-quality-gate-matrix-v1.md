@@ -71,7 +71,7 @@ CI 当前执行顺序：
 | `login` | 有 | 有 | 认证页基线较稳 |
 | `ops/v21/overview` | 有 | 有 | 壳层与概览卡片已受保护 |
 | `ops/v21/datasets/tasks?tab=records` | 有 | 有 | 任务记录试点页保护较稳 |
-| `ops/manual-sync` | 有 | 有 | 手动维护主路径保护较稳 |
+| `ops/v21/datasets/tasks?tab=manual` | 有 | 有 | 手动维护主路径保护较稳 |
 | `ops/automation` | 有 | 无 | 依赖 smoke 保护，缺少页级单测 |
 | `ops/tasks/:id` | 有 | 有 | 详情页主路径保护较稳 |
 | `ops/v21/review/index` | 有 | 有 | 审查中心指数页已形成 smoke + 页测双层保护 |
@@ -83,7 +83,7 @@ CI 当前执行顺序：
 - `ops-v21-task-center-page.tsx` 有路由级单测，但当前 smoke 是直接覆盖其子入口页，不是单独做路由页截图。
 - 当前已补入 2 条更深一层的任务中心状态基线：
   - `ops/v21/datasets/tasks` 默认入口与 tab 切换
-  - `ops/manual-sync` 已选维护对象、交易日输入与提交流程
+  - `ops/v21/datasets/tasks?tab=manual` 已选维护对象、交易日输入与提交流程
 - `ops/automation` 当前 smoke 也已前进到“主表 + 详情 + 修改抽屉”状态。
 - 当前 smoke 仍主要覆盖“主路径 + 有数据”的稳定基线，尚未形成系统化的空态 / 错误态 / 边界态矩阵。
 

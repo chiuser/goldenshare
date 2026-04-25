@@ -33,6 +33,7 @@ import type {
   ScheduleRevisionListResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
+import { buildManualTaskHref } from "../shared/ops-links";
 import {
   formatRevisionActionLabel,
   formatScheduleTypeLabel,
@@ -1154,7 +1155,7 @@ export function OpsAutomationPage() {
                   ) : null}
                   <Button
                     component="a"
-                    href={`/app/ops/manual-sync?from_schedule_id=${detailQuery.data.id}`}
+                    href={buildManualTaskHref({ fromScheduleId: detailQuery.data.id })}
                     size="sm"
                     variant="light"
                     color="brand"
