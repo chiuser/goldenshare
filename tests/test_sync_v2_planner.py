@@ -298,10 +298,15 @@ def test_planner_trade_cal_range_rebuild_uses_single_natural_window(mocker) -> N
     assert units[0].request_params["end_date"] == "20260403"
 
 
-def test_stk_mins_strategy_expands_single_stock_freq_and_sessions(mocker) -> None:
+def test_stk_mins_strategy_expands_single_stock_freq_as_datetime_window(mocker) -> None:
     session = mocker.Mock()
+    def _get_by_ts_code(ts_code: str):
+        if ts_code == "600000.SH":
+            return SimpleNamespace(name="浦发银行")
+        return None
+
     dao = SimpleNamespace(
-        security=SimpleNamespace(get_active_equities=lambda: []),
+        security=SimpleNamespace(get_active_equities=lambda: [], get_by_ts_code=_get_by_ts_code),
         trade_calendar=SimpleNamespace(get_open_dates=lambda exchange, start_date, end_date: []),
     )
     contract = get_sync_v2_contract("stk_mins")
@@ -316,18 +321,14 @@ def test_stk_mins_strategy_expands_single_stock_freq_and_sessions(mocker) -> Non
 
     units = build_stk_mins_units(validated, contract, dao, SimpleNamespace(default_exchange="SSE"), session)
 
-    assert len(units) == 4
+    assert len(units) == 2
     assert {unit.request_params["ts_code"] for unit in units} == {"600000.SH"}
     assert {unit.request_params["freq"] for unit in units} == {"30min", "60min"}
     assert {unit.page_limit for unit in units} == {8000}
-    assert {unit.request_params["start_date"] for unit in units} == {
-        "2026-04-23 09:30:00",
-        "2026-04-23 13:00:00",
-    }
-    assert {unit.request_params["end_date"] for unit in units} == {
-        "2026-04-23 11:30:00",
-        "2026-04-23 15:00:00",
-    }
+    assert {unit.request_params["start_date"] for unit in units} == {"2026-04-23 09:00:00"}
+    assert {unit.request_params["end_date"] for unit in units} == {"2026-04-23 19:00:00"}
+    assert {unit.progress_context["unit"] for unit in units} == {"stock"}
+    assert {unit.progress_context["security_name"] for unit in units} == {"浦发银行"}
 
 
 def test_stk_mins_strategy_uses_full_tushare_stock_pool(mocker) -> None:
@@ -336,9 +337,9 @@ def test_stk_mins_strategy_uses_full_tushare_stock_pool(mocker) -> None:
         security=SimpleNamespace(
             get_active_equities=lambda: [
                 SimpleNamespace(ts_code="600519.SH", source="tushare"),
-                SimpleNamespace(ts_code="000001.SZ", source="tushare"),
+                SimpleNamespace(ts_code="000001.SZ", source="tushare", name="平安银行"),
                 SimpleNamespace(ts_code="BIYING_ONLY", source="biying"),
-                SimpleNamespace(ts_code="600000.SH", source="tushare"),
+                SimpleNamespace(ts_code="600000.SH", source="tushare", name="浦发银行"),
             ]
         ),
         trade_calendar=SimpleNamespace(
@@ -360,10 +361,13 @@ def test_stk_mins_strategy_uses_full_tushare_stock_pool(mocker) -> None:
 
     units = build_stk_mins_units(validated, contract, dao, SimpleNamespace(default_exchange="SSE"), session)
 
-    assert len(units) == 12
-    assert {unit.trade_date for unit in units} == {date(2026, 4, 22), date(2026, 4, 23)}
+    assert len(units) == 3
+    assert {unit.trade_date for unit in units} == {None}
     assert {unit.request_params["ts_code"] for unit in units} == {"000001.SZ", "600000.SH", "600519.SH"}
     assert {unit.request_params["freq"] for unit in units} == {"30min"}
+    assert {unit.request_params["start_date"] for unit in units} == {"2026-04-22 09:00:00"}
+    assert {unit.request_params["end_date"] for unit in units} == {"2026-04-23 19:00:00"}
+    assert any(unit.progress_context.get("security_name") == "平安银行" for unit in units)
 
 
 def test_planner_ths_member_fanout_uses_ths_index_board_pool(mocker) -> None:

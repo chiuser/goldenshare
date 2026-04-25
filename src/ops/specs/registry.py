@@ -596,7 +596,7 @@ for _resource in sorted(SYNC_SERVICE_REGISTRY):
 
 JOB_SPEC_REGISTRY["sync_minute_history.stk_mins"] = JobSpec(
     key="sync_minute_history.stk_mins",
-    display_name="分钟行情同步 / stk_mins",
+    display_name="分钟行情同步 / 股票历史分钟行情",
     category="sync_minute_history",
     description="按交易日、股票池和分钟频度同步股票历史分钟行情。",
     strategy_type="sync_minute_history",

@@ -36,7 +36,7 @@ vi.mock("../shared/api/client", () => ({
         progress_current: 651,
         progress_total: 5814,
         progress_percent: 11,
-        progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
+        progress_message: "daily: 651/5814 unit=stock ts_code=002034.SZ security_name=美欣达 freq=1min unit_fetched=6 unit_written=6 fetched=6 written=6",
         last_progress_at: "2026-03-31T01:00:05Z",
         cancel_requested_at: null,
         canceled_at: null,
@@ -130,7 +130,7 @@ vi.mock("../shared/api/client", () => ({
             level: "info",
             message: "正在拉取 2026-03-23 到 2026-03-30 的股票日线数据",
             payload_json: {
-              progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=5 rejected=1 reasons=normalize.required_field_missing:ts_code:1",
+              progress_message: "daily: 651/5814 unit=stock ts_code=002034.SZ security_name=美欣达 freq=1min unit_fetched=6 unit_written=5 unit_rejected=1 fetched=6 written=5 rejected=1 reasons=normalize.required_field_missing:ts_code:1",
               progress_current: 651,
               progress_total: 5814,
               progress_percent: 11,
@@ -243,6 +243,10 @@ describe("任务详情页", () => {
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
     expect(await screen.findByText("11%")).toBeInTheDocument();
     expect((await screen.findAllByText("正在拉取 2026-03-23 到 2026-03-30 的股票日线数据")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("当前股票：002034.SZ 美欣达")).toBeInTheDocument();
+    expect(await screen.findByText("当前频度：1min")).toBeInTheDocument();
+    expect(await screen.findByText("当前处理对象结果：读取 6 条，写入 5 条，拒绝 1 条")).toBeInTheDocument();
+    expect(await screen.findByText("累计接口结果：读取 6 条，写入 5 条，拒绝 1 条")).toBeInTheDocument();
     expect(await screen.findByText("查看原因")).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "查看原因" }));

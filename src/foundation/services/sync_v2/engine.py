@@ -8,6 +8,7 @@ from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledEr
 from src.foundation.services.sync_v2.contracts import (
     DatasetSyncContract,
     EngineRunSummary,
+    PlanUnit,
     RunRequest,
 )
 from src.foundation.services.sync_v2.error_mapper import SyncV2ErrorMapper
@@ -67,6 +68,9 @@ class SyncV2Engine:
         total_units = len(units)
         for index, unit in enumerate(units, start=1):
             self._ensure_not_canceled(cancel_checker=cancel_checker, execution_id=validated.execution_id)
+            unit_rows_fetched = 0
+            unit_rows_written = 0
+            unit_rows_rejected = 0
             try:
                 fetched = self.worker.fetch(contract=contract, unit=unit)
                 normalized = self.normalizer.normalize(contract=contract, fetch_result=fetched)
@@ -77,9 +81,12 @@ class SyncV2Engine:
                     plan_unit=unit,
                     run_profile=validated.run_profile,
                 )
-                rows_fetched += len(fetched.rows_raw)
-                rows_written += written.rows_written
-                rows_rejected += normalized.rows_rejected
+                unit_rows_fetched = len(fetched.rows_raw)
+                unit_rows_written = written.rows_written
+                unit_rows_rejected = normalized.rows_rejected
+                rows_fetched += unit_rows_fetched
+                rows_written += unit_rows_written
+                rows_rejected += unit_rows_rejected
                 for reason_code, count in normalized.rejected_reasons.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
                 unit_done += 1
@@ -111,6 +118,10 @@ class SyncV2Engine:
                         rows_fetched=rows_fetched,
                         rows_written=rows_written,
                         rows_rejected=rows_rejected,
+                        unit=unit,
+                        unit_rows_fetched=unit_rows_fetched,
+                        unit_rows_written=unit_rows_written,
+                        unit_rows_rejected=unit_rows_rejected,
                         rejected_reason_counts=rejected_reason_counts,
                     ),
                 )
@@ -156,11 +167,28 @@ class SyncV2Engine:
         rows_written: int,
         rows_rejected: int,
         rejected_reason_counts: dict[str, int],
+        unit: PlanUnit | None = None,
+        unit_rows_fetched: int | None = None,
+        unit_rows_written: int | None = None,
+        unit_rows_rejected: int | None = None,
     ) -> str:
-        message = (
-            f"{progress_label}: "
-            f"{current}/{total} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+        tokens = cls._build_progress_context_tokens(
+            unit=unit,
+            unit_rows_fetched=unit_rows_fetched,
+            unit_rows_written=unit_rows_written,
+            unit_rows_rejected=unit_rows_rejected,
         )
+        if tokens:
+            token_text = " ".join(tokens)
+            message = (
+                f"{progress_label}: "
+                f"{current}/{total} {token_text} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+            )
+        else:
+            message = (
+                f"{progress_label}: "
+                f"{current}/{total} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+            )
         normalized_counts = cls._normalize_reason_counts(rejected_reason_counts)
         if not normalized_counts:
             return message
@@ -194,3 +222,47 @@ class SyncV2Engine:
         limited = ordered[:max_items]
         encoded = "|".join(f"{reason_code}:{count}" for reason_code, count in limited)
         return encoded, truncated
+
+    @classmethod
+    def _build_progress_context_tokens(
+        cls,
+        *,
+        unit: PlanUnit | None,
+        unit_rows_fetched: int | None,
+        unit_rows_written: int | None,
+        unit_rows_rejected: int | None,
+    ) -> list[str]:
+        tokens: list[str] = []
+        if unit is not None:
+            context_keys = (
+                "unit",
+                "ts_code",
+                "security_name",
+                "index_code",
+                "index_name",
+                "board_code",
+                "board_name",
+                "trade_date",
+                "freq",
+                "start_date",
+                "end_date",
+                "enum_field",
+                "enum_value",
+            )
+            for key in context_keys:
+                value = unit.progress_context.get(key)
+                if value in (None, ""):
+                    continue
+                tokens.append(f"{key}={cls._format_progress_token_value(value)}")
+
+        if unit_rows_fetched is not None:
+            tokens.append(f"unit_fetched={int(unit_rows_fetched or 0)}")
+        if unit_rows_written is not None:
+            tokens.append(f"unit_written={int(unit_rows_written or 0)}")
+        if unit_rows_rejected is not None and unit_rows_rejected > 0:
+            tokens.append(f"unit_rejected={int(unit_rows_rejected or 0)}")
+        return tokens
+
+    @staticmethod
+    def _format_progress_token_value(value) -> str:  # type: ignore[no-untyped-def]
+        return "_".join(str(value).strip().split())

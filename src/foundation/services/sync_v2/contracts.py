@@ -154,6 +154,7 @@ class PlanUnit:
     source_key: str
     trade_date: date | None
     request_params: dict[str, Any]
+    progress_context: dict[str, Any] = field(default_factory=dict)
     pagination_policy: str | None = None
     page_limit: int | None = None
     attempt: int = 0

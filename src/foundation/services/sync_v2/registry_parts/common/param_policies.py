@@ -50,13 +50,12 @@ def _stk_limit_params(request, anchor_date: date | None, enum_values: dict[str, 
 
 def _stk_mins_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del request
-    if anchor_date is None:
-        raise ValueError("stk_mins requires trade_date anchor")
+    del anchor_date
     return {
         "ts_code": str(enum_values["ts_code"]).strip().upper(),
         "freq": str(enum_values["freq"]).strip(),
-        "start_date": str(enum_values["session_start"]).strip(),
-        "end_date": str(enum_values["session_end"]).strip(),
+        "start_date": str(enum_values["window_start"]).strip(),
+        "end_date": str(enum_values["window_end"]).strip(),
     }
 
 

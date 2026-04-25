@@ -94,32 +94,52 @@ function parseProgressDetails(message: string | null | undefined) {
   const unitLabel =
     unitRaw === "stock"
       ? "股票"
+      : unitRaw === "index"
+        ? "指数"
       : unitRaw === "trade_date"
         ? "交易日"
         : unitRaw === "month"
           ? "月份"
           : unitRaw === "board"
             ? "板块"
+            : unitRaw === "enum"
+              ? "枚举"
             : unitRaw === "code"
               ? "代码"
               : null;
-  const cursorValue = kv.trade_date || kv.ts_code || kv.con_code || kv.index_code || kv.code || kv.idx_type || null;
-  const cursorLabel = kv.trade_date
-    ? `当前日期：${kv.trade_date}`
-    : kv.ts_code
-      ? `当前代码：${kv.ts_code}`
-      : kv.con_code
-        ? `当前板块：${kv.con_code}`
-        : kv.index_code
-          ? `当前指数：${kv.index_code}`
-          : kv.code
-            ? `当前代码：${kv.code}`
-            : kv.idx_type
-              ? `当前类型：${kv.idx_type}`
-              : null;
+  const stockLabel = kv.ts_code ? `${kv.ts_code}${kv.security_name ? ` ${kv.security_name}` : ""}` : null;
+  const indexLabel = kv.index_code ? `${kv.index_code}${kv.index_name ? ` ${kv.index_name}` : ""}` : null;
+  const boardCode = kv.board_code || kv.con_code || null;
+  const boardLabel = boardCode ? `${boardCode}${kv.board_name ? ` ${kv.board_name}` : ""}` : null;
+  const enumLabel = kv.enum_field || kv.enum_value ? `${kv.enum_field || "枚举"}=${kv.enum_value || ""}` : null;
+  let cursorLabel: string | null = null;
+  if (kv.trade_date) {
+    cursorLabel = `当前日期：${kv.trade_date}`;
+  } else if (unitRaw === "stock" && stockLabel) {
+    cursorLabel = `当前股票：${stockLabel}`;
+  } else if (unitRaw === "index" && indexLabel) {
+    cursorLabel = `当前指数：${indexLabel}`;
+  } else if (unitRaw === "board" && boardLabel) {
+    cursorLabel = `当前板块：${boardLabel}`;
+  } else if (kv.ts_code) {
+    cursorLabel = `当前代码：${stockLabel || kv.ts_code}`;
+  } else if (boardLabel) {
+    cursorLabel = `当前板块：${boardLabel}`;
+  } else if (indexLabel) {
+    cursorLabel = `当前指数：${indexLabel}`;
+  } else if (kv.code) {
+    cursorLabel = `当前代码：${kv.code}`;
+  } else if (kv.idx_type) {
+    cursorLabel = `当前类型：${kv.idx_type}`;
+  } else if (enumLabel) {
+    cursorLabel = `当前枚举：${enumLabel}`;
+  }
   const fetched = kv.fetched ? Number(kv.fetched) : null;
   const written = kv.written ? Number(kv.written) : null;
   const rejected = kv.rejected ? Number(kv.rejected) : null;
+  const unitFetched = kv.unit_fetched ? Number(kv.unit_fetched) : null;
+  const unitWritten = kv.unit_written ? Number(kv.unit_written) : null;
+  const unitRejected = kv.unit_rejected ? Number(kv.unit_rejected) : null;
   const reasonCounts = parseReasonCountsToken(kv.reasons);
   return {
     raw,
@@ -127,6 +147,10 @@ function parseProgressDetails(message: string | null | undefined) {
     total: ratioMatch ? Number(ratioMatch[2]) : null,
     unitLabel,
     cursorLabel,
+    freqLabel: kv.freq ? `当前频度：${kv.freq}` : null,
+    unitFetched: Number.isFinite(unitFetched) ? unitFetched : null,
+    unitWritten: Number.isFinite(unitWritten) ? unitWritten : null,
+    unitRejected: Number.isFinite(unitRejected) ? unitRejected : null,
     fetched: Number.isFinite(fetched) ? fetched : null,
     written: Number.isFinite(written) ? written : null,
     rejected: Number.isFinite(rejected) ? rejected : null,
@@ -412,6 +436,10 @@ interface ProgressSnapshot {
   message: string;
   unitLabel: string;
   cursorLabel: string | null;
+  freqLabel: string | null;
+  unitFetched: number | null;
+  unitWritten: number | null;
+  unitRejected: number | null;
   fetched: number | null;
   written: number | null;
   rejected: number | null;
@@ -471,6 +499,10 @@ function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
     message: progressMessage,
     unitLabel,
     cursorLabel,
+    freqLabel: parsedFromText?.freqLabel || null,
+    unitFetched: parsedFromText?.unitFetched ?? null,
+    unitWritten: parsedFromText?.unitWritten ?? null,
+    unitRejected: parsedFromText?.unitRejected ?? null,
     fetched,
     written,
     rejected,
@@ -505,6 +537,15 @@ function buildStructuredProgressSnapshot(
     const written = preferDetailProgress
       ? (detailProgress?.written ?? fromEvent?.written ?? null)
       : (fromEvent?.written ?? detailProgress?.written ?? null);
+    const unitFetched = preferDetailProgress
+      ? (detailProgress?.unitFetched ?? fromEvent?.unitFetched ?? null)
+      : (fromEvent?.unitFetched ?? detailProgress?.unitFetched ?? null);
+    const unitWritten = preferDetailProgress
+      ? (detailProgress?.unitWritten ?? fromEvent?.unitWritten ?? null)
+      : (fromEvent?.unitWritten ?? detailProgress?.unitWritten ?? null);
+    const unitRejected = preferDetailProgress
+      ? (detailProgress?.unitRejected ?? fromEvent?.unitRejected ?? null)
+      : (fromEvent?.unitRejected ?? detailProgress?.unitRejected ?? null);
     const detailRejected = detailProgress?.rejected ?? null;
     const reasonCounts = preferDetailProgress
       ? (detailProgress?.reasonCounts || {})
@@ -532,6 +573,12 @@ function buildStructuredProgressSnapshot(
       cursorLabel: preferDetailProgress
         ? (detailProgress?.cursorLabel || null)
         : (fromEvent?.cursorLabel || detailProgress?.cursorLabel || null),
+      freqLabel: preferDetailProgress
+        ? (detailProgress?.freqLabel || fromEvent?.freqLabel || null)
+        : (fromEvent?.freqLabel || detailProgress?.freqLabel || null),
+      unitFetched,
+      unitWritten,
+      unitRejected,
       fetched,
       written,
       rejected,
@@ -937,10 +984,18 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
                       {progressSnapshot.cursorLabel ? (
                         <Text size="sm">{progressSnapshot.cursorLabel}</Text>
                       ) : null}
+                      {progressSnapshot.freqLabel ? (
+                        <Text size="sm">{progressSnapshot.freqLabel}</Text>
+                      ) : null}
+                      {(progressSnapshot.unitFetched !== null || progressSnapshot.unitWritten !== null || progressSnapshot.unitRejected !== null) ? (
+                        <Text size="sm">
+                          当前处理对象结果：读取 {progressSnapshot.unitFetched ?? 0} 条，写入 {progressSnapshot.unitWritten ?? 0} 条，拒绝 {progressSnapshot.unitRejected ?? 0} 条
+                        </Text>
+                      ) : null}
                       {(progressSnapshot.fetched !== null || progressSnapshot.written !== null || progressSnapshot.rejected !== null) ? (
                         <Group justify="space-between" align="center">
                           <Text size="sm">
-                            当前接口结果：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条，拒绝 {progressSnapshot.rejected ?? 0} 条
+                            {(progressSnapshot.unitFetched !== null || progressSnapshot.unitWritten !== null || progressSnapshot.unitRejected !== null) ? "累计接口结果" : "当前接口结果"}：读取 {progressSnapshot.fetched ?? 0} 条，写入 {progressSnapshot.written ?? 0} 条，拒绝 {progressSnapshot.rejected ?? 0} 条
                           </Text>
                           {(progressSnapshot.rejected ?? 0) > 0 ? (
                             <Button

@@ -408,6 +408,11 @@ def test_trade_cal_and_index_weight_job_specs_expose_expected_params() -> None:
     assert kpl_list_backfill_spec is not None
     assert [param.key for param in kpl_list_backfill_spec.supported_params] == ["start_date", "end_date", "tag", "trade_date"]
 
+    stk_mins_spec = get_job_spec("sync_minute_history.stk_mins")
+    assert stk_mins_spec is not None
+    assert stk_mins_spec.display_name == "分钟行情同步 / 股票历史分钟行情"
+    assert [param.key for param in stk_mins_spec.supported_params] == ["trade_date", "start_date", "end_date", "ts_code", "freq"]
+
     fund_daily_history_spec = get_job_spec("sync_history.fund_daily")
     assert fund_daily_history_spec is not None
     assert [param.key for param in fund_daily_history_spec.supported_params] == ["start_date", "end_date"]

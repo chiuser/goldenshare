@@ -160,6 +160,46 @@
 - 幂等写入策略：
 - 去重规则：
 - 异常分类与重试策略：
+
+### 6.1 数据同步信息上报设计（必须）
+
+新增数据集必须单独设计“任务执行中如何向运营人员说明当前处理进度”。
+
+参考文档：
+
+- [股票历史分钟行情请求策略优化方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-request-optimization-plan-v1.md)
+
+必须填写：
+
+1. 当前处理对象类型：
+   - `unit=stock`：股票维度
+   - `unit=index`：指数维度
+   - `unit=board`：板块维度
+   - `unit=trade_date`：交易日维度
+   - `unit=enum`：枚举维度
+   - `unit=code`：其它代码维度
+2. 当前处理对象标识：
+   - 股票：`ts_code`，可选 `security_name`
+   - 指数：`index_code`，可选 `index_name`
+   - 板块：`board_code`，可选 `board_name`
+   - 日期：`trade_date`
+   - 枚举：`enum_field`、`enum_value`
+3. 当前窗口信息：
+   - 如有时间窗口，填写 `start_date/end_date`
+   - 如有频度，填写 `freq`
+4. 行数统计语义：
+   - `fetched/written` 固定表示全任务累计读取/写入
+   - `unit_fetched/unit_written` 表示当前 unit 读取/写入
+   - 不得把 `fetched/written` 改成当前对象语义
+5. 前端复用要求：
+   - 后端输出通用 token，不输出页面专用文案
+   - 前端只按 token 解析展示，不按 dataset_key 写专用分支
+6. 示例进度消息：
+
+```text
+<dataset_key>: <current>/<total> unit=<unit_type> ts_code=<code> security_name=<name> freq=<freq> unit_fetched=<n> unit_written=<n> fetched=<total_n> written=<total_n> rejected=<n>
+```
+
 - 进度事件规范（必须面向用户可读）：
   - 时间推进型：当前处理到哪个日期/周/月
   - 代码推进型：当前处理到哪个代码

@@ -22,6 +22,7 @@ describe("运维前端显示层映射", () => {
   it("把任务键映射成用户可读名称", () => {
     expect(formatSpecDisplayLabel("sync_history.stock_basic", null)).toBe("历史同步 / 股票基础信息");
     expect(formatSpecDisplayLabel("sync_daily.stk_limit", null)).toBe("日常同步 / 每日涨跌停价格");
+    expect(formatSpecDisplayLabel("sync_minute_history.stk_mins", null)).toBe("分钟行情同步 / 股票历史分钟行情");
     expect(formatSpecDisplayLabel("daily_market_close_sync", null)).toBe("每日收盘后同步");
     expect(formatSpecDisplayLabel("daily_moneyflow_sync", null)).toBe("每日资金流向同步");
     expect(formatResourceLabel("biying_moneyflow")).toBe("BIYING 资金流向");
@@ -29,5 +30,6 @@ describe("运维前端显示层映射", () => {
     expect(formatResourceLabel("margin")).toBe("融资融券交易汇总");
     expect(formatResourceLabel("stock_st")).toBe("ST股票列表");
     expect(formatResourceLabel("stk_nineturn")).toBe("神奇九转指标");
+    expect(formatResourceLabel("stk_mins")).toBe("股票历史分钟行情");
   });
 });

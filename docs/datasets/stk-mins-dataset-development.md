@@ -2,13 +2,13 @@
 
 ## 1. 目标与边界
 
-- 目标：新增 Tushare `stk_mins` 数据集，接入 A 股历史分钟行情，支持 `1min/5min/15min/30min/60min` 五种频度的按交易日、按交易时段拉取。
+- 目标：新增 Tushare `stk_mins` 数据集，接入 A 股历史分钟行情，支持 `1min/5min/15min/30min/60min` 五种频度的按交易日或交易日区间拉取。
 - 数据源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
 - 本期只接入当前 Sync V2 主链路，不新增 V1 路径，不回流到 `src/platform` 或 `src/operations`。
 - 因分钟数据量巨大，本数据集不做 Raw 表与 Core Serving 表双份存储；采用“Raw 单物理表 + Core Serving 只读 View”的方式降低磁盘消耗，同时保留服务层访问入口。
 - 支持全市场同步：未指定 `ts_code` 时，按 Tushare `stock_basic` 证券池中的 `ts_code` 扇出请求。
 - 不加入每日自动工作流；第一期通过独立 CLI `goldenshare sync-minute-history` 和 Ops 手动任务触发。
-- 用户侧时间选择只能选择交易日或交易日区间，不能选择具体时间；具体交易时段由程序内部固定定义。
+- 用户侧时间选择只能选择交易日或交易日区间，不能选择具体时间；程序内部转换为 `09:00:00~19:00:00` datetime 窗口后分页请求。
 
 ## 2. 上游接口事实
 
@@ -27,8 +27,8 @@
 | --- | --- | --- | --- | --- |
 | `ts_code` | `str` | 是 | 股票代码，如 `600000.SH` | 用户可选；未传时使用 Tushare 股票池扇出 |
 | `freq` | `str` | 是 | `1min/5min/15min/30min/60min` | 必填，支持多选时按频度扇开 |
-| `start_date` | `datetime` | 否 | 开始时间，如 `2023-08-25 09:00:00` | 不由用户直接填写；程序按交易日和内部交易时段生成 |
-| `end_date` | `datetime` | 否 | 结束时间，如 `2023-08-25 19:00:00` | 不由用户直接填写；程序按交易日和内部交易时段生成 |
+| `start_date` | `datetime` | 否 | 开始时间，如 `2023-08-25 09:00:00` | 不由用户直接填写；程序按用户选择的交易日或区间起点生成 |
+| `end_date` | `datetime` | 否 | 结束时间，如 `2023-08-25 19:00:00` | 不由用户直接填写；程序按用户选择的交易日或区间终点生成 |
 | `limit` | `int` | 否 | 单次返回数据长度 | 内部固定分页参数，默认 `8000` |
 | `offset` | `int` | 否 | 请求数据的开始位移量 | 内部分页递增 |
 
@@ -96,7 +96,7 @@
 | `freq` | `VARCHAR(8)` | NOT NULL | 分钟频度，来源于请求参数 |
 | `trade_time` | `TIMESTAMP WITHOUT TIME ZONE` | NOT NULL | 分钟 bar 时间 |
 | `trade_date` | `DATE` | NOT NULL | 从 `trade_time` 派生，用于分区、状态、查询过滤 |
-| `session_tag` | `VARCHAR(16)` | NOT NULL | `morning` 或 `afternoon`，来源于请求时段 |
+| `session_tag` | `VARCHAR(16)` | NOT NULL | `morning` 或 `afternoon`，由返回行 `trade_time` 派生 |
 | `open` | `DOUBLE PRECISION` | NULL | 开盘价 |
 | `close` | `DOUBLE PRECISION` | NULL | 收盘价 |
 | `high` | `DOUBLE PRECISION` | NULL | 最高价 |
@@ -182,7 +182,7 @@ FROM raw_tushare.stk_mins;
 
 ## 6. 日期模型与任务语义
 
-`stk_mins` 的请求由“交易日 + 程序内部固定交易时段”驱动，不暴露具体时间选择给用户。
+`stk_mins` 的请求由“交易日或交易日区间 + 程序内部 datetime 窗口”驱动，不暴露具体时间选择给用户。
 
 建议使用当前数据集日期模型体系中的交易日模型，并增加分钟策略语义：
 
@@ -196,18 +196,18 @@ FROM raw_tushare.stk_mins;
 | `audit_applicable` | `false`（第一期） | 分钟级完整性审计依赖交易时段和频度规则，第一期先不纳入 |
 | `not_applicable_reason` | `minute completeness audit requires trading-session calendar` | 明确不纳入第一期审计的原因 |
 
-交易时段由 `stk_mins` 策略固定：
+请求窗口由 `stk_mins` 策略固定：
 
 ```text
-morning:   09:30:00 ~ 11:30:00
-afternoon: 13:00:00 ~ 15:00:00
+单日：trade_date 09:00:00 ~ trade_date 19:00:00
+区间：start_date 09:00:00 ~ end_date 19:00:00
 ```
 
 注意：
 
 - 日历组件只允许选择交易日或交易日区间，不能选择小时、分钟、秒。
-- 区间执行时先按交易日历过滤开市日期。
-- 每个交易日固定生成上午、下午两个请求时段。
+- 区间执行时不再按交易日逐日拆分，而是生成一个连续 datetime 大窗口。
+- 不再按上午、下午 session 拆请求；`session_tag` 由返回行 `trade_time` 派生。
 - 上游 `start_date/end_date` 虽然是 datetime 参数，但它们只由程序内部生成，不作为用户侧参数暴露。
 
 ## 7. 请求策略
@@ -243,7 +243,7 @@ stock_basic 证券池 = 600000.SH, 000001.SZ, ...
 规划维度：
 
 ```text
-证券代码 x 频度 x 交易日 x 交易时段
+证券代码 x 频度 x datetime 窗口
 ```
 
 ### 7.3 频度扇开
@@ -251,10 +251,8 @@ stock_basic 证券池 = 600000.SH, 000001.SZ, ...
 当用户选择多个 `freq` 时，每个频度单独请求：
 
 ```text
-stk_mins(ts_code=600000.SH, freq=30min, start_date=2026-04-23 09:30:00, end_date=2026-04-23 11:30:00)
-stk_mins(ts_code=600000.SH, freq=30min, start_date=2026-04-23 13:00:00, end_date=2026-04-23 15:00:00)
-stk_mins(ts_code=600000.SH, freq=60min, start_date=2026-04-23 09:30:00, end_date=2026-04-23 11:30:00)
-stk_mins(ts_code=600000.SH, freq=60min, start_date=2026-04-23 13:00:00, end_date=2026-04-23 15:00:00)
+stk_mins(ts_code=600000.SH, freq=30min, start_date=2026-04-23 09:00:00, end_date=2026-04-23 19:00:00)
+stk_mins(ts_code=600000.SH, freq=60min, start_date=2026-04-23 09:00:00, end_date=2026-04-23 19:00:00)
 ```
 
 ### 7.4 参数映射
@@ -274,8 +272,8 @@ end_date?        # 区间结束交易日
 ```text
 ts_code
 freq
-start_date = YYYY-MM-DD 09:30:00 / 13:00:00
-end_date = YYYY-MM-DD 11:30:00 / 15:00:00
+start_date = YYYY-MM-DD 09:00:00
+end_date = YYYY-MM-DD 19:00:00
 limit = 8000
 offset = 0, 8000, 16000, ...
 ```
@@ -349,11 +347,11 @@ STK_MINS_FIELDS = (
 职责：
 
 - 校验 `freq` 值。
-- 解析单交易日或交易日区间。
-- 从交易日历展开开市日期。
+- 解析单交易日或交易日区间，生成一个 `09:00:00~19:00:00` datetime 窗口。
 - 未传 `ts_code` 时，从 Tushare 股票池加载证券代码并全量扇出。
-- 将维度拆成：`ts_code x freq x trade_date x session`。
+- 将维度拆成：`ts_code x freq x datetime_window`。
 - 为每个执行单元生成 Tushare 请求参数。
+- 为每个执行单元填充通用进度游标元信息，如 `unit=stock`、`ts_code`、`security_name`、`freq`、`unit_fetched`、`unit_written`。
 - 设置 `pagination_policy="offset_limit"`、`page_limit=8000`。
 
 允许读数据库：
@@ -374,7 +372,7 @@ STK_MINS_FIELDS = (
 - `trade_time`：解析为 `datetime`。
 - `trade_date`：从 `trade_time.date()` 派生。
 - `freq`：从请求上下文注入到每行。
-- `session_tag`：从请求上下文注入到每行。
+- `session_tag`：从 `trade_time` 所处交易时段派生。
 - 数值列：`open/close/high/low/vol/amount` 转为数值。
 - 必填校验：`ts_code/freq/trade_time/trade_date/session_tag`。
 - `raw_payload`：默认不填，降低存储占用。
@@ -418,14 +416,14 @@ STK_MINS_FIELDS = (
 - 日期选择器只允许选择交易日。
 - 单日模式：选择一个交易日。
 - 区间模式：选择开始交易日和结束交易日。
-- 展示固定交易时段说明：上午 `09:30~11:30`，下午 `13:00~15:00`。
+- 展示说明：用户只选交易日；系统内部按 `09:00~19:00` 大窗口请求，落库时按真实 `trade_time` 派生上午/下午 `session_tag`。
 - 不提供小时、分钟、秒输入控件。
 - 提示文案：分钟数据量很大；未填股票代码时会按当前股票列表全市场扇开请求。
 
 不支持：
 
 - 不支持用户任意输入 `09:42:13` 这类自定义时间。
-- 不支持用户修改上午/下午交易时段边界。
+- 不支持用户修改内部请求窗口边界。
 - 不支持加入每日自动工作流。
 
 ### 9.3 数据状态页
@@ -468,7 +466,7 @@ CLI 行为：
 - `--ts-code` 可选。
 - 未传 `--ts-code` 时，从股票池读取证券代码。
 - 通过 V2 进度上报输出执行单元进度。
-- 每个 unit 输出 `trade_date/session/freq/ts_code fetched/written/rejected`。
+- 每个 unit 输出 `unit=stock ts_code security_name freq unit_fetched/unit_written fetched/written/rejected`；其中 `fetched/written` 为任务累计，`unit_fetched/unit_written` 为当前 unit。
 
 ## 11. 对账与数据质量
 
@@ -591,7 +589,8 @@ CLI 行为：
 - 归一化测试：
   - `trade_time` 解析。
   - `trade_date` 派生。
-  - `freq/session_tag` 注入。
+  - `freq` 注入。
+  - `session_tag` 从 `trade_time` 派生。
   - `raw_payload` 默认不写。
   - 异常行拒绝。
 
@@ -619,8 +618,8 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 - `raw_tushare.stk_mins` 有写入。
 - `core_serving.equity_minute_bar` 可查询到同一批数据。
 - `trade_time` 都落在 `09:30~11:30` 或 `13:00~15:00`。
-- `freq/session_tag/trade_date` 正确。
-- Ops 任务详情展示 `fetched/written/rejected`。
+- `freq/session_tag/trade_date` 正确，且 `session_tag` 由 `trade_time` 派生。
+- Ops 任务详情展示当前股票、频度、`unit_fetched/unit_written` 与累计 `fetched/written/rejected`。
 - `sync-v2-lint-contracts` 通过。
 
 ## 14. 风险与控制
@@ -630,7 +629,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 | 未开通 Tushare 分钟权限 | 真实同步失败 | 实现前或冒烟前先确认权限；错误码透出为权限问题 |
 | 数据量极大 | 任务长、库膨胀、锁压力 | 单物理表 + 普通 View；不写默认 raw_payload；全市场按股票池扇出，真实执行前先用单股票冒烟确认 |
 | View 被误改成物化视图 | 又产生一份大数据 | 明确只允许普通 View，禁止 materialized view |
-| 全市场 unit 过多 | 任务规划和展示压力大 | `ts_code x freq x trade_date x session` 明确拆分，并输出进度 |
+| 全市场 unit 过多 | 任务规划和展示压力大 | `ts_code x freq x datetime_window` 明确拆分，并输出当前股票、频度与当前 unit 读取/写入 |
 | 股票池口径不清 | 漏拉退市历史数据或拉取过多 | 默认使用 Tushare stock_basic 全证券池；后续再加上市状态过滤 |
 | 分区缺失导致写入失败 | 回补失败 | migration 创建历史月分区 + default 分区 |
 | 分钟完整性审计口径不清 | 误报缺失 | 第一期不纳入完整性审计，后续单独设计交易时段模型 |
