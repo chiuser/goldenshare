@@ -18,7 +18,7 @@ depends_on = None
 
 OPS_SCHEMA = "ops"
 LEGACY_PREFIX_GROUP = (
-    "(?:sync_daily|sync_history|sync_minute_history|backfill_trade_cal|"
+    "(sync_daily|sync_history|sync_minute_history|backfill_trade_cal|"
     "backfill_equity_series|backfill_by_trade_date|backfill_by_date_range|"
     "backfill_by_month|backfill_fund_series|backfill_index_series|backfill_low_frequency)"
 )
@@ -108,8 +108,8 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
                 UPDATE {OPS_SCHEMA}.job_execution
                 SET
                   spec_type = 'dataset_action',
-                  spec_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\1.maintain'),
-                  dataset_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\1')
+                  spec_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\2.maintain'),
+                  dataset_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\2')
                 WHERE spec_key ~ '{LEGACY_SPEC_PATTERN}'
                 """
             )
@@ -122,7 +122,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
                 UPDATE {OPS_SCHEMA}.job_schedule
                 SET
                   spec_type = 'dataset_action',
-                  spec_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\1.maintain')
+                  spec_key = regexp_replace(spec_key, '{LEGACY_SPEC_PATTERN}', '\\2.maintain')
                 WHERE spec_key ~ '{LEGACY_SPEC_PATTERN}'
                 """
             )
@@ -133,7 +133,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
             sa.text(
                 f"""
                 UPDATE {OPS_SCHEMA}.dataset_status_snapshot
-                SET primary_execution_spec_key = regexp_replace(primary_execution_spec_key, '{LEGACY_SPEC_PATTERN}', '\\1.maintain')
+                SET primary_execution_spec_key = regexp_replace(primary_execution_spec_key, '{LEGACY_SPEC_PATTERN}', '\\2.maintain')
                 WHERE primary_execution_spec_key ~ '{LEGACY_SPEC_PATTERN}'
                 """
             )
@@ -144,7 +144,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
             sa.text(
                 f"""
                 UPDATE {OPS_SCHEMA}.job_execution_step
-                SET step_key = regexp_replace(step_key, '{LEGACY_SPEC_PATTERN}', '\\1.maintain')
+                SET step_key = regexp_replace(step_key, '{LEGACY_SPEC_PATTERN}', '\\2.maintain')
                 WHERE step_key ~ '{LEGACY_SPEC_PATTERN}'
                 """
             )
@@ -154,7 +154,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
             sa.text(
                 f"""
                 UPDATE {OPS_SCHEMA}.job_execution_step
-                SET blocked_by_step_key = regexp_replace(blocked_by_step_key, '{LEGACY_SPEC_PATTERN}', '\\1.maintain')
+                SET blocked_by_step_key = regexp_replace(blocked_by_step_key, '{LEGACY_SPEC_PATTERN}', '\\2.maintain')
                 WHERE blocked_by_step_key ~ '{LEGACY_SPEC_PATTERN}'
                 """
             )
@@ -169,7 +169,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
                     jsonb_agg(
                       CASE
                         WHEN item.value ~ '{LEGACY_SPEC_PATTERN}'
-                          THEN regexp_replace(item.value, '{LEGACY_SPEC_PATTERN}', '\\1.maintain')
+                          THEN regexp_replace(item.value, '{LEGACY_SPEC_PATTERN}', '\\2.maintain')
                         ELSE item.value
                       END
                     ),
@@ -191,7 +191,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
             sa.text(
                 f"""
                 UPDATE {OPS_SCHEMA}.job_execution_unit
-                SET unit_id = regexp_replace(unit_id, '{LEGACY_UNIT_PATTERN}', '\\1.maintain\\2')
+                SET unit_id = regexp_replace(unit_id, '{LEGACY_UNIT_PATTERN}', '\\2.maintain\\3')
                 WHERE unit_id ~ '{LEGACY_PREFIX_PATTERN}'
                 """
             )
@@ -202,7 +202,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
             sa.text(
                 f"""
                 UPDATE {OPS_SCHEMA}.job_execution_event
-                SET unit_id = regexp_replace(unit_id, '{LEGACY_UNIT_PATTERN}', '\\1.maintain\\2')
+                SET unit_id = regexp_replace(unit_id, '{LEGACY_UNIT_PATTERN}', '\\2.maintain\\3')
                 WHERE unit_id ~ '{LEGACY_PREFIX_PATTERN}'
                 """
             )
@@ -217,7 +217,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
                   jsonb_set(
                     before_json::jsonb,
                     '{{spec_key}}',
-                    to_jsonb(regexp_replace(before_json->>'spec_key', '{LEGACY_SPEC_PATTERN}', '\\1.maintain')),
+                    to_jsonb(regexp_replace(before_json->>'spec_key', '{LEGACY_SPEC_PATTERN}', '\\2.maintain')),
                     false
                   ),
                   '{{spec_type}}',
@@ -239,7 +239,7 @@ def _normalize_legacy_spec_data(inspector: sa.Inspector) -> None:
                   jsonb_set(
                     after_json::jsonb,
                     '{{spec_key}}',
-                    to_jsonb(regexp_replace(after_json->>'spec_key', '{LEGACY_SPEC_PATTERN}', '\\1.maintain')),
+                    to_jsonb(regexp_replace(after_json->>'spec_key', '{LEGACY_SPEC_PATTERN}', '\\2.maintain')),
                     false
                   ),
                   '{{spec_type}}',
