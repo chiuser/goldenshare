@@ -74,6 +74,28 @@ def test_ops_schedule_create_rejects_unschedulable_spec(app_client, user_factory
     assert response.json()["code"] == "validation_error"
 
 
+def test_ops_schedule_create_rejects_dataset_action_without_maintain_suffix(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "spec_type": "dataset_action",
+            "spec_key": "daily",
+            "display_name": "错误配置",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = job_schedule_factory(

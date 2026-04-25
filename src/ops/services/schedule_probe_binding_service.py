@@ -144,7 +144,11 @@ class ScheduleProbeBindingService:
 
     @staticmethod
     def _dataset_from_action_spec(spec_key: str) -> str:
-        dataset_key = spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+        if not spec_key.endswith(".maintain"):
+            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key")
+        dataset_key = spec_key.rsplit(".", 1)[0]
+        if not dataset_key:
+            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key")
         try:
             get_dataset_definition(dataset_key)
         except KeyError as exc:

@@ -339,6 +339,8 @@ def get_workflow_spec(key: str) -> WorkflowSpec | None:
 def get_ops_spec(spec_type: str, spec_key: str) -> JobSpec | WorkflowSpec | None:
     if spec_type == "dataset_action":
         dataset_key = _dataset_key_from_action_spec_key(spec_key)
+        if dataset_key is None:
+            return None
         try:
             return get_dataset_definition(dataset_key)  # type: ignore[return-value]
         except KeyError:
@@ -353,6 +355,8 @@ def get_ops_spec(spec_type: str, spec_key: str) -> JobSpec | WorkflowSpec | None
 def get_ops_spec_display_name(spec_type: str, spec_key: str) -> str | None:
     if spec_type == "dataset_action":
         dataset_key = _dataset_key_from_action_spec_key(spec_key)
+        if dataset_key is None:
+            return None
         try:
             definition = get_dataset_definition(dataset_key)
         except KeyError:
@@ -365,6 +369,8 @@ def get_ops_spec_display_name(spec_type: str, spec_key: str) -> str | None:
 def ops_spec_supports_schedule(spec_type: str, spec_key: str) -> bool:
     if spec_type == "dataset_action":
         dataset_key = _dataset_key_from_action_spec_key(spec_key)
+        if dataset_key is None:
+            return False
         try:
             action = get_dataset_definition(dataset_key).capabilities.get_action("maintain")
         except KeyError:
@@ -374,8 +380,11 @@ def ops_spec_supports_schedule(spec_type: str, spec_key: str) -> bool:
     return bool(spec is not None and getattr(spec, "supports_schedule", False))
 
 
-def _dataset_key_from_action_spec_key(spec_key: str) -> str:
-    return spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+def _dataset_key_from_action_spec_key(spec_key: str) -> str | None:
+    if not spec_key.endswith(".maintain"):
+        return None
+    dataset_key = spec_key.rsplit(".", 1)[0]
+    return dataset_key or None
 
 
 def list_dataset_freshness_specs() -> list[DatasetFreshnessSpec]:

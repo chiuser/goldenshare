@@ -348,6 +348,25 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
     assert [event["event_type"] for event in payload["events"]] == ["created", "queued"]
 
 
+def test_ops_execution_create_rejects_dataset_action_without_maintain_suffix(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/executions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "spec_type": "dataset_action",
+            "spec_key": "index_weekly",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_ops_execution_create_supports_dataset_action_ths_member_without_optional_filters(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

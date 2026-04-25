@@ -358,7 +358,11 @@ class OperationsScheduleService:
     @staticmethod
     def _validate_spec(spec_type: str, spec_key: str) -> None:
         if spec_type == "dataset_action":
-            dataset_key = spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+            if not spec_key.endswith(".maintain"):
+                raise WebAppError(status_code=422, code="validation_error", message="Dataset action spec_key must end with .maintain")
+            dataset_key = spec_key.rsplit(".", 1)[0]
+            if not dataset_key:
+                raise WebAppError(status_code=422, code="validation_error", message="Dataset action spec_key is invalid")
             try:
                 get_dataset_definition(dataset_key)
             except KeyError as exc:

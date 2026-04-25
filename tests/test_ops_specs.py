@@ -37,3 +37,8 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
 def test_ops_spec_display_name_uses_dataset_action_language() -> None:
     assert get_ops_spec_display_name("dataset_action", "stock_basic.maintain") == "维护股票主数据"
     assert get_ops_spec_display_name("dataset_action", "daily.maintain") == "维护股票日线"
+
+
+def test_dataset_action_spec_must_use_maintain_suffix() -> None:
+    assert get_ops_spec("dataset_action", "daily") is None
+    assert get_ops_spec_display_name("dataset_action", "daily") is None
