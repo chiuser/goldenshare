@@ -13,6 +13,21 @@ from src.foundation.services.sync_v2.errors import SyncV2Error
 
 
 class SyncV2Service(BaseSyncService):
+    _REQUEST_ENVELOPE_KEYS = frozenset(
+        {
+            "request_id",
+            "execution_id",
+            "run_profile",
+            "trigger_source",
+            "source_key",
+            "trade_date",
+            "start_date",
+            "end_date",
+            "correlation_id",
+            "rerun_id",
+        }
+    )
+
     def __init__(self, session: Session, *, contract: DatasetSyncContract, strict_contract: bool) -> None:
         self.contract = contract
         self.strict_contract = strict_contract
@@ -40,7 +55,7 @@ class SyncV2Service(BaseSyncService):
             end_date=kwargs.get("end_date"),
             correlation_id=self._to_optional_text(kwargs.get("correlation_id")),
             rerun_id=self._to_optional_text(kwargs.get("rerun_id")),
-            params={key: value for key, value in kwargs.items() if key != "execution_id"},
+            params=self._build_request_params(kwargs),
         )
 
         def progress_reporter(progress_snapshot, message: str) -> None:  # type: ignore[no-untyped-def]
@@ -72,6 +87,14 @@ class SyncV2Service(BaseSyncService):
             code = exc.structured_error.error_code
             raise RuntimeError(f"[{code}] {exc.structured_error.message}") from exc
         return summary.rows_fetched, summary.rows_written, summary.result_date, summary.message
+
+    @classmethod
+    def _build_request_params(cls, kwargs: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in kwargs.items()
+            if key not in cls._REQUEST_ENVELOPE_KEYS and not key.startswith("_")
+        }
 
     @staticmethod
     def _resolve_run_profile(*, run_type: str, kwargs: dict[str, Any]) -> str:
