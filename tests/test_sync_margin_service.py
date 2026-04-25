@@ -34,7 +34,7 @@ def test_margin_point_incremental_requires_trade_date() -> None:
     assert exc_info.value.structured_error.error_code == "missing_anchor_fields"
 
 
-def test_margin_point_incremental_default_request_builds_single_unit() -> None:
+def test_margin_point_incremental_default_request_expands_real_exchange_units() -> None:
     contract = get_sync_v2_contract("margin")
     request = RunRequest(
         request_id="req-margin-point-default",
@@ -47,8 +47,15 @@ def test_margin_point_incremental_default_request_builds_single_unit() -> None:
     validated = ContractValidator().validate(request, contract)
     units = build_margin_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
 
-    assert len(units) == 1
-    assert units[0].request_params == {"trade_date": "20260416"}
+    assert len(units) == 3
+    assert {
+        (unit.request_params["trade_date"], unit.request_params["exchange_id"])
+        for unit in units
+    } == {
+        ("20260416", "SSE"),
+        ("20260416", "SZSE"),
+        ("20260416", "BSE"),
+    }
 
 
 def test_margin_point_incremental_with_selected_exchanges() -> None:

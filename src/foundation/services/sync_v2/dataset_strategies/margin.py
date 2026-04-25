@@ -12,6 +12,4 @@ def build_margin_units(request, contract, dao, settings, session):
         session,
         page_limit=4000,
         enum_fields=("exchange_id",),
-        full_selection_values={"exchange_id": ("SSE", "SZSE", "BSE")},
     )
-

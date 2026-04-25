@@ -12,6 +12,7 @@ from src.foundation.services.sync_v2.contracts import (
     resolve_contract_window_policy,
 )
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2ValidationError
+from src.foundation.services.sync_v2.sentinel_guard import find_forbidden_business_sentinel
 from src.utils import parse_tushare_date
 
 
@@ -214,6 +215,10 @@ class ContractValidator:
         for left, right in contract.input_schema.dependencies:
             if normalized.get(left) not in (None, "", []) and normalized.get(right) in (None, "", []):
                 raise self._error("dependency_violation", f"{left} requires {right}")
+        sentinel = find_forbidden_business_sentinel(normalized, path="params")
+        if sentinel is not None:
+            path, value = sentinel
+            raise self._error("forbidden_sentinel", f"forbidden business sentinel {value} at {path}")
         return normalized
 
     def _coerce_value(self, field: InputField, value):  # type: ignore[no-untyped-def]

@@ -4,6 +4,10 @@ from decimal import InvalidOperation
 
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, FetchResult, NormalizedBatch
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2NormalizeError
+from src.foundation.services.sync_v2.sentinel_guard import (
+    find_forbidden_business_sentinel_in_row_context,
+    should_guard_dataset_rows,
+)
 from src.utils import coerce_row
 
 
@@ -24,6 +28,21 @@ class SyncV2Normalizer:
             except Exception:
                 self._increase_reason(rejected_reasons, "normalize.row_transform_failed")
                 continue
+
+            if should_guard_dataset_rows(contract.dataset_key):
+                sentinel = find_forbidden_business_sentinel_in_row_context(normalized, path="normalized_row")
+                if sentinel is not None:
+                    path, value = sentinel
+                    raise SyncV2NormalizeError(
+                        StructuredError(
+                            error_code="forbidden_sentinel",
+                            error_type="normalize",
+                            phase="normalizer",
+                            message=f"forbidden business sentinel {value} at {path}",
+                            retryable=False,
+                            unit_id=fetch_result.unit_id,
+                        )
+                    )
 
             required_violation = self._resolve_required_field_violation(
                 row=normalized,

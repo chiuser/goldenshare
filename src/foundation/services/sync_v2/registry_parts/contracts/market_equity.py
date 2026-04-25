@@ -64,11 +64,6 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         planning_spec=build_planning_spec(
             universe_policy="none",
-            enum_fanout_fields=("limit_type", "market"),
-            enum_fanout_defaults={
-                "limit_type": ALL_LIMIT_LIST_THS_LIMIT_TYPES,
-                "market": ALL_LIMIT_LIST_THS_MARKETS,
-            },
             pagination_policy="none",
         ),
         source_adapter_key="biying",
@@ -531,6 +526,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         planning_spec=build_planning_spec(
             universe_policy="none",
+            enum_fanout_fields=("limit_type", "market"),
+            enum_fanout_defaults={
+                "limit_type": ALL_LIMIT_LIST_THS_LIMIT_TYPES,
+                "market": ALL_LIMIT_LIST_THS_MARKETS,
+            },
             pagination_policy="none",
         ),
         source_adapter_key="tushare",

@@ -34,7 +34,7 @@ def test_limit_list_d_point_incremental_with_single_filters() -> None:
     assert units[0].page_limit == 2500
 
 
-def test_limit_list_d_point_incremental_default_request_builds_single_unit() -> None:
+def test_limit_list_d_point_incremental_default_request_expands_real_enum_units() -> None:
     contract = get_sync_v2_contract("limit_list_d")
     request = RunRequest(
         request_id="req-limit-list-point-default",
@@ -47,8 +47,20 @@ def test_limit_list_d_point_incremental_default_request_builds_single_unit() -> 
     validated = ContractValidator().validate(request, contract)
     units = build_limit_list_d_units(validated, contract, dao=_fake_dao([]), settings=SimpleNamespace(default_exchange="SSE"), session=None)
 
-    assert len(units) == 1
-    assert units[0].request_params == {"trade_date": "20260403"}
+    assert len(units) == 9
+    combos = {(unit.request_params["limit_type"], unit.request_params["exchange"]) for unit in units}
+    assert combos == {
+        ("U", "SH"),
+        ("U", "SZ"),
+        ("U", "BJ"),
+        ("D", "SH"),
+        ("D", "SZ"),
+        ("D", "BJ"),
+        ("Z", "SH"),
+        ("Z", "SZ"),
+        ("Z", "BJ"),
+    }
+    assert {unit.request_params["trade_date"] for unit in units} == {"20260403"}
 
 
 def test_limit_list_d_range_rebuild_fans_out_dates_and_filters() -> None:

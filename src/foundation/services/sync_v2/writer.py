@@ -11,6 +11,10 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, NormalizedBatch, PlanUnit, WriteResult
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2WriteError
 from src.foundation.services.sync_v2.moneyflow_publish import publish_moneyflow_serving_for_keys
+from src.foundation.services.sync_v2.sentinel_guard import (
+    find_forbidden_business_sentinel_in_row_context,
+    should_guard_dataset_rows,
+)
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
 from src.foundation.serving.publish_service import ServingPublishService
@@ -31,6 +35,21 @@ class SyncV2Writer:
         plan_unit: PlanUnit | None = None,
         run_profile: str | None = None,
     ) -> WriteResult:
+        if should_guard_dataset_rows(contract.dataset_key):
+            for index, row in enumerate(batch.rows_normalized):
+                sentinel = find_forbidden_business_sentinel_in_row_context(row, path=f"rows_normalized[{index}]")
+                if sentinel is not None:
+                    path, value = sentinel
+                    raise SyncV2WriteError(
+                        StructuredError(
+                            error_code="forbidden_sentinel",
+                            error_type="write",
+                            phase="writer",
+                            message=f"forbidden business sentinel {value} at {path}",
+                            retryable=False,
+                            unit_id=batch.unit_id,
+                        )
+                    )
         raw_dao = getattr(self.dao, contract.write_spec.raw_dao_name, None)
         core_dao = getattr(self.dao, contract.write_spec.core_dao_name, None)
         if raw_dao is None or core_dao is None:

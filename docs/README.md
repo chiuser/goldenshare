@@ -57,6 +57,7 @@ docs/
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 - [Ops Web API 与运维数据能力审查备忘 v1](/Users/congming/github/goldenshare/docs/ops/ops-web-api-capability-review-memo-v1.md)
 - [Ops Execution API 队列语义收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-execution-api-queue-semantics-alignment-plan-v1.md)
+- [Ops TaskRun 执行观测模型重设计方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
 - [手动维护动作模型收敛方案 v1（历史方案）](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v1.md)
 - [Sync 任务 Error/Reason 统一编码与可观测性方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-sync-error-reason-code-observability-plan-v1.md)

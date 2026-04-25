@@ -8,6 +8,7 @@ from src.foundation.services.sync_v2.contracts import (
     resolve_contract_window_policy,
 )
 from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
+from src.foundation.services.sync_v2.sentinel_guard import find_forbidden_business_sentinel
 
 ALLOWED_WRITE_PATHS = {
     "raw_core_upsert",
@@ -200,6 +201,16 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
                     f"enum fanout field {enum_key} must provide defaults",
                 )
             )
+    sentinel = find_forbidden_business_sentinel(contract.planning_spec.enum_fanout_defaults, path="enum_fanout_defaults")
+    if sentinel is not None:
+        path, value = sentinel
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "forbidden_sentinel",
+                f"forbidden business sentinel {value} at {path}",
+            )
+        )
     if contract.transaction_spec.commit_policy not in ALLOWED_COMMIT_POLICIES:
         issues.append(
             ContractLintIssue(

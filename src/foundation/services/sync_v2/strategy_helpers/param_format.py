@@ -5,6 +5,7 @@ from itertools import product
 from typing import Any
 
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, PlanUnit, ValidatedRunRequest
+from src.foundation.services.sync_v2.sentinel_guard import assert_no_forbidden_business_sentinel
 
 
 def split_multi_values(value: Any) -> list[str]:
@@ -24,14 +25,14 @@ def resolve_enum_combinations(
     *,
     request: ValidatedRunRequest,
     fields: tuple[str, ...],
-    full_selection_values: dict[str, tuple[str, ...]] | None = None,
     missing_field_defaults: dict[str, tuple[str, ...]] | None = None,
 ) -> list[dict[str, Any]]:
     if not fields:
         return [{}]
 
-    full_selection_values = full_selection_values or {}
     missing_field_defaults = missing_field_defaults or {}
+    assert_no_forbidden_business_sentinel(request.params, location="request.params")
+    assert_no_forbidden_business_sentinel(missing_field_defaults, location="missing_field_defaults")
 
     options_by_field: list[tuple[str, list[str]]] = []
     for field_name in fields:
@@ -43,9 +44,6 @@ def resolve_enum_combinations(
             continue
 
         selected_set = {str(item).strip() for item in selected if str(item).strip()}
-        full_values = full_selection_values.get(field_name)
-        if full_values is not None and selected_set == set(full_values):
-            continue
         options_by_field.append((field_name, sorted(selected_set)))
 
     if not options_by_field:
@@ -96,6 +94,7 @@ def build_plan_units(
             for universe_value in universe_values:
                 merged_values = {**enum_values, **universe_value}
                 request_params = contract.source_spec.unit_params_builder(request, anchor, merged_values)
+                assert_no_forbidden_business_sentinel(request_params, location="plan_unit.request_params")
                 units.append(
                     PlanUnit(
                         unit_id=build_unit_id(

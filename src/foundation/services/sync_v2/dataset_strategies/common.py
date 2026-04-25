@@ -18,7 +18,6 @@ def build_default_units(
     pagination_policy: str = "offset_limit",
     page_limit: int | None = None,
     enum_fields: tuple[str, ...] = (),
-    full_selection_values: dict[str, tuple[str, ...]] | None = None,
     missing_field_defaults: dict[str, tuple[str, ...]] | None = None,
     universe_values: list[dict[str, object]] | None = None,
 ) -> list[PlanUnit]:
@@ -31,7 +30,6 @@ def build_default_units(
     enum_combinations = resolve_enum_combinations(
         request=request,
         fields=enum_fields,
-        full_selection_values=full_selection_values,
         missing_field_defaults=missing_field_defaults or contract.planning_spec.enum_fanout_defaults,
     )
     return build_plan_units(

@@ -12,9 +12,4 @@ def build_limit_list_d_units(request, contract, dao, settings, session):
         session,
         page_limit=2500,
         enum_fields=("limit_type", "exchange"),
-        full_selection_values={
-            "limit_type": ("U", "D", "Z"),
-            "exchange": ("SH", "SZ", "BJ"),
-        },
     )
-

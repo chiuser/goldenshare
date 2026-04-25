@@ -91,10 +91,10 @@ def _limit_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 
 def _limit_list_ths_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
-    if transformed.get("limit_type") not in (None, ""):
-        transformed["query_limit_type"] = str(transformed.get("limit_type"))
-    if transformed.get("market_type") not in (None, ""):
-        transformed["query_market"] = str(transformed.get("market_type"))
+    if transformed.get("query_limit_type") not in (None, ""):
+        transformed["query_limit_type"] = str(transformed.get("query_limit_type"))
+    if transformed.get("query_market") not in (None, ""):
+        transformed["query_market"] = str(transformed.get("query_market"))
     return transformed
 
 

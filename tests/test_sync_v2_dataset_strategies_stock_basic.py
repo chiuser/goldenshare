@@ -19,11 +19,11 @@ def test_stock_basic_strategy_defaults_to_tushare_snapshot_unit() -> None:
 
     units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert len(units) == 1
-    assert units[0].source_key == "tushare"
-    assert units[0].requested_source_key == "tushare"
-    assert units[0].request_params["list_status"] == "L,D,P,G"
-    assert units[0].page_limit == 6000
+    assert len(units) == 4
+    assert {unit.source_key for unit in units} == {"tushare"}
+    assert {unit.requested_source_key for unit in units} == {"tushare"}
+    assert {unit.request_params["list_status"] for unit in units} == {"L", "D", "P", "G"}
+    assert {unit.page_limit for unit in units} == {6000}
 
 
 def test_stock_basic_strategy_supports_all_source_mode() -> None:
@@ -40,10 +40,10 @@ def test_stock_basic_strategy_supports_all_source_mode() -> None:
 
     units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert [unit.source_key for unit in units] == ["tushare", "biying"]
+    assert [unit.source_key for unit in units] == ["tushare", "tushare", "tushare", "tushare", "biying"]
     assert {unit.requested_source_key for unit in units} == {"all"}
-    assert units[0].request_params["list_status"] == "L,D,P,G"
-    assert units[1].request_params == {}
+    assert {unit.request_params["list_status"] for unit in units[:-1]} == {"L", "D", "P", "G"}
+    assert units[-1].request_params == {}
 
 
 def test_stock_basic_strategy_fanouts_market_and_exchange_combinations() -> None:

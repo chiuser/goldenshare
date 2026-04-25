@@ -4,6 +4,7 @@ from src.foundation.connectors.base import SourceConnector
 from src.foundation.connectors.factory import create_source_connector
 from src.foundation.services.sync_v2.adapters.base import SourceAdapter, SourceRequest
 from src.foundation.services.sync_v2.contracts import DatasetSyncContract, PlanUnit
+from src.foundation.services.sync_v2.sentinel_guard import assert_no_forbidden_business_sentinel
 
 
 class TushareSyncV2Adapter(SourceAdapter):
@@ -22,6 +23,7 @@ class TushareSyncV2Adapter(SourceAdapter):
     ) -> SourceRequest:
         params = dict(contract.source_spec.base_params)
         params.update(unit.request_params)
+        assert_no_forbidden_business_sentinel(params, location="source_request.params")
         if offset is not None:
             params["offset"] = offset
         if page_limit is not None:
@@ -58,6 +60,14 @@ class TushareSyncV2Adapter(SourceAdapter):
                     row["query_hot_type"] = query_hot_type
                 if query_is_new:
                     row["query_is_new"] = query_is_new
+        if request.api_name == "limit_list_ths":
+            query_limit_type = str(request.params.get("limit_type") or "").strip()
+            query_market = str(request.params.get("market") or "").strip()
+            for row in rows:
+                if query_limit_type:
+                    row["query_limit_type"] = query_limit_type
+                if query_market:
+                    row["query_market"] = query_market
         if request.api_name == "stk_mins":
             query_freq = str(request.params.get("freq") or "").strip()
             for row in rows:

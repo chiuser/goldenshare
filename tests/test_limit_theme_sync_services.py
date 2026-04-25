@@ -68,6 +68,8 @@ def test_limit_list_ths_normalizer_sets_query_context() -> None:
                     "pct_chg": "10.01",
                     "limit_type": "涨停池",
                     "market_type": "HS",
+                    "query_limit_type": "涨停池",
+                    "query_market": "HS",
                 }
             ],
         ),

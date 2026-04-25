@@ -21,6 +21,7 @@ from src.foundation.services.sync_v2.contracts import (
     resolve_contract_window_policy,
 )
 from src.foundation.services.sync_v2.errors import StructuredError, SyncV2PlanningError
+from src.foundation.services.sync_v2.sentinel_guard import find_forbidden_business_sentinel
 
 
 class SyncV2Planner:
@@ -40,6 +41,18 @@ class SyncV2Planner:
                 for universe_value in universe_values:
                     merged_values = {**enum_values, **universe_value}
                     request_params = contract.source_spec.unit_params_builder(request, anchor, merged_values)
+                    sentinel = find_forbidden_business_sentinel(request_params, path="request_params")
+                    if sentinel is not None:
+                        path, value = sentinel
+                        raise SyncV2PlanningError(
+                            StructuredError(
+                                error_code="forbidden_sentinel",
+                                error_type="planning",
+                                phase="planner",
+                                message=f"forbidden business sentinel {value} at {path}",
+                                retryable=False,
+                            )
+                        )
                     source_key = request.source_key or contract.source_spec.source_key_default
                     units.append(
                         PlanUnit(
@@ -187,6 +200,19 @@ class SyncV2Planner:
                 options.append(parsed)
                 continue
             options.append([value])
+
+        sentinel = find_forbidden_business_sentinel(options, path="enum_fanout")
+        if sentinel is not None:
+            path, value = sentinel
+            raise SyncV2PlanningError(
+                StructuredError(
+                    error_code="forbidden_sentinel",
+                    error_type="planning",
+                    phase="planner",
+                    message=f"forbidden business sentinel {value} at {path}",
+                    retryable=False,
+                )
+            )
 
         keys = list(fields)
         combinations: list[dict[str, Any]] = []

@@ -25,7 +25,6 @@ def _build_tushare_units(
     enum_combinations = resolve_enum_combinations(
         request=request,
         fields=("list_status", "market", "exchange", "is_hs"),
-        full_selection_values={"list_status": _ALL_STOCK_BASIC_LIST_STATUS},
         missing_field_defaults={"list_status": _ALL_STOCK_BASIC_LIST_STATUS},
     )
     units: list[PlanUnit] = []
@@ -100,4 +99,3 @@ def build_stock_basic_units(
             requested_source_key=source_mode,
         )
     ]
-
