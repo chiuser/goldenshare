@@ -56,8 +56,21 @@ class OpsSyncJobStateStore(SyncJobStateStore):
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def _pending_state(self, job_name: str) -> SyncJobState | None:
+        for item in self.session.new:
+            if isinstance(item, SyncJobState) and item.job_name == job_name:
+                return item
+        return None
+
+    def _get_state(self, job_name: str) -> SyncJobState | None:
+        # SQLAlchemy Session.get() does not reliably see same-transaction pending
+        # objects. A full run can call mark_success() and mark_full_sync_done()
+        # before the final commit, so reuse the pending row to avoid duplicate PK
+        # inserts for the same job_name.
+        return self._pending_state(job_name) or self.session.get(SyncJobState, job_name)
+
     def get_last_success_date(self, *, job_name: str) -> date | None:
-        state = self.session.get(SyncJobState, job_name)
+        state = self._get_state(job_name)
         return state.last_success_date if state is not None else None
 
     def mark_success(
@@ -68,7 +81,7 @@ class OpsSyncJobStateStore(SyncJobStateStore):
         last_success_date: date | None = None,
         last_cursor: str | None = None,
     ) -> None:
-        state = self.session.get(SyncJobState, job_name)
+        state = self._get_state(job_name)
         if state is None:
             state = SyncJobState(
                 job_name=job_name,
@@ -88,7 +101,7 @@ class OpsSyncJobStateStore(SyncJobStateStore):
         target_table: str,
         last_success_date: date,
     ) -> None:
-        state = self.session.get(SyncJobState, job_name)
+        state = self._get_state(job_name)
         if state is None:
             state = SyncJobState(
                 job_name=job_name,
@@ -103,7 +116,7 @@ class OpsSyncJobStateStore(SyncJobStateStore):
         state.last_success_date = last_success_date
 
     def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
-        state = self.session.get(SyncJobState, job_name)
+        state = self._get_state(job_name)
         if state is None:
             state = SyncJobState(
                 job_name=job_name,
