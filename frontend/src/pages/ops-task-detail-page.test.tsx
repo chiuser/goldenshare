@@ -18,6 +18,16 @@ vi.mock("../shared/api/client", () => ({
         spec_type: "job",
         spec_key: "backfill_equity_series.daily",
         spec_display_name: "股票日线维护",
+        resource_key: "daily",
+        resource_display_name: "股票日线",
+        action_display_name: "维护股票日线",
+        time_scope: {
+          kind: "range",
+          start: "2026-03-23",
+          end: "2026-03-30",
+          label: "2026-03-23 ~ 2026-03-30",
+        },
+        time_scope_label: "2026-03-23 ~ 2026-03-30",
         schedule_display_name: null,
         trigger_source: "manual",
         status: "running",
@@ -51,6 +61,16 @@ vi.mock("../shared/api/client", () => ({
         spec_type: "job",
         spec_key: "backfill_by_trade_date.dc_hot",
         spec_display_name: "东方财富热榜维护",
+        resource_key: "dc_hot",
+        resource_display_name: "东方财富热榜",
+        action_display_name: "维护东方财富热榜",
+        time_scope: {
+          kind: "range",
+          start: "2026-04-20",
+          end: "2026-04-24",
+          label: "2026-04-20 ~ 2026-04-24",
+        },
+        time_scope_label: "2026-04-20 ~ 2026-04-24",
         schedule_display_name: null,
         trigger_source: "manual",
         status: "success",
@@ -236,7 +256,10 @@ describe("任务详情页", () => {
     );
 
     expect(await screen.findByText("先看当前状态和进展，再决定是继续等待、重新提交，还是展开技术细节排查。")).toBeInTheDocument();
-    expect(await screen.findByText("本次处理范围")).toBeInTheDocument();
+    expect(await screen.findByText("股票日线")).toBeInTheDocument();
+    expect(await screen.findByText("处理范围")).toBeInTheDocument();
+    expect(await screen.findByText("2026-03-23 ~ 2026-03-30")).toBeInTheDocument();
+    expect(screen.queryByText("本次处理范围")).not.toBeInTheDocument();
     expect((await screen.findAllByText("当前进展")).length).toBeGreaterThan(0);
     expect(await screen.findByText("建议下一步")).toBeInTheDocument();
     expect((await screen.findAllByText("实时处理记录")).length).toBeGreaterThan(0);

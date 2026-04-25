@@ -320,10 +320,18 @@ export interface SchedulePreviewResponse {
 export interface ExecutionListResponse {
   items: Array<{
     id: number;
+    spec_type: string;
     spec_key: string;
     spec_display_name: string | null;
+    resource_key: string | null;
+    resource_display_name: string | null;
+    action_display_name: string | null;
+    time_scope: ExecutionTimeScope | null;
+    time_scope_label: string | null;
+    schedule_display_name: string | null;
     trigger_source: string;
     status: string;
+    requested_by_username: string | null;
     requested_at: string;
     started_at: string | null;
     ended_at: string | null;
@@ -349,12 +357,24 @@ export interface ExecutionSummaryResponse {
   canceled: number;
 }
 
+export interface ExecutionTimeScope {
+  kind: string;
+  start: string | null;
+  end: string | null;
+  label: string;
+}
+
 export interface ExecutionDetailResponse {
   id: number;
   schedule_id: number | null;
   spec_type: string;
   spec_key: string;
   spec_display_name: string | null;
+  resource_key: string | null;
+  resource_display_name: string | null;
+  action_display_name: string | null;
+  time_scope: ExecutionTimeScope | null;
+  time_scope_label: string | null;
   schedule_display_name: string | null;
   trigger_source: string;
   status: string;

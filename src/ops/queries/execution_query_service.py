@@ -9,7 +9,7 @@ from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.ops.models.ops.sync_run_log import SyncRunLog
-from src.ops.specs import get_ops_spec_display_name, get_workflow_spec
+from src.ops.specs import get_dataset_freshness_spec, get_ops_spec_display_name, get_workflow_spec
 from src.app.exceptions import WebAppError
 from src.ops.schemas.execution import (
     ExecutionDetailResponse,
@@ -22,6 +22,7 @@ from src.ops.schemas.execution import (
     ExecutionSummaryResponse,
     ExecutionStepItem,
     ExecutionStepsResponse,
+    ExecutionTimeScope,
 )
 from src.utils import truncate_text
 
@@ -141,6 +142,7 @@ class ExecutionQueryService:
 
         steps = self._build_step_items(session, execution)
         events = self._load_events(session, execution_id)
+        display_context = self._build_display_context(execution)
 
         return ExecutionDetailResponse(
             id=execution.id,
@@ -159,6 +161,11 @@ class ExecutionQueryService:
             resume_from_step_key=execution.resume_from_step_key,
             status_reason_code=execution.status_reason_code,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
+            resource_key=display_context["resource_key"],
+            resource_display_name=display_context["resource_display_name"],
+            action_display_name=display_context["action_display_name"],
+            time_scope=display_context["time_scope"],
+            time_scope_label=display_context["time_scope_label"],
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,
             status=execution.status,
@@ -227,6 +234,7 @@ class ExecutionQueryService:
         )
 
     def _list_item(self, execution: JobExecution, username: str | None, schedule_display_name: str | None) -> ExecutionListItem:
+        display_context = self._build_display_context(execution)
         return ExecutionListItem(
             id=execution.id,
             spec_type=execution.spec_type,
@@ -243,6 +251,11 @@ class ExecutionQueryService:
             resume_from_step_key=execution.resume_from_step_key,
             status_reason_code=execution.status_reason_code,
             spec_display_name=get_ops_spec_display_name(execution.spec_type, execution.spec_key),
+            resource_key=display_context["resource_key"],
+            resource_display_name=display_context["resource_display_name"],
+            action_display_name=display_context["action_display_name"],
+            time_scope=display_context["time_scope"],
+            time_scope_label=display_context["time_scope_label"],
             schedule_display_name=schedule_display_name,
             trigger_source=execution.trigger_source,
             status=execution.status,
@@ -260,6 +273,88 @@ class ExecutionQueryService:
             summary_message=self._clip(execution.summary_message, self.MAX_DETAIL_SUMMARY_LENGTH),
             error_code=execution.error_code,
         )
+
+    def _build_display_context(self, execution: JobExecution) -> dict[str, object]:
+        resource_key = self._resolve_resource_key(execution)
+        resource_display_name = self._resolve_resource_display_name(resource_key)
+        spec_display_name = get_ops_spec_display_name(execution.spec_type, execution.spec_key)
+        time_scope = self._build_time_scope(dict(execution.params_json or {}), resource_key=resource_key)
+        return {
+            "resource_key": resource_key,
+            "resource_display_name": resource_display_name,
+            "action_display_name": f"维护{resource_display_name}" if resource_display_name else spec_display_name,
+            "time_scope": time_scope,
+            "time_scope_label": time_scope.label if time_scope else None,
+        }
+
+    @staticmethod
+    def _resolve_resource_key(execution: JobExecution) -> str | None:
+        if execution.dataset_key:
+            return execution.dataset_key
+        if execution.spec_type == "job" and "." in execution.spec_key:
+            return execution.spec_key.split(".", 1)[1]
+        return None
+
+    @staticmethod
+    def _resolve_resource_display_name(resource_key: str | None) -> str | None:
+        if not resource_key:
+            return None
+        spec = get_dataset_freshness_spec(resource_key)
+        return spec.display_name if spec is not None else None
+
+    @staticmethod
+    def _build_time_scope(params_json: dict, *, resource_key: str | None) -> ExecutionTimeScope | None:
+        def text_value(key: str) -> str | None:
+            value = params_json.get(key)
+            if value is None:
+                return None
+            text = str(value).strip()
+            return text or None
+
+        trade_date = text_value("trade_date")
+        if trade_date:
+            return ExecutionTimeScope(kind="point", start=trade_date, end=trade_date, label=trade_date)
+
+        start_date = text_value("start_date")
+        end_date = text_value("end_date")
+        if start_date or end_date:
+            if start_date and end_date:
+                label = start_date if start_date == end_date else f"{start_date} ~ {end_date}"
+            elif start_date:
+                label = f"从 {start_date} 开始"
+            else:
+                label = f"截至 {end_date}"
+            return ExecutionTimeScope(kind="range", start=start_date, end=end_date, label=label)
+
+        month = text_value("month")
+        if month:
+            return ExecutionTimeScope(kind="month", start=month, end=month, label=month)
+
+        start_month = text_value("start_month")
+        end_month = text_value("end_month")
+        if start_month or end_month:
+            if start_month and end_month:
+                label = start_month if start_month == end_month else f"{start_month} ~ {end_month}"
+            elif start_month:
+                label = f"从 {start_month} 开始"
+            else:
+                label = f"截至 {end_month}"
+            return ExecutionTimeScope(kind="month_range", start=start_month, end=end_month, label=label)
+
+        for key, label_prefix in (
+            ("ann_date", "公告日期"),
+            ("date", "处理日期"),
+            ("cal_date", "日历日期"),
+        ):
+            value = text_value(key)
+            if value:
+                return ExecutionTimeScope(kind="point", start=value, end=value, label=f"{label_prefix}：{value}")
+
+        freshness_spec = get_dataset_freshness_spec(resource_key) if resource_key else None
+        if freshness_spec is not None and freshness_spec.observed_date_column:
+            return ExecutionTimeScope(kind="auto", start=None, end=None, label="系统自动判断")
+
+        return None
 
     @staticmethod
     def _build_filters(

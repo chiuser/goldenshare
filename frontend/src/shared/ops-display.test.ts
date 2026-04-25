@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatCategoryLabel,
   formatEventTypeLabel,
+  formatExecutionResourceLabel,
   formatResourceLabel,
   formatSpecDisplayLabel,
   formatStatusLabel,
@@ -31,5 +32,30 @@ describe("运维前端显示层映射", () => {
     expect(formatResourceLabel("stock_st")).toBe("ST股票列表");
     expect(formatResourceLabel("stk_nineturn")).toBe("神奇九转指标");
     expect(formatResourceLabel("stk_mins")).toBe("股票历史分钟行情");
+  });
+
+  it("任务记录和详情优先使用维护对象名称", () => {
+    expect(formatExecutionResourceLabel({
+      resource_display_name: "股票日线",
+      action_display_name: "维护股票日线",
+      spec_display_name: "日常同步 / daily",
+      spec_key: "sync_daily.daily",
+    })).toBe("股票日线");
+    expect(formatExecutionResourceLabel({
+      action_display_name: "维护东方财富热榜",
+      spec_display_name: "按交易日回补 / dc_hot",
+      spec_key: "backfill_by_trade_date.dc_hot",
+    })).toBe("东方财富热榜");
+    expect(formatExecutionResourceLabel({
+      spec_display_name: "维护股票历史分钟行情",
+      spec_key: "sync_minute_history.stk_mins",
+    })).toBe("股票历史分钟行情");
+    expect(formatExecutionResourceLabel({
+      spec_display_name: "股票日线维护",
+      spec_key: "backfill_equity_series.daily",
+    })).toBe("股票日线");
+    expect(formatExecutionResourceLabel({
+      spec_key: "unknown.spec",
+    })).toBe("unknown.spec");
   });
 });

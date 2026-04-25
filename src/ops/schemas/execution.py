@@ -11,6 +11,13 @@ class CreateExecutionRequest(BaseModel):
     params_json: dict = {}
 
 
+class ExecutionTimeScope(BaseModel):
+    kind: str
+    start: str | None = None
+    end: str | None = None
+    label: str
+
+
 class ExecutionListItem(BaseModel):
     id: int
     spec_type: str
@@ -27,6 +34,11 @@ class ExecutionListItem(BaseModel):
     resume_from_step_key: str | None = None
     status_reason_code: str | None = None
     spec_display_name: str | None = None
+    resource_key: str | None = None
+    resource_display_name: str | None = None
+    action_display_name: str | None = None
+    time_scope: ExecutionTimeScope | None = None
+    time_scope_label: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str
     status: str
@@ -127,6 +139,11 @@ class ExecutionDetailResponse(BaseModel):
     resume_from_step_key: str | None = None
     status_reason_code: str | None = None
     spec_display_name: str | None = None
+    resource_key: str | None = None
+    resource_display_name: str | None = None
+    action_display_name: str | None = None
+    time_scope: ExecutionTimeScope | None = None
+    time_scope_label: str | None = None
     schedule_display_name: str | None = None
     trigger_source: str
     status: str

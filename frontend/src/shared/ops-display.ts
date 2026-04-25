@@ -306,3 +306,37 @@ export function formatSpecDisplayLabel(
 
   return specDisplayName || "未命名任务";
 }
+
+function stripMaintenanceAffix(value: string): string {
+  if (value.startsWith("维护")) {
+    return value.slice("维护".length).trim() || value;
+  }
+  if (value.endsWith("维护")) {
+    return value.slice(0, -"维护".length).trim() || value;
+  }
+  return value;
+}
+
+export function formatExecutionResourceLabel(item: {
+  resource_display_name?: string | null;
+  action_display_name?: string | null;
+  spec_display_name?: string | null;
+  spec_key?: string | null;
+}): string {
+  const resourceDisplayName = normalizeKey(item.resource_display_name);
+  if (resourceDisplayName) {
+    return resourceDisplayName;
+  }
+
+  const actionDisplayName = normalizeKey(item.action_display_name);
+  if (actionDisplayName) {
+    return stripMaintenanceAffix(actionDisplayName);
+  }
+
+  const specDisplayName = normalizeKey(item.spec_display_name);
+  if (specDisplayName) {
+    return stripMaintenanceAffix(specDisplayName);
+  }
+
+  return normalizeKey(item.spec_key) || "未命名任务";
+}

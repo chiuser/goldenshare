@@ -21,6 +21,16 @@ function createExecutionItem(id: number, overrides: Partial<Record<string, unkno
     spec_type: "job",
     spec_key: "backfill_equity_series.daily",
     spec_display_name: "股票日线维护",
+    resource_key: "daily",
+    resource_display_name: "股票日线",
+    action_display_name: "维护股票日线",
+    time_scope: {
+      kind: "range",
+      start: "2026-03-23",
+      end: "2026-03-30",
+      label: "2026-03-23 ~ 2026-03-30",
+    },
+    time_scope_label: "2026-03-23 ~ 2026-03-30",
     schedule_display_name: null,
     trigger_source: "manual",
     status: "running",
@@ -87,6 +97,8 @@ beforeEach(() => {
           {
             key: "backfill_equity_series.daily",
             display_name: "股票日线维护",
+            resource_key: "daily",
+            resource_display_name: "股票日线",
           },
         ],
         workflow_specs: [],
@@ -136,6 +148,9 @@ describe("任务记录页", () => {
 
     expect(await screen.findByText("任务记录")).toBeInTheDocument();
     expect(screen.queryByText("结果摘要")).not.toBeInTheDocument();
+    expect(await screen.findByText("处理范围")).toBeInTheDocument();
+    expect((await screen.findAllByText("股票日线")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("2026-03-23 ~ 2026-03-30")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
     expect((await screen.findAllByText("手动")).length).toBeGreaterThan(0);
   });
@@ -232,6 +247,8 @@ describe("任务记录页", () => {
             {
               key: "backfill_equity_series.daily",
               display_name: "股票日线维护",
+              resource_key: "daily",
+              resource_display_name: "股票日线",
             },
           ],
           workflow_specs: [],

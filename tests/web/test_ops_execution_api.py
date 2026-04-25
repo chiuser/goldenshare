@@ -57,6 +57,16 @@ def test_ops_execution_list_returns_latest_first_and_supports_status_filter(
     assert filtered_payload["total"] == 1
     assert filtered_payload["items"][0]["id"] == newer.id
     assert filtered_payload["items"][0]["spec_display_name"] == "指数纵向回补 / index_weekly"
+    assert filtered_payload["items"][0]["resource_key"] == "index_weekly"
+    assert filtered_payload["items"][0]["resource_display_name"] == "指数周线"
+    assert filtered_payload["items"][0]["action_display_name"] == "维护指数周线"
+    assert filtered_payload["items"][0]["time_scope"] == {
+        "kind": "auto",
+        "start": None,
+        "end": None,
+        "label": "系统自动判断",
+    }
+    assert filtered_payload["items"][0]["time_scope_label"] == "系统自动判断"
 
 
 def test_ops_execution_summary_returns_filtered_status_counts(
@@ -189,6 +199,16 @@ def test_ops_execution_detail_returns_steps_and_events(
     assert payload["id"] == execution.id
     assert payload["requested_by_username"] == "admin"
     assert payload["spec_display_name"] == "指数纵向回补 / index_weight"
+    assert payload["resource_key"] == "index_weight"
+    assert payload["resource_display_name"] == "指数成分权重"
+    assert payload["action_display_name"] == "维护指数成分权重"
+    assert payload["time_scope"] == {
+        "kind": "range",
+        "start": "2020-01-01",
+        "end": "2026-03-30",
+        "label": "2020-01-01 ~ 2026-03-30",
+    }
+    assert payload["time_scope_label"] == "2020-01-01 ~ 2026-03-30"
     assert payload["params_json"]["start_date"] == "2020-01-01"
     assert payload["run_profile"] == "point_incremental"
     assert payload["correlation_id"]
@@ -319,6 +339,8 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
     payload = response.json()
     assert payload["spec_type"] == "job"
     assert payload["spec_key"] == "backfill_index_series.index_weekly"
+    assert payload["resource_display_name"] == "指数周线"
+    assert payload["time_scope_label"] == "2020-01-01 ~ 2020-01-31"
     assert payload["status"] == "queued"
     assert payload["params_json"]["limit"] == 10
     assert payload["run_profile"] == "range_rebuild"

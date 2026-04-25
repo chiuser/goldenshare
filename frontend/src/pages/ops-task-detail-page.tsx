@@ -23,15 +23,13 @@ import type {
   ExecutionEventPayload,
   ExecutionEventsResponse,
   ExecutionProgressReasonSample,
-  ScheduleDetailResponse,
   SyncCodebookResponse,
   ExecutionStepsResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import {
   formatEventTypeLabel,
-  formatRunTypeLabel,
-  formatSpecDisplayLabel,
+  formatExecutionResourceLabel,
   formatTriggerSourceLabel,
   formatUnitKindLabel,
 } from "../shared/ops-display";
@@ -54,32 +52,6 @@ function sortByTimeDesc<T extends { occurred_at?: string; started_at?: string }>
     const rightTime = new Date(right.occurred_at || right.started_at || 0).getTime();
     return rightTime - leftTime;
   });
-}
-
-function formatParamLabel(key: string): string {
-  const labelMap: Record<string, string> = {
-    start_date: "开始日期",
-    end_date: "结束日期",
-    trade_date: "处理日期",
-    ts_code: "证券代码",
-    index_code: "指数代码",
-    exchange: "交易所",
-    resource: "数据类型",
-  };
-  return labelMap[key] || key;
-}
-
-function formatParamValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "未填写";
-  }
-  if (Array.isArray(value)) {
-    return value.join("、");
-  }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  return String(value);
 }
 
 function parseProgressDetails(message: string | null | undefined) {
@@ -249,25 +221,6 @@ function splitReasonKey(reasonKey: string): { reasonCode: string; field: string 
   const reasonCode = reasonKey.slice(0, separatorIndex);
   const field = reasonKey.slice(separatorIndex + 1);
   return { reasonCode, field: field || null };
-}
-
-function buildScopeItems(params: Record<string, unknown>) {
-  const preferredOrder = ["trade_date", "start_date", "end_date", "ts_code", "index_code", "exchange"];
-  const keys = preferredOrder.filter((key) => key in params);
-  const extras = Object.keys(params).filter((key) => !preferredOrder.includes(key));
-  const orderedKeys = [...keys, ...extras];
-  if (!orderedKeys.length) {
-    return [
-      {
-        label: "处理范围",
-        value: "这次任务没有额外参数，系统会按默认方式处理。",
-      },
-    ];
-  }
-  return orderedKeys.map((key) => ({
-    label: formatParamLabel(key),
-    value: formatParamValue(params[key]),
-  }));
 }
 
 function buildStatusHeadline(detail: ExecutionDetailResponse) {
@@ -770,12 +723,6 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
     refetchInterval: buildRefetchInterval(activeStatus),
   });
 
-  const scheduleQuery = useQuery({
-    queryKey: ["ops", "schedule", detailQuery.data?.schedule_id],
-    queryFn: () => apiRequest<ScheduleDetailResponse>(`/api/v1/ops/schedules/${detailQuery.data?.schedule_id}`),
-    enabled: Boolean(detailQuery.data?.schedule_id),
-  });
-
   const syncCodebookQuery = useQuery({
     queryKey: ["ops", "sync-codebook"],
     queryFn: () => apiRequest<SyncCodebookResponse>("/api/v1/ops/codebook/sync"),
@@ -885,15 +832,6 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
   const liveResult = detail ? buildLiveResult(detail, progressSnapshot) : null;
   const latestUpdate = detail ? buildLatestUpdate(detail, events, steps) : null;
   const servingLightUpdate = buildServingLightRefreshUpdate(events);
-  const userConfiguredParams = useMemo(
-    () => (scheduleQuery.data?.params_json || detail?.params_json || {}) as Record<string, unknown>,
-    [detail?.params_json, scheduleQuery.data?.params_json],
-  );
-  const finalExecutionParams = useMemo(
-    () => (detail?.params_json || {}) as Record<string, unknown>,
-    [detail?.params_json],
-  );
-
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start">
@@ -917,7 +855,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
       {detail ? (
         <>
           <SectionCard
-            title={formatSpecDisplayLabel(detail.spec_key, detail.spec_display_name)}
+            title={formatExecutionResourceLabel(detail)}
             description="这里先告诉你这次任务现在是什么状态，以及你最常用的处理动作。"
             action={
               <Group gap="xs">
@@ -940,13 +878,18 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
             <AlertBar tone={buildStatusHeadline(detail).color} title={buildStatusHeadline(detail).title}>
               {buildStatusHeadline(detail).description}
             </AlertBar>
-            <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md" verticalSpacing="md">
+            <SimpleGrid cols={{ base: 1, sm: 2, xl: detail.time_scope_label ? 5 : 4 }} spacing="md" verticalSpacing="md">
               <MetricPanel label="当前状态">
                 <StatusBadge value={detail.status} size="lg" />
               </MetricPanel>
               <MetricPanel label="发起方式">
                 <Text fw={700} size="xl">{formatTriggerSourceLabel(detail.trigger_source)}</Text>
               </MetricPanel>
+              {detail.time_scope_label ? (
+                <MetricPanel label="处理范围">
+                  <Text fw={700} size="xl">{detail.time_scope_label}</Text>
+                </MetricPanel>
+              ) : null}
               <MetricPanel label="提交时间">
                 <Text ff="monospace" fw={700} size="xl">{formatDateTimeLabel(detail.requested_at)}</Text>
               </MetricPanel>
@@ -1055,33 +998,6 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
 
             <Grid.Col span={{ base: 12, lg: 5 }}>
               <Stack gap="md">
-                <SectionCard title="本次处理范围" description="这里展示这次任务实际会处理哪些日期、代码或交易所。">
-                  <Grid gutter="md">
-                    <Grid.Col span={{ base: 12, md: 6 }}>
-                      <Stack gap="sm">
-                        <Text fw={700} size="sm">用户配置</Text>
-                        {buildScopeItems(userConfiguredParams).map((item) => (
-                          <Stack gap={2} key={`user-${item.label}`}>
-                            <Text c="dimmed" size="sm">{item.label}</Text>
-                            <Text>{item.value}</Text>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, md: 6 }}>
-                      <Stack gap="sm">
-                        <Text fw={700} size="sm">最终执行参数</Text>
-                        {buildScopeItems(finalExecutionParams).map((item) => (
-                          <Stack gap={2} key={`final-${item.label}`}>
-                            <Text c="dimmed" size="sm">{item.label}</Text>
-                            <Text>{item.value}</Text>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    </Grid.Col>
-                  </Grid>
-                </SectionCard>
-
                 <SectionCard title="建议下一步" description="不要先钻进原始日志。先看这里给出的下一步建议，再决定要不要继续排查。">
                   <Stack gap="sm">
                     <Text>{buildActionSuggestion(detail)}</Text>

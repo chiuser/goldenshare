@@ -21,7 +21,12 @@ import type {
   OpsCatalogResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
-import { formatSpecDisplayLabel, formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
+import {
+  formatExecutionResourceLabel,
+  formatSpecDisplayLabel,
+  formatStatusLabel,
+  formatTriggerSourceLabel,
+} from "../shared/ops-display";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { AlertBar } from "../shared/ui/alert-bar";
 import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
@@ -85,6 +90,14 @@ function buildListParams(filters: TaskFilters, page: number) {
   params.set("limit", String(PAGE_SIZE));
   params.set("offset", String((page - 1) * PAGE_SIZE));
   return params;
+}
+
+function formatCatalogTaskOption(item: { key: string; display_name: string; resource_display_name?: string | null }) {
+  return item.resource_display_name || formatSpecDisplayLabel(item.key, item.display_name);
+}
+
+function formatExecutionTimeScopeLabel(item: { time_scope_label?: string | null }) {
+  return item.time_scope_label || "无时间维度";
 }
 
 export function OpsTasksPage() {
@@ -151,7 +164,7 @@ export function OpsTasksPage() {
     const items = catalog ? [
       ...catalog.job_specs.map((item) => ({
         value: item.key,
-        label: formatSpecDisplayLabel(item.key, item.display_name),
+        label: formatCatalogTaskOption(item),
       })),
       ...catalog.workflow_specs.map((item) => ({
         value: item.key,
@@ -270,26 +283,37 @@ export function OpsTasksPage() {
       key: "spec",
       header: "任务名称",
       align: "left",
-      width: "34%",
+      width: "24%",
       render: (item) => (
         <Stack gap={2}>
           <OpsTableCellText fw={600} size="sm">
-            {formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}
+            {formatExecutionResourceLabel(item)}
           </OpsTableCellText>
         </Stack>
       ),
     },
     {
+      key: "time_scope",
+      header: "处理范围",
+      align: "left",
+      width: "18%",
+      render: (item) => (
+        <OpsTableCellText size="xs">
+          {formatExecutionTimeScopeLabel(item)}
+        </OpsTableCellText>
+      ),
+    },
+    {
       key: "trigger",
       header: "发起方式",
-      width: "14%",
+      width: "12%",
       render: (item) => <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>,
     },
     {
       key: "requested_at",
       header: "提交时间",
       align: "left",
-      width: "24%",
+      width: "22%",
       render: (item) => (
         <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
           {formatDateTimeLabel(item.requested_at)}
@@ -299,13 +323,13 @@ export function OpsTasksPage() {
     {
       key: "status",
       header: "当前状态",
-      width: "12%",
+      width: "10%",
       render: (item) => <StatusBadge value={item.status} />,
     },
     {
       key: "actions",
       header: "操作",
-      width: "16%",
+      width: "14%",
       render: (item) => (
         <OpsTableActionGroup>
           <Button
@@ -436,7 +460,7 @@ export function OpsTasksPage() {
             <ActionSummaryCard
               title="最近一次任务操作"
               rows={[
-                { label: "任务名称", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
+                { label: "任务名称", value: formatExecutionResourceLabel(lastAction) },
                 { label: "当前状态", value: formatStatusLabel(lastAction.status) },
                 { label: "处理结果", value: buildResultSummary(lastAction) },
               ]}

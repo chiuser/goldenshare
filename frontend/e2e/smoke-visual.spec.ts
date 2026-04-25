@@ -110,9 +110,10 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await installApiMocks(page, "task-detail");
     await page.goto("/app/ops/tasks/1");
     await expect(page.getByText("实时处理记录", { exact: true })).toBeVisible();
-    await expect(page.getByText("股票日线维护")).toBeVisible();
+    await expect(page.getByText("股票日线", { exact: true })).toBeVisible();
     await expect(page.getByText("当前进展", { exact: true })).toBeVisible();
-    await expect(page.getByText("本次处理范围", { exact: true })).toBeVisible();
+    await expect(page.getByText("处理范围", { exact: true })).toBeVisible();
+    await expect(page.getByText("2026-03-23 ~ 2026-03-30", { exact: true })).toBeVisible();
     await expect(page.getByText("建议下一步", { exact: true })).toBeVisible();
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();
