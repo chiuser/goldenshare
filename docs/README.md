@@ -37,6 +37,8 @@ docs/
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [数据同步统一架构与全量数据集矩阵 v2](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
 - [数据同步 V2 重设计方案（含平稳迁移，历史主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
+- [DatasetDefinition 单一事实源重构方案 v1（待评审）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+- [DatasetExecutionPlan 执行计划模型重构方案 v1（待评审）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 - [Sync V2 数据集策略简化方案 v1（全量 47 个 V2 数据集）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md)
