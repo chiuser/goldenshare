@@ -18,6 +18,7 @@ from src.foundation.services.sync_v2.contracts import (
     ObserveSpec,
     PaginationSpec,
     SourceSpec,
+    TransactionSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
     build_date_model,
@@ -25,6 +26,13 @@ from src.foundation.services.sync_v2.registry_parts.builders import (
     build_normalization_spec,
     build_planning_spec,
     build_write_spec,
+)
+from src.foundation.services.sync_v2.registry_parts.common.constants import (
+    ALL_DC_HOT_MARKETS,
+    ALL_DC_HOT_TYPES,
+    ALL_KPL_LIST_TAGS,
+    ALL_RANKING_IS_NEW_FLAGS,
+    ALL_THS_HOT_MARKETS,
 )
 from src.foundation.services.sync_v2.registry_parts.common.param_policies import *  # noqa: F403
 from src.foundation.services.sync_v2.registry_parts.common.row_transforms import *  # noqa: F403
@@ -140,6 +148,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.dc_member",
         ),
         observe_spec=ObserveSpec(progress_label="dc_member"),
+        transaction_spec=TransactionSpec(
+            commit_policy="unit",
+            idempotent_write_required=True,
+            write_volume_assessment="单个事务限定为一个 planned unit；dc_member unit 由交易日与板块代码确定，write_path=raw_core_upsert 为幂等 upsert。",
+        ),
     ),
     "ths_member": DatasetSyncContract(
         dataset_key="ths_member",
@@ -286,7 +299,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         planning_spec=build_planning_spec(
             universe_policy="none",
             enum_fanout_fields=("market", "is_new"),
-            enum_fanout_defaults={"market": ("__ALL__",), "is_new": ("__ALL__",)},
+            enum_fanout_defaults={"market": ALL_THS_HOT_MARKETS, "is_new": ALL_RANKING_IS_NEW_FLAGS},
             pagination_policy="none",
         ),
         source_adapter_key="tushare",
@@ -328,7 +341,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         planning_spec=build_planning_spec(
             universe_policy="none",
             enum_fanout_fields=("market", "hot_type", "is_new"),
-            enum_fanout_defaults={"market": ("__ALL__",), "hot_type": ("__ALL__",), "is_new": ("__ALL__",)},
+            enum_fanout_defaults={
+                "market": ALL_DC_HOT_MARKETS,
+                "hot_type": ALL_DC_HOT_TYPES,
+                "is_new": ALL_RANKING_IS_NEW_FLAGS,
+            },
             pagination_policy="none",
         ),
         source_adapter_key="tushare",
@@ -368,7 +385,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         planning_spec=build_planning_spec(
             universe_policy="none",
             enum_fanout_fields=("tag",),
-            enum_fanout_defaults={"tag": ("__ALL__",)},
+            enum_fanout_defaults={"tag": ALL_KPL_LIST_TAGS},
             pagination_policy="none",
         ),
         source_adapter_key="tushare",

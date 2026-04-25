@@ -77,14 +77,14 @@ class BaseSyncService(ABC):
                 rows_written=written,
                 message=message,
             )
-            if result_date:
-                self.job_state_store.mark_success(
-                    job_name=self.job_name,
-                    target_table=self.target_table,
-                    last_success_date=result_date,
-                )
-            if run_type == "FULL":
-                self.job_state_store.mark_full_sync_done(job_name=self.job_name, target_table=self.target_table)
+            self.job_state_store.record_execution_outcome(
+                job_name=self.job_name,
+                target_table=self.target_table,
+                run_type=run_type,
+                run_profile=kwargs.get("run_profile"),
+                last_success_date=result_date,
+                rows_committed=written,
+            )
             self.session.commit()
             return SyncResult(
                 job_name=self.job_name,

@@ -5,18 +5,8 @@ from typing import Any, Literal
 
 
 ParameterType = Literal["string", "date", "month", "integer", "boolean", "enum"]
-StrategyType = Literal[
-    "full_refresh",
-    "incremental_by_date",
-    "backfill_by_date_range",
-    "backfill_by_trade_date",
-    "backfill_by_month",
-    "backfill_by_security",
-    "backfill_low_frequency",
-    "sync_minute_history",
-    "maintenance_action",
-]
-ExecutorKind = Literal["sync_service", "history_backfill_service", "maintenance"]
+StrategyType = Literal["maintenance_action"]
+ExecutorKind = Literal["maintenance"]
 
 
 @dataclass(slots=True)

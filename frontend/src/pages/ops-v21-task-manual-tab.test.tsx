@@ -25,7 +25,7 @@ const mockManualActions = {
       actions: [
         {
           action_key: "stock_basic",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护股票基础信息",
           description: "刷新股票基础资料。",
           resource_key: "stock_basic",
@@ -59,7 +59,7 @@ const mockManualActions = {
           ],
           search_keywords: ["stock_basic", "维护股票基础信息"],
           action_order: 100,
-          route_spec_keys: ["sync_history.stock_basic"],
+          route_spec_keys: ["stock_basic.maintain"],
         },
       ],
     },
@@ -70,7 +70,7 @@ const mockManualActions = {
       actions: [
         {
           action_key: "daily",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护股票日线",
           description: "维护股票日线数据。",
           resource_key: "daily",
@@ -95,11 +95,11 @@ const mockManualActions = {
           filters: [],
           search_keywords: ["daily", "维护股票日线"],
           action_order: 100,
-          route_spec_keys: ["sync_daily.daily", "backfill_equity_series.daily", "sync_history.daily"],
+          route_spec_keys: ["daily.maintain"],
         },
         {
           action_key: "stk_factor_pro",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护股票技术面因子(专业版)",
           description: "维护股票技术面因子。",
           resource_key: "stk_factor_pro",
@@ -132,7 +132,7 @@ const mockManualActions = {
           ],
           search_keywords: ["stk_factor_pro", "维护股票技术面因子(专业版)"],
           action_order: 100,
-          route_spec_keys: ["sync_daily.stk_factor_pro", "sync_history.stk_factor_pro"],
+          route_spec_keys: ["stk_factor_pro.maintain"],
         },
       ],
     },
@@ -143,7 +143,7 @@ const mockManualActions = {
       actions: [
         {
           action_key: "ths_member",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护同花顺板块成分",
           description: "刷新同花顺板块成分。",
           resource_key: "ths_member",
@@ -183,7 +183,7 @@ const mockManualActions = {
           ],
           search_keywords: ["ths_member", "维护同花顺板块成分"],
           action_order: 100,
-          route_spec_keys: ["sync_history.ths_member"],
+          route_spec_keys: ["ths_member.maintain"],
         },
       ],
     },
@@ -194,7 +194,7 @@ const mockManualActions = {
       actions: [
         {
           action_key: "dc_hot",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护东方财富热榜",
           description: "维护东方财富热榜。",
           resource_key: "dc_hot",
@@ -246,11 +246,11 @@ const mockManualActions = {
           ],
           search_keywords: ["dc_hot", "维护东方财富热榜"],
           action_order: 100,
-          route_spec_keys: ["sync_daily.dc_hot", "backfill_by_trade_date.dc_hot"],
+          route_spec_keys: ["dc_hot.maintain"],
         },
         {
           action_key: "broker_recommend",
-          action_type: "job",
+          action_type: "dataset_action",
           display_name: "维护券商每月荐股",
           description: "维护券商每月荐股。",
           resource_key: "broker_recommend",
@@ -275,7 +275,7 @@ const mockManualActions = {
           filters: [],
           search_keywords: ["broker_recommend", "维护券商每月荐股"],
           action_order: 100,
-          route_spec_keys: ["sync_daily.broker_recommend", "backfill_by_month.broker_recommend"],
+          route_spec_keys: ["broker_recommend.maintain"],
         },
       ],
     },
@@ -290,8 +290,8 @@ vi.mock("../shared/api/client", () => ({
     if (path === "/api/v1/ops/manual-actions/dc_hot/executions" && options?.method === "POST") {
       return {
         id: 1234,
-        spec_type: "job",
-        spec_key: "sync_daily.dc_hot",
+        spec_type: "dataset_action",
+        spec_key: "dc_hot.maintain",
         status: "queued",
         run_profile: "point_incremental",
         params_json: {},
@@ -306,7 +306,7 @@ beforeEach(() => {
   vi.mocked(apiRequest).mockClear();
 });
 
-function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=sync_daily.daily&spec_type=job") {
+function renderPage(initialEntry = "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action") {
   window.history.replaceState({}, "", initialEntry);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -454,14 +454,14 @@ describe("手动同步页", () => {
   });
 
   it("板块成分任务会展示先板块后成分的执行说明", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=sync_history.ths_member&spec_type=job");
+    renderPage("/app/ops/manual-sync?spec_key=ths_member.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护同花顺板块成分")).length).toBeGreaterThan(0);
     expect(screen.getByText("系统会先刷新“同花顺概念和行业指数”，再按板块代码逐个同步板块成分。")).toBeInTheDocument();
   });
 
   it("东方财富热榜任务使用复选框展示多值条件，并且不展示交易所参数", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=sync_daily.dc_hot&spec_type=job");
+    renderPage("/app/ops/manual-sync?spec_key=dc_hot.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("A股市场")).toBeChecked();
@@ -474,7 +474,7 @@ describe("手动同步页", () => {
     expect(screen.queryByText("交易所")).not.toBeInTheDocument();
   });
 
-  it("东方财富热榜默认提交安全筛选条件，避免写出 __ALL__ 上下文", async () => {
+  it("东方财富热榜默认提交真实枚举筛选条件", async () => {
     window.localStorage.setItem(
       "goldenshare.frontend.ops.manual-sync.draft",
       JSON.stringify({
@@ -510,7 +510,7 @@ describe("手动同步页", () => {
   });
 
   it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=sync_daily.broker_recommend&spec_type=job");
+    renderPage("/app/ops/manual-sync?spec_key=broker_recommend.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护券商每月荐股")).length).toBeGreaterThan(0);
     expect(screen.getByText("第二步：选择时间范围")).toBeInTheDocument();
@@ -520,7 +520,7 @@ describe("手动同步页", () => {
   });
 
   it("优先使用后端资源显示名称，避免新增数据集出现占位文案", async () => {
-    renderPage("/app/ops/manual-sync?spec_key=sync_daily.stk_factor_pro&spec_type=job");
+    renderPage("/app/ops/manual-sync?spec_key=stk_factor_pro.maintain&spec_type=dataset_action");
 
     expect((await screen.findAllByText("维护股票技术面因子(专业版)")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();

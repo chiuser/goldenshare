@@ -15,6 +15,7 @@ class ParameterSpecResponse(BaseModel):
 
 class JobSpecCatalogItem(BaseModel):
     key: str
+    spec_type: str = "job"
     display_name: str
     resource_key: str | None = None
     resource_display_name: str | None = None

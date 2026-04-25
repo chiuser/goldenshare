@@ -32,7 +32,7 @@ def build_default_units(
         request=request,
         fields=enum_fields,
         full_selection_values=full_selection_values,
-        missing_field_defaults=missing_field_defaults,
+        missing_field_defaults=missing_field_defaults or contract.planning_spec.enum_fanout_defaults,
     )
     return build_plan_units(
         request=request,

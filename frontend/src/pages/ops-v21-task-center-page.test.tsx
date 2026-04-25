@@ -24,12 +24,15 @@ beforeEach(() => {
       return {
         job_specs: [
           {
-            key: "sync_daily.daily",
-            display_name: "日常同步 / 股票日线",
-            category: "sync_daily",
-            description: "按单个交易日同步股票日线。",
-            strategy_type: "incremental_by_date",
-            executor_kind: "sync_service",
+            key: "daily.maintain",
+            display_name: "维护股票日线",
+            category: "maintenance",
+            description: "维护股票日线。",
+            strategy_type: "maintenance_action",
+            executor_kind: "maintenance",
+            spec_type: "dataset_action",
+            resource_key: "daily",
+            resource_display_name: "股票日线",
             target_tables: ["core.equity_daily_bar"],
             supports_manual_run: true,
             supports_schedule: true,
@@ -71,9 +74,12 @@ beforeEach(() => {
         items: [
           {
             id: 1,
-            spec_type: "job",
-            spec_key: "sync_daily.daily",
-            spec_display_name: "股票日线同步",
+            spec_type: "dataset_action",
+            spec_key: "daily.maintain",
+            spec_display_name: "维护股票日线",
+            resource_key: "daily",
+            resource_display_name: "股票日线",
+            action_display_name: "维护股票日线",
             schedule_display_name: null,
             trigger_source: "manual",
             status: "running",
@@ -100,8 +106,9 @@ beforeEach(() => {
         items: [
           {
             id: 201,
-            spec_key: "sync_daily.daily",
-            spec_display_name: "股票日线同步",
+            spec_type: "dataset_action",
+            spec_key: "daily.maintain",
+            spec_display_name: "维护股票日线",
             display_name: "股票日线自动同步",
             status: "active",
             schedule_type: "cron",
@@ -117,9 +124,9 @@ beforeEach(() => {
     if (path === "/api/v1/ops/schedules/201") {
       return {
         id: 201,
-        spec_type: "job",
-        spec_key: "sync_daily.daily",
-        spec_display_name: "股票日线同步",
+        spec_type: "dataset_action",
+        spec_key: "daily.maintain",
+        spec_display_name: "维护股票日线",
         display_name: "股票日线自动同步",
         status: "active",
         schedule_type: "cron",

@@ -26,13 +26,13 @@ def test_ops_execution_list_returns_latest_first_and_supports_status_filter(
     base = datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc)
     older = job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="sync_history.stock_basic",
+        spec_key="stock_basic.maintain",
         status="success",
         requested_at=base,
     )
     newer = job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="backfill_index_series.index_weekly",
+        spec_key="index_weekly.maintain",
         status="failed",
         requested_at=base + timedelta(minutes=5),
         error_code="task_failed",
@@ -56,7 +56,7 @@ def test_ops_execution_list_returns_latest_first_and_supports_status_filter(
     filtered_payload = filtered.json()
     assert filtered_payload["total"] == 1
     assert filtered_payload["items"][0]["id"] == newer.id
-    assert filtered_payload["items"][0]["spec_display_name"] == "指数纵向回补 / index_weekly"
+    assert filtered_payload["items"][0]["spec_display_name"] == "维护指数周线"
     assert filtered_payload["items"][0]["resource_key"] == "index_weekly"
     assert filtered_payload["items"][0]["resource_display_name"] == "指数周线"
     assert filtered_payload["items"][0]["action_display_name"] == "维护指数周线"
@@ -155,8 +155,8 @@ def test_ops_execution_detail_returns_steps_and_events(
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_type="job",
-        spec_key="backfill_index_series.index_weight",
+        spec_type="dataset_action",
+        spec_key="index_weight.maintain",
         status="running",
         params_json={"start_date": "2020-01-01", "end_date": "2026-03-30"},
         progress_current=651,
@@ -198,7 +198,7 @@ def test_ops_execution_detail_returns_steps_and_events(
     payload = response.json()
     assert payload["id"] == execution.id
     assert payload["requested_by_username"] == "admin"
-    assert payload["spec_display_name"] == "指数纵向回补 / index_weight"
+    assert payload["spec_display_name"] == "维护指数成分权重"
     assert payload["resource_key"] == "index_weight"
     assert payload["resource_display_name"] == "指数成分权重"
     assert payload["action_display_name"] == "维护指数成分权重"
@@ -238,8 +238,8 @@ def test_ops_execution_endpoints_truncate_oversized_messages(
     admin = user_factory(username="admin", password="secret", is_admin=True)
     huge = "x" * 20_000
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="failed",
         requested_by_user_id=admin.id,
         summary_message=huge,
@@ -248,7 +248,7 @@ def test_ops_execution_endpoints_truncate_oversized_messages(
     )
     job_execution_step_factory(
         execution_id=execution.id,
-        step_key="sync_history.stock_basic",
+        step_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         sequence_no=1,
         status="failed",
@@ -313,7 +313,7 @@ def test_ops_execution_create_requires_admin(app_client, user_factory) -> None:
     response = app_client.post(
         "/api/v1/ops/executions",
         headers={"Authorization": f"Bearer {token}"},
-        json={"spec_type": "job", "spec_key": "sync_history.stock_basic", "params_json": {}},
+        json={"spec_type": "dataset_action", "spec_key": "stock_basic.maintain", "params_json": {}},
     )
 
     assert response.status_code == 403
@@ -329,16 +329,16 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
         "/api/v1/ops/executions",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "job",
-            "spec_key": "backfill_index_series.index_weekly",
+            "spec_type": "dataset_action",
+            "spec_key": "index_weekly.maintain",
             "params_json": {"start_date": "2020-01-01", "end_date": "2020-01-31", "limit": 10},
         },
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_type"] == "job"
-    assert payload["spec_key"] == "backfill_index_series.index_weekly"
+    assert payload["spec_type"] == "dataset_action"
+    assert payload["spec_key"] == "index_weekly.maintain"
     assert payload["resource_display_name"] == "指数周线"
     assert payload["time_scope_label"] == "2020-01-01 ~ 2020-01-31"
     assert payload["status"] == "queued"
@@ -348,7 +348,7 @@ def test_ops_execution_create_creates_queued_execution_for_admin(app_client, use
     assert [event["event_type"] for event in payload["events"]] == ["created", "queued"]
 
 
-def test_ops_execution_create_supports_sync_history_ths_member_without_optional_filters(app_client, user_factory) -> None:
+def test_ops_execution_create_supports_dataset_action_ths_member_without_optional_filters(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -357,15 +357,15 @@ def test_ops_execution_create_supports_sync_history_ths_member_without_optional_
         "/api/v1/ops/executions",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "job",
-            "spec_key": "sync_history.ths_member",
+            "spec_type": "dataset_action",
+            "spec_key": "ths_member.maintain",
             "params_json": {},
         },
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "sync_history.ths_member"
+    assert payload["spec_key"] == "ths_member.maintain"
     assert payload["status"] == "queued"
     assert payload["params_json"] == {}
 
@@ -373,8 +373,8 @@ def test_ops_execution_create_supports_sync_history_ths_member_without_optional_
 def test_ops_execution_retry_creates_new_execution(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     existing = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="failed",
         requested_by_user_id=admin.id,
         params_json={"exchange": "SSE"},
@@ -397,8 +397,8 @@ def test_ops_execution_retry_creates_new_execution(app_client, user_factory, job
 def test_ops_execution_retry_now_route_is_removed(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     existing = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="failed",
         requested_by_user_id=admin.id,
     )
@@ -416,8 +416,8 @@ def test_ops_execution_retry_now_route_is_removed(app_client, user_factory, job_
 def test_ops_execution_run_now_route_is_removed(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_by_user_id=admin.id,
     )
@@ -441,8 +441,8 @@ def test_ops_execution_create_run_now_route_is_removed(app_client, user_factory)
         "/api/v1/ops/executions/run-now",
         headers={"Authorization": f"Bearer {token}"},
         json={
-          "spec_type": "job",
-          "spec_key": "sync_history.stock_basic",
+          "spec_type": "dataset_action",
+          "spec_key": "stock_basic.maintain",
           "params_json": {},
         },
     )
@@ -453,8 +453,8 @@ def test_ops_execution_create_run_now_route_is_removed(app_client, user_factory)
 def test_ops_execution_cancel_marks_queued_execution_as_canceled(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_by_user_id=admin.id,
     )
@@ -476,8 +476,8 @@ def test_ops_execution_cancel_marks_queued_execution_as_canceled(app_client, use
 def test_ops_execution_cancel_marks_running_execution_as_canceling(app_client, user_factory, job_execution_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="running",
         requested_by_user_id=admin.id,
     )
@@ -505,14 +505,14 @@ def test_ops_execution_steps_and_events_endpoints_return_split_views(
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="running",
         requested_by_user_id=admin.id,
     )
     step = job_execution_step_factory(
         execution_id=execution.id,
-        step_key="sync_history.stock_basic",
+        step_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         sequence_no=1,
         status="running",
@@ -533,7 +533,7 @@ def test_ops_execution_steps_and_events_endpoints_return_split_views(
 
     assert steps.status_code == 200
     assert steps.json()["execution_id"] == execution.id
-    assert steps.json()["items"][0]["step_key"] == "sync_history.stock_basic"
+    assert steps.json()["items"][0]["step_key"] == "stock_basic.maintain"
 
     assert events.status_code == 200
     assert events.json()["execution_id"] == execution.id
@@ -548,8 +548,8 @@ def test_ops_execution_logs_endpoint_returns_sync_run_logs(
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="success",
         requested_by_user_id=admin.id,
     )

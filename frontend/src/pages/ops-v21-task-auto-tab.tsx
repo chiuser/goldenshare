@@ -94,7 +94,7 @@ const MONTHLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_month", "stk_period_ba
 
 const emptyForm = {
   id: null as number | null,
-  spec_type: "job",
+  spec_type: "dataset_action",
   spec_key: "",
   display_name: "",
   schedule_type: "once",
@@ -127,6 +127,9 @@ function normalizeParamOptions(options: string[] | undefined) {
 }
 
 function extractResourceKeyFromSpecKey(specKey: string): string {
+  if (specKey.endsWith(".maintain")) {
+    return specKey.slice(0, -".maintain".length);
+  }
   const parts = specKey.split(".");
   return parts.length >= 2 ? parts[1] : specKey;
 }
@@ -308,14 +311,15 @@ function inferSpecDomain(specType: string, specKey: string, category: string | n
     return "维护动作";
   }
   const resourceKey = specKey.includes(".") ? specKey.split(".")[1] : specKey;
-  if (REFERENCE_RESOURCES.has(resourceKey)) return "基础主数据";
-  if (MONEYFLOW_RESOURCES.has(resourceKey)) return "资金流向";
-  if (EQUITY_RESOURCES.has(resourceKey)) return "股票";
-  if (FUND_RESOURCES.has(resourceKey)) return "ETF/Fund";
-  if (INDEX_RESOURCES.has(resourceKey)) return "指数";
-  if (BOARD_RESOURCES.has(resourceKey)) return "板块";
-  if (RANKING_RESOURCES.has(resourceKey)) return "榜单";
-  if (EVENT_RESOURCES.has(resourceKey)) return "低频事件";
+  const normalizedResourceKey = specKey.endsWith(".maintain") ? specKey.slice(0, -".maintain".length) : resourceKey;
+  if (REFERENCE_RESOURCES.has(normalizedResourceKey)) return "基础主数据";
+  if (MONEYFLOW_RESOURCES.has(normalizedResourceKey)) return "资金流向";
+  if (EQUITY_RESOURCES.has(normalizedResourceKey)) return "股票";
+  if (FUND_RESOURCES.has(normalizedResourceKey)) return "ETF/Fund";
+  if (INDEX_RESOURCES.has(normalizedResourceKey)) return "指数";
+  if (BOARD_RESOURCES.has(normalizedResourceKey)) return "板块";
+  if (RANKING_RESOURCES.has(normalizedResourceKey)) return "榜单";
+  if (EVENT_RESOURCES.has(normalizedResourceKey)) return "低频事件";
   return "其他";
 }
 
@@ -409,9 +413,9 @@ export function OpsAutomationPage() {
       ...catalogQuery.data.job_specs
         .filter((item) => item.supports_schedule !== false)
         .map((item) => ({
-          value: `job:${item.key}`,
-          label: `【任务】${formatSpecDisplayLabel(item.key, item.display_name)}`,
-          domain: inferSpecDomain("job", item.key, item.category),
+          value: `${item.spec_type || "job"}:${item.key}`,
+          label: `${item.spec_type === "dataset_action" ? "【数据】" : "【任务】"}${formatSpecDisplayLabel(item.key, item.display_name)}`,
+          domain: inferSpecDomain(item.spec_type || "job", item.key, item.category),
         })),
       ...catalogQuery.data.workflow_specs
         .filter((item) => item.supports_schedule !== false)
@@ -449,7 +453,7 @@ export function OpsAutomationPage() {
 
   const selectedJobSpec = useMemo(
     () =>
-      (form.spec_type === "job" && catalogQuery.data && form.spec_key)
+      ((form.spec_type === "job" || form.spec_type === "dataset_action") && catalogQuery.data && form.spec_key)
         ? (catalogQuery.data.job_specs.find((item) => item.key === form.spec_key) || null)
         : null,
     [catalogQuery.data, form.spec_key, form.spec_type],
@@ -474,6 +478,7 @@ export function OpsAutomationPage() {
   const selectedJobParamSpecs = useMemo<CatalogParamSpec[]>(
     () =>
       form.spec_type === "job"
+      || form.spec_type === "dataset_action"
         ? (selectedJobSpec?.supported_params || []).filter(
           (param) => !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key),
         )
@@ -484,12 +489,12 @@ export function OpsAutomationPage() {
   const workflowProbeDatasetOptions = useMemo(
     () =>
       (catalogQuery.data?.job_specs || [])
-        .filter((item) => item.key.startsWith("sync_daily."))
+        .filter((item) => (item.spec_type || "job") === "dataset_action" && item.resource_key)
         .map((item) => {
-          const datasetKey = item.key.replace("sync_daily.", "");
+          const datasetKey = item.resource_key || extractResourceKeyFromSpecKey(item.key);
           return {
             value: datasetKey,
-            label: formatSpecDisplayLabel(datasetKey, item.display_name),
+            label: item.resource_display_name || formatSpecDisplayLabel(item.key, item.display_name),
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
@@ -497,12 +502,14 @@ export function OpsAutomationPage() {
   );
 
   const supportsSingleDay = useMemo(
-    () => form.spec_type === "job" && Boolean(selectedJobSpec?.supported_params?.some((param) => param.key === "trade_date")),
+    () =>
+      (form.spec_type === "job" || form.spec_type === "dataset_action")
+      && Boolean(selectedJobSpec?.supported_params?.some((param) => param.key === "trade_date")),
     [form.spec_type, selectedJobSpec],
   );
   const supportsDateRange = useMemo(
     () =>
-      form.spec_type === "job"
+        (form.spec_type === "job" || form.spec_type === "dataset_action")
       && Boolean(
         selectedJobSpec?.supported_params?.some((param) => param.key === "start_date")
         && selectedJobSpec?.supported_params?.some((param) => param.key === "end_date"),
@@ -555,14 +562,48 @@ export function OpsAutomationPage() {
       params.start_date = form.start_date;
       params.end_date = form.end_date;
     }
+    if (form.spec_type === "dataset_action" && selectedJobSpec) {
+      const datasetKey = selectedJobSpec.resource_key || extractResourceKeyFromSpecKey(selectedJobSpec.key);
+      const timeKeys = new Set(["trade_date", "start_date", "end_date", "month", "start_month", "end_month", "ann_date"]);
+      const filters = Object.fromEntries(Object.entries(params).filter(([key]) => !timeKeys.has(key)));
+      const timeInput: Record<string, unknown> = {};
+      if (params.trade_date) {
+        timeInput.mode = "point";
+        timeInput.trade_date = params.trade_date;
+      } else if (params.month) {
+        timeInput.mode = "point";
+        timeInput.month = params.month;
+      } else if (params.start_date || params.end_date) {
+        timeInput.mode = "range";
+        timeInput.start_date = params.start_date;
+        timeInput.end_date = params.end_date;
+      } else if (params.start_month || params.end_month) {
+        timeInput.mode = "range";
+        timeInput.start_month = params.start_month;
+        timeInput.end_month = params.end_month;
+      } else if (supportsSingleDay) {
+        timeInput.mode = "point";
+      } else {
+        timeInput.mode = "none";
+      }
+      return {
+        ...params,
+        dataset_key: datasetKey,
+        action: "maintain",
+        time_input: timeInput,
+        filters,
+      };
+    }
     return params;
   }, [
     form.date_mode,
     form.end_date,
     form.field_values,
     form.selected_date,
+    form.spec_type,
     form.start_date,
     selectedJobParamSpecs,
+    selectedJobSpec,
     supportsDateRange,
     supportsSingleDay,
   ]);
@@ -1205,7 +1246,7 @@ export function OpsAutomationPage() {
                 }
                 setForm((currentForm) => ({
                   ...currentForm,
-                  spec_type: "job",
+                  spec_type: "dataset_action",
                   spec_key: "",
                   date_mode: "single_day",
                   selected_date: "",

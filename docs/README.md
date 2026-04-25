@@ -39,10 +39,12 @@ docs/
 - [数据同步 V2 重设计方案（含平稳迁移，历史主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
 - [DatasetDefinition 单一事实源重构方案 v1（待评审）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 - [DatasetExecutionPlan 执行计划模型重构方案 v1（待评审）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
+- [Dataset Maintain 重构 M-1 到 M8 执行索引 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-maintenance-refactor-m-1-to-m8-execution-index-v1.md)
 - [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 - [Sync V2 数据集策略简化方案 v1（全量 47 个 V2 数据集）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md)
 - [Sync V2 大数据集流式写入与检查点提交方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-large-dataset-streaming-and-checkpoint-plan-v1.md)
+- [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
 - [Sync V2 Registry 结构化重构方案 v1（两阶段）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-structure-refactor-plan-v1.md)
 - [Sync V2 Registry 开发指南 v1（新增数据集门禁）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md)
 - [Sync V1 旧路径移除执行计划 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v1-removal-execution-plan-v1.md)
@@ -142,6 +144,7 @@ docs/
 
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
+- [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 
 ## 9. 产品原始材料
 

@@ -131,3 +131,31 @@ class OpsSyncJobStateStore(SyncJobStateStore):
         state.last_cursor = None
         state.last_success_at = datetime.now(timezone.utc)
         state.full_sync_done = True
+
+    def record_execution_outcome(
+        self,
+        *,
+        job_name: str,
+        target_table: str,
+        run_type: str,
+        run_profile: str | None = None,
+        last_success_date: date | None = None,
+        last_cursor: str | None = None,
+        rows_committed: int | None = None,
+    ) -> None:
+        _ = (run_profile, rows_committed)
+        state = self._get_state(job_name)
+        if state is None:
+            state = SyncJobState(
+                job_name=job_name,
+                target_table=target_table,
+                full_sync_done=False,
+            )
+            self.session.add(state)
+        state.target_table = target_table
+        if last_success_date is not None:
+            state.last_success_date = last_success_date
+        state.last_success_at = datetime.now(timezone.utc)
+        state.last_cursor = last_cursor
+        if run_type == "FULL" and last_success_date is None:
+            state.full_sync_done = True

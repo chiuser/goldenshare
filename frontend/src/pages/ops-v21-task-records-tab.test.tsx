@@ -18,8 +18,8 @@ vi.mock("../shared/api/client", () => ({
 function createExecutionItem(id: number, overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id,
-    spec_type: "job",
-    spec_key: "backfill_equity_series.daily",
+    spec_type: "dataset_action",
+    spec_key: "daily.maintain",
     spec_display_name: "股票日线维护",
     resource_key: "daily",
     resource_display_name: "股票日线",
@@ -95,7 +95,7 @@ beforeEach(() => {
       return {
         job_specs: [
           {
-            key: "backfill_equity_series.daily",
+            key: "daily.maintain",
             display_name: "股票日线维护",
             resource_key: "daily",
             resource_display_name: "股票日线",
@@ -245,7 +245,7 @@ describe("任务记录页", () => {
         return Promise.resolve({
           job_specs: [
             {
-              key: "backfill_equity_series.daily",
+              key: "daily.maintain",
               display_name: "股票日线维护",
               resource_key: "daily",
               resource_display_name: "股票日线",

@@ -65,7 +65,7 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     }
     assert grouped["equity"]["daily"]["freshness_status"] == "fresh"
     assert grouped["equity"]["daily"]["business_date_source"] == "state"
-    assert grouped["equity"]["daily"]["primary_execution_spec_key"] == "sync_daily.daily"
+    assert grouped["equity"]["daily"]["primary_execution_spec_key"] == "daily.maintain"
     assert grouped["index"]["index_monthly"]["freshness_status"] == "stale"
     assert grouped["index"]["index_monthly"]["recent_failure_message"] == "monthly sync timeout"
     assert grouped["index"]["index_monthly"]["recent_failure_summary"] == "monthly sync timeout"
@@ -87,16 +87,16 @@ def test_ops_freshness_includes_auto_schedule_flags(
         last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
     )
     job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_daily.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         status="active",
         schedule_type="cron",
         cron_expr="30 18 * * *",
         next_run_at=datetime(2026, 3, 31, 10, 30, tzinfo=timezone.utc),
     )
     job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_daily.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         status="paused",
         schedule_type="cron",
         cron_expr="45 18 * * *",
@@ -188,8 +188,8 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
         last_success_at=datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc),
     )
     job_execution_factory(
-        spec_type="job",
-        spec_key="sync_daily.cyq_perf",
+        spec_type="dataset_action",
+        spec_key="cyq_perf.maintain",
         status="running",
         requested_at=datetime(2026, 4, 17, 8, 0, tzinfo=timezone.utc),
         started_at=datetime(2026, 4, 17, 8, 1, tzinfo=timezone.utc),
@@ -311,7 +311,7 @@ def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date
         target_table="core.ths_member",
         cadence="reference",
         observed_date_column=None,
-        primary_execution_spec_key="sync_history.ths_member",
+        primary_execution_spec_key="ths_member.maintain",
     )
 
     item = service._build_item(
@@ -384,7 +384,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
         target_table="core.equity_daily_bar",
         cadence="daily",
         freshness_status="fresh",
-        primary_execution_spec_key="sync_daily.daily",
+        primary_execution_spec_key="daily.maintain",
         full_sync_done=False,
     )
     live_missing_item = DatasetFreshnessItem(
@@ -397,7 +397,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
         target_table="core.ths_hot",
         cadence="daily",
         freshness_status="unknown",
-        primary_execution_spec_key="sync_daily.ths_hot",
+        primary_execution_spec_key="ths_hot.maintain",
         full_sync_done=False,
     )
     snapshot_response = OpsFreshnessResponse(
@@ -432,7 +432,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
                 target_table="core.equity_daily_bar",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="sync_daily.daily",
+                primary_execution_spec_key="daily.maintain",
             ),
             DatasetFreshnessSpec(
                 dataset_key="ths_hot",
@@ -444,7 +444,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
                 target_table="core.ths_hot",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="sync_daily.ths_hot",
+                primary_execution_spec_key="ths_hot.maintain",
             ),
         ],
     )
@@ -477,7 +477,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
         cadence="reference",
         latest_business_date=date(2026, 4, 1),
         freshness_status="stale",
-        primary_execution_spec_key="sync_daily.broker_recommend",
+        primary_execution_spec_key="broker_recommend.maintain",
         full_sync_done=True,
     )
     live_item = DatasetFreshnessItem(
@@ -491,7 +491,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
         cadence="monthly",
         latest_business_date=date(2026, 4, 1),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_daily.broker_recommend",
+        primary_execution_spec_key="broker_recommend.maintain",
         full_sync_done=True,
     )
     snapshot_response = OpsFreshnessResponse(
@@ -525,7 +525,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
                 target_table="core_serving.broker_recommend",
                 cadence="monthly",
                 observed_date_column=None,
-                primary_execution_spec_key="sync_daily.broker_recommend",
+                primary_execution_spec_key="broker_recommend.maintain",
             )
         ],
     )
@@ -558,7 +558,7 @@ def test_observed_snapshot_for_stk_period_week_adds_freq_filter(mocker) -> None:
         target_table="core_serving.stk_period_bar",
         cadence="weekly",
         observed_date_column="trade_date",
-        primary_execution_spec_key="sync_history.stk_period_bar_week",
+        primary_execution_spec_key="stk_period_bar_week.maintain",
     )
     session = mocker.Mock()
     session.execute.return_value.one.return_value = (date(2020, 1, 1), date(2026, 4, 3))
@@ -589,7 +589,7 @@ def test_build_freshness_overrides_snapshot_with_live_weekly_item(
         latest_business_date=date(2026, 3, 27),
         observed_business_date=date(2026, 3, 27),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_history.stk_period_bar_week",
+        primary_execution_spec_key="stk_period_bar_week.maintain",
         full_sync_done=False,
     )
     live_item = DatasetFreshnessItem(
@@ -604,7 +604,7 @@ def test_build_freshness_overrides_snapshot_with_live_weekly_item(
         latest_business_date=date(2026, 4, 3),
         observed_business_date=date(2026, 4, 3),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_history.stk_period_bar_week",
+        primary_execution_spec_key="stk_period_bar_week.maintain",
         full_sync_done=False,
     )
     snapshot_response = OpsFreshnessResponse(
@@ -639,7 +639,7 @@ def test_build_freshness_overrides_snapshot_with_live_weekly_item(
                 target_table="core_serving.stk_period_bar",
                 cadence="weekly",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="sync_history.stk_period_bar_week",
+                primary_execution_spec_key="stk_period_bar_week.maintain",
             )
         ],
     )
@@ -676,7 +676,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_date_with_liv
         last_sync_date=date(2026, 4, 16),
         latest_business_date=None,
         freshness_status="unknown",
-        primary_execution_spec_key="sync_daily.stk_nineturn",
+        primary_execution_spec_key="stk_nineturn.maintain",
         full_sync_done=False,
     )
     live_item = DatasetFreshnessItem(
@@ -692,7 +692,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_date_with_liv
         observed_business_date=date(2026, 4, 16),
         latest_business_date=date(2026, 4, 16),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_daily.stk_nineturn",
+        primary_execution_spec_key="stk_nineturn.maintain",
         full_sync_done=False,
     )
     snapshot_response = OpsFreshnessResponse(
@@ -726,7 +726,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_date_with_liv
                 target_table="core_serving.equity_nineturn",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="sync_daily.stk_nineturn",
+                primary_execution_spec_key="stk_nineturn.maintain",
             )
         ],
     )
@@ -764,7 +764,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_range_with_li
         earliest_business_date=None,
         latest_business_date=date(2026, 4, 15),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_daily.stk_nineturn",
+        primary_execution_spec_key="stk_nineturn.maintain",
         full_sync_done=False,
     )
     live_item = DatasetFreshnessItem(
@@ -780,7 +780,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_range_with_li
         observed_business_date=date(2026, 4, 16),
         latest_business_date=date(2026, 4, 16),
         freshness_status="fresh",
-        primary_execution_spec_key="sync_daily.stk_nineturn",
+        primary_execution_spec_key="stk_nineturn.maintain",
         full_sync_done=False,
     )
     snapshot_response = OpsFreshnessResponse(
@@ -814,7 +814,7 @@ def test_build_freshness_refreshes_snapshot_items_missing_business_range_with_li
                 target_table="core_serving.equity_nineturn",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="sync_daily.stk_nineturn",
+                primary_execution_spec_key="stk_nineturn.maintain",
             )
         ],
     )
@@ -847,7 +847,7 @@ def test_stk_period_month_prefers_observed_business_date_over_state_date() -> No
         target_table="core_serving.stk_period_bar",
         cadence="monthly",
         observed_date_column="trade_date",
-        primary_execution_spec_key="sync_daily.stk_period_bar_month",
+        primary_execution_spec_key="stk_period_bar_month.maintain",
     )
     state = Mock(
         last_success_at=datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc),
@@ -884,7 +884,7 @@ def test_broker_recommend_monthly_dataset_synced_at_month_start_is_fresh() -> No
         target_table="core_serving.broker_recommend",
         cadence="monthly",
         observed_date_column=None,
-        primary_execution_spec_key="sync_daily.broker_recommend",
+        primary_execution_spec_key="broker_recommend.maintain",
     )
     state = Mock(
         last_success_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
@@ -920,7 +920,7 @@ def test_reference_dataset_uses_last_sync_date_as_business_date_when_no_observed
         target_table="core_serving.security_serving",
         cadence="reference",
         observed_date_column=None,
-        primary_execution_spec_key="sync_history.stock_basic",
+        primary_execution_spec_key="stock_basic.maintain",
     )
     state = Mock(
         last_success_at=datetime(2026, 4, 15, 12, 0, tzinfo=timezone.utc),

@@ -147,3 +147,51 @@ class SyncJobStateDAO:
                 "last_success_at": datetime.now(timezone.utc),
             },
         )
+
+    def record_execution_outcome(
+        self,
+        job_name: str,
+        target_table: str,
+        *,
+        run_type: str,
+        run_profile: str | None = None,
+        last_success_date: date | None = None,
+        last_cursor: str | None = None,
+        rows_committed: int | None = None,
+    ) -> None:
+        _ = (run_profile, rows_committed)
+        self.session.execute(
+            text(
+                """
+                INSERT INTO ops.sync_job_state (
+                    job_name,
+                    target_table,
+                    last_success_date,
+                    last_success_at,
+                    last_cursor,
+                    full_sync_done
+                ) VALUES (
+                    :job_name,
+                    :target_table,
+                    :last_success_date,
+                    :last_success_at,
+                    :last_cursor,
+                    :full_sync_done
+                )
+                ON CONFLICT (job_name) DO UPDATE
+                SET target_table = EXCLUDED.target_table,
+                    last_success_date = COALESCE(EXCLUDED.last_success_date, ops.sync_job_state.last_success_date),
+                    last_success_at = EXCLUDED.last_success_at,
+                    last_cursor = EXCLUDED.last_cursor,
+                    full_sync_done = ops.sync_job_state.full_sync_done OR EXCLUDED.full_sync_done
+                """
+            ),
+            {
+                "job_name": job_name,
+                "target_table": target_table,
+                "last_success_date": last_success_date,
+                "last_success_at": datetime.now(timezone.utc),
+                "last_cursor": last_cursor,
+                "full_sync_done": bool(run_type == "FULL" and last_success_date is None),
+            },
+        )

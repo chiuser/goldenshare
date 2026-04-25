@@ -249,8 +249,8 @@ function mockTaskRecords(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/catalog") {
     return fulfillJson(route, {
       job_specs: [
-        { key: "sync_daily.daily", display_name: "股票日线同步" },
-        { key: "moneyflow_ind_dc", display_name: "板块资金流向（东财）" },
+        { key: "daily.maintain", display_name: "维护股票日线" },
+        { key: "moneyflow_ind_dc.maintain", display_name: "板块资金流向（东财）" },
       ],
       workflow_specs: [],
     });
@@ -273,9 +273,9 @@ function mockTaskRecords(route: Route, pathname: string) {
       items: [
         {
           id: 101,
-          spec_type: "job",
-          spec_key: "sync_daily.daily",
-          spec_display_name: "股票日线同步",
+          spec_type: "dataset_action",
+          spec_key: "daily.maintain",
+          spec_display_name: "维护股票日线",
           schedule_display_name: null,
           trigger_source: "manual",
           status: "running",
@@ -295,8 +295,8 @@ function mockTaskRecords(route: Route, pathname: string) {
         },
         {
           id: 102,
-          spec_type: "job",
-          spec_key: "moneyflow_ind_dc",
+          spec_type: "dataset_action",
+          spec_key: "moneyflow_ind_dc.maintain",
           spec_display_name: "板块资金流向（东财）",
           schedule_display_name: null,
           trigger_source: "scheduled",
@@ -333,9 +333,9 @@ function mockTaskManual(route: Route, pathname: string) {
     return fulfillJson(route, {
       id: 901,
       schedule_id: null,
-      spec_type: "job",
-      spec_key: "sync_daily.daily",
-      spec_display_name: "股票日线同步",
+      spec_type: "dataset_action",
+      spec_key: "daily.maintain",
+      spec_display_name: "维护股票日线",
       schedule_display_name: null,
       trigger_source: "manual",
       status: "queued",
@@ -411,7 +411,7 @@ function mockTaskManual(route: Route, pathname: string) {
               filters: [],
               search_keywords: ["daily", "股票日线"],
               action_order: 100,
-              route_spec_keys: ["sync_daily.daily", "backfill_equity_series.daily", "sync_history.daily"],
+              route_spec_keys: ["daily.maintain"],
             },
           ],
         },
@@ -427,12 +427,12 @@ function mockTaskAuto(route: Route, pathname: string) {
     return fulfillJson(route, {
       job_specs: [
         {
-          key: "sync_daily.daily",
-          display_name: "日常同步 / daily",
-          category: "sync_daily",
+          key: "daily.maintain",
+          display_name: "维护股票日线",
+          category: "maintenance",
           description: "按单个交易日同步股票日线。",
-          strategy_type: "incremental_by_date",
-          executor_kind: "sync_service",
+          strategy_type: "maintenance_action",
+          executor_kind: "maintenance",
           target_tables: ["core.equity_daily_bar"],
           supports_manual_run: true,
           supports_schedule: true,
@@ -471,8 +471,8 @@ function mockTaskAuto(route: Route, pathname: string) {
       items: [
         {
           id: 201,
-          spec_key: "sync_daily.daily",
-          spec_display_name: "股票日线同步",
+          spec_key: "daily.maintain",
+          spec_display_name: "维护股票日线",
           display_name: "股票日线自动同步",
           status: "active",
           schedule_type: "cron",
@@ -489,9 +489,9 @@ function mockTaskAuto(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/schedules/201") {
     return fulfillJson(route, {
       id: 201,
-      spec_type: "job",
-      spec_key: "sync_daily.daily",
-      spec_display_name: "股票日线同步",
+      spec_type: "dataset_action",
+      spec_key: "daily.maintain",
+      spec_display_name: "维护股票日线",
       display_name: "股票日线自动同步",
       status: "active",
       schedule_type: "cron",
@@ -534,8 +534,8 @@ function mockTaskAuto(route: Route, pathname: string) {
       items: [
         {
           id: 301,
-          spec_key: "sync_daily.daily",
-          spec_display_name: "股票日线同步",
+          spec_key: "daily.maintain",
+          spec_display_name: "维护股票日线",
           trigger_source: "scheduled",
           status: "success",
           requested_at: "2026-04-19T19:00:00+08:00",
@@ -582,12 +582,12 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
     return fulfillJson(route, {
       job_specs: [
         {
-          key: "sync_daily.daily",
-          display_name: "日常同步 / daily",
-          category: "sync_daily",
+          key: "daily.maintain",
+          display_name: "维护股票日线",
+          category: "maintenance",
           description: "按单个交易日同步股票日线。",
-          strategy_type: "incremental_by_date",
-          executor_kind: "sync_service",
+          strategy_type: "maintenance_action",
+          executor_kind: "maintenance",
           target_tables: ["core.equity_daily_bar"],
           supports_manual_run: true,
           supports_schedule: true,
@@ -616,12 +616,12 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
           ],
         },
         {
-          key: "moneyflow_ind_dc",
+          key: "moneyflow_ind_dc.maintain",
           display_name: "板块资金流向（东财）",
-          category: "sync_daily",
+          category: "maintenance",
           description: "按单个交易日同步板块资金流。",
-          strategy_type: "incremental_by_date",
-          executor_kind: "sync_service",
+          strategy_type: "maintenance_action",
+          executor_kind: "maintenance",
           target_tables: ["core.moneyflow_ind_dc"],
           supports_manual_run: true,
           supports_schedule: true,
@@ -653,8 +653,8 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
         items: [
           {
             id: 301,
-            spec_key: "sync_daily.daily",
-            spec_display_name: "股票日线同步",
+            spec_key: "daily.maintain",
+            spec_display_name: "维护股票日线",
             trigger_source: "scheduled",
             status: "success",
             requested_at: "2026-04-19T19:00:00+08:00",
@@ -670,9 +670,9 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
       items: [
         {
           id: 101,
-          spec_type: "job",
-          spec_key: "sync_daily.daily",
-          spec_display_name: "股票日线同步",
+          spec_type: "dataset_action",
+          spec_key: "daily.maintain",
+          spec_display_name: "维护股票日线",
           schedule_display_name: null,
           trigger_source: "manual",
           status: "running",
@@ -692,8 +692,8 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
         },
         {
           id: 102,
-          spec_type: "job",
-          spec_key: "moneyflow_ind_dc",
+          spec_type: "dataset_action",
+          spec_key: "moneyflow_ind_dc.maintain",
           spec_display_name: "板块资金流向（东财）",
           schedule_display_name: null,
           trigger_source: "scheduled",
@@ -724,8 +724,8 @@ function mockTaskDetail(route: Route, pathname: string) {
     return fulfillJson(route, {
       id: 1,
       schedule_id: null,
-      spec_type: "job",
-      spec_key: "backfill_equity_series.daily",
+      spec_type: "dataset_action",
+      spec_key: "daily.maintain",
       spec_display_name: "股票日线维护",
       resource_key: "daily",
       resource_display_name: "股票日线",
@@ -770,7 +770,7 @@ function mockTaskDetail(route: Route, pathname: string) {
       items: [
         {
           id: 10,
-          step_key: "backfill_equity_series.daily",
+          step_key: "daily.maintain",
           display_name: "股票日线维护",
           sequence_no: 1,
           unit_kind: null,

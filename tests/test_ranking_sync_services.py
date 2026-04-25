@@ -51,7 +51,7 @@ def test_ths_hot_point_incremental_expands_frontend_market_list() -> None:
     assert all(u.request_params["trade_date"] == "20260420" for u in units)
 
 
-def test_ths_hot_normalizer_sets_default_query_context() -> None:
+def test_ths_hot_normalizer_keeps_real_query_context() -> None:
     contract = get_sync_v2_contract("ths_hot")
     batch = SyncV2Normalizer().normalize(
         contract=contract,
@@ -68,6 +68,8 @@ def test_ths_hot_normalizer_sets_default_query_context() -> None:
                     "rank_time": "10:00:00",
                     "ts_name": "平安银行",
                     "rank": 1,
+                    "query_market": "热股",
+                    "query_is_new": "Y",
                 }
             ],
         ),
@@ -75,8 +77,8 @@ def test_ths_hot_normalizer_sets_default_query_context() -> None:
 
     assert batch.rows_rejected == 0
     row = batch.rows_normalized[0]
-    assert row["query_market"] == "__ALL__"
-    assert row["query_is_new"] == "__ALL__"
+    assert row["query_market"] == "热股"
+    assert row["query_is_new"] == "Y"
 
 
 def test_dc_hot_point_incremental_expands_three_enum_dimensions() -> None:
@@ -151,27 +153,8 @@ def test_dc_hot_point_incremental_expands_safe_defaults_when_filters_missing() -
         ("美股市场", "飙升榜", "Y"),
     ]
     assert all(u.request_params["trade_date"] == "20260402" for u in units)
-    assert all("__ALL__" not in u.request_params.values() for u in units)
 
-
-def test_dc_hot_point_incremental_expands_safe_defaults_when_all_token_is_used() -> None:
-    contract = get_sync_v2_contract("dc_hot")
-    request = RunRequest(
-        request_id="req-dc-hot-all-token",
-        dataset_key="dc_hot",
-        run_profile="point_incremental",
-        trigger_source="test",
-        trade_date=date(2026, 4, 2),
-        params={"market": "__ALL__", "hot_type": "__ALL__", "is_new": "__ALL__"},
-    )
-    validated = ContractValidator().validate(request, contract)
-    units = build_dc_hot_units(validated, contract, dao=None, settings=None, session=None)
-
-    assert len(units) == 8
-    assert all("__ALL__" not in u.request_params.values() for u in units)
-
-
-def test_dc_hot_normalizer_sets_default_query_context() -> None:
+def test_dc_hot_normalizer_keeps_real_query_context() -> None:
     contract = get_sync_v2_contract("dc_hot")
     batch = SyncV2Normalizer().normalize(
         contract=contract,
@@ -188,6 +171,9 @@ def test_dc_hot_normalizer_sets_default_query_context() -> None:
                     "rank_time": "10:00:00",
                     "ts_name": "平安银行",
                     "rank": 1,
+                    "query_market": "A股市场",
+                    "query_hot_type": "人气榜",
+                    "query_is_new": "Y",
                 }
             ],
         ),
@@ -195,9 +181,9 @@ def test_dc_hot_normalizer_sets_default_query_context() -> None:
 
     assert batch.rows_rejected == 0
     row = batch.rows_normalized[0]
-    assert row["query_market"] == "__ALL__"
-    assert row["query_hot_type"] == "__ALL__"
-    assert row["query_is_new"] == "__ALL__"
+    assert row["query_market"] == "A股市场"
+    assert row["query_hot_type"] == "人气榜"
+    assert row["query_is_new"] == "Y"
 
 
 def test_kpl_list_point_incremental_expands_tag_values() -> None:

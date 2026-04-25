@@ -50,23 +50,10 @@ const healthStatusLabelMap: Record<string, string> = {
 };
 
 const categoryLabelMap: Record<string, string> = {
-  sync_history: "历史同步",
-  sync_daily: "日常同步",
-  backfill_trade_cal: "交易日历回补",
-  backfill_equity_series: "股票纵向回补",
-  backfill_by_trade_date: "按交易日回补",
-  backfill_by_month: "按月份回补",
-  backfill_by_date_range: "按日期区间回补",
-  backfill_low_frequency: "低频事件回补",
-  backfill_fund_series: "基金按交易日回补",
-  backfill_index_series: "指数纵向回补",
-  sync_minute_history: "分钟行情同步",
   maintenance: "维护动作",
 };
 
 const executorKindLabelMap: Record<string, string> = {
-  sync_service: "同步服务",
-  history_backfill_service: "历史回补服务",
   maintenance: "维护任务",
 };
 
@@ -125,7 +112,7 @@ const serviceNameLabelMap: Record<string, string> = {
 
 const resourceLabelMap: Record<string, string> = {
   trade_cal: "交易日历",
-  stock_basic: "股票基础信息",
+  stock_basic: "股票主数据",
   hk_basic: "港股列表",
   us_basic: "美股列表",
   etf_basic: "ETF 基础信息",
@@ -185,17 +172,6 @@ const resourceLabelMap: Record<string, string> = {
 };
 
 const specPrefixLabelMap: Record<string, string> = {
-  sync_history: "历史同步",
-  sync_daily: "日常同步",
-  backfill_trade_cal: "交易日历回补",
-  backfill_equity_series: "股票纵向回补",
-  backfill_by_trade_date: "按交易日回补",
-  backfill_by_month: "按月份回补",
-  backfill_by_date_range: "按日期区间回补",
-  backfill_low_frequency: "低频事件回补",
-  backfill_fund_series: "基金按交易日回补",
-  backfill_index_series: "指数纵向回补",
-  sync_minute_history: "分钟行情同步",
   maintenance: "维护动作",
 };
 
@@ -299,6 +275,11 @@ export function formatSpecDisplayLabel(
     return workflowLabelMap[key];
   }
 
+  if (key.endsWith(".maintain")) {
+    const datasetKey = key.slice(0, -".maintain".length);
+    return stripMaintenanceAffix(specDisplayName || formatResourceLabel(datasetKey));
+  }
+
   if (key.includes(".")) {
     const [prefix, resource] = key.split(".", 2);
     return `${specPrefixLabelMap[prefix] || "任务"} / ${formatResourceLabel(resource)}`;
@@ -339,4 +320,116 @@ export function formatExecutionResourceLabel(item: {
   }
 
   return normalizeKey(item.spec_key) || "未命名任务";
+}
+
+export function formatProgressMessageLabel(message: string | null | undefined): string {
+  const raw = String(message || "").trim();
+  if (!raw) {
+    return "";
+  }
+  const ratioMatch = raw.match(/(\d+)\s*\/\s*(\d+)/);
+  const kv = Object.fromEntries([...raw.matchAll(/([a-zA-Z_]+)=([^\s]+)/g)].map((item) => [item[1], item[2]]));
+  if (!ratioMatch && Object.keys(kv).length === 0) {
+    return raw;
+  }
+
+  const labelMatch = raw.match(/^([^:：]+)[:：]\s*/);
+  const resourceKey = normalizeKey(labelMatch?.[1]);
+  const resourceLabel = resourceKey ? formatResourceLabel(resourceKey) : "";
+  const sentences: string[] = [];
+  if (ratioMatch) {
+    const prefix = resourceLabel ? `${resourceLabel}：` : "";
+    sentences.push(`${prefix}已完成 ${ratioMatch[1]}/${ratioMatch[2]} 个处理单元`);
+  } else if (resourceLabel) {
+    sentences.push(`${resourceLabel}：处理进展已更新`);
+  }
+
+  const cursorLabel = buildProgressCursorLabel(kv);
+  if (cursorLabel) {
+    sentences.push(cursorLabel);
+  }
+  if (kv.freq) {
+    sentences.push(`当前频度：${kv.freq}`);
+  }
+
+  const unitStats = buildProgressStatsLabel({
+    title: "当前处理对象结果",
+    fetched: kv.unit_fetched,
+    written: kv.unit_written,
+    committed: kv.unit_committed,
+    rejected: kv.unit_rejected,
+  });
+  if (unitStats) {
+    sentences.push(unitStats);
+  }
+
+  const totalStats = buildProgressStatsLabel({
+    title: "累计结果",
+    fetched: kv.fetched,
+    written: kv.written,
+    committed: kv.committed,
+    rejected: kv.rejected,
+  });
+  if (totalStats) {
+    sentences.push(totalStats);
+  }
+
+  return sentences.length ? `${sentences.join("。")}。` : raw;
+}
+
+function buildProgressCursorLabel(kv: Record<string, string | undefined>): string | null {
+  if (kv.trade_date) {
+    return `当前日期：${kv.trade_date}`;
+  }
+  if (kv.ts_code) {
+    return `当前股票：${kv.ts_code}${kv.security_name ? ` ${kv.security_name}` : ""}`;
+  }
+  if (kv.index_code) {
+    return `当前指数：${kv.index_code}${kv.index_name ? ` ${kv.index_name}` : ""}`;
+  }
+  const boardCode = kv.board_code || kv.con_code;
+  if (boardCode) {
+    return `当前板块：${boardCode}${kv.board_name ? ` ${kv.board_name}` : ""}`;
+  }
+  if (kv.enum_field || kv.enum_value) {
+    return `当前选项：${kv.enum_field || "枚举"}=${kv.enum_value || ""}`;
+  }
+  if (kv.code) {
+    return `当前代码：${kv.code}`;
+  }
+  return null;
+}
+
+function buildProgressStatsLabel(input: {
+  title: string;
+  fetched?: string;
+  written?: string;
+  committed?: string;
+  rejected?: string;
+}): string | null {
+  const parts: string[] = [];
+  const fetched = parseProgressCount(input.fetched);
+  const written = parseProgressCount(input.written);
+  const committed = parseProgressCount(input.committed);
+  const rejected = parseProgressCount(input.rejected);
+  if (fetched !== null) {
+    parts.push(`读取 ${fetched} 条`);
+  }
+  if (committed !== null) {
+    parts.push(`已提交 ${committed} 条`);
+  } else if (written !== null) {
+    parts.push(`写入 ${written} 条`);
+  }
+  if (rejected !== null) {
+    parts.push(`拒绝 ${rejected} 条`);
+  }
+  return parts.length ? `${input.title}：${parts.join("，")}` : null;
+}
+
+function parseProgressCount(value: string | undefined): number | null {
+  if (value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }

@@ -23,6 +23,7 @@ import type {
 import { formatDateTimeLabel } from "../shared/date-format";
 import {
   formatExecutionResourceLabel,
+  formatProgressMessageLabel,
   formatSpecDisplayLabel,
   formatStatusLabel,
   formatTriggerSourceLabel,
@@ -258,13 +259,13 @@ export function OpsTasksPage() {
       return `当前进展 ${item.progress_current}/${item.progress_total}（${item.progress_percent ?? 0}%）`;
     }
     if (item.progress_message && (item.status === "queued" || item.status === "running" || item.status === "canceling")) {
-      return item.progress_message;
+      return formatProgressMessageLabel(item.progress_message) || item.progress_message;
     }
     if (item.summary_message) {
       return item.summary_message;
     }
     if (item.progress_message) {
-      return item.progress_message;
+      return formatProgressMessageLabel(item.progress_message) || item.progress_message;
     }
     if (item.status === "queued") {
       return "系统已经收到这次任务，正在等待开始处理。";

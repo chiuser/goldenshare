@@ -12,6 +12,7 @@ from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.specs import get_job_spec, get_workflow_spec
 from src.app.exceptions import WebAppError
+from src.foundation.datasets.registry import get_dataset_definition
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,9 +190,19 @@ class OperationsExecutionService:
 
     @staticmethod
     def _validate_spec(spec_type: str, spec_key: str) -> None:
+        if spec_type == "dataset_action":
+            dataset_key = spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+            try:
+                get_dataset_definition(dataset_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=404, code="not_found", message="Dataset definition does not exist") from exc
+            return
         if spec_type == "job":
-            if get_job_spec(spec_key) is None:
+            job_spec = get_job_spec(spec_key)
+            if job_spec is None:
                 raise WebAppError(status_code=404, code="not_found", message="Job spec does not exist")
+            if job_spec.category != "maintenance":
+                raise WebAppError(status_code=422, code="validation_error", message="Legacy job specs are no longer accepted; use dataset_action")
             return
         if spec_type == "workflow":
             if get_workflow_spec(spec_key) is None:
@@ -232,6 +243,10 @@ class OperationsExecutionService:
 
     @staticmethod
     def _resolve_dataset_key(*, spec_type: str, spec_key: str) -> str | None:
+        if spec_type == "dataset_action":
+            if spec_key.endswith(".maintain"):
+                return spec_key.rsplit(".", 1)[0]
+            return spec_key
         if spec_type == "job":
             if "." in spec_key:
                 return spec_key.split(".", 1)[1]
@@ -254,14 +269,25 @@ class OperationsExecutionService:
 
     @staticmethod
     def _derive_run_scope(*, spec_type: str, spec_key: str, params_json: dict[str, Any]) -> str:
+        if spec_type == "dataset_action":
+            time_input = params_json.get("time_input") or {}
+            mode = str(time_input.get("mode") or "").strip()
+            if not mode:
+                if any(params_json.get(key) for key in ("start_date", "end_date", "start_month", "end_month")):
+                    mode = "range"
+                elif any(params_json.get(key) for key in ("trade_date", "month")):
+                    mode = "point"
+            if mode == "range":
+                return "range"
+            if mode == "none":
+                return "full"
+            return "single"
         if spec_type == "workflow":
             return "workflow"
         if any(params_json.get(key) for key in ("start_date", "end_date", "start_month", "end_month")):
             return "range"
         if any(params_json.get(key) for key in ("trade_date", "month")):
             return "single"
-        if spec_key.startswith("sync_history."):
-            return "full"
         return "single"
 
     @staticmethod
@@ -269,6 +295,19 @@ class OperationsExecutionService:
         explicit = str(params_json.get("run_profile") or "").strip()
         if explicit in {"point_incremental", "range_rebuild", "snapshot_refresh"}:
             return explicit
+        if spec_type == "dataset_action":
+            time_input = params_json.get("time_input") or {}
+            mode = str(time_input.get("mode") or "").strip()
+            if not mode:
+                if any(params_json.get(key) for key in ("start_date", "end_date", "start_month", "end_month")):
+                    mode = "range"
+                elif any(params_json.get(key) for key in ("trade_date", "month")):
+                    mode = "point"
+            if mode == "range":
+                return "range_rebuild"
+            if mode == "none":
+                return "snapshot_refresh"
+            return "point_incremental"
         if spec_type == "workflow":
             return "snapshot_refresh"
         if any(params_json.get(key) for key in ("start_date", "end_date", "start_month", "end_month")):

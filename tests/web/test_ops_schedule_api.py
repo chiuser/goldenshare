@@ -61,8 +61,8 @@ def test_ops_schedule_create_rejects_unschedulable_spec(app_client, user_factory
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "job",
-            "spec_key": "backfill_index_series.index_weekly",
+                "spec_type": "job",
+                "spec_key": "maintenance.rebuild_index_kline_serving",
             "display_name": "错误配置",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * *",
@@ -77,8 +77,8 @@ def test_ops_schedule_create_rejects_unschedulable_spec(app_client, user_factory
 def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="active",
         schedule_type="cron",
@@ -95,7 +95,7 @@ def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job
     list_payload = list_response.json()
     assert list_payload["total"] == 1
     assert list_payload["items"][0]["id"] == schedule.id
-    assert list_payload["items"][0]["spec_display_name"] == "历史同步 / stock_basic"
+    assert list_payload["items"][0]["spec_display_name"] == "维护股票主数据"
 
     update_response = app_client.patch(
         f"/api/v1/ops/schedules/{schedule.id}",
@@ -138,8 +138,8 @@ def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job
 def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, user_factory, job_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="paused",
         schedule_type="cron",
@@ -180,8 +180,8 @@ def test_ops_schedule_delete_active_schedule_pauses_before_delete(
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="active",
         schedule_type="cron",
@@ -234,8 +234,8 @@ def test_ops_schedule_once_requires_timezone_aware_next_run_at(app_client, user_
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "job",
-            "spec_key": "sync_history.stock_basic",
+            "spec_type": "dataset_action",
+            "spec_key": "stock_basic.maintain",
             "display_name": "单次任务",
             "schedule_type": "once",
             "timezone": "Asia/Shanghai",

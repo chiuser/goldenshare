@@ -155,6 +155,7 @@ docs/
 2. 整合动作必须同步更新 `docs/README.md`。
 3. 删除文档前，先确认无代码路径与流程说明依赖。
 4. 文档链接必须可达，禁止保留死链。
+5. P0/P1 工程风险统一登记到 [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)，避免风险只停留在口头讨论或单次事故复盘里。
 
 文档维护日常基线见：
 

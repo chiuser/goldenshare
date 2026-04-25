@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 import json
 import re
@@ -12,6 +12,8 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
+from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.services.sync_v2.contracts import PlanUnit
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.ops.models.ops.job_execution import JobExecution
@@ -20,7 +22,6 @@ from src.ops.models.ops.job_execution_step import JobExecutionStep
 from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.specs import get_job_spec, get_workflow_spec
 from src.app.exceptions import WebAppError
-from src.ops.services.operations_history_backfill_service import HistoryBackfillService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.foundation.services.sync_v2.runtime_registry import build_sync_service
 from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
@@ -52,6 +53,9 @@ class OperationsDispatcher:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
 
     def dispatch(self, session: Session, execution: JobExecution) -> DispatchOutcome:
+        if execution.spec_type == "dataset_action":
+            return self._dispatch_dataset_action(session, execution)
+
         if execution.spec_type == "job":
             job_spec = get_job_spec(execution.spec_key)
             if job_spec is None:
@@ -65,6 +69,84 @@ class OperationsDispatcher:
             return self._dispatch_workflow(session, execution, workflow_spec)
 
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported execution spec_type")
+
+    def _dispatch_dataset_action(self, session: Session, execution: JobExecution) -> DispatchOutcome:
+        action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(execution))
+        plan = DatasetActionResolver(session).build_plan(action_request)
+        display_name = f"维护 {plan.dataset_key}"
+        step = self._create_step(session, execution_id=execution.id, step_key=plan.plan_id, display_name=display_name, sequence_no=1)
+        unit = self._create_step_unit(session, execution_id=execution.id, step_id=step.id, unit_id=f"{plan.plan_id}:1")
+        self._event(session, execution.id, "step_started", step_id=step.id, unit_id=unit.unit_id, message=display_name)
+        session.commit()
+        try:
+            rows_fetched, rows_written, summary_message = self._run_dataset_action_plan(session, execution, action_request, plan, step.id)
+            step.status = "success"
+            step.ended_at = datetime.now(timezone.utc)
+            step.rows_fetched = rows_fetched
+            step.rows_written = rows_written
+            step.message = summary_message
+            step.unit_total = plan.planning.unit_count
+            step.unit_done = plan.planning.unit_count
+            step.unit_failed = 0
+            self._finalize_step_unit(unit, status="success", rows_fetched=rows_fetched, rows_written=rows_written)
+            self._event(session, execution.id, "step_succeeded", step_id=step.id, unit_id=unit.unit_id, message=summary_message)
+            session.commit()
+            return DispatchOutcome(status="success", rows_fetched=rows_fetched, rows_written=rows_written, summary_message=summary_message)
+        except ExecutionCanceledError as exc:
+            safe_message = self._sanitize_error_message(str(exc))
+            session.rollback()
+            step = session.get(JobExecutionStep, step.id)
+            unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
+            if step is not None:
+                step.status = "canceled"
+                step.ended_at = datetime.now(timezone.utc)
+                step.message = self._sanitize_step_message(safe_message)
+                step.unit_total = plan.planning.unit_count
+                step.unit_done = 0
+                step.unit_failed = 1
+            if unit is not None:
+                self._finalize_step_unit(unit, status="canceled", error_message=safe_message)
+            self._event(
+                session,
+                execution.id,
+                "step_canceled",
+                step_id=step.id if step else None,
+                unit_id=unit.unit_id if unit is not None else None,
+                message=safe_message,
+                level="WARNING",
+            )
+            session.commit()
+            return DispatchOutcome(status="canceled", summary_message=safe_message)
+        except Exception as exc:
+            safe_message = self._sanitize_error_message(str(exc))
+            session.rollback()
+            step = session.get(JobExecutionStep, step.id)
+            unit = session.get(JobExecutionUnit, unit.id) if unit is not None else None
+            if step is not None:
+                step.status = "failed"
+                step.ended_at = datetime.now(timezone.utc)
+                step.message = self._sanitize_step_message(safe_message)
+                step.unit_total = plan.planning.unit_count
+                step.unit_done = 0
+                step.unit_failed = 1
+            if unit is not None:
+                self._finalize_step_unit(unit, status="failed", error_code="execution_failed", error_message=safe_message)
+            self._event(
+                session,
+                execution.id,
+                "step_failed",
+                step_id=step.id if step else None,
+                unit_id=unit.unit_id if unit is not None else None,
+                message=safe_message,
+                level="ERROR",
+            )
+            session.commit()
+            return DispatchOutcome(
+                status="failed",
+                error_code="execution_failed",
+                error_message=safe_message,
+                summary_message=safe_message,
+            )
 
     def _dispatch_job(self, session: Session, execution: JobExecution, job_spec) -> DispatchOutcome:  # type: ignore[no-untyped-def]
         step = self._create_step(session, execution_id=execution.id, step_key=job_spec.key, display_name=job_spec.display_name, sequence_no=1)
@@ -190,21 +272,23 @@ class OperationsDispatcher:
                 session.commit()
                 continue
 
-            job_spec = get_job_spec(workflow_step.job_key)
-            if job_spec is None:
+            params = dict(execution.params_json or {})
+            params.update(workflow_step.default_params)
+            params.update(workflow_step.params_override)
+            effective_failure_policy = workflow_step.failure_policy_override or workflow_spec.failure_policy_default or "fail_fast"
+            step_spec_type = "dataset_action" if workflow_step.job_key.endswith(".maintain") else "job"
+            job_spec = None if step_spec_type == "dataset_action" else get_job_spec(workflow_step.job_key)
+            if step_spec_type == "job" and job_spec is None:
                 message = f"Workflow step job spec does not exist: {workflow_step.job_key}"
                 self._event(session, execution.id, "failed", message=message, level="ERROR")
                 session.commit()
                 return DispatchOutcome(status="failed", error_code="workflow_invalid", error_message=message, summary_message=message)
 
-            params = dict(execution.params_json or {})
-            params.update(workflow_step.default_params)
-            params.update(workflow_step.params_override)
-            effective_failure_policy = workflow_step.failure_policy_override or workflow_spec.failure_policy_default or "fail_fast"
             step_execution = JobExecution(
                 id=execution.id,
-                spec_type="job",
-                spec_key=job_spec.key,
+                spec_type=step_spec_type,
+                spec_key=workflow_step.job_key if step_spec_type == "dataset_action" else job_spec.key,
+                dataset_key=workflow_step.dataset_key,
                 trigger_source=execution.trigger_source,
                 status=execution.status,
                 requested_at=execution.requested_at,
@@ -212,6 +296,8 @@ class OperationsDispatcher:
                 correlation_id=execution.correlation_id,
                 run_profile=execution.run_profile,
                 workflow_profile=execution.workflow_profile,
+                schedule_id=execution.schedule_id,
+                requested_by_user_id=execution.requested_by_user_id,
             )
             step = self._create_step(
                 session,
@@ -226,14 +312,27 @@ class OperationsDispatcher:
             self._event(session, execution.id, "step_started", step_id=step.id, unit_id=unit.unit_id, message=workflow_step.display_name)
             session.commit()
             try:
-                rows_fetched, rows_written, summary_message = self._run_job(session, step_execution, job_spec, step.id)
+                if step_spec_type == "dataset_action":
+                    action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_execution))
+                    plan = DatasetActionResolver(session).build_plan(action_request)
+                    rows_fetched, rows_written, summary_message = self._run_dataset_action_plan(
+                        session,
+                        step_execution,
+                        action_request,
+                        plan,
+                        step.id,
+                    )
+                    step.unit_total = plan.planning.unit_count
+                    step.unit_done = plan.planning.unit_count
+                else:
+                    rows_fetched, rows_written, summary_message = self._run_job(session, step_execution, job_spec, step.id)
+                    step.unit_total = 1
+                    step.unit_done = 1
                 step.status = "success"
                 step.ended_at = datetime.now(timezone.utc)
                 step.rows_fetched = rows_fetched
                 step.rows_written = rows_written
                 step.message = summary_message
-                step.unit_total = 1
-                step.unit_done = 1
                 step.unit_failed = 0
                 self._finalize_step_unit(
                     unit,
@@ -326,96 +425,176 @@ class OperationsDispatcher:
             error_message=last_message if had_failures else None,
         )
 
-    def _run_job(self, session: Session, execution: JobExecution, job_spec, step_id: int) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
+    def _build_dataset_action_request(self, execution: JobExecution) -> DatasetActionRequest:
         params = dict(execution.params_json or {})
-        if job_spec.executor_kind == "sync_service":
-            return self._run_sync_job(session, execution, job_spec, params, step_id=step_id)
-        if job_spec.executor_kind == "history_backfill_service":
-            return self._run_backfill_job(session, execution, job_spec, params, step_id)
-        if job_spec.executor_kind == "maintenance":
-            return self._run_maintenance_job(session, job_spec, params)
-        raise ValueError(f"Unsupported executor kind: {job_spec.executor_kind}")
+        time_payload = dict(params.get("time_input") or {})
+        if not time_payload:
+            time_payload = self._infer_dataset_action_time_payload(params=params, execution=execution)
+        filters = params.get("filters")
+        if not isinstance(filters, dict):
+            filters = {
+                key: value
+                for key, value in params.items()
+                if key
+                not in {
+                    "action",
+                    "dataset_key",
+                    "time_input",
+                    "filters",
+                    "trade_date",
+                    "start_date",
+                    "end_date",
+                    "month",
+                    "start_month",
+                    "end_month",
+                    "ann_date",
+                    "date_field",
+                    "correlation_id",
+                    "rerun_id",
+                    "run_profile",
+                    "run_scope",
+                    "source_key",
+                    "stage",
+                    "policy_version",
+                    "resume_from_step_key",
+                    "failure_policy_default",
+                }
+            }
+        dataset_key = str(params.get("dataset_key") or execution.dataset_key or execution.spec_key.rsplit(".", 1)[0]).strip()
+        action = str(params.get("action") or "maintain").strip() or "maintain"
+        return DatasetActionRequest(
+            dataset_key=dataset_key,
+            action=action,
+            time_input=DatasetTimeInput(
+                mode=str(time_payload.get("mode") or "none").strip() or "none",
+                trade_date=self._optional_date(time_payload.get("trade_date")),
+                start_date=self._optional_date(time_payload.get("start_date")),
+                end_date=self._optional_date(time_payload.get("end_date")),
+                month=self._optional_text(time_payload.get("month")),
+                start_month=self._optional_text(time_payload.get("start_month")),
+                end_month=self._optional_text(time_payload.get("end_month")),
+                date_field=self._optional_text(time_payload.get("date_field")),
+            ),
+            filters=dict(filters),
+            trigger_source=execution.trigger_source,
+            requested_by_user_id=execution.requested_by_user_id,
+            schedule_id=execution.schedule_id,
+            execution_id=execution.id,
+        )
 
-    def _run_sync_job(
+    def _prepare_dataset_action_request(self, session: Session, request: DatasetActionRequest) -> DatasetActionRequest:
+        time_input = request.time_input
+        if time_input.mode != "point" or time_input.trade_date is not None or time_input.month:
+            return request
+        trade_date = self._resolve_default_trade_date(session)
+        if trade_date is None:
+            raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
+        return replace(request, time_input=replace(time_input, trade_date=trade_date))
+
+    @classmethod
+    def _infer_dataset_action_time_payload(cls, *, params: dict[str, Any], execution: JobExecution) -> dict[str, Any]:
+        if params.get("trade_date"):
+            return {"mode": "point", "trade_date": params.get("trade_date")}
+        if params.get("month"):
+            return {"mode": "point", "month": params.get("month")}
+        if params.get("start_date") or params.get("end_date"):
+            return {
+                "mode": "range",
+                "start_date": params.get("start_date"),
+                "end_date": params.get("end_date"),
+            }
+        if params.get("start_month") or params.get("end_month"):
+            return {
+                "mode": "range",
+                "start_month": params.get("start_month"),
+                "end_month": params.get("end_month"),
+            }
+        dataset_key = str(params.get("dataset_key") or execution.dataset_key or "").strip()
+        if not dataset_key and execution.spec_key.endswith(".maintain"):
+            dataset_key = execution.spec_key.rsplit(".", 1)[0]
+        if not dataset_key:
+            return {"mode": "none"}
+        try:
+            from src.foundation.datasets.registry import get_dataset_definition
+
+            definition = get_dataset_definition(dataset_key)
+        except KeyError:
+            return {"mode": "none"}
+        if definition.date_model.date_axis == "none":
+            return {"mode": "none"}
+        modes = definition.capabilities.get_action("maintain").supported_time_modes if definition.capabilities.get_action("maintain") else ()
+        if "point" in modes:
+            return {"mode": "point"}
+        if "range" in modes:
+            return {"mode": "range"}
+        return {"mode": "none"}
+
+    def _run_dataset_action_plan(
         self,
         session: Session,
         execution: JobExecution,
-        job_spec,
-        params: dict[str, Any],
-        *,
-        step_id: int | None = None,
+        action_request: DatasetActionRequest,
+        plan,
+        step_id: int,
     ) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        _, resource = job_spec.key.split(".", 1)
-        normalized_params = self._normalize_dates(params)
-        parsed_trade_date: date | None = None
         execution_context = JobExecutionSyncContext(session)
-        run_log_store = OpsSyncRunLogStore(session)
-        job_state_store = OpsSyncJobStateStore(session)
-        index_series_active_store = OpsIndexSeriesActiveStore(session)
-        if job_spec.category == "sync_daily":
-            service = build_sync_service(
-                resource,
-                session,
-                execution_context=execution_context,
-                run_log_store=run_log_store,
-                job_state_store=job_state_store,
-                index_series_active_store=index_series_active_store,
+        service = build_sync_service(
+            plan.dataset_key,
+            session,
+            execution_context=execution_context,
+            run_log_store=OpsSyncRunLogStore(session),
+            job_state_store=OpsSyncJobStateStore(session),
+            index_series_active_store=OpsIndexSeriesActiveStore(session),
+        )
+        filters = dict(action_request.filters or {})
+        time_input = action_request.time_input
+        parsed_trade_date: date | None = None
+        if plan.run_profile == "point_incremental":
+            parsed_trade_date = time_input.trade_date
+            if parsed_trade_date is None:
+                parsed_trade_date = self._resolve_default_trade_date(session)
+            if parsed_trade_date is None:
+                raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
+            if not time_input.month and self._is_closed_trade_date(session, parsed_trade_date):
+                return 0, 0, f"skip {plan.dataset_key} trade_date={parsed_trade_date.isoformat()} 非交易日"
+            extra_params = dict(filters)
+            if time_input.month:
+                extra_params["month"] = time_input.month
+            result = service.run_incremental(
+                trade_date=parsed_trade_date,
+                execution_id=execution.id,
+                _plan_units=self._plan_units_from_snapshot(plan),
+                **extra_params,
             )
-            supported_param_keys = {param.key for param in (job_spec.supported_params or ())}
-            if "month" in supported_param_keys and "trade_date" not in supported_param_keys:
-                result = service.run_incremental(execution_id=execution.id, **normalized_params)
-            else:
-                trade_date = normalized_params.get("trade_date")
-                if not trade_date:
-                    trade_date = self._resolve_default_trade_date(session)
-                if not trade_date:
-                    raise ValueError("未找到可用交易日，请先同步交易日历或手动指定日期。")
-                parsed_trade_date = self._parse_date(trade_date) if trade_date else None
-                if parsed_trade_date and self._is_closed_trade_date(session, parsed_trade_date):
-                    summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
-                    return 0, 0, summary
-                extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
-                result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
-        elif job_spec.category == "sync_minute_history":
-            service = build_sync_service(
-                resource,
-                session,
-                execution_context=execution_context,
-                run_log_store=run_log_store,
-                job_state_store=job_state_store,
-                index_series_active_store=index_series_active_store,
+        elif plan.run_profile == "range_rebuild":
+            if time_input.start_date is None or time_input.end_date is None:
+                raise ValueError("range maintain requires start_date and end_date")
+            result = service.run_full(
+                execution_id=execution.id,
+                run_profile="range_rebuild",
+                start_date=time_input.start_date,
+                end_date=time_input.end_date,
+                _plan_units=self._plan_units_from_snapshot(plan),
+                **filters,
             )
-            trade_date = normalized_params.get("trade_date")
-            if trade_date:
-                parsed_trade_date = self._parse_date(trade_date)
-                if self._is_closed_trade_date(session, parsed_trade_date):
-                    summary = f"skip {job_spec.key} trade_date={parsed_trade_date.isoformat()} 非交易日"
-                    return 0, 0, summary
-                extra_params = {key: value for key, value in normalized_params.items() if key != "trade_date"}
-                result = service.run_incremental(trade_date=parsed_trade_date, execution_id=execution.id, **extra_params)
-            else:
-                result = service.run_full(execution_id=execution.id, **normalized_params)
         else:
-            service = build_sync_service(
-                resource,
-                session,
-                execution_context=execution_context,
-                run_log_store=run_log_store,
-                job_state_store=job_state_store,
-                index_series_active_store=index_series_active_store,
+            result = service.run_full(
+                execution_id=execution.id,
+                run_profile="snapshot_refresh",
+                _plan_units=self._plan_units_from_snapshot(plan),
+                **filters,
             )
-            result = service.run_full(execution_id=execution.id, **normalized_params)
 
         light_note = self._refresh_serving_light_if_needed(
             session,
             execution_id=execution.id,
             step_id=step_id,
-            resource=resource,
+            resource=plan.dataset_key,
             rows_written=int(result.rows_written or 0),
             trade_date=parsed_trade_date,
-            start_date=self._optional_date(normalized_params.get("start_date")),
-            end_date=self._optional_date(normalized_params.get("end_date")),
-            ts_code=self._normalize_single_ts_code(normalized_params.get("ts_code")),
+            start_date=time_input.start_date,
+            end_date=time_input.end_date,
+            ts_code=self._normalize_single_ts_code(filters.get("ts_code")),
         )
         summary_message = self._append_row_stats_if_missing(
             result.message,
@@ -424,137 +603,29 @@ class OperationsDispatcher:
         )
         if light_note:
             summary_message = f"{summary_message}；{light_note}" if summary_message else light_note
-        return result.rows_fetched, result.rows_written, summary_message
+        return int(result.rows_fetched or 0), int(result.rows_written or 0), summary_message
 
-    def _run_backfill_job(
-        self,
-        session: Session,
-        execution: JobExecution,
-        job_spec,
-        params: dict[str, Any],
-        step_id: int,
-    ) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        service = HistoryBackfillService(
-            session,
-            execution_context=JobExecutionSyncContext(session),
-            run_log_store=OpsSyncRunLogStore(session),
-            job_state_store=OpsSyncJobStateStore(session),
-            index_series_active_store=OpsIndexSeriesActiveStore(session),
+    @staticmethod
+    def _plan_units_from_snapshot(plan) -> tuple[PlanUnit, ...]:  # type: ignore[no-untyped-def]
+        return tuple(
+            PlanUnit(
+                unit_id=unit.unit_id,
+                dataset_key=unit.dataset_key,
+                source_key=unit.source_key,
+                trade_date=unit.trade_date,
+                request_params=dict(unit.request_params),
+                progress_context=dict(unit.progress_context),
+                pagination_policy=unit.pagination_policy,
+                page_limit=unit.page_limit,
+            )
+            for unit in plan.units
         )
-        normalized = self._normalize_dates(params)
 
-        def on_progress(message: str) -> None:
-            progress_payload = self._build_progress_payload(message)
-            self._update_execution_progress(session, execution.id, progress_payload)
-            self._event(
-                session,
-                execution.id,
-                "step_progress",
-                step_id=step_id,
-                message=message,
-                payload_json=progress_payload,
-            )
-            session.commit()
-
-        resource = job_spec.key.split(".", 1)[1]
-        if job_spec.category == "backfill_trade_cal":
-            summary = service.backfill_trade_calendar(
-                self._require_date(normalized, "start_date"),
-                self._require_date(normalized, "end_date"),
-                exchange=normalized.get("exchange"),
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_equity_series":
-            summary = service.backfill_equity_series(
-                resource=resource,
-                start_date=self._require_date(normalized, "start_date"),
-                end_date=self._require_date(normalized, "end_date"),
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_by_trade_date":
-            summary = service.backfill_by_trade_dates(
-                resource=resource,
-                start_date=self._require_date(normalized, "start_date"),
-                end_date=self._require_date(normalized, "end_date"),
-                exchange=normalized.get("exchange"),
-                exchange_id=normalized.get("exchange_id"),
-                ts_code=normalized.get("ts_code"),
-                con_code=normalized.get("con_code"),
-                idx_type=normalized.get("idx_type"),
-                market=normalized.get("market"),
-                hot_type=normalized.get("hot_type"),
-                is_new=normalized.get("is_new"),
-                suspend_type=normalized.get("suspend_type"),
-                content_type=normalized.get("content_type"),
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_low_frequency":
-            summary = service.backfill_low_frequency_by_security(
-                resource=resource,
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_fund_series":
-            summary = service.backfill_fund_series(
-                resource=resource,
-                start_date=self._require_date(normalized, "start_date"),
-                end_date=self._require_date(normalized, "end_date"),
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_index_series":
-            summary = service.backfill_index_series(
-                resource=resource,
-                start_date=self._require_date(normalized, "start_date"),
-                end_date=self._require_date(normalized, "end_date"),
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        elif job_spec.category == "backfill_by_month":
-            summary = service.backfill_by_months(
-                resource=resource,
-                start_month=self._require_value(normalized, "start_month"),
-                end_month=self._require_value(normalized, "end_month"),
-                offset=int(normalized.get("offset", 0)),
-                limit=self._optional_int(normalized.get("limit")),
-                progress=on_progress,
-                execution_id=execution.id,
-            )
-        else:
-            raise ValueError(f"Unsupported backfill category: {job_spec.category}")
-
-        light_note = self._refresh_serving_light_if_needed(
-            session,
-            execution_id=execution.id,
-            step_id=step_id,
-            resource=resource,
-            rows_written=int(summary.rows_written or 0),
-            start_date=self._optional_date(normalized.get("start_date")),
-            end_date=self._optional_date(normalized.get("end_date")),
-            ts_code=self._normalize_single_ts_code(normalized.get("ts_code")),
-        )
-        rows_fetched = int(summary.rows_fetched or 0)
-        rows_written = int(summary.rows_written or 0)
-        summary_message = self._append_row_stats_if_missing(
-            f"units={summary.units_processed}",
-            rows_fetched=rows_fetched,
-            rows_written=rows_written,
-        )
-        if light_note:
-            summary_message = f"{summary_message}；{light_note}"
-        return rows_fetched, rows_written, summary_message
+    def _run_job(self, session: Session, execution: JobExecution, job_spec, step_id: int) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
+        params = dict(execution.params_json or {})
+        if job_spec.executor_kind == "maintenance":
+            return self._run_maintenance_job(session, job_spec, params)
+        raise ValueError(f"Unsupported executor kind: {job_spec.executor_kind}")
 
     def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         if job_spec.key == "maintenance.rebuild_dm":
@@ -811,7 +882,7 @@ class OperationsDispatcher:
         if unit is None:
             return
         ended_at = datetime.now(timezone.utc)
-        started_at = unit.started_at or ended_at
+        started_at = OperationsDispatcher._as_aware_utc(unit.started_at) if unit.started_at else ended_at
         unit.status = status
         unit.rows_fetched = rows_fetched
         unit.rows_written = rows_written
@@ -819,6 +890,12 @@ class OperationsDispatcher:
         unit.error_message = error_message
         unit.ended_at = ended_at
         unit.duration_ms = max(int((ended_at - started_at).total_seconds() * 1000), 0)
+
+    @staticmethod
+    def _as_aware_utc(value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _event(
         self,
@@ -1075,6 +1152,13 @@ class OperationsDispatcher:
         if isinstance(value, date):
             return value
         return date.fromisoformat(str(value))
+
+    @staticmethod
+    def _optional_text(value: Any) -> str | None:
+        if value in (None, ""):
+            return None
+        text = str(value).strip()
+        return text or None
 
     @staticmethod
     def _normalize_single_ts_code(value: Any) -> str | None:

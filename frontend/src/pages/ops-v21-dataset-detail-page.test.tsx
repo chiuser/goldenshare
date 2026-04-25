@@ -63,7 +63,7 @@ describe("V2.1 数据集详情页", () => {
                 {
                   dataset_key: "daily",
                   resource_key: "daily",
-                  job_name: "sync_daily.daily",
+                  job_name: "maintain_daily",
                   display_name: "股票日线",
                   cadence: "daily",
                   target_table: "core_serving.daily",
@@ -82,7 +82,7 @@ describe("V2.1 数据集详情页", () => {
                   recent_failure_message: null,
                   recent_failure_summary: null,
                   recent_failure_at: null,
-                  primary_execution_spec_key: "sync_daily.daily",
+                  primary_execution_spec_key: "daily.maintain",
                   auto_schedule_status: "active",
                   auto_schedule_total: 1,
                   auto_schedule_active: 1,
@@ -159,8 +159,9 @@ describe("V2.1 数据集详情页", () => {
           items: [
             {
               id: 101,
-              spec_key: "sync_daily.daily",
-              spec_display_name: "股票日线同步",
+              spec_type: "dataset_action",
+              spec_key: "daily.maintain",
+              spec_display_name: "维护股票日线",
               trigger_source: "manual",
               status: "success",
               requested_at: "2026-04-17T09:00:00+08:00",
@@ -240,5 +241,13 @@ describe("V2.1 数据集详情页", () => {
     expect(await screen.findByText("策略 v3")).toBeInTheDocument();
     expect(await screen.findByText("101")).toBeInTheDocument();
     expect(await screen.findByText("tushare")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "去处理" })).toHaveAttribute(
+      "href",
+      "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action",
+    );
+    expect(screen.getByRole("link", { name: "手动执行" })).toHaveAttribute(
+      "href",
+      "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action",
+    );
   });
 });

@@ -65,19 +65,19 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     )
     job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="sync_daily.daily",
+        spec_key="daily.maintain",
         status="queued",
         requested_at=now,
     )
     job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="sync_daily.moneyflow",
+        spec_key="moneyflow.maintain",
         status="running",
         requested_at=now,
     )
     job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="backfill_equity_series.daily",
+        spec_key="daily.maintain",
         status="success",
         requested_at=now,
         rows_fetched=100,
@@ -85,7 +85,7 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     )
     failed = job_execution_factory(
         requested_by_user_id=admin.id,
-        spec_key="backfill_index_series.index_monthly",
+        spec_key="index_monthly.maintain",
         status="failed",
         requested_at=now,
         error_code="task_failed",

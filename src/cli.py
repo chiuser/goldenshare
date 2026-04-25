@@ -17,9 +17,6 @@ from src.cli_parts.shared import (
     resolve_default_sync_date as _resolve_default_sync_date_impl,
 )
 from src.cli_parts.sync_handlers import (
-    run_sync_daily as _run_sync_daily_impl,
-    run_sync_history as _run_sync_history_impl,
-    run_sync_minute_history as _run_sync_minute_history_impl,
     run_sync_snapshot as _run_sync_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
@@ -38,14 +35,7 @@ from src.cli_parts.ops_handlers import (
     run_reconcile_moneyflow as _run_reconcile_moneyflow_impl,
     run_reconcile_stock_basic as _run_reconcile_stock_basic_impl,
 )
-from src.cli_parts.backfill_handlers import (
-    run_backfill_by_date_range as _run_backfill_by_date_range_impl,
-    run_backfill_by_trade_date as _run_backfill_by_trade_date_impl,
-    run_backfill_equity_series as _run_backfill_equity_series_impl,
-    run_backfill_fund_series as _run_backfill_fund_series_impl,
-    run_backfill_index_series as _run_backfill_index_series_impl,
-    run_backfill_low_frequency as _run_backfill_low_frequency_impl,
-    run_backfill_trade_cal as _run_backfill_trade_cal_impl,
+from src.cli_parts.maintenance_handlers import (
     run_reconcile_dataset as _run_reconcile_dataset_impl,
     run_refresh_serving_light as _run_refresh_serving_light_impl,
 )
@@ -66,7 +56,6 @@ from src.ops.services.operations_default_single_source_seed_service import Defau
 from src.ops.services.operations_execution_reconciliation_service import OperationsExecutionReconciliationService
 from src.ops.services.operations_moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
 from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
-from src.ops.services.operations_history_backfill_service import HistoryBackfillService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 from src.ops.services.operations_sync_job_state_reconciliation_service import SyncJobStateReconciliationService
@@ -173,118 +162,6 @@ def validate_serving_coverage_cmd() -> None:
     raise typer.Exit(code=1)
 
 
-@app.command("sync-history")
-def sync_history(
-    resources: list[str] = typer.Option(..., "--resources", "-r"),
-    ts_code: str | None = typer.Option(None),
-    list_status: str | None = typer.Option(None, "--list-status", help="Optional list status filter for hk_basic."),
-    classify: str | None = typer.Option(None, "--classify", help="Optional classify filter for us_basic."),
-    index_code: str | None = typer.Option(None, "--index-code", help="For index_weight, maps to Tushare index_code."),
-    con_code: str | None = typer.Option(None, "--con-code", help="For board/member resources, maps to concept code."),
-    exchange: str | None = typer.Option(None, help="Optional exchange filter for reference resources."),
-    exchange_id: str | None = typer.Option(None, "--exchange-id", help="Optional exchange_id filter for margin resource."),
-    ths_type: str | None = typer.Option(None, "--type", help="Optional type filter for 同花顺板块主数据."),
-    idx_type: str | None = typer.Option(None, "--idx-type", help="Optional 东财板块类型筛选."),
-    market: str | None = typer.Option(None, "--market", help="Optional market filter for hot list resources."),
-    hot_type: str | None = typer.Option(None, "--hot-type", help="Optional hot list type filter for dc_hot."),
-    is_new: str | None = typer.Option(None, "--is-new", help="Optional latest-snapshot tag for hot list resources."),
-    tag: str | None = typer.Option(None, "--tag", help="Optional tag filter for kpl_list."),
-    limit_type: str | None = typer.Option(None, "--limit-type", help="Optional limit list type filter."),
-    start_date: str | None = typer.Option(None),
-    end_date: str | None = typer.Option(None),
-) -> None:
-    _run_sync_history_impl(
-        session_local=SessionLocal,
-        build_sync_service_fn=build_sync_service,
-        attach_progress_fn=_attach_cli_progress_reporter,
-        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
-        reconciliation_service_cls=SyncJobStateReconciliationService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resources=resources,
-        ts_code=ts_code,
-        list_status=list_status,
-        classify=classify,
-        index_code=index_code,
-        con_code=con_code,
-        exchange=exchange,
-        exchange_id=exchange_id,
-        ths_type=ths_type,
-        idx_type=idx_type,
-        market=market,
-        hot_type=hot_type,
-        is_new=is_new,
-        tag=tag,
-        limit_type=limit_type,
-        start_date=start_date,
-        end_date=end_date,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("sync-daily")
-def sync_daily(
-    trade_date: str | None = typer.Option(None, help="YYYY-MM-DD"),
-    ts_code: str | None = typer.Option(None),
-    exchange: str | None = typer.Option(None, "--exchange"),
-    exchange_id: str | None = typer.Option(None, "--exchange-id"),
-    limit_type: str | None = typer.Option(None, "--limit-type"),
-    con_code: str | None = typer.Option(None, "--con-code"),
-    idx_type: str | None = typer.Option(None, "--idx-type"),
-    market: str | None = typer.Option(None, "--market"),
-    hot_type: str | None = typer.Option(None, "--hot-type"),
-    is_new: str | None = typer.Option(None, "--is-new"),
-    tag: str | None = typer.Option(None, "--tag"),
-    resources: list[str] = typer.Option(
-        [
-            "daily",
-            "adj_factor",
-            "daily_basic",
-            "moneyflow",
-            "margin",
-            "limit_list_d",
-            "top_list",
-            "block_trade",
-            "fund_daily",
-            "index_daily",
-            "ths_daily",
-            "dc_index",
-            "dc_member",
-            "dc_daily",
-            "ths_hot",
-            "dc_hot",
-            "kpl_list",
-            "limit_list_ths",
-            "limit_step",
-            "limit_cpt_list",
-            "kpl_concept_cons",
-        ],
-        "--resources",
-        "-r",
-    ),
-) -> None:
-    _run_sync_daily_impl(
-        session_local=SessionLocal,
-        resolve_default_sync_date_fn=_resolve_default_sync_date,
-        build_sync_service_fn=build_sync_service,
-        attach_progress_fn=_attach_cli_progress_reporter,
-        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resources=resources,
-        trade_date_text=trade_date,
-        ts_code=ts_code,
-        exchange=exchange,
-        exchange_id=exchange_id,
-        limit_type=limit_type,
-        con_code=con_code,
-        idx_type=idx_type,
-        market=market,
-        hot_type=hot_type,
-        is_new=is_new,
-        tag=tag,
-        echo_fn=typer.echo,
-    )
-
-
 @app.command("sync-snapshot")
 def sync_snapshot(
     resources: list[str] = typer.Option(..., "--resources", "-r"),
@@ -327,29 +204,6 @@ def sync_snapshot(
         is_new=is_new,
         tag=tag,
         limit_type=limit_type,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("sync-minute-history")
-def sync_minute_history(
-    freq: list[str] = typer.Option(..., "--freq", help="分钟频度，可重复传入或用逗号分隔：1min/5min/15min/30min/60min。"),
-    trade_date: str | None = typer.Option(None, "--trade-date", help="单个交易日 YYYY-MM-DD。"),
-    start_date: str | None = typer.Option(None, "--start-date", help="起始交易日 YYYY-MM-DD。"),
-    end_date: str | None = typer.Option(None, "--end-date", help="结束交易日 YYYY-MM-DD。"),
-    ts_code: str | None = typer.Option(None, "--ts-code", help="可选：单股票代码；不传则按股票池扇出。"),
-) -> None:
-    _run_sync_minute_history_impl(
-        session_local=SessionLocal,
-        build_sync_service_fn=build_sync_service,
-        attach_progress_fn=_attach_cli_progress_reporter,
-        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        freq=freq,
-        trade_date=trade_date,
-        start_date=start_date,
-        end_date=end_date,
-        ts_code=ts_code,
         echo_fn=typer.echo,
     )
 
@@ -585,171 +439,6 @@ def ops_seed_dataset_pipeline_mode(
         session_local=SessionLocal,
         service_cls=DatasetPipelineModeSeedService,
         apply=apply,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-trade-cal")
-def backfill_trade_cal(
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    exchange: str | None = typer.Option(None),
-) -> None:
-    _run_backfill_trade_cal_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        start_date=start_date,
-        end_date=end_date,
-        exchange=exchange,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-equity-series")
-def backfill_equity_series(
-    resource: str = typer.Option(
-        ...,
-        help="daily, adj_factor, stk_period_bar_week, stk_period_bar_month, "
-        "stk_period_bar_adj_week, or stk_period_bar_adj_month",
-    ),
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    offset: int = typer.Option(0),
-    limit: int | None = typer.Option(None),
-) -> None:
-    _run_backfill_equity_series_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resource=resource,
-        start_date=start_date,
-        end_date=end_date,
-        offset=offset,
-        limit=limit,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-by-trade-date")
-def backfill_by_trade_date(
-    resource: str = typer.Option(
-        ...,
-        help="daily_basic, moneyflow, margin, top_list, block_trade, limit_list_d, dc_member, ths_hot, dc_hot, limit_list_ths, limit_step, limit_cpt_list, or kpl_concept_cons",
-    ),
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    exchange: str | None = typer.Option(None),
-    exchange_id: str | None = typer.Option(None, "--exchange-id"),
-    limit_type: str | None = typer.Option(None, "--limit-type"),
-    ts_code: str | None = typer.Option(None),
-    con_code: str | None = typer.Option(None, "--con-code"),
-    idx_type: str | None = typer.Option(None, "--idx-type"),
-    market: str | None = typer.Option(None, "--market"),
-    hot_type: str | None = typer.Option(None, "--hot-type"),
-    is_new: str | None = typer.Option(None, "--is-new"),
-    offset: int = typer.Option(0),
-    limit: int | None = typer.Option(None),
-) -> None:
-    _run_backfill_by_trade_date_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resource=resource,
-        start_date=start_date,
-        end_date=end_date,
-        exchange=exchange,
-        exchange_id=exchange_id,
-        limit_type=limit_type,
-        ts_code=ts_code,
-        con_code=con_code,
-        idx_type=idx_type,
-        market=market,
-        hot_type=hot_type,
-        is_new=is_new,
-        offset=offset,
-        limit=limit,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-by-date-range")
-def backfill_by_date_range(
-    resource: str = typer.Option(..., help="ths_daily, dc_index, dc_daily, or kpl_list"),
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    ts_code: str | None = typer.Option(None),
-    idx_type: str | None = typer.Option(None, "--idx-type"),
-    tag: str | None = typer.Option(None, "--tag"),
-) -> None:
-    _run_backfill_by_date_range_impl(
-        session_local=SessionLocal,
-        build_sync_service_fn=build_sync_service,
-        reconciliation_service_cls=SyncJobStateReconciliationService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resource=resource,
-        start_date=start_date,
-        end_date=end_date,
-        ts_code=ts_code,
-        idx_type=idx_type,
-        tag=tag,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-low-frequency")
-def backfill_low_frequency(
-    resource: str = typer.Option(..., help="dividend or stk_holdernumber"),
-    offset: int = typer.Option(0),
-    limit: int | None = typer.Option(None),
-) -> None:
-    _run_backfill_low_frequency_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        snapshot_service_cls=DatasetStatusSnapshotService,
-        resource=resource,
-        offset=offset,
-        limit=limit,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-fund-series")
-def backfill_fund_series(
-    resource: str = typer.Option(..., help="fund_daily or fund_adj"),
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    offset: int = typer.Option(0),
-    limit: int | None = typer.Option(None),
-) -> None:
-    _run_backfill_fund_series_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        resource=resource,
-        start_date=start_date,
-        end_date=end_date,
-        offset=offset,
-        limit=limit,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("backfill-index-series")
-def backfill_index_series(
-    resource: str = typer.Option(..., help="index_daily, index_weekly, index_monthly, index_daily_basic, or index_weight"),
-    start_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    end_date: str = typer.Option(..., help="YYYY-MM-DD"),
-    offset: int = typer.Option(0),
-    limit: int | None = typer.Option(None),
-) -> None:
-    _run_backfill_index_series_impl(
-        session_local=SessionLocal,
-        history_backfill_service_cls=HistoryBackfillService,
-        resource=resource,
-        start_date=start_date,
-        end_date=end_date,
-        offset=offset,
-        limit=limit,
         echo_fn=typer.echo,
     )
 

@@ -39,6 +39,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_execution_event import JobExecutionEvent
 from src.ops.models.ops.job_execution_step import JobExecutionStep
+from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -102,6 +103,7 @@ def web_engine(configured_web_env) -> Generator:
         JobSchedule.__table__.create(connection)
         JobExecution.__table__.create(connection)
         JobExecutionStep.__table__.create(connection)
+        JobExecutionUnit.__table__.create(connection)
         JobExecutionEvent.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
         DatasetStatusSnapshot.__table__.create(connection)
@@ -190,8 +192,8 @@ def auth_token(app_client: TestClient, user_factory: Callable[..., AppUser]) -> 
 def job_execution_factory(db_session: Session) -> Callable[..., JobExecution]:
     def build(
         *,
-        spec_type: str = "job",
-        spec_key: str = "sync_history.stock_basic",
+        spec_type: str = "dataset_action",
+        spec_key: str = "stock_basic.maintain",
         trigger_source: str = "manual",
         status: str = "queued",
         requested_by_user_id: int | None = None,
@@ -359,8 +361,8 @@ def equity_block_trade_factory(db_session: Session) -> Callable[..., EquityBlock
 def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
     def build(
         *,
-        spec_type: str = "job",
-        spec_key: str = "sync_history.stock_basic",
+        spec_type: str = "dataset_action",
+        spec_key: str = "stock_basic.maintain",
         display_name: str = "股票主数据刷新",
         status: str = "active",
         schedule_type: str = "once",

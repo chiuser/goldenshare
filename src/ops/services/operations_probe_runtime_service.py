@@ -154,9 +154,14 @@ class ProbeRuntimeService:
 
     def _enqueue_on_match(self, session: Session, rule: ProbeRule) -> JobExecution:
         action = dict(rule.on_success_action_json or {})
-        spec_type = str(action.get("spec_type") or "job")
-        spec_key = str(action.get("spec_key") or f"sync_daily.{rule.dataset_key}")
+        spec_type = str(action.get("spec_type") or "dataset_action")
+        spec_key = str(action.get("spec_key") or f"{rule.dataset_key}.maintain")
         params_json = dict(action.get("params_json") or {})
+        if spec_type == "dataset_action":
+            params_json.setdefault("dataset_key", rule.dataset_key)
+            params_json.setdefault("action", "maintain")
+            params_json.setdefault("time_input", {"mode": "point"})
+            params_json.setdefault("filters", {})
         params_json.setdefault("run_scope", "probe_triggered")
         if rule.source_key and "source_key" not in params_json:
             params_json["source_key"] = rule.source_key

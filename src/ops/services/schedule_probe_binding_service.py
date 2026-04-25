@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.specs import get_job_spec, get_workflow_spec
+from src.foundation.datasets.registry import get_dataset_definition
+from src.ops.specs import get_workflow_spec
 from src.app.exceptions import WebAppError
 
 
@@ -84,9 +85,15 @@ class ScheduleProbeBindingService:
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
             action_json = {
-                "spec_type": "job",
-                "spec_key": self._resolve_probe_job_spec(dataset_key),
-                "params_json": {"run_scope": "probe_triggered"},
+                "spec_type": "dataset_action",
+                "spec_key": f"{dataset_key}.maintain",
+                "params_json": {
+                    "dataset_key": dataset_key,
+                    "action": "maintain",
+                    "time_input": {"mode": "point"},
+                    "filters": {},
+                    "run_scope": "probe_triggered",
+                },
             }
             if source_key:
                 action_json["params_json"]["source_key"] = source_key
@@ -110,6 +117,8 @@ class ScheduleProbeBindingService:
         return templates
 
     def _resolve_dataset_targets(self, *, schedule: JobSchedule, config: dict) -> list[tuple[str, str | None]]:
+        if schedule.spec_type == "dataset_action":
+            return [(self._dataset_from_action_spec(schedule.spec_key), None)]
         if schedule.spec_type == "job":
             return [(self._dataset_from_job_spec(schedule.spec_key), None)]
         if schedule.spec_type == "workflow":
@@ -134,18 +143,13 @@ class ScheduleProbeBindingService:
         return resource
 
     @staticmethod
-    def _resolve_probe_job_spec(dataset_key: str) -> str:
-        preferred = f"sync_daily.{dataset_key}"
-        if get_job_spec(preferred) is not None:
-            return preferred
-        fallback = f"sync_history.{dataset_key}"
-        if get_job_spec(fallback) is not None:
-            return fallback
-        raise WebAppError(
-            status_code=422,
-            code="validation_error",
-            message=f"数据集 {dataset_key} 缺少可用于探测触发的任务规格（sync_daily/sync_history）",
-        )
+    def _dataset_from_action_spec(spec_key: str) -> str:
+        dataset_key = spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+        try:
+            get_dataset_definition(dataset_key)
+        except KeyError as exc:
+            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key") from exc
+        return dataset_key
 
     @staticmethod
     def _normalize_time(value: object) -> str:

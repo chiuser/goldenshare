@@ -91,23 +91,30 @@ def _limit_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 
 def _limit_list_ths_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
-    transformed["query_limit_type"] = str(transformed.get("limit_type") or "__ALL__")
-    transformed["query_market"] = str(transformed.get("market_type") or "__ALL__")
+    if transformed.get("limit_type") not in (None, ""):
+        transformed["query_limit_type"] = str(transformed.get("limit_type"))
+    if transformed.get("market_type") not in (None, ""):
+        transformed["query_market"] = str(transformed.get("market_type"))
     return transformed
 
 
 def _ths_hot_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
-    transformed["query_market"] = str(transformed.get("query_market") or "__ALL__")
-    transformed["query_is_new"] = str(transformed.get("query_is_new") or "__ALL__")
+    if transformed.get("query_market") not in (None, ""):
+        transformed["query_market"] = str(transformed.get("query_market"))
+    if transformed.get("query_is_new") not in (None, ""):
+        transformed["query_is_new"] = str(transformed.get("query_is_new"))
     return transformed
 
 
 def _dc_hot_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
-    transformed["query_market"] = str(transformed.get("query_market") or "__ALL__")
-    transformed["query_hot_type"] = str(transformed.get("query_hot_type") or "__ALL__")
-    transformed["query_is_new"] = str(transformed.get("query_is_new") or "__ALL__")
+    if transformed.get("query_market") not in (None, ""):
+        transformed["query_market"] = str(transformed.get("query_market"))
+    if transformed.get("query_hot_type") not in (None, ""):
+        transformed["query_hot_type"] = str(transformed.get("query_hot_type"))
+    if transformed.get("query_is_new") not in (None, ""):
+        transformed["query_is_new"] = str(transformed.get("query_is_new"))
     return transformed
 
 

@@ -46,6 +46,8 @@ ALLOWED_INPUT_SHAPES = {
     "ann_date_or_start_end",
     "none",
 }
+ALLOWED_COMMIT_POLICIES = {"task", "unit"}
+UNIT_COMMIT_REQUIRED_DATASETS = {"stk_mins", "stk_factor_pro", "dc_member", "index_daily", "index_weight"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -198,6 +200,39 @@ def lint_contract(contract: DatasetSyncContract) -> list[ContractLintIssue]:
                     f"enum fanout field {enum_key} must provide defaults",
                 )
             )
+    if contract.transaction_spec.commit_policy not in ALLOWED_COMMIT_POLICIES:
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "invalid_commit_policy",
+                f"transaction_spec.commit_policy={contract.transaction_spec.commit_policy} is not supported",
+            )
+        )
+    if contract.transaction_spec.commit_policy == "unit":
+        if not contract.transaction_spec.idempotent_write_required:
+            issues.append(
+                ContractLintIssue(
+                    contract.dataset_key,
+                    "unit_commit_requires_idempotent_write",
+                    "unit commit policy requires idempotent_write_required=True",
+                )
+            )
+        if not contract.transaction_spec.write_volume_assessment.strip():
+            issues.append(
+                ContractLintIssue(
+                    contract.dataset_key,
+                    "missing_write_volume_assessment",
+                    "unit commit policy requires a real write-volume assessment note",
+                )
+            )
+    if contract.dataset_key in UNIT_COMMIT_REQUIRED_DATASETS and contract.transaction_spec.commit_policy != "unit":
+        issues.append(
+            ContractLintIssue(
+                contract.dataset_key,
+                "p0_dataset_requires_unit_commit",
+                "P0 dataset must declare unit commit policy",
+            )
+        )
     return issues
 
 

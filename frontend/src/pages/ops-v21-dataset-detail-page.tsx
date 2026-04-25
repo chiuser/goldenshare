@@ -55,6 +55,11 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
   return formatStatusLabel(value);
 }
 
+function manualSyncHref(specKey: string): string {
+  const specType = specKey.endsWith(".maintain") ? "dataset_action" : "job";
+  return `/app/ops/manual-sync?spec_key=${encodeURIComponent(specKey)}&spec_type=${specType}`;
+}
+
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
   const freshnessQuery = useQuery({
     queryKey: ["ops", "freshness", "v21-dataset-detail", datasetKey],
@@ -157,6 +162,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const executionItems = executionQuery.data?.items || [];
   const executionRows = executionItems.slice(0, 10);
   const recentExecution = executionItems[0];
+  const manualSpecKey = recentExecution?.spec_key || freshnessItem?.primary_execution_spec_key || `${datasetKey}.maintain`;
   const sourceGroups = new Map<string, typeof latestItems>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
@@ -234,10 +240,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
-            <Button component="a" href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(recentExecution?.spec_key || "")}&spec_type=job`} variant="light" color="brand">
+            <Button component="a" href={manualSyncHref(manualSpecKey)} variant="light" color="brand">
               去处理
             </Button>
-            <Button component="a" href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(recentExecution?.spec_key || "")}&spec_type=job`} variant="light">
+            <Button component="a" href={manualSyncHref(manualSpecKey)} variant="light">
               手动执行
             </Button>
             <Button variant="light" disabled>

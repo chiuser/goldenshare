@@ -30,6 +30,7 @@ import { formatDateTimeLabel } from "../shared/date-format";
 import {
   formatEventTypeLabel,
   formatExecutionResourceLabel,
+  formatProgressMessageLabel,
   formatTriggerSourceLabel,
   formatUnitKindLabel,
 } from "../shared/ops-display";
@@ -115,6 +116,7 @@ function parseProgressDetails(message: string | null | undefined) {
   const reasonCounts = parseReasonCountsToken(kv.reasons);
   return {
     raw,
+    displayMessage: formatProgressMessageLabel(raw),
     current: ratioMatch ? Number(ratioMatch[1]) : null,
     total: ratioMatch ? Number(ratioMatch[2]) : null,
     unitLabel,
@@ -313,7 +315,7 @@ function buildLatestUpdate(
     return {
       time: detail.last_progress_at ? formatDateTimeLabel(detail.last_progress_at) : "刚刚",
       label: "最近进展",
-      message: parsed?.raw || detail.progress_message || "系统刚刚写入了新的处理进展。",
+      message: parsed?.displayMessage || detail.progress_message || "系统刚刚写入了新的处理进展。",
     };
   }
 
@@ -322,7 +324,7 @@ function buildLatestUpdate(
     return {
       time: formatDateTimeLabel(latestEvent.occurred_at),
       label: formatEventTypeLabel(latestEvent.event_type),
-      message: latestEvent.message || "系统已经记录了新的处理进展。",
+      message: formatProgressMessageLabel(latestEvent.message) || latestEvent.message || "系统已经记录了新的处理进展。",
     };
   }
 
@@ -449,7 +451,7 @@ function extractProgressSnapshot(events: ExecutionEventsResponse["items"]) {
     current,
     total,
     percent,
-    message: progressMessage,
+    message: parsedFromText?.displayMessage || formatProgressMessageLabel(progressMessage) || progressMessage,
     unitLabel,
     cursorLabel,
     freqLabel: parsedFromText?.freqLabel || null,
@@ -518,8 +520,8 @@ function buildStructuredProgressSnapshot(
       total,
       percent: preferDetailProgress ? detailPercent : (fromEvent?.percent ?? detailPercent),
       message: preferDetailProgress
-        ? (detailProgress?.raw || detail.progress_message || fromEvent?.message || "系统正在持续更新当前进展。")
-        : (fromEvent?.message || detailProgress?.raw || detail.progress_message || "系统正在持续更新当前进展。"),
+        ? (detailProgress?.displayMessage || detail.progress_message || fromEvent?.message || "系统正在持续更新当前进展。")
+        : (fromEvent?.message || detailProgress?.displayMessage || detail.progress_message || "系统正在持续更新当前进展。"),
       unitLabel: preferDetailProgress
         ? (detailProgress?.unitLabel || fromEvent?.unitLabel || "任务单元")
         : (fromEvent?.unitLabel || detailProgress?.unitLabel || "任务单元"),
@@ -794,7 +796,7 @@ export function OpsTaskDetailPage({ executionId }: { executionId: number }) {
       header: "说明",
       align: "left",
       width: "42%",
-      render: (item) => <Text size="sm">{item.message || "系统记录了一次新的处理更新。"}</Text>,
+      render: (item) => <Text size="sm">{formatProgressMessageLabel(item.message) || item.message || "系统记录了一次新的处理更新。"}</Text>,
     },
     {
       key: "rejected",

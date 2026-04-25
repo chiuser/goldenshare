@@ -1371,7 +1371,7 @@ function renderExecutionsPage(catalog, executionsPayload, filters = {}) {
           </div>
           <div class="field">
             <label for="execution-filter-spec-key">spec_key</label>
-            <input id="execution-filter-spec-key" value="${escapeHtml(filters.spec_key || '')}" placeholder="sync_history.stock_basic">
+            <input id="execution-filter-spec-key" value="${escapeHtml(filters.spec_key || '')}" placeholder="stock_basic.maintain">
           </div>
         </div>
         <div class="actions" style="margin-top:12px">

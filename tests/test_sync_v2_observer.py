@@ -63,6 +63,7 @@ def test_engine_progress_message_includes_generic_unit_tokens() -> None:
         total=10,
         rows_fetched=16000,
         rows_written=15998,
+        rows_committed=15998,
         rows_rejected=2,
         rejected_reason_counts={},
         unit=unit,
@@ -83,3 +84,4 @@ def test_engine_progress_message_includes_generic_unit_tokens() -> None:
     assert "unit_rejected=1" in message
     assert "fetched=16000" in message
     assert "written=15998" in message
+    assert "committed=15998" in message

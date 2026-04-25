@@ -15,8 +15,8 @@ vi.mock("../shared/api/client", () => ({
       return {
         id: 1,
         schedule_id: null,
-        spec_type: "job",
-        spec_key: "backfill_equity_series.daily",
+        spec_type: "dataset_action",
+        spec_key: "daily.maintain",
         spec_display_name: "股票日线维护",
         resource_key: "daily",
         resource_display_name: "股票日线",
@@ -58,8 +58,8 @@ vi.mock("../shared/api/client", () => ({
       return {
         id: 2,
         schedule_id: null,
-        spec_type: "job",
-        spec_key: "backfill_by_trade_date.dc_hot",
+        spec_type: "dataset_action",
+        spec_key: "dc_hot.maintain",
         spec_display_name: "东方财富热榜维护",
         resource_key: "dc_hot",
         resource_display_name: "东方财富热榜",
@@ -103,7 +103,7 @@ vi.mock("../shared/api/client", () => ({
         items: [
           {
             id: 10,
-            step_key: "backfill_equity_series.daily",
+            step_key: "daily.maintain",
             display_name: "股票日线维护",
             sequence_no: 1,
             unit_kind: null,
@@ -124,7 +124,7 @@ vi.mock("../shared/api/client", () => ({
         items: [
           {
             id: 20,
-            step_key: "backfill_by_trade_date.dc_hot",
+            step_key: "dc_hot.maintain",
             display_name: "东方财富热榜维护",
             sequence_no: 1,
             unit_kind: null,

@@ -58,7 +58,7 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
         return_value=[
             SimpleNamespace(
                 id=101,
-                spec_key="sync_daily.adj_factor",
+                spec_key="adj_factor.maintain",
                 status="failed",
                 error_message="boom",
                 summary_message=None,
@@ -66,7 +66,7 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
             ),
             SimpleNamespace(
                 id=102,
-                spec_key="sync_daily.daily",
+                spec_key="daily.maintain",
                 status="success",
                 error_message=None,
                 summary_message="ok",

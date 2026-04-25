@@ -1,0 +1,90 @@
+# 工程风险登记簿
+
+状态：当前生效  
+更新时间：2026-04-25  
+适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
+
+---
+
+## 1. 使用规则
+
+1. 发现 P0 风险时，必须登记到本文件。
+2. 存在未关闭 P0 风险时，不允许提交新的业务代码改动；只允许提交风险止血、验证、文档澄清或经明确评审批准的修复。
+3. 风险关闭前，相关方案必须有文档依据、测试门禁和回归命令。
+4. 关闭 P0 风险时，必须补充关闭依据、修复提交、验证结果和剩余风险。
+
+---
+
+## 2. 风险等级
+
+| 等级 | 定义 | 处理要求 |
+|---|---|---|
+| P0 | 可能导致数据丢失、长任务白跑、线上不可用、不可恢复污染 | 立即止血，冻结相关大范围改动，先方案后代码 |
+| P1 | 可能导致局部数据错误、明显性能/内存风险 | 进入近期计划，必须有门禁 |
+| P2 | 可控缺陷或治理债务 | 排期处理，避免继续扩大 |
+
+---
+
+## 3. 当前未关闭风险
+
+| ID | 等级 | 风险 | 影响范围 | 状态 | 依据 |
+|---|---|---|---|---|---|
+| RISK-2026-04-25-001 | P0 | Sync V2 大任务采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-25-002 | P0 | Sync V2 存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+
+---
+
+## 4. RISK-2026-04-25-001 处理要求
+
+立即止血：
+
+1. 开发时必须评估单个事务的写入量，做真实的计算。
+2. 必须做真实评估。
+3. UI/进度文案不得把未提交的 `written` 表述成已落库。
+
+正式修复：
+
+1. 在 DatasetExecutionPlan 单一模型中正式表达 data transaction policy。
+2. 执行层拆分 data transaction 与 ops state transaction。
+3. 只做 `per_unit` data transaction，不引入分页级提交策略。
+4. 开发时必须评估单个事务的写入量，做真实的计算。
+5. 单事务写入量评估必须有真实计算依据，不允许用分页或批量大小替代事务边界评估。
+6. 删除主链 `mark_success + mark_full_sync_done` 连续写同一行，改为单一成功状态写入接口。
+7. `run log`、`sync job state`、`full_sync_done` 必须幂等 upsert，状态失败不得回滚业务数据。
+
+关闭门禁：
+
+1. 第 N 个 unit 失败时，前 N-1 个 unit 已提交且可观测。
+2. ops state 写入失败时，业务数据不回滚。
+3. 单个事务写入量评估必须有真实计算依据。
+4. point/range/none 成功只写一次资源状态，且不得丢失业务日期。
+5. 任务详情只把已提交数据展示为最终处理结果。
+
+---
+
+## 5. RISK-2026-04-25-002 处理要求
+
+立即止血：
+
+1. `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 不允许再把 `__ALL__` 作为默认筛选值、请求参数值或 query 上下文字段值。
+2. 全选必须在 planner 阶段展开为真实业务枚举值；不得传一个模糊的 `__ALL__` 到 source adapter、normalizer、writer 或落库行。
+3. 如果 planner 无法枚举真实业务值，必须拒绝执行或进入 dry-run/preview，不得使用 `__ALL__` 兜底。
+4. 已知会写出 `query_market/query_hot_type/query_is_new/query_limit_type` 的数据集，必须保证这些字段来自真实请求上下文，而不是 `__ALL__`。
+
+正式修复：
+
+1. 删除 Sync V2 主链中 `__ALL__` 作为业务哨兵的逻辑。
+2. `enum_fanout_defaults` 只能配置真实业务枚举集合，不能配置 `("__ALL__",)`。
+3. `param_format`、`param_policies` 不再把 `__ALL__` 解释成“跳过筛选项”。
+4. `TushareSyncV2Adapter` 不再给 `query_*` 字段注入 `__ALL__`。
+5. `row_transforms` 不再以 `__ALL__` 兜底 query context。
+6. 补架构测试，禁止 `__ALL__` 出现在 Sync V2 主链代码、plan unit request params、normalized rows 和落库 query 字段中。
+
+关闭门禁：
+
+1. `dc_hot` 缺省筛选时会显式扇出真实 `market + hot_type + is_new` 组合。
+2. `ths_hot` 缺省筛选时会显式扇出真实 `market + is_new` 组合。
+3. `kpl_list` 缺省筛选时要么显式扇出真实 `tag`，要么不传 `tag` 且不写 `__ALL__`。
+4. `limit_list_ths` 缺省筛选时要么显式扇出真实 `limit_type + market`，要么不传对应筛选且不写 `__ALL__`。
+5. `rg "__ALL__" src/foundation/services/sync_v2 tests/test_ranking_sync_services.py frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 不得发现业务哨兵残留；如保留文档说明或迁移测试，必须有明确 allowlist 和关闭日期。
+6. 远程/本地验证至少覆盖 `dc_hot` 一次默认提交，落库结果不得出现任何 `query_*='__ALL__'`。

@@ -46,9 +46,6 @@ def resolve_enum_combinations(
         full_values = full_selection_values.get(field_name)
         if full_values is not None and selected_set == set(full_values):
             continue
-        if "__ALL__" in selected_set:
-            continue
-
         options_by_field.append((field_name, sorted(selected_set)))
 
     if not options_by_field:
@@ -117,4 +114,3 @@ def build_plan_units(
                 )
                 ordinal += 1
     return units
-

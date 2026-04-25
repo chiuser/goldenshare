@@ -12,6 +12,7 @@ class ProgressSnapshot:
     unit_failed: int
     rows_fetched: int
     rows_written: int
+    rows_committed: int = 0
     rows_rejected: int = 0
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
 
@@ -31,6 +32,7 @@ class SyncV2Observer:
         rows_fetched: int,
         rows_written: int,
         message: str,
+        rows_committed: int = 0,
         rows_rejected: int = 0,
         rejected_reason_counts: dict[str, int] | None = None,
     ) -> None:
@@ -44,6 +46,7 @@ class SyncV2Observer:
             unit_failed=unit_failed,
             rows_fetched=rows_fetched,
             rows_written=rows_written,
+            rows_committed=rows_committed,
             rows_rejected=rows_rejected,
             rejected_reason_counts=dict(rejected_reason_counts or {}),
         )

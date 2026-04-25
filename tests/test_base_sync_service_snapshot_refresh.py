@@ -28,6 +28,7 @@ def _build_fake_dao() -> SimpleNamespace:
             finish_log=lambda *args, **kwargs: None,
         ),
         sync_job_state=SimpleNamespace(
+            record_execution_outcome=lambda *args, **kwargs: None,
             mark_success=lambda *args, **kwargs: None,
             mark_full_sync_done=lambda *args, **kwargs: None,
         ),

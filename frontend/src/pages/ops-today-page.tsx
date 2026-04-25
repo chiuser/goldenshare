@@ -179,7 +179,7 @@ export function OpsTodayPage() {
                         {item.primary_execution_spec_key ? (
                           <Button
                             component="a"
-                            href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=job`}
+                            href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primary_execution_spec_key)}&spec_type=${item.primary_execution_spec_key.endsWith(".maintain") ? "dataset_action" : "job"}`}
                             size="xs"
                             variant="light"
                             color="brand"

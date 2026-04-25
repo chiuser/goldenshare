@@ -18,7 +18,7 @@ def test_ops_scheduler_tick_invokes_scheduler_and_prints_summary(mocker) -> None
     scheduler = mocker.Mock()
     scheduler.run_once.return_value = [
         SimpleNamespace(id=101, schedule_id=11, spec_type="workflow", spec_key="daily_market_close_sync", status="queued"),
-        SimpleNamespace(id=102, schedule_id=12, spec_type="job", spec_key="sync_history.stock_basic", status="queued"),
+        SimpleNamespace(id=102, schedule_id=12, spec_type="dataset_action", spec_key="stock_basic.maintain", status="queued"),
     ]
     scheduler_cls = mocker.patch("src.cli.OperationsScheduler", return_value=scheduler)
 
@@ -28,7 +28,7 @@ def test_ops_scheduler_tick_invokes_scheduler_and_prints_summary(mocker) -> None
     scheduler_cls.assert_called_once_with()
     scheduler.run_once.assert_called_once_with(session, limit=10)
     assert "scheduled execution#101 schedule_id=11 spec=workflow:daily_market_close_sync status=queued" in result.stdout
-    assert "scheduled execution#102 schedule_id=12 spec=job:sync_history.stock_basic status=queued" in result.stdout
+    assert "scheduled execution#102 schedule_id=12 spec=dataset_action:stock_basic.maintain status=queued" in result.stdout
     assert "ops-scheduler-tick: scheduled=2" in result.stdout
 
 

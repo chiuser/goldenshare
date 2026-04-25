@@ -40,19 +40,24 @@ class TushareSyncV2Adapter(SourceAdapter):
             fields=request.fields,
         )
         if request.api_name == "ths_hot":
-            query_market = str(request.params.get("market") or "__ALL__")
-            query_is_new = str(request.params.get("is_new") or "__ALL__")
+            query_market = str(request.params.get("market") or "").strip()
+            query_is_new = str(request.params.get("is_new") or "").strip()
             for row in rows:
-                row["query_market"] = query_market
-                row["query_is_new"] = query_is_new
+                if query_market:
+                    row["query_market"] = query_market
+                if query_is_new:
+                    row["query_is_new"] = query_is_new
         if request.api_name == "dc_hot":
-            query_market = str(request.params.get("market") or "__ALL__")
-            query_hot_type = str(request.params.get("hot_type") or "__ALL__")
-            query_is_new = str(request.params.get("is_new") or "__ALL__")
+            query_market = str(request.params.get("market") or "").strip()
+            query_hot_type = str(request.params.get("hot_type") or "").strip()
+            query_is_new = str(request.params.get("is_new") or "").strip()
             for row in rows:
-                row["query_market"] = query_market
-                row["query_hot_type"] = query_hot_type
-                row["query_is_new"] = query_is_new
+                if query_market:
+                    row["query_market"] = query_market
+                if query_hot_type:
+                    row["query_hot_type"] = query_hot_type
+                if query_is_new:
+                    row["query_is_new"] = query_is_new
         if request.api_name == "stk_mins":
             query_freq = str(request.params.get("freq") or "").strip()
             for row in rows:

@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
+from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.services.sync_v2.contracts import DatasetDateModel
-from src.foundation.services.sync_v2.registry import get_sync_v2_contract
 from src.ops.schemas.catalog import ParameterSpecResponse
 from src.ops.schemas.manual_action import (
     ManualActionDateModelResponse,
@@ -13,7 +14,7 @@ from src.ops.schemas.manual_action import (
     ManualActionListResponse,
     ManualActionTimeFormResponse,
 )
-from src.ops.specs import JobSpec, ParameterSpec, WorkflowSpec, get_dataset_freshness_spec, list_job_specs, list_workflow_specs
+from src.ops.specs import ParameterSpec, WorkflowSpec, list_workflow_specs
 
 
 TIME_PARAM_KEYS = {
@@ -29,28 +30,20 @@ INTERNAL_PARAM_KEYS = {"offset", "limit"}
 
 GROUP_CONFIG = {
     "reference_data": ("reference_data", "基础主数据", 10),
+    "equity_market": ("equity_market", "股票行情", 20),
     "equity": ("equity_market", "股票行情", 20),
     "moneyflow": ("moneyflow", "资金流向", 30),
+    "index_fund": ("index_fund", "指数 / ETF", 40),
     "fund": ("index_fund", "指数 / ETF", 40),
     "index": ("index_fund", "指数 / ETF", 40),
+    "board_theme": ("board_theme", "板块 / 题材", 50),
     "board": ("board_theme", "板块 / 题材", 50),
     "ranking": ("event_stats", "榜单 / 事件", 60),
     "event": ("event_stats", "榜单 / 事件", 60),
+    "low_frequency": ("event_stats", "榜单 / 事件", 60),
     "workflow": ("workflow", "工作流", 80),
     "other": ("other", "其他", 90),
 }
-
-BACKFILL_PRIORITY = {
-    "backfill_equity_series": 90,
-    "backfill_index_series": 90,
-    "backfill_fund_series": 90,
-    "backfill_by_month": 80,
-    "backfill_trade_cal": 80,
-    "backfill_by_date_range": 75,
-    "backfill_by_trade_date": 70,
-    "backfill_low_frequency": 20,
-}
-
 
 @dataclass(frozen=True, slots=True)
 class ManualActionRoute:
@@ -68,27 +61,7 @@ class ManualActionRoute:
     time_form: ManualActionTimeFormResponse
     filters: tuple[ParameterSpec, ...]
     route_spec_keys: tuple[str, ...]
-    sync_daily_spec: JobSpec | None = None
-    backfill_spec: JobSpec | None = None
-    direct_spec: JobSpec | None = None
     workflow_spec: WorkflowSpec | None = None
-
-
-@dataclass(slots=True)
-class _ResourceActionDraft:
-    resource_key: str
-    resource_display_name: str | None
-    description: str
-    sync_daily_spec: JobSpec | None = None
-    backfill_spec: JobSpec | None = None
-    direct_spec: JobSpec | None = None
-
-    def route_specs(self) -> list[JobSpec]:
-        specs: list[JobSpec] = []
-        for item in (self.sync_daily_spec, self.backfill_spec, self.direct_spec):
-            if item is not None and item.key not in {spec.key for spec in specs}:
-                specs.append(item)
-        return specs
 
 
 class ManualActionQueryService:
@@ -113,78 +86,40 @@ class ManualActionQueryService:
         return ManualActionListResponse(groups=sorted_groups)
 
     def build_action_routes(self) -> list[ManualActionRoute]:
-        routes = [self._build_resource_route(draft) for draft in self._build_resource_drafts()]
+        routes = [self._build_resource_route(definition) for definition in list_dataset_definitions()]
         routes.extend(self._build_workflow_route(workflow) for workflow in list_workflow_specs() if workflow.supports_manual_run)
         return sorted(routes, key=lambda item: (item.group_order, item.action_order, item.display_name))
 
     def get_action_route(self, action_key: str) -> ManualActionRoute | None:
         return next((route for route in self.build_action_routes() if route.action_key == action_key), None)
 
-    def _build_resource_drafts(self) -> list[_ResourceActionDraft]:
-        drafts: dict[str, _ResourceActionDraft] = {}
-        for job_spec in list_job_specs():
-            if not job_spec.supports_manual_run:
-                continue
-            if "." not in job_spec.key:
-                continue
-            prefix, resource_key = job_spec.key.split(".", 1)
-            if prefix == "maintenance":
-                continue
-
-            draft = drafts.get(resource_key)
-            freshness_spec = get_dataset_freshness_spec(resource_key)
-            if draft is None:
-                draft = _ResourceActionDraft(
-                    resource_key=resource_key,
-                    resource_display_name=freshness_spec.display_name if freshness_spec is not None else None,
-                    description=job_spec.description,
-                )
-                drafts[resource_key] = draft
-            elif not draft.resource_display_name and freshness_spec is not None:
-                draft.resource_display_name = freshness_spec.display_name
-
-            if prefix == "sync_daily":
-                draft.sync_daily_spec = job_spec
-            elif prefix.startswith("backfill_"):
-                draft.backfill_spec = self._select_backfill_spec(draft.backfill_spec, job_spec)
-            else:
-                draft.direct_spec = job_spec
-
-            if draft.description.startswith("执行资源 ") or not draft.description:
-                draft.description = job_spec.description
-
-        return sorted(drafts.values(), key=lambda item: (self._group_meta_for_resource(item.resource_key)[2], self._display_name_for_resource(item)))
-
-    def _build_resource_route(self, draft: _ResourceActionDraft) -> ManualActionRoute:
-        contract = get_sync_v2_contract(draft.resource_key)
-        date_model = contract.date_model
-        group_key, group_label, group_order = self._group_meta_for_resource(draft.resource_key)
-        display_name = f"维护{self._display_name_for_resource(draft)}"
-        specs = draft.route_specs()
-        filters = self._collect_filters(spec.supported_params for spec in specs)
+    def _build_resource_route(self, definition: DatasetDefinition) -> ManualActionRoute:
+        date_model = definition.date_model
+        group_key, group_label, group_order = self._group_meta_for_definition(definition)
+        display_name = f"维护{definition.display_name}"
+        filters = self._collect_dataset_filters(definition.input_model.filters)
+        action = definition.capabilities.get_action("maintain")
+        supported_modes = set(action.supported_time_modes if action else ())
         time_form = self._time_form_from_date_model(
             date_model,
-            supports_point_route=self._resource_supports_point_route(draft, date_model),
-            supports_range_route=self._resource_supports_range_route(draft, date_model),
+            supports_point_route="point" in supported_modes,
+            supports_range_route="range" in supported_modes,
         )
         return ManualActionRoute(
-            action_key=draft.resource_key,
-            action_type="job",
+            action_key=definition.dataset_key,
+            action_type="dataset_action",
             group_key=group_key,
             group_label=group_label,
             group_order=group_order,
             action_order=100,
             display_name=display_name,
-            description=draft.description,
-            resource_key=draft.resource_key,
-            resource_display_name=self._display_name_for_resource(draft),
+            description=definition.identity.description,
+            resource_key=definition.dataset_key,
+            resource_display_name=definition.display_name,
             date_model=date_model,
             time_form=time_form,
             filters=filters,
-            route_spec_keys=tuple(spec.key for spec in specs),
-            sync_daily_spec=draft.sync_daily_spec,
-            backfill_spec=draft.backfill_spec,
-            direct_spec=draft.direct_spec,
+            route_spec_keys=(f"{definition.dataset_key}.maintain",),
         )
 
     def _build_workflow_route(self, workflow: WorkflowSpec) -> ManualActionRoute:
@@ -208,18 +143,6 @@ class ManualActionQueryService:
         )
 
     @staticmethod
-    def _select_backfill_spec(current: JobSpec | None, candidate: JobSpec) -> JobSpec:
-        if current is None:
-            return candidate
-        current_priority = BACKFILL_PRIORITY.get(current.category, 0)
-        candidate_priority = BACKFILL_PRIORITY.get(candidate.category, 0)
-        if candidate_priority > current_priority:
-            return candidate
-        if candidate_priority == current_priority and candidate.key < current.key:
-            return candidate
-        return current
-
-    @staticmethod
     def _collect_filters(param_sets: Iterable[Iterable[ParameterSpec]]) -> tuple[ParameterSpec, ...]:
         filters: dict[str, ParameterSpec] = {}
         for params in param_sets:
@@ -231,38 +154,13 @@ class ManualActionQueryService:
         return tuple(filters.values())
 
     @staticmethod
-    def _param_keys(spec: JobSpec | WorkflowSpec | None) -> set[str]:
-        if spec is None:
-            return set()
-        return {param.key for param in spec.supported_params}
-
-    def _resource_supports_point_route(self, draft: _ResourceActionDraft, date_model: DatasetDateModel) -> bool:
-        if date_model.input_shape == "none":
-            return True
-        if draft.sync_daily_spec is not None:
-            return True
-        if date_model.input_shape == "month_or_range" and draft.backfill_spec is not None:
-            return {"start_month", "end_month"}.issubset(self._param_keys(draft.backfill_spec))
-        if date_model.input_shape in {"trade_date_or_start_end", "ann_date_or_start_end"}:
-            if draft.direct_spec is not None and {"trade_date", "ann_date"} & self._param_keys(draft.direct_spec):
-                return True
-            if draft.backfill_spec is not None and {"start_date", "end_date"}.issubset(self._param_keys(draft.backfill_spec)):
-                return True
-        return False
-
-    def _resource_supports_range_route(self, draft: _ResourceActionDraft, date_model: DatasetDateModel) -> bool:
-        if date_model.input_shape == "none":
-            return True
-        if draft.backfill_spec is not None:
-            backfill_keys = self._param_keys(draft.backfill_spec)
-            if date_model.input_shape == "month_or_range":
-                if {"start_month", "end_month"}.issubset(backfill_keys):
-                    return True
-            elif {"start_date", "end_date"}.issubset(backfill_keys):
-                return True
-        if draft.direct_spec is not None:
-            return {"start_date", "end_date"}.issubset(self._param_keys(draft.direct_spec))
-        return False
+    def _collect_dataset_filters(fields: Iterable[DatasetInputField]) -> tuple[ParameterSpec, ...]:
+        filters: dict[str, ParameterSpec] = {}
+        for field in fields:
+            if field.name in TIME_PARAM_KEYS or field.name in INTERNAL_PARAM_KEYS:
+                continue
+            filters[field.name] = ManualActionQueryService._field_to_param_spec(field)
+        return tuple(filters.values())
 
     @staticmethod
     def _time_form_from_params(params: Iterable[ParameterSpec]) -> ManualActionTimeFormResponse:
@@ -365,15 +263,57 @@ class ManualActionQueryService:
         return "trading_day_only"
 
     @staticmethod
-    def _group_meta_for_resource(resource_key: str) -> tuple[str, str, int]:
-        freshness_spec = get_dataset_freshness_spec(resource_key)
-        if freshness_spec is None:
-            return GROUP_CONFIG["other"]
-        return GROUP_CONFIG.get(freshness_spec.domain_key, GROUP_CONFIG["other"])
+    def _group_meta_for_definition(definition: DatasetDefinition) -> tuple[str, str, int]:
+        return GROUP_CONFIG.get(definition.domain.domain_key, GROUP_CONFIG["other"])
 
     @staticmethod
-    def _display_name_for_resource(draft: _ResourceActionDraft) -> str:
-        return draft.resource_display_name or draft.resource_key
+    def _field_to_param_spec(field: DatasetInputField) -> ParameterSpec:
+        return ParameterSpec(
+            key=field.name,
+            display_name=ManualActionQueryService._field_display_name(field.name),
+            param_type=ManualActionQueryService._field_param_type(field),
+            description=field.description,
+            required=field.required,
+            options=tuple(field.enum_values),
+            multi_value=field.multi_value,
+        )
+
+    @staticmethod
+    def _field_param_type(field: DatasetInputField) -> str:
+        if field.name in {"month", "start_month", "end_month"}:
+            return "month"
+        if field.field_type == "date" or field.name.endswith("_date") or field.name in {"date", "cal_date"}:
+            return "date"
+        if field.field_type in {"integer", "int"}:
+            return "integer"
+        if field.field_type in {"boolean", "bool"}:
+            return "boolean"
+        if field.enum_values:
+            return "enum"
+        return "string"
+
+    @staticmethod
+    def _field_display_name(field_name: str) -> str:
+        labels = {
+            "ts_code": "证券代码",
+            "index_code": "指数代码",
+            "con_code": "板块代码",
+            "market": "市场",
+            "hot_type": "热点类型",
+            "is_new": "日终标记",
+            "limit_type": "榜单类型",
+            "exchange": "交易所",
+            "exchange_id": "交易所",
+            "content_type": "板块类型",
+            "tag": "榜单标签",
+            "date_field": "日期字段",
+            "suspend_type": "停复牌类型",
+            "idx_type": "板块类型",
+            "type": "指数类型",
+            "list_status": "上市状态",
+            "classify": "分类",
+        }
+        return labels.get(field_name, field_name)
 
     @staticmethod
     def _to_date_model_response(date_model: DatasetDateModel | None) -> ManualActionDateModelResponse | None:

@@ -564,7 +564,7 @@ class OpsFreshnessQueryService:
             return {}
         rows = session.execute(
             select(JobSchedule.spec_type, JobSchedule.spec_key, JobSchedule.status, JobSchedule.next_run_at)
-            .where(JobSchedule.spec_type.in_(("job", "workflow")))
+            .where(JobSchedule.spec_type.in_(("dataset_action", "job", "workflow")))
         ).all()
         result: dict[str, AutoScheduleSnapshot] = {}
 
@@ -584,7 +584,7 @@ class OpsFreshnessQueryService:
 
         workflow_job_keys_cache: dict[str, tuple[str, ...]] = {}
         for spec_type, spec_key, status, next_run_at in rows:
-            if spec_type == "job":
+            if spec_type in {"dataset_action", "job"}:
                 merge_schedule_snapshot(spec_key, status, next_run_at)
                 continue
             if spec_type != "workflow":

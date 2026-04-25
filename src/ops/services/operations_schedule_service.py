@@ -12,8 +12,9 @@ from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.ops.services.operations_execution_service import OperationsExecutionService
-from src.ops.specs import get_ops_spec_display_name, ops_spec_supports_schedule
+from src.ops.specs import get_job_spec, get_ops_spec_display_name, ops_spec_supports_schedule
 from src.app.exceptions import WebAppError
+from src.foundation.datasets.registry import get_dataset_definition
 
 
 class OperationsScheduleService:
@@ -356,6 +357,15 @@ class OperationsScheduleService:
 
     @staticmethod
     def _validate_spec(spec_type: str, spec_key: str) -> None:
+        if spec_type == "dataset_action":
+            dataset_key = spec_key.rsplit(".", 1)[0] if spec_key.endswith(".maintain") else spec_key
+            try:
+                get_dataset_definition(dataset_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=404, code="not_found", message="Dataset definition does not exist") from exc
+            if not ops_spec_supports_schedule(spec_type, spec_key):
+                raise WebAppError(status_code=422, code="validation_error", message="Selected spec does not support scheduling")
+            return
         display_name = get_ops_spec_display_name(spec_type, spec_key)
         if display_name is None:
             if spec_type == "job":
@@ -363,6 +373,10 @@ class OperationsScheduleService:
             if spec_type == "workflow":
                 raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
             raise WebAppError(status_code=422, code="validation_error", message="Unsupported spec_type")
+        if spec_type == "job":
+            job_spec = get_job_spec(spec_key)
+            if job_spec is not None and job_spec.category != "maintenance":
+                raise WebAppError(status_code=422, code="validation_error", message="Legacy job specs are no longer accepted; use dataset_action")
         if not ops_spec_supports_schedule(spec_type, spec_key):
             raise WebAppError(status_code=422, code="validation_error", message="Selected spec does not support scheduling")
 

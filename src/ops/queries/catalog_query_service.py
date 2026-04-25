@@ -3,8 +3,10 @@ from __future__ import annotations
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
+from src.foundation.datasets.registry import list_dataset_definitions
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.specs import get_dataset_freshness_spec, list_job_specs, list_workflow_specs
+from src.ops.specs import list_job_specs, list_workflow_specs
 from src.ops.schemas.catalog import (
     JobSpecCatalogItem,
     OpsCatalogResponse,
@@ -15,18 +17,6 @@ from src.ops.schemas.catalog import (
 
 
 class OpsCatalogQueryService:
-    @staticmethod
-    def _resource_meta_for_job_spec_key(spec_key: str) -> tuple[str | None, str | None]:
-        if "." not in spec_key:
-            return None, None
-        _, resource_key = spec_key.split(".", 1)
-        if not resource_key:
-            return None, None
-        freshness_spec = get_dataset_freshness_spec(resource_key)
-        if freshness_spec is None:
-            return resource_key, None
-        return resource_key, freshness_spec.display_name
-
     def build_catalog(self, session: Session) -> OpsCatalogResponse:
         binding_rows = session.execute(
             select(
@@ -46,8 +36,15 @@ class OpsCatalogQueryService:
         }
         return OpsCatalogResponse(
             job_specs=[
-                self._build_job_catalog_item(job_spec, bindings)
-                for job_spec in list_job_specs()
+                *[
+                    self._build_dataset_action_catalog_item(definition, bindings)
+                    for definition in list_dataset_definitions()
+                ],
+                *[
+                    self._build_job_catalog_item(job_spec, bindings)
+                    for job_spec in list_job_specs()
+                    if job_spec.category == "maintenance"
+                ],
             ],
             workflow_specs=[
                 WorkflowSpecCatalogItem(
@@ -88,12 +85,12 @@ class OpsCatalogQueryService:
         )
 
     def _build_job_catalog_item(self, job_spec, bindings: dict[tuple[str, str], dict[str, int]]) -> JobSpecCatalogItem:
-        resource_key, resource_display_name = self._resource_meta_for_job_spec_key(job_spec.key)
         return JobSpecCatalogItem(
             key=job_spec.key,
+            spec_type="job",
             display_name=job_spec.display_name,
-            resource_key=resource_key,
-            resource_display_name=resource_display_name,
+            resource_key=None,
+            resource_display_name=None,
             category=job_spec.category,
             description=job_spec.description,
             strategy_type=job_spec.strategy_type,
@@ -117,3 +114,83 @@ class OpsCatalogQueryService:
                 for param in job_spec.supported_params
             ],
         )
+
+    def _build_dataset_action_catalog_item(
+        self,
+        definition: DatasetDefinition,
+        bindings: dict[tuple[str, str], dict[str, int]],
+    ) -> JobSpecCatalogItem:
+        action = definition.capabilities.get_action("maintain")
+        spec_key = f"{definition.dataset_key}.maintain"
+        return JobSpecCatalogItem(
+            key=spec_key,
+            spec_type="dataset_action",
+            display_name=f"维护{definition.display_name}",
+            resource_key=definition.dataset_key,
+            resource_display_name=definition.display_name,
+            category=definition.domain.domain_key,
+            description=definition.identity.description,
+            strategy_type="dataset_maintain",
+            executor_kind="dataset_action",
+            target_tables=[definition.storage.target_table],
+            supports_manual_run=bool(action and action.manual_enabled),
+            supports_schedule=bool(action and action.schedule_enabled),
+            supports_retry=bool(action and action.retry_enabled),
+            schedule_binding_count=bindings.get(("dataset_action", spec_key), {}).get("schedule_binding_count", 0),
+            active_schedule_count=bindings.get(("dataset_action", spec_key), {}).get("active_schedule_count", 0),
+            supported_params=[
+                self._build_dataset_parameter(field)
+                for field in (*definition.input_model.time_fields, *definition.input_model.filters)
+            ],
+        )
+
+    @staticmethod
+    def _build_dataset_parameter(field: DatasetInputField) -> ParameterSpecResponse:
+        return ParameterSpecResponse(
+            key=field.name,
+            display_name=OpsCatalogQueryService._field_display_name(field.name),
+            param_type=OpsCatalogQueryService._field_param_type(field),
+            description=field.description,
+            required=field.required,
+            options=list(field.enum_values),
+            multi_value=field.multi_value,
+        )
+
+    @staticmethod
+    def _field_param_type(field: DatasetInputField) -> str:
+        if field.name in {"month", "start_month", "end_month"}:
+            return "month"
+        if field.field_type == "date" or field.name.endswith("_date") or field.name in {"date", "cal_date"}:
+            return "date"
+        if field.field_type in {"integer", "int"}:
+            return "integer"
+        if field.field_type in {"boolean", "bool"}:
+            return "boolean"
+        if field.enum_values:
+            return "enum"
+        return "string"
+
+    @staticmethod
+    def _field_display_name(field_name: str) -> str:
+        labels = {
+            "trade_date": "处理日期",
+            "start_date": "开始日期",
+            "end_date": "结束日期",
+            "month": "月份",
+            "start_month": "开始月份",
+            "end_month": "结束月份",
+            "ts_code": "证券代码",
+            "index_code": "指数代码",
+            "con_code": "板块代码",
+            "market": "市场",
+            "hot_type": "热点类型",
+            "is_new": "日终标记",
+            "limit_type": "榜单类型",
+            "exchange": "交易所",
+            "exchange_id": "交易所",
+            "content_type": "板块类型",
+            "tag": "榜单标签",
+            "ann_date": "公告日期",
+            "date_field": "日期字段",
+        }
+        return labels.get(field_name, field_name)

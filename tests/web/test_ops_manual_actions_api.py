@@ -44,11 +44,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["daily"]["time_form"]["control"] == "trade_date_or_range"
     assert actions["daily"]["time_form"]["allowed_modes"] == ["point", "range"]
     assert actions["daily"]["time_form"]["selection_rule"] == "trading_day_only"
-    assert actions["daily"]["route_spec_keys"] == [
-        "sync_daily.daily",
-        "backfill_equity_series.daily",
-        "sync_history.daily",
-    ]
+    assert actions["daily"]["action_type"] == "dataset_action"
+    assert actions["daily"]["route_spec_keys"] == ["daily.maintain"]
 
     assert actions["stk_period_bar_week"]["time_form"]["selection_rule"] == "week_last_trading_day"
     assert actions["stk_period_bar_month"]["time_form"]["selection_rule"] == "month_last_trading_day"
@@ -68,7 +65,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
 
     assert actions["stk_mins"]["time_form"]["control"] == "trade_date_or_range"
     assert actions["stk_mins"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["stk_mins"]["route_spec_keys"] == ["sync_minute_history.stk_mins"]
+    assert actions["stk_mins"]["route_spec_keys"] == ["stk_mins.maintain"]
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 
@@ -84,11 +81,17 @@ def test_ops_manual_action_execution_creates_point_job(app_client, user_factory)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_type"] == "job"
-    assert payload["spec_key"] == "sync_daily.daily"
+    assert payload["spec_type"] == "dataset_action"
+    assert payload["spec_key"] == "daily.maintain"
     assert payload["status"] == "queued"
     assert payload["run_profile"] == "point_incremental"
-    assert payload["params_json"] == {"trade_date": "2026-04-24"}
+    assert payload["params_json"] == {
+        "dataset_key": "daily",
+        "action": "maintain",
+        "trade_date": "2026-04-24",
+        "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+        "filters": {},
+    }
 
 
 def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, user_factory) -> None:
@@ -105,7 +108,8 @@ def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, 
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "backfill_by_trade_date.dc_hot"
+    assert payload["spec_type"] == "dataset_action"
+    assert payload["spec_key"] == "dc_hot.maintain"
     assert payload["run_profile"] == "range_rebuild"
     assert payload["params_json"] == {
         "market": ["A股市场", "ETF基金"],
@@ -113,6 +117,10 @@ def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, 
         "is_new": "Y",
         "start_date": "2026-04-01",
         "end_date": "2026-04-24",
+        "dataset_key": "dc_hot",
+        "action": "maintain",
+        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
+        "filters": {"market": ["A股市场", "ETF基金"], "hot_type": ["人气榜"], "is_new": "Y"},
     }
 
 
@@ -130,13 +138,21 @@ def test_ops_manual_action_execution_applies_dc_hot_safe_defaults(app_client, us
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "sync_daily.dc_hot"
+    assert payload["spec_key"] == "dc_hot.maintain"
     assert payload["run_profile"] == "point_incremental"
     assert payload["params_json"] == {
         "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
         "hot_type": ["人气榜", "飙升榜"],
         "is_new": "Y",
         "trade_date": "2026-04-24",
+        "dataset_key": "dc_hot",
+        "action": "maintain",
+        "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+        "filters": {
+            "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
+            "hot_type": ["人气榜", "飙升榜"],
+            "is_new": "Y",
+        },
     }
 
 
@@ -154,16 +170,20 @@ def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_clien
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "sync_minute_history.stk_mins"
+    assert payload["spec_key"] == "stk_mins.maintain"
     assert payload["run_profile"] == "range_rebuild"
     assert payload["params_json"] == {
         "freq": ["30min", "60min"],
         "start_date": "2026-04-23",
         "end_date": "2026-04-24",
+        "dataset_key": "stk_mins",
+        "action": "maintain",
+        "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
+        "filters": {"freq": ["30min", "60min"]},
     }
 
 
-def test_ops_manual_action_execution_routes_natural_day_range_to_sync_history(app_client, user_factory) -> None:
+def test_ops_manual_action_execution_routes_natural_day_range_to_dataset_action(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
@@ -177,12 +197,16 @@ def test_ops_manual_action_execution_routes_natural_day_range_to_sync_history(ap
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "sync_history.dividend"
+    assert payload["spec_key"] == "dividend.maintain"
     assert payload["run_profile"] == "range_rebuild"
     assert payload["params_json"] == {
         "ts_code": "000001.SZ",
         "start_date": "2026-04-01",
         "end_date": "2026-04-24",
+        "dataset_key": "dividend",
+        "action": "maintain",
+        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
+        "filters": {"ts_code": "000001.SZ"},
     }
 
 
@@ -209,19 +233,36 @@ def test_ops_manual_action_execution_supports_month_and_month_window(app_client,
     )
 
     assert month_point.status_code == 200
-    assert month_point.json()["spec_key"] == "sync_daily.broker_recommend"
-    assert month_point.json()["params_json"] == {"month": "202604"}
+    assert month_point.json()["spec_key"] == "broker_recommend.maintain"
+    assert month_point.json()["params_json"] == {
+        "dataset_key": "broker_recommend",
+        "action": "maintain",
+        "month": "202604",
+        "time_input": {"mode": "point", "month": "202604"},
+        "filters": {},
+    }
 
     assert month_range.status_code == 200
-    assert month_range.json()["spec_key"] == "backfill_by_month.broker_recommend"
-    assert month_range.json()["params_json"] == {"start_month": "202604", "end_month": "202606"}
+    assert month_range.json()["spec_key"] == "broker_recommend.maintain"
+    assert month_range.json()["params_json"] == {
+        "dataset_key": "broker_recommend",
+        "action": "maintain",
+        "start_month": "202604",
+        "end_month": "202606",
+        "time_input": {"mode": "range", "start_month": "202604", "end_month": "202606"},
+        "filters": {},
+    }
 
     assert month_window.status_code == 200
-    assert month_window.json()["spec_key"] == "backfill_index_series.index_weight"
+    assert month_window.json()["spec_key"] == "index_weight.maintain"
     assert month_window.json()["params_json"] == {
         "index_code": "000300.SH",
         "start_date": "2026-04-01",
         "end_date": "2026-06-30",
+        "dataset_key": "index_weight",
+        "action": "maintain",
+        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-06-30"},
+        "filters": {"index_code": "000300.SH"},
     }
 
 

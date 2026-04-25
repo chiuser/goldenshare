@@ -40,25 +40,30 @@ class SyncV2Engine:
         request: RunRequest,
         contract: DatasetSyncContract,
         strict_contract: bool,
+        units_override: tuple[PlanUnit, ...] | None = None,
         cancel_checker=None,  # type: ignore[no-untyped-def]
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> EngineRunSummary:
         validated = self.validator.validate(request=request, contract=contract, strict=strict_contract)
-        runtime_contract = to_runtime_contract(contract)
-        if runtime_contract.strategy_fn is not None:
-            units = runtime_contract.strategy_fn(
-                validated,
-                contract,
-                self.planner.dao,
-                self.planner.settings,
-                self.session,
-            )
+        if units_override is not None:
+            units = units_override
         else:
-            units = self.planner.plan(validated, contract)
+            runtime_contract = to_runtime_contract(contract)
+            if runtime_contract.strategy_fn is not None:
+                units = runtime_contract.strategy_fn(
+                    validated,
+                    contract,
+                    self.planner.dao,
+                    self.planner.settings,
+                    self.session,
+                )
+            else:
+                units = self.planner.plan(validated, contract)
         observer = SyncV2Observer(progress_reporter=progress_reporter)
 
         rows_fetched = 0
         rows_written = 0
+        rows_committed = 0
         rows_rejected = 0
         rejected_reason_counts: dict[str, int] = {}
         unit_done = 0
@@ -89,14 +94,21 @@ class SyncV2Engine:
                 rows_rejected += unit_rows_rejected
                 for reason_code, count in normalized.rejected_reasons.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+                if contract.transaction_spec.commit_policy == "unit":
+                    self.session.commit()
+                    rows_committed += unit_rows_written
                 unit_done += 1
             except SyncV2Error as exc:
                 unit_failed += 1
+                if contract.transaction_spec.commit_policy == "unit":
+                    self.session.rollback()
                 error_code = exc.structured_error.error_code
                 error_counts[error_code] = error_counts.get(error_code, 0) + 1
                 raise
             except Exception as exc:
                 unit_failed += 1
+                if contract.transaction_spec.commit_policy == "unit":
+                    self.session.rollback()
                 structured = self.error_mapper.map_exception(exc=exc, phase="engine", unit_id=unit.unit_id)
                 error_counts[structured.error_code] = error_counts.get(structured.error_code, 0) + 1
                 raise SyncV2Error(structured) from exc
@@ -109,6 +121,7 @@ class SyncV2Engine:
                     unit_failed=unit_failed,
                     rows_fetched=rows_fetched,
                     rows_written=rows_written,
+                    rows_committed=rows_committed,
                     rows_rejected=rows_rejected,
                     rejected_reason_counts=rejected_reason_counts,
                     message=self._build_progress_message(
@@ -117,10 +130,12 @@ class SyncV2Engine:
                         total=total_units,
                         rows_fetched=rows_fetched,
                         rows_written=rows_written,
+                        rows_committed=rows_committed if contract.transaction_spec.commit_policy == "unit" else None,
                         rows_rejected=rows_rejected,
                         unit=unit,
                         unit_rows_fetched=unit_rows_fetched,
                         unit_rows_written=unit_rows_written,
+                        unit_rows_committed=unit_rows_written if contract.transaction_spec.commit_policy == "unit" else None,
                         unit_rows_rejected=unit_rows_rejected,
                         rejected_reason_counts=rejected_reason_counts,
                     ),
@@ -134,6 +149,7 @@ class SyncV2Engine:
             unit_failed=unit_failed,
             rows_fetched=rows_fetched,
             rows_written=rows_written,
+            rows_committed=rows_committed,
             rows_rejected=rows_rejected,
             rejected_reason_counts=rejected_reason_counts,
             result_date=self._resolve_result_date(validated),
@@ -165,29 +181,34 @@ class SyncV2Engine:
         total: int,
         rows_fetched: int,
         rows_written: int,
+        rows_committed: int | None,
         rows_rejected: int,
         rejected_reason_counts: dict[str, int],
         unit: PlanUnit | None = None,
         unit_rows_fetched: int | None = None,
         unit_rows_written: int | None = None,
+        unit_rows_committed: int | None = None,
         unit_rows_rejected: int | None = None,
     ) -> str:
         tokens = cls._build_progress_context_tokens(
             unit=unit,
             unit_rows_fetched=unit_rows_fetched,
             unit_rows_written=unit_rows_written,
+            unit_rows_committed=unit_rows_committed,
             unit_rows_rejected=unit_rows_rejected,
         )
         if tokens:
             token_text = " ".join(tokens)
+            committed_text = f" committed={rows_committed}" if rows_committed is not None else ""
             message = (
                 f"{progress_label}: "
-                f"{current}/{total} {token_text} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+                f"{current}/{total} {token_text} fetched={rows_fetched} written={rows_written}{committed_text} rejected={rows_rejected}"
             )
         else:
+            committed_text = f" committed={rows_committed}" if rows_committed is not None else ""
             message = (
                 f"{progress_label}: "
-                f"{current}/{total} fetched={rows_fetched} written={rows_written} rejected={rows_rejected}"
+                f"{current}/{total} fetched={rows_fetched} written={rows_written}{committed_text} rejected={rows_rejected}"
             )
         normalized_counts = cls._normalize_reason_counts(rejected_reason_counts)
         if not normalized_counts:
@@ -230,6 +251,7 @@ class SyncV2Engine:
         unit: PlanUnit | None,
         unit_rows_fetched: int | None,
         unit_rows_written: int | None,
+        unit_rows_committed: int | None,
         unit_rows_rejected: int | None,
     ) -> list[str]:
         tokens: list[str] = []
@@ -259,6 +281,8 @@ class SyncV2Engine:
             tokens.append(f"unit_fetched={int(unit_rows_fetched or 0)}")
         if unit_rows_written is not None:
             tokens.append(f"unit_written={int(unit_rows_written or 0)}")
+        if unit_rows_committed is not None:
+            tokens.append(f"unit_committed={int(unit_rows_committed or 0)}")
         if unit_rows_rejected is not None and unit_rows_rejected > 0:
             tokens.append(f"unit_rejected={int(unit_rows_rejected or 0)}")
         return tokens

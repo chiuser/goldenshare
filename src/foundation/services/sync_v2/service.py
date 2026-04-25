@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from src.foundation.services.sync_v2.base_sync_service import BaseSyncService
-from src.foundation.services.sync_v2.contracts import DatasetSyncContract, RunRequest
+from src.foundation.services.sync_v2.contracts import DatasetSyncContract, PlanUnit, RunRequest
 from src.foundation.services.sync_v2.engine import SyncV2Engine
 from src.foundation.services.sync_v2.errors import SyncV2Error
 
@@ -27,6 +27,7 @@ class SyncV2Service(BaseSyncService):
 
     def execute(self, run_type: str, **kwargs: Any) -> tuple[int, int, date | None, str | None]:
         execution_id = kwargs.get("execution_id")
+        units_override = kwargs.pop("_plan_units", None)
         request = RunRequest(
             request_id=str(kwargs.get("request_id") or uuid4().hex),
             execution_id=execution_id,
@@ -63,6 +64,7 @@ class SyncV2Service(BaseSyncService):
                 request=request,
                 contract=self.contract,
                 strict_contract=self.strict_contract,
+                units_override=units_override if self._is_plan_units_tuple(units_override) else None,
                 cancel_checker=cancel_checker,
                 progress_reporter=progress_reporter,
             )
@@ -90,3 +92,7 @@ class SyncV2Service(BaseSyncService):
             return None
         text = str(value).strip()
         return text or None
+
+    @staticmethod
+    def _is_plan_units_tuple(value: Any) -> bool:
+        return isinstance(value, tuple) and all(isinstance(item, PlanUnit) for item in value)

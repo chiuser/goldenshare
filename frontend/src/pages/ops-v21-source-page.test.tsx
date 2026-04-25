@@ -75,7 +75,7 @@ describe("V2.1 数据源详情页", () => {
                 {
                   dataset_key: "daily",
                   resource_key: "daily",
-                  job_name: "sync_daily.daily",
+                  job_name: "maintain_daily",
                   display_name: "股票日线",
                   cadence: "daily",
                   target_table: "core_serving.daily",
@@ -94,7 +94,7 @@ describe("V2.1 数据源详情页", () => {
                   recent_failure_message: null,
                   recent_failure_summary: null,
                   recent_failure_at: null,
-                  primary_execution_spec_key: "sync_daily.daily",
+                  primary_execution_spec_key: "daily.maintain",
                   auto_schedule_status: "active",
                   auto_schedule_total: 1,
                   auto_schedule_active: 1,

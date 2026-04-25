@@ -50,8 +50,7 @@
 ## 5. 最小门禁
 
 1. `pytest -q tests/test_sync_v2_planner.py tests/test_sync_v2_validator.py`
-2. 目标数据集最小命令冒烟（选小时间窗）：
-   - `goldenshare sync-daily -r <dataset> --trade-date <date>` 或
-   - `goldenshare sync-history -r <dataset> --start-date <d1> --end-date <d2>`
+2. 目标数据集最小执行冒烟（选小时间窗）：
+   - 通过 Ops 手动任务或 `DatasetActionResolver` 生成 `dataset_key + action=maintain` 执行计划。
+   - 单日使用 `time_input.mode=point`，区间使用 `time_input.mode=range`。
 3. `goldenshare sync-v2-lint-contracts`
-

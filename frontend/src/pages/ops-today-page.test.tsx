@@ -52,7 +52,7 @@ vi.mock("../shared/api/client", () => ({
         earliest_business_date: "2020-01-01",
         latest_business_date: "2026-03-31",
         last_sync_date: "2026-03-31",
-        primary_execution_spec_key: "sync_daily.daily",
+        primary_execution_spec_key: "daily.maintain",
         recent_failure_summary: "network timeout while fetching daily data",
         recent_failure_at: "2026-04-01T08:30:00+08:00",
       },
@@ -79,7 +79,7 @@ describe("今日运行页", () => {
     );
 
     const links = await screen.findAllByRole("link", { name: "去处理" });
-    expect(links.some((link) => link.getAttribute("href") === "/app/ops/manual-sync?spec_key=sync_daily.daily&spec_type=job")).toBe(true);
+    expect(links.some((link) => link.getAttribute("href") === "/app/ops/manual-sync?spec_key=daily.maintain&spec_type=dataset_action")).toBe(true);
     expect(screen.queryByText("需要优先处理的问题")).not.toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看全部任务" })).toBeInTheDocument();
     expect(await screen.findByText("日期范围 / 最近同步日期")).toBeInTheDocument();

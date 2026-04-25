@@ -27,8 +27,8 @@ class StubDispatcher:
 
 def test_scheduler_enqueues_due_once_schedule(db_session, job_schedule_factory) -> None:
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         schedule_type="once",
         next_run_at=datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc),
     )
@@ -48,8 +48,8 @@ def test_scheduler_enqueues_due_once_schedule(db_session, job_schedule_factory) 
 
 def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, job_schedule_factory) -> None:
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         schedule_type="cron",
         cron_expr="5 * * * *",
         timezone_name="UTC",
@@ -71,8 +71,8 @@ def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, job_sched
 
 def test_scheduler_skips_due_schedule_when_trigger_mode_is_probe_only(db_session, job_schedule_factory) -> None:
     schedule = job_schedule_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         schedule_type="cron",
         trigger_mode="probe",
         cron_expr="5 * * * *",
@@ -103,9 +103,9 @@ def test_scheduler_creates_probe_execution_when_rule_matches(
         window_end=None,
         probe_interval_seconds=30,
         on_success_action_json={
-            "spec_type": "job",
-            "spec_key": "sync_daily.daily",
-            "params_json": {"run_scope": "probe_triggered"},
+            "spec_type": "dataset_action",
+            "spec_key": "daily.maintain",
+            "params_json": {"dataset_key": "daily", "action": "maintain", "time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
         },
     )
 
@@ -114,9 +114,9 @@ def test_scheduler_creates_probe_execution_when_rule_matches(
 
         execution = OperationsExecutionService().create_execution(
             session,
-                spec_type="job",
-                spec_key="sync_daily.daily",
-                params_json={"run_scope": "probe_triggered"},
+                spec_type="dataset_action",
+                spec_key="daily.maintain",
+                params_json={"dataset_key": "daily", "action": "maintain", "time_input": {"mode": "point"}, "filters": {}, "run_scope": "probe_triggered"},
             trigger_source="probe",
             requested_by_user_id=None,
             schedule_id=None,
@@ -152,8 +152,8 @@ def test_scheduler_creates_probe_execution_when_rule_matches(
 
 def test_worker_claims_queued_execution_and_marks_success(db_session, job_execution_factory) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
     )
     dispatcher = StubDispatcher(DispatchOutcome(status="success", rows_fetched=10, rows_written=8, summary_message="done"))
@@ -170,8 +170,8 @@ def test_worker_claims_queued_execution_and_marks_success(db_session, job_execut
 
 def test_dispatcher_progress_snapshot_updates_execution_fields(db_session, job_execution_factory) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="backfill_equity_series.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         status="running",
     )
 
@@ -236,13 +236,13 @@ def test_dispatcher_workflow_continue_on_error_keeps_following_steps(db_session,
         steps=(
             WorkflowStepSpec(
                 step_key="s1",
-                job_key="sync_daily.daily",
+                job_key="maintenance.mock_daily",
                 display_name="Step 1",
                 failure_policy_override="continue_on_error",
             ),
             WorkflowStepSpec(
                 step_key="s2",
-                job_key="sync_daily.daily_basic",
+                job_key="maintenance.mock_daily_basic",
                 display_name="Step 2",
             ),
         ),
@@ -309,13 +309,13 @@ def test_dispatcher_blocks_dependent_step_after_failed_dependency(db_session, jo
         steps=(
             WorkflowStepSpec(
                 step_key="s1",
-                job_key="sync_daily.daily",
+                job_key="maintenance.mock_daily",
                 display_name="Step 1",
                 failure_policy_override="continue_on_error",
             ),
             WorkflowStepSpec(
                 step_key="s2",
-                job_key="sync_daily.daily_basic",
+                job_key="maintenance.mock_daily_basic",
                 display_name="Step 2",
                 depends_on=("s1",),
             ),
@@ -360,16 +360,24 @@ def test_dispatcher_blocks_dependent_step_after_failed_dependency(db_session, jo
     assert steps[1].depends_on_step_keys_json == ["s1"]
 
 
-def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_factory, monkeypatch) -> None:
+def test_dispatcher_passes_dataset_action_filters_to_sync_service(db_session, job_execution_factory, monkeypatch) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_daily.dc_hot",
+        spec_type="dataset_action",
+        spec_key="dc_hot.maintain",
         status="running",
         params_json={
+            "dataset_key": "dc_hot",
+            "action": "maintain",
+            "time_input": {"mode": "point", "trade_date": "2026-04-02"},
+            "filters": {
+                "market": ["A股市场", "ETF基金"],
+                "hot_type": ["人气榜", "飙升榜"],
+                "is_new": "Y",
+            },
             "trade_date": "2026-04-02",
             "market": ["A股市场", "ETF基金"],
             "hot_type": ["人气榜", "飙升榜"],
-            "is_new": "N",
+            "is_new": "Y",
         },
     )
 
@@ -384,31 +392,32 @@ def test_dispatcher_passes_optional_sync_daily_params(db_session, job_execution_
         lambda resource, session, **kwargs: stub_service,
     )
 
-    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
-        db_session,
-        execution,
-        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily", supported_params=()),
-        dict(execution.params_json or {}),
-    )
+    outcome = OperationsDispatcher()._dispatch_dataset_action(db_session, execution)
 
-    assert rows_fetched == 5
-    assert rows_written == 5
-    assert summary == "ok fetched=5 written=5 rejected=0"
-    assert stub_service.kwargs == {
-        "trade_date": datetime(2026, 4, 2, 0, 0, tzinfo=timezone.utc).date(),
-        "market": ["A股市场", "ETF基金"],
-        "hot_type": ["人气榜", "飙升榜"],
-        "is_new": "N",
-        "execution_id": execution.id,
-    }
+    assert outcome.rows_fetched == 5
+    assert outcome.rows_written == 5
+    assert outcome.summary_message == "ok fetched=5 written=5 rejected=0"
+    assert stub_service.kwargs["trade_date"] == date(2026, 4, 2)
+    assert stub_service.kwargs["market"] == ["A股市场", "ETF基金"]
+    assert stub_service.kwargs["hot_type"] == ["人气榜", "飙升榜"]
+    assert stub_service.kwargs["is_new"] == "Y"
+    assert stub_service.kwargs["execution_id"] == execution.id
+    assert len(stub_service.kwargs["_plan_units"]) == 4
 
 
-def test_dispatcher_appends_row_stats_for_direct_date_range_sync(db_session, job_execution_factory, monkeypatch) -> None:
+def test_dispatcher_appends_row_stats_for_dataset_action_range(db_session, job_execution_factory, monkeypatch) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="backfill_by_date_range.ths_daily",
+        spec_type="dataset_action",
+        spec_key="ths_daily.maintain",
         status="running",
-        params_json={"start_date": "2026-04-01", "end_date": "2026-04-03"},
+        params_json={
+            "dataset_key": "ths_daily",
+            "action": "maintain",
+            "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-03"},
+            "filters": {},
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-03",
+        },
     )
 
     class StubSyncService:
@@ -422,29 +431,32 @@ def test_dispatcher_appends_row_stats_for_direct_date_range_sync(db_session, job
         lambda resource, session, **kwargs: stub_service,
     )
 
-    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
-        db_session,
-        execution,
-        SimpleNamespace(key="backfill_by_date_range.ths_daily", category="backfill_by_date_range", supported_params=()),
-        dict(execution.params_json or {}),
-    )
+    outcome = OperationsDispatcher()._dispatch_dataset_action(db_session, execution)
 
-    assert rows_fetched == 88
-    assert rows_written == 77
-    assert summary == "units=3 done=3 failed=0 fetched=88 written=77 rejected=11"
+    assert outcome.rows_fetched == 88
+    assert outcome.rows_written == 77
+    assert outcome.summary_message == "units=3 done=3 failed=0 fetched=88 written=77 rejected=11"
     assert stub_service.kwargs == {
         "execution_id": execution.id,
-        "start_date": "2026-04-01",
-        "end_date": "2026-04-03",
+        "run_profile": "range_rebuild",
+        "start_date": date(2026, 4, 1),
+        "end_date": date(2026, 4, 3),
+        "_plan_units": stub_service.kwargs["_plan_units"],
     }
 
 
-def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execution_factory, trade_calendar_factory, monkeypatch) -> None:
+def test_dispatcher_skips_dataset_action_on_closed_trade_date(db_session, job_execution_factory, trade_calendar_factory, monkeypatch) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_daily.dc_hot",
+        spec_type="dataset_action",
+        spec_key="dc_hot.maintain",
         status="running",
-        params_json={"trade_date": "2026-01-01"},
+        params_json={
+            "dataset_key": "dc_hot",
+            "action": "maintain",
+            "time_input": {"mode": "point", "trade_date": "2026-01-01"},
+            "filters": {},
+            "trade_date": "2026-01-01",
+        },
     )
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 1, 1), is_open=False)
 
@@ -461,80 +473,26 @@ def test_dispatcher_skips_sync_daily_on_closed_trade_date(db_session, job_execut
         lambda resource, session, **kwargs: stub_service,
     )
 
-    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
-        db_session,
-        execution,
-        SimpleNamespace(key="sync_daily.dc_hot", category="sync_daily", supported_params=()),
-        dict(execution.params_json or {}),
-    )
+    outcome = OperationsDispatcher()._dispatch_dataset_action(db_session, execution)
 
-    assert rows_fetched == 0
-    assert rows_written == 0
-    assert summary == "skip sync_daily.dc_hot trade_date=2026-01-01 非交易日"
+    assert outcome.rows_fetched == 0
+    assert outcome.rows_written == 0
+    assert outcome.summary_message == "skip dc_hot trade_date=2026-01-01 非交易日"
     assert stub_service.called is False
 
 
-def test_dispatcher_passes_content_type_to_backfill_by_trade_date(db_session, job_execution_factory, monkeypatch) -> None:
+def test_dispatcher_refreshes_serving_light_after_daily_dataset_action(db_session, job_execution_factory, monkeypatch) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="backfill_by_trade_date.moneyflow_ind_dc",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         status="running",
         params_json={
-            "start_date": "2026-04-01",
-            "end_date": "2026-04-02",
-            "ts_code": "BK1234",
-            "content_type": ["行业", "概念"],
-            "offset": 2,
-            "limit": 5,
+            "dataset_key": "daily",
+            "action": "maintain",
+            "time_input": {"mode": "point", "trade_date": "2026-04-02"},
+            "filters": {},
+            "trade_date": "2026-04-02",
         },
-    )
-    backfill_service = SimpleNamespace(
-        backfill_by_trade_dates=lambda **kwargs: SimpleNamespace(
-            resource=kwargs["resource"],
-            units_processed=1,
-            rows_fetched=7,
-            rows_written=6,
-        )
-    )
-    captured_kwargs: dict[str, object] = {}
-
-    def _stub_backfill_by_trade_dates(**kwargs):  # type: ignore[no-untyped-def]
-        captured_kwargs.update(kwargs)
-        return SimpleNamespace(resource="moneyflow_ind_dc", units_processed=1, rows_fetched=7, rows_written=6)
-
-    backfill_service.backfill_by_trade_dates = _stub_backfill_by_trade_dates
-    monkeypatch.setattr(
-        "src.ops.runtime.dispatcher.HistoryBackfillService",
-        lambda session, **kwargs: backfill_service,
-    )
-
-    rows_fetched, rows_written, summary = OperationsDispatcher()._run_backfill_job(
-        db_session,
-        execution,
-        SimpleNamespace(key="backfill_by_trade_date.moneyflow_ind_dc", category="backfill_by_trade_date"),
-        dict(execution.params_json or {}),
-        step_id=10,
-    )
-
-    assert rows_fetched == 7
-    assert rows_written == 6
-    assert summary == "units=1 fetched=7 written=6 rejected=1"
-    assert captured_kwargs["resource"] == "moneyflow_ind_dc"
-    assert captured_kwargs["start_date"] == date(2026, 4, 1)
-    assert captured_kwargs["end_date"] == date(2026, 4, 2)
-    assert captured_kwargs["ts_code"] == "BK1234"
-    assert captured_kwargs["content_type"] == ["行业", "概念"]
-    assert captured_kwargs["offset"] == 2
-    assert captured_kwargs["limit"] == 5
-    assert captured_kwargs["execution_id"] == execution.id
-
-
-def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_execution_factory, monkeypatch) -> None:
-    execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_daily.daily",
-        status="running",
-        params_json={"trade_date": "2026-04-02"},
     )
 
     class StubSyncService:
@@ -559,18 +517,12 @@ def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_exe
         _stub_refresh,
     )
 
-    rows_fetched, rows_written, summary = OperationsDispatcher()._run_sync_job(
-        db_session,
-        execution,
-        SimpleNamespace(key="sync_daily.daily", category="sync_daily", supported_params=()),
-        dict(execution.params_json or {}),
-        step_id=101,
-    )
+    outcome = OperationsDispatcher()._dispatch_dataset_action(db_session, execution)
     db_session.flush()
 
-    assert rows_fetched == 5
-    assert rows_written == 5
-    assert "轻量层刷新完成" in (summary or "")
+    assert outcome.rows_fetched == 5
+    assert outcome.rows_written == 5
+    assert "轻量层刷新完成" in (outcome.summary_message or "")
     assert refresh_calls
     assert refresh_calls[0]["start_date"] == date(2026, 4, 2)
     assert refresh_calls[0]["end_date"] == date(2026, 4, 2)
@@ -587,8 +539,8 @@ def test_dispatcher_refreshes_serving_light_after_daily_sync(db_session, job_exe
 
 def test_worker_cancels_queued_execution_before_dispatch(db_session, job_execution_factory) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_at=datetime(2026, 3, 30, 11, 0, tzinfo=timezone.utc),
     )
@@ -606,8 +558,8 @@ def test_worker_cancels_queued_execution_before_dispatch(db_session, job_executi
 
 def test_worker_marks_running_execution_canceled_when_dispatcher_returns_canceled(db_session, job_execution_factory) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_at=datetime(2026, 3, 30, 11, 0, tzinfo=timezone.utc),
     )
@@ -623,8 +575,8 @@ def test_worker_marks_running_execution_canceled_when_dispatcher_returns_cancele
 
 def test_worker_failed_keeps_last_progress_message_for_diagnosis(db_session, job_execution_factory) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.biying_equity_daily",
+        spec_type="dataset_action",
+        spec_key="biying_equity_daily.maintain",
         status="queued",
         requested_at=datetime(2026, 4, 12, 10, 0, tzinfo=timezone.utc),
     )
@@ -647,8 +599,8 @@ def test_worker_failed_keeps_last_progress_message_for_diagnosis(db_session, job
 
 def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_execution_factory, mocker) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_at=datetime(2026, 3, 30, 11, 0, tzinfo=timezone.utc),
     )
@@ -668,8 +620,8 @@ def test_worker_emergency_fails_execution_when_finalize_raises(db_session, job_e
 
 def test_worker_records_warning_event_when_snapshot_refresh_fails(db_session, job_execution_factory, monkeypatch) -> None:
     execution = job_execution_factory(
-        spec_type="job",
-        spec_key="sync_history.stock_basic",
+        spec_type="dataset_action",
+        spec_key="stock_basic.maintain",
         status="queued",
         requested_at=datetime(2026, 4, 18, 10, 0, tzinfo=timezone.utc),
     )
@@ -677,8 +629,8 @@ def test_worker_records_warning_event_when_snapshot_refresh_fails(db_session, jo
     worker = OperationsWorker(dispatcher=dispatcher)
 
     def _stub_refresh(_session, *, spec_type, spec_key):  # type: ignore[no-untyped-def]
-        assert spec_type == "job"
-        assert spec_key == "sync_history.stock_basic"
+        assert spec_type == "dataset_action"
+        assert spec_key == "stock_basic.maintain"
         return "snapshot refresh boom"
 
     monkeypatch.setattr(worker, "_refresh_snapshot_for_execution", _stub_refresh)

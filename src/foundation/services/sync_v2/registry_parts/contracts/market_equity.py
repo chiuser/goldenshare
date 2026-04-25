@@ -30,6 +30,7 @@ from src.foundation.services.sync_v2.contracts import (
     ObserveSpec,
     PaginationSpec,
     SourceSpec,
+    TransactionSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
     build_date_model,
@@ -37,6 +38,10 @@ from src.foundation.services.sync_v2.registry_parts.builders import (
     build_normalization_spec,
     build_planning_spec,
     build_write_spec,
+)
+from src.foundation.services.sync_v2.registry_parts.common.constants import (
+    ALL_LIMIT_LIST_THS_LIMIT_TYPES,
+    ALL_LIMIT_LIST_THS_MARKETS,
 )
 from src.foundation.services.sync_v2.registry_parts.common.param_policies import *  # noqa: F403
 from src.foundation.services.sync_v2.registry_parts.common.row_transforms import *  # noqa: F403
@@ -59,6 +64,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
         ),
         planning_spec=build_planning_spec(
             universe_policy="none",
+            enum_fanout_fields=("limit_type", "market"),
+            enum_fanout_defaults={
+                "limit_type": ALL_LIMIT_LIST_THS_LIMIT_TYPES,
+                "market": ALL_LIMIT_LIST_THS_MARKETS,
+            },
             pagination_policy="none",
         ),
         source_adapter_key="biying",
@@ -159,7 +169,7 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
     "daily_basic": DatasetSyncContract(
         dataset_key="daily_basic",
         display_name="每日指标",
-        job_name="sync_daily_basic",
+        job_name="maintain_daily_basic",
         run_profiles_supported=("point_incremental", "range_rebuild"),
         date_model=build_date_model("daily_basic"),
         input_schema=build_input_schema(
@@ -289,6 +299,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             write_path="raw_only_upsert",
         ),
         observe_spec=ObserveSpec(progress_label="stk_mins"),
+        transaction_spec=TransactionSpec(
+            commit_policy="unit",
+            idempotent_write_required=True,
+            write_volume_assessment="单个事务限定为一个 planned unit；stk_mins unit 由股票代码、频率与时间窗口确定，write_path=raw_only_upsert 为幂等 upsert。",
+        ),
         pagination_spec=PaginationSpec(page_limit=8000),
     ),
     "suspend_d": DatasetSyncContract(
@@ -412,6 +427,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.equity_factor_pro",
         ),
         observe_spec=ObserveSpec(progress_label="stk_factor_pro"),
+        transaction_spec=TransactionSpec(
+            commit_policy="unit",
+            idempotent_write_required=True,
+            write_volume_assessment="单个事务限定为一个 planned unit；stk_factor_pro unit 由交易日与筛选参数确定，write_path=raw_core_upsert 为幂等 upsert。",
+        ),
         pagination_spec=PaginationSpec(page_limit=10000),
     ),
     "margin": DatasetSyncContract(

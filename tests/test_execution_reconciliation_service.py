@@ -40,8 +40,8 @@ def test_preview_stale_executions_returns_only_stale_open_items(db_session: Sess
     now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
 
     stale = JobExecution(
-        spec_type="job",
-        spec_key="backfill_equity_series.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         trigger_source="manual",
         status="running",
         requested_at=now - timedelta(hours=2),
@@ -50,8 +50,8 @@ def test_preview_stale_executions_returns_only_stale_open_items(db_session: Sess
         params_json={},
     )
     healthy = JobExecution(
-        spec_type="job",
-        spec_key="backfill_equity_series.adj_factor",
+        spec_type="dataset_action",
+        spec_key="adj_factor.maintain",
         trigger_source="manual",
         status="running",
         requested_at=now - timedelta(minutes=20),
@@ -62,8 +62,8 @@ def test_preview_stale_executions_returns_only_stale_open_items(db_session: Sess
         progress_message="still moving",
     )
     done = JobExecution(
-        spec_type="job",
-        spec_key="sync_daily.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         trigger_source="scheduled",
         status="success",
         requested_at=now - timedelta(hours=3),
@@ -89,8 +89,8 @@ def test_preview_stale_executions_returns_only_stale_open_items(db_session: Sess
 def test_reconcile_stale_executions_marks_cancel_requested_as_canceled(db_session: Session) -> None:
     now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
     execution = JobExecution(
-        spec_type="job",
-        spec_key="backfill_equity_series.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         trigger_source="manual",
         status="running",
         requested_at=now - timedelta(hours=2),
@@ -122,8 +122,8 @@ def test_reconcile_stale_executions_marks_cancel_requested_as_canceled(db_sessio
 def test_reconcile_stale_executions_uses_recent_log_activity_to_keep_active_item(db_session: Session) -> None:
     now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
     execution = JobExecution(
-        spec_type="job",
-        spec_key="backfill_equity_series.daily",
+        spec_type="dataset_action",
+        spec_key="daily.maintain",
         trigger_source="manual",
         status="running",
         requested_at=now - timedelta(hours=2),
@@ -136,7 +136,7 @@ def test_reconcile_stale_executions_uses_recent_log_activity_to_keep_active_item
     db_session.add(
         SyncRunLog(
             execution_id=execution.id,
-            job_name="sync_daily",
+            job_name="maintain_daily",
             run_type="manual",
             status="RUNNING",
             started_at=now - timedelta(minutes=3),

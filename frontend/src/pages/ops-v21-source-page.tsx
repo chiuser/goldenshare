@@ -53,6 +53,11 @@ function statusLabel(status: CardStatus): string {
   return "未知";
 }
 
+function manualSyncHref(specKey: string): string {
+  const specType = specKey.endsWith(".maintain") ? "dataset_action" : "job";
+  return `/app/ops/manual-sync?spec_key=${encodeURIComponent(specKey)}&spec_type=${specType}`;
+}
+
 function cadenceLabel(cadence: string): string {
   const key = (cadence || "").toLowerCase();
   if (key === "daily") return "每日";
@@ -288,7 +293,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                       {item.status !== "healthy" && item.primaryExecutionSpecKey ? (
                         <Button
                           component="a"
-                          href={`/app/ops/manual-sync?spec_key=${encodeURIComponent(item.primaryExecutionSpecKey || "")}&spec_type=job`}
+                          href={manualSyncHref(item.primaryExecutionSpecKey)}
                           size="xs"
                           variant="light"
                           color="brand"

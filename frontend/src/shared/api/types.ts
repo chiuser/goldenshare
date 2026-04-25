@@ -469,6 +469,7 @@ export interface ExecutionLogsResponse {
 export interface OpsCatalogResponse {
   job_specs: Array<{
     key: string;
+    spec_type?: string;
     display_name: string;
     resource_key?: string | null;
     resource_display_name?: string | null;
@@ -527,7 +528,7 @@ export interface OpsManualActionsResponse {
     group_order: number;
     actions: Array<{
       action_key: string;
-      action_type: "job" | "workflow";
+      action_type: "dataset_action" | "job" | "workflow";
       display_name: string;
       description: string;
       resource_key: string | null;

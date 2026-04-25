@@ -291,6 +291,8 @@ class ExecutionQueryService:
     def _resolve_resource_key(execution: JobExecution) -> str | None:
         if execution.dataset_key:
             return execution.dataset_key
+        if execution.spec_type == "dataset_action":
+            return execution.spec_key.rsplit(".", 1)[0] if execution.spec_key.endswith(".maintain") else execution.spec_key
         if execution.spec_type == "job" and "." in execution.spec_key:
             return execution.spec_key.split(".", 1)[1]
         return None

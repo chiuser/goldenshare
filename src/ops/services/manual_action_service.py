@@ -16,7 +16,7 @@ from src.foundation.services.sync_v2.dataset_strategies.dc_hot import (
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import ManualActionExecutionCreateRequest, ManualActionTimeInput
 from src.ops.services.execution_service import OpsExecutionCommandService
-from src.ops.specs import JobSpec, ParameterSpec
+from src.ops.specs import ParameterSpec
 
 
 class ManualActionCommandService:
@@ -57,25 +57,55 @@ class ManualActionExecutionResolver:
         if mode not in self.route.time_form.allowed_modes:
             raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported time mode: {mode}")
 
-        time_params, spec_key = self._resolve_time_and_spec(mode=mode, time_input=time_input)
-        params_json = {**filters, **time_params}
+        if self.route.action_type == "dataset_action":
+            time_params = self._resolve_dataset_action_time(mode=mode, time_input=time_input)
+            params_json = {
+                **filters,
+                **time_params,
+                "dataset_key": self.route.resource_key,
+                "action": "maintain",
+                "time_input": {"mode": mode, **time_params},
+                "filters": filters,
+            }
+            if self.route.resource_key is None:
+                raise WebAppError(status_code=422, code="validation_error", message="Manual action resource route is not configured")
+            return "dataset_action", f"{self.route.resource_key}.maintain", params_json
+
         if self.route.action_type == "workflow":
             workflow_spec = self.route.workflow_spec
             if workflow_spec is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Manual action workflow route is not configured")
+            params_json = {**filters, **self._resolve_workflow_time(mode=mode, time_input=time_input)}
             return "workflow", workflow_spec.key, params_json
-        return "job", spec_key, params_json
+        raise WebAppError(status_code=422, code="validation_error", message="Unsupported manual action type")
 
-    def _resolve_time_and_spec(self, *, mode: str, time_input: ManualActionTimeInput) -> tuple[dict[str, Any], str]:
-        if self.route.action_type == "workflow":
-            return self._resolve_workflow_time(mode=mode, time_input=time_input), self.route.workflow_spec.key if self.route.workflow_spec else ""
-
+    def _resolve_dataset_action_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
         if mode == "none":
-            return {}, self._require_no_time_job_spec()
+            return {}
+        input_shape = self._input_shape()
         if mode == "point":
-            return self._resolve_point_time(time_input)
+            if input_shape == "month_or_range":
+                return {"month": self._require_month(time_input.month, "month")}
+            param_key = "ann_date" if input_shape == "ann_date_or_start_end" else "trade_date"
+            return {param_key: self._require_date_text(getattr(time_input, param_key), param_key)}
         if mode == "range":
-            return self._resolve_range_time(time_input)
+            if input_shape == "month_or_range":
+                start_month = self._require_month(time_input.start_month, "start_month")
+                end_month = self._require_month(time_input.end_month, "end_month")
+                self._validate_month_order(start_month, end_month)
+                return {"start_month": start_month, "end_month": end_month}
+            if input_shape == "start_end_month_window":
+                start_month = self._require_month(time_input.start_month, "start_month")
+                end_month = self._require_month(time_input.end_month, "end_month")
+                self._validate_month_order(start_month, end_month)
+                return {
+                    "start_date": self._month_start_date(start_month),
+                    "end_date": self._month_end_date(end_month),
+                }
+            start_date = self._require_date_text(time_input.start_date, "start_date")
+            end_date = self._require_date_text(time_input.end_date, "end_date")
+            self._validate_date_order(start_date, end_date)
+            return {"start_date": start_date, "end_date": end_date}
         raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported time mode: {mode}")
 
     def _resolve_workflow_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
@@ -96,53 +126,6 @@ class ManualActionExecutionResolver:
             self._validate_date_order(start_date, end_date)
             return {"start_date": start_date, "end_date": end_date}
         return {}
-
-    def _resolve_point_time(self, time_input: ManualActionTimeInput) -> tuple[dict[str, Any], str]:
-        input_shape = self._input_shape()
-        if input_shape == "month_or_range":
-            month = self._require_month(time_input.month, "month")
-            if self.route.sync_daily_spec is not None:
-                return {"month": month}, self.route.sync_daily_spec.key
-            if self.route.direct_spec is not None and "month" in self._param_keys(self.route.direct_spec):
-                return {"month": month}, self.route.direct_spec.key
-            if self.route.backfill_spec is not None:
-                return {"start_month": month, "end_month": month}, self.route.backfill_spec.key
-        if input_shape in {"trade_date_or_start_end", "ann_date_or_start_end"}:
-            param_key = "ann_date" if input_shape == "ann_date_or_start_end" else "trade_date"
-            point_date = self._require_date_text(getattr(time_input, param_key), param_key)
-            if self.route.sync_daily_spec is not None:
-                return {param_key: point_date}, self.route.sync_daily_spec.key
-            if self.route.direct_spec is not None and param_key in self._param_keys(self.route.direct_spec):
-                return {param_key: point_date}, self.route.direct_spec.key
-            if self.route.backfill_spec is not None and {"start_date", "end_date"}.issubset(self._param_keys(self.route.backfill_spec)):
-                return {"start_date": point_date, "end_date": point_date}, self.route.backfill_spec.key
-        raise WebAppError(status_code=422, code="validation_error", message="Current action does not support point time input")
-
-    def _resolve_range_time(self, time_input: ManualActionTimeInput) -> tuple[dict[str, Any], str]:
-        input_shape = self._input_shape()
-        if input_shape == "month_or_range":
-            start_month = self._require_month(time_input.start_month, "start_month")
-            end_month = self._require_month(time_input.end_month, "end_month")
-            self._validate_month_order(start_month, end_month)
-            spec_key = self._prefer_backfill_then_direct()
-            return {"start_month": start_month, "end_month": end_month}, spec_key
-        if input_shape == "start_end_month_window":
-            start_month = self._require_month(time_input.start_month, "start_month")
-            end_month = self._require_month(time_input.end_month, "end_month")
-            self._validate_month_order(start_month, end_month)
-            spec_key = self._prefer_backfill_then_direct()
-            return {
-                "start_date": self._month_start_date(start_month),
-                "end_date": self._month_end_date(end_month),
-            }, spec_key
-        if input_shape in {"trade_date_or_start_end", "ann_date_or_start_end"}:
-            start_date = self._require_date_text(time_input.start_date, "start_date")
-            end_date = self._require_date_text(time_input.end_date, "end_date")
-            self._validate_date_order(start_date, end_date)
-            if input_shape == "ann_date_or_start_end" and self.route.direct_spec is not None:
-                return {"start_date": start_date, "end_date": end_date}, self.route.direct_spec.key
-            return {"start_date": start_date, "end_date": end_date}, self._prefer_backfill_then_direct()
-        raise WebAppError(status_code=422, code="validation_error", message="Current action does not support range time input")
 
     def _normalize_filters(self, raw_filters: dict[str, Any]) -> dict[str, Any]:
         allowed = {param.key: param for param in self.route.filters}
@@ -204,28 +187,6 @@ class ManualActionExecutionResolver:
         if self.route.date_model is None:
             return self.route.time_form.control
         return self.route.date_model.input_shape
-
-    def _require_no_time_job_spec(self) -> str:
-        if self.route.direct_spec is not None:
-            return self.route.direct_spec.key
-        if self.route.backfill_spec is not None:
-            return self.route.backfill_spec.key
-        if self.route.sync_daily_spec is not None:
-            return self.route.sync_daily_spec.key
-        raise WebAppError(status_code=422, code="validation_error", message="Current action is not executable")
-
-    def _prefer_backfill_then_direct(self) -> str:
-        if self.route.backfill_spec is not None:
-            return self.route.backfill_spec.key
-        if self.route.direct_spec is not None:
-            return self.route.direct_spec.key
-        raise WebAppError(status_code=422, code="validation_error", message="Current action does not support range time input")
-
-    @staticmethod
-    def _param_keys(spec: JobSpec | None) -> set[str]:
-        if spec is None:
-            return set()
-        return {param.key for param in spec.supported_params}
 
     @staticmethod
     def _require_date_text(value: str | None, field: str) -> str:

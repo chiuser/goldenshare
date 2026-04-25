@@ -27,6 +27,17 @@ class _SyncJobStateDAOProtocol(Protocol):
 
     def mark_full_sync_done(self, job_name: str, target_table: str) -> None: ...
 
+    def record_execution_outcome(
+        self,
+        job_name: str,
+        target_table: str,
+        run_type: str,
+        run_profile: str | None = None,
+        last_success_date: date | None = None,
+        last_cursor: str | None = None,
+        rows_committed: int | None = None,
+    ) -> None: ...
+
 
 class NullSyncRunLogStore(SyncRunLogStore):
     def start_log(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
@@ -74,6 +85,20 @@ class NullSyncJobStateStore(SyncJobStateStore):
 
     def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
         _ = (job_name, target_table)
+        return None
+
+    def record_execution_outcome(
+        self,
+        *,
+        job_name: str,
+        target_table: str,
+        run_type: str,
+        run_profile: str | None = None,
+        last_success_date: date | None = None,
+        last_cursor: str | None = None,
+        rows_committed: int | None = None,
+    ) -> None:
+        _ = (job_name, target_table, run_type, run_profile, last_success_date, last_cursor, rows_committed)
         return None
 
 
@@ -133,3 +158,24 @@ class DaoSyncJobStateStore(SyncJobStateStore):
 
     def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
         self.dao.mark_full_sync_done(job_name, target_table)
+
+    def record_execution_outcome(
+        self,
+        *,
+        job_name: str,
+        target_table: str,
+        run_type: str,
+        run_profile: str | None = None,
+        last_success_date: date | None = None,
+        last_cursor: str | None = None,
+        rows_committed: int | None = None,
+    ) -> None:
+        self.dao.record_execution_outcome(
+            job_name,
+            target_table,
+            run_type=run_type,
+            run_profile=run_profile,
+            last_success_date=last_success_date,
+            last_cursor=last_cursor,
+            rows_committed=rows_committed,
+        )

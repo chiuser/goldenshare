@@ -17,6 +17,10 @@ def _format_yyyymmdd(value: Any) -> str:
         return value.strftime("%Y%m%d")
     return str(value).strip().replace("-", "")
 
+
+def _has_value(value: Any) -> bool:
+    return value not in (None, "")
+
 def _trade_cal_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     exchange = str(request.params.get("exchange") or get_settings().default_exchange)
     if request.run_profile == "point_incremental" and anchor_date is not None:
@@ -129,9 +133,9 @@ def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str
             params[key] = str(value).strip()
     market = enum_values.get("market", request.params.get("market"))
     category = enum_values.get("category", request.params.get("category"))
-    if market not in (None, "", "__ALL__"):
+    if _has_value(market):
         params["market"] = str(market).strip()
-    if category not in (None, "", "__ALL__"):
+    if _has_value(category):
         params["category"] = str(category).strip()
     return params
 
@@ -150,7 +154,7 @@ def _etf_basic_params(request, anchor_date: date | None, enum_values: dict[str, 
         if value not in (None, ""):
             params[key] = str(value).strip()
     exchange = enum_values.get("exchange", request.params.get("exchange"))
-    if exchange not in (None, "", "__ALL__"):
+    if _has_value(exchange):
         params["exchange"] = str(exchange).strip()
     list_date = request.params.get("list_date")
     if list_date not in (None, ""):
@@ -210,7 +214,7 @@ def _stock_basic_params(request, anchor_date: date | None, enum_values: dict[str
 
     params: dict[str, Any] = {}
     list_status = enum_values.get("list_status", request.params.get("list_status"))
-    if list_status in (None, "", "__ALL__"):
+    if not _has_value(list_status):
         params["list_status"] = "L,D,P,G"
     else:
         params["list_status"] = str(list_status).strip()
@@ -220,7 +224,7 @@ def _stock_basic_params(request, anchor_date: date | None, enum_values: dict[str
         params["ts_code"] = str(ts_code).strip().upper()
     for key in ("name", "market", "exchange", "is_hs"):
         value = enum_values.get(key, request.params.get(key))
-        if value not in (None, "", "__ALL__"):
+        if _has_value(value):
             params[key] = str(value).strip()
     return params
 
@@ -247,7 +251,7 @@ def _kpl_list_params(request, anchor_date: date | None, enum_values: dict[str, A
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     tag = enum_values.get("tag")
-    if tag not in (None, "", "__ALL__"):
+    if _has_value(tag):
         params["tag"] = str(tag).strip()
     return params
 
@@ -415,9 +419,9 @@ def _limit_list_params(request, anchor_date: date | None, enum_values: dict[str,
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
     limit_type = enum_values.get("limit_type", request.params.get("limit_type"))
     exchange = enum_values.get("exchange", request.params.get("exchange"))
-    if limit_type not in (None, "", "__ALL__"):
+    if _has_value(limit_type):
         params["limit_type"] = str(limit_type).strip().upper()
-    if exchange not in (None, "", "__ALL__"):
+    if _has_value(exchange):
         params["exchange"] = str(exchange).strip().upper()
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
@@ -479,7 +483,7 @@ def _margin_params(request, anchor_date: date | None, enum_values: dict[str, Any
         raise ValueError("margin requires trade_date anchor")
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
     exchange_id = enum_values.get("exchange_id", request.params.get("exchange_id"))
-    if exchange_id not in (None, "", "__ALL__"):
+    if _has_value(exchange_id):
         params["exchange_id"] = str(exchange_id).strip().upper()
     return params
 
@@ -619,9 +623,9 @@ def _ths_hot_params(request, anchor_date: date | None, enum_values: dict[str, An
     is_new = enum_values.get("is_new", request.params.get("is_new"))
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
-    if market not in (None, "", "__ALL__"):
+    if _has_value(market):
         params["market"] = str(market).strip()
-    if is_new not in (None, "", "__ALL__"):
+    if _has_value(is_new):
         params["is_new"] = str(is_new).strip()
     if request.run_profile == "point_incremental":
         target_date = anchor_date or request.trade_date
@@ -645,11 +649,11 @@ def _dc_hot_params(request, anchor_date: date | None, enum_values: dict[str, Any
     is_new = enum_values.get("is_new", request.params.get("is_new"))
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
-    if market not in (None, "", "__ALL__"):
+    if _has_value(market):
         params["market"] = str(market).strip()
-    if hot_type not in (None, "", "__ALL__"):
+    if _has_value(hot_type):
         params["hot_type"] = str(hot_type).strip()
-    if is_new not in (None, "", "__ALL__"):
+    if _has_value(is_new):
         params["is_new"] = str(is_new).strip()
     if request.run_profile == "point_incremental":
         target_date = anchor_date or request.trade_date

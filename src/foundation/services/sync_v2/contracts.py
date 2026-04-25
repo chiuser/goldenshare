@@ -97,6 +97,13 @@ class PaginationSpec:
 
 
 @dataclass(slots=True, frozen=True)
+class TransactionSpec:
+    commit_policy: str = "task"
+    idempotent_write_required: bool = False
+    write_volume_assessment: str = ""
+
+
+@dataclass(slots=True, frozen=True)
 class DatasetSyncContract:
     dataset_key: str
     display_name: str
@@ -112,6 +119,7 @@ class DatasetSyncContract:
     observe_spec: ObserveSpec
     rate_limit_spec: RateLimitSpec = field(default_factory=RateLimitSpec)
     pagination_spec: PaginationSpec = field(default_factory=PaginationSpec)
+    transaction_spec: TransactionSpec = field(default_factory=TransactionSpec)
 
 
 @dataclass(slots=True, frozen=True)
@@ -199,6 +207,7 @@ class EngineRunSummary:
     unit_failed: int
     rows_fetched: int
     rows_written: int
+    rows_committed: int
     rows_rejected: int
     rejected_reason_counts: dict[str, int]
     result_date: date | None

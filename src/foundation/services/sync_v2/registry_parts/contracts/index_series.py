@@ -16,6 +16,7 @@ from src.foundation.services.sync_v2.contracts import (
     ObserveSpec,
     PaginationSpec,
     SourceSpec,
+    TransactionSpec,
 )
 from src.foundation.services.sync_v2.registry_parts.builders import (
     build_date_model,
@@ -65,6 +66,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.index_daily_serving",
         ),
         observe_spec=ObserveSpec(progress_label="index_daily"),
+        transaction_spec=TransactionSpec(
+            commit_policy="unit",
+            idempotent_write_required=True,
+            write_volume_assessment="单个事务限定为一个 planned unit；index_daily unit 由指数代码与时间锚点/窗口确定，write_path=raw_core_upsert 为幂等 upsert。",
+        ),
         pagination_spec=PaginationSpec(page_limit=2000),
     ),
     "index_weekly": DatasetSyncContract(
@@ -299,6 +305,11 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
             target_table="core_serving.index_weight",
         ),
         observe_spec=ObserveSpec(progress_label="index_weight"),
+        transaction_spec=TransactionSpec(
+            commit_policy="unit",
+            idempotent_write_required=True,
+            write_volume_assessment="单个事务限定为一个 planned unit；index_weight unit 由指数代码与月份/日期窗口确定，write_path=raw_core_upsert 为幂等 upsert。",
+        ),
         pagination_spec=PaginationSpec(page_limit=6000),
     ),
 }
