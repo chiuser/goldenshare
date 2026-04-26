@@ -19,7 +19,7 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.dataset_layer_snapshot_history",
     "src.ops.models.ops.dataset_status_snapshot",
     "src.ops.models.ops.index_series_active",
-    "src.ops.models.ops.job_schedule",
+    "src.ops.models.ops.schedule",
     "src.ops.models.ops.probe_rule",
     "src.ops.models.ops.probe_run_log",
     "src.ops.models.ops.resolution_release",

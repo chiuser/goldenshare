@@ -128,7 +128,7 @@ def test_ops_freshness_includes_auto_schedule_flags(
     equity_block_trade_factory,
     task_run_factory,
     task_run_node_factory,
-    job_schedule_factory,
+    ops_schedule_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 26), is_open=True, pretrade_date=date(2026, 3, 25))
@@ -139,17 +139,17 @@ def test_ops_freshness_includes_auto_schedule_flags(
         resource_key="block_trade",
         ended_at=datetime(2026, 3, 26, 12, 0, tzinfo=timezone.utc),
     )
-    job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="block_trade.maintain",
+    ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="block_trade.maintain",
         status="active",
         schedule_type="cron",
         cron_expr="30 18 * * *",
         next_run_at=datetime(2026, 3, 31, 10, 30, tzinfo=timezone.utc),
     )
-    job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="block_trade.maintain",
+    ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="block_trade.maintain",
         status="paused",
         schedule_type="cron",
         cron_expr="45 18 * * *",
@@ -176,12 +176,12 @@ def test_ops_freshness_includes_auto_schedule_flags(
 def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_schedule(
     app_client,
     user_factory,
-    job_schedule_factory,
+    ops_schedule_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
-    job_schedule_factory(
-        spec_type="workflow",
-        spec_key="reference_data_refresh",
+    ops_schedule_factory(
+        target_type="workflow",
+        target_key="reference_data_refresh",
         status="active",
         schedule_type="cron",
         cron_expr="0 19 * * *",

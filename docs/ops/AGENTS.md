@@ -13,7 +13,7 @@
 3. 当前任务 API 为 `/api/v1/ops/task-runs*` 与 `/api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 旧 `/api/v1/ops/executions*`、`JobExecution*`、`sync_run_log` 已退场，不再作为页面或 API 当前事实源。
 5. `ops.sync_job_state` 已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition date model + 真实业务表观测 + TaskRun`。
-6. `ops.job_schedule` 默认配置已重置，自动任务配置待后续专项重建。
+6. 当前自动任务配置表为 `ops.schedule`，目标对象字段统一为 `target_type/target_key`。
 
 ---
 
@@ -23,7 +23,7 @@
 2. 当前文档不得把 `run-now`、`立即执行`、`retry-now` 写成有效交互或 API 口径。
 3. 当前任务详情页描述必须遵守：失败原因主页面只展示一处，完整技术诊断按需读取 issue detail。
 4. 手动维护动作只表达维护对象、处理范围、筛选项和发起方式，不暴露底层 `sync_daily / backfill_* / sync_history`。
-5. 若文档描述自动任务，必须注明当前默认配置待重建，不能误写成已经完整恢复。
+5. 若文档描述自动任务，必须使用 `ops.schedule` 与 `target_type/target_key`，不得恢复旧调度对象命名。
 
 ---
 

@@ -81,7 +81,7 @@ def test_refresh_resources_upserts_snapshot_rows(db_session: Session) -> None:
     assert by_stage["serving"].status == "fresh"
 
 
-def test_refresh_for_execution_resolves_dataset_action_spec_key(db_session: Session) -> None:
+def test_refresh_for_target_resolves_dataset_action_target_key(db_session: Session) -> None:
     class _MoneyflowFreshnessQueryService:
         def build_live_items(
             self,
@@ -108,10 +108,10 @@ def test_refresh_for_execution_resolves_dataset_action_spec_key(db_session: Sess
 
     service = DatasetStatusSnapshotService(query_service=_MoneyflowFreshnessQueryService())
 
-    refreshed = service.refresh_for_execution(
+    refreshed = service.refresh_for_target(
         db_session,
-        spec_type="dataset_action",
-        spec_key="moneyflow_ind_dc.maintain",
+        target_type="dataset_action",
+        target_key="moneyflow_ind_dc.maintain",
         today=date(2026, 4, 24),
         strict=True,
     )

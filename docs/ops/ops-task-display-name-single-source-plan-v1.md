@@ -1,6 +1,6 @@
 # Ops 任务显示名单一事实源收口方案 v1
 
-> 状态：任务记录/任务详情/今日任务/自动任务显示链路已切到后端结构化名称；前端本地 `spec_key -> 中文名` 映射已退出主路径。
+> 状态：任务记录/任务详情/今日任务/自动任务显示链路已切到后端结构化名称；前端本地“内部路由 key 到中文名”的映射已退出主路径。
 > 当前版本：已按用户评审意见调整为“维护对象优先”的 UI 口径，并完成任务记录、任务详情、今日任务和自动任务第一轮收口。
 > 适用范围：任务记录、任务详情、今日任务、自动任务、手动任务入口中涉及任务名称、处理范围、发起方式、状态与操作的展示链路。
 > 当前落地边界：页面只展示后端返回的 `title / resource_display_name / action_display_name / target_display_name` 等结构化字段，不再通过 `formatSpecDisplayLabel` 或本地资源字典拼接事实字段。
@@ -13,7 +13,7 @@
 任务 / 未配置显示名称（stk_mins）
 ```
 
-直接原因是前端 `formatSpecDisplayLabel(spec_key, spec_display_name)` 在遇到 `prefix.resource` 形式的 `spec_key` 时，优先按前端静态映射拼接：
+直接原因是前端旧格式化函数在遇到 `prefix.resource` 形式的内部路由 key 时，曾优先按前端静态映射拼接：
 
 ```text
 specPrefixLabelMap[prefix] / resourceLabelMap[resource]
@@ -55,7 +55,7 @@ backfill_by_date_range
 backfill_equity_series
 backfill_index_series
 run_profile
-spec_key
+内部路由 key
 ```
 
 这些信息只允许作为后端解析、日志、API 排查字段存在，不作为任务名称、列表主列或详情标题。
@@ -110,7 +110,7 @@ spec_key
 
 ```text
 执行路径
-spec_key
+内部路由 key
 sync/backfill/纵向回补
 ```
 
@@ -179,7 +179,7 @@ backfill_equity_series.daily
 不展示：
 
 ```text
-spec_key
+内部路由 key
 底层执行路径
 sync_daily/backfill_xxx
 ```
@@ -213,9 +213,9 @@ sync_daily/backfill_xxx
 }
 ```
 
-### 4.2 spec_display_name 的定位
+### 4.2 旧显示名字段的定位
 
-`spec_display_name` 不再作为 UI 主标题的唯一来源。
+旧显示名字段不再作为 UI 主标题的唯一来源。
 
 建议定位：
 
@@ -231,7 +231,7 @@ action_display_name
 time_scope_label
 ```
 
-而不是从 `spec_key/spec_display_name` 推导。
+而不是从内部路由 key 或旧显示名字段推导。
 
 ## 5. 前端显示规则
 
@@ -240,8 +240,8 @@ time_scope_label
 ```text
 1. resource_display_name
 2. action_display_name 去掉“维护”前缀后得到的资源名
-3. spec_display_name（兼容兜底）
-4. spec_key（最后兜底）
+3. 后端结构化显示名
+4. 内部路由 key（仅诊断兜底，不进入普通主路径）
 ```
 
 前端不得在正常路径展示：
@@ -385,7 +385,7 @@ time_scope_label
 
 ### P3：自动任务页显示事实收口（已完成第一轮）
 
-自动任务页当前仍保留调度模型里的 `spec_type/spec_key` 作为后端调度键，但页面显示不再解析这些键。
+自动任务页当前使用 `target_type/target_key` 作为后端调度目标，页面显示不解析这些键。
 
 已落地：
 

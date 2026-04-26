@@ -235,8 +235,8 @@ export interface OpsFreshnessResponse {
 export interface ScheduleListResponse {
   items: Array<{
     id: number;
-    spec_key: string;
-    spec_display_name: string | null;
+    target_type: string;
+    target_key: string;
     target_display_name: string | null;
     display_name: string;
     status: string;
@@ -252,9 +252,8 @@ export interface ScheduleListResponse {
 
 export interface ScheduleDetailResponse {
   id: number;
-  spec_type: string;
-  spec_key: string;
-  spec_display_name: string | null;
+  target_type: string;
+  target_key: string;
   target_display_name: string | null;
   display_name: string;
   status: string;

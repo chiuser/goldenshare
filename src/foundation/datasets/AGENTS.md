@@ -16,7 +16,7 @@ This directory owns the dataset single-source model. It defines dataset identity
 2. Define what a dataset is, not how Ops schedules or displays it.
 3. New user-facing facts must converge here; do not create parallel display-name, date-model, or input-schema maps in Ops or frontend.
 4. Do not hardcode execution branches such as legacy daily/backfill/history paths.
-5. Do not expose `spec_key`, `job_name`, or legacy route names as user-facing dataset identity.
+5. Do not expose internal route keys, `job_name`, or legacy route names as user-facing dataset identity.
 
 ## Minimum Gates
 

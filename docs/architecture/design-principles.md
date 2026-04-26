@@ -171,7 +171,7 @@ Rules:
 
 - write interface copy as if the reader is capable but unfamiliar with our internal architecture
 - prefer plain task language over internal implementation language
-- do not expose raw internal terms such as `execution`, `spec_key`, `job_name`, `scheduler tick`, or underscored status values as primary UI copy unless they are clearly explained
+- do not expose raw internal terms such as `execution`, internal route keys, `job_name`, `scheduler tick`, or underscored status values as primary UI copy unless they are clearly explained
 - visible page copy should default to Chinese; internal English identifiers belong in code, logs, or secondary diagnostic views, not in the main reading path
 - button labels should describe what the action does for the user, not what internal mechanism is triggered
 - helper text should first explain why a section exists and when to use it, and only then mention system details if needed

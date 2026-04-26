@@ -59,18 +59,18 @@ class DatasetStatusSnapshotService:
                 raise
             return 0
 
-    def refresh_for_execution(
+    def refresh_for_target(
         self,
         session: Session,
         *,
-        spec_type: str,
-        spec_key: str,
+        target_type: str,
+        target_key: str,
         today: date | None = None,
         strict: bool = False,
     ) -> int:
         return self.refresh_resources(
             session,
-            self._resource_keys_for_spec(spec_type=spec_type, spec_key=spec_key),
+            self._resource_keys_for_target(target_type=target_type, target_key=target_key),
             today=today,
             strict=strict,
         )
@@ -94,20 +94,20 @@ class DatasetStatusSnapshotService:
         return snapshot_row_to_freshness_item(row, raw_table=projection.raw_table if projection is not None else None)
 
     @staticmethod
-    def _resource_keys_for_spec(*, spec_type: str, spec_key: str) -> list[str]:
-        if spec_type == "dataset_action":
+    def _resource_keys_for_target(*, target_type: str, target_key: str) -> list[str]:
+        if target_type == "dataset_action":
             try:
-                definition, _action = get_dataset_definition_by_action_key(spec_key)
+                definition, _action = get_dataset_definition_by_action_key(target_key)
             except KeyError:
                 return []
             resource_key = definition.dataset_key
             if get_dataset_freshness_projection(resource_key) is None:
                 return []
             return [resource_key]
-        if spec_type == "job":
+        if target_type == "maintenance_action":
             return []
-        if spec_type == "workflow":
-            workflow = get_workflow_definition(spec_key)
+        if target_type == "workflow":
+            workflow = get_workflow_definition(target_key)
             if workflow is None:
                 return []
             resource_keys: list[str] = []

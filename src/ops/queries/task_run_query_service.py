@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
 from src.foundation.datasets.registry import get_dataset_definition
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -58,9 +58,9 @@ class TaskRunQueryService:
         total = int(session.scalar(count_stmt) or 0)
 
         stmt = (
-            select(TaskRun, AppUser.username, JobSchedule.display_name, TaskRunIssue.title)
+            select(TaskRun, AppUser.username, OpsSchedule.display_name, TaskRunIssue.title)
             .outerjoin(AppUser, AppUser.id == TaskRun.requested_by_user_id)
-            .outerjoin(JobSchedule, JobSchedule.id == TaskRun.schedule_id)
+            .outerjoin(OpsSchedule, OpsSchedule.id == TaskRun.schedule_id)
             .outerjoin(TaskRunIssue, TaskRunIssue.id == TaskRun.primary_issue_id)
             .order_by(desc(TaskRun.requested_at), desc(TaskRun.id))
             .limit(limit)
@@ -109,9 +109,9 @@ class TaskRunQueryService:
 
     def get_view(self, session: Session, task_run_id: int) -> TaskRunViewResponse:
         row = session.execute(
-            select(TaskRun, AppUser.username, JobSchedule.display_name, TaskRunIssue)
+            select(TaskRun, AppUser.username, OpsSchedule.display_name, TaskRunIssue)
             .outerjoin(AppUser, AppUser.id == TaskRun.requested_by_user_id)
-            .outerjoin(JobSchedule, JobSchedule.id == TaskRun.schedule_id)
+            .outerjoin(OpsSchedule, OpsSchedule.id == TaskRun.schedule_id)
             .outerjoin(TaskRunIssue, TaskRunIssue.id == TaskRun.primary_issue_id)
             .where(TaskRun.id == task_run_id)
         ).one_or_none()
@@ -245,8 +245,8 @@ class TaskRunQueryService:
                 return get_dataset_definition(task_run.resource_key).action_key(task_run.action or "maintain")
             except KeyError:
                 return None
-        spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "").strip()
-        return spec_key or None
+        target_key = str((task_run.request_payload_json or {}).get("target_key") or "").strip()
+        return target_key or None
 
     def _issue_summary(self, issue: TaskRunIssue | None) -> TaskRunIssueSummary | None:
         if issue is None:

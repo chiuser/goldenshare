@@ -18,8 +18,8 @@ class OpsScheduleCommandService:
         session: Session,
         *,
         user: AuthenticatedUser,
-        spec_type: str,
-        spec_key: str,
+        target_type: str,
+        target_key: str,
         display_name: str,
         schedule_type: str,
         trigger_mode: str,
@@ -34,8 +34,8 @@ class OpsScheduleCommandService:
     ) -> int:
         schedule = self.schedule_service.create_schedule(
             session,
-            spec_type=spec_type,
-            spec_key=spec_key,
+            target_type=target_type,
+            target_key=target_key,
             display_name=display_name,
             schedule_type=schedule_type,
             trigger_mode=trigger_mode,

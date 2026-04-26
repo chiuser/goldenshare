@@ -223,10 +223,10 @@ class OperationsWorker:
             return "Database bind is unavailable for snapshot refresh."
         try:
             with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
-                refreshed = DatasetStatusSnapshotService().refresh_for_execution(
+                refreshed = DatasetStatusSnapshotService().refresh_for_target(
                     snapshot_session,
-                    spec_type="dataset_action",
-                    spec_key=action_key,
+                    target_type="dataset_action",
+                    target_key=action_key,
                     strict=True,
                 )
             if refreshed <= 0:

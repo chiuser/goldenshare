@@ -411,7 +411,7 @@ Ops 展示投影只回答：
 }
 ```
 
-当前字段为 `route_keys`，只表达动作入口的回填匹配键。不得恢复 `route_spec_keys`，也不得让前端自行从旧路径推导执行事实。
+当前字段为 `route_keys`，只表达动作入口的回填匹配键。不得恢复旧路由字段，也不得让前端自行从旧路径推导执行事实。
 
 ---
 
@@ -451,7 +451,7 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 | 当前接口 | 处理方式 |
 |---|---|
 | `GET /api/v1/ops/catalog` | 替换为新目录，或改为输出新模型 |
-| `POST /api/v1/ops/executions` 直接提交 `spec_type/spec_key` | 改为提交 `DatasetActionRequest` |
+| `POST /api/v1/ops/executions` 直接提交旧执行规格 | 改为提交 `DatasetActionRequest` |
 | `GET /api/v1/ops/manual-actions` | 可保留路径，但响应必须由 `DatasetDefinition` 派生，且不含旧路线 |
 
 ---
@@ -460,43 +460,41 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 
 由于已确认停机、不兼容，建议直接重塑 ops 运行表语义。
 
-### 8.1 `ops.job_execution`
+### 8.1 任务运行观测表
 
-建议从 `spec_type/spec_key` 切到：
+当前任务运行观测已收敛到 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`：
 
 | 新字段 | 说明 |
 |---|---|
-| `execution_kind` | `dataset_action` / `workflow` / `system_maintenance` |
-| `dataset_key` | 单数据集 action 必填 |
+| `task_type` | `dataset_action` / `workflow` / `maintenance_action` |
+| `resource_key` | 单数据集 action 对应的数据集 key |
 | `action` | 当前主值 `maintain` |
-| `workflow_key` | workflow 执行时填写 |
-| `time_scope_json` | 标准处理范围 |
+| `request_payload_json.target_key` | workflow 或 maintenance action 的目标 key |
+| `time_input_json` | 标准处理范围 |
 | `filters_json` | 用户筛选输入 |
-| `execution_plan_json` | resolver 生成的 plan 快照 |
-| `run_profile` | 从 plan 派生，保留用于筛选 |
+| `plan_snapshot_json` | resolver 生成的 plan 快照 |
 
 `dataset_action` 和 `action=maintain` 不是同一层含义：
 
 | 字段 | 层级 | 含义 | 示例 |
 |---|---|---|---|
-| `execution_kind=dataset_action` | 执行对象类型 | 这次 execution 作用在某个数据集动作上 | `dataset_key=daily` |
+| `task_type=dataset_action` | 执行对象类型 | 这次 task run 作用在某个数据集动作上 | `resource_key=daily` |
 | `action=maintain` | 用户动作/业务意图 | 对该数据集执行“维护”动作 | 维护股票日线 |
-| `execution_kind=system_maintenance` | 执行对象类型 | 不属于单一数据集的系统维护动作 | 重建物化视图、重建派生服务表 |
+| `task_type=maintenance_action` | 执行对象类型 | 不属于单一数据集的系统维护动作 | 重建物化视图、重建派生服务表 |
 
-因此为避免和 `maintain/维护` 混淆，不建议继续使用 `execution_kind=maintenance`，应改成 `system_maintenance` 或同等级别的明确命名。
+因此为避免和 `maintain/维护` 混淆，系统维护动作统一表达为 `maintenance_action`，不再使用模糊的 job/system job 命名。
 
-### 8.2 `ops.job_schedule`
+### 8.2 `ops.schedule`
 
-建议从 `spec_type/spec_key` 切到：
+当前自动任务调度目标统一为：
 
 | 新字段 | 说明 |
 |---|---|
-| `schedule_target_type` | `dataset_action` / `workflow` |
-| `dataset_key` | 自动维护某数据集时填写 |
-| `action` | 当前主值 `maintain` |
-| `workflow_key` | 工作流调度时填写 |
-| `time_policy_json` | 例如最新交易日、固定日期、探测窗口 |
-| `filters_json` | 固定过滤条件 |
+| `target_type` | `dataset_action` / `workflow` / `maintenance_action` |
+| `target_key` | 数据集动作 key、工作流 key 或系统维护动作 key |
+| `params_json` | 固定时间输入和筛选条件 |
+| `trigger_mode` | `schedule` / `probe` / `schedule_probe_fallback` |
+| `probe_config_json` | 探测触发配置 |
 
 ### 8.3 迁移策略
 
@@ -504,9 +502,9 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 
 1. 停机前导出当前 ops execution/schedule 快照，作为人工核对备份。
 2. 停机窗口内执行 schema migration。
-3. 清空或重建 `job_execution/step/unit/event` 历史运行记录。
-4. 自动任务按新 `DatasetAction` 模型重新 seed。
-5. 不保留旧 `spec_key` 兼容字段。
+3. 清空或重建旧运行观测历史记录。
+4. 自动任务按新 `target_type/target_key` 模型重新 seed。
+5. 不保留旧调度兼容字段。
 
 评审关注点：是否允许清空历史 execution。我的建议是允许，当前阶段历史任务记录价值低于模型干净度。
 

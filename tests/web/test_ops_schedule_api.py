@@ -23,8 +23,8 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "workflow",
-            "spec_key": "daily_market_close_sync",
+            "target_type": "workflow",
+            "target_key": "daily_market_close_sync",
             "display_name": "每日收盘同步",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * 1-5",
@@ -35,9 +35,9 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_type"] == "workflow"
-    assert payload["spec_key"] == "daily_market_close_sync"
-    assert payload["spec_display_name"] == "每日收盘后同步"
+    assert payload["target_type"] == "workflow"
+    assert payload["target_key"] == "daily_market_close_sync"
+    assert payload["target_display_name"] == "每日收盘后同步"
     assert payload["status"] == "active"
     assert payload["next_run_at"] is not None
 
@@ -52,7 +52,7 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
     assert revisions_payload["items"][0]["changed_by_username"] == "admin"
 
 
-def test_ops_schedule_create_rejects_unschedulable_spec(app_client, user_factory) -> None:
+def test_ops_schedule_create_rejects_unschedulable_target(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -61,8 +61,8 @@ def test_ops_schedule_create_rejects_unschedulable_spec(app_client, user_factory
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-                "spec_type": "job",
-                "spec_key": "maintenance.rebuild_index_kline_serving",
+            "target_type": "maintenance_action",
+            "target_key": "maintenance.rebuild_index_kline_serving",
             "display_name": "错误配置",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * *",
@@ -83,8 +83,8 @@ def test_ops_schedule_create_rejects_dataset_action_without_maintain_suffix(app_
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "dataset_action",
-            "spec_key": "daily",
+            "target_type": "dataset_action",
+            "target_key": "daily",
             "display_name": "错误配置",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * *",
@@ -96,11 +96,11 @@ def test_ops_schedule_create_rejects_dataset_action_without_maintain_suffix(app_
     assert response.json()["code"] == "validation_error"
 
 
-def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job_schedule_factory) -> None:
+def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
-    schedule = job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="active",
         schedule_type="cron",
@@ -117,7 +117,7 @@ def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job
     list_payload = list_response.json()
     assert list_payload["total"] == 1
     assert list_payload["items"][0]["id"] == schedule.id
-    assert list_payload["items"][0]["spec_display_name"] == "维护股票主数据"
+    assert list_payload["items"][0]["target_display_name"] == "股票主数据"
 
     update_response = app_client.patch(
         f"/api/v1/ops/schedules/{schedule.id}",
@@ -157,11 +157,11 @@ def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, job
     assert revision_actions == ["resumed", "paused", "updated"]
 
 
-def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, user_factory, job_schedule_factory) -> None:
+def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
-    schedule = job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="paused",
         schedule_type="cron",
@@ -197,13 +197,13 @@ def test_ops_schedule_delete_removes_schedule_and_records_revision(app_client, u
 def test_ops_schedule_delete_active_schedule_pauses_before_delete(
     app_client,
     user_factory,
-    job_schedule_factory,
+    ops_schedule_factory,
     db_session,
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
-    schedule = job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="active",
         schedule_type="cron",
@@ -227,7 +227,7 @@ def test_ops_schedule_delete_active_schedule_pauses_before_delete(
     revisions = list(
         db_session.scalars(
             select(ConfigRevision)
-            .where(ConfigRevision.object_type == "job_schedule")
+            .where(ConfigRevision.object_type == "schedule")
             .where(ConfigRevision.object_id == str(schedule.id))
             .order_by(ConfigRevision.id.asc())
         )
@@ -256,8 +256,8 @@ def test_ops_schedule_once_requires_timezone_aware_next_run_at(app_client, user_
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "dataset_action",
-            "spec_key": "stock_basic.maintain",
+            "target_type": "dataset_action",
+            "target_key": "stock_basic.maintain",
             "display_name": "单次任务",
             "schedule_type": "once",
             "timezone": "Asia/Shanghai",
@@ -324,8 +324,8 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
         "/api/v1/ops/schedules",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "spec_type": "workflow",
-            "spec_key": "daily_market_close_sync",
+            "target_type": "workflow",
+            "target_key": "daily_market_close_sync",
             "display_name": "收盘探测触发",
             "schedule_type": "cron",
             "trigger_mode": "probe",
@@ -358,4 +358,4 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     assert all(item["workflow_key"] == "daily_market_close_sync" for item in probe_payload["items"])
     assert all(item["rule_version"] == 1 for item in probe_payload["items"])
     assert all(item["on_success_action_json"]["action_type"] == "dataset_action" for item in probe_payload["items"])
-    assert all("spec_key" not in item["on_success_action_json"] for item in probe_payload["items"])
+    assert all("action_key" in item["on_success_action_json"] for item in probe_payload["items"])

@@ -18,10 +18,10 @@ class StubDispatcher:
         return self.outcome
 
 
-def test_scheduler_enqueues_due_once_schedule(db_session, job_schedule_factory) -> None:
-    schedule = job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+def test_scheduler_enqueues_due_once_schedule(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         schedule_type="once",
         next_run_at=datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc),
     )
@@ -35,18 +35,18 @@ def test_scheduler_enqueues_due_once_schedule(db_session, job_schedule_factory) 
     assert created[0].schedule_id == schedule.id
     assert created[0].task_type == "dataset_action"
     assert created[0].resource_key == "stock_basic"
-    assert "spec_key" not in created[0].request_payload_json
-    assert "spec_type" not in created[0].request_payload_json
+    assert "target_key" not in created[0].request_payload_json
+    assert "target_type" not in created[0].request_payload_json
     refreshed = db_session.get(type(schedule), schedule.id)
     assert refreshed is not None
     assert refreshed.status == "paused"
     assert refreshed.next_run_at is None
 
 
-def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, job_schedule_factory) -> None:
-    schedule = job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         schedule_type="cron",
         cron_expr="5 * * * *",
         timezone_name="UTC",

@@ -260,18 +260,6 @@ def get_catalog_target(action_type: str, action_key: str) -> DatasetDefinition |
     return None
 
 
-def action_type_from_schedule_type(schedule_type: str) -> str:
-    if schedule_type == "job":
-        return "maintenance_action"
-    return schedule_type
-
-
-def schedule_type_from_action_type(action_type: str) -> str:
-    if action_type == "maintenance_action":
-        return "job"
-    return action_type
-
-
 def get_action_display_name(action_type: str, action_key: str) -> str | None:
     if action_type == "dataset_action":
         try:
@@ -286,10 +274,6 @@ def get_action_display_name(action_type: str, action_key: str) -> str | None:
         workflow = get_workflow_definition(action_key)
         return workflow.display_name if workflow is not None else None
     return None
-
-
-def get_schedule_display_name(schedule_type: str, schedule_key: str) -> str | None:
-    return get_action_display_name(action_type_from_schedule_type(schedule_type), schedule_key)
 
 
 def get_target_display_name(action_type: str, action_key: str) -> str | None:
@@ -308,10 +292,6 @@ def get_target_display_name(action_type: str, action_key: str) -> str | None:
     return None
 
 
-def get_schedule_target_display_name(schedule_type: str, schedule_key: str) -> str | None:
-    return get_target_display_name(action_type_from_schedule_type(schedule_type), schedule_key)
-
-
 def action_is_schedulable(action_type: str, action_key: str) -> bool:
     if action_type == "dataset_action":
         try:
@@ -327,7 +307,3 @@ def action_is_schedulable(action_type: str, action_key: str) -> bool:
         workflow = get_workflow_definition(action_key)
         return bool(workflow and workflow.schedule_enabled)
     return False
-
-
-def schedule_target_is_schedulable(schedule_type: str, schedule_key: str) -> bool:
-    return action_is_schedulable(action_type_from_schedule_type(schedule_type), schedule_key)

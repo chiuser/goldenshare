@@ -110,7 +110,7 @@
 1. `ops.task_run`：一次任务运行的唯一主记录
 2. `ops.task_run_node`：任务内部阶段、单元与进度节点
 3. `ops.task_run_issue`：失败原因、问题摘要与完整技术诊断唯一落点
-4. `ops.job_schedule`：调度对象；当前默认配置已重置，待后续按新 TaskRun/Schedule 口径单独重建
+4. `ops.schedule`：调度对象；目标对象统一用 `target_type/target_key` 表达
 5. `ops.probe_rule`：探测触发规则
 
 已退场对象：

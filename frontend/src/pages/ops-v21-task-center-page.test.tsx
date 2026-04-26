@@ -145,9 +145,8 @@ beforeEach(() => {
         items: [
           {
             id: 201,
-            spec_type: "dataset_action",
-            spec_key: "daily.maintain",
-            spec_display_name: "维护股票日线",
+            target_type: "dataset_action",
+            target_key: "daily.maintain",
             target_display_name: "股票日线",
             display_name: "股票日线自动同步",
             status: "active",
@@ -164,9 +163,8 @@ beforeEach(() => {
     if (path === "/api/v1/ops/schedules/201") {
       return {
         id: 201,
-        spec_type: "dataset_action",
-        spec_key: "daily.maintain",
-        spec_display_name: "维护股票日线",
+        target_type: "dataset_action",
+        target_key: "daily.maintain",
         target_display_name: "股票日线",
         display_name: "股票日线自动同步",
         status: "active",

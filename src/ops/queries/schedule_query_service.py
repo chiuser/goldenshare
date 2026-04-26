@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
 from src.ops.models.ops.config_revision import ConfigRevision
-from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.action_catalog import get_schedule_display_name, get_schedule_target_display_name
+from src.ops.models.ops.schedule import OpsSchedule
+from src.ops.action_catalog import get_target_display_name
 from src.app.exceptions import WebAppError
 from src.ops.schemas.schedule import (
     ScheduleDetailResponse,
@@ -23,18 +23,18 @@ class ScheduleQueryService:
         session: Session,
         *,
         status: str | None = None,
-        spec_type: str | None = None,
+        target_type: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> ScheduleListResponse:
         limit = max(1, min(limit, 200))
         filters = []
         if status:
-            filters.append(JobSchedule.status == status)
-        if spec_type:
-            filters.append(JobSchedule.spec_type == spec_type)
+            filters.append(OpsSchedule.status == status)
+        if target_type:
+            filters.append(OpsSchedule.target_type == target_type)
 
-        count_stmt = select(func.count()).select_from(JobSchedule)
+        count_stmt = select(func.count()).select_from(OpsSchedule)
         if filters:
             count_stmt = count_stmt.where(*filters)
         total = session.scalar(count_stmt) or 0
@@ -42,10 +42,10 @@ class ScheduleQueryService:
         created_by = aliased(AppUser)
         updated_by = aliased(AppUser)
         stmt = (
-            select(JobSchedule, created_by.username, updated_by.username)
-            .outerjoin(created_by, created_by.id == JobSchedule.created_by_user_id)
-            .outerjoin(updated_by, updated_by.id == JobSchedule.updated_by_user_id)
-            .order_by(desc(JobSchedule.updated_at), desc(JobSchedule.id))
+            select(OpsSchedule, created_by.username, updated_by.username)
+            .outerjoin(created_by, created_by.id == OpsSchedule.created_by_user_id)
+            .outerjoin(updated_by, updated_by.id == OpsSchedule.updated_by_user_id)
+            .order_by(desc(OpsSchedule.updated_at), desc(OpsSchedule.id))
             .limit(limit)
             .offset(offset)
         )
@@ -69,10 +69,10 @@ class ScheduleQueryService:
         created_by = aliased(AppUser)
         updated_by = aliased(AppUser)
         stmt = (
-            select(JobSchedule, created_by.username, updated_by.username)
-            .outerjoin(created_by, created_by.id == JobSchedule.created_by_user_id)
-            .outerjoin(updated_by, updated_by.id == JobSchedule.updated_by_user_id)
-            .where(JobSchedule.id == schedule_id)
+            select(OpsSchedule, created_by.username, updated_by.username)
+            .outerjoin(created_by, created_by.id == OpsSchedule.created_by_user_id)
+            .outerjoin(updated_by, updated_by.id == OpsSchedule.updated_by_user_id)
+            .where(OpsSchedule.id == schedule_id)
         )
         row = session.execute(stmt).one_or_none()
         if row is None:
@@ -80,10 +80,9 @@ class ScheduleQueryService:
         schedule, created_by_username, updated_by_username = row
         return ScheduleDetailResponse(
             id=schedule.id,
-            spec_type=schedule.spec_type,
-            spec_key=schedule.spec_key,
-            spec_display_name=get_schedule_display_name(schedule.spec_type, schedule.spec_key),
-            target_display_name=get_schedule_target_display_name(schedule.spec_type, schedule.spec_key),
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,
@@ -104,7 +103,7 @@ class ScheduleQueryService:
         )
 
     def list_schedule_revisions(self, session: Session, schedule_id: int) -> ScheduleRevisionListResponse:
-        schedule = session.scalar(select(JobSchedule.id).where(JobSchedule.id == schedule_id))
+        schedule = session.scalar(select(OpsSchedule.id).where(OpsSchedule.id == schedule_id))
         if schedule is None:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
 
@@ -112,7 +111,7 @@ class ScheduleQueryService:
         stmt = (
             select(ConfigRevision, changed_by.username)
             .outerjoin(changed_by, changed_by.id == ConfigRevision.changed_by_user_id)
-            .where(ConfigRevision.object_type == "job_schedule")
+            .where(ConfigRevision.object_type == "schedule")
             .where(ConfigRevision.object_id == str(schedule_id))
             .order_by(desc(ConfigRevision.changed_at), desc(ConfigRevision.id))
         )
@@ -135,13 +134,12 @@ class ScheduleQueryService:
         )
 
     @staticmethod
-    def _list_item(*, schedule: JobSchedule, created_by_username: str | None, updated_by_username: str | None) -> ScheduleListItem:
+    def _list_item(*, schedule: OpsSchedule, created_by_username: str | None, updated_by_username: str | None) -> ScheduleListItem:
         return ScheduleListItem(
             id=schedule.id,
-            spec_type=schedule.spec_type,
-            spec_key=schedule.spec_key,
-            spec_display_name=get_schedule_display_name(schedule.spec_type, schedule.spec_key),
-            target_display_name=get_schedule_target_display_name(schedule.spec_type, schedule.spec_key),
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,

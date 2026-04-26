@@ -2,23 +2,31 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, JSON, String
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Index, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
 
 
-class JobSchedule(TimestampMixin, Base):
-    __tablename__ = "job_schedule"
+class OpsSchedule(TimestampMixin, Base):
+    __tablename__ = "schedule"
     __table_args__ = (
-        Index("idx_job_schedule_status_next_run_at", "status", "next_run_at"),
-        Index("idx_job_schedule_spec_type_spec_key", "spec_type", "spec_key"),
+        CheckConstraint(
+            "target_type IN ('dataset_action', 'workflow', 'maintenance_action')",
+            name="ck_ops_schedule_target_type_allowed",
+        ),
+        CheckConstraint(
+            "(target_type <> 'dataset_action') OR (target_key LIKE '%.maintain')",
+            name="ck_ops_schedule_dataset_action_target_key_maintain",
+        ),
+        Index("idx_ops_schedule_status_next_run_at", "status", "next_run_at"),
+        Index("idx_ops_schedule_target_type_target_key", "target_type", "target_key"),
         {"schema": "ops"},
     )
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
-    spec_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    spec_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_key: Mapped[str] = mapped_column(String(128), nullable=False)
     display_name: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active", server_default="active")
     schedule_type: Mapped[str] = mapped_column(String(32), nullable=False)

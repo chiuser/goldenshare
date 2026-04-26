@@ -24,8 +24,8 @@ class ResolvedManualTaskRun:
     time_input: dict[str, Any]
     filters: dict[str, Any]
     request_payload: dict[str, Any]
-    spec_type: str | None = None
-    spec_key: str | None = None
+    target_type: str | None = None
+    target_key: str | None = None
 
 
 class ManualActionCommandService:
@@ -46,12 +46,12 @@ class ManualActionCommandService:
             raise WebAppError(status_code=404, code="not_found", message="Manual action does not exist")
         resolved = ManualActionTaskRunResolver(route).resolve(body)
         if resolved.task_type == "workflow":
-            if not resolved.spec_type or not resolved.spec_key:
+            if not resolved.target_type or not resolved.target_key:
                 raise WebAppError(status_code=422, code="validation_error", message="Manual workflow route is not configured")
-            task_run = self.task_run_service.create_from_spec(
+            task_run = self.task_run_service.create_from_schedule_target(
                 session,
-                spec_type=resolved.spec_type,
-                spec_key=resolved.spec_key,
+                target_type=resolved.target_type,
+                target_key=resolved.target_key,
                 params_json=resolved.request_payload,
                 trigger_source="manual",
                 requested_by_user_id=user.id,
@@ -110,8 +110,8 @@ class ManualActionTaskRunResolver:
                 time_input={"mode": mode, **time_params},
                 filters=filters,
                 request_payload={**filters, **time_params},
-                spec_type="workflow",
-                spec_key=workflow.key,
+                target_type="workflow",
+                target_key=workflow.key,
             )
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported manual action type")
 

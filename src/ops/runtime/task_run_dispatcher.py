@@ -51,8 +51,8 @@ class TaskRunDispatcher:
             return self._dispatch_dataset_action(session, task_run)
         if task_run.task_type == "workflow":
             return self._dispatch_workflow(session, task_run)
-        if task_run.task_type == "system_job":
-            return self._dispatch_system_job(session, task_run)
+        if task_run.task_type == "maintenance_action":
+            return self._dispatch_maintenance_action(session, task_run)
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
@@ -145,8 +145,8 @@ class TaskRunDispatcher:
             )
 
     def _dispatch_workflow(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
-        spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "")
-        workflow = get_workflow_definition(spec_key)
+        target_key = str((task_run.request_payload_json or {}).get("target_key") or "")
+        workflow = get_workflow_definition(target_key)
         if workflow is None:
             raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
 
@@ -248,21 +248,21 @@ class TaskRunDispatcher:
             status_reason_code="workflow_step_failed" if failed else None,
         )
 
-    def _dispatch_system_job(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
-        spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "")
-        action = get_maintenance_action(spec_key)
+    def _dispatch_maintenance_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
+        target_key = str((task_run.request_payload_json or {}).get("target_key") or "")
+        action = get_maintenance_action(target_key)
         if action is None:
             raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
         node = self._create_node(
             session,
             task_run_id=task_run.id,
-            node_key=spec_key,
-            node_type="system_action",
+            node_key=target_key,
+            node_type="maintenance_action",
             sequence_no=1,
             title=action.display_name,
             resource_key=task_run.resource_key,
             time_input=dict(task_run.time_input_json or {}),
-            context={"action_key": spec_key},
+            context={"action_key": target_key},
         )
         task_run.current_node_id = node.id
         session.commit()
@@ -284,7 +284,7 @@ class TaskRunDispatcher:
                 session,
                 task_run=task_run,
                 node_id=node.id,
-                code="system_job_failed",
+                code="maintenance_action_failed",
                 title="系统维护失败",
                 operator_message="系统维护动作执行失败。",
                 suggested_action="查看技术诊断并确认是否需要重新提交。",

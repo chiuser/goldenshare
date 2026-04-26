@@ -118,7 +118,7 @@
 
 例如：
 
-- 不要把 `execution`、`job_name`、`spec_key` 直接当页面标题
+- 不要把 `execution`、`job_name` 或内部路由 key 直接当页面标题
 - 不要把后端字段名直接作为表单 label
 - 不要让用户理解页面必须依赖源码知识
 

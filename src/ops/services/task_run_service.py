@@ -55,21 +55,21 @@ class TaskRunCommandService:
         )
         return task_run.id
 
-    def create_from_spec(
+    def create_from_schedule_target(
         self,
         session: Session,
         *,
-        spec_type: str,
-        spec_key: str,
+        target_type: str,
+        target_key: str,
         params_json: dict[str, Any] | None,
         trigger_source: str,
         requested_by_user_id: int | None,
         schedule_id: int | None = None,
     ) -> TaskRun:
         params = dict(params_json or {})
-        context = self._context_from_spec(
-            spec_type=spec_type,
-            spec_key=spec_key,
+        context = self._context_from_schedule_target(
+            target_type=target_type,
+            target_key=target_key,
             params_json=params,
             trigger_source=trigger_source,
             requested_by_user_id=requested_by_user_id,
@@ -152,21 +152,21 @@ class TaskRunCommandService:
         session.refresh(task_run)
         return task_run
 
-    def _context_from_spec(
+    def _context_from_schedule_target(
         self,
         *,
-        spec_type: str,
-        spec_key: str,
+        target_type: str,
+        target_key: str,
         params_json: dict[str, Any],
         trigger_source: str,
         requested_by_user_id: int | None,
         schedule_id: int | None,
     ) -> TaskRunCreateContext:
-        if spec_type == "dataset_action":
+        if target_type == "dataset_action":
             try:
-                definition, action = get_dataset_definition_by_action_key(spec_key)
+                definition, action = get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key") from exc
+                raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
             resource_key = str(params_json.get("dataset_key") or definition.dataset_key).strip()
             return TaskRunCreateContext(
                 task_type="dataset_action",
@@ -179,8 +179,8 @@ class TaskRunCommandService:
                 requested_by_user_id=requested_by_user_id,
                 schedule_id=schedule_id,
             )
-        if spec_type == "workflow":
-            if get_workflow_definition(spec_key) is None:
+        if target_type == "workflow":
+            if get_workflow_definition(target_key) is None:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             return TaskRunCreateContext(
                 task_type="workflow",
@@ -188,22 +188,22 @@ class TaskRunCommandService:
                 action="maintain",
                 time_input=self._extract_time_input(params_json),
                 filters=self._extract_filters(params_json),
-                request_payload={**params_json, "spec_type": spec_type, "spec_key": spec_key},
+                request_payload={**params_json, "target_type": target_type, "target_key": target_key},
                 trigger_source=trigger_source,
                 requested_by_user_id=requested_by_user_id,
                 schedule_id=schedule_id,
             )
-        if spec_type == "job":
-            action = get_maintenance_action(spec_key)
+        if target_type == "maintenance_action":
+            action = get_maintenance_action(target_key)
             if action is None:
                 raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
             return TaskRunCreateContext(
-                task_type="system_job",
+                task_type="maintenance_action",
                 resource_key=None,
                 action="maintain",
                 time_input=self._extract_time_input(params_json),
                 filters=self._extract_filters(params_json),
-                request_payload={**params_json, "spec_type": spec_type, "spec_key": spec_key},
+                request_payload={**params_json, "target_type": target_type, "target_key": target_key},
                 trigger_source=trigger_source,
                 requested_by_user_id=requested_by_user_id,
                 schedule_id=schedule_id,
@@ -224,13 +224,13 @@ class TaskRunCommandService:
                 raise WebAppError(status_code=422, code="validation_error", message="Dataset action is not supported")
             return
         if context.task_type == "workflow":
-            payload_spec_key = str((context.request_payload or {}).get("spec_key") or "")
-            if not payload_spec_key or get_workflow_definition(payload_spec_key) is None:
+            payload_target_key = str((context.request_payload or {}).get("target_key") or "")
+            if not payload_target_key or get_workflow_definition(payload_target_key) is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Workflow is required")
             return
-        if context.task_type == "system_job":
-            payload_spec_key = str((context.request_payload or {}).get("spec_key") or "")
-            if not payload_spec_key or get_maintenance_action(payload_spec_key) is None:
+        if context.task_type == "maintenance_action":
+            payload_target_key = str((context.request_payload or {}).get("target_key") or "")
+            if not payload_target_key or get_maintenance_action(payload_target_key) is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Maintenance action is required")
             return
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
@@ -244,7 +244,7 @@ class TaskRunCommandService:
                 return resource_key
         if task_type == "workflow":
             return "工作流维护"
-        if task_type == "system_job":
+        if task_type == "maintenance_action":
             return "系统维护"
         return action
 
@@ -295,8 +295,8 @@ class TaskRunCommandService:
             "end_month",
             "ann_date",
             "date_field",
-            "spec_type",
-            "spec_key",
+            "target_type",
+            "target_key",
             "correlation_id",
             "rerun_id",
             "run_profile",
@@ -312,6 +312,6 @@ class TaskRunCommandService:
     @staticmethod
     def _dataset_action_request_payload(params_json: dict[str, Any]) -> dict[str, Any]:
         payload = dict(params_json or {})
-        payload.pop("spec_type", None)
-        payload.pop("spec_key", None)
+        payload.pop("target_type", None)
+        payload.pop("target_key", None)
         return payload

@@ -23,9 +23,9 @@
 1. 用户不需要理解 `sync_daily / backfill_* / sync_history`。
 2. 手动维护页不再把 `日常同步 / 按交易日回补 / 历史同步 / 所属类型` 作为主路径文案。
 3. 前端不再持有 `syncDailySpecKey / backfillSpecKey / directSpecKey`。
-4. `/api/v1/ops/catalog` 保留为系统级 spec catalog。
-5. `/api/v1/ops/manual-actions` 是新增的手动维护专用用户动作 catalog，不替代 `catalog`。
-6. 手动 dataset action 提交直接创建 TaskRun，不再先还原成旧 `spec_type/spec_key` 执行路径。
+4. `/api/v1/ops/catalog` 输出当前 action/workflow 目录，不再表达旧执行规格。
+5. `/api/v1/ops/manual-actions` 是手动维护专用用户动作目录，不替代 `catalog`。
+6. 手动 dataset action 提交直接创建 TaskRun，不再还原成旧执行路径。
 7. 日期输入、控件选择、单点/区间能力从 `date_model.window_mode/input_shape/date_axis/bucket_rule` 派生，不新增第二套日期规则表。
 
 ---
@@ -259,7 +259,7 @@ POST /api/v1/ops/manual-actions/{action_key}/task-runs
 要求：
 
 1. `ManualActionTaskRunResolver` 只负责把 `time_input/filters` 规范化为 TaskRun 上下文。
-2. Dataset action 不再输出 `spec_type/spec_key/params_json`，也不再进入旧 execution 创建链路。
+2. Dataset action 不再输出旧执行规格字段，也不再进入旧 execution 创建链路。
 3. `TaskRunDispatcher` 根据 `task_run.task_type=dataset_action` 创建 `DatasetActionRequest`。
 4. `DatasetActionResolver` 只读取 `DatasetDefinition` 生成 `DatasetExecutionPlan`。
 5. `IngestionExecutor` 只消费 plan units，不按旧入口名称分支。
@@ -365,6 +365,6 @@ python3 scripts/check_docs_integrity.py
 ## 10. 风险控制
 
 1. 不在前端复制 `date_model` 规则。
-2. 不删除 `/ops/catalog`，自动任务仍需要系统级 catalog。
-3. 自动任务页可以继续保存 schedule 的 `spec_type/spec_key` 调度键，但页面显示必须使用后端返回的结构化名称。
+2. 不删除 `/ops/catalog`，自动任务仍需要 action/workflow 目录。
+3. 自动任务页保存 schedule 的 `target_type/target_key` 调度目标，页面显示必须使用后端返回的结构化名称。
 4. 不允许手动任务、任务记录或任务详情把旧执行路径作为用户主语。

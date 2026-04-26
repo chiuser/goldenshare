@@ -17,8 +17,8 @@ class ScheduleProbeConfig(BaseModel):
 
 
 class CreateScheduleRequest(BaseModel):
-    spec_type: str
-    spec_key: str
+    target_type: str
+    target_key: str
     display_name: str
     schedule_type: str
     trigger_mode: str = "schedule"
@@ -33,8 +33,8 @@ class CreateScheduleRequest(BaseModel):
 
 
 class UpdateScheduleRequest(BaseModel):
-    spec_type: str | None = None
-    spec_key: str | None = None
+    target_type: str | None = None
+    target_key: str | None = None
     display_name: str | None = None
     schedule_type: str | None = None
     trigger_mode: str | None = None
@@ -50,9 +50,8 @@ class UpdateScheduleRequest(BaseModel):
 
 class ScheduleListItem(BaseModel):
     id: int
-    spec_type: str
-    spec_key: str
-    spec_display_name: str | None = None
+    target_type: str
+    target_key: str
     target_display_name: str | None = None
     display_name: str
     status: str
@@ -76,9 +75,8 @@ class ScheduleListResponse(BaseModel):
 
 class ScheduleDetailResponse(BaseModel):
     id: int
-    spec_type: str
-    spec_key: str
-    spec_display_name: str | None = None
+    target_type: str
+    target_key: str
     target_display_name: str | None = None
     display_name: str
     status: str

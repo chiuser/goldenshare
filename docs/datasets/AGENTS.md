@@ -19,7 +19,7 @@
 
 1. 新增或更新数据集文档时，优先引用 DatasetDefinition / date_model / execution plan，不再引用旧任务规格作为主能力说明。
 2. 如果历史数据集开发文档仍保留 `sync_history`、`backfill_*`、`sync_daily`，必须明确说明它们是历史任务名或旧实现背景。
-3. 不要让用户或前端通过 `spec_key`、`job_name`、旧 CLI 名称理解一个数据集。
+3. 不要让用户或前端通过内部路由 key、`job_name`、旧 CLI 名称理解一个数据集。
 4. 周线/月线、月度窗口、公告日期等时间语义必须引用日期模型单一事实源，不在文档里重新发明规则。
 
 ---

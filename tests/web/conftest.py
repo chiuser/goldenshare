@@ -36,7 +36,7 @@ from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.resolution_release import ResolutionRelease
@@ -96,7 +96,7 @@ def web_engine(configured_web_env) -> Generator:
         DcMember.__table__.create(connection)
         Security.__table__.create(connection)
         TradeCalendar.__table__.create(connection)
-        JobSchedule.__table__.create(connection)
+        OpsSchedule.__table__.create(connection)
         TaskRun.__table__.create(connection)
         TaskRunNode.__table__.create(connection)
         TaskRunIssue.__table__.create(connection)
@@ -301,11 +301,11 @@ def equity_block_trade_factory(db_session: Session) -> Callable[..., EquityBlock
 
 
 @pytest.fixture()
-def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
+def ops_schedule_factory(db_session: Session) -> Callable[..., OpsSchedule]:
     def build(
         *,
-        spec_type: str = "dataset_action",
-        spec_key: str = "stock_basic.maintain",
+        target_type: str = "dataset_action",
+        target_key: str = "stock_basic.maintain",
         display_name: str = "股票主数据刷新",
         status: str = "active",
         schedule_type: str = "once",
@@ -321,12 +321,12 @@ def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
         last_triggered_at: datetime | None = None,
         created_by_user_id: int | None = None,
         updated_by_user_id: int | None = None,
-    ) -> JobSchedule:
-        next_id = (db_session.scalar(select(func.max(JobSchedule.id))) or 0) + 1
-        schedule = JobSchedule(
+    ) -> OpsSchedule:
+        next_id = (db_session.scalar(select(func.max(OpsSchedule.id))) or 0) + 1
+        schedule = OpsSchedule(
             id=next_id,
-            spec_type=spec_type,
-            spec_key=spec_key,
+            target_type=target_type,
+            target_key=target_key,
             display_name=display_name,
             status=status,
             schedule_type=schedule_type,

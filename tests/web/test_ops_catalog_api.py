@@ -58,11 +58,11 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
 
 
-def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, job_schedule_factory) -> None:
+def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
-    job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+    ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         display_name="股票主数据刷新",
         status="active",
         schedule_type="cron",
@@ -70,18 +70,18 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
         created_by_user_id=admin.id,
         updated_by_user_id=admin.id,
     )
-    job_schedule_factory(
-        spec_type="dataset_action",
-        spec_key="stock_basic.maintain",
+    ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="stock_basic.maintain",
         display_name="股票主数据刷新（暂停）",
         status="paused",
         schedule_type="once",
         created_by_user_id=admin.id,
         updated_by_user_id=admin.id,
     )
-    job_schedule_factory(
-        spec_type="workflow",
-        spec_key="daily_market_close_sync",
+    ops_schedule_factory(
+        target_type="workflow",
+        target_key="daily_market_close_sync",
         display_name="每日收盘同步",
         status="active",
         schedule_type="cron",

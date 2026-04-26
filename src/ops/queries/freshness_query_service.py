@@ -69,7 +69,7 @@ from src.ops.dataset_observation_registry import (
     OBSERVED_DATE_MODEL_REGISTRY,
 )
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -481,20 +481,20 @@ class OpsFreshnessQueryService:
         return response
 
     def _attach_auto_schedule_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
-        spec_keys = {
+        action_keys = {
             item.primary_action_key
             for group in response.groups
             for item in group.items
             if item.primary_action_key
         }
-        if not spec_keys:
+        if not action_keys:
             return response
-        by_spec_key = self._auto_schedule_by_spec_key(session, spec_keys=spec_keys)
+        by_action_key = self._auto_schedule_by_action_key(session, action_keys=action_keys)
         for group in response.groups:
             for item in group.items:
                 if not item.primary_action_key:
                     continue
-                schedule_snapshot = by_spec_key.get(item.primary_action_key)
+                schedule_snapshot = by_action_key.get(item.primary_action_key)
                 if schedule_snapshot is None:
                     continue
                 item.auto_schedule_total = schedule_snapshot.total
@@ -510,7 +510,7 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _attach_active_execution_metadata(session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
-        spec_keys = {
+        action_keys = {
             item.primary_action_key
             for group in response.groups
             for item in group.items
@@ -522,7 +522,7 @@ class OpsFreshnessQueryService:
             for item in group.items
             if item.dataset_key
         }
-        if not spec_keys and not dataset_keys:
+        if not action_keys and not dataset_keys:
             return response
 
         rows = session.execute(
@@ -537,18 +537,18 @@ class OpsFreshnessQueryService:
             .order_by(desc(TaskRun.requested_at), desc(TaskRun.id))
         ).all()
 
-        by_spec_key: dict[str, tuple[str, datetime | None]] = {}
+        by_action_key: dict[str, tuple[str, datetime | None]] = {}
         by_dataset_key: dict[str, tuple[str, datetime | None]] = {}
         for row in rows:
             effective_started_at = row.started_at or row.requested_at
-            spec_key = None
+            action_key = None
             if row.task_type == "dataset_action" and row.resource_key:
                 try:
-                    spec_key = get_dataset_definition(row.resource_key).action_key("maintain")
+                    action_key = get_dataset_definition(row.resource_key).action_key("maintain")
                 except KeyError:
-                    spec_key = None
-            if spec_key and spec_key in spec_keys and spec_key not in by_spec_key:
-                by_spec_key[spec_key] = (row.status, effective_started_at)
+                    action_key = None
+            if action_key and action_key in action_keys and action_key not in by_action_key:
+                by_action_key[action_key] = (row.status, effective_started_at)
             if row.resource_key and row.resource_key in dataset_keys and row.resource_key not in by_dataset_key:
                 by_dataset_key[row.resource_key] = (row.status, effective_started_at)
 
@@ -556,7 +556,7 @@ class OpsFreshnessQueryService:
             for item in group.items:
                 active = None
                 if item.primary_action_key:
-                    active = by_spec_key.get(item.primary_action_key)
+                    active = by_action_key.get(item.primary_action_key)
                 if active is None and item.dataset_key:
                     active = by_dataset_key.get(item.dataset_key)
                 if active is None:
@@ -566,23 +566,23 @@ class OpsFreshnessQueryService:
         return response
 
     @staticmethod
-    def _auto_schedule_by_spec_key(
+    def _auto_schedule_by_action_key(
         session: Session,
         *,
-        spec_keys: set[str],
+        action_keys: set[str],
     ) -> dict[str, AutoScheduleSnapshot]:
-        if not spec_keys:
+        if not action_keys:
             return {}
         rows = session.execute(
-            select(JobSchedule.spec_type, JobSchedule.spec_key, JobSchedule.status, JobSchedule.next_run_at)
-            .where(JobSchedule.spec_type.in_(("dataset_action", "job", "workflow")))
+            select(OpsSchedule.target_type, OpsSchedule.target_key, OpsSchedule.status, OpsSchedule.next_run_at)
+            .where(OpsSchedule.target_type.in_(("dataset_action", "maintenance_action", "workflow")))
         ).all()
         result: dict[str, AutoScheduleSnapshot] = {}
 
-        def merge_schedule_snapshot(target_spec_key: str, status: str | None, next_run_at: datetime | None) -> None:
-            if target_spec_key not in spec_keys:
+        def merge_schedule_snapshot(target_action_key: str, status: str | None, next_run_at: datetime | None) -> None:
+            if target_action_key not in action_keys:
                 return
-            snap = result.setdefault(target_spec_key, AutoScheduleSnapshot())
+            snap = result.setdefault(target_action_key, AutoScheduleSnapshot())
             snap.total += 1
             status_value = (status or "").lower()
             if status_value == "active":
@@ -594,16 +594,16 @@ class OpsFreshnessQueryService:
                 snap.paused += 1
 
         workflow_action_keys_cache: dict[str, tuple[str, ...]] = {}
-        for spec_type, spec_key, status, next_run_at in rows:
-            if spec_type in {"dataset_action", "job"}:
-                merge_schedule_snapshot(spec_key, status, next_run_at)
+        for target_type, target_key, status, next_run_at in rows:
+            if target_type in {"dataset_action", "maintenance_action"}:
+                merge_schedule_snapshot(target_key, status, next_run_at)
                 continue
-            if spec_type != "workflow":
+            if target_type != "workflow":
                 continue
-            if spec_key not in workflow_action_keys_cache:
-                workflow = get_workflow_definition(spec_key)
-                workflow_action_keys_cache[spec_key] = tuple(step.action_key for step in workflow.steps) if workflow else ()
-            for action_key in workflow_action_keys_cache[spec_key]:
+            if target_key not in workflow_action_keys_cache:
+                workflow = get_workflow_definition(target_key)
+                workflow_action_keys_cache[target_key] = tuple(step.action_key for step in workflow.steps) if workflow else ()
+            for action_key in workflow_action_keys_cache[target_key]:
                 merge_schedule_snapshot(action_key, status, next_run_at)
         return result
 

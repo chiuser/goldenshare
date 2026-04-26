@@ -249,8 +249,8 @@ function getCatalogActionLabel(item: CatalogAction): string {
   return item.target_display_name || item.display_name;
 }
 
-function getScheduleTargetLabel(item: { target_display_name?: string | null; spec_display_name?: string | null; display_name: string }): string {
-  return item.target_display_name || item.spec_display_name || item.display_name;
+function getScheduleTargetLabel(item: { target_display_name?: string | null; display_name: string }): string {
+  return item.target_display_name || item.display_name;
 }
 
 function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
@@ -286,14 +286,6 @@ function buildParamLabelMap(
   const workflow = findCatalogWorkflow(catalog, actionType, actionKey);
   const params = action?.parameters || workflow?.parameters || [];
   return new Map(params.map((param) => [param.key, param.display_name]));
-}
-
-function toScheduleSpecType(actionType: string): string {
-  return actionType === "maintenance_action" ? "job" : actionType;
-}
-
-function toCatalogActionType(scheduleSpecType: string): string {
-  return scheduleSpecType === "job" ? "maintenance_action" : scheduleSpecType;
 }
 
 export function OpsAutomationPage() {
@@ -435,10 +427,10 @@ export function OpsAutomationPage() {
     () =>
       buildParamLabelMap(
         catalogQuery.data,
-        toCatalogActionType(detailQuery.data?.spec_type || ""),
-        detailQuery.data?.spec_key || "",
+        detailQuery.data?.target_type || "",
+        detailQuery.data?.target_key || "",
       ),
-    [catalogQuery.data, detailQuery.data?.spec_key, detailQuery.data?.spec_type],
+    [catalogQuery.data, detailQuery.data?.target_key, detailQuery.data?.target_type],
   );
   const selectedActionDateRule = useMemo<DateSelectionRule>(() => {
     if (!selectedAction) {
@@ -733,8 +725,8 @@ export function OpsAutomationPage() {
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
-        spec_type: toScheduleSpecType(form.action_type),
-        spec_key: form.action_key,
+        target_type: form.action_type,
+        target_key: form.action_key,
         display_name: form.display_name,
         schedule_type: scheduleType,
         trigger_mode: form.trigger_mode,
@@ -866,8 +858,8 @@ export function OpsAutomationPage() {
     const probeConfig = detail.probe_config || null;
     setForm({
       id: detail.id,
-      action_type: toCatalogActionType(detail.spec_type),
-      action_key: detail.spec_key,
+      action_type: detail.target_type,
+      action_key: detail.target_key,
       display_name: detail.display_name,
       schedule_type: detail.schedule_type,
       trigger_mode: (detail.trigger_mode as TriggerMode) || "schedule",
@@ -1044,7 +1036,7 @@ export function OpsAutomationPage() {
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_key || "全部来源"}</Text></Group>
-                      {toCatalogActionType(detailQuery.data.spec_type) === "workflow" ? (
+                      {detailQuery.data.target_type === "workflow" ? (
                         <Group justify="space-between" align="flex-start">
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
                           <Text size="sm" ta="right">

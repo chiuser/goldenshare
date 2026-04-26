@@ -6,7 +6,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.probe_rule import ProbeRule
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
 from src.ops.action_catalog import get_workflow_definition
 from src.app.exceptions import WebAppError
@@ -33,7 +33,7 @@ class ProbeRuleTemplate:
 
 
 class ScheduleProbeBindingService:
-    def sync_for_schedule(self, session: Session, *, schedule: JobSchedule, actor_user_id: int | None) -> None:
+    def sync_for_schedule(self, session: Session, *, schedule: OpsSchedule, actor_user_id: int | None) -> None:
         trigger_mode = self._normalize_trigger_mode(schedule.trigger_mode)
         session.execute(delete(ProbeRule).where(ProbeRule.schedule_id == schedule.id))
         if schedule.status != "active":
@@ -66,7 +66,7 @@ class ScheduleProbeBindingService:
                 )
             )
 
-    def _build_templates(self, *, schedule: JobSchedule) -> list[ProbeRuleTemplate]:
+    def _build_templates(self, *, schedule: OpsSchedule) -> list[ProbeRuleTemplate]:
         config = dict(schedule.probe_config_json or {})
         interval = max(int(config.get("probe_interval_seconds") or 300), 30)
         max_daily = max(int(config.get("max_triggers_per_day") or 1), 1)
@@ -101,7 +101,7 @@ class ScheduleProbeBindingService:
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,
                     trigger_mode="dataset_execution",
-                    workflow_key=schedule.spec_key if schedule.spec_type == "workflow" else None,
+                    workflow_key=schedule.target_key if schedule.target_type == "workflow" else None,
                     step_key=step_key,
                     source_key=source_key,
                     window_start=window_start,
@@ -116,16 +116,16 @@ class ScheduleProbeBindingService:
             )
         return templates
 
-    def _resolve_dataset_targets(self, *, schedule: JobSchedule, config: dict) -> list[tuple[str, str | None]]:
-        if schedule.spec_type == "dataset_action":
-            return [(self._dataset_from_action_spec(schedule.spec_key), None)]
-        if schedule.spec_type == "job":
+    def _resolve_dataset_targets(self, *, schedule: OpsSchedule, config: dict) -> list[tuple[str, str | None]]:
+        if schedule.target_type == "dataset_action":
+            return [(self._dataset_from_action_target(schedule.target_key), None)]
+        if schedule.target_type == "maintenance_action":
             raise WebAppError(status_code=422, code="validation_error", message="Probe schedules require dataset actions or workflows")
-        if schedule.spec_type == "workflow":
+        if schedule.target_type == "workflow":
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
                 return sorted({(item, None) for item in raw_dataset_keys})
-            workflow = get_workflow_definition(schedule.spec_key)
+            workflow = get_workflow_definition(schedule.target_key)
             if workflow is None:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             dataset_targets = []
@@ -139,14 +139,14 @@ class ScheduleProbeBindingService:
                     dataset_key = definition.dataset_key
                 dataset_targets.append((dataset_key, step.step_key))
             return sorted(set(dataset_targets))
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported schedule spec_type for probe")
+        raise WebAppError(status_code=422, code="validation_error", message="Unsupported schedule target_type for probe")
 
     @staticmethod
-    def _dataset_from_action_spec(spec_key: str) -> str:
+    def _dataset_from_action_target(target_key: str) -> str:
         try:
-            definition, _action = get_dataset_definition_by_action_key(spec_key)
+            definition, _action = get_dataset_definition_by_action_key(target_key)
         except KeyError as exc:
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key") from exc
+            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
         return definition.dataset_key
 
     @staticmethod

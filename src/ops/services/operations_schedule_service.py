@@ -6,16 +6,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.config_revision import ConfigRevision
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.ops.services.task_run_service import TaskRunCommandService
 from src.ops.action_catalog import (
+    action_is_schedulable,
+    get_action_display_name,
     get_maintenance_action,
-    get_schedule_display_name,
-    schedule_target_is_schedulable,
+    get_workflow_definition,
 )
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
@@ -30,8 +31,8 @@ class OperationsScheduleService:
         self,
         session: Session,
         *,
-        spec_type: str,
-        spec_key: str,
+        target_type: str,
+        target_key: str,
         display_name: str,
         schedule_type: str,
         trigger_mode: str,
@@ -44,8 +45,8 @@ class OperationsScheduleService:
         concurrency_policy_json: dict | None,
         next_run_at: datetime | None,
         created_by_user_id: int,
-    ) -> JobSchedule:
-        self._validate_spec(spec_type, spec_key)
+    ) -> OpsSchedule:
+        self._validate_target(target_type, target_key)
         ensure_schedule_type(schedule_type)
         ensure_timezone(timezone_name)
         trigger_mode = self._normalize_trigger_mode(trigger_mode)
@@ -56,10 +57,10 @@ class OperationsScheduleService:
             next_run_at=next_run_at,
         )
 
-        schedule = JobSchedule(
-            spec_type=spec_type,
-            spec_key=spec_key,
-            display_name=display_name.strip() or self._fallback_display_name(spec_type, spec_key),
+        schedule = OpsSchedule(
+            target_type=target_type,
+            target_key=target_key,
+            display_name=display_name.strip() or self._fallback_display_name(target_type, target_key),
             status="active",
             schedule_type=schedule_type,
             trigger_mode=trigger_mode,
@@ -96,22 +97,22 @@ class OperationsScheduleService:
         schedule_id: int,
         changes: dict,
         updated_by_user_id: int,
-    ) -> JobSchedule:
-        schedule = session.scalar(select(JobSchedule).where(JobSchedule.id == schedule_id))
+    ) -> OpsSchedule:
+        schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
 
         before = self._snapshot(schedule)
         changed_fields = set(changes)
 
-        if "spec_type" in changed_fields or "spec_key" in changed_fields:
-            spec_type = changes.get("spec_type", schedule.spec_type)
-            spec_key = changes.get("spec_key", schedule.spec_key)
-            self._validate_spec(spec_type, spec_key)
-            schedule.spec_type = spec_type
-            schedule.spec_key = spec_key
-            if "display_name" not in changed_fields and schedule.display_name == self._fallback_display_name(before["spec_type"], before["spec_key"]):
-                schedule.display_name = self._fallback_display_name(spec_type, spec_key)
+        if "target_type" in changed_fields or "target_key" in changed_fields:
+            target_type = changes.get("target_type", schedule.target_type)
+            target_key = changes.get("target_key", schedule.target_key)
+            self._validate_target(target_type, target_key)
+            schedule.target_type = target_type
+            schedule.target_key = target_key
+            if "display_name" not in changed_fields and schedule.display_name == self._fallback_display_name(before["target_type"], before["target_key"]):
+                schedule.display_name = self._fallback_display_name(target_type, target_key)
 
         if "display_name" in changed_fields:
             display_name = str(changes["display_name"]).strip()
@@ -181,8 +182,8 @@ class OperationsScheduleService:
         session.refresh(schedule)
         return schedule
 
-    def pause_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> JobSchedule:
-        schedule = session.scalar(select(JobSchedule).where(JobSchedule.id == schedule_id))
+    def pause_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> OpsSchedule:
+        schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
         if schedule.status == "paused":
@@ -205,8 +206,8 @@ class OperationsScheduleService:
         session.refresh(schedule)
         return schedule
 
-    def resume_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> JobSchedule:
-        schedule = session.scalar(select(JobSchedule).where(JobSchedule.id == schedule_id))
+    def resume_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> OpsSchedule:
+        schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
         if schedule.status == "active":
@@ -244,7 +245,7 @@ class OperationsScheduleService:
         return schedule
 
     def delete_schedule(self, session: Session, *, schedule_id: int, deleted_by_user_id: int) -> int:
-        schedule = session.scalar(select(JobSchedule).where(JobSchedule.id == schedule_id))
+        schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
             raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
 
@@ -277,21 +278,21 @@ class OperationsScheduleService:
     def enqueue_due_schedules(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> list[TaskRun]:
         current_time = now or datetime.now(timezone.utc)
         stmt = (
-            select(JobSchedule)
-            .where(JobSchedule.status == "active")
-            .where(JobSchedule.trigger_mode != "probe")
-            .where(JobSchedule.next_run_at.is_not(None))
-            .where(JobSchedule.next_run_at <= current_time)
-            .order_by(JobSchedule.next_run_at.asc(), JobSchedule.id.asc())
+            select(OpsSchedule)
+            .where(OpsSchedule.status == "active")
+            .where(OpsSchedule.trigger_mode != "probe")
+            .where(OpsSchedule.next_run_at.is_not(None))
+            .where(OpsSchedule.next_run_at <= current_time)
+            .order_by(OpsSchedule.next_run_at.asc(), OpsSchedule.id.asc())
             .limit(limit)
         )
         schedules = list(session.scalars(stmt))
         task_runs: list[TaskRun] = []
         for schedule in schedules:
-            task_run = self.task_run_service.create_from_spec(
+            task_run = self.task_run_service.create_from_schedule_target(
                 session,
-                spec_type=schedule.spec_type,
-                spec_key=schedule.spec_key,
+                target_type=schedule.target_type,
+                target_key=schedule.target_key,
                 params_json=dict(schedule.params_json or {}),
                 trigger_source="scheduled",
                 requested_by_user_id=None,
@@ -313,11 +314,11 @@ class OperationsScheduleService:
         return task_runs
 
     @staticmethod
-    def _snapshot(schedule: JobSchedule) -> dict:
+    def _snapshot(schedule: OpsSchedule) -> dict:
         return {
             "id": schedule.id,
-            "spec_type": schedule.spec_type,
-            "spec_key": schedule.spec_key,
+            "target_type": schedule.target_type,
+            "target_key": schedule.target_key,
             "display_name": schedule.display_name,
             "status": schedule.status,
             "schedule_type": schedule.schedule_type,
@@ -345,7 +346,7 @@ class OperationsScheduleService:
     ) -> None:
         session.add(
             ConfigRevision(
-                object_type="job_schedule",
+                object_type="schedule",
                 object_id=object_id,
                 action=action,
                 before_json=before_json,
@@ -356,31 +357,29 @@ class OperationsScheduleService:
         )
 
     @staticmethod
-    def _fallback_display_name(spec_type: str, spec_key: str) -> str:
-        return get_schedule_display_name(spec_type, spec_key) or spec_key
+    def _fallback_display_name(target_type: str, target_key: str) -> str:
+        return get_action_display_name(target_type, target_key) or target_key
 
     @staticmethod
-    def _validate_spec(spec_type: str, spec_key: str) -> None:
-        if spec_type == "dataset_action":
+    def _validate_target(target_type: str, target_key: str) -> None:
+        if target_type == "dataset_action":
             try:
-                get_dataset_definition_by_action_key(spec_key)
+                get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
                 raise WebAppError(status_code=422, code="validation_error", message="Dataset action does not exist") from exc
-            if not schedule_target_is_schedulable(spec_type, spec_key):
+            if not action_is_schedulable(target_type, target_key):
                 raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
             return
-        display_name = get_schedule_display_name(spec_type, spec_key)
-        if display_name is None:
-            if spec_type == "job":
-                raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
-            if spec_type == "workflow":
-                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
-            raise WebAppError(status_code=422, code="validation_error", message="Unsupported spec_type")
-        if spec_type == "job":
-            action = get_maintenance_action(spec_key)
+        if target_type == "maintenance_action":
+            action = get_maintenance_action(target_key)
             if action is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Unsupported maintenance action")
-        if not schedule_target_is_schedulable(spec_type, spec_key):
+        elif target_type == "workflow":
+            if get_workflow_definition(target_key) is None:
+                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+        else:
+            raise WebAppError(status_code=422, code="validation_error", message="Unsupported target_type")
+        if not action_is_schedulable(target_type, target_key):
             raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
 
     def _resolve_next_run_at(

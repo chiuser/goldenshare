@@ -18,7 +18,7 @@
 2. 任务记录、任务详情、重试、停止、手动任务提交统一走 `/api/v1/ops/task-runs*`。
 3. 手动维护页提交入口为 `POST /api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 新任务详情页只消费 `GET /api/v1/ops/task-runs/{id}/view`，完整技术诊断只在需要时读取 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
-5. 自动任务配置表 `ops.job_schedule` 已按停机清理口径重置，默认自动任务配置待后续单独重建。
+5. 自动任务配置表为 `ops.schedule`，调度目标统一使用 `target_type/target_key`。
 
 ---
 
@@ -286,7 +286,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - 功能：分页查询调度配置。
 - Query 参数：
   - `status`：可选
-  - `spec_type`：可选（`job|workflow`）
+  - `target_type`：可选（`dataset_action|workflow|maintenance_action`）
   - `limit`：默认 50，`1..200`
   - `offset`：默认 0，`>=0`
 - 返回：`ScheduleListResponse`（`items[], total`）
@@ -324,7 +324,7 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
 
 - 功能：创建调度。
 - Body：`CreateScheduleRequest`
-  - 关键字段：`spec_type, spec_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, probe_config, params_json`
+  - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, probe_config, params_json`
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -332,8 +332,8 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
   "http://127.0.0.1:8000/api/v1/ops/schedules" \
   -d '{
-    "spec_type":"dataset_action",
-    "spec_key":"daily.maintain",
+    "target_type":"dataset_action",
+    "target_key":"daily.maintain",
     "display_name":"股票日线自动更新",
     "schedule_type":"cron",
     "trigger_mode":"schedule",
@@ -360,7 +360,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```
 
 ```json
-{"id": 201, "spec_type": "dataset_action", "spec_key": "daily.maintain", "status": "active"}
+{"id": 201, "target_type": "dataset_action", "target_key": "daily.maintain", "status": "active"}
 ```
 
 ### 3.5 PATCH /api/v1/ops/schedules/{schedule_id}
@@ -657,7 +657,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 - 功能：创建 probe 规则。
 - Body：`CreateProbeRuleRequest`
-- 说明：`on_success_action_json` 如需触发数据集维护，使用 `action_type/action_key/request`，不得再写旧 `spec_key` 动作。
+- 说明：`on_success_action_json` 如需触发数据集维护，使用 `action_type/action_key/request`，不得再写旧动作字段。
 - 返回：`ProbeRuleDetailResponse`
 - 示例：
 
@@ -1282,8 +1282,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `TaskRunTimeInput`：`mode, trade_date, start_date, end_date, month, start_month, end_month, date_field`
 - `ManualActionTaskRunCreateRequest`：`time_input, filters`
 - `ManualActionTimeInput`：`mode, trade_date, start_date, end_date, month, start_month, end_month, ann_date, date_field`
-- `CreateScheduleRequest`：`spec_type, spec_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
-- `UpdateScheduleRequest`：`spec_type, spec_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
+- `CreateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
+- `UpdateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, next_run_at, count`
 - `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, min_rows_in, workflow_dataset_keys`
 
@@ -1343,8 +1343,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ### 12.3 调度
 
 - `ScheduleListResponse`：`items, total`
-- `ScheduleListItem`：`id, spec_type, spec_key, spec_display_name, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
-- `ScheduleDetailResponse`：`id, spec_type, spec_key, spec_display_name, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
+- `ScheduleListItem`：`id, target_type, target_key, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
+- `ScheduleDetailResponse`：`id, target_type, target_key, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
 - `ScheduleRevisionListResponse`：`items, total`
 - `ScheduleRevisionItem`：`id, object_type, object_id, action, before_json, after_json, changed_by_username, changed_at`
 - `SchedulePreviewResponse`：`schedule_type, timezone, preview_times`

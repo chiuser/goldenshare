@@ -23,10 +23,11 @@
 
 ### 2.1 入口与分发
 
-- worker 在 dispatcher 中根据 `execution.spec_type` 分支：
-  - `job` -> `_dispatch_job`
-  - `workflow` -> `_dispatch_workflow`
-- workflow 模式下，每个步骤会落 `ops.job_execution_step` 和 `ops.job_execution_unit`，并写事件：
+- worker 在 dispatcher 中根据 `TaskRun.task_type` 分支：
+  - `dataset_action` -> 数据集维护动作
+  - `workflow` -> 工作流
+  - `maintenance_action` -> 系统维护动作
+- workflow 模式下，每个步骤会落 `ops.task_run_node`，问题进入 `ops.task_run_issue`：
   - `step_started`
   - `step_succeeded`
   - `step_failed`
@@ -250,7 +251,7 @@
 | `default_schedule_policy` | `workflow.default_schedule_policy` | 默认调度策略 |
 | `schedule_enabled` | `workflow.schedule_enabled` | 是否支持自动调度 |
 | `manual_enabled` | `workflow.manual_enabled` | 是否支持手动执行 |
-| `schedule_binding_count` | `JobSchedule` 分组统计（`spec_type=workflow, spec_key=workflow.key`） | 绑定调度总数 |
+| `schedule_binding_count` | `OpsSchedule` 分组统计（`target_type=workflow, target_key=workflow.key`） | 绑定调度总数 |
 | `active_schedule_count` | 同上（状态 `active` 计数） | 激活调度数 |
 | `parameters[]` | `workflow.parameters` | 工作流级参数定义 |
 | `steps[]` | `workflow.steps` | 步骤清单 |

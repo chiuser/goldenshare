@@ -5,7 +5,7 @@ from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.resolution_release import ResolutionRelease
@@ -22,7 +22,7 @@ __all__ = [
     "DatasetLayerSnapshotHistory",
     "DatasetStatusSnapshot",
     "IndexSeriesActive",
-    "JobSchedule",
+    "OpsSchedule",
     "ProbeRule",
     "ProbeRunLog",
     "ResolutionRelease",

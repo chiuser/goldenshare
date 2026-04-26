@@ -497,8 +497,8 @@ function mockTaskAuto(route: Route, pathname: string) {
       items: [
         {
           id: 201,
-          spec_key: "daily.maintain",
-          spec_display_name: "维护股票日线",
+          target_type: "dataset_action",
+          target_key: "daily.maintain",
           target_display_name: "股票日线",
           display_name: "股票日线自动同步",
           status: "active",
@@ -516,9 +516,8 @@ function mockTaskAuto(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/schedules/201") {
     return fulfillJson(route, {
       id: 201,
-      spec_type: "dataset_action",
-      spec_key: "daily.maintain",
-      spec_display_name: "维护股票日线",
+      target_type: "dataset_action",
+      target_key: "daily.maintain",
       target_display_name: "股票日线",
       display_name: "股票日线自动同步",
       status: "active",

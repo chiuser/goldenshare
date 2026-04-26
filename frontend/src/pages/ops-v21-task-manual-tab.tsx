@@ -607,7 +607,7 @@ export function OpsManualTaskTab() {
     if (!manualActions.length || !prefillScheduleQuery.data) {
       return;
     }
-    const action = manualActions.find((item) => matchesActionRoute(item, prefillScheduleQuery.data.spec_type, prefillScheduleQuery.data.spec_key));
+    const action = manualActions.find((item) => matchesActionRoute(item, prefillScheduleQuery.data.target_type, prefillScheduleQuery.data.target_key));
     if (!action) {
       prefillScheduleAppliedRef.current = true;
       return;

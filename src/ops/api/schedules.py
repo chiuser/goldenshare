@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
@@ -47,7 +47,7 @@ def _require_admin_from_stream_token(session: Session, token: str) -> None:
 
 
 def _schedule_signature(session: Session) -> dict[str, str | int | None]:
-    schedule_updated_at = session.scalar(select(func.max(JobSchedule.updated_at)))
+    schedule_updated_at = session.scalar(select(func.max(OpsSchedule.updated_at)))
     execution_requested_at = session.scalar(select(func.max(TaskRun.requested_at)))
     active_executions = session.scalar(
         select(func.count())
@@ -66,14 +66,14 @@ def list_ops_schedules(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
     status: str | None = Query(None),
-    spec_type: str | None = Query(None),
+    target_type: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> ScheduleListResponse:
     return ScheduleQueryService().list_schedules(
         session,
         status=status,
-        spec_type=spec_type,
+        target_type=target_type,
         limit=limit,
         offset=offset,
     )
@@ -118,8 +118,8 @@ def create_ops_schedule(
     schedule_id = OpsScheduleCommandService().create_schedule(
         session,
         user=user,
-        spec_type=body.spec_type,
-        spec_key=body.spec_key,
+        target_type=body.target_type,
+        target_key=body.target_key,
         display_name=body.display_name,
         schedule_type=body.schedule_type,
         trigger_mode=body.trigger_mode,

@@ -11,7 +11,7 @@ from src.ops.action_catalog import (
     list_maintenance_actions,
     list_workflow_definitions,
 )
-from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.schemas.catalog import (
     ActionCatalogItem,
     ActionParameterResponse,
@@ -25,19 +25,19 @@ class OpsCatalogQueryService:
     def build_catalog(self, session: Session) -> OpsCatalogResponse:
         binding_rows = session.execute(
             select(
-                JobSchedule.spec_type,
-                JobSchedule.spec_key,
-                func.count(JobSchedule.id),
-                func.sum(case((JobSchedule.status == "active", 1), else_=0)),
+                OpsSchedule.target_type,
+                OpsSchedule.target_key,
+                func.count(OpsSchedule.id),
+                func.sum(case((OpsSchedule.status == "active", 1), else_=0)),
             )
-            .group_by(JobSchedule.spec_type, JobSchedule.spec_key)
+            .group_by(OpsSchedule.target_type, OpsSchedule.target_key)
         ).all()
         bindings = {
-            (spec_type, spec_key): {
+            (target_type, target_key): {
                 "schedule_binding_count": total or 0,
                 "active_schedule_count": active or 0,
             }
-            for spec_type, spec_key, total, active in binding_rows
+            for target_type, target_key, total, active in binding_rows
         }
         return OpsCatalogResponse(
             actions=[
@@ -110,8 +110,8 @@ class OpsCatalogQueryService:
             manual_enabled=action.manual_enabled,
             schedule_enabled=action.schedule_enabled,
             retry_enabled=action.retry_enabled,
-            schedule_binding_count=bindings.get(("job", action.key), {}).get("schedule_binding_count", 0),
-            active_schedule_count=bindings.get(("job", action.key), {}).get("active_schedule_count", 0),
+            schedule_binding_count=bindings.get(("maintenance_action", action.key), {}).get("schedule_binding_count", 0),
+            active_schedule_count=bindings.get(("maintenance_action", action.key), {}).get("active_schedule_count", 0),
             parameters=[
                 ActionParameterResponse(
                     key=param.key,
