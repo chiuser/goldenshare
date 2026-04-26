@@ -113,6 +113,22 @@ def test_ops_does_not_parse_dataset_identity_from_spec_key_text() -> None:
     assert not violations, "Ops 不得从 spec_key 文本拆出 dataset identity，必须走 DatasetDefinition registry:\n" + "\n".join(violations)
 
 
+def test_ops_dataset_card_view_static_facts_do_not_depend_on_pipeline_mode_view() -> None:
+    path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "DatasetPipelineModeQueryService",
+        "DatasetPipelineModeItem",
+        "dataset_pipeline_mode_query_service",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, (
+        "dataset-cards 是页面卡片事实接口，静态事实必须从 DatasetDefinition 派生，"
+        "不得再消费 pipeline-modes 查询视图:\n" + "\n".join(violations)
+    )
+
+
 def test_ingestion_layer_has_no_checkpoint_or_acquire_semantics() -> None:
     root = REPO_ROOT / "src/foundation/ingestion"
     forbidden_tokens = ("checkpoint", "acquire(")

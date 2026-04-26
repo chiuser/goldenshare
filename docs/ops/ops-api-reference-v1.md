@@ -232,6 +232,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
+- 静态事实来源：数据集身份、名称、领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；freshness、layer snapshot、probe 只作为运行观测输入。
 - Query 参数：
   - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片。
   - `limit`：默认 2000，范围 `1..2000`。

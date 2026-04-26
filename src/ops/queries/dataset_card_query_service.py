@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.probe_rule import ProbeRule
+from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.datasets.registry import list_dataset_definitions
+from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.queries.dataset_pipeline_mode_query_service import DatasetPipelineModeQueryService
+from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
+from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
@@ -17,7 +22,6 @@ from src.ops.schemas.dataset_card import (
     DatasetCardSourceStatus,
     DatasetCardStageStatus,
 )
-from src.ops.schemas.dataset_pipeline import DatasetPipelineModeItem
 from src.ops.schemas.freshness import DatasetFreshnessItem
 from src.ops.schemas.layer_snapshot import LayerSnapshotLatestItem
 
@@ -25,18 +29,41 @@ from src.ops.schemas.layer_snapshot import LayerSnapshotLatestItem
 CardStatus = str
 
 
-class DatasetCardQueryService:
-    _LIGHT_TABLE_HINTS = {
-        "daily": "core_serving_light.equity_daily_bar_light",
-    }
+@dataclass(frozen=True, slots=True)
+class DatasetCardFact:
+    dataset_key: str
+    canonical_key: str
+    display_name: str
+    domain_key: str
+    domain_display_name: str
+    cadence: str
+    source_keys: tuple[str, ...]
+    mode: str
+    mode_label: str
+    mode_tone: str
+    layer_plan: str
+    raw_table: str | None
+    std_table_hint: str | None
+    serving_table: str | None
+    primary_action_key: str | None
+    std_mapping_configured: bool
+    std_cleansing_configured: bool
+    resolution_policy_configured: bool
 
+
+class DatasetCardQueryService:
     def list_cards(self, session: Session, *, source_key: str | None = None, limit: int = 2000) -> DatasetCardListResponse:
         normalized_source = source_key.strip().lower() if source_key else None
         if normalized_source == "":
             normalized_source = None
         limit = max(1, min(limit, 2000))
 
-        mode_items = DatasetPipelineModeQueryService().list_modes(session, limit=2000).items
+        definitions = list_dataset_definitions()
+        config_flags = self._config_flags(session, [definition.dataset_key for definition in definitions])
+        facts = [
+            self._fact_from_definition(definition, config_flags=config_flags.get(definition.dataset_key, (False, False, False)))
+            for definition in definitions
+        ]
         freshness = OpsFreshnessQueryService().build_freshness(session)
         freshness_by_dataset = {
             item.dataset_key: item
@@ -50,9 +77,9 @@ class DatasetCardQueryService:
         layer_items = LayerSnapshotQueryService().list_latest(session, limit=5000).items
         probe_counts = self._probe_counts(session)
 
-        selected_modes = self._select_modes(mode_items, source_key=normalized_source)
+        selected_facts = self._select_facts(facts, source_key=normalized_source)
         cards = self._build_cards(
-            selected_modes,
+            selected_facts,
             freshness_by_dataset=freshness_by_dataset,
             snapshot_by_dataset=snapshot_by_dataset,
             layer_items=layer_items,
@@ -63,19 +90,19 @@ class DatasetCardQueryService:
         sliced = cards[:limit]
         return DatasetCardListResponse(total=len(cards), groups=self._group_cards(sliced))
 
-    def _select_modes(
+    def _select_facts(
         self,
-        mode_items: list[DatasetPipelineModeItem],
+        facts: list[DatasetCardFact],
         *,
         source_key: str | None,
-    ) -> list[DatasetPipelineModeItem]:
+    ) -> list[DatasetCardFact]:
         if source_key is None:
-            return mode_items
+            return facts
 
-        candidates = [item for item in mode_items if self._belongs_to_source(item, source_key)]
-        deduped: dict[str, DatasetPipelineModeItem] = {}
+        candidates = [item for item in facts if source_key in item.source_keys]
+        deduped: dict[str, DatasetCardFact] = {}
         for item in candidates:
-            key = self._canonical_dataset_key(item.dataset_key)
+            key = item.canonical_key
             existing = deduped.get(key)
             if existing is None:
                 deduped[key] = item
@@ -91,7 +118,7 @@ class DatasetCardQueryService:
 
     def _build_cards(
         self,
-        mode_items: list[DatasetPipelineModeItem],
+        facts: list[DatasetCardFact],
         *,
         freshness_by_dataset: dict[str, DatasetFreshnessItem],
         snapshot_by_dataset: dict[str, DatasetStatusSnapshot],
@@ -99,10 +126,9 @@ class DatasetCardQueryService:
         probe_counts: dict[str, tuple[int, int]],
         source_key: str | None,
     ) -> list[DatasetCardItem]:
-        grouped: dict[str, list[DatasetPipelineModeItem]] = {}
-        for item in mode_items:
-            key = self._canonical_dataset_key(item.dataset_key)
-            grouped.setdefault(key, []).append(item)
+        grouped: dict[str, list[DatasetCardFact]] = {}
+        for item in facts:
+            grouped.setdefault(item.canonical_key, []).append(item)
 
         layer_by_canonical: dict[str, list[LayerSnapshotLatestItem]] = {}
         for item in layer_items:
@@ -151,7 +177,7 @@ class DatasetCardQueryService:
                     domain_key=primary.domain_key,
                     domain_display_name=primary.domain_display_name,
                     status=status,
-                    freshness_status=self._worse_raw_status([*(item.freshness_status for item in members), *(item.freshness_status for item in member_freshness)]),
+                    freshness_status=self._worse_raw_status([item.freshness_status for item in member_freshness]),
                     mode=self._mode_for_card(members),
                     mode_label=self._mode_label(self._mode_for_card(members)),
                     mode_tone=self._mode_tone(self._mode_for_card(members)),
@@ -161,8 +187,7 @@ class DatasetCardQueryService:
                     raw_table_label=self._raw_table_label(primary, source_key=source_key),
                     target_table=primary_freshness.target_table if primary_freshness else primary.serving_table,
                     latest_business_date=self._latest_date(
-                        [item.latest_business_date for item in members]
-                        + [item.latest_business_date for item in member_freshness]
+                        [item.latest_business_date for item in member_freshness]
                         + [item.latest_business_date for item in member_snapshots]
                     ),
                     earliest_business_date=self._earliest_date(
@@ -178,7 +203,7 @@ class DatasetCardQueryService:
                         default=None,
                     ),
                     freshness_note=(primary_freshness.freshness_note if primary_freshness else None) or (primary_snapshot.freshness_note if primary_snapshot else None),
-                    primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or (primary_snapshot.primary_action_key if primary_snapshot else None),
+                    primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or (primary_snapshot.primary_action_key if primary_snapshot else None) or primary.primary_action_key,
                     active_execution_status=active_status,
                     active_execution_started_at=primary_freshness.active_execution_started_at if primary_freshness else None,
                     auto_schedule_status=primary_freshness.auto_schedule_status if primary_freshness else "none",
@@ -200,7 +225,7 @@ class DatasetCardQueryService:
     def _stage_statuses(
         self,
         canonical_key: str,
-        primary: DatasetPipelineModeItem,
+        primary: DatasetCardFact,
         layers: list[LayerSnapshotLatestItem],
         *,
         raw_sources: list[DatasetCardSourceStatus],
@@ -237,14 +262,14 @@ class DatasetCardQueryService:
     def _raw_sources(
         self,
         canonical_key: str,
-        members: list[DatasetPipelineModeItem],
+        members: list[DatasetCardFact],
         layers: list[LayerSnapshotLatestItem],
         *,
         source_key: str | None,
     ) -> list[DatasetCardSourceStatus]:
         source_tables: dict[str, str | None] = {}
         for item in members:
-            for source in self._source_values(item):
+            for source in item.source_keys:
                 if source_key is not None and source != source_key:
                     continue
                 table = self._raw_table_label(item, source_key=source)
@@ -289,7 +314,7 @@ class DatasetCardQueryService:
 
     def _card_status(
         self,
-        members: list[DatasetPipelineModeItem],
+        members: list[DatasetCardFact],
         freshness_items: list[DatasetFreshnessItem],
         layers: list[LayerSnapshotLatestItem],
         *,
@@ -305,7 +330,7 @@ class DatasetCardQueryService:
         if raw_statuses:
             return self._normalize_status(self._worse_raw_status(raw_statuses))
         return self._normalize_status(
-            self._worse_raw_status([*(item.freshness_status for item in members), *(item.freshness_status for item in freshness_items)])
+            self._worse_raw_status([item.freshness_status for item in freshness_items])
         )
 
     @staticmethod
@@ -319,7 +344,7 @@ class DatasetCardQueryService:
         ]
 
     @staticmethod
-    def _primary_member(members: list[DatasetPipelineModeItem]) -> DatasetPipelineModeItem:
+    def _primary_member(members: list[DatasetCardFact]) -> DatasetCardFact:
         sorted_members = sorted(
             members,
             key=lambda item: (
@@ -339,32 +364,16 @@ class DatasetCardQueryService:
         return raw_key
 
     @staticmethod
-    def _source_values(item: DatasetPipelineModeItem) -> list[str]:
-        scope_values = [part.strip().lower() for part in item.source_scope.split(",") if part.strip()]
-        if scope_values and "unknown" not in scope_values:
-            return sorted(set(scope_values))
+    def _source_preference(item: DatasetCardFact, source_key: str) -> int:
         dataset_key = item.dataset_key.lower()
         raw_table = (item.raw_table or "").lower()
-        if dataset_key.startswith("biying_") or raw_table.startswith("raw_biying."):
-            return ["biying"]
-        if dataset_key.startswith("tushare_") or raw_table.startswith("raw_tushare."):
-            return ["tushare"]
-        return []
-
-    def _belongs_to_source(self, item: DatasetPipelineModeItem, source_key: str) -> bool:
-        return source_key in self._source_values(item)
-
-    @staticmethod
-    def _source_preference(item: DatasetPipelineModeItem, source_key: str) -> int:
-        dataset_key = item.dataset_key.lower()
-        raw_table = (item.raw_table or "").lower()
-        source_scope = item.source_scope.lower()
+        source_values = set(item.source_keys)
         if source_key == "biying":
             if dataset_key.startswith("biying_"):
                 return 300
             if raw_table.startswith("raw_biying."):
                 return 200
-            if "biying" in source_scope:
+            if "biying" in source_values:
                 return 100
             return 0
         if dataset_key.startswith("biying_"):
@@ -373,12 +382,12 @@ class DatasetCardQueryService:
             return 300
         if dataset_key.startswith("tushare_"):
             return 200
-        if "tushare" in source_scope:
+        if "tushare" in source_values:
             return 100
         return 0
 
     @staticmethod
-    def _mode_for_card(members: list[DatasetPipelineModeItem]) -> str:
+    def _mode_for_card(members: list[DatasetCardFact]) -> str:
         modes = {item.mode for item in members}
         if "multi_source_pipeline" in modes:
             return "multi_source_pipeline"
@@ -392,7 +401,7 @@ class DatasetCardQueryService:
             return "多源流水线"
         if mode == "raw_only":
             return "仅原始层"
-        if mode == "legacy_core_direct":
+        if mode == "direct_maintain":
             return "直接维护"
         return "未定义"
 
@@ -404,7 +413,7 @@ class DatasetCardQueryService:
             return "info"
         if mode == "raw_only":
             return "neutral"
-        if mode == "legacy_core_direct":
+        if mode == "direct_maintain":
             return "warning"
         return "neutral"
 
@@ -414,13 +423,16 @@ class DatasetCardQueryService:
             base = ["raw", "std", "resolution", "serving"]
         elif mode == "single_source_direct":
             base = ["raw", "serving"]
-        elif mode in {"raw_only", "legacy_core_direct"}:
+        elif mode in {"raw_only", "direct_maintain"}:
             base = ["raw"]
         else:
             base = ["raw", "serving"]
-        if canonical_key == "daily" or any(item.stage == "light" for item in layers):
-            return [*base, "light"]
-        return base
+        extra = [
+            stage
+            for stage in ("std", "resolution", "serving", "light")
+            if stage not in base and any(item.stage == stage for item in layers)
+        ]
+        return [*base, *extra]
 
     @staticmethod
     def _stage_label(stage: str) -> str:
@@ -440,7 +452,7 @@ class DatasetCardQueryService:
         self,
         stage: str,
         canonical_key: str,
-        primary: DatasetPipelineModeItem,
+        primary: DatasetCardFact,
         raw_sources: list[DatasetCardSourceStatus],
     ) -> str | None:
         if stage == "raw":
@@ -449,11 +461,9 @@ class DatasetCardQueryService:
             return primary.std_table_hint
         if stage == "serving":
             return primary.serving_table
-        if stage == "light":
-            return self._LIGHT_TABLE_HINTS.get(canonical_key)
         return None
 
-    def _raw_table_label(self, item: DatasetPipelineModeItem, *, source_key: str | None) -> str | None:
+    def _raw_table_label(self, item: DatasetCardFact, *, source_key: str | None) -> str | None:
         if item.raw_table is None:
             return None
         if source_key is None:
@@ -463,10 +473,98 @@ class DatasetCardQueryService:
             return item.raw_table
         if source_key == "tushare" and raw_table.startswith("raw_tushare."):
             return item.raw_table
-        values = self._source_values(item)
-        if len(values) == 1 and values[0] == source_key:
+        if len(item.source_keys) == 1 and item.source_keys[0] == source_key:
             return item.raw_table
         return None
+
+    def _fact_from_definition(
+        self,
+        definition: DatasetDefinition,
+        *,
+        config_flags: tuple[bool, bool, bool],
+    ) -> DatasetCardFact:
+        mode = self._mode_from_definition(definition)
+        std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
+        return DatasetCardFact(
+            dataset_key=definition.dataset_key,
+            canonical_key=self._canonical_dataset_key(definition.dataset_key),
+            display_name=definition.display_name,
+            domain_key=definition.domain.domain_key,
+            domain_display_name=definition.domain.domain_display_name,
+            cadence=definition.domain.cadence,
+            source_keys=self._source_keys_from_definition(definition),
+            mode=mode,
+            mode_label=self._mode_label(mode),
+            mode_tone=self._mode_tone(mode),
+            layer_plan=self._layer_plan(mode),
+            raw_table=definition.storage.raw_table,
+            std_table_hint=self._std_table_hint(definition, mode),
+            serving_table=self._serving_table(definition, mode),
+            primary_action_key=self._primary_action_key(definition),
+            std_mapping_configured=std_mapping_configured,
+            std_cleansing_configured=std_cleansing_configured,
+            resolution_policy_configured=resolution_policy_configured,
+        )
+
+    @staticmethod
+    def _mode_from_definition(definition: DatasetDefinition) -> str:
+        write_path = definition.storage.write_path
+        target_table = definition.storage.target_table
+        if write_path.startswith("raw_std_publish"):
+            return "multi_source_pipeline"
+        if write_path == "raw_only_upsert" or target_table.startswith("raw_"):
+            return "raw_only"
+        if target_table.startswith("core_serving."):
+            return "single_source_direct"
+        return "direct_maintain"
+
+    @staticmethod
+    def _layer_plan(mode: str) -> str:
+        if mode == "multi_source_pipeline":
+            return "raw->std->resolution->serving"
+        if mode == "single_source_direct":
+            return "raw->serving"
+        if mode == "raw_only":
+            return "raw-only"
+        if mode == "direct_maintain":
+            return "raw->core"
+        return "unknown"
+
+    @staticmethod
+    def _std_table_hint(definition: DatasetDefinition, mode: str) -> str | None:
+        if mode != "multi_source_pipeline":
+            return None
+        return f"core_multi.{definition.storage.core_dao_name}"
+
+    @staticmethod
+    def _serving_table(definition: DatasetDefinition, mode: str) -> str | None:
+        if mode in {"raw_only", "direct_maintain"}:
+            return None
+        if definition.storage.target_table.startswith("core_serving."):
+            return definition.storage.target_table
+        return None
+
+    @staticmethod
+    def _source_keys_from_definition(definition: DatasetDefinition) -> tuple[str, ...]:
+        source_values: set[str] = set()
+        for field in definition.input_model.filters:
+            if field.name != "source_key":
+                continue
+            source_values.update(
+                value.lower()
+                for value in field.enum_values
+                if value and value.lower() not in {"all", "__all__"}
+            )
+        if not source_values:
+            source_values.add(definition.source.source_key_default.lower())
+        return tuple(sorted(source_values))
+
+    @staticmethod
+    def _primary_action_key(definition: DatasetDefinition) -> str | None:
+        action = definition.capabilities.get_action("maintain")
+        if action is None or not action.manual_enabled:
+            return None
+        return definition.action_key("maintain")
 
     @staticmethod
     def _normalize_status(status: str | None) -> str:
@@ -535,3 +633,38 @@ class DatasetCardQueryService:
             ).group_by(ProbeRule.dataset_key)
         ).all()
         return {str(dataset_key): (int(total or 0), int(active or 0)) for dataset_key, total, active in rows}
+
+    @staticmethod
+    def _config_flags(session: Session, dataset_keys: list[str]) -> dict[str, tuple[bool, bool, bool]]:
+        mapping_keys = set(
+            session.scalars(
+                select(StdMappingRule.dataset_key).where(
+                    StdMappingRule.dataset_key.in_(dataset_keys),
+                    StdMappingRule.status == "active",
+                )
+            ).all()
+        )
+        cleansing_keys = set(
+            session.scalars(
+                select(StdCleansingRule.dataset_key).where(
+                    StdCleansingRule.dataset_key.in_(dataset_keys),
+                    StdCleansingRule.status == "active",
+                )
+            ).all()
+        )
+        resolution_keys = set(
+            session.scalars(
+                select(DatasetResolutionPolicy.dataset_key).where(
+                    DatasetResolutionPolicy.dataset_key.in_(dataset_keys),
+                    DatasetResolutionPolicy.enabled.is_(True),
+                )
+            ).all()
+        )
+        return {
+            dataset_key: (
+                dataset_key in mapping_keys,
+                dataset_key in cleansing_keys,
+                dataset_key in resolution_keys,
+            )
+            for dataset_key in dataset_keys
+        }

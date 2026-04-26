@@ -50,6 +50,7 @@
 | F-005 | `ops-v21-overview-page.tsx` | 总览页直接合并 `pipeline-modes` 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
 | F-006 | `ops-v21-source-page.tsx` / `ops-v21-source-page-utils.ts` | 数据源页用 `dataset_key/raw_table/source_scope` 做来源偏好评分和去重。 | 已收口：数据源页改为消费 `/api/v1/ops/dataset-cards?source_key=...`，旧 utils 删除。 |
 | F-007 | `src/ops/api/dataset_cards.py` | 总览页、数据源页缺少稳定卡片视图，只能在前端拼。 | 已新增只读卡片视图 API；不新增状态表，不复制落盘字段。 |
+| F-008 | `src/ops/queries/dataset_card_query_service.py` | 卡片视图内部仍把 `pipeline-modes` 查询结果当作静态事实来源。 | 已收口：卡片静态事实从 `DatasetDefinition` 派生，freshness/layer/probe 只作为运行观测输入。 |
 
 ## 5. 已加门禁
 
@@ -66,7 +67,7 @@
 | 编号 | 页面/文件 | 现状 | 后续方向 |
 | --- | --- | --- | --- |
 | G-001 | `ops-v21-task-auto-tab.tsx` | 自动任务页仍暴露 `spec_type/spec_key` 选择模型，属于后续自动任务页专项。 | 等自动任务页重做时，切到用户视角的维护对象与触发策略，不让用户理解底层 spec。 |
-| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 当前是只读页面视图，仍复用现有 pipeline/freshness/layer 查询结果进行聚合。 | 后续 DatasetDefinition / DatasetExecutionPlan 主链继续推进时，应把 pipeline mode、stage plan、source_scope 等静态事实继续下沉到 DatasetDefinition 派生视图，不能长期保留多事实来源。 |
+| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 的卡片静态事实已从 DatasetDefinition 派生；pipeline-modes API 仍作为独立历史治理查询存在。 | 后续如果页面还需要 pipeline/stage 新字段，先补 DatasetDefinition 派生事实，再暴露到 card view，不能让页面或查询层另起事实口径。 |
 
 ## 7. 后续执行原则
 
