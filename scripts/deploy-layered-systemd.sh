@@ -21,7 +21,6 @@ RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
-RUN_DATASET_PIPELINE_MODE_SEED="${RUN_DATASET_PIPELINE_MODE_SEED:-1}"
 RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
 RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
 PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
@@ -275,31 +274,8 @@ main() {
     log "6/12 跳过默认单源规则检测/初始化（RUN_DEFAULT_SINGLE_SOURCE_SEED=0）"
   fi
 
-  if [[ "${RUN_DATASET_PIPELINE_MODE_SEED}" == "1" ]]; then
-    log "7/12 检测数据集 pipeline_mode 缺失/漂移"
-    set -a
-    source "${ENV_FILE}"
-    set +a
-    pipeline_mode_preview="$(
-      .venv/bin/goldenshare ops-seed-dataset-pipeline-mode
-    )"
-    echo "${pipeline_mode_preview}"
-    pipeline_mode_delta="$(
-      printf '%s\n' "${pipeline_mode_preview}" \
-        | awk -F= '/^(created|updated)=/{sum+=$2} END{print sum+0}'
-    )"
-    if [[ "${pipeline_mode_delta}" -gt 0 ]]; then
-      log "检测到 pipeline_mode 需写入 ${pipeline_mode_delta} 项，执行按需初始化"
-      .venv/bin/goldenshare ops-seed-dataset-pipeline-mode --apply
-    else
-      log "未检测到 pipeline_mode 变更，跳过初始化写入"
-    fi
-  else
-    log "7/12 跳过 pipeline_mode 检测/初始化（RUN_DATASET_PIPELINE_MODE_SEED=0）"
-  fi
-
   if [[ "${RUN_MONEYFLOW_MULTI_SOURCE_SEED}" == "1" ]]; then
-    log "8/12 检测 moneyflow 多源融合骨架"
+    log "7/12 检测 moneyflow 多源融合骨架"
     set -a
     source "${ENV_FILE}"
     set +a
@@ -309,7 +285,7 @@ main() {
     echo "${moneyflow_preview}"
     moneyflow_delta="$(
       printf '%s\n' "${moneyflow_preview}" \
-        | awk -F= '/^(created_pipeline_mode|updated_pipeline_mode|created_mapping_rules|created_cleansing_rules|created_source_statuses|created_resolution_policy|updated_resolution_policy)=/{sum+=$2} END{print sum+0}'
+        | awk -F= '/^(created_mapping_rules|created_cleansing_rules|created_source_statuses|created_resolution_policy|updated_resolution_policy)=/{sum+=$2} END{print sum+0}'
     )"
     if [[ "${moneyflow_delta}" -gt 0 ]]; then
       log "检测到 moneyflow 多源骨架需写入 ${moneyflow_delta} 项，执行按需初始化"
@@ -318,10 +294,10 @@ main() {
       log "未检测到 moneyflow 多源骨架变更，跳过初始化写入"
     fi
   else
-    log "8/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
+    log "7/12 跳过 moneyflow 多源骨架检测/初始化（RUN_MONEYFLOW_MULTI_SOURCE_SEED=0）"
   fi
 
-  log "9/12 重新加载 systemd 配置"
+  log "8/12 重新加载 systemd 配置"
   sudo_systemctl daemon-reload
 
   if [[ "${DEPLOY_FOUNDATION}" == "1" ]]; then
@@ -342,17 +318,17 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
-  log "10/12 Foundation 自检"
+  log "9/12 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
-  log "11/12 Ops 自检"
+  log "10/12 Ops 自检"
   .venv/bin/goldenshare ops-reconcile-task-runs --stale-for-minutes 30 >/dev/null
 
-  log "12/12 Platform 健康检查"
+  log "11/12 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"
   health_check "${HEALTH_V1_URL}" "Platform /api/v1/health"
 
-  log "13/13 服务状态"
+  log "12/12 服务状态"
   print_service_status "${WEB_SERVICE}"
   print_service_status "${WORKER_SERVICE}"
   print_service_status "${SCHEDULER_SERVICE}"
