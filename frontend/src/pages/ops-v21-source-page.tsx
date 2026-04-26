@@ -90,6 +90,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const latestQuery = useQuery({
     queryKey: ["ops", "layer-snapshot", "latest", `v21-source-${sourceKey}`],
     queryFn: () => apiRequest<LayerSnapshotLatestResponse>(`/api/v1/ops/layer-snapshots/latest?source_key=${sourceKey}&stage=raw&limit=1000`),
+    refetchInterval: 5000,
   });
   const probeQuery = useQuery({
     queryKey: ["ops", "probes", `v21-source-${sourceKey}`],
