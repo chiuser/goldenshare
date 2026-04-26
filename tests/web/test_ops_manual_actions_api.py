@@ -70,35 +70,30 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 
 
-def test_ops_manual_action_execution_creates_point_job(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/daily/executions",
+        "/api/v1/ops/manual-actions/daily/task-runs",
         headers=headers,
         json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": {}},
     )
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_type"] == "dataset_action"
-    assert payload["spec_key"] == "daily.maintain"
-    assert payload["status"] == "queued"
-    assert payload["run_profile"] == "point_incremental"
-    assert payload["params_json"] == {
-        "dataset_key": "daily",
-        "action": "maintain",
-        "trade_date": "2026-04-24",
-        "time_input": {"mode": "point", "trade_date": "2026-04-24"},
-        "filters": {},
-    }
+    assert payload["run"]["task_type"] == "dataset_action"
+    assert payload["run"]["resource_key"] == "daily"
+    assert payload["run"]["action"] == "maintain"
+    assert payload["run"]["status"] == "queued"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {}
 
 
-def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dc_hot/executions",
+        "/api/v1/ops/manual-actions/dc_hot/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
@@ -108,27 +103,20 @@ def test_ops_manual_action_execution_creates_range_job_with_filters(app_client, 
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_type"] == "dataset_action"
-    assert payload["spec_key"] == "dc_hot.maintain"
-    assert payload["run_profile"] == "range_rebuild"
-    assert payload["params_json"] == {
+    assert payload["run"]["resource_key"] == "dc_hot"
+    assert payload["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {
         "market": ["A股市场", "ETF基金"],
         "hot_type": ["人气榜"],
         "is_new": "Y",
-        "start_date": "2026-04-01",
-        "end_date": "2026-04-24",
-        "dataset_key": "dc_hot",
-        "action": "maintain",
-        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
-        "filters": {"market": ["A股市场", "ETF基金"], "hot_type": ["人气榜"], "is_new": "Y"},
     }
 
 
-def test_ops_manual_action_execution_applies_dc_hot_safe_defaults(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dc_hot/executions",
+        "/api/v1/ops/manual-actions/dc_hot/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "point", "trade_date": "2026-04-24"},
@@ -138,29 +126,20 @@ def test_ops_manual_action_execution_applies_dc_hot_safe_defaults(app_client, us
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "dc_hot.maintain"
-    assert payload["run_profile"] == "point_incremental"
-    assert payload["params_json"] == {
+    assert payload["run"]["resource_key"] == "dc_hot"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {
         "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
         "hot_type": ["人气榜", "飙升榜"],
         "is_new": "Y",
-        "trade_date": "2026-04-24",
-        "dataset_key": "dc_hot",
-        "action": "maintain",
-        "time_input": {"mode": "point", "trade_date": "2026-04-24"},
-        "filters": {
-            "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
-            "hot_type": ["人气榜", "飙升榜"],
-            "is_new": "Y",
-        },
     }
 
 
-def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/stk_mins/executions",
+        "/api/v1/ops/manual-actions/stk_mins/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
@@ -170,24 +149,16 @@ def test_ops_manual_action_execution_routes_stk_mins_to_minute_history(app_clien
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "stk_mins.maintain"
-    assert payload["run_profile"] == "range_rebuild"
-    assert payload["params_json"] == {
-        "freq": ["30min", "60min"],
-        "start_date": "2026-04-23",
-        "end_date": "2026-04-24",
-        "dataset_key": "stk_mins",
-        "action": "maintain",
-        "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
-        "filters": {"freq": ["30min", "60min"]},
-    }
+    assert payload["run"]["resource_key"] == "stk_mins"
+    assert payload["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {"freq": ["30min", "60min"]}
 
 
-def test_ops_manual_action_execution_routes_natural_day_range_to_dataset_action(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_routes_natural_day_range_to_dataset_action(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dividend/executions",
+        "/api/v1/ops/manual-actions/dividend/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
@@ -197,34 +168,26 @@ def test_ops_manual_action_execution_routes_natural_day_range_to_dataset_action(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["spec_key"] == "dividend.maintain"
-    assert payload["run_profile"] == "range_rebuild"
-    assert payload["params_json"] == {
-        "ts_code": "000001.SZ",
-        "start_date": "2026-04-01",
-        "end_date": "2026-04-24",
-        "dataset_key": "dividend",
-        "action": "maintain",
-        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
-        "filters": {"ts_code": "000001.SZ"},
-    }
+    assert payload["run"]["resource_key"] == "dividend"
+    assert payload["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
 
 
-def test_ops_manual_action_execution_supports_month_and_month_window(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_supports_month_and_month_window(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     month_point = app_client.post(
-        "/api/v1/ops/manual-actions/broker_recommend/executions",
+        "/api/v1/ops/manual-actions/broker_recommend/task-runs",
         headers=headers,
         json={"time_input": {"mode": "point", "month": "2026-04"}, "filters": {}},
     )
     month_range = app_client.post(
-        "/api/v1/ops/manual-actions/broker_recommend/executions",
+        "/api/v1/ops/manual-actions/broker_recommend/task-runs",
         headers=headers,
         json={"time_input": {"mode": "range", "start_month": "2026-04", "end_month": "2026-06"}, "filters": {}},
     )
     month_window = app_client.post(
-        "/api/v1/ops/manual-actions/index_weight/executions",
+        "/api/v1/ops/manual-actions/index_weight/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_month": "2026-04", "end_month": "2026-06"},
@@ -233,44 +196,26 @@ def test_ops_manual_action_execution_supports_month_and_month_window(app_client,
     )
 
     assert month_point.status_code == 200
-    assert month_point.json()["spec_key"] == "broker_recommend.maintain"
-    assert month_point.json()["params_json"] == {
-        "dataset_key": "broker_recommend",
-        "action": "maintain",
-        "month": "202604",
-        "time_input": {"mode": "point", "month": "202604"},
-        "filters": {},
-    }
+    assert month_point.json()["run"]["resource_key"] == "broker_recommend"
+    assert month_point.json()["run"]["time_input"] == {"mode": "point", "month": "202604"}
+    assert month_point.json()["run"]["filters"] == {}
 
     assert month_range.status_code == 200
-    assert month_range.json()["spec_key"] == "broker_recommend.maintain"
-    assert month_range.json()["params_json"] == {
-        "dataset_key": "broker_recommend",
-        "action": "maintain",
-        "start_month": "202604",
-        "end_month": "202606",
-        "time_input": {"mode": "range", "start_month": "202604", "end_month": "202606"},
-        "filters": {},
-    }
+    assert month_range.json()["run"]["resource_key"] == "broker_recommend"
+    assert month_range.json()["run"]["time_input"] == {"mode": "range", "start_month": "202604", "end_month": "202606"}
+    assert month_range.json()["run"]["filters"] == {}
 
     assert month_window.status_code == 200
-    assert month_window.json()["spec_key"] == "index_weight.maintain"
-    assert month_window.json()["params_json"] == {
-        "index_code": "000300.SH",
-        "start_date": "2026-04-01",
-        "end_date": "2026-06-30",
-        "dataset_key": "index_weight",
-        "action": "maintain",
-        "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-06-30"},
-        "filters": {"index_code": "000300.SH"},
-    }
+    assert month_window.json()["run"]["resource_key"] == "index_weight"
+    assert month_window.json()["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-06-30"}
+    assert month_window.json()["run"]["filters"] == {"index_code": "000300.SH"}
 
 
-def test_ops_manual_action_execution_rejects_unknown_filter(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_rejects_unknown_filter(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/daily/executions",
+        "/api/v1/ops/manual-actions/daily/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "point", "trade_date": "2026-04-24"},

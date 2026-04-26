@@ -8,7 +8,7 @@ export function inferManualTaskSpecType(specKey: string | null | undefined): str
 export function buildManualTaskHref(input: {
   specKey?: string | null;
   specType?: string | null;
-  fromExecutionId?: string | number | null;
+  fromTaskRunId?: string | number | null;
   fromScheduleId?: string | number | null;
 }): string {
   const search = new URLSearchParams();
@@ -17,8 +17,8 @@ export function buildManualTaskHref(input: {
     search.set("spec_key", input.specKey);
     search.set("spec_type", input.specType || inferManualTaskSpecType(input.specKey) || "job");
   }
-  if (input.fromExecutionId !== undefined && input.fromExecutionId !== null && input.fromExecutionId !== "") {
-    search.set("from_execution_id", String(input.fromExecutionId));
+  if (input.fromTaskRunId !== undefined && input.fromTaskRunId !== null && input.fromTaskRunId !== "") {
+    search.set("from_task_run_id", String(input.fromTaskRunId));
   }
   if (input.fromScheduleId !== undefined && input.fromScheduleId !== null && input.fromScheduleId !== "") {
     search.set("from_schedule_id", String(input.fromScheduleId));

@@ -8,10 +8,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.job_execution import JobExecution
-from src.ops.models.ops.sync_run_log import SyncRunLog
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.specs import get_dataset_freshness_spec_by_job_name
 
 
 DEFAULT_REPORT_TZ = "Asia/Shanghai"
@@ -54,17 +52,16 @@ class DailyHealthReportService:
         start_utc, end_utc = self._day_window_utc(report_date, tz)
         freshness = OpsFreshnessQueryService().build_freshness(session, today=report_date)
         dataset_items = [item for group in freshness.groups for item in group.items]
-        executions = self._load_executions(session, start_utc=start_utc, end_utc=end_utc)
-        run_logs = self._load_sync_run_logs(session, start_utc=start_utc, end_utc=end_utc)
+        task_runs = self._load_task_runs(session, start_utc=start_utc, end_utc=end_utc)
 
-        execution_summary = self._summarize_executions(executions)
-        dataset_runs = self._summarize_dataset_runs(run_logs)
+        execution_summary = self._summarize_task_runs(task_runs)
+        dataset_runs = self._summarize_dataset_runs(task_runs)
         datasets = self._serialize_dataset_items(dataset_items)
         key_alerts = self._build_key_alerts(
             report_date=report_date,
             timezone_name=timezone_name,
             dataset_items=dataset_items,
-            executions=executions,
+            task_runs=task_runs,
             dataset_runs=dataset_runs,
         )
 
@@ -145,27 +142,19 @@ class DailyHealthReportService:
         return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
     @staticmethod
-    def _load_executions(session: Session, *, start_utc: datetime, end_utc: datetime) -> list[JobExecution]:
+    def _load_task_runs(session: Session, *, start_utc: datetime, end_utc: datetime) -> list[TaskRun]:
         return list(
             session.scalars(
-                select(JobExecution).where(
-                    and_(JobExecution.requested_at >= start_utc, JobExecution.requested_at < end_utc)
+                select(TaskRun).where(
+                    and_(TaskRun.requested_at >= start_utc, TaskRun.requested_at < end_utc)
                 )
             )
         )
 
     @staticmethod
-    def _load_sync_run_logs(session: Session, *, start_utc: datetime, end_utc: datetime) -> list[SyncRunLog]:
-        return list(
-            session.scalars(
-                select(SyncRunLog).where(and_(SyncRunLog.started_at >= start_utc, SyncRunLog.started_at < end_utc))
-            )
-        )
-
-    @staticmethod
-    def _summarize_executions(executions: list[JobExecution]) -> dict[str, int]:
-        summary = {"total": len(executions), "success": 0, "failed": 0, "running": 0, "queued": 0}
-        for item in executions:
+    def _summarize_task_runs(task_runs: list[TaskRun]) -> dict[str, int]:
+        summary = {"total": len(task_runs), "success": 0, "failed": 0, "running": 0, "queued": 0}
+        for item in task_runs:
             status = (item.status or "").lower()
             if status in summary:
                 summary[status] += 1
@@ -199,19 +188,17 @@ class DailyHealthReportService:
         return rows
 
     @staticmethod
-    def _summarize_dataset_runs(run_logs: list[SyncRunLog]) -> list[dict]:
-        # job_name -> aggregate
-        by_job_name: dict[str, dict] = {}
-        for log in run_logs:
-            spec = get_dataset_freshness_spec_by_job_name(log.job_name)
-            if spec is None:
+    def _summarize_dataset_runs(task_runs: list[TaskRun]) -> list[dict]:
+        by_resource_key: dict[str, dict] = {}
+        for task_run in task_runs:
+            if not task_run.resource_key:
                 continue
-            key = spec.resource_key
-            row = by_job_name.get(key)
+            key = task_run.resource_key
+            row = by_resource_key.get(key)
             if row is None:
                 row = {
                     "resource_key": key,
-                    "display_name": spec.display_name,
+                    "display_name": task_run.title,
                     "total_runs": 0,
                     "success_runs": 0,
                     "failed_runs": 0,
@@ -221,21 +208,22 @@ class DailyHealthReportService:
                     "last_status": "-",
                     "last_started_at": None,
                 }
-                by_job_name[key] = row
+                by_resource_key[key] = row
             row["total_runs"] += 1
-            status = (log.status or "").upper()
-            if status == "SUCCESS":
+            status = (task_run.status or "").lower()
+            if status == "success":
                 row["success_runs"] += 1
-            elif status == "FAILED":
+            elif status in {"failed", "partial_success"}:
                 row["failed_runs"] += 1
-            elif status == "RUNNING":
+            elif status in {"running", "canceling"}:
                 row["running_runs"] += 1
-            row["rows_fetched"] += int(log.rows_fetched or 0)
-            row["rows_written"] += int(log.rows_written or 0)
-            if row["last_started_at"] is None or (log.started_at and log.started_at > row["last_started_at"]):
-                row["last_started_at"] = log.started_at
-                row["last_status"] = status
-        rows = list(by_job_name.values())
+            row["rows_fetched"] += int(task_run.rows_fetched or 0)
+            row["rows_written"] += int(task_run.rows_saved or 0)
+            started_at = task_run.started_at or task_run.requested_at
+            if row["last_started_at"] is None or (started_at and started_at > row["last_started_at"]):
+                row["last_started_at"] = started_at
+                row["last_status"] = status.upper()
+        rows = list(by_resource_key.values())
         for row in rows:
             row.pop("last_started_at", None)
         rows.sort(key=lambda item: item["display_name"])
@@ -247,7 +235,7 @@ class DailyHealthReportService:
         report_date: date,
         timezone_name: str,
         dataset_items: list,  # type: ignore[no-untyped-def]
-        executions: list[JobExecution],
+        task_runs: list[TaskRun],
         dataset_runs: list[dict],
     ) -> list[str]:
         alerts: list[str] = []
@@ -258,19 +246,19 @@ class DailyHealthReportService:
             lag_text = f"{item.lag_days}天" if item.lag_days is not None else "未知"
             alerts.append(f"【严重滞后】{item.display_name}，滞后 {lag_text}")
 
-        failed = [item for item in executions if (item.status or "").lower() == "failed"]
+        failed = [item for item in task_runs if (item.status or "").lower() == "failed"]
         for item in failed[:8]:
             alerts.append(
-                f"【今日失败】{item.spec_key}（执行ID={item.id}）{(item.error_message or item.summary_message or '').strip()[:60]}"
+                f"【今日失败】{item.title}（任务ID={item.id}）"
             )
 
         now_local = datetime.now(ZoneInfo(timezone_name))
-        for item in executions:
+        for item in task_runs:
             if (item.status or "").lower() != "running" or item.started_at is None:
                 continue
             elapsed = now_local - item.started_at.astimezone(ZoneInfo(timezone_name))
             if elapsed >= timedelta(minutes=30):
-                alerts.append(f"【长时间运行】{item.spec_key}（执行ID={item.id}）已运行约 {int(elapsed.total_seconds() // 60)} 分钟")
+                alerts.append(f"【长时间运行】{item.title}（任务ID={item.id}）已运行约 {int(elapsed.total_seconds() // 60)} 分钟")
 
         for row in dataset_runs:
             if row["rows_fetched"] > 0 and row["rows_written"] == 0:

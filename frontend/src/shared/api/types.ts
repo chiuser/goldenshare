@@ -317,38 +317,37 @@ export interface SchedulePreviewResponse {
   preview_times: string[];
 }
 
-export interface ExecutionListResponse {
+export interface TaskRunListResponse {
   items: Array<{
     id: number;
-    spec_type: string;
-    spec_key: string;
-    spec_display_name: string | null;
+    task_type: string;
     resource_key: string | null;
-    resource_display_name: string | null;
-    action_display_name: string | null;
-    time_scope: ExecutionTimeScope | null;
+    action: string;
+    title: string;
+    time_scope: TaskRunTimeScope | null;
     time_scope_label: string | null;
     schedule_display_name: string | null;
     trigger_source: string;
     status: string;
+    status_reason_code: string | null;
     requested_by_username: string | null;
     requested_at: string;
     started_at: string | null;
     ended_at: string | null;
+    unit_total: number;
+    unit_done: number;
+    unit_failed: number;
     rows_fetched: number;
-    rows_written: number;
-    progress_current: number | null;
-    progress_total: number | null;
+    rows_saved: number;
+    rows_rejected: number;
     progress_percent: number | null;
-    progress_message: string | null;
-    last_progress_at: string | null;
-    summary_message: string | null;
-    error_code: string | null;
+    primary_issue_id: number | null;
+    primary_issue_title: string | null;
   }>;
   total: number;
 }
 
-export interface ExecutionSummaryResponse {
+export interface TaskRunSummaryResponse {
   total: number;
   queued: number;
   running: number;
@@ -357,113 +356,105 @@ export interface ExecutionSummaryResponse {
   canceled: number;
 }
 
-export interface ExecutionTimeScope {
+export interface TaskRunTimeScope {
   kind: string;
   start: string | null;
   end: string | null;
   label: string;
 }
 
-export interface ExecutionDetailResponse {
-  id: number;
-  schedule_id: number | null;
-  spec_type: string;
-  spec_key: string;
-  spec_display_name: string | null;
-  resource_key: string | null;
-  resource_display_name: string | null;
-  action_display_name: string | null;
-  time_scope: ExecutionTimeScope | null;
-  time_scope_label: string | null;
-  schedule_display_name: string | null;
-  trigger_source: string;
-  status: string;
-  requested_by_username: string | null;
-  requested_at: string;
-  queued_at: string | null;
-  started_at: string | null;
-  ended_at: string | null;
-  params_json: Record<string, unknown>;
-  summary_message: string | null;
-  rows_fetched: number;
-  rows_written: number;
-  progress_current: number | null;
-  progress_total: number | null;
-  progress_percent: number | null;
-  progress_message: string | null;
-  last_progress_at: string | null;
-  cancel_requested_at: string | null;
-  canceled_at: string | null;
-  error_code: string | null;
-  error_message: string | null;
-}
-
-export interface ExecutionStepsResponse {
-  execution_id: number;
-  items: Array<{
+export interface TaskRunViewResponse {
+  run: {
     id: number;
-    step_key: string;
-    display_name: string;
-    sequence_no: number;
-    unit_kind: string | null;
-    unit_value: string | null;
+    task_type: string;
+    resource_key: string | null;
+    action: string;
+    title: string;
+    trigger_source: string;
     status: string;
+    status_reason_code: string | null;
+    requested_by_username: string | null;
+    schedule_display_name: string | null;
+    time_input: Record<string, unknown>;
+    filters: Record<string, unknown>;
+    time_scope: TaskRunTimeScope | null;
+    time_scope_label: string | null;
+    requested_at: string;
+    queued_at: string | null;
     started_at: string | null;
     ended_at: string | null;
+    cancel_requested_at: string | null;
+    canceled_at: string | null;
+  };
+  progress: {
+    unit_total: number;
+    unit_done: number;
+    unit_failed: number;
+    progress_percent: number | null;
     rows_fetched: number;
-    rows_written: number;
-    message: string | null;
-  }>;
-}
-
-export interface ExecutionEventsResponse {
-  execution_id: number;
-  items: Array<{
+    rows_saved: number;
+    rows_rejected: number;
+    current_context: Record<string, unknown>;
+  };
+  primary_issue: {
     id: number;
-    step_id: number | null;
-    event_type: string;
-    level: string;
-    message: string | null;
-    payload_json: ExecutionEventPayload;
+    severity: string;
+    code: string;
+    title: string;
+    operator_message: string | null;
+    suggested_action: string | null;
+    has_technical_detail: boolean;
     occurred_at: string;
-  }>;
-}
-
-export interface ExecutionProgressReasonSample {
-  reason_code: string;
-  field?: string;
-  sample_key?: string;
-  sample_message?: string;
-}
-
-export interface ExecutionEventPayload extends Record<string, unknown> {
-  progress_message?: string;
-  progress_current?: number;
-  progress_total?: number;
-  progress_percent?: number;
-  rows_fetched?: number;
-  rows_written?: number;
-  rows_rejected?: number;
-  rejected_reason_counts?: Record<string, number>;
-  rejected_reason_samples?: ExecutionProgressReasonSample[];
-  reason_stats_truncated?: boolean;
-  reason_stats_truncate_note?: string | null;
-}
-
-export interface ExecutionLogsResponse {
-  execution_id: number;
-  items: Array<{
+  } | null;
+  nodes: Array<{
     id: number;
-    execution_id: number | null;
-    job_name: string;
-    run_type: string;
+    parent_node_id: number | null;
+    node_key: string;
+    node_type: string;
+    sequence_no: number;
+    title: string;
+    resource_key: string | null;
     status: string;
-    started_at: string;
-    ended_at: string | null;
+    time_input: Record<string, unknown>;
+    context: Record<string, unknown>;
     rows_fetched: number;
-    rows_written: number;
-    message: string | null;
+    rows_saved: number;
+    rows_rejected: number;
+    issue_id: number | null;
+    started_at: string | null;
+    ended_at: string | null;
+    duration_ms: number | null;
   }>;
+  node_total: number;
+  nodes_truncated: boolean;
+  actions: {
+    can_retry: boolean;
+    can_cancel: boolean;
+    can_copy_params: boolean;
+  };
+}
+
+export interface TaskRunCreateResponse {
+  id: number;
+  resource_key: string | null;
+  status: string;
+  title: string;
+  created_at: string;
+}
+
+export interface TaskRunIssueDetailResponse {
+  id: number;
+  task_run_id: number;
+  node_id: number | null;
+  severity: string;
+  code: string;
+  title: string;
+  operator_message: string | null;
+  suggested_action: string | null;
+  technical_message: string | null;
+  technical_payload: Record<string, unknown>;
+  source_phase: string | null;
+  occurred_at: string;
 }
 
 export interface OpsCatalogResponse {
@@ -566,7 +557,7 @@ export interface OpsManualActionsResponse {
   }>;
 }
 
-export interface OpsManualActionExecutionRequest {
+export interface OpsManualActionTaskRunRequest {
   time_input: {
     mode: "point" | "range" | "none";
     trade_date?: string;
@@ -601,15 +592,15 @@ export interface RuntimeTickResponse {
   items: Array<{
     id: number;
     schedule_id: number | null;
-    spec_type: string;
-    spec_key: string;
-    spec_display_name: string | null;
+    task_type: string;
+    resource_key: string | null;
+    title: string;
     trigger_source: string;
     status: string;
     requested_at: string;
     rows_fetched: number;
-    rows_written: number;
-    summary_message: string | null;
+    rows_saved: number;
+    primary_issue_title: string | null;
   }>;
 }
 

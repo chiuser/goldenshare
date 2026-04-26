@@ -15,15 +15,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
-  ExecutionDetailResponse,
-  ExecutionListResponse,
-  ExecutionSummaryResponse,
   OpsCatalogResponse,
+  TaskRunCreateResponse,
+  TaskRunListResponse,
+  TaskRunSummaryResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import {
   formatExecutionResourceLabel,
-  formatProgressMessageLabel,
   formatSpecDisplayLabel,
   formatStatusLabel,
   formatTriggerSourceLabel,
@@ -44,17 +43,17 @@ const PAGE_SIZE = 20;
 type TaskFilters = {
   status: string;
   trigger_source: string;
-  spec_key: string;
+  resource_key: string;
 };
 
-function buildExecutionsRefetchInterval(data: ExecutionListResponse | undefined) {
+function buildTaskRunsRefetchInterval(data: TaskRunListResponse | undefined) {
   if (!data?.items?.length) {
     return false;
   }
   return data.items.some((item) => item.status === "queued" || item.status === "running" || item.status === "canceling") ? 3000 : false;
 }
 
-function buildExecutionSummaryRefetchInterval(data: ExecutionSummaryResponse | undefined) {
+function buildTaskRunSummaryRefetchInterval(data: TaskRunSummaryResponse | undefined) {
   if (!data) {
     return false;
   }
@@ -65,7 +64,7 @@ function createDefaultFilters(): TaskFilters {
   return {
     status: ALL_FILTER_VALUE,
     trigger_source: ALL_FILTER_VALUE,
-    spec_key: ALL_FILTER_VALUE,
+    resource_key: ALL_FILTER_VALUE,
   };
 }
 
@@ -81,7 +80,7 @@ function buildFilterParams(filters: TaskFilters) {
   const params = new URLSearchParams();
   if (filters.status !== ALL_FILTER_VALUE) params.set("status", filters.status);
   if (filters.trigger_source !== ALL_FILTER_VALUE) params.set("trigger_source", filters.trigger_source);
-  if (filters.spec_key !== ALL_FILTER_VALUE) params.set("spec_key", filters.spec_key);
+  if (filters.resource_key !== ALL_FILTER_VALUE) params.set("resource_key", filters.resource_key);
   return params;
 }
 
@@ -107,18 +106,18 @@ export function OpsTasksPage() {
   const [searchReady, setSearchReady] = useState(false);
   const [filters, setFilters] = useState<TaskFilters>(createDefaultFilters);
   const [page, setPage] = useState(1);
-  const [lastAction, setLastAction] = useState<ExecutionDetailResponse | null>(null);
+  const [lastAction, setLastAction] = useState<TaskRunCreateResponse | null>(null);
 
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
     const status = search.get("status");
     const triggerSource = search.get("trigger_source");
-    const specKey = search.get("spec_key");
+    const resourceKey = search.get("resource_key");
     const pageValue = parsePageValue(search.get("page"));
     setFilters({
       status: status || ALL_FILTER_VALUE,
       trigger_source: triggerSource || ALL_FILTER_VALUE,
-      spec_key: specKey || ALL_FILTER_VALUE,
+      resource_key: resourceKey || ALL_FILTER_VALUE,
     });
     setPage(pageValue);
     setSearchReady(true);
@@ -136,40 +135,36 @@ export function OpsTasksPage() {
   }, [filters, page, searchReady]);
 
   const filterQueryString = useMemo(() => buildFilterParams(filters).toString(), [filters]);
-  const executionListQueryString = useMemo(() => buildListParams(filters, page).toString(), [filters, page]);
+  const taskRunListQueryString = useMemo(() => buildListParams(filters, page).toString(), [filters, page]);
 
   const catalogQuery = useQuery({
     queryKey: ["ops", "catalog"],
     queryFn: () => apiRequest<OpsCatalogResponse>("/api/v1/ops/catalog"),
   });
 
-  const executionsQuery = useQuery({
-    queryKey: ["ops", "executions", executionListQueryString],
-    queryFn: () => apiRequest<ExecutionListResponse>(`/api/v1/ops/executions?${executionListQueryString}`),
+  const taskRunsQuery = useQuery({
+    queryKey: ["ops", "task-runs", taskRunListQueryString],
+    queryFn: () => apiRequest<TaskRunListResponse>(`/api/v1/ops/task-runs?${taskRunListQueryString}`),
     enabled: searchReady,
     placeholderData: keepPreviousData,
-    refetchInterval: (query) => buildExecutionsRefetchInterval(query.state.data),
+    refetchInterval: (query) => buildTaskRunsRefetchInterval(query.state.data),
   });
 
-  const executionSummaryQuery = useQuery({
-    queryKey: ["ops", "execution-summary", filterQueryString],
+  const taskRunSummaryQuery = useQuery({
+    queryKey: ["ops", "task-run-summary", filterQueryString],
     queryFn: () =>
-      apiRequest<ExecutionSummaryResponse>(`/api/v1/ops/executions/summary${filterQueryString ? `?${filterQueryString}` : ""}`),
+      apiRequest<TaskRunSummaryResponse>(`/api/v1/ops/task-runs/summary${filterQueryString ? `?${filterQueryString}` : ""}`),
     enabled: searchReady,
     placeholderData: keepPreviousData,
-    refetchInterval: (query) => buildExecutionSummaryRefetchInterval(query.state.data),
+    refetchInterval: (query) => buildTaskRunSummaryRefetchInterval(query.state.data),
   });
 
   const specOptions = useMemo(() => {
     const catalog = catalogQuery.data;
     const items = catalog ? [
       ...catalog.job_specs.map((item) => ({
-        value: item.key,
+        value: item.resource_key || item.key,
         label: formatCatalogTaskOption(item),
-      })),
-      ...catalog.workflow_specs.map((item) => ({
-        value: item.key,
-        label: formatSpecDisplayLabel(item.key, item.display_name),
       })),
     ] : [];
     return [{ value: ALL_FILTER_VALUE, label: "全选" }, ...items];
@@ -201,16 +196,16 @@ export function OpsTasksPage() {
   );
 
   const totalPages = useMemo(() => {
-    const total = executionsQuery.data?.total ?? 0;
+    const total = taskRunsQuery.data?.total ?? 0;
     return total > 0 ? Math.ceil(total / PAGE_SIZE) : 1;
-  }, [executionsQuery.data?.total]);
-  const isInitialExecutionsLoading = executionsQuery.isLoading && !executionsQuery.data;
+  }, [taskRunsQuery.data?.total]);
+  const isInitialTaskRunsLoading = taskRunsQuery.isLoading && !taskRunsQuery.data;
   const isRefreshing =
-    !isInitialExecutionsLoading && (executionsQuery.isFetching || executionSummaryQuery.isFetching);
+    !isInitialTaskRunsLoading && (taskRunsQuery.isFetching || taskRunSummaryQuery.isFetching);
 
   const retryMutation = useMutation({
-    mutationFn: (executionId: number) =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/retry`, {
+    mutationFn: (taskRunId: number) =>
+      apiRequest<TaskRunCreateResponse>(`/api/v1/ops/task-runs/${taskRunId}/retry`, {
         method: "POST",
       }),
     onSuccess: async (data) => {
@@ -220,15 +215,15 @@ export function OpsTasksPage() {
         title: "任务已重新提交",
         message: "系统已经收到新的任务请求。",
       });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "execution-summary"] });
-      await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "task-runs"] });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "task-run-summary"] });
+      await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(data.id) } });
     },
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (executionId: number) =>
-      apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${executionId}/cancel`, {
+    mutationFn: (taskRunId: number) =>
+      apiRequest<TaskRunCreateResponse>(`/api/v1/ops/task-runs/${taskRunId}/cancel`, {
         method: "POST",
       }),
     onSuccess: async (data) => {
@@ -238,8 +233,8 @@ export function OpsTasksPage() {
         title: "已请求停止当前任务",
         message: `任务 #${data.id}`,
       });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "executions"] });
-      await queryClient.invalidateQueries({ queryKey: ["ops", "execution-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "task-runs"] });
+      await queryClient.invalidateQueries({ queryKey: ["ops", "task-run-summary"] });
     },
   });
 
@@ -248,24 +243,12 @@ export function OpsTasksPage() {
     setPage(1);
   }
 
-  function buildResultSummary(item: ExecutionListResponse["items"][number]) {
-    if (
-      item.progress_current !== null &&
-      item.progress_current !== undefined &&
-      item.progress_total !== null &&
-      item.progress_total !== undefined &&
-      item.progress_total > 0
-    ) {
-      return `当前进展 ${item.progress_current}/${item.progress_total}（${item.progress_percent ?? 0}%）`;
+  function buildResultSummary(item: TaskRunListResponse["items"][number] | TaskRunCreateResponse) {
+    if ("unit_total" in item && item.unit_total > 0) {
+      return `当前进展 ${item.unit_done}/${item.unit_total}（${item.progress_percent ?? 0}%）`;
     }
-    if (item.progress_message && (item.status === "queued" || item.status === "running" || item.status === "canceling")) {
-      return formatProgressMessageLabel(item.progress_message) || item.progress_message;
-    }
-    if (item.summary_message) {
-      return item.summary_message;
-    }
-    if (item.progress_message) {
-      return formatProgressMessageLabel(item.progress_message) || item.progress_message;
+    if ("primary_issue_title" in item && item.primary_issue_title) {
+      return item.primary_issue_title;
     }
     if (item.status === "queued") {
       return "系统已经收到这次任务，正在等待开始处理。";
@@ -279,7 +262,7 @@ export function OpsTasksPage() {
     return `当前状态：${formatStatusLabel(item.status)}`;
   }
 
-  const executionColumns = useMemo<DataTableColumn<ExecutionListResponse["items"][number]>[]>(() => [
+  const taskRunColumns = useMemo<DataTableColumn<TaskRunListResponse["items"][number]>[]>(() => [
     {
       key: "spec",
       header: "任务名称",
@@ -371,11 +354,11 @@ export function OpsTasksPage() {
 
   return (
     <Stack gap="lg">
-      {isInitialExecutionsLoading ? <Loader size="sm" /> : null}
-      {executionsQuery.error ? (
+      {isInitialTaskRunsLoading ? <Loader size="sm" /> : null}
+      {taskRunsQuery.error ? (
         <AlertBar tone="error" title="无法读取任务记录">
-          {executionsQuery.error instanceof Error
-            ? executionsQuery.error.message
+          {taskRunsQuery.error instanceof Error
+            ? taskRunsQuery.error.message
             : "未知错误"}
         </AlertBar>
       ) : null}
@@ -383,31 +366,31 @@ export function OpsTasksPage() {
       <SectionCard title="任务统计" description="按当前筛选条件统计任务分布，不受当前分页影响。">
         <Grid>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="当前筛选任务" value={executionSummaryQuery.data?.total ?? "—"} />
+            <StatCard label="当前筛选任务" value={taskRunSummaryQuery.data?.total ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="等待处理" value={executionSummaryQuery.data?.queued ?? "—"} />
+            <StatCard label="等待处理" value={taskRunSummaryQuery.data?.queued ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="正在处理" value={executionSummaryQuery.data?.running ?? "—"} />
+            <StatCard label="正在处理" value={taskRunSummaryQuery.data?.running ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="执行成功" value={executionSummaryQuery.data?.success ?? "—"} />
+            <StatCard label="执行成功" value={taskRunSummaryQuery.data?.success ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="执行失败" value={executionSummaryQuery.data?.failed ?? "—"} hint="含部分成功任务；失败任务可以重新提交。" />
+            <StatCard label="执行失败" value={taskRunSummaryQuery.data?.failed ?? "—"} hint="含部分成功任务；失败任务可以重新提交。" />
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 2 }}>
-            <StatCard label="已取消" value={executionSummaryQuery.data?.canceled ?? "—"} />
+            <StatCard label="已取消" value={taskRunSummaryQuery.data?.canceled ?? "—"} />
           </Grid.Col>
         </Grid>
       </SectionCard>
 
       <SectionCard title="任务记录" description="先筛选，再查看详情、停止处理，或重新提交失败任务。页面只负责发起和查看，不会把长任务绑在当前页面里执行。">
         <DataTable
-          columns={executionColumns}
+          columns={taskRunColumns}
           getRowKey={(item) => item.id}
-          rows={executionsQuery.data?.items || []}
+          rows={taskRunsQuery.data?.items || []}
           toolbar={(
             <FilterBar
               actions={(
@@ -451,8 +434,8 @@ export function OpsTasksPage() {
                   label="任务名称"
                   searchable
                   data={specOptions}
-                  value={filters.spec_key}
-                  onChange={(value) => updateFilters({ ...filters, spec_key: value || ALL_FILTER_VALUE })}
+                  value={filters.resource_key}
+                  onChange={(value) => updateFilters({ ...filters, resource_key: value || ALL_FILTER_VALUE })}
                 />
               </FilterBarItem>
             </FilterBar>
@@ -461,7 +444,7 @@ export function OpsTasksPage() {
             <ActionSummaryCard
               title="最近一次任务操作"
               rows={[
-                { label: "任务名称", value: formatExecutionResourceLabel(lastAction) },
+                { label: "任务名称", value: lastAction.title },
                 { label: "当前状态", value: formatStatusLabel(lastAction.status) },
                 { label: "处理结果", value: buildResultSummary(lastAction) },
               ]}
@@ -482,7 +465,7 @@ export function OpsTasksPage() {
             />
           )}
         />
-        {executionsQuery.data && executionsQuery.data.total > PAGE_SIZE ? (
+        {taskRunsQuery.data && taskRunsQuery.data.total > PAGE_SIZE ? (
           <Group justify="flex-end" mt="md">
             <Pagination
               aria-label="任务记录分页"

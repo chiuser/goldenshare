@@ -7,7 +7,7 @@ def test_legacy_ops_routes_redirect_to_new_frontend(app_client) -> None:
         ("/ops/overview", "/app/ops/overview"),
         ("/ops/freshness", "/app/ops/freshness"),
         ("/ops/schedules", "/app/ops/schedules"),
-        ("/ops/executions", "/app/ops/executions"),
+        ("/ops/tasks", "/app/ops/tasks"),
         ("/ops/catalog", "/app/ops/catalog"),
     ):
         response = app_client.get(path, follow_redirects=False)

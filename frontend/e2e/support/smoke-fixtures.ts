@@ -30,6 +30,117 @@ function fulfillJson(route: Route, body: unknown, status = 200) {
   });
 }
 
+function createTaskRunItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 101,
+    task_type: "dataset_action",
+    resource_key: "daily",
+    action: "maintain",
+    title: "股票日线",
+    time_scope: {
+      kind: "point",
+      start: "2026-04-17",
+      end: "2026-04-17",
+      label: "2026-04-17",
+    },
+    time_scope_label: "2026-04-17",
+    schedule_display_name: null,
+    trigger_source: "manual",
+    status: "running",
+    requested_by_username: "admin",
+    requested_at: "2026-04-17T09:30:00+08:00",
+    started_at: "2026-04-17T09:30:02+08:00",
+    ended_at: null,
+    unit_total: 120,
+    unit_done: 68,
+    unit_failed: 0,
+    rows_fetched: 5200,
+    rows_saved: 5100,
+    rows_rejected: 100,
+    progress_percent: 57,
+    primary_issue_id: null,
+    primary_issue_title: null,
+    ...overrides,
+  };
+}
+
+function createTaskRunView(overrides: Record<string, unknown> = {}) {
+  const item = createTaskRunItem(overrides);
+  const id = Number(item.id);
+  return {
+    run: {
+      id,
+      task_type: item.task_type,
+      resource_key: item.resource_key,
+      action: item.action,
+      title: item.title,
+      trigger_source: item.trigger_source,
+      status: item.status,
+      status_reason_code: null,
+      requested_by_username: item.requested_by_username,
+      schedule_display_name: item.schedule_display_name,
+      time_input: {
+        mode: "point",
+        trade_date: "2026-04-17",
+      },
+      filters: {},
+      time_scope: item.time_scope,
+      time_scope_label: item.time_scope_label,
+      requested_at: item.requested_at,
+      queued_at: "2026-04-17T09:30:01+08:00",
+      started_at: item.started_at,
+      ended_at: item.ended_at,
+      cancel_requested_at: null,
+      canceled_at: null,
+    },
+    progress: {
+      unit_total: item.unit_total,
+      unit_done: item.unit_done,
+      unit_failed: item.unit_failed,
+      progress_percent: item.progress_percent,
+      rows_fetched: item.rows_fetched,
+      rows_saved: item.rows_saved,
+      rows_rejected: item.rows_rejected,
+      current_context: {
+        trade_date: "2026-04-17",
+        ts_code: "002034.SZ",
+      },
+    },
+    primary_issue: null,
+    nodes: [
+      {
+        id: id * 10,
+        parent_node_id: null,
+        node_key: `${item.resource_key}:2026-04-17`,
+        node_type: "dataset_plan",
+        sequence_no: 1,
+        title: `维护 ${item.title}`,
+        resource_key: item.resource_key,
+        status: item.status,
+        time_input: {
+          mode: "point",
+          trade_date: "2026-04-17",
+        },
+        context: {},
+        rows_fetched: item.rows_fetched,
+        rows_saved: item.rows_saved,
+        rows_rejected: item.rows_rejected,
+        issue_id: null,
+        started_at: item.started_at,
+        ended_at: item.ended_at,
+        duration_ms: null,
+      },
+    ],
+    node_total: 1,
+    nodes_truncated: false,
+    actions: {
+      can_retry: item.status === "failed",
+      can_cancel: item.status === "queued" || item.status === "running",
+      can_copy_params: true,
+    },
+  };
+}
+
 function mockTradeCalendar(route: Route, pathname: string) {
   if (pathname !== "/api/v1/market/trade-calendar") {
     return null;
@@ -256,7 +367,7 @@ function mockTaskRecords(route: Route, pathname: string) {
     });
   }
 
-  if (pathname === "/api/v1/ops/executions/summary") {
+  if (pathname === "/api/v1/ops/task-runs/summary") {
     return fulfillJson(route, {
       total: 2,
       queued: 0,
@@ -267,38 +378,19 @@ function mockTaskRecords(route: Route, pathname: string) {
     });
   }
 
-  if (pathname === "/api/v1/ops/executions") {
+  if (pathname === "/api/v1/ops/task-runs") {
     return fulfillJson(route, {
       total: 2,
       items: [
-        {
+        createTaskRunItem({
           id: 101,
-          spec_type: "dataset_action",
-          spec_key: "daily.maintain",
-          spec_display_name: "维护股票日线",
-          schedule_display_name: null,
-          trigger_source: "manual",
           status: "running",
-          requested_by_username: "admin",
-          requested_at: "2026-04-17T09:30:00+08:00",
-          started_at: "2026-04-17T09:30:02+08:00",
-          ended_at: null,
-          rows_fetched: 5200,
-          rows_written: 5100,
-          progress_current: 68,
-          progress_total: 120,
-          progress_percent: 57,
-          progress_message: "daily: 68/120 trade_date=20260417 fetched=5200 written=5100",
-          last_progress_at: "2026-04-17T09:36:00+08:00",
-          summary_message: "正在汇总最新交易日数据",
-          error_code: null,
-        },
-        {
+        }),
+        createTaskRunItem({
           id: 102,
-          spec_type: "dataset_action",
-          spec_key: "moneyflow_ind_dc.maintain",
-          spec_display_name: "板块资金流向（东财）",
-          schedule_display_name: null,
+          resource_key: "moneyflow_ind_dc",
+          title: "板块资金流向（东财）",
+          time_scope_label: "2026-04-17",
           trigger_source: "scheduled",
           status: "failed",
           requested_by_username: "system",
@@ -306,15 +398,15 @@ function mockTaskRecords(route: Route, pathname: string) {
           started_at: "2026-04-17T08:40:03+08:00",
           ended_at: "2026-04-17T08:41:12+08:00",
           rows_fetched: 0,
-          rows_written: 0,
-          progress_current: 0,
-          progress_total: 0,
+          rows_saved: 0,
+          rows_rejected: 0,
+          unit_total: 0,
+          unit_done: 0,
+          unit_failed: 1,
           progress_percent: 0,
-          progress_message: null,
-          last_progress_at: "2026-04-17T08:40:40+08:00",
-          summary_message: "上游接口超时，等待人工重试",
-          error_code: "upstream_timeout",
-        },
+          primary_issue_id: 1,
+          primary_issue_title: "上游接口超时，等待人工重试",
+        }),
       ],
     });
   }
@@ -323,57 +415,33 @@ function mockTaskRecords(route: Route, pathname: string) {
 }
 
 function mockTaskManual(route: Route, pathname: string) {
-  if (pathname === "/api/v1/ops/manual-actions/daily/executions" && route.request().method() === "POST") {
-    return fulfillJson(route, {
+  if (pathname === "/api/v1/ops/manual-actions/daily/task-runs" && route.request().method() === "POST") {
+    return fulfillJson(route, createTaskRunView({
       id: 901,
-    });
-  }
-
-  if (pathname === "/api/v1/ops/executions/901") {
-    return fulfillJson(route, {
-      id: 901,
-      schedule_id: null,
-      spec_type: "dataset_action",
-      spec_key: "daily.maintain",
-      spec_display_name: "维护股票日线",
-      schedule_display_name: null,
-      trigger_source: "manual",
       status: "queued",
-      requested_by_username: "admin",
-      requested_at: "2026-04-17T10:00:00+08:00",
-      queued_at: "2026-04-17T10:00:02+08:00",
-      started_at: null,
-      ended_at: null,
-      params_json: {
-        trade_date: "2026-04-17",
-      },
-      summary_message: "系统已经收到同步请求，等待排队执行。",
+      unit_total: 0,
+      unit_done: 0,
       rows_fetched: 0,
-      rows_written: 0,
-      progress_current: 0,
-      progress_total: 0,
+      rows_saved: 0,
+      rows_rejected: 0,
       progress_percent: 0,
-      progress_message: null,
-      last_progress_at: null,
-      cancel_requested_at: null,
-      canceled_at: null,
-      error_code: null,
-      error_message: null,
-    });
+      started_at: null,
+    }));
   }
 
-  if (pathname === "/api/v1/ops/executions/901/steps") {
-    return fulfillJson(route, {
-      execution_id: 901,
-      items: [],
-    });
-  }
-
-  if (pathname === "/api/v1/ops/executions/901/events") {
-    return fulfillJson(route, {
-      execution_id: 901,
-      items: [],
-    });
+  if (pathname === "/api/v1/ops/task-runs/901/view") {
+    return fulfillJson(route, createTaskRunView({
+      id: 901,
+      status: "queued",
+      requested_at: "2026-04-17T10:00:00+08:00",
+      started_at: null,
+      unit_total: 0,
+      unit_done: 0,
+      rows_fetched: 0,
+      rows_saved: 0,
+      rows_rejected: 0,
+      progress_percent: 0,
+    }));
   }
 
   if (pathname === "/api/v1/ops/manual-actions") {
@@ -528,21 +596,22 @@ function mockTaskAuto(route: Route, pathname: string) {
     });
   }
 
-  if (pathname === "/api/v1/ops/executions") {
+  if (pathname === "/api/v1/ops/task-runs") {
     return fulfillJson(route, {
       total: 1,
       items: [
-        {
+        createTaskRunItem({
           id: 301,
-          spec_key: "daily.maintain",
-          spec_display_name: "维护股票日线",
           trigger_source: "scheduled",
           status: "success",
           requested_at: "2026-04-19T19:00:00+08:00",
           rows_fetched: 5200,
-          rows_written: 5200,
-          summary_message: "最近一次自动运行已完成。",
-        },
+          rows_saved: 5200,
+          rows_rejected: 0,
+          unit_total: 1,
+          unit_done: 1,
+          progress_percent: 100,
+        }),
       ],
     });
   }
@@ -635,7 +704,7 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
     });
   }
 
-  if (pathname === "/api/v1/ops/executions/summary") {
+  if (pathname === "/api/v1/ops/task-runs/summary") {
     return fulfillJson(route, {
       total: 2,
       queued: 0,
@@ -646,56 +715,37 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
     });
   }
 
-  if (pathname === "/api/v1/ops/executions") {
+  if (pathname === "/api/v1/ops/task-runs") {
     if (url.searchParams.get("schedule_id") === "201") {
       return fulfillJson(route, {
         total: 1,
         items: [
-          {
+          createTaskRunItem({
             id: 301,
-            spec_key: "daily.maintain",
-            spec_display_name: "维护股票日线",
             trigger_source: "scheduled",
             status: "success",
             requested_at: "2026-04-19T19:00:00+08:00",
             rows_fetched: 5200,
-            rows_written: 5200,
-            summary_message: "最近一次自动运行已完成。",
-          },
+            rows_saved: 5200,
+            rows_rejected: 0,
+            unit_total: 1,
+            unit_done: 1,
+            progress_percent: 100,
+          }),
         ],
       });
     }
     return fulfillJson(route, {
       total: 2,
       items: [
-        {
+        createTaskRunItem({
           id: 101,
-          spec_type: "dataset_action",
-          spec_key: "daily.maintain",
-          spec_display_name: "维护股票日线",
-          schedule_display_name: null,
-          trigger_source: "manual",
           status: "running",
-          requested_by_username: "admin",
-          requested_at: "2026-04-17T09:30:00+08:00",
-          started_at: "2026-04-17T09:30:02+08:00",
-          ended_at: null,
-          rows_fetched: 5200,
-          rows_written: 5100,
-          progress_current: 68,
-          progress_total: 120,
-          progress_percent: 57,
-          progress_message: "daily: 68/120 trade_date=20260417 fetched=5200 written=5100",
-          last_progress_at: "2026-04-17T09:36:00+08:00",
-          summary_message: "正在汇总最新交易日数据",
-          error_code: null,
-        },
-        {
+        }),
+        createTaskRunItem({
           id: 102,
-          spec_type: "dataset_action",
-          spec_key: "moneyflow_ind_dc.maintain",
-          spec_display_name: "板块资金流向（东财）",
-          schedule_display_name: null,
+          resource_key: "moneyflow_ind_dc",
+          title: "板块资金流向（东财）",
           trigger_source: "scheduled",
           status: "failed",
           requested_by_username: "system",
@@ -703,15 +753,15 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
           started_at: "2026-04-17T08:40:03+08:00",
           ended_at: "2026-04-17T08:41:12+08:00",
           rows_fetched: 0,
-          rows_written: 0,
-          progress_current: 0,
-          progress_total: 0,
+          rows_saved: 0,
+          rows_rejected: 0,
+          unit_total: 0,
+          unit_done: 0,
+          unit_failed: 1,
           progress_percent: 0,
-          progress_message: null,
-          last_progress_at: "2026-04-17T08:40:40+08:00",
-          summary_message: "上游接口超时，等待人工重试",
-          error_code: "upstream_timeout",
-        },
+          primary_issue_id: 1,
+          primary_issue_title: "上游接口超时，等待人工重试",
+        }),
       ],
     });
   }
@@ -720,16 +770,9 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
 }
 
 function mockTaskDetail(route: Route, pathname: string) {
-  if (pathname === "/api/v1/ops/executions/1") {
-    return fulfillJson(route, {
+  if (pathname === "/api/v1/ops/task-runs/1/view") {
+    return fulfillJson(route, createTaskRunView({
       id: 1,
-      schedule_id: null,
-      spec_type: "dataset_action",
-      spec_key: "daily.maintain",
-      spec_display_name: "股票日线维护",
-      resource_key: "daily",
-      resource_display_name: "股票日线",
-      action_display_name: "维护股票日线",
       time_scope: {
         kind: "range",
         start: "2026-03-23",
@@ -737,70 +780,16 @@ function mockTaskDetail(route: Route, pathname: string) {
         label: "2026-03-23 ~ 2026-03-30",
       },
       time_scope_label: "2026-03-23 ~ 2026-03-30",
-      schedule_display_name: null,
-      trigger_source: "manual",
       status: "running",
-      requested_by_username: "admin",
       requested_at: "2026-03-31T01:00:00Z",
-      queued_at: "2026-03-31T01:00:01Z",
       started_at: "2026-03-31T01:00:02Z",
-      ended_at: null,
-      params_json: {
-        start_date: "2026-03-23",
-        end_date: "2026-03-30",
-      },
-      summary_message: null,
-      rows_fetched: 0,
-      rows_written: 0,
-      progress_current: 651,
-      progress_total: 5814,
+      rows_fetched: 6,
+      rows_saved: 6,
+      rows_rejected: 0,
+      unit_done: 651,
+      unit_total: 5814,
       progress_percent: 11,
-      progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
-      last_progress_at: "2026-03-31T01:00:05Z",
-      cancel_requested_at: null,
-      canceled_at: null,
-      error_code: null,
-      error_message: null,
-    });
-  }
-
-  if (pathname === "/api/v1/ops/executions/1/steps") {
-    return fulfillJson(route, {
-      execution_id: 1,
-      items: [
-        {
-          id: 10,
-          step_key: "daily.maintain",
-          display_name: "股票日线维护",
-          sequence_no: 1,
-          unit_kind: null,
-          unit_value: null,
-          status: "running",
-          started_at: "2026-03-31T01:00:02Z",
-          ended_at: null,
-          rows_fetched: 0,
-          rows_written: 0,
-          message: null,
-        },
-      ],
-    });
-  }
-
-  if (pathname === "/api/v1/ops/executions/1/events") {
-    return fulfillJson(route, {
-      execution_id: 1,
-      items: [
-        {
-          id: 100,
-          step_id: 10,
-          event_type: "step_progress",
-          level: "info",
-          message: "正在拉取 2026-03-23 到 2026-03-30 的股票日线数据",
-          payload_json: {},
-          occurred_at: "2026-03-31T01:00:05Z",
-        },
-      ],
-    });
+    }));
   }
 
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);

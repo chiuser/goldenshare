@@ -4,7 +4,6 @@ from src.ops.api import (
     catalog,
     codebook,
     dataset_pipeline_modes,
-    executions,
     freshness,
     layer_snapshots,
     manual_actions,
@@ -16,6 +15,7 @@ from src.ops.api import (
     schedules,
     source_management_bridge,
     std_rules,
+    task_runs,
 )
 
 
@@ -23,7 +23,6 @@ router = APIRouter()
 router.include_router(overview.router)
 router.include_router(freshness.router)
 router.include_router(schedules.router)
-router.include_router(executions.router)
 router.include_router(probes.router)
 router.include_router(resolution_releases.router)
 router.include_router(std_rules.router)
@@ -35,5 +34,6 @@ router.include_router(manual_actions.router)
 router.include_router(dataset_pipeline_modes.router)
 router.include_router(review_center.router)
 router.include_router(codebook.router)
+router.include_router(task_runs.router)
 
 __all__ = ["router"]

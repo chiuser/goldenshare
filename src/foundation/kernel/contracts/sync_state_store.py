@@ -4,22 +4,22 @@ from datetime import date
 from typing import Protocol
 
 
-class SyncRunLogStore(Protocol):
-    """同步运行日志写入 contract。"""
+class SyncRunRecorder(Protocol):
+    """同步运行过程记录 contract。"""
 
-    def start_log(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
-        """开始一条运行日志并返回句柄。"""
+    def start_run(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
+        """开始一次同步过程并返回句柄。"""
 
-    def finish_log(
+    def finish_run(
         self,
         *,
-        log: object,
+        handle: object,
         status: str,
         rows_fetched: int,
         rows_written: int,
         message: str | None = None,
     ) -> None:
-        """结束运行日志并写回结果。"""
+        """结束一次同步过程。"""
 
 
 class SyncJobStateStore(Protocol):

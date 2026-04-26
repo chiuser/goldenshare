@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
 from src.app.dependencies import get_db_session
-from src.ops.queries import ExecutionQueryService, ManualActionQueryService
-from src.ops.schemas.execution import ExecutionDetailResponse
-from src.ops.schemas.manual_action import ManualActionExecutionCreateRequest, ManualActionListResponse
+from src.ops.queries import ManualActionQueryService, TaskRunQueryService
+from src.ops.schemas.manual_action import ManualActionListResponse, ManualActionTaskRunCreateRequest
+from src.ops.schemas.task_run import TaskRunViewResponse
 from src.ops.services import ManualActionCommandService
 
 
@@ -22,17 +22,17 @@ def list_ops_manual_actions(
     return ManualActionQueryService().build_manual_actions()
 
 
-@router.post("/{action_key}/executions", response_model=ExecutionDetailResponse)
-def create_ops_manual_action_execution(
+@router.post("/{action_key}/task-runs", response_model=TaskRunViewResponse)
+def create_ops_manual_action_task_run(
     action_key: str,
-    body: ManualActionExecutionCreateRequest,
+    body: ManualActionTaskRunCreateRequest,
     user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
-) -> ExecutionDetailResponse:
-    execution_id = ManualActionCommandService().create_execution_for_action(
+) -> TaskRunViewResponse:
+    task_run_id = ManualActionCommandService().create_task_run_for_action(
         session,
         user=user,
         action_key=action_key,
         body=body,
     )
-    return ExecutionQueryService().get_execution_detail(session, execution_id)
+    return TaskRunQueryService().get_view(session, task_run_id)

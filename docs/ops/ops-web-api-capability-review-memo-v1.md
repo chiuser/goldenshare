@@ -124,6 +124,8 @@
 
 ### 5.1 P0：`run-now` 语义与真实行为不一致
 
+状态更新（2026-04-26）：该问题已通过 TaskRun 观测模型重设计收口。旧 `/api/v1/ops/executions*` 主链已下线，前端任务记录/详情改为消费 `/api/v1/ops/task-runs*`；手动提交任务使用 `/api/v1/ops/manual-actions/{action_key}/task-runs`，页面语义统一为“提交到队列/等待处理/执行过程”。
+
 当前问题：
 
 1. `POST /api/v1/ops/executions/run-now` 只是创建 execution 并返回详情
@@ -135,7 +137,7 @@
 
 1. [src/ops/api/executions.py](/Users/congming/github/goldenshare/src/ops/api/executions.py) 中第 108、134、144 行附近
 2. [src/ops/api/runtime.py](/Users/congming/github/goldenshare/src/ops/api/runtime.py) 中第 14 行附近
-3. [tests/web/test_ops_execution_api.py](/Users/congming/github/goldenshare/tests/web/test_ops_execution_api.py) 中第 414 行附近
+3. 原测试文件已迁移为 [tests/web/test_ops_task_run_api.py](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)，并保留旧 `/api/v1/ops/executions` 路由不存在的防回退断言
 
 影响：
 

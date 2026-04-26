@@ -20,10 +20,6 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.dataset_pipeline_mode",
     "src.ops.models.ops.dataset_status_snapshot",
     "src.ops.models.ops.index_series_active",
-    "src.ops.models.ops.job_execution",
-    "src.ops.models.ops.job_execution_event",
-    "src.ops.models.ops.job_execution_step",
-    "src.ops.models.ops.job_execution_unit",
     "src.ops.models.ops.job_schedule",
     "src.ops.models.ops.probe_rule",
     "src.ops.models.ops.probe_run_log",
@@ -32,7 +28,9 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.std_cleansing_rule",
     "src.ops.models.ops.std_mapping_rule",
     "src.ops.models.ops.sync_job_state",
-    "src.ops.models.ops.sync_run_log",
+    "src.ops.models.ops.task_run",
+    "src.ops.models.ops.task_run_issue",
+    "src.ops.models.ops.task_run_node",
 )
 
 

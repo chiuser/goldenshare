@@ -9,16 +9,14 @@ from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.kernel.contracts.index_series_active_store import IndexSeriesActiveStore
-from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
+from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunRecorder
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.schemas import SyncResult
 from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.foundation.services.sync_v2.sync_execution_context import NullSyncExecutionContext
 from src.foundation.services.sync_v2.sync_state_store import (
-    DaoSyncJobStateStore,
-    DaoSyncRunLogStore,
     NullSyncJobStateStore,
-    NullSyncRunLogStore,
+    NullSyncRunRecorder,
 )
 
 
@@ -30,15 +28,15 @@ class BaseSyncService(ABC):
         self,
         session: Session,
         execution_context: SyncExecutionContext | None = None,
-        run_log_store: SyncRunLogStore | None = None,
+        run_recorder: SyncRunRecorder | None = None,
         job_state_store: SyncJobStateStore | None = None,
         index_series_active_store: IndexSeriesActiveStore | None = None,
     ) -> None:
         self.session = session
         self.dao = DAOFactory(session)
         self.execution_context = execution_context or NullSyncExecutionContext()
-        self.run_log_store = run_log_store or DaoSyncRunLogStore(self.dao.sync_run_log)
-        self.job_state_store = job_state_store or DaoSyncJobStateStore(self.dao.sync_job_state)
+        self.run_recorder = run_recorder or NullSyncRunRecorder()
+        self.job_state_store = job_state_store or NullSyncJobStateStore()
         self.index_series_active_store = index_series_active_store or self.dao.index_series_active
         self.logger = logging.getLogger(self.__class__.__name__)
         self._assert_no_legacy_raw_schema_route()
@@ -49,10 +47,10 @@ class BaseSyncService(ABC):
     def set_state_stores(
         self,
         *,
-        run_log_store: SyncRunLogStore | None = None,
+        run_recorder: SyncRunRecorder | None = None,
         job_state_store: SyncJobStateStore | None = None,
     ) -> None:
-        self.run_log_store = run_log_store or NullSyncRunLogStore()
+        self.run_recorder = run_recorder or NullSyncRunRecorder()
         self.job_state_store = job_state_store or NullSyncJobStateStore()
 
     def set_index_series_active_store(self, index_series_active_store: IndexSeriesActiveStore | None) -> None:
@@ -66,12 +64,12 @@ class BaseSyncService(ABC):
 
     def _run(self, run_type: str, **kwargs: Any) -> SyncResult:
         execution_id = kwargs.pop("execution_id", None)
-        log = self.run_log_store.start_log(job_name=self.job_name, run_type=run_type, execution_id=execution_id)
+        run_handle = self.run_recorder.start_run(job_name=self.job_name, run_type=run_type, execution_id=execution_id)
         try:
             self.ensure_not_canceled(execution_id)
             fetched, written, result_date, message = self.execute(run_type=run_type, execution_id=execution_id, **kwargs)
-            self.run_log_store.finish_log(
-                log=log,
+            self.run_recorder.finish_run(
+                handle=run_handle,
                 status="SUCCESS",
                 rows_fetched=fetched,
                 rows_written=written,
@@ -96,8 +94,8 @@ class BaseSyncService(ABC):
             )
         except ExecutionCanceledError as exc:
             self.session.rollback()
-            self.run_log_store.finish_log(
-                log=log,
+            self.run_recorder.finish_run(
+                handle=run_handle,
                 status="CANCELED",
                 rows_fetched=0,
                 rows_written=0,
@@ -107,8 +105,8 @@ class BaseSyncService(ABC):
             raise
         except Exception as exc:
             self.session.rollback()
-            self.run_log_store.finish_log(
-                log=log,
+            self.run_recorder.finish_run(
+                handle=run_handle,
                 status="FAILED",
                 rows_fetched=0,
                 rows_written=0,

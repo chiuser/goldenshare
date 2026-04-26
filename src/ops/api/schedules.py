@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
+from src.ops.models.ops.task_run import TaskRun
 from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
 from src.app.auth.jwt_service import JWTService
@@ -48,11 +48,11 @@ def _require_admin_from_stream_token(session: Session, token: str) -> None:
 
 def _schedule_signature(session: Session) -> dict[str, str | int | None]:
     schedule_updated_at = session.scalar(select(func.max(JobSchedule.updated_at)))
-    execution_requested_at = session.scalar(select(func.max(JobExecution.requested_at)))
+    execution_requested_at = session.scalar(select(func.max(TaskRun.requested_at)))
     active_executions = session.scalar(
         select(func.count())
-        .select_from(JobExecution)
-        .where(JobExecution.status.in_(("queued", "running", "canceling")))
+        .select_from(TaskRun)
+        .where(TaskRun.status.in_(("queued", "running", "canceling")))
     ) or 0
     return {
         "schedule_updated_at": schedule_updated_at.isoformat() if isinstance(schedule_updated_at, datetime) else None,

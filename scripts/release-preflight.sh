@@ -59,7 +59,7 @@ main() {
       tests/web/test_auth_api.py \
       tests/web/test_admin_api.py \
       tests/web/test_ops_overview_api.py \
-      tests/web/test_ops_execution_api.py \
+      tests/web/test_ops_task_run_api.py \
       tests/web/test_ops_schedule_api.py \
       tests/web/test_ops_runtime_api.py
   fi

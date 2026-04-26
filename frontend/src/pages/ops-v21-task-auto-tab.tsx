@@ -24,13 +24,13 @@ import type { ReactNode } from "react";
 import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
 import { apiRequest } from "../shared/api/client";
 import type {
-  ExecutionListResponse,
   OpsCatalogResponse,
   ProbeRuleListResponse,
   ScheduleDetailResponse,
   ScheduleListResponse,
   SchedulePreviewResponse,
   ScheduleRevisionListResponse,
+  TaskRunListResponse,
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
@@ -365,7 +365,7 @@ export function OpsAutomationPage() {
       if (selectedScheduleId) {
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule", selectedScheduleId] });
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-revisions", selectedScheduleId] });
-        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-latest-execution", selectedScheduleId] });
+        void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-latest-task-run", selectedScheduleId] });
         void queryClient.invalidateQueries({ queryKey: ["ops", "schedule-probes", selectedScheduleId] });
       }
     };
@@ -391,11 +391,11 @@ export function OpsAutomationPage() {
     enabled: Boolean(selectedScheduleId),
   });
 
-  const latestExecutionQuery = useQuery({
-    queryKey: ["ops", "schedule-latest-execution", selectedScheduleId],
+  const latestTaskRunQuery = useQuery({
+    queryKey: ["ops", "schedule-latest-task-run", selectedScheduleId],
     queryFn: async () => {
-      const response = await apiRequest<ExecutionListResponse>(
-        `/api/v1/ops/executions?schedule_id=${selectedScheduleId}&limit=1`,
+      const response = await apiRequest<TaskRunListResponse>(
+        `/api/v1/ops/task-runs?schedule_id=${selectedScheduleId}&limit=1`,
       );
       return response.items[0] || null;
     },
@@ -1115,32 +1115,32 @@ export function OpsAutomationPage() {
                   </DetailInfoPanel>
                   {detailQuery.data.last_triggered_at ? (
                     <DetailInfoPanel label="上次执行结果">
-                      {latestExecutionQuery.isLoading ? (
+                      {latestTaskRunQuery.isLoading ? (
                         <Text size="sm" c="dimmed">正在读取上次执行结果…</Text>
-                      ) : latestExecutionQuery.data ? (
+                      ) : latestTaskRunQuery.data ? (
                         <>
                           <Group justify="space-between" align="center">
                             <Text size="sm" c="dimmed">执行状态</Text>
-                            <StatusBadge value={latestExecutionQuery.data.status} />
+                            <StatusBadge value={latestTaskRunQuery.data.status} />
                           </Group>
                           <Group justify="space-between" align="center">
                             <Text size="sm" c="dimmed">触发时间</Text>
                             <Text size="sm" ff="var(--mantine-font-family-monospace)">
-                              {formatDateTimeLabel(latestExecutionQuery.data.requested_at)}
+                              {formatDateTimeLabel(latestTaskRunQuery.data.requested_at)}
                             </Text>
                           </Group>
                           <Group justify="space-between" align="center">
-                            <Text size="sm" c="dimmed">读取/写入</Text>
+                            <Text size="sm" c="dimmed">读取/保存</Text>
                             <Text size="sm">
-                              {latestExecutionQuery.data.rows_fetched}/{latestExecutionQuery.data.rows_written}
+                              {latestTaskRunQuery.data.rows_fetched}/{latestTaskRunQuery.data.rows_saved}
                             </Text>
                           </Group>
-                          {latestExecutionQuery.data.summary_message ? (
-                            <Text size="sm">{latestExecutionQuery.data.summary_message}</Text>
+                          {latestTaskRunQuery.data.primary_issue_title ? (
+                            <Text size="sm">{latestTaskRunQuery.data.primary_issue_title}</Text>
                           ) : null}
                           <Button
                             component="a"
-                            href={`/app/ops/tasks/${latestExecutionQuery.data.id}`}
+                            href={`/app/ops/tasks/${latestTaskRunQuery.data.id}`}
                             size="xs"
                             variant="light"
                             color="brand"

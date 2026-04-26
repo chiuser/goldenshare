@@ -153,29 +153,34 @@ describe("V2.1 数据集详情页", () => {
           items: [],
         };
       }
-      if (url === "/api/v1/ops/executions?dataset_key=daily&limit=20") {
+      if (url === "/api/v1/ops/task-runs?resource_key=daily&limit=20") {
         return {
           total: 1,
           items: [
             {
               id: 101,
-              spec_type: "dataset_action",
-              spec_key: "daily.maintain",
-              spec_display_name: "维护股票日线",
+              task_type: "dataset_action",
+              resource_key: "daily",
+              action: "maintain",
+              title: "股票日线",
+              time_scope: null,
+              time_scope_label: null,
+              schedule_display_name: null,
               trigger_source: "manual",
               status: "success",
+              requested_by_username: "admin",
               requested_at: "2026-04-17T09:00:00+08:00",
               started_at: "2026-04-17T09:00:02+08:00",
               ended_at: "2026-04-17T09:03:00+08:00",
+              unit_total: 1,
+              unit_done: 1,
+              unit_failed: 0,
               rows_fetched: 120,
-              rows_written: 120,
-              progress_current: 120,
-              progress_total: 120,
+              rows_saved: 120,
+              rows_rejected: 0,
               progress_percent: 100,
-              progress_message: "done",
-              last_progress_at: "2026-04-17T09:02:58+08:00",
-              summary_message: "完成",
-              error_code: null,
+              primary_issue_id: null,
+              primary_issue_title: null,
             },
           ],
         };
@@ -237,7 +242,7 @@ describe("V2.1 数据集详情页", () => {
     expect(await screen.findByText("daily · 股票日线")).toBeInTheDocument();
     expect(await screen.findByText("全链路层级状态")).toBeInTheDocument();
     expect(await screen.findByText("数据来源状态")).toBeInTheDocument();
-    expect(await screen.findByText("近期执行记录")).toBeInTheDocument();
+    expect(await screen.findByText("近期任务记录")).toBeInTheDocument();
     expect(await screen.findByText("策略 v3")).toBeInTheDocument();
     expect(await screen.findByText("101")).toBeInTheDocument();
     expect(await screen.findByText("tushare")).toBeInTheDocument();

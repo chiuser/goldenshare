@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore
 from src.ops.models.ops.sync_job_state import SyncJobState
-from src.ops.sync_state_store_adapter import OpsSyncJobStateStore
 from src.ops.specs import DatasetFreshnessSpec, get_dataset_freshness_spec, list_dataset_freshness_specs
 from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
-from src.foundation.services.sync_v2.runtime_registry import build_sync_service
 
 @dataclass(slots=True)
 class ReconciledSyncJobState:
@@ -25,12 +22,6 @@ class ReconciledSyncJobState:
 
 
 class SyncJobStateReconciliationService:
-    def __init__(self, job_state_store: SyncJobStateStore | None = None) -> None:
-        self.job_state_store = job_state_store
-
-    def _resolve_job_state_store(self, session: Session) -> SyncJobStateStore:
-        return self.job_state_store or OpsSyncJobStateStore(session)
-
     def refresh_resource_state_from_observed(self, session: Session, resource_key: str) -> date | None:
         spec = get_dataset_freshness_spec(resource_key)
         if spec is None or spec.observed_date_column is None:
@@ -39,10 +30,10 @@ class SyncJobStateReconciliationService:
         if not isinstance(observed_last_success_date, date):
             return None
 
-        sync_service = build_sync_service(resource_key, session)
-        self._resolve_job_state_store(session).mark_success(
-            job_name=sync_service.job_name,
-            target_table=sync_service.target_table,
+        self._mark_success(
+            session,
+            job_name=spec.job_name,
+            target_table=spec.target_table,
             last_success_date=observed_last_success_date,
         )
         session.commit()
@@ -59,9 +50,9 @@ class SyncJobStateReconciliationService:
 
     def reconcile_stale_sync_job_states(self, session: Session) -> list[ReconciledSyncJobState]:
         items = self.preview_stale_sync_job_states(session)
-        store = self._resolve_job_state_store(session)
         for item in items:
-            store.reconcile_success_date(
+            self._reconcile_success_date(
+                session,
                 job_name=item.job_name,
                 target_table=item.target_table,
                 last_success_date=item.observed_last_success_date,
@@ -89,6 +80,57 @@ class SyncJobStateReconciliationService:
             previous_last_success_date=previous_last_success_date,
             observed_last_success_date=observed_last_success_date,
         )
+
+    @staticmethod
+    def _mark_success(
+        session: Session,
+        *,
+        job_name: str,
+        target_table: str,
+        last_success_date: date,
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        state = session.get(SyncJobState, job_name)
+        if state is None:
+            session.add(
+                SyncJobState(
+                    job_name=job_name,
+                    target_table=target_table,
+                    last_success_date=last_success_date,
+                    last_success_at=now,
+                    last_cursor=None,
+                    full_sync_done=False,
+                )
+            )
+            return
+        state.target_table = target_table
+        state.last_success_date = last_success_date
+        state.last_success_at = now
+        state.last_cursor = None
+
+    @staticmethod
+    def _reconcile_success_date(
+        session: Session,
+        *,
+        job_name: str,
+        target_table: str,
+        last_success_date: date,
+    ) -> None:
+        state = session.get(SyncJobState, job_name)
+        if state is None:
+            session.add(
+                SyncJobState(
+                    job_name=job_name,
+                    target_table=target_table,
+                    last_success_date=last_success_date,
+                    last_success_at=datetime.now(timezone.utc),
+                    last_cursor=None,
+                    full_sync_done=False,
+                )
+            )
+            return
+        state.target_table = target_table
+        state.last_success_date = last_success_date
 
     @staticmethod
     def _latest_observed_business_date(session: Session, spec: DatasetFreshnessSpec) -> date | None:

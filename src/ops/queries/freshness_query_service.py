@@ -57,10 +57,10 @@ from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.sync_job_state import SyncJobState
-from src.ops.models.ops.sync_run_log import SyncRunLog
+from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.specs import (
     DatasetFreshnessSpec,
     get_dataset_freshness_spec,
@@ -521,25 +521,25 @@ class OpsFreshnessQueryService:
 
         rows = session.execute(
             select(
-                JobExecution.spec_type,
-                JobExecution.spec_key,
-                JobExecution.dataset_key,
-                JobExecution.status,
-                JobExecution.started_at,
-                JobExecution.requested_at,
+                TaskRun.task_type,
+                TaskRun.resource_key,
+                TaskRun.status,
+                TaskRun.started_at,
+                TaskRun.requested_at,
             )
-            .where(JobExecution.status.in_(ACTIVE_EXECUTION_STATUSES))
-            .order_by(desc(JobExecution.requested_at), desc(JobExecution.id))
+            .where(TaskRun.status.in_(ACTIVE_EXECUTION_STATUSES))
+            .order_by(desc(TaskRun.requested_at), desc(TaskRun.id))
         ).all()
 
         by_spec_key: dict[str, tuple[str, datetime | None]] = {}
         by_dataset_key: dict[str, tuple[str, datetime | None]] = {}
         for row in rows:
             effective_started_at = row.started_at or row.requested_at
-            if row.spec_key and row.spec_key in spec_keys and row.spec_key not in by_spec_key:
-                by_spec_key[row.spec_key] = (row.status, effective_started_at)
-            if row.dataset_key and row.dataset_key in dataset_keys and row.dataset_key not in by_dataset_key:
-                by_dataset_key[row.dataset_key] = (row.status, effective_started_at)
+            spec_key = f"{row.resource_key}.maintain" if row.task_type == "dataset_action" and row.resource_key else None
+            if spec_key and spec_key in spec_keys and spec_key not in by_spec_key:
+                by_spec_key[spec_key] = (row.status, effective_started_at)
+            if row.resource_key and row.resource_key in dataset_keys and row.resource_key not in by_dataset_key:
+                by_dataset_key[row.resource_key] = (row.status, effective_started_at)
 
         for group in response.groups:
             for item in group.items:
@@ -611,39 +611,31 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _latest_failures_by_job_name(session: Session) -> dict[str, FailureSnapshot]:
-        rows = session.scalars(
-            select(SyncRunLog)
-            .where(SyncRunLog.status == "FAILED")
-            .order_by(SyncRunLog.job_name.asc(), desc(SyncRunLog.ended_at), desc(SyncRunLog.id))
-        )
+        rows = session.execute(
+            select(TaskRun, TaskRunIssue)
+            .outerjoin(TaskRunIssue, TaskRunIssue.id == TaskRun.primary_issue_id)
+            .where(TaskRun.status.in_(("failed", "partial_success")))
+            .where(TaskRun.resource_key.is_not(None))
+            .order_by(TaskRun.resource_key.asc(), desc(TaskRun.ended_at), desc(TaskRun.id))
+        ).all()
         failures: dict[str, FailureSnapshot] = {}
-        for row in rows:
+        for row, issue in rows:
+            spec = get_dataset_freshness_spec(row.resource_key)
+            if spec is None:
+                continue
             failures.setdefault(
-                row.job_name,
+                spec.job_name,
                 FailureSnapshot(
-                    message=row.message,
-                    occurred_at=OpsFreshnessQueryService._normalize_datetime(row.ended_at or row.started_at),
+                    message=(issue.operator_message if issue is not None else None),
+                    occurred_at=OpsFreshnessQueryService._normalize_datetime(row.ended_at or row.started_at or row.requested_at),
                 ),
             )
         return failures
 
     @staticmethod
     def _latest_quality_notes_by_job_name(session: Session) -> dict[str, str]:
-        rows = session.scalars(
-            select(SyncRunLog)
-            .where(SyncRunLog.status == "SUCCESS")
-            .where(SyncRunLog.message.is_not(None))
-            .order_by(SyncRunLog.job_name.asc(), desc(SyncRunLog.ended_at), desc(SyncRunLog.id))
-        )
-        notes: dict[str, str] = {}
-        for row in rows:
-            if not row.message:
-                continue
-            marker = OpsFreshnessQueryService._extract_quality_warning_marker(row.message)
-            if marker is None:
-                continue
-            notes.setdefault(row.job_name, marker)
-        return notes
+        _ = session
+        return {}
 
     @staticmethod
     def _extract_quality_warning_marker(message: str) -> str | None:

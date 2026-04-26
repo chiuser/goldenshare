@@ -9,7 +9,7 @@ from src.foundation.services.sync_v2.codebook import SYNC_ERROR_CODEBOOK, SYNC_R
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SYNC_V2_ROOT = REPO_ROOT / "src/foundation/services/sync_v2"
-DISPATCHER_PATH = REPO_ROOT / "src/ops/runtime/dispatcher.py"
+DISPATCHER_PATH = REPO_ROOT / "src/ops/runtime/task_run_dispatcher.py"
 WORKER_PATH = REPO_ROOT / "src/ops/runtime/worker.py"
 NORMALIZER_PATH = SYNC_V2_ROOT / "normalizer.py"
 

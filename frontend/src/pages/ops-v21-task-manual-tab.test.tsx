@@ -287,14 +287,49 @@ vi.mock("../shared/api/client", () => ({
     if (path === "/api/v1/ops/manual-actions") {
       return mockManualActions;
     }
-    if (path === "/api/v1/ops/manual-actions/dc_hot/executions" && options?.method === "POST") {
+    if (path === "/api/v1/ops/manual-actions/dc_hot/task-runs" && options?.method === "POST") {
       return {
-        id: 1234,
-        spec_type: "dataset_action",
-        spec_key: "dc_hot.maintain",
-        status: "queued",
-        run_profile: "point_incremental",
-        params_json: {},
+        run: {
+          id: 1234,
+          task_type: "dataset_action",
+          resource_key: "dc_hot",
+          action: "maintain",
+          title: "东方财富热榜",
+          trigger_source: "manual",
+          status: "queued",
+          status_reason_code: null,
+          requested_by_username: "admin",
+          schedule_display_name: null,
+          time_input: { mode: "point", trade_date: "2026-04-24" },
+          filters: {},
+          time_scope: null,
+          time_scope_label: null,
+          requested_at: "2026-04-24T10:00:00Z",
+          queued_at: "2026-04-24T10:00:00Z",
+          started_at: null,
+          ended_at: null,
+          cancel_requested_at: null,
+          canceled_at: null,
+        },
+        progress: {
+          unit_total: 0,
+          unit_done: 0,
+          unit_failed: 0,
+          progress_percent: null,
+          rows_fetched: 0,
+          rows_saved: 0,
+          rows_rejected: 0,
+          current_context: {},
+        },
+        primary_issue: null,
+        nodes: [],
+        node_total: 0,
+        nodes_truncated: false,
+        actions: {
+          can_retry: false,
+          can_cancel: true,
+          can_copy_params: true,
+        },
       };
     }
     throw new Error(`unexpected path: ${path}`);
@@ -495,7 +530,7 @@ describe("手动任务页", () => {
     fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot/executions", {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot/task-runs", {
         method: "POST",
         body: {
           time_input: { mode: "point", trade_date: "2026-04-24" },

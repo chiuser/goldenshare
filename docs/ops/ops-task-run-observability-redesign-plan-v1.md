@@ -1,6 +1,6 @@
 # Ops TaskRun 执行观测模型重设计方案 v1
 
-状态：待评审  
+状态：已确认，代码已按 TaskRun 主链落地  
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
 
@@ -503,6 +503,15 @@ sequenceDiagram
 
 ### 7.1 创建任务
 
+手动任务页主入口：
+
+```http
+POST /api/v1/ops/manual-actions/{action_key}/task-runs
+Content-Type: application/json
+```
+
+通用 TaskRun 创建入口：
+
 ```http
 POST /api/v1/ops/task-runs
 Content-Type: application/json
@@ -877,6 +886,8 @@ flowchart TD
 
 ### M0：评审定稿
 
+状态：已确认。
+
 1. 确认三张新表：`task_run`、`task_run_node`、`task_run_issue`。
 2. 确认旧表最终全部 drop，不做备份。
 3. 确认哪些运营配置表进入可选重置范围。
@@ -884,12 +895,16 @@ flowchart TD
 
 ### M1：新表与 ORM
 
+状态：已落地。
+
 1. 新增 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue` DDL。
 2. 新增 ORM 模型与基础 schema。
 3. 增加模型索引测试和数据库初始化测试。
-4. 暂不删除旧表，确保开发期间可以对照。
+4. Alembic upgrade 中直接 drop 旧执行观测表与旧备份表，不保留兼容双写。
 
 ### M2：新写入链路
+
+状态：已落地。
 
 1. 手动提交写 `task_run`。
 2. worker claim 更新 `task_run.status`。
@@ -899,14 +914,19 @@ flowchart TD
 
 ### M3：新 API
 
+状态：已落地。
+
 1. 新增 `POST /api/v1/ops/task-runs`。
-2. 新增 `GET /api/v1/ops/task-runs`。
-3. 新增 `GET /api/v1/ops/task-runs/{id}/view`。
-4. 新增 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
-5. 新增 cancel / retry API。
-6. 后端测试覆盖创建、运行中 view、失败 issue、技术诊断按需读取。
+2. 新增 `POST /api/v1/ops/manual-actions/{action_key}/task-runs` 作为手动任务页主提交入口。
+3. 新增 `GET /api/v1/ops/task-runs` 与 `GET /api/v1/ops/task-runs/summary`。
+4. 新增 `GET /api/v1/ops/task-runs/{id}/view`。
+5. 新增 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
+6. 新增 cancel / retry API。
+7. 后端测试覆盖创建、运行中 view、失败 issue、技术诊断按需读取。
 
 ### M4：新页面
+
+状态：已落地。
 
 1. 任务记录 tab 切到新列表 API。
 2. 任务详情页切到新 view API。
@@ -917,21 +937,27 @@ flowchart TD
 
 ### M5：新链路远程验证
 
-1. 本地测试通过后发版。
-2. 远程创建一条小窗口手动任务。
+状态：本地验证已完成，远程执行需在发版窗口运行 migration 后验收。
+
+1. 本地编译、后端目标测试、前端单测、build、smoke 已通过。
+2. 远程发版后创建一条小窗口手动任务。
 3. 验证 queued/running/success 详情页刷新。
 4. 人工制造一条可控失败任务，验证完整错误只在 issue detail 中出现。
 5. 验证任务记录分页、统计、筛选仍可用。
 
 ### M6：旧代码引用清零
 
+状态：已落地。
+
 1. 删除旧 `JobExecution*` / `SyncRunLog` ORM 和 schema 引用。
 2. 删除旧 `ExecutionQueryService` 的 detail / steps / events / logs 主链。
 3. 删除旧前端 API 类型和页面 helper。
-4. 增加架构测试：任务详情页不得请求旧 endpoints。
-5. 增加后端测试：runtime 不得写旧执行观测表。
+4. 删除旧 `/api/v1/ops/executions*` 主路由，保留“旧路由不存在”的防回退测试。
+5. CLI 自检入口改为 `ops-reconcile-task-runs`，不再保留 `ops-reconcile-executions`。
 
 ### M7：停机清表与 drop
+
+状态：已写入 Alembic migration；远程执行时必须停 scheduler / worker 后 upgrade。
 
 1. 停 scheduler / worker。
 2. drop 旧备份表。
@@ -940,6 +966,8 @@ flowchart TD
 5. 按 M0 决策处理可选重置表。
 
 ### M8：重建 seed 与恢复服务
+
+状态：远程执行阶段完成；代码侧已保留重建入口与状态快照刷新能力。
 
 1. seed 新 schedule / pipeline / resource state。
 2. 重算 dataset status snapshot。

@@ -1,59 +1,25 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Protocol
 
-from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunLogStore
-
-
-class _SyncRunLogDAOProtocol(Protocol):
-    def start_log(self, job_name: str, run_type: str, execution_id: int | None = None) -> object: ...
-
-    def finish_log(self, log: object, status: str, rows_fetched: int, rows_written: int, message: str | None = None) -> None: ...
+from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunRecorder
 
 
-class _SyncJobStateDAOProtocol(Protocol):
-    def get_last_success_date(self, job_name: str) -> date | None: ...
-
-    def mark_success(
-        self,
-        job_name: str,
-        target_table: str,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-    ) -> None: ...
-
-    def reconcile_success_date(self, job_name: str, target_table: str, last_success_date: date) -> None: ...
-
-    def mark_full_sync_done(self, job_name: str, target_table: str) -> None: ...
-
-    def record_execution_outcome(
-        self,
-        job_name: str,
-        target_table: str,
-        run_type: str,
-        run_profile: str | None = None,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-        rows_committed: int | None = None,
-    ) -> None: ...
-
-
-class NullSyncRunLogStore(SyncRunLogStore):
-    def start_log(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
+class NullSyncRunRecorder(SyncRunRecorder):
+    def start_run(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
         _ = (job_name, run_type, execution_id)
         return object()
 
-    def finish_log(
+    def finish_run(
         self,
         *,
-        log: object,
+        handle: object,
         status: str,
         rows_fetched: int,
         rows_written: int,
         message: str | None = None,
     ) -> None:
-        _ = (log, status, rows_fetched, rows_written, message)
+        _ = (handle, status, rows_fetched, rows_written, message)
         return None
 
 
@@ -100,82 +66,3 @@ class NullSyncJobStateStore(SyncJobStateStore):
     ) -> None:
         _ = (job_name, target_table, run_type, run_profile, last_success_date, last_cursor, rows_committed)
         return None
-
-
-class DaoSyncRunLogStore(SyncRunLogStore):
-    """兼容适配：把 foundation DAO 适配到 run-log contract。"""
-
-    def __init__(self, dao: _SyncRunLogDAOProtocol) -> None:
-        self.dao = dao
-
-    def start_log(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
-        return self.dao.start_log(job_name, run_type, execution_id=execution_id)
-
-    def finish_log(
-        self,
-        *,
-        log: object,
-        status: str,
-        rows_fetched: int,
-        rows_written: int,
-        message: str | None = None,
-    ) -> None:
-        self.dao.finish_log(log, status, rows_fetched, rows_written, message)
-
-
-class DaoSyncJobStateStore(SyncJobStateStore):
-    """兼容适配：把 foundation DAO 适配到 job-state contract。"""
-
-    def __init__(self, dao: _SyncJobStateDAOProtocol) -> None:
-        self.dao = dao
-
-    def get_last_success_date(self, *, job_name: str) -> date | None:
-        return self.dao.get_last_success_date(job_name)
-
-    def mark_success(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-    ) -> None:
-        self.dao.mark_success(
-            job_name,
-            target_table,
-            last_success_date=last_success_date,
-            last_cursor=last_cursor,
-        )
-
-    def reconcile_success_date(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date,
-    ) -> None:
-        self.dao.reconcile_success_date(job_name, target_table, last_success_date)
-
-    def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
-        self.dao.mark_full_sync_done(job_name, target_table)
-
-    def record_execution_outcome(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        run_type: str,
-        run_profile: str | None = None,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-        rows_committed: int | None = None,
-    ) -> None:
-        self.dao.record_execution_outcome(
-            job_name,
-            target_table,
-            run_type=run_type,
-            run_profile=run_profile,
-            last_success_date=last_success_date,
-            last_cursor=last_cursor,
-            rows_committed=rows_committed,
-        )

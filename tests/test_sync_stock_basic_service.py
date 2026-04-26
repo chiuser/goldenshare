@@ -7,7 +7,7 @@ from src.foundation.services.sync_v2.registry import get_sync_v2_contract
 from src.foundation.services.sync_v2.validator import ContractValidator
 
 
-def test_stock_basic_tushare_default_builds_single_unit_with_all_statuses() -> None:
+def test_stock_basic_tushare_default_fans_out_list_status_units() -> None:
     contract = get_sync_v2_contract("stock_basic")
     request = RunRequest(
         request_id="req-stock-basic-tushare-default",
@@ -20,8 +20,8 @@ def test_stock_basic_tushare_default_builds_single_unit_with_all_statuses() -> N
     validated = ContractValidator().validate(request, contract)
     units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert len(units) == 1
-    assert units[0].request_params["list_status"] == "L,D,P,G"
+    assert len(units) == 4
+    assert {unit.request_params["list_status"] for unit in units} == {"L", "D", "P", "G"}
     assert all(unit.source_key == "tushare" for unit in units)
     assert all(unit.pagination_policy == "offset_limit" for unit in units)
     assert all(unit.page_limit == 6000 for unit in units)
@@ -47,7 +47,7 @@ def test_stock_basic_biying_builds_single_snapshot_unit() -> None:
     assert units[0].page_limit is None
 
 
-def test_stock_basic_all_builds_tushare_plus_biying_units() -> None:
+def test_stock_basic_all_builds_tushare_fanout_plus_biying_units() -> None:
     contract = get_sync_v2_contract("stock_basic")
     request = RunRequest(
         request_id="req-stock-basic-all",
@@ -60,8 +60,8 @@ def test_stock_basic_all_builds_tushare_plus_biying_units() -> None:
     validated = ContractValidator().validate(request, contract)
     units = build_stock_basic_units(validated, contract, dao=None, settings=None, session=None)
 
-    assert len(units) == 2
-    assert sum(1 for unit in units if unit.source_key == "tushare") == 1
+    assert len(units) == 5
+    assert sum(1 for unit in units if unit.source_key == "tushare") == 4
     assert sum(1 for unit in units if unit.source_key == "biying") == 1
     assert all(unit.requested_source_key == "all" for unit in units)
 

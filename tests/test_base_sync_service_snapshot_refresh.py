@@ -23,10 +23,6 @@ class _DummySyncService(BaseSyncService):
 
 def _build_fake_dao() -> SimpleNamespace:
     return SimpleNamespace(
-        sync_run_log=SimpleNamespace(
-            start_log=lambda *args, **kwargs: object(),
-            finish_log=lambda *args, **kwargs: None,
-        ),
         sync_job_state=SimpleNamespace(
             record_execution_outcome=lambda *args, **kwargs: None,
             mark_success=lambda *args, **kwargs: None,
@@ -67,11 +63,15 @@ def test_sync_service_refreshes_snapshot_on_failure(mocker) -> None:
 def test_sync_service_stops_immediately_when_execution_already_canceled(mocker) -> None:
     session = mocker.Mock()
     fake_dao = _build_fake_dao()
-    finish_log = mocker.Mock()
-    fake_dao.sync_run_log.finish_log = finish_log
+    finish_run = mocker.Mock()
+    run_recorder = SimpleNamespace(
+        start_run=lambda *args, **kwargs: object(),
+        finish_run=finish_run,
+    )
     mocker.patch("src.foundation.services.sync_v2.base_sync_service.DAOFactory", return_value=fake_dao)
 
     service = _DummySyncService(session)
+    service.set_state_stores(run_recorder=run_recorder)
     mocker.patch.object(service, "ensure_not_canceled", side_effect=ExecutionCanceledError("任务已收到停止请求，正在结束处理。"))
 
     try:
@@ -81,8 +81,8 @@ def test_sync_service_stops_immediately_when_execution_already_canceled(mocker) 
     else:  # pragma: no cover
         raise AssertionError("Expected ExecutionCanceledError")
 
-    finish_log.assert_called_once()
-    assert finish_log.call_args.args[1] == "CANCELED"
+    finish_run.assert_called_once()
+    assert finish_run.call_args.kwargs["status"] == "CANCELED"
     session.rollback.assert_called_once()
     session.commit.assert_called_once()
 

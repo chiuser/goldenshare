@@ -11,8 +11,8 @@ from sqlalchemy import text
 
 from src.cli_parts.shared import (
     attach_cli_progress_reporter as _attach_cli_progress_reporter_impl,
-    auto_reconcile_stale_executions as _auto_reconcile_stale_executions_impl,
-    open_execution_counts as _open_execution_counts_impl,
+    auto_reconcile_stale_task_runs as _auto_reconcile_stale_task_runs_impl,
+    open_task_run_counts as _open_task_run_counts_impl,
     prepare_sync_kwargs_for_service as _prepare_sync_kwargs_for_service_impl,
     resolve_default_sync_date as _resolve_default_sync_date_impl,
 )
@@ -22,7 +22,7 @@ from src.cli_parts.sync_handlers import (
 from src.cli_parts.ops_handlers import (
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
-    run_ops_reconcile_executions as _run_ops_reconcile_executions_impl,
+    run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
     run_ops_reconcile_sync_job_state as _run_ops_reconcile_sync_job_state_impl,
     run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
@@ -46,14 +46,14 @@ from src.db import SessionLocal
 from src.foundation.services.migration import RawTushareBootstrapService
 from src.foundation.services.sync_v2.linter import lint_all_sync_v2_contracts
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
-from src.ops.models.ops.job_execution import JobExecution
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
 from src.ops.services.operations_dataset_reconcile_service import DatasetReconcileService
 from src.ops.services.operations_dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
-from src.ops.services.operations_execution_reconciliation_service import OperationsExecutionReconciliationService
+from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
 from src.ops.services.operations_moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
 from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
@@ -80,21 +80,21 @@ def _resolve_default_sync_date(session) -> date:
     )
 
 
-def _open_execution_counts(session) -> tuple[int, int]:
-    return _open_execution_counts_impl(session, job_execution_model=JobExecution)
+def _open_task_run_counts(session) -> tuple[int, int]:
+    return _open_task_run_counts_impl(session, task_run_model=TaskRun)
 
 
-def _auto_reconcile_stale_executions(
+def _auto_reconcile_stale_task_runs(
     session,
     *,
     stale_for_minutes: int,
     limit: int,
 ) -> int:
-    return _auto_reconcile_stale_executions_impl(
+    return _auto_reconcile_stale_task_runs_impl(
         session,
         stale_for_minutes=stale_for_minutes,
         limit=limit,
-        reconciliation_service=OperationsExecutionReconciliationService(),
+        reconciliation_service=OperationsTaskRunReconciliationService(),
     )
 
 
@@ -457,19 +457,19 @@ def ops_scheduler_tick(
 
 @app.command("ops-worker-run")
 def ops_worker_run(
-    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued executions to consume in one run."),
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued task runs to consume in one run."),
     auto_reconcile_stale_for_minutes: int = typer.Option(
         5,
         min=0,
-        help="Automatically reconcile stale queued/running/canceling executions before consuming queue. Set 0 to disable.",
+        help="Automatically reconcile stale queued/running/canceling task runs before consuming queue. Set 0 to disable.",
     ),
-    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
+    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect per auto-reconcile."),
 ) -> None:
     _run_ops_worker_run_impl(
         session_local=SessionLocal,
         worker_cls=OperationsWorker,
-        auto_reconcile_fn=_auto_reconcile_stale_executions,
-        open_execution_counts_fn=_open_execution_counts,
+        auto_reconcile_fn=_auto_reconcile_stale_task_runs,
+        open_task_run_counts_fn=_open_task_run_counts,
         limit=limit,
         auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
         auto_reconcile_limit=auto_reconcile_limit,
@@ -495,21 +495,21 @@ def ops_scheduler_serve(
 
 @app.command("ops-worker-serve")
 def ops_worker_serve(
-    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued executions to consume per cycle."),
+    limit: int = typer.Option(10, min=1, max=1000, help="Maximum queued task runs to consume per cycle."),
     sleep_seconds: float = typer.Option(5.0, min=1.0, help="Seconds to sleep between worker cycles."),
     max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
     auto_reconcile_stale_for_minutes: int = typer.Option(
         5,
         min=0,
-        help="Automatically reconcile stale queued/running/canceling executions before each cycle. Set 0 to disable.",
+        help="Automatically reconcile stale queued/running/canceling task runs before each cycle. Set 0 to disable.",
     ),
-    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect per auto-reconcile."),
+    auto_reconcile_limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect per auto-reconcile."),
 ) -> None:
     _run_ops_worker_serve_impl(
         session_local=SessionLocal,
         worker_cls=OperationsWorker,
-        auto_reconcile_fn=_auto_reconcile_stale_executions,
-        open_execution_counts_fn=_open_execution_counts,
+        auto_reconcile_fn=_auto_reconcile_stale_task_runs,
+        open_task_run_counts_fn=_open_task_run_counts,
         limit=limit,
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,
@@ -519,15 +519,15 @@ def ops_worker_serve(
     )
 
 
-@app.command("ops-reconcile-executions")
-def ops_reconcile_executions(
-    stale_for_minutes: int = typer.Option(30, min=1, help="Treat queued/running executions without activity for this many minutes as stale."),
-    limit: int = typer.Option(200, min=1, max=1000, help="Maximum open executions to inspect."),
-    apply: bool = typer.Option(False, "--apply", help="Actually repair stale execution statuses. Without this flag, only preview."),
+@app.command("ops-reconcile-task-runs")
+def ops_reconcile_task_runs(
+    stale_for_minutes: int = typer.Option(30, min=1, help="Treat queued/running task runs without activity for this many minutes as stale."),
+    limit: int = typer.Option(200, min=1, max=1000, help="Maximum open task runs to inspect."),
+    apply: bool = typer.Option(False, "--apply", help="Actually repair stale task run statuses. Without this flag, only preview."),
 ) -> None:
-    _run_ops_reconcile_executions_impl(
+    _run_ops_reconcile_task_runs_impl(
         session_local=SessionLocal,
-        service_cls=OperationsExecutionReconciliationService,
+        service_cls=OperationsTaskRunReconciliationService,
         stale_for_minutes=stale_for_minutes,
         limit=limit,
         apply=apply,

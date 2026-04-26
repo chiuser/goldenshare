@@ -6,12 +6,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from src.ops.models.ops.config_revision import ConfigRevision
-from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
-from src.ops.services.operations_execution_service import OperationsExecutionService
+from src.ops.services.task_run_service import TaskRunCommandService
 from src.ops.specs import get_job_spec, get_ops_spec_display_name, ops_spec_supports_schedule
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition
@@ -19,7 +19,7 @@ from src.foundation.datasets.registry import get_dataset_definition
 
 class OperationsScheduleService:
     def __init__(self) -> None:
-        self.execution_service = OperationsExecutionService()
+        self.task_run_service = TaskRunCommandService()
         self.probe_binding_service = ScheduleProbeBindingService()
 
     def create_schedule(
@@ -270,7 +270,7 @@ class OperationsScheduleService:
         session.commit()
         return schedule_id
 
-    def enqueue_due_schedules(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> list[JobExecution]:
+    def enqueue_due_schedules(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> list[TaskRun]:
         current_time = now or datetime.now(timezone.utc)
         stmt = (
             select(JobSchedule)
@@ -282,9 +282,9 @@ class OperationsScheduleService:
             .limit(limit)
         )
         schedules = list(session.scalars(stmt))
-        executions: list[JobExecution] = []
+        task_runs: list[TaskRun] = []
         for schedule in schedules:
-            execution = self.execution_service.create_execution(
+            task_run = self.task_run_service.create_from_spec(
                 session,
                 spec_type=schedule.spec_type,
                 spec_key=schedule.spec_key,
@@ -305,8 +305,8 @@ class OperationsScheduleService:
                     after=current_time,
                 )
             session.commit()
-            executions.append(execution)
-        return executions
+            task_runs.append(task_run)
+        return task_runs
 
     @staticmethod
     def _snapshot(schedule: JobSchedule) -> dict:

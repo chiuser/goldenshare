@@ -21,10 +21,12 @@ def test_ops_freshness_rejects_non_admin(app_client, user_factory) -> None:
 
 def test_ops_freshness_returns_grouped_dataset_statuses(
     app_client,
+    db_session,
     user_factory,
     trade_calendar_factory,
     sync_job_state_factory,
-    sync_run_log_factory,
+    task_run_factory,
+    task_run_issue_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
@@ -40,13 +42,21 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
         last_success_date=date(2025, 12, 31),
         last_success_at=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
     )
-    sync_run_log_factory(
-        job_name="sync_index_monthly",
-        run_type="FULL",
-        status="FAILED",
+    failed = task_run_factory(
+        resource_key="index_monthly",
+        status="failed",
+        requested_at=datetime(2026, 3, 30, 14, 0, tzinfo=timezone.utc),
         ended_at=datetime(2026, 3, 30, 14, 0, tzinfo=timezone.utc),
-        message="monthly sync timeout",
     )
+    issue = task_run_issue_factory(
+        task_run_id=failed.id,
+        code="task_failed",
+        title="任务失败",
+        message="monthly sync timeout",
+        occurred_at=datetime(2026, 3, 30, 14, 0, tzinfo=timezone.utc),
+    )
+    failed.primary_issue_id = issue.id
+    db_session.commit()
 
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -177,7 +187,7 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
     user_factory,
     trade_calendar_factory,
     sync_job_state_factory,
-    job_execution_factory,
+    task_run_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 16), is_open=True, pretrade_date=date(2026, 4, 15))
@@ -187,9 +197,8 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
         last_success_date=date(2026, 4, 10),
         last_success_at=datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc),
     )
-    job_execution_factory(
-        spec_type="dataset_action",
-        spec_key="cyq_perf.maintain",
+    task_run_factory(
+        resource_key="cyq_perf",
         status="running",
         requested_at=datetime(2026, 4, 17, 8, 0, tzinfo=timezone.utc),
         started_at=datetime(2026, 4, 17, 8, 1, tzinfo=timezone.utc),
@@ -213,10 +222,12 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
 
 def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
     app_client,
+    db_session,
     user_factory,
     trade_calendar_factory,
     sync_job_state_factory,
-    sync_run_log_factory,
+    task_run_factory,
+    task_run_issue_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
@@ -227,13 +238,21 @@ def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
         last_success_at=datetime(2026, 3, 25, 9, 11, 31, tzinfo=timezone.utc),
         full_sync_done=True,
     )
-    sync_run_log_factory(
-        job_name="sync_dividend",
-        run_type="FULL",
-        status="FAILED",
+    failed = task_run_factory(
+        resource_key="dividend",
+        status="failed",
+        requested_at=datetime(2026, 3, 25, 8, 18, 18, tzinfo=timezone.utc),
         ended_at=datetime(2026, 3, 25, 8, 18, 18, tzinfo=timezone.utc),
-        message='(psycopg.errors.UndefinedColumn) column "row_key_hash" of relation "dividend" does not exist',
     )
+    issue = task_run_issue_factory(
+        task_run_id=failed.id,
+        code="task_failed",
+        title="任务失败",
+        message='(psycopg.errors.UndefinedColumn) column "row_key_hash" of relation "dividend" does not exist',
+        occurred_at=datetime(2026, 3, 25, 8, 18, 18, tzinfo=timezone.utc),
+    )
+    failed.primary_issue_id = issue.id
+    db_session.commit()
 
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -328,12 +347,11 @@ def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date
     assert item.last_sync_date == date(2026, 4, 1)
 
 
-def test_ops_freshness_appends_data_quality_warning_note(
+def test_ops_freshness_does_not_read_legacy_quality_warning_logs(
     app_client,
     user_factory,
     trade_calendar_factory,
     sync_job_state_factory,
-    sync_run_log_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
@@ -344,14 +362,6 @@ def test_ops_freshness_appends_data_quality_warning_note(
         last_success_at=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
         full_sync_done=True,
     )
-    sync_run_log_factory(
-        job_name="sync_dividend",
-        run_type="FULL",
-        status="SUCCESS",
-        ended_at=datetime(2026, 3, 30, 12, 1, tzinfo=timezone.utc),
-        message="data_quality_warning: dividend_ex_date_autofill total=5 by_record_date=3 by_pay_date=2",
-    )
-
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
@@ -364,8 +374,7 @@ def test_ops_freshness_appends_data_quality_warning_note(
         for group in payload["groups"]
     }
     dividend_item = grouped["event"]["dividend"]
-    assert dividend_item["freshness_note"] is not None
-    assert "质量提醒：dividend_ex_date_autofill total=5 by_record_date=3 by_pay_date=2" in dividend_item["freshness_note"]
+    assert "质量提醒" not in (dividend_item["freshness_note"] or "")
 
 
 def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(

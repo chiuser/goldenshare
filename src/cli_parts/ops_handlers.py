@@ -282,16 +282,16 @@ def run_ops_scheduler_tick(
     echo_fn: Callable[[str], None],
 ) -> None:
     with session_local() as session:
-        executions = scheduler_cls().run_once(session, limit=limit)
-        for execution in executions:
+        task_runs = scheduler_cls().run_once(session, limit=limit)
+        for task_run in task_runs:
             echo_fn(
                 "scheduled "
-                f"execution#{execution.id} "
-                f"schedule_id={execution.schedule_id} "
-                f"spec={execution.spec_type}:{execution.spec_key} "
-                f"status={execution.status}"
+                f"task_run#{task_run.id} "
+                f"schedule_id={task_run.schedule_id} "
+                f"resource={task_run.resource_key or '-'} "
+                f"status={task_run.status}"
             )
-        echo_fn(f"ops-scheduler-tick: scheduled={len(executions)}")
+        echo_fn(f"ops-scheduler-tick: scheduled={len(task_runs)}")
 
 
 def run_ops_worker_run(
@@ -299,7 +299,7 @@ def run_ops_worker_run(
     session_local,
     worker_cls,
     auto_reconcile_fn: Callable[..., int],
-    open_execution_counts_fn: Callable[..., tuple[int, int]],
+    open_task_run_counts_fn: Callable[..., tuple[int, int]],
     limit: int,
     auto_reconcile_stale_for_minutes: int,
     auto_reconcile_limit: int,
@@ -314,18 +314,18 @@ def run_ops_worker_run(
         worker = worker_cls()
         processed = 0
         for _ in range(limit):
-            execution = worker.run_next(session)
-            if execution is None:
+            task_run = worker.run_next(session)
+            if task_run is None:
                 break
             processed += 1
             echo_fn(
                 "processed "
-                f"execution#{execution.id} "
-                f"status={execution.status} "
-                f"rows_fetched={execution.rows_fetched} "
-                f"rows_written={execution.rows_written}"
+                f"task_run#{task_run.id} "
+                f"status={task_run.status} "
+                f"rows_fetched={task_run.rows_fetched} "
+                f"rows_saved={task_run.rows_saved}"
             )
-        queued, running = open_execution_counts_fn(session)
+        queued, running = open_task_run_counts_fn(session)
         echo_fn(
             "ops-worker-run: "
             f"本轮新接任务={processed} "
@@ -347,8 +347,8 @@ def run_ops_scheduler_serve(
     cycles = 0
     while True:
         with session_local() as session:
-            executions = scheduler_cls().run_once(session, limit=limit)
-            echo_fn(f"ops-scheduler-serve: scheduled={len(executions)}")
+            task_runs = scheduler_cls().run_once(session, limit=limit)
+            echo_fn(f"ops-scheduler-serve: scheduled={len(task_runs)}")
         cycles += 1
         if max_cycles is not None and cycles >= max_cycles:
             break
@@ -360,7 +360,7 @@ def run_ops_worker_serve(
     session_local,
     worker_cls,
     auto_reconcile_fn: Callable[..., int],
-    open_execution_counts_fn: Callable[..., tuple[int, int]],
+    open_task_run_counts_fn: Callable[..., tuple[int, int]],
     limit: int,
     sleep_seconds: float,
     max_cycles: int | None,
@@ -379,11 +379,11 @@ def run_ops_worker_serve(
             worker = worker_cls()
             processed = 0
             for _ in range(limit):
-                execution = worker.run_next(session)
-                if execution is None:
+                task_run = worker.run_next(session)
+                if task_run is None:
                     break
                 processed += 1
-            queued, running = open_execution_counts_fn(session)
+            queued, running = open_task_run_counts_fn(session)
             echo_fn(
                 "ops-worker-serve: "
                 f"本轮新接任务={processed} "
@@ -397,7 +397,7 @@ def run_ops_worker_serve(
         time.sleep(sleep_seconds)
 
 
-def run_ops_reconcile_executions(
+def run_ops_reconcile_task_runs(
     *,
     session_local,
     service_cls,
@@ -409,20 +409,20 @@ def run_ops_reconcile_executions(
     with session_local() as session:
         service = service_cls()
         if apply:
-            reconciled = service.reconcile_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
+            reconciled = service.reconcile_stale_task_runs(session, stale_for_minutes=stale_for_minutes, limit=limit)
             for item in reconciled:
                 echo_fn(
-                    f"reconciled execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
+                    f"reconciled task_run#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
                 )
-            echo_fn(f"ops-reconcile-executions: reconciled={len(reconciled)}")
+            echo_fn(f"ops-reconcile-task-runs: reconciled={len(reconciled)}")
             return
 
-        previews = service.preview_stale_executions(session, stale_for_minutes=stale_for_minutes, limit=limit)
+        previews = service.preview_stale_task_runs(session, stale_for_minutes=stale_for_minutes, limit=limit)
         for item in previews:
             echo_fn(
-                f"stale execution#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
+                f"stale task_run#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
             )
-        echo_fn(f"ops-reconcile-executions: stale={len(previews)}")
+        echo_fn(f"ops-reconcile-task-runs: stale={len(previews)}")
 
 
 def run_ops_reconcile_sync_job_state(

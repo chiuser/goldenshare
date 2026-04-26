@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.job_execution import JobExecution
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.foundation.config.settings import get_settings
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
-from src.ops.services.operations_execution_service import OperationsExecutionService
+from src.ops.services.task_run_service import TaskRunCommandService
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,11 +27,11 @@ class ProbeTickResult:
 
 class ProbeRuntimeService:
     def __init__(self) -> None:
-        self.execution_service = OperationsExecutionService()
+        self.task_run_service = TaskRunCommandService()
         self.snapshot_service = DatasetStatusSnapshotService()
         self.freshness_query = OpsFreshnessQueryService()
 
-    def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[JobExecution], ProbeTickResult]:
+    def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
         current = now or datetime.now(timezone.utc)
         stmt = (
             select(ProbeRule)
@@ -40,7 +40,7 @@ class ProbeRuntimeService:
             .limit(limit)
         )
         rules = list(session.scalars(stmt))
-        executions: list[JobExecution] = []
+        task_runs: list[TaskRun] = []
         processed = 0
         triggered = 0
 
@@ -62,10 +62,10 @@ class ProbeRuntimeService:
                 matched, message, payload = self._evaluate_rule(session, rule, current=current)
                 rule.last_probed_at = started_at
                 if matched:
-                    execution = self._enqueue_on_match(session, rule)
-                    execution_id = execution.id
-                    execution_correlation_id = execution.correlation_id
-                    executions.append(execution)
+                    task_run = self._enqueue_on_match(session, rule)
+                    execution_id = task_run.id
+                    execution_correlation_id = str(task_run.id)
+                    task_runs.append(task_run)
                     triggered += 1
                     rule.last_triggered_at = datetime.now(timezone.utc)
                     result_code = "hit"
@@ -99,10 +99,10 @@ class ProbeRuntimeService:
                 session.add(run_log)
                 session.commit()
 
-        return executions, ProbeTickResult(
+        return task_runs, ProbeTickResult(
             processed_rules=processed,
             triggered_rules=triggered,
-            created_executions=len(executions),
+            created_executions=len(task_runs),
         )
 
     def _evaluate_rule(
@@ -152,7 +152,7 @@ class ProbeRuntimeService:
             return True, "最新业务日已命中最新交易日", payload
         return False, "最新业务日尚未到最新交易日", payload
 
-    def _enqueue_on_match(self, session: Session, rule: ProbeRule) -> JobExecution:
+    def _enqueue_on_match(self, session: Session, rule: ProbeRule) -> TaskRun:
         action = dict(rule.on_success_action_json or {})
         spec_type = str(action.get("spec_type") or "dataset_action")
         spec_key = str(action.get("spec_key") or f"{rule.dataset_key}.maintain")
@@ -165,7 +165,7 @@ class ProbeRuntimeService:
         params_json.setdefault("run_scope", "probe_triggered")
         if rule.source_key and "source_key" not in params_json:
             params_json["source_key"] = rule.source_key
-        return self.execution_service.create_execution(
+        return self.task_run_service.create_from_spec(
             session,
             spec_type=spec_type,
             spec_key=spec_key,

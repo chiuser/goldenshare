@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.job_execution import JobExecution
-from src.ops.queries.execution_query_service import ExecutionQueryService
+from src.ops.models.ops.task_run import TaskRun
+from src.ops.queries.task_run_query_service import TaskRunQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, OpsFreshnessResponse
 from src.ops.schemas.overview import OpsOverviewKpis, OpsOverviewResponse, OpsOverviewSummaryResponse, OpsTodayKpis
@@ -18,17 +18,17 @@ LOCAL_TZ = ZoneInfo("Asia/Shanghai")
 
 class OpsOverviewQueryService:
     def __init__(self) -> None:
-        self.execution_query_service = ExecutionQueryService()
+        self.task_run_query_service = TaskRunQueryService()
         self.freshness_query_service = OpsFreshnessQueryService()
 
     def build_overview(self, session: Session) -> OpsOverviewResponse:
         rows = session.execute(
-            select(JobExecution.status, func.count()).group_by(JobExecution.status)
+            select(TaskRun.status, func.count()).group_by(TaskRun.status)
         ).all()
         counts = {status: count for status, count in rows}
         today_kpis = self._build_today_kpis(session)
-        recent_executions = self.execution_query_service.list_executions(session, limit=10).items
-        recent_failures = self.execution_query_service.list_executions(session, status="failed", limit=5).items
+        recent_executions = self.task_run_query_service.list_task_runs(session, limit=10).items
+        recent_failures = self.task_run_query_service.list_task_runs(session, status="failed", limit=5).items
         freshness_response = self.freshness_query_service.build_freshness(session)
         freshness_summary, _ = self.freshness_query_service.summarize(freshness_response)
         attention_datasets = self._build_attention_datasets(freshness_response)
@@ -90,9 +90,9 @@ class OpsOverviewQueryService:
         start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
         start_utc = start_local.astimezone(ZoneInfo("UTC"))
         rows = session.execute(
-            select(JobExecution.status, func.count())
-            .where(JobExecution.requested_at >= start_utc)
-            .group_by(JobExecution.status)
+            select(TaskRun.status, func.count())
+            .where(TaskRun.requested_at >= start_utc)
+            .group_by(TaskRun.status)
         ).all()
         counts = {status: count for status, count in rows}
         completed = (

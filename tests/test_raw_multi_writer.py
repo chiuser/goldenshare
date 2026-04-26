@@ -19,7 +19,7 @@ class _DummyDao:
 
 def test_raw_multi_writer_routes_to_expected_dao() -> None:
     daily_dao = _DummyDao(result=3)
-    dao_factory = SimpleNamespace(raw_tushare_stock_basic=daily_dao)
+    dao_factory = SimpleNamespace(raw_stock_basic=daily_dao)
     writer = RawMultiWriter(dao_factory)  # type: ignore[arg-type]
 
     written = writer.bulk_upsert("tushare", "stock_basic", [{"ts_code": "000001.SZ"}])

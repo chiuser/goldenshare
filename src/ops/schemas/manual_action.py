@@ -64,6 +64,6 @@ class ManualActionTimeInput(BaseModel):
     date_field: str | None = None
 
 
-class ManualActionExecutionCreateRequest(BaseModel):
+class ManualActionTaskRunCreateRequest(BaseModel):
     time_input: ManualActionTimeInput = Field(default_factory=ManualActionTimeInput)
     filters: dict[str, Any] = Field(default_factory=dict)

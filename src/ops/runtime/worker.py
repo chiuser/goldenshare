@@ -5,263 +5,212 @@ from datetime import datetime, timezone
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from src.ops.models.ops.job_execution import JobExecution
-from src.ops.models.ops.job_execution_event import JobExecutionEvent
-from src.ops.runtime.dispatcher import DispatchOutcome, OperationsDispatcher
-from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.app.exceptions import WebAppError
+from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
+from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.utils import truncate_text
 
 
 class OperationsWorker:
-    MAX_EXECUTION_ERROR_MESSAGE_LENGTH = 16_000
-    MAX_EXECUTION_SUMMARY_LENGTH = 8_000
-    MAX_PROGRESS_MESSAGE_LENGTH = 1_000
+    MAX_TECHNICAL_MESSAGE_LENGTH = 32_000
 
-    def __init__(self, dispatcher: OperationsDispatcher | None = None) -> None:
-        self.dispatcher = dispatcher or OperationsDispatcher()
+    def __init__(self, dispatcher: TaskRunDispatcher | None = None) -> None:
+        self.dispatcher = dispatcher or TaskRunDispatcher()
 
-    def run_next(self, session: Session) -> JobExecution | None:
-        canceled = self._cancel_next_queued_execution(session)
+    def run_next(self, session: Session) -> TaskRun | None:
+        canceled = self._cancel_next_queued_task_run(session)
         if canceled is not None:
             return canceled
 
         while True:
-            execution_id = session.scalar(
-                select(JobExecution.id)
-                .where(JobExecution.status == "queued")
-                .where(JobExecution.cancel_requested_at.is_(None))
-                .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
+            task_run_id = session.scalar(
+                select(TaskRun.id)
+                .where(TaskRun.status == "queued")
+                .where(TaskRun.cancel_requested_at.is_(None))
+                .order_by(TaskRun.requested_at.asc(), TaskRun.id.asc())
                 .limit(1)
             )
-            if execution_id is None:
+            if task_run_id is None:
                 return None
-            if not self._claim_execution(session, execution_id):
+            if not self._claim_task_run(session, task_run_id):
                 continue
-            return self._run_started_execution(session, execution_id)
+            return self._run_started_task_run(session, task_run_id)
 
-    def run_execution(self, session: Session, execution_id: int) -> JobExecution:
-        execution = session.get(JobExecution, execution_id)
-        if execution is None:
-            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
-        if execution.status != "queued":
-            raise WebAppError(status_code=409, code="conflict", message="Only queued executions can start immediately")
-        if execution.cancel_requested_at is not None:
-            canceled = self._cancel_queued_execution(session, execution.id)
+    def run_task_run(self, session: Session, task_run_id: int) -> TaskRun:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
+            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+        if task_run.status != "queued":
+            raise WebAppError(status_code=409, code="conflict", message="Only queued task runs can start immediately")
+        if task_run.cancel_requested_at is not None:
+            canceled = self._cancel_queued_task_run(session, task_run.id)
             if canceled is None:
-                raise WebAppError(status_code=409, code="conflict", message="Execution status changed before canceling")
+                raise WebAppError(status_code=409, code="conflict", message="Task run status changed before canceling")
             return canceled
+        if not self._claim_task_run(session, task_run.id):
+            raise WebAppError(status_code=409, code="conflict", message="Task run status changed before start")
+        return self._run_started_task_run(session, task_run.id)
 
-        if not self._claim_execution(session, execution.id):
-            raise WebAppError(status_code=409, code="conflict", message="Execution status changed before start")
-        return self._run_started_execution(session, execution.id)
-
-    def _cancel_next_queued_execution(self, session: Session) -> JobExecution | None:
-        execution_id = session.scalar(
-            select(JobExecution.id)
-            .where(JobExecution.status == "queued")
-            .where(JobExecution.cancel_requested_at.is_not(None))
-            .order_by(JobExecution.requested_at.asc(), JobExecution.id.asc())
+    def _cancel_next_queued_task_run(self, session: Session) -> TaskRun | None:
+        task_run_id = session.scalar(
+            select(TaskRun.id)
+            .where(TaskRun.status == "queued")
+            .where(TaskRun.cancel_requested_at.is_not(None))
+            .order_by(TaskRun.requested_at.asc(), TaskRun.id.asc())
             .limit(1)
         )
-        if execution_id is None:
+        if task_run_id is None:
             return None
-        return self._cancel_queued_execution(session, execution_id)
+        return self._cancel_queued_task_run(session, task_run_id)
 
-    def _cancel_queued_execution(self, session: Session, execution_id: int) -> JobExecution | None:
+    def _cancel_queued_task_run(self, session: Session, task_run_id: int) -> TaskRun | None:
         canceled_at = datetime.now(timezone.utc)
         result = session.execute(
-            update(JobExecution)
-            .where(JobExecution.id == execution_id)
-            .where(JobExecution.status == "queued")
-            .where(JobExecution.cancel_requested_at.is_not(None))
+            update(TaskRun)
+            .where(TaskRun.id == task_run_id)
+            .where(TaskRun.status == "queued")
+            .where(TaskRun.cancel_requested_at.is_not(None))
             .values(
                 status="canceled",
                 canceled_at=canceled_at,
                 ended_at=canceled_at,
-                progress_message="Execution canceled before start",
-                last_progress_at=canceled_at,
+                status_reason_code="canceled_before_start",
             )
         )
         if result.rowcount != 1:
             session.rollback()
             return None
-        session.add(
-            JobExecutionEvent(
-                execution_id=execution_id,
-                event_type="canceled",
-                level="INFO",
-                message="Execution canceled before start",
-                payload_json={},
-                occurred_at=canceled_at,
-            )
-        )
         session.commit()
-        execution = session.get(JobExecution, execution_id)
-        if execution is None:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
             return None
-        session.refresh(execution)
-        return execution
+        session.refresh(task_run)
+        return task_run
 
-    def _claim_execution(self, session: Session, execution_id: int) -> bool:
+    def _claim_task_run(self, session: Session, task_run_id: int) -> bool:
         started_at = datetime.now(timezone.utc)
         result = session.execute(
-            update(JobExecution)
-            .where(JobExecution.id == execution_id)
-            .where(JobExecution.status == "queued")
-            .where(JobExecution.cancel_requested_at.is_(None))
+            update(TaskRun)
+            .where(TaskRun.id == task_run_id)
+            .where(TaskRun.status == "queued")
+            .where(TaskRun.cancel_requested_at.is_(None))
             .values(
                 status="running",
                 started_at=started_at,
-                progress_message="系统已经开始处理这次任务。",
-                last_progress_at=started_at,
+                current_context_json={"phase": "started"},
             )
         )
         if result.rowcount != 1:
             session.rollback()
             return False
-        session.add(
-            JobExecutionEvent(
-                execution_id=execution_id,
-                event_type="started",
-                level="INFO",
-                message="Execution started",
-                payload_json={},
-                occurred_at=started_at,
-            )
-        )
         session.commit()
         return True
 
-    def _run_started_execution(self, session: Session, execution_id: int) -> JobExecution:
-        execution = session.get(JobExecution, execution_id)
-        if execution is None:
-            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
+    def _run_started_task_run(self, session: Session, task_run_id: int) -> TaskRun:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
+            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
         try:
             try:
-                outcome = self.dispatcher.dispatch(session, execution)
+                outcome = self.dispatcher.dispatch(session, task_run)
             except Exception as exc:
-                safe_message = self._sanitize_error_message(str(exc))
-                outcome = DispatchOutcome(
+                issue = self._record_worker_issue(session, task_run_id=task_run.id, message=str(exc))
+                outcome = TaskRunDispatchOutcome(
                     status="failed",
-                    error_code="dispatcher_error",
-                    error_message=safe_message,
-                    summary_message=safe_message,
+                    summary_message=issue.operator_message,
+                    issue_id=issue.id,
+                    status_reason_code=issue.code,
                 )
-            return self._finalize_execution(session, execution.id, outcome)
+            return self._finalize_task_run(session, task_run.id, outcome)
         except Exception as exc:
-            return self._emergency_fail_execution(session, execution.id, f"worker_finalize_error: {exc}")
-
-    def _finalize_execution(self, session: Session, execution_id: int, outcome: DispatchOutcome) -> JobExecution:
-        execution = session.get(JobExecution, execution_id)
-        assert execution is not None
-        last_progress_message = execution.progress_message
-        execution.status = outcome.status
-        execution.ended_at = datetime.now(timezone.utc)
-        execution.rows_fetched = outcome.rows_fetched
-        execution.rows_written = outcome.rows_written
-        execution.summary_message = self._sanitize_summary_message(outcome.summary_message)
-        execution.error_code = outcome.error_code
-        execution.error_message = self._sanitize_error_message(outcome.error_message)
-        if execution.cancel_requested_at is not None and outcome.status in {"success", "partial_success"}:
-            outcome.status = "canceled"
-            outcome.summary_message = outcome.summary_message or "任务已收到停止请求，已在当前处理单元后停止。"
-            execution.summary_message = self._sanitize_summary_message(outcome.summary_message)
-            execution.error_code = None
-            execution.error_message = None
-        if outcome.status == "success" and execution.progress_total is not None:
-            execution.progress_current = execution.progress_total
-            execution.progress_percent = 100
-        if outcome.status == "canceled":
-            execution.canceled_at = execution.canceled_at or execution.ended_at
-        if outcome.status == "failed":
-            # Preserve the latest business progress for troubleshooting.
-            execution.progress_message = self._sanitize_progress_message(last_progress_message or outcome.summary_message)
-        else:
-            execution.progress_message = self._sanitize_progress_message(outcome.summary_message or execution.progress_message)
-        execution.last_progress_at = execution.ended_at
-        final_event_type = "succeeded"
-        level = "INFO"
-        if outcome.status == "failed":
-            final_event_type = "failed"
-            level = "ERROR"
-        elif outcome.status == "partial_success":
-            final_event_type = "partial_success"
-            level = "WARNING"
-        elif outcome.status == "canceled":
-            final_event_type = "canceled"
-        session.add(
-            JobExecutionEvent(
-                execution_id=execution.id,
-                event_type=final_event_type,
-                level=level,
-                message=self._sanitize_summary_message(outcome.summary_message),
-                payload_json={},
-                occurred_at=execution.ended_at,
-                correlation_id=execution.correlation_id,
-                producer="runtime",
-                dedupe_key=f"{execution.id}:{final_event_type}:{int(execution.ended_at.timestamp())}",
+            issue = self._record_worker_issue(session, task_run_id=task_run.id, message=f"worker_finalize_error: {exc}")
+            return self._finalize_task_run(
+                session,
+                task_run.id,
+                TaskRunDispatchOutcome(status="failed", issue_id=issue.id, status_reason_code=issue.code),
             )
-        )
+
+    def _finalize_task_run(self, session: Session, task_run_id: int, outcome: TaskRunDispatchOutcome) -> TaskRun:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
+            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+        now = datetime.now(timezone.utc)
+        final_status = outcome.status
+        if task_run.cancel_requested_at is not None and final_status in {"success", "partial_success"}:
+            final_status = "canceled"
+        task_run.status = final_status
+        task_run.status_reason_code = outcome.status_reason_code
+        task_run.ended_at = now
+        task_run.rows_fetched = int(outcome.rows_fetched or task_run.rows_fetched or 0)
+        task_run.rows_saved = int(outcome.rows_saved or task_run.rows_saved or 0)
+        task_run.rows_rejected = int(outcome.rows_rejected or task_run.rows_rejected or 0)
+        task_run.primary_issue_id = outcome.issue_id or task_run.primary_issue_id
+        if final_status == "success":
+            task_run.unit_done = task_run.unit_total or task_run.unit_done
+            task_run.progress_percent = 100
+        if final_status == "canceled":
+            task_run.canceled_at = task_run.canceled_at or now
         session.commit()
-        refresh_error = self._refresh_snapshot_for_execution(
-            session,
-            spec_type=execution.spec_type,
-            spec_key=execution.spec_key,
-        )
+        refresh_error = self._refresh_snapshot_for_task_run(session, task_run)
         if refresh_error is not None:
-            self._record_snapshot_refresh_failure(session, execution.id, refresh_error)
-        session.refresh(execution)
-        return execution
+            self._record_snapshot_refresh_failure(session, task_run.id, refresh_error)
+        session.refresh(task_run)
+        return task_run
 
-    def _emergency_fail_execution(self, session: Session, execution_id: int, message: str) -> JobExecution:
-        execution = session.get(JobExecution, execution_id)
-        if execution is None:
-            raise WebAppError(status_code=404, code="not_found", message="Execution does not exist")
-        last_progress_message = execution.progress_message
-        execution.status = "failed"
-        execution.ended_at = datetime.now(timezone.utc)
-        execution.summary_message = self._sanitize_summary_message(message)
-        execution.error_code = execution.error_code or "worker_finalize_error"
-        execution.error_message = self._sanitize_error_message(message)
-        execution.last_progress_at = execution.ended_at
-        execution.progress_message = self._sanitize_progress_message(last_progress_message or message)
-        session.add(
-            JobExecutionEvent(
-                execution_id=execution.id,
-                event_type="failed",
-                level="ERROR",
-                message=self._sanitize_summary_message(message),
-                payload_json={},
-                occurred_at=execution.ended_at,
-                correlation_id=execution.correlation_id,
-                producer="runtime",
-                dedupe_key=f"{execution.id}:failed:{int(execution.ended_at.timestamp())}",
-            )
+    def _record_worker_issue(self, session: Session, *, task_run_id: int, message: str) -> TaskRunIssue:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
+            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+        issue = TaskRunIssue(
+            task_run_id=task_run_id,
+            node_id=task_run.current_node_id,
+            severity="error",
+            code="worker_error",
+            title="任务运行器异常",
+            operator_message="任务运行器在收尾时发生异常，需要开发核验任务状态。",
+            suggested_action="不要重复提交大范围任务，先确认业务数据和任务状态。",
+            technical_message=truncate_text(message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
+            technical_payload_json={"source_phase": "worker_finalize", "task_run_id": task_run_id},
+            source_phase="worker_finalize",
+            fingerprint=f"{task_run_id}:worker_error",
+            occurred_at=datetime.now(timezone.utc),
         )
+        session.add(issue)
+        session.flush()
+        task_run.primary_issue_id = issue.id
         session.commit()
-        session.refresh(execution)
-        return execution
+        return issue
 
-    def _record_snapshot_refresh_failure(self, session: Session, execution_id: int, error_message: str) -> None:
-        detail = self._sanitize_error_message(error_message)
+    def _record_snapshot_refresh_failure(self, session: Session, task_run_id: int, error_message: str) -> None:
+        task_run = session.get(TaskRun, task_run_id)
+        if task_run is None:
+            return
+        issue = TaskRunIssue(
+            task_run_id=task_run_id,
+            node_id=None,
+            severity="warning",
+            code="dataset_snapshot_refresh_failed",
+            title="数据状态刷新失败",
+            operator_message="任务已结束，但数据状态快照刷新失败。",
+            suggested_action="可以先查看业务数据；数据状态页可能暂时没有刷新。",
+            technical_message=truncate_text(error_message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
+            technical_payload_json={"source_phase": "snapshot_refresh", "task_run_id": task_run_id},
+            source_phase="snapshot_refresh",
+            fingerprint=f"{task_run_id}:dataset_snapshot_refresh_failed",
+            occurred_at=datetime.now(timezone.utc),
+        )
         try:
-            session.add(
-                JobExecutionEvent(
-                    execution_id=execution_id,
-                    event_type="warning",
-                    level="WARNING",
-                    message="Dataset status snapshot refresh failed",
-                    payload_json={"code": "dataset_snapshot_refresh_failed", "detail": detail},
-                    occurred_at=datetime.now(timezone.utc),
-                )
-            )
+            session.add(issue)
             session.commit()
         except Exception:
             session.rollback()
 
     @staticmethod
-    def _refresh_snapshot_for_execution(session: Session, *, spec_type: str, spec_key: str) -> str | None:
+    def _refresh_snapshot_for_task_run(session: Session, task_run: TaskRun) -> str | None:
+        if task_run.task_type != "dataset_action" or not task_run.resource_key:
+            return None
         bind = session.get_bind()
         if bind is None:
             return "Database bind is unavailable for snapshot refresh."
@@ -269,24 +218,12 @@ class OperationsWorker:
             with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
                 refreshed = DatasetStatusSnapshotService().refresh_for_execution(
                     snapshot_session,
-                    spec_type=spec_type,
-                    spec_key=spec_key,
+                    spec_type="dataset_action",
+                    spec_key=f"{task_run.resource_key}.maintain",
                     strict=True,
                 )
             if refreshed <= 0:
-                return f"Snapshot refresh returned 0 rows for {spec_type}:{spec_key}."
+                return f"Snapshot refresh returned 0 rows for dataset_action:{task_run.resource_key}.maintain."
             return None
         except Exception as exc:
             return str(exc)
-
-    @classmethod
-    def _sanitize_error_message(cls, message: str | None) -> str | None:
-        return truncate_text(message, cls.MAX_EXECUTION_ERROR_MESSAGE_LENGTH)
-
-    @classmethod
-    def _sanitize_summary_message(cls, message: str | None) -> str | None:
-        return truncate_text(message, cls.MAX_EXECUTION_SUMMARY_LENGTH)
-
-    @classmethod
-    def _sanitize_progress_message(cls, message: str | None) -> str | None:
-        return truncate_text(message, cls.MAX_PROGRESS_MESSAGE_LENGTH)

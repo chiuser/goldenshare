@@ -8,22 +8,20 @@ import { beforeEach, vi } from "vitest";
 import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
 import { apiRequest } from "../shared/api/client";
-import type { ExecutionListResponse, ExecutionSummaryResponse } from "../shared/api/types";
+import type { TaskRunListResponse, TaskRunSummaryResponse } from "../shared/api/types";
 import { OpsTasksPage } from "./ops-v21-task-records-tab";
 
 vi.mock("../shared/api/client", () => ({
   apiRequest: vi.fn(),
 }));
 
-function createExecutionItem(id: number, overrides: Partial<Record<string, unknown>> = {}) {
+function createTaskRunItem(id: number, overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id,
-    spec_type: "dataset_action",
-    spec_key: "daily.maintain",
-    spec_display_name: "股票日线维护",
+    task_type: "dataset_action",
     resource_key: "daily",
-    resource_display_name: "股票日线",
-    action_display_name: "维护股票日线",
+    action: "maintain",
+    title: "股票日线",
     time_scope: {
       kind: "range",
       start: "2026-03-23",
@@ -38,15 +36,15 @@ function createExecutionItem(id: number, overrides: Partial<Record<string, unkno
     requested_at: "2026-03-31T01:00:00Z",
     started_at: "2026-03-31T01:00:02Z",
     ended_at: null,
+    unit_total: 5814,
+    unit_done: 651,
+    unit_failed: 0,
     rows_fetched: 0,
-    rows_written: 0,
-    progress_current: 651,
-    progress_total: 5814,
+    rows_saved: 0,
+    rows_rejected: 0,
     progress_percent: 11,
-    progress_message: "daily: 651/5814 ts_code=002034.SZ fetched=6 written=6",
-    last_progress_at: "2026-03-31T01:00:05Z",
-    summary_message: "正在汇总",
-    error_code: null,
+    primary_issue_id: null,
+    primary_issue_title: null,
     ...overrides,
   };
 }
@@ -104,7 +102,7 @@ beforeEach(() => {
         workflow_specs: [],
       };
     }
-    if (url.pathname === "/api/v1/ops/executions/summary") {
+    if (url.pathname === "/api/v1/ops/task-runs/summary") {
       return {
         total: 41,
         queued: 3,
@@ -114,11 +112,11 @@ beforeEach(() => {
         canceled: 1,
       };
     }
-    if (url.pathname === "/api/v1/ops/executions") {
+    if (url.pathname === "/api/v1/ops/task-runs") {
       return {
         total: 41,
         items: [
-          createExecutionItem(1),
+          createTaskRunItem(1),
         ],
       };
     }
@@ -183,7 +181,7 @@ describe("任务记录页", () => {
       if (url.pathname === "/api/v1/ops/catalog") {
         return catalogPromise;
       }
-      if (url.pathname === "/api/v1/ops/executions/summary") {
+      if (url.pathname === "/api/v1/ops/task-runs/summary") {
         return {
           total: 1,
           queued: 0,
@@ -193,11 +191,11 @@ describe("任务记录页", () => {
           canceled: 0,
         };
       }
-      if (url.pathname === "/api/v1/ops/executions") {
+      if (url.pathname === "/api/v1/ops/task-runs") {
         return {
           total: 1,
           items: [
-            createExecutionItem(1),
+            createTaskRunItem(1),
           ],
         };
       }
@@ -218,16 +216,16 @@ describe("任务记录页", () => {
 
     expect(await screen.findByText("任务统计")).toBeInTheDocument();
     await waitFor(() => {
-      expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/executions/summary?status=failed")).toBe(true);
+      expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/task-runs/summary?status=failed")).toBe(true);
       expect(
-        vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/executions?status=failed&page=2&limit=20&offset=20"),
+        vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/task-runs?status=failed&page=2&limit=20&offset=20"),
       ).toBe(true);
     });
 
     fireEvent.click(screen.getByRole("button", { name: "清空筛选" }));
 
     await waitFor(() => {
-      expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/executions?page=1&limit=20&offset=0")).toBe(true);
+      expect(vi.mocked(apiRequest).mock.calls.some(([path]) => path === "/api/v1/ops/task-runs?page=1&limit=20&offset=0")).toBe(true);
       expect(window.location.search).toBe("?page=1");
     });
   });
@@ -237,8 +235,8 @@ describe("任务记录页", () => {
       configurable: true,
       value: vi.fn(),
     });
-    let resolveFilteredExecutions!: (value: ExecutionListResponse) => void;
-    let resolveFilteredSummary!: (value: ExecutionSummaryResponse) => void;
+    let resolveFilteredTaskRuns!: (value: TaskRunListResponse) => void;
+    let resolveFilteredSummary!: (value: TaskRunSummaryResponse) => void;
     vi.mocked(apiRequest).mockImplementation((path: string) => {
       const url = new URL(path, "https://example.test");
       if (url.pathname === "/api/v1/ops/catalog") {
@@ -254,7 +252,7 @@ describe("任务记录页", () => {
           workflow_specs: [],
         });
       }
-      if (path === "/api/v1/ops/executions/summary") {
+      if (path === "/api/v1/ops/task-runs/summary") {
         return Promise.resolve({
           total: 41,
           queued: 3,
@@ -264,20 +262,20 @@ describe("任务记录页", () => {
           canceled: 1,
         });
       }
-      if (path === "/api/v1/ops/executions?page=1&limit=20&offset=0") {
+      if (path === "/api/v1/ops/task-runs?page=1&limit=20&offset=0") {
         return Promise.resolve({
           total: 41,
-          items: [createExecutionItem(1, { spec_display_name: "股票日线维护" })],
+          items: [createTaskRunItem(1, { title: "股票日线" })],
         });
       }
-      if (path === "/api/v1/ops/executions/summary?status=failed") {
-        return new Promise<ExecutionSummaryResponse>((resolve) => {
+      if (path === "/api/v1/ops/task-runs/summary?status=failed") {
+        return new Promise<TaskRunSummaryResponse>((resolve) => {
           resolveFilteredSummary = resolve;
         });
       }
-      if (path === "/api/v1/ops/executions?status=failed&page=1&limit=20&offset=0") {
-        return new Promise<ExecutionListResponse>((resolve) => {
-          resolveFilteredExecutions = resolve;
+      if (path === "/api/v1/ops/task-runs?status=failed&page=1&limit=20&offset=0") {
+        return new Promise<TaskRunListResponse>((resolve) => {
+          resolveFilteredTaskRuns = resolve;
         });
       }
       throw new Error(`unexpected path: ${path}`);
@@ -303,7 +301,7 @@ describe("任务记录页", () => {
       failed: 0,
       canceled: 0,
     });
-    resolveFilteredExecutions({
+    resolveFilteredTaskRuns({
       total: 0,
       items: [],
     });

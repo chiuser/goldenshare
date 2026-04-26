@@ -54,43 +54,27 @@ def test_daily_health_report_builds_markdown_with_full_dataset_coverage(mocker) 
     mocker.patch("src.ops.services.operations_daily_health_report_service.OpsFreshnessQueryService.build_freshness", return_value=_freshness_response())
     mocker.patch.object(
         service,
-        "_load_executions",
+        "_load_task_runs",
         return_value=[
             SimpleNamespace(
                 id=101,
-                spec_key="adj_factor.maintain",
+                resource_key="adj_factor",
+                title="复权因子",
                 status="failed",
-                error_message="boom",
-                summary_message=None,
+                rows_fetched=100,
+                rows_saved=0,
                 started_at=None,
+                requested_at=datetime(2026, 4, 8, 2, 0, tzinfo=timezone.utc),
             ),
             SimpleNamespace(
                 id=102,
-                spec_key="daily.maintain",
+                resource_key="daily",
+                title="股票日线",
                 status="success",
-                error_message=None,
-                summary_message="ok",
+                rows_fetched=100,
+                rows_saved=100,
                 started_at=None,
-            ),
-        ],
-    )
-    mocker.patch.object(
-        service,
-        "_load_sync_run_logs",
-        return_value=[
-            SimpleNamespace(
-                job_name="sync_equity_daily",
-                status="SUCCESS",
-                rows_fetched=100,
-                rows_written=100,
-                started_at=datetime(2026, 4, 8, 1, 0, tzinfo=timezone.utc),
-            ),
-            SimpleNamespace(
-                job_name="sync_equity_adj_factor",
-                status="FAILED",
-                rows_fetched=100,
-                rows_written=0,
-                started_at=datetime(2026, 4, 8, 2, 0, tzinfo=timezone.utc),
+                requested_at=datetime(2026, 4, 8, 1, 0, tzinfo=timezone.utc),
             ),
         ],
     )

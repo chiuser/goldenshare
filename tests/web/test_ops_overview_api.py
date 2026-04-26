@@ -31,11 +31,12 @@ def test_ops_overview_summary_allows_non_admin(app_client, user_factory) -> None
 
 def test_ops_overview_returns_kpis_recent_executions_and_failures(
     app_client,
+    db_session,
     user_factory,
-    job_execution_factory,
+    task_run_factory,
+    task_run_issue_factory,
     trade_calendar_factory,
     sync_job_state_factory,
-    sync_run_log_factory,
     monkeypatch,
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
@@ -63,45 +64,46 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
         last_success_date=datetime(2026, 1, 31, tzinfo=timezone.utc).date(),
         last_success_at=datetime(2026, 2, 1, 12, 0, tzinfo=timezone.utc),
     )
-    job_execution_factory(
+    task_run_factory(
         requested_by_user_id=admin.id,
-        spec_key="daily.maintain",
+        resource_key="daily",
         status="queued",
         requested_at=now,
     )
-    job_execution_factory(
+    task_run_factory(
         requested_by_user_id=admin.id,
-        spec_key="moneyflow.maintain",
+        resource_key="moneyflow",
         status="running",
         requested_at=now,
     )
-    job_execution_factory(
+    task_run_factory(
         requested_by_user_id=admin.id,
-        spec_key="daily.maintain",
+        resource_key="daily",
         status="success",
         requested_at=now,
         rows_fetched=100,
-        rows_written=100,
+        rows_saved=100,
     )
-    failed = job_execution_factory(
+    failed = task_run_factory(
         requested_by_user_id=admin.id,
-        spec_key="index_monthly.maintain",
+        resource_key="daily",
         status="failed",
         requested_at=now,
-        error_code="task_failed",
     )
-    job_execution_factory(
+    issue = task_run_issue_factory(
+        task_run_id=failed.id,
+        code="task_failed",
+        title="任务失败",
+        message="network timeout while fetching daily data",
+        occurred_at=now,
+    )
+    failed.primary_issue_id = issue.id
+    db_session.commit()
+    task_run_factory(
         requested_by_user_id=admin.id,
-        spec_key="maintenance.rebuild_dm",
+        resource_key="maintenance.rebuild_dm",
         status="partial_success",
         requested_at=now,
-    )
-    sync_run_log_factory(
-        job_name="sync_equity_daily",
-        status="FAILED",
-        started_at=now,
-        ended_at=datetime(2026, 3, 30, 13, 0, tzinfo=timezone.utc),
-        message="network timeout while fetching daily data",
     )
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -129,9 +131,7 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     assert payload["freshness_summary"]["total_datasets"] >= 2
     assert payload["freshness_summary"]["fresh_datasets"] >= 1
     assert any(item["dataset_key"] == "index_monthly" for item in payload["lagging_datasets"])
-    daily_item = next((item for item in payload["lagging_datasets"] if item["dataset_key"] == "daily"), None)
-    assert daily_item is not None
-    assert "network timeout" in (daily_item["recent_failure_summary"] or "")
     assert len(payload["recent_executions"]) == 5
     assert len(payload["recent_failures"]) == 1
     assert payload["recent_failures"][0]["id"] == failed.id
+    assert payload["recent_failures"][0]["primary_issue_title"] == "任务失败"

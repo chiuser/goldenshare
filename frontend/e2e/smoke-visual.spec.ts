@@ -92,7 +92,8 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
     await page.getByRole("button", { name: "提交维护任务" }).click();
     await expect(page).toHaveURL("/app/ops/tasks/901");
-    await expect(page.getByText("任务已经提交", { exact: true })).toBeVisible();
+    await expect(page.getByText("任务等待处理", { exact: true })).toBeVisible();
+    await expect(page.getByText("当前进度", { exact: true })).toBeVisible();
   });
 
   test("task center auto keeps the schedule list and detail baseline", async ({ page }) => {
@@ -108,13 +109,13 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
   });
 
-  test("task detail keeps the progress and event stream baseline", async ({ page }) => {
+  test("task detail keeps the progress and execution node baseline", async ({ page }) => {
     await setAdminSession(page);
     await installApiMocks(page, "task-detail");
     await page.goto("/app/ops/tasks/1");
-    await expect(page.getByText("实时处理记录", { exact: true })).toBeVisible();
+    await expect(page.getByText("执行过程", { exact: true })).toBeVisible();
     await expect(page.getByText("股票日线", { exact: true })).toBeVisible();
-    await expect(page.getByText("当前进展", { exact: true })).toBeVisible();
+    await expect(page.getByText("当前进度", { exact: true })).toBeVisible();
     await expect(page.getByText("处理范围", { exact: true })).toBeVisible();
     await expect(page.getByText("2026-03-23 ~ 2026-03-30", { exact: true })).toBeVisible();
     await expect(page.getByText("建议下一步", { exact: true })).toBeVisible();

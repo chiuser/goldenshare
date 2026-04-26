@@ -14,42 +14,44 @@ from src.foundation.services.sync_v2.dataset_strategies.dc_hot import (
     DC_HOT_DEFAULT_MARKETS,
 )
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
-from src.ops.schemas.manual_action import ManualActionExecutionCreateRequest, ManualActionTimeInput
-from src.ops.services.execution_service import OpsExecutionCommandService
+from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest, ManualActionTimeInput
+from src.ops.services.task_run_service import TaskRunCommandService
 from src.ops.specs import ParameterSpec
 
 
 class ManualActionCommandService:
     def __init__(self) -> None:
         self.query_service = ManualActionQueryService()
-        self.execution_service = OpsExecutionCommandService()
+        self.task_run_service = TaskRunCommandService()
 
-    def create_execution_for_action(
+    def create_task_run_for_action(
         self,
         session: Session,
         *,
         user: AuthenticatedUser,
         action_key: str,
-        body: ManualActionExecutionCreateRequest,
+        body: ManualActionTaskRunCreateRequest,
     ) -> int:
         route = self.query_service.get_action_route(action_key)
         if route is None:
             raise WebAppError(status_code=404, code="not_found", message="Manual action does not exist")
-        spec_type, spec_key, params_json = ManualActionExecutionResolver(route).resolve(body)
-        return self.execution_service.create_manual_execution(
+        spec_type, spec_key, params_json = ManualActionTaskRunResolver(route).resolve(body)
+        task_run = self.task_run_service.create_from_spec(
             session,
-            user=user,
             spec_type=spec_type,
             spec_key=spec_key,
             params_json=params_json,
+            trigger_source="manual",
+            requested_by_user_id=user.id,
         )
+        return task_run.id
 
 
-class ManualActionExecutionResolver:
+class ManualActionTaskRunResolver:
     def __init__(self, route: ManualActionRoute) -> None:
         self.route = route
 
-    def resolve(self, body: ManualActionExecutionCreateRequest) -> tuple[str, str, dict[str, Any]]:
+    def resolve(self, body: ManualActionTaskRunCreateRequest) -> tuple[str, str, dict[str, Any]]:
         filters = self._normalize_filters(body.filters)
         filters = self._apply_default_filters(filters)
         time_input = body.time_input
@@ -192,7 +194,7 @@ class ManualActionExecutionResolver:
     def _require_date_text(value: str | None, field: str) -> str:
         if not value:
             raise WebAppError(status_code=422, code="validation_error", message=f"{field} is required")
-        parsed = ManualActionExecutionResolver._parse_date(value, field)
+        parsed = ManualActionTaskRunResolver._parse_date(value, field)
         return parsed.isoformat()
 
     @staticmethod
@@ -209,7 +211,7 @@ class ManualActionExecutionResolver:
 
     @staticmethod
     def _validate_date_order(start_date: str, end_date: str) -> None:
-        if ManualActionExecutionResolver._parse_date(start_date, "start_date") > ManualActionExecutionResolver._parse_date(end_date, "end_date"):
+        if ManualActionTaskRunResolver._parse_date(start_date, "start_date") > ManualActionTaskRunResolver._parse_date(end_date, "end_date"):
             raise WebAppError(status_code=422, code="validation_error", message="start_date must be <= end_date")
 
     @staticmethod

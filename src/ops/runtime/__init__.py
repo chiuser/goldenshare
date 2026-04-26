@@ -1,13 +1,13 @@
-__all__ = ["DispatchOutcome", "OperationsDispatcher", "OperationsScheduler", "OperationsWorker"]
+__all__ = ["OperationsScheduler", "OperationsWorker", "TaskRunDispatchOutcome", "TaskRunDispatcher"]
 
 
 def __getattr__(name: str):
-    if name in {"DispatchOutcome", "OperationsDispatcher"}:
-        from src.ops.runtime.dispatcher import DispatchOutcome, OperationsDispatcher
+    if name in {"TaskRunDispatchOutcome", "TaskRunDispatcher"}:
+        from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
 
         return {
-            "DispatchOutcome": DispatchOutcome,
-            "OperationsDispatcher": OperationsDispatcher,
+            "TaskRunDispatchOutcome": TaskRunDispatchOutcome,
+            "TaskRunDispatcher": TaskRunDispatcher,
         }[name]
     if name == "OperationsScheduler":
         from src.ops.runtime.scheduler import OperationsScheduler

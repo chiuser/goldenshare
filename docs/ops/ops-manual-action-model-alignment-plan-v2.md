@@ -346,7 +346,7 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 
 ```bash
 pytest -q tests/web/test_ops_manual_actions_api.py
-pytest -q tests/web/test_ops_execution_api.py
+pytest -q tests/web/test_ops_task_run_api.py
 ```
 
 前端至少执行：

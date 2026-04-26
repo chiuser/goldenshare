@@ -97,7 +97,7 @@ beforeEach(() => {
         ],
       };
     }
-    if (url.pathname === "/api/v1/ops/executions/summary") {
+    if (url.pathname === "/api/v1/ops/task-runs/summary") {
       return {
         total: 1,
         queued: 0,
@@ -107,21 +107,21 @@ beforeEach(() => {
         canceled: 0,
       };
     }
-    if (url.pathname === "/api/v1/ops/executions" && url.searchParams.get("schedule_id") === "201") {
+    if (url.pathname === "/api/v1/ops/task-runs" && url.searchParams.get("schedule_id") === "201") {
       return { total: 0, items: [] };
     }
-    if (url.pathname === "/api/v1/ops/executions") {
+    if (url.pathname === "/api/v1/ops/task-runs") {
       return {
         total: 1,
         items: [
           {
             id: 1,
-            spec_type: "dataset_action",
-            spec_key: "daily.maintain",
-            spec_display_name: "维护股票日线",
+            task_type: "dataset_action",
             resource_key: "daily",
-            resource_display_name: "股票日线",
-            action_display_name: "维护股票日线",
+            action: "maintain",
+            title: "股票日线",
+            time_scope: null,
+            time_scope_label: null,
             schedule_display_name: null,
             trigger_source: "manual",
             status: "running",
@@ -129,15 +129,15 @@ beforeEach(() => {
             requested_at: "2026-04-21T09:00:00Z",
             started_at: "2026-04-21T09:00:05Z",
             ended_at: null,
+            unit_total: 100,
+            unit_done: 12,
+            unit_failed: 0,
             rows_fetched: 0,
-            rows_written: 0,
-            progress_current: 12,
-            progress_total: 100,
+            rows_saved: 0,
+            rows_rejected: 0,
             progress_percent: 12,
-            progress_message: "daily: 12/100",
-            last_progress_at: "2026-04-21T09:01:00Z",
-            summary_message: "正在处理中",
-            error_code: null,
+            primary_issue_id: null,
+            primary_issue_title: null,
           },
         ],
       };
@@ -271,12 +271,12 @@ describe("任务中心页", () => {
 
     const requestedPaths = apiRequestMock.mock.calls.map(([path]) => path);
     expect(requestedPaths).toContain("/api/v1/ops/catalog");
-    expect(requestedPaths).toContain("/api/v1/ops/executions/summary");
-    expect(requestedPaths).toContain("/api/v1/ops/executions?page=1&limit=20&offset=0");
+    expect(requestedPaths).toContain("/api/v1/ops/task-runs/summary");
+    expect(requestedPaths).toContain("/api/v1/ops/task-runs?page=1&limit=20&offset=0");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules?limit=100");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules/201");
     expect(requestedPaths).not.toContain("/api/v1/ops/schedules/201/revisions");
-    expect(requestedPaths).not.toContain("/api/v1/ops/executions?schedule_id=201&limit=1");
+    expect(requestedPaths).not.toContain("/api/v1/ops/task-runs?schedule_id=201&limit=1");
     expect(requestedPaths).not.toContain("/api/v1/ops/probes?schedule_id=201&limit=50");
   });
 

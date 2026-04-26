@@ -16,11 +16,11 @@ class OpsRuntimeCommandService:
     def worker_run(self, session: Session, *, limit: int) -> list:
         processed = []
         for _ in range(limit):
-            execution = self.worker.run_next(session)
-            if execution is None:
+            task_run = self.worker.run_next(session)
+            if task_run is None:
                 break
-            processed.append(execution)
+            processed.append(task_run)
         return processed
 
-    def run_execution(self, session: Session, *, execution_id: int):
-        return self.worker.run_execution(session, execution_id)
+    def run_task_run(self, session: Session, *, task_run_id: int):
+        return self.worker.run_task_run(session, task_run_id)

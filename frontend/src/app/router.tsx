@@ -334,18 +334,18 @@ const opsSchedulesRoute = createRoute({
   component: () => <RedirectToTaskCenterTab tab="auto" />,
 });
 
-const opsExecutionsRoute = createRoute({
+const opsTaskRunsRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/tasks",
   component: () => <RedirectToTaskCenterTab tab="records" />,
 });
 
-const opsExecutionDetailRoute = createRoute({
+const opsTaskRunDetailRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
-  path: "/tasks/$executionId",
+  path: "/tasks/$taskRunId",
   component: function OpsTaskDetailRouteComponent() {
-    const params = opsExecutionDetailRoute.useParams();
-    return <OpsTaskDetailPage executionId={Number(params.executionId)} />;
+    const params = opsTaskRunDetailRoute.useParams();
+    return <OpsTaskDetailPage taskRunId={Number(params.taskRunId)} />;
   },
 });
 
@@ -441,8 +441,8 @@ const routeTree = rootRoute.addChildren([
     opsV21DatasetsBiyingRoute,
     opsV21DatasetsTasksRoute,
     opsV21DatasetDetailRoute,
-    opsExecutionsRoute,
-    opsExecutionDetailRoute,
+    opsTaskRunsRoute,
+    opsTaskRunDetailRoute,
     opsV21AccountRoute,
   ]),
   shareLayoutRoute.addChildren([

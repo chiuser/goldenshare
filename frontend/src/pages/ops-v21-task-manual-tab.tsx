@@ -20,10 +20,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
 import { apiRequest } from "../shared/api/client";
 import type {
-  ExecutionDetailResponse,
-  OpsManualActionExecutionRequest,
   OpsManualActionsResponse,
+  OpsManualActionTaskRunRequest,
   ScheduleDetailResponse,
+  TaskRunViewResponse,
 } from "../shared/api/types";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { AlertBar } from "../shared/ui/alert-bar";
@@ -258,6 +258,17 @@ function buildDraftFromParams(
   };
 }
 
+function buildPrefillParamsFromTaskRun(view: TaskRunViewResponse): Record<string, unknown> {
+  return {
+    ...view.run.filters,
+    ...view.run.time_input,
+    dataset_key: view.run.resource_key,
+    action: view.run.action,
+    time_input: view.run.time_input,
+    filters: view.run.filters,
+  };
+}
+
 function buildDraftForActionSelection(action: ManualAction | string): ManualDraft {
   const actionId = typeof action === "string" ? action : action.action_key;
   const defaultMode = typeof action === "string" ? "point" : action.time_form.default_mode;
@@ -326,7 +337,7 @@ function normalizeFilterValue(param: ManualActionFilter, rawValue: string | stri
   return param.param_type === "integer" ? Number(singleValue) : singleValue;
 }
 
-function buildManualActionRequest(action: ManualAction, draft: ManualDraft): OpsManualActionExecutionRequest {
+function buildManualActionRequest(action: ManualAction, draft: ManualDraft): OpsManualActionTaskRunRequest {
   const filters: Record<string, unknown> = {};
   const fieldValues = mergeDefaultFieldValues(action, draft.field_values);
   for (const param of action.filters) {
@@ -410,7 +421,7 @@ export function OpsManualTaskTab() {
   const [selectedDomain, setSelectedDomain] = usePersistentState<string>(MANUAL_DOMAIN_STORAGE_KEY, "");
   const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>(MANUAL_RECENT_ACTIONS_STORAGE_KEY, []);
 
-  const prefillExecutionId = readSearchString(routerSearch, "from_execution_id");
+  const prefillTaskRunId = readSearchString(routerSearch, "from_task_run_id");
   const prefillScheduleId = readSearchString(routerSearch, "from_schedule_id");
   const prefillSpecKey = readSearchString(routerSearch, "spec_key");
   const prefillSpecType = readSearchString(routerSearch, "spec_type");
@@ -421,10 +432,10 @@ export function OpsManualTaskTab() {
     queryFn: () => apiRequest<OpsManualActionsResponse>("/api/v1/ops/manual-actions"),
   });
 
-  const prefillExecutionQuery = useQuery({
-    queryKey: ["ops", "prefill-execution", prefillExecutionId],
-    queryFn: () => apiRequest<ExecutionDetailResponse>(`/api/v1/ops/executions/${prefillExecutionId}`),
-    enabled: Boolean(prefillExecutionId),
+  const prefillTaskRunQuery = useQuery({
+    queryKey: ["ops", "prefill-task-run", prefillTaskRunId],
+    queryFn: () => apiRequest<TaskRunViewResponse>(`/api/v1/ops/task-runs/${prefillTaskRunId}/view`),
+    enabled: Boolean(prefillTaskRunId),
   });
 
   const prefillScheduleQuery = useQuery({
@@ -479,7 +490,7 @@ export function OpsManualTaskTab() {
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
   const prefillSpecAppliedRef = useRef(false);
-  const prefillExecutionAppliedRef = useRef(false);
+  const prefillTaskRunAppliedRef = useRef(false);
   const prefillScheduleAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -522,21 +533,22 @@ export function OpsManualTaskTab() {
   }, [manualActions, prefillSpecKey, prefillSpecType, prefillTradeDate, setDraft, setSelectedDomain]);
 
   useEffect(() => {
-    if (prefillExecutionAppliedRef.current) {
+    if (prefillTaskRunAppliedRef.current) {
       return;
     }
-    if (!manualActions.length || !prefillExecutionQuery.data) {
+    if (!manualActions.length || !prefillTaskRunQuery.data) {
       return;
     }
-    const action = manualActions.find((item) => matchesActionSpec(item, prefillExecutionQuery.data.spec_type, prefillExecutionQuery.data.spec_key));
+    const specKey = prefillTaskRunQuery.data.run.resource_key ? `${prefillTaskRunQuery.data.run.resource_key}.maintain` : null;
+    const action = manualActions.find((item) => matchesActionSpec(item, prefillTaskRunQuery.data?.run.task_type || null, specKey));
     if (!action) {
-      prefillExecutionAppliedRef.current = true;
+      prefillTaskRunAppliedRef.current = true;
       return;
     }
-    prefillExecutionAppliedRef.current = true;
+    prefillTaskRunAppliedRef.current = true;
     setSelectedDomain(action.groupLabel);
-    setDraft((current) => buildDraftFromParams(current, action, prefillExecutionQuery.data.params_json));
-  }, [manualActions, prefillExecutionQuery.data, setDraft, setSelectedDomain]);
+    setDraft((current) => buildDraftFromParams(current, action, buildPrefillParamsFromTaskRun(prefillTaskRunQuery.data)));
+  }, [manualActions, prefillTaskRunQuery.data, setDraft, setSelectedDomain]);
 
   useEffect(() => {
     if (prefillScheduleAppliedRef.current) {
@@ -555,12 +567,12 @@ export function OpsManualTaskTab() {
     setDraft((current) => buildDraftFromParams(current, action, prefillScheduleQuery.data.params_json));
   }, [manualActions, prefillScheduleQuery.data, setDraft, setSelectedDomain]);
 
-  const createExecutionMutation = useMutation({
+  const createTaskRunMutation = useMutation({
     mutationFn: () => {
       if (!selectedAction) {
         throw new Error("请先选择要维护的数据。");
       }
-      return apiRequest<ExecutionDetailResponse>(`/api/v1/ops/manual-actions/${encodeURIComponent(selectedAction.action_key)}/executions`, {
+      return apiRequest<TaskRunViewResponse>(`/api/v1/ops/manual-actions/${encodeURIComponent(selectedAction.action_key)}/task-runs`, {
         method: "POST",
         body: buildManualActionRequest(selectedAction, draft),
       });
@@ -571,7 +583,7 @@ export function OpsManualTaskTab() {
         title: "任务已提交",
         message: "系统已经收到这次维护请求，正在为你打开任务详情页。",
       });
-      await navigate({ to: "/ops/tasks/$executionId", params: { executionId: String(data.id) } });
+      await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(data.run.id) } });
     },
     onError: (error) => {
       notifications.show({
@@ -582,8 +594,8 @@ export function OpsManualTaskTab() {
     },
   });
 
-  const isLoading = manualActionsQuery.isLoading || prefillExecutionQuery.isLoading || prefillScheduleQuery.isLoading;
-  const pageError = manualActionsQuery.error || prefillExecutionQuery.error || prefillScheduleQuery.error;
+  const isLoading = manualActionsQuery.isLoading || prefillTaskRunQuery.isLoading || prefillScheduleQuery.isLoading;
+  const pageError = manualActionsQuery.error || prefillTaskRunQuery.error || prefillScheduleQuery.error;
 
   return (
     <Stack gap="lg">
@@ -946,8 +958,8 @@ export function OpsManualTaskTab() {
                   <Stack gap="md">
                     <Group justify="flex-end" align="center">
                       <Button
-                        loading={createExecutionMutation.isPending}
-                        onClick={() => createExecutionMutation.mutate()}
+                        loading={createTaskRunMutation.isPending}
+                        onClick={() => createTaskRunMutation.mutate()}
                       >
                         提交维护任务
                       </Button>
@@ -985,7 +997,7 @@ export function OpsManualTaskTab() {
 
             <SectionCard title="已带入条件" description="如果你是从任务记录或自动运行页跳过来的，这里会自动带入原来的条件。">
               <Stack gap="sm">
-                <Text size="sm">来自任务记录：{prefillExecutionId || "无"}</Text>
+                <Text size="sm">来自任务记录：{prefillTaskRunId || "无"}</Text>
                 <Text size="sm">来自自动任务：{prefillScheduleId || "无"}</Text>
                 <Text size="sm">当前已选数据：{selectedAction ? selectedAction.display_name : "未选择"}</Text>
               </Stack>

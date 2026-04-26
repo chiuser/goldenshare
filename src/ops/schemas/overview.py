@@ -4,8 +4,8 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from src.ops.schemas.execution import ExecutionListItem
 from src.ops.schemas.freshness import DatasetFreshnessItem, OpsFreshnessSummary
+from src.ops.schemas.task_run import TaskRunListItem
 
 
 class OpsOverviewKpis(BaseModel):
@@ -33,8 +33,8 @@ class OpsOverviewResponse(BaseModel):
     kpis: OpsOverviewKpis
     freshness_summary: OpsFreshnessSummary
     lagging_datasets: list[DatasetFreshnessItem]
-    recent_executions: list[ExecutionListItem]
-    recent_failures: list[ExecutionListItem]
+    recent_executions: list[TaskRunListItem]
+    recent_failures: list[TaskRunListItem]
 
 
 class OpsOverviewSummaryResponse(BaseModel):

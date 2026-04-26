@@ -30,17 +30,17 @@ def resolve_default_sync_date(
     return latest
 
 
-def open_execution_counts(session, *, job_execution_model) -> tuple[int, int]:
+def open_task_run_counts(session, *, task_run_model) -> tuple[int, int]:
     queued = session.scalar(
-        select(func.count()).select_from(job_execution_model).where(job_execution_model.status == "queued")
+        select(func.count()).select_from(task_run_model).where(task_run_model.status == "queued")
     ) or 0
     running = session.scalar(
-        select(func.count()).select_from(job_execution_model).where(job_execution_model.status == "running")
+        select(func.count()).select_from(task_run_model).where(task_run_model.status == "running")
     ) or 0
     return int(queued), int(running)
 
 
-def auto_reconcile_stale_executions(
+def auto_reconcile_stale_task_runs(
     session,
     *,
     stale_for_minutes: int,
@@ -49,7 +49,7 @@ def auto_reconcile_stale_executions(
 ) -> int:
     if stale_for_minutes <= 0:
         return 0
-    reconciled = reconciliation_service.reconcile_stale_executions(
+    reconciled = reconciliation_service.reconcile_stale_task_runs(
         session,
         stale_for_minutes=stale_for_minutes,
         limit=limit,

@@ -1,19 +1,15 @@
 __all__ = [
-    "OpsExecutionCommandService",
     "ManualActionCommandService",
     "OpsProbeCommandService",
     "OpsResolutionReleaseCommandService",
     "OpsRuntimeCommandService",
     "OpsScheduleCommandService",
     "OpsStdRuleCommandService",
+    "TaskRunCommandService",
 ]
 
 
 def __getattr__(name: str):
-    if name == "OpsExecutionCommandService":
-        from src.ops.services.execution_service import OpsExecutionCommandService
-
-        return OpsExecutionCommandService
     if name == "ManualActionCommandService":
         from src.ops.services.manual_action_service import ManualActionCommandService
 
@@ -38,4 +34,8 @@ def __getattr__(name: str):
         from src.ops.services.std_rule_service import OpsStdRuleCommandService
 
         return OpsStdRuleCommandService
+    if name == "TaskRunCommandService":
+        from src.ops.services.task_run_service import TaskRunCommandService
+
+        return TaskRunCommandService
     raise AttributeError(name)

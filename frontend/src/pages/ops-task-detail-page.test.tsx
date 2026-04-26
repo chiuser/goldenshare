@@ -9,312 +9,187 @@ import { appTheme } from "../app/theme";
 import { AuthProvider } from "../features/auth/auth-context";
 import { OpsTaskDetailPage } from "./ops-task-detail-page";
 
+const { apiRequest } = vi.hoisted(() => ({
+  apiRequest: vi.fn(),
+}));
+
 vi.mock("../shared/api/client", () => ({
-  apiRequest: vi.fn(async (path: string) => {
-    if (path === "/api/v1/ops/executions/1") {
-      return {
-        id: 1,
-        schedule_id: null,
-        spec_type: "dataset_action",
-        spec_key: "daily.maintain",
-        spec_display_name: "股票日线维护",
+  apiRequest,
+}));
+
+function createTaskRunView(status = "failed") {
+  return {
+    run: {
+      id: 1,
+      task_type: "dataset_action",
+      resource_key: "daily",
+      action: "maintain",
+      title: "股票日线",
+      trigger_source: "manual",
+      status,
+      status_reason_code: status === "failed" ? "execution_failed" : null,
+      requested_by_username: "admin",
+      schedule_display_name: null,
+      time_input: {
+        mode: "range",
+        start_date: "2026-03-23",
+        end_date: "2026-03-30",
+      },
+      filters: {},
+      time_scope: {
+        kind: "range",
+        start: "2026-03-23",
+        end: "2026-03-30",
+        label: "2026-03-23 ~ 2026-03-30",
+      },
+      time_scope_label: "2026-03-23 ~ 2026-03-30",
+      requested_at: "2026-03-31T01:00:00Z",
+      queued_at: "2026-03-31T01:00:01Z",
+      started_at: "2026-03-31T01:00:02Z",
+      ended_at: null,
+      cancel_requested_at: null,
+      canceled_at: null,
+    },
+    progress: {
+      unit_total: 5814,
+      unit_done: 651,
+      unit_failed: 1,
+      progress_percent: 11,
+      rows_fetched: 6,
+      rows_saved: 5,
+      rows_rejected: 1,
+      current_context: {
+        ts_code: "002034.SZ",
+        security_name: "美欣达",
+        freq: "1min",
+      },
+    },
+    primary_issue: {
+      id: 99,
+      severity: "error",
+      code: "execution_failed",
+      title: "任务处理失败",
+      operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+      suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+      has_technical_detail: true,
+      occurred_at: "2026-03-31T01:00:05Z",
+    },
+    nodes: [
+      {
+        id: 10,
+        parent_node_id: null,
+        node_key: "daily:2026-03-23:2026-03-30",
+        node_type: "dataset_plan",
+        sequence_no: 1,
+        title: "维护 股票日线",
         resource_key: "daily",
-        resource_display_name: "股票日线",
-        action_display_name: "维护股票日线",
-        time_scope: {
-          kind: "range",
-          start: "2026-03-23",
-          end: "2026-03-30",
-          label: "2026-03-23 ~ 2026-03-30",
-        },
-        time_scope_label: "2026-03-23 ~ 2026-03-30",
-        schedule_display_name: null,
-        trigger_source: "manual",
-        status: "running",
-        requested_by_username: "admin",
-        requested_at: "2026-03-31T01:00:00Z",
-        queued_at: "2026-03-31T01:00:01Z",
-        started_at: "2026-03-31T01:00:02Z",
-        ended_at: null,
-        params_json: {
+        status: "failed",
+        time_input: {
+          mode: "range",
           start_date: "2026-03-23",
           end_date: "2026-03-30",
         },
-        summary_message: null,
-        rows_fetched: 0,
-        rows_written: 0,
-        progress_current: 651,
-        progress_total: 5814,
-        progress_percent: 11,
-        progress_message: "daily: 651/5814 unit=stock ts_code=002034.SZ security_name=美欣达 freq=1min unit_fetched=6 unit_written=6 fetched=6 written=6",
-        last_progress_at: "2026-03-31T01:00:05Z",
-        cancel_requested_at: null,
-        canceled_at: null,
-        error_code: null,
-        error_message: null,
-      };
-    }
-    if (path === "/api/v1/ops/executions/2") {
-      return {
-        id: 2,
-        schedule_id: null,
-        spec_type: "dataset_action",
-        spec_key: "dc_hot.maintain",
-        spec_display_name: "东方财富热榜维护",
-        resource_key: "dc_hot",
-        resource_display_name: "东方财富热榜",
-        action_display_name: "维护东方财富热榜",
-        time_scope: {
-          kind: "range",
-          start: "2026-04-20",
-          end: "2026-04-24",
-          label: "2026-04-20 ~ 2026-04-24",
-        },
-        time_scope_label: "2026-04-20 ~ 2026-04-24",
-        schedule_display_name: null,
-        trigger_source: "manual",
-        status: "success",
-        requested_by_username: "admin",
-        requested_at: "2026-04-24T15:55:42Z",
-        queued_at: "2026-04-24T15:55:42Z",
-        started_at: "2026-04-24T15:55:44Z",
-        ended_at: "2026-04-24T15:56:01Z",
-        params_json: {
-          start_date: "2026-04-20",
-          end_date: "2026-04-24",
-        },
-        summary_message: "units=5 fetched=23643 written=23643 rejected=0",
-        rows_fetched: 23643,
-        rows_written: 23643,
-        progress_current: 5,
-        progress_total: 5,
-        progress_percent: 100,
-        progress_message: "units=5 fetched=23643 written=23643 rejected=0",
-        last_progress_at: "2026-04-24T15:56:01Z",
-        cancel_requested_at: null,
-        canceled_at: null,
-        error_code: null,
-        error_message: null,
-      };
-    }
-    if (path === "/api/v1/ops/executions/1/steps") {
-      return {
-        execution_id: 1,
-        items: [
-          {
-            id: 10,
-            step_key: "daily.maintain",
-            display_name: "股票日线维护",
-            sequence_no: 1,
-            unit_kind: null,
-            unit_value: null,
-            status: "running",
-            started_at: "2026-03-31T01:00:02Z",
-            ended_at: null,
-            rows_fetched: 0,
-            rows_written: 0,
-            message: null,
-          },
-        ],
-      };
-    }
-    if (path === "/api/v1/ops/executions/2/steps") {
-      return {
-        execution_id: 2,
-        items: [
-          {
-            id: 20,
-            step_key: "dc_hot.maintain",
-            display_name: "东方财富热榜维护",
-            sequence_no: 1,
-            unit_kind: null,
-            unit_value: null,
-            status: "success",
-            started_at: "2026-04-24T15:55:44Z",
-            ended_at: "2026-04-24T15:56:01Z",
-            rows_fetched: 23643,
-            rows_written: 23643,
-            message: "units=5 fetched=23643 written=23643 rejected=0",
-          },
-        ],
-      };
-    }
-    if (path === "/api/v1/ops/executions/1/events") {
-      return {
-        execution_id: 1,
-        items: [
-          {
-            id: 100,
-            step_id: 10,
-            event_type: "step_progress",
-            level: "info",
-            message: "正在拉取 2026-03-23 到 2026-03-30 的股票日线数据",
-            payload_json: {
-              progress_message: "daily: 651/5814 unit=stock ts_code=002034.SZ security_name=美欣达 freq=1min unit_fetched=6 unit_written=5 unit_rejected=1 fetched=6 written=5 rejected=1 reasons=normalize.required_field_missing:ts_code:1",
-              progress_current: 651,
-              progress_total: 5814,
-              progress_percent: 11,
-              rows_fetched: 6,
-              rows_written: 5,
-              rows_rejected: 1,
-              rejected_reason_counts: {
-                "normalize.required_field_missing:ts_code": 1,
-              },
-            },
-            occurred_at: "2026-03-31T01:00:05Z",
-          },
-        ],
-      };
-    }
-    if (path === "/api/v1/ops/executions/2/events") {
-      return {
-        execution_id: 2,
-        items: [
-          {
-            id: 200,
-            step_id: 20,
-            event_type: "step_progress",
-            level: "info",
-            message: "dc_hot: 4/5 trade_date=2026-04-23 fetched=4751 written=4751",
-            payload_json: {
-              progress_message: "dc_hot: 4/5 trade_date=2026-04-23 fetched=4751 written=4751",
-              progress_current: 4,
-              progress_total: 5,
-              progress_percent: 80,
-              rows_fetched: 4751,
-              rows_written: 4751,
-              rows_rejected: 0,
-            },
-            occurred_at: "2026-04-24T15:55:57Z",
-          },
-        ],
-      };
-    }
-    if (path === "/api/v1/ops/codebook/sync") {
-      return {
-        version: "2026-04-23.v1",
-        updated_at: "2026-04-23T00:00:00Z",
-        error_codes: [],
-        reason_codes: [
-          {
-            code: "normalize.required_field_missing",
-            label: "必填字段缺失",
-            phase: "normalize",
-            suggested_action: "检查字段映射和空值处理",
-          },
-        ],
-      };
-    }
-    if (path === "/api/v1/ops/executions/1/logs") {
-      return {
-        execution_id: 1,
-        items: [],
-      };
-    }
-    if (path === "/api/v1/ops/executions/2/logs") {
-      return {
-        execution_id: 2,
-        items: [],
-      };
-    }
-    throw new Error(`unexpected path: ${path}`);
-  }),
-}));
+        context: {},
+        rows_fetched: 6,
+        rows_saved: 5,
+        rows_rejected: 1,
+        issue_id: 99,
+        started_at: "2026-03-31T01:00:02Z",
+        ended_at: null,
+        duration_ms: null,
+      },
+    ],
+    node_total: 1,
+    nodes_truncated: false,
+    actions: {
+      can_retry: true,
+      can_cancel: false,
+      can_copy_params: true,
+    },
+  };
+}
+
+function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  const rootRoute = createRootRoute({
+    component: () => <OpsTaskDetailPage taskRunId={1} />,
+  });
+  const route = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/ops/tasks/$taskRunId",
+    component: () => <OpsTaskDetailPage taskRunId={1} />,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([route]),
+    basepath: "/app",
+    history: createMemoryHistory({ initialEntries: ["/app/ops/tasks/1"] }),
+  });
+
+  render(
+    <MantineProvider theme={appTheme}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+}
 
 describe("任务详情页", () => {
-  it("默认先展示状态、范围和下一步建议，把实时处理记录后置", async () => {
+  it("只读取 TaskRun view API，并将失败原因集中展示一次", async () => {
     const user = userEvent.setup();
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/task-runs/1/view") {
+        return createTaskRunView();
+      }
+      if (path === "/api/v1/ops/task-runs/1/issues/99") {
+        return {
+          id: 99,
+          task_run_id: 1,
+          node_id: 10,
+          severity: "error",
+          code: "execution_failed",
+          title: "任务处理失败",
+          operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+          suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+          technical_message: "psycopg.errors.UniqueViolation",
+          technical_payload: {
+            source_phase: "execute",
+            node_id: 10,
+          },
+          source_phase: "execute",
+          occurred_at: "2026-03-31T01:00:05Z",
+        };
+      }
+      throw new Error(`unexpected path: ${path}`);
     });
 
-    const rootRoute = createRootRoute({
-      component: () => <OpsTaskDetailPage executionId={1} />,
-    });
-    const route = createRoute({
-      getParentRoute: () => rootRoute,
-      path: "/ops/tasks/$executionId",
-      component: () => <OpsTaskDetailPage executionId={1} />,
-    });
-    const router = createRouter({
-      routeTree: rootRoute.addChildren([route]),
-      basepath: "/app",
-      history: createMemoryHistory({ initialEntries: ["/app/ops/tasks/1"] }),
-    });
+    renderPage();
 
-    render(
-      <MantineProvider theme={appTheme}>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </QueryClientProvider>
-      </MantineProvider>,
-    );
-
-    expect(await screen.findByText("先看当前状态和进展，再决定是继续等待、重新提交，还是展开技术细节排查。")).toBeInTheDocument();
+    expect(await screen.findByText("当前详情页只读取 TaskRun view API，主页面只展示一处失败原因。")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("处理范围")).toBeInTheDocument();
     expect(await screen.findByText("2026-03-23 ~ 2026-03-30")).toBeInTheDocument();
-    expect(screen.queryByText("本次处理范围")).not.toBeInTheDocument();
-    expect((await screen.findAllByText("当前进展")).length).toBeGreaterThan(0);
-    expect(await screen.findByText("建议下一步")).toBeInTheDocument();
-    expect((await screen.findAllByText("实时处理记录")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("失败原因")).toBeInTheDocument();
+    expect(screen.getAllByText("任务处理失败")).toHaveLength(2);
+    expect(await screen.findByText("当前进度")).toBeInTheDocument();
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
-    expect(await screen.findByText("11%")).toBeInTheDocument();
-    expect((await screen.findAllByText("正在拉取 2026-03-23 到 2026-03-30 的股票日线数据")).length).toBeGreaterThan(0);
-    expect(await screen.findByText("当前股票：002034.SZ 美欣达")).toBeInTheDocument();
-    expect(await screen.findByText("当前频度：1min")).toBeInTheDocument();
-    expect(await screen.findByText("当前处理对象结果：读取 6 条，写入 5 条，拒绝 1 条")).toBeInTheDocument();
-    expect(await screen.findByText("累计接口结果：读取 6 条，写入 5 条，拒绝 1 条")).toBeInTheDocument();
-    expect(await screen.findByText("查看原因")).toBeInTheDocument();
+    expect(await screen.findByText("当前对象：ts_code=002034.SZ，security_name=美欣达，freq=1min")).toBeInTheDocument();
+    expect(await screen.findByText("执行过程")).toBeInTheDocument();
+    expect(await screen.findByText("读取 6，保存 5，拒绝 1")).toBeInTheDocument();
 
-    await user.click(await screen.findByRole("button", { name: "查看原因" }));
+    await user.click(await screen.findByRole("button", { name: "查看技术诊断" }));
 
-    expect(await screen.findByText("拒绝原因详情")).toBeInTheDocument();
-    expect(await screen.findByText("normalize.required_field_missing:ts_code")).toBeInTheDocument();
-    expect(await screen.findByText("必填字段缺失")).toBeInTheDocument();
-  });
-
-  it("终态任务会用详情进度覆盖滞后的进度事件", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
-
-    const rootRoute = createRootRoute({
-      component: () => <OpsTaskDetailPage executionId={2} />,
-    });
-    const route = createRoute({
-      getParentRoute: () => rootRoute,
-      path: "/ops/tasks/$executionId",
-      component: () => <OpsTaskDetailPage executionId={2} />,
-    });
-    const router = createRouter({
-      routeTree: rootRoute.addChildren([route]),
-      basepath: "/app",
-      history: createMemoryHistory({ initialEntries: ["/app/ops/tasks/2"] }),
-    });
-
-    render(
-      <MantineProvider theme={appTheme}>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </QueryClientProvider>
-      </MantineProvider>,
-    );
-
-    expect(await screen.findByText("5 / 5")).toBeInTheDocument();
-    expect(await screen.findByText("100%")).toBeInTheDocument();
-    expect(await screen.findAllByText("units=5 fetched=23643 written=23643 rejected=0")).not.toHaveLength(0);
-    expect(screen.queryByText("4 / 5")).not.toBeInTheDocument();
-    expect(screen.queryByText("80%")).not.toBeInTheDocument();
+    expect(await screen.findByText("完整技术错误")).toBeInTheDocument();
+    expect(await screen.findByText("psycopg.errors.UniqueViolation")).toBeInTheDocument();
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/view");
+    expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/issues/99");
   });
 });

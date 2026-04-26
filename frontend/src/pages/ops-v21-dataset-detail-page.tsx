@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 
 import { apiRequest } from "../shared/api/client";
 import type {
-  ExecutionListResponse,
   LayerSnapshotHistoryResponse,
   LayerSnapshotLatestResponse,
   OpsFreshnessResponse,
@@ -12,6 +11,7 @@ import type {
   ResolutionReleaseListResponse,
   StdCleansingRuleListResponse,
   StdMappingRuleListResponse,
+  TaskRunListResponse,
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
@@ -24,7 +24,7 @@ import { StatusBadge } from "../shared/ui/status-badge";
 import { buildFreshnessDisplayNameMap } from "./ops-v21-shared";
 
 
-type ExecutionRow = ExecutionListResponse["items"][number];
+type TaskRunRow = TaskRunListResponse["items"][number];
 
 function stageTitle(stage: string) {
   if (stage === "raw") return "raw";
@@ -69,9 +69,9 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     queryKey: ["ops", "layer-snapshot", "history", "v21-dataset-detail", datasetKey],
     queryFn: () => apiRequest<LayerSnapshotHistoryResponse>(`/api/v1/ops/layer-snapshots/history?dataset_key=${encodeURIComponent(datasetKey)}&limit=50`),
   });
-  const executionQuery = useQuery({
-    queryKey: ["ops", "executions", "v21-dataset-detail", datasetKey],
-    queryFn: () => apiRequest<ExecutionListResponse>(`/api/v1/ops/executions?dataset_key=${encodeURIComponent(datasetKey)}&limit=20`),
+  const taskRunQuery = useQuery({
+    queryKey: ["ops", "task-runs", "v21-dataset-detail", datasetKey],
+    queryFn: () => apiRequest<TaskRunListResponse>(`/api/v1/ops/task-runs?resource_key=${encodeURIComponent(datasetKey)}&limit=20`),
   });
   const probeQuery = useQuery({
     queryKey: ["ops", "probes", "v21-dataset-detail", datasetKey],
@@ -94,13 +94,13 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     freshnessQuery,
     latestQuery,
     historyQuery,
-    executionQuery,
+    taskRunQuery,
     probeQuery,
     releaseQuery,
     mappingQuery,
     cleansingQuery,
   ].some((query) => query.isLoading);
-  const error = freshnessQuery.error || latestQuery.error || historyQuery.error || executionQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
+  const error = freshnessQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
   const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
   const displayName = displayNameMap[datasetKey] || datasetKey;
@@ -155,10 +155,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   if (datasetKey === "daily" || stageMap.has("light")) {
     stageOrder.push("light");
   }
-  const executionItems = executionQuery.data?.items || [];
-  const executionRows = executionItems.slice(0, 10);
-  const recentExecution = executionItems[0];
-  const manualSpecKey = recentExecution?.spec_key || freshnessItem?.primary_execution_spec_key || `${datasetKey}.maintain`;
+  const taskRunItems = taskRunQuery.data?.items || [];
+  const taskRunRows = taskRunItems.slice(0, 10);
+  const recentTaskRun = taskRunItems[0];
+  const manualSpecKey = recentTaskRun?.resource_key ? `${recentTaskRun.resource_key}.maintain` : (freshnessItem?.primary_execution_spec_key || `${datasetKey}.maintain`);
   const sourceGroups = new Map<string, typeof latestItems>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
@@ -168,10 +168,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   }
   const releaseItems = releaseQuery.data?.items || [];
   const latestRelease = releaseItems[0];
-  const executionColumns: DataTableColumn<ExecutionRow>[] = [
+  const taskRunColumns: DataTableColumn<TaskRunRow>[] = [
     {
       key: "id",
-      header: "执行ID",
+      header: "任务ID",
       align: "left",
       width: "20%",
       render: (item) => (
@@ -202,7 +202,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       key: "rows_out",
       header: "rows_out",
       width: "12%",
-      render: (item) => <Text size="sm">{item.rows_written}</Text>,
+      render: (item) => <Text size="sm">{item.rows_saved}</Text>,
     },
     {
       key: "requested_at",
@@ -217,8 +217,8 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       align: "left",
       width: "12%",
       render: (item) => (
-        <Text size="sm" c={item.error_code ? "var(--mantine-color-error-6)" : "dimmed"}>
-          {item.error_code || "—"}
+        <Text size="sm" c={item.primary_issue_title ? "var(--mantine-color-error-6)" : "dimmed"}>
+          {item.primary_issue_title || "—"}
         </Text>
       ),
     },
@@ -232,7 +232,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             <Button component={Link} to="/ops/v21/overview" variant="light" color="gray">
               返回总览
             </Button>
-            <StatusBadge value={recentExecution?.status || "unknown"} />
+            <StatusBadge value={recentTaskRun?.status || "unknown"} />
             {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
@@ -255,7 +255,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           {error instanceof Error ? error.message : "未知错误"}
         </Alert>
       ) : null}
-      {!isLoading && !error && latestItems.length === 0 && executionItems.length === 0 ? (
+      {!isLoading && !error && latestItems.length === 0 && taskRunItems.length === 0 ? (
         <Alert color="info" title="该数据集暂无可展示记录">
           还没有该数据集的层级快照与执行记录。先执行一次同步任务后再查看详情。
         </Alert>
@@ -271,7 +271,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="今日写入行数">
-            <Text fw={700} size="xl">{recentExecution?.rows_written ?? 0}</Text>
+            <Text fw={700} size="xl">{recentTaskRun?.rows_saved ?? 0}</Text>
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
@@ -283,7 +283,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="今日执行次数">
-            <Text fw={700} size="xl">{executionItems.length}</Text>
+            <Text fw={700} size="xl">{taskRunItems.length}</Text>
           </MetricPanel>
         </Grid.Col>
       </Grid>
@@ -361,12 +361,12 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         </Stack>
       </SectionCard>
 
-      <SectionCard title="近期执行记录" description="按 dataset_key 过滤出的最近执行。">
+      <SectionCard title="近期任务记录" description="按维护对象过滤出的最近任务。">
         <DataTable
-          columns={executionColumns}
-          rows={executionRows}
+          columns={taskRunColumns}
+          rows={taskRunRows}
           getRowKey={(item) => item.id}
-          emptyState={<EmptyState title="暂无执行记录" description="当前数据集还没有可展示的执行结果。" />}
+          emptyState={<EmptyState title="暂无任务记录" description="当前数据集还没有可展示的任务结果。" />}
           minWidth={920}
         />
       </SectionCard>

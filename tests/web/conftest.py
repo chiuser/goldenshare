@@ -36,10 +36,6 @@ from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.models.ops.job_execution import JobExecution
-from src.ops.models.ops.job_execution_event import JobExecutionEvent
-from src.ops.models.ops.job_execution_step import JobExecutionStep
-from src.ops.models.ops.job_execution_unit import JobExecutionUnit
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -49,7 +45,9 @@ from src.ops.models.ops.resolution_release_stage_status import ResolutionRelease
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.models.ops.sync_job_state import SyncJobState
-from src.ops.models.ops.sync_run_log import SyncRunLog
+from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.app.auth.password_service import PasswordService
 
 
@@ -101,10 +99,9 @@ def web_engine(configured_web_env) -> Generator:
         Security.__table__.create(connection)
         TradeCalendar.__table__.create(connection)
         JobSchedule.__table__.create(connection)
-        JobExecution.__table__.create(connection)
-        JobExecutionStep.__table__.create(connection)
-        JobExecutionUnit.__table__.create(connection)
-        JobExecutionEvent.__table__.create(connection)
+        TaskRun.__table__.create(connection)
+        TaskRunNode.__table__.create(connection)
+        TaskRunIssue.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
         DatasetStatusSnapshot.__table__.create(connection)
         DatasetLayerSnapshotHistory.__table__.create(connection)
@@ -119,7 +116,6 @@ def web_engine(configured_web_env) -> Generator:
         ConfigRevision.__table__.create(connection)
         DatasetResolutionPolicy.__table__.create(connection)
         SyncJobState.__table__.create(connection)
-        SyncRunLog.__table__.create(connection)
     yield engine
     engine.dispose()
 
@@ -189,58 +185,70 @@ def auth_token(app_client: TestClient, user_factory: Callable[..., AppUser]) -> 
 
 
 @pytest.fixture()
-def job_execution_factory(db_session: Session) -> Callable[..., JobExecution]:
+def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
     def build(
         *,
-        spec_type: str = "dataset_action",
-        spec_key: str = "stock_basic.maintain",
+        task_type: str = "dataset_action",
+        resource_key: str | None = "stock_basic",
+        action: str = "maintain",
+        title: str = "股票主数据",
         trigger_source: str = "manual",
         status: str = "queued",
         requested_by_user_id: int | None = None,
         requested_at: datetime | None = None,
-        params_json: dict | None = None,
+        time_input_json: dict | None = None,
+        filters_json: dict | None = None,
+        request_payload_json: dict | None = None,
         rows_fetched: int = 0,
-        rows_written: int = 0,
-        progress_current: int | None = None,
-        progress_total: int | None = None,
+        rows_saved: int = 0,
+        rows_rejected: int = 0,
+        unit_done: int = 0,
+        unit_total: int = 0,
+        unit_failed: int = 0,
         progress_percent: int | None = None,
-        progress_message: str | None = None,
-        last_progress_at: datetime | None = None,
-        summary_message: str | None = None,
-        error_code: str | None = None,
-        error_message: str | None = None,
+        current_context_json: dict | None = None,
         started_at: datetime | None = None,
         ended_at: datetime | None = None,
+        cancel_requested_at: datetime | None = None,
+        canceled_at: datetime | None = None,
+        primary_issue_id: int | None = None,
         schedule_id: int | None = None,
-    ) -> JobExecution:
-        next_id = (db_session.scalar(select(func.max(JobExecution.id))) or 0) + 1
-        execution = JobExecution(
+    ) -> TaskRun:
+        next_id = (db_session.scalar(select(func.max(TaskRun.id))) or 0) + 1
+        task_run = TaskRun(
             id=next_id,
+            task_type=task_type,
+            resource_key=resource_key,
+            action=action,
+            title=title,
             schedule_id=schedule_id,
-            spec_type=spec_type,
-            spec_key=spec_key,
             trigger_source=trigger_source,
             status=status,
             requested_by_user_id=requested_by_user_id,
             requested_at=requested_at or datetime.now(timezone.utc),
-            params_json=params_json or {},
+            queued_at=requested_at or datetime.now(timezone.utc),
+            time_input_json=time_input_json or {},
+            filters_json=filters_json or {},
+            request_payload_json=request_payload_json or {},
+            plan_snapshot_json={},
             rows_fetched=rows_fetched,
-            rows_written=rows_written,
-            progress_current=progress_current,
-            progress_total=progress_total,
+            rows_saved=rows_saved,
+            rows_rejected=rows_rejected,
+            unit_done=unit_done,
+            unit_total=unit_total,
+            unit_failed=unit_failed,
             progress_percent=progress_percent,
-            progress_message=progress_message,
-            last_progress_at=last_progress_at,
-            summary_message=summary_message,
-            error_code=error_code,
-            error_message=error_message,
+            current_context_json=current_context_json or {},
             started_at=started_at,
             ended_at=ended_at,
+            cancel_requested_at=cancel_requested_at,
+            canceled_at=canceled_at,
+            primary_issue_id=primary_issue_id,
         )
-        db_session.add(execution)
+        db_session.add(task_run)
         db_session.commit()
-        db_session.refresh(execution)
-        return execution
+        db_session.refresh(task_run)
+        return task_run
 
     return build
 
@@ -263,39 +271,6 @@ def sync_job_state_factory(db_session: Session) -> Callable[..., SyncJobState]:
             last_success_at=last_success_at,
             last_cursor=last_cursor,
             full_sync_done=full_sync_done,
-        )
-        db_session.add(row)
-        db_session.commit()
-        db_session.refresh(row)
-        return row
-
-    return build
-
-
-@pytest.fixture()
-def sync_run_log_factory(db_session: Session) -> Callable[..., SyncRunLog]:
-    def build(
-        *,
-        execution_id: int | None = None,
-        job_name: str = "sync_equity_daily",
-        run_type: str = "FULL",
-        started_at: datetime | None = None,
-        ended_at: datetime | None = None,
-        status: str = "SUCCESS",
-        rows_fetched: int = 0,
-        rows_written: int = 0,
-        message: str | None = None,
-    ) -> SyncRunLog:
-        row = SyncRunLog(
-            execution_id=execution_id,
-            job_name=job_name,
-            run_type=run_type,
-            started_at=started_at or datetime.now(timezone.utc),
-            ended_at=ended_at,
-            status=status,
-            rows_fetched=rows_fetched,
-            rows_written=rows_written,
-            message=message,
         )
         db_session.add(row)
         db_session.commit()
@@ -409,73 +384,83 @@ def job_schedule_factory(db_session: Session) -> Callable[..., JobSchedule]:
 
 
 @pytest.fixture()
-def job_execution_step_factory(db_session: Session) -> Callable[..., JobExecutionStep]:
+def task_run_node_factory(db_session: Session) -> Callable[..., TaskRunNode]:
     def build(
         *,
-        execution_id: int,
-        step_key: str = "step_1",
-        display_name: str = "步骤 1",
+        task_run_id: int,
+        node_key: str = "node_1",
+        title: str = "节点 1",
         sequence_no: int = 1,
         status: str = "pending",
-        unit_kind: str | None = None,
-        unit_value: str | None = None,
+        node_type: str = "dataset_plan",
+        resource_key: str | None = None,
+        time_input_json: dict | None = None,
+        context_json: dict | None = None,
         rows_fetched: int = 0,
-        rows_written: int = 0,
-        message: str | None = None,
+        rows_saved: int = 0,
+        rows_rejected: int = 0,
         started_at: datetime | None = None,
         ended_at: datetime | None = None,
-    ) -> JobExecutionStep:
-        next_id = (db_session.scalar(select(func.max(JobExecutionStep.id))) or 0) + 1
-        step = JobExecutionStep(
+    ) -> TaskRunNode:
+        next_id = (db_session.scalar(select(func.max(TaskRunNode.id))) or 0) + 1
+        node = TaskRunNode(
             id=next_id,
-            execution_id=execution_id,
-            step_key=step_key,
-            display_name=display_name,
+            task_run_id=task_run_id,
+            node_key=node_key,
+            node_type=node_type,
             sequence_no=sequence_no,
+            title=title,
+            resource_key=resource_key,
             status=status,
-            unit_kind=unit_kind,
-            unit_value=unit_value,
+            time_input_json=time_input_json or {},
+            context_json=context_json or {},
             rows_fetched=rows_fetched,
-            rows_written=rows_written,
-            message=message,
+            rows_saved=rows_saved,
+            rows_rejected=rows_rejected,
             started_at=started_at,
             ended_at=ended_at,
         )
-        db_session.add(step)
+        db_session.add(node)
         db_session.commit()
-        db_session.refresh(step)
-        return step
+        db_session.refresh(node)
+        return node
 
     return build
 
 
 @pytest.fixture()
-def job_execution_event_factory(db_session: Session) -> Callable[..., JobExecutionEvent]:
+def task_run_issue_factory(db_session: Session) -> Callable[..., TaskRunIssue]:
     def build(
         *,
-        execution_id: int,
-        event_type: str,
-        step_id: int | None = None,
-        level: str = "INFO",
+        task_run_id: int,
+        node_id: int | None = None,
+        severity: str = "error",
+        code: str = "test_issue",
+        title: str = "测试问题",
         message: str | None = None,
-        payload_json: dict | None = None,
+        technical_payload_json: dict | None = None,
         occurred_at: datetime | None = None,
-    ) -> JobExecutionEvent:
-        next_id = (db_session.scalar(select(func.max(JobExecutionEvent.id))) or 0) + 1
-        event = JobExecutionEvent(
+    ) -> TaskRunIssue:
+        next_id = (db_session.scalar(select(func.max(TaskRunIssue.id))) or 0) + 1
+        issue = TaskRunIssue(
             id=next_id,
-            execution_id=execution_id,
-            step_id=step_id,
-            event_type=event_type,
-            level=level,
-            message=message,
-            payload_json=payload_json or {},
+            task_run_id=task_run_id,
+            node_id=node_id,
+            severity=severity,
+            code=code,
+            title=title,
+            operator_message=message,
+            suggested_action=None,
+            technical_message=message,
+            technical_payload_json=technical_payload_json or {},
+            source_phase="test",
+            fingerprint=f"{task_run_id}:{node_id or 0}:{code}:{next_id}",
             occurred_at=occurred_at or datetime.now(timezone.utc),
         )
-        db_session.add(event)
+        db_session.add(issue)
         db_session.commit()
-        db_session.refresh(event)
-        return event
+        db_session.refresh(issue)
+        return issue
 
     return build
 

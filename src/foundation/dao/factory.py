@@ -20,7 +20,6 @@ from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
 from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
 from src.foundation.dao.sync_job_state_dao import SyncJobStateDAO
-from src.foundation.dao.sync_run_log_dao import SyncRunLogDAO
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
@@ -191,7 +190,6 @@ class DAOFactory:
         self.ths_hot = GenericDAO(session, ThsHot)
         self.equity_holder_number = EquityHolderNumberDAO(session)
         self.sync_job_state = SyncJobStateDAO(session)
-        self.sync_run_log = SyncRunLogDAO(session)
         self.index_series_active = IndexSeriesActiveDAO(session)
         self.security_std = GenericDAO(session, SecurityStd)
 

@@ -346,7 +346,7 @@ main() {
   .venv/bin/goldenshare list-resources >/dev/null
 
   log "11/12 Ops 自检"
-  .venv/bin/goldenshare ops-reconcile-executions --stale-for-minutes 30 >/dev/null
+  .venv/bin/goldenshare ops-reconcile-task-runs --stale-for-minutes 30 >/dev/null
 
   log "12/12 Platform 健康检查"
   health_check "${HEALTH_URL}" "Platform /api/health"

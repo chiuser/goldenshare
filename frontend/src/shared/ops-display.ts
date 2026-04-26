@@ -299,11 +299,17 @@ function stripMaintenanceAffix(value: string): string {
 }
 
 export function formatExecutionResourceLabel(item: {
+  title?: string | null;
   resource_display_name?: string | null;
   action_display_name?: string | null;
   spec_display_name?: string | null;
   spec_key?: string | null;
 }): string {
+  const title = normalizeKey(item.title);
+  if (title) {
+    return stripMaintenanceAffix(title);
+  }
+
   const resourceDisplayName = normalizeKey(item.resource_display_name);
   if (resourceDisplayName) {
     return resourceDisplayName;

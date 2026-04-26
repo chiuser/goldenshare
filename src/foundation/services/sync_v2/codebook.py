@@ -20,8 +20,8 @@ class SyncCodebookEntry:
         }
 
 
-SYNC_CODEBOOK_VERSION: Final[str] = "2026-04-24.v1"
-SYNC_CODEBOOK_UPDATED_AT: Final[str] = "2026-04-24T00:00:00Z"
+SYNC_CODEBOOK_VERSION: Final[str] = "2026-04-26.v1"
+SYNC_CODEBOOK_UPDATED_AT: Final[str] = "2026-04-26T00:00:00Z"
 
 SYNC_ERROR_CODEBOOK: Final[tuple[SyncCodebookEntry, ...]] = (
     SyncCodebookEntry("dataset_mismatch", "请求数据集与合同不一致", "validator", "检查 dataset_key 与 contract 绑定"),
@@ -41,6 +41,7 @@ SYNC_ERROR_CODEBOOK: Final[tuple[SyncCodebookEntry, ...]] = (
     SyncCodebookEntry("invalid_integer", "整数参数格式非法", "validator", "检查参数类型并传入整数"),
     SyncCodebookEntry("invalid_boolean", "布尔参数格式非法", "validator", "使用 true/false 或 1/0"),
     SyncCodebookEntry("invalid_enum", "枚举参数值非法", "validator", "改为接口允许的枚举值"),
+    SyncCodebookEntry("forbidden_sentinel", "请求参数包含禁用哨兵值", "validator/planner/normalize", "使用真实枚举值，不允许使用 ALL 哨兵值"),
     SyncCodebookEntry("empty_not_allowed", "参数不允许为空", "validator", "填写非空值"),
     SyncCodebookEntry("invalid_month_key", "月份参数格式非法", "validator", "使用 YYYYMM 或 YYYY-MM"),
     SyncCodebookEntry("invalid_anchor_type", "锚点类型非法", "validator/planner", "检查 contract 锚点配置"),
