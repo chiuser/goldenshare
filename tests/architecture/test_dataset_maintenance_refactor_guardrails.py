@@ -166,6 +166,11 @@ def test_active_code_does_not_reference_retired_dataset_fact_table() -> None:
     forbidden_tokens = (
         "dataset_" + "pipeline_" + "mode",
         "Dataset" + "PipelineMode",
+        "Dataset" + "PipelineProjection",
+        "build_dataset_" + "pipeline_projection",
+        "multi_source_" + "pipeline",
+        "single_source_" + "direct",
+        "direct_" + "maintain",
         "pipeline-" + "modes",
     )
     violations: list[str] = []

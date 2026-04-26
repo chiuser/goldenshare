@@ -735,9 +735,9 @@ export interface DatasetCardListResponse {
       domain_display_name: string;
       status: string;
       freshness_status: string;
-      mode: string;
-      mode_label: string;
-      mode_tone: string;
+      delivery_mode: string;
+      delivery_mode_label: string;
+      delivery_mode_tone: string;
       layer_plan: string;
       cadence: string;
       raw_table: string | null;

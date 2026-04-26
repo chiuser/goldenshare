@@ -238,10 +238,7 @@ class TaskRunCommandService:
     @staticmethod
     def _resolve_title(*, task_type: str, resource_key: str | None, action: str) -> str:
         if resource_key:
-            try:
-                return get_dataset_definition(resource_key).display_name
-            except KeyError:
-                return resource_key
+            return get_dataset_definition(resource_key).display_name
         if task_type == "workflow":
             return "工作流维护"
         if task_type == "maintenance_action":

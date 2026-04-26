@@ -190,7 +190,7 @@ Tushare 说明（你补充的口径）：
 
 - `dry-run`：仅展示将写入内容，不改库。
 - `--apply`：写入/修正如下对象（可重复执行）：
-  - DatasetDefinition 派生投影：`moneyflow -> multi_source_pipeline`（`tushare,biying`），不再写旧数据集模式配置表
+  - DatasetDefinition 派生投影：`moneyflow -> multi_source_fusion`（`tushare,biying`），不再写旧数据集模式配置表
   - `ops.std_mapping_rule`：`moneyflow+tushare` 与 `moneyflow+biying` 默认映射骨架
   - `ops.std_cleansing_rule`：`moneyflow+tushare` 与 `moneyflow+biying` 默认清洗骨架
   - `foundation.dataset_source_status`：`moneyflow` 的 `tushare/biying` 均置为 active

@@ -8,10 +8,10 @@ from src.foundation.datasets.registry import get_dataset_definition, list_datase
 
 
 @dataclass(frozen=True, slots=True)
-class DatasetPipelineProjection:
+class DatasetLayerProjection:
     dataset_key: str
     source_keys: tuple[str, ...]
-    mode: str
+    delivery_mode: str
     layer_plan: str
     raw_table: str | None
     std_table_hint: str | None
@@ -41,21 +41,21 @@ class DatasetFreshnessProjection:
     primary_action_key: str | None = None
 
 
-def build_dataset_pipeline_projection(definition: DatasetDefinition) -> DatasetPipelineProjection:
-    mode = _mode_from_definition(definition)
-    return DatasetPipelineProjection(
+def build_dataset_layer_projection(definition: DatasetDefinition) -> DatasetLayerProjection:
+    delivery_mode = _delivery_mode_from_definition(definition)
+    return DatasetLayerProjection(
         dataset_key=definition.dataset_key,
         source_keys=_source_keys_from_definition(definition),
-        mode=mode,
-        layer_plan=_layer_plan(mode),
+        delivery_mode=delivery_mode,
+        layer_plan=_layer_plan(delivery_mode),
         raw_table=definition.storage.raw_table,
-        std_table_hint=_std_table_hint(definition, mode),
-        serving_table=_serving_table(definition, mode),
+        std_table_hint=_std_table_hint(definition, delivery_mode),
+        serving_table=_serving_table(definition, delivery_mode),
         raw_enabled=True,
-        std_enabled=mode == "multi_source_pipeline",
-        resolution_enabled=mode == "multi_source_pipeline",
-        serving_enabled=mode in {"single_source_direct", "multi_source_pipeline"},
-        notes=f"由 DatasetDefinition 派生：{mode}",
+        std_enabled=delivery_mode == "multi_source_fusion",
+        resolution_enabled=delivery_mode == "multi_source_fusion",
+        serving_enabled=delivery_mode in {"single_source_serving", "multi_source_fusion"},
+        notes=f"由 DatasetDefinition 派生：{delivery_mode_label(delivery_mode)}",
     )
 
 
@@ -116,42 +116,66 @@ def validate_dataset_freshness_projections(
     return errors
 
 
-def _mode_from_definition(definition: DatasetDefinition) -> str:
+def _delivery_mode_from_definition(definition: DatasetDefinition) -> str:
     write_path = definition.storage.write_path
     target_table = definition.storage.target_table
     if write_path.startswith("raw_std_publish"):
-        return "multi_source_pipeline"
+        return "multi_source_fusion"
     if write_path == "raw_only_upsert" or target_table.startswith("raw_"):
-        return "raw_only"
+        return "raw_collection"
     if target_table.startswith("core_serving."):
-        return "single_source_direct"
-    return "direct_maintain"
+        return "single_source_serving"
+    return "core_direct"
 
 
-def _layer_plan(mode: str) -> str:
-    if mode == "multi_source_pipeline":
+def _layer_plan(delivery_mode: str) -> str:
+    if delivery_mode == "multi_source_fusion":
         return "raw->std->resolution->serving"
-    if mode == "single_source_direct":
+    if delivery_mode == "single_source_serving":
         return "raw->serving"
-    if mode == "raw_only":
+    if delivery_mode == "raw_collection":
         return "raw-only"
-    if mode == "direct_maintain":
+    if delivery_mode == "core_direct":
         return "raw->core"
     return "unknown"
 
 
-def _std_table_hint(definition: DatasetDefinition, mode: str) -> str | None:
-    if mode != "multi_source_pipeline":
+def _std_table_hint(definition: DatasetDefinition, delivery_mode: str) -> str | None:
+    if delivery_mode != "multi_source_fusion":
         return None
     return f"core_multi.{definition.storage.core_dao_name}"
 
 
-def _serving_table(definition: DatasetDefinition, mode: str) -> str | None:
-    if mode in {"raw_only", "direct_maintain"}:
+def _serving_table(definition: DatasetDefinition, delivery_mode: str) -> str | None:
+    if delivery_mode in {"raw_collection", "core_direct"}:
         return None
     if definition.storage.target_table.startswith("core_serving."):
         return definition.storage.target_table
     return None
+
+
+def delivery_mode_label(delivery_mode: str) -> str:
+    if delivery_mode == "single_source_serving":
+        return "单源服务"
+    if delivery_mode == "multi_source_fusion":
+        return "多源融合"
+    if delivery_mode == "raw_collection":
+        return "原始采集"
+    if delivery_mode == "core_direct":
+        return "核心直写"
+    return "未定义"
+
+
+def delivery_mode_tone(delivery_mode: str) -> str:
+    if delivery_mode == "single_source_serving":
+        return "success"
+    if delivery_mode == "multi_source_fusion":
+        return "info"
+    if delivery_mode == "raw_collection":
+        return "neutral"
+    if delivery_mode == "core_direct":
+        return "warning"
+    return "neutral"
 
 
 def _source_keys_from_definition(definition: DatasetDefinition) -> tuple[str, ...]:

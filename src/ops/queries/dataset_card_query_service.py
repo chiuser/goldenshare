@@ -13,7 +13,11 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.ops.dataset_definition_projection import build_dataset_pipeline_projection
+from src.ops.dataset_definition_projection import (
+    build_dataset_layer_projection,
+    delivery_mode_label,
+    delivery_mode_tone,
+)
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
@@ -39,9 +43,7 @@ class DatasetCardFact:
     domain_display_name: str
     cadence: str
     source_keys: tuple[str, ...]
-    mode: str
-    mode_label: str
-    mode_tone: str
+    delivery_mode: str
     layer_plan: str
     raw_table: str | None
     std_table_hint: str | None
@@ -167,6 +169,7 @@ class DatasetCardQueryService:
             has_active = (active_status or "").lower() in {"queued", "running", "canceling"}
             status = "running" if has_active else self._card_status(members, member_freshness, layers, source_key=source_key)
             probe_total, probe_active = self._combined_probe_counts([item.dataset_key for item in members], probe_counts)
+            delivery_mode = self._delivery_mode_for_card(members)
 
             cards.append(
                 DatasetCardItem(
@@ -179,9 +182,9 @@ class DatasetCardQueryService:
                     domain_display_name=primary.domain_display_name,
                     status=status,
                     freshness_status=self._worse_raw_status([item.freshness_status for item in member_freshness]),
-                    mode=self._mode_for_card(members),
-                    mode_label=self._mode_label(self._mode_for_card(members)),
-                    mode_tone=self._mode_tone(self._mode_for_card(members)),
+                    delivery_mode=delivery_mode,
+                    delivery_mode_label=delivery_mode_label(delivery_mode),
+                    delivery_mode_tone=delivery_mode_tone(delivery_mode),
                     layer_plan=primary.layer_plan,
                     cadence=primary_freshness.cadence if primary_freshness else "",
                     raw_table=primary.raw_table,
@@ -237,7 +240,7 @@ class DatasetCardQueryService:
             if previous is None or item.calculated_at > previous.calculated_at:
                 stage_latest[item.stage] = item
 
-        stages = self._expected_stages(primary.mode, canonical_key, layers)
+        stages = self._expected_stages(primary.delivery_mode, canonical_key, layers)
         result: list[DatasetCardStageStatus] = []
         for stage in stages:
             latest = stage_latest.get(stage)
@@ -388,43 +391,19 @@ class DatasetCardQueryService:
         return 0
 
     @staticmethod
-    def _mode_for_card(members: list[DatasetCardFact]) -> str:
-        modes = {item.mode for item in members}
-        if "multi_source_pipeline" in modes:
-            return "multi_source_pipeline"
-        return members[0].mode
+    def _delivery_mode_for_card(members: list[DatasetCardFact]) -> str:
+        modes = {item.delivery_mode for item in members}
+        if "multi_source_fusion" in modes:
+            return "multi_source_fusion"
+        return members[0].delivery_mode
 
     @staticmethod
-    def _mode_label(mode: str) -> str:
-        if mode == "single_source_direct":
-            return "单源直出"
-        if mode == "multi_source_pipeline":
-            return "多源流水线"
-        if mode == "raw_only":
-            return "仅原始层"
-        if mode == "direct_maintain":
-            return "直接维护"
-        return "未定义"
-
-    @staticmethod
-    def _mode_tone(mode: str) -> str:
-        if mode == "single_source_direct":
-            return "success"
-        if mode == "multi_source_pipeline":
-            return "info"
-        if mode == "raw_only":
-            return "neutral"
-        if mode == "direct_maintain":
-            return "warning"
-        return "neutral"
-
-    @staticmethod
-    def _expected_stages(mode: str, canonical_key: str, layers: list[LayerSnapshotLatestItem]) -> list[str]:
-        if mode == "multi_source_pipeline":
+    def _expected_stages(delivery_mode: str, canonical_key: str, layers: list[LayerSnapshotLatestItem]) -> list[str]:
+        if delivery_mode == "multi_source_fusion":
             base = ["raw", "std", "resolution", "serving"]
-        elif mode == "single_source_direct":
+        elif delivery_mode == "single_source_serving":
             base = ["raw", "serving"]
-        elif mode in {"raw_only", "direct_maintain"}:
+        elif delivery_mode in {"raw_collection", "core_direct"}:
             base = ["raw"]
         else:
             base = ["raw", "serving"]
@@ -484,7 +463,7 @@ class DatasetCardQueryService:
         *,
         config_flags: tuple[bool, bool, bool],
     ) -> DatasetCardFact:
-        projection = build_dataset_pipeline_projection(definition)
+        projection = build_dataset_layer_projection(definition)
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
@@ -494,9 +473,7 @@ class DatasetCardQueryService:
             domain_display_name=definition.domain.domain_display_name,
             cadence=definition.domain.cadence,
             source_keys=projection.source_keys,
-            mode=projection.mode,
-            mode_label=self._mode_label(projection.mode),
-            mode_tone=self._mode_tone(projection.mode),
+            delivery_mode=projection.delivery_mode,
             layer_plan=projection.layer_plan,
             raw_table=projection.raw_table,
             std_table_hint=projection.std_table_hint,

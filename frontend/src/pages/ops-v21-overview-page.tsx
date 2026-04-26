@@ -151,11 +151,11 @@ export function OpsV21OverviewPage() {
                       </Stack>
                       <Badge
                         variant="light"
-                        color={item.mode_tone}
+                        color={item.delivery_mode_tone}
                         size="md"
                         style={{ flex: "0 0 auto", fontSize: 14 }}
                       >
-                        {item.mode_label}
+                        {item.delivery_mode_label}
                       </Badge>
                     </Group>
 

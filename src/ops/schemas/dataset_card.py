@@ -38,9 +38,9 @@ class DatasetCardItem(BaseModel):
     domain_display_name: str
     status: str
     freshness_status: str
-    mode: str
-    mode_label: str
-    mode_tone: str
+    delivery_mode: str
+    delivery_mode_label: str
+    delivery_mode_tone: str
     layer_plan: str
     cadence: str
     raw_table: str | None = None

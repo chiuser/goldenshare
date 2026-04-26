@@ -81,10 +81,10 @@
 
 ## 3. 核心对象模型
 
-### 3.1 `DatasetDefinition -> DatasetPipelineProjection`
+### 3.1 `DatasetDefinition -> DatasetLayerProjection`
 
 用途：从 DatasetDefinition 派生数据集来源、raw 表、目标表、stage 计划与维护入口等静态事实。
-约束：Ops 页面和查询层不得再依赖落库的 pipeline mode 表，也不得自行推断这些事实。
+约束：Ops 页面和查询层不得再依赖旧数据集模式落库表，也不得自行推断这些事实。
 
 ### 3.2 `ops.dataset_layer_snapshot_current`
 
@@ -101,7 +101,7 @@
 状态语义约束：
 
 1. `fresh/lagging/stale/failed`：健康度核心状态
-2. `skipped`：该层在当前 mode 下未启用
+2. `skipped`：该层在当前交付模式下未启用
 3. `unknown`：数据缺失或不可判定（异常态，不应长期存在）
 4. `disabled`：数据集停用（保留执行链路，但从健康度告警口径排除）
 
@@ -154,17 +154,17 @@
 
 默认推导（seed）：
 
-1. `stock_basic`：`multi_source_pipeline`
-2. `target_table` 以 `raw_` 开头：`raw_only`
-3. `target_table` 以 `core_serving.` 开头：`single_source_direct`
-4. 其他历史口径：`legacy_core_direct`
+1. 多源标准化发布：`multi_source_fusion`
+2. `target_table` 以 `raw_` 开头：`raw_collection`
+3. `target_table` 以 `core_serving.` 开头：`single_source_serving`
+4. 其他核心直写：`core_direct`
 
 ---
 
 ## 6. 运维规则（必须遵守）
 
 1. 页面口径优先读取统一读模型，不在前端临时拼装状态
-2. 模式与层级状态必须可追溯（pipeline mode + layer snapshot）
+2. 交付模式与层级状态必须可追溯（DatasetDefinition 派生事实 + layer snapshot）
 3. 新增数据集必须接入 Ops 可观测能力，不允许“只落表不可见”
 4. 页面文案优先业务语义，不暴露底层字段实现细节
 5. `disabled` 数据集可见但不计入滞后/失败告警统计

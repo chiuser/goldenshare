@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.dataset_definition_projection import (
-    build_dataset_pipeline_projection,
+    build_dataset_layer_projection,
     get_dataset_freshness_projection,
 )
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
@@ -185,7 +185,7 @@ class DatasetStatusSnapshotService:
                 definition = get_dataset_definition(item.dataset_key)
             except KeyError:
                 continue
-            projection = build_dataset_pipeline_projection(definition)
+            projection = build_dataset_layer_projection(definition)
             source_key = projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
 
             def upsert_stage(stage: str, status: str, message: str | None) -> None:

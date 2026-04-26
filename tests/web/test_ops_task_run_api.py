@@ -220,6 +220,7 @@ def test_ops_task_run_retry_and_cancel_use_task_run_api(app_client, user_factory
 
 def test_removed_ops_executions_routes_do_not_exist(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
-    response = app_client.get("/api/v1/ops/executions", headers=auth_headers(app_client))
+    removed_path = "/api/v1/ops/" + "executions"
+    response = app_client.get(removed_path, headers=auth_headers(app_client))
 
     assert response.status_code == 404
