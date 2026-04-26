@@ -120,7 +120,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     const fallbackTs = freshnessItem.last_sync_date || freshnessItem.recent_failure_at || freshnessItem.expected_business_date || "1970-01-01T00:00:00Z";
     const sourceKey = inferSourceFromTargetTable(freshnessItem.target_table, datasetKey);
     latestItems.push({
-      snapshot_date: (freshnessItem.state_business_date || freshnessItem.latest_business_date || "1970-01-01").slice(0, 10),
+      snapshot_date: (freshnessItem.latest_business_date || freshnessItem.last_sync_date || "1970-01-01").slice(0, 10),
       dataset_key: datasetKey,
       source_key: sourceKey,
       stage: "raw",
@@ -135,7 +135,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       last_failure_at: freshnessItem.recent_failure_at || null,
     });
     latestItems.push({
-      snapshot_date: (freshnessItem.state_business_date || freshnessItem.latest_business_date || "1970-01-01").slice(0, 10),
+      snapshot_date: (freshnessItem.latest_business_date || freshnessItem.last_sync_date || "1970-01-01").slice(0, 10),
       dataset_key: datasetKey,
       source_key: sourceKey,
       stage: "serving",

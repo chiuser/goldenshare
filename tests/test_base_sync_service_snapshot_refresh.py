@@ -23,11 +23,6 @@ class _DummySyncService(BaseSyncService):
 
 def _build_fake_dao() -> SimpleNamespace:
     return SimpleNamespace(
-        sync_job_state=SimpleNamespace(
-            record_execution_outcome=lambda *args, **kwargs: None,
-            mark_success=lambda *args, **kwargs: None,
-            mark_full_sync_done=lambda *args, **kwargs: None,
-        ),
         index_series_active=SimpleNamespace(),
     )
 

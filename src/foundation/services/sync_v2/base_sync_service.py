@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.kernel.contracts.index_series_active_store import IndexSeriesActiveStore
-from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunRecorder
+from src.foundation.kernel.contracts.sync_state_store import SyncExecutionResultStore, SyncRunRecorder
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.foundation.schemas import SyncResult
 from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.foundation.services.sync_v2.sync_execution_context import NullSyncExecutionContext
 from src.foundation.services.sync_v2.sync_state_store import (
-    NullSyncJobStateStore,
+    NullSyncExecutionResultStore,
     NullSyncRunRecorder,
 )
 
@@ -29,14 +29,14 @@ class BaseSyncService(ABC):
         session: Session,
         execution_context: SyncExecutionContext | None = None,
         run_recorder: SyncRunRecorder | None = None,
-        job_state_store: SyncJobStateStore | None = None,
+        execution_result_store: SyncExecutionResultStore | None = None,
         index_series_active_store: IndexSeriesActiveStore | None = None,
     ) -> None:
         self.session = session
         self.dao = DAOFactory(session)
         self.execution_context = execution_context or NullSyncExecutionContext()
         self.run_recorder = run_recorder or NullSyncRunRecorder()
-        self.job_state_store = job_state_store or NullSyncJobStateStore()
+        self.execution_result_store = execution_result_store or NullSyncExecutionResultStore()
         self.index_series_active_store = index_series_active_store or self.dao.index_series_active
         self.logger = logging.getLogger(self.__class__.__name__)
         self._assert_no_legacy_raw_schema_route()
@@ -48,10 +48,10 @@ class BaseSyncService(ABC):
         self,
         *,
         run_recorder: SyncRunRecorder | None = None,
-        job_state_store: SyncJobStateStore | None = None,
+        execution_result_store: SyncExecutionResultStore | None = None,
     ) -> None:
         self.run_recorder = run_recorder or NullSyncRunRecorder()
-        self.job_state_store = job_state_store or NullSyncJobStateStore()
+        self.execution_result_store = execution_result_store or NullSyncExecutionResultStore()
 
     def set_index_series_active_store(self, index_series_active_store: IndexSeriesActiveStore | None) -> None:
         self.index_series_active_store = index_series_active_store or self.dao.index_series_active
@@ -75,7 +75,7 @@ class BaseSyncService(ABC):
                 rows_written=written,
                 message=message,
             )
-            self.job_state_store.record_execution_outcome(
+            self.execution_result_store.record_execution_outcome(
                 job_name=self.job_name,
                 target_table=self.target_table,
                 run_type=run_type,

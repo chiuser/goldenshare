@@ -147,7 +147,7 @@ OBSERVED_DATE_MODEL_REGISTRY: dict[str, type] = {
     "raw_biying.equity_daily_bar": RawBiyingEquityDailyBar,
     "raw_biying.moneyflow": RawBiyingMoneyflow,
     "raw_tushare.stk_mins": RawStkMins,
-    # Compatible aliases for historical sync_job_state.target_table values.
+    # Historical target_table aliases kept for older data rows.
     "core.trade_calendar": TradeCalendar,
     "core.equity_daily_bar": EquityDailyBar,
     "core.equity_daily_basic": EquityDailyBasic,

@@ -130,14 +130,11 @@ class DatasetStatusSnapshotService:
             row.display_name = item.display_name
             row.domain_key = item.domain_key
             row.domain_display_name = item.domain_display_name
-            row.job_name = item.job_name
             row.target_table = item.target_table
             row.cadence = item.cadence
-            row.state_business_date = item.state_business_date
             row.earliest_business_date = item.earliest_business_date
             row.observed_business_date = item.observed_business_date
             row.latest_business_date = item.latest_business_date
-            row.business_date_source = item.business_date_source
             row.freshness_note = item.freshness_note
             row.latest_success_at = item.latest_success_at
             row.last_sync_date = item.last_sync_date
@@ -148,7 +145,6 @@ class DatasetStatusSnapshotService:
             row.recent_failure_summary = item.recent_failure_summary
             row.recent_failure_at = item.recent_failure_at
             row.primary_execution_spec_key = item.primary_execution_spec_key
-            row.full_sync_done = item.full_sync_done
             row.snapshot_date = snapshot_date
             row.last_calculated_at = calculated_at
 

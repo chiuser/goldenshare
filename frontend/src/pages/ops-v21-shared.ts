@@ -67,7 +67,7 @@ function toSyntheticSnapshotFromFreshness(
           : "unknown";
   const ts = item.last_sync_date || item.recent_failure_at || item.expected_business_date || "1970-01-01T00:00:00Z";
   return {
-    snapshot_date: (item.state_business_date || item.latest_business_date || item.last_sync_date || "1970-01-01").slice(0, 10),
+    snapshot_date: (item.latest_business_date || item.last_sync_date || "1970-01-01").slice(0, 10),
     dataset_key: item.dataset_key,
     source_key: inferSourceFromTargetTable(item.target_table, item.dataset_key),
     stage,

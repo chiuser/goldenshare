@@ -27,7 +27,6 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.resolution_release_stage_status",
     "src.ops.models.ops.std_cleansing_rule",
     "src.ops.models.ops.std_mapping_rule",
-    "src.ops.models.ops.sync_job_state",
     "src.ops.models.ops.task_run",
     "src.ops.models.ops.task_run_issue",
     "src.ops.models.ops.task_run_node",

@@ -22,33 +22,8 @@ class SyncRunRecorder(Protocol):
         """结束一次同步过程。"""
 
 
-class SyncJobStateStore(Protocol):
-    """同步任务状态写入 contract。"""
-
-    def get_last_success_date(self, *, job_name: str) -> date | None:
-        """获取该任务最近成功业务日。"""
-
-    def mark_success(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-    ) -> None:
-        """标记任务成功。"""
-
-    def reconcile_success_date(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date,
-    ) -> None:
-        """按观测值对齐最近成功业务日。"""
-
-    def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
-        """标记全量同步完成。"""
+class SyncExecutionResultStore(Protocol):
+    """同步执行结果写入 contract。当前默认实现为无副作用 no-op。"""
 
     def record_execution_outcome(
         self,
@@ -61,4 +36,4 @@ class SyncJobStateStore(Protocol):
         last_cursor: str | None = None,
         rows_committed: int | None = None,
     ) -> None:
-        """一次性记录执行成功结果，避免分裂状态写入同一资源行。"""
+        """一次性记录执行成功结果。"""

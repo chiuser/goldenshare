@@ -23,7 +23,6 @@ from src.cli_parts.ops_handlers import (
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
     run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
-    run_ops_reconcile_sync_job_state as _run_ops_reconcile_sync_job_state_impl,
     run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
     run_ops_seed_dataset_pipeline_mode as _run_ops_seed_dataset_pipeline_mode_impl,
@@ -58,7 +57,6 @@ from src.ops.services.operations_moneyflow_multi_source_seed_service import Mone
 from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
-from src.ops.services.operations_sync_job_state_reconciliation_service import SyncJobStateReconciliationService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
@@ -186,7 +184,6 @@ def sync_snapshot(
         build_sync_service_fn=build_sync_service,
         attach_progress_fn=_attach_cli_progress_reporter,
         prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
-        reconciliation_service_cls=SyncJobStateReconciliationService,
         snapshot_service_cls=DatasetStatusSnapshotService,
         resources=resources,
         source_key=source_key,
@@ -530,18 +527,6 @@ def ops_reconcile_task_runs(
         service_cls=OperationsTaskRunReconciliationService,
         stale_for_minutes=stale_for_minutes,
         limit=limit,
-        apply=apply,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("ops-reconcile-sync-job-state")
-def ops_reconcile_sync_job_state(
-    apply: bool = typer.Option(False, "--apply", help="Actually repair stale sync_job_state rows. Without this flag, only preview."),
-) -> None:
-    _run_ops_reconcile_sync_job_state_impl(
-        session_local=SessionLocal,
-        service_cls=SyncJobStateReconciliationService,
         apply=apply,
         echo_fn=typer.echo,
     )

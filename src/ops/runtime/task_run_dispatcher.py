@@ -18,7 +18,7 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.services.sync_v2.contracts import PlanUnit
 from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
 from src.foundation.services.sync_v2.runtime_registry import build_sync_service
-from src.foundation.services.sync_v2.sync_state_store import NullSyncJobStateStore, NullSyncRunRecorder
+from src.foundation.services.sync_v2.sync_state_store import NullSyncExecutionResultStore, NullSyncRunRecorder
 from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -304,7 +304,7 @@ class TaskRunDispatcher:
             session,
             execution_context=TaskRunSyncContext(session),
             run_recorder=NullSyncRunRecorder(),
-            job_state_store=NullSyncJobStateStore(),
+            execution_result_store=NullSyncExecutionResultStore(),
             index_series_active_store=OpsIndexSeriesActiveStore(session),
         )
         filters = dict(action_request.filters or {})

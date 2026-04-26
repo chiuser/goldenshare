@@ -44,7 +44,6 @@ from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -115,7 +114,6 @@ def web_engine(configured_web_env) -> Generator:
         StdCleansingRule.__table__.create(connection)
         ConfigRevision.__table__.create(connection)
         DatasetResolutionPolicy.__table__.create(connection)
-        SyncJobState.__table__.create(connection)
     yield engine
     engine.dispose()
 
@@ -251,34 +249,6 @@ def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
         return task_run
 
     return build
-
-
-@pytest.fixture()
-def sync_job_state_factory(db_session: Session) -> Callable[..., SyncJobState]:
-    def build(
-        *,
-        job_name: str = "sync_equity_daily",
-        target_table: str = "core.equity_daily_bar",
-        last_success_date=None,
-        last_success_at: datetime | None = None,
-        last_cursor: str | None = None,
-        full_sync_done: bool = False,
-    ) -> SyncJobState:
-        row = SyncJobState(
-            job_name=job_name,
-            target_table=target_table,
-            last_success_date=last_success_date,
-            last_success_at=last_success_at,
-            last_cursor=last_cursor,
-            full_sync_done=full_sync_done,
-        )
-        db_session.add(row)
-        db_session.commit()
-        db_session.refresh(row)
-        return row
-
-    return build
-
 
 @pytest.fixture()
 def trade_calendar_factory(db_session: Session) -> Callable[..., TradeCalendar]:

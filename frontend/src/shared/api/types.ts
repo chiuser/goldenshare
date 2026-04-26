@@ -219,16 +219,13 @@ export interface OpsFreshnessResponse {
     items: Array<{
       dataset_key: string;
       resource_key: string;
-      job_name: string;
       display_name: string;
       cadence: string;
       target_table: string;
       raw_table: string | null;
-      state_business_date: string | null;
       earliest_business_date: string | null;
       observed_business_date: string | null;
       latest_business_date: string | null;
-      business_date_source: string;
       freshness_note: string | null;
       latest_success_at: string | null;
       last_sync_date: string | null;

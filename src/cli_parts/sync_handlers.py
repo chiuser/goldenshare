@@ -10,7 +10,6 @@ def run_sync_snapshot(
     build_sync_service_fn,
     attach_progress_fn: Callable[..., None],
     prepare_kwargs_fn: Callable[..., dict[str, object]],
-    reconciliation_service_cls,
     snapshot_service_cls,
     resources: list[str],
     source_key: str | None,
@@ -31,7 +30,6 @@ def run_sync_snapshot(
     echo_fn: Callable[[str], None],
 ) -> None:
     with session_local() as session:
-        reconciliation_service = reconciliation_service_cls()
         snapshot_service = snapshot_service_cls()
         for resource in resources:
             service = build_sync_service_fn(resource, session)
@@ -56,8 +54,6 @@ def run_sync_snapshot(
             echo_fn(f"[{resource}] snapshot start")
             started_at = time.perf_counter()
             result = service.run_full(**prepare_kwargs_fn(service, kwargs))
-            if result.trade_date is None:
-                reconciliation_service.refresh_resource_state_from_observed(session, resource)
             snapshot_service.refresh_resources(session, [resource])
             elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
             echo_fn(

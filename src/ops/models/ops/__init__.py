@@ -13,7 +13,6 @@ from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
-from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -32,7 +31,6 @@ __all__ = [
     "ResolutionReleaseStageStatus",
     "StdMappingRule",
     "StdCleansingRule",
-    "SyncJobState",
     "TaskRun",
     "TaskRunIssue",
     "TaskRunNode",

@@ -12,7 +12,8 @@
 2. 当前任务表为 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`。
 3. 当前任务 API 为 `/api/v1/ops/task-runs*` 与 `/api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 旧 `/api/v1/ops/executions*`、`JobExecution*`、`sync_run_log` 已退场，不再作为页面或 API 当前事实源。
-5. `ops.job_schedule` 默认配置已重置，自动任务配置待后续专项重建。
+5. `ops.sync_job_state` 已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition date model + 真实业务表观测 + TaskRun`。
+6. `ops.job_schedule` 默认配置已重置，自动任务配置待后续专项重建。
 
 ---
 

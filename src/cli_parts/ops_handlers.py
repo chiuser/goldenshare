@@ -423,35 +423,3 @@ def run_ops_reconcile_task_runs(
                 f"stale task_run#{item.id} {item.previous_status}->{item.new_status} reason={item.reason}"
             )
         echo_fn(f"ops-reconcile-task-runs: stale={len(previews)}")
-
-
-def run_ops_reconcile_sync_job_state(
-    *,
-    session_local,
-    service_cls,
-    apply: bool,
-    echo_fn: Callable[[str], None],
-) -> None:
-    with session_local() as session:
-        service = service_cls()
-        if apply:
-            reconciled = service.reconcile_stale_sync_job_states(session)
-            for item in reconciled:
-                echo_fn(
-                    "reconciled "
-                    f"{item.job_name} "
-                    f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
-                    f"target_table={item.target_table}"
-                )
-            echo_fn(f"ops-reconcile-sync-job-state: reconciled={len(reconciled)}")
-            return
-
-        previews = service.preview_stale_sync_job_states(session)
-        for item in previews:
-            echo_fn(
-                "stale "
-                f"{item.job_name} "
-                f"{item.previous_last_success_date or 'none'}->{item.observed_last_success_date} "
-                f"target_table={item.target_table}"
-            )
-        echo_fn(f"ops-reconcile-sync-job-state: stale={len(previews)}")

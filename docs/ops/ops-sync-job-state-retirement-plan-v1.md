@@ -1,6 +1,6 @@
 # Ops `sync_job_state` 退场方案 v1
 
-- 状态：待评审
+- 状态：已完成
 - 更新时间：2026-04-26
 - 归属：`docs/ops`
 - 风险登记：`RISK-2026-04-26-004`
@@ -22,6 +22,18 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
 3. `ops.task_run / task_run_node / task_run_issue` 提供最近成功时间、最近失败信息、当前活跃任务。
 
 不再保留 `job_name / last_success_date / full_sync_done / last_cursor` 这套旧状态模型，也不做兼容双读。
+
+### 1.1 实施结果（2026-04-26）
+
+1. 已新增 Alembic `20260426_000076_drop_sync_job_state_and_legacy_freshness_fields.py`。
+2. `freshness_query_service` 已改为只读 `真实业务表 + TaskRun / TaskRunNode / TaskRunIssue`。
+3. `/api/v1/ops/freshness`、`dataset_status_snapshot`、前端 `OpsFreshnessResponse` 已删除：
+   - `job_name`
+   - `state_business_date`
+   - `business_date_source`
+   - `full_sync_done`
+4. `ops-reconcile-sync-job-state` CLI、`SyncJobState` ORM、旧 reconciliation service、`SyncJobStateDAO` 已删除。
+5. 执行层 no-op contract 已同步改名为 `SyncExecutionResultStore`，避免旧术语残留在主链代码里。
 
 ---
 
@@ -52,12 +64,12 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
    - 当前快照表 schema 仍持有上述旧字段。
 4. [operations_dataset_status_snapshot_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py)
    - `rebuild_all()` / `refresh_resources()` 会继续把旧字段写入快照。
-5. [operations_sync_job_state_reconciliation_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_sync_job_state_reconciliation_service.py)
+5. `operations_sync_job_state_reconciliation_service.py`（已删除）
    - 整个服务只为旧表存在。
 6. [cli.py](/Users/congming/github/goldenshare/src/cli.py) 与 [ops_handlers.py](/Users/congming/github/goldenshare/src/cli_parts/ops_handlers.py)
    - 仍保留 `ops-reconcile-sync-job-state` 命令。
 7. Foundation 侧 legacy 写入链仍在：
-   - [sync_job_state_dao.py](/Users/congming/github/goldenshare/src/foundation/dao/sync_job_state_dao.py)
+   - `sync_job_state_dao.py`（已删除）
    - [factory.py](/Users/congming/github/goldenshare/src/foundation/dao/factory.py)
    - [sync_state_store.py](/Users/congming/github/goldenshare/src/foundation/kernel/contracts/sync_state_store.py)
 
@@ -466,14 +478,11 @@ python3 scripts/check_docs_integrity.py
 
 如本轮同时改了 CLI/旧模型退场，再补：
 
-```bash
-pytest -q tests/test_sync_job_state_reconciliation_service.py tests/test_sync_job_state_dao.py tests/test_cli_ops_runtime.py
-```
-
 说明：
 
-1. 第二组测试在正式删掉旧 CLI/DAO 后，要同步替换为新的删除后断言测试，而不是继续保留旧测试。
-2. 远程验收仍以 `goldenshare ops-rebuild-dataset-status` 和页面实测为准。
+1. 旧 CLI/DAO 删除后，不再保留 `tests/test_sync_job_state_reconciliation_service.py` 和 `tests/test_sync_job_state_dao.py`。
+2. `tests/test_cli_ops_runtime.py` 只保留新 CLI 行为断言。
+3. 远程验收仍以 `goldenshare ops-rebuild-dataset-status` 和页面实测为准。
 
 ---
 

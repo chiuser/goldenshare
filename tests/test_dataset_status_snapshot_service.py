@@ -52,13 +52,11 @@ class FakeFreshnessQueryService:
                 display_name="股票主数据",
                 domain_key="reference_data",
                 domain_display_name="基础主数据",
-                job_name="sync_stock_basic",
                 target_table="core.security_serving",
                 cadence="reference",
                 latest_business_date=None,
                 freshness_status="fresh",
                 last_sync_date=date(2026, 4, 1),
-                full_sync_done=True,
             )
         ]
 
@@ -102,13 +100,11 @@ def test_refresh_for_execution_resolves_dataset_action_spec_key(db_session: Sess
                     display_name="板块资金流向（东方财富）",
                     domain_key="moneyflow",
                     domain_display_name="资金流向",
-                    job_name="maintain_moneyflow_ind_dc",
                     target_table="core_serving.board_moneyflow_dc",
                     cadence="daily",
                     latest_business_date=date(2026, 4, 24),
                     freshness_status="fresh",
                     last_sync_date=date(2026, 4, 24),
-                    full_sync_done=True,
                 )
             ]
 
@@ -137,14 +133,11 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
             display_name="股票日线",
             domain_key="equity",
             domain_display_name="股票",
-            job_name="maintain_daily",
             target_table="core.equity_daily_bar",
             cadence="daily",
-            state_business_date=date(2026, 4, 1),
             earliest_business_date=date(2026, 4, 1),
             observed_business_date=date(2026, 4, 1),
             latest_business_date=date(2026, 4, 1),
-            business_date_source="state",
             freshness_note=None,
             latest_success_at=None,
             last_sync_date=date(2026, 4, 1),
@@ -155,7 +148,6 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
             recent_failure_summary=None,
             recent_failure_at=None,
             primary_execution_spec_key="daily.maintain",
-            full_sync_done=True,
             snapshot_date=date(2026, 4, 1),
             last_calculated_at=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
         )
@@ -181,13 +173,11 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
                     display_name="股票主数据",
                     domain_key="reference_data",
                     domain_display_name="基础主数据",
-                    job_name="sync_stock_basic",
                     target_table="core_serving.security_serving",
                     cadence="reference",
                     latest_business_date=date(2026, 4, 1),
                     freshness_status="fresh",
                     last_sync_date=date(2026, 4, 1),
-                    full_sync_done=True,
                 )
             ]
 
@@ -231,13 +221,11 @@ def test_refresh_resources_writes_light_stage_snapshot_for_equity_daily(db_sessi
                     display_name="股票日线",
                     domain_key="equity",
                     domain_display_name="股票",
-                    job_name="maintain_daily",
                     target_table="core_serving.equity_daily_bar",
                     cadence="daily",
                     latest_business_date=date(2026, 4, 2),
                     freshness_status="fresh",
                     last_sync_date=date(2026, 4, 2),
-                    full_sync_done=True,
                 )
             ]
 

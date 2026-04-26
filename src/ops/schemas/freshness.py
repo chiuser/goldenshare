@@ -11,15 +11,12 @@ class DatasetFreshnessItem(BaseModel):
     display_name: str
     domain_key: str
     domain_display_name: str
-    job_name: str
     target_table: str
     raw_table: str | None = None
     cadence: str
-    state_business_date: date | None = None
     earliest_business_date: date | None = None
     observed_business_date: date | None = None
     latest_business_date: date | None = None
-    business_date_source: str = "none"
     freshness_note: str | None = None
     latest_success_at: datetime | None = None
     last_sync_date: date | None = None
@@ -30,7 +27,6 @@ class DatasetFreshnessItem(BaseModel):
     recent_failure_summary: str | None = None
     recent_failure_at: datetime | None = None
     primary_execution_spec_key: str | None = None
-    full_sync_done: bool
     auto_schedule_status: str = "none"
     auto_schedule_total: int = 0
     auto_schedule_active: int = 0

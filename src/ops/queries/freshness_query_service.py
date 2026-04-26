@@ -61,18 +61,16 @@ from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyin
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.models.ops.sync_job_state import SyncJobState
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.specs import (
     DatasetFreshnessSpec,
     get_dataset_freshness_spec,
-    get_dataset_freshness_spec_by_job_name,
     get_workflow_spec,
     list_dataset_freshness_specs,
 )
 from src.ops.specs.observed_dataset_registry import (
-    OBSERVED_DATE_AUTHORITATIVE_KEYS,
     OBSERVED_DATE_FILTERS,
     OBSERVED_DATE_MODEL_REGISTRY,
 )
@@ -213,10 +211,9 @@ class OpsFreshnessQueryService:
     ) -> list[DatasetFreshnessItem]:
         reference_date = today or datetime.now(timezone.utc).date()
         latest_open_date = self._get_latest_open_date(session, before_or_on=reference_date)
-        states = list(session.scalars(select(SyncJobState)))
-        state_by_job_name = {state.job_name: state for state in states}
-        failures_by_job_name = self._latest_failures_by_job_name(session)
-        quality_notes_by_job_name = self._latest_quality_notes_by_job_name(session)
+        latest_success_by_resource = self._latest_success_by_resource(session)
+        failures_by_resource = self._latest_failures_by_resource(session)
+        quality_notes_by_resource = self._latest_quality_notes_by_resource(session)
         specs = list_dataset_freshness_specs()
         if resource_keys is not None:
             target_keys = set(resource_keys)
@@ -231,7 +228,7 @@ class OpsFreshnessQueryService:
         items = [
             self._build_item(
                 spec=spec,
-                state=state_by_job_name.pop(spec.job_name, None),
+                latest_success_at=latest_success_by_resource.get(spec.resource_key),
                 latest_open_date=latest_open_date,
                 reference_date=reference_date,
                 expected_business_date=self._expected_business_date_for_spec(
@@ -240,34 +237,13 @@ class OpsFreshnessQueryService:
                     latest_open_date=latest_open_date,
                     open_trade_dates=open_trade_dates,
                 ),
-                recent_failure=failures_by_job_name.get(spec.job_name),
-                quality_note=quality_notes_by_job_name.get(spec.job_name),
+                recent_failure=failures_by_resource.get(spec.resource_key),
+                quality_note=quality_notes_by_resource.get(spec.resource_key),
                 observed_business_range=observed_business_ranges.get(spec.dataset_key),
                 observed_sync_date=observed_sync_dates.get(spec.dataset_key),
             )
             for spec in specs
         ]
-
-        if resource_keys is None:
-            for job_name, state in sorted(state_by_job_name.items()):
-                items.append(
-                    self._build_item(
-                        spec=self._fallback_spec_for_state(state),
-                        state=state,
-                        latest_open_date=latest_open_date,
-                        reference_date=reference_date,
-                        expected_business_date=self._expected_business_date_for_spec(
-                            self._fallback_spec_for_state(state),
-                            reference_date=reference_date,
-                            latest_open_date=latest_open_date,
-                            open_trade_dates=open_trade_dates,
-                        ),
-                        recent_failure=failures_by_job_name.get(job_name),
-                        quality_note=quality_notes_by_job_name.get(job_name),
-                        observed_business_range=None,
-                        observed_sync_date=observed_sync_dates.get(self._fallback_spec_for_state(state).dataset_key),
-                    )
-                )
         return items
 
     @staticmethod
@@ -285,7 +261,7 @@ class OpsFreshnessQueryService:
         self,
         *,
         spec: DatasetFreshnessSpec,
-        state: SyncJobState | None,
+        latest_success_at: datetime | None,
         latest_open_date: date,
         reference_date: date,
         expected_business_date: date | None,
@@ -295,49 +271,32 @@ class OpsFreshnessQueryService:
         observed_sync_date: date | None,
     ) -> DatasetFreshnessItem:
         date_model = self._date_model_for_spec(spec)
-        latest_success_at = self._normalize_datetime(state.last_success_at) if state is not None else None
-        state_sync_date = latest_success_at.date() if latest_success_at is not None else None
-        if state_sync_date and observed_sync_date:
-            last_sync_date = max(state_sync_date, observed_sync_date)
+        normalized_success_at = self._normalize_datetime(latest_success_at)
+        success_sync_date = normalized_success_at.date() if normalized_success_at is not None else None
+        if success_sync_date and observed_sync_date:
+            last_sync_date = max(success_sync_date, observed_sync_date)
         else:
-            last_sync_date = observed_sync_date or state_sync_date
-        state_business_date = state.last_success_date if state is not None else None
+            last_sync_date = observed_sync_date or success_sync_date
         earliest_business_date = observed_business_range[0] if observed_business_range else None
         observed_business_date = observed_business_range[1] if observed_business_range else None
-        prefer_observed = spec.dataset_key in OBSERVED_DATE_AUTHORITATIVE_KEYS
-        latest_business_date = self._choose_latest_business_date(
-            state_business_date,
-            observed_business_date,
-            prefer_observed=prefer_observed,
-        )
-        business_date_source = self._business_date_source(
-            state_business_date=state_business_date,
-            observed_business_date=observed_business_date,
-            latest_business_date=latest_business_date,
-        )
-        if latest_business_date is None and last_sync_date is not None and spec.observed_date_column is None:
-            if date_model is None or date_model.bucket_rule != "not_applicable":
-                latest_business_date = last_sync_date
-                business_date_source = "sync_date"
-        full_sync_done = bool(state.full_sync_done) if state is not None else False
-        effective_date = latest_business_date or (latest_success_at.date() if latest_success_at else None)
+        latest_business_date = observed_business_date
+        effective_date = latest_business_date
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
         freshness_status = self._freshness_status_for_date_model(
             date_model,
             cadence=spec.cadence,
             lag_days=lag_days,
-            full_sync_done=full_sync_done,
-            latest_success_at=latest_success_at,
+            latest_success_at=normalized_success_at,
         )
         if spec.dataset_key in DISABLED_DATASET_KEYS:
             freshness_status = "disabled"
             lag_days = None
-        visible_failure = self._visible_failure_snapshot(recent_failure, latest_success_at)
+        visible_failure = self._visible_failure_snapshot(recent_failure, normalized_success_at)
 
         base_note = self._freshness_note(
-            state_business_date=state_business_date,
             observed_business_date=observed_business_date,
-            business_date_source=business_date_source,
+            last_sync_date=last_sync_date,
+            date_model=date_model,
         )
         freshness_note = self._compose_freshness_note(base_note=base_note, quality_note=quality_note)
         if freshness_status == "disabled":
@@ -352,17 +311,14 @@ class OpsFreshnessQueryService:
             display_name=spec.display_name,
             domain_key=spec.domain_key,
             domain_display_name=spec.domain_display_name,
-            job_name=spec.job_name,
             target_table=spec.target_table,
             raw_table=spec.raw_table,
             cadence=spec.cadence,
-            state_business_date=state_business_date,
             earliest_business_date=earliest_business_date,
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
-            business_date_source=business_date_source,
             freshness_note=freshness_note,
-            latest_success_at=latest_success_at,
+            latest_success_at=normalized_success_at,
             last_sync_date=last_sync_date,
             expected_business_date=expected_business_date,
             lag_days=lag_days,
@@ -371,65 +327,24 @@ class OpsFreshnessQueryService:
             recent_failure_summary=self._summarize_failure_message(visible_failure.message) if visible_failure else None,
             recent_failure_at=visible_failure.occurred_at if visible_failure else None,
             primary_execution_spec_key=spec.primary_execution_spec_key,
-            full_sync_done=full_sync_done,
         )
-
-    @staticmethod
-    def _choose_latest_business_date(
-        state_business_date: date | None,
-        observed_business_date: date | None,
-        *,
-        prefer_observed: bool = False,
-    ) -> date | None:
-        if prefer_observed and observed_business_date is not None:
-            return observed_business_date
-        if state_business_date and observed_business_date:
-            return max(state_business_date, observed_business_date)
-        return observed_business_date or state_business_date
-
-    @staticmethod
-    def _business_date_source(
-        *,
-        state_business_date: date | None,
-        observed_business_date: date | None,
-        latest_business_date: date | None,
-    ) -> str:
-        if latest_business_date is None:
-            return "none"
-        sources: list[str] = []
-        if state_business_date == latest_business_date:
-            sources.append("state")
-        if observed_business_date == latest_business_date:
-            sources.append("observed")
-        if not sources:
-            return "none"
-        if len(sources) == 2:
-            return "state+observed"
-        return sources[0]
 
     @staticmethod
     def _freshness_note(
         *,
-        state_business_date: date | None,
         observed_business_date: date | None,
-        business_date_source: str,
+        last_sync_date: date | None,
+        date_model: DatasetDateModel | None,
     ) -> str | None:
-        if business_date_source == "observed" and state_business_date and observed_business_date:
-            if observed_business_date > state_business_date:
-                return "已按真实目标表的业务日期修正，状态表记录偏旧。"
-        if business_date_source == "state+observed":
-            return "最新业务日同时被状态表和真实目标表观测到。"
-        if business_date_source == "observed":
+        if observed_business_date is not None:
             return "最新业务日当前来自真实目标表观测值。"
-        if business_date_source == "state":
-            return "最新业务日当前来自 sync_job_state。"
-        if business_date_source == "sync_date":
-            return "该数据集无业务日期字段，已使用最近同步日期作为业务日期。"
+        if date_model is not None and date_model.bucket_rule == "not_applicable" and last_sync_date is not None:
+            return "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
         return None
 
     @staticmethod
-    def _freshness_status(cadence: str, lag_days: int | None, full_sync_done: bool, latest_success_at: datetime | None) -> str:
-        if latest_success_at is None and not full_sync_done and lag_days is None:
+    def _freshness_status(cadence: str, lag_days: int | None, latest_success_at: datetime | None) -> str:
+        if latest_success_at is None and lag_days is None:
             return "unknown"
         if lag_days is None:
             return "unknown"
@@ -454,14 +369,13 @@ class OpsFreshnessQueryService:
         *,
         cadence: str,
         lag_days: int | None,
-        full_sync_done: bool,
         latest_success_at: datetime | None,
     ) -> str:
         if date_model is None:
-            return OpsFreshnessQueryService._freshness_status(cadence, lag_days, full_sync_done, latest_success_at)
+            return OpsFreshnessQueryService._freshness_status(cadence, lag_days, latest_success_at)
         if date_model.bucket_rule == "not_applicable":
             return "unknown"
-        if latest_success_at is None and not full_sync_done and lag_days is None:
+        if latest_success_at is None and lag_days is None:
             return "unknown"
         if lag_days is None:
             return "unknown"
@@ -685,43 +599,58 @@ class OpsFreshnessQueryService:
         return result
 
     @staticmethod
-    def _fallback_spec_for_state(state: SyncJobState) -> DatasetFreshnessSpec:
-        return DatasetFreshnessSpec(
-            dataset_key=state.job_name,
-            resource_key=state.job_name,
-            job_name=state.job_name,
-            display_name=state.job_name,
-            domain_key="other",
-            domain_display_name="其他",
-            target_table=state.target_table,
-            cadence="reference",
-        )
+    def _latest_success_by_resource(session: Session) -> dict[str, datetime]:
+        successes: dict[str, datetime] = {}
+        node_rows = session.execute(
+            select(TaskRunNode.resource_key, TaskRunNode.ended_at, TaskRun.ended_at, TaskRun.started_at, TaskRun.requested_at)
+            .join(TaskRun, TaskRun.id == TaskRunNode.task_run_id)
+            .where(TaskRunNode.status == "success")
+            .where(TaskRunNode.resource_key.is_not(None))
+            .order_by(TaskRunNode.resource_key.asc(), desc(TaskRunNode.ended_at), desc(TaskRunNode.id))
+        ).all()
+        for resource_key, node_ended_at, run_ended_at, run_started_at, requested_at in node_rows:
+            if resource_key in successes:
+                continue
+            effective_at = OpsFreshnessQueryService._normalize_datetime(node_ended_at or run_ended_at or run_started_at or requested_at)
+            if effective_at is not None:
+                successes[resource_key] = effective_at
 
-    @staticmethod
-    def _latest_failures_by_job_name(session: Session) -> dict[str, FailureSnapshot]:
-        rows = session.execute(
-            select(TaskRun, TaskRunIssue)
-            .outerjoin(TaskRunIssue, TaskRunIssue.id == TaskRun.primary_issue_id)
-            .where(TaskRun.status.in_(("failed", "partial_success")))
+        task_rows = session.execute(
+            select(TaskRun.resource_key, TaskRun.ended_at, TaskRun.started_at, TaskRun.requested_at)
+            .where(TaskRun.status == "success")
             .where(TaskRun.resource_key.is_not(None))
             .order_by(TaskRun.resource_key.asc(), desc(TaskRun.ended_at), desc(TaskRun.id))
         ).all()
-        failures: dict[str, FailureSnapshot] = {}
-        for row, issue in rows:
-            spec = get_dataset_freshness_spec(row.resource_key)
-            if spec is None:
+        for resource_key, ended_at, started_at, requested_at in task_rows:
+            if resource_key in successes:
                 continue
-            failures.setdefault(
-                spec.job_name,
-                FailureSnapshot(
-                    message=(issue.operator_message if issue is not None else None),
-                    occurred_at=OpsFreshnessQueryService._normalize_datetime(row.ended_at or row.started_at or row.requested_at),
-                ),
+            effective_at = OpsFreshnessQueryService._normalize_datetime(ended_at or started_at or requested_at)
+            if effective_at is not None:
+                successes[resource_key] = effective_at
+        return successes
+
+    @staticmethod
+    def _latest_failures_by_resource(session: Session) -> dict[str, FailureSnapshot]:
+        rows = session.execute(
+            select(TaskRunIssue, TaskRun, TaskRunNode)
+            .join(TaskRun, TaskRun.id == TaskRunIssue.task_run_id)
+            .outerjoin(TaskRunNode, TaskRunNode.id == TaskRunIssue.node_id)
+            .where(TaskRun.status.in_(("failed", "partial_success")))
+            .order_by(desc(TaskRunIssue.occurred_at), desc(TaskRunIssue.id))
+        ).all()
+        failures: dict[str, FailureSnapshot] = {}
+        for issue, run, node in rows:
+            resource_key = node.resource_key if node is not None and node.resource_key else run.resource_key
+            if not resource_key or resource_key in failures:
+                continue
+            failures[resource_key] = FailureSnapshot(
+                message=issue.operator_message,
+                occurred_at=OpsFreshnessQueryService._normalize_datetime(issue.occurred_at),
             )
         return failures
 
     @staticmethod
-    def _latest_quality_notes_by_job_name(session: Session) -> dict[str, str]:
+    def _latest_quality_notes_by_resource(session: Session) -> dict[str, str]:
         _ = session
         return {}
 

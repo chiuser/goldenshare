@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
-
-from src.foundation.kernel.contracts.sync_state_store import SyncJobStateStore, SyncRunRecorder
+from src.foundation.kernel.contracts.sync_state_store import SyncExecutionResultStore, SyncRunRecorder
 
 
 class NullSyncRunRecorder(SyncRunRecorder):
@@ -23,36 +21,7 @@ class NullSyncRunRecorder(SyncRunRecorder):
         return None
 
 
-class NullSyncJobStateStore(SyncJobStateStore):
-    def get_last_success_date(self, *, job_name: str) -> date | None:
-        _ = job_name
-        return None
-
-    def mark_success(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date | None = None,
-        last_cursor: str | None = None,
-    ) -> None:
-        _ = (job_name, target_table, last_success_date, last_cursor)
-        return None
-
-    def reconcile_success_date(
-        self,
-        *,
-        job_name: str,
-        target_table: str,
-        last_success_date: date,
-    ) -> None:
-        _ = (job_name, target_table, last_success_date)
-        return None
-
-    def mark_full_sync_done(self, *, job_name: str, target_table: str) -> None:
-        _ = (job_name, target_table)
-        return None
-
+class NullSyncExecutionResultStore(SyncExecutionResultStore):
     def record_execution_outcome(
         self,
         *,
