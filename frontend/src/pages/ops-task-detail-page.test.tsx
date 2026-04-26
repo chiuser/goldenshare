@@ -211,6 +211,10 @@ describe("任务详情页", () => {
     expect(await screen.findByText("任务处理完成")).toBeInTheDocument();
     expect(await screen.findByText("本次任务已经结束，处理结果已保存。")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "重新提交" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "回卡片页" })).toHaveAttribute(
+      "href",
+      "/app/ops/v21/datasets/tushare",
+    );
     expect(screen.queryByText("失败原因")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "查看技术诊断" })).not.toBeInTheDocument();
   });

@@ -17,7 +17,7 @@ import { useState } from "react";
 import { apiRequest } from "../shared/api/client";
 import type { TaskRunCreateResponse, TaskRunIssueDetailResponse, TaskRunViewResponse } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
-import { buildManualTaskHref } from "../shared/ops-links";
+import { buildDatasetCardPageHref, buildManualTaskHref } from "../shared/ops-links";
 import { formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { AlertBar, AlertBarNote } from "../shared/ui/alert-bar";
 import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
@@ -143,6 +143,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
 
   const view = viewQuery.data;
   const headline = view ? buildStatusHeadline(view) : null;
+  const successReturnHref = buildDatasetCardPageHref(view?.run.resource_key);
   const nodeColumns: DataTableColumn<TaskRunViewResponse["nodes"][number]>[] = [
     {
       key: "sequence",
@@ -222,7 +223,11 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                 <Button component="a" href={buildManualTaskHref({ fromTaskRunId: view.run.id })} variant="light">
                   复制参数
                 </Button>
-                {view.actions.can_retry ? (
+                {view.run.status === "success" ? (
+                  <Button component="a" href={successReturnHref}>
+                    回卡片页
+                  </Button>
+                ) : view.actions.can_retry ? (
                   <Button onClick={() => retryMutation.mutate()} loading={retryMutation.isPending}>
                     重新提交
                   </Button>

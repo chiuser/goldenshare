@@ -5,6 +5,15 @@ export function inferManualTaskSpecType(specKey: string | null | undefined): str
   return specKey.endsWith(".maintain") ? "dataset_action" : "job";
 }
 
+export function buildDatasetCardPageHref(resourceKey: string | null | undefined): string {
+  if (!resourceKey) {
+    return "/app/ops/v21/overview";
+  }
+  return resourceKey.startsWith("biying_")
+    ? "/app/ops/v21/datasets/biying"
+    : "/app/ops/v21/datasets/tushare";
+}
+
 export function buildManualTaskHref(input: {
   specKey?: string | null;
   specType?: string | null;
