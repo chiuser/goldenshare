@@ -78,5 +78,5 @@
   - 覆盖 FULL 路径、INCREMENTAL 参数校验、字段归一化。
 - `tests/test_raw_multi_schema_mapping.py`
   - 覆盖 `raw_biying.moneyflow` 的 schema 与主键。
-- `tests/test_ops_specs.py`
+- `tests/test_ops_action_catalog.py`
   - 覆盖 `sync_history.biying_moneyflow` / `sync_daily.biying_moneyflow` 规格。

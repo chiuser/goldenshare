@@ -2,7 +2,7 @@
 
 更新时间：2026-04-24  
 状态：历史归档，当前执行口径以 [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md) 为准。
-适用范围：`src/ops/specs/*`、`src/ops/queries/*`、`src/ops/api/*`、`frontend/src/pages/ops-v21-task-manual-tab.tsx`
+适用范围：`src/ops/action_catalog.py`、`src/ops/queries/*`、`src/ops/api/*`、`frontend/src/pages/ops-v21-task-manual-tab.tsx`
 
 > 归档说明：v1 仍保留“前端不应感知底层 spec 分支”的核心判断，但其中 `time_mode/supported_time_modes` 一节仍带有独立日期枚举设计。当前仓库已经将数据集日期语义收敛到 `DatasetSyncContract.date_model`，手动维护动作模型必须消费该单一事实源，不再另建日期规则。
 
@@ -51,7 +51,7 @@
 当前手动维护页的真实做法：
 
 1. 先调用 `GET /api/v1/ops/catalog`
-2. 从 `job_specs + workflow_specs` 中自行合并出 `manualActions`
+2. 从旧任务规格与旧工作流规格中自行合并出 `manualActions`
 3. 每个 `manualAction` 内部同时保留：
    - `syncDailySpecKey`
    - `backfillSpecKey`
@@ -86,8 +86,8 @@
 
 关键代码依据：
 
-1. job spec 定义：[src/ops/specs/job_spec.py](/Users/congming/github/goldenshare/src/ops/specs/job_spec.py)
-2. registry 注册：[src/ops/specs/registry.py](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
+1. 动作目录定义：`src/ops/action_catalog.py`
+2. 数据集动作事实：`src/foundation/datasets/**`
 3. dispatcher 分发：`src/ops/runtime/dispatcher.py`（历史实现，已退场）
 
 ### 3.3 当前 catalog 的边界
@@ -104,7 +104,7 @@
 6. `description`
 7. `strategy_type`
 8. `executor_kind`
-9. `supported_params`
+9. `parameters`
 
 它没有返回：
 

@@ -749,7 +749,7 @@ src/foundation/
 本文件不展开 Ops 改造实现，仅给 Foundation 对接边界：
 
 1. Ops 未来需要在数据状态中支持 source 维度观测。
-2. JobSpec 未来需支持 source 选择或策略选择（默认可隐藏）。
+2. DatasetDefinition / action catalog 未来需支持 source 选择或策略选择（默认可隐藏）。
 3. 健康度需支持“按来源”与“融合后服务口径”双视图。
 4. 停用策略可扩展到 `(dataset_key, source_key)` 级别。
 

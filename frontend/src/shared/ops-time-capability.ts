@@ -1,6 +1,6 @@
 import type { OpsCatalogResponse } from "./api/types";
 
-type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
+type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 
 export type TimeGranularity = "day" | "week" | "month";
 export type TimeMode = "single_point" | "time_range";
@@ -40,7 +40,7 @@ export const TIME_PARAM_KEYS = new Set([
   "end_month",
 ]);
 
-export function inferTimeCapability(params: CatalogParamSpec[] | undefined): TimeCapability {
+export function inferTimeCapability(params: CatalogActionParameter[] | undefined): TimeCapability {
   const keys = new Set((params || []).map((param) => param.key));
 
   const point = TIME_POINT_KEYS.find((item) => keys.has(item.key)) || null;
@@ -58,7 +58,7 @@ export function inferTimeCapability(params: CatalogParamSpec[] | undefined): Tim
   };
 }
 
-export function filterNonTimeParams(params: CatalogParamSpec[] | undefined): CatalogParamSpec[] {
+export function filterNonTimeParams(params: CatalogActionParameter[] | undefined): CatalogActionParameter[] {
   return (params || []).filter((param) => !TIME_PARAM_KEYS.has(param.key));
 }
 

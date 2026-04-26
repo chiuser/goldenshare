@@ -85,10 +85,8 @@
 
 ## 7. Ops 接入
 
-- JobSpec：
-  - `sync_daily.stk_nineturn`
-  - `sync_history.stk_nineturn`
-  - `backfill_by_trade_date.stk_nineturn`
+- DatasetDefinition action：
+  - `stk_nineturn.maintain`
 - Freshness 元数据：
   - `dataset_key`: `stk_nineturn`
   - `display_name`: `神奇九转指标`
@@ -105,7 +103,7 @@
   - 单日分页与落库
 - `tests/test_sync_registry.py`
   - 注册表包含 `stk_nineturn`
-- `tests/test_ops_specs.py`
+- `tests/test_ops_action_catalog.py`
   - 新任务参数契约
 - `tests/test_fields_constants.py`
   - `STK_NINETURN_FIELDS` 字段常量

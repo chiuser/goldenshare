@@ -91,8 +91,8 @@ function buildListParams(filters: TaskFilters, page: number) {
   return params;
 }
 
-function formatCatalogTaskOption(item: { key: string; display_name: string; resource_display_name?: string | null }) {
-  return item.resource_display_name || item.display_name;
+function formatCatalogTaskOption(item: { key: string; display_name: string; target_display_name?: string | null }) {
+  return item.target_display_name || item.display_name;
 }
 
 function formatExecutionTimeScopeLabel(item: { time_scope_label?: string | null }) {
@@ -158,11 +158,11 @@ export function OpsTasksPage() {
     refetchInterval: (query) => buildTaskRunSummaryRefetchInterval(query.state.data),
   });
 
-  const specOptions = useMemo(() => {
+  const resourceOptions = useMemo(() => {
     const catalog = catalogQuery.data;
     const items = catalog ? [
-      ...catalog.job_specs.map((item) => ({
-        value: item.resource_key || item.key,
+      ...catalog.actions.map((item) => ({
+        value: item.target_key || item.key,
         label: formatCatalogTaskOption(item),
       })),
     ] : [];
@@ -432,7 +432,7 @@ export function OpsTasksPage() {
                 <Select
                   label="任务名称"
                   searchable
-                  data={specOptions}
+                  data={resourceOptions}
                   value={filters.resource_key}
                   onChange={(value) => updateFilters({ ...filters, resource_key: value || ALL_FILTER_VALUE })}
                 />

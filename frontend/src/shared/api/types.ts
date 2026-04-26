@@ -456,26 +456,23 @@ export interface TaskRunIssueDetailResponse {
 }
 
 export interface OpsCatalogResponse {
-  job_specs: Array<{
+  actions: Array<{
     key: string;
-    spec_type?: string;
+    action_type: string;
     display_name: string;
-    resource_key?: string | null;
-    resource_display_name?: string | null;
+    target_key?: string | null;
+    target_display_name?: string | null;
     domain_key?: string | null;
     domain_display_name?: string | null;
     date_selection_rule?: string | null;
-    category: string;
     description: string;
-    strategy_type: string;
-    executor_kind: string;
     target_tables: string[];
     schedule_binding_count: number;
     active_schedule_count: number;
-    supports_manual_run?: boolean;
-    supports_schedule?: boolean;
-    supports_retry?: boolean;
-    supported_params?: Array<{
+    manual_enabled?: boolean;
+    schedule_enabled?: boolean;
+    retry_enabled?: boolean;
+    parameters?: Array<{
       key: string;
       display_name: string;
       param_type: string;
@@ -485,7 +482,7 @@ export interface OpsCatalogResponse {
       multi_value: boolean;
     }>;
   }>;
-  workflow_specs: Array<{
+  workflows: Array<{
     key: string;
     display_name: string;
     description: string;
@@ -494,9 +491,9 @@ export interface OpsCatalogResponse {
     parallel_policy: string;
     schedule_binding_count: number;
     active_schedule_count: number;
-    supports_manual_run?: boolean;
-    supports_schedule?: boolean;
-    supported_params?: Array<{
+    manual_enabled?: boolean;
+    schedule_enabled?: boolean;
+    parameters?: Array<{
       key: string;
       display_name: string;
       param_type: string;
@@ -507,7 +504,8 @@ export interface OpsCatalogResponse {
     }>;
     steps?: Array<{
       step_key: string;
-      job_key: string;
+      action_key: string;
+      dataset_key?: string | null;
       display_name: string;
       depends_on: string[];
       default_params: Record<string, unknown>;

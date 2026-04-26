@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from src.ops.schemas.catalog import ParameterSpecResponse
+from src.ops.schemas.catalog import ActionParameterResponse
 
 
 class ManualActionDateModelResponse(BaseModel):
@@ -35,7 +35,7 @@ class ManualActionItemResponse(BaseModel):
     resource_display_name: str | None = None
     date_model: ManualActionDateModelResponse | None = None
     time_form: ManualActionTimeFormResponse
-    filters: list[ParameterSpecResponse]
+    filters: list[ActionParameterResponse]
     search_keywords: list[str]
     action_order: int
     route_keys: list[str]

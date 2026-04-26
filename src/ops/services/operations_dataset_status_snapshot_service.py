@@ -18,7 +18,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
-from src.ops.specs import get_workflow_spec
+from src.ops.action_catalog import get_workflow_definition
 
 
 class DatasetStatusSnapshotService:
@@ -107,13 +107,13 @@ class DatasetStatusSnapshotService:
         if spec_type == "job":
             return []
         if spec_type == "workflow":
-            workflow_spec = get_workflow_spec(spec_key)
-            if workflow_spec is None:
+            workflow = get_workflow_definition(spec_key)
+            if workflow is None:
                 return []
             resource_keys: list[str] = []
-            for step in workflow_spec.steps:
+            for step in workflow.steps:
                 try:
-                    definition, _action = get_dataset_definition_by_action_key(step.job_key)
+                    definition, _action = get_dataset_definition_by_action_key(step.action_key)
                 except KeyError:
                     continue
                 if get_dataset_freshness_projection(definition.dataset_key) is not None:

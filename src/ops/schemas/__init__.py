@@ -1,9 +1,9 @@
 from src.ops.schemas.catalog import (
-    JobSpecCatalogItem,
+    ActionCatalogItem,
+    ActionParameterResponse,
     OpsCatalogResponse,
-    ParameterSpecResponse,
-    WorkflowSpecCatalogItem,
-    WorkflowStepResponse,
+    WorkflowCatalogItem,
+    WorkflowStepCatalogItem,
 )
 from src.ops.schemas.ingestion_codebook import IngestionCodebookItem, IngestionCodebookResponse
 from src.ops.schemas.dataset_card import (
@@ -123,7 +123,8 @@ __all__ = [
     "DatasetCardSourceStatus",
     "DatasetCardStageStatus",
     "FreshnessGroup",
-    "JobSpecCatalogItem",
+    "ActionCatalogItem",
+    "ActionParameterResponse",
     "LayerSnapshotHistoryItem",
     "LayerSnapshotHistoryResponse",
     "LayerSnapshotLatestItem",
@@ -141,7 +142,6 @@ __all__ = [
     "OpsOverviewResponse",
     "OpsOverviewSummaryResponse",
     "OpsCatalogResponse",
-    "ParameterSpecResponse",
     "ProbeRuleDetailResponse",
     "ProbeRuleListItem",
     "ProbeRuleListResponse",
@@ -201,6 +201,6 @@ __all__ = [
     "UpsertResolutionReleaseStageStatusItem",
     "UpsertResolutionReleaseStageStatusRequest",
     "WorkerRunResponse",
-    "WorkflowSpecCatalogItem",
-    "WorkflowStepResponse",
+    "WorkflowCatalogItem",
+    "WorkflowStepCatalogItem",
 ]

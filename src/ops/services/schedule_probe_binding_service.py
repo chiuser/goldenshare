@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
-from src.ops.specs import get_workflow_spec
+from src.ops.action_catalog import get_workflow_definition
 from src.app.exceptions import WebAppError
 
 
@@ -125,15 +125,15 @@ class ScheduleProbeBindingService:
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
                 return sorted({(item, None) for item in raw_dataset_keys})
-            workflow = get_workflow_spec(schedule.spec_key)
+            workflow = get_workflow_definition(schedule.spec_key)
             if workflow is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             dataset_targets = []
             for step in workflow.steps:
                 dataset_key = step.dataset_key
                 if dataset_key is None:
                     try:
-                        definition, _action = get_dataset_definition_by_action_key(step.job_key)
+                        definition, _action = get_dataset_definition_by_action_key(step.action_key)
                     except KeyError:
                         continue
                     dataset_key = definition.dataset_key

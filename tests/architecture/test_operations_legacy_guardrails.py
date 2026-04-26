@@ -116,7 +116,7 @@ def test_no_legacy_specs_submodule_imports() -> None:
         "src.operations.specs.job_spec",
         "src.operations.specs." + "observed_" + "dataset_" + "registry",
         "src.operations.specs.registry",
-        "src.operations.specs.workflow_spec",
+        "src.operations.specs." + "workflow_" + "spec",
     }
     violations: list[str] = []
     for scan_root in SCAN_ROOTS:

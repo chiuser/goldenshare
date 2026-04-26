@@ -179,7 +179,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph CP["控制面 (Control Plane)"]
-        A["JobSpec / WorkflowSpec"]
+        A["DatasetDefinition / WorkflowDefinition"]
         B["Scheduler / Probe Runtime"]
         C["Dispatcher"]
         D["Execution State (job_execution/step/unit/event)"]
@@ -554,7 +554,7 @@ V2 主语义仅保留：
 
 #### 7.6.1 WorkflowProfile 约束
 
-`WorkflowSpec.workflow_profile` 仅允许：
+`WorkflowDefinition.workflow_profile` 仅允许：
 
 1. `point_incremental`
 2. `range_rebuild`

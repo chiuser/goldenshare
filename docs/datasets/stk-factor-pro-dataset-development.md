@@ -75,17 +75,15 @@
 
 ## 6. Ops 打通
 
-- JobSpec：
-  - `sync_daily.stk_factor_pro`
-  - `sync_history.stk_factor_pro`
-  - `backfill_by_trade_date.stk_factor_pro`
+- DatasetDefinition action：
+  - `stk_factor_pro.maintain`
 - Freshness：
   - `dataset_key`: `stk_factor_pro`
   - `display_name`: `股票技术面因子(专业版)`
   - `domain`: `股票`
   - `observed_date_column`: `trade_date`
 - 工作流：
-  - `daily_market_close_sync` 新增步骤 `sync_daily.stk_factor_pro`
+  - `daily_market_close_sync` 新增步骤 `stk_factor_pro.maintain`
 
 ## 7. 测试覆盖
 
@@ -96,10 +94,9 @@
   - 区间按交易日历扇出
 - `tests/test_sync_registry.py`
   - 资源注册校验
-- `tests/test_ops_specs.py` / `tests/web/test_ops_catalog_api.py`
-  - JobSpec 参数契约与目录输出
+- `tests/test_ops_action_catalog.py` / `tests/web/test_ops_catalog_api.py`
+  - action catalog 参数契约与目录输出
 - `tests/test_fields_constants.py`
   - `STK_FACTOR_PRO_FIELDS` 常量覆盖
 - `tests/test_extended_models.py`
   - `equity_factor_pro` 主键与索引
-

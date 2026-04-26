@@ -4,12 +4,14 @@
 
 记录 `operations -> ops` 收敛后的当前真实状态，作为后续稳定化与防回退基线。
 
+> 2026-04-26 更新：运维动作与工作流目录已从旧规格目录继续收口到 `src/ops/action_catalog.py`。当前文档中的 `ops` 收敛结论仍成立，但不再把旧规格目录作为主实现位置。
+
 ---
 
 ## 收敛结论（已完成）
 
 1. runtime 主实现已收敛到 `src/ops/runtime/*`
-2. specs 主实现已收敛到 `src/ops/specs/*`
+2. 运维动作目录与工作流定义主实现已收敛到 `src/ops/action_catalog.py`
 3. 常规 services 主实现已收敛到 `src/ops/services/*`
 4. `history_backfill` 已收敛到 `src/ops/services/operations_history_backfill_service.py`
 5. `market_mood_walkforward_validation_service` 已收敛到 `src/biz/services/market_mood_walkforward_validation_service.py`
@@ -23,7 +25,7 @@
 `src/ops` 为唯一 ops 主实现目录，承接：
 
 1. runtime
-2. specs
+2. action catalog / workflow definition
 3. ops api/query/schema/service/model
 
 ### legacy 目录

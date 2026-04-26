@@ -39,7 +39,7 @@ POST /ops/manual-actions/{action_key}/executions
   -> OperationsExecutionService.create_execution
   -> ops.job_execution
   -> OperationsDispatcher
-  -> JobSpec.category / executor_kind 分支
+  -> 旧任务规格 category / executor_kind 分支
   -> SyncV2Service 或 HistoryBackfillService
 ```
 
@@ -61,14 +61,14 @@ JobSchedule(spec_type, spec_key, params_json)
 问题：
 
 1. 自动任务直接绑定旧 `spec_key`。
-2. 自动任务列表因此不得不理解 `JobSpec`。
+2. 自动任务列表因此不得不理解旧任务规格。
 3. schedule 的目标应该是“某个 dataset 的 maintain action”，不是“某个旧执行路径”。
 
 ### 2.3 工作流链路
 
 ```text
-WorkflowSpec.steps[].job_key
-  -> get_job_spec(job_key)
+旧工作流规格 steps[].旧任务 key
+  -> 按旧任务 key 查旧任务规格
   -> dispatcher 执行每个 job
 ```
 
@@ -336,7 +336,7 @@ class DatasetPlanExecutor:
 
 它不允许消费：
 
-1. `JobSpec.category`
+1. 旧任务规格 category
 2. `executor_kind`
 3. 旧 key 前缀
 4. 前端传来的执行路径
@@ -375,7 +375,7 @@ class DatasetPlanExecutor:
 | 字段 | 说明 |
 |---|---|
 | `dataset_key` | 数据集标识 |
-| 旧入口 | 当前 `JobSpec` / dispatcher / `HistoryBackfillService` 分支 |
+| 旧入口 | 当前旧任务规格 / dispatcher / `HistoryBackfillService` 分支 |
 | 时间模型 | `date_model.input_shape/window_mode/bucket_rule` |
 | 旧参数 | 当前支持的 `trade_date/start_date/end_date/month/filters` |
 | 新 `time_scope` | 新模型中的标准处理范围 |
@@ -1077,7 +1077,7 @@ Unit 建议记录：
 
 目标：
 
-1. 删除 `JobSpec` 旧执行注册。
+1. 删除旧任务规格执行注册。
 2. 删除 dispatcher 中旧 category 分支。
 3. 删除 tests 中对旧 key 的断言。
 4. 删除文档中“当前口径”的旧三件套说明。

@@ -17,7 +17,7 @@
 
 - 目标：
 - 非目标：
-- 为什么需要 workflow（而不是单 job）：
+- 为什么需要 workflow（而不是单数据集 action）：
 
 ## 3. 调度与执行能力
 
@@ -33,7 +33,7 @@
 
 ## 4. 步骤编排清单（必须详细）
 
-| 序号 | step_key | 显示名 | job_key | depends_on | default_params |
+| 序号 | step_key | 显示名 | action_key | depends_on | default_params |
 |---:|---|---|---|---|---|
 | 1 |  |  |  |  |  |
 

@@ -73,7 +73,7 @@ from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
-from src.ops.specs import get_workflow_spec
+from src.ops.action_catalog import get_workflow_definition
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
@@ -593,18 +593,18 @@ class OpsFreshnessQueryService:
             elif status_value == "paused":
                 snap.paused += 1
 
-        workflow_job_keys_cache: dict[str, tuple[str, ...]] = {}
+        workflow_action_keys_cache: dict[str, tuple[str, ...]] = {}
         for spec_type, spec_key, status, next_run_at in rows:
             if spec_type in {"dataset_action", "job"}:
                 merge_schedule_snapshot(spec_key, status, next_run_at)
                 continue
             if spec_type != "workflow":
                 continue
-            if spec_key not in workflow_job_keys_cache:
-                workflow_spec = get_workflow_spec(spec_key)
-                workflow_job_keys_cache[spec_key] = tuple(step.job_key for step in workflow_spec.steps) if workflow_spec else ()
-            for job_key in workflow_job_keys_cache[spec_key]:
-                merge_schedule_snapshot(job_key, status, next_run_at)
+            if spec_key not in workflow_action_keys_cache:
+                workflow = get_workflow_definition(spec_key)
+                workflow_action_keys_cache[spec_key] = tuple(step.action_key for step in workflow.steps) if workflow else ()
+            for action_key in workflow_action_keys_cache[spec_key]:
+                merge_schedule_snapshot(action_key, status, next_run_at)
         return result
 
     @staticmethod

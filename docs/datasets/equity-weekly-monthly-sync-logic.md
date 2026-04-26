@@ -93,7 +93,7 @@
 关键测试覆盖：
 
 1. `test_extended_sync_services.py`（历史路径，已删除）（周/月线策略参数）
-2. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
+2. [test_ops_action_catalog.py](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)（动作目录暴露）
 3. 后续执行计划覆盖应优先补到 DatasetExecutionPlan / resolver 测试，而不是恢复旧回补服务测试。
 
 ---

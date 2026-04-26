@@ -410,7 +410,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions
 如果变更影响 ops freshness，还应运行：
 
 ```bash
-pytest -q tests/test_ops_specs.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_freshness_registry_validation.py
+pytest -q tests/test_ops_action_catalog.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_freshness_registry_validation.py
 ```
 
 ---

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
+from src.ops.action_catalog import get_maintenance_action, get_workflow_definition
 from src.ops.models.ops.task_run import TaskRun
-from src.ops.specs import get_job_spec, get_workflow_spec
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,8 +180,8 @@ class TaskRunCommandService:
                 schedule_id=schedule_id,
             )
         if spec_type == "workflow":
-            if get_workflow_spec(spec_key) is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
+            if get_workflow_definition(spec_key) is None:
+                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             return TaskRunCreateContext(
                 task_type="workflow",
                 resource_key=None,
@@ -194,9 +194,9 @@ class TaskRunCommandService:
                 schedule_id=schedule_id,
             )
         if spec_type == "job":
-            job_spec = get_job_spec(spec_key)
-            if job_spec is None:
-                raise WebAppError(status_code=404, code="not_found", message="Job spec does not exist")
+            action = get_maintenance_action(spec_key)
+            if action is None:
+                raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
             return TaskRunCreateContext(
                 task_type="system_job",
                 resource_key=None,
@@ -225,13 +225,13 @@ class TaskRunCommandService:
             return
         if context.task_type == "workflow":
             payload_spec_key = str((context.request_payload or {}).get("spec_key") or "")
-            if not payload_spec_key or get_workflow_spec(payload_spec_key) is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Workflow spec is required")
+            if not payload_spec_key or get_workflow_definition(payload_spec_key) is None:
+                raise WebAppError(status_code=422, code="validation_error", message="Workflow is required")
             return
         if context.task_type == "system_job":
             payload_spec_key = str((context.request_payload or {}).get("spec_key") or "")
-            if not payload_spec_key or get_job_spec(payload_spec_key) is None:
-                raise WebAppError(status_code=422, code="validation_error", message="System job spec is required")
+            if not payload_spec_key or get_maintenance_action(payload_spec_key) is None:
+                raise WebAppError(status_code=422, code="validation_error", message="Maintenance action is required")
             return
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
 

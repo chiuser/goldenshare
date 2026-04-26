@@ -14,7 +14,7 @@
 3. [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md) 已记录当前 57 个数据集的身份、领域、来源 API、日期模型、输入字段、枚举、多选、写入目标和规划事实。
 4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
 5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
-6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从 `JobSpec`、Sync V2 contract 或前端 formatter 反推。
+6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从旧任务规格、旧执行契约或前端 formatter 反推。
 7. 历史 `sync_v2` 目录已从代码仓物理删除；本文后续章节中出现的旧路径仅作为历史审计上下文。
 
 ---
@@ -56,17 +56,17 @@ M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在
 
 | 信息 | 当前位置 | 问题 |
 |---|---|---|
-| 中文名、领域、cadence | `src/ops/specs/registry.py` 的旧 freshness metadata | foundation 数据集事实被 ops 反向补全 |
-| 可调度/可手动运行能力 | `JobSpec.supports_schedule/supports_manual_run` | 执行路径和用户能力混在一起 |
-| 参数展示名与枚举 | `src/ops/specs/registry.py` 的 `ParameterSpec` | 与 `DatasetSyncContract.input_schema` 重叠 |
-| 手动维护动作 | `ManualActionQueryService` 从 `JobSpec` 拼装 | action 是由旧执行路径反推出来的 |
-| 任务名称 | `JobSpec.display_name`、前端 formatter | 同一对象多处命名，容易不一致 |
+| 中文名、领域、cadence | 旧 ops 规格注册表中的 freshness metadata | foundation 数据集事实被 ops 反向补全 |
+| 可调度/可手动运行能力 | 旧任务规格中的 schedule/manual flag | 执行路径和用户能力混在一起 |
+| 参数展示名与枚举 | 旧任务规格中的参数定义 | 与旧执行契约 input schema 重叠 |
+| 手动维护动作 | `ManualActionQueryService` 从旧任务规格拼装 | action 是由旧执行路径反推出来的 |
+| 任务名称 | 旧任务规格 display name、前端 formatter | 同一对象多处命名，容易不一致 |
 | freshness 投影 | `DatasetDefinition` 派生的 `DatasetFreshnessProjection` | 是有价值投影，但只能从 definition 派生 |
-| `/ops/catalog` | `JobSpec` + `WorkflowSpec` 输出 | 暴露系统内部 spec，不是用户级数据集模型 |
+| `/ops/catalog` | 旧任务规格 + 旧工作流规格输出 | 暴露系统内部 spec，不是用户级数据集模型 |
 
-### 3.2 M0 前 JobSpec 膨胀
+### 3.2 M0 前旧任务规格膨胀
 
-M0 前 57 个数据集对应 141 个 `JobSpec`：
+M0 前 57 个数据集对应 141 个旧任务规格：
 
 | category | 数量 |
 |---|---:|
@@ -77,7 +77,7 @@ M0 前 57 个数据集对应 141 个 `JobSpec`：
 | `sync_minute_history` | 1 |
 | `maintenance` | 2 |
 
-这说明 `JobSpec` 已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
+这说明旧任务规格已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
 
 ### 3.3 日期模型处理
 
@@ -111,8 +111,8 @@ flowchart LR
 | `DatasetDefinition` | `src/foundation/datasets/**` | foundation 定义底层数据能力，不依赖 ops |
 | `DatasetExecutionPlan` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史 `sync_v2` 命名 |
 | `DatasetActionCatalog` | `src/ops/queries/**` 或 `src/ops/services/**` | ops 面向用户动作和任务中心 |
-| `DatasetFreshnessProjection` | `src/ops/specs` / `src/ops/queries` 收口后迁移 | freshness 是 ops 观测投影 |
-| `WorkflowDefinition` | `src/ops/specs/**` | 工作流属于运维编排，不是数据集事实 |
+| `DatasetFreshnessProjection` | `src/ops/queries/**` | freshness 是 ops 观测投影，只能从 definition 派生 |
+| `WorkflowDefinition` | `src/ops/action_catalog.py` | 工作流属于运维编排，不是数据集事实 |
 
 评审关注点：是否接受新增 `src/foundation/datasets/**` 作为数据集定义主目录。我的建议是接受，避免继续把主模型塞在 `sync_v2` 目录里。
 
@@ -189,7 +189,7 @@ class DatasetDefinition:
 | `domain` | `domain_key`、`domain_display_name`、`cadence` | 替代旧 freshness metadata |
 | `source` | `source_key_default`、`adapter_key`、`api_name`、`source_fields`、`source_doc_id` | 对接源接口事实 |
 | `date_model` | 现有 `DatasetDateModel` | 日期语义唯一来源 |
-| `input_model` | 时间输入以外的过滤参数、枚举、默认值、校验规则 | 替代 ops 侧重复 `ParameterSpec` |
+| `input_model` | 时间输入以外的过滤参数、枚举、默认值、校验规则 | 替代 ops 侧重复参数定义 |
 | `storage` | raw/core/serving 表、DAO 名、冲突键、写入路径 | 替代分散 target table 推断 |
 | `capabilities` | 支持的 action、是否可手动、是否可自动、默认计划策略 | 表达“能做什么”，不表达“怎么走旧路径” |
 | `observability` | observed field、freshness 规则、审计适用性 | 生成 freshness/status 投影 |
@@ -425,8 +425,8 @@ Ops 展示投影只回答：
 | `PlanningSpec` | 保留为执行计划输入，但从 definition 派生 |
 | `SourceSpec/WriteSpec/ObserveSpec` | 合入 definition 的 source/storage/observability |
 | `DatasetFreshnessProjection` | 从 definition 生成的 ops 投影，不得作为独立事实源维护 |
-| `JobSpec` | 不再作为用户/调度主模型；最终删除或降级为临时内部测试夹具 |
-| `WorkflowSpec` | 重建为引用 action 的 `WorkflowDefinition`，不再引用旧 job key |
+| 旧任务规格 | 已退出用户/调度主模型；动作目录改由 `DatasetDefinition` 与 `src/ops/action_catalog.py` 派生 |
+| 旧工作流规格 | 已重建为引用 action 的 `WorkflowDefinition`，不再引用旧任务 key |
 | `/ops/catalog` | 重做为数据集/动作/工作流目录，不再输出旧 spec catalog |
 
 ---
@@ -547,5 +547,5 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 2. 新增数据集只需要新增一个 `DatasetDefinition`，不能再同时改多张元数据表。
 3. 手动任务、自动任务、任务记录、任务详情的名称全部来自同一个 dataset display source。
 4. 日期控件和处理范围全部从 `DatasetDefinition.date_model` 派生。
-5. 执行器只消费 `DatasetExecutionPlan`，不再按 `JobSpec.category` 分支。
+5. 执行器只消费 `DatasetExecutionPlan`，不再按旧任务规格类别分支。
 6. `python3 scripts/check_docs_integrity.py`、架构依赖测试、ingestion 定义/计划测试、ops API 测试、frontend smoke 全部通过。

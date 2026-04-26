@@ -56,9 +56,9 @@ import { StatusBadge } from "../shared/ui/status-badge";
 import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
-type CatalogJobSpec = OpsCatalogResponse["job_specs"][number];
-type CatalogWorkflowSpec = OpsCatalogResponse["workflow_specs"][number];
-type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
+type CatalogAction = OpsCatalogResponse["actions"][number];
+type CatalogWorkflow = OpsCatalogResponse["workflows"][number];
+type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 
@@ -67,8 +67,8 @@ const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 
 const emptyForm = {
   id: null as number | null,
-  spec_type: "dataset_action",
-  spec_key: "",
+  action_type: "dataset_action",
+  action_key: "",
   display_name: "",
   schedule_type: "once",
   timezone: "Asia/Shanghai",
@@ -245,8 +245,8 @@ function formatParamValue(value: unknown): string {
   return String(value);
 }
 
-function getCatalogJobLabel(item: CatalogJobSpec): string {
-  return item.resource_display_name || item.display_name;
+function getCatalogActionLabel(item: CatalogAction): string {
+  return item.target_display_name || item.display_name;
 }
 
 function getScheduleTargetLabel(item: { target_display_name?: string | null; spec_display_name?: string | null; display_name: string }): string {
@@ -263,29 +263,37 @@ function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule
   return "any";
 }
 
-function findCatalogJobSpec(catalog: OpsCatalogResponse | undefined, specType: string, specKey: string): CatalogJobSpec | null {
-  if (!catalog || !(specType === "job" || specType === "dataset_action")) {
+function findCatalogAction(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogAction | null {
+  if (!catalog || !(actionType === "maintenance_action" || actionType === "dataset_action")) {
     return null;
   }
-  return catalog.job_specs.find((item) => item.key === specKey) || null;
+  return catalog.actions.find((item) => item.action_type === actionType && item.key === actionKey) || null;
 }
 
-function findCatalogWorkflowSpec(catalog: OpsCatalogResponse | undefined, specType: string, specKey: string): CatalogWorkflowSpec | null {
-  if (!catalog || specType !== "workflow") {
+function findCatalogWorkflow(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogWorkflow | null {
+  if (!catalog || actionType !== "workflow") {
     return null;
   }
-  return catalog.workflow_specs.find((item) => item.key === specKey) || null;
+  return catalog.workflows.find((item) => item.key === actionKey) || null;
 }
 
 function buildParamLabelMap(
   catalog: OpsCatalogResponse | undefined,
-  specType: string,
-  specKey: string,
+  actionType: string,
+  actionKey: string,
 ): Map<string, string> {
-  const jobSpec = findCatalogJobSpec(catalog, specType, specKey);
-  const workflowSpec = findCatalogWorkflowSpec(catalog, specType, specKey);
-  const params = jobSpec?.supported_params || workflowSpec?.supported_params || [];
+  const action = findCatalogAction(catalog, actionType, actionKey);
+  const workflow = findCatalogWorkflow(catalog, actionType, actionKey);
+  const params = action?.parameters || workflow?.parameters || [];
   return new Map(params.map((param) => [param.key, param.display_name]));
+}
+
+function toScheduleSpecType(actionType: string): string {
+  return actionType === "maintenance_action" ? "job" : actionType;
+}
+
+function toCatalogActionType(scheduleSpecType: string): string {
+  return scheduleSpecType === "job" ? "maintenance_action" : scheduleSpecType;
 }
 
 export function OpsAutomationPage() {
@@ -296,7 +304,7 @@ export function OpsAutomationPage() {
     "goldenshare.frontend.ops.automation.selected-id",
     null,
   );
-  const [selectedSpecDomain, setSelectedSpecDomain] = usePersistentState<string>(
+  const [selectedActionDomain, setSelectedActionDomain] = usePersistentState<string>(
     "goldenshare.frontend.ops.automation.selected-domain",
     "",
   );
@@ -372,18 +380,18 @@ export function OpsAutomationPage() {
     enabled: Boolean(selectedScheduleId),
   });
 
-  const specItems = useMemo(() => {
+  const actionItems = useMemo(() => {
     if (!catalogQuery.data) return [];
     return [
-      ...catalogQuery.data.job_specs
-        .filter((item) => item.supports_schedule !== false)
+      ...catalogQuery.data.actions
+        .filter((item) => item.schedule_enabled !== false)
         .map((item) => ({
-          value: `${item.spec_type || "job"}:${item.key}`,
-          label: `${item.spec_type === "dataset_action" ? "【数据】" : "【任务】"}${getCatalogJobLabel(item)}`,
-          domain: item.domain_display_name || item.category || "其他",
+          value: `${item.action_type}:${item.key}`,
+          label: `${item.action_type === "dataset_action" ? "【数据】" : "【维护】"}${getCatalogActionLabel(item)}`,
+          domain: item.domain_display_name || "其他",
         })),
-      ...catalogQuery.data.workflow_specs
-        .filter((item) => item.supports_schedule !== false)
+      ...catalogQuery.data.workflows
+        .filter((item) => item.schedule_enabled !== false)
         .map((item) => ({
           value: `workflow:${item.key}`,
           label: `【流程】${item.display_name}`,
@@ -393,100 +401,100 @@ export function OpsAutomationPage() {
   }, [catalogQuery.data]);
 
   const domainOptions = useMemo(() => {
-    const domains = Array.from(new Set(specItems.map((item) => item.domain))).sort((a, b) => a.localeCompare(b, "zh-CN"));
+    const domains = Array.from(new Set(actionItems.map((item) => item.domain))).sort((a, b) => a.localeCompare(b, "zh-CN"));
     return domains.map((domain) => ({ value: domain, label: domain }));
-  }, [specItems]);
+  }, [actionItems]);
 
-  const specOptions = useMemo(
-    () => specItems.filter((item) => !selectedSpecDomain || item.domain === selectedSpecDomain),
-    [selectedSpecDomain, specItems],
+  const actionOptions = useMemo(
+    () => actionItems.filter((item) => !selectedActionDomain || item.domain === selectedActionDomain),
+    [selectedActionDomain, actionItems],
   );
 
   useEffect(() => {
-    if (!form.spec_key) {
+    if (!form.action_key) {
       return;
     }
-    const value = `${form.spec_type}:${form.spec_key}`;
-    const matched = specItems.find((item) => item.value === value);
+    const value = `${form.action_type}:${form.action_key}`;
+    const matched = actionItems.find((item) => item.value === value);
     if (!matched) {
       return;
     }
-    if (selectedSpecDomain !== matched.domain) {
-      setSelectedSpecDomain(matched.domain);
+    if (selectedActionDomain !== matched.domain) {
+      setSelectedActionDomain(matched.domain);
     }
-  }, [form.spec_key, form.spec_type, selectedSpecDomain, setSelectedSpecDomain, specItems]);
+  }, [form.action_key, form.action_type, selectedActionDomain, setSelectedActionDomain, actionItems]);
 
-  const selectedJobSpec = useMemo(
+  const selectedAction = useMemo(
     () =>
-      ((form.spec_type === "job" || form.spec_type === "dataset_action") && catalogQuery.data && form.spec_key)
-        ? (catalogQuery.data.job_specs.find((item) => item.key === form.spec_key) || null)
+      ((form.action_type === "maintenance_action" || form.action_type === "dataset_action") && catalogQuery.data && form.action_key)
+        ? (catalogQuery.data.actions.find((item) => item.action_type === form.action_type && item.key === form.action_key) || null)
         : null,
-    [catalogQuery.data, form.spec_key, form.spec_type],
+    [catalogQuery.data, form.action_key, form.action_type],
   );
   const detailParamLabelMap = useMemo(
     () =>
       buildParamLabelMap(
         catalogQuery.data,
-        detailQuery.data?.spec_type || "",
+        toCatalogActionType(detailQuery.data?.spec_type || ""),
         detailQuery.data?.spec_key || "",
       ),
     [catalogQuery.data, detailQuery.data?.spec_key, detailQuery.data?.spec_type],
   );
-  const selectedJobDateRule = useMemo<DateSelectionRule>(() => {
-    if (!selectedJobSpec) {
+  const selectedActionDateRule = useMemo<DateSelectionRule>(() => {
+    if (!selectedAction) {
       return "any";
     }
-    return toDateSelectionRule(selectedJobSpec.date_selection_rule);
-  }, [selectedJobSpec]);
+    return toDateSelectionRule(selectedAction.date_selection_rule);
+  }, [selectedAction]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
 
-  const selectedJobParamSpecs = useMemo<CatalogParamSpec[]>(
+  const selectedActionParameters = useMemo<CatalogActionParameter[]>(
     () =>
-      form.spec_type === "job"
-      || form.spec_type === "dataset_action"
-        ? (selectedJobSpec?.supported_params || []).filter(
+      form.action_type === "maintenance_action"
+      || form.action_type === "dataset_action"
+        ? (selectedAction?.parameters || []).filter(
           (param) => !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key),
         )
         : [],
-    [form.spec_type, selectedJobSpec],
+    [form.action_type, selectedAction],
   );
 
   const workflowProbeDatasetOptions = useMemo(
     () =>
-      (catalogQuery.data?.job_specs || [])
-        .filter((item) => (item.spec_type || "job") === "dataset_action" && item.resource_key)
+      (catalogQuery.data?.actions || [])
+        .filter((item) => item.action_type === "dataset_action" && item.target_key)
         .map((item) => {
-          const datasetKey = item.resource_key || "";
+          const datasetKey = item.target_key || "";
           return {
             value: datasetKey,
-            label: getCatalogJobLabel(item),
+            label: getCatalogActionLabel(item),
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
-    [catalogQuery.data?.job_specs],
+    [catalogQuery.data?.actions],
   );
 
   const supportsSingleDay = useMemo(
     () =>
-      (form.spec_type === "job" || form.spec_type === "dataset_action")
-      && Boolean(selectedJobSpec?.supported_params?.some((param) => param.key === "trade_date")),
-    [form.spec_type, selectedJobSpec],
+      (form.action_type === "maintenance_action" || form.action_type === "dataset_action")
+      && Boolean(selectedAction?.parameters?.some((param) => param.key === "trade_date")),
+    [form.action_type, selectedAction],
   );
   const supportsDateRange = useMemo(
     () =>
-        (form.spec_type === "job" || form.spec_type === "dataset_action")
+        (form.action_type === "maintenance_action" || form.action_type === "dataset_action")
       && Boolean(
-        selectedJobSpec?.supported_params?.some((param) => param.key === "start_date")
-        && selectedJobSpec?.supported_params?.some((param) => param.key === "end_date"),
+        selectedAction?.parameters?.some((param) => param.key === "start_date")
+        && selectedAction?.parameters?.some((param) => param.key === "end_date"),
       ),
-    [form.spec_type, selectedJobSpec],
+    [form.action_type, selectedAction],
   );
 
   const resolvedParamsJson = useMemo(() => {
     const params: Record<string, unknown> = {};
-    for (const param of selectedJobParamSpecs) {
+    for (const param of selectedActionParameters) {
       const rawValue = form.field_values[param.key];
       if (rawValue === undefined || rawValue === null) {
         continue;
@@ -529,8 +537,8 @@ export function OpsAutomationPage() {
       params.start_date = form.start_date;
       params.end_date = form.end_date;
     }
-    if (form.spec_type === "dataset_action" && selectedJobSpec) {
-      const datasetKey = selectedJobSpec.resource_key || "";
+    if (form.action_type === "dataset_action" && selectedAction) {
+      const datasetKey = selectedAction.target_key || "";
       const timeKeys = new Set(["trade_date", "start_date", "end_date", "month", "start_month", "end_month", "ann_date"]);
       const filters = Object.fromEntries(Object.entries(params).filter(([key]) => !timeKeys.has(key)));
       const timeInput: Record<string, unknown> = {};
@@ -567,10 +575,10 @@ export function OpsAutomationPage() {
     form.end_date,
     form.field_values,
     form.selected_date,
-    form.spec_type,
+    form.action_type,
     form.start_date,
-    selectedJobParamSpecs,
-    selectedJobSpec,
+    selectedActionParameters,
+    selectedAction,
     supportsDateRange,
     supportsSingleDay,
   ]);
@@ -716,7 +724,7 @@ export function OpsAutomationPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (form.trigger_mode !== "schedule" && form.spec_type === "workflow" && form.workflow_probe_dataset_keys.length === 0) {
+      if (form.trigger_mode !== "schedule" && form.action_type === "workflow" && form.workflow_probe_dataset_keys.length === 0) {
         throw new Error("工作流使用探测触发时，请至少选择一个探测目标数据集。");
       }
       const scheduleType = form.schedule_type;
@@ -725,8 +733,8 @@ export function OpsAutomationPage() {
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
-        spec_type: form.spec_type,
-        spec_key: form.spec_key,
+        spec_type: toScheduleSpecType(form.action_type),
+        spec_key: form.action_key,
         display_name: form.display_name,
         schedule_type: scheduleType,
         trigger_mode: form.trigger_mode,
@@ -746,7 +754,7 @@ export function OpsAutomationPage() {
               condition_kind: form.probe_condition_kind || "freshness_latest_open",
               min_rows_in: form.probe_min_rows_in ? Number(form.probe_min_rows_in) : null,
               workflow_dataset_keys:
-                form.spec_type === "workflow"
+                form.action_type === "workflow"
                   ? form.workflow_probe_dataset_keys
                   : [],
             },
@@ -858,8 +866,8 @@ export function OpsAutomationPage() {
     const probeConfig = detail.probe_config || null;
     setForm({
       id: detail.id,
-      spec_type: detail.spec_type,
-      spec_key: detail.spec_key,
+      action_type: toCatalogActionType(detail.spec_type),
+      action_key: detail.spec_key,
       display_name: detail.display_name,
       schedule_type: detail.schedule_type,
       trigger_mode: (detail.trigger_mode as TriggerMode) || "schedule",
@@ -1036,7 +1044,7 @@ export function OpsAutomationPage() {
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_key || "全部来源"}</Text></Group>
-                      {detailQuery.data.spec_type === "workflow" ? (
+                      {toCatalogActionType(detailQuery.data.spec_type) === "workflow" ? (
                         <Group justify="space-between" align="flex-start">
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
                           <Text size="sm" ta="right">
@@ -1198,23 +1206,23 @@ export function OpsAutomationPage() {
               label="先选数据分组"
               placeholder="请选择分组"
               data={domainOptions}
-              value={selectedSpecDomain || null}
+              value={selectedActionDomain || null}
               clearable
               onChange={(value) => {
                 const nextDomain = value || "";
-                setSelectedSpecDomain(nextDomain);
+                setSelectedActionDomain(nextDomain);
                 if (!nextDomain) {
                   return;
                 }
-                const selectedValue = form.spec_key ? `${form.spec_type}:${form.spec_key}` : "";
-                const current = specItems.find((item) => item.value === selectedValue);
+                const selectedValue = form.action_key ? `${form.action_type}:${form.action_key}` : "";
+                const current = actionItems.find((item) => item.value === selectedValue);
                 if (current && current.domain === nextDomain) {
                   return;
                 }
                 setForm((currentForm) => ({
                   ...currentForm,
-                  spec_type: "dataset_action",
-                  spec_key: "",
+                  action_type: "dataset_action",
+                  action_key: "",
                   date_mode: "single_day",
                   selected_date: "",
                   start_date: "",
@@ -1227,19 +1235,19 @@ export function OpsAutomationPage() {
               label="再选执行对象"
               searchable
               placeholder="请选择执行对象"
-              data={specOptions}
-              value={form.spec_key ? `${form.spec_type}:${form.spec_key}` : null}
+              data={actionOptions}
+              value={form.action_key ? `${form.action_type}:${form.action_key}` : null}
               nothingFoundMessage="没有找到匹配对象"
               onChange={(value) => {
-                const [specType, specKey] = (value || "job:").split(":");
-                const selected = specItems.find((item) => item.value === value);
+                const [actionType, actionKey] = (value || "dataset_action:").split(":");
+                const selected = actionItems.find((item) => item.value === value);
                 if (selected) {
-                  setSelectedSpecDomain(selected.domain);
+                  setSelectedActionDomain(selected.domain);
                 }
                 setForm((current) => ({
                   ...current,
-                  spec_type: specType,
-                  spec_key: specKey || "",
+                  action_type: actionType,
+                  action_key: actionKey || "",
                   date_mode: "single_day",
                   selected_date: "",
                   start_date: "",
@@ -1422,7 +1430,7 @@ export function OpsAutomationPage() {
                   />
                 </Grid.Col>
               </Grid>
-              {form.spec_type === "workflow" ? (
+              {form.action_type === "workflow" ? (
                 <MultiSelect
                   label="工作流探测目标数据集"
                   placeholder="请选择工作流探测目标（可多选）"
@@ -1466,7 +1474,7 @@ export function OpsAutomationPage() {
                           label="同步日期（可留空）"
                           placeholder="留空表示按系统自动判断业务日期"
                           value={form.selected_date}
-                          selectionRule={selectedJobDateRule}
+                          selectionRule={selectedActionDateRule}
                           onChange={(value) =>
                             setForm((current) => ({
                               ...current,
@@ -1504,11 +1512,11 @@ export function OpsAutomationPage() {
                     </Stack>
                   ) : null}
 
-                  {selectedJobParamSpecs.length ? (
+                  {selectedActionParameters.length ? (
                     <Stack gap="xs">
                       <Text fw={700} size="sm">可选：附加筛选条件</Text>
                       <Grid>
-                        {selectedJobParamSpecs.map((param) => (
+                        {selectedActionParameters.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
                             {(param.param_type === "enum" && param.multi_value) ? (
                               <Checkbox.Group

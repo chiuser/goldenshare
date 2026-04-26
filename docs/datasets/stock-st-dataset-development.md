@@ -87,9 +87,8 @@
 
 ## 6. Ops 打通设计
 
-- JobSpec：
-  - `sync_daily.stock_st`
-  - `sync_history.stock_st`
+- DatasetDefinition action：
+  - `stock_st.maintain`
 - Freshness 元数据建议：
   - `dataset_key`: `stock_st`
   - `display_name`: `ST股票列表`
@@ -99,7 +98,7 @@
 
 ### 6.1 工作流接入
 
-- 已纳入 `daily_market_close_sync` 工作流，步骤键：`stock_st`，任务键：`sync_daily.stock_st`。
+- 已纳入 `daily_market_close_sync` 工作流，步骤键：`stock_st`，动作键：`stock_st.maintain`。
 
 ## 7. 测试覆盖清单
 
@@ -111,7 +110,7 @@
   - 起始日期裁剪到 `2016-01-01`
 - `tests/test_sync_registry.py`
   - 注册表包含 `stock_st`
-- `tests/test_ops_specs.py`
+- `tests/test_ops_action_catalog.py`
   - `sync_daily.stock_st` / `sync_history.stock_st` 参数契约
 - `tests/test_fields_constants.py`
   - `STOCK_ST_FIELDS` 字段常量

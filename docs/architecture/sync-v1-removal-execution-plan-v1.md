@@ -34,7 +34,7 @@
 3. ``src/foundation/services/sync_v2/fields.py``（历史路径，已删除）
 被 `sync_v2` contract/planner 与 `stk_factor_pro` 模型引用。
 4. `src/foundation/services/sync/registry.py`（历史基线记录，已在 Batch 4 删除）  
-被 [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）、`src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）、`src/ops/services/operations_sync_job_state_reconciliation_service.py`（历史实现，已删除）、[`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py) 引用。
+被 [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）、`src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）、`src/ops/services/operations_sync_job_state_reconciliation_service.py`（历史实现，已删除）、旧 ops 规格注册表引用。
 5. `src/foundation/services/sync/sync_moneyflow_service.py`（历史基线记录，已在 Batch 4 删除）  
 仅被 ``src/foundation/services/sync_v2/writer.py``（历史路径，已删除） 引用（`publish_moneyflow_serving_for_keys`）。
 
@@ -82,12 +82,12 @@
    - `src/ops/runtime/dispatcher.py`（历史实现，已退场）
    - `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
    - `src/ops/services/operations_sync_job_state_reconciliation_service.py`（历史实现，已删除）
-   - [`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
+   - 旧 ops 规格注册表（已退场）
 3. 旧路径 `src/foundation/services/sync/registry.py` 在 Batch 2 曾降级为兼容壳，Batch 4 已删除。
 4. Batch 2 门禁与最小冒烟：
    - `tests/test_sync_v2_registry_routing.py`
    - `tests/test_sync_registry.py`
-   - `tests/test_ops_specs.py`
+   - `tests/test_ops_action_catalog.py`
    - `tests/test_sync_v2_validator.py`
    - `tests/test_sync_v2_planner.py`
    - `tests/test_sync_v2_worker_client.py`
@@ -113,7 +113,7 @@
 3. 最小配套更新：
    - [`scripts/generate_dataset_catalog.py`](/Users/congming/github/goldenshare/scripts/generate_dataset_catalog.py) 切到 `sync_v2` contract 数据源，避免继续依赖已删除旧 registry。
 4. Batch 4 门禁：
-   - `pytest -q tests/test_sync_v2_validator.py tests/test_sync_v2_planner.py tests/test_sync_v2_worker_client.py tests/test_sync_v2_linter.py tests/architecture/test_sync_v2_registry_guardrails.py tests/test_sync_v2_registry_routing.py tests/test_sync_registry.py tests/test_ops_specs.py tests/test_base_sync_service_snapshot_refresh.py tests/test_sync_moneyflow_service.py`
+   - `pytest -q tests/test_sync_v2_validator.py tests/test_sync_v2_planner.py tests/test_sync_v2_worker_client.py tests/test_sync_v2_linter.py tests/architecture/test_sync_v2_registry_guardrails.py tests/test_sync_v2_registry_routing.py tests/test_sync_registry.py tests/test_ops_action_catalog.py tests/test_base_sync_service_snapshot_refresh.py tests/test_sync_moneyflow_service.py`
    - 结果：`70 passed`
 
 ### 2.7 Batch 5 完成结果（2026-04-23）
@@ -131,7 +131,7 @@
 3. 配套测试口径切换：
    - [`tests/test_fields_constants.py`](/Users/congming/github/goldenshare/tests/test_fields_constants.py) 改为引用 `sync_v2.fields`。
 4. Batch 5 门禁：
-   - `pytest -q tests/test_sync_v2_validator.py tests/test_sync_v2_planner.py tests/test_sync_v2_worker_client.py tests/test_sync_v2_linter.py tests/architecture/test_sync_v2_registry_guardrails.py tests/test_sync_v2_registry_routing.py tests/test_sync_registry.py tests/test_ops_specs.py tests/test_base_sync_service_snapshot_refresh.py tests/test_sync_moneyflow_service.py tests/test_fields_constants.py`
+   - `pytest -q tests/test_sync_v2_validator.py tests/test_sync_v2_planner.py tests/test_sync_v2_worker_client.py tests/test_sync_v2_linter.py tests/architecture/test_sync_v2_registry_guardrails.py tests/test_sync_v2_registry_routing.py tests/test_sync_registry.py tests/test_ops_action_catalog.py tests/test_base_sync_service_snapshot_refresh.py tests/test_sync_moneyflow_service.py tests/test_fields_constants.py`
    - 结果：`74 passed`
 
 ### 2.8 Batch 6 完成结果（2026-04-23）
@@ -172,7 +172,7 @@
 
 > 审计快照（2026-04-23，Batch 2 后）：
 > - 仍直接 import `src.foundation.services.sync.sync_*_service` 的测试文件：`27` 个
-> - 已完成切换：`tests/test_sync_v2_registry_routing.py`、`tests/test_sync_registry.py`、`tests/test_ops_specs.py`
+> - 已完成切换：`tests/test_sync_v2_registry_routing.py`、`tests/test_sync_registry.py`、`tests/test_ops_action_catalog.py`
 > - 待切换主集合：`tests/test_*sync*_service.py` 及 board/ranking/extended 组合测试
 
 > Batch 3 完成结果（2026-04-23）：

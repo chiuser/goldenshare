@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
-class ParameterSpecResponse(BaseModel):
+class ActionParameterResponse(BaseModel):
     key: str
     display_name: str
     param_type: str
@@ -13,37 +13,35 @@ class ParameterSpecResponse(BaseModel):
     multi_value: bool
 
 
-class JobSpecCatalogItem(BaseModel):
+class ActionCatalogItem(BaseModel):
     key: str
-    spec_type: str = "job"
+    action_type: str
     display_name: str
-    resource_key: str | None = None
-    resource_display_name: str | None = None
+    target_key: str | None = None
+    target_display_name: str | None = None
     domain_key: str | None = None
     domain_display_name: str | None = None
     date_selection_rule: str | None = None
-    category: str
     description: str
-    strategy_type: str
-    executor_kind: str
     target_tables: list[str]
-    supports_manual_run: bool
-    supports_schedule: bool
-    supports_retry: bool
+    manual_enabled: bool
+    schedule_enabled: bool
+    retry_enabled: bool
     schedule_binding_count: int = 0
     active_schedule_count: int = 0
-    supported_params: list[ParameterSpecResponse]
+    parameters: list[ActionParameterResponse]
 
 
-class WorkflowStepResponse(BaseModel):
+class WorkflowStepCatalogItem(BaseModel):
     step_key: str
-    job_key: str
+    action_key: str
     display_name: str
+    dataset_key: str | None = None
     depends_on: list[str]
     default_params: dict
 
 
-class WorkflowSpecCatalogItem(BaseModel):
+class WorkflowCatalogItem(BaseModel):
     key: str
     display_name: str
     description: str
@@ -51,14 +49,14 @@ class WorkflowSpecCatalogItem(BaseModel):
     domain_display_name: str = "工作流"
     parallel_policy: str
     default_schedule_policy: str | None = None
-    supports_schedule: bool
-    supports_manual_run: bool
+    schedule_enabled: bool
+    manual_enabled: bool
     schedule_binding_count: int = 0
     active_schedule_count: int = 0
-    supported_params: list[ParameterSpecResponse]
-    steps: list[WorkflowStepResponse]
+    parameters: list[ActionParameterResponse]
+    steps: list[WorkflowStepCatalogItem]
 
 
 class OpsCatalogResponse(BaseModel):
-    job_specs: list[JobSpecCatalogItem]
-    workflow_specs: list[WorkflowSpecCatalogItem]
+    actions: list[ActionCatalogItem]
+    workflows: list[WorkflowCatalogItem]

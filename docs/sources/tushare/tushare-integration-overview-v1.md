@@ -8,7 +8,7 @@
 > 2. `src/foundation/services/sync_v2/runtime_registry.py`
 > 3. [docs_index.csv](/Users/congming/github/goldenshare/docs/sources/tushare/docs_index.csv)
 
-- 历史统计口径：`src/foundation/services/sync/registry.py` + `src/ops/specs/registry.py` + `docs/sources/tushare/docs_index.csv`
+- 历史统计口径：旧 sync registry + 旧 ops 规格注册表 + `docs/sources/tushare/docs_index.csv`
 - 快照生成时间：2026-04-20
 - 快照范围：仅统计 **Tushare** 已接入数据集（不含 Biying）。
 

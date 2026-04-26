@@ -31,7 +31,7 @@ M0 前日期语义曾分散在三处：
 2. **状态层（freshness）**  
    - 定义位置：旧 freshness metadata  
    - 字段：`cadence/observed_date_column`（以及展示字段）  
-   - 文件：[/Users/congming/github/goldenshare/src/ops/specs/registry.py](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
+   - 文件：旧 ops 规格注册表（已退场）
 
 3. **策略层（特例覆盖）**  
    - M0 前已知漂移点是 `ths_daily`、`dc_daily` 存在 `anchor_type/window_policy` override。  
@@ -394,7 +394,7 @@ M0 前问题：
 2. `tests/test_sync_v2_planner.py`
 3. `tests/test_sync_v2_linter.py`
 4. `tests/architecture/test_sync_v2_registry_guardrails.py`
-5. `tests/test_ops_specs.py` 与 `tests/test_ops_freshness_snapshot_query_service.py`
+5. `tests/test_ops_action_catalog.py` 与 `tests/test_ops_freshness_snapshot_query_service.py`
 
 ## 8.2 回滚
 

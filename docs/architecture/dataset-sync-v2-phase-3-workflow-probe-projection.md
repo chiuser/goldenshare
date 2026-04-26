@@ -50,37 +50,37 @@
 
 | 模块 | 现状文件 | 本期职责 |
 |---|---|---|
-| Workflow Spec | `src/ops/specs/workflow_spec.py` | 扩展 profile/失败策略/参数作用域 |
+| Workflow 定义 | `src/ops/action_catalog.py` | 扩展 profile/失败策略/参数作用域 |
 | Dispatcher | `src/ops/runtime/dispatcher.py` | 按 step + policy 执行与状态传播 |
 | Execution Service | `src/ops/services/operations_execution_service.py` | 创建 workflow execution 元数据 |
 | Query Service | `src/ops/queries/execution_query_service.py` | 返回 workflow 级+step 级+unit 级摘要 |
 
-## 2.2 WorkflowSpec 字段扩展设计
+## 2.2 WorkflowDefinition 字段扩展设计
 
-`WorkflowSpec` 全量字段字典（旧字段+新增字段）：
+`WorkflowDefinition` 全量字段字典（旧字段+新增字段）：
 
 | 字段 | 来源 | 类型 | 必填 | 默认 | 约束级别 | 可空策略 | 说明 |
 |---|---|---|---|---|---|---|---|
 | `key` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | workflow 唯一键 |
 | `display_name` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | workflow 名称 |
 | `description` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | 描述 |
-| `steps` | 旧 | `tuple[WorkflowStepSpec,...]` | 是 | 无 | 硬约束 | 不可空 | step 列表 |
-| `supported_params` | 旧 | `tuple[ParameterSpec,...]` | 否 | `()` | 软约束 | 可空-透传 | 可支持参数 |
+| `steps` | 旧 | `tuple[WorkflowStepDefinition,...]` | 是 | 无 | 硬约束 | 不可空 | step 列表 |
+| `parameters` | 旧 | `tuple[ActionParameter,...]` | 否 | `()` | 软约束 | 可空-透传 | 可支持参数 |
 | `parallel_policy` | 旧 | `str` | 是 | `by_dependency` | 硬约束 | 不可空 | 并行策略 |
 | `default_schedule_policy` | 旧 | `str|None` | 否 | `null` | 软约束 | 可空-透传 | 默认调度策略 |
-| `supports_schedule` | 旧 | `bool` | 是 | `false` | 硬约束 | 不可空 | 是否支持自动任务 |
-| `supports_manual_run` | 旧 | `bool` | 是 | `true` | 硬约束 | 不可空 | 是否支持手动触发 |
+| `schedule_enabled` | 旧 | `bool` | 是 | `false` | 硬约束 | 不可空 | 是否支持自动任务 |
+| `manual_enabled` | 旧 | `bool` | 是 | `true` | 硬约束 | 不可空 | 是否支持手动触发 |
 | `workflow_profile` | 新 | `str` | 是 | 无 | 硬约束 | 不可空 | `point_incremental/range_rebuild/snapshot_refresh` |
 | `failure_policy_default` | 新 | `str` | 是 | `fail_fast` | 硬约束 | 不可空 | 默认失败策略 |
-| `supports_probe_trigger` | 新 | `bool` | 是 | `false` | 硬约束 | 不可空 | 是否允许 probe 触发 |
+| `probe_trigger_enabled` | 新 | `bool` | 是 | `false` | 硬约束 | 不可空 | 是否允许 probe 触发 |
 | `resume_supported` | 新 | `bool` | 是 | `true` | 硬约束 | 不可空 | 是否支持从失败 step 续跑 |
 
-`WorkflowStepSpec` 全量字段字典（旧字段+新增字段）：
+`WorkflowStepDefinition` 全量字段字典（旧字段+新增字段）：
 
 | 字段 | 来源 | 类型 | 必填 | 默认 | 约束级别 | 可空策略 | 说明 |
 |---|---|---|---|---|---|---|---|
 | `step_key` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | step 唯一键 |
-| `job_key` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | 绑定 job 规格键 |
+| `action_key` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | 绑定动作键 |
 | `display_name` | 旧 | `str` | 是 | 无 | 硬约束 | 不可空 | step 展示名 |
 | `depends_on` | 旧 | `tuple[str,...]` | 否 | `()` | 软约束 | 可空-透传 | 依赖 step 键 |
 | `default_params` | 旧 | `dict` | 否 | `{}` | 软约束 | 可空-透传 | 默认参数 |
@@ -311,7 +311,7 @@
 
 ## 6. 代码改造点（精确到文件）
 
-1. `src/ops/specs/workflow_spec.py`（字段扩展）  
+1. `src/ops/action_catalog.py`（WorkflowDefinition 字段扩展）  
 2. `src/ops/runtime/dispatcher.py`（策略传播 + 续跑）  
 3. `src/ops/services/schedule_probe_binding_service.py`（rule 拆分与模板字段）  
 4. `src/ops/services/operations_probe_runtime_service.py`（result_code/reason/correlation）  

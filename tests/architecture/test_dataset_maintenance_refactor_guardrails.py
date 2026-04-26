@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from src.ops.action_catalog import MAINTENANCE_ACTION_REGISTRY, WORKFLOW_DEFINITION_REGISTRY
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.ops.specs.registry import JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -59,19 +59,19 @@ def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None
     assert not violations, "旧数据集执行模型不得回到活跃代码:\n" + "\n".join(violations)
 
 
-def test_workflows_and_job_specs_only_use_dataset_actions_or_maintenance_jobs() -> None:
+def test_workflows_only_use_dataset_actions_or_maintenance_actions() -> None:
     dataset_keys = {definition.dataset_key for definition in list_dataset_definitions()}
-    assert set(JOB_SPEC_REGISTRY) == {
+    assert set(MAINTENANCE_ACTION_REGISTRY) == {
         "maintenance.rebuild_dm",
         "maintenance.rebuild_index_kline_serving",
     }
 
-    for workflow in WORKFLOW_SPEC_REGISTRY.values():
+    for workflow in WORKFLOW_DEFINITION_REGISTRY.values():
         for step in workflow.steps:
-            if step.job_key.startswith("maintenance."):
-                assert step.job_key in JOB_SPEC_REGISTRY
+            if step.action_key.startswith("maintenance."):
+                assert step.action_key in MAINTENANCE_ACTION_REGISTRY
                 continue
-            definition, action = get_dataset_definition_by_action_key(step.job_key)
+            definition, action = get_dataset_definition_by_action_key(step.action_key)
             assert action == "maintain"
             assert definition.dataset_key in dataset_keys
 
@@ -168,6 +168,31 @@ def test_active_code_does_not_reference_old_freshness_fact_chain() -> None:
         "freshness 页面/查询/服务不得再消费 ops.specs 静态事实链，"
         "必须从 DatasetDefinition 派生 projection:\n" + "\n".join(violations)
     )
+
+
+def test_active_code_does_not_reference_ops_specs_package() -> None:
+    forbidden_tokens = (
+        "src." + "ops." + "specs",
+        "Job" + "Spec",
+        "Workflow" + "Spec",
+        "Parameter" + "Spec",
+        "JOB" + "_SPEC" + "_REGISTRY",
+        "WORKFLOW" + "_SPEC" + "_REGISTRY",
+        "job_" + "specs",
+        "workflow_" + "specs",
+        "supported_" + "params",
+        "job_" + "key",
+    )
+    violations: list[str] = []
+    for root in ACTIVE_CODE_ROOTS:
+        for path in _python_and_frontend_files(root):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "活跃代码不得恢复旧 ops specs/catalog 事实链:\n" + "\n".join(violations)
 
 
 def test_ingestion_layer_has_no_checkpoint_or_acquire_semantics() -> None:

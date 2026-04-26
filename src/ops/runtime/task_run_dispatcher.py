@@ -24,7 +24,7 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
-from src.ops.specs import get_job_spec, get_workflow_spec
+from src.ops.action_catalog import get_maintenance_action, get_workflow_definition
 from src.utils import truncate_text
 
 
@@ -146,9 +146,9 @@ class TaskRunDispatcher:
 
     def _dispatch_workflow(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "")
-        workflow_spec = get_workflow_spec(spec_key)
-        if workflow_spec is None:
-            raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
+        workflow = get_workflow_definition(spec_key)
+        if workflow is None:
+            raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
 
         total_fetched = 0
         total_saved = 0
@@ -157,15 +157,15 @@ class TaskRunDispatcher:
         failed = 0
         last_issue_id: int | None = None
         last_message: str | None = None
-        for sequence_no, workflow_step in enumerate(workflow_spec.steps, start=1):
+        for sequence_no, workflow_step in enumerate(workflow.steps, start=1):
             params = dict(task_run.request_payload_json or {})
             params.update(workflow_step.default_params)
             params.update(workflow_step.params_override)
             step_resource_key = workflow_step.dataset_key
-            step_action_key = workflow_step.job_key
+            step_action_key = workflow_step.action_key
             if step_resource_key is None:
                 try:
-                    step_definition, step_action = get_dataset_definition_by_action_key(workflow_step.job_key)
+                    step_definition, step_action = get_dataset_definition_by_action_key(workflow_step.action_key)
                     step_resource_key = step_definition.dataset_key
                     step_action_key = step_definition.action_key(step_action)
                 except KeyError:
@@ -179,7 +179,7 @@ class TaskRunDispatcher:
                 title=workflow_step.display_name,
                 resource_key=step_resource_key,
                 time_input=dict(task_run.time_input_json or {}),
-                context={"job_key": workflow_step.job_key},
+                context={"action_key": workflow_step.action_key},
             )
             task_run.current_node_id = node.id
             session.commit()
@@ -190,10 +190,10 @@ class TaskRunDispatcher:
                     plan = DatasetActionResolver(session).build_plan(request)
                     rows_fetched, rows_saved, rows_rejected, message = self._run_dataset_action_plan(session, step_run, request, plan)
                 else:
-                    job_spec = get_job_spec(workflow_step.job_key)
-                    if job_spec is None:
-                        raise ValueError(f"Workflow step job spec does not exist: {workflow_step.job_key}")
-                    rows_fetched, rows_saved, message = self._run_maintenance_job(session, job_spec, params)
+                    action = get_maintenance_action(workflow_step.action_key)
+                    if action is None:
+                        raise ValueError(f"Workflow step maintenance action does not exist: {workflow_step.action_key}")
+                    rows_fetched, rows_saved, message = self._run_maintenance_action(session, action, params)
                     rows_rejected = max(rows_fetched - rows_saved, 0)
                 self._finish_node(
                     node,
@@ -230,44 +230,44 @@ class TaskRunDispatcher:
                 session.commit()
                 last_issue_id = issue.id
                 last_message = issue.operator_message
-                if (workflow_step.failure_policy_override or workflow_spec.failure_policy_default) != "continue_on_error":
+                if (workflow_step.failure_policy_override or workflow.failure_policy_default) != "continue_on_error":
                     break
 
-        task_run.unit_total = len(workflow_spec.steps)
+        task_run.unit_total = len(workflow.steps)
         task_run.unit_done = completed
         task_run.unit_failed = failed
-        task_run.progress_percent = int((completed + failed) / len(workflow_spec.steps) * 100) if workflow_spec.steps else 100
+        task_run.progress_percent = int((completed + failed) / len(workflow.steps) * 100) if workflow.steps else 100
         status = "partial_success" if completed and failed else ("failed" if failed else "success")
         return TaskRunDispatchOutcome(
             status=status,
             rows_fetched=total_fetched,
             rows_saved=total_saved,
             rows_rejected=total_rejected,
-            summary_message=last_message or workflow_spec.display_name,
+            summary_message=last_message or workflow.display_name,
             issue_id=last_issue_id,
             status_reason_code="workflow_step_failed" if failed else None,
         )
 
     def _dispatch_system_job(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "")
-        job_spec = get_job_spec(spec_key)
-        if job_spec is None:
-            raise WebAppError(status_code=404, code="not_found", message="Job spec does not exist")
+        action = get_maintenance_action(spec_key)
+        if action is None:
+            raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
         node = self._create_node(
             session,
             task_run_id=task_run.id,
             node_key=spec_key,
             node_type="system_action",
             sequence_no=1,
-            title=job_spec.display_name,
+            title=action.display_name,
             resource_key=task_run.resource_key,
             time_input=dict(task_run.time_input_json or {}),
-            context={"job_key": spec_key},
+            context={"action_key": spec_key},
         )
         task_run.current_node_id = node.id
         session.commit()
         try:
-            rows_fetched, rows_saved, message = self._run_maintenance_job(session, job_spec, dict(task_run.request_payload_json or {}))
+            rows_fetched, rows_saved, message = self._run_maintenance_action(session, action, dict(task_run.request_payload_json or {}))
             rows_rejected = max(rows_fetched - rows_saved, 0)
             self._finish_node(node, status="success", rows_fetched=rows_fetched, rows_saved=rows_saved, rows_rejected=rows_rejected)
             session.commit()
@@ -414,12 +414,12 @@ class TaskRunDispatcher:
             "units_preview_truncated": len(units) > 20,
         }
 
-    def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        if job_spec.key == "maintenance.rebuild_dm":
+    def _run_maintenance_action(self, session: Session, action, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
+        if action.key == "maintenance.rebuild_dm":
             session.execute(text("REFRESH MATERIALIZED VIEW dm.equity_daily_snapshot"))
             session.commit()
             return 0, 0, "materialized view refreshed"
-        if job_spec.key == "maintenance.rebuild_index_kline_serving":
+        if action.key == "maintenance.rebuild_index_kline_serving":
             start_date = self._resolve_maintenance_start_date(params)
             end_date = self._resolve_maintenance_end_date(params)
             if start_date > end_date:
@@ -441,7 +441,7 @@ class TaskRunDispatcher:
             session.commit()
             written = weekly_rows + monthly_rows
             return 0, written, f"index serving rebuilt weekly={weekly_rows} monthly={monthly_rows}"
-        raise ValueError(f"Unsupported maintenance job: {job_spec.key}")
+        raise ValueError(f"Unsupported maintenance action: {action.key}")
 
     def _rebuild_index_period_serving(
         self,
@@ -703,7 +703,7 @@ class TaskRunDispatcher:
         return f"{task_run_id}:{node_id or 0}:{code}:{digest}"
 
     @staticmethod
-    def _step_task_run(parent: TaskRun, spec_key: str, resource_key: str | None, params: dict[str, Any]) -> TaskRun:
+    def _step_task_run(parent: TaskRun, action_key: str, resource_key: str | None, params: dict[str, Any]) -> TaskRun:
         time_input = params.get("time_input") if isinstance(params.get("time_input"), dict) else dict(parent.time_input_json or {})
         filters = params.get("filters") if isinstance(params.get("filters"), dict) else dict(parent.filters_json or {})
         return TaskRun(

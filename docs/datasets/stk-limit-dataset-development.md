@@ -74,9 +74,8 @@
 
 ## 6. Ops 打通
 
-- JobSpec：
-  - `sync_daily.stk_limit`
-  - `sync_history.stk_limit`
+- DatasetDefinition action：
+  - `stk_limit.maintain`
 - Freshness 元数据：
   - `dataset_key`: `stk_limit`
   - `display_name`: `每日涨跌停价格`
@@ -92,8 +91,8 @@
   - 区间按交易日历扇出
 - `tests/test_sync_registry.py`
   - 注册表包含 `stk_limit`
-- `tests/test_ops_specs.py`
-  - JobSpec 参数契约
+- `tests/test_ops_action_catalog.py`
+  - action catalog 参数契约
 - `tests/test_fields_constants.py`
   - `STK_LIMIT_FIELDS` 常量覆盖
 - `tests/test_extended_models.py`

@@ -9,7 +9,7 @@
 - 数据源：
   - `docs/sources/tushare/docs_index.csv` + 对应接口文档 `输入参数`
   - `src/foundation/services/sync/**/*.py`（真实参数构造与上游请求）
-  - `src/ops/specs/registry.py`（`sync_daily/sync_history/backfill` 对外参数）
+  - 旧 ops 规格注册表（历史对外参数口径，当前已退场）
   - `src/foundation/services/sync_v2/registry.py`（V2 contract 覆盖）
 
 > 说明：本文是 `2026-04-21` 的历史审计快照。  

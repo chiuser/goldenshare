@@ -12,7 +12,11 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
 from src.ops.services.task_run_service import TaskRunCommandService
-from src.ops.specs import get_job_spec, get_ops_spec_display_name, ops_spec_supports_schedule
+from src.ops.action_catalog import (
+    get_maintenance_action,
+    get_schedule_display_name,
+    schedule_target_is_schedulable,
+)
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 
@@ -353,7 +357,7 @@ class OperationsScheduleService:
 
     @staticmethod
     def _fallback_display_name(spec_type: str, spec_key: str) -> str:
-        return get_ops_spec_display_name(spec_type, spec_key) or spec_key
+        return get_schedule_display_name(spec_type, spec_key) or spec_key
 
     @staticmethod
     def _validate_spec(spec_type: str, spec_key: str) -> None:
@@ -362,22 +366,22 @@ class OperationsScheduleService:
                 get_dataset_definition_by_action_key(spec_key)
             except KeyError as exc:
                 raise WebAppError(status_code=422, code="validation_error", message="Dataset action does not exist") from exc
-            if not ops_spec_supports_schedule(spec_type, spec_key):
-                raise WebAppError(status_code=422, code="validation_error", message="Selected spec does not support scheduling")
+            if not schedule_target_is_schedulable(spec_type, spec_key):
+                raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
             return
-        display_name = get_ops_spec_display_name(spec_type, spec_key)
+        display_name = get_schedule_display_name(spec_type, spec_key)
         if display_name is None:
             if spec_type == "job":
-                raise WebAppError(status_code=404, code="not_found", message="Job spec does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
             if spec_type == "workflow":
-                raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             raise WebAppError(status_code=422, code="validation_error", message="Unsupported spec_type")
         if spec_type == "job":
-            job_spec = get_job_spec(spec_key)
-            if job_spec is not None and job_spec.category != "maintenance":
-                raise WebAppError(status_code=422, code="validation_error", message="Legacy job specs are no longer accepted; use dataset_action")
-        if not ops_spec_supports_schedule(spec_type, spec_key):
-            raise WebAppError(status_code=422, code="validation_error", message="Selected spec does not support scheduling")
+            action = get_maintenance_action(spec_key)
+            if action is None:
+                raise WebAppError(status_code=422, code="validation_error", message="Unsupported maintenance action")
+        if not schedule_target_is_schedulable(spec_type, spec_key):
+            raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
 
     def _resolve_next_run_at(
         self,

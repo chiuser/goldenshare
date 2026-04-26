@@ -3,9 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
+from src.ops.action_catalog import (
+    ActionParameter,
+    WorkflowDefinition,
+    list_workflow_definitions,
+)
 from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.ops.schemas.catalog import ParameterSpecResponse
+from src.ops.schemas.catalog import ActionParameterResponse
 from src.ops.schemas.manual_action import (
     ManualActionDateModelResponse,
     ManualActionGroupResponse,
@@ -13,7 +18,6 @@ from src.ops.schemas.manual_action import (
     ManualActionListResponse,
     ManualActionTimeFormResponse,
 )
-from src.ops.specs import ParameterSpec, WorkflowSpec, list_workflow_specs
 
 
 TIME_PARAM_KEYS = {
@@ -58,9 +62,9 @@ class ManualActionRoute:
     resource_display_name: str | None
     date_model: DatasetDateModel | None
     time_form: ManualActionTimeFormResponse
-    filters: tuple[ParameterSpec, ...]
+    filters: tuple[ActionParameter, ...]
     route_keys: tuple[str, ...]
-    workflow_spec: WorkflowSpec | None = None
+    workflow: WorkflowDefinition | None = None
 
 
 class ManualActionQueryService:
@@ -86,7 +90,7 @@ class ManualActionQueryService:
 
     def build_action_routes(self) -> list[ManualActionRoute]:
         routes = [self._build_resource_route(definition) for definition in list_dataset_definitions()]
-        routes.extend(self._build_workflow_route(workflow) for workflow in list_workflow_specs() if workflow.supports_manual_run)
+        routes.extend(self._build_workflow_route(workflow) for workflow in list_workflow_definitions() if workflow.manual_enabled)
         return sorted(routes, key=lambda item: (item.group_order, item.action_order, item.display_name))
 
     def get_action_route(self, action_key: str) -> ManualActionRoute | None:
@@ -122,7 +126,7 @@ class ManualActionQueryService:
             route_keys=(action_key,),
         )
 
-    def _build_workflow_route(self, workflow: WorkflowSpec) -> ManualActionRoute:
+    def _build_workflow_route(self, workflow: WorkflowDefinition) -> ManualActionRoute:
         group_key, group_label, group_order = GROUP_CONFIG["workflow"]
         return ManualActionRoute(
             action_key=f"workflow:{workflow.key}",
@@ -136,15 +140,15 @@ class ManualActionQueryService:
             resource_key=None,
             resource_display_name=None,
             date_model=None,
-            time_form=self._time_form_from_params(workflow.supported_params),
-            filters=self._collect_filters((workflow.supported_params,)),
+            time_form=self._time_form_from_params(workflow.parameters),
+            filters=self._collect_filters((workflow.parameters,)),
             route_keys=(workflow.key,),
-            workflow_spec=workflow,
+            workflow=workflow,
         )
 
     @staticmethod
-    def _collect_filters(param_sets: Iterable[Iterable[ParameterSpec]]) -> tuple[ParameterSpec, ...]:
-        filters: dict[str, ParameterSpec] = {}
+    def _collect_filters(param_sets: Iterable[Iterable[ActionParameter]]) -> tuple[ActionParameter, ...]:
+        filters: dict[str, ActionParameter] = {}
         for params in param_sets:
             for param in params:
                 if param.key in TIME_PARAM_KEYS or param.key in INTERNAL_PARAM_KEYS:
@@ -154,16 +158,16 @@ class ManualActionQueryService:
         return tuple(filters.values())
 
     @staticmethod
-    def _collect_dataset_filters(fields: Iterable[DatasetInputField]) -> tuple[ParameterSpec, ...]:
-        filters: dict[str, ParameterSpec] = {}
+    def _collect_dataset_filters(fields: Iterable[DatasetInputField]) -> tuple[ActionParameter, ...]:
+        filters: dict[str, ActionParameter] = {}
         for field in fields:
             if field.name in TIME_PARAM_KEYS or field.name in INTERNAL_PARAM_KEYS:
                 continue
-            filters[field.name] = ManualActionQueryService._field_to_param_spec(field)
+            filters[field.name] = ManualActionQueryService._field_to_action_parameter(field)
         return tuple(filters.values())
 
     @staticmethod
-    def _time_form_from_params(params: Iterable[ParameterSpec]) -> ManualActionTimeFormResponse:
+    def _time_form_from_params(params: Iterable[ActionParameter]) -> ManualActionTimeFormResponse:
         keys = {param.key for param in params}
         allowed_modes: list[str] = []
         control = "none"
@@ -255,8 +259,8 @@ class ManualActionQueryService:
         return GROUP_CONFIG.get(definition.domain.domain_key, GROUP_CONFIG["other"])
 
     @staticmethod
-    def _field_to_param_spec(field: DatasetInputField) -> ParameterSpec:
-        return ParameterSpec(
+    def _field_to_action_parameter(field: DatasetInputField) -> ActionParameter:
+        return ActionParameter(
             key=field.name,
             display_name=field.display_label,
             param_type=field.input_control_type,
@@ -281,8 +285,8 @@ class ManualActionQueryService:
         )
 
     @staticmethod
-    def _to_param_response(param: ParameterSpec) -> ParameterSpecResponse:
-        return ParameterSpecResponse(
+    def _to_param_response(param: ActionParameter) -> ActionParameterResponse:
+        return ActionParameterResponse(
             key=param.key,
             display_name=param.display_name,
             param_type=param.param_type,

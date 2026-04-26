@@ -100,11 +100,11 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ### 2.4 GET /api/v1/ops/catalog
 
-- 功能：返回可调度对象目录（job spec + workflow spec + 参数规格）。
+- 功能：返回可调度动作与工作流目录。数据集动作来自 `DatasetDefinition`，维护动作与工作流来自 `src/ops/action_catalog.py`。
 - Query 参数：无。
 - 返回：`OpsCatalogResponse`
-  - `job_specs[]`
-  - `workflow_specs[]`
+  - `actions[]`
+  - `workflows[]`
 - 示例：
 
 ```bash
@@ -114,8 +114,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ```json
 {
-  "job_specs": [{"key": "daily.maintain", "spec_type": "dataset_action", "display_name": "维护股票日线", "resource_key": "daily"}],
-  "workflow_specs": [{"key": "daily_market_close_sync", "display_name": "每日收盘同步"}]
+  "actions": [{"key": "daily.maintain", "action_type": "dataset_action", "display_name": "维护股票日线", "target_key": "daily"}],
+  "workflows": [{"key": "daily_market_close_sync", "display_name": "每日收盘同步"}]
 }
 ```
 
@@ -1315,11 +1315,11 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ### 12.1 目录与模式
 
-- `OpsCatalogResponse`：`job_specs, workflow_specs`
-- `JobSpecCatalogItem`：`key, display_name, resource_key, resource_display_name, category, description, strategy_type, executor_kind, target_tables, supports_manual_run, supports_schedule, supports_retry, schedule_binding_count, active_schedule_count, supported_params`
-- `WorkflowSpecCatalogItem`：`key, display_name, description, parallel_policy, default_schedule_policy, supports_schedule, supports_manual_run, schedule_binding_count, active_schedule_count, supported_params, steps`
-- `ParameterSpecResponse`：`key, display_name, param_type, description, required, options, multi_value`
-- `WorkflowStepResponse`：`step_key, job_key, display_name, depends_on, default_params`
+- `OpsCatalogResponse`：`actions, workflows`
+- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, domain_key, domain_display_name, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
+- `WorkflowCatalogItem`：`key, display_name, description, parallel_policy, default_schedule_policy, schedule_enabled, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
+- `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value`
+- `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`domain_key, domain_display_name, items`
 - `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, domain_key, domain_display_name, status, freshness_status, mode, mode_label, mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_execution_status, active_execution_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`

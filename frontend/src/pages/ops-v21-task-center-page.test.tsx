@@ -22,24 +22,21 @@ beforeEach(() => {
     const url = new URL(path, "https://example.test");
     if (path === "/api/v1/ops/catalog") {
       return {
-        job_specs: [
+        actions: [
           {
             key: "daily.maintain",
+            action_type: "dataset_action",
             display_name: "维护股票日线",
-            category: "maintenance",
             description: "维护股票日线。",
-            strategy_type: "maintenance_action",
-            executor_kind: "maintenance",
-            spec_type: "dataset_action",
-            resource_key: "daily",
-            resource_display_name: "股票日线",
+            target_key: "daily",
+            target_display_name: "股票日线",
             target_tables: ["core.equity_daily_bar"],
-            supports_manual_run: true,
-            supports_schedule: true,
-            supports_retry: true,
+            manual_enabled: true,
+            schedule_enabled: true,
+            retry_enabled: true,
             schedule_binding_count: 1,
             active_schedule_count: 1,
-            supported_params: [
+            parameters: [
               {
                 key: "trade_date",
                 display_name: "交易日期",
@@ -52,7 +49,7 @@ beforeEach(() => {
             ],
           },
         ],
-        workflow_specs: [],
+        workflows: [],
       };
     }
     if (path === "/api/v1/ops/manual-actions") {

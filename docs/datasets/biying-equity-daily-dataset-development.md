@@ -65,5 +65,5 @@
   - 覆盖历史同步主路径与增量参数校验。
 - `tests/test_raw_multi_schema_mapping.py`
   - 覆盖新 raw 多源表 schema 与主键定义。
-- `tests/test_ops_specs.py`
+- `tests/test_ops_action_catalog.py`
   - 覆盖新任务规格与参数暴露。

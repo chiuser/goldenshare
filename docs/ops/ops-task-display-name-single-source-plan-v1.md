@@ -166,7 +166,7 @@ backfill_equity_series.daily
 
 目标方向：
 
-1. 自动任务创建/编辑也选择“维护动作”，而不是选择底层 `JobSpec`。
+1. 自动任务创建/编辑也选择“维护动作”，而不是选择底层执行规格。
 2. 自动任务列表与任务记录列表保持对象语言一致。
 3. 自动任务列表主列建议包含：
    - 任务名称：资源中文名或动作名
@@ -213,7 +213,7 @@ sync_daily/backfill_xxx
 }
 ```
 
-### 4.2 JobSpec / spec_display_name 的定位
+### 4.2 spec_display_name 的定位
 
 `spec_display_name` 不再作为 UI 主标题的唯一来源。
 
@@ -257,7 +257,7 @@ time_scope_label
 
 ### 6.1 当前不合理模式
 
-当前大量 `JobSpec.display_name` 属于后端链路语言：
+旧显示名大量属于后端链路语言：
 
 | 当前模式 | 问题 | UI 主路径建议 |
 | --- | --- | --- |
@@ -392,7 +392,7 @@ time_scope_label
 1. 自动任务可选项使用 Catalog 返回的 `display_name / resource_display_name / domain_display_name`。
 2. 自动任务列表和详情使用 Schedule API 返回的 `target_display_name`。
 3. 日期控件规则使用 Catalog 返回的 `date_selection_rule`，不再在前端按数据集 key 维护周/月规则集合。
-4. 参数展示名使用 Catalog 返回的 `supported_params[].display_name`，不再在页面维护参数中文名表。
+4. 参数展示名使用 Catalog 返回的 `parameters[].display_name`，不再在页面维护参数中文名表。
 
 ### P4：前端兜底降级与门禁（已完成第一轮）
 

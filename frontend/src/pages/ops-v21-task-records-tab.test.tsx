@@ -91,15 +91,16 @@ beforeEach(() => {
     const url = new URL(path, "https://example.test");
     if (url.pathname === "/api/v1/ops/catalog") {
       return {
-        job_specs: [
+        actions: [
           {
             key: "daily.maintain",
+            action_type: "dataset_action",
             display_name: "股票日线维护",
-            resource_key: "daily",
-            resource_display_name: "股票日线",
+            target_key: "daily",
+            target_display_name: "股票日线",
           },
         ],
-        workflow_specs: [],
+        workflows: [],
       };
     }
     if (url.pathname === "/api/v1/ops/task-runs/summary") {
@@ -241,15 +242,16 @@ describe("任务记录页", () => {
       const url = new URL(path, "https://example.test");
       if (url.pathname === "/api/v1/ops/catalog") {
         return Promise.resolve({
-          job_specs: [
+          actions: [
             {
               key: "daily.maintain",
+              action_type: "dataset_action",
               display_name: "股票日线维护",
-              resource_key: "daily",
-              resource_display_name: "股票日线",
+              target_key: "daily",
+              target_display_name: "股票日线",
             },
           ],
-          workflow_specs: [],
+          workflows: [],
         });
       }
       if (path === "/api/v1/ops/task-runs/summary") {

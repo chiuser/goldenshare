@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition
+from src.ops.action_catalog import ActionParameter
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest, ManualActionTimeInput
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
-from src.ops.specs import ParameterSpec
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,8 +99,8 @@ class ManualActionTaskRunResolver:
             )
 
         if self.route.action_type == "workflow":
-            workflow_spec = self.route.workflow_spec
-            if workflow_spec is None:
+            workflow = self.route.workflow
+            if workflow is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Manual action workflow route is not configured")
             time_params = self._resolve_workflow_time(mode=mode, time_input=time_input)
             return ResolvedManualTaskRun(
@@ -111,7 +111,7 @@ class ManualActionTaskRunResolver:
                 filters=filters,
                 request_payload={**filters, **time_params},
                 spec_type="workflow",
-                spec_key=workflow_spec.key,
+                spec_key=workflow.key,
             )
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported manual action type")
 
@@ -209,7 +209,7 @@ class ManualActionTaskRunResolver:
         definition = get_dataset_definition(dataset_key)
         return dict(definition.planning.enum_fanout_defaults)
 
-    def _normalize_filter_value(self, param: ParameterSpec, value: Any) -> Any:
+    def _normalize_filter_value(self, param: ActionParameter, value: Any) -> Any:
         if param.multi_value:
             if isinstance(value, list):
                 values = [str(item).strip() for item in value if str(item).strip()]
@@ -228,7 +228,7 @@ class ManualActionTaskRunResolver:
         return text
 
     @staticmethod
-    def _validate_options(param: ParameterSpec, values: list[str]) -> None:
+    def _validate_options(param: ActionParameter, values: list[str]) -> None:
         if not param.options:
             return
         invalid = [value for value in values if value not in param.options]

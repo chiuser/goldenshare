@@ -317,11 +317,11 @@ function mockOpsOverview(route: Route, pathname: string) {
 function mockTaskRecords(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/catalog") {
     return fulfillJson(route, {
-      job_specs: [
-        { key: "daily.maintain", display_name: "维护股票日线" },
-        { key: "moneyflow_ind_dc.maintain", display_name: "板块资金流向（东财）" },
+      actions: [
+        { key: "daily.maintain", action_type: "dataset_action", display_name: "维护股票日线", target_key: "daily", target_display_name: "股票日线" },
+        { key: "moneyflow_ind_dc.maintain", action_type: "dataset_action", display_name: "板块资金流向（东财）", target_key: "moneyflow_ind_dc", target_display_name: "板块资金流向（东财）" },
       ],
-      workflow_specs: [],
+      workflows: [],
     });
   }
 
@@ -451,21 +451,21 @@ function mockTaskManual(route: Route, pathname: string) {
 function mockTaskAuto(route: Route, pathname: string) {
   if (pathname === "/api/v1/ops/catalog") {
     return fulfillJson(route, {
-      job_specs: [
+      actions: [
         {
           key: "daily.maintain",
+          action_type: "dataset_action",
           display_name: "维护股票日线",
-          category: "maintenance",
           description: "按单个交易日同步股票日线。",
-          strategy_type: "maintenance_action",
-          executor_kind: "maintenance",
+          target_key: "daily",
+          target_display_name: "股票日线",
           target_tables: ["core.equity_daily_bar"],
-          supports_manual_run: true,
-          supports_schedule: true,
-          supports_retry: true,
+          manual_enabled: true,
+          schedule_enabled: true,
+          retry_enabled: true,
           schedule_binding_count: 1,
           active_schedule_count: 1,
-          supported_params: [
+          parameters: [
             {
               key: "trade_date",
               display_name: "交易日期",
@@ -487,7 +487,7 @@ function mockTaskAuto(route: Route, pathname: string) {
           ],
         },
       ],
-      workflow_specs: [],
+      workflows: [],
     });
   }
 
@@ -609,21 +609,21 @@ function mockTaskAuto(route: Route, pathname: string) {
 function mockTaskCenter(route: Route, pathname: string, url: URL) {
   if (pathname === "/api/v1/ops/catalog") {
     return fulfillJson(route, {
-      job_specs: [
+      actions: [
         {
           key: "daily.maintain",
+          action_type: "dataset_action",
           display_name: "维护股票日线",
-          category: "maintenance",
           description: "按单个交易日同步股票日线。",
-          strategy_type: "maintenance_action",
-          executor_kind: "maintenance",
+          target_key: "daily",
+          target_display_name: "股票日线",
           target_tables: ["core.equity_daily_bar"],
-          supports_manual_run: true,
-          supports_schedule: true,
-          supports_retry: true,
+          manual_enabled: true,
+          schedule_enabled: true,
+          retry_enabled: true,
           schedule_binding_count: 1,
           active_schedule_count: 1,
-          supported_params: [
+          parameters: [
             {
               key: "trade_date",
               display_name: "交易日期",
@@ -646,21 +646,21 @@ function mockTaskCenter(route: Route, pathname: string, url: URL) {
         },
         {
           key: "moneyflow_ind_dc.maintain",
+          action_type: "dataset_action",
           display_name: "板块资金流向（东财）",
-          category: "maintenance",
           description: "按单个交易日同步板块资金流。",
-          strategy_type: "maintenance_action",
-          executor_kind: "maintenance",
+          target_key: "moneyflow_ind_dc",
+          target_display_name: "板块资金流向（东财）",
           target_tables: ["core.moneyflow_ind_dc"],
-          supports_manual_run: true,
-          supports_schedule: true,
-          supports_retry: true,
+          manual_enabled: true,
+          schedule_enabled: true,
+          retry_enabled: true,
           schedule_binding_count: 0,
           active_schedule_count: 0,
-          supported_params: [],
+          parameters: [],
         },
       ],
-      workflow_specs: [],
+      workflows: [],
     });
   }
 

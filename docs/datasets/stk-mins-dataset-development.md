@@ -385,15 +385,15 @@ STK_MINS_FIELDS = (
 
 ## 9. Ops 与前端接入
 
-### 9.1 JobSpec
+### 9.1 DatasetDefinition action
 
-不加入 `sync_daily`。
+不加入自动盘后工作流。
 
-新增专用任务：
+新增维护动作：
 
 | 任务 | 说明 |
 | --- | --- |
-| `sync_minute_history.stk_mins` | 股票历史分钟行情同步 |
+| `stk_mins.maintain` | 股票历史分钟行情维护 |
 
 参数：
 
@@ -530,15 +530,14 @@ CLI 行为：
 
 ### 12.3 Ops
 
-- `src/ops/specs/job_spec.py`
-  - 新增 `sync_minute_history` strategy/category。
-- `src/ops/specs/registry.py`
-  - 注册 `sync_minute_history.stk_mins`。
-  - 明确不加入 `DAILY_SYNC_RESOURCES`。
-- `src/ops/runtime/dispatcher.py`
-  - 接入 `sync_minute_history` 到 V2 sync service。
+- `src/foundation/datasets/definitions/**`
+  - 在 `DatasetDefinition` 中声明 `stk_mins` 的数据集身份、输入字段、日期模型、规划策略与写入目标。
+- `src/ops/action_catalog.py`
+  - 仅承接非数据集维护动作与 workflow；单数据集维护动作必须从 DatasetDefinition 派生。
+- `src/ops/runtime/task_run_dispatcher.py`
+  - 通过 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor` 主链执行，不新增旧执行分类。
 - `src/ops/queries/manual_action_query_service.py`
-  - 让手动动作能展示该任务的交易日和频度参数。
+  - 从 DatasetDefinition 派生手动动作展示所需的交易日和频度参数。
 
 ### 12.4 CLI
 

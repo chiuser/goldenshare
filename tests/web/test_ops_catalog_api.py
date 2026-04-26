@@ -25,37 +25,37 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
 
     assert response.status_code == 200
     payload = response.json()
-    jobs = {item["key"]: item for item in payload["job_specs"]}
-    workflow_keys = {item["key"] for item in payload["workflow_specs"]}
+    actions = {item["key"]: item for item in payload["actions"]}
+    workflow_keys = {item["key"] for item in payload["workflows"]}
 
-    assert "daily.maintain" in jobs
-    assert "dc_hot.maintain" in jobs
-    assert "index_weight.maintain" in jobs
-    assert "maintenance.rebuild_dm" in jobs
+    assert "daily.maintain" in actions
+    assert "dc_hot.maintain" in actions
+    assert "index_weight.maintain" in actions
+    assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
         "sync" + "_history.stock_basic",
         "backfill" + "_index_series.index_weight",
     ]
-    assert all(key not in jobs for key in legacy_keys)
+    assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_sync" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
 
-    daily = jobs["daily.maintain"]
-    assert daily["spec_type"] == "dataset_action"
-    assert daily["resource_key"] == "daily"
-    assert daily["resource_display_name"] == "股票日线"
-    assert daily["supports_schedule"] is True
-    assert [param["key"] for param in daily["supported_params"]][:3] == ["trade_date", "start_date", "end_date"]
+    daily = actions["daily.maintain"]
+    assert daily["action_type"] == "dataset_action"
+    assert daily["target_key"] == "daily"
+    assert daily["target_display_name"] == "股票日线"
+    assert daily["schedule_enabled"] is True
+    assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
 
-    dc_hot = jobs["dc_hot.maintain"]
-    dc_hot_params = {param["key"]: param for param in dc_hot["supported_params"]}
+    dc_hot = actions["dc_hot.maintain"]
+    dc_hot_params = {param["key"]: param for param in dc_hot["parameters"]}
     assert dc_hot_params["market"]["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
     assert dc_hot_params["hot_type"]["options"] == ["人气榜", "飙升榜"]
     assert dc_hot_params["is_new"]["options"] == ["Y"]
     assert dc_hot_params["is_new"]["multi_value"] is False
 
-    assert jobs["maintenance.rebuild_dm"]["spec_type"] == "job"
+    assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
 
 
 def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, job_schedule_factory) -> None:
@@ -97,9 +97,9 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
 
     assert response.status_code == 200
     payload = response.json()
-    jobs = {item["key"]: item for item in payload["job_specs"]}
-    workflows = {item["key"]: item for item in payload["workflow_specs"]}
-    assert jobs["stock_basic.maintain"]["schedule_binding_count"] == 2
-    assert jobs["stock_basic.maintain"]["active_schedule_count"] == 1
+    actions = {item["key"]: item for item in payload["actions"]}
+    workflows = {item["key"]: item for item in payload["workflows"]}
+    assert actions["stock_basic.maintain"]["schedule_binding_count"] == 2
+    assert actions["stock_basic.maintain"]["active_schedule_count"] == 1
     assert workflows["daily_market_close_sync"]["schedule_binding_count"] == 1
     assert workflows["daily_market_close_sync"]["active_schedule_count"] == 1

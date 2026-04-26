@@ -37,7 +37,7 @@
 
 ### Phase 3（工作流/Probe/状态投影）
 
-1. P3-WP-01：WorkflowSpec 扩展字段（`workflow_profile/failure_policy_default/resume_supported` 等）已落地。  
+1. P3-WP-01：WorkflowDefinition 扩展字段（`workflow_profile/failure_policy_default/resume_supported` 等）已落地。  
 2. P3-WP-02：工作流失败策略传播（含 `continue_on_error` 与依赖阻塞）已落地并补回归。  
 3. P3-WP-03：Probe rule/run log 字段升级与按数据集拆 rule 链路已落地。  
 4. P3-WP-04：`dataset_layer_snapshot_current/history/status_snapshot` 投影增强字段已落地。  
@@ -237,12 +237,12 @@
 
 ## 3. Phase 3（工作流/Probe/状态投影，P1）
 
-### P3-WP-01：WorkflowSpec 扩展与策略语义
+### P3-WP-01：WorkflowDefinition 扩展与策略语义
 
 - 目标：落地 `workflow_profile/failure_policy_default/resume_supported`。
 - 改动范围：
-  - `src/ops/specs/workflow_spec.py`
-  - `src/ops/specs/*`（如有依赖）
+  - 旧 ops 规格目录（已退场）
+  - 当前工作流定义应进入 `src/ops/action_catalog.py`
 - 前置阅读：
   - Phase 3 第 2 章
 - 验收：

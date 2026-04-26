@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from src.app.models.app_user import AppUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.ops.specs import get_ops_spec_display_name, get_ops_spec_target_display_name
+from src.ops.action_catalog import get_schedule_display_name, get_schedule_target_display_name
 from src.app.exceptions import WebAppError
 from src.ops.schemas.schedule import (
     ScheduleDetailResponse,
@@ -82,8 +82,8 @@ class ScheduleQueryService:
             id=schedule.id,
             spec_type=schedule.spec_type,
             spec_key=schedule.spec_key,
-            spec_display_name=get_ops_spec_display_name(schedule.spec_type, schedule.spec_key),
-            target_display_name=get_ops_spec_target_display_name(schedule.spec_type, schedule.spec_key),
+            spec_display_name=get_schedule_display_name(schedule.spec_type, schedule.spec_key),
+            target_display_name=get_schedule_target_display_name(schedule.spec_type, schedule.spec_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,
@@ -140,8 +140,8 @@ class ScheduleQueryService:
             id=schedule.id,
             spec_type=schedule.spec_type,
             spec_key=schedule.spec_key,
-            spec_display_name=get_ops_spec_display_name(schedule.spec_type, schedule.spec_key),
-            target_display_name=get_ops_spec_target_display_name(schedule.spec_type, schedule.spec_key),
+            spec_display_name=get_schedule_display_name(schedule.spec_type, schedule.spec_key),
+            target_display_name=get_schedule_target_display_name(schedule.spec_type, schedule.spec_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,
