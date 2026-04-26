@@ -58,6 +58,7 @@ import { TradeDateField } from "../shared/ui/trade-date-field";
 type DateMode = "single_day" | "date_range";
 type CatalogAction = OpsCatalogResponse["actions"][number];
 type CatalogWorkflow = OpsCatalogResponse["workflows"][number];
+type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
@@ -257,8 +258,21 @@ function getCatalogWorkflows(catalog: OpsCatalogResponse | undefined): CatalogWo
   return Array.isArray(catalog?.workflows) ? catalog.workflows : [];
 }
 
+function getCatalogSources(catalog: OpsCatalogResponse | undefined): CatalogSource[] {
+  return Array.isArray(catalog?.sources) ? catalog.sources : [];
+}
+
 function getScheduleTargetLabel(item: { target_display_name?: string | null; display_name: string }): string {
   return item.target_display_name || item.display_name;
+}
+
+function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sourceKey: string | null | undefined): string {
+  const normalized = String(sourceKey || "").trim();
+  if (!normalized || normalized === "all") {
+    return "全部来源";
+  }
+  const source = getCatalogSources(catalog).find((item) => item.source_key === normalized);
+  return source?.display_name || "未指定来源";
 }
 
 function getDatasetLabelFromCatalog(catalog: OpsCatalogResponse | undefined, datasetKey: string): string {
@@ -478,6 +492,17 @@ export function OpsAutomationPage() {
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
+    [catalogQuery.data],
+  );
+
+  const probeSourceOptions = useMemo(
+    () => [
+      ...getCatalogSources(catalogQuery.data).map((item) => ({
+        value: item.source_key,
+        label: item.display_name,
+      })),
+      { value: "all", label: "全部来源" },
+    ],
     [catalogQuery.data],
   );
 
@@ -1048,7 +1073,7 @@ export function OpsAutomationPage() {
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测窗口</Text><Text size="sm">{detailQuery.data.probe_config.window_start || "—"} ~ {detailQuery.data.probe_config.window_end || "—"}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
-                      <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_key || "全部来源"}</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_display_name || "全部来源"}</Text></Group>
                       {detailQuery.data.target_type === "workflow" ? (
                         <Group justify="space-between" align="flex-start">
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
@@ -1372,11 +1397,7 @@ export function OpsAutomationPage() {
               <SimpleGrid cols={{ base: 1, md: 2 }}>
                 <Select
                   label="探测来源"
-                  data={[
-                    { value: "tushare", label: "Tushare" },
-                    { value: "biying", label: "Biying" },
-                    { value: "all", label: "全部来源" },
-                  ]}
+                  data={probeSourceOptions}
                   value={form.probe_source_key}
                   onChange={(value) => setForm((current) => ({ ...current, probe_source_key: value || "tushare" }))}
                 />
@@ -1609,7 +1630,7 @@ export function OpsAutomationPage() {
                       ) : null}
                       {form.trigger_mode !== "schedule" ? (
                         <Text size="sm">
-                          探测配置：{form.probe_window_start || "—"}~{form.probe_window_end || "—"}，每 {form.probe_interval_seconds || "300"} 秒探测，来源 {form.probe_source_key || "tushare"}
+                          探测配置：{form.probe_window_start || "—"}~{form.probe_window_end || "—"}，每 {form.probe_interval_seconds || "300"} 秒探测，来源 {getSourceLabelFromCatalog(catalogQuery.data, form.probe_source_key)}
                         </Text>
                       ) : null}
                       <Text size="sm">同步参数：</Text>

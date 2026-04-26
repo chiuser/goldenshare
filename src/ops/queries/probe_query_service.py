@@ -4,6 +4,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
@@ -121,6 +122,7 @@ class ProbeQueryService:
                     dataset_key=resolved_dataset_key,
                     dataset_display_name=get_dataset_display_name(resolved_dataset_key),
                     source_key=resolved_source_key,
+                    source_display_name=get_source_display_name(resolved_source_key),
                     status=log.status,
                     condition_matched=log.condition_matched,
                     message=log.message,
@@ -150,6 +152,7 @@ class ProbeQueryService:
             step_key=rule.step_key,
             rule_version=rule.rule_version,
             source_key=rule.source_key,
+            source_display_name=get_source_display_name(rule.source_key),
             status=rule.status,
             window_start=rule.window_start,
             window_end=rule.window_end,

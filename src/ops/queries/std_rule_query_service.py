@@ -6,6 +6,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.dataset_definition_projection import list_dataset_freshness_projections
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
@@ -67,6 +68,7 @@ class StdRuleQueryService:
                     dataset_key=row.dataset_key,
                     dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
+                    source_display_name=get_source_display_name(row.source_key),
                     src_field=row.src_field,
                     std_field=row.std_field,
                     src_type=row.src_type,
@@ -127,6 +129,7 @@ class StdRuleQueryService:
                     dataset_key=row.dataset_key,
                     dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
+                    source_display_name=get_source_display_name(row.source_key),
                     rule_type=row.rule_type,
                     target_fields_json=list(row.target_fields_json or []),
                     condition_expr=row.condition_expr,
@@ -186,6 +189,7 @@ class StdRuleQueryService:
                 dataset_key=key,
                 dataset_display_name=get_dataset_display_name(key),
                 source_key="tushare",
+                source_display_name=get_source_display_name("tushare"),
                 src_field="*",
                 std_field="*",
                 src_type=None,
@@ -223,6 +227,7 @@ class StdRuleQueryService:
                 dataset_key=key,
                 dataset_display_name=get_dataset_display_name(key),
                 source_key="tushare",
+                source_display_name=get_source_display_name("tushare"),
                 rule_type="builtin_default",
                 target_fields_json=[],
                 condition_expr=None,

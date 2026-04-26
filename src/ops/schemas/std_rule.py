@@ -32,6 +32,7 @@ class StdMappingRuleItem(BaseModel):
     dataset_key: str
     dataset_display_name: str | None = None
     source_key: str
+    source_display_name: str | None = None
     src_field: str
     std_field: str
     src_type: str | None = None
@@ -74,6 +75,7 @@ class StdCleansingRuleItem(BaseModel):
     dataset_key: str
     dataset_display_name: str | None = None
     source_key: str
+    source_display_name: str | None = None
     rule_type: str
     target_fields_json: list[str]
     condition_expr: str | None = None

@@ -311,6 +311,103 @@ function mockOpsOverview(route: Route, pathname: string) {
     });
   }
 
+  if (pathname === "/api/v1/ops/dataset-cards") {
+    return fulfillJson(route, {
+      total: 1,
+      groups: [
+        {
+          domain_key: "equity_market",
+          domain_display_name: "股票行情",
+          items: [
+            {
+              card_key: "daily",
+              dataset_key: "daily",
+              detail_dataset_key: "daily",
+              resource_key: "daily",
+              display_name: "股票日线",
+              domain_key: "equity_market",
+              domain_display_name: "股票行情",
+              status: "healthy",
+              freshness_status: "fresh",
+              delivery_mode: "single_source_serving",
+              delivery_mode_label: "单源服务",
+              delivery_mode_tone: "success",
+              layer_plan: "raw->serving",
+              cadence: "daily",
+              cadence_display_name: "每日",
+              raw_table: "raw_tushare.equity_daily_bar",
+              raw_table_label: "raw_tushare.equity_daily_bar",
+              target_table: "core_serving.equity_daily_bar",
+              latest_business_date: "2026-04-17",
+              earliest_business_date: "2026-04-01",
+              last_sync_date: "2026-04-17",
+              latest_success_at: "2026-04-17T09:03:00+08:00",
+              expected_business_date: "2026-04-17",
+              lag_days: 0,
+              freshness_note: null,
+              primary_action_key: "daily.maintain",
+              active_execution_status: null,
+              active_execution_started_at: null,
+              auto_schedule_status: "none",
+              auto_schedule_total: 0,
+              auto_schedule_active: 0,
+              auto_schedule_next_run_at: null,
+              probe_total: 0,
+              probe_active: 0,
+              std_mapping_configured: true,
+              std_cleansing_configured: true,
+              resolution_policy_configured: true,
+              status_updated_at: "2026-04-17T09:03:00+08:00",
+              stage_statuses: [
+                {
+                  stage: "raw",
+                  stage_label: "原始层",
+                  table_name: "raw_tushare.equity_daily_bar",
+                  source_key: "tushare",
+                  source_display_name: "Tushare",
+                  status: "healthy",
+                  rows_in: 5120,
+                  rows_out: 5120,
+                  error_count: 0,
+                  lag_seconds: 0,
+                  message: null,
+                  calculated_at: "2026-04-17T09:00:00+08:00",
+                  last_success_at: "2026-04-17T09:00:00+08:00",
+                  last_failure_at: null,
+                },
+                {
+                  stage: "serving",
+                  stage_label: "服务层",
+                  table_name: "core_serving.equity_daily_bar",
+                  source_key: null,
+                  source_display_name: null,
+                  status: "healthy",
+                  rows_in: 5120,
+                  rows_out: 5120,
+                  error_count: 0,
+                  lag_seconds: 0,
+                  message: null,
+                  calculated_at: "2026-04-17T09:03:00+08:00",
+                  last_success_at: "2026-04-17T09:03:00+08:00",
+                  last_failure_at: null,
+                },
+              ],
+              raw_sources: [
+                {
+                  source_key: "tushare",
+                  source_display_name: "Tushare",
+                  table_name: "raw_tushare.equity_daily_bar",
+                  status: "healthy",
+                  calculated_at: "2026-04-17T09:00:00+08:00",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  }
+
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
@@ -373,7 +470,10 @@ function mockTaskRecords(route: Route, pathname: string) {
 }
 
 function mockTaskManual(route: Route, pathname: string) {
-  if (pathname === "/api/v1/ops/manual-actions/daily/task-runs" && route.request().method() === "POST") {
+  if (
+    pathname === "/api/v1/ops/manual-actions/daily.maintain/task-runs" &&
+    route.request().method() === "POST"
+  ) {
     return fulfillJson(route, createTaskRunView({
       id: 901,
       status: "queued",

@@ -17,8 +17,12 @@ function datasetLabel(item: { dataset_display_name?: string | null }) {
   return item.dataset_display_name || "未命名数据集";
 }
 
-function sourceLabel(sourceKey: string | null | undefined) {
-  return sourceKey || "未指定来源";
+function sourceLabel(item: { source_display_name?: string | null }) {
+  return item.source_display_name || "未指定来源";
+}
+
+function stageLabel(item: { stage_display_name?: string | null }) {
+  return item.stage_display_name || "未定义层级";
 }
 
 export function OpsSourceManagementPage() {
@@ -37,13 +41,6 @@ export function OpsSourceManagementPage() {
   const latestItems = bridgeQuery.data?.layer_latest ?? [];
 
   const stageList = ["raw", "std", "resolution", "serving"];
-  const stageLabelMap: Record<string, string> = {
-    raw: "原始层",
-    std: "标准层",
-    resolution: "融合层",
-    serving: "服务层",
-  };
-
   return (
     <Stack gap="lg">
       <PageHeader
@@ -110,12 +107,12 @@ export function OpsSourceManagementPage() {
                 <OpsTableCell align="left" width="24%">
                   <Stack gap={2}>
                     <OpsTableCellText fw={600} size="sm">{datasetLabel(item)}</OpsTableCellText>
-                    <OpsTableCellText size="xs" c="dimmed">{sourceLabel(item.source_key)}</OpsTableCellText>
+                    <OpsTableCellText size="xs" c="dimmed">{sourceLabel(item)}</OpsTableCellText>
                   </Stack>
                 </OpsTableCell>
                 <OpsTableCell width="14%">
                   <Badge size="sm" variant="light" color={stageList.includes(item.stage) ? "brand" : "gray"}>
-                    {stageLabelMap[item.stage] || "未定义层级"}
+                    {stageLabel(item)}
                   </Badge>
                 </OpsTableCell>
                 <OpsTableCell width="14%">
@@ -144,7 +141,7 @@ export function OpsSourceManagementPage() {
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
                     <Text size="sm" fw={600}>{item.name}</Text>
-                    <Text size="xs" c="dimmed">{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
+                    <Text size="xs" c="dimmed">{datasetLabel(item)} · {sourceLabel(item)}</Text>
                   </Stack>
                   <Group gap={8}>
                     <StatusBadge value={item.status} />
@@ -182,7 +179,7 @@ export function OpsSourceManagementPage() {
               {mappingItems.slice(0, 8).map((item) => (
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
-                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
+                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item)}</Text>
                     <Text size="xs" c="dimmed">{item.src_field} → {item.std_field}</Text>
                   </Stack>
                   <Group gap={8}>
@@ -202,7 +199,7 @@ export function OpsSourceManagementPage() {
               {cleansingItems.slice(0, 8).map((item) => (
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
-                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
+                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item)}</Text>
                     <Text size="xs" c="dimmed">{item.rule_type} / {item.action}</Text>
                   </Stack>
                   <Group gap={8}>

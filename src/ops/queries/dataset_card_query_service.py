@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
@@ -252,6 +253,7 @@ class DatasetCardQueryService:
                     stage_label=self._stage_label(stage),
                     table_name=self._stage_table_name(stage, canonical_key, primary, raw_sources),
                     source_key=latest.source_key if latest else None,
+                    source_display_name=get_source_display_name(latest.source_key if latest else None),
                     status=self._normalize_status(latest.status if latest else None),
                     rows_in=latest.rows_in if latest else None,
                     rows_out=latest.rows_out if latest else None,
@@ -294,6 +296,7 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardSourceStatus(
                     source_key=source,
+                    source_display_name=get_source_display_name(source),
                     table_name=table_name,
                     status=self._normalize_status(latest.status if latest else None),
                     calculated_at=latest.calculated_at if latest else None,
@@ -304,6 +307,7 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardSourceStatus(
                     source_key=source_key or "combined",
+                    source_display_name=get_source_display_name(source_key or "combined"),
                     table_name=table,
                     status="unknown",
                     calculated_at=None,

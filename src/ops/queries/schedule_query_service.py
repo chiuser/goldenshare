@@ -4,6 +4,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.action_catalog import get_target_display_name
@@ -90,7 +91,7 @@ class ScheduleQueryService:
             cron_expr=schedule.cron_expr,
             timezone=schedule.timezone,
             calendar_policy=schedule.calendar_policy,
-            probe_config=dict(schedule.probe_config_json or {}),
+            probe_config=self._probe_config_response(schedule.probe_config_json),
             params_json=dict(schedule.params_json or {}),
             retry_policy_json=dict(schedule.retry_policy_json or {}),
             concurrency_policy_json=dict(schedule.concurrency_policy_json or {}),
@@ -154,3 +155,11 @@ class ScheduleQueryService:
             created_at=schedule.created_at,
             updated_at=schedule.updated_at,
         )
+
+    @staticmethod
+    def _probe_config_response(probe_config_json: dict | None) -> dict | None:
+        if not probe_config_json:
+            return None
+        payload = dict(probe_config_json)
+        payload["source_display_name"] = get_source_display_name(payload.get("source_key"))
+        return payload

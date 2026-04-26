@@ -51,6 +51,7 @@ describe("数据源管理（新版）", () => {
           dataset_key: "equity_daily",
           dataset_display_name: "股票日线",
           source_key: "tushare",
+          source_display_name: "Tushare",
           status: "active",
           probe_interval_seconds: 180,
           last_probed_at: "2026-04-14T08:00:00Z",
@@ -80,6 +81,7 @@ describe("数据源管理（新版）", () => {
           dataset_key: "security_master",
           dataset_display_name: "证券主数据",
           source_key: "biying",
+          source_display_name: "Biying",
           src_field: "dm",
           std_field: "ts_code",
           src_type: null,
@@ -98,6 +100,7 @@ describe("数据源管理（新版）", () => {
           dataset_key: "security_master",
           dataset_display_name: "证券主数据",
           source_key: "biying",
+          source_display_name: "Biying",
           rule_type: "required_fields",
           target_fields_json: ["ts_code"],
           condition_expr: null,
@@ -114,7 +117,9 @@ describe("数据源管理（新版）", () => {
           dataset_key: "equity_daily",
           dataset_display_name: "股票日线",
           source_key: "tushare",
+          source_display_name: "Tushare",
           stage: "serving",
+          stage_display_name: "服务层",
           status: "healthy",
           rows_in: 100,
           rows_out: 100,
@@ -140,6 +145,8 @@ describe("数据源管理（新版）", () => {
     expect((await screen.findAllByText("股票日线")).length).toBeGreaterThan(0);
     expect(screen.queryByText("equity_daily")).not.toBeInTheDocument();
     expect(screen.queryByText("security_master")).not.toBeInTheDocument();
+    expect(screen.queryByText("tushare")).not.toBeInTheDocument();
+    expect(screen.queryByText("biying")).not.toBeInTheDocument();
     expect(screen.queryByText("原始层")).not.toBeInTheDocument();
     expect(await screen.findByText("服务层")).toBeInTheDocument();
   });

@@ -99,8 +99,11 @@ describe("V2.1 数据集详情页", () => {
             {
               snapshot_date: "2026-04-17",
               dataset_key: "daily",
+              dataset_display_name: "股票日线",
               source_key: "tushare",
+              source_display_name: "Tushare",
               stage: "raw",
+              stage_display_name: "原始层",
               status: "success",
               rows_in: 120,
               rows_out: 120,
@@ -114,8 +117,11 @@ describe("V2.1 数据集详情页", () => {
             {
               snapshot_date: "2026-04-17",
               dataset_key: "daily",
+              dataset_display_name: "股票日线",
               source_key: "tushare",
+              source_display_name: "Tushare",
               stage: "serving",
+              stage_display_name: "服务层",
               status: "success",
               rows_in: 120,
               rows_out: 120,
@@ -129,8 +135,11 @@ describe("V2.1 数据集详情页", () => {
             {
               snapshot_date: "2026-04-17",
               dataset_key: "daily",
+              dataset_display_name: "股票日线",
               source_key: "tushare",
+              source_display_name: "Tushare",
               stage: "std",
+              stage_display_name: "标准层",
               status: "warning",
               rows_in: 120,
               rows_out: 118,
@@ -190,7 +199,9 @@ describe("V2.1 数据集详情页", () => {
               id: 1,
               name: "股票日线探测",
               dataset_key: "daily",
+              dataset_display_name: "股票日线",
               source_key: "tushare",
+              source_display_name: "Tushare",
               status: "active",
               probe_interval_seconds: 600,
               window_start: "15:00",
@@ -209,6 +220,7 @@ describe("V2.1 数据集详情页", () => {
             {
               id: 8,
               dataset_key: "daily",
+              dataset_display_name: "股票日线",
               target_policy_version: 3,
               status: "completed",
               triggered_by_username: "admin",
@@ -236,13 +248,15 @@ describe("V2.1 数据集详情页", () => {
 
     renderPage();
 
-    expect(await screen.findByText("daily · 股票日线")).toBeInTheDocument();
+    expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("全链路层级状态")).toBeInTheDocument();
     expect(await screen.findByText("数据来源状态")).toBeInTheDocument();
     expect(await screen.findByText("近期任务记录")).toBeInTheDocument();
     expect(await screen.findByText("策略 v3")).toBeInTheDocument();
     expect(await screen.findByText("101")).toBeInTheDocument();
-    expect(await screen.findByText("tushare")).toBeInTheDocument();
+    expect(await screen.findByText("Tushare")).toBeInTheDocument();
+    expect(screen.queryByText("daily · 股票日线")).not.toBeInTheDocument();
+    expect(screen.queryByText("tushare")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "去处理" })).toHaveAttribute(
       "href",
       "/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action",

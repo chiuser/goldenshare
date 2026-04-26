@@ -50,6 +50,7 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
     listed_payload = listed.json()
     assert listed_payload["total"] == 1
     assert listed_payload["items"][0]["id"] == probe_rule_id
+    assert listed_payload["items"][0]["source_display_name"] == "Tushare"
 
     updated = app_client.patch(
         f"/api/v1/ops/probes/{probe_rule_id}",
@@ -129,6 +130,7 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_rule_payload["total"] == 1
     assert by_rule_payload["items"][0]["probe_rule_id"] == equity_rule.id
     assert by_rule_payload["items"][0]["status"] == "success"
+    assert by_rule_payload["items"][0]["source_display_name"] == "Tushare"
     assert by_rule_payload["items"][0]["rule_version"] == 1
     assert by_rule_payload["items"][0]["result_code"] in {"miss", "hit", "error"}
 

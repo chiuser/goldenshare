@@ -4,7 +4,9 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
+from src.ops.layer_stage_labels import get_layer_stage_display_name
 from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.app.exceptions import WebAppError
@@ -117,7 +119,9 @@ class ResolutionReleaseQueryService:
                     dataset_key=item.dataset_key,
                     dataset_display_name=get_dataset_display_name(item.dataset_key),
                     source_key=item.source_key,
+                    source_display_name=get_source_display_name(item.source_key),
                     stage=item.stage,
+                    stage_display_name=get_layer_stage_display_name(item.stage),
                     status=item.status,
                     rows_in=item.rows_in,
                     rows_out=item.rows_out,

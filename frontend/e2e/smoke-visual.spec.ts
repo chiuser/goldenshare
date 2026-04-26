@@ -52,7 +52,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await setAdminSession(page);
     await installApiMocks(page, "task-manual");
     await page.goto("/app/ops/v21/datasets/tasks?tab=manual");
-    await expect(page.getByText("这里只做一件事：维护你选中的数据。")).toBeVisible();
+    await expect(page.getByText("发起一次手动维护")).toBeVisible();
     await expect(page.getByText("第一步：选择要维护的数据")).toBeVisible();
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();

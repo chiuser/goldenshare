@@ -120,6 +120,7 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                     stage_label: "原始层",
                     table_name: "raw_tushare.equity_daily_bar",
                     source_key: "tushare",
+                    source_display_name: "Tushare",
                     status: "healthy",
                     rows_in: 1,
                     rows_out: 1,
@@ -135,6 +136,7 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                     stage_label: "服务层",
                     table_name: "core_serving.equity_daily_bar",
                     source_key: null,
+                    source_display_name: null,
                     status: "healthy",
                     rows_in: 1,
                     rows_out: 1,
@@ -149,7 +151,15 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                 raw_sources: [
                   {
                     source_key: "tushare",
+                    source_display_name: "Tushare",
                     table_name: "raw_tushare.equity_daily_bar",
+                    status: "healthy",
+                    calculated_at: "2026-04-17T01:00:00Z",
+                  },
+                  {
+                    source_key: "biying",
+                    source_display_name: "Biying",
+                    table_name: "raw_biying.equity_daily_bar",
                     status: "healthy",
                     calculated_at: "2026-04-17T01:00:00Z",
                   },
@@ -179,6 +189,10 @@ describe("V2.1 数据状态总览页", () => {
     expect(datasetCard.className).not.toContain("glass-card");
     expect(within(datasetCard).getByText("股票 · 单源服务")).toBeInTheDocument();
     expect(within(datasetCard).queryByText("daily")).not.toBeInTheDocument();
+    expect(within(datasetCard).getByText("Tushare（raw_tushare.equity_daily_bar）")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("Biying（raw_biying.equity_daily_bar）")).toBeInTheDocument();
+    expect(within(datasetCard).queryByText("tushare")).not.toBeInTheDocument();
+    expect(within(datasetCard).queryByText("biying")).not.toBeInTheDocument();
     expect(within(datasetCard).getByText("映射规则")).toBeInTheDocument();
     expect(within(datasetCard).getAllByText("已配置").length).toBeGreaterThan(0);
   });

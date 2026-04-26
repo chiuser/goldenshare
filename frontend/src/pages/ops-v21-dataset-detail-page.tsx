@@ -93,7 +93,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const error = freshnessQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
   const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
-  const displayName = displayNameMap[datasetKey] || datasetKey;
+  const displayName = displayNameMap[datasetKey] || "未命名数据集";
   const freshnessItem = (freshnessQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
     .find((item) => item.dataset_key === datasetKey);
@@ -107,12 +107,12 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
   const manualActionKey = freshnessItem?.primary_action_key || null;
-  const sourceGroups = new Map<string, typeof latestItems>();
+  const sourceGroups = new Map<string, { label: string; items: typeof latestItems }>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
-    const arr = sourceGroups.get(key) || [];
-    arr.push(item);
-    sourceGroups.set(key, arr);
+    const group = sourceGroups.get(key) || { label: item.source_display_name || "未指定来源", items: [] };
+    group.items.push(item);
+    sourceGroups.set(key, group);
   }
   const releaseItems = releaseQuery.data?.items || [];
   const latestRelease = releaseItems[0];
@@ -174,7 +174,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   return (
     <Stack gap="lg">
-      <SectionCard title={`${datasetKey} · ${displayName}`} description="数据集详情页先按 V2.1 设计骨架接入已有能力，缺失部分用待补充占位。">
+      <SectionCard title={displayName} description="数据集详情页先按 V2.1 设计骨架接入已有能力，缺失部分用待补充占位。">
         <Group justify="space-between" align="center">
           <Group gap="sm">
             <Button component={Link} to="/ops/v21/overview" variant="light" color="gray">
@@ -259,11 +259,12 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
       <SectionCard title="数据来源状态" description="按来源展示该数据集最新状态。">
         <Grid>
-          {Array.from(sourceGroups.entries()).map(([source, items]) => {
+          {Array.from(sourceGroups.entries()).map(([source, group]) => {
+            const items = group.items;
             const failedCount = items.filter((item) => item.status === "failed").length;
             return (
               <Grid.Col key={source} span={{ base: 12, xl: 6 }}>
-                <MetricPanel label={source} align="start" minHeight={220}>
+                <MetricPanel label={group.label} align="start" minHeight={220}>
                   <Stack gap="sm" w="100%">
                     <Group justify="space-between" wrap="nowrap">
                       <StatusBadge
@@ -275,7 +276,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
                     <Stack gap={6}>
                       {items.map((item) => (
                         <Group key={`${source}-${item.stage}`} justify="space-between" wrap="nowrap">
-                          <Text ff="var(--mantine-font-family-monospace)" size="sm">{item.stage}</Text>
+                          <Text size="sm">{item.stage_display_name || "未定义层级"}</Text>
                           <Group gap={8} wrap="nowrap">
                             <StatusBadge value={item.status} label={formatDetailStatusLabel(item.status)} />
                             <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>

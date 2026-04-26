@@ -101,7 +101,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         displayName: item.display_name || "未命名数据集",
         domainKey: group.domain_key || item.domain_key || "uncategorized",
         domainDisplayName: group.domain_display_name || item.domain_display_name || "未分类",
-        rawTableLabel: item.raw_table_label || item.raw_table || "—",
+        rawTableLabel: item.raw_table_label || "—",
         status,
         recentSyncText,
         dateRangeText: buildDateRangeText(item),

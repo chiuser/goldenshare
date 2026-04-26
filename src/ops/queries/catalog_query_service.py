@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import list_dataset_definitions
+from src.foundation.datasets.source_registry import list_source_definitions
 from src.ops.action_catalog import (
     MaintenanceActionDefinition,
     WorkflowDefinition,
@@ -16,6 +17,7 @@ from src.ops.schemas.catalog import (
     ActionCatalogItem,
     ActionParameterResponse,
     OpsCatalogResponse,
+    SourceCatalogItem,
     WorkflowCatalogItem,
     WorkflowStepCatalogItem,
 )
@@ -88,6 +90,10 @@ class OpsCatalogQueryService:
                     ],
                 )
                 for workflow in list_workflow_definitions()
+            ],
+            sources=[
+                SourceCatalogItem(source_key=source.source_key, display_name=source.display_name)
+                for source in list_source_definitions()
             ],
         )
 

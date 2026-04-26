@@ -264,6 +264,7 @@ export interface ScheduleDetailResponse {
   calendar_policy: string | null;
   probe_config: {
     source_key: string | null;
+    source_display_name: string | null;
     window_start: string | null;
     window_end: string | null;
     probe_interval_seconds: number;
@@ -510,6 +511,10 @@ export interface OpsCatalogResponse {
       default_params: Record<string, unknown>;
     }>;
   }>;
+  sources: Array<{
+    source_key: string;
+    display_name: string;
+  }>;
 }
 
 export interface OpsManualActionsResponse {
@@ -611,6 +616,7 @@ export interface ProbeRuleListResponse {
     dataset_key: string;
     dataset_display_name: string | null;
     source_key: string | null;
+    source_display_name: string | null;
     status: string;
     probe_interval_seconds: number;
     window_start: string | null;
@@ -643,6 +649,7 @@ export interface StdMappingRuleListResponse {
     dataset_key: string;
     dataset_display_name: string | null;
     source_key: string;
+    source_display_name: string | null;
     src_field: string;
     std_field: string;
     transform_fn: string | null;
@@ -659,6 +666,7 @@ export interface StdCleansingRuleListResponse {
     dataset_key: string;
     dataset_display_name: string | null;
     source_key: string;
+    source_display_name: string | null;
     rule_type: string;
     action: string;
     status: string;
@@ -674,7 +682,9 @@ export interface LayerSnapshotLatestResponse {
     dataset_key: string;
     dataset_display_name: string | null;
     source_key: string | null;
+    source_display_name: string | null;
     stage: string;
+    stage_display_name: string | null;
     status: string;
     rows_in: number | null;
     rows_out: number | null;
@@ -694,7 +704,9 @@ export interface LayerSnapshotHistoryResponse {
     dataset_key: string;
     dataset_display_name: string | null;
     source_key: string | null;
+    source_display_name: string | null;
     stage: string;
+    stage_display_name: string | null;
     status: string;
     rows_in: number | null;
     rows_out: number | null;
@@ -775,6 +787,7 @@ export interface DatasetCardListResponse {
         stage_label: string;
         table_name: string | null;
         source_key: string | null;
+        source_display_name: string | null;
         status: string;
         rows_in: number | null;
         rows_out: number | null;
@@ -787,6 +800,7 @@ export interface DatasetCardListResponse {
       }>;
       raw_sources: Array<{
         source_key: string;
+        source_display_name: string | null;
         table_name: string | null;
         status: string;
         calculated_at: string | null;

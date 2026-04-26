@@ -101,8 +101,13 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
     assert payload["summary"]["layer_latest_failed"] == 1
     probe_by_key = {item["dataset_key"]: item for item in payload["probe_rules"]}
     assert probe_by_key["daily"]["dataset_display_name"] == "股票日线"
+    assert probe_by_key["daily"]["source_display_name"] == "Tushare"
     assert payload["releases"][0]["dataset_display_name"] == "股票日线"
     assert payload["std_mapping_rules"][0]["dataset_display_name"] == "股票日线"
+    assert payload["std_mapping_rules"][0]["source_display_name"] == "Biying"
     assert payload["std_cleansing_rules"][0]["dataset_display_name"] == "股票日线"
+    assert payload["std_cleansing_rules"][0]["source_display_name"] == "Biying"
     latest_by_key = {item["dataset_key"]: item for item in payload["layer_latest"]}
     assert latest_by_key["daily"]["dataset_display_name"] == "股票日线"
+    assert latest_by_key["daily"]["source_display_name"] == "Tushare"
+    assert latest_by_key["daily"]["stage_display_name"] == "服务层"

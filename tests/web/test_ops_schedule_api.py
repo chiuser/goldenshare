@@ -344,6 +344,7 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     assert create_response.status_code == 200
     created = create_response.json()
     assert created["trigger_mode"] == "probe"
+    assert created["probe_config"]["source_display_name"] == "Tushare"
 
     probe_response = app_client.get(
         f"/api/v1/ops/probes?schedule_id={created['id']}",

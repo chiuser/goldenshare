@@ -16,6 +16,10 @@ class ScheduleProbeConfig(BaseModel):
     workflow_dataset_keys: list[str] = []
 
 
+class ScheduleProbeConfigResponse(ScheduleProbeConfig):
+    source_display_name: str | None = None
+
+
 class CreateScheduleRequest(BaseModel):
     target_type: str
     target_key: str
@@ -85,7 +89,7 @@ class ScheduleDetailResponse(BaseModel):
     cron_expr: str | None = None
     timezone: str
     calendar_policy: str | None = None
-    probe_config: ScheduleProbeConfig | None = None
+    probe_config: ScheduleProbeConfigResponse | None = None
     params_json: dict
     retry_policy_json: dict
     concurrency_policy_json: dict

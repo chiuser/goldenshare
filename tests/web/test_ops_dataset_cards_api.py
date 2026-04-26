@@ -91,4 +91,7 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
 
     raw_stage = next(item for item in card["stage_statuses"] if item["stage"] == "raw")
     assert raw_stage["status"] == "healthy"
+    assert raw_stage["source_display_name"] == "Tushare"
     assert raw_stage["last_success_at"] is None
+    raw_source = next(item for item in card["raw_sources"] if item["source_key"] == "tushare")
+    assert raw_source["source_display_name"] == "Tushare"

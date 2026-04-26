@@ -44,6 +44,7 @@ class ProbeRuleListItem(BaseModel):
     step_key: str | None = None
     rule_version: int | None = None
     source_key: str | None = None
+    source_display_name: str | None = None
     status: str
     window_start: str | None = None
     window_end: str | None = None
@@ -80,6 +81,7 @@ class ProbeRunLogItem(BaseModel):
     dataset_key: str | None = None
     dataset_display_name: str | None = None
     source_key: str | None = None
+    source_display_name: str | None = None
     status: str
     condition_matched: bool
     message: str | None = None

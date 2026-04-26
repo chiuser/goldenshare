@@ -11,7 +11,9 @@ class LayerSnapshotHistoryItem(BaseModel):
     dataset_key: str
     dataset_display_name: str | None = None
     source_key: str | None = None
+    source_display_name: str | None = None
     stage: str
+    stage_display_name: str | None = None
     status: str
     rows_in: int | None = None
     rows_out: int | None = None
@@ -33,7 +35,9 @@ class LayerSnapshotLatestItem(BaseModel):
     dataset_key: str
     dataset_display_name: str | None = None
     source_key: str | None = None
+    source_display_name: str | None = None
     stage: str
+    stage_display_name: str | None = None
     status: str
     rows_in: int | None = None
     rows_out: int | None = None

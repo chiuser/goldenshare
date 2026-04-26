@@ -27,6 +27,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     payload = response.json()
     actions = {item["key"]: item for item in payload["actions"]}
     workflow_keys = {item["key"] for item in payload["workflows"]}
+    sources = {item["source_key"]: item for item in payload["sources"]}
 
     assert "daily.maintain" in actions
     assert "dc_hot.maintain" in actions
@@ -40,6 +41,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_sync" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
+    assert sources["tushare"]["display_name"] == "Tushare"
+    assert sources["biying"]["display_name"] == "Biying"
 
     daily = actions["daily.maintain"]
     assert daily["action_type"] == "dataset_action"
