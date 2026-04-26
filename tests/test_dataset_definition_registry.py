@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import inspect
+
+from src.foundation.datasets.definitions import ALL_DATASET_ROWS
+import src.foundation.datasets.definitions._builder as definition_builder
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
@@ -27,6 +31,7 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.identity.display_name == "东方财富热榜"
     assert definition.source.api_name == "dc_hot"
     assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.storage.raw_table == "raw_tushare.dc_hot"
     assert definition.storage.target_table == "core_serving.dc_hot"
     assert definition.capabilities.get_action("maintain") is not None
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
@@ -57,3 +62,26 @@ def test_dataset_definition_owns_logical_dataset_grouping() -> None:
     assert biying_moneyflow.logical_key == "moneyflow"
     assert biying_moneyflow.logical_priority == 200
     assert biying_equity_daily.logical_key == "biying_equity_daily"
+
+
+def test_dataset_definition_storage_raw_table_is_explicit_fact() -> None:
+    missing = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if "raw_table" not in row["storage"]
+    ]
+
+    assert not missing
+    assert get_dataset_definition("biying_equity_daily").storage.raw_table == "raw_biying.equity_daily"
+    assert get_dataset_definition("limit_list_d").storage.raw_table == "raw_tushare.limit_list"
+    assert get_dataset_definition("stk_holdernumber").storage.raw_table == "raw_tushare.holdernumber"
+    assert get_dataset_definition("stk_period_bar_week").storage.raw_table == "raw_tushare.stk_period_bar"
+    assert get_dataset_definition("stk_period_bar_adj_month").storage.raw_table == "raw_tushare.stk_period_bar_adj"
+
+
+def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
+    builder_source = inspect.getsource(definition_builder)
+
+    assert not hasattr(definition_builder, "_infer_raw_table")
+    assert "setdefault(\"raw_table\"" not in builder_source
+    assert "startswith(\"biying_\")" not in builder_source
