@@ -66,6 +66,7 @@ docs/
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v1（审查中心）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
 - [Ops 新鲜度按 Date Model 收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
+- [Ops `sync_job_state` 退场方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-sync-job-state-retirement-plan-v1.md)
 - [Ops 任务显示名单一事实源收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-task-display-name-single-source-plan-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
