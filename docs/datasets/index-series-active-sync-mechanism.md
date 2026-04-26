@@ -91,7 +91,7 @@
 ## 4. 历史回补行为（`backfill_index_series`）
 
 实现文件：
-- [src/ops/services/operations_history_backfill_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)
+- `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
 
 关键点：
 1. `resource in {"index_daily", "index_daily_basic"}` 时：

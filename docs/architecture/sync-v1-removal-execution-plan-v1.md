@@ -30,11 +30,11 @@
 1. [`src/foundation/services/sync_v2/base_sync_service.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/base_sync_service.py)  
 被 [`src/foundation/services/sync_v2/service.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/service.py) 引用。
 2. [`src/foundation/services/sync_v2/execution_errors.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/execution_errors.py)  
-被 [`src/foundation/services/sync_v2/engine.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/engine.py)、[`src/ops/runtime/dispatcher.py`](/Users/congming/github/goldenshare/src/ops/runtime/dispatcher.py) 引用。
+被 [`src/foundation/services/sync_v2/engine.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/engine.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）引用。
 3. [`src/foundation/services/sync_v2/fields.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/fields.py)  
 被 `sync_v2` contract/planner 与 `stk_factor_pro` 模型引用。
 4. `src/foundation/services/sync/registry.py`（历史基线记录，已在 Batch 4 删除）  
-被 [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)、[`src/ops/runtime/dispatcher.py`](/Users/congming/github/goldenshare/src/ops/runtime/dispatcher.py)、[`src/ops/services/operations_history_backfill_service.py`](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)、[`src/ops/services/operations_sync_job_state_reconciliation_service.py`](/Users/congming/github/goldenshare/src/ops/services/operations_sync_job_state_reconciliation_service.py)、[`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py) 引用。
+被 [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）、`src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）、[`src/ops/services/operations_sync_job_state_reconciliation_service.py`](/Users/congming/github/goldenshare/src/ops/services/operations_sync_job_state_reconciliation_service.py)、[`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py) 引用。
 5. `src/foundation/services/sync/sync_moneyflow_service.py`（历史基线记录，已在 Batch 4 删除）  
 仅被 [`src/foundation/services/sync_v2/writer.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/writer.py) 引用（`publish_moneyflow_serving_for_keys`）。
 
@@ -79,8 +79,8 @@
      - `list_trade_date_backfill_resources`
 2. CLI/ops/runtime/spec 已统一切到 V2 runtime registry：
    - [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)
-   - [`src/ops/runtime/dispatcher.py`](/Users/congming/github/goldenshare/src/ops/runtime/dispatcher.py)
-   - [`src/ops/services/operations_history_backfill_service.py`](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)
+   - `src/ops/runtime/dispatcher.py`（历史实现，已退场）
+   - `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
    - [`src/ops/services/operations_sync_job_state_reconciliation_service.py`](/Users/congming/github/goldenshare/src/ops/services/operations_sync_job_state_reconciliation_service.py)
    - [`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
 3. 旧路径 `src/foundation/services/sync/registry.py` 在 Batch 2 曾降级为兼容壳，Batch 4 已删除。

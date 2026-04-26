@@ -36,12 +36,12 @@ function buildStatusHeadline(view: TaskRunViewResponse) {
   if (status === "failed" || status === "partial_success") {
     return {
       color: "error" as const,
-      title: "任务处理失败",
-      description: view.primary_issue?.operator_message || "系统已经记录失败原因，请先查看问题摘要。",
+      title: "任务未完全完成",
+      description: "系统已经记录失败原因，请查看下方失败原因后再决定是否重新提交。",
     };
   }
   if (status === "success") {
-    return { color: "success" as const, title: "任务处理完成", description: "本次任务已经结束，结果已保存到数据库。" };
+    return { color: "success" as const, title: "任务处理完成", description: "本次任务已经结束，处理结果已保存。" };
   }
   if (status === "canceled") {
     return { color: "warning" as const, title: "任务已取消", description: "本次任务已经停止处理。" };
@@ -198,7 +198,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
     <Stack gap="lg">
       <Group justify="space-between" align="flex-start">
         <Text c="dimmed" size="sm">
-          当前详情页只读取 TaskRun view API，主页面只展示一处失败原因。
+          先看当前状态、处理范围和进度，再决定返回任务记录、复制参数或重新提交。
         </Text>
         <Button variant="light" component="a" href="/app/ops/tasks">
           返回任务记录

@@ -18,6 +18,7 @@ vi.mock("../shared/api/client", () => ({
 }));
 
 function createTaskRunView(status = "failed") {
+  const hasIssue = status === "failed" || status === "partial_success";
   return {
     run: {
       id: 1,
@@ -64,16 +65,18 @@ function createTaskRunView(status = "failed") {
         freq: "1min",
       },
     },
-    primary_issue: {
-      id: 99,
-      severity: "error",
-      code: "execution_failed",
-      title: "任务处理失败",
-      operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
-      suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
-      has_technical_detail: true,
-      occurred_at: "2026-03-31T01:00:05Z",
-    },
+    primary_issue: hasIssue
+      ? {
+          id: 99,
+          severity: "error",
+          code: "execution_failed",
+          title: "任务处理失败",
+          operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+          suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+          has_technical_detail: true,
+          occurred_at: "2026-03-31T01:00:05Z",
+        }
+      : null,
     nodes: [
       {
         id: 10,
@@ -83,7 +86,7 @@ function createTaskRunView(status = "failed") {
         sequence_no: 1,
         title: "维护 股票日线",
         resource_key: "daily",
-        status: "failed",
+        status: hasIssue ? "failed" : status,
         time_input: {
           mode: "range",
           start_date: "2026-03-23",
@@ -93,7 +96,7 @@ function createTaskRunView(status = "failed") {
         rows_fetched: 6,
         rows_saved: 5,
         rows_rejected: 1,
-        issue_id: 99,
+        issue_id: hasIssue ? 99 : null,
         started_at: "2026-03-31T01:00:02Z",
         ended_at: null,
         duration_ms: null,
@@ -102,7 +105,7 @@ function createTaskRunView(status = "failed") {
     node_total: 1,
     nodes_truncated: false,
     actions: {
-      can_retry: true,
+      can_retry: hasIssue,
       can_cancel: false,
       can_copy_params: true,
     },
@@ -173,12 +176,14 @@ describe("任务详情页", () => {
 
     renderPage();
 
-    expect(await screen.findByText("当前详情页只读取 TaskRun view API，主页面只展示一处失败原因。")).toBeInTheDocument();
+    expect(await screen.findByText("先看当前状态、处理范围和进度，再决定返回任务记录、复制参数或重新提交。")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("处理范围")).toBeInTheDocument();
     expect(await screen.findByText("2026-03-23 ~ 2026-03-30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新提交" })).toBeInTheDocument();
+    expect(await screen.findByText("任务未完全完成")).toBeInTheDocument();
     expect(await screen.findByText("失败原因")).toBeInTheDocument();
-    expect(screen.getAllByText("任务处理失败")).toHaveLength(2);
+    expect(screen.getAllByText("任务处理失败")).toHaveLength(1);
     expect(await screen.findByText("当前进度")).toBeInTheDocument();
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
     expect(await screen.findByText("当前对象：ts_code=002034.SZ，security_name=美欣达，freq=1min")).toBeInTheDocument();
@@ -191,5 +196,22 @@ describe("任务详情页", () => {
     expect(await screen.findByText("psycopg.errors.UniqueViolation")).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/view");
     expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/task-runs/1/issues/99");
+  });
+
+  it("成功态不展示失败原因和技术诊断入口", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/task-runs/1/view") {
+        return createTaskRunView("success");
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("任务处理完成")).toBeInTheDocument();
+    expect(await screen.findByText("本次任务已经结束，处理结果已保存。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重新提交" })).not.toBeInTheDocument();
+    expect(screen.queryByText("失败原因")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看技术诊断" })).not.toBeInTheDocument();
   });
 });

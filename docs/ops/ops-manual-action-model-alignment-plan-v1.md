@@ -88,7 +88,7 @@
 
 1. job spec 定义：[src/ops/specs/job_spec.py](/Users/congming/github/goldenshare/src/ops/specs/job_spec.py)
 2. registry 注册：[src/ops/specs/registry.py](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
-3. dispatcher 分发：[src/ops/runtime/dispatcher.py](/Users/congming/github/goldenshare/src/ops/runtime/dispatcher.py)
+3. dispatcher 分发：`src/ops/runtime/dispatcher.py`（历史实现，已退场）
 
 ### 3.3 当前 catalog 的边界
 

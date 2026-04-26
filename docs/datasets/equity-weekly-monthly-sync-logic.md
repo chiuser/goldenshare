@@ -76,13 +76,13 @@
 1. [common.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/common.py)
 2. [trade_date_expand.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/strategy_helpers/trade_date_expand.py)
 
-### 4.3 回补服务
+### 4.3 历史回补服务
 
 文件：
 
-1. [operations_history_backfill_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_history_backfill_service.py)
+1. `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
 
-其中 `backfill_equity_series` 对周/月线采用“开市日 -> 周末/月末交易日锚点”压缩执行。
+其中 `backfill_equity_series` 曾对周/月线采用“开市日 -> 周末/月末交易日锚点”压缩执行。
 
 ---
 
@@ -90,7 +90,7 @@
 
 关键测试覆盖：
 
-1. [test_history_backfill_service.py](/Users/congming/github/goldenshare/tests/test_history_backfill_service.py)（回补锚点与进度）
+1. `tests/test_history_backfill_service.py`（历史测试，已随旧回补服务退场）
 2. [test_extended_sync_services.py](/Users/congming/github/goldenshare/tests/test_extended_sync_services.py)（周/月线策略参数）
 3. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
 
@@ -99,4 +99,3 @@
 ## 6. 历史说明
 
 旧实现曾位于 `src/foundation/services/sync/sync_stk_period_bar*_service.py`，该路径已在 V1 清理阶段移除。本文不再以旧路径作为现行依据。
-

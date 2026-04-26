@@ -1,8 +1,21 @@
 # Ops TaskRun 执行观测模型重设计方案 v1
 
-状态：已确认，代码已按 TaskRun 主链落地  
+状态：已上线，代码已按 TaskRun 主链落地  
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
+
+---
+
+## 0. 当前上线状态
+
+截至 2026-04-26：
+
+1. 旧 `/api/v1/ops/executions*` 主链已下线，不再作为任务记录、任务详情或手动提交入口。
+2. 新表 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue` 已上线，任务详情只从 TaskRun 读模型取数。
+3. 新 API `/api/v1/ops/task-runs*` 与 `/api/v1/ops/manual-actions/{action_key}/task-runs` 已上线。
+4. 旧执行观测表 `ops.job_execution*` 与 `ops.sync_run_log` 已通过 migration 退场。
+5. 自动任务配置 `ops.job_schedule` 已按停机清理口径重置，当前默认自动任务配置待重建；在重建前，自动任务页可能为空，这是已知状态，不应误判为页面读取失败。
+6. 任务详情页面验收口径：主页面只展示一处失败原因，完整技术诊断只在 drawer 中按需读取；成功态不展示失败原因或技术诊断入口。
 
 ---
 
@@ -810,7 +823,7 @@ POST /api/v1/ops/task-runs/364/retry
 
 ### 9.1 必须 drop：旧执行观测主链
 
-| 表 | 当前行数 | 处理方式 | 原因 |
+| 表 | 清理前行数 | 处理方式 | 原因 |
 | --- | ---: | --- | --- |
 | `ops.job_execution` | 363 | drop | 旧任务主表，混合任务身份、进度、错误、统计 |
 | `ops.job_execution_step` | 570 | drop | 旧步骤摘要，被 `task_run_node` 替代 |
@@ -822,7 +835,7 @@ POST /api/v1/ops/task-runs/364/retry
 
 这些表来自旧 spec 清理过程。既然本轮不保留备份，最终应直接 drop。
 
-| 表 | 当前行数 | 处理方式 |
+| 表 | 清理前行数 | 处理方式 |
 | --- | ---: | --- |
 | `ops.legacy_spec_backup_20260426_040441_config_revision` | 49 | drop |
 | `ops.legacy_spec_backup_20260426_040441_dataset_status_snapshot` | 57 | drop |
@@ -834,7 +847,7 @@ POST /api/v1/ops/task-runs/364/retry
 
 ### 9.3 清空后重建：旧状态与快照派生数据
 
-| 表 | 当前行数 | 处理方式 | 重建来源 |
+| 表 | 清理前行数 | 处理方式 | 重建来源 |
 | --- | ---: | --- | --- |
 | `ops.sync_job_state` | 56 | truncate，后续由新资源状态模型替代 | DatasetDefinition / 新执行结果 / 状态重算任务 |
 | `ops.dataset_status_snapshot` | 57 | truncate 后重算 | DatasetDefinition + 实际业务表观测 |
@@ -847,7 +860,7 @@ POST /api/v1/ops/task-runs/364/retry
 
 这些表不属于任务详情旧观测主链，但如果本次要把任务中心和自动任务配置一起重新收敛，可以清空后用 seed 重建。
 
-| 表 | 当前行数 | 建议 |
+| 表 | 清理前行数 | 建议 |
 | --- | ---: | --- |
 | `ops.job_schedule` | 19 | 建议清空后按新 TaskRun/Schedule 模型重新 seed |
 | `ops.dataset_pipeline_mode` | 57 | 若 DatasetDefinition 已承接该配置，可清空后重新 seed |
@@ -937,13 +950,13 @@ flowchart TD
 
 ### M5：新链路远程验证
 
-状态：本地验证已完成，远程执行需在发版窗口运行 migration 后验收。
+状态：已完成远程发版与小窗口 TaskRun 验证。
 
 1. 本地编译、后端目标测试、前端单测、build、smoke 已通过。
-2. 远程发版后创建一条小窗口手动任务。
-3. 验证 queued/running/success 详情页刷新。
-4. 人工制造一条可控失败任务，验证完整错误只在 issue detail 中出现。
-5. 验证任务记录分页、统计、筛选仍可用。
+2. 远程 migration 已执行到 `20260426_000074`。
+3. 远程小窗口 TaskRun 验证已通过：`daily` 单日任务可成功进入 `success`，行数统计正常。
+4. 失败态页面通过前端单测约束：主页面只展示一处失败原因，完整技术错误只通过 issue detail 按需读取。
+5. 任务记录分页、统计、筛选通过前端单测约束。
 
 ### M6：旧代码引用清零
 
@@ -957,23 +970,23 @@ flowchart TD
 
 ### M7：停机清表与 drop
 
-状态：已写入 Alembic migration；远程执行时必须停 scheduler / worker 后 upgrade。
+状态：已完成远程停机 migration。
 
 1. 停 scheduler / worker。
 2. drop 旧备份表。
 3. drop `job_execution`、`job_execution_step`、`job_execution_unit`、`job_execution_event`、`sync_run_log`。
 4. truncate `sync_job_state`、`dataset_status_snapshot`、`dataset_layer_snapshot_current`、`dataset_layer_snapshot_history`、`probe_run_log`、`config_revision`。
-5. 按 M0 决策处理可选重置表。
+5. 按 M0 决策处理可选重置表；`ops.job_schedule` 已重置为空，待后续单独重建默认自动任务配置。
 
 ### M8：重建 seed 与恢复服务
 
-状态：远程执行阶段完成；代码侧已保留重建入口与状态快照刷新能力。
+状态：部分完成；服务已恢复，数据状态快照已重建，自动任务配置待重建。
 
-1. seed 新 schedule / pipeline / resource state。
-2. 重算 dataset status snapshot。
-3. 启动 scheduler / worker。
-4. 创建新任务验证任务中心、任务详情页、数据状态页。
-5. 记录最终清理结果和剩余后续项。
+1. `dataset_pipeline_mode` 已完成 seed 校验。
+2. `dataset_status_snapshot` 已可通过 `ops-rebuild-dataset-status` 重建。
+3. scheduler / worker / web 已恢复。
+4. 新 TaskRun 链路已通过小窗口任务验证。
+5. `ops.job_schedule` 当前为空，自动任务默认配置需要后续单独设计 seed / rebuild 机制后再恢复。
 
 ---
 

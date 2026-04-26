@@ -1,6 +1,6 @@
 # Ops Web API 与运维数据能力审查备忘 v1
 
-更新时间：2026-04-23  
+更新时间：2026-04-26  
 适用范围：`src/ops/*`、`src/app/api/*`、`src/app/web/*`、`frontend/src/pages/ops*`
 
 ---
@@ -63,7 +63,7 @@
 1. `overview`
 2. `freshness`
 3. `schedules`
-4. `executions`
+4. `task_runs`
 5. `probes`
 6. `resolution_releases`
 7. `std_rules`
@@ -104,7 +104,7 @@
 1. `overview`
 2. `freshness`
 3. `schedules`
-4. `executions`
+4. `task_runs`
 5. `layer snapshots`
 6. `pipeline modes`
 7. `source management bridge`
@@ -122,11 +122,11 @@
 
 ## 5. 主要问题清单（按优先级）
 
-### 5.1 P0：`run-now` 语义与真实行为不一致
+### 5.1 P0：`run-now` 语义与真实行为不一致（已关闭）
 
 状态更新（2026-04-26）：该问题已通过 TaskRun 观测模型重设计收口。旧 `/api/v1/ops/executions*` 主链已下线，前端任务记录/详情改为消费 `/api/v1/ops/task-runs*`；手动提交任务使用 `/api/v1/ops/manual-actions/{action_key}/task-runs`，页面语义统一为“提交到队列/等待处理/执行过程”。
 
-当前问题：
+历史问题：
 
 1. `POST /api/v1/ops/executions/run-now` 只是创建 execution 并返回详情
 2. `POST /api/v1/ops/executions/{id}/retry-now` 只是重试并返回新的 queued execution
@@ -135,9 +135,10 @@
 
 关键证据：
 
-1. [src/ops/api/executions.py](/Users/congming/github/goldenshare/src/ops/api/executions.py) 中第 108、134、144 行附近
-2. [src/ops/api/runtime.py](/Users/congming/github/goldenshare/src/ops/api/runtime.py) 中第 14 行附近
-3. 原测试文件已迁移为 [tests/web/test_ops_task_run_api.py](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)，并保留旧 `/api/v1/ops/executions` 路由不存在的防回退断言
+1. 历史 `src/ops/api/executions.py` 已随 TaskRun 重构删除。
+2. [src/ops/api/task_runs.py](/Users/congming/github/goldenshare/src/ops/api/task_runs.py) 是当前任务运行 API 主入口。
+3. [src/ops/api/runtime.py](/Users/congming/github/goldenshare/src/ops/api/runtime.py) 保持 Web runtime 解耦语义，不在 Web 进程中直接执行长任务。
+4. 原测试文件已迁移为 [tests/web/test_ops_task_run_api.py](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)，并保留旧 `/api/v1/ops/executions` 路由不存在的防回退断言。
 
 影响：
 
@@ -148,12 +149,14 @@
 当前结论：
 
 1. `run-now / retry-now / {id}/run-now` 三条历史路径不再保留，直接下线
+2. 新任务表/API 已上线：`ops.task_run`、`ops.task_run_node`、`ops.task_run_issue` 与 `/api/v1/ops/task-runs*`
+3. 自动任务配置已随旧观测表清理重置，`ops.job_schedule` 默认配置待后续单独重建
 
 ### 5.2 P0：缺少“数据集详情聚合 API”
 
 当前问题：
 
-1. 数据集详情页需要并发请求 `freshness / latest / history / executions / probes / releases / std rules`
+1. 数据集详情页需要并发请求 `freshness / latest / history / task-runs / probes / releases / std rules`
 2. 页面内部还要做 fallback snapshot 和展示层拼装
 3. 后端当前没有单个数据集的一站式详情读模型
 
@@ -200,7 +203,7 @@
 
 当前问题：
 
-1. 当前 overview 主要提供 execution KPI、freshness summary、attention datasets、recent executions、recent failures
+1. 当前 overview 主要提供任务 KPI、freshness summary、attention datasets、recent task runs、recent failures
 2. 前端总览页还需要再拉 `pipeline-modes` 和 `layer-snapshots/latest` 自己组合卡片
 3. 当前没有按 domain/source/stage/status 的服务端 breakdown 或 trend
 

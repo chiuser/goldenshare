@@ -1,12 +1,24 @@
 # Ops 运营后台 API 全量说明 v1
 
 - 版本：v1
-- 日期：2026-04-23
+- 日期：2026-04-26
 - 状态：当前口径（随代码演进）
 - 代码依据：
   - `/Users/congming/github/goldenshare/src/ops/api/*.py`
   - `/Users/congming/github/goldenshare/src/ops/schemas/*.py`
   - `/Users/congming/github/goldenshare/src/app/api/v1/router.py`
+
+---
+
+## 0. 当前重要状态
+
+截至 2026-04-26：
+
+1. 旧 `/api/v1/ops/executions*` 主链已下线，接口说明不再以 `ExecutionDetailResponse`、`steps/events/logs` 为当前口径。
+2. 任务记录、任务详情、重试、停止、手动任务提交统一走 `/api/v1/ops/task-runs*`。
+3. 手动维护页提交入口为 `POST /api/v1/ops/manual-actions/{action_key}/task-runs`。
+4. 新任务详情页只消费 `GET /api/v1/ops/task-runs/{id}/view`，完整技术诊断只在需要时读取 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
+5. 自动任务配置表 `ops.job_schedule` 已按停机清理口径重置，默认自动任务配置待后续单独重建。
 
 ---
 
@@ -102,7 +114,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ```json
 {
-  "job_specs": [{"key": "sync_daily.daily", "display_name": "股票日线（日常同步）"}],
+  "job_specs": [{"key": "daily.maintain", "spec_type": "dataset_action", "display_name": "维护股票日线", "resource_key": "daily"}],
   "workflow_specs": [{"key": "daily_market_close_sync", "display_name": "每日收盘同步"}]
 }
 ```
@@ -145,7 +157,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
             "selection_rule": "trading_day_only"
           },
           "filters": [],
-          "route_spec_keys": ["sync_daily.daily", "backfill_equity_series.daily", "sync_history.daily"]
+          "route_spec_keys": ["daily.maintain"]
         }
       ]
     }
@@ -153,21 +165,21 @@ curl -H "Authorization: Bearer <TOKEN>" \
 }
 ```
 
-### 2.4.2 POST /api/v1/ops/manual-actions/{action_key}/executions
+### 2.4.2 POST /api/v1/ops/manual-actions/{action_key}/task-runs
 
-- 功能：按手动维护动作提交一次执行请求。后端将 `action_key + time_input + filters` 解析为现有 `spec_type/spec_key/params_json`，再创建 queued execution。
+- 功能：按手动维护动作提交一次任务请求。后端将 `action_key + time_input + filters` 解析为 TaskRun，创建 queued 任务。
 - Path 参数：
   - `action_key`：来自 `GET /api/v1/ops/manual-actions`。
-- Body：`ManualActionExecutionCreateRequest`
+- Body：`ManualActionTaskRunCreateRequest`
   - `time_input`：日期、月份或无日期输入。
   - `filters`：对象筛选和附加参数。
-- 返回：`ExecutionDetailResponse`。
+- 返回：`TaskRunViewResponse`。
 - 鉴权：管理员。
 - 示例：
 
 ```bash
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/manual-actions/daily/executions" \
+  "http://127.0.0.1:8000/api/v1/ops/manual-actions/daily/task-runs" \
   -d '{
     "time_input": {"mode": "point", "trade_date": "2026-04-24"},
     "filters": {}
@@ -176,11 +188,20 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ```json
 {
-  "id": 1001,
-  "spec_type": "job",
-  "spec_key": "sync_daily.daily",
-  "status": "queued",
-  "params_json": {"trade_date": "2026-04-24"}
+  "run": {
+    "id": 1001,
+    "task_type": "dataset_action",
+    "resource_key": "daily",
+    "action": "maintain",
+    "title": "股票日线",
+    "status": "queued"
+  },
+  "progress": {"unit_total": 0, "unit_done": 0, "unit_failed": 0, "progress_percent": 0, "rows_fetched": 0, "rows_saved": 0, "rows_rejected": 0, "current_context": {}},
+  "primary_issue": null,
+  "nodes": [],
+  "node_total": 0,
+  "nodes_truncated": false,
+  "actions": {"can_retry": false, "can_cancel": true, "can_copy_params": true}
 }
 ```
 
@@ -288,14 +309,14 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
   "http://127.0.0.1:8000/api/v1/ops/schedules" \
   -d '{
-    "spec_type":"job",
-    "spec_key":"sync_daily.daily",
+    "spec_type":"dataset_action",
+    "spec_key":"daily.maintain",
     "display_name":"股票日线自动更新",
     "schedule_type":"cron",
     "trigger_mode":"schedule",
     "cron_expr":"0 18 * * 1-5",
     "timezone":"Asia/Shanghai",
-    "params_json":{"trade_date":"20260423"}
+    "params_json":{"trade_date":"2026-04-24"}
   }'
 ```
 
@@ -316,7 +337,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```
 
 ```json
-{"id": 201, "spec_key": "sync_daily.daily", "status": "active"}
+{"id": 201, "spec_type": "dataset_action", "spec_key": "daily.maintain", "status": "active"}
 ```
 
 ### 3.5 PATCH /api/v1/ops/schedules/{schedule_id}
@@ -420,139 +441,170 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ---
 
-## 4. 执行（Execution）接口
+## 4. 任务运行（TaskRun）接口
 
-### 4.1 GET /api/v1/ops/executions
+说明：旧 `/api/v1/ops/executions*` 主链已下线。任务记录、任务详情、重试、停止与手动任务提交均以 TaskRun 为当前口径。
 
-- 功能：分页查询执行请求队列/历史。
+### 4.1 GET /api/v1/ops/task-runs
+
+- 功能：分页查询任务队列/历史。
 - Query 参数：
-  - `status, trigger_source, spec_type, spec_key, dataset_key, source_key, stage, run_scope, schedule_id`（可选过滤）
-  - `limit`：默认 50，`1..200`
-  - `offset`：默认 0，`>=0`
-- 返回：`ExecutionListResponse`
+  - `status, trigger_source, task_type, resource_key, schedule_id`（可选过滤）
+  - `page`：默认 1，`>=1`
+  - `limit`：默认 20，`1..200`
+  - `offset`：可选，`>=0`；前端为了返回上下文稳定会与 `page` 同步传入
+- 返回：`TaskRunListResponse`
 - 示例：
 
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions?status=running&limit=50&offset=0"
+  "http://127.0.0.1:8000/api/v1/ops/task-runs?status=running&page=1&limit=20&offset=0"
 ```
 
 ```json
-{"total": 1, "items": [{"id": 285, "status": "running", "spec_key": "sync_daily.daily"}]}
+{
+  "total": 1,
+  "items": [
+    {
+      "id": 285,
+      "task_type": "dataset_action",
+      "resource_key": "daily",
+      "action": "maintain",
+      "title": "股票日线",
+      "trigger_source": "manual",
+      "status": "running",
+      "time_scope_label": "2026-04-24",
+      "unit_total": 3,
+      "unit_done": 1,
+      "rows_saved": 1200,
+      "primary_issue_title": null,
+      "requested_at": "2026-04-26T10:00:00+08:00"
+    }
+  ]
+}
 ```
 
-### 4.2 GET /api/v1/ops/executions/{execution_id}
+### 4.2 GET /api/v1/ops/task-runs/summary
 
-- 功能：查询单个 execution 详情（含 steps/events）。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionDetailResponse`
+- 功能：按当前筛选条件统计任务状态分布，不受分页影响。
+- Query 参数：同 `GET /api/v1/ops/task-runs` 的筛选参数。
+- 返回：`TaskRunSummaryResponse`
 - 示例：
 
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285"
+  "http://127.0.0.1:8000/api/v1/ops/task-runs/summary?resource_key=daily"
 ```
 
 ```json
-{"id": 285, "status": "running", "steps": [], "events": []}
+{"total": 41, "queued": 3, "running": 4, "success": 28, "failed": 5, "canceled": 1}
 ```
 
-### 4.3 GET /api/v1/ops/executions/{execution_id}/steps
+### 4.3 POST /api/v1/ops/task-runs
 
-- 功能：查询 execution 的步骤视图。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionStepsResponse`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285/steps"
-```
-
-```json
-{"execution_id": 285, "items": [{"id": 901, "step_key": "raw", "status": "running"}]}
-```
-
-### 4.4 GET /api/v1/ops/executions/{execution_id}/events
-
-- 功能：查询 execution 事件流。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionEventsResponse`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285/events"
-```
-
-```json
-{"execution_id": 285, "items": [{"id": 1, "event_type": "unit_started", "level": "info"}]}
-```
-
-### 4.5 GET /api/v1/ops/executions/{execution_id}/logs
-
-- 功能：查询 execution 兼容日志视图。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionLogsResponse`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285/logs"
-```
-
-```json
-{"execution_id": 285, "items": [{"id": 11, "job_name": "sync_daily.daily", "status": "running"}]}
-```
-
-### 4.6 POST /api/v1/ops/executions
-
-- 功能：创建一次手动 execution 请求（入队）。
-- Body：`CreateExecutionRequest`
-  - `spec_type, spec_key, params_json`
-- 返回：`ExecutionDetailResponse`（新 execution 详情）
+- 功能：创建一次通用 TaskRun 请求。
+- Body：`CreateTaskRunRequest`
+  - `task_type`：默认 `dataset_action`
+  - `resource_key`：数据集 key
+  - `action`：默认 `maintain`
+  - `time_input`：日期、月份或无日期输入
+  - `filters`：对象筛选和附加参数
+- 返回：`TaskRunCreateResponse`
 - 示例：
 
 ```bash
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/executions" \
-  -d '{"spec_type":"job","spec_key":"sync_daily.daily","params_json":{"trade_date":"20260423"}}'
+  "http://127.0.0.1:8000/api/v1/ops/task-runs" \
+  -d '{"task_type":"dataset_action","resource_key":"daily","action":"maintain","time_input":{"mode":"point","trade_date":"2026-04-24"},"filters":{}}'
 ```
 
 ```json
-{"id": 286, "status": "queued", "spec_key": "sync_daily.daily"}
+{"id": 286, "status": "queued", "title": "股票日线", "resource_key": "daily", "created_at": "2026-04-26T10:01:00+08:00"}
 ```
 
-### 4.7 POST /api/v1/ops/executions/{execution_id}/retry
+### 4.4 GET /api/v1/ops/task-runs/{task_run_id}/view
 
-- 功能：重试指定 execution，创建新的 execution。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionDetailResponse`（新 execution）
+- 功能：查询任务详情主视图。任务详情页只消费这个聚合 view，不再拼接 steps/events/logs。
+- Path 参数：`task_run_id:int`
+- 返回：`TaskRunViewResponse`
+- 示例：
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  "http://127.0.0.1:8000/api/v1/ops/task-runs/285/view"
+```
+
+```json
+{
+  "run": {"id": 285, "title": "股票日线", "resource_key": "daily", "status": "success", "trigger_source": "manual"},
+  "progress": {"unit_total": 3, "unit_done": 3, "unit_failed": 0, "progress_percent": 100, "rows_fetched": 5496, "rows_saved": 5496, "rows_rejected": 0, "current_context": {}},
+  "primary_issue": null,
+  "nodes": [],
+  "node_total": 0,
+  "nodes_truncated": false,
+  "actions": {"can_retry": false, "can_cancel": false, "can_copy_params": true}
+}
+```
+
+### 4.5 GET /api/v1/ops/task-runs/{task_run_id}/issues/{issue_id}
+
+- 功能：按需读取任务问题完整技术诊断。
+- Path 参数：
+  - `task_run_id:int`
+  - `issue_id:int`
+- 返回：`TaskRunIssueDetailResponse`
+- 示例：
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  "http://127.0.0.1:8000/api/v1/ops/task-runs/285/issues/88"
+```
+
+```json
+{
+  "id": 88,
+  "task_run_id": 285,
+  "severity": "error",
+  "code": "execution_failed",
+  "title": "任务处理失败",
+  "operator_message": "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+  "technical_message": "psycopg.errors.UniqueViolation",
+  "technical_payload": {"source_phase": "execute"},
+  "source_phase": "execute",
+  "occurred_at": "2026-04-26T10:02:00+08:00"
+}
+```
+
+### 4.6 POST /api/v1/ops/task-runs/{task_run_id}/retry
+
+- 功能：基于指定 TaskRun 复制参数并创建新的 queued 任务。
+- Path 参数：`task_run_id:int`
+- 返回：`TaskRunCreateResponse`
 - 示例：
 
 ```bash
 curl -X POST -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285/retry"
+  "http://127.0.0.1:8000/api/v1/ops/task-runs/285/retry"
 ```
 
 ```json
-{"id": 287, "status": "queued"}
+{"id": 287, "status": "queued", "title": "股票日线", "resource_key": "daily", "created_at": "2026-04-26T10:03:00+08:00"}
 ```
 
-### 4.8 POST /api/v1/ops/executions/{execution_id}/cancel
+### 4.7 POST /api/v1/ops/task-runs/{task_run_id}/cancel
 
-- 功能：取消执行（queued/running）。
-- Path 参数：`execution_id:int`
-- 返回：`ExecutionDetailResponse`
+- 功能：请求停止 queued/running 任务。
+- Path 参数：`task_run_id:int`
+- 返回：`TaskRunCreateResponse`
 - 示例：
 
 ```bash
 curl -X POST -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/executions/285/cancel"
+  "http://127.0.0.1:8000/api/v1/ops/task-runs/285/cancel"
 ```
 
 ```json
-{"id": 285, "status": "canceling"}
+{"id": 285, "status": "canceling", "title": "股票日线", "resource_key": "daily", "created_at": "2026-04-26T10:00:00+08:00"}
 ```
 
 ---
@@ -1200,9 +1252,12 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ## 11. 请求体模型字段（完整）
 
-### 11.1 执行与调度
+### 11.1 任务运行与调度
 
-- `CreateExecutionRequest`：`spec_type, spec_key, params_json`
+- `CreateTaskRunRequest`：`task_type, resource_key, action, time_input, filters, request_payload, schedule_id`
+- `TaskRunTimeInput`：`mode, trade_date, start_date, end_date, month, start_month, end_month, date_field`
+- `ManualActionTaskRunCreateRequest`：`time_input, filters`
+- `ManualActionTimeInput`：`mode, trade_date, start_date, end_date, month, start_month, end_month, ann_date, date_field`
 - `CreateScheduleRequest`：`spec_type, spec_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `UpdateScheduleRequest`：`spec_type, spec_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, next_run_at, count`
@@ -1244,17 +1299,19 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `DatasetPipelineModeListResponse`：`total, items`
 - `DatasetPipelineModeItem`：`dataset_key, display_name, domain_key, domain_display_name, mode, source_scope, layer_plan, raw_table, std_table_hint, serving_table, freshness_status, latest_business_date, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
 
-### 12.2 执行
+### 12.2 任务运行
 
-- `ExecutionListResponse`：`items, total`
-- `ExecutionListItem`：`id, spec_type, spec_key, dataset_key, source_key, stage, policy_version, run_scope, run_profile, workflow_profile, correlation_id, rerun_id, resume_from_step_key, status_reason_code, spec_display_name, schedule_display_name, trigger_source, status, requested_by_username, requested_at, started_at, ended_at, rows_fetched, rows_written, progress_current, progress_total, progress_percent, progress_message, last_progress_at, summary_message, error_code`
-- `ExecutionDetailResponse`：`id, schedule_id, spec_type, spec_key, dataset_key, source_key, stage, policy_version, run_scope, run_profile, workflow_profile, correlation_id, rerun_id, resume_from_step_key, status_reason_code, spec_display_name, schedule_display_name, trigger_source, status, requested_by_username, requested_at, queued_at, started_at, ended_at, params_json, summary_message, rows_fetched, rows_written, progress_current, progress_total, progress_percent, progress_message, last_progress_at, cancel_requested_at, canceled_at, error_code, error_message, steps, events`
-- `ExecutionStepsResponse`：`execution_id, items`
-- `ExecutionStepItem`：`id, step_key, display_name, sequence_no, unit_kind, unit_value, status, started_at, ended_at, rows_fetched, rows_written, message, failure_policy_effective, depends_on_step_keys_json, blocked_by_step_key, skip_reason_code, unit_total, unit_done, unit_failed`
-- `ExecutionEventsResponse`：`execution_id, items`
-- `ExecutionEventItem`：`id, step_id, event_type, level, message, payload_json, occurred_at, event_id, event_version, correlation_id, unit_id, producer, dedupe_key`
-- `ExecutionLogsResponse`：`execution_id, items`
-- `ExecutionLogItem`：`id, execution_id, job_name, run_type, status, started_at, ended_at, rows_fetched, rows_written, message`
+- `TaskRunCreateResponse`：`id, status, title, resource_key, created_at`
+- `TaskRunListResponse`：`items, total`
+- `TaskRunListItem`：`id, task_type, resource_key, action, title, trigger_source, status, status_reason_code, requested_by_username, requested_at, started_at, ended_at, time_scope, time_scope_label, schedule_display_name, unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, primary_issue_id, primary_issue_title`
+- `TaskRunSummaryResponse`：`total, queued, running, success, failed, canceled`
+- `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
+- `TaskRunInfo`：`id, task_type, resource_key, action, title, trigger_source, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
+- `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, current_context`
+- `TaskRunNodeItem`：`id, parent_node_id, node_key, node_type, sequence_no, title, resource_key, status, time_input, context, rows_fetched, rows_saved, rows_rejected, issue_id, started_at, ended_at, duration_ms`
+- `TaskRunIssueSummary`：`id, severity, code, title, operator_message, suggested_action, has_technical_detail, occurred_at`
+- `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, technical_message, technical_payload, source_phase, occurred_at`
+- `TaskRunActions`：`can_retry, can_cancel, can_copy_params`
 
 ### 12.3 调度
 
@@ -1351,15 +1408,16 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - 代码：[ops-v21-task-center-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-center-page.tsx)
 6. `OpsTasksPage`（任务记录 tab）
    - `GET /api/v1/ops/catalog`
-   - `GET /api/v1/ops/executions?...`
-   - `POST /api/v1/ops/executions/{execution_id}/retry`
-   - `POST /api/v1/ops/executions/{execution_id}/cancel`
+   - `GET /api/v1/ops/task-runs?...`
+   - `GET /api/v1/ops/task-runs/summary?...`
+   - `POST /api/v1/ops/task-runs/{task_run_id}/retry`
+   - `POST /api/v1/ops/task-runs/{task_run_id}/cancel`
    - 代码：[ops-v21-task-records-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-records-tab.tsx)
 7. `OpsManualSyncPage`（手动同步 tab）
-   - `GET /api/v1/ops/catalog`
-   - `GET /api/v1/ops/executions/{execution_id}`（预填时）
+   - `GET /api/v1/ops/manual-actions`
+   - `GET /api/v1/ops/task-runs/{task_run_id}/view`（从任务记录预填时）
    - `GET /api/v1/ops/schedules/{schedule_id}`（预填时）
-   - `POST /api/v1/ops/executions`
+   - `POST /api/v1/ops/manual-actions/{action_key}/task-runs`
    - 代码：[ops-v21-task-manual-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx)
 8. `OpsAutomationPage`（自动运行 tab）
    - `GET /api/v1/ops/catalog`
@@ -1367,7 +1425,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `GET /api/v1/ops/schedules/stream?token=...`（SSE）
    - `GET /api/v1/ops/schedules/{schedule_id}`
    - `GET /api/v1/ops/schedules/{schedule_id}/revisions`
-   - `GET /api/v1/ops/executions?schedule_id={id}&limit=1`
+   - `GET /api/v1/ops/task-runs?schedule_id={id}&limit=1`
    - `GET /api/v1/ops/probes?schedule_id={id}&limit=50`
    - `POST /api/v1/ops/schedules/preview`
    - `POST /api/v1/ops/schedules`
@@ -1380,19 +1438,17 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `GET /api/v1/ops/freshness`
    - `GET /api/v1/ops/layer-snapshots/latest?dataset_key=...&limit=200`
    - `GET /api/v1/ops/layer-snapshots/history?dataset_key=...&limit=50`
-   - `GET /api/v1/ops/executions?dataset_key=...&limit=20`
+   - `GET /api/v1/ops/task-runs?resource_key=...&limit=20`
    - `GET /api/v1/ops/probes?dataset_key=...&limit=20`
    - `GET /api/v1/ops/releases?dataset_key=...&limit=20`
    - `GET /api/v1/ops/std-rules/mapping?dataset_key=...&limit=100`
    - `GET /api/v1/ops/std-rules/cleansing?dataset_key=...&limit=100`
    - 代码：[ops-v21-dataset-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-dataset-detail-page.tsx)
-10. `OpsTaskDetailPage`（`/ops/tasks/{executionId}`，旧路径 `/ops/executions/{executionId}` 会重定向到此）
-    - `GET /api/v1/ops/executions/{execution_id}`
-    - `GET /api/v1/ops/executions/{execution_id}/steps`
-    - `GET /api/v1/ops/executions/{execution_id}/events`
-    - `GET /api/v1/ops/schedules/{schedule_id}`
-    - `POST /api/v1/ops/executions/{execution_id}/retry`
-    - `POST /api/v1/ops/executions/{execution_id}/cancel`
+10. `OpsTaskDetailPage`（`/ops/tasks/{taskRunId}`）
+    - `GET /api/v1/ops/task-runs/{task_run_id}/view`
+    - `GET /api/v1/ops/task-runs/{task_run_id}/issues/{issue_id}`（点击“查看技术诊断”时）
+    - `POST /api/v1/ops/task-runs/{task_run_id}/retry`
+    - `POST /api/v1/ops/task-runs/{task_run_id}/cancel`
     - 代码：[ops-task-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-page.tsx)
 11. `OpsV21ReviewIndexPage`（`/ops/v21/review/index`）
     - `GET /api/v1/ops/review/index/active?...`
@@ -1432,7 +1488,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `/ops/overview` -> 重定向到 `/ops/v21/today`
 - `/ops/freshness` -> 重定向到 `/ops/v21/overview`
 - `/ops/schedules` -> 重定向到 `/ops/v21/datasets/tasks?tab=auto`
-- `/ops/executions` -> 重定向到 `/ops/v21/datasets/tasks?tab=records`
 - `/ops/catalog` -> 重定向到 `/ops/v21/datasets/tasks?tab=manual`
 
 ---
