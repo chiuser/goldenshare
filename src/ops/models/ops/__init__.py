@@ -3,7 +3,6 @@
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_schedule import JobSchedule
@@ -21,7 +20,6 @@ __all__ = [
     "ConfigRevision",
     "DatasetLayerSnapshotCurrent",
     "DatasetLayerSnapshotHistory",
-    "DatasetPipelineMode",
     "DatasetStatusSnapshot",
     "IndexSeriesActive",
     "JobSchedule",

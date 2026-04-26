@@ -97,7 +97,7 @@
    - `GET /api/health`
    - `GET /api/v1/health`
 3. Ops 可见性：
-   - `/api/v1/ops/pipeline-modes`
+   - `/api/v1/ops/dataset-cards`
    - `/api/v1/ops/layer-snapshots/latest`
    - `/api/v1/ops/freshness`
 

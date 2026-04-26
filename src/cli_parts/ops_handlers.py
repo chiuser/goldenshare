@@ -249,29 +249,11 @@ def run_ops_seed_moneyflow_multi_source(
 
     mode = "apply" if apply else "dry-run"
     echo_fn(f"ops-seed-moneyflow-multi-source [{mode}] dataset={report.dataset_key}")
-    echo_fn(f"created_pipeline_mode={report.created_pipeline_mode}")
-    echo_fn(f"updated_pipeline_mode={report.updated_pipeline_mode}")
     echo_fn(f"created_mapping_rules={report.created_mapping_rules}")
     echo_fn(f"created_cleansing_rules={report.created_cleansing_rules}")
     echo_fn(f"created_source_statuses={report.created_source_statuses}")
     echo_fn(f"created_resolution_policy={report.created_resolution_policy}")
     echo_fn(f"updated_resolution_policy={report.updated_resolution_policy}")
-
-
-def run_ops_seed_dataset_pipeline_mode(
-    *,
-    session_local,
-    service_cls,
-    apply: bool,
-    echo_fn: Callable[[str], None],
-) -> None:
-    with session_local() as session:
-        report = service_cls().run(session, dry_run=not apply)
-    mode = "apply" if apply else "dry-run"
-    echo_fn(f"ops-seed-dataset-pipeline-mode [{mode}]")
-    echo_fn(f"dataset_total={report.dataset_total}")
-    echo_fn(f"created={report.created}")
-    echo_fn(f"updated={report.updated}")
 
 
 def run_ops_scheduler_tick(

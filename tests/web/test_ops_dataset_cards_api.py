@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
 
@@ -64,18 +63,6 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
                 on_success_action_json={},
             ),
         ]
-    )
-    db_session.merge(
-        DatasetPipelineMode(
-            dataset_key="limit_list_ths",
-            mode="raw_only",
-            source_scope="biying",
-            raw_enabled=True,
-            std_enabled=False,
-            resolution_enabled=False,
-            serving_enabled=False,
-            notes="test row: dataset-cards must not consume this table as card fact source",
-        )
     )
     db_session.commit()
 

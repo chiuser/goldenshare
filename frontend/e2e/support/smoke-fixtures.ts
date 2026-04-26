@@ -213,48 +213,6 @@ function mockOpsOverview(route: Route, pathname: string) {
     });
   }
 
-  if (pathname === "/api/v1/ops/pipeline-modes") {
-    return fulfillJson(route, {
-      total: 2,
-      items: [
-        {
-          dataset_key: "daily",
-          display_name: "股票日线",
-          domain_key: "equity",
-          domain_display_name: "股票",
-          mode: "single_source_direct",
-          source_scope: "tushare",
-          layer_plan: "raw,serving",
-          raw_table: "raw_tushare.equity_daily_bar",
-          std_table_hint: null,
-          serving_table: "core_serving.equity_daily_bar",
-          freshness_status: "fresh",
-          latest_business_date: "2026-04-16",
-          std_mapping_configured: true,
-          std_cleansing_configured: true,
-          resolution_policy_configured: true,
-        },
-        {
-          dataset_key: "moneyflow_dc",
-          display_name: "板块资金流向（东财）",
-          domain_key: "moneyflow",
-          domain_display_name: "资金流向",
-          mode: "multi_source_pipeline",
-          source_scope: "dc",
-          layer_plan: "raw,std,resolution,serving",
-          raw_table: "raw_dc.moneyflow_ind_dc",
-          std_table_hint: "std.moneyflow_ind_dc",
-          serving_table: "core_serving.moneyflow_ind_dc",
-          freshness_status: "lagging",
-          latest_business_date: "2026-04-15",
-          std_mapping_configured: true,
-          std_cleansing_configured: false,
-          resolution_policy_configured: true,
-        },
-      ],
-    });
-  }
-
   if (pathname === "/api/v1/ops/layer-snapshots/latest") {
     return fulfillJson(route, {
       total: 6,

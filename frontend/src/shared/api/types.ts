@@ -723,27 +723,6 @@ export interface SourceManagementBridgeResponse {
   layer_latest: LayerSnapshotLatestResponse["items"];
 }
 
-export interface DatasetPipelineModeListResponse {
-  total: number;
-  items: Array<{
-    dataset_key: string;
-    display_name: string;
-    domain_key: string;
-    domain_display_name: string;
-    mode: string;
-    source_scope: string;
-    layer_plan: string;
-    raw_table: string | null;
-    std_table_hint: string | null;
-    serving_table: string | null;
-    freshness_status: string;
-    latest_business_date: string | null;
-    std_mapping_configured: boolean;
-    std_cleansing_configured: boolean;
-    resolution_policy_configured: boolean;
-  }>;
-}
-
 export interface DatasetCardListResponse {
   total: number;
   groups: Array<{

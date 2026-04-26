@@ -34,7 +34,6 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.job_schedule import JobSchedule
@@ -105,7 +104,6 @@ def web_engine(configured_web_env) -> Generator:
         DatasetStatusSnapshot.__table__.create(connection)
         DatasetLayerSnapshotHistory.__table__.create(connection)
         DatasetLayerSnapshotCurrent.__table__.create(connection)
-        DatasetPipelineMode.__table__.create(connection)
         ProbeRule.__table__.create(connection)
         ProbeRunLog.__table__.create(connection)
         ResolutionRelease.__table__.create(connection)

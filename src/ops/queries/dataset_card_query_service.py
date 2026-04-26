@@ -13,6 +13,7 @@ from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
+from src.ops.dataset_definition_projection import build_dataset_pipeline_projection
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
@@ -147,7 +148,7 @@ class DatasetCardQueryService:
                 layers = [
                     item
                     for item in layers
-                    if item.stage != "raw" or item.source_key in {source_key, "__all__"}
+                    if item.stage != "raw" or item.source_key == source_key
                 ]
 
             raw_sources = self._raw_sources(
@@ -277,8 +278,8 @@ class DatasetCardQueryService:
 
         raw_layers = [item for item in layers if item.stage == "raw"]
         for item in raw_layers:
-            source = item.source_key or "__all__"
-            if source_key is not None and source not in {source_key, "__all__"}:
+            source = item.source_key or "combined"
+            if source_key is not None and source != source_key:
                 continue
             source_tables.setdefault(source, None)
 
@@ -297,7 +298,7 @@ class DatasetCardQueryService:
             table = self._raw_table_label(members[0], source_key=source_key)
             result.append(
                 DatasetCardSourceStatus(
-                    source_key=source_key or "__all__",
+                    source_key=source_key or "combined",
                     table_name=table,
                     status="unknown",
                     calculated_at=None,
@@ -307,7 +308,7 @@ class DatasetCardQueryService:
 
     @staticmethod
     def _latest_layer_for_source(raw_layers: list[LayerSnapshotLatestItem], source: str) -> LayerSnapshotLatestItem | None:
-        candidates = [item for item in raw_layers if (item.source_key or "__all__") == source]
+        candidates = [item for item in raw_layers if (item.source_key or "combined") == source]
         if not candidates:
             return None
         return max(candidates, key=lambda item: item.calculated_at)
@@ -325,7 +326,7 @@ class DatasetCardQueryService:
             raw_statuses = [
                 item.status
                 for item in layers
-                if item.stage == "raw" and item.source_key in {source_key, "__all__"}
+                if item.stage == "raw" and item.source_key == source_key
             ]
         if raw_statuses:
             return self._normalize_status(self._worse_raw_status(raw_statuses))
@@ -483,7 +484,7 @@ class DatasetCardQueryService:
         *,
         config_flags: tuple[bool, bool, bool],
     ) -> DatasetCardFact:
-        mode = self._mode_from_definition(definition)
+        projection = build_dataset_pipeline_projection(definition)
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
@@ -492,72 +493,19 @@ class DatasetCardQueryService:
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,
             cadence=definition.domain.cadence,
-            source_keys=self._source_keys_from_definition(definition),
-            mode=mode,
-            mode_label=self._mode_label(mode),
-            mode_tone=self._mode_tone(mode),
-            layer_plan=self._layer_plan(mode),
-            raw_table=definition.storage.raw_table,
-            std_table_hint=self._std_table_hint(definition, mode),
-            serving_table=self._serving_table(definition, mode),
+            source_keys=projection.source_keys,
+            mode=projection.mode,
+            mode_label=self._mode_label(projection.mode),
+            mode_tone=self._mode_tone(projection.mode),
+            layer_plan=projection.layer_plan,
+            raw_table=projection.raw_table,
+            std_table_hint=projection.std_table_hint,
+            serving_table=projection.serving_table,
             primary_action_key=self._primary_action_key(definition),
             std_mapping_configured=std_mapping_configured,
             std_cleansing_configured=std_cleansing_configured,
             resolution_policy_configured=resolution_policy_configured,
         )
-
-    @staticmethod
-    def _mode_from_definition(definition: DatasetDefinition) -> str:
-        write_path = definition.storage.write_path
-        target_table = definition.storage.target_table
-        if write_path.startswith("raw_std_publish"):
-            return "multi_source_pipeline"
-        if write_path == "raw_only_upsert" or target_table.startswith("raw_"):
-            return "raw_only"
-        if target_table.startswith("core_serving."):
-            return "single_source_direct"
-        return "direct_maintain"
-
-    @staticmethod
-    def _layer_plan(mode: str) -> str:
-        if mode == "multi_source_pipeline":
-            return "raw->std->resolution->serving"
-        if mode == "single_source_direct":
-            return "raw->serving"
-        if mode == "raw_only":
-            return "raw-only"
-        if mode == "direct_maintain":
-            return "raw->core"
-        return "unknown"
-
-    @staticmethod
-    def _std_table_hint(definition: DatasetDefinition, mode: str) -> str | None:
-        if mode != "multi_source_pipeline":
-            return None
-        return f"core_multi.{definition.storage.core_dao_name}"
-
-    @staticmethod
-    def _serving_table(definition: DatasetDefinition, mode: str) -> str | None:
-        if mode in {"raw_only", "direct_maintain"}:
-            return None
-        if definition.storage.target_table.startswith("core_serving."):
-            return definition.storage.target_table
-        return None
-
-    @staticmethod
-    def _source_keys_from_definition(definition: DatasetDefinition) -> tuple[str, ...]:
-        source_values: set[str] = set()
-        for field in definition.input_model.filters:
-            if field.name != "source_key":
-                continue
-            source_values.update(
-                value.lower()
-                for value in field.enum_values
-                if value and value.lower() not in {"all", "__all__"}
-            )
-        if not source_values:
-            source_values.add(definition.source.source_key_default.lower())
-        return tuple(sorted(source_values))
 
     @staticmethod
     def _primary_action_key(definition: DatasetDefinition) -> str | None:

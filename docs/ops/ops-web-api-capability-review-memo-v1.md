@@ -222,20 +222,19 @@
 
 1. 后续讨论时应明确区分：`summary` 轻接口与 `overview dashboard` 富接口
 
-### 5.5 P1：`pipeline-modes` 与 `layer-snapshots/latest` 是基础投影，不是页面聚合读模型
+### 5.5 P1：旧 `pipeline-modes` 已下线，页面聚合读模型改为 `dataset-cards`
 
 当前问题：
 
-1. `pipeline-modes` 主要提供 mode、table hint、少量 configured 状态
-2. `layer-snapshots/latest` 主要提供 stage/status/rows/lag/message/timestamp
-3. 两者都适合作为基础投影，不适合作为新页面的主接口长期直接消费
+1. 旧 `pipeline-modes` 曾提供 mode、table hint、少量 configured 状态，现已由 DatasetDefinition 派生投影替代。
+2. `layer-snapshots/latest` 主要提供 stage/status/rows/lag/message/timestamp。
+3. 新页面主接口应使用 `dataset-cards`，不得重新消费多个基础投影后在前端拼卡片事实。
 
 关键证据：
 
-1. [src/ops/queries/dataset_pipeline_mode_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/dataset_pipeline_mode_query_service.py) 中第 24 行附近
-2. [src/ops/queries/layer_snapshot_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/layer_snapshot_query_service.py) 中第 70 行附近
-3. [frontend/src/pages/ops-v21-overview-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-overview-page.tsx) 中第 154 行附近
-4. [frontend/src/pages/ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx) 中第 80 行附近
+1. [src/ops/queries/dataset_card_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py) 负责聚合卡片视图。
+2. [src/ops/dataset_definition_projection.py](/Users/congming/github/goldenshare/src/ops/dataset_definition_projection.py) 负责从 DatasetDefinition 派生静态 pipeline/stage 事实。
+3. [src/ops/queries/layer_snapshot_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/layer_snapshot_query_service.py) 仍只负责真实 layer snapshot 查询。
 
 影响：
 

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
@@ -16,8 +15,6 @@ from src.ops.models.ops.std_mapping_rule import StdMappingRule
 class SeedMoneyflowMultiSourceReport:
     dataset_key: str
     dry_run: bool
-    created_pipeline_mode: int
-    updated_pipeline_mode: int
     created_mapping_rules: int
     created_cleansing_rules: int
     created_source_statuses: int
@@ -32,52 +29,11 @@ class MoneyflowMultiSourceSeedService:
     _all_sources = (_primary_source, *_fallback_sources)
 
     def run(self, session: Session, *, dry_run: bool = True) -> SeedMoneyflowMultiSourceReport:
-        created_pipeline_mode = 0
-        updated_pipeline_mode = 0
         created_mapping_rules = 0
         created_cleansing_rules = 0
         created_source_statuses = 0
         created_resolution_policy = 0
         updated_resolution_policy = 0
-
-        current_mode = session.get(DatasetPipelineMode, self._dataset_key)
-        desired_scope = ",".join(self._all_sources)
-        desired_notes = "多源融合骨架（tushare 主，biying 兜底）"
-        if current_mode is None:
-            created_pipeline_mode += 1
-            if not dry_run:
-                session.add(
-                    DatasetPipelineMode(
-                        dataset_key=self._dataset_key,
-                        mode="multi_source_pipeline",
-                        source_scope=desired_scope,
-                        raw_enabled=True,
-                        std_enabled=True,
-                        resolution_enabled=True,
-                        serving_enabled=True,
-                        notes=desired_notes,
-                    )
-                )
-        else:
-            needs_update = (
-                current_mode.mode != "multi_source_pipeline"
-                or current_mode.source_scope != desired_scope
-                or not bool(current_mode.raw_enabled)
-                or not bool(current_mode.std_enabled)
-                or not bool(current_mode.resolution_enabled)
-                or not bool(current_mode.serving_enabled)
-                or (current_mode.notes or None) != desired_notes
-            )
-            if needs_update:
-                updated_pipeline_mode += 1
-                if not dry_run:
-                    current_mode.mode = "multi_source_pipeline"
-                    current_mode.source_scope = desired_scope
-                    current_mode.raw_enabled = True
-                    current_mode.std_enabled = True
-                    current_mode.resolution_enabled = True
-                    current_mode.serving_enabled = True
-                    current_mode.notes = desired_notes
 
         for source_key in self._all_sources:
             if not self._has_active_mapping_rule(session, source_key=source_key):
@@ -164,8 +120,6 @@ class MoneyflowMultiSourceSeedService:
         return SeedMoneyflowMultiSourceReport(
             dataset_key=self._dataset_key,
             dry_run=dry_run,
-            created_pipeline_mode=created_pipeline_mode,
-            updated_pipeline_mode=updated_pipeline_mode,
             created_mapping_rules=created_mapping_rules,
             created_cleansing_rules=created_cleansing_rules,
             created_source_statuses=created_source_statuses,

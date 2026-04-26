@@ -46,12 +46,11 @@
 
 ### 2.3 策略与发布域
 
-1. `ops.dataset_pipeline_mode`
-2. `ops.std_mapping_rule`
-3. `ops.std_cleansing_rule`
-4. `ops.resolution_release`
-5. `ops.resolution_release_stage_status`
-6. `ops.config_revision`
+1. `ops.std_mapping_rule`
+2. `ops.std_cleansing_rule`
+3. `ops.resolution_release`
+4. `ops.resolution_release_stage_status`
+5. `ops.config_revision`
 
 ### 2.4 Probe 域
 
@@ -81,7 +80,7 @@
 | `dataset_layer_snapshot_current` | 保留+增强校验 | 与 history 最新记录一致 |
 | `dataset_layer_snapshot_history` | 扩展 | 引入 `snapshot_at`（datetime） |
 | `dataset_status_snapshot` | 保留 | 保持“可重建投影”定位 |
-| `dataset_pipeline_mode` | 保留 | 治理主配置 |
+| `dataset_pipeline_mode` | 下线 | 已由 DatasetDefinition 派生投影替代 |
 | `std_mapping_rule` | 扩展约束 | 防重复、防脏版本 |
 | `std_cleansing_rule` | 扩展约束 | 防重复、防脏版本 |
 | `resolution_release` | 保留 | 发布主记录 |

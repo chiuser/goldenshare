@@ -6,11 +6,11 @@ from sqlalchemy import delete, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.foundation.datasets.registry import get_dataset_definition_by_action_key
+from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
+from src.ops.dataset_definition_projection import build_dataset_pipeline_projection
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
@@ -180,18 +180,14 @@ class DatasetStatusSnapshotService:
     def _upsert_current_items(session: Session, items: list[DatasetFreshnessItem]) -> None:
         calculated_at = datetime.now(timezone.utc)
         keys = [item.dataset_key for item in items]
-        mode_by_key = {
-            row.dataset_key: row
-            for row in session.scalars(select(DatasetPipelineMode).where(DatasetPipelineMode.dataset_key.in_(keys))).all()
-        }
         light_snapshot_by_dataset = DatasetStatusSnapshotService._load_light_snapshot_by_dataset(session, keys)
         for item in items:
-            mode = mode_by_key.get(item.dataset_key)
-            if mode is None:
-                mode = DatasetStatusSnapshotService._inferred_mode_from_item(item)
-            source_key = "__all__"
-            if "," not in mode.source_scope and mode.source_scope.strip():
-                source_key = mode.source_scope.strip()
+            try:
+                definition = get_dataset_definition(item.dataset_key)
+            except KeyError:
+                continue
+            projection = build_dataset_pipeline_projection(definition)
+            source_key = projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
 
             def upsert_stage(stage: str, status: str, message: str | None) -> None:
                 pk = (item.dataset_key, source_key, stage)
@@ -213,21 +209,21 @@ class DatasetStatusSnapshotService:
                 row.execution_id = None
                 row.run_profile = None
 
-            upsert_stage("raw", item.freshness_status if mode.raw_enabled else "skipped", mode.notes)
-            if mode.std_enabled:
+            upsert_stage("raw", item.freshness_status if projection.raw_enabled else "skipped", projection.notes)
+            if projection.std_enabled:
                 upsert_stage("std", "unobserved", "该层已启用，但暂未接入独立观测指标")
             else:
                 upsert_stage("std", "skipped", "当前模式未启用 std 物化")
-            if mode.resolution_enabled:
+            if projection.resolution_enabled:
                 upsert_stage("resolution", "unobserved", "该层已启用，但暂未接入独立观测指标")
             else:
                 upsert_stage("resolution", "skipped", "当前模式未启用融合决策层")
-            if mode.serving_enabled:
+            if projection.serving_enabled:
                 upsert_stage("serving", item.freshness_status, item.freshness_note)
             else:
                 upsert_stage("serving", "skipped", "当前模式不产出 serving")
             light_snapshot = light_snapshot_by_dataset.get(item.dataset_key)
-            if item.dataset_key == "daily" and mode.serving_enabled:
+            if item.dataset_key == "daily" and projection.serving_enabled:
                 pk = (item.dataset_key, source_key, "light")
                 row = session.get(DatasetLayerSnapshotCurrent, pk)
                 if row is None:
@@ -267,11 +263,11 @@ class DatasetStatusSnapshotService:
 
             snapshot_row = session.get(DatasetStatusSnapshot, item.dataset_key)
             if snapshot_row is not None:
-                snapshot_row.pipeline_mode = mode.mode
-                snapshot_row.raw_stage_status = item.freshness_status if mode.raw_enabled else "skipped"
-                snapshot_row.std_stage_status = "unobserved" if mode.std_enabled else "skipped"
-                snapshot_row.resolution_stage_status = "unobserved" if mode.resolution_enabled else "skipped"
-                snapshot_row.serving_stage_status = item.freshness_status if mode.serving_enabled else "skipped"
+                snapshot_row.pipeline_mode = projection.mode
+                snapshot_row.raw_stage_status = item.freshness_status if projection.raw_enabled else "skipped"
+                snapshot_row.std_stage_status = "unobserved" if projection.std_enabled else "skipped"
+                snapshot_row.resolution_stage_status = "unobserved" if projection.resolution_enabled else "skipped"
+                snapshot_row.serving_stage_status = item.freshness_status if projection.serving_enabled else "skipped"
                 snapshot_row.state_updated_at = calculated_at
 
     @staticmethod
@@ -351,53 +347,3 @@ class DatasetStatusSnapshotService:
         if lag_days <= 0:
             return 0
         return lag_days * 86400
-
-    @staticmethod
-    def _inferred_mode_from_item(item: DatasetFreshnessItem) -> DatasetPipelineMode:
-        if item.dataset_key == "stock_basic":
-            return DatasetPipelineMode(
-                dataset_key=item.dataset_key,
-                mode="multi_source_pipeline",
-                source_scope="tushare,biying",
-                raw_enabled=True,
-                std_enabled=True,
-                resolution_enabled=True,
-                serving_enabled=True,
-                notes="按规格推断：双源标准化+融合发布链路",
-            )
-        target = item.target_table or ""
-        raw_table = item.raw_table or ""
-        if target.startswith("raw_") or target.startswith("raw."):
-            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
-            return DatasetPipelineMode(
-                dataset_key=item.dataset_key,
-                mode="raw_only",
-                source_scope=scope,
-                raw_enabled=True,
-                std_enabled=False,
-                resolution_enabled=False,
-                serving_enabled=False,
-                notes="按规格推断：仅采集原始数据",
-            )
-        if target.startswith("core_serving."):
-            scope = "biying" if raw_table.startswith("raw_biying.") else "tushare"
-            return DatasetPipelineMode(
-                dataset_key=item.dataset_key,
-                mode="single_source_direct",
-                source_scope=scope,
-                raw_enabled=True,
-                std_enabled=False,
-                resolution_enabled=False,
-                serving_enabled=True,
-                notes="按规格推断：单源直出 serving",
-            )
-        return DatasetPipelineMode(
-            dataset_key=item.dataset_key,
-            mode="legacy_core_direct",
-            source_scope="tushare",
-            raw_enabled=True,
-            std_enabled=False,
-            resolution_enabled=False,
-            serving_enabled=False,
-            notes="按规格推断：历史保留路径（core 口径）",
-        )

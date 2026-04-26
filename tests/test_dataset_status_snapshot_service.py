@@ -11,7 +11,6 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.schemas.freshness import DatasetFreshnessItem
@@ -31,7 +30,6 @@ def db_session() -> Generator[Session, None, None]:
         DatasetStatusSnapshot.__table__.create(connection)
         DatasetLayerSnapshotHistory.__table__.create(connection)
         DatasetLayerSnapshotCurrent.__table__.create(connection)
-        DatasetPipelineMode.__table__.create(connection)
         EquityDailyBarLight.__table__.create(connection)
     testing_session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     session = testing_session_local()
@@ -180,19 +178,6 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
                     last_sync_date=date(2026, 4, 1),
                 )
             ]
-
-    db_session.add(
-        DatasetPipelineMode(
-            dataset_key="stock_basic",
-            mode="multi_source_pipeline",
-            source_scope="tushare,biying",
-            raw_enabled=True,
-            std_enabled=True,
-            resolution_enabled=True,
-            serving_enabled=True,
-        )
-    )
-    db_session.commit()
 
     service = DatasetStatusSnapshotService(query_service=_FakeQueryService())
     refreshed = service.refresh_resources(db_session, ["stock_basic"], today=date(2026, 4, 1))

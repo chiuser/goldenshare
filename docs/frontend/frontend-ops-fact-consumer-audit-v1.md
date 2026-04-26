@@ -67,7 +67,7 @@
 | 编号 | 页面/文件 | 现状 | 后续方向 |
 | --- | --- | --- | --- |
 | G-001 | `ops-v21-task-auto-tab.tsx` | 自动任务页仍暴露 `spec_type/spec_key` 选择模型，属于后续自动任务页专项。 | 等自动任务页重做时，切到用户视角的维护对象与触发策略，不让用户理解底层 spec。 |
-| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 的卡片静态事实已从 DatasetDefinition 派生；pipeline-modes API 仍作为独立历史治理查询存在。 | 后续如果页面还需要 pipeline/stage 新字段，先补 DatasetDefinition 派生事实，再暴露到 card view，不能让页面或查询层另起事实口径。 |
+| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 的卡片静态事实已从 DatasetDefinition 派生；旧 `pipeline-modes` API 与 `dataset_pipeline_mode` 主实现已下线。 | 后续如果页面还需要 pipeline/stage 新字段，先补 DatasetDefinition 派生事实，再暴露到 card view，不能让页面或查询层另起事实口径。 |
 
 ## 7. 后续执行原则
 

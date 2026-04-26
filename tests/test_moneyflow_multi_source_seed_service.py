@@ -10,7 +10,6 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.ops.services.operations_moneyflow_multi_source_seed_service import MoneyflowMultiSourceSeedService
-from src.ops.models.ops.dataset_pipeline_mode import DatasetPipelineMode
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
@@ -26,7 +25,6 @@ def db_session() -> Generator[Session, None, None]:
     with engine.begin() as connection:
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
-        DatasetPipelineMode.__table__.create(connection)
         StdMappingRule.__table__.create(connection)
         StdCleansingRule.__table__.create(connection)
         DatasetResolutionPolicy.__table__.create(connection)
@@ -45,7 +43,6 @@ def test_moneyflow_multi_source_seed_apply_is_idempotent(db_session: Session) ->
 
     first = service.run(db_session, dry_run=False)
     assert first.dataset_key == "moneyflow"
-    assert first.created_pipeline_mode == 1
     assert first.created_mapping_rules == 2
     assert first.created_cleansing_rules == 2
     assert first.created_source_statuses == 2
@@ -53,8 +50,6 @@ def test_moneyflow_multi_source_seed_apply_is_idempotent(db_session: Session) ->
     assert first.updated_resolution_policy == 0
 
     second = service.run(db_session, dry_run=False)
-    assert second.created_pipeline_mode == 0
-    assert second.updated_pipeline_mode == 0
     assert second.created_mapping_rules == 0
     assert second.created_cleansing_rules == 0
     assert second.created_source_statuses == 0
@@ -62,19 +57,7 @@ def test_moneyflow_multi_source_seed_apply_is_idempotent(db_session: Session) ->
     assert second.updated_resolution_policy == 0
 
 
-def test_moneyflow_multi_source_seed_upgrades_single_source_defaults(db_session: Session) -> None:
-    db_session.add(
-        DatasetPipelineMode(
-            dataset_key="moneyflow",
-            mode="single_source_direct",
-            source_scope="tushare",
-            raw_enabled=True,
-            std_enabled=False,
-            resolution_enabled=False,
-            serving_enabled=True,
-            notes="legacy",
-        )
-    )
+def test_moneyflow_multi_source_seed_upgrades_resolution_policy(db_session: Session) -> None:
     db_session.add(
         DatasetResolutionPolicy(
             dataset_key="moneyflow",
@@ -89,15 +72,7 @@ def test_moneyflow_multi_source_seed_upgrades_single_source_defaults(db_session:
     db_session.commit()
 
     report = MoneyflowMultiSourceSeedService().run(db_session, dry_run=False)
-    assert report.updated_pipeline_mode == 1
     assert report.updated_resolution_policy == 1
-
-    mode = db_session.get(DatasetPipelineMode, "moneyflow")
-    assert mode is not None
-    assert mode.mode == "multi_source_pipeline"
-    assert mode.source_scope == "tushare,biying"
-    assert mode.std_enabled is True
-    assert mode.resolution_enabled is True
 
     policy = db_session.get(DatasetResolutionPolicy, "moneyflow")
     assert policy is not None

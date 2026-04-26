@@ -166,7 +166,7 @@
 4. 已删除 `dataset_status_snapshot` 与 `/api/v1/ops/freshness` 中的 `job_name / state_business_date / business_date_source / full_sync_done`。
 5. 已新增 Alembic `20260426_000076_drop_sync_job_state_and_legacy_freshness_fields.py`，用于 drop `ops.sync_job_state` 并删除快照旧列。
 6. 本地验证已通过：
-   - `pytest -q tests/web/test_ops_freshness_api.py tests/web/test_ops_overview_api.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_status_snapshot_service.py tests/test_dataset_pipeline_mode_query_service.py tests/web/test_ops_pipeline_modes_api.py tests/test_cli_ops_runtime.py tests/test_base_sync_service_snapshot_refresh.py`
+   - `pytest -q tests/web/test_ops_freshness_api.py tests/web/test_ops_overview_api.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_status_snapshot_service.py tests/test_cli_ops_runtime.py tests/test_base_sync_service_snapshot_refresh.py`
    - `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
    - `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
    - `cd frontend && npm test -- --run src/pages/ops-v21-source-page.test.tsx src/pages/ops-v21-dataset-detail-page.test.tsx`

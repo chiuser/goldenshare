@@ -205,30 +205,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 }
 ```
 
-### 2.5 GET /api/v1/ops/pipeline-modes
-
-- 功能：返回数据集 pipeline mode 列表（单源直出/多源融合等）。
-- Query 参数：
-  - `limit`：默认 500，范围 `1..2000`
-  - `offset`：默认 0，`>=0`
-- 返回：`DatasetPipelineModeListResponse`
-  - `total`
-  - `items[]`（`DatasetPipelineModeItem`）
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/pipeline-modes?limit=200&offset=0"
-```
-
-```json
-{
-  "total": 56,
-  "items": [{"dataset_key": "daily", "mode": "single_source_direct"}]
-}
-```
-
-### 2.6 GET /api/v1/ops/dataset-cards
+### 2.5 GET /api/v1/ops/dataset-cards
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
@@ -274,7 +251,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 }
 ```
 
-### 2.7 GET /api/v1/ops/source-management/bridge
+### 2.6 GET /api/v1/ops/source-management/bridge
 
 - 功能：返回数据源页面聚合桥接数据（probe/release/std rule/layer snapshot）。
 - Query 参数：
@@ -1343,8 +1320,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `WorkflowSpecCatalogItem`：`key, display_name, description, parallel_policy, default_schedule_policy, supports_schedule, supports_manual_run, schedule_binding_count, active_schedule_count, supported_params, steps`
 - `ParameterSpecResponse`：`key, display_name, param_type, description, required, options, multi_value`
 - `WorkflowStepResponse`：`step_key, job_key, display_name, depends_on, default_params`
-- `DatasetPipelineModeListResponse`：`total, items`
-- `DatasetPipelineModeItem`：`dataset_key, display_name, domain_key, domain_display_name, mode, source_scope, layer_plan, raw_table, std_table_hint, serving_table, freshness_status, latest_business_date, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`domain_key, domain_display_name, items`
 - `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, domain_key, domain_display_name, status, freshness_status, mode, mode_label, mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_execution_status, active_execution_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`

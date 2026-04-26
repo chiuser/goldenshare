@@ -17,7 +17,6 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.config_revision",
     "src.ops.models.ops.dataset_layer_snapshot_current",
     "src.ops.models.ops.dataset_layer_snapshot_history",
-    "src.ops.models.ops.dataset_pipeline_mode",
     "src.ops.models.ops.dataset_status_snapshot",
     "src.ops.models.ops.index_series_active",
     "src.ops.models.ops.job_schedule",

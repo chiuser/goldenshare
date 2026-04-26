@@ -129,6 +129,24 @@ def test_ops_dataset_card_view_static_facts_do_not_depend_on_pipeline_mode_view(
     )
 
 
+def test_active_code_does_not_reference_dataset_pipeline_mode_fact_table() -> None:
+    forbidden_tokens = (
+        "dataset_" + "pipeline_mode",
+        "Dataset" + "PipelineMode",
+        "pipeline-" + "modes",
+    )
+    violations: list[str] = []
+    for root in ACTIVE_CODE_ROOTS:
+        for path in _python_and_frontend_files(root):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "旧 dataset_pipeline_mode / pipeline-modes 事实链不得留在活跃代码:\n" + "\n".join(violations)
+
+
 def test_ingestion_layer_has_no_checkpoint_or_acquire_semantics() -> None:
     root = REPO_ROOT / "src/foundation/ingestion"
     forbidden_tokens = ("checkpoint", "acquire(")

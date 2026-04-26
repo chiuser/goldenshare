@@ -81,17 +81,10 @@
 
 ## 3. 核心对象模型
 
-### 3.1 `ops.dataset_pipeline_mode`
+### 3.1 `DatasetDefinition -> DatasetPipelineProjection`
 
-主键：`dataset_key`  
-用途：定义数据集当前运行模式与启用层级。
-
-关键字段：
-
-1. `mode`：`single_source_direct | multi_source_pipeline | raw_only | legacy_core_direct`
-2. `source_scope`
-3. `raw_enabled/std_enabled/resolution_enabled/serving_enabled`
-4. `notes`
+用途：从 DatasetDefinition 派生数据集来源、raw 表、目标表、stage 计划与维护入口等静态事实。
+约束：Ops 页面和查询层不得再依赖落库的 pipeline mode 表，也不得自行推断这些事实。
 
 ### 3.2 `ops.dataset_layer_snapshot_current`
 
@@ -124,6 +117,7 @@
 
 1. `ops.job_execution*`：旧执行观测主链，已被 TaskRun 三表替代
 2. `ops.sync_run_log`：旧 sync service 日志，不再作为任务详情或页面事实源
+3. `ops.dataset_pipeline_mode`：旧 pipeline mode 落库配置，已由 DatasetDefinition 派生投影替代
 
 ---
 
@@ -131,7 +125,7 @@
 
 ### 4.1 推荐主查询接口
 
-1. `GET /api/v1/ops/pipeline-modes`
+1. `GET /api/v1/ops/dataset-cards`
 2. `GET /api/v1/ops/layer-snapshots/latest`
 3. `GET /api/v1/ops/freshness`
 
@@ -213,7 +207,7 @@
 
 1. std 规则 API：`/api/v1/ops/std-rules/*`
 2. release 对象 API：`/api/v1/ops/resolution-releases/*`
-3. pipeline mode API：`/api/v1/ops/pipeline-modes`
+3. dataset card API：`/api/v1/ops/dataset-cards`
 4. source bridge API：`/api/v1/ops/source-management/bridge`
 5. 层级快照模型：`dataset_layer_snapshot_current/history`
 6. Foundation 融合引擎：`policy_store/policy_engine/publish_service`

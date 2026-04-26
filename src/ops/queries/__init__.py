@@ -1,6 +1,5 @@
 from src.ops.queries.catalog_query_service import OpsCatalogQueryService
 from src.ops.queries.dataset_card_query_service import DatasetCardQueryService
-from src.ops.queries.dataset_pipeline_mode_query_service import DatasetPipelineModeQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.queries.manual_action_query_service import ManualActionQueryService
@@ -13,7 +12,6 @@ from src.ops.queries.std_rule_query_service import StdRuleQueryService
 from src.ops.queries.task_run_query_service import TaskRunQueryService
 
 __all__ = [
-    "DatasetPipelineModeQueryService",
     "DatasetCardQueryService",
     "LayerSnapshotQueryService",
     "ManualActionQueryService",

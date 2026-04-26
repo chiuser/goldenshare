@@ -50,11 +50,10 @@
 2. 本地最小验证
 - `goldenshare init-db`
 - `goldenshare ops-seed-default-single-source --source-key tushare --apply`
-- `goldenshare ops-seed-dataset-pipeline-mode --apply`
 - `goldenshare ops-rebuild-dataset-status`
 
 3. 页面与接口核对
-- `GET /api/v1/ops/pipeline-modes`
+- `GET /api/v1/ops/dataset-cards`
 - `GET /api/v1/ops/layer-snapshots/latest`
 - `GET /api/v1/ops/freshness`
 
@@ -110,9 +109,9 @@
 - [ ] `unknown` 长期清零（只允许短时异常窗口出现）。
 - [ ] 无业务日期字段的数据集统一采用“最近同步日期兜底业务日期”。
 
-### C. pipeline mode 与规则对象收口
+### C. DatasetDefinition 投影与规则对象收口
 
-- [ ] 所有数据集具备落库的 `dataset_pipeline_mode`（避免长期推断态）。
+- [x] 旧 `dataset_pipeline_mode` 落库事实已下线，数据集模式与层级计划由 DatasetDefinition 派生。
 - [ ] 单源直出数据集保证 `source_status + resolution_policy + std 规则`对象完整（即使是 pass-through）。
 - [ ] 新增数据集默认自动纳入 seed 和状态重建流程。
 
@@ -128,7 +127,7 @@
 
 - [ ] 本次变更是否新增/修改了数据集或规则对象？
 - [ ] 是否更新了相应 docs（含 README 索引）？
-- [ ] 是否验证了 `pipeline-modes / layer-snapshots/latest / freshness` 三接口？
+- [ ] 是否验证了 `dataset-cards / layer-snapshots/latest / freshness` 三接口？
 - [ ] 是否确保未引入新的旧口径依赖（尤其 `core.*` 直写）？
 - [ ] 是否补了必要测试并通过？
 

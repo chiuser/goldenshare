@@ -13,10 +13,6 @@ from src.ops.schemas.dataset_card import (
     DatasetCardSourceStatus,
     DatasetCardStageStatus,
 )
-from src.ops.schemas.dataset_pipeline import (
-    DatasetPipelineModeItem,
-    DatasetPipelineModeListResponse,
-)
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 from src.ops.schemas.layer_snapshot import (
     LayerSnapshotHistoryItem,
@@ -126,8 +122,6 @@ __all__ = [
     "DatasetCardListResponse",
     "DatasetCardSourceStatus",
     "DatasetCardStageStatus",
-    "DatasetPipelineModeItem",
-    "DatasetPipelineModeListResponse",
     "FreshnessGroup",
     "JobSpecCatalogItem",
     "LayerSnapshotHistoryItem",

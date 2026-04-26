@@ -25,7 +25,6 @@ from src.cli_parts.ops_handlers import (
     run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
     run_ops_scheduler_serve as _run_ops_scheduler_serve_impl,
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
-    run_ops_seed_dataset_pipeline_mode as _run_ops_seed_dataset_pipeline_mode_impl,
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
     run_ops_validate_market_mood as _run_ops_validate_market_mood_impl,
@@ -50,7 +49,6 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
 from src.ops.services.operations_dataset_reconcile_service import DatasetReconcileService
-from src.ops.services.operations_dataset_pipeline_mode_seed_service import DatasetPipelineModeSeedService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
@@ -423,18 +421,6 @@ def ops_seed_moneyflow_multi_source(
     _run_ops_seed_moneyflow_multi_source_impl(
         session_local=SessionLocal,
         service_cls=MoneyflowMultiSourceSeedService,
-        apply=apply,
-        echo_fn=typer.echo,
-    )
-
-
-@app.command("ops-seed-dataset-pipeline-mode")
-def ops_seed_dataset_pipeline_mode(
-    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
-) -> None:
-    _run_ops_seed_dataset_pipeline_mode_impl(
-        session_local=SessionLocal,
-        service_cls=DatasetPipelineModeSeedService,
         apply=apply,
         echo_fn=typer.echo,
     )
