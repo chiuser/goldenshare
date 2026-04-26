@@ -105,6 +105,7 @@ class OperationsTaskRunReconciliationService:
                 suggested_action="请确认业务数据后再决定是否重新提交。",
                 technical_message=reason,
                 technical_payload_json={"source_phase": "reconcile", "previous_status": previous_status, "new_status": new_status},
+                object_json=dict(task_run.current_object_json or {}),
                 source_phase="reconcile",
                 fingerprint=f"{task_run.id}:stale_task_run",
                 occurred_at=now,

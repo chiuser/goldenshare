@@ -29,6 +29,7 @@ class TaskRunIssue(Base):
 
     technical_message: Mapped[str | None] = mapped_column(Text)
     technical_payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    object_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     source_phase: Mapped[str | None] = mapped_column(String(32))
     fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
 

@@ -39,7 +39,7 @@ class TaskRun(TimestampMixin, Base):
     unit_failed: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     progress_percent: Mapped[int | None] = mapped_column(Integer)
     current_node_id: Mapped[int | None] = mapped_column(BigInteger)
-    current_context_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    current_object_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     rows_fetched: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_saved: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 
 
@@ -16,5 +18,9 @@ class NullSyncExecutionContext(SyncExecutionContext):
         current: int,
         total: int,
         message: str,
+        rows_fetched: int | None = None,
+        rows_saved: int | None = None,
+        rows_rejected: int | None = None,
+        current_object: dict[str, Any] | None = None,
     ) -> None:
         return None

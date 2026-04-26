@@ -106,6 +106,17 @@ class TaskRunInfo(BaseModel):
     canceled_at: datetime | None = None
 
 
+class TaskRunDisplayField(BaseModel):
+    label: str
+    value: str
+
+
+class TaskRunDisplayObject(BaseModel):
+    title: str
+    description: str | None = None
+    fields: list[TaskRunDisplayField] = Field(default_factory=list)
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -114,7 +125,7 @@ class TaskRunProgress(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
-    current_context: dict[str, Any]
+    current_object: TaskRunDisplayObject | None = None
 
 
 class TaskRunIssueSummary(BaseModel):
@@ -124,6 +135,7 @@ class TaskRunIssueSummary(BaseModel):
     title: str
     operator_message: str | None = None
     suggested_action: str | None = None
+    object: TaskRunDisplayObject | None = None
     has_technical_detail: bool
     occurred_at: datetime
 
@@ -173,6 +185,7 @@ class TaskRunIssueDetailResponse(BaseModel):
     title: str
     operator_message: str | None = None
     suggested_action: str | None = None
+    object: TaskRunDisplayObject | None = None
     technical_message: str | None = None
     technical_payload: dict[str, Any]
     source_phase: str | None = None

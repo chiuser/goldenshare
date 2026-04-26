@@ -365,7 +365,7 @@ vi.mock("../shared/api/client", () => ({
           rows_fetched: 0,
           rows_saved: 0,
           rows_rejected: 0,
-          current_context: {},
+          current_object: null,
         },
         primary_issue: null,
         nodes: [],

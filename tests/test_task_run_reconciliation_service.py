@@ -50,7 +50,7 @@ def build_task_run(**overrides) -> TaskRun:  # type: ignore[no-untyped-def]
         "filters_json": {},
         "request_payload_json": {},
         "plan_snapshot_json": {},
-        "current_context_json": {},
+        "current_object_json": {},
         "created_at": now - timedelta(hours=2),
         "updated_at": now - timedelta(hours=2),
     }

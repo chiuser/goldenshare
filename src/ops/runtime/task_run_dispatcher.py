@@ -411,7 +411,7 @@ class TaskRunDispatcher:
                     "source_key": unit.source_key,
                     "trade_date": unit.trade_date.isoformat() if unit.trade_date else None,
                     "request_params": dict(unit.request_params or {}),
-                    "progress_context": dict(unit.progress_context or {}),
+                    "operator_object": dict(unit.progress_context or {}),
                 }
                 for unit in units[:20]
             ],
@@ -699,6 +699,7 @@ class TaskRunDispatcher:
                 "node_id": node_id,
                 "task_run_id": task_run.id,
             },
+            object_json=self._current_object_snapshot(session, task_run.id),
             source_phase=source_phase,
             fingerprint=fingerprint,
             occurred_at=now,
@@ -707,6 +708,11 @@ class TaskRunDispatcher:
         session.flush()
         task_run.primary_issue_id = issue.id
         return issue
+
+    @staticmethod
+    def _current_object_snapshot(session: Session, task_run_id: int) -> dict[str, Any]:
+        value = session.scalar(select(TaskRun.current_object_json).where(TaskRun.id == task_run_id))
+        return dict(value or {})
 
     @staticmethod
     def _issue_fingerprint(*, task_run_id: int, node_id: int | None, code: str, technical_message: str) -> str:

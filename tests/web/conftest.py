@@ -206,7 +206,7 @@ def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
         unit_total: int = 0,
         unit_failed: int = 0,
         progress_percent: int | None = None,
-        current_context_json: dict | None = None,
+        current_object_json: dict | None = None,
         started_at: datetime | None = None,
         ended_at: datetime | None = None,
         cancel_requested_at: datetime | None = None,
@@ -238,7 +238,7 @@ def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
             unit_total=unit_total,
             unit_failed=unit_failed,
             progress_percent=progress_percent,
-            current_context_json=current_context_json or {},
+            current_object_json=current_object_json or {},
             started_at=started_at,
             ended_at=ended_at,
             cancel_requested_at=cancel_requested_at,
@@ -439,6 +439,7 @@ def task_run_issue_factory(db_session: Session) -> Callable[..., TaskRunIssue]:
         title: str = "测试问题",
         message: str | None = None,
         technical_payload_json: dict | None = None,
+        object_json: dict | None = None,
         occurred_at: datetime | None = None,
     ) -> TaskRunIssue:
         next_id = (db_session.scalar(select(func.max(TaskRunIssue.id))) or 0) + 1
@@ -453,6 +454,7 @@ def task_run_issue_factory(db_session: Session) -> Callable[..., TaskRunIssue]:
             suggested_action=None,
             technical_message=message,
             technical_payload_json=technical_payload_json or {},
+            object_json=object_json or {},
             source_phase="test",
             fingerprint=f"{task_run_id}:{node_id or 0}:{code}:{next_id}",
             occurred_at=occurred_at or datetime.now(timezone.utc),

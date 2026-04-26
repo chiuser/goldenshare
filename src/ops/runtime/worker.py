@@ -99,7 +99,6 @@ class OperationsWorker:
             .values(
                 status="running",
                 started_at=started_at,
-                current_context_json={"phase": "started"},
             )
         )
         if result.rowcount != 1:
@@ -147,6 +146,7 @@ class OperationsWorker:
         task_run.rows_saved = int(outcome.rows_saved or task_run.rows_saved or 0)
         task_run.rows_rejected = int(outcome.rows_rejected or task_run.rows_rejected or 0)
         task_run.primary_issue_id = outcome.issue_id or task_run.primary_issue_id
+        task_run.current_object_json = {}
         if final_status == "success":
             task_run.unit_done = task_run.unit_total or task_run.unit_done
             task_run.progress_percent = 100
@@ -173,6 +173,7 @@ class OperationsWorker:
             suggested_action="不要重复提交大范围任务，先确认业务数据和任务状态。",
             technical_message=truncate_text(message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
             technical_payload_json={"source_phase": "worker_finalize", "task_run_id": task_run_id},
+            object_json=dict(task_run.current_object_json or {}),
             source_phase="worker_finalize",
             fingerprint=f"{task_run_id}:worker_error",
             occurred_at=datetime.now(timezone.utc),
@@ -197,6 +198,7 @@ class OperationsWorker:
             suggested_action="可以先查看业务数据；数据状态页可能暂时没有刷新。",
             technical_message=truncate_text(error_message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
             technical_payload_json={"source_phase": "snapshot_refresh", "task_run_id": task_run_id},
+            object_json=dict(task_run.current_object_json or {}),
             source_phase="snapshot_refresh",
             fingerprint=f"{task_run_id}:dataset_snapshot_refresh_failed",
             occurred_at=datetime.now(timezone.utc),

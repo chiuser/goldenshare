@@ -11,6 +11,8 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.schemas.task_run import (
     TaskRunActions,
+    TaskRunDisplayField,
+    TaskRunDisplayObject,
     TaskRunInfo,
     TaskRunIssueDetailResponse,
     TaskRunIssueSummary,
@@ -158,7 +160,10 @@ class TaskRunQueryService:
                 rows_fetched=task_run.rows_fetched,
                 rows_saved=task_run.rows_saved,
                 rows_rejected=task_run.rows_rejected,
-                current_context=dict(task_run.current_context_json or {}),
+                current_object=self._display_current_object(
+                    dict(task_run.current_object_json or {}),
+                    status=task_run.status,
+                ),
             ),
             primary_issue=self._issue_summary(primary_issue),
             nodes=[self._node_item(node) for node in nodes],
@@ -188,6 +193,7 @@ class TaskRunQueryService:
             title=issue.title,
             operator_message=issue.operator_message,
             suggested_action=issue.suggested_action,
+            object=self._display_issue_object(dict(issue.object_json or {})),
             technical_message=issue.technical_message,
             technical_payload=dict(issue.technical_payload_json or {}),
             source_phase=issue.source_phase,
@@ -229,8 +235,7 @@ class TaskRunQueryService:
             primary_issue_title=issue_title,
         )
 
-    @staticmethod
-    def _issue_summary(issue: TaskRunIssue | None) -> TaskRunIssueSummary | None:
+    def _issue_summary(self, issue: TaskRunIssue | None) -> TaskRunIssueSummary | None:
         if issue is None:
             return None
         return TaskRunIssueSummary(
@@ -240,9 +245,121 @@ class TaskRunQueryService:
             title=issue.title,
             operator_message=issue.operator_message,
             suggested_action=issue.suggested_action,
+            object=self._display_issue_object(dict(issue.object_json or {})),
             has_technical_detail=bool(issue.technical_message or issue.technical_payload_json),
             occurred_at=issue.occurred_at,
         )
+
+    @classmethod
+    def _display_issue_object(cls, value: dict) -> TaskRunDisplayObject | None:
+        return cls._display_object(value, prefix="问题位置")
+
+    @classmethod
+    def _display_current_object(cls, value: dict, *, status: str) -> TaskRunDisplayObject | None:
+        if status not in {"running", "canceling"}:
+            return None
+        prefix = "正在停止" if status == "canceling" else "正在处理"
+        return cls._display_object(value, prefix=prefix)
+
+    @classmethod
+    def _display_object(cls, value: dict, *, prefix: str) -> TaskRunDisplayObject | None:
+        if not isinstance(value, dict) or not value:
+            return None
+        entity = value.get("entity") if isinstance(value.get("entity"), dict) else {}
+        time = value.get("time") if isinstance(value.get("time"), dict) else {}
+        attributes = value.get("attributes") if isinstance(value.get("attributes"), dict) else {}
+        title_value = cls._entity_label(entity) or cls._time_label(time) or cls._attribute_label(attributes)
+        if not title_value:
+            return None
+        fields = cls._display_fields(entity=entity, time=time, attributes=attributes)
+        description_parts = []
+        time_label = cls._time_label(time)
+        freq = cls._text(attributes.get("freq"))
+        if time_label and time_label != title_value:
+            description_parts.append(f"处理范围：{time_label}")
+        if freq:
+            description_parts.append(f"频率：{freq}")
+        return TaskRunDisplayObject(
+            title=f"{prefix}：{title_value}",
+            description="；".join(description_parts) or None,
+            fields=fields,
+        )
+
+    @classmethod
+    def _entity_label(cls, entity: dict) -> str | None:
+        name = cls._text(entity.get("name"))
+        code = cls._text(entity.get("code"))
+        if name and code:
+            return f"{name}（{code}）"
+        return name or code
+
+    @classmethod
+    def _time_label(cls, time: dict) -> str | None:
+        start = cls._text(time.get("start") or time.get("start_date"))
+        end = cls._text(time.get("end") or time.get("end_date"))
+        point = cls._text(time.get("point") or time.get("trade_date"))
+        if start or end:
+            return cls._range_label(start, end)
+        return point
+
+    @classmethod
+    def _attribute_label(cls, attributes: dict) -> str | None:
+        for key in ("enum_value", "dataset_key", "unit_id"):
+            value = cls._text(attributes.get(key))
+            if value:
+                return value
+        return None
+
+    @classmethod
+    def _display_fields(cls, *, entity: dict, time: dict, attributes: dict) -> list[TaskRunDisplayField]:
+        kind = cls._text(entity.get("kind"))
+        code_label, name_label = cls._entity_field_labels(kind)
+        rows: list[tuple[str, object]] = [
+            (code_label, entity.get("code")),
+            (name_label, entity.get("name")),
+            ("对象类型", cls._entity_kind_label(kind)),
+            ("处理范围", cls._time_label(time)),
+            ("频率", attributes.get("freq")),
+            ("类型", attributes.get("enum_value")),
+        ]
+        fields: list[TaskRunDisplayField] = []
+        seen: set[tuple[str, str]] = set()
+        for label, value in rows:
+            text = cls._text(value)
+            if not text:
+                continue
+            key = (label, text)
+            if key in seen:
+                continue
+            seen.add(key)
+            fields.append(TaskRunDisplayField(label=label, value=text))
+        return fields
+
+    @staticmethod
+    def _entity_field_labels(kind: str | None) -> tuple[str, str]:
+        if kind == "index":
+            return "指数代码", "指数名称"
+        if kind == "board":
+            return "板块代码", "板块名称"
+        if kind == "enum":
+            return "参数名", "类型"
+        if kind == "date":
+            return "日期", "日期"
+        if kind == "dataset":
+            return "处理单元", "处理单元"
+        return "证券代码", "证券名称"
+
+    @staticmethod
+    def _entity_kind_label(kind: str | None) -> str | None:
+        labels = {
+            "security": "证券",
+            "index": "指数",
+            "board": "板块",
+            "enum": "枚举",
+            "date": "日期",
+            "dataset": "数据集",
+        }
+        return labels.get(kind or "")
 
     @staticmethod
     def _node_item(node: TaskRunNode) -> TaskRunNodeItem:

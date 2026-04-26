@@ -363,6 +363,15 @@ export interface TaskRunTimeScope {
   label: string;
 }
 
+export interface TaskRunDisplayObject {
+  title: string;
+  description: string | null;
+  fields: Array<{
+    label: string;
+    value: string;
+  }>;
+}
+
 export interface TaskRunViewResponse {
   run: {
     id: number;
@@ -394,7 +403,7 @@ export interface TaskRunViewResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
-    current_context: Record<string, unknown>;
+    current_object: TaskRunDisplayObject | null;
   };
   primary_issue: {
     id: number;
@@ -403,6 +412,7 @@ export interface TaskRunViewResponse {
     title: string;
     operator_message: string | null;
     suggested_action: string | null;
+    object: TaskRunDisplayObject | null;
     has_technical_detail: boolean;
     occurred_at: string;
   } | null;
@@ -451,6 +461,7 @@ export interface TaskRunIssueDetailResponse {
   title: string;
   operator_message: string | null;
   suggested_action: string | null;
+  object: TaskRunDisplayObject | null;
   technical_message: string | null;
   technical_payload: Record<string, unknown>;
   source_phase: string | null;

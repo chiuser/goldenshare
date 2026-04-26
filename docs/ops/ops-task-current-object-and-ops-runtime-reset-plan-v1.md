@@ -663,6 +663,14 @@ Date Model Freshness 收口必须完成：
 
 ## 9. 实施 Milestone
 
+### 2026-04-26 实施记录
+
+1. M1-M4 已进入代码实现：`TaskRun.current_context_json` 主链字段删除，替换为 `current_object_json`；`TaskRunIssue.object_json` 新增，用于失败位置快照。
+2. `TaskRunSyncContext` 已改为消费结构化 `current_object`，不再从 message 正则解析对象、行数或阶段字段。
+3. TaskRun view API 已改为返回 `progress.current_object` 展示模型；前端任务详情页不再展示 `key=value` 或 `暂无当前对象`。
+4. 新增 Alembic `20260426_000075_task_run_current_object_contract.py`，用于 schema 收口并按本方案清空 ops 运行观测/派生状态表；远程执行迁移和停机清表仍需走部署窗口。
+5. 本轮未删除 `ops.sync_job_state` 表和相关 Date Model Freshness 依赖；其彻底退场继续按工程风险登记中的 P1 项推进。
+
 ### M1：语义与 schema 收口
 
 1. `ops.task_run.current_context_json` 下线。

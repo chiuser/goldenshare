@@ -64,6 +64,10 @@ class SyncV2Service(BaseSyncService):
                 current=progress_snapshot.unit_done + progress_snapshot.unit_failed,
                 total=progress_snapshot.unit_total,
                 message=message,
+                rows_fetched=progress_snapshot.rows_fetched,
+                rows_saved=progress_snapshot.rows_committed or progress_snapshot.rows_written,
+                rows_rejected=progress_snapshot.rows_rejected,
+                current_object=progress_snapshot.current_object,
             )
             if callable(self._cli_progress_reporter):
                 try:

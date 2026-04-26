@@ -123,6 +123,7 @@ class SyncV2Engine:
                     rows_written=rows_written,
                     rows_committed=rows_committed,
                     rows_rejected=rows_rejected,
+                    current_object=self._build_current_object(unit),
                     rejected_reason_counts=rejected_reason_counts,
                     message=self._build_progress_message(
                         progress_label=contract.observe_spec.progress_label,
@@ -290,3 +291,85 @@ class SyncV2Engine:
     @staticmethod
     def _format_progress_token_value(value) -> str:  # type: ignore[no-untyped-def]
         return "_".join(str(value).strip().split())
+
+    @classmethod
+    def _build_current_object(cls, unit: PlanUnit) -> dict:
+        context = dict(unit.progress_context or {})
+        request_params = dict(unit.request_params or {})
+        if unit.trade_date is not None and "trade_date" not in context:
+            context["trade_date"] = unit.trade_date.isoformat()
+        for key in ("ts_code", "index_code", "board_code", "freq", "start_date", "end_date"):
+            value = request_params.get(key)
+            if value not in (None, "") and key not in context:
+                context[key] = value
+        if not context:
+            return {}
+
+        entity = cls._build_current_entity(context)
+        time_scope = cls._build_current_time(context)
+        attributes = {
+            key: str(context[key]).strip()
+            for key in ("freq", "enum_field", "enum_value", "unit")
+            if context.get(key) not in (None, "")
+        }
+        return {
+            "entity": entity,
+            "time": time_scope,
+            "attributes": attributes,
+        }
+
+    @staticmethod
+    def _build_current_entity(context: dict) -> dict:
+        if context.get("ts_code") or context.get("security_name"):
+            return {
+                "kind": "security",
+                "code": str(context.get("ts_code") or "").strip() or None,
+                "name": str(context.get("security_name") or context.get("ts_code") or "").strip(),
+            }
+        if context.get("index_code") or context.get("index_name"):
+            return {
+                "kind": "index",
+                "code": str(context.get("index_code") or "").strip() or None,
+                "name": str(context.get("index_name") or context.get("index_code") or "").strip(),
+            }
+        if context.get("board_code") or context.get("board_name"):
+            return {
+                "kind": "board",
+                "code": str(context.get("board_code") or "").strip() or None,
+                "name": str(context.get("board_name") or context.get("board_code") or "").strip(),
+            }
+        if context.get("enum_value"):
+            return {
+                "kind": "enum",
+                "code": str(context.get("enum_field") or "").strip() or None,
+                "name": str(context.get("enum_value") or "").strip(),
+            }
+        if context.get("trade_date"):
+            return {
+                "kind": "date",
+                "code": None,
+                "name": str(context.get("trade_date") or "").strip(),
+            }
+        return {
+            "kind": "dataset",
+            "code": None,
+            "name": str(context.get("unit") or "").strip(),
+        }
+
+    @staticmethod
+    def _build_current_time(context: dict) -> dict:
+        trade_date = str(context.get("trade_date") or "").strip()
+        start_date = str(context.get("start_date") or "").strip()
+        end_date = str(context.get("end_date") or "").strip()
+        if start_date or end_date:
+            return {
+                "kind": "range",
+                "start_date": start_date or None,
+                "end_date": end_date or None,
+            }
+        if trade_date:
+            return {
+                "kind": "point",
+                "trade_date": trade_date,
+            }
+        return {"kind": "none"}

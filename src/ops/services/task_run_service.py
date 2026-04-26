@@ -148,10 +148,6 @@ class TaskRunCommandService:
         else:
             task_run.status = "canceling"
             task_run.status_reason_code = "cancel_requested"
-        task_run.current_context_json = {
-            **dict(task_run.current_context_json or {}),
-            "cancel_requested_by_user_id": requested_by_user_id,
-        }
         session.commit()
         session.refresh(task_run)
         return task_run

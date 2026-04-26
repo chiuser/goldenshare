@@ -59,11 +59,17 @@ function createTaskRunView(status = "failed") {
       rows_fetched: 6,
       rows_saved: 5,
       rows_rejected: 1,
-      current_context: {
-        ts_code: "002034.SZ",
-        security_name: "美欣达",
-        freq: "1min",
-      },
+      current_object:
+        status === "running"
+          ? {
+              title: "正在处理：美欣达（002034.SZ）",
+              description: "处理范围：2026-03-23 ~ 2026-03-30；频率：1min",
+              fields: [
+                { label: "证券代码", value: "002034.SZ" },
+                { label: "证券名称", value: "美欣达" },
+              ],
+            }
+          : null,
     },
     primary_issue: hasIssue
       ? {
@@ -73,6 +79,14 @@ function createTaskRunView(status = "failed") {
           title: "任务处理失败",
           operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
           suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+          object: {
+            title: "问题位置：美欣达（002034.SZ）",
+            description: "处理范围：2026-03-23 ~ 2026-03-30；频率：1min",
+            fields: [
+              { label: "证券代码", value: "002034.SZ" },
+              { label: "证券名称", value: "美欣达" },
+            ],
+          },
           has_technical_detail: true,
           occurred_at: "2026-03-31T01:00:05Z",
         }
@@ -162,6 +176,11 @@ describe("任务详情页", () => {
           title: "任务处理失败",
           operator_message: "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
           suggested_action: "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+          object: {
+            title: "问题位置：美欣达（002034.SZ）",
+            description: "处理范围：2026-03-23 ~ 2026-03-30；频率：1min",
+            fields: [],
+          },
           technical_message: "psycopg.errors.UniqueViolation",
           technical_payload: {
             source_phase: "execute",
@@ -186,7 +205,9 @@ describe("任务详情页", () => {
     expect(screen.getAllByText("任务处理失败")).toHaveLength(1);
     expect(await screen.findByText("当前进度")).toBeInTheDocument();
     expect(await screen.findByText("651 / 5814")).toBeInTheDocument();
-    expect(await screen.findByText("当前对象：ts_code=002034.SZ，security_name=美欣达，freq=1min")).toBeInTheDocument();
+    expect(screen.queryByText("暂无当前对象")).not.toBeInTheDocument();
+    expect(screen.queryByText(/当前对象：/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/问题位置：美欣达（002034\.SZ）/)).toBeInTheDocument();
     expect(await screen.findByText("执行过程")).toBeInTheDocument();
     expect(await screen.findByText("读取 6，保存 5，拒绝 1")).toBeInTheDocument();
 

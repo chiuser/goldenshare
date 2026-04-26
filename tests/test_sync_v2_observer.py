@@ -20,6 +20,11 @@ def test_observer_emits_progress_without_execution_id() -> None:
         unit_failed=0,
         rows_fetched=2000,
         rows_written=2000,
+        current_object={
+            "entity": {"kind": "index", "code": "000001.SH"},
+            "time": {"point": "2026-04-24"},
+            "attributes": {},
+        },
         message="index_daily: 1/100 fetched=2000 written=2000",
     )
 
@@ -32,6 +37,11 @@ def test_observer_emits_progress_without_execution_id() -> None:
     assert snapshot.unit_failed == 0
     assert snapshot.rows_fetched == 2000
     assert snapshot.rows_written == 2000
+    assert snapshot.current_object == {
+        "entity": {"kind": "index", "code": "000001.SH"},
+        "time": {"point": "2026-04-24"},
+        "attributes": {},
+    }
     assert message == "index_daily: 1/100 fetched=2000 written=2000"
 
 

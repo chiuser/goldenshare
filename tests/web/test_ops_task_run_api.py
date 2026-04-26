@@ -115,7 +115,11 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
         rows_fetched=100,
         rows_saved=90,
         rows_rejected=10,
-        current_context_json={"trade_date": "2026-04-23"},
+        current_object_json={
+            "entity": {"kind": "security", "code": "000001.SZ", "name": "平安银行"},
+            "time": {"start": "2026-04-20", "end": "2026-04-24"},
+            "attributes": {"freq": "1min"},
+        },
     )
     node = task_run_node_factory(
         task_run_id=task_run.id,
@@ -132,6 +136,11 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
         code="execution_failed",
         title="任务处理失败",
         message="唯一键冲突",
+        object_json={
+            "entity": {"kind": "security", "code": "000001.SZ", "name": "平安银行"},
+            "time": {"point": "2026-04-23"},
+            "attributes": {"freq": "1min"},
+        },
     )
     task_run.primary_issue_id = issue.id
     node.issue_id = issue.id
@@ -146,8 +155,40 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["run"]["title"] == "股票日线"
     assert payload["run"]["time_scope_label"] == "2026-04-20 ~ 2026-04-24"
     assert payload["progress"]["rows_saved"] == 90
+    assert payload["progress"]["current_object"] is None
     assert payload["primary_issue"]["title"] == "任务处理失败"
+    assert payload["primary_issue"]["object"]["title"] == "问题位置：平安银行（000001.SZ）"
     assert payload["nodes"][0]["title"] == "维护 股票日线"
+
+
+def test_ops_task_run_view_returns_display_current_object_for_running_task(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="stk_mins",
+        title="股票分钟线",
+        status="running",
+        unit_total=10,
+        unit_done=2,
+        progress_percent=20,
+        current_object_json={
+            "entity": {"kind": "security", "code": "920429.BJ", "name": "康比特"},
+            "time": {"kind": "range", "start_date": "2026-01-05", "end_date": "2026-04-24"},
+            "attributes": {"freq": "60min"},
+        },
+    )
+
+    response = app_client.get(f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client))
+
+    assert response.status_code == 200
+    current_object = response.json()["progress"]["current_object"]
+    assert current_object["title"] == "正在处理：康比特（920429.BJ）"
+    assert current_object["description"] == "处理范围：2026-01-05 ~ 2026-04-24；频率：60min"
+    assert {"label": "证券代码", "value": "920429.BJ"} in current_object["fields"]
 
 
 def test_ops_task_run_retry_and_cancel_use_task_run_api(app_client, user_factory, task_run_factory) -> None:

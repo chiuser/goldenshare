@@ -68,14 +68,6 @@ function buildActionSuggestion(view: TaskRunViewResponse) {
   return "任务已经结束，可返回任务记录或复制参数发起新的任务。";
 }
 
-function formatContext(context: Record<string, unknown>) {
-  const entries = Object.entries(context).filter(([, value]) => value !== null && value !== undefined && value !== "");
-  if (!entries.length) {
-    return "暂无当前对象";
-  }
-  return entries.map(([key, value]) => `${key}=${String(value)}`).join("，");
-}
-
 function formatDuration(ms: number | null) {
   if (ms === null || ms === undefined) {
     return "—";
@@ -272,6 +264,12 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                   {view.primary_issue.suggested_action ? (
                     <Text size="sm" c="dimmed">{`建议：${view.primary_issue.suggested_action}`}</Text>
                   ) : null}
+                  {view.primary_issue.object ? (
+                    <Text size="sm" c="dimmed">
+                      {view.primary_issue.object.title}
+                      {view.primary_issue.object.description ? `，${view.primary_issue.object.description}` : ""}
+                    </Text>
+                  ) : null}
                   {view.primary_issue.has_technical_detail ? (
                     <Button size="xs" variant="light" onClick={() => setDiagnosticOpened(true)}>
                       查看技术诊断
@@ -299,7 +297,14 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                     </Text>
                   </Group>
                   <Progress value={view.progress.progress_percent ?? 0} radius="md" size="lg" color="brand" />
-                  <Text size="sm">{`当前对象：${formatContext(view.progress.current_context)}`}</Text>
+                  {view.progress.current_object ? (
+                    <Stack gap={2}>
+                      <Text size="sm" fw={600}>{view.progress.current_object.title}</Text>
+                      {view.progress.current_object.description ? (
+                        <Text size="sm" c="dimmed">{view.progress.current_object.description}</Text>
+                      ) : null}
+                    </Stack>
+                  ) : null}
                   <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                     <MetricPanel label="读取">
                       <Text fw={700}>{view.progress.rows_fetched.toLocaleString()}</Text>

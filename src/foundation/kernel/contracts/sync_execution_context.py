@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class SyncExecutionContext(Protocol):
@@ -21,6 +21,9 @@ class SyncExecutionContext(Protocol):
         current: int,
         total: int,
         message: str,
+        rows_fetched: int | None = None,
+        rows_saved: int | None = None,
+        rows_rejected: int | None = None,
+        current_object: dict[str, Any] | None = None,
     ) -> None:
         """持久化 execution 进度。"""
-

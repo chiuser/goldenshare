@@ -121,7 +121,18 @@ class BaseSyncService(ABC):
         if self.execution_context.is_cancel_requested(execution_id=execution_id):
             raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
 
-    def _update_execution_progress(self, *, execution_id: int | None, current: int, total: int, message: str) -> None:
+    def _update_execution_progress(
+        self,
+        *,
+        execution_id: int | None,
+        current: int,
+        total: int,
+        message: str,
+        rows_fetched: int | None = None,
+        rows_saved: int | None = None,
+        rows_rejected: int | None = None,
+        current_object: dict[str, Any] | None = None,
+    ) -> None:
         if execution_id is None:
             return
         try:
@@ -130,6 +141,10 @@ class BaseSyncService(ABC):
                 current=current,
                 total=total,
                 message=message,
+                rows_fetched=rows_fetched,
+                rows_saved=rows_saved,
+                rows_rejected=rows_rejected,
+                current_object=current_object,
             )
         except Exception:
             self.logger.warning("Failed to persist sync progress update.", exc_info=True)

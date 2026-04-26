@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -14,6 +15,7 @@ class ProgressSnapshot:
     rows_written: int
     rows_committed: int = 0
     rows_rejected: int = 0
+    current_object: dict[str, Any] = field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
@@ -34,6 +36,7 @@ class SyncV2Observer:
         message: str,
         rows_committed: int = 0,
         rows_rejected: int = 0,
+        current_object: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
     ) -> None:
         if self.progress_reporter is None:
@@ -48,6 +51,7 @@ class SyncV2Observer:
             rows_written=rows_written,
             rows_committed=rows_committed,
             rows_rejected=rows_rejected,
+            current_object=dict(current_object or {}),
             rejected_reason_counts=dict(rejected_reason_counts or {}),
         )
         self.progress_reporter(snapshot, message)
