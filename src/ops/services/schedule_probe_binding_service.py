@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.job_schedule import JobSchedule
-from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
 from src.ops.specs import get_workflow_spec
 from src.app.exceptions import WebAppError
 
@@ -85,9 +85,9 @@ class ScheduleProbeBindingService:
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
             action_json = {
-                "spec_type": "dataset_action",
-                "spec_key": f"{dataset_key}.maintain",
-                "params_json": {
+                "action_type": "dataset_action",
+                "action_key": get_dataset_action_key(dataset_key, "maintain"),
+                "request": {
                     "dataset_key": dataset_key,
                     "action": "maintain",
                     "time_input": {"mode": "point"},
@@ -96,7 +96,7 @@ class ScheduleProbeBindingService:
                 },
             }
             if source_key:
-                action_json["params_json"]["source_key"] = source_key
+                action_json["request"]["filters"]["source_key"] = source_key
             templates.append(
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,
@@ -120,7 +120,7 @@ class ScheduleProbeBindingService:
         if schedule.spec_type == "dataset_action":
             return [(self._dataset_from_action_spec(schedule.spec_key), None)]
         if schedule.spec_type == "job":
-            return [(self._dataset_from_job_spec(schedule.spec_key), None)]
+            raise WebAppError(status_code=422, code="validation_error", message="Probe schedules require dataset actions or workflows")
         if schedule.spec_type == "workflow":
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
@@ -130,30 +130,24 @@ class ScheduleProbeBindingService:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow spec does not exist")
             dataset_targets = []
             for step in workflow.steps:
-                dataset_key = step.dataset_key or self._dataset_from_job_spec(step.job_key)
+                dataset_key = step.dataset_key
+                if dataset_key is None:
+                    try:
+                        definition, _action = get_dataset_definition_by_action_key(step.job_key)
+                    except KeyError:
+                        continue
+                    dataset_key = definition.dataset_key
                 dataset_targets.append((dataset_key, step.step_key))
             return sorted(set(dataset_targets))
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported schedule spec_type for probe")
 
     @staticmethod
-    def _dataset_from_job_spec(spec_key: str) -> str:
-        _, sep, resource = spec_key.partition(".")
-        if not sep or not resource:
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid job spec_key")
-        return resource
-
-    @staticmethod
     def _dataset_from_action_spec(spec_key: str) -> str:
-        if not spec_key.endswith(".maintain"):
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key")
-        dataset_key = spec_key.rsplit(".", 1)[0]
-        if not dataset_key:
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key")
         try:
-            get_dataset_definition(dataset_key)
+            definition, _action = get_dataset_definition_by_action_key(spec_key)
         except KeyError as exc:
             raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key") from exc
-        return dataset_key
+        return definition.dataset_key
 
     @staticmethod
     def _normalize_time(value: object) -> str:

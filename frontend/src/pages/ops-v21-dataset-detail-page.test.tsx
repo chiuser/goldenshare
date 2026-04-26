@@ -79,7 +79,7 @@ describe("V2.1 数据集详情页", () => {
                   recent_failure_message: null,
                   recent_failure_summary: null,
                   recent_failure_at: null,
-                  primary_execution_spec_key: "daily.maintain",
+                  primary_action_key: "daily.maintain",
                   auto_schedule_status: "active",
                   auto_schedule_total: 1,
                   auto_schedule_active: 1,
@@ -245,11 +245,11 @@ describe("V2.1 数据集详情页", () => {
     expect(await screen.findByText("tushare")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "去处理" })).toHaveAttribute(
       "href",
-      "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action",
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action",
     );
     expect(screen.getByRole("link", { name: "手动执行" })).toHaveAttribute(
       "href",
-      "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action",
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action",
     );
   });
 });

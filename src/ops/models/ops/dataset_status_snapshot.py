@@ -31,7 +31,7 @@ class DatasetStatusSnapshot(Base):
     recent_failure_message: Mapped[str | None] = mapped_column(Text)
     recent_failure_summary: Mapped[str | None] = mapped_column(String(255))
     recent_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    primary_execution_spec_key: Mapped[str | None] = mapped_column(String(128))
+    primary_action_key: Mapped[str | None] = mapped_column(String(128))
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     pipeline_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="single_source_direct", server_default="single_source_direct")

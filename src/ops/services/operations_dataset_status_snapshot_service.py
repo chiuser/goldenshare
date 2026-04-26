@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
@@ -16,7 +17,6 @@ from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsF
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.specs import (
     get_dataset_freshness_spec,
-    get_job_spec,
     get_workflow_spec,
     list_dataset_freshness_specs,
 )
@@ -97,25 +97,28 @@ class DatasetStatusSnapshotService:
     @staticmethod
     def _resource_keys_for_spec(*, spec_type: str, spec_key: str) -> list[str]:
         if spec_type == "dataset_action":
-            if not spec_key.endswith(".maintain"):
+            try:
+                definition, _action = get_dataset_definition_by_action_key(spec_key)
+            except KeyError:
                 return []
-            resource_key = spec_key.removesuffix(".maintain")
+            resource_key = definition.dataset_key
             if get_dataset_freshness_spec(resource_key) is None:
                 return []
             return [resource_key]
         if spec_type == "job":
-            job_spec = get_job_spec(spec_key)
-            if job_spec is None or "." not in job_spec.key:
-                return []
-            return [job_spec.key.split(".", 1)[1]]
+            return []
         if spec_type == "workflow":
             workflow_spec = get_workflow_spec(spec_key)
             if workflow_spec is None:
                 return []
             resource_keys: list[str] = []
             for step in workflow_spec.steps:
-                if "." in step.job_key:
-                    resource_keys.append(step.job_key.split(".", 1)[1])
+                try:
+                    definition, _action = get_dataset_definition_by_action_key(step.job_key)
+                except KeyError:
+                    continue
+                if get_dataset_freshness_spec(definition.dataset_key) is not None:
+                    resource_keys.append(definition.dataset_key)
             return resource_keys
         return []
 
@@ -144,7 +147,7 @@ class DatasetStatusSnapshotService:
             row.recent_failure_message = item.recent_failure_message
             row.recent_failure_summary = item.recent_failure_summary
             row.recent_failure_at = item.recent_failure_at
-            row.primary_execution_spec_key = item.primary_execution_spec_key
+            row.primary_action_key = item.primary_action_key
             row.snapshot_date = snapshot_date
             row.last_calculated_at = calculated_at
 

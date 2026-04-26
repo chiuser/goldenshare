@@ -326,7 +326,7 @@ class OpsFreshnessQueryService:
             recent_failure_message=visible_failure.message if visible_failure else None,
             recent_failure_summary=self._summarize_failure_message(visible_failure.message) if visible_failure else None,
             recent_failure_at=visible_failure.occurred_at if visible_failure else None,
-            primary_execution_spec_key=spec.primary_execution_spec_key,
+            primary_action_key=spec.primary_action_key,
         )
 
     @staticmethod
@@ -478,19 +478,19 @@ class OpsFreshnessQueryService:
 
     def _attach_auto_schedule_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
         spec_keys = {
-            item.primary_execution_spec_key
+            item.primary_action_key
             for group in response.groups
             for item in group.items
-            if item.primary_execution_spec_key
+            if item.primary_action_key
         }
         if not spec_keys:
             return response
         by_spec_key = self._auto_schedule_by_spec_key(session, spec_keys=spec_keys)
         for group in response.groups:
             for item in group.items:
-                if not item.primary_execution_spec_key:
+                if not item.primary_action_key:
                     continue
-                schedule_snapshot = by_spec_key.get(item.primary_execution_spec_key)
+                schedule_snapshot = by_spec_key.get(item.primary_action_key)
                 if schedule_snapshot is None:
                     continue
                 item.auto_schedule_total = schedule_snapshot.total
@@ -507,10 +507,10 @@ class OpsFreshnessQueryService:
     @staticmethod
     def _attach_active_execution_metadata(session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
         spec_keys = {
-            item.primary_execution_spec_key
+            item.primary_action_key
             for group in response.groups
             for item in group.items
-            if item.primary_execution_spec_key
+            if item.primary_action_key
         }
         dataset_keys = {
             item.dataset_key
@@ -537,7 +537,12 @@ class OpsFreshnessQueryService:
         by_dataset_key: dict[str, tuple[str, datetime | None]] = {}
         for row in rows:
             effective_started_at = row.started_at or row.requested_at
-            spec_key = f"{row.resource_key}.maintain" if row.task_type == "dataset_action" and row.resource_key else None
+            spec_key = None
+            if row.task_type == "dataset_action" and row.resource_key:
+                try:
+                    spec_key = get_dataset_definition(row.resource_key).action_key("maintain")
+                except KeyError:
+                    spec_key = None
             if spec_key and spec_key in spec_keys and spec_key not in by_spec_key:
                 by_spec_key[spec_key] = (row.status, effective_started_at)
             if row.resource_key and row.resource_key in dataset_keys and row.resource_key not in by_dataset_key:
@@ -546,8 +551,8 @@ class OpsFreshnessQueryService:
         for group in response.groups:
             for item in group.items:
                 active = None
-                if item.primary_execution_spec_key:
-                    active = by_spec_key.get(item.primary_execution_spec_key)
+                if item.primary_action_key:
+                    active = by_spec_key.get(item.primary_action_key)
                 if active is None and item.dataset_key:
                     active = by_dataset_key.get(item.dataset_key)
                 if active is None:

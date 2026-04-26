@@ -51,6 +51,8 @@ class OpsCatalogQueryService:
                     key=workflow_spec.key,
                     display_name=workflow_spec.display_name,
                     description=workflow_spec.description,
+                    domain_key="workflow",
+                    domain_display_name="工作流",
                     parallel_policy=workflow_spec.parallel_policy,
                     default_schedule_policy=workflow_spec.default_schedule_policy,
                     supports_schedule=workflow_spec.supports_schedule,
@@ -91,6 +93,9 @@ class OpsCatalogQueryService:
             display_name=job_spec.display_name,
             resource_key=None,
             resource_display_name=None,
+            domain_key=job_spec.category,
+            domain_display_name="维护动作" if job_spec.category == "maintenance" else job_spec.category,
+            date_selection_rule=None,
             category=job_spec.category,
             description=job_spec.description,
             strategy_type=job_spec.strategy_type,
@@ -121,13 +126,16 @@ class OpsCatalogQueryService:
         bindings: dict[tuple[str, str], dict[str, int]],
     ) -> JobSpecCatalogItem:
         action = definition.capabilities.get_action("maintain")
-        spec_key = f"{definition.dataset_key}.maintain"
+        action_key = definition.action_key("maintain")
         return JobSpecCatalogItem(
-            key=spec_key,
+            key=action_key,
             spec_type="dataset_action",
-            display_name=f"维护{definition.display_name}",
+            display_name=definition.action_display_name("maintain"),
             resource_key=definition.dataset_key,
             resource_display_name=definition.display_name,
+            domain_key=definition.domain.domain_key,
+            domain_display_name=definition.domain.domain_display_name,
+            date_selection_rule=definition.date_model.selection_rule(),
             category=definition.domain.domain_key,
             description=definition.identity.description,
             strategy_type="dataset_maintain",
@@ -136,8 +144,8 @@ class OpsCatalogQueryService:
             supports_manual_run=bool(action and action.manual_enabled),
             supports_schedule=bool(action and action.schedule_enabled),
             supports_retry=bool(action and action.retry_enabled),
-            schedule_binding_count=bindings.get(("dataset_action", spec_key), {}).get("schedule_binding_count", 0),
-            active_schedule_count=bindings.get(("dataset_action", spec_key), {}).get("active_schedule_count", 0),
+            schedule_binding_count=bindings.get(("dataset_action", action_key), {}).get("schedule_binding_count", 0),
+            active_schedule_count=bindings.get(("dataset_action", action_key), {}).get("active_schedule_count", 0),
             supported_params=[
                 self._build_dataset_parameter(field)
                 for field in (*definition.input_model.time_fields, *definition.input_model.filters)
@@ -148,49 +156,10 @@ class OpsCatalogQueryService:
     def _build_dataset_parameter(field: DatasetInputField) -> ParameterSpecResponse:
         return ParameterSpecResponse(
             key=field.name,
-            display_name=field.display_name or OpsCatalogQueryService._field_display_name(field.name),
-            param_type=OpsCatalogQueryService._field_param_type(field),
+            display_name=field.display_label,
+            param_type=field.input_control_type,
             description=field.description,
             required=field.required,
             options=list(field.enum_values),
             multi_value=field.multi_value,
         )
-
-    @staticmethod
-    def _field_param_type(field: DatasetInputField) -> str:
-        if field.name in {"month", "start_month", "end_month"}:
-            return "month"
-        if field.field_type == "date" or field.name.endswith("_date") or field.name in {"date", "cal_date"}:
-            return "date"
-        if field.field_type in {"integer", "int"}:
-            return "integer"
-        if field.field_type in {"boolean", "bool"}:
-            return "boolean"
-        if field.enum_values:
-            return "enum"
-        return "string"
-
-    @staticmethod
-    def _field_display_name(field_name: str) -> str:
-        labels = {
-            "trade_date": "处理日期",
-            "start_date": "开始日期",
-            "end_date": "结束日期",
-            "month": "月份",
-            "start_month": "开始月份",
-            "end_month": "结束月份",
-            "ts_code": "证券代码",
-            "index_code": "指数代码",
-            "con_code": "板块代码",
-            "market": "市场",
-            "hot_type": "热点类型",
-            "is_new": "日终标记",
-            "limit_type": "榜单类型",
-            "exchange": "交易所",
-            "exchange_id": "交易所",
-            "content_type": "板块类型",
-            "tag": "榜单标签",
-            "ann_date": "公告日期",
-            "date_field": "日期字段",
-        }
-        return labels.get(field_name, field_name)

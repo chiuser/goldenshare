@@ -14,7 +14,7 @@ This directory owns long-term ingestion concepts: action requests, execution pla
 
 1. Keep this layer foundation-only. Do not import `src.ops`, `src.biz`, `src.app`, `src.platform`, or `src.operations`.
 2. Do not reintroduce legacy daily/backfill/history execution terms as domain concepts.
-3. Resolver code may project existing Sync V2 contracts during migration, but it must output `DatasetExecutionPlan`.
+3. Resolver code must read `DatasetDefinition` facts and output `DatasetExecutionPlan`; it must not project legacy execution contracts.
 4. Do not add checkpoint/acquire/replay semantics unless explicitly planned.
 5. Do not put Ops TaskRun persistence, scheduling, or UI display decisions in this layer.
 

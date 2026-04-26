@@ -26,7 +26,7 @@ class DatasetFreshnessItem(BaseModel):
     recent_failure_message: str | None = None
     recent_failure_summary: str | None = None
     recent_failure_at: datetime | None = None
-    primary_execution_spec_key: str | None = None
+    primary_action_key: str | None = None
     auto_schedule_status: str = "none"
     auto_schedule_total: int = 0
     auto_schedule_active: int = 0

@@ -22,17 +22,6 @@ class TushareEnvelope(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class SyncResult(BaseModel):
-    job_name: str
-    run_type: str
-    rows_fetched: int = 0
-    rows_written: int = 0
-    trade_date: date | None = None
-    message: str | None = None
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
 class ProBarRequest(BaseModel):
     ts_code: str | None = None
     asset: str = "E"

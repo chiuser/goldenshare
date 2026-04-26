@@ -12,14 +12,14 @@ from src.foundation.ingestion.execution_plan import DatasetActionRequest, Datase
 from src.foundation.ingestion.executor import IngestionExecutor
 from src.foundation.ingestion.null_runtime import NullExecutionContext, NullExecutionResultStore, NullRunRecorder
 from src.foundation.ingestion.resolver import DatasetActionResolver
-from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
-from src.foundation.kernel.contracts.sync_state_store import SyncExecutionResultStore, SyncRunRecorder
+from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
+from src.foundation.kernel.contracts.ingestion_state_store import IngestionExecutionResultStore, IngestionRunRecorder
 
 
 @dataclass(slots=True)
 class DatasetMaintainResult:
     dataset_key: str
-    run_type: str
+    run_mode: str
     rows_fetched: int = 0
     rows_written: int = 0
     trade_date: date | None = None
@@ -49,9 +49,9 @@ class DatasetMaintainService:
         session,
         *,
         dataset_key: str,
-        execution_context: SyncExecutionContext | None = None,
-        run_recorder: SyncRunRecorder | None = None,
-        execution_result_store: SyncExecutionResultStore | None = None,
+        execution_context: IngestionExecutionContext | None = None,
+        run_recorder: IngestionRunRecorder | None = None,
+        execution_result_store: IngestionExecutionResultStore | None = None,
     ) -> None:  # type: ignore[no-untyped-def]
         self.session = session
         self.definition = get_dataset_definition(dataset_key)
@@ -64,14 +64,14 @@ class DatasetMaintainService:
         self.logger = logging.getLogger(self.__class__.__name__)
         self._cli_progress_reporter = None
 
-    def set_execution_context(self, execution_context: SyncExecutionContext | None) -> None:
+    def set_execution_context(self, execution_context: IngestionExecutionContext | None) -> None:
         self.execution_context = execution_context or NullExecutionContext()
 
     def set_state_stores(
         self,
         *,
-        run_recorder: SyncRunRecorder | None = None,
-        execution_result_store: SyncExecutionResultStore | None = None,
+        run_recorder: IngestionRunRecorder | None = None,
+        execution_result_store: IngestionExecutionResultStore | None = None,
     ) -> None:
         self.run_recorder = run_recorder or NullRunRecorder()
         self.execution_result_store = execution_result_store or NullExecutionResultStore()
@@ -79,16 +79,19 @@ class DatasetMaintainService:
     def set_cli_progress_reporter(self, progress_reporter) -> None:  # type: ignore[no-untyped-def]
         self._cli_progress_reporter = progress_reporter
 
-    def run_full(self, **kwargs: Any) -> DatasetMaintainResult:
-        return self._run("FULL", **kwargs)
+    def maintain(
+        self,
+        *,
+        default_time_mode: str | None = None,
+        trade_date: date | None = None,
+        **kwargs: Any,
+    ) -> DatasetMaintainResult:
+        return self._run("MAINTAIN", default_time_mode=default_time_mode, trade_date=trade_date, **kwargs)
 
-    def run_incremental(self, trade_date: date | None = None, **kwargs: Any) -> DatasetMaintainResult:
-        return self._run("INCREMENTAL", trade_date=trade_date, **kwargs)
-
-    def _run(self, run_type: str, **kwargs: Any) -> DatasetMaintainResult:
+    def _run(self, run_mode: str, *, default_time_mode: str | None, **kwargs: Any) -> DatasetMaintainResult:
         execution_id = kwargs.pop("execution_id", None)
         request = kwargs.pop("_action_request", None) or self._build_action_request(
-            run_type=run_type,
+            default_time_mode=default_time_mode,
             execution_id=execution_id,
             trade_date=kwargs.get("trade_date"),
             start_date=kwargs.get("start_date"),
@@ -101,7 +104,7 @@ class DatasetMaintainService:
         )
         plan = kwargs.pop("_plan", None) or self.resolver.build_plan(request)
         validated = self._validated_request_from_plan(request=request, plan=plan)
-        run_handle = self._start_run_handle(run_type=run_type, execution_id=execution_id)
+        run_handle = self._start_run_handle(run_mode=run_mode, execution_id=execution_id)
         self.ensure_not_canceled(execution_id)
         try:
             summary = self.executor.run(
@@ -117,7 +120,7 @@ class DatasetMaintainService:
                 committed_rows = summary.rows_written
             self._finish_success(
                 run_handle=run_handle,
-                run_type=run_type,
+                run_mode=run_mode,
                 rows_fetched=summary.rows_fetched,
                 rows_written=committed_rows,
                 result_date=summary.result_date,
@@ -125,7 +128,7 @@ class DatasetMaintainService:
             )
             return DatasetMaintainResult(
                 dataset_key=self.dataset_key,
-                run_type=run_type,
+                run_mode=run_mode,
                 rows_fetched=summary.rows_fetched,
                 rows_written=committed_rows,
                 trade_date=summary.result_date,
@@ -151,7 +154,7 @@ class DatasetMaintainService:
     def _build_action_request(
         self,
         *,
-        run_type: str,
+        default_time_mode: str | None,
         execution_id: int | None,
         trade_date: date | None,
         start_date: date | None,
@@ -162,12 +165,12 @@ class DatasetMaintainService:
         filters: dict[str, Any],
         trigger_source: str,
     ) -> DatasetActionRequest:
-        if run_type == "INCREMENTAL":
-            mode = "point"
-        elif trade_date is not None or month is not None:
+        if trade_date is not None or month is not None:
             mode = "point"
         elif start_date is not None or end_date is not None or start_month is not None or end_month is not None:
             mode = "range"
+        elif default_time_mode in {"point", "range", "none"}:
+            mode = default_time_mode
         else:
             mode = "none"
         return DatasetActionRequest(
@@ -207,9 +210,9 @@ class DatasetMaintainService:
             execution_id=request.execution_id,
         )
 
-    def _start_run_handle(self, *, run_type: str, execution_id: int | None) -> object:
+    def _start_run_handle(self, *, run_mode: str, execution_id: int | None) -> object:
         try:
-            return self.run_recorder.start_run(job_name=self.dataset_key, run_type=run_type, execution_id=execution_id)
+            return self.run_recorder.start_run(dataset_key=self.dataset_key, run_mode=run_mode, execution_id=execution_id)
         except Exception:
             self.logger.warning("Failed to start run recorder.", exc_info=True)
             return object()
@@ -218,7 +221,7 @@ class DatasetMaintainService:
         self,
         *,
         run_handle: object,
-        run_type: str,
+        run_mode: str,
         rows_fetched: int,
         rows_written: int,
         result_date: date | None,
@@ -236,9 +239,9 @@ class DatasetMaintainService:
             self.logger.warning("Failed to finish run recorder.", exc_info=True)
         try:
             self.execution_result_store.record_execution_outcome(
-                job_name=self.dataset_key,
+                dataset_key=self.dataset_key,
                 target_table=self.definition.storage.target_table,
-                run_type=run_type,
+                run_mode=run_mode,
                 run_profile=None,
                 last_success_date=result_date,
                 rows_committed=rows_written,

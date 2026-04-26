@@ -26,7 +26,9 @@
 
 ---
 
-## 2. 当前执行链路审计
+## 2. 历史执行链路审计（已退场）
+
+本节保留旧链路作为事故复盘与验收对照，不代表当前实现。当前手动任务、dataset action、工作流 dataset step 已切到 `TaskRun -> DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`。
 
 ### 2.1 手动任务链路
 
@@ -76,9 +78,9 @@ WorkflowSpec.steps[].job_key
 2. 工作流把“编排顺序”和“底层执行路径”绑定死。
 3. 后续删除旧三件套前，工作流必须先切到 action/plan step。
 
-### 2.4 Dispatcher 链路
+### 2.4 Dispatcher 旧链路
 
-当前 dispatcher 主要按 `executor_kind` 和 `category` 分发：
+历史 dispatcher 主要按 `executor_kind` 和 `category` 分发：
 
 | 当前分支 | 问题 |
 |---|---|
@@ -88,9 +90,9 @@ WorkflowSpec.steps[].job_key
 
 这正是旧三件套无法消失的核心原因。
 
-### 2.5 现有提交链路事故暴露的问题
+### 2.5 历史提交链路事故暴露的问题
 
-当前 `BaseSyncService._run()` 的关键行为是：
+历史 `BaseSyncService._run()` 的关键行为是：
 
 ```text
 start_log
@@ -339,20 +341,20 @@ class DatasetPlanExecutor:
 3. 旧 key 前缀
 4. 前端传来的执行路径
 
-### 5.2 与 SyncV2Engine 的关系
+### 5.2 与旧引擎能力的关系
 
-现有 `SyncV2Engine` 有价值，建议保留并收口：
+旧执行器中的“取数、归一化、写入、观测”能力已经迁入 `src/foundation/ingestion/**`，不得再以 Sync V2 命名或旧 contract 形态存在：
 
 | 当前能力 | 处理方式 | 保留原因 |
 |---|---|---|
-| validator | 改为校验 `DatasetExecutionPlan` | 规则入口仍需要保留，但校验对象从旧 contract/run request 升级为 plan。 |
-| planner | 从 plan 中读取 anchor/fanout/pagination | planner 仍负责把计划展开为业务 unit，但不能再从旧 `JobSpec` 或 backfill 分支反推规则。 |
-| worker_client | 保留 | 它封装源接口调用、重试、错误映射和分页取数，是 ingestion 的源端适配层；要改的是输入来自 plan，不是删除取数层。 |
-| normalizer | 保留 | 它负责字段标准化、类型清洗、reject reason 统计，是 raw rows 到可写 batch 的稳定边界；不能把清洗逻辑散回 executor 或 writer。 |
-| writer | 保留 | 它负责幂等写入、write path、DAO 路由和 reject 汇总；要改的是提交边界由 executor/transaction policy 控制，writer 仍不直接 commit。 |
-| observer/progress | 保留 | 它负责结构化进度、错误事件和 UI 可观测性；要改的是明确 committed 口径，并由 ops formatter 输出中文文案。 |
+| validator | `src/foundation/ingestion/validator.py` | 校验 `DatasetActionRequest` 与 `DatasetDefinition`，不读取旧 contract。 |
+| planner | `src/foundation/ingestion/unit_planner.py` | 根据 Definition 的 date/planning/source/storage 事实生成业务 unit。 |
+| source client | `src/foundation/ingestion/source_client.py` | 封装源接口调用、分页取数和源端错误映射。 |
+| normalizer | `src/foundation/ingestion/normalizer.py` | 负责字段标准化、类型清洗、reject reason 统计。 |
+| writer | `src/foundation/ingestion/writer.py` | 负责幂等写入、write path、DAO 路由和 reject 汇总；不直接提交事务。 |
+| observer/progress | `src/foundation/ingestion/progress.py` + `src/ops/services/task_run_ingestion_context.py` | 执行层上报结构化进度，Ops 负责 TaskRun 观测落库。 |
 
-说明：`SyncV2Engine` 是现有代码名，不是目标长期命名。目录重构后应收口到 `src/foundation/ingestion/engine.py`，对外语义是 ingestion engine，而不是 sync v2。
+说明：`SyncV2Engine` 不再是当前代码名，也不是迁移兜底。
 
 `HistoryBackfillService` 中的区间循环、证券池循环、月份循环，必须并入标准 planner/executor。重构完成时，`HistoryBackfillService` 不能继续存在为独立执行器。
 
@@ -722,23 +724,20 @@ PlanTransactionPolicy(
 2. `ths_hot` 默认提交必须显式扇出真实 `market + is_new`。
 3. `kpl_list` 默认提交必须显式处理真实 `tag` 或不传 `tag`，不得写 `__ALL__`。
 4. `limit_list_ths` 默认提交必须显式处理真实 `limit_type + market` 或不传对应筛选，不能写 `__ALL__`。
-5. 新增架构测试禁止 `__ALL__` 出现在 Sync V2 主链代码、plan unit request params、normalized rows 和落库 query 字段。
-6. `rg "__ALL__" src/foundation/services/sync_v2 tests/test_ranking_sync_services.py frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 不得发现业务哨兵残留；如保留迁移说明，必须有 allowlist 和关闭日期。
+5. 新增架构测试禁止 `__ALL__` 出现在 ingestion 主链代码、plan unit request params、normalized rows 和落库 query 字段。
+6. `rg "__ALL__" src/foundation/ingestion frontend/src/pages/ops-v21-task-manual-tab.test.tsx tests/architecture` 不得发现业务哨兵残留；如保留迁移说明，必须有 allowlist 和关闭日期。
 
 ---
 
 ## 7. 进度消息模型
 
-当前进度消息由执行器直接拼英文字符串，例如：
+当前 ingestion 主链仍会生成一行兼容进度 message，例如：
 
 ```text
 stk_mins: 28460/29160 unit=stock ts_code=920429.BJ security_name=康比特 freq=60min start_date=2026-01-05_09:00:00 end_date=2026-04-24_19:00:00 unit_fetched=365 unit_written=365 fetched=125327067 written=125327067 rejected=0
 ```
 
-现状生成点：
-
-1. `src/foundation/services/sync_v2/engine.py` 的 `_build_progress_message`
-2. `src/ops/services/operations_history_backfill_service.py` 的 `_format_progress_message`
+当前生成点是 `src/foundation/ingestion/executor.py` 的 `_build_progress_message`。这行 message 只能作为兼容展示文本，不允许成为页面或查询层解析事实字段的来源。
 
 这类字符串不应继续由执行器随手拼，也不应交给前端猜测翻译。目标是：执行层上报结构化进度，Ops 统一格式化为中文展示文案。
 
@@ -1127,4 +1126,4 @@ rg "sync_daily|sync_history|sync_minute_history|backfill_(equity_series|index_se
 7. 进度展示中文化，API 保留结构化 progress snapshot。
 8. 大数据集按 unit 安全提交，ops 状态失败不回滚业务数据。
 9. unit 级提交和幂等写入能力通过测试覆盖。
-10. `pytest`、sync_v2 lint、ops API、frontend smoke 全部通过。
+10. `pytest`、ingestion definition lint、ops API、frontend smoke 全部通过。

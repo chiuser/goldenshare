@@ -55,7 +55,7 @@ def test_build_from_snapshot_includes_raw_table_from_dataset_spec(db_session: Se
             recent_failure_message=None,
             recent_failure_summary=None,
             recent_failure_at=None,
-            primary_execution_spec_key="daily.maintain",
+            primary_action_key="daily.maintain",
             snapshot_date=date(2026, 4, 1),
             last_calculated_at=datetime(2026, 4, 1, 10, 1, tzinfo=timezone.utc),
         )

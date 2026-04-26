@@ -19,6 +19,9 @@ class JobSpecCatalogItem(BaseModel):
     display_name: str
     resource_key: str | None = None
     resource_display_name: str | None = None
+    domain_key: str | None = None
+    domain_display_name: str | None = None
+    date_selection_rule: str | None = None
     category: str
     description: str
     strategy_type: str
@@ -44,6 +47,8 @@ class WorkflowSpecCatalogItem(BaseModel):
     key: str
     display_name: str
     description: str
+    domain_key: str = "workflow"
+    domain_display_name: str = "工作流"
     parallel_policy: str
     default_schedule_policy: str | None = None
     supports_schedule: bool

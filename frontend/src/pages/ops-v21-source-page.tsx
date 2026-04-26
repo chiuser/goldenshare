@@ -5,7 +5,6 @@ import { apiRequest } from "../shared/api/client";
 import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
-import { formatResourceLabel } from "../shared/ops-display";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 import { dedupeModeItemsForSource, type SourceKey } from "./ops-v21-source-page-utils";
@@ -22,7 +21,7 @@ interface SourceCardItem {
   recentSyncText: string;
   dateRangeText: string;
   cadenceText: string;
-  primaryExecutionSpecKey: string | null;
+  primaryActionKey: string | null;
   autoEnabled: boolean;
   autoTooltip: string;
   probeEnabled: boolean;
@@ -173,7 +172,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         : (recentSyncAt ? formatDateTimeLabel(recentSyncAt) : "—");
       return {
         datasetKey: modeItem.dataset_key,
-        displayName: modeItem.display_name || formatResourceLabel(modeItem.dataset_key),
+        displayName: modeItem.display_name || modeItem.dataset_key,
         domainKey: freshGroup?.domain_key || modeItem.domain_key || "uncategorized",
         domainDisplayName: freshGroup?.domain_display_name || modeItem.domain_display_name || "未分类",
         rawTableLabel: sourceScopedRawTable || modeItem.raw_table || fallbackRawTable,
@@ -181,7 +180,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         recentSyncText,
         dateRangeText: freshItem ? buildDateRangeText(freshItem) : (modeItem.latest_business_date ? `最新业务日：${formatDateLabel(modeItem.latest_business_date)}` : "—"),
         cadenceText: cadenceLabel(freshItem?.cadence || ""),
-        primaryExecutionSpecKey: freshItem?.primary_execution_spec_key || null,
+        primaryActionKey: freshItem?.primary_action_key || null,
         autoEnabled: (freshItem?.auto_schedule_active || 0) > 0,
         autoTooltip:
           (freshItem?.auto_schedule_total || 0) > 0
@@ -287,10 +286,10 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           <Text size="xs" c="dimmed">未配置自动更新</Text>
                         ) : null}
                       </Group>
-                      {item.status !== "healthy" && item.primaryExecutionSpecKey ? (
+                      {item.status !== "healthy" && item.primaryActionKey ? (
                         <Button
                           component="a"
-                          href={buildManualTaskHref({ specKey: item.primaryExecutionSpecKey })}
+                          href={buildManualTaskHref({ actionKey: item.primaryActionKey, actionType: "dataset_action" })}
                           size="xs"
                           variant="light"
                           color="brand"

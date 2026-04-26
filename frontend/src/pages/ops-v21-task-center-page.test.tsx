@@ -64,7 +64,7 @@ beforeEach(() => {
             group_order: 20,
             actions: [
               {
-                action_key: "daily",
+                action_key: "daily.maintain",
                 action_type: "dataset_action",
                 display_name: "维护股票日线",
                 description: "维护股票日线。",
@@ -90,7 +90,7 @@ beforeEach(() => {
                 filters: [],
                 search_keywords: ["daily", "维护股票日线"],
                 action_order: 100,
-                route_spec_keys: ["daily.maintain"],
+                route_keys: ["daily.maintain"],
               },
             ],
           },
@@ -151,6 +151,7 @@ beforeEach(() => {
             spec_type: "dataset_action",
             spec_key: "daily.maintain",
             spec_display_name: "维护股票日线",
+            target_display_name: "股票日线",
             display_name: "股票日线自动同步",
             status: "active",
             schedule_type: "cron",
@@ -169,6 +170,7 @@ beforeEach(() => {
         spec_type: "dataset_action",
         spec_key: "daily.maintain",
         spec_display_name: "维护股票日线",
+        target_display_name: "股票日线",
         display_name: "股票日线自动同步",
         status: "active",
         schedule_type: "cron",
@@ -299,7 +301,7 @@ describe("任务中心页", () => {
       routeTree: rootRoute.addChildren([route]),
       basepath: "/app",
       history: createMemoryHistory({
-        initialEntries: ["/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action"],
+        initialEntries: ["/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action"],
       }),
     });
 

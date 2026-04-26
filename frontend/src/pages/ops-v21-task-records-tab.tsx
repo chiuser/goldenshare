@@ -23,7 +23,6 @@ import type {
 import { formatDateTimeLabel } from "../shared/date-format";
 import {
   formatExecutionResourceLabel,
-  formatSpecDisplayLabel,
   formatStatusLabel,
   formatTriggerSourceLabel,
 } from "../shared/ops-display";
@@ -93,7 +92,7 @@ function buildListParams(filters: TaskFilters, page: number) {
 }
 
 function formatCatalogTaskOption(item: { key: string; display_name: string; resource_display_name?: string | null }) {
-  return item.resource_display_name || formatSpecDisplayLabel(item.key, item.display_name);
+  return item.resource_display_name || item.display_name;
 }
 
 function formatExecutionTimeScopeLabel(item: { time_scope_label?: string | null }) {

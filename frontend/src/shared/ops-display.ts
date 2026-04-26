@@ -87,11 +87,6 @@ const eventTypeLabelMap: Record<string, string> = {
   serving_light_refresh_skipped: "轻量层刷新跳过",
 };
 
-const runTypeLabelMap: Record<string, string> = {
-  FULL: "全量执行",
-  INCREMENTAL: "增量执行",
-};
-
 const unitKindLabelMap: Record<string, string> = {
   ts_code: "证券代码",
   trade_date: "交易日期",
@@ -108,79 +103,6 @@ const timezoneLabelMap: Record<string, string> = {
 
 const serviceNameLabelMap: Record<string, string> = {
   "goldenshare-web": "财势乾坤 Web 服务",
-};
-
-const resourceLabelMap: Record<string, string> = {
-  trade_cal: "交易日历",
-  stock_basic: "股票主数据",
-  hk_basic: "港股列表",
-  us_basic: "美股列表",
-  etf_basic: "ETF 基础信息",
-  etf_index: "ETF 基准指数列表",
-  index_basic: "指数基础信息",
-  daily: "股票日线",
-  stk_mins: "股票历史分钟行情",
-  adj_factor: "复权因子",
-  daily_basic: "每日指标",
-  cyq_perf: "每日筹码及胜率",
-  moneyflow: "资金流向",
-  moneyflow_ths: "个股资金流向（同花顺）",
-  moneyflow_dc: "个股资金流向（东方财富）",
-  moneyflow_cnt_ths: "概念板块资金流向（同花顺）",
-  moneyflow_ind_ths: "行业资金流向（同花顺）",
-  moneyflow_ind_dc: "板块资金流向（东方财富）",
-  moneyflow_mkt_dc: "市场资金流向（东方财富）",
-  margin: "融资融券交易汇总",
-  top_list: "龙虎榜",
-  block_trade: "大宗交易",
-  dividend: "分红送转",
-  stk_holdernumber: "股东户数",
-  limit_list_d: "涨跌停明细",
-  stk_limit: "每日涨跌停价格",
-  stk_factor_pro: "股票技术面因子(专业版)",
-  stock_st: "ST股票列表",
-  stk_nineturn: "神奇九转指标",
-  suspend_d: "每日停复牌信息",
-  limit_list_ths: "同花顺涨跌停榜单",
-  limit_step: "涨停天梯",
-  limit_cpt_list: "最强板块统计",
-  fund_daily: "基金日线",
-  fund_adj: "基金复权因子",
-  index_daily: "指数日线",
-  stk_period_bar_week: "股票周线",
-  stk_period_bar_month: "股票月线",
-  stk_period_bar_adj_week: "股票周线（复权）",
-  stk_period_bar_adj_month: "股票月线（复权）",
-  index_weekly: "指数周线",
-  index_monthly: "指数月线",
-  index_weight: "指数成分权重",
-  index_daily_basic: "指数每日指标",
-  ths_index: "同花顺概念和行业指数",
-  ths_member: "同花顺板块成分",
-  ths_daily: "同花顺板块行情",
-  dc_index: "东方财富概念板块",
-  dc_member: "东方财富板块成分",
-  dc_daily: "东方财富板块行情",
-  ths_hot: "同花顺热榜",
-  dc_hot: "东方财富热榜",
-  kpl_list: "开盘啦榜单",
-  kpl_concept_cons: "开盘啦题材成分",
-  broker_recommend: "券商每月荐股",
-  biying_equity_daily: "BIYING 股票日线",
-  biying_moneyflow: "BIYING 资金流向",
-  rebuild_dm: "数据集市刷新",
-};
-
-const specPrefixLabelMap: Record<string, string> = {
-  maintenance: "维护动作",
-};
-
-const workflowLabelMap: Record<string, string> = {
-  reference_data_refresh: "基础主数据刷新",
-  daily_market_close_sync: "每日收盘后同步",
-  daily_moneyflow_sync: "每日资金流向同步",
-  index_extension_backfill: "指数扩展数据补齐",
-  board_reference_refresh: "板块主数据刷新",
 };
 
 function normalizeKey(value: string | null | undefined): string {
@@ -237,11 +159,6 @@ export function formatEventTypeLabel(value: string | null | undefined): string {
   return eventTypeLabelMap[key] || "未定义事件";
 }
 
-export function formatRunTypeLabel(value: string | null | undefined): string {
-  const key = normalizeKey(value).toUpperCase();
-  return runTypeLabelMap[key] || "未定义方式";
-}
-
 export function formatUnitKindLabel(value: string | null | undefined): string {
   const key = normalizeKey(value).toLowerCase();
   return unitKindLabelMap[key] || "执行单元";
@@ -255,37 +172,6 @@ export function formatTimezoneLabel(value: string | null | undefined): string {
 export function formatServiceNameLabel(value: string | null | undefined): string {
   const key = normalizeKey(value);
   return serviceNameLabelMap[key] || "系统服务";
-}
-
-export function formatResourceLabel(value: string | null | undefined): string {
-  const key = normalizeKey(value);
-  return resourceLabelMap[key] || `未配置显示名称（${key || "未知资源"}）`;
-}
-
-export function formatSpecDisplayLabel(
-  specKey: string | null | undefined,
-  specDisplayName: string | null | undefined,
-): string {
-  const key = normalizeKey(specKey);
-  if (!key) {
-    return specDisplayName || "未命名任务";
-  }
-
-  if (workflowLabelMap[key]) {
-    return workflowLabelMap[key];
-  }
-
-  if (key.endsWith(".maintain")) {
-    const datasetKey = key.slice(0, -".maintain".length);
-    return stripMaintenanceAffix(specDisplayName || formatResourceLabel(datasetKey));
-  }
-
-  if (key.includes(".")) {
-    const [prefix, resource] = key.split(".", 2);
-    return `${specPrefixLabelMap[prefix] || "任务"} / ${formatResourceLabel(resource)}`;
-  }
-
-  return specDisplayName || "未命名任务";
 }
 
 function stripMaintenanceAffix(value: string): string {
@@ -302,8 +188,6 @@ export function formatExecutionResourceLabel(item: {
   title?: string | null;
   resource_display_name?: string | null;
   action_display_name?: string | null;
-  spec_display_name?: string | null;
-  spec_key?: string | null;
 }): string {
   const title = normalizeKey(item.title);
   if (title) {
@@ -320,122 +204,5 @@ export function formatExecutionResourceLabel(item: {
     return stripMaintenanceAffix(actionDisplayName);
   }
 
-  const specDisplayName = normalizeKey(item.spec_display_name);
-  if (specDisplayName) {
-    return stripMaintenanceAffix(specDisplayName);
-  }
-
-  return normalizeKey(item.spec_key) || "未命名任务";
-}
-
-export function formatProgressMessageLabel(message: string | null | undefined): string {
-  const raw = String(message || "").trim();
-  if (!raw) {
-    return "";
-  }
-  const ratioMatch = raw.match(/(\d+)\s*\/\s*(\d+)/);
-  const kv = Object.fromEntries([...raw.matchAll(/([a-zA-Z_]+)=([^\s]+)/g)].map((item) => [item[1], item[2]]));
-  if (!ratioMatch && Object.keys(kv).length === 0) {
-    return raw;
-  }
-
-  const labelMatch = raw.match(/^([^:：]+)[:：]\s*/);
-  const resourceKey = normalizeKey(labelMatch?.[1]);
-  const resourceLabel = resourceKey ? formatResourceLabel(resourceKey) : "";
-  const sentences: string[] = [];
-  if (ratioMatch) {
-    const prefix = resourceLabel ? `${resourceLabel}：` : "";
-    sentences.push(`${prefix}已完成 ${ratioMatch[1]}/${ratioMatch[2]} 个处理单元`);
-  } else if (resourceLabel) {
-    sentences.push(`${resourceLabel}：处理进展已更新`);
-  }
-
-  const cursorLabel = buildProgressCursorLabel(kv);
-  if (cursorLabel) {
-    sentences.push(cursorLabel);
-  }
-  if (kv.freq) {
-    sentences.push(`当前频度：${kv.freq}`);
-  }
-
-  const unitStats = buildProgressStatsLabel({
-    title: "当前处理对象结果",
-    fetched: kv.unit_fetched,
-    written: kv.unit_written,
-    committed: kv.unit_committed,
-    rejected: kv.unit_rejected,
-  });
-  if (unitStats) {
-    sentences.push(unitStats);
-  }
-
-  const totalStats = buildProgressStatsLabel({
-    title: "累计结果",
-    fetched: kv.fetched,
-    written: kv.written,
-    committed: kv.committed,
-    rejected: kv.rejected,
-  });
-  if (totalStats) {
-    sentences.push(totalStats);
-  }
-
-  return sentences.length ? `${sentences.join("。")}。` : raw;
-}
-
-function buildProgressCursorLabel(kv: Record<string, string | undefined>): string | null {
-  if (kv.trade_date) {
-    return `当前日期：${kv.trade_date}`;
-  }
-  if (kv.ts_code) {
-    return `当前股票：${kv.ts_code}${kv.security_name ? ` ${kv.security_name}` : ""}`;
-  }
-  if (kv.index_code) {
-    return `当前指数：${kv.index_code}${kv.index_name ? ` ${kv.index_name}` : ""}`;
-  }
-  const boardCode = kv.board_code || kv.con_code;
-  if (boardCode) {
-    return `当前板块：${boardCode}${kv.board_name ? ` ${kv.board_name}` : ""}`;
-  }
-  if (kv.enum_field || kv.enum_value) {
-    return `当前选项：${kv.enum_field || "枚举"}=${kv.enum_value || ""}`;
-  }
-  if (kv.code) {
-    return `当前代码：${kv.code}`;
-  }
-  return null;
-}
-
-function buildProgressStatsLabel(input: {
-  title: string;
-  fetched?: string;
-  written?: string;
-  committed?: string;
-  rejected?: string;
-}): string | null {
-  const parts: string[] = [];
-  const fetched = parseProgressCount(input.fetched);
-  const written = parseProgressCount(input.written);
-  const committed = parseProgressCount(input.committed);
-  const rejected = parseProgressCount(input.rejected);
-  if (fetched !== null) {
-    parts.push(`读取 ${fetched} 条`);
-  }
-  if (committed !== null) {
-    parts.push(`已提交 ${committed} 条`);
-  } else if (written !== null) {
-    parts.push(`写入 ${written} 条`);
-  }
-  if (rejected !== null) {
-    parts.push(`拒绝 ${rejected} 条`);
-  }
-  return parts.length ? `${input.title}：${parts.join("，")}` : null;
-}
-
-function parseProgressCount(value: string | undefined): number | null {
-  if (value === undefined || value === "") {
-    return null;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return "未命名任务";
 }

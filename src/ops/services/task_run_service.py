@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
-from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.specs import get_dataset_freshness_spec, get_job_spec, get_workflow_spec
 
@@ -163,16 +163,18 @@ class TaskRunCommandService:
         schedule_id: int | None,
     ) -> TaskRunCreateContext:
         if spec_type == "dataset_action":
-            if not spec_key.endswith(".maintain"):
-                raise WebAppError(status_code=422, code="validation_error", message="Dataset action spec_key must end with .maintain")
-            resource_key = str(params_json.get("dataset_key") or spec_key.rsplit(".", 1)[0]).strip()
+            try:
+                definition, action = get_dataset_definition_by_action_key(spec_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action spec_key") from exc
+            resource_key = str(params_json.get("dataset_key") or definition.dataset_key).strip()
             return TaskRunCreateContext(
                 task_type="dataset_action",
                 resource_key=resource_key,
-                action=str(params_json.get("action") or "maintain").strip() or "maintain",
+                action=str(params_json.get("action") or action).strip() or action,
                 time_input=self._extract_time_input(params_json),
                 filters=self._extract_filters(params_json),
-                request_payload={**params_json, "spec_type": spec_type, "spec_key": spec_key},
+                request_payload=self._dataset_action_request_payload(params_json),
                 trigger_source=trigger_source,
                 requested_by_user_id=requested_by_user_id,
                 schedule_id=schedule_id,
@@ -197,7 +199,7 @@ class TaskRunCommandService:
                 raise WebAppError(status_code=404, code="not_found", message="Job spec does not exist")
             return TaskRunCreateContext(
                 task_type="system_job",
-                resource_key=self._resource_key_from_job_spec(spec_key),
+                resource_key=None,
                 action="maintain",
                 time_input=self._extract_time_input(params_json),
                 filters=self._extract_filters(params_json),
@@ -311,7 +313,8 @@ class TaskRunCommandService:
         return {key: value for key, value in params_json.items() if key not in reserved}
 
     @staticmethod
-    def _resource_key_from_job_spec(spec_key: str) -> str | None:
-        if "." not in spec_key:
-            return None
-        return spec_key.split(".", 1)[1] or None
+    def _dataset_action_request_payload(params_json: dict[str, Any]) -> dict[str, Any]:
+        payload = dict(params_json or {})
+        payload.pop("spec_type", None)
+        payload.pop("spec_key", None)
+        return payload

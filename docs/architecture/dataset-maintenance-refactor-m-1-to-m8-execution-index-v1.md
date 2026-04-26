@@ -48,7 +48,7 @@
 | M5 | 准备停机迁移与状态重建脚本 | 围绕 execution / schedule / resource state 做停机迁移准备 | migration 草案、seed/rebuild 脚本、演练说明 | 本地可重建，新旧运行状态语义可切换 |
 | M6 | 删除旧三类同步语义主链引用 | 主链删除 `sync_daily / backfill_* / sync_history` 作为执行模型的引用 | dispatcher/spec/workflow/schedule 旧分支删除，测试断言更新 | 活跃代码旧三件套引用清零或仅剩历史归档说明 |
 | M7 | 补齐架构测试和门禁 | 增加 definition、plan、旧名清零、`__ALL__`、事务边界、进度语义等护栏 | 单测、Web API 测试、架构测试、lint | 后续改动不能绕回旧模型或隐式大事务 |
-| M8 | 全量验证与交付总结 | 跑后端、架构、sync_v2、Ops API、前端相关门禁并总结 | 验证记录、边界影响、剩余风险、后续建议 | 交付说明完整，主目标可验收 |
+| M8 | 全量验证与交付总结 | 跑后端、架构、ingestion、Ops API、前端相关门禁并总结 | 验证记录、边界影响、剩余风险、后续建议 | 交付说明完整，主目标可验收 |
 
 ---
 

@@ -4,7 +4,7 @@ import time
 from typing import Callable
 
 
-def run_sync_snapshot(
+def run_ingestion_snapshot(
     *,
     session_local,
     build_maintain_service_fn,
@@ -53,7 +53,7 @@ def run_sync_snapshot(
             }
             echo_fn(f"[{resource}] snapshot start")
             started_at = time.perf_counter()
-            result = service.run_full(**prepare_kwargs_fn(service, kwargs))
+            result = service.maintain(default_time_mode="none", **prepare_kwargs_fn(service, kwargs))
             snapshot_service.refresh_resources(session, [resource])
             elapsed_seconds = max(time.perf_counter() - started_at, 0.0)
             echo_fn(

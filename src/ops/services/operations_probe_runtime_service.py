@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -15,7 +16,7 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.foundation.config.settings import get_settings
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
-from src.ops.services.task_run_service import TaskRunCommandService
+from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
 @dataclass(slots=True, frozen=True)
@@ -154,25 +155,29 @@ class ProbeRuntimeService:
 
     def _enqueue_on_match(self, session: Session, rule: ProbeRule) -> TaskRun:
         action = dict(rule.on_success_action_json or {})
-        spec_type = str(action.get("spec_type") or "dataset_action")
-        spec_key = str(action.get("spec_key") or f"{rule.dataset_key}.maintain")
-        params_json = dict(action.get("params_json") or {})
-        if spec_type == "dataset_action":
-            params_json.setdefault("dataset_key", rule.dataset_key)
-            params_json.setdefault("action", "maintain")
-            params_json.setdefault("time_input", {"mode": "point"})
-            params_json.setdefault("filters", {})
-        params_json.setdefault("run_scope", "probe_triggered")
-        if rule.source_key and "source_key" not in params_json:
-            params_json["source_key"] = rule.source_key
-        return self.task_run_service.create_from_spec(
+        action_type = str(action.get("action_type") or "dataset_action")
+        if action_type != "dataset_action":
+            raise ValueError(f"unsupported probe action_type={action_type}")
+        action_key = str(action.get("action_key") or get_dataset_action_key(rule.dataset_key, "maintain"))
+        definition, action_name = get_dataset_definition_by_action_key(action_key)
+        request = dict(action.get("request") or {})
+        time_input = dict(request.get("time_input") or {"mode": "point"})
+        filters = dict(request.get("filters") or {})
+        if rule.source_key:
+            filters.setdefault("source_key", rule.source_key)
+        return self.task_run_service.create_task_run(
             session,
-            spec_type=spec_type,
-            spec_key=spec_key,
-            params_json=params_json,
-            trigger_source="probe",
-            requested_by_user_id=rule.updated_by_user_id or rule.created_by_user_id,
-            schedule_id=rule.schedule_id,
+            context=TaskRunCreateContext(
+                task_type="dataset_action",
+                resource_key=definition.dataset_key,
+                action=action_name,
+                time_input=time_input,
+                filters=filters,
+                request_payload={"run_scope": request.get("run_scope") or "probe_triggered"},
+                trigger_source="probe",
+                requested_by_user_id=rule.updated_by_user_id or rule.created_by_user_id,
+                schedule_id=rule.schedule_id,
+            ),
         )
 
     def _should_probe(self, session: Session, rule: ProbeRule, *, current: datetime) -> tuple[bool, str | None]:

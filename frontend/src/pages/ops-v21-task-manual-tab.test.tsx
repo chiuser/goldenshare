@@ -24,7 +24,7 @@ const mockManualActions = {
       group_order: 10,
       actions: [
         {
-          action_key: "stock_basic",
+          action_key: "stock_basic.maintain",
           action_type: "dataset_action",
           display_name: "维护股票基础信息",
           description: "刷新股票基础资料。",
@@ -59,7 +59,7 @@ const mockManualActions = {
           ],
           search_keywords: ["stock_basic", "维护股票基础信息"],
           action_order: 100,
-          route_spec_keys: ["stock_basic.maintain"],
+          route_keys: ["stock_basic.maintain"],
         },
       ],
     },
@@ -69,7 +69,7 @@ const mockManualActions = {
       group_order: 20,
       actions: [
         {
-          action_key: "daily",
+          action_key: "daily.maintain",
           action_type: "dataset_action",
           display_name: "维护股票日线",
           description: "维护股票日线数据。",
@@ -95,10 +95,10 @@ const mockManualActions = {
           filters: [],
           search_keywords: ["daily", "维护股票日线"],
           action_order: 100,
-          route_spec_keys: ["daily.maintain"],
+          route_keys: ["daily.maintain"],
         },
         {
-          action_key: "stk_factor_pro",
+          action_key: "stk_factor_pro.maintain",
           action_type: "dataset_action",
           display_name: "维护股票技术面因子(专业版)",
           description: "维护股票技术面因子。",
@@ -132,10 +132,10 @@ const mockManualActions = {
           ],
           search_keywords: ["stk_factor_pro", "维护股票技术面因子(专业版)"],
           action_order: 100,
-          route_spec_keys: ["stk_factor_pro.maintain"],
+          route_keys: ["stk_factor_pro.maintain"],
         },
         {
-          action_key: "suspend_d",
+          action_key: "suspend_d.maintain",
           action_type: "dataset_action",
           display_name: "维护每日停复牌信息",
           description: "维护每日停复牌信息。",
@@ -178,7 +178,7 @@ const mockManualActions = {
           ],
           search_keywords: ["suspend_d", "维护每日停复牌信息"],
           action_order: 100,
-          route_spec_keys: ["suspend_d.maintain"],
+          route_keys: ["suspend_d.maintain"],
         },
       ],
     },
@@ -188,7 +188,7 @@ const mockManualActions = {
       group_order: 50,
       actions: [
         {
-          action_key: "ths_member",
+          action_key: "ths_member.maintain",
           action_type: "dataset_action",
           display_name: "维护同花顺板块成分",
           description: "刷新同花顺板块成分。",
@@ -229,7 +229,7 @@ const mockManualActions = {
           ],
           search_keywords: ["ths_member", "维护同花顺板块成分"],
           action_order: 100,
-          route_spec_keys: ["ths_member.maintain"],
+          route_keys: ["ths_member.maintain"],
         },
       ],
     },
@@ -239,7 +239,7 @@ const mockManualActions = {
       group_order: 60,
       actions: [
         {
-          action_key: "dc_hot",
+          action_key: "dc_hot.maintain",
           action_type: "dataset_action",
           display_name: "维护东方财富热榜",
           description: "维护东方财富热榜。",
@@ -292,10 +292,10 @@ const mockManualActions = {
           ],
           search_keywords: ["dc_hot", "维护东方财富热榜"],
           action_order: 100,
-          route_spec_keys: ["dc_hot.maintain"],
+          route_keys: ["dc_hot.maintain"],
         },
         {
-          action_key: "broker_recommend",
+          action_key: "broker_recommend.maintain",
           action_type: "dataset_action",
           display_name: "维护券商每月荐股",
           description: "维护券商每月荐股。",
@@ -321,7 +321,7 @@ const mockManualActions = {
           filters: [],
           search_keywords: ["broker_recommend", "维护券商每月荐股"],
           action_order: 100,
-          route_spec_keys: ["broker_recommend.maintain"],
+          route_keys: ["broker_recommend.maintain"],
         },
       ],
     },
@@ -333,7 +333,7 @@ vi.mock("../shared/api/client", () => ({
     if (path === "/api/v1/ops/manual-actions") {
       return mockManualActions;
     }
-    if (path === "/api/v1/ops/manual-actions/dc_hot/task-runs" && options?.method === "POST") {
+    if (path === "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs" && options?.method === "POST") {
       return {
         run: {
           id: 1234,
@@ -387,7 +387,7 @@ beforeEach(() => {
   vi.mocked(apiRequest).mockClear();
 });
 
-function renderPage(initialEntry = "/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action") {
+function renderPage(initialEntry = "/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action") {
   window.history.replaceState({}, "", initialEntry);
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -425,7 +425,7 @@ function renderPageWithPersistedDraft() {
   window.localStorage.setItem(
     "goldenshare.frontend.ops.task-center.manual.draft",
     JSON.stringify({
-      action_id: "stock_basic",
+      action_id: "stock_basic.maintain",
       date_mode: "single_point",
       selected_date: "",
       start_date: "",
@@ -492,18 +492,18 @@ describe("手动任务页", () => {
   it("切换数据分组时会清空不匹配的维护对象，避免下拉被锁死", () => {
     const manualActions = [
       {
-        action_key: "daily",
+        action_key: "daily.maintain",
         groupLabel: "股票行情",
       },
       {
-        action_key: "stock_basic",
+        action_key: "stock_basic.maintain",
         groupLabel: "基础主数据",
       },
     ] as never;
 
     const next = resolveDraftOnDomainChange(
       {
-        action_id: "daily",
+        action_id: "daily.maintain",
         date_mode: "single_point",
         selected_date: "",
         start_date: "",
@@ -523,25 +523,25 @@ describe("手动任务页", () => {
   it("仅在分组为空时自动对齐维护对象分组，避免覆盖用户选择", () => {
     expect(
       shouldAutoAlignDomain("股票行情", {
-        action_key: "daily",
+        action_key: "daily.maintain",
       } as never),
     ).toBe(false);
     expect(
       shouldAutoAlignDomain("", {
-        action_key: "daily",
+        action_key: "daily.maintain",
       } as never),
     ).toBe(true);
   });
 
   it("板块成分任务会展示先板块后成分的执行说明", async () => {
-    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=ths_member.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=ths_member.maintain&action_type=dataset_action");
 
     expect((await screen.findAllByText("维护同花顺板块成分")).length).toBeGreaterThan(0);
     expect(screen.getByText("系统会先刷新“同花顺概念和行业指数”，再按板块代码逐个同步板块成分。")).toBeInTheDocument();
   });
 
   it("东方财富热榜任务使用复选框展示多值条件，并且不展示交易所参数", async () => {
-    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=dc_hot.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=dc_hot.maintain&action_type=dataset_action");
 
     expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("A股市场")).toBeChecked();
@@ -555,7 +555,7 @@ describe("手动任务页", () => {
   });
 
   it("每日停复牌任务使用复选框展示停复牌类型", async () => {
-    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=suspend_d.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=suspend_d.maintain&action_type=dataset_action");
 
     expect((await screen.findAllByText("维护每日停复牌信息")).length).toBeGreaterThan(0);
     expect(screen.getByText("停复牌类型")).toBeInTheDocument();
@@ -568,7 +568,7 @@ describe("手动任务页", () => {
     window.localStorage.setItem(
       "goldenshare.frontend.ops.task-center.manual.draft",
       JSON.stringify({
-        action_id: "dc_hot",
+        action_id: "dc_hot.maintain",
         date_mode: "single_point",
         selected_date: "2026-04-24",
         start_date: "",
@@ -585,7 +585,7 @@ describe("手动任务页", () => {
     fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
 
     await waitFor(() =>
-      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot/task-runs", {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/manual-actions/dc_hot.maintain/task-runs", {
         method: "POST",
         body: {
           time_input: { mode: "point", trade_date: "2026-04-24" },
@@ -604,7 +604,7 @@ describe("手动任务页", () => {
       if (path === "/api/v1/ops/manual-actions") {
         return mockManualActions;
       }
-      if (path === "/api/v1/ops/manual-actions/dc_hot/task-runs" && options?.method === "POST") {
+      if (path === "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs" && options?.method === "POST") {
         return null;
       }
       if (path.startsWith("/api/v1/ops/task-runs?")) {
@@ -645,7 +645,7 @@ describe("手动任务页", () => {
     window.localStorage.setItem(
       "goldenshare.frontend.ops.task-center.manual.draft",
       JSON.stringify({
-        action_id: "dc_hot",
+        action_id: "dc_hot.maintain",
         date_mode: "single_point",
         selected_date: "2026-04-24",
         start_date: "",
@@ -662,7 +662,7 @@ describe("手动任务页", () => {
     fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
-      "/api/v1/ops/manual-actions/dc_hot/task-runs",
+      "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs",
       expect.objectContaining({ method: "POST" }),
     ));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
@@ -672,7 +672,7 @@ describe("手动任务页", () => {
   });
 
   it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
-    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=broker_recommend.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=broker_recommend.maintain&action_type=dataset_action");
 
     expect((await screen.findAllByText("维护券商每月荐股")).length).toBeGreaterThan(0);
     expect(screen.getByText("第二步：选择时间范围")).toBeInTheDocument();
@@ -682,7 +682,7 @@ describe("手动任务页", () => {
   });
 
   it("优先使用后端资源显示名称，避免新增数据集出现占位文案", async () => {
-    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=stk_factor_pro.maintain&spec_type=dataset_action");
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&action_key=stk_factor_pro.maintain&action_type=dataset_action");
 
     expect((await screen.findAllByText("维护股票技术面因子(专业版)")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();

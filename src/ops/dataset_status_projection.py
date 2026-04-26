@@ -26,5 +26,5 @@ def snapshot_row_to_freshness_item(row: DatasetStatusSnapshot, *, raw_table: str
         recent_failure_message=row.recent_failure_message,
         recent_failure_summary=row.recent_failure_summary,
         recent_failure_at=row.recent_failure_at,
-        primary_execution_spec_key=row.primary_execution_spec_key,
+        primary_action_key=row.primary_action_key,
     )

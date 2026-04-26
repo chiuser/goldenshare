@@ -177,27 +177,13 @@ export interface OpsOverviewResponse {
     expected_business_date: string | null;
     latest_business_date: string | null;
     last_sync_date: string | null;
-    primary_execution_spec_key: string | null;
+    primary_action_key: string | null;
     recent_failure_message?: string | null;
     recent_failure_summary?: string | null;
     recent_failure_at?: string | null;
   }>;
-  recent_executions: Array<{
-    id: number;
-    spec_display_name: string | null;
-    spec_key: string;
-    trigger_source: string;
-    status: string;
-    requested_at: string;
-  }>;
-  recent_failures: Array<{
-    id: number;
-    spec_display_name: string | null;
-    spec_key: string;
-    trigger_source: string;
-    status: string;
-    requested_at: string;
-  }>;
+  recent_executions: TaskRunListResponse["items"];
+  recent_failures: TaskRunListResponse["items"];
 }
 
 export interface OpsOverviewSummaryResponse {
@@ -235,7 +221,7 @@ export interface OpsFreshnessResponse {
       recent_failure_message: string | null;
       recent_failure_summary: string | null;
       recent_failure_at: string | null;
-      primary_execution_spec_key: string | null;
+      primary_action_key: string | null;
       auto_schedule_status: string;
       auto_schedule_total: number;
       auto_schedule_active: number;
@@ -251,6 +237,7 @@ export interface ScheduleListResponse {
     id: number;
     spec_key: string;
     spec_display_name: string | null;
+    target_display_name: string | null;
     display_name: string;
     status: string;
     schedule_type: string;
@@ -268,6 +255,7 @@ export interface ScheduleDetailResponse {
   spec_type: string;
   spec_key: string;
   spec_display_name: string | null;
+  target_display_name: string | null;
   display_name: string;
   status: string;
   schedule_type: string;
@@ -319,6 +307,7 @@ export interface TaskRunListResponse {
     id: number;
     task_type: string;
     resource_key: string | null;
+    action_key: string | null;
     action: string;
     title: string;
     time_scope: TaskRunTimeScope | null;
@@ -374,6 +363,7 @@ export interface TaskRunViewResponse {
     id: number;
     task_type: string;
     resource_key: string | null;
+    action_key: string | null;
     action: string;
     title: string;
     trigger_source: string;
@@ -472,6 +462,9 @@ export interface OpsCatalogResponse {
     display_name: string;
     resource_key?: string | null;
     resource_display_name?: string | null;
+    domain_key?: string | null;
+    domain_display_name?: string | null;
+    date_selection_rule?: string | null;
     category: string;
     description: string;
     strategy_type: string;
@@ -496,6 +489,8 @@ export interface OpsCatalogResponse {
     key: string;
     display_name: string;
     description: string;
+    domain_key: string;
+    domain_display_name: string;
     parallel_policy: string;
     schedule_binding_count: number;
     active_schedule_count: number;
@@ -560,7 +555,7 @@ export interface OpsManualActionsResponse {
       }>;
       search_keywords: string[];
       action_order: number;
-      route_spec_keys: string[];
+      route_keys: string[];
     }>;
   }>;
 }
@@ -580,18 +575,18 @@ export interface OpsManualActionTaskRunRequest {
   filters: Record<string, unknown>;
 }
 
-export interface SyncCodebookItem {
+export interface IngestionCodebookItem {
   code: string;
   label: string;
   phase: string | null;
   suggested_action: string | null;
 }
 
-export interface SyncCodebookResponse {
+export interface IngestionCodebookResponse {
   version: string;
   updated_at: string;
-  error_codes: SyncCodebookItem[];
-  reason_codes: SyncCodebookItem[];
+  error_codes: IngestionCodebookItem[];
+  reason_codes: IngestionCodebookItem[];
 }
 
 export interface RuntimeTickResponse {

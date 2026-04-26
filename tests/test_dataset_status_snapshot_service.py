@@ -147,7 +147,7 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
             recent_failure_message=None,
             recent_failure_summary=None,
             recent_failure_at=None,
-            primary_execution_spec_key="daily.maintain",
+            primary_action_key="daily.maintain",
             snapshot_date=date(2026, 4, 1),
             last_calculated_at=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
         )

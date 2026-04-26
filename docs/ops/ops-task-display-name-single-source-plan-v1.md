@@ -1,9 +1,9 @@
 # Ops 任务显示名单一事实源收口方案 v1
 
-> 状态：任务记录/任务详情闭环已落地；自动任务页待专项方案。
-> 当前版本：已按用户评审意见调整为“维护对象优先”的 UI 口径，并完成 execution list/detail、任务记录、任务详情的第一轮实现。
+> 状态：任务记录/任务详情/今日任务/自动任务显示链路已切到后端结构化名称；前端本地 `spec_key -> 中文名` 映射已退出主路径。
+> 当前版本：已按用户评审意见调整为“维护对象优先”的 UI 口径，并完成任务记录、任务详情、今日任务和自动任务第一轮收口。
 > 适用范围：任务记录、任务详情、今日任务、自动任务、手动任务入口中涉及任务名称、处理范围、发起方式、状态与操作的展示链路。
-> 当前落地边界：本轮只落地任务记录与任务详情；今日任务/概览类页面暂不迁移；自动任务页单独立题。
+> 当前落地边界：页面只展示后端返回的 `title / resource_display_name / action_display_name / target_display_name` 等结构化字段，不再通过 `formatSpecDisplayLabel` 或本地资源字典拼接事实字段。
 
 ## 1. 背景
 
@@ -383,45 +383,26 @@ time_scope_label
 4. 任务详情新增“处理范围”卡片。
 5. 普通 UI 不展示执行路径。
 
-### P3：自动任务页专项重新设计（待专项方案）
+### P3：自动任务页显示事实收口（已完成第一轮）
 
-自动任务页不纳入 P1/P2 的任务记录与任务详情收口范围。
+自动任务页当前仍保留调度模型里的 `spec_type/spec_key` 作为后端调度键，但页面显示不再解析这些键。
 
-原因：
+已落地：
 
-1. 自动任务页当前同时承载列表、创建、编辑、详情、调度预览、探测触发、同步参数等多条链路。
-2. 页面仍直接选择底层 `JobSpec` / `WorkflowSpec`，不是简单替换显示名即可解决。
-3. 如果在 P1/P2 顺手改 `formatSpecDisplayLabel` 或执行对象展示，会让多个底层 spec 显示成同一个资源名，反而增加误选风险。
+1. 自动任务可选项使用 Catalog 返回的 `display_name / resource_display_name / domain_display_name`。
+2. 自动任务列表和详情使用 Schedule API 返回的 `target_display_name`。
+3. 日期控件规则使用 Catalog 返回的 `date_selection_rule`，不再在前端按数据集 key 维护周/月规则集合。
+4. 参数展示名使用 Catalog 返回的 `supported_params[].display_name`，不再在页面维护参数中文名表。
 
-P3 需要单独出交互方案，再进入开发。
+### P4：前端兜底降级与门禁（已完成第一轮）
 
-1. 自动任务创建/编辑从选择 spec 改为选择维护动作。
-2. 自动任务列表与任务记录列表保持对象语言一致。
-3. 自动任务仍可在后端内部解析到真实 spec，但前端不感知。
+目标：让 `formatSpecDisplayLabel` 和前端资源中文名静态映射退出普通 UI 主路径，避免内部执行链路继续泄漏给用户。
 
-### P4：前端兜底降级与门禁（进行中）
-
-目标：让 `formatSpecDisplayLabel` 逐步退出普通 UI 主路径，避免内部执行链路继续泄漏给用户。
-
-TODO：
+已落地：
 
 1. 新增任务展示专用入口，例如 `formatExecutionResourceLabel`。（已完成）
    - 优先使用 `resource_display_name`。
    - 其次使用 `action_display_name` 去掉“维护”前缀后的资源名。
-   - 再兜底 `spec_display_name`。
-   - 最后才兜底 `spec_key`。
-2. P2 只在任务记录和任务详情中接入 `formatExecutionResourceLabel`。（已完成）
-   - 不全局修改 `formatSpecDisplayLabel`。
-   - 不顺手影响今日任务、概览、自动任务页。
-3. 今日任务、概览类页面后续单独评估是否迁移。（待办）
-   - 迁移前先确认这些页面是否仍需要显示执行路径信息。
-   - 若不需要，再改用 `formatExecutionResourceLabel`。
-4. 自动任务页必须等 P3 专项方案冻结后迁移。（待办）
-   - 在自动任务页改造前，不能直接把所有 spec 选项都显示成资源名。
-   - 避免 `sync_daily.daily`、`sync_history.daily`、`backfill_equity_series.daily` 同时显示为“股票日线”导致误选。
-5. `formatSpecDisplayLabel` 最终定位为兼容/调试辅助函数。
-   - 可保留给旧数据、技术排查或内部管理视图。
-   - 不再作为普通用户页面标题、列表主列、表单主选项的默认 formatter。
-6. 前端静态映射仅用于旧数据兼容。
-7. 测试禁止普通页面出现“未配置显示名称”。
-8. 新增数据集模板补充 Ops 任务显示验收项。
+2. `formatSpecDisplayLabel / formatResourceLabel / formatProgressMessageLabel` 已从前端普通代码路径删除。
+3. 今日任务、任务记录、任务详情、自动任务均只消费后端结构化显示字段。
+4. 架构门禁禁止前端重新引入旧 formatter 或旧字段名。

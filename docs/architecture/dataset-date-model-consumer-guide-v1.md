@@ -2,15 +2,15 @@
 
 - 版本：v1
 - 状态：当前生效
-- 更新时间：2026-04-24
+- 更新时间：2026-04-26
 - 面向对象：需要读取数据集日期语义的后端模块、运维模块、审计模块、前端/API 设计方、外部协作方
-- 单一事实源：`DatasetSyncContract.date_model`
+- 单一事实源：`DatasetDefinition.date_model`
 
 ---
 
 ## 1. 一句话结论
 
-所有数据集的日期语义都只允许从 `DatasetSyncContract.date_model` 读取。
+所有数据集的日期语义都只允许从 `DatasetDefinition.date_model` 读取。
 
 不要再为同步、状态、审计、前端展示分别维护独立的日期规则表。
 
@@ -36,31 +36,28 @@
 ### 3.1 Python 后端模块
 
 ```python
-from src.foundation.services.sync_v2.registry import get_sync_v2_contract
+from src.foundation.datasets.registry import get_dataset_definition
 
-contract = get_sync_v2_contract(dataset_key)
-date_model = contract.date_model
+definition = get_dataset_definition(dataset_key)
+date_model = definition.date_model
 ```
 
-### 3.2 读取运行时锚点兼容值
+### 3.2 读取执行计划投影
 
-仅当你在同步执行链路内部需要生成 plan unit / anchor 时，才使用下面两个 helper：
+执行链路不要再读取旧 contract helper。正确做法是把用户请求解析成 `DatasetActionRequest`，再由 resolver 读取 `DatasetDefinition.date_model` 生成 `DatasetExecutionPlan`。
 
 ```python
-from src.foundation.services.sync_v2.contracts import (
-    resolve_contract_anchor_type,
-    resolve_contract_window_policy,
-)
+from src.foundation.ingestion.execution_plan import DatasetActionRequest
+from src.foundation.ingestion.resolver import DatasetActionResolver
 
-anchor_type = resolve_contract_anchor_type(contract)
-window_policy = resolve_contract_window_policy(contract)
+plan = DatasetActionResolver(session).build_plan(request)
 ```
 
 注意：
 
-1. `anchor_type/window_policy` 是运行时兼容值，不是新的事实源。
+1. `DatasetExecutionPlan` 是运行时投影，不是第二份事实源。
 2. 新模块应优先读取结构化字段：`date_axis/bucket_rule/window_mode/input_shape/observed_field/audit_applicable`。
-3. 不要把 helper 的返回值再落成一份长期配置。
+3. 不要把 plan 中的派生结果再落成一份长期配置。
 
 ### 3.3 前端或外部系统
 
@@ -68,7 +65,7 @@ window_policy = resolve_contract_window_policy(contract)
 
 正确方式是：
 
-1. 后端 API 如需暴露日期模型，应从 `contract.date_model` 序列化返回。
+1. 后端 API 如需暴露日期模型，应从 `DatasetDefinition.date_model` 序列化返回。
 2. 前端只消费 API 返回值，不手写数据集日期规则。
 3. 外部系统如需引用规则，应以导出的 API/文档快照为准，并标注生成时间。
 
@@ -247,19 +244,19 @@ not_applicable_reason=snapshot/master dataset
 
 1. 校验 `run_profile` 与 `window_mode` 是否匹配。
 2. 生成交易日、周末交易日、月末交易日、自然日、月份键等执行锚点。
-3. 把结构化模型临时派生为运行时兼容锚点。
+3. 把结构化模型派生为执行计划中的时间桶和 unit。
 
 正确做法：
 
 ```python
-anchor_type = resolve_contract_anchor_type(contract)
-window_policy = resolve_contract_window_policy(contract)
+plan = DatasetActionResolver(session).build_plan(request)
+units = plan.units
 ```
 
 禁止做法：
 
 1. 在 planner 里按 `dataset_key` 维护另一份日期类型表。
-2. 在策略文件里覆盖 `anchor_type/window_policy`。
+2. 在执行策略里覆盖 `date_axis/bucket_rule/window_mode`。
 3. 在 helper 中加入只服务单个数据集的日期特例。
 
 ### 6.2 Ops freshness / 数据状态
@@ -272,7 +269,7 @@ window_policy = resolve_contract_window_policy(contract)
 正确做法：
 
 ```python
-observed_date_column = get_sync_v2_contract(resource_key).date_model.observed_field
+observed_date_column = get_dataset_definition(resource_key).date_model.observed_field
 ```
 
 补充规则：
@@ -307,7 +304,7 @@ observed_date_column = get_sync_v2_contract(resource_key).date_model.observed_fi
 使用目标：
 
 1. 判断页面应展示单日、区间、月份、自然月窗口还是无日期输入。
-2. 判断某数据集是否适合 `sync-daily`、`sync-history` 或 `sync-snapshot` 类入口。
+2. 判断某数据集的 `maintain` 动作应该接收哪种时间输入。
 
 建议读取字段：
 
@@ -389,7 +386,7 @@ audit_applicable=False
 not_applicable_reason=snapshot/master dataset
 ```
 
-如果未来源接口或业务口径发生变化，必须先修改 contract 的 `date_model`，再改审计/展示/任务逻辑。
+如果来源接口或业务口径发生变化，必须先修改 `DatasetDefinition.date_model`，再改审计/展示/任务逻辑。
 
 ---
 
@@ -397,17 +394,17 @@ not_applicable_reason=snapshot/master dataset
 
 新增或修改数据集时，必须同步完成：
 
-1. 在 `registry_parts/common/date_models.py` 中定义或更新 `date_model`。
-2. 在对应业务域 contract 文件中通过 `build_date_model(dataset_key)` 引入。
-3. 运行 contract lint。
+1. 在 `src/foundation/datasets/definitions/**` 中定义或更新 `date_model`。
+2. 确认 `DatasetDefinition.input_model`、`planning`、`transaction` 与日期模型一致。
+3. 运行 ingestion definition lint。
 4. 补充或更新必要测试。
 
 最小门禁：
 
 ```bash
-pytest -q tests/test_sync_v2_linter.py tests/test_sync_v2_registry_builders.py
-pytest -q tests/architecture/test_sync_v2_registry_guardrails.py
-GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts
+pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py
+pytest -q tests/architecture/test_dataset_maintenance_refactor_guardrails.py
+GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions
 ```
 
 如果变更影响 ops freshness，还应运行：
@@ -422,8 +419,8 @@ pytest -q tests/test_ops_specs.py tests/test_ops_freshness_snapshot_query_servic
 
 1. 禁止新增第二套日期规则表。
 2. 禁止在 ops/frontend/biz 中复制 `DATASET_DATE_MODELS`。
-3. 禁止在策略层覆盖 contract 日期模型。
-4. 禁止把运行时 helper 的返回值当作新的事实源。
+3. 禁止在策略层覆盖 DatasetDefinition 日期模型。
+4. 禁止把执行计划投影结果当作新的事实源。
 5. 禁止把快照/主数据强行纳入日期连续性审计。
 6. 禁止把 `week_last_open_day` 简化成自然周五。
 7. 禁止把 `month_last_open_day` 简化成自然月末。
@@ -433,6 +430,5 @@ pytest -q tests/test_ops_specs.py tests/test_ops_freshness_snapshot_query_servic
 ## 10. 相关文档
 
 1. [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
-2. [Sync V2 Registry 开发指南 v1（新增数据集门禁）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md)
+2. [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 3. [数据集日期完整性审计设计 v1（审查中心，历史草案）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
-

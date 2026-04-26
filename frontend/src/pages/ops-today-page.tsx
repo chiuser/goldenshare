@@ -6,7 +6,7 @@ import { apiRequest } from "../shared/api/client";
 import type { OpsOverviewResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
-import { formatSpecDisplayLabel, formatTriggerSourceLabel } from "../shared/ops-display";
+import { formatTriggerSourceLabel } from "../shared/ops-display";
 import { OpsTable, OpsTableActionGroup, OpsTableCell, OpsTableCellText, OpsTableHeaderCell } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
@@ -101,7 +101,7 @@ export function OpsTodayPage() {
                 {overview.recent_executions.slice(0, 8).map((item) => (
                   <Table.Tr key={item.id}>
                     <OpsTableCell align="left" width="36%">
-                      <OpsTableCellText fw={600} size="sm">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>
+                      <OpsTableCellText fw={600} size="sm">{item.title}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell width="14%">
                       <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
@@ -177,10 +177,10 @@ export function OpsTodayPage() {
                     </OpsTableCell>
                     <OpsTableCell width="12%">
                       <OpsTableActionGroup>
-                        {item.primary_execution_spec_key ? (
+                        {item.primary_action_key ? (
                           <Button
                             component="a"
-                            href={buildManualTaskHref({ specKey: item.primary_execution_spec_key })}
+                            href={buildManualTaskHref({ actionKey: item.primary_action_key, actionType: "dataset_action" })}
                             size="xs"
                             variant="light"
                             color="brand"

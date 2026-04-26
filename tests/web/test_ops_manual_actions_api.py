@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from sqlalchemy import select
+
+from src.ops.models.ops.task_run import TaskRun
+
 
 def _admin_headers(app_client, user_factory) -> dict[str, str]:
     user_factory(username="admin", password="secret", is_admin=True)
@@ -39,52 +43,52 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert "workflow" in group_keys
 
     actions = _actions_by_key(payload)
-    assert actions["daily"]["display_name"] == "维护股票日线"
-    assert actions["daily"]["date_model"]["input_shape"] == "trade_date_or_start_end"
-    assert actions["daily"]["time_form"]["control"] == "trade_date_or_range"
-    assert actions["daily"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["daily"]["time_form"]["selection_rule"] == "trading_day_only"
-    assert actions["daily"]["action_type"] == "dataset_action"
-    assert actions["daily"]["route_spec_keys"] == ["daily.maintain"]
+    assert actions["daily.maintain"]["display_name"] == "维护股票日线"
+    assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert actions["daily.maintain"]["time_form"]["control"] == "trade_date_or_range"
+    assert actions["daily.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["daily.maintain"]["time_form"]["selection_rule"] == "trading_day_only"
+    assert actions["daily.maintain"]["action_type"] == "dataset_action"
+    assert actions["daily.maintain"]["route_keys"] == ["daily.maintain"]
 
-    assert actions["stk_period_bar_week"]["time_form"]["selection_rule"] == "week_last_trading_day"
-    assert actions["stk_period_bar_month"]["time_form"]["selection_rule"] == "month_last_trading_day"
-    assert actions["dividend"]["time_form"]["control"] == "calendar_date_or_range"
-    assert actions["dividend"]["time_form"]["allowed_modes"] == ["range"]
-    assert actions["broker_recommend"]["time_form"]["control"] == "month_or_range"
-    assert actions["broker_recommend"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["index_weight"]["time_form"]["control"] == "month_window_range"
-    assert actions["index_weight"]["time_form"]["allowed_modes"] == ["range"]
-    assert actions["stock_basic"]["time_form"]["control"] == "none"
-    assert actions["stock_basic"]["time_form"]["allowed_modes"] == ["none"]
+    assert actions["stk_period_bar_week.maintain"]["time_form"]["selection_rule"] == "week_last_trading_day"
+    assert actions["stk_period_bar_month.maintain"]["time_form"]["selection_rule"] == "month_last_trading_day"
+    assert actions["dividend.maintain"]["time_form"]["control"] == "calendar_date_or_range"
+    assert actions["dividend.maintain"]["time_form"]["allowed_modes"] == ["range"]
+    assert actions["broker_recommend.maintain"]["time_form"]["control"] == "month_or_range"
+    assert actions["broker_recommend.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["index_weight.maintain"]["time_form"]["control"] == "month_window_range"
+    assert actions["index_weight.maintain"]["time_form"]["allowed_modes"] == ["range"]
+    assert actions["stock_basic.maintain"]["time_form"]["control"] == "none"
+    assert actions["stock_basic.maintain"]["time_form"]["allowed_modes"] == ["none"]
 
-    dc_hot_filter_keys = [item["key"] for item in actions["dc_hot"]["filters"]]
+    dc_hot_filter_keys = [item["key"] for item in actions["dc_hot.maintain"]["filters"]]
     assert dc_hot_filter_keys == ["ts_code", "market", "hot_type", "is_new"]
     assert "offset" not in dc_hot_filter_keys
     assert "limit" not in dc_hot_filter_keys
 
-    assert actions["stk_mins"]["time_form"]["control"] == "trade_date_or_range"
-    assert actions["stk_mins"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["stk_mins"]["route_spec_keys"] == ["stk_mins.maintain"]
-    stk_mins_filter_keys = [item["key"] for item in actions["stk_mins"]["filters"]]
+    assert actions["stk_mins.maintain"]["time_form"]["control"] == "trade_date_or_range"
+    assert actions["stk_mins.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["stk_mins.maintain"]["route_keys"] == ["stk_mins.maintain"]
+    stk_mins_filter_keys = [item["key"] for item in actions["stk_mins.maintain"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 
-    suspend_d_filters = {item["key"]: item for item in actions["suspend_d"]["filters"]}
+    suspend_d_filters = {item["key"]: item for item in actions["suspend_d.maintain"]["filters"]}
     assert suspend_d_filters["suspend_type"]["param_type"] == "enum"
     assert suspend_d_filters["suspend_type"]["multi_value"] is True
     assert suspend_d_filters["suspend_type"]["options"] == ["S", "R"]
 
-    dc_member_filters = {item["key"]: item for item in actions["dc_member"]["filters"]}
+    dc_member_filters = {item["key"]: item for item in actions["dc_member.maintain"]["filters"]}
     assert dc_member_filters["idx_type"]["param_type"] == "enum"
     assert dc_member_filters["idx_type"]["multi_value"] is True
     assert dc_member_filters["idx_type"]["options"] == ["行业板块", "概念板块", "地域板块"]
 
 
-def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/daily/task-runs",
+        "/api/v1/ops/manual-actions/daily.maintain/task-runs",
         headers=headers,
         json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": {}},
     )
@@ -97,13 +101,22 @@ def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory) 
     assert payload["run"]["status"] == "queued"
     assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
     assert payload["run"]["filters"] == {}
+    task_run = db_session.scalar(select(TaskRun).where(TaskRun.id == payload["run"]["id"]))
+    assert task_run is not None
+    assert task_run.request_payload_json == {
+        "task_type": "dataset_action",
+        "resource_key": "daily",
+        "action": "maintain",
+        "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+        "filters": {},
+    }
 
 
 def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dc_hot/task-runs",
+        "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
@@ -126,7 +139,7 @@ def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, use
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dc_hot/task-runs",
+        "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "point", "trade_date": "2026-04-24"},
@@ -149,7 +162,7 @@ def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/stk_mins/task-runs",
+        "/api/v1/ops/manual-actions/stk_mins.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
@@ -168,7 +181,7 @@ def test_ops_manual_action_task_run_routes_natural_day_range_to_dataset_action(a
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/dividend/task-runs",
+        "/api/v1/ops/manual-actions/dividend.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"},
@@ -187,17 +200,17 @@ def test_ops_manual_action_task_run_supports_month_and_month_window(app_client, 
     headers = _admin_headers(app_client, user_factory)
 
     month_point = app_client.post(
-        "/api/v1/ops/manual-actions/broker_recommend/task-runs",
+        "/api/v1/ops/manual-actions/broker_recommend.maintain/task-runs",
         headers=headers,
         json={"time_input": {"mode": "point", "month": "2026-04"}, "filters": {}},
     )
     month_range = app_client.post(
-        "/api/v1/ops/manual-actions/broker_recommend/task-runs",
+        "/api/v1/ops/manual-actions/broker_recommend.maintain/task-runs",
         headers=headers,
         json={"time_input": {"mode": "range", "start_month": "2026-04", "end_month": "2026-06"}, "filters": {}},
     )
     month_window = app_client.post(
-        "/api/v1/ops/manual-actions/index_weight/task-runs",
+        "/api/v1/ops/manual-actions/index_weight.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "range", "start_month": "2026-04", "end_month": "2026-06"},
@@ -225,7 +238,7 @@ def test_ops_manual_action_task_run_rejects_unknown_filter(app_client, user_fact
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/daily/task-runs",
+        "/api/v1/ops/manual-actions/daily.maintain/task-runs",
         headers=headers,
         json={
             "time_input": {"mode": "point", "trade_date": "2026-04-24"},

@@ -108,7 +108,7 @@ describe("V2.1 数据源详情页", () => {
                   recent_failure_message: null,
                   recent_failure_summary: null,
                   recent_failure_at: null,
-                  primary_execution_spec_key: "daily.maintain",
+                  primary_action_key: "daily.maintain",
                   auto_schedule_status: "active",
                   auto_schedule_total: 1,
                   auto_schedule_active: 1,
@@ -135,7 +135,7 @@ describe("V2.1 数据源详情页", () => {
                   recent_failure_message: null,
                   recent_failure_summary: null,
                   recent_failure_at: null,
-                  primary_execution_spec_key: "stk_factor_pro.maintain",
+                  primary_action_key: "stk_factor_pro.maintain",
                   auto_schedule_status: "none",
                   auto_schedule_total: 0,
                   auto_schedule_active: 0,
@@ -217,7 +217,7 @@ describe("V2.1 数据源详情页", () => {
     expect(await screen.findByText("自动探测")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "去操作" })).toHaveAttribute(
       "href",
-      "/app/ops/v21/datasets/tasks?tab=manual&spec_key=stk_factor_pro.maintain&spec_type=dataset_action",
+      "/app/ops/v21/datasets/tasks?tab=manual&action_key=stk_factor_pro.maintain&action_type=dataset_action",
     );
     const datasetCard = screen.getByText("股票日线").closest("[data-with-border='true']");
     expect(datasetCard).not.toBeNull();

@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
-from src.ops.services.task_run_sync_context import TaskRunSyncContext
+from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 
 
 class StubDispatcher:
@@ -35,6 +35,8 @@ def test_scheduler_enqueues_due_once_schedule(db_session, job_schedule_factory) 
     assert created[0].schedule_id == schedule.id
     assert created[0].task_type == "dataset_action"
     assert created[0].resource_key == "stock_basic"
+    assert "spec_key" not in created[0].request_payload_json
+    assert "spec_type" not in created[0].request_payload_json
     refreshed = db_session.get(type(schedule), schedule.id)
     assert refreshed is not None
     assert refreshed.status == "paused"
@@ -125,7 +127,7 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
     task_run.current_node_id = node.id
     db_session.commit()
 
-    TaskRunSyncContext(db_session).update_progress(
+    TaskRunIngestionContext(db_session).update_progress(
         execution_id=task_run.id,
         current=1,
         total=5,

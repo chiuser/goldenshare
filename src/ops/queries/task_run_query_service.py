@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
+from src.foundation.datasets.registry import get_dataset_definition
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -134,6 +135,7 @@ class TaskRunQueryService:
                 id=task_run.id,
                 task_type=task_run.task_type,
                 resource_key=task_run.resource_key,
+                action_key=self._action_key(task_run),
                 action=task_run.action,
                 title=task_run.title,
                 trigger_source=task_run.trigger_source,
@@ -212,6 +214,7 @@ class TaskRunQueryService:
             id=task_run.id,
             task_type=task_run.task_type,
             resource_key=task_run.resource_key,
+            action_key=self._action_key(task_run),
             action=task_run.action,
             title=task_run.title,
             trigger_source=task_run.trigger_source,
@@ -234,6 +237,16 @@ class TaskRunQueryService:
             primary_issue_id=task_run.primary_issue_id,
             primary_issue_title=issue_title,
         )
+
+    @staticmethod
+    def _action_key(task_run: TaskRun) -> str | None:
+        if task_run.task_type == "dataset_action" and task_run.resource_key:
+            try:
+                return get_dataset_definition(task_run.resource_key).action_key(task_run.action or "maintain")
+            except KeyError:
+                return None
+        spec_key = str((task_run.request_payload_json or {}).get("spec_key") or "").strip()
+        return spec_key or None
 
     def _issue_summary(self, issue: TaskRunIssue | None) -> TaskRunIssueSummary | None:
         if issue is None:

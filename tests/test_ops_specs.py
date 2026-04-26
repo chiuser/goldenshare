@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
+from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key, list_dataset_definitions
 from src.ops.specs.registry import JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY, get_ops_spec, get_ops_spec_display_name
 
 
@@ -30,8 +30,9 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
             if step.job_key.startswith("maintenance."):
                 assert step.job_key in JOB_SPEC_REGISTRY
                 continue
-            assert step.job_key.endswith(".maintain")
-            assert step.job_key.removesuffix(".maintain") in dataset_keys
+            definition, action = get_dataset_definition_by_action_key(step.job_key)
+            assert action == "maintain"
+            assert definition.dataset_key in dataset_keys
 
 
 def test_ops_spec_display_name_uses_dataset_action_language() -> None:
@@ -39,6 +40,6 @@ def test_ops_spec_display_name_uses_dataset_action_language() -> None:
     assert get_ops_spec_display_name("dataset_action", "daily.maintain") == "维护股票日线"
 
 
-def test_dataset_action_spec_must_use_maintain_suffix() -> None:
+def test_dataset_action_spec_must_be_known_action_key() -> None:
     assert get_ops_spec("dataset_action", "daily") is None
     assert get_ops_spec_display_name("dataset_action", "daily") is None

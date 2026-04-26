@@ -41,4 +41,3 @@
 1. `/Users/congming/github/goldenshare/src/foundation/AGENTS.md`
 2. `/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md`
 3. `/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md`
-4. `/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md`

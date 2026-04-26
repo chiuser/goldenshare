@@ -3,15 +3,15 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
-class SyncCodebookItem(BaseModel):
+class IngestionCodebookItem(BaseModel):
     code: str
     label: str
     phase: str | None = None
     suggested_action: str | None = None
 
 
-class SyncCodebookResponse(BaseModel):
+class IngestionCodebookResponse(BaseModel):
     version: str
     updated_at: str
-    error_codes: list[SyncCodebookItem]
-    reason_codes: list[SyncCodebookItem]
+    error_codes: list[IngestionCodebookItem]
+    reason_codes: list[IngestionCodebookItem]

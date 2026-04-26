@@ -453,7 +453,7 @@ function mockTaskManual(route: Route, pathname: string) {
           group_order: 20,
           actions: [
             {
-              action_key: "daily",
+              action_key: "daily.maintain",
               action_type: "dataset_action",
               display_name: "维护股票日线",
               description: "维护股票日线数据。",
@@ -479,7 +479,7 @@ function mockTaskManual(route: Route, pathname: string) {
               filters: [],
               search_keywords: ["daily", "股票日线"],
               action_order: 100,
-              route_spec_keys: ["daily.maintain"],
+              route_keys: ["daily.maintain"],
             },
           ],
         },
@@ -541,6 +541,7 @@ function mockTaskAuto(route: Route, pathname: string) {
           id: 201,
           spec_key: "daily.maintain",
           spec_display_name: "维护股票日线",
+          target_display_name: "股票日线",
           display_name: "股票日线自动同步",
           status: "active",
           schedule_type: "cron",
@@ -560,6 +561,7 @@ function mockTaskAuto(route: Route, pathname: string) {
       spec_type: "dataset_action",
       spec_key: "daily.maintain",
       spec_display_name: "维护股票日线",
+      target_display_name: "股票日线",
       display_name: "股票日线自动同步",
       status: "active",
       schedule_type: "cron",

@@ -38,7 +38,7 @@ class ManualActionItemResponse(BaseModel):
     filters: list[ParameterSpecResponse]
     search_keywords: list[str]
     action_order: int
-    route_spec_keys: list[str]
+    route_keys: list[str]
 
 
 class ManualActionGroupResponse(BaseModel):

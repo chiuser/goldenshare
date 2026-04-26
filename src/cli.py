@@ -13,11 +13,11 @@ from src.cli_parts.shared import (
     attach_cli_progress_reporter as _attach_cli_progress_reporter_impl,
     auto_reconcile_stale_task_runs as _auto_reconcile_stale_task_runs_impl,
     open_task_run_counts as _open_task_run_counts_impl,
-    prepare_sync_kwargs_for_service as _prepare_sync_kwargs_for_service_impl,
-    resolve_default_sync_date as _resolve_default_sync_date_impl,
+    prepare_ingestion_kwargs_for_service as _prepare_ingestion_kwargs_for_service_impl,
+    resolve_default_maintenance_date as _resolve_default_maintenance_date_impl,
 )
-from src.cli_parts.sync_handlers import (
-    run_sync_snapshot as _run_sync_snapshot_impl,
+from src.cli_parts.ingestion_handlers import (
+    run_ingestion_snapshot as _run_ingestion_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
@@ -70,8 +70,8 @@ def _alembic_config() -> Config:
     return config
 
 
-def _resolve_default_sync_date(session) -> date:
-    return _resolve_default_sync_date_impl(
+def _resolve_default_maintenance_date(session) -> date:
+    return _resolve_default_maintenance_date_impl(
         session,
         build_maintain_service_fn=build_dataset_maintain_service,
         default_exchange=get_settings().default_exchange,
@@ -96,8 +96,8 @@ def _auto_reconcile_stale_task_runs(
     )
 
 
-def _prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
-    return _prepare_sync_kwargs_for_service_impl(service, kwargs)
+def _prepare_ingestion_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
+    return _prepare_ingestion_kwargs_for_service_impl(service, kwargs)
 
 
 def _attach_cli_progress_reporter(service, *, resource: str) -> None:
@@ -160,8 +160,8 @@ def validate_serving_coverage_cmd() -> None:
     raise typer.Exit(code=1)
 
 
-@app.command("sync-snapshot")
-def sync_snapshot(
+@app.command("maintain-dataset")
+def maintain_dataset(
     resources: list[str] = typer.Option(..., "--resources", "-r"),
     source_key: str | None = typer.Option(None, "--source-key", help="Optional source selector, e.g. tushare/biying/all."),
     ts_code: str | None = typer.Option(None),
@@ -179,11 +179,11 @@ def sync_snapshot(
     tag: str | None = typer.Option(None, "--tag", help="Optional tag filter for kpl_list."),
     limit_type: str | None = typer.Option(None, "--limit-type", help="Optional limit list type filter."),
 ) -> None:
-    _run_sync_snapshot_impl(
+    _run_ingestion_snapshot_impl(
         session_local=SessionLocal,
         build_maintain_service_fn=build_dataset_maintain_service,
         attach_progress_fn=_attach_cli_progress_reporter,
-        prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
+        prepare_kwargs_fn=_prepare_ingestion_kwargs_for_service,
         snapshot_service_cls=DatasetStatusSnapshotService,
         resources=resources,
         source_key=source_key,

@@ -8,13 +8,13 @@
 
 ## 1. 一句话结论
 
-手动维护任务只允许暴露“维护动作”给用户；日期语义必须从 `DatasetSyncContract.date_model` 派生；后端只新增 action 到现有 spec 的解析层，第一阶段不改变真实同步执行路径。
+手动维护任务只允许暴露“维护动作”给用户；日期语义、输入条件和动作键必须从 `DatasetDefinition` 派生；后端通过 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor` 执行，不再把旧执行分支或旧 spec 口径暴露给页面。
 
 目标三层模型：
 
 1. `ManualAction`：用户看到的“维护什么数据”
-2. `DatasetSyncContract.date_model`：数据集日期语义的单一事实源
-3. `ExecutionRoute`：后端内部把 action 解析到现有 `spec_type/spec_key/params_json`
+2. `DatasetDefinition.date_model`：数据集日期语义的单一事实源
+3. `DatasetActionRequest`：后端内部把 action、time_input、filters 解析为执行计划
 
 ---
 
@@ -25,7 +25,7 @@
 3. 前端不再持有 `syncDailySpecKey / backfillSpecKey / directSpecKey`。
 4. `/api/v1/ops/catalog` 保留为系统级 spec catalog。
 5. `/api/v1/ops/manual-actions` 是新增的手动维护专用用户动作 catalog，不替代 `catalog`。
-6. 第一阶段 route resolver 只镜像现有真实执行路径，不改 `registry`、不改 `dispatcher`、不合并底层执行实现。
+6. 手动 dataset action 提交直接创建 TaskRun，不再先还原成旧 `spec_type/spec_key` 执行路径。
 7. 日期输入、控件选择、单点/区间能力从 `date_model.window_mode/input_shape/date_axis/bucket_rule` 派生，不新增第二套日期规则表。
 
 ---
@@ -36,7 +36,7 @@
 
 1. 手动任务页：构造当前过渡期手动维护对象。
 2. 自动任务页：创建和编辑 schedule，仍需要系统级 `job/workflow spec`。
-3. 任务记录页：提供 `spec_key` 筛选项。
+3. 任务记录页：使用 TaskRun API 返回的结构化 `action_key/resource_display_name/action_display_name` 做筛选和展示，不从 key 反推名称。
 
 因此，目标态不是删除 `catalog`，而是：
 
@@ -68,8 +68,8 @@ GET /api/v1/ops/manual-actions
       "group_order": 20,
       "actions": [
         {
-          "action_key": "daily",
-          "action_type": "job",
+          "action_key": "daily.maintain",
+          "action_type": "dataset_action",
           "display_name": "维护股票日线",
           "description": "维护股票日线数据",
           "resource_key": "daily",
@@ -94,11 +94,7 @@ GET /api/v1/ops/manual-actions
           "filters": [],
           "search_keywords": ["daily", "股票日线", "日线"],
           "action_order": 100,
-          "route_spec_keys": [
-            "sync_daily.daily",
-            "backfill_equity_series.daily",
-            "sync_history.daily"
-          ]
+          "route_keys": ["daily.maintain"]
         }
       ]
     }
@@ -108,16 +104,16 @@ GET /api/v1/ops/manual-actions
 
 说明：
 
-1. `route_spec_keys` 只用于“从任务记录 / 自动任务配置返回手动页时”的上下文匹配。
-2. 前端不得用 `route_spec_keys` 自行决定执行路径；提交时仍必须调用 `POST /ops/manual-actions/{action_key}/executions`。
-3. 真正的 `spec_type/spec_key/params_json` 解析只允许在后端 resolver 中完成。
+1. `route_keys` 只用于“从任务记录 / 自动任务配置返回手动页时”的上下文匹配。
+2. 前端不得用 `route_keys` 自行决定执行路径；提交时仍必须调用 `POST /ops/manual-actions/{action_key}/task-runs`。
+3. `route_keys` 只表达“哪些后端返回的 action/workflow key 可以回填到这个用户动作”，不表达执行路径。
 
-### 4.2 按 action 发起 execution
+### 4.2 按 action 发起 TaskRun
 
 新增：
 
 ```text
-POST /api/v1/ops/manual-actions/{action_key}/executions
+POST /api/v1/ops/manual-actions/{action_key}/task-runs
 ```
 
 请求体统一外壳：
@@ -133,15 +129,15 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 
 1. `time_input` 只表达日期、月份或无日期输入。
 2. `filters` 只表达对象筛选和附加参数，例如 `ts_code`、`exchange`、`con_code`。
-3. 后端用 `action_key + time_input + filters` 解析为现有 `spec_type/spec_key/params_json`，再复用现有 execution 创建链路。
-4. 返回继续复用 `ExecutionDetailResponse`。
-5. 第一阶段已落地的后端路由只做解析层，不修改 `registry` / `dispatcher` / 同步服务执行路径。
+3. 后端用 `action_key + time_input + filters` 创建 `TaskRunCreateContext`。
+4. 返回 `TaskRunViewResponse`。
+5. Dataset action 进入 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor` 主链，不再降级为旧执行路径。
 
 ---
 
 ## 5. `date_model` 到表单的映射
 
-手动维护页不再维护自己的日期规则。后端 API 必须从 `DatasetSyncContract.date_model` 派生表单契约，前端只消费 API 返回值。
+手动维护页不再维护自己的日期规则。后端 API 必须从 `DatasetDefinition.date_model` 派生表单契约，前端只消费 API 返回值。
 
 | `input_shape` | 控件 | `time_input` | 选择规则 |
 |---|---|---|---|
@@ -154,8 +150,8 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 补充：
 
 1. `ann_date_or_start_end` 当前用于 `dividend` / `stk_holdernumber`，前端展示为自然日区间。
-2. 低频事件的自然日区间提交后，后端解析到现有 `sync_history.<resource>` 路径，并传入 `start_date/end_date`。
-3. `start_end_month_window` 当前用于 `index_weight`，前端提交 `start_month/end_month`，后端转换为自然月首日到末日的 `start_date/end_date`，再进入现有指数回补路径。
+2. 低频事件的自然日区间提交后，后端保留自然日 `start_date/end_date`，由 DatasetExecutionPlan 执行自然日 unit 规划。
+3. `start_end_month_window` 当前用于 `index_weight`，前端提交 `start_month/end_month`，后端转换为自然月首日到末日的 `start_date/end_date`，再由 DatasetExecutionPlan 生成指数权重维护 unit。
 
 `bucket_rule` 映射：
 
@@ -258,26 +254,26 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 
 ## 7. 执行路径原则
 
-第一阶段新增 `ManualActionResolver`，但不改变真实执行路径。
+现行手动维护路径已经切到 TaskRun + DatasetExecutionPlan：
 
 要求：
 
-1. `ManualActionResolver` 输出现有 `spec_type/spec_key/params_json`。
-2. 输出结果必须继续进入现有 execution 创建链路。
-3. 不改 `src/ops/runtime/dispatcher.py` 的 category 分发逻辑。
-4. 不改 `src/ops/specs/registry.py` 的现有 spec 注册结构。
-5. 不把单日请求强行统一改走区间 route，除非当前 action 现状已经只能通过区间 route 承接。
+1. `ManualActionTaskRunResolver` 只负责把 `time_input/filters` 规范化为 TaskRun 上下文。
+2. Dataset action 不再输出 `spec_type/spec_key/params_json`，也不再进入旧 execution 创建链路。
+3. `TaskRunDispatcher` 根据 `task_run.task_type=dataset_action` 创建 `DatasetActionRequest`。
+4. `DatasetActionResolver` 只读取 `DatasetDefinition` 生成 `DatasetExecutionPlan`。
+5. `IngestionExecutor` 只消费 plan units，不按旧入口名称分支。
 
 示例：
 
-| action | time input | 第一阶段解析 |
+| action | time input | 现行解析 |
 |---|---|---|
-| `daily` | `trade_date` | `sync_daily.daily` |
-| `daily` | `start_date/end_date` | `backfill_equity_series.daily` |
-| `trade_cal` | `start_date/end_date` | `backfill_trade_cal.trade_cal` |
-| `broker_recommend` | `month` | `sync_daily.broker_recommend` |
-| `broker_recommend` | `start_month/end_month` | `backfill_by_month.broker_recommend` |
-| `stock_basic` | `none` | `sync_history.stock_basic` |
+| `daily.maintain` | `trade_date` | `DatasetActionRequest(mode=point)` |
+| `daily.maintain` | `start_date/end_date` | `DatasetActionRequest(mode=range)` |
+| `trade_cal.maintain` | `start_date/end_date` | `DatasetActionRequest(mode=range)` |
+| `broker_recommend.maintain` | `month` | `DatasetActionRequest(mode=point, month=YYYYMM)` |
+| `broker_recommend.maintain` | `start_month/end_month` | `DatasetActionRequest(mode=range, start_month/end_month)` |
+| `stock_basic.maintain` | `none` | `DatasetActionRequest(mode=none)` |
 
 ---
 
@@ -308,14 +304,14 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 交付：
 
 1. `GET /api/v1/ops/manual-actions`
-2. 从现有 spec 与 `DatasetSyncContract.date_model` 构建 action 目录
+2. 从现有 spec 与 `DatasetDefinition.date_model` 构建 action 目录
 3. API 测试
 
 ### M3：ManualAction Resolver 与创建 API
 
 交付：
 
-1. `POST /api/v1/ops/manual-actions/{action_key}/executions`
+1. `POST /api/v1/ops/manual-actions/{action_key}/task-runs`
 2. `ManualActionResolver`
 3. resolver 测试和 Web API 测试
 
@@ -324,7 +320,7 @@ POST /api/v1/ops/manual-actions/{action_key}/executions
 交付：
 
 1. 手动任务页改用 `GET /ops/manual-actions`
-2. 提交改用 `POST /ops/manual-actions/{action_key}/executions`
+2. 提交改用 `POST /ops/manual-actions/{action_key}/task-runs`
 3. 页面移除底层 spec 分支字段
 4. 日期控件按 `time_form` 渲染
 5. 页测和 smoke 回归
@@ -368,8 +364,7 @@ python3 scripts/check_docs_integrity.py
 
 ## 10. 风险控制
 
-1. 不把用户动作模型收敛和底层执行路径重构绑在一轮。
-2. 不在前端复制 `date_model` 规则。
-3. 不删除 `/ops/catalog`。
-4. 不在第一阶段更改自动任务页的 spec-centric 模型。
-5. 不在第一阶段重写 `dispatcher`。
+1. 不在前端复制 `date_model` 规则。
+2. 不删除 `/ops/catalog`，自动任务仍需要系统级 catalog。
+3. 自动任务页可以继续保存 schedule 的 `spec_type/spec_key` 调度键，但页面显示必须使用后端返回的结构化名称。
+4. 不允许手动任务、任务记录或任务详情把旧执行路径作为用户主语。

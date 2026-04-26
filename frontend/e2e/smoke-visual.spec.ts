@@ -81,7 +81,7 @@ test.describe("Phase 2 smoke and visual gate", () => {
       );
     });
     await installApiMocks(page, "task-manual");
-    await page.goto("/app/ops/v21/datasets/tasks?tab=manual&spec_key=daily.maintain&spec_type=dataset_action&trade_date=2026-04-17");
+    await page.goto("/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action&trade_date=2026-04-17");
     await expect(page.getByText("维护股票日线", { exact: true }).first()).toBeVisible();
     await expect(page.getByLabel("选择日期")).toBeVisible();
     await page.getByRole("button", { name: "选择日期" }).click();

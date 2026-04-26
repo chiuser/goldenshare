@@ -37,7 +37,6 @@ import { buildManualTaskHref } from "../shared/ops-links";
 import {
   formatRevisionActionLabel,
   formatScheduleTypeLabel,
-  formatSpecDisplayLabel,
   formatTimezoneLabel,
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
@@ -57,41 +56,14 @@ import { StatusBadge } from "../shared/ui/status-badge";
 import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
+type CatalogJobSpec = OpsCatalogResponse["job_specs"][number];
+type CatalogWorkflowSpec = OpsCatalogResponse["workflow_specs"][number];
 type CatalogParamSpec = NonNullable<OpsCatalogResponse["job_specs"][number]["supported_params"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
-const REFERENCE_RESOURCES = new Set(["stock_basic", "trade_cal", "etf_basic", "etf_index", "index_basic", "hk_basic", "us_basic", "ths_index", "ths_member", "broker_recommend"]);
-const EQUITY_RESOURCES = new Set([
-  "daily",
-  "adj_factor",
-  "daily_basic",
-  "top_list",
-  "block_trade",
-  "limit_list_d",
-  "stk_period_bar_week",
-  "stk_period_bar_month",
-  "stk_period_bar_adj_week",
-  "stk_period_bar_adj_month",
-]);
-const MONEYFLOW_RESOURCES = new Set([
-  "moneyflow",
-  "moneyflow_ths",
-  "moneyflow_dc",
-  "moneyflow_cnt_ths",
-  "moneyflow_ind_ths",
-  "moneyflow_ind_dc",
-  "moneyflow_mkt_dc",
-]);
-const FUND_RESOURCES = new Set(["fund_daily", "fund_adj"]);
-const INDEX_RESOURCES = new Set(["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]);
-const BOARD_RESOURCES = new Set(["ths_daily", "dc_index", "dc_member", "dc_daily", "kpl_concept_cons"]);
-const RANKING_RESOURCES = new Set(["ths_hot", "dc_hot", "kpl_list", "limit_list_ths", "limit_step", "limit_cpt_list"]);
-const EVENT_RESOURCES = new Set(["dividend", "stk_holdernumber"]);
-const WEEKLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_week", "stk_period_bar_adj_week"]);
-const MONTHLY_ANCHOR_RESOURCES = new Set(["stk_period_bar_month", "stk_period_bar_adj_month"]);
 
 const emptyForm = {
   id: null as number | null,
@@ -125,14 +97,6 @@ const emptyForm = {
 
 function normalizeParamOptions(options: string[] | undefined) {
   return Array.isArray(options) ? options : [];
-}
-
-function extractResourceKeyFromSpecKey(specKey: string): string {
-  if (specKey.endsWith(".maintain")) {
-    return specKey.slice(0, -".maintain".length);
-  }
-  const parts = specKey.split(".");
-  return parts.length >= 2 ? parts[1] : specKey;
 }
 
 function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
@@ -268,29 +232,6 @@ function formatTriggerModeLabel(triggerMode: string): string {
   return "定时触发";
 }
 
-function formatParamLabel(key: string): string {
-  const map: Record<string, string> = {
-    trade_date: "交易日",
-    start_date: "开始日期",
-    end_date: "结束日期",
-    ts_code: "证券代码",
-    con_code: "板块代码",
-    index_code: "指数代码",
-    market: "市场",
-    tag: "标签",
-    type: "类型",
-    hot_type: "热榜类型",
-    is_new: "最新标记",
-    exchange: "交易所",
-    exchange_id: "交易所",
-    content_type: "板块类型",
-    month: "月份",
-    start_month: "开始月份",
-    end_month: "结束月份",
-  };
-  return map[key] || key;
-}
-
 function formatParamValue(value: unknown): string {
   if (value === null || value === undefined || value === "") {
     return "未填写";
@@ -304,24 +245,47 @@ function formatParamValue(value: unknown): string {
   return String(value);
 }
 
-function inferSpecDomain(specType: string, specKey: string, category: string | null): string {
-  if (specType === "workflow") {
-    return "工作流";
+function getCatalogJobLabel(item: CatalogJobSpec): string {
+  return item.resource_display_name || item.display_name;
+}
+
+function getScheduleTargetLabel(item: { target_display_name?: string | null; spec_display_name?: string | null; display_name: string }): string {
+  return item.target_display_name || item.spec_display_name || item.display_name;
+}
+
+function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
+  if (rule === "week_last_trading_day") {
+    return "week_last_trading_day";
   }
-  if (category === "maintenance") {
-    return "维护动作";
+  if (rule === "month_last_trading_day" || rule === "month_end") {
+    return "month_end";
   }
-  const resourceKey = specKey.includes(".") ? specKey.split(".")[1] : specKey;
-  const normalizedResourceKey = specKey.endsWith(".maintain") ? specKey.slice(0, -".maintain".length) : resourceKey;
-  if (REFERENCE_RESOURCES.has(normalizedResourceKey)) return "基础主数据";
-  if (MONEYFLOW_RESOURCES.has(normalizedResourceKey)) return "资金流向";
-  if (EQUITY_RESOURCES.has(normalizedResourceKey)) return "股票";
-  if (FUND_RESOURCES.has(normalizedResourceKey)) return "ETF/Fund";
-  if (INDEX_RESOURCES.has(normalizedResourceKey)) return "指数";
-  if (BOARD_RESOURCES.has(normalizedResourceKey)) return "板块";
-  if (RANKING_RESOURCES.has(normalizedResourceKey)) return "榜单";
-  if (EVENT_RESOURCES.has(normalizedResourceKey)) return "低频事件";
-  return "其他";
+  return "any";
+}
+
+function findCatalogJobSpec(catalog: OpsCatalogResponse | undefined, specType: string, specKey: string): CatalogJobSpec | null {
+  if (!catalog || !(specType === "job" || specType === "dataset_action")) {
+    return null;
+  }
+  return catalog.job_specs.find((item) => item.key === specKey) || null;
+}
+
+function findCatalogWorkflowSpec(catalog: OpsCatalogResponse | undefined, specType: string, specKey: string): CatalogWorkflowSpec | null {
+  if (!catalog || specType !== "workflow") {
+    return null;
+  }
+  return catalog.workflow_specs.find((item) => item.key === specKey) || null;
+}
+
+function buildParamLabelMap(
+  catalog: OpsCatalogResponse | undefined,
+  specType: string,
+  specKey: string,
+): Map<string, string> {
+  const jobSpec = findCatalogJobSpec(catalog, specType, specKey);
+  const workflowSpec = findCatalogWorkflowSpec(catalog, specType, specKey);
+  const params = jobSpec?.supported_params || workflowSpec?.supported_params || [];
+  return new Map(params.map((param) => [param.key, param.display_name]));
 }
 
 export function OpsAutomationPage() {
@@ -415,15 +379,15 @@ export function OpsAutomationPage() {
         .filter((item) => item.supports_schedule !== false)
         .map((item) => ({
           value: `${item.spec_type || "job"}:${item.key}`,
-          label: `${item.spec_type === "dataset_action" ? "【数据】" : "【任务】"}${formatSpecDisplayLabel(item.key, item.display_name)}`,
-          domain: inferSpecDomain(item.spec_type || "job", item.key, item.category),
+          label: `${item.spec_type === "dataset_action" ? "【数据】" : "【任务】"}${getCatalogJobLabel(item)}`,
+          domain: item.domain_display_name || item.category || "其他",
         })),
       ...catalogQuery.data.workflow_specs
         .filter((item) => item.supports_schedule !== false)
         .map((item) => ({
           value: `workflow:${item.key}`,
-          label: `【流程】${formatSpecDisplayLabel(item.key, item.display_name)}`,
-          domain: inferSpecDomain("workflow", item.key, null),
+          label: `【流程】${item.display_name}`,
+          domain: item.domain_display_name || "工作流",
         })),
     ];
   }, [catalogQuery.data]);
@@ -459,18 +423,20 @@ export function OpsAutomationPage() {
         : null,
     [catalogQuery.data, form.spec_key, form.spec_type],
   );
+  const detailParamLabelMap = useMemo(
+    () =>
+      buildParamLabelMap(
+        catalogQuery.data,
+        detailQuery.data?.spec_type || "",
+        detailQuery.data?.spec_key || "",
+      ),
+    [catalogQuery.data, detailQuery.data?.spec_key, detailQuery.data?.spec_type],
+  );
   const selectedJobDateRule = useMemo<DateSelectionRule>(() => {
     if (!selectedJobSpec) {
       return "any";
     }
-    const resourceKey = extractResourceKeyFromSpecKey(selectedJobSpec.key);
-    if (WEEKLY_ANCHOR_RESOURCES.has(resourceKey)) {
-      return "week_last_trading_day";
-    }
-    if (MONTHLY_ANCHOR_RESOURCES.has(resourceKey)) {
-      return "month_end";
-    }
-    return "any";
+    return toDateSelectionRule(selectedJobSpec.date_selection_rule);
   }, [selectedJobSpec]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
@@ -492,10 +458,10 @@ export function OpsAutomationPage() {
       (catalogQuery.data?.job_specs || [])
         .filter((item) => (item.spec_type || "job") === "dataset_action" && item.resource_key)
         .map((item) => {
-          const datasetKey = item.resource_key || extractResourceKeyFromSpecKey(item.key);
+          const datasetKey = item.resource_key || "";
           return {
             value: datasetKey,
-            label: item.resource_display_name || formatSpecDisplayLabel(item.key, item.display_name),
+            label: getCatalogJobLabel(item),
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
@@ -564,7 +530,7 @@ export function OpsAutomationPage() {
       params.end_date = form.end_date;
     }
     if (form.spec_type === "dataset_action" && selectedJobSpec) {
-      const datasetKey = selectedJobSpec.resource_key || extractResourceKeyFromSpecKey(selectedJobSpec.key);
+      const datasetKey = selectedJobSpec.resource_key || "";
       const timeKeys = new Set(["trade_date", "start_date", "end_date", "month", "start_month", "end_month", "ann_date"]);
       const filters = Object.fromEntries(Object.entries(params).filter(([key]) => !timeKeys.has(key)));
       const timeInput: Record<string, unknown> = {};
@@ -663,7 +629,7 @@ export function OpsAutomationPage() {
       header: "执行对象",
       align: "left",
       width: "28%",
-      render: (item) => <OpsTableCellText size="xs">{formatSpecDisplayLabel(item.spec_key, item.spec_display_name)}</OpsTableCellText>,
+      render: (item) => <OpsTableCellText size="xs">{getScheduleTargetLabel(item)}</OpsTableCellText>,
     },
     {
       key: "status",
@@ -1034,7 +1000,7 @@ export function OpsAutomationPage() {
                   <Grid gutter="sm">
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <DetailInfoPanel label="执行对象">
-                        <Text size="sm">{formatSpecDisplayLabel(detailQuery.data.spec_key, detailQuery.data.spec_display_name)}</Text>
+                        <Text size="sm">{getScheduleTargetLabel(detailQuery.data)}</Text>
                       </DetailInfoPanel>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -1105,7 +1071,7 @@ export function OpsAutomationPage() {
                     {Object.keys(detailQuery.data.params_json || {}).length ? (
                       Object.entries(detailQuery.data.params_json || {}).map(([key, value]) => (
                         <Group key={key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
-                          <Text size="sm" c="dimmed">{formatParamLabel(key)}</Text>
+                          <Text size="sm" c="dimmed">{detailParamLabelMap.get(key) || key}</Text>
                           <Text size="sm" ta="right">{formatParamValue(value)}</Text>
                         </Group>
                       ))
@@ -1173,7 +1139,7 @@ export function OpsAutomationPage() {
                 title="最近一次自动任务操作"
                 rows={[
                   { label: "任务名称", value: lastAction.display_name },
-                  { label: "执行对象", value: formatSpecDisplayLabel(lastAction.spec_key, lastAction.spec_display_name) },
+                  { label: "执行对象", value: getScheduleTargetLabel(lastAction) },
                   { label: "当前状态", value: lastAction.status },
                   { label: "下次运行", value: formatDateTimeLabel(lastAction.next_run_at) },
                 ]}

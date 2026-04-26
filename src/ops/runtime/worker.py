@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.foundation.datasets.registry import get_dataset_action_key
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
@@ -213,6 +214,10 @@ class OperationsWorker:
     def _refresh_snapshot_for_task_run(session: Session, task_run: TaskRun) -> str | None:
         if task_run.task_type != "dataset_action" or not task_run.resource_key:
             return None
+        try:
+            action_key = get_dataset_action_key(task_run.resource_key, task_run.action or "maintain")
+        except KeyError as exc:
+            return str(exc)
         bind = session.get_bind()
         if bind is None:
             return "Database bind is unavailable for snapshot refresh."
@@ -221,11 +226,11 @@ class OperationsWorker:
                 refreshed = DatasetStatusSnapshotService().refresh_for_execution(
                     snapshot_session,
                     spec_type="dataset_action",
-                    spec_key=f"{task_run.resource_key}.maintain",
+                    spec_key=action_key,
                     strict=True,
                 )
             if refreshed <= 0:
-                return f"Snapshot refresh returned 0 rows for dataset_action:{task_run.resource_key}.maintain."
+                return f"Snapshot refresh returned 0 rows for dataset_action:{action_key}."
             return None
         except Exception as exc:
             return str(exc)

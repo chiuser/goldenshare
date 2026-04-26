@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
+from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion.execution_errors import ExecutionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
@@ -22,7 +23,7 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
-from src.ops.services.task_run_sync_context import TaskRunSyncContext
+from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 from src.ops.specs import get_job_spec, get_workflow_spec
 from src.utils import truncate_text
 
@@ -160,7 +161,15 @@ class TaskRunDispatcher:
             params = dict(task_run.request_payload_json or {})
             params.update(workflow_step.default_params)
             params.update(workflow_step.params_override)
-            step_resource_key = workflow_step.dataset_key or self._resource_key_from_spec_key(workflow_step.job_key)
+            step_resource_key = workflow_step.dataset_key
+            step_action_key = workflow_step.job_key
+            if step_resource_key is None:
+                try:
+                    step_definition, step_action = get_dataset_definition_by_action_key(workflow_step.job_key)
+                    step_resource_key = step_definition.dataset_key
+                    step_action_key = step_definition.action_key(step_action)
+                except KeyError:
+                    step_resource_key = None
             node = self._create_node(
                 session,
                 task_run_id=task_run.id,
@@ -175,8 +184,8 @@ class TaskRunDispatcher:
             task_run.current_node_id = node.id
             session.commit()
             try:
-                if workflow_step.job_key.endswith(".maintain"):
-                    step_run = self._step_task_run(task_run, workflow_step.job_key, step_resource_key, params)
+                if step_resource_key is not None:
+                    step_run = self._step_task_run(task_run, step_action_key, step_resource_key, params)
                     request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_run))
                     plan = DatasetActionResolver(session).build_plan(request)
                     rows_fetched, rows_saved, rows_rejected, message = self._run_dataset_action_plan(session, step_run, request, plan)
@@ -300,9 +309,9 @@ class TaskRunDispatcher:
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
-            execution_context=TaskRunSyncContext(session),
-            run_recorder=NullSyncRunRecorder(),
-            execution_result_store=NullSyncExecutionResultStore(),
+            execution_context=TaskRunIngestionContext(session),
+            run_recorder=NullRunRecorder(),
+            execution_result_store=NullExecutionResultStore(),
         )
         filters = dict(action_request.filters or {})
         time_input = action_request.time_input
@@ -324,7 +333,8 @@ class TaskRunDispatcher:
                 workflow_key=action_request.workflow_key,
                 execution_id=task_run.id,
             )
-        result = service.run_full(
+        result = service.maintain(
+            default_time_mode=None,
             execution_id=task_run.id,
             _plan=plan,
             _action_request=action_request,
@@ -699,7 +709,7 @@ class TaskRunDispatcher:
         return TaskRun(
             id=parent.id,
             task_type="dataset_action",
-            resource_key=resource_key or spec_key.rsplit(".", 1)[0],
+            resource_key=resource_key,
             action=str(params.get("action") or parent.action or "maintain"),
             title=parent.title,
             trigger_source=parent.trigger_source,
@@ -712,15 +722,6 @@ class TaskRunDispatcher:
             request_payload_json=dict(params or {}),
         )
 
-    @staticmethod
-    def _resource_key_from_spec_key(spec_key: str) -> str | None:
-        if spec_key.endswith(".maintain"):
-            return spec_key.rsplit(".", 1)[0]
-        if "." in spec_key:
-            return spec_key.split(".", 1)[1]
-        return None
-
-    @staticmethod
     def _resolve_maintenance_start_date(params: dict[str, Any]) -> date:
         value = params.get("start_date")
         if value is not None:

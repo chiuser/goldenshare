@@ -59,7 +59,7 @@ class ManualActionRoute:
     date_model: DatasetDateModel | None
     time_form: ManualActionTimeFormResponse
     filters: tuple[ParameterSpec, ...]
-    route_spec_keys: tuple[str, ...]
+    route_keys: tuple[str, ...]
     workflow_spec: WorkflowSpec | None = None
 
 
@@ -95,7 +95,8 @@ class ManualActionQueryService:
     def _build_resource_route(self, definition: DatasetDefinition) -> ManualActionRoute:
         date_model = definition.date_model
         group_key, group_label, group_order = self._group_meta_for_definition(definition)
-        display_name = f"维护{definition.display_name}"
+        action_key = definition.action_key("maintain")
+        display_name = definition.action_display_name("maintain")
         filters = self._collect_dataset_filters(definition.input_model.filters)
         action = definition.capabilities.get_action("maintain")
         supported_modes = set(action.supported_time_modes if action else ())
@@ -105,7 +106,7 @@ class ManualActionQueryService:
             supports_range_route="range" in supported_modes,
         )
         return ManualActionRoute(
-            action_key=definition.dataset_key,
+            action_key=action_key,
             action_type="dataset_action",
             group_key=group_key,
             group_label=group_label,
@@ -118,7 +119,7 @@ class ManualActionQueryService:
             date_model=date_model,
             time_form=time_form,
             filters=filters,
-            route_spec_keys=(f"{definition.dataset_key}.maintain",),
+            route_keys=(action_key,),
         )
 
     def _build_workflow_route(self, workflow: WorkflowSpec) -> ManualActionRoute:
@@ -137,7 +138,7 @@ class ManualActionQueryService:
             date_model=None,
             time_form=self._time_form_from_params(workflow.supported_params),
             filters=self._collect_filters((workflow.supported_params,)),
-            route_spec_keys=(workflow.key,),
+            route_keys=(workflow.key,),
             workflow_spec=workflow,
         )
 
@@ -247,19 +248,7 @@ class ManualActionQueryService:
 
     @staticmethod
     def _selection_rule(date_model: DatasetDateModel) -> str:
-        if date_model.bucket_rule == "week_last_open_day":
-            return "week_last_trading_day"
-        if date_model.bucket_rule == "month_last_open_day":
-            return "month_last_trading_day"
-        if date_model.bucket_rule == "every_natural_day":
-            return "calendar_day"
-        if date_model.bucket_rule == "every_natural_month":
-            return "month_key"
-        if date_model.bucket_rule == "month_window_has_data":
-            return "month_window"
-        if date_model.bucket_rule == "not_applicable":
-            return "none"
-        return "trading_day_only"
+        return date_model.selection_rule()
 
     @staticmethod
     def _group_meta_for_definition(definition: DatasetDefinition) -> tuple[str, str, int]:
@@ -269,50 +258,13 @@ class ManualActionQueryService:
     def _field_to_param_spec(field: DatasetInputField) -> ParameterSpec:
         return ParameterSpec(
             key=field.name,
-            display_name=field.display_name or ManualActionQueryService._field_display_name(field.name),
-            param_type=ManualActionQueryService._field_param_type(field),
+            display_name=field.display_label,
+            param_type=field.input_control_type,
             description=field.description,
             required=field.required,
             options=tuple(field.enum_values),
             multi_value=field.multi_value,
         )
-
-    @staticmethod
-    def _field_param_type(field: DatasetInputField) -> str:
-        if field.name in {"month", "start_month", "end_month"}:
-            return "month"
-        if field.field_type == "date" or field.name.endswith("_date") or field.name in {"date", "cal_date"}:
-            return "date"
-        if field.field_type in {"integer", "int"}:
-            return "integer"
-        if field.field_type in {"boolean", "bool"}:
-            return "boolean"
-        if field.enum_values:
-            return "enum"
-        return "string"
-
-    @staticmethod
-    def _field_display_name(field_name: str) -> str:
-        labels = {
-            "ts_code": "证券代码",
-            "index_code": "指数代码",
-            "con_code": "板块代码",
-            "market": "市场",
-            "hot_type": "热点类型",
-            "is_new": "日终标记",
-            "limit_type": "榜单类型",
-            "exchange": "交易所",
-            "exchange_id": "交易所",
-            "content_type": "板块类型",
-            "tag": "榜单标签",
-            "date_field": "日期字段",
-            "suspend_type": "停复牌类型",
-            "idx_type": "板块类型",
-            "type": "指数类型",
-            "list_status": "上市状态",
-            "classify": "分类",
-        }
-        return labels.get(field_name, field_name)
 
     @staticmethod
     def _to_date_model_response(date_model: DatasetDateModel | None) -> ManualActionDateModelResponse | None:
@@ -358,5 +310,5 @@ class ManualActionQueryService:
             filters=[self._to_param_response(param) for param in route.filters],
             search_keywords=list(dict.fromkeys(keywords)),
             action_order=route.action_order,
-            route_spec_keys=list(route.route_spec_keys),
+            route_keys=list(route.route_keys),
         )

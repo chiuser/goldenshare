@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.ops.specs.registry import JOB_SPEC_REGISTRY, WORKFLOW_SPEC_REGISTRY
 
@@ -37,6 +38,12 @@ def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None
         "sync" + "_history",
         "sync" + "_minute_history",
         "backfill" + "_",
+        "sync" + "_v2",
+        "Sync" + "V2",
+        "Dataset" + "Sync" + "Contract",
+        "get_" + "sync" + "_v2" + "_contract",
+        "build_" + "sync" + "_service",
+        "sync" + "_run" + "_log",
         "History" + "BackfillService",
         "history" + "_backfill_service",
     )
@@ -64,8 +71,46 @@ def test_workflows_and_job_specs_only_use_dataset_actions_or_maintenance_jobs() 
             if step.job_key.startswith("maintenance."):
                 assert step.job_key in JOB_SPEC_REGISTRY
                 continue
-            assert step.job_key.endswith(".maintain")
-            assert step.job_key.removesuffix(".maintain") in dataset_keys
+            definition, action = get_dataset_definition_by_action_key(step.job_key)
+            assert action == "maintain"
+            assert definition.dataset_key in dataset_keys
+
+
+def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
+    forbidden_tokens = (
+        "formatSpecDisplayLabel",
+        "formatResourceLabel",
+        "formatProgressMessageLabel",
+        "primary_execution_spec_key",
+        "route_spec_keys",
+    )
+    violations: list[str] = []
+    for root in (REPO_ROOT / "frontend/src",):
+        for path in _python_and_frontend_files(root):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "前端不得通过旧字段或本地 key 映射拼装事实字段:\n" + "\n".join(violations)
+
+
+def test_ops_does_not_parse_dataset_identity_from_spec_key_text() -> None:
+    forbidden_snippets = (
+        'split(".", 1)[1]',
+        "partition(\".\")",
+        "partition('.')",
+    )
+    violations: list[str] = []
+    for path in _python_and_frontend_files(REPO_ROOT / "src/ops"):
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {snippet}")
+
+    assert not violations, "Ops 不得从 spec_key 文本拆出 dataset identity，必须走 DatasetDefinition registry:\n" + "\n".join(violations)
 
 
 def test_ingestion_layer_has_no_checkpoint_or_acquire_semantics() -> None:

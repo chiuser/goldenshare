@@ -8,14 +8,14 @@ import typer
 from sqlalchemy import func, select
 
 
-def resolve_default_sync_date(
+def resolve_default_maintenance_date(
     session,
     *,
     build_maintain_service_fn: Callable[..., Any],
     default_exchange: str,
 ) -> date:
     trade_cal = build_maintain_service_fn("trade_cal", session)
-    trade_cal.run_incremental()
+    trade_cal.maintain(default_time_mode="point")
     today = date.today()
     latest = trade_cal.dao.trade_calendar.get_latest_open_date(default_exchange, today)
     if latest is None:
@@ -57,7 +57,7 @@ def auto_reconcile_stale_task_runs(
     return len(reconciled)
 
 
-def prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
+def prepare_ingestion_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
     filtered = {key: value for key, value in kwargs.items() if value is not None}
     service_vars = vars(service)
     if "definition" not in service_vars:

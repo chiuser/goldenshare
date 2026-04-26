@@ -14,7 +14,7 @@ from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedu
 from src.ops.services.task_run_service import TaskRunCommandService
 from src.ops.specs import get_job_spec, get_ops_spec_display_name, ops_spec_supports_schedule
 from src.app.exceptions import WebAppError
-from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 
 
 class OperationsScheduleService:
@@ -358,15 +358,10 @@ class OperationsScheduleService:
     @staticmethod
     def _validate_spec(spec_type: str, spec_key: str) -> None:
         if spec_type == "dataset_action":
-            if not spec_key.endswith(".maintain"):
-                raise WebAppError(status_code=422, code="validation_error", message="Dataset action spec_key must end with .maintain")
-            dataset_key = spec_key.rsplit(".", 1)[0]
-            if not dataset_key:
-                raise WebAppError(status_code=422, code="validation_error", message="Dataset action spec_key is invalid")
             try:
-                get_dataset_definition(dataset_key)
+                get_dataset_definition_by_action_key(spec_key)
             except KeyError as exc:
-                raise WebAppError(status_code=404, code="not_found", message="Dataset definition does not exist") from exc
+                raise WebAppError(status_code=422, code="validation_error", message="Dataset action does not exist") from exc
             if not ops_spec_supports_schedule(spec_type, spec_key):
                 raise WebAppError(status_code=422, code="validation_error", message="Selected spec does not support scheduling")
             return

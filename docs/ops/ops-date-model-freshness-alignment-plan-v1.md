@@ -1,6 +1,6 @@
 # Ops 新鲜度按 Date Model 收口方案 v1
 
-- 状态：待评审
+- 状态：已按干净方案落地到现行 freshness 主链
 - 更新时间：2026-04-26
 - 归属：`docs/ops`
 - 关联基线：[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
@@ -14,9 +14,9 @@
 
 ## 1. 一句话结论
 
-Ops 数据新鲜度必须以 `DatasetSyncContract.date_model` 为唯一事实源。
+Ops 数据新鲜度必须以 `DatasetDefinition.date_model` 为唯一事实源。
 
-当前实现只消费了 `date_model.observed_field`，但判断是否新鲜仍主要依赖 `DATASET_FRESHNESS_METADATA.cadence` 和固定 `lag_days` 阈值。这会导致周线、月线、月份窗口、自然日事件类数据集的状态口径不准。
+现行实现只允许从 `DatasetDefinition.date_model` 读取日期语义。旧的 `DATASET_FRESHNESS_METADATA`、`sync_job_state`、`DatasetSyncContract.date_model` 口径不得再作为 freshness 判断依据。
 
 最典型的问题是：`stk_period_bar_adj_week` 的最新业务日期停在 `2026-04-17`，而当前日期口径下本周最后一个交易日已经是 `2026-04-24`，页面仍可能显示为“不滞后/新鲜”。这不是数据展示问题，而是 Ops freshness 规则没有按 `week_last_open_day` 判断。
 
@@ -28,24 +28,25 @@ Ops 数据新鲜度必须以 `DatasetSyncContract.date_model` 为唯一事实源
 
 ### 2.1 当前代码如何判断新鲜度
 
-当前主链路是：
+现行主链路是：
 
 ```text
 OpsFreshnessQueryService.build_live_items()
   -> 读取 DatasetFreshnessSpec
-  -> 从目标表观测 min/max(observed_field)
-  -> _expected_business_date(cadence, reference_date, latest_open_date)
-  -> lag_days = expected_business_date - latest_business_date
-  -> _freshness_status(cadence, lag_days, ...)
+  -> 通过 DatasetDefinition.date_model 读取 date_axis/bucket_rule/window_mode/observed_field
+  -> 从目标表按同一个 bucket_rule 观测 actual bucket
+  -> _expected_business_date_for_spec(reference_date, latest_open_date)
+  -> lag_days = expected bucket - actual bucket
+  -> _freshness_status_for_date_model(...)
 ```
 
-关键问题：
+已修正的旧问题：
 
-1. `registry.py` 会从 `get_sync_v2_contract(resource).date_model.observed_field` 读取观测字段。
-2. `freshness_query_service.py` 后续只使用这个字段做 `min/max`，没有使用 `date_axis`、`bucket_rule`、`window_mode`、`audit_applicable`。
-3. `_expected_business_date()` 对 `daily / weekly / monthly` 都直接返回最新开市交易日。
-4. `_freshness_status()` 对 `weekly` 使用 `lag_days <= 7` 仍算 `fresh`，这会把“缺少本周最后交易日锚点”的数据误判为新鲜。
-5. `month_last_open_day`、`week_last_open_day`、`month_window_has_data` 这类模型规则没有真正进入 freshness 判断。
+1. `registry.py` 不再从旧 contract 读取观测字段，改为从 `DatasetDefinition.date_model.observed_field` 派生 `DatasetFreshnessSpec`。
+2. `freshness_query_service.py` 不再只做简单 `max(observed_field)`，周/月 bucket 会按交易日历压缩到应观测锚点。
+3. `week_last_open_day`、`month_last_open_day`、`month_window_has_data` 已进入 expected/actual 判断。
+4. `cadence` 不再作为 freshness 事实源，只保留展示和分组语境。
+5. 本方案没有新增表，也没有新增状态字段。
 
 ### 2.2 为什么这会误导页面
 
@@ -63,7 +64,7 @@ OpsFreshnessQueryService.build_live_items()
 
 ### 3.1 统一原则
 
-1. `DatasetSyncContract.date_model` 是日期语义唯一事实源。
+1. `DatasetDefinition.date_model` 是日期语义唯一事实源。
 2. Ops freshness 不再用 `cadence` 决定 expected date。
 3. `cadence` 最多作为现有字段用于展示分组，并应在后续收口中评估删除，不允许作为 freshness 判断依据。
 4. expected date / expected bucket 必须由 `date_axis + bucket_rule` 计算。
@@ -152,7 +153,7 @@ OpsFreshnessQueryService.build_live_items()
 
 | 表 | 结论 | 原因 |
 |---|---|---|
-| `ops.sync_job_state` | 本轮不作为脏数据清洗对象 | 它记录同步状态，不是 freshness 派生表；即使存在旧 `last_success_date`，也不应通过 freshness 修复去改同步状态 |
+| `ops.sync_job_state` | 不参与现行 freshness 主链 | 旧同步状态表已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition.date_model + 真实业务表观测 + TaskRun` |
 | `ops.task_run` / `ops.task_run_node` / `ops.task_run_issue` | 本轮不作为脏数据清洗对象 | 它们是任务观测记录，不是数据集新鲜度快照 |
 
 ### 5.4 推荐清洗策略
@@ -212,7 +213,7 @@ build_live_items()
 3. 会向 `ops.dataset_layer_snapshot_history` 追加新记录。
 4. 不会清空 `ops.dataset_layer_snapshot_history` 中旧规则产生的历史记录。
 5. 不会修改业务数据表。
-6. 不会修改 `ops.sync_job_state`。
+6. 不会读取或修改旧 `ops.sync_job_state`。
 7. 不会修改 `ops.task_run*`。
 
 ### 6.3 修正代码后运行 rebuild 的页面影响
@@ -247,7 +248,7 @@ build_live_items()
 
 目标：
 
-1. 以 `DatasetSyncContract.date_model` 生成 expected bucket。
+1. 以 `DatasetDefinition.date_model` 生成 expected bucket。
 2. 支持 `every_open_day`、`week_last_open_day`、`month_last_open_day`、`every_natural_month`、`month_window_has_data`、`every_natural_day`、`not_applicable`。
 3. 交易日相关规则必须读取交易日历，不能自己推测周五或自然月末。
 

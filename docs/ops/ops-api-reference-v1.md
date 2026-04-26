@@ -126,10 +126,10 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - 返回：`ManualActionListResponse`
   - `groups[]`
   - `groups[].actions[]`
-  - `actions[].date_model` 来自 `DatasetSyncContract.date_model`
+  - `actions[].date_model` 来自 `DatasetDefinition.date_model`
   - `actions[].time_form` 用于前端选择日期 / 月份控件
   - `actions[].filters` 为页面可展示的非时间、非内部参数
-  - `actions[].route_spec_keys` 仅用于从任务记录 / 自动任务返回手动页时匹配上下文，不用于前端决定执行路径
+  - `actions[].route_keys` 仅用于从任务记录 / 自动任务返回手动页时匹配上下文，不用于前端决定执行路径
 - 鉴权：管理员。
 - 示例：
 
@@ -147,8 +147,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
       "group_order": 20,
       "actions": [
         {
-          "action_key": "daily",
-          "action_type": "job",
+          "action_key": "daily.maintain",
+          "action_type": "dataset_action",
           "display_name": "维护股票日线",
           "time_form": {
             "control": "trade_date_or_range",
@@ -157,7 +157,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
             "selection_rule": "trading_day_only"
           },
           "filters": [],
-          "route_spec_keys": ["daily.maintain"]
+          "route_keys": ["daily.maintain"]
         }
       ]
     }
@@ -634,6 +634,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 - 功能：创建 probe 规则。
 - Body：`CreateProbeRuleRequest`
+- 说明：`on_success_action_json` 如需触发数据集维护，使用 `action_type/action_key/request`，不得再写旧 `spec_key` 动作。
 - 返回：`ProbeRuleDetailResponse`
 - 示例：
 
@@ -1316,8 +1317,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ### 12.3 调度
 
 - `ScheduleListResponse`：`items, total`
-- `ScheduleListItem`：`id, spec_type, spec_key, spec_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
-- `ScheduleDetailResponse`：`id, spec_type, spec_key, spec_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
+- `ScheduleListItem`：`id, spec_type, spec_key, spec_display_name, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
+- `ScheduleDetailResponse`：`id, spec_type, spec_key, spec_display_name, target_display_name, display_name, status, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at, last_triggered_at, created_by_username, updated_by_username, created_at, updated_at`
 - `ScheduleRevisionListResponse`：`items, total`
 - `ScheduleRevisionItem`：`id, object_type, object_id, action, before_json, after_json, changed_by_username, changed_at`
 - `SchedulePreviewResponse`：`schedule_type, timezone, preview_times`
@@ -1353,7 +1354,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `OpsFreshnessResponse`：`summary, groups`
 - `OpsFreshnessSummary`：`total_datasets, fresh_datasets, lagging_datasets, stale_datasets, unknown_datasets, disabled_datasets`
 - `FreshnessGroup`：`domain_key, domain_display_name, items`
-- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, job_name, target_table, raw_table, cadence, state_business_date, earliest_business_date, observed_business_date, latest_business_date, business_date_source, freshness_note, latest_success_at, last_sync_date, expected_business_date, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_execution_spec_key, full_sync_done, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_execution_status, active_execution_started_at`
+- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, target_table, raw_table, cadence, earliest_business_date, observed_business_date, latest_business_date, freshness_note, latest_success_at, last_sync_date, expected_business_date, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_action_key, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_execution_status, active_execution_started_at`
 - `ReviewActiveIndexListResponse`：`total, items`
 - `ReviewActiveIndexItem`：`resource, ts_code, index_name, first_seen_date, last_seen_date, last_checked_at`
 - `ReviewThsBoardListResponse`：`total, items`

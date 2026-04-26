@@ -17,7 +17,7 @@
 
 Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三类事实源：
 
-1. `DatasetSyncContract.date_model` 与 `DatasetFreshnessSpec` 提供静态规则。
+1. `DatasetDefinition.date_model` 与 `DatasetFreshnessSpec` 提供静态规则。
 2. 真实业务表提供日期/月份/窗口观测值。
 3. `ops.task_run / task_run_node / task_run_issue` 提供最近成功时间、最近失败信息、当前活跃任务。
 
@@ -71,7 +71,7 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
 7. Foundation 侧 legacy 写入链仍在：
    - `sync_job_state_dao.py`（已删除）
    - [factory.py](/Users/congming/github/goldenshare/src/foundation/dao/factory.py)
-   - [sync_state_store.py](/Users/congming/github/goldenshare/src/foundation/kernel/contracts/sync_state_store.py)
+   - `sync_state_store.py`（已删除；当前 no-op contract 为 [ingestion_state_store.py](/Users/congming/github/goldenshare/src/foundation/kernel/contracts/ingestion_state_store.py)）
 
 ---
 
@@ -82,7 +82,7 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
 `sync_job_state` 的主键是 `job_name`，而我们当前已经收敛到：
 
 1. 数据集静态身份：`dataset_key / resource_key`
-2. 日期规则身份：`DatasetSyncContract.date_model`
+2. 日期规则身份：`DatasetDefinition.date_model`
 3. 任务运行身份：`task_run.id / task_run_node.id`
 
 `job_name` 既不是页面主键，也不是资源状态主键。继续保留它，只会继续制造“一个数据集三套身份”的问题。
@@ -111,7 +111,7 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
 
 ```mermaid
 flowchart LR
-  A["DatasetFreshnessSpec / DatasetSyncContract.date_model"] --> D["OpsFreshnessQueryService"]
+  A["DatasetFreshnessSpec / DatasetDefinition.date_model"] --> D["OpsFreshnessQueryService"]
   B["真实业务表观测值<br/>observed business range / updated_at"] --> D
   C["TaskRun / TaskRunNode / TaskRunIssue"] --> D
   D --> E["DatasetFreshnessItem"]
@@ -193,7 +193,7 @@ flowchart LR
 12. `lag_days`
 13. `freshness_status`
 14. `recent_failure_*`
-15. `primary_execution_spec_key`
+15. `primary_action_key`
 16. `auto_schedule_*`
 17. `active_execution_*`
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
 
@@ -11,8 +12,20 @@ from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest, ManualActionTimeInput
-from src.ops.services.task_run_service import TaskRunCommandService
+from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 from src.ops.specs import ParameterSpec
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedManualTaskRun:
+    task_type: str
+    resource_key: str | None
+    action: str
+    time_input: dict[str, Any]
+    filters: dict[str, Any]
+    request_payload: dict[str, Any]
+    spec_type: str | None = None
+    spec_key: str | None = None
 
 
 class ManualActionCommandService:
@@ -31,14 +44,31 @@ class ManualActionCommandService:
         route = self.query_service.get_action_route(action_key)
         if route is None:
             raise WebAppError(status_code=404, code="not_found", message="Manual action does not exist")
-        spec_type, spec_key, params_json = ManualActionTaskRunResolver(route).resolve(body)
-        task_run = self.task_run_service.create_from_spec(
+        resolved = ManualActionTaskRunResolver(route).resolve(body)
+        if resolved.task_type == "workflow":
+            if not resolved.spec_type or not resolved.spec_key:
+                raise WebAppError(status_code=422, code="validation_error", message="Manual workflow route is not configured")
+            task_run = self.task_run_service.create_from_spec(
+                session,
+                spec_type=resolved.spec_type,
+                spec_key=resolved.spec_key,
+                params_json=resolved.request_payload,
+                trigger_source="manual",
+                requested_by_user_id=user.id,
+            )
+            return task_run.id
+        task_run = self.task_run_service.create_task_run(
             session,
-            spec_type=spec_type,
-            spec_key=spec_key,
-            params_json=params_json,
-            trigger_source="manual",
-            requested_by_user_id=user.id,
+            context=TaskRunCreateContext(
+                task_type=resolved.task_type,
+                resource_key=resolved.resource_key,
+                action=resolved.action,
+                time_input=resolved.time_input,
+                filters=resolved.filters,
+                request_payload=resolved.request_payload,
+                trigger_source="manual",
+                requested_by_user_id=user.id,
+            ),
         )
         return task_run.id
 
@@ -47,7 +77,7 @@ class ManualActionTaskRunResolver:
     def __init__(self, route: ManualActionRoute) -> None:
         self.route = route
 
-    def resolve(self, body: ManualActionTaskRunCreateRequest) -> tuple[str, str, dict[str, Any]]:
+    def resolve(self, body: ManualActionTaskRunCreateRequest) -> ResolvedManualTaskRun:
         filters = self._normalize_filters(body.filters)
         filters = self._apply_default_filters(filters)
         time_input = body.time_input
@@ -57,25 +87,41 @@ class ManualActionTaskRunResolver:
 
         if self.route.action_type == "dataset_action":
             time_params = self._resolve_dataset_action_time(mode=mode, time_input=time_input)
-            params_json = {
-                **filters,
-                **time_params,
-                "dataset_key": self.route.resource_key,
-                "action": "maintain",
-                "time_input": {"mode": mode, **time_params},
-                "filters": filters,
-            }
             if self.route.resource_key is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Manual action resource route is not configured")
-            return "dataset_action", f"{self.route.resource_key}.maintain", params_json
+            return ResolvedManualTaskRun(
+                task_type="dataset_action",
+                resource_key=self.route.resource_key,
+                action="maintain",
+                time_input=self._dataset_time_input_payload(mode=mode, time_params=time_params),
+                filters=filters,
+                request_payload={},
+            )
 
         if self.route.action_type == "workflow":
             workflow_spec = self.route.workflow_spec
             if workflow_spec is None:
                 raise WebAppError(status_code=422, code="validation_error", message="Manual action workflow route is not configured")
-            params_json = {**filters, **self._resolve_workflow_time(mode=mode, time_input=time_input)}
-            return "workflow", workflow_spec.key, params_json
+            time_params = self._resolve_workflow_time(mode=mode, time_input=time_input)
+            return ResolvedManualTaskRun(
+                task_type="workflow",
+                resource_key=None,
+                action="maintain",
+                time_input={"mode": mode, **time_params},
+                filters=filters,
+                request_payload={**filters, **time_params},
+                spec_type="workflow",
+                spec_key=workflow_spec.key,
+            )
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported manual action type")
+
+    @staticmethod
+    def _dataset_time_input_payload(*, mode: str, time_params: dict[str, Any]) -> dict[str, Any]:
+        payload = {"mode": mode, **time_params}
+        if "ann_date" in time_params:
+            payload["trade_date"] = time_params["ann_date"]
+            payload["date_field"] = "ann_date"
+        return payload
 
     def _resolve_dataset_action_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
         if mode == "none":

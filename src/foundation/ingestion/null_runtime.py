@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
-from src.foundation.kernel.contracts.sync_state_store import SyncExecutionResultStore, SyncRunRecorder
+from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
+from src.foundation.kernel.contracts.ingestion_state_store import IngestionExecutionResultStore, IngestionRunRecorder
 
 
-class NullExecutionContext(SyncExecutionContext):
+class NullExecutionContext(IngestionExecutionContext):
     def is_cancel_requested(self, *, execution_id: int) -> bool:
         return False
 
@@ -26,9 +26,9 @@ class NullExecutionContext(SyncExecutionContext):
         return None
 
 
-class NullRunRecorder(SyncRunRecorder):
-    def start_run(self, *, job_name: str, run_type: str, execution_id: int | None = None) -> object:
-        _ = (job_name, run_type, execution_id)
+class NullRunRecorder(IngestionRunRecorder):
+    def start_run(self, *, dataset_key: str, run_mode: str, execution_id: int | None = None) -> object:
+        _ = (dataset_key, run_mode, execution_id)
         return object()
 
     def finish_run(
@@ -44,17 +44,16 @@ class NullRunRecorder(SyncRunRecorder):
         return None
 
 
-class NullExecutionResultStore(SyncExecutionResultStore):
+class NullExecutionResultStore(IngestionExecutionResultStore):
     def record_execution_outcome(
         self,
         *,
-        job_name: str,
+        dataset_key: str,
         target_table: str,
-        run_type: str,
+        run_mode: str,
         run_profile: str | None = None,
         last_success_date: date | None = None,
-        last_cursor: str | None = None,
         rows_committed: int | None = None,
     ) -> None:
-        _ = (job_name, target_table, run_type, run_profile, last_success_date, last_cursor, rows_committed)
+        _ = (dataset_key, target_table, run_mode, run_profile, last_success_date, rows_committed)
         return None

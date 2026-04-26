@@ -6,13 +6,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
+from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_node import TaskRunNode
 
 
-class TaskRunSyncContext(SyncExecutionContext):
-    """Ops 侧进度适配：同步引擎只更新 TaskRun 当前快照。"""
+class TaskRunIngestionContext(IngestionExecutionContext):
+    """Ops 侧进度适配：数据维护执行器只更新 TaskRun 当前快照。"""
 
     def __init__(self, session: Session) -> None:
         self.session = session

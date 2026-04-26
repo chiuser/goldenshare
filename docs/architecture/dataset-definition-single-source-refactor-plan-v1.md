@@ -35,7 +35,7 @@
 | 旧执行名 | `sync_daily` / `backfill_*` / `sync_history` 最终直接消失 |
 | 迁移策略 | 停机式直接重构，不做兼容，不做双读双写 |
 | 前端心智 | 只展示维护对象、处理范围、发起方式、状态，不展示底层执行路径 |
-| 日期事实源 | 继续遵守 `DatasetSyncContract.date_model` 已建立的日期模型口径，并上移进 `DatasetDefinition` |
+| 日期事实源 | 以 `DatasetDefinition.date_model` 为唯一事实源 |
 | 目录与命名 | 后续目录/文件命名必须与新架构一致，`sync_v2`、`contracts.py` 这类历史命名不作为目标结构保留 |
 
 ---
@@ -50,7 +50,7 @@ M0 前最接近数据集事实源的是 `DatasetSyncContract`：
 - 数量：57 个 contract
 - 已包含：`dataset_key`、`display_name`、`job_name`、`run_profiles_supported`、`date_model`、`input_schema`、`planning_spec`、`source_spec`、`write_spec`、`observe_spec`
 
-说明：`src/foundation/services/sync_v2/contracts.py` 是历史运行投影位置，不是目标事实源位置。M2 后，DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；后续 M3 要继续把运行投影从 Sync V2 contract 迁出。
+说明：`src/foundation/services/sync_v2/contracts.py` 是历史运行投影位置，不是目标事实源位置。当前 DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；运行投影由 `src/foundation/ingestion/**` 从 Definition 派生。
 
 M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在 ops 或其他目录：
 
@@ -81,7 +81,7 @@ M0 前 57 个数据集对应 141 个 `JobSpec`：
 
 ### 3.3 日期模型处理
 
-M0 前 `DatasetSyncContract.date_model` 已经沉淀出正确日期语义，见：
+M0 前旧执行契约曾沉淀过日期语义；当前已上移为 `DatasetDefinition.date_model`，见：
 
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 
@@ -109,7 +109,7 @@ flowchart LR
 | 模型 | 建议目录 | 原因 |
 |---|---|---|
 | `DatasetDefinition` | `src/foundation/datasets/**` | foundation 定义底层数据能力，不依赖 ops |
-| `DatasetRuntimeContract` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史 `sync_v2` 命名 |
+| `DatasetExecutionPlan` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史 `sync_v2` 命名 |
 | `DatasetActionCatalog` | `src/ops/queries/**` 或 `src/ops/services/**` | ops 面向用户动作和任务中心 |
 | `DatasetFreshnessProjection` | `src/ops/specs` / `src/ops/queries` 收口后迁移 | freshness 是 ops 观测投影 |
 | `WorkflowDefinition` | `src/ops/specs/**` | 工作流属于运维编排，不是数据集事实 |
@@ -354,9 +354,9 @@ DatasetDefinition(
 
 ## 5. 派生模型职责
 
-### 5.1 `DatasetRuntimeContract`
+### 5.1 `DatasetExecutionPlan`
 
-`DatasetRuntimeContract` 是执行引擎消费的投影，替代或重命名当前 `DatasetSyncContract`。
+`DatasetExecutionPlan` 是执行引擎消费的投影，由 `DatasetActionResolver` 从 `DatasetDefinition` 派生。
 
 它只回答：
 
@@ -411,7 +411,7 @@ Ops 展示投影只回答：
 }
 ```
 
-禁止继续返回 `route_spec_keys` 作为长期字段。迁移完成后，前端不应知道旧路径存在过。
+当前字段为 `route_keys`，只表达动作入口的回填匹配键。不得恢复 `route_spec_keys`，也不得让前端自行从旧路径推导执行事实。
 
 ---
 
@@ -419,7 +419,7 @@ Ops 展示投影只回答：
 
 | 现有模型 | 处理方式 |
 |---|---|
-| `DatasetSyncContract` | 拆分/升级为 `DatasetDefinition` + `DatasetRuntimeContract` |
+| `DatasetSyncContract` | 历史模型已退场；事实迁入 `DatasetDefinition`，运行投影迁入 `DatasetExecutionPlan` |
 | `DatasetDateModel` | 保留语义，上移为 `DatasetDefinition.date_model` |
 | `InputSchema/InputField` | 合入 `DatasetInputModel`，并派生 API/前端参数展示 |
 | `PlanningSpec` | 保留为执行计划输入，但从 definition 派生 |
@@ -517,13 +517,13 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 | 里程碑 | 目标 | 主要产物 | 门禁 |
 |---|---|---|---|
 | M0 设计冻结 | 冻结术语和边界 | 两份方案已标注当前落地状态与后续边界 | 不允许再新增旧三件套引用 |
-| M1 Definition 审计 | 建立事实审计矩阵 | 57 个数据集事实审计矩阵 | dataset key 覆盖 Sync V2 contract |
-| M2 Definition 独立化 | DatasetDefinition 不再运行时投影 Sync V2 contract | `src/foundation/datasets/definitions/**`、独立 registry、输入字段枚举事实 | registry 不导入 Sync V2 contract；definition tests |
-| M3 Runtime 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetRuntimeContract`、Ops descriptor、freshness projection | 无重复元数据表 |
-| M3 Ops API 切换 | API 不再输出旧 spec | datasets/actions/executions/schedules 新契约 | Web API 测试 |
-| M4 前端切换 | 任务中心只消费新模型 | 手动/记录/详情/自动任务页调整 | 前端单测、smoke、截图 |
-| M5 DB 停机迁移 | 重塑 execution/schedule 表 | migration、seed、清理脚本 | 本地重建、远程演练 |
-| M6 删除旧模型 | 删除 `JobSpec` 旧三件套和旧 dispatcher 分支 | 引用清零、守护测试 | `rg` 旧名活跃代码为 0 |
+| M1 Definition 审计 | 建立事实审计矩阵 | 57 个数据集事实审计矩阵 | dataset key 覆盖当前 DatasetDefinition |
+| M2 Definition 独立化 | DatasetDefinition 不再运行时投影旧 contract | `src/foundation/datasets/definitions/**`、独立 registry、输入字段枚举事实 | registry 不导入旧 contract；definition tests |
+| M3 Runtime 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetExecutionPlan`、Ops descriptor、freshness projection | 无重复元数据表 |
+| M4 Ops API 切换 | API 不再输出旧执行路径 | manual-actions、task-runs、catalog/schedule 结构化展示字段 | Web API 测试 |
+| M5 前端切换 | 任务中心只消费新模型 | 手动/记录/详情/自动任务页调整 | 前端单测、smoke、截图 |
+| M6 DB 停机迁移 | 清理旧字段和旧状态表残留 | migration、seed、清理脚本 | 本地重建、远程演练 |
+| M7 删除旧模型 | 删除旧三件套和旧 dispatcher 分支 | 引用清零、守护测试 | `rg` 旧名活跃代码为 0 |
 
 ---
 
@@ -548,4 +548,4 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 3. 手动任务、自动任务、任务记录、任务详情的名称全部来自同一个 dataset display source。
 4. 日期控件和处理范围全部从 `DatasetDefinition.date_model` 派生。
 5. 执行器只消费 `DatasetExecutionPlan`，不再按 `JobSpec.category` 分支。
-6. `python3 scripts/check_docs_integrity.py`、架构依赖测试、sync_v2 核心测试、ops API 测试、frontend smoke 全部通过。
+6. `python3 scripts/check_docs_integrity.py`、架构依赖测试、ingestion 定义/计划测试、ops API 测试、frontend smoke 全部通过。

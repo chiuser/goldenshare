@@ -109,13 +109,13 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
         group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
         for group in payload["groups"]
     }
-    block_trade = grouped["equity"]["block_trade"]
-    index_monthly = grouped["index"]["index_monthly"]
+    block_trade = grouped["equity_market"]["block_trade"]
+    index_monthly = grouped["index_fund"]["index_monthly"]
     assert block_trade["freshness_status"] == "fresh"
     assert block_trade["latest_business_date"] == "2026-03-26"
     assert block_trade["earliest_business_date"] == "2020-01-01"
     assert block_trade["freshness_note"] == "最新业务日当前来自真实目标表观测值。"
-    assert block_trade["primary_execution_spec_key"] == "block_trade.maintain"
+    assert block_trade["primary_action_key"] == "block_trade.maintain"
     assert index_monthly["freshness_status"] == "stale"
     assert index_monthly["recent_failure_message"] == "monthly sync timeout"
     assert index_monthly["recent_failure_summary"] == "monthly sync timeout"
@@ -166,7 +166,7 @@ def test_ops_freshness_includes_auto_schedule_flags(
         group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
         for group in payload["groups"]
     }
-    item = grouped["equity"]["block_trade"]
+    item = grouped["equity_market"]["block_trade"]
     assert item["auto_schedule_status"] == "active"
     assert item["auto_schedule_total"] == 2
     assert item["auto_schedule_active"] == 1
@@ -238,7 +238,7 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
         group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
         for group in payload["groups"]
     }
-    block_trade = grouped["equity"]["block_trade"]
+    block_trade = grouped["equity_market"]["block_trade"]
     assert block_trade["active_execution_status"] == "running"
     assert block_trade["active_execution_started_at"] == "2026-04-17T08:01:00"
 
@@ -288,7 +288,7 @@ def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
         group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
         for group in payload["groups"]
     }
-    block_trade = grouped["equity"]["block_trade"]
+    block_trade = grouped["equity_market"]["block_trade"]
     assert block_trade["recent_failure_message"] is None
     assert block_trade["recent_failure_summary"] is None
 
@@ -310,14 +310,13 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
     spec = DatasetFreshnessSpec(
         dataset_key="ths_member",
         resource_key="ths_member",
-        job_name="sync_ths_member",
         display_name="同花顺板块成分",
         domain_key="board",
         domain_display_name="板块",
         target_table="core.ths_member",
         cadence="reference",
         observed_date_column=None,
-        primary_execution_spec_key="ths_member.maintain",
+        primary_action_key="ths_member.maintain",
     )
 
     item = service._build_item(
@@ -366,7 +365,7 @@ def test_ops_freshness_does_not_read_legacy_quality_warning_logs(
         group["domain_key"]: {item["dataset_key"]: item for item in group["items"]}
         for group in payload["groups"]
     }
-    assert "质量提醒" not in (grouped["equity"]["block_trade"]["freshness_note"] or "")
+    assert "质量提醒" not in (grouped["equity_market"]["block_trade"]["freshness_note"] or "")
 
 
 def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
@@ -383,7 +382,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
         target_table="core.equity_daily_bar",
         cadence="daily",
         freshness_status="fresh",
-        primary_execution_spec_key="daily.maintain",
+        primary_action_key="daily.maintain",
     )
     live_missing_item = DatasetFreshnessItem(
         dataset_key="ths_hot",
@@ -394,7 +393,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
         target_table="core.ths_hot",
         cadence="daily",
         freshness_status="unknown",
-        primary_execution_spec_key="ths_hot.maintain",
+        primary_action_key="ths_hot.maintain",
     )
     snapshot_response = OpsFreshnessResponse(
         summary=OpsFreshnessSummary(
@@ -421,26 +420,24 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
             DatasetFreshnessSpec(
                 dataset_key="daily",
                 resource_key="daily",
-                job_name="sync_equity_daily",
                 display_name="股票日线",
                 domain_key="equity",
                 domain_display_name="股票",
                 target_table="core.equity_daily_bar",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="daily.maintain",
+                primary_action_key="daily.maintain",
             ),
             DatasetFreshnessSpec(
                 dataset_key="ths_hot",
                 resource_key="ths_hot",
-                job_name="sync_ths_hot",
                 display_name="同花顺热榜",
                 domain_key="ranking",
                 domain_display_name="榜单",
                 target_table="core.ths_hot",
                 cadence="daily",
                 observed_date_column="trade_date",
-                primary_execution_spec_key="ths_hot.maintain",
+                primary_action_key="ths_hot.maintain",
             ),
         ],
     )
@@ -471,7 +468,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
         cadence="reference",
         latest_business_date=date(2026, 4, 1),
         freshness_status="stale",
-        primary_execution_spec_key="broker_recommend.maintain",
+        primary_action_key="broker_recommend.maintain",
     )
     live_item = DatasetFreshnessItem(
         dataset_key="broker_recommend",
@@ -483,7 +480,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
         cadence="monthly",
         latest_business_date=date(2026, 4, 1),
         freshness_status="fresh",
-        primary_execution_spec_key="broker_recommend.maintain",
+        primary_action_key="broker_recommend.maintain",
     )
     snapshot_response = OpsFreshnessResponse(
         summary=OpsFreshnessSummary(
@@ -510,14 +507,13 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
             DatasetFreshnessSpec(
                 dataset_key="broker_recommend",
                 resource_key="broker_recommend",
-                job_name="sync_broker_recommend",
                 display_name="券商每月荐股",
                 domain_key="reference_data",
                 domain_display_name="基础主数据",
                 target_table="core_serving.broker_recommend",
                 cadence="monthly",
                 observed_date_column="month_key",
-                primary_execution_spec_key="broker_recommend.maintain",
+                primary_action_key="broker_recommend.maintain",
             )
         ],
     )

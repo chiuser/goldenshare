@@ -46,6 +46,7 @@ class TaskRunListItem(BaseModel):
     id: int
     task_type: str
     resource_key: str | None = None
+    action_key: str | None = None
     action: str
     title: str
     trigger_source: str
@@ -87,6 +88,7 @@ class TaskRunInfo(BaseModel):
     id: int
     task_type: str
     resource_key: str | None = None
+    action_key: str | None = None
     action: str
     title: str
     trigger_source: str

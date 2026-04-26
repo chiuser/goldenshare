@@ -158,7 +158,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const taskRunItems = taskRunQuery.data?.items || [];
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
-  const manualSpecKey = recentTaskRun?.resource_key ? `${recentTaskRun.resource_key}.maintain` : (freshnessItem?.primary_execution_spec_key || `${datasetKey}.maintain`);
+  const manualActionKey = freshnessItem?.primary_action_key || null;
   const sourceGroups = new Map<string, typeof latestItems>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
@@ -236,10 +236,10 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
-            <Button component="a" href={buildManualTaskHref({ specKey: manualSpecKey })} variant="light" color="brand">
+            <Button component="a" href={buildManualTaskHref({ actionKey: manualActionKey, actionType: "dataset_action" })} variant="light" color="brand">
               去处理
             </Button>
-            <Button component="a" href={buildManualTaskHref({ specKey: manualSpecKey })} variant="light">
+            <Button component="a" href={buildManualTaskHref({ actionKey: manualActionKey, actionType: "dataset_action" })} variant="light">
               手动执行
             </Button>
             <Button variant="light" disabled>

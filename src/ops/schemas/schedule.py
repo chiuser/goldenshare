@@ -53,6 +53,7 @@ class ScheduleListItem(BaseModel):
     spec_type: str
     spec_key: str
     spec_display_name: str | None = None
+    target_display_name: str | None = None
     display_name: str
     status: str
     schedule_type: str
@@ -78,6 +79,7 @@ class ScheduleDetailResponse(BaseModel):
     spec_type: str
     spec_key: str
     spec_display_name: str | None = None
+    target_display_name: str | None = None
     display_name: str
     status: str
     schedule_type: str

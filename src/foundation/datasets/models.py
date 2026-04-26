@@ -14,6 +14,21 @@ class DatasetDateModel:
     audit_applicable: bool
     not_applicable_reason: str | None = None
 
+    def selection_rule(self) -> str:
+        if self.bucket_rule == "week_last_open_day":
+            return "week_last_trading_day"
+        if self.bucket_rule == "month_last_open_day":
+            return "month_last_trading_day"
+        if self.bucket_rule == "every_natural_day":
+            return "calendar_day"
+        if self.bucket_rule == "every_natural_month":
+            return "month_key"
+        if self.bucket_rule == "month_window_has_data":
+            return "month_window"
+        if self.bucket_rule == "not_applicable":
+            return "none"
+        return "trading_day_only"
+
 
 @dataclass(frozen=True, slots=True)
 class DatasetIdentity:
@@ -52,6 +67,24 @@ class DatasetInputField:
     display_name: str = ""
     description: str = ""
 
+    @property
+    def display_label(self) -> str:
+        return self.display_name or self.name
+
+    @property
+    def input_control_type(self) -> str:
+        if self.name in {"month", "start_month", "end_month"}:
+            return "month"
+        if self.field_type == "date" or self.name.endswith("_date") or self.name in {"date", "cal_date"}:
+            return "date"
+        if self.field_type in {"integer", "int"}:
+            return "integer"
+        if self.field_type in {"boolean", "bool"}:
+            return "boolean"
+        if self.enum_values:
+            return "enum"
+        return "string"
+
 
 @dataclass(frozen=True, slots=True)
 class DatasetInputModel:
@@ -67,6 +100,7 @@ class DatasetStorageDefinition:
     raw_dao_name: str
     core_dao_name: str
     target_table: str
+    raw_table: str | None = None
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
 
@@ -150,3 +184,11 @@ class DatasetDefinition:
     @property
     def display_name(self) -> str:
         return self.identity.display_name
+
+    def action_key(self, action: str) -> str:
+        return f"{self.dataset_key}.{action}"
+
+    def action_display_name(self, action: str) -> str:
+        if action == "maintain":
+            return f"维护{self.display_name}"
+        return self.display_name

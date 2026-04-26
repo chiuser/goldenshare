@@ -17,7 +17,6 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
         DatasetFreshnessSpec(
             dataset_key="stock_basic",
             resource_key="stock_basic",
-            job_name="sync_stock_basic",
             display_name="股票主数据",
             domain_key="reference",
             domain_display_name="基础主数据",
@@ -28,7 +27,6 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
         DatasetFreshnessSpec(
             dataset_key="daily",
             resource_key="daily",
-            job_name="sync_equity_daily",
             display_name="股票日线",
             domain_key="equity",
             domain_display_name="股票",
@@ -39,7 +37,6 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
         DatasetFreshnessSpec(
             dataset_key="moneyflow",
             resource_key="moneyflow",
-            job_name="sync_moneyflow",
             display_name="资金流",
             domain_key="equity",
             domain_display_name="股票",
@@ -50,7 +47,6 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
         DatasetFreshnessSpec(
             dataset_key="biying_equity_daily",
             resource_key="biying_equity_daily",
-            job_name="sync_biying_equity_daily",
             display_name="BIYING 股票日线",
             domain_key="equity",
             domain_display_name="股票",
@@ -61,7 +57,6 @@ def _fake_specs() -> list[DatasetFreshnessSpec]:
         DatasetFreshnessSpec(
             dataset_key="adj_factor",
             resource_key="adj_factor",
-            job_name="sync_adj_factor",
             display_name="复权因子",
             domain_key="equity",
             domain_display_name="股票",

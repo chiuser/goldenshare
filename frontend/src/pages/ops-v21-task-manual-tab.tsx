@@ -93,7 +93,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getDefaultFieldValue(action: ManualAction, param: ManualActionFilter): string | string[] | undefined {
-  if (action.action_key !== "dc_hot") {
+  if (action.resource_key !== "dc_hot") {
     return undefined;
   }
   const options = normalizeParamOptions(param.options);
@@ -159,14 +159,14 @@ function findManualAction(actions: ManualAction[], actionId: string) {
   return actions.find((action) => action.action_key === normalized) || null;
 }
 
-function matchesActionSpec(action: ManualAction, specType: string | null, specKey: string | null) {
-  if (!specKey) {
+function matchesActionRoute(action: ManualAction, actionType: string | null, actionKey: string | null) {
+  if (!actionKey) {
     return false;
   }
-  if (specType && action.action_type !== specType) {
+  if (actionType && action.action_type !== actionType) {
     return false;
   }
-  return action.route_spec_keys.includes(specKey);
+  return action.route_keys.includes(actionKey);
 }
 
 export function shouldAutoAlignDomain(selectedDomain: string, selectedAction: ManualAction | { domainLabel?: string } | null) {
@@ -336,7 +336,7 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
   if (!action) {
     return null;
   }
-  if (action.action_key === "ths_member") {
+  if (action.resource_key === "ths_member") {
     return {
       title: "执行方式说明",
       lines: [
@@ -345,7 +345,7 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
       ],
     };
   }
-  if (action.action_key === "dc_member") {
+  if (action.resource_key === "dc_member") {
     return {
       title: "执行方式说明",
       lines: [
@@ -354,7 +354,7 @@ function getActionGuidance(action: ManualAction | null): ActionGuidance | null {
       ],
     };
   }
-  if (action.action_key === "stk_mins") {
+  if (action.resource_key === "stk_mins") {
     return {
       title: "执行方式说明",
       lines: [
@@ -474,8 +474,8 @@ export function OpsManualTaskTab() {
 
   const prefillTaskRunId = readSearchString(routerSearch, "from_task_run_id");
   const prefillScheduleId = readSearchString(routerSearch, "from_schedule_id");
-  const prefillSpecKey = readSearchString(routerSearch, "spec_key");
-  const prefillSpecType = readSearchString(routerSearch, "spec_type");
+  const prefillActionKey = readSearchString(routerSearch, "action_key");
+  const prefillActionType = readSearchString(routerSearch, "action_type");
   const prefillTradeDate = readSearchString(routerSearch, "trade_date");
 
   const manualActionsQuery = useQuery({
@@ -540,7 +540,7 @@ export function OpsManualTaskTab() {
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
   const actionGuidance = useMemo(() => getActionGuidance(selectedAction), [selectedAction]);
-  const prefillSpecAppliedRef = useRef(false);
+  const prefillActionAppliedRef = useRef(false);
   const prefillTaskRunAppliedRef = useRef(false);
   const prefillScheduleAppliedRef = useRef(false);
 
@@ -551,17 +551,17 @@ export function OpsManualTaskTab() {
   }, [selectedAction, selectedDomain, setSelectedDomain]);
 
   useEffect(() => {
-    if (prefillSpecAppliedRef.current) {
+    if (prefillActionAppliedRef.current) {
       return;
     }
     if (!manualActions.length) {
       return;
     }
-    if (!prefillSpecKey) {
-      prefillSpecAppliedRef.current = true;
+    if (!prefillActionKey) {
+      prefillActionAppliedRef.current = true;
       return;
     }
-    const prefilledAction = manualActions.find((item) => matchesActionSpec(item, prefillSpecType, prefillSpecKey));
+    const prefilledAction = manualActions.find((item) => matchesActionRoute(item, prefillActionType, prefillActionKey));
     if (prefilledAction) {
       setSelectedDomain(prefilledAction.groupLabel);
       setDraft((current) => {
@@ -580,8 +580,8 @@ export function OpsManualTaskTab() {
         };
       });
     }
-    prefillSpecAppliedRef.current = true;
-  }, [manualActions, prefillSpecKey, prefillSpecType, prefillTradeDate, setDraft, setSelectedDomain]);
+    prefillActionAppliedRef.current = true;
+  }, [manualActions, prefillActionKey, prefillActionType, prefillTradeDate, setDraft, setSelectedDomain]);
 
   useEffect(() => {
     if (prefillTaskRunAppliedRef.current) {
@@ -590,8 +590,7 @@ export function OpsManualTaskTab() {
     if (!manualActions.length || !prefillTaskRunQuery.data) {
       return;
     }
-    const specKey = prefillTaskRunQuery.data.run.resource_key ? `${prefillTaskRunQuery.data.run.resource_key}.maintain` : null;
-    const action = manualActions.find((item) => matchesActionSpec(item, prefillTaskRunQuery.data?.run.task_type || null, specKey));
+    const action = manualActions.find((item) => matchesActionRoute(item, prefillTaskRunQuery.data?.run.task_type || null, prefillTaskRunQuery.data?.run.action_key || null));
     if (!action) {
       prefillTaskRunAppliedRef.current = true;
       return;
@@ -608,7 +607,7 @@ export function OpsManualTaskTab() {
     if (!manualActions.length || !prefillScheduleQuery.data) {
       return;
     }
-    const action = manualActions.find((item) => matchesActionSpec(item, prefillScheduleQuery.data.spec_type, prefillScheduleQuery.data.spec_key));
+    const action = manualActions.find((item) => matchesActionRoute(item, prefillScheduleQuery.data.spec_type, prefillScheduleQuery.data.spec_key));
     if (!action) {
       prefillScheduleAppliedRef.current = true;
       return;

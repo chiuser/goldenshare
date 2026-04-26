@@ -1,15 +1,14 @@
 from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.specs.job_spec import JobSpec, ParameterSpec
 from src.ops.specs.registry import (
-    DATASET_FRESHNESS_BY_JOB_NAME,
     DATASET_FRESHNESS_SPEC_REGISTRY,
     JOB_SPEC_REGISTRY,
     WORKFLOW_SPEC_REGISTRY,
     get_dataset_freshness_spec,
-    get_dataset_freshness_spec_by_job_name,
     get_job_spec,
     get_ops_spec,
     get_ops_spec_display_name,
+    get_ops_spec_target_display_name,
     get_workflow_spec,
     list_dataset_freshness_specs,
     list_job_specs,
@@ -19,7 +18,6 @@ from src.ops.specs.registry import (
 from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
 
 __all__ = [
-    "DATASET_FRESHNESS_BY_JOB_NAME",
     "DATASET_FRESHNESS_SPEC_REGISTRY",
     "DatasetFreshnessSpec",
     "JobSpec",
@@ -29,10 +27,10 @@ __all__ = [
     "WORKFLOW_SPEC_REGISTRY",
     "WorkflowStepSpec",
     "get_dataset_freshness_spec",
-    "get_dataset_freshness_spec_by_job_name",
     "get_job_spec",
     "get_ops_spec",
     "get_ops_spec_display_name",
+    "get_ops_spec_target_display_name",
     "get_workflow_spec",
     "list_dataset_freshness_specs",
     "list_job_specs",
