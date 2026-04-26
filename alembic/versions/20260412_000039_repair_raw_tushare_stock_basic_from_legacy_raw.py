@@ -1,4 +1,4 @@
-"""backfill raw_tushare stock_basic from legacy raw schema"""
+"""repair raw_tushare stock_basic from legacy raw schema"""
 
 from __future__ import annotations
 

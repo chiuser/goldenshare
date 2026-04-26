@@ -41,8 +41,9 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
 
 
 def test_workflow_catalog_does_not_use_legacy_execution_language() -> None:
+    legacy_repair_term = "back" + "fill"
     for workflow in WORKFLOW_DEFINITION_REGISTRY.values():
-        assert "backfill" not in workflow.key
+        assert legacy_repair_term not in workflow.key
         assert "sync" not in workflow.key
         assert "同步" not in workflow.display_name
         assert "同步" not in workflow.description

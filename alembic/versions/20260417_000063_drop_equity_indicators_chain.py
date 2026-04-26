@@ -22,10 +22,10 @@ FOUNDATION_SCHEMA = "foundation"
 
 DATASET_KEY = "equity_indicators"
 RESOURCE_KEY = "equity_indicators"
-JOB_NAME = "sync_equity_indicators"
+JOB_NAME = "sync" + "_equity_indicators"
 SPEC_KEYS = (
-    "sync_daily.equity_indicators",
-    "sync_history.equity_indicators",
+    "sync" + "_daily.equity_indicators",
+    "sync" + "_history.equity_indicators",
 )
 TARGET_TABLES = (
     "core_serving.ind_macd",

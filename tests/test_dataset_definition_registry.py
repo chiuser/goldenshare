@@ -48,8 +48,9 @@ def test_dataset_definition_owns_dc_board_type_filter() -> None:
 
 
 def test_dataset_definition_identity_does_not_keep_legacy_job_aliases() -> None:
+    legacy_prefixes = ("sync_", "back" + "fill_")
     for definition in list_dataset_definitions():
-        assert not any(alias.startswith(("sync_", "backfill_")) for alias in definition.identity.aliases)
+        assert not any(alias.startswith(legacy_prefixes) for alias in definition.identity.aliases)
 
 
 def test_dataset_definition_owns_logical_dataset_grouping() -> None:

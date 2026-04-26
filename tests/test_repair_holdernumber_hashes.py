@@ -1,4 +1,4 @@
-from src.scripts.backfill_holdernumber_hashes import backfill_holdernumber_hashes_with_connection
+from src.scripts.repair_holdernumber_hashes import repair_holdernumber_hashes_with_connection
 
 
 class _Result:
@@ -12,7 +12,7 @@ class _Result:
         return self._rows
 
 
-def test_backfill_holdernumber_hashes_updates_raw_and_core(mocker) -> None:
+def test_repair_holdernumber_hashes_updates_raw_and_core(mocker) -> None:
     connection = mocker.Mock()
     raw_rows = [{"id": 1, "ts_code": "000001.SZ", "ann_date": None, "end_date": "1996-12-31", "holder_num": 330500}]
     core_rows = [{"id": 2, "ts_code": "000001.SZ", "ann_date": None, "end_date": "1996-12-31", "holder_num": 330500}]
@@ -23,7 +23,7 @@ def test_backfill_holdernumber_hashes_updates_raw_and_core(mocker) -> None:
         mocker.Mock(),
     ]
 
-    summary = backfill_holdernumber_hashes_with_connection(connection)
+    summary = repair_holdernumber_hashes_with_connection(connection)
 
     assert summary.raw_scanned == 1
     assert summary.raw_updated == 1

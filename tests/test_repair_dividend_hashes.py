@@ -1,4 +1,4 @@
-from src.scripts.backfill_dividend_hashes import backfill_dividend_hashes_with_connection
+from src.scripts.repair_dividend_hashes import repair_dividend_hashes_with_connection
 
 
 class _Result:
@@ -12,7 +12,7 @@ class _Result:
         return self._rows
 
 
-def test_backfill_dividend_hashes_updates_raw_and_core(mocker) -> None:
+def test_repair_dividend_hashes_updates_raw_and_core(mocker) -> None:
     connection = mocker.Mock()
     raw_rows = [
         {
@@ -63,7 +63,7 @@ def test_backfill_dividend_hashes_updates_raw_and_core(mocker) -> None:
         mocker.Mock(),
     ]
 
-    summary = backfill_dividend_hashes_with_connection(connection)
+    summary = repair_dividend_hashes_with_connection(connection)
 
     assert summary.raw_scanned == 1
     assert summary.raw_updated == 1
@@ -73,7 +73,7 @@ def test_backfill_dividend_hashes_updates_raw_and_core(mocker) -> None:
     assert summary.core_deleted == 0
 
 
-def test_backfill_dividend_hashes_dedupes_duplicate_row_hashes(mocker) -> None:
+def test_repair_dividend_hashes_dedupes_duplicate_row_hashes(mocker) -> None:
     connection = mocker.Mock()
     duplicate_row = {
         "ts_code": "000001.SZ",
@@ -104,7 +104,7 @@ def test_backfill_dividend_hashes_dedupes_duplicate_row_hashes(mocker) -> None:
         mocker.Mock(),
     ]
 
-    summary = backfill_dividend_hashes_with_connection(connection)
+    summary = repair_dividend_hashes_with_connection(connection)
 
     assert summary.raw_deleted == 1
     assert summary.core_deleted == 1

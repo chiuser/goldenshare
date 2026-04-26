@@ -10,7 +10,7 @@ from src.foundation.services.transform.dividend_hash import build_dividend_event
 
 
 @dataclass
-class DividendHashBackfillSummary:
+class DividendHashRepairSummary:
     raw_scanned: int
     raw_updated: int
     raw_deleted: int
@@ -45,10 +45,10 @@ def _assert_no_conflicts(kind: str, mappings: list[dict[str, object]], key_field
     counts = Counter(mapping[key_field] for mapping in mappings)
     conflicts = [key for key, count in counts.items() if count > 1]
     if conflicts:
-        raise ValueError(f"{kind} backfill found {len(conflicts)} duplicate {key_field} values after dedupe")
+        raise ValueError(f"{kind} hash repair found {len(conflicts)} duplicate {key_field} values after dedupe")
 
 
-def backfill_dividend_hashes_with_connection(connection) -> DividendHashBackfillSummary:
+def repair_dividend_hashes_with_connection(connection) -> DividendHashRepairSummary:
     raw_rows = connection.execute(
         text(
             """
@@ -110,7 +110,7 @@ def backfill_dividend_hashes_with_connection(connection) -> DividendHashBackfill
             core_mappings,
         )
 
-    return DividendHashBackfillSummary(
+    return DividendHashRepairSummary(
         raw_scanned=len(raw_rows),
         raw_updated=len(raw_mappings),
         raw_deleted=len(raw_duplicate_ids),
@@ -122,10 +122,10 @@ def backfill_dividend_hashes_with_connection(connection) -> DividendHashBackfill
 
 def main() -> None:
     with SessionLocal() as session:
-        summary = backfill_dividend_hashes_with_connection(session.connection())
+        summary = repair_dividend_hashes_with_connection(session.connection())
         session.commit()
         print(
-            "dividend hash backfill "
+            "dividend hash repair "
             f"raw_scanned={summary.raw_scanned} raw_updated={summary.raw_updated} raw_deleted={summary.raw_deleted} "
             f"core_scanned={summary.core_scanned} core_updated={summary.core_updated} core_deleted={summary.core_deleted}"
         )

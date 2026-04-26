@@ -9,7 +9,7 @@ from src.foundation.services.transform.holdernumber_hash import build_holdernumb
 
 
 @dataclass
-class HolderNumberHashBackfillSummary:
+class HolderNumberHashRepairSummary:
     raw_scanned: int
     raw_updated: int
     raw_deleted: int
@@ -40,7 +40,7 @@ def _dedupe_by_key(
     return deduped, duplicate_ids
 
 
-def backfill_holdernumber_hashes_with_connection(connection) -> HolderNumberHashBackfillSummary:
+def repair_holdernumber_hashes_with_connection(connection) -> HolderNumberHashRepairSummary:
     raw_rows = connection.execute(
         text(
             """
@@ -95,7 +95,7 @@ def backfill_holdernumber_hashes_with_connection(connection) -> HolderNumberHash
             core_mappings,
         )
 
-    return HolderNumberHashBackfillSummary(
+    return HolderNumberHashRepairSummary(
         raw_scanned=len(raw_rows),
         raw_updated=len(raw_mappings),
         raw_deleted=len(raw_duplicate_ids),
@@ -107,10 +107,10 @@ def backfill_holdernumber_hashes_with_connection(connection) -> HolderNumberHash
 
 def main() -> None:
     with SessionLocal() as session:
-        summary = backfill_holdernumber_hashes_with_connection(session.connection())
+        summary = repair_holdernumber_hashes_with_connection(session.connection())
         session.commit()
         print(
-            "holdernumber hash backfill "
+            "holdernumber hash repair "
             f"raw_scanned={summary.raw_scanned} raw_updated={summary.raw_updated} raw_deleted={summary.raw_deleted} "
             f"core_scanned={summary.core_scanned} core_updated={summary.core_updated} core_deleted={summary.core_deleted}"
         )

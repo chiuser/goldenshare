@@ -37,7 +37,7 @@ def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None
         "sync" + "_daily",
         "sync" + "_history",
         "sync" + "_minute_history",
-        "backfill" + "_",
+        "back" + "fill" + "_",
         "sync" + "_v2",
         "Sync" + "V2",
         "Dataset" + "Sync" + "Contract",
@@ -45,7 +45,7 @@ def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None
         "build_" + "sync" + "_service",
         "sync" + "_run" + "_log",
         "History" + "BackfillService",
-        "history" + "_backfill_service",
+        "history" + "_back" + "fill_service",
     )
     violations: list[str] = []
     for root in ACTIVE_CODE_ROOTS:

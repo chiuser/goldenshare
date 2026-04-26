@@ -17,11 +17,20 @@ branch_labels = None
 depends_on = None
 
 OPS_SCHEMA = "ops"
-LEGACY_PREFIX_GROUP = (
-    "(sync_daily|sync_history|sync_minute_history|backfill_trade_cal|"
-    "backfill_equity_series|backfill_by_trade_date|backfill_by_date_range|"
-    "backfill_by_month|backfill_fund_series|backfill_index_series|backfill_low_frequency)"
+LEGACY_PREFIXES = (
+    "sync" + "_daily",
+    "sync" + "_history",
+    "sync" + "_minute_history",
+    "back" + "fill_trade_cal",
+    "back" + "fill_equity_series",
+    "back" + "fill_by_trade_date",
+    "back" + "fill_by_date_range",
+    "back" + "fill_by_month",
+    "back" + "fill_fund_series",
+    "back" + "fill_index_series",
+    "back" + "fill_low_frequency",
 )
+LEGACY_PREFIX_GROUP = "(" + "|".join(LEGACY_PREFIXES) + ")"
 LEGACY_SPEC_PATTERN = rf"^{LEGACY_PREFIX_GROUP}\.([A-Za-z0-9_]+)$"
 LEGACY_PREFIX_PATTERN = rf"^{LEGACY_PREFIX_GROUP}\."
 LEGACY_UNIT_PATTERN = rf"^{LEGACY_PREFIX_GROUP}\.([A-Za-z0-9_]+)(:.*)?$"

@@ -11,7 +11,7 @@ from src.foundation.services.transform.top_list_reason import hash_top_list_reas
 
 
 @dataclass
-class TopListReasonHashBackfillSummary:
+class TopListReasonHashRepairSummary:
     scanned: int
     updated: int
     skipped_missing_reason: int
@@ -33,10 +33,10 @@ def find_top_list_reason_hash_conflicts(session) -> list[tuple[str, object, str,
     ]
 
 
-def backfill_top_list_reason_hash(session) -> TopListReasonHashBackfillSummary:
+def repair_top_list_reason_hash(session) -> TopListReasonHashRepairSummary:
     conflicts = find_top_list_reason_hash_conflicts(session)
     if conflicts:
-        raise ValueError(f"Found {len(conflicts)} top_list reason_hash conflicts before backfill")
+        raise ValueError(f"Found {len(conflicts)} top_list reason_hash conflicts before repair")
 
     stmt = select(EquityTopList.ts_code, EquityTopList.trade_date, EquityTopList.reason).where(EquityTopList.reason_hash.is_(None))
     mappings: list[dict[str, object]] = []
@@ -58,7 +58,7 @@ def backfill_top_list_reason_hash(session) -> TopListReasonHashBackfillSummary:
         )
     if mappings:
         session.bulk_update_mappings(EquityTopList, mappings)
-    return TopListReasonHashBackfillSummary(
+    return TopListReasonHashRepairSummary(
         scanned=scanned,
         updated=len(mappings),
         skipped_missing_reason=skipped_missing_reason,
@@ -68,10 +68,10 @@ def backfill_top_list_reason_hash(session) -> TopListReasonHashBackfillSummary:
 
 def main() -> None:
     with SessionLocal() as session:
-        summary = backfill_top_list_reason_hash(session)
+        summary = repair_top_list_reason_hash(session)
         session.commit()
         print(
-            "equity_top_list reason_hash backfill "
+            "equity_top_list reason_hash repair "
             f"scanned={summary.scanned} updated={summary.updated} "
             f"skipped_missing_reason={summary.skipped_missing_reason} conflicts={summary.conflicts}"
         )

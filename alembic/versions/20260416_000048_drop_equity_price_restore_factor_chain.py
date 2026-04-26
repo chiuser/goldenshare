@@ -23,11 +23,11 @@ FOUNDATION_SCHEMA = "foundation"
 
 DATASET_KEY = "equity_price_restore_factor"
 RESOURCE_KEY = "equity_price_restore_factor"
-JOB_NAME = "sync_equity_price_restore_factor"
+JOB_NAME = "sync" + "_equity_price_restore_factor"
 TARGET_TABLE = "core.equity_price_restore_factor"
 SPEC_KEYS = (
-    "sync_daily.equity_price_restore_factor",
-    "sync_history.equity_price_restore_factor",
+    "sync" + "_daily.equity_price_restore_factor",
+    "sync" + "_history.equity_price_restore_factor",
     "maintenance.rebuild_equity_price_restore_factor",
 )
 

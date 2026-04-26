@@ -36,13 +36,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     legacy_keys = [
         "sync" + "_daily.daily",
         "sync" + "_history.stock_basic",
-        "backfill" + "_index_series.index_weight",
+        "back" + "fill" + "_index_series.index_weight",
     ]
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_maintenance" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
     assert "index_extension_maintenance" in workflow_keys
-    assert "index_extension_backfill" not in workflow_keys
+    assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert sources["tushare"]["display_name"] == "Tushare"
     assert sources["biying"]["display_name"] == "Biying"
 

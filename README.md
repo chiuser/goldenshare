@@ -1,6 +1,6 @@
 # goldenshare
 
-PostgreSQL + Tushare 行情/选股系统第一期数据底座。
+PostgreSQL + Tushare 行情/选股系统数据运营平台。
 
 ## 技术栈
 
@@ -23,8 +23,8 @@ PostgreSQL + Tushare 行情/选股系统第一期数据底座。
 1. 创建虚拟环境并安装依赖
 2. 配置环境变量
 3. 执行数据库 migration
-4. 先做小范围 smoke sync
-5. 再执行历史同步或日常增量同步
+4. 启动 Web 与前端
+5. 在任务中心创建小范围数据维护任务做 smoke 验证
 
 ```bash
 python -m venv .venv
@@ -32,8 +32,6 @@ source .venv/bin/activate
 pip install -e .[dev]
 cp .env.example .env
 goldenshare init-db
-goldenshare sync-history --resources stock_basic --resources trade_cal
-goldenshare sync-daily --resources daily_basic --resources moneyflow --resources limit_list_d
 ```
 
 ## 环境变量
@@ -139,124 +137,39 @@ alembic upgrade head
 goldenshare init-db
 ```
 
-## 基础主数据类数据集接入模式
+## 数据集定义与维护入口
 
-后续接入类似 `stock_basic` / `etf_basic` / `hk_basic` / `us_basic` 这种“基础主数据”接口时，统一按下面模式实现：
+数据集的身份、输入参数、日期模型、枚举、多选、分层写入目标和维护规划，统一从 [src/foundation/datasets/definitions](/Users/congming/github/goldenshare/src/foundation/datasets/definitions) 下的 `DatasetDefinition` 落账。
 
-1. 显式声明 `fields`
-   不依赖 Tushare 默认返回字段，所有输出字段都要在 [src/foundation/services/sync/fields.py](/Users/congming/github/goldenshare/src/foundation/services/sync/fields.py) 中定义常量并显式请求。像 `us_basic.enname` 这种默认不返回的字段，也必须包含进去。
-2. raw/core 分层建表
-   `raw.*` 负责保留原始接口输出和抓取元信息，`core.*` 负责提供规范化后的业务查询表。不要为了图省事把不同市场、不同语义的主数据硬塞进 [core.security](/Users/congming/github/goldenshare/src/foundation/models/core/security.py)。
-3. sync service 最小转换
-   基础主数据类资源通常不需要复杂 normalizer，只做日期转换、必要字段透传和 `source="tushare"` 这样的最小补充。
-4. 运营后台完整打通
-   新资源不仅要能 `sync-history`，还要同步接入：
-   - ops catalog 参数定义
-   - 手动任务
-   - 自动任务
-   - workflow
-   - 数据状态 / freshness 展示
-5. migration 保持 additive
-   这类资源优先走“新增 raw/core 表和索引”的 additive migration，不碰无关表结构。
+数据维护执行链统一为：
 
-按这个模式，本轮新增了：
-- `hk_basic` 港股列表
-- `us_basic` 美股列表
-
-## 日频榜单类数据集接入模式
-
-后续接入类似 `ths_hot` / `dc_hot` / `kpl_list` / `limit_list_ths` / `limit_step` / `limit_cpt_list` 这种“日频榜单类”接口时，统一按下面模式实现：
-
-1. 显式声明 `fields`
-   和基础主数据一样，不依赖默认返回字段，所有输出字段都要在 [src/foundation/services/sync/fields.py](/Users/congming/github/goldenshare/src/foundation/services/sync/fields.py) 中定义并显式传给接口。
-2. 按交易日同步与回补
-   默认支持：
-   - `sync_daily.<resource>` 按单个交易日同步
-   - `backfill_by_trade_date.<resource>` 按交易日区间历史回补
-3. raw/core 双表
-   `raw.*` 记录原始榜单快照，`core.*` 提供查询表；必要时保留 `query_*` 请求上下文字段，避免多筛选条件下的数据语义丢失。
-4. 用户参数只暴露高价值筛选项
-   不要把文档里所有参数都直接暴露给运营后台。像单证券 `ts_code`、低频分析参数这类，如果日常同步价值很低，就不要放进手动任务和自动任务页面。
-5. 多选参数优先复选框
-   如果参数允许多值，前端统一用复选框，不再用下拉菜单；后端按接口语义决定是拼接传参还是拆分多次调用。
-
-按这个模式，本轮新增了：
-- `limit_list_ths` 同花顺涨跌停榜单
-- `limit_step` 涨停天梯
-- `limit_cpt_list` 最强板块统计
-
-## 安全启动同步
-
-建议按这个顺序启动同步，先确认库结构和小批量链路都正常，再开始大批量回补：
-
-1. 先执行 migration
-2. 先同步基础维表
-3. 先跑最近 1 到 3 个交易日的 smoke sync
-4. 确认日志、写入量、唯一键和字段映射都正常
-5. 再执行大批量历史同步
-
-最小 smoke 流程建议：
-
-```bash
-goldenshare init-db
-goldenshare sync-history --resources stock_basic
-goldenshare sync-history --resources trade_cal
-goldenshare sync-daily --resources daily_basic --resources moneyflow --resources limit_list_d
-goldenshare sync-daily --trade-date 2026-03-24 --resources top_list --resources block_trade
+```text
+DatasetDefinition
+-> DatasetActionRequest
+-> DatasetExecutionPlan
+-> IngestionExecutor
+-> TaskRun
 ```
 
-确认 smoke 正常后，再开始历史回补，例如：
+接入或调整数据集时，必须遵守：
 
-```bash
-goldenshare sync-history --resources etf_basic
-goldenshare backfill-trade-cal --start-date 2010-01-01 --end-date 2026-03-24
-goldenshare backfill-equity-series --resource daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource adj_factor --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-fund-series --resource fund_daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource daily_basic --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource moneyflow --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource limit_list_d --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_adj_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_adj_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-```
-
-新增的海外基础主数据可以这样同步：
-
-```bash
-goldenshare sync-history --resources hk_basic
-goldenshare sync-history --resources hk_basic --list-status L
-goldenshare sync-history --resources hk_basic --ts-code 00005.HK
-
-goldenshare sync-history --resources us_basic
-goldenshare sync-history --resources us_basic --classify EQT
-goldenshare sync-history --resources us_basic --ts-code AAPL
-```
-
-说明：
-- `backfill-*` 命令现在会输出逐单位进度，例如按证券或按交易日打印 `fetched/written`
-- `limit_list_d` 按 Tushare 文档应从 `2020-01-01` 起回补，早于这个时间通常会空跑
-- `stk_period_bar_week` / `stk_period_bar_month` / `stk_period_bar_adj_week` / `stk_period_bar_adj_month` 的历史回补统一走按 `ts_code` 纵向扫
-- `fund_daily` 的历史回补走 `backfill-fund-series`，会从 `core.etf_basic` 读取 ETF/Fund 代码后按 `ts_code` 纵向扫；建议先执行 `goldenshare sync-history --resources etf_basic`
-- `backfill-fund-series` 当前会默认跳过 `.OF` 结尾代码，因为基于现有数据库回补结果，`.OF` 代码在 `fund_daily` 中没有返回数据；命令会优先遍历 `*.SH` / `*.SZ` 等场内代码
-- `backfill-index-series` 会从 `core.index_basic` 读取指数代码池，并按资源语义自动使用 `ts_code` 或 `index_code` 做纵向历史回补
+1. 先补齐 `DatasetDefinition`，不允许页面、查询层或执行层自行拼装事实字段。
+2. 输入参数、枚举、多选、日期模型、分页、扇出、事务策略和写入目标，只能从 Definition 派生。
+3. 运维后台只消费后端已经收口好的字段，不在前端重新推断数据集名称、最近维护日期、状态或处理范围。
+4. 新数据集必须接入任务中心手动任务、任务记录、任务详情和数据源卡片状态展示。
+5. smoke 验证优先通过 Web 任务中心创建小范围维护任务；命令行只保留薄入口，不能作为独立事实源。
 
 ## top_list reason_hash 切换顺序
 
 `core.equity_top_list` 当前处于分阶段切换中：
 
 - `reason_hash` 已写入 `core`
-- 当前同步仍沿用旧主键语义做 upsert
+- 当前维护写入仍沿用旧主键语义做 upsert
 - 还没有切到 `(ts_code, trade_date, reason_hash)` 冲突键
 
 后续正确切换顺序：
 1. 执行 `goldenshare init-db` 应用 migration
-2. 执行 `python3 -m src.scripts.backfill_top_list_reason_hash` 回填历史 `reason_hash`
+2. 执行 `python3 -m src.scripts.repair_top_list_reason_hash` 补齐历史 `reason_hash`
 3. 运行冲突检查，确认不存在相同 `(ts_code, trade_date, reason_hash)` 的重复组
 4. 最后单独一轮把 `top_list` 的 upsert 冲突键切到 `(ts_code, trade_date, reason_hash)`
 
@@ -268,86 +181,16 @@ goldenshare sync-history --resources us_basic --ts-code AAPL
 goldenshare init-db
 ```
 
-基础数据同步：
+数据维护 smoke 验证：
 
-```bash
-goldenshare sync-history --resources stock_basic
-goldenshare sync-history --resources trade_cal
-```
-
-最近 1 到 3 个交易日的 smoke sync：
-
-```bash
-goldenshare sync-daily --resources daily_basic --resources moneyflow --resources limit_list_d
-goldenshare sync-daily --trade-date 2026-03-24 --resources top_list --resources block_trade
-```
-
-确认无误后，再执行历史同步：
-
-```bash
-goldenshare sync-history --resources etf_basic
-goldenshare backfill-trade-cal --start-date 2010-01-01 --end-date 2026-03-24
-goldenshare backfill-equity-series --resource daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource adj_factor --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-fund-series --resource fund_daily --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_adj_week --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-equity-series --resource stk_period_bar_adj_month --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource daily_basic --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource moneyflow --start-date 2010-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-goldenshare backfill-by-trade-date --resource limit_list_d --start-date 2020-01-01 --end-date 2026-03-24 --offset 0 --limit 20
-```
+1. 启动 Web 和前端。
+2. 进入任务中心的手动任务页。
+3. 选择一个小范围数据集与时间点。
+4. 提交后在任务记录和任务详情中确认状态、处理范围、阶段进展和数据源卡片状态。
 
 ## 扩展资源说明
 
-本轮新增的可同步资源名：
-
-- `stk_period_bar_week`
-- `stk_period_bar_month`
-- `stk_period_bar_adj_week`
-- `stk_period_bar_adj_month`
-- `index_basic`
-- `index_weekly`
-- `index_monthly`
-- `index_weight`
-- `index_daily_basic`
-
-`index_weight` 使用的是 Tushare 的 `index_code` 语义。CLI 里推荐显式传：
-
-```bash
-goldenshare sync-history --resources index_weight --index-code 000300.SH --start-date 2020-01-01 --end-date 2026-03-31
-```
-
-`index_weight` 仅支持 `--index-code`，不再接受 `--ts-code`。
-
-指数扩展资源的历史回补现在可以直接使用：
-
-```bash
-goldenshare backfill-index-series --resource index_weekly --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
-goldenshare backfill-index-series --resource index_monthly --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
-goldenshare backfill-index-series --resource index_daily_basic --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
-goldenshare backfill-index-series --resource index_weight --start-date 2020-01-01 --end-date 2026-03-29 --offset 0 --limit 100
-```
-
-它会从 `core.index_basic` 读取指数代码池，然后按资源类型选择参数：
-
-- `index_weekly` / `index_monthly` / `index_daily_basic`：按 `ts_code`
-- `index_weight`：按 `index_code`
-
-`fund_daily` 的历史回补与股票纵向回补分开，使用：
-
-```bash
-goldenshare sync-history --resources etf_basic
-goldenshare backfill-fund-series --resource fund_daily --start-date 2024-01-01 --end-date 2026-03-29 --offset 0 --limit 100
-```
-
-其中 `backfill-fund-series` 会从 `core.etf_basic` 中读取 ETF/Fund 代码，并对每个 `ts_code` 调用 `fund_daily` 做分段历史写入。
-当前实现会默认排除 `.OF` 结尾代码，以减少已经验证为空的无效请求。
+数据集清单、输入参数和日期模型以 `DatasetDefinition` 为准。新增或调整资源时，不在 README 复制一份第二事实源；需要查看当前事实时，优先看 [src/foundation/datasets/definitions](/Users/congming/github/goldenshare/src/foundation/datasets/definitions)。
 
 ## dividend 说明
 
@@ -380,7 +223,7 @@ goldenshare backfill-fund-series --resource fund_daily --start-date 2024-01-01 -
 如果你是在已经跑过旧版 `dividend` 逻辑的库上升级，建议在 migration 后执行一次：
 
 ```bash
-python3 -m src.scripts.backfill_dividend_hashes
+python3 -m src.scripts.repair_dividend_hashes
 ```
 
 这样历史 `raw.dividend` 与 `core.equity_dividend` 记录都会补齐 hash 字段。
@@ -391,11 +234,7 @@ python3 -m src.scripts.backfill_dividend_hashes
 goldenshare init-db
 ```
 
-再执行：
-
-```bash
-goldenshare backfill-low-frequency --resource dividend --offset 0 --limit 100
-```
+再通过任务中心创建 `dividend` 小范围维护任务，确认写入和状态展示正常。
 
 ## holdernumber 说明
 
@@ -417,7 +256,7 @@ goldenshare init-db
 如需对历史数据补齐 hash，可执行：
 
 ```bash
-python3 -m src.scripts.backfill_holdernumber_hashes
+python3 -m src.scripts.repair_holdernumber_hashes
 ```
 
 ## Web 平台一期
