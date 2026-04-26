@@ -92,6 +92,7 @@ code {
 .app-shell-navbar {
   background: var(--gs-neutral-0);
   border-inline-end: 1px solid var(--gs-neutral-3);
+  overflow-x: hidden;
 }
 
 .app-shell-main {

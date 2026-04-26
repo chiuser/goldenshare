@@ -105,16 +105,8 @@ export function OpsShell(_props: PropsWithChildren) {
       </AppShell.Header>
 
       <AppShell.Navbar className="app-shell-navbar" p="md">
-        <AppShell.Section grow component={ScrollArea}>
+        <AppShell.Section grow component={ScrollArea} scrollbars="y">
           <Stack gap="xs">
-            <Group justify="space-between" px="xs" pb={2}>
-              <Text className="app-shell-section-caption" size="xs" fw={600}>
-                V2.1
-              </Text>
-              <Badge size="xs" variant="light" color="brand">
-                新
-              </Badge>
-            </Group>
             {opsV21Links.map((link) => (
               <NavLink
                 key={link.to}
@@ -183,12 +175,6 @@ export function OpsShell(_props: PropsWithChildren) {
               active={location.pathname === "/platform-check"}
               variant="light"
               color="brand"
-            />
-            <NavLink
-              label="当前重点：先看今日运行，再处理任务记录里的失败项。"
-              leftSection={<IconSparkles size={18} />}
-              disabled
-              variant="subtle"
             />
             <Stack className="app-shell-footer-meta" gap={2} mt={8} px="sm">
               <Text size="xs" c="dimmed">
