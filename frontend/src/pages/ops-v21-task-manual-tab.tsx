@@ -15,7 +15,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useTradeCalendarField } from "../features/trade-calendar/use-trade-calendar";
 import { apiRequest } from "../shared/api/client";
@@ -23,6 +23,7 @@ import type {
   OpsManualActionsResponse,
   OpsManualActionTaskRunRequest,
   ScheduleDetailResponse,
+  TaskRunListResponse,
   TaskRunViewResponse,
 } from "../shared/api/types";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
@@ -45,6 +46,12 @@ type ManualDateMode = "single_point" | "time_range";
 type ActionGuidance = {
   title: string;
   lines: string[];
+};
+
+type CreateRecoveryState = {
+  actionName: string;
+  resourceKey: string | null;
+  submittedAtMs: number;
 };
 
 const MANUAL_DRAFT_STORAGE_KEY = "goldenshare.frontend.ops.task-center.manual.draft";
@@ -79,6 +86,10 @@ function isEmptyFieldValue(value: string | string[] | undefined) {
     return value.filter(Boolean).length === 0;
   }
   return String(value).trim() === "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function getDefaultFieldValue(action: ManualAction, param: ManualActionFilter): string | string[] | undefined {
@@ -216,8 +227,8 @@ function isMonthAction(action: ManualAction) {
   return action.time_form.control === "month_or_range" || action.time_form.control === "month_window_range";
 }
 
-function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
-  if (!paramsJson) {
+function buildFieldValues(paramsJson: unknown) {
+  if (!isRecord(paramsJson)) {
     return {};
   }
   return Object.fromEntries(
@@ -233,16 +244,17 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
 function buildDraftFromParams(
   current: ManualDraft,
   action: ManualAction,
-  paramsJson: Record<string, unknown> | undefined,
+  paramsJson: unknown,
 ) {
+  const params = isRecord(paramsJson) ? paramsJson : {};
   const fieldValues = buildFieldValues(paramsJson);
-  const tradeDate = typeof paramsJson?.trade_date === "string" ? paramsJson.trade_date : "";
-  const annDate = typeof paramsJson?.ann_date === "string" ? paramsJson.ann_date : "";
-  const startDate = typeof paramsJson?.start_date === "string" ? paramsJson.start_date : "";
-  const endDate = typeof paramsJson?.end_date === "string" ? paramsJson.end_date : "";
-  const month = typeof paramsJson?.month === "string" ? paramsJson.month : "";
-  const startMonth = typeof paramsJson?.start_month === "string" ? paramsJson.start_month : "";
-  const endMonth = typeof paramsJson?.end_month === "string" ? paramsJson.end_month : "";
+  const tradeDate = typeof params.trade_date === "string" ? params.trade_date : "";
+  const annDate = typeof params.ann_date === "string" ? params.ann_date : "";
+  const startDate = typeof params.start_date === "string" ? params.start_date : "";
+  const endDate = typeof params.end_date === "string" ? params.end_date : "";
+  const month = typeof params.month === "string" ? params.month : "";
+  const startMonth = typeof params.start_month === "string" ? params.start_month : "";
+  const endMonth = typeof params.end_month === "string" ? params.end_month : "";
   const dateMode: ManualDateMode = (tradeDate || annDate || month) ? "single_point" : "time_range";
   return {
     ...current,
@@ -259,14 +271,52 @@ function buildDraftFromParams(
 }
 
 function buildPrefillParamsFromTaskRun(view: TaskRunViewResponse): Record<string, unknown> {
+  const filters = isRecord(view.run.filters) ? view.run.filters : {};
+  const timeInput = isRecord(view.run.time_input) ? view.run.time_input : {};
   return {
-    ...view.run.filters,
-    ...view.run.time_input,
+    ...filters,
+    ...timeInput,
     dataset_key: view.run.resource_key,
     action: view.run.action,
-    time_input: view.run.time_input,
-    filters: view.run.filters,
+    time_input: timeInput,
+    filters,
   };
+}
+
+function getCreatedTaskRunId(data: TaskRunViewResponse | null | undefined): number | null {
+  const id = data?.run?.id;
+  return typeof id === "number" && Number.isFinite(id) ? id : null;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function recoverCreatedTaskRunId(input: CreateRecoveryState): Promise<number | null> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    try {
+      const params = new URLSearchParams({
+        trigger_source: "manual",
+        limit: "10",
+      });
+      if (input.resourceKey) {
+        params.set("resource_key", input.resourceKey);
+      }
+      const response = await apiRequest<TaskRunListResponse>(`/api/v1/ops/task-runs?${params.toString()}`);
+      const candidate = response.items.find((item) => {
+        const requestedAtMs = Date.parse(item.requested_at);
+        return Number.isFinite(requestedAtMs) && requestedAtMs >= input.submittedAtMs - 5_000;
+      });
+      if (candidate) {
+        return candidate.id;
+      }
+    } catch {
+      // 任务请求已经发出；确认编号失败不能让业务提交链路反向崩掉。
+    }
+    await sleep(1_000);
+  }
+  return null;
 }
 
 function buildDraftForActionSelection(action: ManualAction | string): ManualDraft {
@@ -420,6 +470,7 @@ export function OpsManualTaskTab() {
   const [draft, setDraft] = usePersistentState(MANUAL_DRAFT_STORAGE_KEY, buildEmptyDraft());
   const [selectedDomain, setSelectedDomain] = usePersistentState<string>(MANUAL_DOMAIN_STORAGE_KEY, "");
   const [recentActionIds, setRecentActionIds] = usePersistentState<string[]>(MANUAL_RECENT_ACTIONS_STORAGE_KEY, []);
+  const [createRecovery, setCreateRecovery] = useState<CreateRecoveryState | null>(null);
 
   const prefillTaskRunId = readSearchString(routerSearch, "from_task_run_id");
   const prefillScheduleId = readSearchString(routerSearch, "from_schedule_id");
@@ -578,12 +629,33 @@ export function OpsManualTaskTab() {
       });
     },
     onSuccess: async (data) => {
+      const taskRunId = getCreatedTaskRunId(data);
+      if (taskRunId === null) {
+        const recovery = {
+          actionName: selectedAction?.display_name || "维护任务",
+          resourceKey: selectedAction?.resource_key || null,
+          submittedAtMs: Date.now(),
+        };
+        setCreateRecovery(recovery);
+        const recoveredTaskRunId = await recoverCreatedTaskRunId(recovery);
+        setCreateRecovery(null);
+        if (recoveredTaskRunId !== null) {
+          await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(recoveredTaskRunId) } });
+          return;
+        }
+        notifications.show({
+          color: "warning",
+          title: "还在确认任务编号",
+          message: "任务请求已经发出，但暂时没有确认到编号。请到任务记录查看最新任务。",
+        });
+        return;
+      }
       notifications.show({
         color: "success",
         title: "任务已提交",
         message: "系统已经收到这次维护请求，正在为你打开任务详情页。",
       });
-      await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(data.run.id) } });
+      await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(taskRunId) } });
     },
     onError: (error) => {
       notifications.show({
@@ -604,6 +676,14 @@ export function OpsManualTaskTab() {
         <AlertBar tone="error" title="无法打开手动任务">
           {pageError instanceof Error ? pageError.message : "未知错误"}
         </AlertBar>
+      ) : null}
+      {createRecovery ? (
+        <SectionCard title="正在确认任务编号" description="任务提交请求已经发出，我正在从任务记录中确认刚创建的任务。">
+          <Group justify="center" gap="sm">
+            <Loader size="sm" />
+            <Text size="sm">{`${createRecovery.actionName} 正在确认中，最多等待 10 秒。`}</Text>
+          </Group>
+        </SectionCard>
       ) : null}
 
       <Grid align="stretch">
@@ -954,7 +1034,8 @@ export function OpsManualTaskTab() {
                   <Stack gap="md">
                     <Group justify="flex-end" align="center">
                       <Button
-                        loading={createTaskRunMutation.isPending}
+                        loading={createTaskRunMutation.isPending || Boolean(createRecovery)}
+                        disabled={Boolean(createRecovery)}
                         onClick={() => createTaskRunMutation.mutate()}
                       >
                         提交维护任务

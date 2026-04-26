@@ -599,6 +599,78 @@ describe("手动任务页", () => {
     );
   });
 
+  it("提交响应缺少任务编号时会等待任务记录确认", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string, options?: { method?: string }) => {
+      if (path === "/api/v1/ops/manual-actions") {
+        return mockManualActions;
+      }
+      if (path === "/api/v1/ops/manual-actions/dc_hot/task-runs" && options?.method === "POST") {
+        return null;
+      }
+      if (path.startsWith("/api/v1/ops/task-runs?")) {
+        return {
+          total: 1,
+          items: [
+            {
+              id: 4321,
+              task_type: "dataset_action",
+              resource_key: "dc_hot",
+              action: "maintain",
+              title: "东方财富热榜",
+              trigger_source: "manual",
+              status: "queued",
+              status_reason_code: null,
+              requested_by_username: "admin",
+              requested_at: new Date().toISOString(),
+              started_at: null,
+              ended_at: null,
+              time_scope: null,
+              time_scope_label: null,
+              schedule_display_name: null,
+              unit_total: 0,
+              unit_done: 0,
+              unit_failed: 0,
+              progress_percent: null,
+              rows_fetched: 0,
+              rows_saved: 0,
+              rows_rejected: 0,
+              primary_issue_id: null,
+              primary_issue_title: null,
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+    window.localStorage.setItem(
+      "goldenshare.frontend.ops.task-center.manual.draft",
+      JSON.stringify({
+        action_id: "dc_hot",
+        date_mode: "single_point",
+        selected_date: "2026-04-24",
+        start_date: "",
+        end_date: "",
+        selected_month: "",
+        start_month: "",
+        end_month: "",
+        field_values: {},
+      }),
+    );
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual");
+
+    expect((await screen.findAllByText("维护东方财富热榜")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/ops/manual-actions/dc_hot/task-runs",
+      expect.objectContaining({ method: "POST" }),
+    ));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/ops/task-runs?"),
+    ));
+    expect(screen.queryByText("页面加载失败")).not.toBeInTheDocument();
+  });
+
   it("券商每月荐股任务会把月份能力放在第二步时间范围中", async () => {
     renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=broker_recommend.maintain&spec_type=dataset_action");
 
