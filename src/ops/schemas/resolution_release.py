@@ -35,6 +35,7 @@ class UpsertResolutionReleaseStageStatusRequest(BaseModel):
 class ResolutionReleaseListItem(BaseModel):
     id: int
     dataset_key: str
+    dataset_display_name: str | None = None
     target_policy_version: int
     status: str
     triggered_by_username: str | None = None
@@ -58,6 +59,7 @@ class ResolutionReleaseStageStatusItem(BaseModel):
     id: int
     release_id: int
     dataset_key: str
+    dataset_display_name: str | None = None
     source_key: str | None = None
     stage: str
     status: str

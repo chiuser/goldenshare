@@ -81,6 +81,7 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     card = cards["limit_list_ths"]
     assert card["display_name"] == "同花顺涨停名单"
     assert card["delivery_mode"] == "single_source_serving"
+    assert card["cadence_display_name"] == "每日"
     assert card["raw_table_label"] == "raw_tushare.limit_list_ths"
     assert card["latest_success_at"] is None
     assert card["last_sync_date"] == "2026-04-24"

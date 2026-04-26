@@ -4,6 +4,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, aliased
 
 from src.app.models.app_user import AppUser
+from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.models.ops.resolution_release import ResolutionRelease
 from src.ops.models.ops.resolution_release_stage_status import ResolutionReleaseStageStatus
 from src.app.exceptions import WebAppError
@@ -114,6 +115,7 @@ class ResolutionReleaseQueryService:
                     id=item.id,
                     release_id=item.release_id,
                     dataset_key=item.dataset_key,
+                    dataset_display_name=get_dataset_display_name(item.dataset_key),
                     source_key=item.source_key,
                     stage=item.stage,
                     status=item.status,
@@ -131,6 +133,7 @@ class ResolutionReleaseQueryService:
         return ResolutionReleaseListItem(
             id=release.id,
             dataset_key=release.dataset_key,
+            dataset_display_name=get_dataset_display_name(release.dataset_key),
             target_policy_version=release.target_policy_version,
             status=release.status,
             triggered_by_username=username,

@@ -13,6 +13,14 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
+function datasetLabel(item: { dataset_display_name?: string | null }) {
+  return item.dataset_display_name || "未命名数据集";
+}
+
+function sourceLabel(sourceKey: string | null | undefined) {
+  return sourceKey || "未指定来源";
+}
+
 export function OpsSourceManagementPage() {
   const bridgeQuery = useQuery({
     queryKey: ["ops", "source-management-bridge"],
@@ -101,8 +109,8 @@ export function OpsSourceManagementPage() {
               <Table.Tr key={`${item.dataset_key}-${item.source_key ?? "none"}-${item.stage}-${index}`}>
                 <OpsTableCell align="left" width="24%">
                   <Stack gap={2}>
-                    <OpsTableCellText fw={600} size="sm">{item.dataset_key}</OpsTableCellText>
-                    <OpsTableCellText size="xs" c="dimmed">{item.source_key || "未指定来源"}</OpsTableCellText>
+                    <OpsTableCellText fw={600} size="sm">{datasetLabel(item)}</OpsTableCellText>
+                    <OpsTableCellText size="xs" c="dimmed">{sourceLabel(item.source_key)}</OpsTableCellText>
                   </Stack>
                 </OpsTableCell>
                 <OpsTableCell width="14%">
@@ -136,7 +144,7 @@ export function OpsSourceManagementPage() {
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
                     <Text size="sm" fw={600}>{item.name}</Text>
-                    <Text size="xs" c="dimmed">{item.dataset_key} · {item.source_key || "未指定来源"}</Text>
+                    <Text size="xs" c="dimmed">{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
                   </Stack>
                   <Group gap={8}>
                     <StatusBadge value={item.status} />
@@ -155,7 +163,7 @@ export function OpsSourceManagementPage() {
               {releaseItems.slice(0, 8).map((item) => (
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
-                    <Text size="sm" fw={600}>{item.dataset_key} · v{item.target_policy_version}</Text>
+                    <Text size="sm" fw={600}>{datasetLabel(item)} · v{item.target_policy_version}</Text>
                     <Text size="xs" c="dimmed">{formatDateTimeLabel(item.triggered_at)}</Text>
                   </Stack>
                   <StatusBadge value={item.status} />
@@ -174,7 +182,7 @@ export function OpsSourceManagementPage() {
               {mappingItems.slice(0, 8).map((item) => (
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
-                    <Text size="sm" fw={600}>{item.dataset_key} · {item.source_key}</Text>
+                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
                     <Text size="xs" c="dimmed">{item.src_field} → {item.std_field}</Text>
                   </Stack>
                   <Group gap={8}>
@@ -194,7 +202,7 @@ export function OpsSourceManagementPage() {
               {cleansingItems.slice(0, 8).map((item) => (
                 <Group key={item.id} justify="space-between" wrap="nowrap">
                   <Stack gap={0}>
-                    <Text size="sm" fw={600}>{item.dataset_key} · {item.source_key}</Text>
+                    <Text size="sm" fw={600}>{datasetLabel(item)} · {sourceLabel(item.source_key)}</Text>
                     <Text size="xs" c="dimmed">{item.rule_type} / {item.action}</Text>
                   </Stack>
                   <Group gap={8}>

@@ -609,6 +609,7 @@ export interface ProbeRuleListResponse {
     id: number;
     name: string;
     dataset_key: string;
+    dataset_display_name: string | null;
     source_key: string | null;
     status: string;
     probe_interval_seconds: number;
@@ -625,6 +626,7 @@ export interface ResolutionReleaseListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
+    dataset_display_name: string | null;
     target_policy_version: number;
     status: string;
     triggered_by_username: string | null;
@@ -639,6 +641,7 @@ export interface StdMappingRuleListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
+    dataset_display_name: string | null;
     source_key: string;
     src_field: string;
     std_field: string;
@@ -654,6 +657,7 @@ export interface StdCleansingRuleListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
+    dataset_display_name: string | null;
     source_key: string;
     rule_type: string;
     action: string;
@@ -668,6 +672,7 @@ export interface LayerSnapshotLatestResponse {
   items: Array<{
     snapshot_date: string;
     dataset_key: string;
+    dataset_display_name: string | null;
     source_key: string | null;
     stage: string;
     status: string;
@@ -687,6 +692,7 @@ export interface LayerSnapshotHistoryResponse {
   items: Array<{
     snapshot_date: string;
     dataset_key: string;
+    dataset_display_name: string | null;
     source_key: string | null;
     stage: string;
     status: string;
@@ -740,6 +746,7 @@ export interface DatasetCardListResponse {
       delivery_mode_tone: string;
       layer_plan: string;
       cadence: string;
+      cadence_display_name: string;
       raw_table: string | null;
       raw_table_label: string | null;
       target_table: string | null;

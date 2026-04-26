@@ -60,7 +60,7 @@ class OperationsScheduleService:
         schedule = OpsSchedule(
             target_type=target_type,
             target_key=target_key,
-            display_name=display_name.strip() or self._fallback_display_name(target_type, target_key),
+            display_name=display_name.strip() or self._default_display_name(target_type, target_key),
             status="active",
             schedule_type=schedule_type,
             trigger_mode=trigger_mode,
@@ -111,8 +111,8 @@ class OperationsScheduleService:
             self._validate_target(target_type, target_key)
             schedule.target_type = target_type
             schedule.target_key = target_key
-            if "display_name" not in changed_fields and schedule.display_name == self._fallback_display_name(before["target_type"], before["target_key"]):
-                schedule.display_name = self._fallback_display_name(target_type, target_key)
+            if "display_name" not in changed_fields and schedule.display_name == self._default_display_name(before["target_type"], before["target_key"]):
+                schedule.display_name = self._default_display_name(target_type, target_key)
 
         if "display_name" in changed_fields:
             display_name = str(changes["display_name"]).strip()
@@ -357,8 +357,11 @@ class OperationsScheduleService:
         )
 
     @staticmethod
-    def _fallback_display_name(target_type: str, target_key: str) -> str:
-        return get_action_display_name(target_type, target_key) or target_key
+    def _default_display_name(target_type: str, target_key: str) -> str:
+        display_name = get_action_display_name(target_type, target_key)
+        if display_name is None:
+            raise WebAppError(status_code=422, code="validation_error", message="Schedule target display name is unavailable")
+        return display_name
 
     @staticmethod
     def _validate_target(target_type: str, target_key: str) -> None:

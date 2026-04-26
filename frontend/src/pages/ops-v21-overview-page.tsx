@@ -40,6 +40,10 @@ function stageTimestamp(stage: DatasetCardStage): string {
   return stage.calculated_at ? formatDateTimeLabel(stage.calculated_at) : "—";
 }
 
+function cardSubtitle(item: DatasetCard): string {
+  return `${item.domain_display_name} · ${item.delivery_mode_label}`;
+}
+
 export function OpsV21OverviewPage() {
   const summaryQuery = useQuery({
     queryKey: ["ops", "overview", "v21-overview-summary"],
@@ -138,7 +142,7 @@ export function OpsV21OverviewPage() {
                           </Text>
                         </Group>
                         <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
-                          {item.dataset_key}
+                          {cardSubtitle(item)}
                         </Text>
                       </Stack>
                       <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto", minWidth: 0 }}>

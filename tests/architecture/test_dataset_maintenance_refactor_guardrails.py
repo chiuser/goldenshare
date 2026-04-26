@@ -115,6 +115,12 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "display_name ?? item." + "resource_key",
         "target_display_name || item." + "key",
         "resource_display_name || item." + "resource_key",
+        "{item." + "dataset_key}</Text>",
+        "{item." + "dataset_key}</Table.Td>",
+        "{rule." + "dataset_key}",
+        "function cadenceLabel",
+        "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
+        "freshItem?.latest_success_at || rawLatest?.last_success_at",
     )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):
@@ -130,6 +136,25 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
                     violations.append(f"{rel_path}: {snippet}")
 
     assert not violations, "前端不得通过旧字段或本地 key 映射拼装事实字段:\n" + "\n".join(violations)
+
+
+def test_ops_services_do_not_fallback_display_names_to_keys() -> None:
+    forbidden_snippets = (
+        "get_action_display_name(target_type, target_key) or target_key",
+        "get_action_display_name(target_type=target_type, target_key=target_key) or target_key",
+        "_fallback_display_name",
+        "display_name or target_key",
+        "display_name or resource_key",
+    )
+    violations: list[str] = []
+    for path in _python_and_frontend_files(REPO_ROOT / "src/ops"):
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {snippet}")
+
+    assert not violations, "Ops 服务不得把 key 当作展示名兜底，展示事实必须来自 Definition/ActionCatalog:\n" + "\n".join(violations)
 
 
 def test_ops_does_not_parse_dataset_identity_from_route_key_text() -> None:

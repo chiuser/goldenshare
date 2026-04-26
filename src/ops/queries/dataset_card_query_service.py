@@ -42,6 +42,7 @@ class DatasetCardFact:
     domain_key: str
     domain_display_name: str
     cadence: str
+    cadence_display_name: str
     source_keys: tuple[str, ...]
     delivery_mode: str
     layer_plan: str
@@ -186,7 +187,8 @@ class DatasetCardQueryService:
                     delivery_mode_label=delivery_mode_label(delivery_mode),
                     delivery_mode_tone=delivery_mode_tone(delivery_mode),
                     layer_plan=primary.layer_plan,
-                    cadence=primary_freshness.cadence if primary_freshness else "",
+                    cadence=primary.cadence,
+                    cadence_display_name=primary.cadence_display_name,
                     raw_table=primary.raw_table,
                     raw_table_label=self._raw_table_label(primary, source_key=source_key),
                     target_table=primary_freshness.target_table if primary_freshness else primary.serving_table,
@@ -472,6 +474,7 @@ class DatasetCardQueryService:
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,
             cadence=definition.domain.cadence,
+            cadence_display_name=definition.domain.cadence_display_name,
             source_keys=projection.source_keys,
             delivery_mode=projection.delivery_mode,
             layer_plan=projection.layer_plan,

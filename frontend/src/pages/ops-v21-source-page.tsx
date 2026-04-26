@@ -54,16 +54,6 @@ function statusLabel(status: CardStatus): string {
   return "未知";
 }
 
-function cadenceLabel(cadence: string): string {
-  const key = (cadence || "").toLowerCase();
-  if (key === "daily") return "每日";
-  if (key === "weekly") return "每周";
-  if (key === "monthly") return "每月";
-  if (key === "intraday") return "盘中";
-  if (key === "on_demand") return "按需";
-  return "未定义";
-}
-
 function buildDateRangeText(item: DatasetCard): string {
   if (item.latest_business_date) {
     if (item.earliest_business_date && item.earliest_business_date !== item.latest_business_date) {
@@ -115,7 +105,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         status,
         recentSyncText,
         dateRangeText: buildDateRangeText(item),
-        cadenceText: cadenceLabel(item.cadence || ""),
+        cadenceText: item.cadence_display_name,
         primaryActionKey: item.primary_action_key || null,
         autoEnabled: item.auto_schedule_active > 0,
         autoTooltip:

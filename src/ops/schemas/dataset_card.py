@@ -43,6 +43,7 @@ class DatasetCardItem(BaseModel):
     delivery_mode_tone: str
     layer_plan: str
     cadence: str
+    cadence_display_name: str
     raw_table: str | None = None
     raw_table_label: str | None = None
     target_table: str | None = None

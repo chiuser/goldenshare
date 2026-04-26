@@ -90,6 +90,7 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                 delivery_mode_tone: "success",
                 layer_plan: "raw->serving",
                 cadence: "daily",
+                cadence_display_name: "每日",
                 raw_table: "raw_tushare.equity_daily_bar",
                 raw_table_label: "raw_tushare.equity_daily_bar",
                 target_table: "core_serving.equity_daily_bar",
@@ -176,6 +177,8 @@ describe("V2.1 数据状态总览页", () => {
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     const datasetCard = screen.getByTestId("overview-dataset-card-daily");
     expect(datasetCard.className).not.toContain("glass-card");
+    expect(within(datasetCard).getByText("股票 · 单源服务")).toBeInTheDocument();
+    expect(within(datasetCard).queryByText("daily")).not.toBeInTheDocument();
     expect(within(datasetCard).getByText("映射规则")).toBeInTheDocument();
     expect(within(datasetCard).getAllByText("已配置").length).toBeGreaterThan(0);
   });

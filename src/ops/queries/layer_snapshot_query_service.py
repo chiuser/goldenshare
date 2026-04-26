@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.schemas.layer_snapshot import (
@@ -123,6 +124,7 @@ class LayerSnapshotQueryService:
                 LayerSnapshotLatestItem(
                     snapshot_date=row.calculated_at.date(),
                     dataset_key=row.dataset_key,
+                    dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
                     stage=row.stage,
                     status=row.status,
@@ -179,6 +181,7 @@ class LayerSnapshotQueryService:
                 LayerSnapshotLatestItem(
                     snapshot_date=row.snapshot_date,
                     dataset_key=row.dataset_key,
+                    dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
                     stage=row.stage,
                     status=row.status,
@@ -200,6 +203,7 @@ class LayerSnapshotQueryService:
             id=row.id,
             snapshot_date=row.snapshot_date,
             dataset_key=row.dataset_key,
+            dataset_display_name=get_dataset_display_name(row.dataset_key),
             source_key=row.source_key,
             stage=row.stage,
             status=row.status,

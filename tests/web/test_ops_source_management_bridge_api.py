@@ -29,14 +29,14 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    probe_rule_factory(name="p1", dataset_key="equity_daily", source_key="tushare", status="active")
-    probe_rule_factory(name="p2", dataset_key="etf_daily", source_key="biying", status="paused")
+    probe_rule_factory(name="p1", dataset_key="daily", source_key="tushare", status="active")
+    probe_rule_factory(name="p2", dataset_key="etf_basic", source_key="biying", status="paused")
 
-    resolution_release_factory(dataset_key="security_master", target_policy_version=1, status="running", triggered_by_user_id=admin.id)
-    rel2 = resolution_release_factory(dataset_key="security_master", target_policy_version=2, status="completed", triggered_by_user_id=admin.id)
+    resolution_release_factory(dataset_key="daily", target_policy_version=1, status="running", triggered_by_user_id=admin.id)
+    rel2 = resolution_release_factory(dataset_key="daily", target_policy_version=2, status="completed", triggered_by_user_id=admin.id)
     resolution_release_stage_status_factory(
         release_id=rel2.id,
-        dataset_key="security_master",
+        dataset_key="daily",
         source_key="tushare",
         stage="std",
         status="success",
@@ -44,7 +44,7 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
 
     db_session.add(
         StdMappingRule(
-            dataset_key="security_master",
+            dataset_key="daily",
             source_key="biying",
             src_field="dm",
             std_field="ts_code",
@@ -56,7 +56,7 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
     )
     db_session.add(
         StdCleansingRule(
-            dataset_key="security_master",
+            dataset_key="daily",
             source_key="biying",
             rule_type="required_fields",
             target_fields_json=["ts_code"],
@@ -71,7 +71,7 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
 
     dataset_layer_snapshot_history_factory(
         snapshot_date=date(2026, 4, 14),
-        dataset_key="equity_daily",
+        dataset_key="daily",
         source_key="tushare",
         stage="serving",
         status="healthy",
@@ -79,7 +79,7 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
     )
     dataset_layer_snapshot_history_factory(
         snapshot_date=date(2026, 4, 14),
-        dataset_key="etf_daily",
+        dataset_key="etf_basic",
         source_key="biying",
         stage="std",
         status="failed",
@@ -99,3 +99,10 @@ def test_ops_source_management_bridge_returns_aggregated_payload(
     assert payload["summary"]["std_cleansing_active"] == 0
     assert payload["summary"]["layer_latest_total"] == 2
     assert payload["summary"]["layer_latest_failed"] == 1
+    probe_by_key = {item["dataset_key"]: item for item in payload["probe_rules"]}
+    assert probe_by_key["daily"]["dataset_display_name"] == "股票日线"
+    assert payload["releases"][0]["dataset_display_name"] == "股票日线"
+    assert payload["std_mapping_rules"][0]["dataset_display_name"] == "股票日线"
+    assert payload["std_cleansing_rules"][0]["dataset_display_name"] == "股票日线"
+    latest_by_key = {item["dataset_key"]: item for item in payload["layer_latest"]}
+    assert latest_by_key["daily"]["dataset_display_name"] == "股票日线"

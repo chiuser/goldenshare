@@ -30,6 +30,7 @@ class UpdateStdMappingRuleRequest(BaseModel):
 class StdMappingRuleItem(BaseModel):
     id: int
     dataset_key: str
+    dataset_display_name: str | None = None
     source_key: str
     src_field: str
     std_field: str
@@ -71,6 +72,7 @@ class UpdateStdCleansingRuleRequest(BaseModel):
 class StdCleansingRuleItem(BaseModel):
     id: int
     dataset_key: str
+    dataset_display_name: str | None = None
     source_key: str
     rule_type: str
     target_fields_json: list[str]

@@ -38,6 +38,7 @@ class ProbeRuleListItem(BaseModel):
     schedule_id: int | None = None
     name: str
     dataset_key: str
+    dataset_display_name: str | None = None
     trigger_mode: str | None = None
     workflow_key: str | None = None
     step_key: str | None = None
@@ -77,6 +78,7 @@ class ProbeRunLogItem(BaseModel):
     probe_rule_id: int
     probe_rule_name: str | None = None
     dataset_key: str | None = None
+    dataset_display_name: str | None = None
     source_key: str | None = None
     status: str
     condition_matched: bool

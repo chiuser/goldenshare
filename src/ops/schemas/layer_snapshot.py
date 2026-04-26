@@ -9,6 +9,7 @@ class LayerSnapshotHistoryItem(BaseModel):
     id: int
     snapshot_date: date
     dataset_key: str
+    dataset_display_name: str | None = None
     source_key: str | None = None
     stage: str
     status: str
@@ -30,6 +31,7 @@ class LayerSnapshotHistoryResponse(BaseModel):
 class LayerSnapshotLatestItem(BaseModel):
     snapshot_date: date
     dataset_key: str
+    dataset_display_name: str | None = None
     source_key: str | None = None
     stage: str
     status: str

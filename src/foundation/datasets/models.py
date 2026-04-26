@@ -44,6 +44,19 @@ class DatasetDomain:
     domain_display_name: str
     cadence: str
 
+    @property
+    def cadence_display_name(self) -> str:
+        labels = {
+            "daily": "每日",
+            "weekly": "每周",
+            "monthly": "每月",
+            "intraday": "盘中",
+            "low_frequency": "低频",
+            "snapshot": "快照",
+            "on_demand": "按需",
+        }
+        return labels.get(self.cadence, "未定义")
+
 
 @dataclass(frozen=True, slots=True)
 class DatasetSourceDefinition:

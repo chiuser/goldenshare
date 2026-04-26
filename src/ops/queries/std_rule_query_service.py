@@ -6,6 +6,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.dataset_definition_projection import list_dataset_freshness_projections
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
@@ -64,6 +65,7 @@ class StdRuleQueryService:
                 StdMappingRuleItem(
                     id=row.id,
                     dataset_key=row.dataset_key,
+                    dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
                     src_field=row.src_field,
                     std_field=row.std_field,
@@ -123,6 +125,7 @@ class StdRuleQueryService:
                 StdCleansingRuleItem(
                     id=row.id,
                     dataset_key=row.dataset_key,
+                    dataset_display_name=get_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
                     rule_type=row.rule_type,
                     target_fields_json=list(row.target_fields_json or []),
@@ -181,6 +184,7 @@ class StdRuleQueryService:
             StdMappingRuleItem(
                 id=-(100000 + idx),
                 dataset_key=key,
+                dataset_display_name=get_dataset_display_name(key),
                 source_key="tushare",
                 src_field="*",
                 std_field="*",
@@ -217,6 +221,7 @@ class StdRuleQueryService:
             StdCleansingRuleItem(
                 id=-(200000 + idx),
                 dataset_key=key,
+                dataset_display_name=get_dataset_display_name(key),
                 source_key="tushare",
                 rule_type="builtin_default",
                 target_fields_json=[],

@@ -49,6 +49,7 @@ describe("数据源管理（新版）", () => {
           id: 1,
           name: "收盘后探测",
           dataset_key: "equity_daily",
+          dataset_display_name: "股票日线",
           source_key: "tushare",
           status: "active",
           probe_interval_seconds: 180,
@@ -62,6 +63,7 @@ describe("数据源管理（新版）", () => {
         {
           id: 11,
           dataset_key: "security_master",
+          dataset_display_name: "证券主数据",
           target_policy_version: 3,
           status: "running",
           triggered_by_username: "admin",
@@ -76,6 +78,7 @@ describe("数据源管理（新版）", () => {
         {
           id: 21,
           dataset_key: "security_master",
+          dataset_display_name: "证券主数据",
           source_key: "biying",
           src_field: "dm",
           std_field: "ts_code",
@@ -93,6 +96,7 @@ describe("数据源管理（新版）", () => {
         {
           id: 31,
           dataset_key: "security_master",
+          dataset_display_name: "证券主数据",
           source_key: "biying",
           rule_type: "required_fields",
           target_fields_json: ["ts_code"],
@@ -108,6 +112,7 @@ describe("数据源管理（新版）", () => {
         {
           snapshot_date: "2026-04-14",
           dataset_key: "equity_daily",
+          dataset_display_name: "股票日线",
           source_key: "tushare",
           stage: "serving",
           status: "healthy",
@@ -132,6 +137,9 @@ describe("数据源管理（新版）", () => {
     expect(await screen.findByText("标准化映射规则（Mapping）")).toBeInTheDocument();
     expect(await screen.findByText("标准化清洗规则（Cleansing）")).toBeInTheDocument();
     expect(await screen.findByText("分层快照（Latest）")).toBeInTheDocument();
+    expect((await screen.findAllByText("股票日线")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("equity_daily")).not.toBeInTheDocument();
+    expect(screen.queryByText("security_master")).not.toBeInTheDocument();
     expect(screen.queryByText("原始层")).not.toBeInTheDocument();
     expect(await screen.findByText("服务层")).toBeInTheDocument();
   });
