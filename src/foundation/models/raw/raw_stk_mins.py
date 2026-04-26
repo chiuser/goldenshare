@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, SmallInteger, String
+from sqlalchemy import BigInteger, DateTime, Float, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base
@@ -19,5 +19,5 @@ class RawStkMins(Base):
     close: Mapped[float | None] = mapped_column(Float(24))
     high: Mapped[float | None] = mapped_column(Float(24))
     low: Mapped[float | None] = mapped_column(Float(24))
-    vol: Mapped[int | None] = mapped_column(Integer)
+    vol: Mapped[int | None] = mapped_column(BigInteger)
     amount: Mapped[float | None] = mapped_column(Float(24))

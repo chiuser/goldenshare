@@ -42,7 +42,7 @@
 | `close` | `float` | 收盘价 | `REAL`，入库前保留 2 位小数 |
 | `high` | `float` | 最高价 | `REAL`，入库前保留 2 位小数 |
 | `low` | `float` | 最低价 | `REAL`，入库前保留 2 位小数 |
-| `vol` | `int` | 成交量（股） | `INTEGER` |
+| `vol` | `int` | 成交量（股） | `BIGINT`，保留整数语义并覆盖大成交量分钟 bar |
 | `amount` | `float` | 成交金额（元） | `REAL` |
 
 ## 3. 现有“Raw/Core 同表映射”参考与本次口径
@@ -99,7 +99,7 @@
 | `close` | `REAL` | NULL | 收盘价，入库前保留 2 位小数 |
 | `high` | `REAL` | NULL | 最高价，入库前保留 2 位小数 |
 | `low` | `REAL` | NULL | 最低价，入库前保留 2 位小数 |
-| `vol` | `INTEGER` | NULL | 成交量（股） |
+| `vol` | `BIGINT` | NULL | 成交量（股）；Tushare 类型为整数，但单个 60 分钟 bar 可能超过 PostgreSQL `INTEGER` 上限 |
 | `amount` | `REAL` | NULL | 成交金额（元） |
 
 主键与索引：

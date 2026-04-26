@@ -42,7 +42,7 @@ def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
                     "close": "10.236",
                     "high": "10.246",
                     "low": "10.221",
-                    "vol": "1234",
+                    "vol": "3000000000",
                     "amount": "5678.9",
                     "trade_date": "20260424",
                     "session_tag": "morning",
@@ -64,7 +64,7 @@ def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
         "close": 10.24,
         "high": 10.25,
         "low": 10.22,
-        "vol": 1234,
+        "vol": 3000000000,
         "amount": 5678.9,
     }
 

@@ -1,3 +1,5 @@
+from sqlalchemy import BigInteger
+
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
 from src.foundation.models.core.broker_recommend import BrokerRecommend
@@ -25,6 +27,7 @@ from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
+from src.foundation.models.raw.raw_stk_mins import RawStkMins
 
 
 def test_security_includes_curr_type() -> None:
@@ -148,3 +151,7 @@ def test_stk_factor_pro_serving_model_matches_expected_keys() -> None:
         "idx_equity_factor_pro_trade_date",
         "idx_equity_factor_pro_ts_code_trade_date",
     }
+
+
+def test_stk_mins_vol_uses_bigint() -> None:
+    assert isinstance(RawStkMins.__table__.columns["vol"].type, BigInteger)
