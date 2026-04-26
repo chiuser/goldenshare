@@ -95,7 +95,7 @@
 ### 3.3 ops 编排与状态
 
 1. specs/registry 中 `sync_daily|sync_history|backfill_by_trade_date.stk_factor_pro`
-2. 执行与状态表：`job_execution*`、`dataset_layer_snapshot_*`、`dataset_status_snapshot`、`sync_job_state`、`sync_run_log`、`std_*_rule`；旧 `dataset_pipeline_mode` 已由 DatasetDefinition 派生投影替代
+2. 执行与状态表：`job_execution*`、`dataset_layer_snapshot_*`、`dataset_status_snapshot`、`sync_job_state`、`sync_run_log`、`std_*_rule`；旧数据集模式配置表已由 DatasetDefinition 派生投影替代
 3. foundation 元数据：`dataset_source_status`、`dataset_resolution_policy`
 
 ### 3.4 biz / frontend

@@ -47,10 +47,10 @@
 | F-002 | `ops-v21-dataset-detail-page.tsx` | 没有 layer snapshot 时，页面用 freshness 自行构造 raw/serving 两条假 snapshot。 | 已删除：详情页只展示 layer snapshot API 返回的真实层级状态。 |
 | F-003 | `ops-v21-shared.ts` | 保留了未使用的 `groupDatasetSummariesWithFreshnessFallback()`，会把 freshness 转成 synthetic snapshot。 | 已删除：共享文件只保留当前仍被使用的 display name 映射。 |
 | F-004 | `ops-v21-source-page.tsx` | 页面用 `sourceKey + dataset_key` 拼 raw 表名，并把 `raw_tushare` 替换成当前来源表名前缀。 | 已删除：表名只来自 `/api/v1/ops/dataset-cards` 返回字段，缺失则显示 `—`。 |
-| F-005 | `ops-v21-overview-page.tsx` | 总览页直接合并 `pipeline-modes` 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
+| F-005 | `ops-v21-overview-page.tsx` | 总览页曾直接合并旧模式 API 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
 | F-006 | `ops-v21-source-page.tsx` / `ops-v21-source-page-utils.ts` | 数据源页用 `dataset_key/raw_table/source_scope` 做来源偏好评分和去重。 | 已收口：数据源页改为消费 `/api/v1/ops/dataset-cards?source_key=...`，旧 utils 删除。 |
 | F-007 | `src/ops/api/dataset_cards.py` | 总览页、数据源页缺少稳定卡片视图，只能在前端拼。 | 已新增只读卡片视图 API；不新增状态表，不复制落盘字段。 |
-| F-008 | `src/ops/queries/dataset_card_query_service.py` | 卡片视图内部仍把 `pipeline-modes` 查询结果当作静态事实来源。 | 已收口：卡片静态事实从 `DatasetDefinition` 派生，freshness/layer/probe 只作为运行观测输入。 |
+| F-008 | `src/ops/queries/dataset_card_query_service.py` | 卡片视图内部曾把旧模式查询结果当作静态事实来源。 | 已收口：卡片静态事实从 `DatasetDefinition` 派生，freshness/layer/probe 只作为运行观测输入。 |
 
 ## 5. 已加门禁
 
@@ -67,7 +67,7 @@
 | 编号 | 页面/文件 | 现状 | 后续方向 |
 | --- | --- | --- | --- |
 | G-001 | `ops-v21-task-auto-tab.tsx` | 已切到 `target_type/target_key` 调度目标模型，页面显示继续使用后端结构化名称。 | 后续重做自动任务页交互时，继续从用户视角表达维护对象与触发策略，不恢复旧执行规格。 |
-| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 的卡片静态事实已从 DatasetDefinition 派生；旧 `pipeline-modes` API 与 `dataset_pipeline_mode` 主实现已下线。 | 后续如果页面还需要 pipeline/stage 新字段，先补 DatasetDefinition 派生事实，再暴露到 card view，不能让页面或查询层另起事实口径。 |
+| G-002 | Ops 后端卡片视图 | `/api/v1/ops/dataset-cards` 的卡片静态事实已从 DatasetDefinition 派生；旧模式 API 与旧落库配置主实现已下线。 | 后续如果页面还需要 mode/stage 新字段，先补 DatasetDefinition 派生事实，再暴露到 card view，不能让页面或查询层另起事实口径。 |
 
 ## 7. 后续执行原则
 

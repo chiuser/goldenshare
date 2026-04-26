@@ -262,7 +262,6 @@ class DatasetStatusSnapshotService:
 
             snapshot_row = session.get(DatasetStatusSnapshot, item.dataset_key)
             if snapshot_row is not None:
-                snapshot_row.pipeline_mode = projection.mode
                 snapshot_row.raw_stage_status = item.freshness_status if projection.raw_enabled else "skipped"
                 snapshot_row.std_stage_status = "unobserved" if projection.std_enabled else "skipped"
                 snapshot_row.resolution_stage_status = "unobserved" if projection.resolution_enabled else "skipped"

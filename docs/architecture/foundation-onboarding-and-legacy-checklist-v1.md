@@ -111,7 +111,7 @@
 
 ### C. DatasetDefinition 投影与规则对象收口
 
-- [x] 旧 `dataset_pipeline_mode` 落库事实已下线，数据集模式与层级计划由 DatasetDefinition 派生。
+- [x] 旧数据集模式落库事实已下线，数据集模式与层级计划由 DatasetDefinition 派生。
 - [ ] 单源直出数据集保证 `source_status + resolution_policy + std 规则`对象完整（即使是 pass-through）。
 - [ ] 新增数据集默认自动纳入 seed 和状态重建流程。
 

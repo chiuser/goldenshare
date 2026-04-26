@@ -19,8 +19,6 @@ def test_cli_ops_seed_moneyflow_multi_source_dry_run(mocker) -> None:
     service = mocker.Mock()
     service.run.return_value = mocker.Mock(
         dataset_key="moneyflow",
-        created_pipeline_mode=1,
-        updated_pipeline_mode=0,
         created_mapping_rules=2,
         created_cleansing_rules=2,
         created_source_statuses=2,
@@ -40,8 +38,6 @@ def test_cli_ops_seed_moneyflow_multi_source_apply(mocker) -> None:
     service = mocker.Mock()
     service.run.return_value = mocker.Mock(
         dataset_key="moneyflow",
-        created_pipeline_mode=0,
-        updated_pipeline_mode=1,
         created_mapping_rules=0,
         created_cleansing_rules=0,
         created_source_statuses=0,

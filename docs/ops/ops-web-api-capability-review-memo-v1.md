@@ -179,7 +179,7 @@
 
 当前问题：
 
-1. source 页曾靠前端组合 `pipeline-modes + freshness + layer latest + probes`，当前已收口到 `dataset-cards`
+1. source 页曾靠前端组合旧模式 API、freshness、layer latest、probes，当前已收口到 `dataset-cards`
 2. 现有 bridge 只是过渡聚合，不是 source-centric 的详情模型
 3. bridge 输出是平铺对象集合，不是“围绕一个 source 的已归并视图”
 
@@ -222,11 +222,11 @@
 
 1. 后续讨论时应明确区分：`summary` 轻接口与 `overview dashboard` 富接口
 
-### 5.5 P1：旧 `pipeline-modes` 已下线，页面聚合读模型改为 `dataset-cards`
+### 5.5 P1：旧模式 API 已下线，页面聚合读模型改为 `dataset-cards`
 
 当前问题：
 
-1. 旧 `pipeline-modes` 曾提供 mode、table hint、少量 configured 状态，现已由 DatasetDefinition 派生投影替代。
+1. 旧模式 API 曾提供 mode、table hint、少量 configured 状态，现已由 DatasetDefinition 派生投影替代。
 2. `layer-snapshots/latest` 主要提供 stage/status/rows/lag/message/timestamp。
 3. 新页面主接口应使用 `dataset-cards`，不得重新消费多个基础投影后在前端拼卡片事实。
 

@@ -117,7 +117,7 @@
 
 1. `ops.job_execution*`：旧执行观测主链，已被 TaskRun 三表替代
 2. `ops.sync_run_log`：旧 sync service 日志，不再作为任务详情或页面事实源
-3. `ops.dataset_pipeline_mode`：旧 pipeline mode 落库配置，已由 DatasetDefinition 派生投影替代
+3. 旧数据集模式配置表：已由 DatasetDefinition 派生投影替代
 
 ---
 

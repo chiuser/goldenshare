@@ -471,7 +471,7 @@ goldenshare ops-rebuild-dataset-status
 建议最低回归集：
 
 ```bash
-pytest -q tests/web/test_ops_freshness_api.py tests/test_dataset_status_snapshot_service.py tests/web/test_ops_pipeline_modes_api.py
+pytest -q tests/web/test_ops_freshness_api.py tests/test_dataset_status_snapshot_service.py tests/web/test_ops_dataset_cards_api.py
 cd frontend && npm test -- --run src/pages/ops-v21-source-page.test.tsx src/pages/ops-v21-dataset-detail-page.test.tsx
 python3 scripts/check_docs_integrity.py
 ```

@@ -149,25 +149,22 @@ def test_ops_does_not_parse_dataset_identity_from_route_key_text() -> None:
     assert not violations, "Ops 不得从路由 key 文本拆出 dataset identity，必须走 DatasetDefinition registry:\n" + "\n".join(violations)
 
 
-def test_ops_dataset_card_view_static_facts_do_not_depend_on_pipeline_mode_view() -> None:
+def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")
     forbidden_tokens = (
         "DatasetPipelineModeQueryService",
         "DatasetPipelineModeItem",
-        "dataset_pipeline_mode_query_service",
+        "dataset_" + "pipeline_" + "mode_query_service",
     )
     violations = [token for token in forbidden_tokens if token in text]
 
-    assert not violations, (
-        "dataset-cards 是页面卡片事实接口，静态事实必须从 DatasetDefinition 派生，"
-        "不得再消费 pipeline-modes 查询视图:\n" + "\n".join(violations)
-    )
+    assert not violations, "dataset-cards 静态事实必须从 DatasetDefinition 派生:\n" + "\n".join(violations)
 
 
-def test_active_code_does_not_reference_dataset_pipeline_mode_fact_table() -> None:
+def test_active_code_does_not_reference_retired_dataset_fact_table() -> None:
     forbidden_tokens = (
-        "dataset_" + "pipeline_mode",
+        "dataset_" + "pipeline_" + "mode",
         "Dataset" + "PipelineMode",
         "pipeline-" + "modes",
     )
@@ -180,7 +177,7 @@ def test_active_code_does_not_reference_dataset_pipeline_mode_fact_table() -> No
                     rel_path = path.relative_to(REPO_ROOT).as_posix()
                     violations.append(f"{rel_path}: {token}")
 
-    assert not violations, "旧 dataset_pipeline_mode / pipeline-modes 事实链不得留在活跃代码:\n" + "\n".join(violations)
+    assert not violations, "旧数据集模式事实链不得留在活跃代码:\n" + "\n".join(violations)
 
 
 def test_active_code_does_not_reference_old_freshness_fact_chain() -> None:

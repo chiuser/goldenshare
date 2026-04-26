@@ -34,7 +34,6 @@ class DatasetStatusSnapshot(Base):
     primary_action_key: Mapped[str | None] = mapped_column(String(128))
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    pipeline_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="single_source_direct", server_default="single_source_direct")
     raw_stage_status: Mapped[str | None] = mapped_column(String(16))
     std_stage_status: Mapped[str | None] = mapped_column(String(16))
     resolution_stage_status: Mapped[str | None] = mapped_column(String(16))

@@ -80,7 +80,7 @@
 | `dataset_layer_snapshot_current` | 保留+增强校验 | 与 history 最新记录一致 |
 | `dataset_layer_snapshot_history` | 扩展 | 引入 `snapshot_at`（datetime） |
 | `dataset_status_snapshot` | 保留 | 保持“可重建投影”定位 |
-| `dataset_pipeline_mode` | 下线 | 已由 DatasetDefinition 派生投影替代 |
+| 旧数据集模式配置表 | 下线 | 已由 DatasetDefinition 派生投影替代 |
 | `std_mapping_rule` | 扩展约束 | 防重复、防脏版本 |
 | `std_cleansing_rule` | 扩展约束 | 防重复、防脏版本 |
 | `resolution_release` | 保留 | 发布主记录 |

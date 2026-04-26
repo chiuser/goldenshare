@@ -580,7 +580,7 @@ GET /api/v1/ops/task-runs/{task_run_id}/issues/{issue_id}
 | --- | --- | --- |
 | `ops.job_schedule` | 清空 | 自动任务配置当前待重建；本轮先清空，后续自动任务专项重建 |
 | `ops.probe_rule` | 保留 | 探针规则是配置，不是运行历史 |
-| `ops.dataset_pipeline_mode` | 下线 | 数据集管线配置已改由 DatasetDefinition 派生 |
+| 旧数据集模式配置表 | 下线 | 数据集模式配置已改由 DatasetDefinition 派生 |
 | `ops.index_series_active` | 保留 | 指数池配置/事实，不属于运行观测历史 |
 | `ops.std_mapping_rule` | 保留 | 标准化映射规则 |
 | `ops.std_cleansing_rule` | 保留 | 清洗规则 |
