@@ -40,6 +40,10 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
             assert definition.dataset_key in dataset_keys
 
 
+def test_workflow_keys_do_not_use_legacy_backfill_language() -> None:
+    assert all("backfill" not in workflow.key for workflow in WORKFLOW_DEFINITION_REGISTRY.values())
+
+
 def test_action_display_name_uses_dataset_action_language() -> None:
     assert get_action_display_name("dataset_action", "stock_basic.maintain") == "维护股票主数据"
     assert get_action_display_name("dataset_action", "daily.maintain") == "维护股票日线"

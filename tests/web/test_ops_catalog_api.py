@@ -41,6 +41,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_sync" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
+    assert "index_extension_maintenance" in workflow_keys
+    assert "index_extension_backfill" not in workflow_keys
     assert sources["tushare"]["display_name"] == "Tushare"
     assert sources["biying"]["display_name"] == "Biying"
 
@@ -59,6 +61,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert dc_hot_params["is_new"]["multi_value"] is False
 
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
+    assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
 
 
 def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, ops_schedule_factory) -> None:

@@ -87,7 +87,7 @@ END_DATE_PARAM = ActionParameter(
 MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
     "maintenance.rebuild_dm": MaintenanceActionDefinition(
         key="maintenance.rebuild_dm",
-        display_name="维护动作 / rebuild_dm",
+        display_name="刷新数据集市快照",
         domain_key="maintenance",
         domain_display_name="维护动作",
         description="刷新数据集市中的物化视图。",
@@ -98,7 +98,7 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
     ),
     "maintenance.rebuild_index_kline_serving": MaintenanceActionDefinition(
         key="maintenance.rebuild_index_kline_serving",
-        display_name="维护动作 / rebuild_index_kline_serving",
+        display_name="维护指数周线/月线服务表",
         domain_key="maintenance",
         domain_display_name="维护动作",
         description="基于指数日线服务表补齐周线/月线服务表（API 优先，日线派生补缺）。",
@@ -200,10 +200,10 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         schedule_enabled=True,
         manual_enabled=True,
     ),
-    "index_extension_backfill": WorkflowDefinition(
-        key="index_extension_backfill",
-        display_name="指数扩展数据补齐",
-        description="批量回补指数日线、周线、月线、日指标和成分权重。",
+    "index_extension_maintenance": WorkflowDefinition(
+        key="index_extension_maintenance",
+        display_name="指数扩展数据维护",
+        description="批量维护指数日线、周线、月线、日指标和成分权重。",
         steps=(
             _dataset_workflow_step("index_daily", "index_daily"),
             _dataset_workflow_step("index_weekly", "index_weekly"),
