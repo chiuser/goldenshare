@@ -29,6 +29,7 @@
 4. 变更需保持 CLI、runtime、API 调用链行为稳定。
 5. 不得新增或恢复 `operations_execution_service`、`operations_history_backfill_service` 作为任务执行主链。
 6. 不得把完整技术错误同时复制到多个任务观测表；完整诊断只应落到 TaskRun issue 模型。
+7. 服务层写入 Ops 状态时必须与业务数据事务隔离；状态写入失败不得影响业务表读写、业务事务提交或已经提交的数据可见性。
 
 ---
 

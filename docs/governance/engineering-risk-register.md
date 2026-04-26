@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-04-25  
+更新时间：2026-04-26  
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -31,6 +31,8 @@
 |---|---|---|---|---|---|
 | RISK-2026-04-25-001 | P0 | Sync V2 大任务采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-25-002 | P0 | Sync V2 存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
+| RISK-2026-04-26-004 | P1 | `ops.sync_job_state` 旧 `job_name/full_sync_done/last_cursor` 状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[Ops 任务当前对象语义与运行观测数据重置方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-current-object-and-ops-runtime-reset-plan-v1.md) |
 
 ---
 
@@ -51,6 +53,7 @@
 5. 单事务写入量评估必须有真实计算依据，不允许用分页或批量大小替代事务边界评估。
 6. 删除主链 `mark_success + mark_full_sync_done` 连续写同一行，改为单一成功状态写入接口。
 7. `run log`、`sync job state`、`full_sync_done` 必须幂等 upsert，状态失败不得回滚业务数据。
+8. 所有 Ops 状态写入必须与业务数据表读写和提交隔离；状态失败不得阻塞业务数据提交，也不得污染已提交业务数据。
 
 关闭门禁：
 
@@ -59,6 +62,7 @@
 3. 单个事务写入量评估必须有真实计算依据。
 4. point/range/none 成功只写一次资源状态，且不得丢失业务日期。
 5. 任务详情只把已提交数据展示为最终处理结果。
+6. 测试必须模拟 Ops 状态写入失败，并证明业务数据表写入已提交、可读取、未被回滚。
 
 ---
 
@@ -101,3 +105,55 @@
 | `limit_list_ths` | `core_serving.limit_list_ths` | 5485 | 同上 |
 | `ths_hot` | `raw_tushare.ths_hot` | 2664 | 2026-04-10, 2026-04-17 |
 | `ths_hot` | `core_serving.ths_hot` | 2664 | 同上 |
+
+---
+
+## 6. RISK-2026-04-26-003 处理要求
+
+风险说明：
+
+1. `date_model.bucket_rule=not_applicable` 的主数据/快照类没有连续业务日期 bucket，不应被包装成“业务日期新鲜度”。
+2. 不能为了修这个问题新增一组重复的状态表、策略表或影子字段，把同一份状态在多个地方复制。
+3. DatasetDefinition 只保存数据集静态事实，不放 Ops 健康判断状态，也不放会随运行变化的派生结果。
+
+处理要求：
+
+1. 当前 date model freshness 收口只处理日期型 bucket 规则，不扩展主数据/快照类健康模型。
+2. 如后续处理主数据/快照类，只能基于单一事实源现场计算，或复用唯一的可重建 Ops 投影；不得新增并行状态副本。
+3. 任何新增表、字段或策略配置前，必须先单独出方案评审，说明为什么现有事实源和现有投影无法满足。
+4. `not_applicable` 数据集不得伪造 `expected_business_date / lag_days` 来表达健康状态。
+
+关闭门禁：
+
+1. Ops 页面不再把主数据/快照类展示为业务日期滞后。
+2. 不新增重复状态表或重复字段；如确需 schema 变更，必须有独立评审文档和迁移方案。
+3. `DatasetDefinition` 保持无状态，只表达数据集事实和能力，不承载 Ops 运行状态。
+
+---
+
+## 7. RISK-2026-04-26-004 处理要求
+
+风险说明：
+
+1. `ops.sync_job_state` 是旧 `job_name` 维度的同步状态表，字段包括 `last_success_date`、`last_success_at`、`last_cursor`、`full_sync_done`。
+2. 该模型与当前 DatasetDefinition、Date Model、TaskRun 运行观测主线不一致。
+3. 如果 Date Model Freshness 收口后仍保留它作为事实源，会让数据集卡片、新鲜度状态、任务结果和资源状态继续出现多套口径。
+4. `full_sync_done` / `last_cursor` 这类旧语义容易重新引入旧 sync 状态判断，造成后续架构回流。
+
+处理要求：
+
+1. 本轮 TaskRun/current object 运行观测重置中，`ops.sync_job_state` 只能清空，不得新增依赖。
+2. TaskRun 详情、当前对象、问题诊断、任务结果不允许读取 `ops.sync_job_state`。
+3. Date Model Freshness 收口必须审计所有 `SyncJobState` ORM、service、CLI、测试和文档引用。
+4. 数据集新鲜度与资源状态必须基于 DatasetDefinition Date Model 和真实业务表观测结果，不再基于 `job_name` 状态行。
+5. 删除 `src/ops/models/ops/sync_job_state.py` 与仅服务旧状态表的 reconciliation/service 代码。
+6. 删除数据库表 `ops.sync_job_state`。
+7. 更新 docs/AGENTS 或相关基线文档，禁止新代码重新引入 `sync_job_state`。
+
+关闭门禁：
+
+1. `rg "SyncJobState|sync_job_state" src tests docs` 不再发现当前主链引用；历史归档文档如保留，必须明确标注历史背景。
+2. 线上数据库不存在 `ops.sync_job_state` 表。
+3. 数据集卡片状态和 freshness API 不读取 `sync_job_state`。
+4. 状态重建命令不写 `sync_job_state`。
+5. 运行一个小范围数据集维护任务后，TaskRun 详情、数据集卡片、freshness 状态均能从新事实源得到一致结果。

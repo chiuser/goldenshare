@@ -58,6 +58,7 @@
 3. 先有 contract，再有请求编排，再有执行接线。
 4. 优先显式语义，避免隐式默认魔法。
 5. 对外任务语言统一交给 TaskRun / Dataset Maintain，不在本层制造 UI 文案。
+6. 业务数据事务必须独立于 Ops 状态事务；progress、TaskRun、freshness、snapshot、job state 等状态写入失败，不得回滚、阻塞或污染业务数据写入与提交。
 
 ---
 
