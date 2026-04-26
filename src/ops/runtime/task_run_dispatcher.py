@@ -840,13 +840,13 @@ class TaskRunDispatcher:
         effective_end_date = end_date or trade_date
         if effective_start_date is None or effective_end_date is None:
             return None
-        result = self.serving_light_refresh_service.refresh_range(
+        result = self.serving_light_refresh_service.refresh_equity_daily_bar(
             session,
             start_date=effective_start_date,
             end_date=effective_end_date,
             ts_code=ts_code,
-            execution_id=task_run_id,
+            commit=True,
         )
-        if result.rows_written <= 0:
+        if result.touched_rows <= 0:
             return "轻量层刷新完成，未产生新增行"
-        return f"轻量层刷新 {result.rows_written} 行"
+        return f"轻量层刷新 {result.touched_rows} 行"

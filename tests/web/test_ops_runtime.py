@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from src.ops.models.ops.task_run_issue import TaskRunIssue
-from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome
+from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
+from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 
 
 class StubDispatcher:
@@ -110,3 +111,44 @@ def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factor
     issue = db_session.get(TaskRunIssue, result.primary_issue_id)
     assert issue is not None
     assert issue.code == "worker_error"
+
+
+def test_task_run_dispatcher_refreshes_daily_serving_light_with_current_service_api(db_session) -> None:
+    class StubServingLightRefreshService:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def refresh_equity_daily_bar(self, session, *, start_date, end_date, ts_code, commit):  # type: ignore[no-untyped-def]
+            self.calls.append(
+                {
+                    "session": session,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "ts_code": ts_code,
+                    "commit": commit,
+                }
+            )
+            return ServingLightRefreshResult(touched_rows=12)
+
+    light_service = StubServingLightRefreshService()
+    dispatcher = TaskRunDispatcher(serving_light_refresh_service=light_service)  # type: ignore[arg-type]
+
+    note = dispatcher._refresh_serving_light_if_needed(
+        db_session,
+        task_run_id=123,
+        resource="daily",
+        rows_saved=8,
+        trade_date=date(2026, 4, 24),
+        ts_code="000001.SZ",
+    )
+
+    assert note == "轻量层刷新 12 行"
+    assert light_service.calls == [
+        {
+            "session": db_session,
+            "start_date": date(2026, 4, 24),
+            "end_date": date(2026, 4, 24),
+            "ts_code": "000001.SZ",
+            "commit": True,
+        }
+    ]
