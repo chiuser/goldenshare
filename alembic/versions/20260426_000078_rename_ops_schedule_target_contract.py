@@ -68,14 +68,14 @@ def _create_index_if_missing(inspector: sa.Inspector, table_name: str, index_nam
 
 def _drop_check_if_exists(inspector: sa.Inspector, table_name: str, constraint_name: str) -> None:
     if constraint_name in _check_names(inspector, table_name):
-        op.drop_constraint(constraint_name, table_name, type_="check", schema=OPS_SCHEMA)
+        op.drop_constraint(op.f(constraint_name), table_name, type_="check", schema=OPS_SCHEMA)
 
 
 def _create_check_if_missing(inspector: sa.Inspector, table_name: str, constraint_name: str, condition: str) -> None:
     if op.get_bind().dialect.name == "sqlite":
         return
     if constraint_name not in _check_names(inspector, table_name):
-        op.create_check_constraint(constraint_name, table_name, condition, schema=OPS_SCHEMA)
+        op.create_check_constraint(op.f(constraint_name), table_name, condition, schema=OPS_SCHEMA)
 
 
 def _rename_column_if_needed(
