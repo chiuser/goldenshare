@@ -1,9 +1,18 @@
 # DatasetDefinition 单一事实源重构方案 v1
 
-- 状态：待评审
+- 状态：已部分落地；`src/foundation/datasets/**` 已建立 DatasetDefinition 骨架，长期目录命名和旧投影清理仍需继续收口
 - 日期：2026-04-25
 - 适用范围：`src/foundation/**`、`src/ops/**`、Ops Web API、任务中心前端、CLI
 - 关联方案：[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
+
+---
+
+## 0. 当前落地状态（2026-04-26）
+
+1. `src/foundation/datasets/models.py` 与 `registry.py` 已建立 DatasetDefinition 主模型与查询入口。
+2. 当前 registry 仍会投影既有 Sync V2 contract，这是过渡实现事实，不应被理解为长期目录命名已经完成。
+3. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从 `JobSpec` 或前端 formatter 反推。
+4. 本文后续章节保留原方案和审计上下文；若与当前代码状态冲突，以本节和代码事实为准。
 
 ---
 

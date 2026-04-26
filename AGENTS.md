@@ -20,6 +20,9 @@ src/
 - `foundation` / `ops` / `biz` 是三个业务子系统
 - `app` 是组合根（composition root），不是业务子系统
 - `platform` / `operations` 已进入 legacy 冻结态，不承接新主实现
+- 数据集事实源收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`
+- 数据维护执行计划收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`
+- 任务运行与详情观测收敛到 `src/ops/**` 的 TaskRun 主链
 
 ---
 
@@ -49,7 +52,7 @@ src/
 ## 目录职责速记
 
 - `src/foundation/**`：数据基座与底层契约
-- `src/ops/**`：运维治理与运行时编排
+- `src/ops/**`：运维治理、TaskRun 运行时编排与观测
 - `src/biz/**`：对上业务 API/查询/服务
 - `src/app/**`：入口装配、聚合路由、认证壳、运行壳
 - `src/platform/**`：legacy 目录（兼容与清理）

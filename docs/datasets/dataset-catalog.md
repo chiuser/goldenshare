@@ -1,8 +1,13 @@
 # 数据集能力与字段说明（自动生成）
 
 - 生成时间: `2026-04-19 23:56:14`
+- 状态: 历史自动生成快照，已过期
 - 数据来源: `SYNC_SERVICE_REGISTRY`、`DAOFactory`、`JOB_SPEC_REGISTRY`
 - 适用范围: 现有可同步数据集（raw/core 主链路）
+
+> 当前口径：本文只保留为 2026-04-19 的历史快照，不再作为数据集事实源。
+> 当前数据集身份、中文名、日期模型、输入能力、表映射等事实应以 `src/foundation/datasets/**` 的 `DatasetDefinition` 投影为准；执行入口应以 `DatasetExecutionPlan + action=maintain + TaskRun` 为准。
+> 本文中 `sync_daily / backfill_* / sync_history` 等“支持任务”列是旧执行模型快照，不应用于新增 UI、API 或调度设计。
 
 ## 字段语义约定（通用）
 

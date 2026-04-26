@@ -9,12 +9,18 @@
 
 ## 1. 目录定位
 
-`sync_v2` 是当前唯一生效的数据同步主链，负责：
+`sync_v2` 是当前唯一生效的底层同步执行实现链路，负责：
 
 1. contract 校验与 lint。
 2. 请求规划（anchor/window/fanout/pagination）。
 3. worker 调用、归一化、写入、进度与错误上报。
 4. runtime 注册与服务构建。
+
+长期领域口径：
+
+1. 数据集事实以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准。
+2. 维护动作与执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
+3. 本目录可以作为执行实现投影来源，但不得重新把 `sync_daily / backfill_* / sync_history` 暴露为用户任务模型。
 
 ---
 
@@ -40,6 +46,8 @@
 3. 禁止在 helper 中加入仅单数据集生效的专用逻辑。
 4. 禁止绕开 contract/linter 直接拼参数执行。
 5. 禁止重建 V1 兼容路径。
+6. 禁止新增 `__ALL__` 这类无需求定义的哨兵值污染请求参数或落库行。
+7. 禁止为了单个数据集绕过 DatasetDefinition / DatasetExecutionPlan 另建执行语义。
 
 ---
 
@@ -49,14 +57,17 @@
 2. 执行语义统一，策略语义可扩展。
 3. 先有 contract，再有请求编排，再有执行接线。
 4. 优先显式语义，避免隐式默认魔法。
+5. 对外任务语言统一交给 TaskRun / Dataset Maintain，不在本层制造 UI 文案。
 
 ---
 
 ## 5. 动手前必读
 
 1. `/Users/congming/github/goldenshare/src/foundation/AGENTS.md`
-2. `/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md`
-3. `/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md`
+2. `/Users/congming/github/goldenshare/src/foundation/datasets/AGENTS.md`
+3. `/Users/congming/github/goldenshare/src/foundation/ingestion/AGENTS.md`
+4. `/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md`
+5. `/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md`
 
 ---
 
@@ -68,4 +79,3 @@
 2. `pytest -q tests/test_sync_v2_registry_routing.py`
 3. `pytest -q tests/architecture/test_sync_v2_registry_guardrails.py`
 4. `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
-

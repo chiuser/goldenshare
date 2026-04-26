@@ -122,6 +122,13 @@
 - 不要把后端字段名直接作为表单 label
 - 不要让用户理解页面必须依赖源码知识
 
+任务中心当前强约束：
+
+- 任务记录、任务详情、重试、停止统一消费 TaskRun API：`/api/v1/ops/task-runs*`
+- 手动维护提交统一消费 `/api/v1/ops/manual-actions/{action_key}/task-runs`
+- 不得恢复旧 `/api/v1/ops/executions*`、`steps/events/logs` 或 `sync_run_log` 作为页面事实源
+- 不得把 `sync_daily / backfill_* / sync_history` 暴露为用户需要选择或理解的任务类型
+
 ### 6. 不要为前端任务顺手触碰后端重构主线
 
 前端任务默认不跨到：

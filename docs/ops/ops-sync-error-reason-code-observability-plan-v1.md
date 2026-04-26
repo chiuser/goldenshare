@@ -1,9 +1,12 @@
 # Sync 任务 Error/Reason 统一编码与可观测性方案 v1
 
 更新时间：2026-04-23  
+状态：历史方案，旧 `JobExecution/event` 观测模型已退场；当前任务问题展示以 `ops.task_run_issue` 与 TaskRun view API 为主。
 适用范围：`src/foundation/services/sync_v2/*`、`src/ops/runtime/*`、`src/ops/queries/*`、`frontend/src/pages/ops-task-detail-page.tsx`
 
 ---
+
+> 归档说明：本文保留 error/reason codebook 的设计价值，但其中 `JobExecution.error_code`、`step_progress`、`/api/v1/ops/executions/{id}/events` 等落点已经被 TaskRun 观测模型替代。后续若继续推进拒绝原因分布，应基于 `ops.task_run_issue`、TaskRun node payload 与 codebook 重新开当前方案。
 
 ## 1. 目的
 

@@ -12,6 +12,9 @@
 2. `platform` 与 `operations` 已降级为 legacy 目录，只允许最小清理动作。
 3. 新主实现必须直接落在 `foundation`、`ops`、`biz`、`app` 对应目录。
 4. `src/foundation/services/sync`（Sync V1）已移除，不得再新增或回流相关实现。
+5. 数据集事实源收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
+6. 数据维护请求到执行计划的长期模型收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`。
+7. 运维任务运行、任务详情与问题诊断收敛到 `src/ops` TaskRun 主链。
 
 ---
 
@@ -21,7 +24,9 @@
 2. `ops` 不得依赖 `biz`。
 3. `biz` 不得依赖 `ops` / `operations`。
 4. 不得把主实现写回 `src/platform/**` 或 `src/operations/**`。
-5. 不得新增 `src.foundation.services.sync.*` 导入路径；同步能力统一走 `sync_v2`。
+5. 不得新增 `src.foundation.services.sync.*` 导入路径；底层同步执行实现仍由 `sync_v2` 承接。
+6. 不得把 `sync_daily / backfill_* / sync_history` 重新作为用户可见或 API 主执行模型。
+7. 不得恢复 `JobExecution*`、`sync_run_log` 或 `/api/v1/ops/executions*` 作为任务详情事实源。
 
 边界违规由以下测试守护：
 
@@ -42,10 +47,10 @@
 
 ## 目录流向
 
-- 运维/运行时：`src/ops/**`
+- 运维/运行时：`src/ops/**`（TaskRun、scheduler/worker、ops API/query/service）
 - 业务 API/查询：`src/biz/**`
 - 应用壳装配：`src/app/**`
-- 底层数据基座：`src/foundation/**`
+- 底层数据基座：`src/foundation/**`（DatasetDefinition、DatasetExecutionPlan、底层同步执行实现）
 
 ---
 

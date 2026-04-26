@@ -1,6 +1,6 @@
 # Foundation 当前强约束（统一基线）
 
-更新时间：2026-04-19
+更新时间：2026-04-26
 
 ## 1. 文档定位
 
@@ -20,6 +20,8 @@
 1. 子系统边界以 [subsystem-boundary-plan.md](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md) 为准。
 2. 依赖方向以 [dependency-matrix.md](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md) 为准。
 3. Ops 状态语义以 [ops-contract-current.md](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md) 为准。
+4. 数据集事实以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准。
+5. 数据维护执行计划以 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan` 为准。
 
 ---
 
@@ -53,7 +55,8 @@
    - 单时间点同步
    - 时间区间回补
 3. 分页接口必须内部自动循环，不把分页细节暴露为运营常规参数。
-4. 同步任务必须纳入 Ops 可观测对象（pipeline mode + layer snapshot + execution）。
+4. 同步任务必须纳入 Ops 可观测对象（TaskRun + pipeline mode + layer snapshot）。
+5. `sync_daily / backfill_* / sync_history` 不再作为当前用户任务、API 或长期领域模型。
 
 ---
 
@@ -62,11 +65,12 @@
 新增/改造数据集必须同时满足：
 
 1. 有独立数据集开发文档（`docs/datasets/*`）。
-2. 接口输入输出参数与时间推进策略明确。
+2. DatasetDefinition 中的身份、中文名、来源、日期模型、输入能力与表映射明确。
 3. 落库路径与目标表明确（raw/serving/light）。
 4. 幂等写入与去重策略明确。
 5. Ops 交互与状态观测已接入。
-6. 测试清单完整（单元/集成/回归）。
+6. DatasetExecutionPlan 能覆盖对应维护动作。
+7. 测试清单完整（单元/集成/回归）。
 
 模板入口：
 
@@ -104,4 +108,3 @@
 1. 本文件维护“当前强约束”；专题文档维护“领域细节”。
 2. 任何变更先改文档，再改代码。
 3. 若专题文档与本文件不一致，先修正文档再继续开发。
-

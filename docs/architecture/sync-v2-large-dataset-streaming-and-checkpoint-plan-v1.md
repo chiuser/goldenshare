@@ -1,8 +1,13 @@
 # Sync V2 大数据集流式写入与检查点提交方案 v1
 
-状态：待评审  
+状态：历史未采纳方案；不得按本文直接实施 checkpoint/page commit/acquire 类能力。
 适用范围：`src/foundation/services/sync_v2/**`  
 不适用范围：本方案不改变数据集请求策略本身，不新增数据集，不调整表结构。
+
+---
+
+> 归档说明：本文保留大数据集长事务、单 unit 内存峰值等问题背景，但其中“检查点提交、page commit、rows commit、partial committed 展示”等方案没有形成当前确认口径。
+> 当前约束是：不得新增 checkpoint/acquire/replay 语义；事务边界整改必须重新基于 `DatasetExecutionPlan + TaskRun` 当前主链评审后再实施。
 
 ---
 
@@ -585,4 +590,3 @@ ExecutionSpec(
 1. `dc_member`、`stk_factor_pro` 也有同类风险。
 2. 单点补丁会让大数据能力分散在策略层，后续更难维护。
 3. 这类能力本质属于 engine，不属于某个数据集。
-

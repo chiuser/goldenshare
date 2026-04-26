@@ -6,7 +6,7 @@
 - 关联方案：
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
   - [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
-  - [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
+  - [Sync V2 事务风险审计与整改方案 v1（历史事故审计）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
   - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 
 ---
@@ -64,4 +64,3 @@
 8. 大数据集按业务 unit 安全提交，ops 状态失败不回滚业务数据。
 9. `__ALL__` 不得作为业务哨兵进入请求、query context 或落库字段。
 10. 测试、lint、文档校验与前端 smoke 按影响面执行。
-

@@ -1,9 +1,12 @@
 # Ops Execution API 队列语义收口方案 v1
 
 更新时间：2026-04-23  
+状态：历史归档。旧 `/api/v1/ops/executions*` 主链已下线，当前任务运行口径以 [Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md) 与 [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md) 为准。
 适用范围：`src/ops/api/executions.py`、`src/ops/api/runtime.py`、`src/ops/services/*`、`frontend/src/pages/ops*`
 
 ---
+
+> 归档说明：本文记录 TaskRun 重构前对 execution 队列语义的确认过程。文中 `execution`、`/api/v1/ops/executions*`、`run-now/retry-now` 等内容仅作为历史背景保留，不再代表当前 API 或页面实现。
 
 ## 1. 目的
 

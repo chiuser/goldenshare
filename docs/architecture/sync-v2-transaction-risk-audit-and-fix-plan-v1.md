@@ -1,9 +1,14 @@
 # Sync V2 事务风险审计与整改方案 v1
 
-状态：待评审  
+状态：历史事故审计 / 待基于当前 TaskRun + DatasetExecutionPlan 主链重新评审
 日期：2026-04-25  
 适用范围：`src/foundation/services/sync_v2/**`、`src/ops/runtime/**`、`src/ops/services/operations_history_backfill_service.py`、相关 DAO 与迁移脚本。  
 本轮性质：事故复盘后的事务边界审计与整改方案，不包含代码改动。
+
+---
+
+> 归档说明：本文保留 `stk_mins` 长事务事故的问题复盘价值，但其中涉及 `operations_history_backfill_service.py`、`src/ops/runtime/dispatcher.py`、`src/ops/schemas/execution.py` 等旧路径的实施清单不再代表当前代码主链。
+> 当前执行入口已经切到 TaskRun dispatcher 与 DatasetExecutionPlan；如继续推进事务边界整改，必须重新评审范围，且不得引入未经确认的 checkpoint/acquire/replay 语义。
 
 ---
 

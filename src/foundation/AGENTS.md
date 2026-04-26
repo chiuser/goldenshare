@@ -11,9 +11,10 @@
 
 `foundation` 是数据基座子系统，负责：
 
-1. 数据源接入、同步、落库、基础模型与 DAO。
-2. 底层契约（kernel/contracts）与通用基础能力。
-3. 与上层解耦的可复用组件（不承载 ops/biz/app 业务语义）。
+1. 数据集单一事实源（DatasetDefinition）、数据源接入、同步、落库、基础模型与 DAO。
+2. 数据维护请求到执行计划的底层模型（DatasetExecutionPlan）。
+3. 底层契约（kernel/contracts）与通用基础能力。
+4. 与上层解耦的可复用组件（不承载 ops/biz/app 业务语义）。
 
 `foundation` 不负责：
 
@@ -28,20 +29,23 @@
 1. 禁止引入 `foundation -> ops|operations|biz|app|platform` 反向依赖。
 2. 禁止把主实现写回 `src/platform/**` 或 `src/operations/**`。
 3. 禁止恢复或新建 `src.foundation.services.sync.*`（Sync V1 已退场）。
-4. 同步主链统一走 `src/foundation/services/sync_v2/**`。
-5. 不允许“补丁叠补丁”；发现结构失真时优先提出重构方案。
+4. 底层同步执行实现仍由 `src/foundation/services/sync_v2/**` 承接，但不得把 `sync_v2` 命名扩散为用户可见领域语言。
+5. 禁止把 `sync_daily / backfill_* / sync_history` 重新建模为长期领域概念。
+6. 不允许“补丁叠补丁”；发现结构失真时优先提出重构方案。
 
 ---
 
 ## 3. 目录职责速记
 
 1. `kernel/`：内核级契约与基础抽象。
-2. `models/`：raw/core/core_serving/core_serving_light 等数据模型。
-3. `dao/`：数据访问层。
-4. `services/sync_v2/`：同步 V2 主链（contract/engine/planner/writer）。
-5. `services/transform/`：离线转换与规范化工具。
-6. `services/migration/`：迁移辅助（仅迁移用途，不承接日常主链）。
-7. `connectors/`、`clients/`：外部源接入与 SDK/HTTP 客户端封装。
+2. `datasets/`：DatasetDefinition 单一事实源与派生 registry。
+3. `ingestion/`：DatasetActionRequest、DatasetExecutionPlan 与 resolver。
+4. `models/`：raw/core/core_serving/core_serving_light 等数据模型。
+5. `dao/`：数据访问层。
+6. `services/sync_v2/`：底层同步执行实现（contract/engine/planner/writer），不是用户任务模型。
+7. `services/transform/`：离线转换与规范化工具。
+8. `services/migration/`：迁移辅助（仅迁移用途，不承接日常主链）。
+9. `connectors/`、`clients/`：外部源接入与 SDK/HTTP 客户端封装。
 
 ---
 
@@ -51,6 +55,7 @@
 2. 在 DAO 里加入业务编排逻辑（调度、重试、跨表策略）。
 3. 在 models 改字段后不评估迁移与上下游兼容。
 4. 在 foundation 中直接依赖 ops 执行表语义。
+5. 在 DatasetDefinition / DatasetExecutionPlan 之外另建数据集身份或执行计划事实源。
 
 ---
 
@@ -68,6 +73,6 @@
 涉及 foundation 边界或同步主链改动时，至少执行：
 
 1. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
-2. `pytest -q tests/architecture/test_sync_v2_registry_guardrails.py`
-3. `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
-
+2. `pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py`
+3. `pytest -q tests/architecture/test_sync_v2_registry_guardrails.py`
+4. `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`

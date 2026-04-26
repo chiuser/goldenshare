@@ -1,6 +1,6 @@
 # 文档信息架构与待整合清单 v1
 
-更新时间：2026-04-19
+更新时间：2026-04-26
 
 ## 1. 目标
 
@@ -105,7 +105,9 @@ docs/
 
 附加项：
 
-1. `dataset-catalog.md` 为“自动生成”文档，需增加自动刷新流程，避免与真实代码漂移。
+1. `dataset-catalog.md` 已标记为历史自动生成快照，不再作为当前数据集事实源。
+2. 当前数据集事实源应收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition` 投影。
+3. 后续若重建数据集目录，应从 DatasetDefinition 生成，而不是继续从旧 `JOB_SPEC_REGISTRY` 的 `sync_daily/backfill/sync_history` 任务名生成。
 
 ### 4.4 Frontend 组
 

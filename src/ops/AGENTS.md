@@ -11,9 +11,16 @@
 `src/ops` 是运维治理与运行编排主目录，承接：
 
 1. runtime（scheduler/worker/dispatcher）
-2. specs（job/workflow/freshness）
-3. ops API / query / schema / service
-4. ops 侧模型与治理能力
+2. TaskRun 任务运行、任务详情与问题诊断
+3. specs（job/workflow/freshness，历史 spec 只可作为内部配置语境）
+4. ops API / query / schema / service
+5. ops 侧模型与治理能力
+
+当前任务主线：
+
+1. 任务记录、任务详情、重试、停止统一以 `ops.task_run / task_run_node / task_run_issue` 为事实源。
+2. 旧 `JobExecution*`、`sync_run_log`、`/api/v1/ops/executions*` 不再作为当前主链。
+3. 手动维护入口使用 Dataset Maintain 语义，Ops 不应把 `sync_daily / backfill_* / sync_history` 暴露给用户。
 
 ---
 
@@ -35,7 +42,9 @@
 
 1. 新运维能力直接写入 `src/ops/**`，不回流 legacy 目录。
 2. facade 文件保持薄，复杂逻辑放主实现文件。
-3. 变更 runtime/specs 时优先保证任务执行语义稳定。
+3. 变更 runtime/specs 时优先保证 TaskRun 队列与节点进度语义稳定。
+4. 不得恢复旧 execution API 或旧执行观测表作为页面事实源。
+5. 不得让前端或 API 调用方理解底层 spec 分支才能发起维护任务。
 
 ---
 

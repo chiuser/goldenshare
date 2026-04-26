@@ -43,7 +43,9 @@
 1. 先读文档
 - [子系统边界基线](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [数据集发布治理规范](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
-- [数据集总目录](/Users/congming/github/goldenshare/docs/datasets/dataset-catalog.md)
+- [DatasetDefinition 单一事实源重构方案](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+- [DatasetExecutionPlan 执行计划模型重构方案](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
+- [数据集总目录（历史自动生成快照）](/Users/congming/github/goldenshare/docs/datasets/dataset-catalog.md)
 
 2. 本地最小验证
 - `goldenshare init-db`

@@ -1,6 +1,6 @@
 # Ops 当前契约（统一版）
 
-更新时间：2026-04-23
+更新时间：2026-04-26
 适用范围：`src/ops/*`、`src/app/*`、`src/foundation/*`（Ops 相关）
 
 ---
@@ -45,15 +45,15 @@
 要求：
 
 1. 调度支持 cron/probe
-2. 任务详情可追踪层级进度与错误摘要
-3. 保持与 `job_execution` 体系一致
+2. 任务详情可追踪 TaskRun 节点进度与问题摘要
+3. 保持与 `ops.task_run / task_run_node / task_run_issue` 体系一致
 
 ### 2.3.1 任务中心执行语义（已确认）
 
 当前确认口径：
 
 1. 任务中心采用**队列模型**
-2. Web/API 负责创建、查询、重试、取消 execution 请求
+2. Web/API 负责创建、查询、重试、取消 TaskRun 请求
 3. Web 不是长任务执行 owner，不在请求内直接跑同步任务
 4. 真正执行由独立 scheduler / worker 进程推进
 
@@ -65,8 +65,8 @@
 
 后端契约要求：
 
-1. execution API 命名与返回语义应与队列模型一致
-2. 兼容路径若继续保留，必须明确标注为 queue-only alias，不得继续暗示“立即执行”
+1. 任务运行 API 以 `/api/v1/ops/task-runs*` 为唯一当前主链
+2. 旧 `/api/v1/ops/executions*` 主链已下线，不作为当前契约入口
 3. `/api/v1/ops/runtime/*` 不作为新 UI 的正常执行入口
 
 ### 2.4 审查中心
@@ -114,9 +114,16 @@
 
 ### 3.3 相关运行对象
 
-1. `ops.job_execution*`：执行生命周期与进度
-2. `ops.job_schedule`：调度对象
-3. `ops.probe_rule`：探测触发规则
+1. `ops.task_run`：一次任务运行的唯一主记录
+2. `ops.task_run_node`：任务内部阶段、单元与进度节点
+3. `ops.task_run_issue`：失败原因、问题摘要与完整技术诊断唯一落点
+4. `ops.job_schedule`：调度对象；当前默认配置已重置，待后续按新 TaskRun/Schedule 口径单独重建
+5. `ops.probe_rule`：探测触发规则
+
+已退场对象：
+
+1. `ops.job_execution*`：旧执行观测主链，已被 TaskRun 三表替代
+2. `ops.sync_run_log`：旧 sync service 日志，不再作为任务详情或页面事实源
 
 ---
 
@@ -169,7 +176,7 @@
 5. `disabled` 数据集可见但不计入滞后/失败告警统计
 6. 停用能力当前为代码级控制，后续应收敛到配置化控制表
 7. 任务动作默认采用队列语义，不在 Web 层暴露“立即执行长任务”的主交互
-8. 新增任务 API 时，优先围绕 `execution request -> queued -> worker claim -> running -> terminal` 生命周期设计
+8. 新增任务 API 时，优先围绕 `TaskRun -> queued -> worker claim -> running -> terminal` 生命周期设计
 
 ---
 
@@ -216,13 +223,13 @@
 
 1. 融合策略中心独立页面入口与工作区仍缺失
 2. 策略对象管理（草稿/版本/diff）尚未形成完整 UI 闭环
-3. 发布执行到 `execution/stage` 的通用闭环尚未覆盖全部数据集
+3. 发布执行到 `TaskRun/node` 的通用闭环尚未覆盖全部数据集
 
 优先待办（按优先级）：
 
 1. P0：先开只读页面（pipeline/rules/releases/layers）
 2. P0：补最小策略对象管理闭环（草稿、版本、差异）
-3. P1：补发布执行可观测闭环（release -> execution -> stages）
+3. P1：补发布执行可观测闭环（release -> TaskRun -> nodes）
 4. P1：补全前后端测试基线
 
 ---
@@ -235,7 +242,8 @@
 2. `ops-review-center-design-v1.md`：审查中心设计
 3. `reconcile-capability-requirements-v1.md`：多源对账专项
 4. `ops-web-api-capability-review-memo-v1.md`：当前 ops Web API 能力审查备忘
-5. `ops-execution-api-queue-semantics-alignment-plan-v1.md`：execution API 队列语义收口方案
+5. `ops-task-run-observability-redesign-plan-v1.md`：TaskRun 执行观测模型
+6. `ops-execution-api-queue-semantics-alignment-plan-v1.md`：历史 execution API 队列语义收口方案（已由 TaskRun 主链替代）
 
 ---
 

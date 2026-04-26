@@ -1,4 +1,8 @@
-# 股票周/月线同步逻辑说明（现行 V2 口径）
+# 股票周/月线同步逻辑说明（当前锚点口径）
+
+状态：当前业务口径说明，执行入口已从旧 `sync_daily / sync_history / backfill_equity_series` 心智收敛到 `Dataset Maintain + DatasetExecutionPlan + TaskRun`。
+
+---
 
 ## 1. 适用数据集
 
@@ -31,20 +35,17 @@
 
 ## 3. 入口语义（当前）
 
-### 3.1 `sync-daily`
+当前用户/API 口径：
 
-1. 输入：`trade_date`
-2. 行为：按对应 contract 的锚点语义校验该日期并执行单点同步。
+1. 手动维护或自动任务只表达 `action=maintain`。
+2. 单点处理输入一个日期；区间处理输入 `start_date + end_date`。
+3. resolver/planner 根据数据集 `date_model` 与锚点规则生成执行计划。
+4. TaskRun 负责记录任务主状态、节点进度与问题诊断。
 
-### 3.2 `sync-history`
+历史内部入口说明：
 
-1. 输入：`start_date` + `end_date`（支持 `ts_code` 可选筛选）
-2. 行为：区间内按锚点展开交易日序列后执行。
-
-### 3.3 `backfill_equity_series`
-
-1. 输入：`start_date` + `end_date`（支持 `offset/limit`）
-2. 行为：由回补服务先筛出区间开市日，再压缩为周末/月末交易锚点执行。
+1. `sync_daily`、`sync_history`、`backfill_equity_series` 仅作为历史实现/迁移语境保留，不再作为用户可见或文档主口径。
+2. 若代码内部仍需投影旧 contract 能力，只能作为 `DatasetExecutionPlan` 的输入来源，不得重新暴露为前端任务名称或 API 主语义。
 
 ---
 
@@ -76,13 +77,14 @@
 1. [common.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/common.py)
 2. [trade_date_expand.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/strategy_helpers/trade_date_expand.py)
 
-### 4.3 历史回补服务
+### 4.3 当前执行计划投影
 
-文件：
+当前执行计划投影位于：
 
-1. `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
+1. [execution_plan.py](/Users/congming/github/goldenshare/src/foundation/ingestion/execution_plan.py)
+2. [resolver.py](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py)
 
-其中 `backfill_equity_series` 曾对周/月线采用“开市日 -> 周末/月末交易日锚点”压缩执行。
+历史 `src/ops/services/operations_history_backfill_service.py` 已退场，其中“开市日 -> 周末/月末交易日锚点”的有效规则必须通过标准 planner/resolver 表达。
 
 ---
 
@@ -90,9 +92,9 @@
 
 关键测试覆盖：
 
-1. `tests/test_history_backfill_service.py`（历史测试，已随旧回补服务退场）
-2. [test_extended_sync_services.py](/Users/congming/github/goldenshare/tests/test_extended_sync_services.py)（周/月线策略参数）
-3. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
+1. [test_extended_sync_services.py](/Users/congming/github/goldenshare/tests/test_extended_sync_services.py)（周/月线策略参数）
+2. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
+3. 后续执行计划覆盖应优先补到 DatasetExecutionPlan / resolver 测试，而不是恢复旧回补服务测试。
 
 ---
 

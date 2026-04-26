@@ -1,5 +1,9 @@
 # 指数行情筛选池同步机制说明（index_series_active）
 
+状态：当前筛选池行为说明；历史 `backfill_index_series` 入口已退场，当前执行入口应通过 `Dataset Maintain + DatasetExecutionPlan + TaskRun` 表达。
+
+---
+
 ## 1. 目的
 
 这份文档用于固化当前“指数日线/周线/月线按筛选池同步”的真实实现，避免后续维护时遗忘关键行为。
@@ -9,7 +13,7 @@
 - `index_weekly`
 - `index_monthly`
 - `index_daily_basic`
-- 对应的历史回补流程 `backfill_index_series`
+- 历史回补流程 `backfill_index_series` 的有效规则映射
 
 ---
 
@@ -93,7 +97,7 @@
 实现文件：
 - `src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）
 
-关键点：
+关键点（仅作历史规则映射参考）：
 1. `resource in {"index_daily", "index_daily_basic"}` 时：
    - 先读取对应 resource 的筛选池代码。
    - `index_daily_basic` 在池为空时，会先尝试跑一次最近交易日增量做“发现”，再读池。
@@ -118,8 +122,8 @@
 
 ## 6. 建议的日常操作顺序
 
-1. 先执行一次 `index_daily`（确保筛选池有代码）。
-2. 再执行 `index_weekly`、`index_monthly`。
+1. 先维护一次 `index_daily`（确保筛选池有代码）。
+2. 再维护 `index_weekly`、`index_monthly`。
 3. 如果做大范围历史回补，优先确认：
    - `ops.index_series_active` 中 `resource='index_daily'` 的代码数量是否符合预期。
 
