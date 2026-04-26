@@ -155,8 +155,6 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       const freshMeta = freshnessByDataset.get(modeItem.dataset_key);
       const freshGroup = freshMeta?.group;
       const freshItem = freshMeta?.item;
-      const fallbackRawTable = `${sourceKey === "biying" ? "raw_biying" : "raw_tushare"}.${modeItem.dataset_key.replace(/^biying_/, "")}`;
-      const sourceScopedRawTable = (freshItem?.raw_table || "").replace(/^raw_tushare\./i, sourceKey === "biying" ? "raw_biying." : "raw_tushare.");
       const activeExecutionStatus = (freshItem?.active_execution_status || "").toLowerCase();
       const hasActiveExecution = activeExecutionStatus === "queued" || activeExecutionStatus === "running" || activeExecutionStatus === "canceling";
       const status = hasActiveExecution
@@ -182,7 +180,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         displayName: modeItem.display_name || modeItem.dataset_key,
         domainKey: freshGroup?.domain_key || modeItem.domain_key || "uncategorized",
         domainDisplayName: freshGroup?.domain_display_name || modeItem.domain_display_name || "未分类",
-        rawTableLabel: sourceScopedRawTable || modeItem.raw_table || fallbackRawTable,
+        rawTableLabel: freshItem?.raw_table || modeItem.raw_table || "—",
         status,
         recentSyncText,
         dateRangeText: freshItem ? buildDateRangeText(freshItem) : (modeItem.latest_business_date ? `最新业务日：${formatDateLabel(modeItem.latest_business_date)}` : "—"),

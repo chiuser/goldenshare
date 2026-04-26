@@ -137,6 +137,7 @@ docs/
 - [前端 Phase 6 P6-4 管理配置推广批边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-p6-4-boundary-card-v1.md)
 - [前端 Phase 6 推广收口总结 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-phase6-rollout-summary-v1.md)
 - [前端专项：Overview 旧视觉遗留收口边界卡 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-overview-legacy-visual-cleanup-boundary-card-v1.md)
+- [前端 Ops 事实字段消费审计 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-ops-fact-consumer-audit-v1.md)
 - [前端质量门禁矩阵 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-quality-gate-matrix-v1.md)
 - [前端回归与截图基线流程 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [前端 Smoke 与视觉回归门禁 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-smoke-visual-gate-v1.md)

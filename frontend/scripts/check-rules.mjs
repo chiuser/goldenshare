@@ -33,6 +33,20 @@ const rules = [
     pattern: /\b(?:violet|grape|pink|magenta)\b/g,
     allowlist: ["src/pages/ops-v21-review-board-page.tsx"],
   },
+  {
+    id: "no-ops-page-synthetic-layer-snapshot-from-freshness",
+    description: "禁止页面层用 freshness 字段伪造 layer snapshot 状态",
+    scopePrefixes: ["src/pages/"],
+    pattern: /\b(?:toSyntheticSnapshotFromFreshness|groupDatasetSummariesWithFreshnessFallback|inferSourceFromTargetTable|fallbackTs|fallbackStatus)\b/g,
+    allowlist: [],
+  },
+  {
+    id: "no-ops-page-derived-raw-table-label",
+    description: "禁止页面层自行拼装 raw 表名展示字段",
+    scopePrefixes: ["src/pages/"],
+    pattern: /\b(?:fallbackRawTable|sourceScopedRawTable)\b/g,
+    allowlist: [],
+  },
 ];
 
 function shouldScanFile(relativePath) {

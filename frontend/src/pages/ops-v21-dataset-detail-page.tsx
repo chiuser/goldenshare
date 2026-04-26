@@ -35,16 +35,6 @@ function stageTitle(stage: string) {
   return stage;
 }
 
-function inferSourceFromTargetTable(
-  targetTable: string | null | undefined,
-  datasetKey: string,
-): "tushare" | "biying" {
-  if (datasetKey.startsWith("biying_")) return "biying";
-  const table = (targetTable || "").toLowerCase();
-  if (table.startsWith("raw_biying.")) return "biying";
-  return "tushare";
-}
-
 function formatLagDuration(lagSeconds: number | null | undefined): string {
   if (!lagSeconds) return "—";
   return `${Math.floor(lagSeconds / 3600)}h ${Math.floor((lagSeconds % 3600) / 60)}m`;
@@ -108,48 +98,6 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     .flatMap((group) => group.items || [])
     .find((item) => item.dataset_key === datasetKey);
   const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
-  if (latestItems.length === 0 && freshnessItem) {
-    const fallbackStatus =
-      freshnessItem.freshness_status === "stale"
-        ? "failed"
-        : freshnessItem.freshness_status === "lagging"
-          ? "warning"
-          : freshnessItem.freshness_status === "fresh"
-            ? "healthy"
-            : "unknown";
-    const fallbackTs = freshnessItem.last_sync_date || freshnessItem.recent_failure_at || freshnessItem.expected_business_date || "1970-01-01T00:00:00Z";
-    const sourceKey = inferSourceFromTargetTable(freshnessItem.target_table, datasetKey);
-    latestItems.push({
-      snapshot_date: (freshnessItem.latest_business_date || freshnessItem.last_sync_date || "1970-01-01").slice(0, 10),
-      dataset_key: datasetKey,
-      source_key: sourceKey,
-      stage: "raw",
-      status: fallbackStatus,
-      rows_in: null,
-      rows_out: null,
-      error_count: freshnessItem.recent_failure_at ? 1 : 0,
-      lag_seconds: freshnessItem.lag_days != null ? freshnessItem.lag_days * 86400 : null,
-      message: freshnessItem.freshness_note || freshnessItem.recent_failure_summary || null,
-      calculated_at: fallbackTs,
-      last_success_at: freshnessItem.last_sync_date || null,
-      last_failure_at: freshnessItem.recent_failure_at || null,
-    });
-    latestItems.push({
-      snapshot_date: (freshnessItem.latest_business_date || freshnessItem.last_sync_date || "1970-01-01").slice(0, 10),
-      dataset_key: datasetKey,
-      source_key: sourceKey,
-      stage: "serving",
-      status: fallbackStatus,
-      rows_in: null,
-      rows_out: null,
-      error_count: freshnessItem.recent_failure_at ? 1 : 0,
-      lag_seconds: freshnessItem.lag_days != null ? freshnessItem.lag_days * 86400 : null,
-      message: freshnessItem.freshness_note || freshnessItem.recent_failure_summary || null,
-      calculated_at: fallbackTs,
-      last_success_at: freshnessItem.last_sync_date || null,
-      last_failure_at: freshnessItem.recent_failure_at || null,
-    });
-  }
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
   const stageOrder = ["raw", "std", "resolution", "serving"];
   if (datasetKey === "daily" || stageMap.has("light")) {
