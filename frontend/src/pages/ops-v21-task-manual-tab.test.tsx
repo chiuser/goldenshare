@@ -687,4 +687,67 @@ describe("手动任务页", () => {
     expect((await screen.findAllByText("维护股票技术面因子(专业版)")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/未配置显示名称/)).not.toBeInTheDocument();
   });
+
+  it("manual-actions 某个分组缺失 actions 时，不会在浏览器返回后整页崩溃", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/manual-actions") {
+        return {
+          groups: [
+            {
+              group_key: "equity_market",
+              group_label: "股票行情",
+              group_order: 20,
+            },
+          ],
+        } as unknown as Record<string, unknown>;
+      }
+      if (path.startsWith("/api/v1/ops/task-runs/")) {
+        return {
+          run: {
+            id: 9,
+            task_type: "dataset_action",
+            resource_key: "daily",
+            action: "maintain",
+            action_key: "daily.maintain",
+            title: "股票日线",
+            status: "success",
+            trigger_source: "manual",
+            requested_at: "2026-04-26T08:00:00Z",
+            started_at: "2026-04-26T08:00:01Z",
+            ended_at: "2026-04-26T08:00:02Z",
+            time_scope: null,
+            time_scope_label: null,
+            rows_fetched: 0,
+            rows_saved: 0,
+            rows_rejected: 0,
+            unit_total: 0,
+            unit_done: 0,
+            unit_failed: 0,
+            progress_percent: 100,
+          },
+          primary_issue: null,
+          nodes: [],
+          node_total: 0,
+          nodes_truncated: false,
+          actions: {
+            can_retry: true,
+            can_cancel: false,
+            can_copy_params: true,
+          },
+        };
+      }
+      if (path.startsWith("/api/v1/ops/schedules/")) {
+        return null;
+      }
+      if (path.startsWith("/api/v1/ops/task-runs?")) {
+        return { total: 0, items: [] };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&task_run_id=9");
+
+    expect(await screen.findByText("发起一次手动维护")).toBeInTheDocument();
+    expect(screen.queryByText("页面加载失败")).not.toBeInTheDocument();
+  });
 });

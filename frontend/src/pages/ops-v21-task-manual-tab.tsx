@@ -131,8 +131,9 @@ function flattenManualActions(response: OpsManualActionsResponse | undefined): M
   if (!response) {
     return [];
   }
-  return response.groups.flatMap((group) =>
-    group.actions.map((action) => ({
+  const groups = Array.isArray(response.groups) ? response.groups : [];
+  return groups.flatMap((group) =>
+    (Array.isArray(group.actions) ? group.actions : []).map((action) => ({
       ...action,
       groupKey: group.group_key,
       groupLabel: group.group_label,

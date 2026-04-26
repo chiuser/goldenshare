@@ -99,6 +99,10 @@ function formatExecutionTimeScopeLabel(item: { time_scope_label?: string | null 
   return item.time_scope_label || "无时间维度";
 }
 
+function getCatalogActions(catalog: OpsCatalogResponse | undefined) {
+  return Array.isArray(catalog?.actions) ? catalog.actions : [];
+}
+
 export function OpsTasksPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -159,13 +163,12 @@ export function OpsTasksPage() {
   });
 
   const resourceOptions = useMemo(() => {
-    const catalog = catalogQuery.data;
-    const items = catalog ? [
-      ...catalog.actions.map((item) => ({
+    const items = [
+      ...getCatalogActions(catalogQuery.data).map((item) => ({
         value: item.target_key || item.key,
         label: formatCatalogTaskOption(item),
       })),
-    ] : [];
+    ];
     return [{ value: ALL_FILTER_VALUE, label: "全选" }, ...items];
   }, [catalogQuery.data]);
 

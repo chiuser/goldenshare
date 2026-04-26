@@ -249,8 +249,21 @@ function getCatalogActionLabel(item: CatalogAction): string {
   return item.target_display_name || item.display_name;
 }
 
+function getCatalogActions(catalog: OpsCatalogResponse | undefined): CatalogAction[] {
+  return Array.isArray(catalog?.actions) ? catalog.actions : [];
+}
+
+function getCatalogWorkflows(catalog: OpsCatalogResponse | undefined): CatalogWorkflow[] {
+  return Array.isArray(catalog?.workflows) ? catalog.workflows : [];
+}
+
 function getScheduleTargetLabel(item: { target_display_name?: string | null; display_name: string }): string {
   return item.target_display_name || item.display_name;
+}
+
+function getDatasetLabelFromCatalog(catalog: OpsCatalogResponse | undefined, datasetKey: string): string {
+  const action = getCatalogActions(catalog).find((item) => item.action_type === "dataset_action" && item.target_key === datasetKey);
+  return action ? getCatalogActionLabel(action) : "未命名数据集";
 }
 
 function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
@@ -267,14 +280,14 @@ function findCatalogAction(catalog: OpsCatalogResponse | undefined, actionType: 
   if (!catalog || !(actionType === "maintenance_action" || actionType === "dataset_action")) {
     return null;
   }
-  return catalog.actions.find((item) => item.action_type === actionType && item.key === actionKey) || null;
+  return getCatalogActions(catalog).find((item) => item.action_type === actionType && item.key === actionKey) || null;
 }
 
 function findCatalogWorkflow(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogWorkflow | null {
   if (!catalog || actionType !== "workflow") {
     return null;
   }
-  return catalog.workflows.find((item) => item.key === actionKey) || null;
+  return getCatalogWorkflows(catalog).find((item) => item.key === actionKey) || null;
 }
 
 function buildParamLabelMap(
@@ -375,14 +388,14 @@ export function OpsAutomationPage() {
   const actionItems = useMemo(() => {
     if (!catalogQuery.data) return [];
     return [
-      ...catalogQuery.data.actions
+      ...getCatalogActions(catalogQuery.data)
         .filter((item) => item.schedule_enabled !== false)
         .map((item) => ({
           value: `${item.action_type}:${item.key}`,
           label: `${item.action_type === "dataset_action" ? "【数据】" : "【维护】"}${getCatalogActionLabel(item)}`,
           domain: item.domain_display_name || "其他",
         })),
-      ...catalogQuery.data.workflows
+      ...getCatalogWorkflows(catalogQuery.data)
         .filter((item) => item.schedule_enabled !== false)
         .map((item) => ({
           value: `workflow:${item.key}`,
@@ -419,7 +432,7 @@ export function OpsAutomationPage() {
   const selectedAction = useMemo(
     () =>
       ((form.action_type === "maintenance_action" || form.action_type === "dataset_action") && catalogQuery.data && form.action_key)
-        ? (catalogQuery.data.actions.find((item) => item.action_type === form.action_type && item.key === form.action_key) || null)
+        ? (getCatalogActions(catalogQuery.data).find((item) => item.action_type === form.action_type && item.key === form.action_key) || null)
         : null,
     [catalogQuery.data, form.action_key, form.action_type],
   );
@@ -455,7 +468,7 @@ export function OpsAutomationPage() {
 
   const workflowProbeDatasetOptions = useMemo(
     () =>
-      (catalogQuery.data?.actions || [])
+      getCatalogActions(catalogQuery.data)
         .filter((item) => item.action_type === "dataset_action" && item.target_key)
         .map((item) => {
           const datasetKey = item.target_key || "";
@@ -465,7 +478,7 @@ export function OpsAutomationPage() {
           };
         })
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
-    [catalogQuery.data?.actions],
+    [catalogQuery.data],
   );
 
   const supportsSingleDay = useMemo(
@@ -1041,7 +1054,9 @@ export function OpsAutomationPage() {
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
                           <Text size="sm" ta="right">
                             {(detailQuery.data.probe_config.workflow_dataset_keys || []).length
-                              ? (detailQuery.data.probe_config.workflow_dataset_keys || []).join("、")
+                              ? (detailQuery.data.probe_config.workflow_dataset_keys || [])
+                                .map((datasetKey) => getDatasetLabelFromCatalog(catalogQuery.data, datasetKey))
+                                .join("、")
                               : "未配置"}
                           </Text>
                         </Group>
@@ -1054,7 +1069,7 @@ export function OpsAutomationPage() {
                       {probeRulesQuery.data?.items?.length ? (
                         probeRulesQuery.data.items.map((rule) => (
                           <Group key={rule.id} justify="space-between" align="center">
-                            <Text size="sm">{rule.dataset_key}</Text>
+                            <Text size="sm">{rule.dataset_display_name || "未命名数据集"}</Text>
                             <Group gap={6}>
                               <StatusBadge value={rule.status} />
                               <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>

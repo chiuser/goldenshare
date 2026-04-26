@@ -210,6 +210,38 @@ describe("任务记录页", () => {
     expect(screen.getByRole("textbox", { name: "任务名称" })).toHaveValue("全选");
   });
 
+  it("catalog 返回缺失 actions 时，不会因为任务名称筛选构建而整页崩溃", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      const url = new URL(path, "https://example.test");
+      if (url.pathname === "/api/v1/ops/catalog") {
+        return { workflows: [] } as unknown as Record<string, unknown>;
+      }
+      if (url.pathname === "/api/v1/ops/task-runs/summary") {
+        return {
+          total: 1,
+          queued: 0,
+          running: 0,
+          success: 1,
+          failed: 0,
+          canceled: 0,
+        };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs") {
+        return {
+          total: 1,
+          items: [createTaskRunItem(1, { status: "success", progress_percent: 100, unit_done: 5814 })],
+        };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderTaskRecordsPage();
+
+    expect(await screen.findByText("任务记录")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "任务名称" })).toHaveValue("全选");
+    expect(screen.queryByText("页面加载失败")).not.toBeInTheDocument();
+  });
+
   it("按页请求任务列表，并在清空筛选时回到第一页", async () => {
     window.history.replaceState({}, "", "/app/ops/tasks?status=failed&page=2");
 
