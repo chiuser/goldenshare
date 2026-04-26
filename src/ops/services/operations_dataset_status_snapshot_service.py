@@ -96,6 +96,13 @@ class DatasetStatusSnapshotService:
 
     @staticmethod
     def _resource_keys_for_spec(*, spec_type: str, spec_key: str) -> list[str]:
+        if spec_type == "dataset_action":
+            if not spec_key.endswith(".maintain"):
+                return []
+            resource_key = spec_key.removesuffix(".maintain")
+            if get_dataset_freshness_spec(resource_key) is None:
+                return []
+            return [resource_key]
         if spec_type == "job":
             job_spec = get_job_spec(spec_key)
             if job_spec is None or "." not in job_spec.key:

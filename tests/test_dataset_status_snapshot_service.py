@@ -85,6 +85,50 @@ def test_refresh_resources_upserts_snapshot_rows(db_session: Session) -> None:
     assert by_stage["serving"].status == "fresh"
 
 
+def test_refresh_for_execution_resolves_dataset_action_spec_key(db_session: Session) -> None:
+    class _MoneyflowFreshnessQueryService:
+        def build_live_items(
+            self,
+            session: Session,
+            *,
+            today: date | None = None,
+            resource_keys: list[str] | None = None,
+        ) -> list[DatasetFreshnessItem]:
+            assert resource_keys == ["moneyflow_ind_dc"]
+            return [
+                DatasetFreshnessItem(
+                    dataset_key="moneyflow_ind_dc",
+                    resource_key="moneyflow_ind_dc",
+                    display_name="板块资金流向（东方财富）",
+                    domain_key="moneyflow",
+                    domain_display_name="资金流向",
+                    job_name="maintain_moneyflow_ind_dc",
+                    target_table="core_serving.board_moneyflow_dc",
+                    cadence="daily",
+                    latest_business_date=date(2026, 4, 24),
+                    freshness_status="fresh",
+                    last_sync_date=date(2026, 4, 24),
+                    full_sync_done=True,
+                )
+            ]
+
+    service = DatasetStatusSnapshotService(query_service=_MoneyflowFreshnessQueryService())
+
+    refreshed = service.refresh_for_execution(
+        db_session,
+        spec_type="dataset_action",
+        spec_key="moneyflow_ind_dc.maintain",
+        today=date(2026, 4, 24),
+        strict=True,
+    )
+
+    assert refreshed == 1
+    row = db_session.scalar(select(DatasetStatusSnapshot).where(DatasetStatusSnapshot.dataset_key == "moneyflow_ind_dc"))
+    assert row is not None
+    assert row.latest_business_date == date(2026, 4, 24)
+    assert row.freshness_status == "fresh"
+
+
 def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> None:
     db_session.add(
         DatasetStatusSnapshot(
