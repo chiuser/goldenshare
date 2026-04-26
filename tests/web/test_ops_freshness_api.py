@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
@@ -29,6 +30,7 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     task_run_issue_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 2, 27), is_open=True, pretrade_date=date(2026, 2, 26))
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27))
     sync_job_state_factory(
         job_name="sync_equity_daily",
@@ -338,6 +340,7 @@ def test_build_item_prefers_observed_sync_date_for_dataset_without_business_date
         state=None,
         latest_open_date=date(2026, 4, 1),
         reference_date=date(2026, 4, 1),
+        expected_business_date=None,
         recent_failure=None,
         quality_note=None,
         observed_business_range=None,
@@ -570,15 +573,17 @@ def test_observed_snapshot_for_stk_period_week_adds_freq_filter(mocker) -> None:
         primary_execution_spec_key="stk_period_bar_week.maintain",
     )
     session = mocker.Mock()
-    session.execute.return_value.one.return_value = (date(2020, 1, 1), date(2026, 4, 3))
+    session.scalars.return_value = [date(2026, 3, 27), date(2026, 4, 3)]
+    session.scalar.side_effect = [date(2020, 1, 1), date(2026, 4, 3)]
 
     observed_ranges, _ = service._observed_dataset_snapshots(session, [spec])
 
     assert observed_ranges["stk_period_bar_week"] == (date(2020, 1, 1), date(2026, 4, 3))
-    query = session.execute.call_args.args[0]
+    query = session.scalar.call_args_list[1].args[0]
     compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
     assert "freq" in compiled
     assert "week" in compiled
+    assert "2026-04-03" in compiled
 
 
 def test_build_freshness_overrides_snapshot_with_live_weekly_item(
@@ -869,6 +874,7 @@ def test_stk_period_month_prefers_observed_business_date_over_state_date() -> No
         state=state,
         latest_open_date=date(2026, 3, 20),
         reference_date=date(2026, 3, 20),
+        expected_business_date=date(2026, 2, 28),
         recent_failure=None,
         quality_note=None,
         observed_business_range=(date(2010, 1, 31), date(2026, 2, 28)),
@@ -879,6 +885,115 @@ def test_stk_period_month_prefers_observed_business_date_over_state_date() -> No
     assert item.observed_business_date == date(2026, 2, 28)
     assert item.latest_business_date == date(2026, 2, 28)
     assert item.business_date_source == "observed"
+
+
+def test_date_model_expected_weekly_bucket_uses_last_open_day_of_week() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="index_weekly",
+        resource_key="index_weekly",
+        job_name="sync_index_weekly",
+        display_name="指数周线",
+        domain_key="index",
+        domain_display_name="指数",
+        target_table="core_serving.index_weekly_serving",
+        cadence="weekly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="index_weekly.maintain",
+    )
+
+    expected = service._expected_business_date_for_spec(
+        spec,
+        reference_date=date(2026, 4, 26),
+        latest_open_date=date(2026, 4, 24),
+        open_trade_dates=[
+            date(2026, 4, 17),
+            date(2026, 4, 20),
+            date(2026, 4, 21),
+            date(2026, 4, 22),
+            date(2026, 4, 23),
+            date(2026, 4, 24),
+        ],
+    )
+
+    assert expected == date(2026, 4, 24)
+
+
+def test_date_model_expected_monthly_bucket_waits_for_month_end() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="index_monthly",
+        resource_key="index_monthly",
+        job_name="sync_index_monthly",
+        display_name="指数月线",
+        domain_key="index",
+        domain_display_name="指数",
+        target_table="core_serving.index_monthly_serving",
+        cadence="monthly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="index_monthly.maintain",
+    )
+    open_trade_dates = [
+        date(2026, 3, 31),
+        date(2026, 4, 24),
+        date(2026, 4, 30),
+    ]
+
+    before_month_end = service._expected_business_date_for_spec(
+        spec,
+        reference_date=date(2026, 4, 26),
+        latest_open_date=date(2026, 4, 24),
+        open_trade_dates=open_trade_dates,
+    )
+    on_month_end = service._expected_business_date_for_spec(
+        spec,
+        reference_date=date(2026, 4, 30),
+        latest_open_date=date(2026, 4, 30),
+        open_trade_dates=open_trade_dates,
+    )
+
+    assert before_month_end == date(2026, 3, 31)
+    assert on_month_end == date(2026, 4, 30)
+
+
+def test_observed_index_monthly_ignores_non_month_end_trade_date(
+    db_session,
+    trade_calendar_factory,
+) -> None:
+    service = OpsFreshnessQueryService()
+    for trade_date in (date(2026, 3, 31), date(2026, 4, 3), date(2026, 4, 30)):
+        trade_calendar_factory(exchange="SSE", trade_date=trade_date, is_open=True)
+    db_session.add_all(
+        [
+            IndexMonthlyServing(
+                ts_code="000001.SH",
+                period_start_date=date(2026, 3, 1),
+                trade_date=date(2026, 3, 31),
+            ),
+            IndexMonthlyServing(
+                ts_code="000001.SH",
+                period_start_date=date(2026, 4, 1),
+                trade_date=date(2026, 4, 3),
+            ),
+        ]
+    )
+    db_session.commit()
+    spec = DatasetFreshnessSpec(
+        dataset_key="index_monthly",
+        resource_key="index_monthly",
+        job_name="sync_index_monthly",
+        display_name="指数月线",
+        domain_key="index",
+        domain_display_name="指数",
+        target_table="core_serving.index_monthly_serving",
+        cadence="monthly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="index_monthly.maintain",
+    )
+
+    observed_ranges, _ = service._observed_dataset_snapshots(db_session, [spec])
+
+    assert observed_ranges["index_monthly"] == (date(2026, 3, 31), date(2026, 3, 31))
 
 
 def test_broker_recommend_monthly_dataset_synced_at_month_start_is_fresh() -> None:
@@ -906,6 +1021,7 @@ def test_broker_recommend_monthly_dataset_synced_at_month_start_is_fresh() -> No
         state=state,
         latest_open_date=date(2026, 4, 16),
         reference_date=date(2026, 4, 16),
+        expected_business_date=date(2026, 4, 1),
         recent_failure=None,
         quality_note=None,
         observed_business_range=None,
@@ -913,11 +1029,84 @@ def test_broker_recommend_monthly_dataset_synced_at_month_start_is_fresh() -> No
     )
 
     assert item.latest_business_date == date(2026, 4, 1)
-    assert item.lag_days == 15
+    assert item.lag_days == 0
     assert item.freshness_status == "fresh"
 
 
-def test_reference_dataset_uses_last_sync_date_as_business_date_when_no_observed_date() -> None:
+def test_index_weight_month_window_uses_current_month_window() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="index_weight",
+        resource_key="index_weight",
+        job_name="sync_index_weight",
+        display_name="指数成分权重",
+        domain_key="index",
+        domain_display_name="指数",
+        target_table="core_serving.index_weight",
+        cadence="monthly",
+        observed_date_column="trade_date",
+        primary_execution_spec_key="index_weight.maintain",
+    )
+    state = Mock(
+        last_success_at=datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc),
+        last_success_date=date(2026, 4, 1),
+        full_sync_done=True,
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=state,
+        latest_open_date=date(2026, 4, 24),
+        reference_date=date(2026, 4, 26),
+        expected_business_date=date(2026, 4, 1),
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=(date(2026, 4, 1), date(2026, 4, 1)),
+        observed_sync_date=date(2026, 4, 1),
+    )
+
+    assert item.latest_business_date == date(2026, 4, 1)
+    assert item.expected_business_date == date(2026, 4, 1)
+    assert item.freshness_status == "fresh"
+
+
+def test_natural_day_dataset_uses_date_model_without_event_grace() -> None:
+    service = OpsFreshnessQueryService()
+    spec = DatasetFreshnessSpec(
+        dataset_key="dividend",
+        resource_key="dividend",
+        job_name="sync_dividend",
+        display_name="分红送转",
+        domain_key="event",
+        domain_display_name="低频事件",
+        target_table="core.equity_dividend",
+        cadence="event",
+        observed_date_column="ann_date",
+        primary_execution_spec_key="dividend.maintain",
+    )
+    state = Mock(
+        last_success_at=datetime(2026, 4, 8, 10, 0, tzinfo=timezone.utc),
+        last_success_date=date(2026, 4, 8),
+        full_sync_done=True,
+    )
+
+    item = service._build_item(
+        spec=spec,
+        state=state,
+        latest_open_date=date(2026, 4, 24),
+        reference_date=date(2026, 4, 26),
+        expected_business_date=date(2026, 4, 26),
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=None,
+        observed_sync_date=None,
+    )
+
+    assert item.lag_days == 18
+    assert item.freshness_status == "stale"
+
+
+def test_reference_dataset_does_not_create_business_date_for_not_applicable_model() -> None:
     service = OpsFreshnessQueryService()
     spec = DatasetFreshnessSpec(
         dataset_key="stock_basic",
@@ -942,12 +1131,15 @@ def test_reference_dataset_uses_last_sync_date_as_business_date_when_no_observed
         state=state,
         latest_open_date=date(2026, 4, 15),
         reference_date=date(2026, 4, 15),
+        expected_business_date=None,
         recent_failure=None,
         quality_note=None,
         observed_business_range=(None, None),
         observed_sync_date=None,
     )
 
-    assert item.latest_business_date == date(2026, 4, 15)
-    assert item.business_date_source == "sync_date"
-    assert item.freshness_note == "该数据集无业务日期字段，已使用最近同步日期作为业务日期。"
+    assert item.latest_business_date is None
+    assert item.business_date_source == "none"
+    assert item.expected_business_date is None
+    assert item.lag_days is None
+    assert item.freshness_status == "unknown"

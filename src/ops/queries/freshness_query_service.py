@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from calendar import monthrange
 from datetime import date, datetime, timezone
 
 from sqlalchemy import desc, func, select
@@ -49,6 +50,8 @@ from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.services.sync_v2.contracts import DatasetDateModel
+from src.foundation.services.sync_v2.registry_parts.common.date_models import get_dataset_date_model
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_hot import ThsHot
@@ -218,7 +221,12 @@ class OpsFreshnessQueryService:
         if resource_keys is not None:
             target_keys = set(resource_keys)
             specs = [spec for spec in specs if spec.resource_key in target_keys]
-        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(session, specs)
+        open_trade_dates = self._open_trade_dates(session)
+        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(
+            session,
+            specs,
+            open_trade_dates=open_trade_dates,
+        )
 
         items = [
             self._build_item(
@@ -226,6 +234,12 @@ class OpsFreshnessQueryService:
                 state=state_by_job_name.pop(spec.job_name, None),
                 latest_open_date=latest_open_date,
                 reference_date=reference_date,
+                expected_business_date=self._expected_business_date_for_spec(
+                    spec,
+                    reference_date=reference_date,
+                    latest_open_date=latest_open_date,
+                    open_trade_dates=open_trade_dates,
+                ),
                 recent_failure=failures_by_job_name.get(spec.job_name),
                 quality_note=quality_notes_by_job_name.get(spec.job_name),
                 observed_business_range=observed_business_ranges.get(spec.dataset_key),
@@ -242,6 +256,12 @@ class OpsFreshnessQueryService:
                         state=state,
                         latest_open_date=latest_open_date,
                         reference_date=reference_date,
+                        expected_business_date=self._expected_business_date_for_spec(
+                            self._fallback_spec_for_state(state),
+                            reference_date=reference_date,
+                            latest_open_date=latest_open_date,
+                            open_trade_dates=open_trade_dates,
+                        ),
                         recent_failure=failures_by_job_name.get(job_name),
                         quality_note=quality_notes_by_job_name.get(job_name),
                         observed_business_range=None,
@@ -268,11 +288,13 @@ class OpsFreshnessQueryService:
         state: SyncJobState | None,
         latest_open_date: date,
         reference_date: date,
+        expected_business_date: date | None,
         recent_failure: FailureSnapshot | None,
         quality_note: str | None,
         observed_business_range: tuple[date | None, date | None] | None,
         observed_sync_date: date | None,
     ) -> DatasetFreshnessItem:
+        date_model = self._date_model_for_spec(spec)
         latest_success_at = self._normalize_datetime(state.last_success_at) if state is not None else None
         state_sync_date = latest_success_at.date() if latest_success_at is not None else None
         if state_sync_date and observed_sync_date:
@@ -294,13 +316,19 @@ class OpsFreshnessQueryService:
             latest_business_date=latest_business_date,
         )
         if latest_business_date is None and last_sync_date is not None and spec.observed_date_column is None:
-            latest_business_date = last_sync_date
-            business_date_source = "sync_date"
+            if date_model is None or date_model.bucket_rule != "not_applicable":
+                latest_business_date = last_sync_date
+                business_date_source = "sync_date"
         full_sync_done = bool(state.full_sync_done) if state is not None else False
-        expected_business_date = self._expected_business_date(spec.cadence, reference_date, latest_open_date)
         effective_date = latest_business_date or (latest_success_at.date() if latest_success_at else None)
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
-        freshness_status = self._freshness_status(spec.cadence, lag_days, full_sync_done, latest_success_at)
+        freshness_status = self._freshness_status_for_date_model(
+            date_model,
+            cadence=spec.cadence,
+            lag_days=lag_days,
+            full_sync_done=full_sync_done,
+            latest_success_at=latest_success_at,
+        )
         if spec.dataset_key in DISABLED_DATASET_KEYS:
             freshness_status = "disabled"
             lag_days = None
@@ -421,10 +449,70 @@ class OpsFreshnessQueryService:
         return "stale"
 
     @staticmethod
+    def _freshness_status_for_date_model(
+        date_model: DatasetDateModel | None,
+        *,
+        cadence: str,
+        lag_days: int | None,
+        full_sync_done: bool,
+        latest_success_at: datetime | None,
+    ) -> str:
+        if date_model is None:
+            return OpsFreshnessQueryService._freshness_status(cadence, lag_days, full_sync_done, latest_success_at)
+        if date_model.bucket_rule == "not_applicable":
+            return "unknown"
+        if latest_success_at is None and not full_sync_done and lag_days is None:
+            return "unknown"
+        if lag_days is None:
+            return "unknown"
+        if lag_days <= 0:
+            return "fresh"
+
+        lagging_limit = {
+            "every_open_day": 2,
+            "week_last_open_day": 14,
+            "month_last_open_day": 31,
+            "every_natural_month": 31,
+            "month_window_has_data": 31,
+            "every_natural_day": 2,
+        }.get(date_model.bucket_rule, 7)
+
+        if lag_days <= lagging_limit:
+            return "lagging"
+        return "stale"
+
+    @staticmethod
     def _expected_business_date(cadence: str, reference_date: date, latest_open_date: date) -> date:
         if cadence in {"daily", "weekly", "monthly"}:
             return latest_open_date
         return reference_date
+
+    def _expected_business_date_for_spec(
+        self,
+        spec: DatasetFreshnessSpec,
+        *,
+        reference_date: date,
+        latest_open_date: date,
+        open_trade_dates: list[date],
+    ) -> date | None:
+        date_model = self._date_model_for_spec(spec)
+        if date_model is None:
+            return self._expected_business_date(spec.cadence, reference_date, latest_open_date)
+        if date_model.bucket_rule == "not_applicable":
+            return None
+        if date_model.date_axis == "trade_open_day":
+            if date_model.bucket_rule == "every_open_day":
+                return latest_open_date
+            if date_model.bucket_rule == "week_last_open_day":
+                return self._latest_due_week_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates)
+            if date_model.bucket_rule == "month_last_open_day":
+                return self._latest_due_month_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates)
+            return latest_open_date
+        if date_model.date_axis == "natural_day":
+            return reference_date
+        if date_model.date_axis in {"month_key", "month_window"}:
+            return date(reference_date.year, reference_date.month, 1)
+        return self._expected_business_date(spec.cadence, reference_date, latest_open_date)
 
     @staticmethod
     def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -655,17 +743,20 @@ class OpsFreshnessQueryService:
             return quality_text
         return base_note
 
-    @staticmethod
     def _observed_dataset_snapshots(
+        self,
         session: Session,
         specs: list[DatasetFreshnessSpec],
+        open_trade_dates: list[date] | None = None,
     ) -> tuple[dict[str, tuple[date | None, date | None]], dict[str, date | None]]:
         observed_ranges: dict[str, tuple[date | None, date | None]] = {}
         observed_sync_dates: dict[str, date | None] = {}
+        open_trade_dates = open_trade_dates if open_trade_dates is not None else self._open_trade_dates(session)
         for spec in specs:
             model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
             if model is None:
                 continue
+            date_model = self._date_model_for_spec(spec)
             if spec.observed_date_column:
                 if not hasattr(model, spec.observed_date_column):
                     observed_ranges[spec.dataset_key] = (None, None)
@@ -673,13 +764,26 @@ class OpsFreshnessQueryService:
                     continue
                 try:
                     column = getattr(model, spec.observed_date_column)
-                    query = select(func.min(column), func.max(column))
+                    base_filters = []
                     filter_spec = OBSERVED_DATE_FILTERS.get(spec.dataset_key)
                     if filter_spec is not None:
                         filter_field, filter_value = filter_spec
                         if hasattr(model, filter_field):
-                            query = query.where(getattr(model, filter_field) == filter_value)
-                    earliest_raw, latest_raw = session.execute(query).one()
+                            base_filters.append(getattr(model, filter_field) == filter_value)
+                    earliest_query = select(func.min(column))
+                    latest_query = select(func.max(column))
+                    if base_filters:
+                        earliest_query = earliest_query.where(*base_filters)
+                        latest_query = latest_query.where(*base_filters)
+                    bucket_dates = self._actual_bucket_dates_for_observation(date_model, open_trade_dates)
+                    if bucket_dates is not None:
+                        if not bucket_dates:
+                            observed_ranges[spec.dataset_key] = (None, None)
+                            observed_sync_dates[spec.dataset_key] = None
+                            continue
+                        latest_query = latest_query.where(column.in_(bucket_dates))
+                    earliest_raw = session.scalar(earliest_query)
+                    latest_raw = session.scalar(latest_query)
                     normalized_earliest = OpsFreshnessQueryService._normalize_observed_date(earliest_raw)
                     normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
                     observed_ranges[spec.dataset_key] = (normalized_earliest, normalized_latest)
@@ -732,6 +836,92 @@ class OpsFreshnessQueryService:
             except ValueError:
                 return None
         return None
+
+    @staticmethod
+    def _date_model_for_spec(spec: DatasetFreshnessSpec) -> DatasetDateModel | None:
+        try:
+            return get_dataset_date_model(spec.resource_key)
+        except KeyError:
+            return None
+
+    @staticmethod
+    def _open_trade_dates(session: Session) -> list[date]:
+        try:
+            return list(
+                session.scalars(
+                    select(TradeCalendar.trade_date)
+                    .where(TradeCalendar.exchange == "SSE")
+                    .where(TradeCalendar.is_open.is_(True))
+                    .order_by(TradeCalendar.trade_date.asc())
+                )
+            )
+        except SQLAlchemyError:
+            session.rollback()
+            return []
+
+    @staticmethod
+    def _latest_due_week_bucket(*, reference_date: date, open_trade_dates: list[date]) -> date | None:
+        candidates = [value for value in open_trade_dates if value <= reference_date]
+        if not candidates:
+            return None
+        latest = candidates[-1]
+        latest_week = OpsFreshnessQueryService._iso_week_key(latest)
+        future_same_week = [
+            value
+            for value in open_trade_dates
+            if value > latest and OpsFreshnessQueryService._iso_week_key(value) == latest_week
+        ]
+        if not future_same_week or reference_date.weekday() == 6:
+            return latest
+        previous_weeks = [
+            value
+            for value in open_trade_dates
+            if value < latest and OpsFreshnessQueryService._iso_week_key(value) != latest_week
+        ]
+        return previous_weeks[-1] if previous_weeks else None
+
+    @staticmethod
+    def _latest_due_month_bucket(*, reference_date: date, open_trade_dates: list[date]) -> date | None:
+        candidates = [value for value in open_trade_dates if value <= reference_date]
+        if not candidates:
+            return None
+        current_month = (reference_date.year, reference_date.month)
+        month_end_day = monthrange(reference_date.year, reference_date.month)[1]
+        include_current_month = reference_date.day >= month_end_day
+        if include_current_month:
+            return candidates[-1]
+        previous_month_candidates = [
+            value for value in candidates if (value.year, value.month) != current_month
+        ]
+        return previous_month_candidates[-1] if previous_month_candidates else None
+
+    @staticmethod
+    def _actual_bucket_dates_for_observation(
+        date_model: DatasetDateModel | None,
+        open_trade_dates: list[date],
+    ) -> list[date] | None:
+        if date_model is None or date_model.date_axis != "trade_open_day":
+            return None
+        if date_model.bucket_rule == "week_last_open_day":
+            return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="week")
+        if date_model.bucket_rule == "month_last_open_day":
+            return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="month")
+        return None
+
+    @staticmethod
+    def _last_open_day_by_bucket(open_trade_dates: list[date], *, bucket: str) -> list[date]:
+        grouped: dict[tuple[int, int], date] = {}
+        for value in open_trade_dates:
+            key = OpsFreshnessQueryService._iso_week_key(value) if bucket == "week" else (value.year, value.month)
+            current = grouped.get(key)
+            if current is None or value > current:
+                grouped[key] = value
+        return sorted(grouped.values())
+
+    @staticmethod
+    def _iso_week_key(value: date) -> tuple[int, int]:
+        iso = value.isocalendar()
+        return (iso.year, iso.week)
 
     @staticmethod
     def _visible_failure_snapshot(
