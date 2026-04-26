@@ -24,8 +24,8 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
         headers={"Authorization": f"Bearer {token}"},
         json={
             "target_type": "workflow",
-            "target_key": "daily_market_close_sync",
-            "display_name": "每日收盘同步",
+            "target_key": "daily_market_close_maintenance",
+            "display_name": "每日收盘维护",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * 1-5",
             "timezone": "Asia/Shanghai",
@@ -36,8 +36,8 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
     assert response.status_code == 200
     payload = response.json()
     assert payload["target_type"] == "workflow"
-    assert payload["target_key"] == "daily_market_close_sync"
-    assert payload["target_display_name"] == "每日收盘后同步"
+    assert payload["target_key"] == "daily_market_close_maintenance"
+    assert payload["target_display_name"] == "每日收盘后维护"
     assert payload["status"] == "active"
     assert payload["next_run_at"] is not None
 
@@ -325,7 +325,7 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
         headers={"Authorization": f"Bearer {token}"},
         json={
             "target_type": "workflow",
-            "target_key": "daily_market_close_sync",
+            "target_key": "daily_market_close_maintenance",
             "display_name": "收盘探测触发",
             "schedule_type": "cron",
             "trigger_mode": "probe",
@@ -360,7 +360,7 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     dataset_keys = sorted(item["dataset_key"] for item in probe_payload["items"])
     assert dataset_keys == ["daily", "daily_basic"]
     assert all(item["trigger_mode"] == "dataset_execution" for item in probe_payload["items"])
-    assert all(item["workflow_key"] == "daily_market_close_sync" for item in probe_payload["items"])
+    assert all(item["workflow_key"] == "daily_market_close_maintenance" for item in probe_payload["items"])
     assert all(item["rule_version"] == 1 for item in probe_payload["items"])
     assert all(item["on_success_action_json"]["action_type"] == "dataset_action" for item in probe_payload["items"])
     assert all("action_key" in item["on_success_action_json"] for item in probe_payload["items"])

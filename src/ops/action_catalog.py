@@ -137,10 +137,10 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         schedule_enabled=True,
         manual_enabled=True,
     ),
-    "daily_market_close_sync": WorkflowDefinition(
-        key="daily_market_close_sync",
-        display_name="每日收盘后同步",
-        description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日同步工作流。",
+    "daily_market_close_maintenance": WorkflowDefinition(
+        key="daily_market_close_maintenance",
+        display_name="每日收盘后维护",
+        description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日维护工作流。",
         steps=(
             _dataset_workflow_step("daily", "daily"),
             _dataset_workflow_step("adj_factor", "adj_factor"),
@@ -173,10 +173,10 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         schedule_enabled=True,
         manual_enabled=True,
     ),
-    "daily_moneyflow_sync": WorkflowDefinition(
-        key="daily_moneyflow_sync",
-        display_name="每日资金流向同步",
-        description="覆盖个股、概念、行业、板块和市场维度的资金流向每日同步工作流。",
+    "daily_moneyflow_maintenance": WorkflowDefinition(
+        key="daily_moneyflow_maintenance",
+        display_name="每日资金流向维护",
+        description="覆盖个股、概念、行业、板块和市场维度的资金流向每日维护工作流。",
         steps=(
             _dataset_workflow_step("moneyflow", "moneyflow"),
             _dataset_workflow_step("moneyflow_ths", "moneyflow_ths"),
@@ -213,10 +213,10 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         ),
         manual_enabled=True,
     ),
-    "index_kline_sync_pipeline": WorkflowDefinition(
-        key="index_kline_sync_pipeline",
-        display_name="指数K线全链路同步",
-        description="按日线→周线→月线→服务表补齐的顺序执行指数K线同步工作流。",
+    "index_kline_maintenance_pipeline": WorkflowDefinition(
+        key="index_kline_maintenance_pipeline",
+        display_name="指数K线全链路维护",
+        description="按日线→周线→月线→服务表补齐的顺序执行指数K线维护工作流。",
         parameters=(START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("index_daily", "index_daily"),

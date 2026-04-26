@@ -32,7 +32,7 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
             "window_end": "17:30",
             "probe_interval_seconds": 180,
             "probe_condition_json": {"metric": "max_trade_date", "op": ">=", "value": "today"},
-            "on_success_action_json": {"action_type": "workflow", "action_key": "daily_market_close_sync"},
+            "on_success_action_json": {"action_type": "workflow", "action_key": "daily_market_close_maintenance"},
             "max_triggers_per_day": 2,
             "timezone_name": "Asia/Shanghai",
         },

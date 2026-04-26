@@ -39,7 +39,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "backfill" + "_index_series.index_weight",
     ]
     assert all(key not in actions for key in legacy_keys)
-    assert "daily_market_close_sync" in workflow_keys
+    assert "daily_market_close_maintenance" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_backfill" not in workflow_keys
@@ -87,8 +87,8 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
     )
     ops_schedule_factory(
         target_type="workflow",
-        target_key="daily_market_close_sync",
-        display_name="每日收盘同步",
+        target_key="daily_market_close_maintenance",
+        display_name="每日收盘维护",
         status="active",
         schedule_type="cron",
         cron_expr="0 19 * * 1-5",
@@ -107,5 +107,5 @@ def test_ops_catalog_includes_schedule_binding_counts(app_client, user_factory, 
     workflows = {item["key"]: item for item in payload["workflows"]}
     assert actions["stock_basic.maintain"]["schedule_binding_count"] == 2
     assert actions["stock_basic.maintain"]["active_schedule_count"] == 1
-    assert workflows["daily_market_close_sync"]["schedule_binding_count"] == 1
-    assert workflows["daily_market_close_sync"]["active_schedule_count"] == 1
+    assert workflows["daily_market_close_maintenance"]["schedule_binding_count"] == 1
+    assert workflows["daily_market_close_maintenance"]["active_schedule_count"] == 1
