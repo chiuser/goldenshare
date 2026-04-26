@@ -44,6 +44,13 @@ function cardSubtitle(item: DatasetCard): string {
   return `${item.domain_display_name} · ${item.delivery_mode_label}`;
 }
 
+function latestObservationLabel(item: DatasetCard): string {
+  if (item.latest_observed_at) {
+    return `最新时间：${formatDateTimeLabel(item.latest_observed_at)}`;
+  }
+  return `最新业务日期：${item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}`;
+}
+
 export function OpsV21OverviewPage() {
   const summaryQuery = useQuery({
     queryKey: ["ops", "overview", "v21-overview-summary"],
@@ -147,7 +154,7 @@ export function OpsV21OverviewPage() {
                       </Stack>
                       <Stack gap={4} align="flex-start" justify="center" style={{ flex: "0 0 auto", minWidth: 0 }}>
                         <Badge variant="light" color="info" size="sm">
-                          最新业务日期：{item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}
+                          {latestObservationLabel(item)}
                         </Badge>
                         <Badge variant="light" color="neutral" size="sm">
                           状态更新时间：{item.status_updated_at ? formatDateTimeLabel(item.status_updated_at) : "—"}

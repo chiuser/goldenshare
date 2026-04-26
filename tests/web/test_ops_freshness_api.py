@@ -329,6 +329,7 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
         quality_note=None,
         observed_business_range=None,
         observed_sync_date=None,
+        observed_at_range=None,
     )
 
     assert item.latest_business_date is None

@@ -51,6 +51,8 @@ class DatasetCardItem(BaseModel):
     target_table: str | None = None
     latest_business_date: date | None = None
     earliest_business_date: date | None = None
+    latest_observed_at: datetime | None = None
+    earliest_observed_at: datetime | None = None
     last_sync_date: date | None = None
     latest_success_at: datetime | None = None
     expected_business_date: date | None = None

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from datetime import datetime, time
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import json
 from typing import Any
 
@@ -134,24 +134,48 @@ def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     trade_time = _parse_quote_time(transformed.get("trade_time"))
     current_time = trade_time.time()
-    if time(9, 30) <= current_time <= time(11, 30):
-        session_tag = "morning"
-    elif time(13, 0) <= current_time <= time(15, 0):
-        session_tag = "afternoon"
-    else:
+    is_trading_session = time(9, 30) <= current_time <= time(11, 30) or time(13, 0) <= current_time <= time(15, 0)
+    if not is_trading_session:
         raise ValueError(f"stk_mins trade_time outside trading sessions: {trade_time}")
 
     freq = str(transformed.get("freq") or "").strip()
-    if freq not in {"1min", "5min", "15min", "30min", "60min"}:
+    freq_map = {"1min": 1, "5min": 5, "15min": 15, "30min": 30, "60min": 60}
+    if freq not in freq_map:
         raise ValueError(f"stk_mins invalid freq: {freq}")
 
     transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
-    transformed["freq"] = freq
+    transformed["freq"] = freq_map[freq]
     transformed["trade_time"] = trade_time
-    transformed["trade_date"] = trade_time.date()
-    transformed["session_tag"] = session_tag
+    transformed["open"] = _optional_float(transformed.get("open"), ndigits=2)
+    transformed["close"] = _optional_float(transformed.get("close"), ndigits=2)
+    transformed["high"] = _optional_float(transformed.get("high"), ndigits=2)
+    transformed["low"] = _optional_float(transformed.get("low"), ndigits=2)
+    transformed["vol"] = _optional_int(transformed.get("vol"))
+    transformed["amount"] = _optional_float(transformed.get("amount"))
+    transformed.pop("trade_date", None)
+    transformed.pop("session_tag", None)
+    transformed.pop("api_name", None)
+    transformed.pop("fetched_at", None)
     transformed.pop("raw_payload", None)
     return transformed
+
+
+def _optional_float(value: Any, *, ndigits: int | None = None) -> float | None:
+    if value in (None, ""):
+        return None
+    if ndigits is None:
+        return float(value)
+    quantize_unit = Decimal("1").scaleb(-ndigits)
+    return float(Decimal(str(value)).quantize(quantize_unit, rounding=ROUND_HALF_UP))
+
+
+def _optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    decimal_value = Decimal(str(value))
+    if decimal_value != decimal_value.to_integral_value():
+        raise ValueError(f"stk_mins vol must be integer-like, got: {value}")
+    return int(decimal_value)
 
 
 def _dividend_row_transform(row: dict[str, Any]) -> dict[str, Any]:

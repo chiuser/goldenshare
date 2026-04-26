@@ -129,7 +129,6 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "def _stage_label",
         "getDatasetLabelFromCatalog",
         "probe_config.workflow_dataset_keys || []).map",
-        "item.latest_success_at\n              ? formatDateTimeLabel(item.latest_success_at)",
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
     )

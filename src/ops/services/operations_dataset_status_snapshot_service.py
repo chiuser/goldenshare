@@ -137,6 +137,8 @@ class DatasetStatusSnapshotService:
             row.earliest_business_date = item.earliest_business_date
             row.observed_business_date = item.observed_business_date
             row.latest_business_date = item.latest_business_date
+            row.earliest_observed_at = item.earliest_observed_at
+            row.latest_observed_at = item.latest_observed_at
             row.freshness_note = item.freshness_note
             row.latest_success_at = item.latest_success_at
             row.last_sync_date = item.last_sync_date

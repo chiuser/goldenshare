@@ -212,6 +212,8 @@ export interface OpsFreshnessResponse {
       earliest_business_date: string | null;
       observed_business_date: string | null;
       latest_business_date: string | null;
+      earliest_observed_at: string | null;
+      latest_observed_at: string | null;
       freshness_note: string | null;
       latest_success_at: string | null;
       last_sync_date: string | null;
@@ -768,6 +770,8 @@ export interface DatasetCardListResponse {
       target_table: string | null;
       latest_business_date: string | null;
       earliest_business_date: string | null;
+      latest_observed_at: string | null;
+      earliest_observed_at: string | null;
       last_sync_date: string | null;
       latest_success_at: string | null;
       expected_business_date: string | null;

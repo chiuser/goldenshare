@@ -22,6 +22,8 @@ class DatasetStatusSnapshot(Base):
     earliest_business_date: Mapped[date | None] = mapped_column(Date)
     observed_business_date: Mapped[date | None] = mapped_column(Date)
     latest_business_date: Mapped[date | None] = mapped_column(Date)
+    earliest_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    latest_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     freshness_note: Mapped[str | None] = mapped_column(Text)
     latest_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_date: Mapped[date | None] = mapped_column(Date)

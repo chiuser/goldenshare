@@ -38,26 +38,26 @@
 | --- | --- | --- | --- |
 | `ts_code` | `str` | 股票代码 | `VARCHAR(16)`，必填 |
 | `trade_time` | `str` | 交易时间 | 解析为 `TIMESTAMP WITHOUT TIME ZONE`，必填 |
-| `open` | `float` | 开盘价 | `DOUBLE PRECISION` |
-| `close` | `float` | 收盘价 | `DOUBLE PRECISION` |
-| `high` | `float` | 最高价 | `DOUBLE PRECISION` |
-| `low` | `float` | 最低价 | `DOUBLE PRECISION` |
-| `vol` | `int` | 成交量（股） | `DOUBLE PRECISION`，兼容样例中小数形式 |
-| `amount` | `float` | 成交金额（元） | `DOUBLE PRECISION` |
+| `open` | `float` | 开盘价 | `REAL`，入库前保留 2 位小数 |
+| `close` | `float` | 收盘价 | `REAL`，入库前保留 2 位小数 |
+| `high` | `float` | 最高价 | `REAL`，入库前保留 2 位小数 |
+| `low` | `float` | 最低价 | `REAL`，入库前保留 2 位小数 |
+| `vol` | `int` | 成交量（股） | `INTEGER` |
+| `amount` | `float` | 成交金额（元） | `REAL` |
 
 ## 3. 现有“Raw/Core 同表映射”参考与本次口径
 
-当前代码里已有类似模式：
+当前代码里已有类似写入模式：
 
-- `biying_equity_daily` 的 contract 使用 `write_path="raw_only_upsert"`。
+- `biying_equity_daily` 的 DatasetDefinition 使用 `write_path="raw_only_upsert"`。
 - 其 `raw_dao_name` 与 `core_dao_name` 都指向 `raw_biying_equity_daily_bar`。
 - `target_table` 指向 `raw_biying.equity_daily_bar`。
 
 `stk_mins` 采用同类写入口径，但额外提供 Core Serving 只读 View：
 
 - 只有一个物理表：`raw_tushare.stk_mins`。
-- V2 写入走 `raw_only_upsert`。
-- contract 中 `raw_dao_name="raw_stk_mins"`，`core_dao_name="raw_stk_mins"`。
+- 写入走 `raw_only_upsert`。
+- DatasetDefinition 中 `raw_dao_name="raw_stk_mins"`，`core_dao_name="raw_stk_mins"`。
 - `target_table="raw_tushare.stk_mins"`。
 - 服务层访问入口：`core_serving.equity_minute_bar` 普通 View，查询 `raw_tushare.stk_mins`。
 - Ops 写入进度以 `raw_tushare.stk_mins` 为目标表；后续 Biz/查询层优先通过 `core_serving.equity_minute_bar` 访问。
@@ -65,7 +65,7 @@
 这样做的收益：
 
 - 不重复存储 Raw 和 Serving，节省接近一倍空间。
-- 保留 V2 contract/writer 的统一执行路径。
+- 保留 DatasetDefinition / writer 的统一执行路径。
 - 后续 Biz 可沿用 `core_serving` 分层入口，不需要直接依赖 `raw_tushare`。
 - 普通 View 不复制数据，不引入 materialized view 的存储成本和刷新问题。
 
@@ -79,8 +79,8 @@
 | 服务层入口 | `core_serving.equity_minute_bar` | 普通只读 View，不复制数据 |
 | raw DAO | `raw_stk_mins` | `DAOFactory` 中注册 |
 | core DAO | `raw_stk_mins` | 逻辑映射到同一 DAO，不单独建 Core 表 |
-| 策略文件 | `src/foundation/services/sync_v2/dataset_strategies/stk_mins.py` | 一数据集一策略文件 |
-| contract 域 | `market_equity.py` | 股票行情类数据集 |
+| 请求构建 | `src/foundation/ingestion/request_builders.py` | 注册 `build_stk_mins_units`，生成分钟线执行单元 |
+| 定义域 | `src/foundation/datasets/definitions/market_equity.py` | 股票行情类数据集 |
 
 说明：旧模板中提到 `Raw -> Std -> Serving`，但当前 V2 主链路已收敛为按数据集选择写入路径；本数据集不引入 Std 层，不创建 `core_serving.equity_minute_bar` 物理表，只创建同名服务层 View。
 
@@ -93,41 +93,36 @@
 | 字段 | 类型 | 约束 | 含义 |
 | --- | --- | --- | --- |
 | `ts_code` | `VARCHAR(16)` | NOT NULL | 股票代码 |
-| `freq` | `VARCHAR(8)` | NOT NULL | 分钟频度，来源于请求参数 |
+| `freq` | `SMALLINT` | NOT NULL | 分钟频度，固定写入 `1/5/15/30/60` |
 | `trade_time` | `TIMESTAMP WITHOUT TIME ZONE` | NOT NULL | 分钟 bar 时间 |
-| `trade_date` | `DATE` | NOT NULL | 从 `trade_time` 派生，用于分区、状态、查询过滤 |
-| `session_tag` | `VARCHAR(16)` | NOT NULL | `morning` 或 `afternoon`，由返回行 `trade_time` 派生 |
-| `open` | `DOUBLE PRECISION` | NULL | 开盘价 |
-| `close` | `DOUBLE PRECISION` | NULL | 收盘价 |
-| `high` | `DOUBLE PRECISION` | NULL | 最高价 |
-| `low` | `DOUBLE PRECISION` | NULL | 最低价 |
-| `vol` | `DOUBLE PRECISION` | NULL | 成交量（股） |
-| `amount` | `DOUBLE PRECISION` | NULL | 成交金额（元） |
-| `api_name` | `VARCHAR(64)` | NOT NULL | 固定 `stk_mins` |
-| `fetched_at` | `TIMESTAMPTZ` | NOT NULL | 抓取时间 |
-| `raw_payload` | `TEXT` | NULL | 原始响应行，第一期建议不写入或仅调试时写入 |
+| `open` | `REAL` | NULL | 开盘价，入库前保留 2 位小数 |
+| `close` | `REAL` | NULL | 收盘价，入库前保留 2 位小数 |
+| `high` | `REAL` | NULL | 最高价，入库前保留 2 位小数 |
+| `low` | `REAL` | NULL | 最低价，入库前保留 2 位小数 |
+| `vol` | `INTEGER` | NULL | 成交量（股） |
+| `amount` | `REAL` | NULL | 成交金额（元） |
 
 主键与索引：
 
-- 主键：`(ts_code, freq, trade_date, trade_time)`
-- 索引：`(trade_date, freq)`
-- 索引：`(ts_code, freq, trade_time DESC)`
+- 主键：`(ts_code, freq, trade_time)`
+- 不额外创建普通 BTree 索引，先依赖主键服务核心写入与按股票查询。
+- 按交易日查询时，上层可使用 `trade_time >= :date AND trade_time < :date + interval '1 day'`，不要在 WHERE 中写 `trade_time::date = :date`。
 
 分区策略：
 
-- 按 `trade_date` RANGE 分区。
+- 按 `trade_time` RANGE 月分区。
 - 分区粒度建议按月；分钟行情数据量远大于日频，月分区便于后续按月清理、回补和查询。
 - 必须保留 `DEFAULT` 分区，避免用户回补很早或未来日期时因缺少分区导致任务失败。
 
-### 5.2 `raw_payload` 口径
+### 5.2 不保存逐行审计冗余字段
 
-当前大多数 Raw 模型都有 `api_name/fetched_at/raw_payload` 审计字段，`raw_payload` 在现有模型里通常是 `TEXT`，保存 JSON 字符串，不是统一 `JSONB`。
+`stk_mins` 数据量极大，不保留以下逐行冗余字段：
 
-但 `stk_mins` 数据量极大，逐行保存完整 `raw_payload` 会显著放大磁盘占用。建议：
-
-- 表结构保留 `raw_payload TEXT NULL`，保持 Raw 表审计字段习惯和兼容性。
-- 归一化写入默认不填 `raw_payload`，即保持 NULL。
-- 如果后续需要问题排查，可只在小窗口调试任务中临时打开原始载荷写入，不作为默认行为。
+- `trade_date`：由 `trade_time::date` 派生。
+- `session_tag`：可由 `trade_time` 所属交易时段推导，不落库。
+- `api_name`：表名与 DatasetDefinition 已表达来源，不逐行重复保存。
+- `fetched_at`：任务级抓取时间由 TaskRun/进度事件表达，不逐行保存。
+- `raw_payload`：不保存原始响应行，避免磁盘放大。
 
 ### 5.3 服务层 View：`core_serving.equity_minute_bar`
 
@@ -139,16 +134,14 @@ SELECT
     ts_code,
     freq,
     trade_time,
-    trade_date,
-    session_tag,
+    trade_time::date AS trade_date,
     open,
     close,
     high,
     low,
     vol,
     amount,
-    'tushare'::varchar(32) AS source,
-    fetched_at AS updated_at
+    'tushare'::varchar(32) AS source
 FROM raw_tushare.stk_mins;
 ```
 
@@ -157,7 +150,7 @@ FROM raw_tushare.stk_mins;
 - 这是普通 View，不是 materialized view。
 - 不承载写入，不需要 DAO 写入。
 - Biz 查询优先面向该 View。
-- Raw 表索引必须覆盖 View 的常用查询条件，如 `ts_code/freq/trade_time` 与 `trade_date/freq`。
+- `trade_date` 只在 View 中派生，方便上层按日期筛选和展示。
 
 ### 5.4 90 分钟线计算结果表建议
 
@@ -192,7 +185,7 @@ FROM raw_tushare.stk_mins;
 | `bucket_rule` | `every_open_day` | 区间按每个交易日展开 |
 | `window_mode` | `point_or_range` | 支持单交易日或交易日区间 |
 | `input_shape` | `trade_date_or_start_end` | 用户侧选择交易日或交易日区间 |
-| `observed_field` | `trade_date` | 数据状态先以交易日观测 |
+| `observed_field` | `trade_time` | 数据状态以分钟 bar 时间观测；日级状态由 `max(trade_time)::date` 派生 |
 | `audit_applicable` | `false`（第一期） | 分钟级完整性审计依赖交易时段和频度规则，第一期先不纳入 |
 | `not_applicable_reason` | `minute completeness audit requires trading-session calendar` | 明确不纳入第一期审计的原因 |
 
@@ -207,7 +200,7 @@ FROM raw_tushare.stk_mins;
 
 - 日历组件只允许选择交易日或交易日区间，不能选择小时、分钟、秒。
 - 区间执行时不再按交易日逐日拆分，而是生成一个连续 datetime 大窗口。
-- 不再按上午、下午 session 拆请求；`session_tag` 由返回行 `trade_time` 派生。
+- 不再按上午、下午 session 拆请求；入库时只校验返回行 `trade_time` 是否落在合法交易时段。
 - 上游 `start_date/end_date` 虽然是 datetime 参数，但它们只由程序内部生成，不作为用户侧参数暴露。
 
 ## 7. 请求策略
@@ -219,7 +212,7 @@ FROM raw_tushare.stk_mins;
 - `ts_code` 可选；未传时使用 Tushare 股票池扇出全市场。
 - `limit=8000`。
 - `offset` 从 `0` 开始递增，直到返回行数 `< 8000`。
-- 不加入 `sync_daily`；由专用 CLI 和 Ops 手动任务触发。
+- 不加入每日自动工作流；由专用 CLI 和 Ops 手动任务触发。
 
 ### 7.2 股票池扇出
 
@@ -299,26 +292,23 @@ STK_MINS_FIELDS = (
 )
 ```
 
-### 8.2 Contract
+### 8.2 DatasetDefinition
 
-位置：`src/foundation/services/sync_v2/registry_parts/contracts/market_equity.py`
+位置：`src/foundation/datasets/definitions/market_equity.py`
 
-建议 contract：
+建议定义：
 
 - `dataset_key="stk_mins"`
 - `display_name="股票历史分钟行情"`
-- `job_name="sync_stk_mins"`
-- `run_profiles_supported=("point_incremental", "range_rebuild")`
 - `date_model=build_date_model("stk_mins")`
-- `source_adapter_key="tushare"`
-- `source_spec.api_name="stk_mins"`
-- `source_spec.fields=STK_MINS_FIELDS`
-- `planning_spec.pagination_policy="offset_limit"`
-- `pagination_spec.page_limit=8000`
-- `write_spec.write_path="raw_only_upsert"`
-- `write_spec.raw_dao_name="raw_stk_mins"`
-- `write_spec.core_dao_name="raw_stk_mins"`
-- `write_spec.target_table="raw_tushare.stk_mins"`
+- `source.api_name="stk_mins"`
+- `source.source_fields=STK_MINS_FIELDS`
+- `planning.request_builder_key="build_stk_mins_units"`
+- `planning.pagination_mode="offset_limit"`
+- `planning.page_limit=8000`
+- `write.raw_dao_name="raw_stk_mins"`
+- `write.core_dao_name="raw_stk_mins"`
+- `write.target_table="raw_tushare.stk_mins"`
 
 说明：`target_table` 指写入目标与数据状态目标；服务层 View 另由 Alembic 创建，不参与 writer。
 
@@ -340,9 +330,9 @@ STK_MINS_FIELDS = (
 - `freq` 值必须在 `1min/5min/15min/30min/60min`。
 - 如果不传 `ts_code`，按股票池全量扇出；页面和 CLI 需要清晰提示分钟数据量较大。
 
-### 8.4 策略文件
+### 8.4 请求构建函数
 
-新增：`src/foundation/services/sync_v2/dataset_strategies/stk_mins.py`
+位置：`src/foundation/ingestion/request_builders.py`
 
 职责：
 
@@ -352,7 +342,7 @@ STK_MINS_FIELDS = (
 - 将维度拆成：`ts_code x freq x datetime_window`。
 - 为每个执行单元生成 Tushare 请求参数。
 - 为每个执行单元填充通用进度游标元信息，如 `unit=stock`、`ts_code`、`security_name`、`freq`、`unit_fetched`、`unit_written`。
-- 设置 `pagination_policy="offset_limit"`、`page_limit=8000`。
+- 设置分页参数 `limit=8000`、`offset` 递增。
 
 允许读数据库：
 
@@ -370,12 +360,12 @@ STK_MINS_FIELDS = (
 归一化规则：
 
 - `trade_time`：解析为 `datetime`。
-- `trade_date`：从 `trade_time.date()` 派生。
-- `freq`：从请求上下文注入到每行。
-- `session_tag`：从 `trade_time` 所处交易时段派生。
-- 数值列：`open/close/high/low/vol/amount` 转为数值。
-- 必填校验：`ts_code/freq/trade_time/trade_date/session_tag`。
-- `raw_payload`：默认不填，降低存储占用。
+- `freq`：从请求上下文注入到每行，并由 `1min/5min/15min/30min/60min` 归一化为 `1/5/15/30/60`。
+- `open/close/high/low`：转为浮点数并保留 2 位小数。
+- `vol`：转为整数，非整数值拒绝。
+- `amount`：转为浮点数。
+- 必填校验：`ts_code/freq/trade_time`。
+- 不写入 `trade_date/session_tag/api_name/fetched_at/raw_payload`。
 
 拒绝规则：
 
@@ -401,11 +391,11 @@ STK_MINS_FIELDS = (
 - `freq`：必填，多选枚举。
 - `trade_date`：单日模式。
 - `start_date/end_date`：区间模式。
-不复用 `sync_history.stk_mins` 的原因：
+使用专用分钟线任务的原因：
 
 - 分钟行情虽然是历史数据，但请求语义不是普通日频历史同步。
 - 专用任务能把 UI、CLI、进度和风险提示做清楚。
-- 避免把任意 datetime 或分钟时段逻辑污染到通用 `sync_history`。
+- 避免把任意 datetime 或分钟时段逻辑污染到普通数据集维护动作。
 
 ### 9.2 手动维护页面
 
@@ -416,7 +406,7 @@ STK_MINS_FIELDS = (
 - 日期选择器只允许选择交易日。
 - 单日模式：选择一个交易日。
 - 区间模式：选择开始交易日和结束交易日。
-- 展示说明：用户只选交易日；系统内部按 `09:00~19:00` 大窗口请求，落库时按真实 `trade_time` 派生上午/下午 `session_tag`。
+- 展示说明：用户只选交易日；系统内部按 `09:00~19:00` 大窗口请求，落库时校验真实 `trade_time` 必须位于交易时段。
 - 不提供小时、分钟、秒输入控件。
 - 提示文案：分钟数据量很大；未填股票代码时会按当前股票列表全市场扇开请求。
 
@@ -500,16 +490,14 @@ CLI 行为：
 
 ### 12.1 Foundation
 
-- `src/foundation/services/sync_v2/fields.py`
+- `src/foundation/datasets/fields.py`
   - 新增 `STK_MINS_FIELDS`。
-- `src/foundation/services/sync_v2/registry_parts/contracts/market_equity.py`
-  - 新增 `stk_mins` contract。
-- `src/foundation/services/sync_v2/registry_parts/common/date_models.py`
-  - 新增 `stk_mins` 日期模型。
-- `src/foundation/services/sync_v2/dataset_strategies/stk_mins.py`
-  - 新增数据集策略。
-- `src/foundation/services/sync_v2/dataset_strategies/__init__.py`
+- `src/foundation/datasets/definitions/market_equity.py`
+  - 新增 `stk_mins` DatasetDefinition 与日期模型。
+- `src/foundation/ingestion/request_builders.py`
   - 注册 `build_stk_mins_units`。
+- `src/foundation/ingestion/row_transforms.py`
+  - 新增 `_stk_mins_row_transform`。
 - `src/foundation/models/raw/raw_stk_mins.py`
   - 新增 Raw ORM。
 - `src/foundation/models/all_models.py`
@@ -524,14 +512,12 @@ CLI 行为：
 - 新增 migration：
   - 创建 `raw_tushare.stk_mins`。
   - 创建月分区与 default 分区。
-  - 创建主键与索引。
+  - 创建主键。
   - 创建 `core_serving.equity_minute_bar` 普通 View。
 - 不创建 `core_serving.equity_minute_bar` 物理表，不创建 materialized view。
 
 ### 12.3 Ops
 
-- `src/foundation/datasets/definitions/**`
-  - 在 `DatasetDefinition` 中声明 `stk_mins` 的数据集身份、输入字段、日期模型、规划策略与写入目标。
 - `src/ops/action_catalog.py`
   - 仅承接非数据集维护动作与 workflow；单数据集维护动作必须从 DatasetDefinition 派生。
 - `src/ops/runtime/task_run_dispatcher.py`
@@ -568,18 +554,18 @@ CLI 行为：
 
 ### 13.1 单元测试
 
-- `tests/test_sync_v2_validator.py`
+- `tests/test_dataset_request_validator.py`
   - `freq` 必填与枚举校验。
   - `trade_date` 与 `start_date/end_date` 二选一。
-- `tests/test_sync_v2_planner.py`
+- `tests/test_dataset_unit_planner.py`
   - 单股票、多 `freq`、单交易日生成 `2 x freq_count` 个时段 unit。
   - 全市场模式按股票池全量扇出。
   - 区间模式只展开交易日。
-- `tests/test_sync_v2_worker_client.py`
+- `tests/test_ingestion_source_client.py` 或等价请求执行测试
   - Tushare 请求分页 `limit=8000`、`offset` 递增。
-- `tests/test_sync_v2_linter.py`
-  - `stk_mins` contract 可通过 lint。
-- `tests/architecture/test_sync_v2_registry_guardrails.py`
+- `tests/test_ingestion_linter.py`
+  - `stk_mins` 定义可通过 lint。
+- `tests/architecture/test_dataset_runtime_registry_guardrails.py`
   - `stk_mins` 位于 `market_equity` 域。
 
 ### 13.2 模型与写入测试
@@ -587,10 +573,9 @@ CLI 行为：
 - ORM 主键、索引、字段类型测试。
 - 归一化测试：
   - `trade_time` 解析。
-  - `trade_date` 派生。
-  - `freq` 注入。
-  - `session_tag` 从 `trade_time` 派生。
-  - `raw_payload` 默认不写。
+  - `freq` 从字符串归一化为整数。
+  - 价格、成交量、成交金额类型转换。
+  - 不输出 `trade_date/session_tag/api_name/fetched_at/raw_payload`。
   - 异常行拒绝。
 
 ### 13.3 最小真实冒烟
@@ -617,16 +602,16 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 - `raw_tushare.stk_mins` 有写入。
 - `core_serving.equity_minute_bar` 可查询到同一批数据。
 - `trade_time` 都落在 `09:30~11:30` 或 `13:00~15:00`。
-- `freq/session_tag/trade_date` 正确，且 `session_tag` 由 `trade_time` 派生。
+- raw 表中 `freq` 为 `1/5/15/30/60` 整数，View 中 `trade_date` 可由 `trade_time` 派生查询。
 - Ops 任务详情展示当前股票、频度、`unit_fetched/unit_written` 与累计 `fetched/written/rejected`。
-- `sync-v2-lint-contracts` 通过。
+- `goldenshare ingestion-lint-definitions` 通过。
 
 ## 14. 风险与控制
 
 | 风险 | 影响 | 控制方式 |
 | --- | --- | --- |
 | 未开通 Tushare 分钟权限 | 真实同步失败 | 实现前或冒烟前先确认权限；错误码透出为权限问题 |
-| 数据量极大 | 任务长、库膨胀、锁压力 | 单物理表 + 普通 View；不写默认 raw_payload；全市场按股票池扇出，真实执行前先用单股票冒烟确认 |
+| 数据量极大 | 任务长、库膨胀、锁压力 | 单物理表 + 普通 View；不写逐行 raw payload；全市场按股票池扇出，真实执行前先用单股票冒烟确认 |
 | View 被误改成物化视图 | 又产生一份大数据 | 明确只允许普通 View，禁止 materialized view |
 | 全市场 unit 过多 | 任务规划和展示压力大 | `ts_code x freq x datetime_window` 明确拆分，并输出当前股票、频度与当前 unit 读取/写入 |
 | 股票池口径不清 | 漏拉退市历史数据或拉取过多 | 默认使用 Tushare stock_basic 全证券池；后续再加上市状态过滤 |
@@ -637,7 +622,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 
 1. 确认 Tushare 分钟权限。
 2. 新增 Alembic + Raw ORM + DAO + Core Serving View。
-3. 新增 V2 fields/contract/date_model/strategy/normalizer。
+3. 新增字段常量、DatasetDefinition、日期模型、请求构建与 normalizer。
 4. 新增 `sync-minute-history` CLI。
 5. 接入 Ops 手动任务。
 6. 补测试门禁。
@@ -647,7 +632,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 
 ## 16. 需要评审拍板的问题
 
-1. 物理表只保留 `raw_tushare.stk_mins`，并创建 `core_serving.equity_minute_bar` 普通 View，是否确认？
-2. `raw_payload` 是否按建议保留字段但默认不写入？
-3. 全市场股票池默认是否包括 `L/P/D` 全状态？
-4. 90 分钟线是否按建议落到 `core_serving.equity_minute_bar_derived`？
+1. 物理表只保留 `raw_tushare.stk_mins`，并创建 `core_serving.equity_minute_bar` 普通 View：已确认。
+2. `raw_payload/api_name/fetched_at/trade_date/session_tag` 不落库：已确认。
+3. 全市场股票池默认包括 `L/P/D` 全状态：已确认。
+4. 90 分钟线后续落到独立派生表：已确认，表名与字段另行设计。

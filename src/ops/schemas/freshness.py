@@ -17,6 +17,8 @@ class DatasetFreshnessItem(BaseModel):
     earliest_business_date: date | None = None
     observed_business_date: date | None = None
     latest_business_date: date | None = None
+    earliest_observed_at: datetime | None = None
+    latest_observed_at: datetime | None = None
     freshness_note: str | None = None
     latest_success_at: datetime | None = None
     last_sync_date: date | None = None

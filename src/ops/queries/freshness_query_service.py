@@ -223,7 +223,7 @@ class OpsFreshnessQueryService:
                 if projection.resource_key in target_keys
             )
         open_trade_dates = self._open_trade_dates(session)
-        observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(
+        observed_business_ranges, observed_sync_dates, observed_at_ranges = self._observed_dataset_snapshots(
             session,
             list(projections),
             open_trade_dates=open_trade_dates,
@@ -245,6 +245,7 @@ class OpsFreshnessQueryService:
                 quality_note=quality_notes_by_resource.get(projection.resource_key),
                 observed_business_range=observed_business_ranges.get(projection.dataset_key),
                 observed_sync_date=observed_sync_dates.get(projection.dataset_key),
+                observed_at_range=observed_at_ranges.get(projection.dataset_key),
             )
             for projection in projections
         ]
@@ -273,6 +274,7 @@ class OpsFreshnessQueryService:
         quality_note: str | None,
         observed_business_range: tuple[date | None, date | None] | None,
         observed_sync_date: date | None,
+        observed_at_range: tuple[datetime | None, datetime | None] | None,
     ) -> DatasetFreshnessItem:
         date_model = self._date_model_for_projection(projection)
         normalized_success_at = self._normalize_datetime(latest_success_at)
@@ -283,6 +285,8 @@ class OpsFreshnessQueryService:
             last_sync_date = observed_sync_date or success_sync_date
         earliest_business_date = observed_business_range[0] if observed_business_range else None
         observed_business_date = observed_business_range[1] if observed_business_range else None
+        earliest_observed_at = observed_at_range[0] if observed_at_range else None
+        latest_observed_at = observed_at_range[1] if observed_at_range else None
         latest_business_date = observed_business_date
         effective_date = latest_business_date
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
@@ -299,6 +303,7 @@ class OpsFreshnessQueryService:
 
         base_note = self._freshness_note(
             observed_business_date=observed_business_date,
+            latest_observed_at=latest_observed_at,
             last_sync_date=last_sync_date,
             date_model=date_model,
         )
@@ -321,6 +326,8 @@ class OpsFreshnessQueryService:
             earliest_business_date=earliest_business_date,
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
+            earliest_observed_at=earliest_observed_at,
+            latest_observed_at=latest_observed_at,
             freshness_note=freshness_note,
             latest_success_at=normalized_success_at,
             last_sync_date=last_sync_date,
@@ -337,9 +344,12 @@ class OpsFreshnessQueryService:
     def _freshness_note(
         *,
         observed_business_date: date | None,
+        latest_observed_at: datetime | None,
         last_sync_date: date | None,
         date_model: DatasetDateModel | None,
     ) -> str | None:
+        if latest_observed_at is not None:
+            return "最新时间当前来自真实目标表观测值。"
         if observed_business_date is not None:
             return "最新业务日当前来自真实目标表观测值。"
         if date_model is not None and date_model.bucket_rule == "not_applicable" and last_sync_date is not None:
@@ -686,9 +696,14 @@ class OpsFreshnessQueryService:
         session: Session,
         projections: list[DatasetFreshnessProjection],
         open_trade_dates: list[date] | None = None,
-    ) -> tuple[dict[str, tuple[date | None, date | None]], dict[str, date | None]]:
+    ) -> tuple[
+        dict[str, tuple[date | None, date | None]],
+        dict[str, date | None],
+        dict[str, tuple[datetime | None, datetime | None]],
+    ]:
         observed_ranges: dict[str, tuple[date | None, date | None]] = {}
         observed_sync_dates: dict[str, date | None] = {}
+        observed_at_ranges: dict[str, tuple[datetime | None, datetime | None]] = {}
         open_trade_dates = open_trade_dates if open_trade_dates is not None else self._open_trade_dates(session)
         for projection in projections:
             model = OBSERVED_DATE_MODEL_REGISTRY.get(projection.target_table)
@@ -699,6 +714,7 @@ class OpsFreshnessQueryService:
                 if not hasattr(model, projection.observed_date_column):
                     observed_ranges[projection.dataset_key] = (None, None)
                     observed_sync_dates[projection.dataset_key] = None
+                    observed_at_ranges[projection.dataset_key] = (None, None)
                     continue
                 try:
                     column = getattr(model, projection.observed_date_column)
@@ -718,6 +734,7 @@ class OpsFreshnessQueryService:
                         if not bucket_dates:
                             observed_ranges[projection.dataset_key] = (None, None)
                             observed_sync_dates[projection.dataset_key] = None
+                            observed_at_ranges[projection.dataset_key] = (None, None)
                             continue
                         latest_query = latest_query.where(column.in_(bucket_dates))
                     earliest_raw = session.scalar(earliest_query)
@@ -726,19 +743,27 @@ class OpsFreshnessQueryService:
                     normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
                     observed_ranges[projection.dataset_key] = (normalized_earliest, normalized_latest)
                     observed_sync_dates[projection.dataset_key] = normalized_latest
+                    observed_at_ranges[projection.dataset_key] = (
+                        self._normalize_observed_datetime(earliest_raw),
+                        self._normalize_observed_datetime(latest_raw),
+                    )
                 except SQLAlchemyError:
                     observed_ranges[projection.dataset_key] = (None, None)
                     observed_sync_dates[projection.dataset_key] = None
+                    observed_at_ranges[projection.dataset_key] = (None, None)
                 continue
             try:
                 if not hasattr(model, "updated_at"):
                     observed_sync_dates[projection.dataset_key] = None
+                    observed_at_ranges[projection.dataset_key] = (None, None)
                     continue
                 latest_updated_at = session.scalar(select(func.max(getattr(model, "updated_at"))))
                 observed_sync_dates[projection.dataset_key] = OpsFreshnessQueryService._normalize_observed_date(latest_updated_at)
+                observed_at_ranges[projection.dataset_key] = (None, None)
             except SQLAlchemyError:
                 observed_sync_dates[projection.dataset_key] = None
-        return observed_ranges, observed_sync_dates
+                observed_at_ranges[projection.dataset_key] = (None, None)
+        return observed_ranges, observed_sync_dates, observed_at_ranges
 
     @staticmethod
     def _build_from_snapshot(session: Session) -> OpsFreshnessResponse | None:
@@ -778,6 +803,12 @@ class OpsFreshnessQueryService:
                 return date.fromisoformat(text)
             except ValueError:
                 return None
+        return None
+
+    @staticmethod
+    def _normalize_observed_datetime(value: object) -> datetime | None:
+        if isinstance(value, datetime):
+            return OpsFreshnessQueryService._normalize_datetime(value)
         return None
 
     @staticmethod

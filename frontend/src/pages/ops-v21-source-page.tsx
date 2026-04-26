@@ -55,6 +55,12 @@ function statusLabel(status: CardStatus): string {
 }
 
 function buildDateRangeText(item: DatasetCard): string {
+  if (item.latest_observed_at) {
+    if (item.earliest_observed_at && item.earliest_observed_at !== item.latest_observed_at) {
+      return `${formatDateTimeLabel(item.earliest_observed_at)} ~ ${formatDateTimeLabel(item.latest_observed_at)}`;
+    }
+    return `最新时间：${formatDateTimeLabel(item.latest_observed_at)}`;
+  }
   if (item.latest_business_date) {
     if (item.earliest_business_date && item.earliest_business_date !== item.latest_business_date) {
       return `${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;

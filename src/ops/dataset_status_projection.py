@@ -17,6 +17,8 @@ def snapshot_row_to_freshness_item(row: DatasetStatusSnapshot, *, raw_table: str
         earliest_business_date=row.earliest_business_date,
         observed_business_date=row.observed_business_date,
         latest_business_date=row.latest_business_date,
+        earliest_observed_at=row.earliest_observed_at,
+        latest_observed_at=row.latest_observed_at,
         freshness_note=row.freshness_note,
         latest_success_at=row.latest_success_at,
         last_sync_date=row.last_sync_date,

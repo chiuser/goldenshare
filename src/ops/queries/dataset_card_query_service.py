@@ -198,6 +198,14 @@ class DatasetCardQueryService:
                         [item.earliest_business_date for item in member_freshness]
                         + [item.earliest_business_date for item in member_snapshots]
                     ),
+                    latest_observed_at=self._latest_datetime(
+                        [item.latest_observed_at for item in member_freshness]
+                        + [item.latest_observed_at for item in member_snapshots]
+                    ),
+                    earliest_observed_at=self._earliest_datetime(
+                        [item.earliest_observed_at for item in member_freshness]
+                        + [item.earliest_observed_at for item in member_snapshots]
+                    ),
                     last_sync_date=self._latest_date([item.last_sync_date for item in member_freshness] + [item.last_sync_date for item in member_snapshots]),
                     latest_success_at=self._latest_datetime([item.latest_success_at for item in member_freshness] + [item.latest_success_at for item in member_snapshots]),
                     expected_business_date=self._latest_date([item.expected_business_date for item in member_freshness] + [item.expected_business_date for item in member_snapshots]),
@@ -485,6 +493,11 @@ class DatasetCardQueryService:
     def _latest_datetime(values: list[datetime | None]) -> datetime | None:
         candidates = [value for value in values if value is not None]
         return max(candidates) if candidates else None
+
+    @staticmethod
+    def _earliest_datetime(values: list[datetime | None]) -> datetime | None:
+        candidates = [value for value in values if value is not None]
+        return min(candidates) if candidates else None
 
     @staticmethod
     def _combined_probe_counts(dataset_keys: list[str], probe_counts: dict[str, tuple[int, int]]) -> tuple[int, int]:
