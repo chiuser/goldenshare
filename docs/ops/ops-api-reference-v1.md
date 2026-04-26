@@ -14,7 +14,7 @@
 
 截至 2026-04-26：
 
-1. 旧 `/api/v1/ops/executions*` 主链已下线，接口说明不再以 `ExecutionDetailResponse`、`steps/events/logs` 为当前口径。
+1. 旧任务运行 API 主链已下线，接口说明不再以旧详情、步骤、事件或日志模型为当前口径。
 2. 任务记录、任务详情、重试、停止、手动任务提交统一走 `/api/v1/ops/task-runs*`。
 3. 手动维护页提交入口为 `POST /api/v1/ops/manual-actions/{action_key}/task-runs`。
 4. 新任务详情页只消费 `GET /api/v1/ops/task-runs/{id}/view`，完整技术诊断只在需要时读取 `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`。
@@ -466,7 +466,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ## 4. 任务运行（TaskRun）接口
 
-说明：旧 `/api/v1/ops/executions*` 主链已下线。任务记录、任务详情、重试、停止与手动任务提交均以 TaskRun 为当前口径。
+说明：旧任务运行 API 主链已下线。任务记录、任务详情、重试、停止与手动任务提交均以 TaskRun 为当前口径。
 
 ### 4.1 GET /api/v1/ops/task-runs
 

@@ -32,7 +32,7 @@
 | RISK-2026-04-25-001 | P0 | 数据维护执行层若采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
-| RISK-2026-04-26-004 | P1 | `ops.sync_job_state` 旧 `job_name/full_sync_done/last_cursor` 状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[Ops `sync_job_state` 退场方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-sync-job-state-retirement-plan-v1.md) |
+| RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
 
 ---
 
@@ -51,8 +51,8 @@
 3. 只做 `per_unit` data transaction，不引入分页级提交策略。
 4. 开发时必须评估单个事务的写入量，做真实的计算。
 5. 单事务写入量评估必须有真实计算依据，不允许用分页或批量大小替代事务边界评估。
-6. 删除主链 `mark_success + mark_full_sync_done` 连续写同一行，改为单一成功状态写入接口。
-7. `run log`、`sync job state`、`full_sync_done` 必须幂等 upsert，状态失败不得回滚业务数据。
+6. 删除主链分裂状态写入，改为单一成功状态写入接口。
+7. 旧运行日志与旧同步状态必须退出主链，状态失败不得回滚业务数据。
 8. 所有 Ops 状态写入必须与业务数据表读写和提交隔离；状态失败不得阻塞业务数据提交，也不得污染已提交业务数据。
 
 关闭门禁：
@@ -135,36 +135,36 @@
 
 风险说明：
 
-1. `ops.sync_job_state` 是旧 `job_name` 维度的同步状态表，字段包括 `last_success_date`、`last_success_at`、`last_cursor`、`full_sync_done`。
+1. 旧同步状态模型以任务名维度记录最近成功日期、成功时间、游标和全量标记。
 2. 该模型与当前 DatasetDefinition、Date Model、TaskRun 运行观测主线不一致。
 3. 如果 Date Model Freshness 收口后仍保留它作为事实源，会让数据集卡片、新鲜度状态、任务结果和资源状态继续出现多套口径。
-4. `full_sync_done` / `last_cursor` 这类旧语义容易重新引入旧 sync 状态判断，造成后续架构回流。
+4. 全量标记和游标这类旧语义容易重新引入旧状态判断，造成后续架构回流。
 
 处理要求：
 
-1. 本轮 TaskRun/current object 运行观测重置中，`ops.sync_job_state` 只能清空，不得新增依赖。
-2. TaskRun 详情、当前对象、问题诊断、任务结果不允许读取 `ops.sync_job_state`。
-3. Date Model Freshness 收口必须审计所有 `SyncJobState` ORM、service、CLI、测试和文档引用。
+1. 本轮 TaskRun/current object 运行观测重置中，旧同步状态表只能清空，不得新增依赖。
+2. TaskRun 详情、当前对象、问题诊断、任务结果不允许读取旧同步状态表。
+3. Date Model Freshness 收口必须审计所有旧同步状态 ORM、service、CLI、测试和文档引用。
 4. 数据集新鲜度与资源状态必须基于 DatasetDefinition Date Model 和真实业务表观测结果，不再基于 `job_name` 状态行。
-5. 删除 `src/ops/models/ops/sync_job_state.py` 与仅服务旧状态表的 reconciliation/service 代码。
-6. 删除数据库表 `ops.sync_job_state`。
-7. 更新 docs/AGENTS 或相关基线文档，禁止新代码重新引入 `sync_job_state`。
+5. 删除旧同步状态 ORM 与仅服务旧状态表的 reconciliation/service 代码。
+6. 删除旧同步状态数据库表。
+7. 更新 docs/AGENTS 或相关基线文档，禁止新代码重新引入旧同步状态模型。
 
 关闭门禁：
 
-1. `rg "SyncJobState|sync_job_state" src tests docs` 不再发现当前主链引用；历史归档文档如保留，必须明确标注历史背景。
-2. 线上数据库不存在 `ops.sync_job_state` 表。
-3. 数据集卡片状态和 freshness API 不读取 `sync_job_state`。
-4. 状态重建命令不写 `sync_job_state`。
+1. 当前主链不再引用旧同步状态模型；历史归档文档如保留，必须明确标注历史背景。
+2. 线上数据库不存在旧同步状态表。
+3. 数据集卡片状态和 freshness API 不读取旧同步状态表。
+4. 状态重建命令不写旧同步状态表。
 5. 运行一个小范围数据集维护任务后，TaskRun 详情、数据集卡片、freshness 状态均能从新事实源得到一致结果。
 
 处理记录（2026-04-26）：
 
-1. 已删除 `src/ops/models/ops/sync_job_state.py`、`src/ops/services/operations_sync_job_state_reconciliation_service.py`、`src/foundation/dao/sync_job_state_dao.py`。
-2. 已删除 `ops-reconcile-sync-job-state` CLI，并移除 `sync-snapshot` 对旧对账服务的调用。
+1. 已删除旧同步状态 ORM、旧 reconciliation service 与旧 DAO。
+2. 已删除旧同步状态对账 CLI，并移除相关旧对账调用。
 3. 已把 freshness/status 主链改为只读 `真实业务表 + TaskRun / TaskRunNode / TaskRunIssue`。
-4. 已删除 `dataset_status_snapshot` 与 `/api/v1/ops/freshness` 中的 `job_name / state_business_date / business_date_source / full_sync_done`。
-5. 已新增 Alembic `20260426_000076_drop_sync_job_state_and_legacy_freshness_fields.py`，用于 drop `ops.sync_job_state` 并删除快照旧列。
+4. 已删除数据集状态快照与 freshness API 中的旧状态字段。
+5. 已新增 Alembic 迁移，用于删除旧同步状态表并删除快照旧列。
 6. 本地验证已通过：
    - `pytest -q tests/web/test_ops_freshness_api.py tests/web/test_ops_overview_api.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_status_snapshot_service.py tests/test_cli_ops_runtime.py tests/test_base_sync_service_snapshot_refresh.py`
    - `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`

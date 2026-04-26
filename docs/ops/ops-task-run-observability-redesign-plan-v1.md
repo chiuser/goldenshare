@@ -10,10 +10,10 @@
 
 截至 2026-04-26：
 
-1. 旧 `/api/v1/ops/executions*` 主链已下线，不再作为任务记录、任务详情或手动提交入口。
+1. 旧任务运行 API 主链已下线，不再作为任务记录、任务详情或手动提交入口。
 2. 新表 `ops.task_run`、`ops.task_run_node`、`ops.task_run_issue` 已上线，任务详情只从 TaskRun 读模型取数。
 3. 新 API `/api/v1/ops/task-runs*` 与 `/api/v1/ops/manual-actions/{action_key}/task-runs` 已上线。
-4. 旧执行观测表 `ops.job_execution*` 与 `ops.sync_run_log` 已通过 migration 退场。
+4. 旧执行观测表与旧内部运行日志已通过 migration 退场。
 5. 自动任务配置 `ops.job_schedule` 已按停机清理口径重置，当前默认自动任务配置待重建；在重建前，自动任务页可能为空，这是已知状态，不应误判为页面读取失败。
 6. 任务详情页面验收口径：主页面只展示一处失败原因，完整技术诊断只在 drawer 中按需读取；成功态不展示失败原因或技术诊断入口。
 
@@ -23,10 +23,10 @@
 
 当前任务详情页把同一份执行信息从多个来源重复展示：
 
-1. `ops.job_execution`：任务主状态、当前快照、最终错误。
-2. `ops.job_execution_step`：外层步骤摘要。
-3. `ops.job_execution_event`：追加式事件流。
-4. `ops.sync_run_log`：内部 sync service 旧日志。
+1. 旧任务主表：任务主状态、当前快照、最终错误。
+2. 旧步骤表：外层步骤摘要。
+3. 旧事件表：追加式事件流。
+4. 旧内部运行日志：执行器内部日志。
 
 这四类数据职责交叉，失败时同一段技术错误会被复制到多个表，再被前端多个区域重复展示。以 `stk_mins` 失败任务为例，同一条唯一键冲突错误同时出现在顶部失败提示、当前进展、建议下一步、最近更新卡片、实时处理记录中，页面无法形成清晰判断路径。
 
@@ -41,7 +41,7 @@
 非目标：
 
 1. 不做兼容旧表的长期双写。
-2. 不保留 `sync_run_log` 作为任务详情页数据源。
+2. 不保留旧内部运行日志作为任务详情页数据源。
 3. 不引入新的追加式 event stream。
 4. 不让前端继续从多接口、多表自行拼装同一任务详情。
 
@@ -53,11 +53,11 @@
 
 | 旧表 | 处理方式 | 原因 |
 | --- | --- | --- |
-| `ops.job_execution` | 重建为 `ops.task_run` | 原表混合了任务身份、状态、进度、错误、统计，职责过宽 |
-| `ops.job_execution_step` | 删除，由 `ops.task_run_node` 替代 | step / unit / run log 需要统一为节点模型 |
-| `ops.job_execution_event` | 删除，不再保留追加式事件流 | 当前 event 被当成进度、错误、系统日志混用，重复严重 |
-| `ops.sync_run_log` | 删除，由 `ops.task_run_node` + `ops.task_run_issue` 替代 | 内部 sync service 日志不应成为页面事实源 |
-| `ops.sync_job_state` | 不进入任务详情页；后续单独重命名/重构为资源状态表 | 它表达数据集资源状态，不表达某次任务详情 |
+| 旧任务主表 | 重建为 `ops.task_run` | 原表混合了任务身份、状态、进度、错误、统计，职责过宽 |
+| 旧步骤表 | 删除，由 `ops.task_run_node` 替代 | step / unit / run log 需要统一为节点模型 |
+| 旧事件表 | 删除，不再保留追加式事件流 | 当前 event 被当成进度、错误、系统日志混用，重复严重 |
+| 旧内部运行日志 | 删除，由 `ops.task_run_node` + `ops.task_run_issue` 替代 | 内部执行器日志不应成为页面事实源 |
+| 旧同步状态表 | 不进入任务详情页；后续单独重命名/重构为资源状态表 | 它表达数据集资源状态，不表达某次任务详情 |
 
 硬规则：
 
@@ -349,7 +349,7 @@ sequenceDiagram
 
 1. 提交时只创建 `task_run`。
 2. 不创建 event。
-3. 不写 `sync_run_log`。
+3. 不写旧内部运行日志。
 4. `request_payload_json` 保留提交入参；页面优先展示整理后的 `time_input_json` 与 `filters_json`。
 
 ### 5.2 规划执行计划
@@ -702,9 +702,8 @@ GET /api/v1/ops/task-runs/364/issues/88
   "suggested_action": "先核验业务表写入结果，再修复状态表冲突。",
   "technical_message": "(psycopg.errors.UniqueViolation) duplicate key value violates unique constraint ...",
   "technical_payload": {
-    "constraint": "pk_sync_job_state",
-    "table": "ops.sync_job_state",
-    "job_name": "sync_stk_mins",
+    "constraint": "unique_resource_state",
+    "table": "ops.resource_state",
     "source_phase": "state_update"
   },
   "occurred_at": "2026-04-25T19:11:53+08:00"
@@ -794,8 +793,8 @@ POST /api/v1/ops/task-runs/364/retry
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ 完整技术错误                                                                 │
 │ code: state_update_unique_violation                                          │
-│ constraint: pk_sync_job_state                                                │
-│ table: ops.sync_job_state                                                    │
+│ constraint: unique_resource_state                                            │
+│ table: ops.resource_state                                                    │
 │ message: (psycopg.errors.UniqueViolation) ...                                │
 │ [复制诊断]                                                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -825,11 +824,11 @@ POST /api/v1/ops/task-runs/364/retry
 
 | 表 | 清理前行数 | 处理方式 | 原因 |
 | --- | ---: | --- | --- |
-| `ops.job_execution` | 363 | drop | 旧任务主表，混合任务身份、进度、错误、统计 |
-| `ops.job_execution_step` | 570 | drop | 旧步骤摘要，被 `task_run_node` 替代 |
-| `ops.job_execution_unit` | 63 | drop | 旧 unit 表，被 `task_run_node` 替代 |
-| `ops.job_execution_event` | 135307 | drop | 旧事件流，其中绝大部分是重复 `step_progress` |
-| `ops.sync_run_log` | 213806 | drop | 旧 sync service 日志，不再作为任务详情来源 |
+| 旧任务主表 | 363 | drop | 混合任务身份、进度、错误、统计 |
+| 旧步骤摘要表 | 570 | drop | 被 `task_run_node` 替代 |
+| 旧 unit 表 | 63 | drop | 被 `task_run_node` 替代 |
+| 旧事件流表 | 135307 | drop | 其中绝大部分是重复 `step_progress` |
+| 旧内部运行日志表 | 213806 | drop | 不再作为任务详情来源 |
 
 ### 9.2 必须 drop：旧备份表
 
@@ -839,17 +838,17 @@ POST /api/v1/ops/task-runs/364/retry
 | --- | ---: | --- |
 | `ops.legacy_spec_backup_20260426_040441_config_revision` | 49 | drop |
 | `ops.legacy_spec_backup_20260426_040441_dataset_status_snapshot` | 57 | drop |
-| `ops.legacy_spec_backup_20260426_040441_job_execution` | 333 | drop |
-| `ops.legacy_spec_backup_20260426_040441_job_execution_event` | 109 | drop |
-| `ops.legacy_spec_backup_20260426_040441_job_execution_step` | 322 | drop |
-| `ops.legacy_spec_backup_20260426_040441_job_execution_unit` | 55 | drop |
+| 旧任务主表备份 | 333 | drop |
+| 旧事件表备份 | 109 | drop |
+| 旧步骤表备份 | 322 | drop |
+| 旧 unit 表备份 | 55 | drop |
 | `ops.legacy_spec_backup_20260426_040441_job_schedule` | 16 | drop |
 
 ### 9.3 清空后重建：旧状态与快照派生数据
 
 | 表 | 清理前行数 | 处理方式 | 重建来源 |
 | --- | ---: | --- | --- |
-| `ops.sync_job_state` | 56 | truncate，后续由新资源状态模型替代 | DatasetDefinition / 新执行结果 / 状态重算任务 |
+| 旧同步状态表 | 56 | truncate，后续由新资源状态模型替代 | DatasetDefinition / 新执行结果 / 状态重算任务 |
 | `ops.dataset_status_snapshot` | 57 | truncate 后重算 | DatasetDefinition + 实际业务表观测 |
 | `ops.dataset_layer_snapshot_current` | 229 | truncate 后重算 | 新状态快照计算服务 |
 | `ops.dataset_layer_snapshot_history` | 1059 | truncate | 不迁移历史 |
@@ -877,7 +876,7 @@ POST /api/v1/ops/task-runs/364/retry
 flowchart TD
     A["停 scheduler / worker"] --> B["确认新 TaskRun 链路已通过本地和远程 smoke"]
     B --> C["drop 旧备份表"]
-    C --> D["drop 旧执行观测主链 job_execution* / sync_run_log"]
+    C --> D["drop 旧执行观测主链与旧内部运行日志"]
     D --> E["truncate 旧状态与快照派生数据"]
     E --> F["按新模型 seed schedule / pipeline / resource state"]
     F --> G["重算 dataset status snapshot"]
@@ -887,8 +886,8 @@ flowchart TD
 
 清理门禁：
 
-1. 旧 API `/ops/executions/{id}/steps`、`/events`、`/logs` 已无前端引用。
-2. 后端 runtime 不再 import `JobExecution*` / `SyncRunLog` 旧模型。
+1. 旧任务步骤、事件、日志 API 已无前端引用。
+2. 后端 runtime 不再 import 旧任务观测模型。
 3. 新手动任务可以创建、运行、失败、重试、取消。
 4. 新任务详情页只调用 `/api/v1/ops/task-runs/{id}/view` 和按需 issue detail。
 5. 新状态重算任务可以恢复任务统计和数据状态页所需快照。
@@ -965,7 +964,7 @@ flowchart TD
 1. 删除旧 `JobExecution*` / `SyncRunLog` ORM 和 schema 引用。
 2. 删除旧 `ExecutionQueryService` 的 detail / steps / events / logs 主链。
 3. 删除旧前端 API 类型和页面 helper。
-4. 删除旧 `/api/v1/ops/executions*` 主路由，保留“旧路由不存在”的防回退测试。
+4. 删除旧任务运行 API 主路由，保留“旧路由不存在”的防回退测试。
 5. CLI 自检入口改为 `ops-reconcile-task-runs`，不再保留 `ops-reconcile-executions`。
 
 ### M7：停机清表与 drop
@@ -974,8 +973,8 @@ flowchart TD
 
 1. 停 scheduler / worker。
 2. drop 旧备份表。
-3. drop `job_execution`、`job_execution_step`、`job_execution_unit`、`job_execution_event`、`sync_run_log`。
-4. truncate `sync_job_state`、`dataset_status_snapshot`、`dataset_layer_snapshot_current`、`dataset_layer_snapshot_history`、`probe_run_log`、`config_revision`。
+3. drop 旧任务观测表与旧内部运行日志表。
+4. truncate 旧同步状态表、数据集状态快照、层级快照、探测日志和配置变更历史。
 5. 按 M0 决策处理可选重置表；`ops.job_schedule` 已重置为空，待后续单独重建默认自动任务配置。
 
 ### M8：重建 seed 与恢复服务
@@ -997,6 +996,6 @@ flowchart TD
 3. 任务详情页主视图同一个失败原因只展示一次。
 4. 页面默认不请求 issue technical detail。
 5. 打开技术诊断 drawer 后，才请求完整技术错误。
-6. 前端任务详情页不再请求 `/executions/{id}/steps`、`/executions/{id}/events`、`/executions/{id}/logs`。
-7. 后端不再从 `sync_run_log` 构造任务详情。
+6. 前端任务详情页不再请求旧步骤、事件、日志接口。
+7. 后端不再从旧内部运行日志构造任务详情。
 8. 运行中任务只通过覆盖式快照刷新，不追加 event stream。

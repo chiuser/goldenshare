@@ -66,7 +66,7 @@
 后端契约要求：
 
 1. 任务运行 API 以 `/api/v1/ops/task-runs*` 为唯一当前主链
-2. 旧 `/api/v1/ops/executions*` 主链已下线，不作为当前契约入口
+2. 旧任务运行 API 主链已下线，不作为当前契约入口
 3. `/api/v1/ops/runtime/*` 不作为新 UI 的正常执行入口
 
 ### 2.4 审查中心
@@ -115,8 +115,8 @@
 
 已退场对象：
 
-1. `ops.job_execution*`：旧执行观测主链，已被 TaskRun 三表替代
-2. `ops.sync_run_log`：旧 sync service 日志，不再作为任务详情或页面事实源
+1. 旧执行观测主链：已被 TaskRun 三表替代
+2. 旧内部运行日志：不再作为任务详情或页面事实源
 3. 旧数据集模式配置表：已由 DatasetDefinition 派生投影替代
 
 ---
@@ -235,9 +235,9 @@
 1. `ops-workflow-catalog-v1.md`：工作流目录与实现清单
 2. `ops-review-center-design-v1.md`：审查中心设计
 3. `reconcile-capability-requirements-v1.md`：多源对账专项
-4. `ops-web-api-capability-review-memo-v1.md`：当前 ops Web API 能力审查备忘
-5. `ops-task-run-observability-redesign-plan-v1.md`：TaskRun 执行观测模型
-6. `ops-execution-api-queue-semantics-alignment-plan-v1.md`：历史 execution API 队列语义收口方案（已由 TaskRun 主链替代）
+4. `ops-task-run-observability-redesign-plan-v1.md`：TaskRun 执行观测模型
+
+说明：旧 API 语义、旧状态表退场、旧能力审查备忘等过渡文档已下线；当前口径只维护本契约、API 全量说明和 TaskRun 基线。
 
 ---
 

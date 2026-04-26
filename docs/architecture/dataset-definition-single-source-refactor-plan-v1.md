@@ -441,7 +441,7 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 | 当前接口 | 处理方式 |
 |---|---|
 | `GET /api/v1/ops/catalog` | 替换为新目录，或改为输出新模型 |
-| `POST /api/v1/ops/executions` 直接提交旧执行规格 | 改为提交 `DatasetActionRequest` |
+| 旧任务运行 API 直接提交旧执行规格 | 改为提交 `DatasetActionRequest` |
 | `GET /api/v1/ops/manual-actions` | 可保留路径，但响应必须由 `DatasetDefinition` 派生，且不含旧路线 |
 
 ---

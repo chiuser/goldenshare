@@ -50,21 +50,16 @@ docs/
 ## 4. Ops 运营（S2）
 
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
-- [Ops Web API 与运维数据能力审查备忘 v1](/Users/congming/github/goldenshare/docs/ops/ops-web-api-capability-review-memo-v1.md)
 - [Ops TaskRun 执行观测模型重设计方案 v1（已上线）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
-- [Ops 任务当前对象语义与运行观测数据重置方案 v1（已评审待实施）](/Users/congming/github/goldenshare/docs/ops/ops-task-current-object-and-ops-runtime-reset-plan-v1.md)
-- [Ops Execution API 队列语义收口方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-execution-api-queue-semantics-alignment-plan-v1.md)
 - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v1（审查中心）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
 - [Ops 新鲜度按 Date Model 收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
-- [Ops `sync_job_state` 退场方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-sync-job-state-retirement-plan-v1.md)
-- [Ops 任务显示名单一事实源收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-task-display-name-single-source-plan-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 
-说明：数据集停用策略与融合策略中心准备度已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)。
+说明：旧任务 API、旧状态表退场、任务显示名收口等过渡方案已并入 [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)、[Ops API 全量说明](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md) 与 TaskRun 当前基线，主索引不再保留独立历史文档。
 
 ## 5. 数据集研发（S3）
 

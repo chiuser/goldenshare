@@ -110,7 +110,7 @@
 硬规则：
 
 1. 审计任务状态、进度、错误上报必须走 TaskRun 模型。
-2. 不再使用 `ops.job_execution`、`ops.job_execution_step`、`ops.job_execution_event` 或 `ops.sync_run_log` 作为审计任务详情页数据源。
+2. 不再使用旧任务观测链路作为审计任务详情页数据源。
 3. 完整技术错误只允许落在 `ops.task_run_issue`，`dataset_audit_run` 只保存结构化审计状态与结果摘要。
 4. 审查中心页面的任务详情只消费 `GET /api/v1/ops/task-runs/{id}/view`；审计结果详情可在该 view 中附带摘要，或由审计结果 API 按需读取。
 
@@ -663,7 +663,7 @@ Tab：
 
 边界：
 
-1. 不使用旧 `job_execution*` / `sync_run_log`。
+1. 不使用旧任务观测链路。
 2. 不引入追加式 event stream。
 3. 不在多个表复制完整错误。
 
@@ -772,7 +772,7 @@ Tab：
 
 1. 原方案中所有“读取 `DatasetSyncContract.date_model`”的表述，统一修正为“读取 `DatasetDefinition.date_model`”。
 2. 原方案中所有 `current_context_json` 表述，统一修正为 `current_object_json`。
-3. 审计执行入口不复用旧 `job_execution`、`sync_run_log` 或 `/executions` API。
+3. 审计执行入口不复用旧任务观测链路或旧任务 API。
 4. 审计任务新增 `task_type=dataset_audit`，并在 TaskRun dispatcher 中建立独立分支。
 5. `dataset_audit_run/gap` 只保存审计领域结果，不承担任务详情页事实源；任务状态、进度、错误仍以 TaskRun view/issue 为准。
 

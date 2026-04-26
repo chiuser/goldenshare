@@ -17,7 +17,7 @@
 
 Ops 数据新鲜度必须以 `DatasetDefinition.date_model` 为唯一事实源。
 
-现行实现只允许从 `DatasetDefinition.date_model` 读取日期语义。旧 freshness metadata、`sync_job_state`、`DatasetSyncContract.date_model` 口径不得再作为 freshness 判断依据。
+现行实现只允许从 `DatasetDefinition.date_model` 读取日期语义。旧 freshness metadata、旧同步状态表、旧合约日期模型不得再作为 freshness 判断依据。
 
 最典型的问题是：`stk_period_bar_adj_week` 的最新业务日期停在 `2026-04-17`，而当前日期口径下本周最后一个交易日已经是 `2026-04-24`，页面仍可能显示为“不滞后/新鲜”。这不是数据展示问题，而是 Ops freshness 规则没有按 `week_last_open_day` 判断。
 
@@ -154,7 +154,7 @@ OpsFreshnessQueryService.build_live_items()
 
 | 表 | 结论 | 原因 |
 |---|---|---|
-| `ops.sync_job_state` | 不参与现行 freshness 主链 | 旧同步状态表已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition.date_model + 真实业务表观测 + TaskRun` |
+| 旧同步状态表 | 不参与现行 freshness 主链 | 该旧状态模型已退场；数据集 freshness/status 只允许依赖 `DatasetDefinition.date_model + 真实业务表观测 + TaskRun` |
 | `ops.task_run` / `ops.task_run_node` / `ops.task_run_issue` | 本轮不作为脏数据清洗对象 | 它们是任务观测记录，不是数据集新鲜度快照 |
 
 ### 5.4 推荐清洗策略
@@ -214,7 +214,7 @@ build_live_items()
 3. 会向 `ops.dataset_layer_snapshot_history` 追加新记录。
 4. 不会清空 `ops.dataset_layer_snapshot_history` 中旧规则产生的历史记录。
 5. 不会修改业务数据表。
-6. 不会读取或修改旧 `ops.sync_job_state`。
+6. 不会读取或修改旧同步状态表。
 7. 不会修改 `ops.task_run*`。
 
 ### 6.3 修正代码后运行 rebuild 的页面影响

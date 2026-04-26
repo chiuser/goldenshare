@@ -42,7 +42,7 @@
 | M0 | 固化本轮执行边界 | 明确本轮只做 DatasetDefinition、DatasetExecutionPlan、执行层、Ops API/前端切换和旧三件套退出主线 | 本执行索引、关联方案确认 | 后续改动都能回指到本文件或关联方案 |
 | M1 | 建立 DatasetDefinition 单一事实源骨架 | 建立数据集定义模型与 registry，让身份、名称、日期模型、输入、写入、观测从一个事实源派生 | definition dataclass、registry、projection 入口、覆盖测试 | 现有数据集可被 definition registry 覆盖 |
 | M2 | 建立维护动作到执行计划的 resolver / dry-run | 用 `dataset_key + action=maintain + time_input + filters` 生成 `DatasetExecutionPlan` | `DatasetActionRequest`、resolver、plan snapshot、dry-run 测试 | point/range/none/month/window 能生成稳定 plan |
-| M3 | 收敛执行层状态与事务语义 | 执行器消费 plan；处理 data transaction 与 ops state 分离；收口旧状态写入语义 | plan executor、事务策略、结构化进度、单一 outcome 写入语义 | 不再依赖 `mark_success + mark_full_sync_done` 连续写同一行作为主链 |
+| M3 | 收敛执行层状态与事务语义 | 执行器消费 plan；处理 data transaction 与 ops state 分离；收口旧状态写入语义 | plan executor、事务策略、结构化进度、单一 outcome 写入语义 | 不再依赖分裂状态写入作为主链 |
 | M4 | 切换 Ops API / 前端消费新模型 | 手动任务、任务记录、详情、自动任务相关接口消费新字段 | API schema、query/service 调整、前端类型和页面适配 | UI 不再需要理解旧 spec 路径 |
 | M5 | 准备停机迁移与状态重建脚本 | 围绕 execution / schedule / resource state 做停机迁移准备 | migration 草案、seed/rebuild 脚本、演练说明 | 本地可重建，新旧运行状态语义可切换 |
 | M6 | 删除旧执行语义主链引用 | 主链删除旧执行路由作为执行模型的引用 | dispatcher/spec/workflow/schedule 旧分支删除，测试断言更新 | 活跃代码旧执行路由引用清零 |
@@ -57,7 +57,7 @@
 2. 执行器入口最终只消费 `DatasetExecutionPlan`。
 3. schedule 绑定 dataset action 或 workflow，不绑定旧 spec。
 4. workflow step 引用 dataset action，不引用旧 job key。
-5. 任务记录和详情不依赖 `formatSpecDisplayLabel` 处理旧路径。
+5. 任务记录和详情不依赖前端本地格式化函数处理旧路径。
 6. 活跃代码中旧三件套引用清零。
 7. 进度展示中文化，API 保留结构化 progress snapshot。
 8. 大数据集按业务 unit 安全提交，ops 状态失败不回滚业务数据。

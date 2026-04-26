@@ -136,7 +136,7 @@ frontend/
 - `/app/ops/overview`
 - `/app/ops/freshness`
 - `/app/ops/schedules`
-- `/app/ops/executions`
+- `/app/ops/task-runs`
 - `/app/ops/catalog`
 
 ## 6. 与 FastAPI 的协作方式

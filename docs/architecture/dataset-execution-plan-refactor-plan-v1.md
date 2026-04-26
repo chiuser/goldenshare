@@ -36,7 +36,7 @@ POST /ops/manual-actions/{action_key}/executions
   -> ManualActionExecutionResolver
   -> spec_type + spec_key + params_json
   -> OperationsExecutionService.create_execution
-  -> ops.job_execution
+  -> 旧任务观测表
   -> OperationsDispatcher
   -> 旧任务规格 category / executor_kind 分支
   -> SyncV2Service 或 HistoryBackfillService
@@ -99,7 +99,7 @@ start_log
        -> engine fetch / normalize / writer.write
   -> finish_log
   -> mark_success
-  -> mark_full_sync_done
+  -> mark final state
   -> session.commit()
 ```
 
@@ -108,8 +108,8 @@ start_log
 已发生事故根因：
 
 1. `stk_mins` full run 拉取和写入 1.2 亿行。
-2. 结束时连续调用 `mark_success(...)` 和 `mark_full_sync_done(...)`。
-3. 如果 `ops.sync_job_state` 原本没有 `sync_stk_mins`，两个方法会在同一事务里各自创建 pending ORM 对象。
+2. 结束时连续调用两个状态写入方法。
+3. 如果旧同步状态表原本没有目标任务行，两个方法会在同一事务里各自创建 pending ORM 对象。
 4. 最终 commit 时同一个 `job_name` 插入两次，触发唯一键冲突。
 5. 因为业务数据和状态写入处在同一事务，最后的状态错误导致数据写入成果被回滚。
 
@@ -519,12 +519,12 @@ sequenceDiagram
 | 事务域 | 内容 | 失败影响 |
 |---|---|---|
 | data transaction | raw/core/serving 业务数据写入 | 只回滚当前 unit |
-| ops state transaction | execution progress、event、run log、job state | 不回滚数据；失败只影响展示/状态，可重试 |
+| ops state transaction | execution progress、event、运行审计、资源状态 | 不回滚数据；失败只影响展示/状态，可重试 |
 
 禁止：
 
 ```text
-业务数据写入 + run log + job state + full_sync_done 共用一个最终 commit
+业务数据写入 + 运行审计 + 资源状态共用一个最终 commit
 ```
 
 允许：
@@ -626,32 +626,32 @@ PlanTransactionPolicy(
 
 ### 6.8 状态写入重构
 
-旧 `run log`、`sync job state`、`full sync done` 必须从“最后一起插入/更新”改为新的执行记录与资源状态模型。
+旧运行日志和旧同步状态必须从“最后一起插入/更新”改为新的执行记录与资源状态模型。
 
-本轮不接受“共享 pending row”作为最终方案。`mark_success()` 与 `mark_full_sync_done()` 是事故链路中的分裂状态模型，必须退出主链。
+本轮不接受“共享 pending row”作为最终方案。分裂状态写入是事故链路中的错误模型，必须退出主链。
 
 要求：
 
-1. 删除主链对 `mark_success()` 与 `mark_full_sync_done()` 的连续调用。
+1. 删除主链对分裂状态写入方法的连续调用。
 2. 目标模型不保留 `FULL/INCREMENTAL` 作为执行语义；改用 `action + time_scope + run_profile` 表达：例如 `maintain + point`、`maintain + range`、`maintain + none`。
-3. 目标模型不保留 `full_sync_done` 作为资源健康判断字段；改用资源状态字段表达：`coverage_status`、`coverage_scope`、`latest_observed_business_date`、`last_success_at`、`data_completeness_status`。
+3. 目标模型不保留旧全量完成布尔值作为资源健康判断字段；改用资源状态字段表达：`coverage_status`、`coverage_scope`、`latest_observed_business_date`、`last_success_at`、`data_completeness_status`。
 4. 新增单一资源状态写入语义，例如 `record_execution_outcome(...)` 或等价命名。
 5. 单一接口一次性接收 `execution_id`、`dataset_key`、`resource_key`、`action`、`time_scope`、`run_profile`、`coverage_scope`、`result_business_date`、`committed_rows`。
 6. 对有业务日期的数据集，成功结果必须更新 `latest_observed_business_date` 或对应 coverage；不得被“全量完成”这类布尔值置空。
 7. 对无业务日期的数据集，必须由 `DatasetDefinition.date_model` 显式声明 `time_axis=none`，状态写入只能更新 `last_success_at` 和 `coverage_status`。
 8. 旧 `job_name` 唯一键冲突不允许导致业务数据回滚。
 9. 状态写入失败时记录 `state_update_failed` 事件，并进入可对账队列。
-10. 状态对账可以通过目标表观测值补齐 `latest_observed_business_date` 和 coverage，不再补 `full_sync_done`。
+10. 状态对账可以通过目标表观测值补齐 `latest_observed_business_date` 和 coverage，不再补旧全量完成布尔值。
 11. 状态表写入必须有独立测试覆盖：空状态、已有状态、point、range、none、重复重试、状态写失败。
-12. 删除或降级旧 `mark_success()` / `mark_full_sync_done()` public contract；如短期保留，只允许作为 legacy facade 调用新接口，不得再分别写同一行。
+12. 删除或降级旧分裂状态写入 public contract；如短期保留，只允许作为 legacy facade 调用新接口，不得再分别写同一行。
 
 旧词迁移口径：
 
 | 旧词 | 当前真实含义 | 目标处理 |
 |---|---|---|
-| `sync_run_log` / run log | 单次旧 sync service run 的开始、结束、状态、行数、message | 收敛为 execution event / execution attempt log，继续保留“执行审计”能力，不保留旧表语义 |
-| `sync_job_state` | 每个旧 `job_name` 的最后成功日期、最后成功时间、cursor、full_sync_done | 收敛为 dataset resource state，按 `dataset_key/resource_key` 记录资源状态 |
-| `full_sync_done` | 旧 `run_full()` 成功后置 true，试图表示“这个 job 做过一次全量” | 删除目标语义；用 coverage/status 明确表达覆盖范围和完整性 |
+| 旧内部运行日志 | 单次旧执行服务 run 的开始、结束、状态、行数、message | 收敛为执行审计能力，不保留旧表语义 |
+| 旧同步状态表 | 每个旧任务名的最后成功日期、最后成功时间、cursor、全量完成标记 | 收敛为 dataset resource state，按 `dataset_key/resource_key` 记录资源状态 |
+| 旧全量完成布尔值 | 旧 run 成功后置 true，试图表示“这个任务做过一次全量” | 删除目标语义；用 coverage/status 明确表达覆盖范围和完整性 |
 | `FULL` | 旧入口 `run_full()` 的 run_type，不等于用户理解的全量 | 删除目标语义；由 `time_scope` 判断是一天、一段时间、月份、无时间维度 |
 | `INCREMENTAL` | 旧入口 `run_incremental(trade_date)` 的 run_type | 删除目标语义；用 `time_scope.mode=point` 表达单点维护 |
 
@@ -662,7 +662,7 @@ PlanTransactionPolicy(
 1. 大数据集分段提交测试：第 N 个 unit 失败时，前 N-1 个 unit 仍已提交。
 2. ops state 写入失败测试：业务数据已提交，execution 标记为 `state_update_failed` 或可对账状态。
 3. 幂等重试测试：同一 unit 重跑不会重复写入业务数据。
-4. 旧 `mark_success + mark_full_sync_done` 连续调用从主链消失；point/range/none 成功只产生一次资源状态写入。
+4. 旧分裂状态写入从主链消失；point/range/none 成功只产生一次资源状态写入。
 5. 取消任务测试：当前 unit 边界安全结束，不破坏已提交数据。
 
 ### 6.10 立即止血 guard
@@ -1010,7 +1010,7 @@ Unit 建议记录：
 3. 对所有 dataset 建立 plan snapshot 测试。
 4. 为大数据集生成事务策略和单事务写入量评估。
 5. 引入 P0/P1/P2 风险分层到 plan/linter。
-6. 定义单一资源状态写入 contract，旧 `mark_success` / `mark_full_sync_done` 不再作为主链接口。
+6. 定义单一资源状态写入 contract，旧分裂状态写入不再作为主链接口。
 
 门禁：
 
@@ -1031,7 +1031,7 @@ Unit 建议记录：
 4. 进度上报改为结构化 snapshot + 中文 formatter。
 5. 数据提交与 ops state 两个事务域解耦。
 6. 只做 `unit` 级 data transaction；分页优化只解决内存峰值，不改变提交边界。
-7. 主链状态写入改为单一 `record_execution_outcome` 语义；删除 `mark_success + mark_full_sync_done` 连续写同一行。
+7. 主链状态写入改为单一 `record_execution_outcome` 语义；删除连续写同一行的分裂状态写入。
 
 门禁：
 
@@ -1120,7 +1120,7 @@ rg "旧执行路由关键字" src/ops src/foundation src/app tests frontend
 2. 任何执行器入口都只消费 `DatasetExecutionPlan`。
 3. 任何 schedule 都绑定 dataset action 或 workflow，不绑定旧 spec。
 4. 任何 workflow step 都引用 dataset action，不引用旧 job key。
-5. 任务记录和详情不再依赖 `formatSpecDisplayLabel` 处理旧路径。
+5. 任务记录和详情不再依赖前端本地格式化函数处理旧路径。
 6. 活跃代码中旧三件套引用清零。
 7. 进度展示中文化，API 保留结构化 progress snapshot。
 8. 大数据集按 unit 安全提交，ops 状态失败不回滚业务数据。

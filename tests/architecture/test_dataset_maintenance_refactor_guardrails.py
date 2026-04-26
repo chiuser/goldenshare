@@ -100,9 +100,9 @@ def test_workflows_only_use_dataset_actions_or_maintenance_actions() -> None:
 
 def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
     forbidden_tokens = (
-        "formatSpecDisplayLabel",
-        "formatResourceLabel",
-        "formatProgressMessageLabel",
+        "format" + "Spec" + "Display" + "Label",
+        "format" + "Resource" + "Label",
+        "format" + "Progress" + "Message" + "Label",
         "primary_execution_" + "spec_" + "key",
         "route_" + "spec_" + "keys",
     )
