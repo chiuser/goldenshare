@@ -2,14 +2,15 @@ import { Alert, Badge, Box, Button, Group, Loader, Paper, SimpleGrid, Stack, Tex
 import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
-import type { DatasetPipelineModeListResponse, LayerSnapshotLatestResponse, OpsFreshnessResponse, ProbeRuleListResponse } from "../shared/api/types";
+import type { DatasetCardListResponse } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { dedupeModeItemsForSource, type SourceKey } from "./ops-v21-source-page-utils";
 
 type CardStatus = "running" | "healthy" | "warning" | "failed" | "unknown";
+type SourceKey = "tushare" | "biying";
+type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 
 interface SourceCardItem {
   datasetKey: string;
@@ -63,7 +64,7 @@ function cadenceLabel(cadence: string): string {
   return "未定义";
 }
 
-function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"][number]): string {
+function buildDateRangeText(item: DatasetCard): string {
   if (item.latest_business_date) {
     if (item.earliest_business_date && item.earliest_business_date !== item.latest_business_date) {
       return `${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;
@@ -77,123 +78,53 @@ function buildDateRangeText(item: OpsFreshnessResponse["groups"][number]["items"
 }
 
 export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; title: string }) {
-  const modeQuery = useQuery({
-    queryKey: ["ops", "pipeline-modes", `v21-source-${sourceKey}`],
-    queryFn: () => apiRequest<DatasetPipelineModeListResponse>("/api/v1/ops/pipeline-modes?limit=2000"),
-  });
-  const freshnessQuery = useQuery({
-    queryKey: ["ops", "freshness", `v21-source-${sourceKey}`],
-    queryFn: () => apiRequest<OpsFreshnessResponse>("/api/v1/ops/freshness"),
+  const cardQuery = useQuery({
+    queryKey: ["ops", "dataset-cards", `v21-source-${sourceKey}`],
+    queryFn: () => apiRequest<DatasetCardListResponse>(`/api/v1/ops/dataset-cards?source_key=${sourceKey}`),
     refetchInterval: 5000,
   });
-  const latestQuery = useQuery({
-    queryKey: ["ops", "layer-snapshot", "latest", `v21-source-${sourceKey}`],
-    queryFn: () => apiRequest<LayerSnapshotLatestResponse>(`/api/v1/ops/layer-snapshots/latest?source_key=${sourceKey}&stage=raw&limit=1000`),
-    refetchInterval: 5000,
-  });
-  const probeQuery = useQuery({
-    queryKey: ["ops", "probes", `v21-source-${sourceKey}`],
-    queryFn: () => apiRequest<ProbeRuleListResponse>(`/api/v1/ops/probes?source_key=${sourceKey}&limit=200`),
-  });
 
-  const isLoading = modeQuery.isLoading || freshnessQuery.isLoading || latestQuery.isLoading || probeQuery.isLoading;
-  const error = modeQuery.error || freshnessQuery.error || latestQuery.error || probeQuery.error;
+  const isLoading = cardQuery.isLoading;
+  const error = cardQuery.error;
 
-  const freshnessByDataset = new Map(
-    (freshnessQuery.data?.groups || [])
-      .flatMap((group) => group.items.map((item) => [item.dataset_key, { group, item }] as const)),
-  );
-  const probeSummaryByDataset = new Map<string, { total: number; active: number }>();
-  for (const rule of probeQuery.data?.items || []) {
-    const existing = probeSummaryByDataset.get(rule.dataset_key) || { total: 0, active: 0 };
-    existing.total += 1;
-    if (rule.status === "active") {
-      existing.active += 1;
-    }
-    probeSummaryByDataset.set(rule.dataset_key, existing);
-  }
-
-  const latestRawByDataset = new Map(
-    (latestQuery.data?.items || [])
-      .filter((item) => item.stage === "raw")
-      .map((item) => [item.dataset_key, item] as const),
-  );
-
-  function parseSourceScope(scope: string): string[] {
-    return scope
-      .split(",")
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
-  }
-
-  function inSourceScope(scope: string): boolean {
-    const values = parseSourceScope(scope);
-    return values.includes(sourceKey);
-  }
-
-  const sourceModeItems = dedupeModeItemsForSource(
-    (modeQuery.data?.items || [])
-      .filter((modeItem) => {
-        if (!modeItem.raw_table && modeItem.layer_plan !== "raw-only" && !modeItem.layer_plan.startsWith("raw->")) {
-          return false;
-        }
-        const scopeValues = parseSourceScope(modeItem.source_scope || "");
-        if (scopeValues.length > 0 && !scopeValues.includes("unknown")) {
-          return scopeValues.includes(sourceKey);
-        }
-        if (modeItem.dataset_key.startsWith("biying_")) return sourceKey === "biying";
-        if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_biying.")) return sourceKey === "biying";
-        if ((modeItem.raw_table || "").toLowerCase().startsWith("raw_tushare.")) return sourceKey === "tushare";
-        return inSourceScope(modeItem.source_scope || "");
-      }),
-    sourceKey,
-  );
-
-  const cards: SourceCardItem[] = sourceModeItems
-    .map((modeItem) => {
-      const rawLatest = latestRawByDataset.get(modeItem.dataset_key);
-      const freshMeta = freshnessByDataset.get(modeItem.dataset_key);
-      const freshGroup = freshMeta?.group;
-      const freshItem = freshMeta?.item;
-      const activeExecutionStatus = (freshItem?.active_execution_status || "").toLowerCase();
+  const cards: SourceCardItem[] = (cardQuery.data?.groups || [])
+    .flatMap((group) => group.items.map((item) => ({ group, item })))
+    .map(({ group, item }) => {
+      const activeExecutionStatus = (item.active_execution_status || "").toLowerCase();
       const hasActiveExecution = activeExecutionStatus === "queued" || activeExecutionStatus === "running" || activeExecutionStatus === "canceling";
-      const status = hasActiveExecution
-        ? "running"
-        : toCardStatus(rawLatest?.status || freshItem?.freshness_status || modeItem.freshness_status);
+      const status = toCardStatus(item.status);
       const recentSyncText = hasActiveExecution
         ? (
-            freshItem?.active_execution_started_at
-              ? `执行中（开始于 ${formatDateTimeLabel(freshItem.active_execution_started_at)}）`
+            item.active_execution_started_at
+              ? `执行中（开始于 ${formatDateTimeLabel(item.active_execution_started_at)}）`
               : "执行中"
           )
         : (
-            freshItem?.latest_success_at
-              ? formatDateTimeLabel(freshItem.latest_success_at)
-              : rawLatest?.last_success_at
-                ? formatDateTimeLabel(rawLatest.last_success_at)
-                : freshItem?.last_sync_date
-                  ? formatDateLabel(freshItem.last_sync_date)
-                  : "—"
+            item.latest_success_at
+              ? formatDateTimeLabel(item.latest_success_at)
+              : item.last_sync_date
+                ? formatDateLabel(item.last_sync_date)
+                : "—"
           );
       return {
-        datasetKey: modeItem.dataset_key,
-        displayName: modeItem.display_name || modeItem.dataset_key,
-        domainKey: freshGroup?.domain_key || modeItem.domain_key || "uncategorized",
-        domainDisplayName: freshGroup?.domain_display_name || modeItem.domain_display_name || "未分类",
-        rawTableLabel: freshItem?.raw_table || modeItem.raw_table || "—",
+        datasetKey: item.card_key,
+        displayName: item.display_name || item.detail_dataset_key,
+        domainKey: group.domain_key || item.domain_key || "uncategorized",
+        domainDisplayName: group.domain_display_name || item.domain_display_name || "未分类",
+        rawTableLabel: item.raw_table_label || item.raw_table || "—",
         status,
         recentSyncText,
-        dateRangeText: freshItem ? buildDateRangeText(freshItem) : (modeItem.latest_business_date ? `最新业务日：${formatDateLabel(modeItem.latest_business_date)}` : "—"),
-        cadenceText: cadenceLabel(freshItem?.cadence || ""),
-        primaryActionKey: freshItem?.primary_action_key || null,
-        autoEnabled: (freshItem?.auto_schedule_active || 0) > 0,
+        dateRangeText: buildDateRangeText(item),
+        cadenceText: cadenceLabel(item.cadence || ""),
+        primaryActionKey: item.primary_action_key || null,
+        autoEnabled: item.auto_schedule_active > 0,
         autoTooltip:
-          (freshItem?.auto_schedule_total || 0) > 0
-            ? `已配置自动任务 ${freshItem?.auto_schedule_active || 0}/${freshItem?.auto_schedule_total || 0} 条，下一次：${freshItem?.auto_schedule_next_run_at ? formatDateTimeLabel(freshItem.auto_schedule_next_run_at) : "待计算"}`
+          item.auto_schedule_total > 0
+            ? `已配置自动任务 ${item.auto_schedule_active}/${item.auto_schedule_total} 条，下一次：${item.auto_schedule_next_run_at ? formatDateTimeLabel(item.auto_schedule_next_run_at) : "待计算"}`
             : "未配置自动任务",
-        probeEnabled: (probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0) > 0,
-        probeTooltip: (probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0) > 0
-          ? `已配置自动探测规则 ${probeSummaryByDataset.get(modeItem.dataset_key)?.active || 0}/${probeSummaryByDataset.get(modeItem.dataset_key)?.total || 0} 条`
+        probeEnabled: item.probe_total > 0,
+        probeTooltip: item.probe_total > 0
+          ? `已配置自动探测规则 ${item.probe_active}/${item.probe_total} 条`
           : "未配置自动探测规则",
       };
     })

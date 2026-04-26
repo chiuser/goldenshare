@@ -47,6 +47,13 @@ const rules = [
     pattern: /\b(?:fallbackRawTable|sourceScopedRawTable)\b/g,
     allowlist: [],
   },
+  {
+    id: "no-ops-page-dataset-card-source-inference",
+    description: "禁止页面层自行推断数据集卡片来源、canonical key 或 raw snapshot 合并事实",
+    scopePrefixes: ["src/pages/"],
+    pattern: /\b(?:inferSourceKey|canonicalDatasetKey|sourcePreference|dedupeModeItemsForSource|rawLatestByCanonicalAndSource)\b/g,
+    allowlist: [],
+  },
 ];
 
 function shouldScanFile(relativePath) {

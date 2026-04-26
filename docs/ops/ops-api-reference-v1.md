@@ -45,7 +45,7 @@
 - Query 参数：无。
 - 返回：`OpsOverviewResponse`
   - `today_kpis, kpis, freshness_summary, lagging_datasets, recent_executions, recent_failures`
-- 示例：
+- 示例（字段节选）：
 
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
@@ -228,7 +228,52 @@ curl -H "Authorization: Bearer <TOKEN>" \
 }
 ```
 
-### 2.6 GET /api/v1/ops/source-management/bridge
+### 2.6 GET /api/v1/ops/dataset-cards
+
+- 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
+- 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
+- Query 参数：
+  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片。
+  - `limit`：默认 2000，范围 `1..2000`。
+- 返回：`DatasetCardListResponse`
+  - `total`
+  - `groups[]`（按领域分组）
+  - `groups[].items[]`（`DatasetCardItem`）
+- 示例（字段节选）：
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  "http://127.0.0.1:8000/api/v1/ops/dataset-cards?source_key=tushare&limit=2000"
+```
+
+```json
+{
+  "total": 56,
+  "groups": [
+    {
+      "domain_key": "market_equity",
+      "domain_display_name": "股票行情",
+      "items": [
+        {
+          "card_key": "daily",
+          "dataset_key": "daily",
+          "detail_dataset_key": "daily",
+          "display_name": "股票日线",
+          "status": "healthy",
+          "freshness_status": "fresh",
+          "mode_label": "单源直出",
+          "raw_table_label": "raw_tushare.daily",
+          "last_sync_date": "2026-04-24",
+          "stage_statuses": [],
+          "raw_sources": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 2.7 GET /api/v1/ops/source-management/bridge
 
 - 功能：返回数据源页面聚合桥接数据（probe/release/std rule/layer snapshot）。
 - Query 参数：
@@ -1299,6 +1344,11 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `WorkflowStepResponse`：`step_key, job_key, display_name, depends_on, default_params`
 - `DatasetPipelineModeListResponse`：`total, items`
 - `DatasetPipelineModeItem`：`dataset_key, display_name, domain_key, domain_display_name, mode, source_scope, layer_plan, raw_table, std_table_hint, serving_table, freshness_status, latest_business_date, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
+- `DatasetCardListResponse`：`total, groups`
+- `DatasetCardGroup`：`domain_key, domain_display_name, items`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, domain_key, domain_display_name, status, freshness_status, mode, mode_label, mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_execution_status, active_execution_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
+- `DatasetCardStageStatus`：`stage, stage_label, table_name, source_key, status, rows_in, rows_out, error_count, lag_seconds, message, calculated_at, last_success_at, last_failure_at`
+- `DatasetCardSourceStatus`：`source_key, table_name, status, calculated_at`
 
 ### 12.2 任务运行
 
@@ -1390,20 +1440,13 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - 代码：[ops-today-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-today-page.tsx)
 2. `OpsV21OverviewPage`（`/ops/v21/overview`）
    - `GET /api/v1/ops/overview`
-   - `GET /api/v1/ops/pipeline-modes?limit=1000`
-   - `GET /api/v1/ops/layer-snapshots/latest?limit=3000`
+   - `GET /api/v1/ops/dataset-cards?limit=2000`
    - 代码：[ops-v21-overview-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-overview-page.tsx)
 3. `OpsV21TusharePage`（`/ops/v21/datasets/tushare`，复用 `OpsV21SourcePage`）
-   - `GET /api/v1/ops/pipeline-modes?limit=2000`
-   - `GET /api/v1/ops/freshness`
-   - `GET /api/v1/ops/layer-snapshots/latest?source_key=tushare&stage=raw&limit=1000`
-   - `GET /api/v1/ops/probes?source_key=tushare&limit=200`
+   - `GET /api/v1/ops/dataset-cards?source_key=tushare&limit=2000`
    - 代码：[ops-v21-tushare-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-tushare-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
 4. `OpsV21BiyingPage`（`/ops/v21/datasets/biying`，复用 `OpsV21SourcePage`）
-   - `GET /api/v1/ops/pipeline-modes?limit=2000`
-   - `GET /api/v1/ops/freshness`
-   - `GET /api/v1/ops/layer-snapshots/latest?source_key=biying&stage=raw&limit=1000`
-   - `GET /api/v1/ops/probes?source_key=biying&limit=200`
+   - `GET /api/v1/ops/dataset-cards?source_key=biying&limit=2000`
    - 代码：[ops-v21-biying-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-biying-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
 5. `OpsV21TaskCenterPage`（`/ops/v21/datasets/tasks`，本体不直接请求 API，三 tab 分别请求）
    - 代码：[ops-v21-task-center-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-center-page.tsx)

@@ -744,6 +744,74 @@ export interface DatasetPipelineModeListResponse {
   }>;
 }
 
+export interface DatasetCardListResponse {
+  total: number;
+  groups: Array<{
+    domain_key: string;
+    domain_display_name: string;
+    items: Array<{
+      card_key: string;
+      dataset_key: string;
+      detail_dataset_key: string;
+      resource_key: string;
+      display_name: string;
+      domain_key: string;
+      domain_display_name: string;
+      status: string;
+      freshness_status: string;
+      mode: string;
+      mode_label: string;
+      mode_tone: string;
+      layer_plan: string;
+      cadence: string;
+      raw_table: string | null;
+      raw_table_label: string | null;
+      target_table: string | null;
+      latest_business_date: string | null;
+      earliest_business_date: string | null;
+      last_sync_date: string | null;
+      latest_success_at: string | null;
+      expected_business_date: string | null;
+      lag_days: number | null;
+      freshness_note: string | null;
+      primary_action_key: string | null;
+      active_execution_status: string | null;
+      active_execution_started_at: string | null;
+      auto_schedule_status: string;
+      auto_schedule_total: number;
+      auto_schedule_active: number;
+      auto_schedule_next_run_at: string | null;
+      probe_total: number;
+      probe_active: number;
+      std_mapping_configured: boolean;
+      std_cleansing_configured: boolean;
+      resolution_policy_configured: boolean;
+      status_updated_at: string | null;
+      stage_statuses: Array<{
+        stage: string;
+        stage_label: string;
+        table_name: string | null;
+        source_key: string | null;
+        status: string;
+        rows_in: number | null;
+        rows_out: number | null;
+        error_count: number | null;
+        lag_seconds: number | null;
+        message: string | null;
+        calculated_at: string | null;
+        last_success_at: string | null;
+        last_failure_at: string | null;
+      }>;
+      raw_sources: Array<{
+        source_key: string;
+        table_name: string | null;
+        status: string;
+        calculated_at: string | null;
+      }>;
+    }>;
+  }>;
+}
+
 export interface OpsReviewActiveIndexResponse {
   total: number;
   items: Array<{

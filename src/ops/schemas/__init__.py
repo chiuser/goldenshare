@@ -6,6 +6,13 @@ from src.ops.schemas.catalog import (
     WorkflowStepResponse,
 )
 from src.ops.schemas.ingestion_codebook import IngestionCodebookItem, IngestionCodebookResponse
+from src.ops.schemas.dataset_card import (
+    DatasetCardGroup,
+    DatasetCardItem,
+    DatasetCardListResponse,
+    DatasetCardSourceStatus,
+    DatasetCardStageStatus,
+)
 from src.ops.schemas.dataset_pipeline import (
     DatasetPipelineModeItem,
     DatasetPipelineModeListResponse,
@@ -114,6 +121,11 @@ __all__ = [
     "DeleteProbeRuleResponse",
     "DeleteScheduleResponse",
     "DatasetFreshnessItem",
+    "DatasetCardGroup",
+    "DatasetCardItem",
+    "DatasetCardListResponse",
+    "DatasetCardSourceStatus",
+    "DatasetCardStageStatus",
     "DatasetPipelineModeItem",
     "DatasetPipelineModeListResponse",
     "FreshnessGroup",
