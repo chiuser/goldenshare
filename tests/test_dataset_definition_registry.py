@@ -45,3 +45,15 @@ def test_dataset_definition_owns_dc_board_type_filter() -> None:
 def test_dataset_definition_identity_does_not_keep_legacy_job_aliases() -> None:
     for definition in list_dataset_definitions():
         assert not any(alias.startswith(("sync_", "backfill_")) for alias in definition.identity.aliases)
+
+
+def test_dataset_definition_owns_dataset_card_grouping() -> None:
+    moneyflow = get_dataset_definition("moneyflow")
+    biying_moneyflow = get_dataset_definition("biying_moneyflow")
+    biying_equity_daily = get_dataset_definition("biying_equity_daily")
+
+    assert moneyflow.card_key == "moneyflow"
+    assert moneyflow.card_priority == 100
+    assert biying_moneyflow.card_key == "moneyflow"
+    assert biying_moneyflow.card_priority == 200
+    assert biying_equity_daily.card_key == "biying_equity_daily"

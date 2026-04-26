@@ -39,7 +39,8 @@ CardStatus = str
 @dataclass(frozen=True, slots=True)
 class DatasetCardFact:
     dataset_key: str
-    canonical_key: str
+    card_key: str
+    card_priority: int
     display_name: str
     domain_key: str
     domain_display_name: str
@@ -108,17 +109,12 @@ class DatasetCardQueryService:
         candidates = [item for item in facts if source_key in item.source_keys]
         deduped: dict[str, DatasetCardFact] = {}
         for item in candidates:
-            key = item.canonical_key
+            key = item.card_key
             existing = deduped.get(key)
             if existing is None:
                 deduped[key] = item
                 continue
-            current_score = self._source_preference(item, source_key)
-            existing_score = self._source_preference(existing, source_key)
-            if current_score > existing_score:
-                deduped[key] = item
-                continue
-            if current_score == existing_score and item.dataset_key < existing.dataset_key:
+            if (item.card_priority, item.dataset_key) < (existing.card_priority, existing.dataset_key):
                 deduped[key] = item
         return list(deduped.values())
 
@@ -134,21 +130,23 @@ class DatasetCardQueryService:
     ) -> list[DatasetCardItem]:
         grouped: dict[str, list[DatasetCardFact]] = {}
         for item in facts:
-            grouped.setdefault(item.canonical_key, []).append(item)
+            grouped.setdefault(item.card_key, []).append(item)
 
-        layer_by_canonical: dict[str, list[LayerSnapshotLatestItem]] = {}
+        card_key_by_dataset = {item.dataset_key: item.card_key for item in facts}
+        layer_by_card: dict[str, list[LayerSnapshotLatestItem]] = {}
         for item in layer_items:
-            canonical = self._canonical_dataset_key(item.dataset_key)
-            layer_by_canonical.setdefault(canonical, []).append(item)
+            card_key = card_key_by_dataset.get(item.dataset_key)
+            if card_key is not None:
+                layer_by_card.setdefault(card_key, []).append(item)
 
         cards: list[DatasetCardItem] = []
-        for canonical_key, members in grouped.items():
+        for card_key, members in grouped.items():
             primary = self._primary_member(members)
             member_freshness = [freshness_by_dataset[item.dataset_key] for item in members if item.dataset_key in freshness_by_dataset]
             member_snapshots = [snapshot_by_dataset[item.dataset_key] for item in members if item.dataset_key in snapshot_by_dataset]
             primary_freshness = freshness_by_dataset.get(primary.dataset_key)
             primary_snapshot = snapshot_by_dataset.get(primary.dataset_key)
-            layers = layer_by_canonical.get(canonical_key, [])
+            layers = layer_by_card.get(card_key, [])
             if source_key is not None:
                 layers = [
                     item
@@ -157,13 +155,11 @@ class DatasetCardQueryService:
                 ]
 
             raw_sources = self._raw_sources(
-                canonical_key,
                 members,
                 layers,
                 source_key=source_key,
             )
             stage_statuses = self._stage_statuses(
-                canonical_key,
                 primary,
                 layers,
                 raw_sources=raw_sources,
@@ -176,8 +172,8 @@ class DatasetCardQueryService:
 
             cards.append(
                 DatasetCardItem(
-                    card_key=canonical_key,
-                    dataset_key=canonical_key,
+                    card_key=card_key,
+                    dataset_key=card_key,
                     detail_dataset_key=primary.dataset_key,
                     resource_key=primary_freshness.resource_key if primary_freshness else primary.dataset_key,
                     display_name=primary.display_name,
@@ -232,7 +228,6 @@ class DatasetCardQueryService:
 
     def _stage_statuses(
         self,
-        canonical_key: str,
         primary: DatasetCardFact,
         layers: list[LayerSnapshotLatestItem],
         *,
@@ -244,7 +239,7 @@ class DatasetCardQueryService:
             if previous is None or item.calculated_at > previous.calculated_at:
                 stage_latest[item.stage] = item
 
-        stages = self._expected_stages(primary.delivery_mode, canonical_key, layers)
+        stages = self._expected_stages(primary.delivery_mode, layers)
         result: list[DatasetCardStageStatus] = []
         for stage in stages:
             latest = stage_latest.get(stage)
@@ -252,7 +247,7 @@ class DatasetCardQueryService:
                 DatasetCardStageStatus(
                     stage=stage,
                     stage_label=get_layer_stage_display_name(stage),
-                    table_name=self._stage_table_name(stage, canonical_key, primary, raw_sources),
+                    table_name=self._stage_table_name(stage, primary, raw_sources),
                     source_key=latest.source_key if latest else None,
                     source_display_name=get_source_display_name(latest.source_key if latest else None),
                     status=self._normalize_status(latest.status if latest else None),
@@ -270,7 +265,6 @@ class DatasetCardQueryService:
 
     def _raw_sources(
         self,
-        canonical_key: str,
         members: list[DatasetCardFact],
         layers: list[LayerSnapshotLatestItem],
         *,
@@ -358,44 +352,9 @@ class DatasetCardQueryService:
     def _primary_member(members: list[DatasetCardFact]) -> DatasetCardFact:
         sorted_members = sorted(
             members,
-            key=lambda item: (
-                item.dataset_key.lower().startswith("biying_") or item.dataset_key.lower().startswith("tushare_"),
-                item.dataset_key,
-            ),
+            key=lambda item: (item.card_priority, item.dataset_key),
         )
         return sorted_members[0]
-
-    @staticmethod
-    def _canonical_dataset_key(raw_key: str) -> str:
-        lower = raw_key.lower()
-        if lower.startswith("biying_"):
-            return raw_key[len("biying_") :]
-        if lower.startswith("tushare_"):
-            return raw_key[len("tushare_") :]
-        return raw_key
-
-    @staticmethod
-    def _source_preference(item: DatasetCardFact, source_key: str) -> int:
-        dataset_key = item.dataset_key.lower()
-        raw_table = (item.raw_table or "").lower()
-        source_values = set(item.source_keys)
-        if source_key == "biying":
-            if dataset_key.startswith("biying_"):
-                return 300
-            if raw_table.startswith("raw_biying."):
-                return 200
-            if "biying" in source_values:
-                return 100
-            return 0
-        if dataset_key.startswith("biying_"):
-            return 0
-        if raw_table.startswith("raw_tushare.") and not dataset_key.startswith("tushare_"):
-            return 300
-        if dataset_key.startswith("tushare_"):
-            return 200
-        if "tushare" in source_values:
-            return 100
-        return 0
 
     @staticmethod
     def _delivery_mode_for_card(members: list[DatasetCardFact]) -> str:
@@ -405,7 +364,7 @@ class DatasetCardQueryService:
         return members[0].delivery_mode
 
     @staticmethod
-    def _expected_stages(delivery_mode: str, canonical_key: str, layers: list[LayerSnapshotLatestItem]) -> list[str]:
+    def _expected_stages(delivery_mode: str, layers: list[LayerSnapshotLatestItem]) -> list[str]:
         if delivery_mode == "multi_source_fusion":
             base = ["raw", "std", "resolution", "serving"]
         elif delivery_mode == "single_source_serving":
@@ -424,7 +383,6 @@ class DatasetCardQueryService:
     def _stage_table_name(
         self,
         stage: str,
-        canonical_key: str,
         primary: DatasetCardFact,
         raw_sources: list[DatasetCardSourceStatus],
     ) -> str | None:
@@ -441,12 +399,7 @@ class DatasetCardQueryService:
             return None
         if source_key is None:
             return item.raw_table
-        raw_table = item.raw_table.lower()
-        if source_key == "biying" and raw_table.startswith("raw_biying."):
-            return item.raw_table
-        if source_key == "tushare" and raw_table.startswith("raw_tushare."):
-            return item.raw_table
-        if len(item.source_keys) == 1 and item.source_keys[0] == source_key:
+        if source_key in item.source_keys:
             return item.raw_table
         return None
 
@@ -460,7 +413,8 @@ class DatasetCardQueryService:
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
-            canonical_key=self._canonical_dataset_key(definition.dataset_key),
+            card_key=definition.card_key,
+            card_priority=definition.card_priority,
             display_name=definition.display_name,
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,

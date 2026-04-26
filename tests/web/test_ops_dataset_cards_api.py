@@ -95,3 +95,26 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert raw_stage["last_success_at"] is None
     raw_source = next(item for item in card["raw_sources"] if item["source_key"] == "tushare")
     assert raw_source["source_display_name"] == "Tushare"
+
+
+def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get(
+        "/api/v1/ops/dataset-cards?source_key=biying",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    cards = {
+        item["detail_dataset_key"]: item
+        for group in payload["groups"]
+        for item in group["items"]
+    }
+    assert cards["biying_moneyflow"]["dataset_key"] == "moneyflow"
+    assert cards["biying_moneyflow"]["card_key"] == "moneyflow"
+    assert cards["biying_equity_daily"]["dataset_key"] == "biying_equity_daily"
+    assert cards["biying_equity_daily"]["card_key"] == "biying_equity_daily"

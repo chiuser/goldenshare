@@ -36,6 +36,8 @@ class DatasetIdentity:
     display_name: str
     description: str = ""
     aliases: tuple[str, ...] = ()
+    card_key: str | None = None
+    card_priority: int = 100
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +199,14 @@ class DatasetDefinition:
     @property
     def display_name(self) -> str:
         return self.identity.display_name
+
+    @property
+    def card_key(self) -> str:
+        return self.identity.card_key or self.dataset_key
+
+    @property
+    def card_priority(self) -> int:
+        return self.identity.card_priority
 
     def action_key(self, action: str) -> str:
         return f"{self.dataset_key}.{action}"

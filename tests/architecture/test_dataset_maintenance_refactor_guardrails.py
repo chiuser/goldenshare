@@ -195,6 +195,22 @@ def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> N
     assert not violations, "dataset-cards 静态事实必须从 DatasetDefinition 派生:\n" + "\n".join(violations)
 
 
+def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> None:
+    path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "_canonical_dataset_key",
+        "_source_preference",
+        "startswith(\"biying_\")",
+        "startswith(\"tushare_\")",
+        "startswith(\"raw_biying.\")",
+        "startswith(\"raw_tushare.\")",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "dataset-cards 不得再从 key/table 前缀推断卡片归并事实:\n" + "\n".join(violations)
+
+
 def test_active_code_does_not_reference_retired_dataset_fact_table() -> None:
     forbidden_tokens = (
         "dataset_" + "pipeline_" + "mode",
