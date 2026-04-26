@@ -39,8 +39,8 @@ CardStatus = str
 @dataclass(frozen=True, slots=True)
 class DatasetCardFact:
     dataset_key: str
-    card_key: str
-    card_priority: int
+    logical_key: str
+    logical_priority: int
     display_name: str
     domain_key: str
     domain_display_name: str
@@ -109,12 +109,12 @@ class DatasetCardQueryService:
         candidates = [item for item in facts if source_key in item.source_keys]
         deduped: dict[str, DatasetCardFact] = {}
         for item in candidates:
-            key = item.card_key
+            key = item.logical_key
             existing = deduped.get(key)
             if existing is None:
                 deduped[key] = item
                 continue
-            if (item.card_priority, item.dataset_key) < (existing.card_priority, existing.dataset_key):
+            if (item.logical_priority, item.dataset_key) < (existing.logical_priority, existing.dataset_key):
                 deduped[key] = item
         return list(deduped.values())
 
@@ -130,9 +130,9 @@ class DatasetCardQueryService:
     ) -> list[DatasetCardItem]:
         grouped: dict[str, list[DatasetCardFact]] = {}
         for item in facts:
-            grouped.setdefault(item.card_key, []).append(item)
+            grouped.setdefault(item.logical_key, []).append(item)
 
-        card_key_by_dataset = {item.dataset_key: item.card_key for item in facts}
+        card_key_by_dataset = {item.dataset_key: item.logical_key for item in facts}
         layer_by_card: dict[str, list[LayerSnapshotLatestItem]] = {}
         for item in layer_items:
             card_key = card_key_by_dataset.get(item.dataset_key)
@@ -352,7 +352,7 @@ class DatasetCardQueryService:
     def _primary_member(members: list[DatasetCardFact]) -> DatasetCardFact:
         sorted_members = sorted(
             members,
-            key=lambda item: (item.card_priority, item.dataset_key),
+            key=lambda item: (item.logical_priority, item.dataset_key),
         )
         return sorted_members[0]
 
@@ -413,8 +413,8 @@ class DatasetCardQueryService:
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
-            card_key=definition.card_key,
-            card_priority=definition.card_priority,
+            logical_key=definition.logical_key,
+            logical_priority=definition.logical_priority,
             display_name=definition.display_name,
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,

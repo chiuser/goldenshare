@@ -47,13 +47,13 @@ def test_dataset_definition_identity_does_not_keep_legacy_job_aliases() -> None:
         assert not any(alias.startswith(("sync_", "backfill_")) for alias in definition.identity.aliases)
 
 
-def test_dataset_definition_owns_dataset_card_grouping() -> None:
+def test_dataset_definition_owns_logical_dataset_grouping() -> None:
     moneyflow = get_dataset_definition("moneyflow")
     biying_moneyflow = get_dataset_definition("biying_moneyflow")
     biying_equity_daily = get_dataset_definition("biying_equity_daily")
 
-    assert moneyflow.card_key == "moneyflow"
-    assert moneyflow.card_priority == 100
-    assert biying_moneyflow.card_key == "moneyflow"
-    assert biying_moneyflow.card_priority == 200
-    assert biying_equity_daily.card_key == "biying_equity_daily"
+    assert moneyflow.logical_key == "moneyflow"
+    assert moneyflow.logical_priority == 100
+    assert biying_moneyflow.logical_key == "moneyflow"
+    assert biying_moneyflow.logical_priority == 200
+    assert biying_equity_daily.logical_key == "biying_equity_daily"
