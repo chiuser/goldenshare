@@ -863,7 +863,7 @@ POST /api/v1/ops/task-runs/364/retry
 | 表 | 清理前行数 | 建议 |
 | --- | ---: | --- |
 | `ops.job_schedule` | 19 | 建议清空后按新 TaskRun/Schedule 模型重新 seed |
-| `ops.dataset_pipeline_mode` | 57 | 若 DatasetDefinition 已承接该配置，可清空后重新 seed |
+| `ops.dataset_pipeline_mode` | 57 | 已下线；由 DatasetDefinition 派生投影替代，不再 seed |
 | `ops.std_cleansing_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
 | `ops.std_mapping_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
 | `ops.index_series_active` | 1142 | 谨慎清空；清空会影响指数类同步，必须有明确重建命令 |
@@ -982,7 +982,7 @@ flowchart TD
 
 状态：部分完成；服务已恢复，数据状态快照已重建，自动任务配置待重建。
 
-1. `dataset_pipeline_mode` 已完成 seed 校验。
+1. DatasetDefinition 派生投影已替代旧 `dataset_pipeline_mode` seed。
 2. `dataset_status_snapshot` 已可通过 `ops-rebuild-dataset-status` 重建。
 3. scheduler / worker / web 已恢复。
 4. 新 TaskRun 链路已通过小窗口任务验证。

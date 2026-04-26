@@ -71,7 +71,7 @@
 9. `source_management_bridge`
 10. `runtime`
 11. `catalog`
-12. `dataset_pipeline_modes`
+12. `dataset_cards`
 13. `review_center`
 
 对应装配入口：
@@ -179,7 +179,7 @@
 
 当前问题：
 
-1. source 页当前仍靠前端组合 `pipeline-modes + freshness + layer latest + probes`
+1. source 页曾靠前端组合 `pipeline-modes + freshness + layer latest + probes`，当前已收口到 `dataset-cards`
 2. 现有 bridge 只是过渡聚合，不是 source-centric 的详情模型
 3. bridge 输出是平铺对象集合，不是“围绕一个 source 的已归并视图”
 
@@ -204,8 +204,8 @@
 当前问题：
 
 1. 当前 overview 主要提供任务 KPI、freshness summary、attention datasets、recent task runs、recent failures
-2. 前端总览页还需要再拉 `pipeline-modes` 和 `layer-snapshots/latest` 自己组合卡片
-3. 当前没有按 domain/source/stage/status 的服务端 breakdown 或 trend
+2. 前端总览页的数据集卡片已改读 `dataset-cards`
+3. 当前没有按 domain/source/stage/status 的服务端 trend
 
 关键证据：
 
@@ -272,7 +272,7 @@
 2. 数据集详情聚合 API
 3. 数据源详情聚合 API
 4. overview 富接口与分析维度
-5. `pipeline-modes` / `layer-snapshots/latest` 作为基础投影的长期定位
+5. `dataset-cards` 与 `layer-snapshots/latest` 的职责边界
 
 原因：
 

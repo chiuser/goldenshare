@@ -15,7 +15,7 @@
 
 ## 2. 本轮不做
 
-1. 不改 `/api/v1/ops/overview`、`/api/v1/ops/pipeline-modes`、`/api/v1/ops/layer-snapshots/latest` 契约。
+1. 不改 `/api/v1/ops/overview`、`/api/v1/ops/dataset-cards`、`/api/v1/ops/layer-snapshots/latest` 契约。
 2. 不重做页面信息架构。
 3. 不把页面拆成新的子组件或新共享组件。
 4. 不扩到 `review / source / account` 等其他页面。
