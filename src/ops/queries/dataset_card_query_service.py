@@ -19,6 +19,7 @@ from src.ops.dataset_definition_projection import (
     delivery_mode_label,
     delivery_mode_tone,
 )
+from src.ops.layer_stage_labels import get_layer_stage_display_name
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
@@ -250,7 +251,7 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardStageStatus(
                     stage=stage,
-                    stage_label=self._stage_label(stage),
+                    stage_label=get_layer_stage_display_name(stage),
                     table_name=self._stage_table_name(stage, canonical_key, primary, raw_sources),
                     source_key=latest.source_key if latest else None,
                     source_display_name=get_source_display_name(latest.source_key if latest else None),
@@ -419,20 +420,6 @@ class DatasetCardQueryService:
             if stage not in base and any(item.stage == stage for item in layers)
         ]
         return [*base, *extra]
-
-    @staticmethod
-    def _stage_label(stage: str) -> str:
-        if stage == "raw":
-            return "原始层"
-        if stage == "std":
-            return "标准层"
-        if stage == "resolution":
-            return "融合层"
-        if stage == "light":
-            return "轻量层"
-        if stage == "serving":
-            return "服务层"
-        return stage
 
     def _stage_table_name(
         self,

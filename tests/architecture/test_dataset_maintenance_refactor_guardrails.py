@@ -126,6 +126,7 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "MetricPanel label={source}",
         "title={`${datasetKey} ·",
         "{entry." + "source_key}",
+        "def _stage_label",
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
     )
