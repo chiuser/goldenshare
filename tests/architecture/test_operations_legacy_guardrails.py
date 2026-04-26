@@ -112,9 +112,9 @@ def test_operations_specs_contains_only_package_init() -> None:
 def test_no_legacy_specs_submodule_imports() -> None:
     forbidden_modules = {
         "src.operations.specs",
-        "src.operations.specs.dataset_freshness_spec",
+        "src.operations.specs." + "dataset_" + "freshness_" + "spec",
         "src.operations.specs.job_spec",
-        "src.operations.specs.observed_dataset_registry",
+        "src.operations.specs." + "observed_" + "dataset_" + "registry",
         "src.operations.specs.registry",
         "src.operations.specs.workflow_spec",
     }

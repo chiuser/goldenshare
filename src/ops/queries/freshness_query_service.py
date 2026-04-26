@@ -59,21 +59,21 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
+from src.ops.dataset_definition_projection import (
+    DatasetFreshnessProjection,
+    get_dataset_freshness_projection,
+    list_dataset_freshness_projections,
+)
+from src.ops.dataset_observation_registry import (
+    OBSERVED_DATE_FILTERS,
+    OBSERVED_DATE_MODEL_REGISTRY,
+)
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.job_schedule import JobSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
-from src.ops.specs import (
-    DatasetFreshnessSpec,
-    get_dataset_freshness_spec,
-    get_workflow_spec,
-    list_dataset_freshness_specs,
-)
-from src.ops.specs.observed_dataset_registry import (
-    OBSERVED_DATE_FILTERS,
-    OBSERVED_DATE_MODEL_REGISTRY,
-)
+from src.ops.specs import get_workflow_spec
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
@@ -119,7 +119,7 @@ class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
         snapshot_response = self._build_from_snapshot(session)
         if snapshot_response is not None:
-            all_specs = list_dataset_freshness_specs()
+            all_projections = list_dataset_freshness_projections()
             snapshot_items_by_key = {
                 item.dataset_key: item
                 for group in snapshot_response.groups
@@ -127,42 +127,42 @@ class OpsFreshnessQueryService:
             }
             snapshot_keys = set(snapshot_items_by_key)
             missing_resource_keys = [
-                spec.resource_key
-                for spec in all_specs
-                if spec.dataset_key not in snapshot_keys
+                projection.resource_key
+                for projection in all_projections
+                if projection.dataset_key not in snapshot_keys
             ]
             live_override_resource_keys = [
-                spec.resource_key
-                for spec in all_specs
-                if spec.resource_key in FORCE_LIVE_RESOURCE_KEYS
+                projection.resource_key
+                for projection in all_projections
+                if projection.resource_key in FORCE_LIVE_RESOURCE_KEYS
             ]
             cadence_mismatch_resource_keys = [
-                spec.resource_key
-                for spec in all_specs
+                projection.resource_key
+                for projection in all_projections
                 if (
-                    spec.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[spec.dataset_key].cadence != spec.cadence
+                    projection.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[projection.dataset_key].cadence != projection.cadence
                 )
             ]
             missing_business_date_resource_keys = [
-                spec.resource_key
-                for spec in all_specs
+                projection.resource_key
+                for projection in all_projections
                 if (
-                    spec.observed_date_column is not None
-                    and spec.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[spec.dataset_key].last_sync_date is not None
-                    and snapshot_items_by_key[spec.dataset_key].latest_business_date is None
+                    projection.observed_date_column is not None
+                    and projection.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[projection.dataset_key].last_sync_date is not None
+                    and snapshot_items_by_key[projection.dataset_key].latest_business_date is None
                 )
             ]
             missing_business_range_resource_keys = [
-                spec.resource_key
-                for spec in all_specs
+                projection.resource_key
+                for projection in all_projections
                 if (
-                    spec.observed_date_column is not None
-                    and spec.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[spec.dataset_key].last_sync_date is not None
-                    and snapshot_items_by_key[spec.dataset_key].latest_business_date is not None
-                    and snapshot_items_by_key[spec.dataset_key].earliest_business_date is None
+                    projection.observed_date_column is not None
+                    and projection.dataset_key in snapshot_items_by_key
+                    and snapshot_items_by_key[projection.dataset_key].last_sync_date is not None
+                    and snapshot_items_by_key[projection.dataset_key].latest_business_date is not None
+                    and snapshot_items_by_key[projection.dataset_key].earliest_business_date is None
                 )
             ]
             live_refresh_resource_keys = sorted(
@@ -214,35 +214,39 @@ class OpsFreshnessQueryService:
         latest_success_by_resource = self._latest_success_by_resource(session)
         failures_by_resource = self._latest_failures_by_resource(session)
         quality_notes_by_resource = self._latest_quality_notes_by_resource(session)
-        specs = list_dataset_freshness_specs()
+        projections = list_dataset_freshness_projections()
         if resource_keys is not None:
             target_keys = set(resource_keys)
-            specs = [spec for spec in specs if spec.resource_key in target_keys]
+            projections = tuple(
+                projection
+                for projection in projections
+                if projection.resource_key in target_keys
+            )
         open_trade_dates = self._open_trade_dates(session)
         observed_business_ranges, observed_sync_dates = self._observed_dataset_snapshots(
             session,
-            specs,
+            list(projections),
             open_trade_dates=open_trade_dates,
         )
 
         items = [
             self._build_item(
-                spec=spec,
-                latest_success_at=latest_success_by_resource.get(spec.resource_key),
+                projection=projection,
+                latest_success_at=latest_success_by_resource.get(projection.resource_key),
                 latest_open_date=latest_open_date,
                 reference_date=reference_date,
-                expected_business_date=self._expected_business_date_for_spec(
-                    spec,
+                expected_business_date=self._expected_business_date_for_projection(
+                    projection,
                     reference_date=reference_date,
                     latest_open_date=latest_open_date,
                     open_trade_dates=open_trade_dates,
                 ),
-                recent_failure=failures_by_resource.get(spec.resource_key),
-                quality_note=quality_notes_by_resource.get(spec.resource_key),
-                observed_business_range=observed_business_ranges.get(spec.dataset_key),
-                observed_sync_date=observed_sync_dates.get(spec.dataset_key),
+                recent_failure=failures_by_resource.get(projection.resource_key),
+                quality_note=quality_notes_by_resource.get(projection.resource_key),
+                observed_business_range=observed_business_ranges.get(projection.dataset_key),
+                observed_sync_date=observed_sync_dates.get(projection.dataset_key),
             )
-            for spec in specs
+            for projection in projections
         ]
         return items
 
@@ -260,7 +264,7 @@ class OpsFreshnessQueryService:
     def _build_item(
         self,
         *,
-        spec: DatasetFreshnessSpec,
+        projection: DatasetFreshnessProjection,
         latest_success_at: datetime | None,
         latest_open_date: date,
         reference_date: date,
@@ -270,7 +274,7 @@ class OpsFreshnessQueryService:
         observed_business_range: tuple[date | None, date | None] | None,
         observed_sync_date: date | None,
     ) -> DatasetFreshnessItem:
-        date_model = self._date_model_for_spec(spec)
+        date_model = self._date_model_for_projection(projection)
         normalized_success_at = self._normalize_datetime(latest_success_at)
         success_sync_date = normalized_success_at.date() if normalized_success_at is not None else None
         if success_sync_date and observed_sync_date:
@@ -284,11 +288,11 @@ class OpsFreshnessQueryService:
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
         freshness_status = self._freshness_status_for_date_model(
             date_model,
-            cadence=spec.cadence,
+            cadence=projection.cadence,
             lag_days=lag_days,
             latest_success_at=normalized_success_at,
         )
-        if spec.dataset_key in DISABLED_DATASET_KEYS:
+        if projection.dataset_key in DISABLED_DATASET_KEYS:
             freshness_status = "disabled"
             lag_days = None
         visible_failure = self._visible_failure_snapshot(recent_failure, normalized_success_at)
@@ -306,14 +310,14 @@ class OpsFreshnessQueryService:
             )
 
         return DatasetFreshnessItem(
-            dataset_key=spec.dataset_key,
-            resource_key=spec.resource_key,
-            display_name=spec.display_name,
-            domain_key=spec.domain_key,
-            domain_display_name=spec.domain_display_name,
-            target_table=spec.target_table,
-            raw_table=spec.raw_table,
-            cadence=spec.cadence,
+            dataset_key=projection.dataset_key,
+            resource_key=projection.resource_key,
+            display_name=projection.display_name,
+            domain_key=projection.domain_key,
+            domain_display_name=projection.domain_display_name,
+            target_table=projection.target_table,
+            raw_table=projection.raw_table,
+            cadence=projection.cadence,
             earliest_business_date=earliest_business_date,
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
@@ -326,7 +330,7 @@ class OpsFreshnessQueryService:
             recent_failure_message=visible_failure.message if visible_failure else None,
             recent_failure_summary=self._summarize_failure_message(visible_failure.message) if visible_failure else None,
             recent_failure_at=visible_failure.occurred_at if visible_failure else None,
-            primary_action_key=spec.primary_action_key,
+            primary_action_key=projection.primary_action_key,
         )
 
     @staticmethod
@@ -401,17 +405,17 @@ class OpsFreshnessQueryService:
             return latest_open_date
         return reference_date
 
-    def _expected_business_date_for_spec(
+    def _expected_business_date_for_projection(
         self,
-        spec: DatasetFreshnessSpec,
+        projection: DatasetFreshnessProjection,
         *,
         reference_date: date,
         latest_open_date: date,
         open_trade_dates: list[date],
     ) -> date | None:
-        date_model = self._date_model_for_spec(spec)
+        date_model = self._date_model_for_projection(projection)
         if date_model is None:
-            return self._expected_business_date(spec.cadence, reference_date, latest_open_date)
+            return self._expected_business_date(projection.cadence, reference_date, latest_open_date)
         if date_model.bucket_rule == "not_applicable":
             return None
         if date_model.date_axis == "trade_open_day":
@@ -426,7 +430,7 @@ class OpsFreshnessQueryService:
             return reference_date
         if date_model.date_axis in {"month_key", "month_window"}:
             return date(reference_date.year, reference_date.month, 1)
-        return self._expected_business_date(spec.cadence, reference_date, latest_open_date)
+        return self._expected_business_date(projection.cadence, reference_date, latest_open_date)
 
     @staticmethod
     def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -680,26 +684,26 @@ class OpsFreshnessQueryService:
     def _observed_dataset_snapshots(
         self,
         session: Session,
-        specs: list[DatasetFreshnessSpec],
+        projections: list[DatasetFreshnessProjection],
         open_trade_dates: list[date] | None = None,
     ) -> tuple[dict[str, tuple[date | None, date | None]], dict[str, date | None]]:
         observed_ranges: dict[str, tuple[date | None, date | None]] = {}
         observed_sync_dates: dict[str, date | None] = {}
         open_trade_dates = open_trade_dates if open_trade_dates is not None else self._open_trade_dates(session)
-        for spec in specs:
-            model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
+        for projection in projections:
+            model = OBSERVED_DATE_MODEL_REGISTRY.get(projection.target_table)
             if model is None:
                 continue
-            date_model = self._date_model_for_spec(spec)
-            if spec.observed_date_column:
-                if not hasattr(model, spec.observed_date_column):
-                    observed_ranges[spec.dataset_key] = (None, None)
-                    observed_sync_dates[spec.dataset_key] = None
+            date_model = self._date_model_for_projection(projection)
+            if projection.observed_date_column:
+                if not hasattr(model, projection.observed_date_column):
+                    observed_ranges[projection.dataset_key] = (None, None)
+                    observed_sync_dates[projection.dataset_key] = None
                     continue
                 try:
-                    column = getattr(model, spec.observed_date_column)
+                    column = getattr(model, projection.observed_date_column)
                     base_filters = []
-                    filter_spec = OBSERVED_DATE_FILTERS.get(spec.dataset_key)
+                    filter_spec = OBSERVED_DATE_FILTERS.get(projection.dataset_key)
                     if filter_spec is not None:
                         filter_field, filter_value = filter_spec
                         if hasattr(model, filter_field):
@@ -712,28 +716,28 @@ class OpsFreshnessQueryService:
                     bucket_dates = self._actual_bucket_dates_for_observation(date_model, open_trade_dates)
                     if bucket_dates is not None:
                         if not bucket_dates:
-                            observed_ranges[spec.dataset_key] = (None, None)
-                            observed_sync_dates[spec.dataset_key] = None
+                            observed_ranges[projection.dataset_key] = (None, None)
+                            observed_sync_dates[projection.dataset_key] = None
                             continue
                         latest_query = latest_query.where(column.in_(bucket_dates))
                     earliest_raw = session.scalar(earliest_query)
                     latest_raw = session.scalar(latest_query)
                     normalized_earliest = OpsFreshnessQueryService._normalize_observed_date(earliest_raw)
                     normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
-                    observed_ranges[spec.dataset_key] = (normalized_earliest, normalized_latest)
-                    observed_sync_dates[spec.dataset_key] = normalized_latest
+                    observed_ranges[projection.dataset_key] = (normalized_earliest, normalized_latest)
+                    observed_sync_dates[projection.dataset_key] = normalized_latest
                 except SQLAlchemyError:
-                    observed_ranges[spec.dataset_key] = (None, None)
-                    observed_sync_dates[spec.dataset_key] = None
+                    observed_ranges[projection.dataset_key] = (None, None)
+                    observed_sync_dates[projection.dataset_key] = None
                 continue
             try:
                 if not hasattr(model, "updated_at"):
-                    observed_sync_dates[spec.dataset_key] = None
+                    observed_sync_dates[projection.dataset_key] = None
                     continue
                 latest_updated_at = session.scalar(select(func.max(getattr(model, "updated_at"))))
-                observed_sync_dates[spec.dataset_key] = OpsFreshnessQueryService._normalize_observed_date(latest_updated_at)
+                observed_sync_dates[projection.dataset_key] = OpsFreshnessQueryService._normalize_observed_date(latest_updated_at)
             except SQLAlchemyError:
-                observed_sync_dates[spec.dataset_key] = None
+                observed_sync_dates[projection.dataset_key] = None
         return observed_ranges, observed_sync_dates
 
     @staticmethod
@@ -744,8 +748,13 @@ class OpsFreshnessQueryService:
                 return None
             items: list[DatasetFreshnessItem] = []
             for row in rows:
-                spec = get_dataset_freshness_spec(row.resource_key)
-                items.append(snapshot_row_to_freshness_item(row, raw_table=spec.raw_table if spec is not None else None))
+                projection = get_dataset_freshness_projection(row.resource_key)
+                items.append(
+                    snapshot_row_to_freshness_item(
+                        row,
+                        raw_table=projection.raw_table if projection is not None else None,
+                    )
+                )
             groups = OpsFreshnessQueryService._group_items(items)
             summary = OpsFreshnessQueryService._build_summary(items)
             return OpsFreshnessResponse(summary=summary, groups=groups)
@@ -772,9 +781,9 @@ class OpsFreshnessQueryService:
         return None
 
     @staticmethod
-    def _date_model_for_spec(spec: DatasetFreshnessSpec) -> DatasetDateModel | None:
+    def _date_model_for_projection(projection: DatasetFreshnessProjection) -> DatasetDateModel | None:
         try:
-            return get_dataset_definition(spec.resource_key).date_model
+            return get_dataset_definition(projection.resource_key).date_model
         except KeyError:
             return None
 

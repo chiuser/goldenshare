@@ -11,7 +11,7 @@ from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.ops.models.ops.task_run import TaskRun
-from src.ops.specs import get_dataset_freshness_spec, get_job_spec, get_workflow_spec
+from src.ops.specs import get_job_spec, get_workflow_spec
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,9 +238,6 @@ class TaskRunCommandService:
     @staticmethod
     def _resolve_title(*, task_type: str, resource_key: str | None, action: str) -> str:
         if resource_key:
-            freshness_spec = get_dataset_freshness_spec(resource_key)
-            if freshness_spec is not None:
-                return freshness_spec.display_name
             try:
                 return get_dataset_definition(resource_key).display_name
             except KeyError:

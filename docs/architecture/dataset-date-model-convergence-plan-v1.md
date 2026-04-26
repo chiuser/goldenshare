@@ -29,7 +29,7 @@ M0 前日期语义曾分散在三处：
    - 文件：`/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py`（历史路径，已删除）
 
 2. **状态层（freshness）**  
-   - 定义位置：`DATASET_FRESHNESS_METADATA`  
+   - 定义位置：旧 freshness metadata  
    - 字段：`cadence/observed_date_column`（以及展示字段）  
    - 文件：[/Users/congming/github/goldenshare/src/ops/specs/registry.py](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
 
@@ -376,7 +376,7 @@ M0 前问题：
 ## Phase C：状态层切主读（已完成）
 
 1. `ops.specs.registry` 的 `observed_date_column` 改为从 `date_model.observed_field` 派生。  
-2. `DATASET_FRESHNESS_METADATA` 仅保留展示维度字段（display/domain/cadence）。
+2. 旧 freshness metadata 的展示维度字段已迁入 `DatasetDefinition.domain`。
 
 ## Phase D：删除旧定义（已完成）
 

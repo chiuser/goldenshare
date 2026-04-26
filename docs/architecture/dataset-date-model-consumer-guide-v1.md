@@ -264,7 +264,7 @@ units = plan.units
 使用目标：
 
 1. 判断目标表中哪个字段代表最新业务日期。
-2. 避免 `DATASET_FRESHNESS_METADATA` 重复维护观测字段。
+2. 避免旧 freshness metadata 重复维护观测字段。
 
 正确做法：
 

@@ -6,9 +6,9 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.ops.dataset_definition_projection import list_dataset_freshness_projections
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.ops.specs import list_dataset_freshness_specs
 from src.ops.schemas.std_rule import (
     StdCleansingRuleItem,
     StdCleansingRuleListResponse,
@@ -154,9 +154,9 @@ class StdRuleQueryService:
     @staticmethod
     def _default_dataset_keys(dataset_key: str | None) -> list[str]:
         all_keys = sorted(
-            spec.dataset_key
-            for spec in list_dataset_freshness_specs()
-            if spec.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
+            projection.dataset_key
+            for projection in list_dataset_freshness_projections()
+            if projection.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
         )
         if dataset_key:
             return [dataset_key] if dataset_key in all_keys else []

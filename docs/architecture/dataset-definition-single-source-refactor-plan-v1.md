@@ -56,12 +56,12 @@ M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在
 
 | 信息 | 当前位置 | 问题 |
 |---|---|---|
-| 中文名、领域、cadence | `src/ops/specs/registry.py` 的 `DATASET_FRESHNESS_METADATA` | foundation 数据集事实被 ops 反向补全 |
+| 中文名、领域、cadence | `src/ops/specs/registry.py` 的旧 freshness metadata | foundation 数据集事实被 ops 反向补全 |
 | 可调度/可手动运行能力 | `JobSpec.supports_schedule/supports_manual_run` | 执行路径和用户能力混在一起 |
 | 参数展示名与枚举 | `src/ops/specs/registry.py` 的 `ParameterSpec` | 与 `DatasetSyncContract.input_schema` 重叠 |
 | 手动维护动作 | `ManualActionQueryService` 从 `JobSpec` 拼装 | action 是由旧执行路径反推出来的 |
-| 任务名称 | `JobSpec.display_name`、`DatasetFreshnessSpec.display_name`、前端 formatter | 同一对象多处命名，容易不一致 |
-| freshness 投影 | `DatasetFreshnessSpec` | 是有价值投影，但不应是事实源 |
+| 任务名称 | `JobSpec.display_name`、前端 formatter | 同一对象多处命名，容易不一致 |
+| freshness 投影 | `DatasetDefinition` 派生的 `DatasetFreshnessProjection` | 是有价值投影，但只能从 definition 派生 |
 | `/ops/catalog` | `JobSpec` + `WorkflowSpec` 输出 | 暴露系统内部 spec，不是用户级数据集模型 |
 
 ### 3.2 M0 前 JobSpec 膨胀
@@ -186,7 +186,7 @@ class DatasetDefinition:
 | 分组 | 主要字段 | 说明 |
 |---|---|---|
 | `identity` | `dataset_key`、`display_name`、`description`、`aliases` | 只表达数据集身份 |
-| `domain` | `domain_key`、`domain_display_name`、`cadence` | 替代 `DATASET_FRESHNESS_METADATA` |
+| `domain` | `domain_key`、`domain_display_name`、`cadence` | 替代旧 freshness metadata |
 | `source` | `source_key_default`、`adapter_key`、`api_name`、`source_fields`、`source_doc_id` | 对接源接口事实 |
 | `date_model` | 现有 `DatasetDateModel` | 日期语义唯一来源 |
 | `input_model` | 时间输入以外的过滤参数、枚举、默认值、校验规则 | 替代 ops 侧重复 `ParameterSpec` |
@@ -424,7 +424,7 @@ Ops 展示投影只回答：
 | `InputSchema/InputField` | 合入 `DatasetInputModel`，并派生 API/前端参数展示 |
 | `PlanningSpec` | 保留为执行计划输入，但从 definition 派生 |
 | `SourceSpec/WriteSpec/ObserveSpec` | 合入 definition 的 source/storage/observability |
-| `DatasetFreshnessSpec` | 改为从 definition 生成的 ops 投影 |
+| `DatasetFreshnessProjection` | 从 definition 生成的 ops 投影，不得作为独立事实源维护 |
 | `JobSpec` | 不再作为用户/调度主模型；最终删除或降级为临时内部测试夹具 |
 | `WorkflowSpec` | 重建为引用 action 的 `WorkflowDefinition`，不再引用旧 job key |
 | `/ops/catalog` | 重做为数据集/动作/工作流目录，不再输出旧 spec catalog |

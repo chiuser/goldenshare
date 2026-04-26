@@ -218,8 +218,8 @@
   - 有业务日期：展示“日期范围”
   - 无业务日期：展示“最近同步日期”
 - 业务日期观测一致性（有业务日期时必填）：
-  - `DATASET_FRESHNESS_METADATA` 的 `observed_date_column` 已配置（通常为 `trade_date`）
-  - `DatasetFreshnessSpec.target_table` 已在 `OBSERVED_DATE_MODEL_REGISTRY` 中配置模型映射
+  - `DatasetDefinition.date_model.observed_field` 已配置（通常为 `trade_date`）
+  - 由 `DatasetDefinition` 派生的 freshness projection 的 `target_table` 已在 `OBSERVED_DATE_MODEL_REGISTRY` 中配置模型映射
   - 映射模型中存在 `observed_date_column` 对应字段
   - Tushare/Biying 源页面卡片展示“最新业务日/日期范围”，不会退化为“最近同步”
 - 异常展示口径（中文）：

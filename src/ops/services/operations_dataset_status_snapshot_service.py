@@ -8,18 +8,17 @@ from sqlalchemy.orm import Session
 
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
-from src.ops.dataset_definition_projection import build_dataset_pipeline_projection
+from src.ops.dataset_definition_projection import (
+    build_dataset_pipeline_projection,
+    get_dataset_freshness_projection,
+)
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
-from src.ops.specs import (
-    get_dataset_freshness_spec,
-    get_workflow_spec,
-    list_dataset_freshness_specs,
-)
+from src.ops.specs import get_workflow_spec
 
 
 class DatasetStatusSnapshotService:
@@ -91,8 +90,8 @@ class DatasetStatusSnapshotService:
 
     @staticmethod
     def _to_item(row: DatasetStatusSnapshot) -> DatasetFreshnessItem:
-        spec = get_dataset_freshness_spec(row.resource_key)
-        return snapshot_row_to_freshness_item(row, raw_table=spec.raw_table if spec is not None else None)
+        projection = get_dataset_freshness_projection(row.resource_key)
+        return snapshot_row_to_freshness_item(row, raw_table=projection.raw_table if projection is not None else None)
 
     @staticmethod
     def _resource_keys_for_spec(*, spec_type: str, spec_key: str) -> list[str]:
@@ -102,7 +101,7 @@ class DatasetStatusSnapshotService:
             except KeyError:
                 return []
             resource_key = definition.dataset_key
-            if get_dataset_freshness_spec(resource_key) is None:
+            if get_dataset_freshness_projection(resource_key) is None:
                 return []
             return [resource_key]
         if spec_type == "job":
@@ -117,7 +116,7 @@ class DatasetStatusSnapshotService:
                     definition, _action = get_dataset_definition_by_action_key(step.job_key)
                 except KeyError:
                     continue
-                if get_dataset_freshness_spec(definition.dataset_key) is not None:
+                if get_dataset_freshness_projection(definition.dataset_key) is not None:
                     resource_keys.append(definition.dataset_key)
             return resource_keys
         return []

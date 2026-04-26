@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.specs.job_spec import JobSpec, ParameterSpec
-from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
 from src.foundation.datasets.registry import (
     get_dataset_definition,
     get_dataset_definition_by_action_key,
-    list_dataset_definitions,
 )
-from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
 START_DATE_PARAM = ParameterSpec(
@@ -175,59 +171,6 @@ WORKFLOW_SPEC_REGISTRY: dict[str, WorkflowSpec] = {
 }
 
 
-DATASET_FRESHNESS_SPEC_REGISTRY: dict[str, DatasetFreshnessSpec] = {}
-
-
-def validate_dataset_freshness_registry(
-    specs: dict[str, DatasetFreshnessSpec],
-    *,
-    observed_model_registry: dict[str, type],
-) -> list[str]:
-    errors: list[str] = []
-    missing_models: list[str] = []
-    missing_columns: list[str] = []
-    for resource_key, spec in sorted(specs.items()):
-        if spec.observed_date_column is None:
-            continue
-        model = observed_model_registry.get(spec.target_table)
-        if model is None:
-            missing_models.append(resource_key)
-            continue
-        if not hasattr(model, spec.observed_date_column):
-            missing_columns.append(f"{resource_key}({spec.target_table}.{spec.observed_date_column})")
-    if missing_models:
-        errors.append(f"Missing observed model mapping: {', '.join(missing_models)}")
-    if missing_columns:
-        errors.append(f"Missing observed date column on mapped model: {', '.join(missing_columns)}")
-    return errors
-
-
-for _definition in list_dataset_definitions():
-    _resource = _definition.dataset_key
-    _runtime_spec = DATASET_RUNTIME_REGISTRY[_resource]
-    _observed_date_column = _definition.date_model.observed_field
-    _spec = DatasetFreshnessSpec(
-        dataset_key=_resource,
-        resource_key=_resource,
-        display_name=_definition.display_name,
-        domain_key=_definition.domain.domain_key,
-        domain_display_name=_definition.domain.domain_display_name,
-        target_table=_runtime_spec.target_table,
-        cadence=_definition.domain.cadence,  # type: ignore[arg-type]
-        raw_table=_definition.storage.raw_table,
-        observed_date_column=_observed_date_column,
-        primary_action_key=_definition.action_key("maintain") if _definition.capabilities.get_action("maintain") else None,
-    )
-    DATASET_FRESHNESS_SPEC_REGISTRY[_resource] = _spec
-
-_dataset_freshness_registry_errors = validate_dataset_freshness_registry(
-    DATASET_FRESHNESS_SPEC_REGISTRY,
-    observed_model_registry=OBSERVED_DATE_MODEL_REGISTRY,
-)
-if _dataset_freshness_registry_errors:
-    raise RuntimeError("Invalid DATASET_FRESHNESS_SPEC_REGISTRY: " + "; ".join(_dataset_freshness_registry_errors))
-
-
 def list_job_specs() -> list[JobSpec]:
     return [JOB_SPEC_REGISTRY[key] for key in sorted(JOB_SPEC_REGISTRY)]
 
@@ -290,11 +233,3 @@ def ops_spec_supports_schedule(spec_type: str, spec_key: str) -> bool:
         return bool(action and action.schedule_enabled)
     spec = get_ops_spec(spec_type, spec_key)
     return bool(spec is not None and getattr(spec, "supports_schedule", False))
-
-
-def list_dataset_freshness_specs() -> list[DatasetFreshnessSpec]:
-    return [DATASET_FRESHNESS_SPEC_REGISTRY[key] for key in sorted(DATASET_FRESHNESS_SPEC_REGISTRY)]
-
-
-def get_dataset_freshness_spec(resource_key: str) -> DatasetFreshnessSpec | None:
-    return DATASET_FRESHNESS_SPEC_REGISTRY.get(resource_key)

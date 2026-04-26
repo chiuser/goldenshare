@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,20 @@ class DatasetPipelineProjection:
         return ",".join(self.source_keys)
 
 
+@dataclass(frozen=True, slots=True)
+class DatasetFreshnessProjection:
+    dataset_key: str
+    resource_key: str
+    display_name: str
+    domain_key: str
+    domain_display_name: str
+    target_table: str
+    cadence: str
+    raw_table: str | None = None
+    observed_date_column: str | None = None
+    primary_action_key: str | None = None
+
+
 def build_dataset_pipeline_projection(definition: DatasetDefinition) -> DatasetPipelineProjection:
     mode = _mode_from_definition(definition)
     return DatasetPipelineProjection(
@@ -41,6 +57,63 @@ def build_dataset_pipeline_projection(definition: DatasetDefinition) -> DatasetP
         serving_enabled=mode in {"single_source_direct", "multi_source_pipeline"},
         notes=f"由 DatasetDefinition 派生：{mode}",
     )
+
+
+def build_dataset_freshness_projection(definition: DatasetDefinition) -> DatasetFreshnessProjection:
+    action = definition.capabilities.get_action("maintain")
+    return DatasetFreshnessProjection(
+        dataset_key=definition.dataset_key,
+        resource_key=definition.dataset_key,
+        display_name=definition.display_name,
+        domain_key=definition.domain.domain_key,
+        domain_display_name=definition.domain.domain_display_name,
+        target_table=definition.storage.target_table,
+        cadence=definition.domain.cadence,
+        raw_table=definition.storage.raw_table,
+        observed_date_column=definition.date_model.observed_field,
+        primary_action_key=definition.action_key("maintain") if action is not None else None,
+    )
+
+
+@lru_cache(maxsize=1)
+def list_dataset_freshness_projections() -> tuple[DatasetFreshnessProjection, ...]:
+    return tuple(
+        build_dataset_freshness_projection(definition)
+        for definition in sorted(list_dataset_definitions(), key=lambda item: item.dataset_key)
+    )
+
+
+def get_dataset_freshness_projection(resource_key: str) -> DatasetFreshnessProjection | None:
+    try:
+        return build_dataset_freshness_projection(get_dataset_definition(resource_key))
+    except KeyError:
+        return None
+
+
+def validate_dataset_freshness_projections(
+    projections: dict[str, DatasetFreshnessProjection],
+    *,
+    observed_model_registry: dict[str, type],
+) -> list[str]:
+    errors: list[str] = []
+    missing_models: list[str] = []
+    missing_columns: list[str] = []
+    for resource_key, projection in sorted(projections.items()):
+        if projection.observed_date_column is None:
+            continue
+        model = observed_model_registry.get(projection.target_table)
+        if model is None:
+            missing_models.append(resource_key)
+            continue
+        if not hasattr(model, projection.observed_date_column):
+            missing_columns.append(
+                f"{resource_key}({projection.target_table}.{projection.observed_date_column})"
+            )
+    if missing_models:
+        errors.append(f"Missing observed model mapping: {', '.join(missing_models)}")
+    if missing_columns:
+        errors.append(f"Missing observed date column on mapped model: {', '.join(missing_columns)}")
+    return errors
 
 
 def _mode_from_definition(definition: DatasetDefinition) -> str:

@@ -8,9 +8,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.ops.specs import list_dataset_freshness_specs
+from src.ops.dataset_definition_projection import list_dataset_freshness_projections
+from src.ops.dataset_observation_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
-from src.ops.queries.freshness_query_service import OBSERVED_DATE_MODEL_REGISTRY, OpsFreshnessQueryService
+from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 
 
 @pytest.fixture()
@@ -33,7 +34,7 @@ def db_session() -> Generator[Session, None, None]:
         engine.dispose()
 
 
-def test_build_from_snapshot_includes_raw_table_from_dataset_spec(db_session: Session) -> None:
+def test_build_from_snapshot_includes_raw_table_from_dataset_definition_projection(db_session: Session) -> None:
     db_session.add(
         DatasetStatusSnapshot(
             dataset_key="daily",
@@ -82,18 +83,18 @@ def test_observed_model_registry_covers_equity_daily_business_date_tables() -> N
     assert not missing_tables
 
 
-def test_all_observed_date_specs_have_model_mapping_and_column() -> None:
+def test_all_observed_date_projections_have_model_mapping_and_column() -> None:
     missing_model: list[str] = []
     missing_column: list[str] = []
-    for spec in list_dataset_freshness_specs():
-        if not spec.observed_date_column:
+    for projection in list_dataset_freshness_projections():
+        if not projection.observed_date_column:
             continue
-        model = OBSERVED_DATE_MODEL_REGISTRY.get(spec.target_table)
+        model = OBSERVED_DATE_MODEL_REGISTRY.get(projection.target_table)
         if model is None:
-            missing_model.append(f"{spec.dataset_key}:{spec.target_table}")
+            missing_model.append(f"{projection.dataset_key}:{projection.target_table}")
             continue
-        if not hasattr(model, spec.observed_date_column):
-            missing_column.append(f"{spec.dataset_key}:{spec.target_table}.{spec.observed_date_column}")
+        if not hasattr(model, projection.observed_date_column):
+            missing_column.append(f"{projection.dataset_key}:{projection.target_table}.{projection.observed_date_column}")
 
     assert not missing_model
     assert not missing_column

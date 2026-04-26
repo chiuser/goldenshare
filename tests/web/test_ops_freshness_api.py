@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.ops.dataset_definition_projection import DatasetFreshnessProjection
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
-from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 
 
 def _mark_resource_success(
@@ -307,7 +307,7 @@ def test_ops_freshness_marks_unsynced_dataset_as_unknown(app_client, user_factor
 
 def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
     service = OpsFreshnessQueryService()
-    spec = DatasetFreshnessSpec(
+    projection = DatasetFreshnessProjection(
         dataset_key="ths_member",
         resource_key="ths_member",
         display_name="同花顺板块成分",
@@ -320,7 +320,7 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
     )
 
     item = service._build_item(
-        spec=spec,
+        projection=projection,
         latest_success_at=datetime(2026, 4, 1, 9, 30, tzinfo=timezone.utc),
         latest_open_date=date(2026, 4, 1),
         reference_date=date(2026, 4, 1),
@@ -415,9 +415,9 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
 
     monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
     monkeypatch.setattr(
-        "src.ops.queries.freshness_query_service.list_dataset_freshness_specs",
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [
-            DatasetFreshnessSpec(
+            DatasetFreshnessProjection(
                 dataset_key="daily",
                 resource_key="daily",
                 display_name="股票日线",
@@ -428,7 +428,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
                 observed_date_column="trade_date",
                 primary_action_key="daily.maintain",
             ),
-            DatasetFreshnessSpec(
+            DatasetFreshnessProjection(
                 dataset_key="ths_hot",
                 resource_key="ths_hot",
                 display_name="同花顺热榜",
@@ -502,9 +502,9 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
 
     monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
     monkeypatch.setattr(
-        "src.ops.queries.freshness_query_service.list_dataset_freshness_specs",
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [
-            DatasetFreshnessSpec(
+            DatasetFreshnessProjection(
                 dataset_key="broker_recommend",
                 resource_key="broker_recommend",
                 display_name="券商每月荐股",

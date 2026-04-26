@@ -9,11 +9,11 @@ from sqlalchemy.pool import StaticPool
 
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
+from src.ops.dataset_definition_projection import list_dataset_freshness_projections
 from src.ops.services.operations_default_single_source_seed_service import (
     DISABLED_DEFAULT_DATASET_KEYS,
     DefaultSingleSourceSeedService,
 )
-from src.ops.specs import list_dataset_freshness_specs
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
@@ -45,10 +45,10 @@ def db_session() -> Generator[Session, None, None]:
 def _expected_tushare_dataset_count() -> int:
     return sum(
         1
-        for spec in list_dataset_freshness_specs()
-        if spec.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
-        and spec.raw_table is not None
-        and spec.raw_table.startswith("raw_tushare.")
+        for projection in list_dataset_freshness_projections()
+        if projection.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
+        and projection.raw_table is not None
+        and projection.raw_table.startswith("raw_tushare.")
     )
 
 

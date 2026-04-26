@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
+from src.ops.dataset_definition_projection import list_dataset_freshness_projections
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
-from src.ops.specs import list_dataset_freshness_specs
 
 
 DISABLED_DEFAULT_DATASET_KEYS: set[str] = set()
@@ -116,11 +116,11 @@ class DefaultSingleSourceSeedService:
     def _default_dataset_keys(*, source_key: str) -> list[str]:
         source_raw_prefix = f"raw_{source_key}."
         return sorted(
-            spec.dataset_key
-            for spec in list_dataset_freshness_specs()
-            if spec.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
-            and spec.raw_table is not None
-            and spec.raw_table.startswith(source_raw_prefix)
+            projection.dataset_key
+            for projection in list_dataset_freshness_projections()
+            if projection.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
+            and projection.raw_table is not None
+            and projection.raw_table.startswith(source_raw_prefix)
         )
 
     @staticmethod

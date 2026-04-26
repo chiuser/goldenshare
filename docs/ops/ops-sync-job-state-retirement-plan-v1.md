@@ -17,7 +17,7 @@
 
 Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三类事实源：
 
-1. `DatasetDefinition.date_model` 与 `DatasetFreshnessSpec` 提供静态规则。
+1. `DatasetDefinition.date_model` 与由它派生的 freshness projection 提供静态规则。
 2. 真实业务表提供日期/月份/窗口观测值。
 3. `ops.task_run / task_run_node / task_run_issue` 提供最近成功时间、最近失败信息、当前活跃任务。
 
@@ -111,7 +111,7 @@ Ops 数据集卡片、新鲜度 API、状态重建命令后续只允许依赖三
 
 ```mermaid
 flowchart LR
-  A["DatasetFreshnessSpec / DatasetDefinition.date_model"] --> D["OpsFreshnessQueryService"]
+  A["DatasetDefinition.date_model<br/>DatasetDefinition-derived freshness projection"] --> D["OpsFreshnessQueryService"]
   B["真实业务表观测值<br/>observed business range / updated_at"] --> D
   C["TaskRun / TaskRunNode / TaskRunIssue"] --> D
   D --> E["DatasetFreshnessItem"]
