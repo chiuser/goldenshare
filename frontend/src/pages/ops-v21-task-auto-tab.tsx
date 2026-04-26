@@ -275,11 +275,6 @@ function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sour
   return source?.display_name || "未指定来源";
 }
 
-function getDatasetLabelFromCatalog(catalog: OpsCatalogResponse | undefined, datasetKey: string): string {
-  const action = getCatalogActions(catalog).find((item) => item.action_type === "dataset_action" && item.target_key === datasetKey);
-  return action ? getCatalogActionLabel(action) : "未命名数据集";
-}
-
 function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
   if (rule === "week_last_trading_day") {
     return "week_last_trading_day";
@@ -1078,9 +1073,9 @@ export function OpsAutomationPage() {
                         <Group justify="space-between" align="flex-start">
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
                           <Text size="sm" ta="right">
-                            {(detailQuery.data.probe_config.workflow_dataset_keys || []).length
-                              ? (detailQuery.data.probe_config.workflow_dataset_keys || [])
-                                .map((datasetKey) => getDatasetLabelFromCatalog(catalogQuery.data, datasetKey))
+                            {(detailQuery.data.probe_config.workflow_dataset_targets || []).length
+                              ? (detailQuery.data.probe_config.workflow_dataset_targets || [])
+                                .map((item) => item.dataset_display_name || "未命名数据集")
                                 .join("、")
                               : "未配置"}
                           </Text>

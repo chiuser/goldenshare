@@ -345,6 +345,10 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     created = create_response.json()
     assert created["trigger_mode"] == "probe"
     assert created["probe_config"]["source_display_name"] == "Tushare"
+    assert created["probe_config"]["workflow_dataset_targets"] == [
+        {"dataset_key": "daily", "dataset_display_name": "股票日线"},
+        {"dataset_key": "daily_basic", "dataset_display_name": "每日指标"},
+    ]
 
     probe_response = app_client.get(
         f"/api/v1/ops/probes?schedule_id={created['id']}",

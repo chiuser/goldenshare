@@ -16,8 +16,14 @@ class ScheduleProbeConfig(BaseModel):
     workflow_dataset_keys: list[str] = []
 
 
+class ScheduleProbeDatasetTargetResponse(BaseModel):
+    dataset_key: str
+    dataset_display_name: str | None = None
+
+
 class ScheduleProbeConfigResponse(ScheduleProbeConfig):
     source_display_name: str | None = None
+    workflow_dataset_targets: list[ScheduleProbeDatasetTargetResponse] = []
 
 
 class CreateScheduleRequest(BaseModel):

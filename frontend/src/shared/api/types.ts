@@ -272,6 +272,10 @@ export interface ScheduleDetailResponse {
     condition_kind: string;
     min_rows_in: number | null;
     workflow_dataset_keys: string[];
+    workflow_dataset_targets: Array<{
+      dataset_key: string;
+      dataset_display_name: string | null;
+    }>;
   } | null;
   params_json: Record<string, unknown>;
   retry_policy_json: Record<string, unknown>;

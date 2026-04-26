@@ -9,6 +9,7 @@ from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.action_catalog import get_target_display_name
 from src.app.exceptions import WebAppError
+from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.schemas.schedule import (
     ScheduleDetailResponse,
     ScheduleListItem,
@@ -162,4 +163,17 @@ class ScheduleQueryService:
             return None
         payload = dict(probe_config_json)
         payload["source_display_name"] = get_source_display_name(payload.get("source_key"))
+        payload["workflow_dataset_targets"] = [
+            {
+                "dataset_key": dataset_key,
+                "dataset_display_name": get_dataset_display_name(dataset_key),
+            }
+            for dataset_key in _normalize_dataset_keys(payload.get("workflow_dataset_keys"))
+        ]
         return payload
+
+
+def _normalize_dataset_keys(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
