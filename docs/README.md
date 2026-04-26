@@ -106,6 +106,7 @@ docs/
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
 - [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
 - [股票历史分钟行情请求策略优化方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-request-optimization-plan-v1.md)
+- [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
 - [股票技术面因子（专业版）全链路重做方案（V2 优先）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-v2-rebuild-plan.md)
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
