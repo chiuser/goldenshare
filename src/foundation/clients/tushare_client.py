@@ -41,6 +41,7 @@ class _RateLimiter:
 
 _API_RATE_LIMITS = {
     "stock_basic": 50,
+    "index_daily": 500,
 }
 
 _rate_limiters: dict[str, _RateLimiter] = {}
