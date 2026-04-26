@@ -648,16 +648,19 @@ class TaskRunDispatcher:
         node: TaskRunNode,
         *,
         status: str,
-        rows_fetched: int = 0,
-        rows_saved: int = 0,
-        rows_rejected: int = 0,
+        rows_fetched: int | None = None,
+        rows_saved: int | None = None,
+        rows_rejected: int | None = None,
     ) -> None:
         ended_at = datetime.now(timezone.utc)
         started_at = TaskRunDispatcher._as_aware_utc(node.started_at) if node.started_at else ended_at
         node.status = status
-        node.rows_fetched = rows_fetched
-        node.rows_saved = rows_saved
-        node.rows_rejected = rows_rejected
+        if rows_fetched is not None:
+            node.rows_fetched = rows_fetched
+        if rows_saved is not None:
+            node.rows_saved = rows_saved
+        if rows_rejected is not None:
+            node.rows_rejected = rows_rejected
         node.ended_at = ended_at
         node.duration_ms = max(int((ended_at - started_at).total_seconds() * 1000), 0)
 

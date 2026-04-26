@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
+from src.ops.services.task_run_sync_context import TaskRunSyncContext
 
 
 class StubDispatcher:
@@ -111,6 +112,60 @@ def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factor
     issue = db_session.get(TaskRunIssue, result.primary_issue_id)
     assert issue is not None
     assert issue.code == "worker_error"
+
+
+def test_task_run_progress_updates_current_running_node_rows(db_session, task_run_factory, task_run_node_factory) -> None:
+    task_run = task_run_factory(status="running", resource_key="limit_list_ths", title="同花顺涨跌停榜单")
+    node = task_run_node_factory(
+        task_run_id=task_run.id,
+        node_key="limit_list_ths:maintain",
+        title="维护 同花顺涨跌停榜单",
+        status="running",
+    )
+    task_run.current_node_id = node.id
+    db_session.commit()
+
+    TaskRunSyncContext(db_session).update_progress(
+        execution_id=task_run.id,
+        current=1,
+        total=5,
+        message="unused structured progress",
+        rows_fetched=10514,
+        rows_saved=10514,
+        rows_rejected=0,
+        current_object={"entity": {"kind": "date", "name": "2026-04-24"}, "time": {}, "attributes": {}},
+    )
+
+    db_session.refresh(task_run)
+    db_session.refresh(node)
+    assert task_run.rows_fetched == 10514
+    assert task_run.rows_saved == 10514
+    assert node.rows_fetched == 10514
+    assert node.rows_saved == 10514
+    assert node.rows_rejected == 0
+
+
+def test_finish_node_preserves_observed_rows_when_final_rows_not_provided(db_session, task_run_factory, task_run_node_factory) -> None:
+    task_run = task_run_factory(status="running", resource_key="daily", title="股票日线")
+    node = task_run_node_factory(
+        task_run_id=task_run.id,
+        node_key="daily:maintain",
+        title="维护 股票日线",
+        status="running",
+        rows_fetched=9000,
+        rows_saved=8990,
+        rows_rejected=10,
+        started_at=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+    )
+
+    TaskRunDispatcher._finish_node(node, status="failed")
+    db_session.commit()
+    db_session.refresh(node)
+
+    assert node.status == "failed"
+    assert node.rows_fetched == 9000
+    assert node.rows_saved == 8990
+    assert node.rows_rejected == 10
 
 
 def test_task_run_dispatcher_refreshes_daily_serving_light_with_current_service_api(db_session) -> None:

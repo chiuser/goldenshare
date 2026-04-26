@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.kernel.contracts.sync_execution_context import SyncExecutionContext
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.task_run_node import TaskRunNode
 
 
 class TaskRunSyncContext(SyncExecutionContext):
@@ -49,9 +50,23 @@ class TaskRunSyncContext(SyncExecutionContext):
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)
             task_run.current_object_json = self._sanitize_current_object(current_object)
+            self._update_current_running_node(progress_session, task_run)
             progress_session.commit()
+        except Exception:
+            progress_session.rollback()
         finally:
             progress_session.close()
+
+    @staticmethod
+    def _update_current_running_node(progress_session: Session, task_run: TaskRun) -> None:
+        if task_run.current_node_id is None:
+            return
+        node = progress_session.get(TaskRunNode, task_run.current_node_id)
+        if node is None or node.task_run_id != task_run.id or node.status != "running":
+            return
+        node.rows_fetched = task_run.rows_fetched
+        node.rows_saved = task_run.rows_saved
+        node.rows_rejected = task_run.rows_rejected
 
     @staticmethod
     def _sanitize_current_object(value: dict[str, Any] | None) -> dict[str, Any]:
