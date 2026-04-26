@@ -19,7 +19,7 @@ interface SourceCardItem {
   domainDisplayName: string;
   rawTableLabel: string;
   status: CardStatus;
-  recentSyncText: string;
+  lastSyncText: string;
   dateRangeText: string;
   cadenceText: string;
   primaryActionKey: string | null;
@@ -83,19 +83,15 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       const activeExecutionStatus = (item.active_execution_status || "").toLowerCase();
       const hasActiveExecution = activeExecutionStatus === "queued" || activeExecutionStatus === "running" || activeExecutionStatus === "canceling";
       const status = toCardStatus(item.status);
-      const recentSyncText = hasActiveExecution
+      const lastSyncText = hasActiveExecution
         ? (
             item.active_execution_started_at
               ? `执行中（开始于 ${formatDateTimeLabel(item.active_execution_started_at)}）`
               : "执行中"
           )
-        : (
-            item.latest_success_at
-              ? formatDateTimeLabel(item.latest_success_at)
-              : item.last_sync_date
-                ? formatDateLabel(item.last_sync_date)
-                : "—"
-          );
+        : item.last_sync_date
+          ? formatDateLabel(item.last_sync_date)
+          : "—";
       return {
         datasetKey: item.card_key,
         displayName: item.display_name || "未命名数据集",
@@ -103,7 +99,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         domainDisplayName: group.domain_display_name || item.domain_display_name || "未分类",
         rawTableLabel: item.raw_table_label || "—",
         status,
-        recentSyncText,
+        lastSyncText,
         dateRangeText: buildDateRangeText(item),
         cadenceText: item.cadence_display_name,
         primaryActionKey: item.primary_action_key || null,
@@ -185,7 +181,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
 
                     <Stack gap={6}>
                       <Group gap={6} wrap="wrap">
-                        <Text size="sm">最近同步：{item.recentSyncText}</Text>
+                        <Text size="sm">最近同步：{item.lastSyncText}</Text>
                         <StatusBadge value={item.status} label={statusLabel(item.status)} size="xs" />
                       </Group>
                       <Text size="sm">更新频率：{item.cadenceText}</Text>

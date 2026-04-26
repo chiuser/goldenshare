@@ -153,6 +153,8 @@ describe("V2.1 数据源详情页", () => {
     expect(await screen.findByText("数据集 · Tushare")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("涨跌停列表（同花顺）")).toBeInTheDocument();
+    expect(screen.queryByText("最近同步：2026/04/17 09:10:00")).not.toBeInTheDocument();
+    expect(await screen.findByText("最近同步：2026/04/17")).toBeInTheDocument();
     expect(await screen.findByText("最近同步：2026/04/24")).toBeInTheDocument();
     expect(await screen.findAllByText("更新频率：每日")).toHaveLength(3);
     expect(await screen.findByText("raw_tushare.daily")).toBeInTheDocument();
