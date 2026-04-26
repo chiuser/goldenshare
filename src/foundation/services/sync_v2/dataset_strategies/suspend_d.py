@@ -4,5 +4,12 @@ from src.foundation.services.sync_v2.dataset_strategies.common import build_defa
 
 
 def build_suspend_d_units(request, contract, dao, settings, session):
-    return build_default_units(request, contract, dao, settings, session, page_limit=5000)
-
+    return build_default_units(
+        request,
+        contract,
+        dao,
+        settings,
+        session,
+        page_limit=5000,
+        enum_fields=("suspend_type",),
+    )

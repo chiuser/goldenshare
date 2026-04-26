@@ -112,7 +112,24 @@ def test_validator_accepts_suspend_d_incremental_with_suspend_type() -> None:
     validated = validator.validate(request=request, contract=contract, strict=True)
 
     assert validated.trade_date == date(2026, 4, 21)
-    assert validated.params["suspend_type"] == "S"
+    assert validated.params["suspend_type"] == ["S"]
+
+
+def test_validator_rejects_invalid_suspend_d_suspend_type() -> None:
+    validator = ContractValidator()
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-invalid-suspend-type",
+        dataset_key="suspend_d",
+        run_profile="point_incremental",
+        trigger_source="manual",
+        params={"trade_date": "20260421", "suspend_type": ["X"]},
+    )
+
+    with pytest.raises(SyncV2ValidationError) as exc_info:
+        validator.validate(request=request, contract=contract, strict=True)
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
 
 
 def test_validator_accepts_cyq_perf_incremental_with_ts_code() -> None:

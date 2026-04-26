@@ -69,6 +69,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 
+    suspend_d_filters = {item["key"]: item for item in actions["suspend_d"]["filters"]}
+    assert suspend_d_filters["suspend_type"]["param_type"] == "enum"
+    assert suspend_d_filters["suspend_type"]["multi_value"] is True
+    assert suspend_d_filters["suspend_type"]["options"] == ["S", "R"]
+
 
 def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)

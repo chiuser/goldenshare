@@ -134,6 +134,52 @@ const mockManualActions = {
           action_order: 100,
           route_spec_keys: ["stk_factor_pro.maintain"],
         },
+        {
+          action_key: "suspend_d",
+          action_type: "dataset_action",
+          display_name: "维护每日停复牌信息",
+          description: "维护每日停复牌信息。",
+          resource_key: "suspend_d",
+          resource_display_name: "每日停复牌信息",
+          date_model: {
+            date_axis: "trade_open_day",
+            bucket_rule: "every_open_day",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "trade_date",
+            audit_applicable: true,
+            not_applicable_reason: null,
+          },
+          time_form: {
+            control: "trade_date_or_range",
+            default_mode: "point",
+            allowed_modes: ["point", "range"],
+            selection_rule: "trading_day_only",
+            point_label: "只处理一天",
+            range_label: "处理一个时间区间",
+          },
+          filters: [
+            {
+              ...textParam,
+              key: "ts_code",
+              display_name: "股票代码",
+              param_type: "string",
+              description: "按股票代码定向同步。",
+            },
+            {
+              key: "suspend_type",
+              display_name: "停复牌类型",
+              param_type: "enum",
+              description: "停复牌类型：S-停牌，R-复牌",
+              required: false,
+              multi_value: true,
+              options: ["S", "R"],
+            },
+          ],
+          search_keywords: ["suspend_d", "维护每日停复牌信息"],
+          action_order: 100,
+          route_spec_keys: ["suspend_d.maintain"],
+        },
       ],
     },
     {
@@ -506,6 +552,16 @@ describe("手动任务页", () => {
     expect(screen.getByLabelText("飙升榜")).toBeChecked();
     expect(screen.getByLabelText("Y")).toBeChecked();
     expect(screen.queryByText("交易所")).not.toBeInTheDocument();
+  });
+
+  it("每日停复牌任务使用复选框展示停复牌类型", async () => {
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual&spec_key=suspend_d.maintain&spec_type=dataset_action");
+
+    expect((await screen.findAllByText("维护每日停复牌信息")).length).toBeGreaterThan(0);
+    expect(screen.getByText("停复牌类型")).toBeInTheDocument();
+    expect(screen.getByLabelText("S")).toBeInTheDocument();
+    expect(screen.getByLabelText("R")).toBeInTheDocument();
+    expect(screen.getByLabelText("股票代码")).toBeInTheDocument();
   });
 
   it("东方财富热榜默认提交真实枚举筛选条件", async () => {

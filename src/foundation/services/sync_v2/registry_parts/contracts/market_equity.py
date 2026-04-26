@@ -313,7 +313,13 @@ CONTRACTS: dict[str, DatasetSyncContract] = {
                 InputField("start_date", "date", required=False, description="起始日期"),
                 InputField("end_date", "date", required=False, description="结束日期"),
                 InputField("ts_code", "string", required=False, description="股票代码"),
-                InputField("suspend_type", "string", required=False, description="停复牌类型"),
+                InputField(
+                    "suspend_type",
+                    "list",
+                    required=False,
+                    enum_values=("S", "R"),
+                    description="停复牌类型：S-停牌，R-复牌",
+                ),
             )
         ),
         planning_spec=build_planning_spec(

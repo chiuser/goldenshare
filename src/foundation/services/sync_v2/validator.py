@@ -250,13 +250,22 @@ class ContractValidator:
             return text
         if field.field_type == "list":
             if isinstance(value, list):
-                return value
+                values = value
             if isinstance(value, tuple):
-                return list(value)
-            text = str(value).strip()
-            if not text:
-                return []
-            return [part.strip() for part in text.split(",") if part.strip()]
+                values = list(value)
+            if not isinstance(value, (list, tuple)):
+                text = str(value).strip()
+                values = [] if not text else [part.strip() for part in text.split(",") if part.strip()]
+            normalized_values = [str(item).strip() for item in values if str(item).strip()]
+            if field.enum_values:
+                normalized_values = [
+                    item if item in field.enum_values else item.upper()
+                    for item in normalized_values
+                ]
+                invalid = [item for item in normalized_values if item not in field.enum_values]
+                if invalid:
+                    raise self._error("invalid_enum", f"invalid enum for {field.name}: {', '.join(invalid)}")
+            return normalized_values
         text = str(value).strip()
         if not text and not field.allow_empty:
             raise self._error("empty_not_allowed", f"empty value is not allowed for {field.name}")

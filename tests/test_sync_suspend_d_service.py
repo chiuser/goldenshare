@@ -83,6 +83,54 @@ def test_suspend_d_range_rebuild_fans_out_by_trade_calendar() -> None:
     assert units[1].request_params["trade_date"] == "20260402"
 
 
+def test_suspend_d_range_rebuild_fans_out_selected_suspend_types() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-suspend-d-range-types",
+        dataset_key="suspend_d",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 1),
+        params={"suspend_type": ["S", "R"]},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_suspend_d_units(
+        validated,
+        contract,
+        dao=_fake_dao([date(2026, 4, 1)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+
+    assert [unit.request_params["suspend_type"] for unit in units] == ["R", "S"]
+    assert all(unit.request_params["trade_date"] == "20260401" for unit in units)
+
+
+def test_suspend_d_range_rebuild_without_suspend_type_keeps_type_unfiltered() -> None:
+    contract = get_sync_v2_contract("suspend_d")
+    request = RunRequest(
+        request_id="req-suspend-d-range-no-type",
+        dataset_key="suspend_d",
+        run_profile="range_rebuild",
+        trigger_source="test",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 1),
+        params={},
+    )
+    validated = ContractValidator().validate(request, contract)
+    units = build_suspend_d_units(
+        validated,
+        contract,
+        dao=_fake_dao([date(2026, 4, 1)]),
+        settings=SimpleNamespace(default_exchange="SSE"),
+        session=None,
+    )
+
+    assert len(units) == 1
+    assert units[0].request_params == {"trade_date": "20260401"}
+
+
 def test_suspend_d_normalizer_generates_row_key_hash() -> None:
     contract = get_sync_v2_contract("suspend_d")
     batch = SyncV2Normalizer().normalize(

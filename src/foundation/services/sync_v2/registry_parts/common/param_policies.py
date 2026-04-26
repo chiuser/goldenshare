@@ -452,7 +452,7 @@ def _suspend_d_params(request, anchor_date: date | None, enum_values: dict[str, 
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
-    suspend_type = request.params.get("suspend_type")
+    suspend_type = enum_values.get("suspend_type", request.params.get("suspend_type"))
     if suspend_type not in (None, ""):
         params["suspend_type"] = str(suspend_type).strip().upper()
     return params
