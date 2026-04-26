@@ -71,6 +71,23 @@ describe("V2.1 数据源详情页", () => {
               std_cleansing_configured: true,
               resolution_policy_configured: true,
             },
+            {
+              dataset_key: "limit_list_ths",
+              display_name: "涨跌停列表（同花顺）",
+              domain_key: "market",
+              domain_display_name: "行情",
+              mode: "single_source_direct",
+              source_scope: "tushare",
+              layer_plan: "raw",
+              raw_table: "raw_tushare.limit_list_ths",
+              std_table_hint: null,
+              serving_table: null,
+              freshness_status: "fresh",
+              latest_business_date: "2026-04-24",
+              std_mapping_configured: true,
+              std_cleansing_configured: true,
+              resolution_policy_configured: true,
+            },
           ],
         };
       }
@@ -143,6 +160,33 @@ describe("V2.1 数据源详情页", () => {
                   active_execution_status: null,
                   active_execution_started_at: null,
                 },
+                {
+                  dataset_key: "limit_list_ths",
+                  resource_key: "limit_list_ths",
+                  display_name: "涨跌停列表（同花顺）",
+                  cadence: "daily",
+                  target_table: "raw_tushare.limit_list_ths",
+                  raw_table: "raw_tushare.limit_list_ths",
+                  earliest_business_date: "2026-04-24",
+                  observed_business_date: "2026-04-24",
+                  latest_business_date: "2026-04-24",
+                  freshness_note: null,
+                  latest_success_at: null,
+                  last_sync_date: "2026-04-24",
+                  expected_business_date: "2026-04-24",
+                  lag_days: 0,
+                  freshness_status: "fresh",
+                  recent_failure_message: null,
+                  recent_failure_summary: null,
+                  recent_failure_at: null,
+                  primary_action_key: "limit_list_ths.maintain",
+                  auto_schedule_status: "none",
+                  auto_schedule_total: 0,
+                  auto_schedule_active: 0,
+                  auto_schedule_next_run_at: null,
+                  active_execution_status: null,
+                  active_execution_started_at: null,
+                },
               ],
             },
           ],
@@ -182,6 +226,21 @@ describe("V2.1 数据源详情页", () => {
               last_success_at: "2026-04-16T09:10:00+08:00",
               last_failure_at: null,
             },
+            {
+              snapshot_date: "2026-04-24",
+              dataset_key: "limit_list_ths",
+              source_key: "tushare",
+              stage: "raw",
+              status: "success",
+              rows_in: 120,
+              rows_out: 120,
+              error_count: 0,
+              lag_seconds: 0,
+              message: null,
+              calculated_at: "2026-04-24T09:10:00+08:00",
+              last_success_at: null,
+              last_failure_at: null,
+            },
           ],
         };
       }
@@ -212,8 +271,10 @@ describe("V2.1 数据源详情页", () => {
 
     expect(await screen.findByText("数据集 · Tushare")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
+    expect(await screen.findByText("涨跌停列表（同花顺）")).toBeInTheDocument();
+    expect(await screen.findByText("最近同步：2026/04/24")).toBeInTheDocument();
     expect(await screen.findByText("raw_tushare.daily")).toBeInTheDocument();
-    expect(await screen.findByText("正常")).toBeInTheDocument();
+    expect(await screen.findAllByText("正常")).toHaveLength(2);
     expect(await screen.findByText("自动探测")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "去操作" })).toHaveAttribute(
       "href",

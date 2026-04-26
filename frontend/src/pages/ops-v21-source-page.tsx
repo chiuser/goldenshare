@@ -162,14 +162,21 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       const status = hasActiveExecution
         ? "running"
         : toCardStatus(rawLatest?.status || freshItem?.freshness_status || modeItem.freshness_status);
-      const recentSyncAt = freshItem?.latest_success_at || rawLatest?.last_success_at || null;
       const recentSyncText = hasActiveExecution
         ? (
             freshItem?.active_execution_started_at
               ? `执行中（开始于 ${formatDateTimeLabel(freshItem.active_execution_started_at)}）`
               : "执行中"
           )
-        : (recentSyncAt ? formatDateTimeLabel(recentSyncAt) : "—");
+        : (
+            freshItem?.latest_success_at
+              ? formatDateTimeLabel(freshItem.latest_success_at)
+              : rawLatest?.last_success_at
+                ? formatDateTimeLabel(rawLatest.last_success_at)
+                : freshItem?.last_sync_date
+                  ? formatDateLabel(freshItem.last_sync_date)
+                  : "—"
+          );
       return {
         datasetKey: modeItem.dataset_key,
         displayName: modeItem.display_name || modeItem.dataset_key,
