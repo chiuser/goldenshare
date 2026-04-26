@@ -10,15 +10,14 @@
 
 1. 数据集身份、中文名、日期模型、输入能力、表映射应收敛到 `DatasetDefinition`。
 2. 维护动作与执行计划应收敛到 `DatasetActionRequest + DatasetExecutionPlan + action=maintain`。
-3. 旧 `sync_daily / backfill_* / sync_history` 只能作为历史实现背景，不再作为用户任务、API 或 UI 主语。
-4. `docs/datasets/dataset-catalog.md` 是 2026-04-19 历史自动生成快照，不再作为当前事实源。
+3. 旧执行路由只能作为历史实现背景，不再作为用户任务、API 或 UI 主语。
 
 ---
 
 ## 编写约束
 
 1. 新增或更新数据集文档时，优先引用 DatasetDefinition / date_model / execution plan，不再引用旧任务规格作为主能力说明。
-2. 如果历史数据集开发文档仍保留 `sync_history`、`backfill_*`、`sync_daily`，必须明确说明它们是历史任务名或旧实现背景。
+2. 数据集文档不得把旧执行任务名写成当前能力口径。
 3. 不要让用户或前端通过内部路由 key、`job_name`、旧 CLI 名称理解一个数据集。
 4. 周线/月线、月度窗口、公告日期等时间语义必须引用日期模型单一事实源，不在文档里重新发明规则。
 

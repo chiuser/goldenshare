@@ -9,10 +9,10 @@
 | 工作流 Key | 名称 | 支持自动调度 | 支持手动执行 | 默认调度策略 |
 |---|---|---:|---:|---|
 | `board_reference_refresh` | 板块主数据刷新 | 是 | 是 | 无 |
-| `daily_market_close_sync` | 每日收盘后同步 | 是 | 是 | `trading_day_close` |
-| `daily_moneyflow_sync` | 每日资金流向同步 | 是 | 是 | 无 |
-| `index_extension_backfill` | 指数扩展数据补齐 | 否 | 是 | 无 |
-| `index_kline_sync_pipeline` | 指数K线全链路同步 | 否 | 是 | 无 |
+| `daily_market_close_maintenance` | 每日收盘后维护 | 是 | 是 | `trading_day_close` |
+| `daily_moneyflow_maintenance` | 每日资金流向维护 | 是 | 是 | 无 |
+| `index_extension_maintenance` | 指数扩展数据维护 | 否 | 是 | 无 |
+| `index_kline_maintenance_pipeline` | 指数K线全链路维护 | 否 | 是 | 无 |
 | `reference_data_refresh` | 基础主数据刷新 | 是 | 是 | 无 |
 
 来源：`WORKFLOW_DEFINITION_REGISTRY`（`list_workflow_definitions()` 按 key 排序输出）。
@@ -89,9 +89,9 @@
 | 5 | `index_basic` | 指数基本信息 | `index_basic.maintain` |
 | 6 | `hk_basic` | 港股列表 | `hk_basic.maintain` |
 
-## 3.2 `daily_market_close_sync`（每日收盘后同步）
+## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
-- 描述：覆盖日线、日指标、榜单与基金/指数日线的每日同步工作流。
+- 描述：覆盖日线、日指标、榜单与基金/指数日线的每日维护工作流。
 - 支持自动调度：是
 - 支持手动执行：是
 - 默认调度策略：`trading_day_close`
@@ -129,9 +129,9 @@
 | 25 | `limit_cpt_list` | 最强板块统计 | `limit_cpt_list.maintain` |
 | 26 | `kpl_concept_cons` | 开盘啦题材成分 | `kpl_concept_cons.maintain` |
 
-## 3.3 `daily_moneyflow_sync`（每日资金流向同步）
+## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 
-- 描述：覆盖个股、概念、行业、板块和市场维度的资金流向每日同步工作流。
+- 描述：覆盖个股、概念、行业、板块和市场维度的资金流向每日维护工作流。
 - 支持自动调度：是
 - 支持手动执行：是
 - 支持参数：无
@@ -164,13 +164,13 @@
 | 1 | `ths_index` | 同花顺概念和行业指数 | `ths_index.maintain` |
 | 2 | `ths_member` | 同花顺板块成分 | `ths_member.maintain` |
 
-## 3.5 `index_extension_backfill`（指数扩展数据补齐）
+## 3.5 `index_extension_maintenance`（指数扩展数据维护）
 
-- 描述：批量回补指数日线、周线、月线、日指标和成分权重。
+- 描述：批量维护指数日线、周线、月线、日指标和成分权重。
 - 支持自动调度：否
 - 支持手动执行：是
 - 支持参数：无
-- 适用场景：历史修复、指数扩展数据一次性补齐。
+- 适用场景：历史修复、指数扩展数据一次性维护。
 
 步骤（顺序执行）：
 
@@ -182,7 +182,7 @@
 | 4 | `index_daily_basic` | 指数日指标 | `index_daily_basic.maintain` |
 | 5 | `index_weight` | 指数权重 | `index_weight.maintain` |
 
-## 3.6 `index_kline_sync_pipeline`（指数K线全链路同步）
+## 3.6 `index_kline_maintenance_pipeline`（指数K线全链路维护）
 
 - 描述：按日线→周线→月线→服务表补齐顺序执行。
 - 支持自动调度：否
@@ -194,9 +194,9 @@
 
 | 序号 | step_key | 显示名 | action_key |
 |---:|---|---|---|
-| 1 | `sync_index_daily` | 同步指数日线 | `index_daily.maintain` |
-| 2 | `sync_index_weekly` | 同步指数周线 | `index_weekly.maintain` |
-| 3 | `sync_index_monthly` | 同步指数月线 | `index_monthly.maintain` |
+| 1 | `index_daily` | 维护指数日线 | `index_daily.maintain` |
+| 2 | `index_weekly` | 维护指数周线 | `index_weekly.maintain` |
+| 3 | `index_monthly` | 维护指数月线 | `index_monthly.maintain` |
 | 4 | `rebuild_index_serving` | 补齐指数服务表 | `maintenance.rebuild_index_kline_serving` |
 
 ---
@@ -208,8 +208,8 @@
    - 失败策略是 `continue_on_error` 并且后续步骤继续执行，或
    - fail-fast 之前已有部分步骤成功。
 3. 出现 `blocked` 时，优先回看它的 `depends_on` 上游步骤失败原因。
-4. 带维护动作的 workflow（如 `index_kline_sync_pipeline`）失败时，区分“采集失败”与“重建失败”。
-5. 盘后工作流建议结合 `job_execution_event` 的 step 事件看实时进度，不只看 rows 计数。
+4. 带维护动作的 workflow（如 `index_kline_maintenance_pipeline`）失败时，区分“采集失败”与“重建失败”。
+5. 盘后工作流建议结合 `ops.task_run_node` 与 `ops.task_run_issue` 看步骤进度和问题诊断，不只看 rows 计数。
 
 ---
 

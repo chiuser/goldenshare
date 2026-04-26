@@ -13,7 +13,7 @@
 1. runtime 主实现已收敛到 `src/ops/runtime/*`
 2. 运维动作目录与工作流定义主实现已收敛到 `src/ops/action_catalog.py`
 3. 常规 services 主实现已收敛到 `src/ops/services/*`
-4. `history_backfill` 已收敛到 `src/ops/services/operations_history_backfill_service.py`
+4. 数据维护执行已收敛到 `DatasetExecutionPlan + IngestionExecutor + TaskRun`
 5. `market_mood_walkforward_validation_service` 已收敛到 `src/biz/services/market_mood_walkforward_validation_service.py`
 
 ---

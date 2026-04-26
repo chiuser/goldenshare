@@ -377,7 +377,7 @@
 - 分页：Tushare 请求分页固定 `limit=8000`，`offset` 递增分页；这是接口内部分页，不对用户暴露。
 - 默认请求：按 `ts_code x freq x datetime_window` 规划请求；未传 `ts_code` 时按股票池全量扇出；用户必须选择 `freq`。
 - 用户传参规则：用户可显式传 `ts_code`、`freq`；`freq` 支持 `1min/5min/15min/30min/60min` 多选，按频度扇出请求；不暴露具体小时、分钟、秒输入，也不暴露股票池 offset/limit。
-- 时间执行：用户侧仍选择交易日或交易日区间；程序内部转换为 `09:00:00~19:00:00` datetime 大窗口。`trade_date` 单日生成一个窗口，`start_date/end_date` 区间生成一个连续窗口，不再逐交易日拆分，不再拆上午/下午 session；不纳入普通 `sync-history`，单独使用 `sync-minute-history` / `sync_minute_history.stk_mins`。
+- 时间执行：用户侧仍选择交易日或交易日区间；程序内部转换为 `09:00:00~19:00:00` datetime 大窗口。`trade_date` 单日生成一个窗口，`start_date/end_date` 区间生成一个连续窗口，不再逐交易日拆分，不再拆上午/下午 session；执行计划使用分钟行情专用维护规划，不复用普通交易日维护规划。
 
 ### `stk_nineturn`（神奇九转指标）
 

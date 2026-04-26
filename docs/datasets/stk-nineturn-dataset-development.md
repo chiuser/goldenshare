@@ -4,8 +4,8 @@
 
 - 目标：新增 `stk_nineturn` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 任务打通。
 - 本期边界：
-  - 不加入 `daily_market_close_sync` 工作流（按当前评审结论先不推进）。
-  - `sync_history.stk_nineturn` 必须显式指定时间（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
+  - 不加入 `daily_market_close_maintenance` 工作流（按当前评审结论先不推进）。
+  - 维护动作必须显式指定时间（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
 
 ## 2. 上游接口信息
 
@@ -27,12 +27,11 @@
 
 ### 3.2 运维侧参数策略（面向用户）
 
-- `sync_daily.stk_nineturn`
-  - 参数：`trade_date`，可选 `ts_code`
-- `sync_history.stk_nineturn`
-  - 参数：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
+- `stk_nineturn.maintain`
+  - 单点参数：`trade_date`，可选 `ts_code`
+  - 区间参数：`start_date + end_date`，可选 `ts_code`
 - `freq` 不暴露到用户交互层，后端固定传 `daily`（日线）。
-- 历史同步若不带时间参数直接报错（避免误触发全量）。
+- 维护动作若不带时间参数直接报错（避免误触发全量）。
 
 ## 4. 输出字段（全量落库）
 
@@ -98,7 +97,7 @@
 
 - `tests/test_sync_stk_nineturn_service.py`
   - 增量参数校验
-  - 历史同步显式时间校验
+  - 维护动作显式时间校验
   - 区间扇出与进度文案
   - 单日分页与落库
 - `tests/test_sync_registry.py`
@@ -109,5 +108,3 @@
   - `STK_NINETURN_FIELDS` 字段常量
 - `tests/test_extended_models.py`
   - `equity_nineturn` 主键与索引
-- `tests/test_history_backfill_service.py`
-  - `backfill_by_trade_date.stk_nineturn` 路径可执行

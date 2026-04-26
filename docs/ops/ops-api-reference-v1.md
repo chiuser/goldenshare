@@ -115,13 +115,13 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```json
 {
   "actions": [{"key": "daily.maintain", "action_type": "dataset_action", "display_name": "维护股票日线", "target_key": "daily"}],
-  "workflows": [{"key": "daily_market_close_sync", "display_name": "每日收盘同步"}]
+  "workflows": [{"key": "daily_market_close_maintenance", "display_name": "每日收盘后维护"}]
 }
 ```
 
 ### 2.4.1 GET /api/v1/ops/manual-actions
 
-- 功能：返回手动维护页专用动作目录。该接口面向用户任务语言，隐藏 `sync_daily/backfill/sync_history` 等底层执行分支。
+- 功能：返回手动维护页专用动作目录。该接口面向用户任务语言，隐藏底层执行分支。
 - Query 参数：无。
 - 返回：`ManualActionListResponse`
   - `groups[]`

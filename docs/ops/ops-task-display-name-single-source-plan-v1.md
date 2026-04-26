@@ -7,7 +7,7 @@
 
 ## 1. 背景
 
-`sync_minute_history.stk_mins` 曾在任务详情页显示为：
+分钟行情维护任务曾在任务详情页显示为：
 
 ```text
 任务 / 未配置显示名称（stk_mins）
@@ -48,13 +48,9 @@ specPrefixLabelMap[prefix] / resourceLabelMap[resource]
 以下内容不进入普通 UI 主路径：
 
 ```text
-sync_daily
-sync_history
-backfill_by_trade_date
-backfill_by_date_range
-backfill_equity_series
-backfill_index_series
-run_profile
+旧任务规格
+旧执行路由
+执行策略名
 内部路由 key
 ```
 
@@ -111,7 +107,7 @@ run_profile
 ```text
 执行路径
 内部路由 key
-sync/backfill/纵向回补
+同步/回补/纵向回补等底层执行语言
 ```
 
 ### 3.2 任务详情页
@@ -127,7 +123,7 @@ sync/backfill/纵向回补
 ```text
 维护股票日线
 日常同步 / 股票日线
-backfill_equity_series.daily
+旧执行路由 / 股票日线
 ```
 
 标题下方的信息卡片：
@@ -181,7 +177,7 @@ backfill_equity_series.daily
 ```text
 内部路由 key
 底层执行路径
-sync_daily/backfill_xxx
+旧任务规格
 ```
 
 自动任务页需要单独重新设计列表和创建/编辑交互，不能只做显示名替换。

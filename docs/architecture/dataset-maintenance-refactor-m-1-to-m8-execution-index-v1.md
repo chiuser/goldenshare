@@ -6,7 +6,6 @@
 - 关联方案：
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
   - [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
-  - [Sync V2 事务风险审计与整改方案 v1（历史事故审计）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
   - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 
 ---

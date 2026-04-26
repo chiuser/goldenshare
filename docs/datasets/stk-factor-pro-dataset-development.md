@@ -4,9 +4,9 @@
 
 - 目标：新增 `stk_factor_pro` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 服务层写入与 Ops 任务打通。
 - 本期边界：
-  - 纳入 `daily_market_close_sync` 每日工作流。
-  - 支持日常同步、历史同步、按交易日回补三条路径。
-  - 历史同步必须显式给时间参数（`trade_date` 或 `start_date+end_date`）。
+  - 纳入 `daily_market_close_maintenance` 每日工作流。
+  - 支持单日维护与区间维护。
+  - 维护动作必须显式给时间参数（`trade_date` 或 `start_date+end_date`）。
 
 ## 2. 上游接口
 
@@ -29,9 +29,7 @@
 
 ### 3.2 运维侧参数策略
 
-- `sync_daily.stk_factor_pro`：`trade_date`，可选 `ts_code`
-- `sync_history.stk_factor_pro`：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
-- `backfill_by_trade_date.stk_factor_pro`：`start_date + end_date`，可选 `ts_code`，支持 `offset/limit`
+- `stk_factor_pro.maintain`：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
 
 ### 3.3 输出字段落库策略
 
@@ -83,7 +81,7 @@
   - `domain`: `股票`
   - `observed_date_column`: `trade_date`
 - 工作流：
-  - `daily_market_close_sync` 新增步骤 `stk_factor_pro.maintain`
+  - `daily_market_close_maintenance` 新增步骤 `stk_factor_pro.maintain`
 
 ## 7. 测试覆盖
 

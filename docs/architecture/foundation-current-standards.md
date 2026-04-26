@@ -8,10 +8,8 @@
 
 当以下文档出现描述冲突时，以本文件为准：
 
-1. `dataset-sync-unified-architecture-matrix-v1.md`
-2. `dataset-publish-governance-spec-v1.md`
-3. `foundation-multi-source-upgrade-and-migration-v1.md`
-4. `foundation-onboarding-and-legacy-checklist-v1.md`
+1. `dataset-publish-governance-spec-v1.md`
+2. `foundation-onboarding-and-legacy-checklist-v1.md`
 
 ---
 

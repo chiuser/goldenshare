@@ -4,8 +4,8 @@
 
 - 目标：新增 `stk_limit` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
 - 本期边界：
-  - 纳入现有工作流 `daily_market_close_sync`（收盘后自动流程覆盖）。
-  - `sync_history.stk_limit` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止“无时间全量”。
+  - 纳入现有工作流 `daily_market_close_maintenance`（收盘后自动流程覆盖）。
+  - 维护动作必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止“无时间全量”。
 
 ## 2. 上游接口
 
@@ -27,9 +27,8 @@
 
 ### 3.2 本期运维参数策略
 
-- `sync_daily.stk_limit`：`trade_date`，可选 `ts_code`
-- `sync_history.stk_limit`：`trade_date` 或 `start_date+end_date`，可选 `ts_code`
-- 历史同步禁止无时间参数启动。
+- `stk_limit.maintain`：`trade_date` 或 `start_date+end_date`，可选 `ts_code`
+- 维护动作禁止无时间参数启动。
 
 ### 3.3 输出字段（全量落库）
 

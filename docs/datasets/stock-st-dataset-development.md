@@ -98,7 +98,7 @@
 
 ### 6.1 工作流接入
 
-- 已纳入 `daily_market_close_sync` 工作流，步骤键：`stock_st`，动作键：`stock_st.maintain`。
+- 已纳入 `daily_market_close_maintenance` 工作流，步骤键：`stock_st`，动作键：`stock_st.maintain`。
 
 ## 7. 测试覆盖清单
 

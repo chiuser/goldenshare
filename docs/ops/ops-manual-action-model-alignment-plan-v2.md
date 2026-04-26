@@ -20,9 +20,9 @@
 
 ## 2. 已确认口径
 
-1. 用户不需要理解 `sync_daily / backfill_* / sync_history`。
+1. 用户不需要理解历史执行路由。
 2. 手动维护页不再把 `日常同步 / 按交易日回补 / 历史同步 / 所属类型` 作为主路径文案。
-3. 前端不再持有 `syncDailySpecKey / backfillSpecKey / directSpecKey`。
+3. 前端不再持有旧的多执行规格字段。
 4. `/api/v1/ops/catalog` 输出当前 action/workflow 目录，不再表达旧执行规格。
 5. `/api/v1/ops/manual-actions` 是手动维护专用用户动作目录，不替代 `catalog`。
 6. 手动 dataset action 提交直接创建 TaskRun，不再还原成旧执行路径。

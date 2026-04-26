@@ -151,9 +151,9 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：
+- IngestionExecutor / SourceClient：
 - `target_table`：
 - 参数构建规则（UI -> 执行参数）：
 - 分页循环策略：
@@ -165,9 +165,7 @@
 
 新增数据集必须单独设计“任务执行中如何向运营人员说明当前处理进度”。
 
-参考文档：
-
-- [股票历史分钟行情请求策略优化方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-request-optimization-plan-v1.md)
+参考文档：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 
 必须填写：
 

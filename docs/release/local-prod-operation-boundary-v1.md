@@ -29,7 +29,7 @@
    - `goldenshare ops-worker-serve`
    - `goldenshare ops-scheduler-serve`
 2. 大规模写库任务：
-   - `sync-history`、`backfill-*`、批量 `sync-daily`
+   - 大范围数据维护、批量数据维护、结构性重建任务
 3. 未经计划的结构性数据库操作（DDL/大规模清理等）。
 
 ### 2.2 远程生产（运营/执行）

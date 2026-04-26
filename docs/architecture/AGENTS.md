@@ -18,7 +18,7 @@
 
 ## 编写约束
 
-1. 若历史归档文档保留旧 `sync_daily / backfill_* / sync_history`、`JobExecution*`、`sync_run_log`、`/api/v1/ops/executions*`，必须明确标注为历史审计或迁移背景。
+1. 历史归档文档不得把旧执行路由、旧任务表、旧运行日志或旧 execution API 写成当前事实。
 2. 当前口径文档不得把旧三件套写成用户、API、UI 或长期代码主语。
 3. 待评审方案若已有部分代码落地，文首必须写清“已部分落地/待继续收口”，避免误判为纯计划。
 4. 不得重新引入 checkpoint/acquire/replay 语义，除非用户明确要求并有独立方案。

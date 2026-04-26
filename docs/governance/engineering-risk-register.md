@@ -29,8 +29,8 @@
 
 | ID | 等级 | 风险 | 影响范围 | 状态 | 依据 |
 |---|---|---|---|---|---|
-| RISK-2026-04-25-001 | P0 | Sync V2 大任务采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
-| RISK-2026-04-25-002 | P0 | Sync V2 存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)、[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-25-001 | P0 | 数据维护执行层若采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
 | RISK-2026-04-26-004 | P1 | `ops.sync_job_state` 旧 `job_name/full_sync_done/last_cursor` 状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[Ops `sync_job_state` 退场方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-sync-job-state-retirement-plan-v1.md) |
 
@@ -77,12 +77,12 @@
 
 正式修复：
 
-1. 删除 Sync V2 主链中 `__ALL__` 作为业务哨兵的逻辑。
+1. 删除数据维护主链中 `__ALL__` 作为业务哨兵的逻辑。
 2. `enum_fanout_defaults` 只能配置真实业务枚举集合，不能配置 `("__ALL__",)`。
 3. `param_format`、`param_policies` 不再把 `__ALL__` 解释成“跳过筛选项”。
-4. `TushareSyncV2Adapter` 不再给 `query_*` 字段注入 `__ALL__`。
+4. Source adapter 不再给 `query_*` 字段注入 `__ALL__`。
 5. `row_transforms` 不再以 `__ALL__` 兜底 query context。
-6. 补架构测试，禁止 `__ALL__` 出现在 Sync V2 主链代码、plan unit request params、normalized rows 和落库 query 字段中。
+6. 补架构测试，禁止 `__ALL__` 出现在数据维护主链代码、plan unit request params、normalized rows 和落库 query 字段中。
 
 关闭门禁：
 
@@ -90,7 +90,7 @@
 2. `ths_hot` 缺省筛选时会显式扇出真实 `market + is_new` 组合。
 3. `kpl_list` 缺省筛选时要么显式扇出真实 `tag`，要么不传 `tag` 且不写 `__ALL__`。
 4. `limit_list_ths` 缺省筛选时要么显式扇出真实 `limit_type + market`，要么不传对应筛选且不写 `__ALL__`。
-5. `rg "__ALL__" src/foundation/services/sync_v2 tests/test_ranking_sync_services.py frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 不得发现业务哨兵残留；如保留文档说明或迁移测试，必须有明确 allowlist 和关闭日期。
+5. `rg "__ALL__" src/foundation src/ops tests frontend/src/pages/ops-v21-task-manual-tab.test.tsx` 不得发现业务哨兵残留；如保留测试说明，必须有明确 allowlist 和关闭日期。
 6. 远程/本地验证至少覆盖 `dc_hot` 一次默认提交，落库结果不得出现任何 `query_*='__ALL__'`。
 
 处理记录（2026-04-26）：
@@ -168,5 +168,5 @@
 6. 本地验证已通过：
    - `pytest -q tests/web/test_ops_freshness_api.py tests/web/test_ops_overview_api.py tests/test_ops_freshness_snapshot_query_service.py tests/test_dataset_status_snapshot_service.py tests/test_cli_ops_runtime.py tests/test_base_sync_service_snapshot_refresh.py`
    - `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
-   - `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
+   - `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions`
    - `cd frontend && npm test -- --run src/pages/ops-v21-source-page.test.tsx src/pages/ops-v21-dataset-detail-page.test.tsx`

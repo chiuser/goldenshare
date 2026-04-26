@@ -67,7 +67,7 @@
 当前数据基座已覆盖：
 
 - 基础主数据：`stock_basic`、`trade_cal`、`etf_basic`、`index_basic`、`hk_basic`、`us_basic`、`etf_index`
-- 行情/指标/榜单/板块：详见 `docs/datasets/dataset-catalog.md`
+- 行情/指标/榜单/板块：以 `src/foundation/datasets/**` 的 `DatasetDefinition` 为准。
 
 统一来源：
 

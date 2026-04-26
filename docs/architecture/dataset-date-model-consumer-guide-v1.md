@@ -429,6 +429,5 @@ pytest -q tests/test_ops_action_catalog.py tests/test_ops_freshness_snapshot_que
 
 ## 10. 相关文档
 
-1. [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
-2. [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-3. [数据集日期完整性审计设计 v1（审查中心，历史草案）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
+1. [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+2. [数据集日期完整性审计设计 v1（审查中心，历史草案）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)

@@ -4,7 +4,6 @@
 - 日期：2026-04-25
 - 适用范围：`src/ops/**`、`src/foundation/datasets/**`、`src/foundation/ingestion/**`、Ops Web API、CLI、任务中心前端
 - 前置方案：[DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-- 事务事故审计（历史问题清单）：[Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
 
 ---
 
@@ -121,9 +120,9 @@ start_log
 3. 状态表写入必须幂等 upsert，且失败可重试、可对账。
 4. 本轮只收口 unit 级提交与幂等写入，不引入额外状态模型。
 
-### 2.6 事务风险审计必须整体纳入
+### 2.6 历史事务风险必须整体纳入
 
-本方案必须吸收 [Sync V2 事务风险审计与整改方案 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md) 中确认过的问题清单，不能只修 `stk_mins`。该审计文档中的旧路径实施清单已经归档，后续实现必须重新基于当前 TaskRun + DatasetExecutionPlan 主链评审。
+本方案必须吸收历史长事务事故中确认过的问题清单，不能只修 `stk_mins`。旧路径实施清单已经下线；后续实现必须基于当前 TaskRun + DatasetExecutionPlan 主链评审。
 
 审计结论对应到新执行模型：
 

@@ -69,10 +69,8 @@ docs/
 
 专题文档：
 
-1. `dataset-sync-unified-architecture-matrix-v1.md`
-2. `dataset-publish-governance-spec-v1.md`
-3. `foundation-multi-source-upgrade-and-migration-v1.md`
-4. `foundation-onboarding-and-legacy-checklist-v1.md`
+1. `dataset-publish-governance-spec-v1.md`
+2. `foundation-onboarding-and-legacy-checklist-v1.md`
 
 整合建议：
 
@@ -105,9 +103,8 @@ docs/
 
 附加项：
 
-1. `dataset-catalog.md` 已标记为历史自动生成快照，不再作为当前数据集事实源。
-2. 当前数据集事实源应收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition` 投影。
-3. 后续若重建数据集目录，应从 DatasetDefinition 生成，而不是继续从旧 `JOB_SPEC_REGISTRY` 的 `sync_daily/backfill/sync_history` 任务名生成。
+1. 当前数据集事实源应收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition` 投影。
+2. 后续若重建数据集目录，应从 DatasetDefinition 生成。
 
 ### 4.4 Frontend 组
 

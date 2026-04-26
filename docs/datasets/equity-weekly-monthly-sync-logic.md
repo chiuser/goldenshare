@@ -1,6 +1,6 @@
-# 股票周/月线同步逻辑说明（当前锚点口径）
+# 股票周/月线维护逻辑说明（当前锚点口径）
 
-状态：当前业务口径说明，执行入口已从旧 `sync_daily / sync_history / backfill_equity_series` 心智收敛到 `Dataset Maintain + DatasetExecutionPlan + TaskRun`。
+状态：当前业务口径说明，执行入口已收敛到 `Dataset Maintain + DatasetExecutionPlan + TaskRun`。
 
 ---
 
@@ -42,42 +42,16 @@
 3. resolver/planner 根据数据集 `date_model` 与锚点规则生成执行计划。
 4. TaskRun 负责记录任务主状态、节点进度与问题诊断。
 
-历史内部入口说明：
+内部实现要求：
 
-1. `sync_daily`、`sync_history`、`backfill_equity_series` 仅作为历史实现/迁移语境保留，不再作为用户可见或文档主口径。
-2. 若代码内部仍需投影旧 contract 能力，只能作为 `DatasetExecutionPlan` 的输入来源，不得重新暴露为前端任务名称或 API 主语义。
+1. 不得把历史执行入口重新暴露为前端任务名称或 API 主语义。
+2. 周/月线锚点必须由 `DatasetDefinition.date_model` 与 `DatasetExecutionPlan` 派生。
 
 ---
 
 ## 4. 实现落位（当前代码）
 
-### 4.1 V2 contract
-
-文件：
-
-1. `market_equity.py`（历史路径，已删除）
-
-关键字段：
-
-1. `stk_period_bar_week` / `stk_period_bar_adj_week`：`anchor_type=week_end_trade_date`
-2. `stk_period_bar_month` / `stk_period_bar_adj_month`：`anchor_type=month_end_trade_date`
-3. 四个数据集都为 `window_policy=point_or_range`
-
-### 4.2 策略函数
-
-文件：
-
-1. `stk_period_bar_week.py`（历史路径，已删除）
-2. `stk_period_bar_month.py`（历史路径，已删除）
-3. `stk_period_bar_adj_week.py`（历史路径，已删除）
-4. `stk_period_bar_adj_month.py`（历史路径，已删除）
-
-共用锚点展开与分页能力：
-
-1. `common.py`（历史路径，已删除）
-2. `trade_date_expand.py`（历史路径，已删除）
-
-### 4.3 当前执行计划投影
+### 4.1 当前执行计划投影
 
 当前执行计划投影位于：
 
@@ -92,12 +66,5 @@
 
 关键测试覆盖：
 
-1. `test_extended_sync_services.py`（历史路径，已删除）（周/月线策略参数）
-2. [test_ops_action_catalog.py](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)（动作目录暴露）
-3. 后续执行计划覆盖应优先补到 DatasetExecutionPlan / resolver 测试，而不是恢复旧回补服务测试。
-
----
-
-## 6. 历史说明
-
-旧实现曾位于 `src/foundation/services/sync/sync_stk_period_bar*_service.py`，该路径已在 V1 清理阶段移除。本文不再以旧路径作为现行依据。
+1. [test_ops_action_catalog.py](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)（动作目录暴露）
+2. 后续执行计划覆盖应优先补到 DatasetExecutionPlan / resolver 测试。

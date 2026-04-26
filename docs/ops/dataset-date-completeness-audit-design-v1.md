@@ -4,11 +4,11 @@
 - 状态：待评审（基于当前 `DatasetDefinition.date_model` 的新版设计稿；尚未进入开发）
 - 更新时间：2026-04-26
 - 适用范围：`src/ops` 审查中心 + 任务执行链路（手动审计/自动审计）
-- 前置事实源：`DatasetDefinition.date_model`（当前由 Sync V2 contract 派生）
+- 前置事实源：`DatasetDefinition.date_model`
 - 执行观测前置方案：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 
 > 当前口径：本文不再维护独立的审计日期规则表。
-> 日期完整性审计必须读取 [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md) 已收敛出的 `DatasetDefinition.date_model`。
+> 日期完整性审计必须读取 [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) 定义的 `DatasetDefinition.date_model` 消费口径。
 > 当前 `DatasetDefinition` 已改为读取静态定义，审计模块、ops 查询层和前端都不得直接依赖旧 contract。
 > 旧草案中的 `calendar_type/anchor_rule` 已被替换为 `date_model.date_axis/bucket_rule`，不得在审计模块、前端或 ops 查询层重新建立第二套规则。
 
