@@ -106,6 +106,16 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "primary_execution_" + "spec_" + "key",
         "route_" + "spec_" + "keys",
     )
+    forbidden_snippets = (
+        "display_name || item." + "detail_dataset_key",
+        "display_name || item." + "dataset_key",
+        "display_name || item." + "resource_key",
+        "display_name ?? item." + "detail_dataset_key",
+        "display_name ?? item." + "dataset_key",
+        "display_name ?? item." + "resource_key",
+        "target_display_name || item." + "key",
+        "resource_display_name || item." + "resource_key",
+    )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):
         for path in _python_and_frontend_files(root):
@@ -114,6 +124,10 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
                 if token in text:
                     rel_path = path.relative_to(REPO_ROOT).as_posix()
                     violations.append(f"{rel_path}: {token}")
+            for snippet in forbidden_snippets:
+                if snippet in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {snippet}")
 
     assert not violations, "前端不得通过旧字段或本地 key 映射拼装事实字段:\n" + "\n".join(violations)
 
