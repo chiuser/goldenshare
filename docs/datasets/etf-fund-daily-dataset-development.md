@@ -5,7 +5,7 @@
 将 `fund_daily` 数据集统一到“按交易日历逐日同步”的模式，并补齐分页抓取能力，满足：
 
 - 单日同步：按 `trade_date`。
-- 历史回补：按 `start_date/end_date` 遍历交易日。
+- 区间维护：按 `start_date/end_date` 遍历交易日。
 - 分页抓取：支持 `limit/offset`，直到当页不足 `limit` 为止。
 - 运营交互不暴露代码输入，仅保留日期相关意图字段。
 
@@ -28,14 +28,14 @@
 - Raw 审计字段：`api_name`, `fetched_at`, `raw_payload`
 - Core 标准字段：`created_at`, `updated_at`，并将 `change` 映射为 `change_amount`
 
-## 4. 同步策略
+## 4. 维护策略
 
-## 4.1 单日同步
+## 4.1 单日维护
 
 - 输入：`trade_date`
 - 执行：调用 `fund_daily`，按分页参数 `limit=5000`（默认）+ `offset` 拉取全部结果。
 
-## 4.2 历史回补
+## 4.2 区间维护
 
 - 输入：`start_date`, `end_date`
 - 执行：从交易日历取开市日序列，逐日执行单日同步逻辑（含分页）。
@@ -57,9 +57,7 @@
 ## 6. 当前支持范围
 
 - 已支持：
-  - `sync_daily.fund_daily`
-  - `backfill_fund_series.fund_daily`（实现为按交易日历逐日回补）
-  - `sync_history.fund_daily`（可按区间全量）
+  - `fund_daily.maintain`（单日或区间）
 
 - 数据状态：
   - 分类：`ETF/Fund`

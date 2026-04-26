@@ -93,7 +93,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.moneyflow_dc`
+- 资源：`moneyflow_dc.maintain`
 - 默认不暴露 `ts_code`，仅注入 `trade_date`
 
 ---
@@ -126,13 +126,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMoneyflowDcService`
+- IngestionExecutor / SourceClient：`moneyflow_dc` 数据集维护链路
 - `target_table`：`core_serving.equity_moneyflow_dc`
 - 参数构建：
-  - `sync_daily.moneyflow_dc`：`trade_date`（可选 `ts_code`）
-  - `sync_history.moneyflow_dc`：`trade_date` 或 `start_date+end_date`（可选 `ts_code`）
+  - `moneyflow_dc.maintain`：`trade_date` 或 `start_date+end_date`（可选 `ts_code`）
 - 幂等：按主键 upsert
 - 进度日志示例：
   - `moneyflow_dc: 25/83 trade_date=2026-04-16 fetched=4987 written=4987`
@@ -150,7 +149,7 @@
 ## 8. 测试与验收
 
 - 单测：参数映射、交易日历推进、upsert 幂等
-- 集成：`sync_daily.moneyflow_dc`、`sync_history.moneyflow_dc`
+- 集成：`moneyflow_dc.maintain`（单日/区间）
 - 回归：不影响既有 `moneyflow`（旧资金流）链路
 
 ---

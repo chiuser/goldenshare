@@ -94,7 +94,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.margin`
+- 资源：`margin.maintain`
 - 可配交易所多选；未配置时默认全交易所。
 - 仍保留统一调度模式（单次/每日/每周/每月）。
 
@@ -131,13 +131,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMarginService`
+- IngestionExecutor / SourceClient：`margin` 数据集维护链路
 - `target_table`：`core_serving.equity_margin`
 - 参数构建规则：
-  - `sync_daily.margin`：`trade_date`（必填）+ `exchange_id`（可选，多选）
-  - `sync_history.margin`：`trade_date` 或 `start_date + end_date` + `exchange_id`（可选，多选）
+  - `margin.maintain`：`trade_date` 或 `start_date + end_date` + `exchange_id`（可选，多选）
 - 执行策略：
   - 区间 -> 交易日序列
   - 每个交易日内 -> 交易所扇开
@@ -171,8 +170,7 @@
   - 区间按交易日历推进
   - upsert 幂等
 - 集成测试：
-  - `sync_daily.margin`
-  - `sync_history.margin`（单日/区间）
+  - `margin.maintain`（单日/区间）
   - Ops 手动与自动任务参数链路
 - 回归测试：
   - 不影响既有股票日频数据集任务
@@ -193,7 +191,7 @@
 - 发布顺序：
   1. 执行数据库迁移
   2. 部署代码
-  3. 触发一次 `sync_daily.margin` 验证
+  3. 触发一次 `margin.maintain` 验证
 - 回滚：
   - 回滚代码版本
   - 回退任务注册（如已上线）

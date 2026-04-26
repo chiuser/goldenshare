@@ -27,20 +27,20 @@ Data-running capability belongs to the data foundation.
 
 Rules:
 
-- synchronization, backfill, scheduling, execution, retry, cancellation, progress tracking, logs, and freshness calculation belong to the foundation layer
+- data maintenance, scheduling, execution, retry, cancellation, progress tracking, logs, and freshness calculation belong to the foundation layer
 - the web layer may create task requests, query task state, and display results, but must not directly execute heavy data jobs
-- if a page needs a new sync or maintenance mode, implement it in the data foundation first, then expose it through a stable control interface
+- if a page needs a new maintenance mode, implement it in the data foundation first, then expose it through a stable control interface
 - the web layer must not introduce direct execution shortcuts simply because a page currently needs them
-- if a data interface naturally supports a date range, the foundation implementation should provide both single-day execution and historical backfill capability from the start; do not ship a date-ranged dataset with only one of those modes
+- if a data interface naturally supports a date range, the foundation implementation should provide both single-point and range maintenance capability from the start; do not ship a date-ranged dataset with only one of those modes
 - when a new dataset is introduced, its operational capability must be introduced at the same time: it should be schedulable, manually triggerable, and observable through the operations system instead of existing as an unmanaged foundation-only table
-- when a new dataset is introduced, a dedicated dataset development document must be created under `docs/` in the same delivery cycle (covering interface source links, input/output fields, raw/core schema design, sync strategy, ops exposure, and current support scope); dataset delivery is considered incomplete without this document
+- when a new dataset is introduced, a dedicated dataset development document must be created under `docs/` in the same delivery cycle (covering interface source links, input/output fields, raw/core schema design, maintenance strategy, ops exposure, and current support scope); dataset delivery is considered incomplete without this document
 
 Implication:
 
 - web lifecycle and task lifecycle must be decoupled
 - restarting the web service must not interrupt running data jobs
 - page interaction is not an excuse to bypass foundation boundaries
-- datasets with date-driven update semantics should not require later retrofitting just to gain basic single-day sync or backfill support
+- datasets with date-driven update semantics should not require later retrofitting just to gain basic single-point or range maintenance support
 - “data exists in the foundation” is not considered sufficient completion for a new dataset; the operational surface is part of the delivery definition
 - “code landed but documentation missing” is not considered sufficient completion for a new dataset; dataset-level engineering docs are part of the Definition of Done
 
@@ -103,7 +103,7 @@ Rules:
 
 Rules:
 
-- sync logs, job states, backfill progress, and execution metadata belong here
+- maintenance logs, task states, progress, and execution metadata belong here
 - UI admin features should prefer `ops` as their source of truth
 - scheduler-specific local files are not the long-term control plane
 
@@ -211,7 +211,7 @@ Rules:
 - "retry" in the UI should mean "restart this task now" unless the UI clearly says it will only queue the task
 - overview pages should emphasize current state, risks, and next steps; low-level runtime controls belong in dedicated advanced areas, not in the main dashboard surface
 - task-detail pages should lead with a user-readable problem summary and recommended next action before exposing raw logs or structured payloads
-- manual-sync pages must be organized around the data the user wants to maintain, not around backend strategy names such as daily sync, history sync, or backfill
+- manual-maintenance pages must be organized around the data the user wants to maintain, not around backend strategy names
 - frontend forms must not expose internal batching controls such as offset and limit unless the product explicitly targets expert maintenance workflows
 - date-related inputs should use shared date components with consistent formatting and interaction, not free-form text entry
 

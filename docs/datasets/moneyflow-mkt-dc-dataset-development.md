@@ -92,7 +92,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.moneyflow_mkt_dc`
+- 资源：`moneyflow_mkt_dc.maintain`
 - 仅注入 `trade_date`
 
 ---
@@ -120,13 +120,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMoneyflowMktDcService`
+- IngestionExecutor / SourceClient：`moneyflow_mkt_dc` 数据集维护链路
 - `target_table`：`core_serving.market_moneyflow_dc`
 - 参数构建：
-  - `sync_daily.moneyflow_mkt_dc`：`trade_date`
-  - `sync_history.moneyflow_mkt_dc`：`trade_date` 或 `start_date+end_date`
+  - `moneyflow_mkt_dc.maintain`：`trade_date` 或 `start_date+end_date`
 - 分页策略：每个 `trade_date` 组合内，自动用 `limit` + `offset` 分页直至取完
 - 幂等：按 `trade_date` upsert
 - 进度日志示例：
@@ -145,7 +144,7 @@
 ## 8. 测试与验收
 
 - 单测：参数映射、区间推进、单键 upsert
-- 集成：`sync_daily.moneyflow_mkt_dc`、`sync_history.moneyflow_mkt_dc`
+- 集成：`moneyflow_mkt_dc.maintain`（单日/区间）
 - 回归：不影响其他资金流数据集
 
 ---

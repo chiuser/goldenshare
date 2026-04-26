@@ -98,7 +98,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.moneyflow_ind_dc`
+- 资源：`moneyflow_ind_dc.maintain`
 - 默认策略：`content_type` 全选扇开
 
 ---
@@ -131,13 +131,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMoneyflowIndDcService`
+- IngestionExecutor / SourceClient：`moneyflow_ind_dc` 数据集维护链路
 - `target_table`：`core_serving.board_moneyflow_dc`
 - 参数构建：
-  - `sync_daily.moneyflow_ind_dc`：`trade_date` + `content_type[]`（可选 `ts_code`）
-  - `sync_history.moneyflow_ind_dc`：`trade_date` 或 `start_date+end_date` + `content_type[]`（可选 `ts_code`）
+  - `moneyflow_ind_dc.maintain`：`trade_date` 或 `start_date+end_date` + `content_type[]`（可选 `ts_code`）
 - 扇开策略：`content_type` 多选逐个请求后合并写入
 - 分页策略：每个 `trade_date + content_type` 组合内，自动用 `limit` + `offset` 分页直至取完
 - 幂等：按主键 upsert
@@ -157,7 +156,7 @@
 ## 8. 测试与验收
 
 - 单测：`content_type` 扇开、参数校验、upsert 幂等
-- 集成：`sync_daily.moneyflow_ind_dc`、`sync_history.moneyflow_ind_dc`
+- 集成：`moneyflow_ind_dc.maintain`（单日/区间）
 - 回归：不影响 `moneyflow_ind_ths`、`dc_*` 板块链路
 
 ---

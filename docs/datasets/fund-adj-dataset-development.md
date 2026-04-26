@@ -4,8 +4,8 @@
 
 新增 `fund_adj` 数据集并打通到运营系统，满足：
 
-- 单日同步（`trade_date`）
-- 历史回补（`start_date/end_date`）
+- 单日维护（`trade_date`）
+- 区间维护（`start_date/end_date`）
 - 单日分页抓取（`limit/offset` 循环）
 
 ## 2. 接口来源
@@ -47,15 +47,15 @@
 - 系统字段：`created_at`, `updated_at`
 - 索引：`idx_fund_adj_factor_trade_date`
 
-## 5. 同步策略
+## 5. 维护策略
 
-## 5.1 单日同步
+## 5.1 单日维护
 
 - 以 `trade_date` 请求接口。
 - 默认 `limit=2000`，`offset` 从 0 开始递增。
 - 当返回行数 `< limit` 时停止分页。
 
-## 5.2 历史回补
+## 5.2 区间维护
 
 - 从交易日历读取开市日序列（`start_date`~`end_date`）。
 - 逐个交易日调用单日同步逻辑（含分页）。
@@ -63,10 +63,8 @@
 
 ## 6. 运维接入
 
-- 任务规格：
-  - `sync_daily.fund_adj`
-  - `sync_history.fund_adj`
-  - `backfill_fund_series.fund_adj`
+- 维护动作：
+  - `fund_adj.maintain`
 - 手动配置：
   - 单日模式：`trade_date`
   - 区间模式：`start_date/end_date`

@@ -58,7 +58,7 @@
 1. [execution_plan.py](/Users/congming/github/goldenshare/src/foundation/ingestion/execution_plan.py)
 2. [resolver.py](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py)
 
-历史 `src/ops/services/operations_history_backfill_service.py` 已退场，其中“开市日 -> 周末/月末交易日锚点”的有效规则必须通过标准 planner/resolver 表达。
+历史独立回补服务已退场，其中“开市日 -> 周末/月末交易日锚点”的有效规则必须通过标准 planner/resolver 表达。
 
 ---
 

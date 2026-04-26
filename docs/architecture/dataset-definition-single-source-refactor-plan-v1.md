@@ -15,7 +15,7 @@
 4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
 5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
 6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从旧任务规格、旧执行契约或前端 formatter 反推。
-7. 历史 `sync_v2` 目录已从代码仓物理删除；本文后续章节中出现的旧路径仅作为历史审计上下文。
+7. 历史同步实现目录已从代码仓物理删除；本文后续章节不再以旧路径作为当前依据。
 
 ---
 
@@ -23,7 +23,7 @@
 
 后续只能由 `DatasetDefinition` 定义“一个数据集是什么”。中文名、英文标识、数据域、来源 API、日期模型、输入参数、写入目标、观测字段、可维护能力，都必须从 `DatasetDefinition` 派生。
 
-`sync_daily`、`backfill_*`、`sync_history` 不再作为领域概念、API 概念、UI 概念或长期代码主语存在。迁移完成后，它们应从活跃代码中消失。
+旧执行路由不再作为领域概念、API 概念、UI 概念或长期代码主语存在。迁移完成后，它们应从活跃代码中消失。
 
 ---
 
@@ -32,11 +32,11 @@
 | 决策 | 结论 |
 |---|---|
 | 用户主动作 | 统一叫“维护”，后端 action 使用 `maintain` |
-| 旧执行名 | `sync_daily` / `backfill_*` / `sync_history` 最终直接消失 |
+| 旧执行名 | 最终直接消失，不再作为当前事实源 |
 | 迁移策略 | 停机式直接重构，不做兼容，不做双读双写 |
 | 前端心智 | 只展示维护对象、处理范围、发起方式、状态，不展示底层执行路径 |
 | 日期事实源 | 以 `DatasetDefinition.date_model` 为唯一事实源 |
-| 目录与命名 | 后续目录/文件命名必须与新架构一致，`sync_v2`、`contracts.py` 这类历史命名不作为目标结构保留 |
+| 目录与命名 | 后续目录/文件命名必须与新架构一致，历史同步目录与契约文件命名不作为目标结构保留 |
 
 ---
 
@@ -44,13 +44,12 @@
 
 ### 3.1 M0 前事实源分散
 
-M0 前最接近数据集事实源的是 `DatasetSyncContract`：
+M0 前最接近数据集事实源的是旧数据集执行契约：
 
-- 位置：`src/foundation/services/sync_v2/contracts.py`
 - 数量：57 个 contract
 - 已包含：`dataset_key`、`display_name`、`job_name`、`run_profiles_supported`、`date_model`、`input_schema`、`planning_spec`、`source_spec`、`write_spec`、`observe_spec`
 
-说明：`src/foundation/services/sync_v2/contracts.py` 是历史运行投影位置，不是目标事实源位置。当前 DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；运行投影由 `src/foundation/ingestion/**` 从 Definition 派生。
+说明：旧数据集执行契约是历史运行投影位置，不是目标事实源位置。当前 DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；运行投影由 `src/foundation/ingestion/**` 从 Definition 派生。
 
 M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在 ops 或其他目录：
 
@@ -66,16 +65,7 @@ M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在
 
 ### 3.2 M0 前旧任务规格膨胀
 
-M0 前 57 个数据集对应 141 个旧任务规格：
-
-| category | 数量 |
-|---|---:|
-| `sync_history` | 56 |
-| `sync_daily` | 39 |
-| `backfill_by_trade_date` | 22 |
-| 其他 `backfill_*` | 21 |
-| `sync_minute_history` | 1 |
-| `maintenance` | 2 |
+M0 前 57 个数据集对应 141 个旧任务规格，旧规格统计明细已随历史文档下线。
 
 这说明旧任务规格已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
 
@@ -109,16 +99,16 @@ flowchart LR
 | 模型 | 建议目录 | 原因 |
 |---|---|---|
 | `DatasetDefinition` | `src/foundation/datasets/**` | foundation 定义底层数据能力，不依赖 ops |
-| `DatasetExecutionPlan` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史 `sync_v2` 命名 |
+| `DatasetExecutionPlan` | `src/foundation/ingestion/**` | 执行引擎消费的运行投影，替代历史同步实现命名 |
 | `DatasetActionCatalog` | `src/ops/queries/**` 或 `src/ops/services/**` | ops 面向用户动作和任务中心 |
 | `DatasetFreshnessProjection` | `src/ops/queries/**` | freshness 是 ops 观测投影，只能从 definition 派生 |
 | `WorkflowDefinition` | `src/ops/action_catalog.py` | 工作流属于运维编排，不是数据集事实 |
 
-评审关注点：是否接受新增 `src/foundation/datasets/**` 作为数据集定义主目录。我的建议是接受，避免继续把主模型塞在 `sync_v2` 目录里。
+评审关注点：是否接受新增 `src/foundation/datasets/**` 作为数据集定义主目录。我的建议是接受，避免继续把主模型塞在历史同步实现目录里。
 
 ### 4.2.1 目标目录与命名原则
 
-现有 `src/foundation/services/sync_v2/**` 命名带有明显阶段性：它表达的是“第二版同步链路”，不是稳定领域模型。新架构应按长期领域职责命名，而不是按版本号或历史命令命名。
+历史同步实现目录命名带有明显阶段性：它表达的是某一版同步链路，不是稳定领域模型。新架构应按长期领域职责命名，而不是按版本号或历史命令命名。
 
 建议目标结构：
 
@@ -160,8 +150,8 @@ src/
 命名原则：
 
 1. `datasets` 表达“数据集是什么”，不表达怎么执行。
-2. `ingestion` 表达“从外部源取数、归一化、写入”，不再叫 `sync_v2`。
-3. `execution_plan` 表达标准计划，不再叫 `job_spec` 或 `backfill spec`。
+2. `ingestion` 表达“从外部源取数、归一化、写入”，不再按历史同步版本命名。
+3. `execution_plan` 表达标准计划，不再叫旧任务规格。
 4. `ops/actions` 表达用户动作和后端解析，不再从旧执行路径反推 action。
 5. 版本号如 `v2` 只允许出现在迁移文档或历史归档中，不应出现在长期主目录名中。
 
@@ -347,7 +337,7 @@ DatasetDefinition(
 
 这个示例有两个重点：
 
-1. `market/hot_type/is_new` 的默认扇出属于数据集定义和执行计划，不应该散落在手动任务 service 或旧 backfill 分支里。
+1. `market/hot_type/is_new` 的默认扇出属于数据集定义和执行计划，不应该散落在手动任务 service 或旧执行分支里。
 2. `DatasetDefinition` 定义事实和能力，但不定义“这次具体执行哪些 unit”；具体 unit 仍由 `DatasetExecutionPlan` 在运行时生成。
 
 ---
@@ -541,7 +531,7 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 
 最终完成时必须满足：
 
-1. 活跃代码不再出现 `sync_daily`、`sync_history`、`backfill_` 作为执行模型主语。
+1. 活跃代码不再出现旧执行路由作为执行模型主语。
 2. 新增数据集只需要新增一个 `DatasetDefinition`，不能再同时改多张元数据表。
 3. 手动任务、自动任务、任务记录、任务详情的名称全部来自同一个 dataset display source。
 4. 日期控件和处理范围全部从 `DatasetDefinition.date_model` 派生。

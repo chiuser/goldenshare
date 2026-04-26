@@ -91,7 +91,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.moneyflow_ind_ths`
+- 资源：`moneyflow_ind_ths.maintain`
 - 仅注入 `trade_date`
 
 ---
@@ -123,13 +123,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMoneyflowIndThsService`
+- IngestionExecutor / SourceClient：`moneyflow_ind_ths` 数据集维护链路
 - `target_table`：`core_serving.industry_moneyflow_ths`
 - 参数构建：
-  - `sync_daily.moneyflow_ind_ths`：`trade_date`（可选 `ts_code`）
-  - `sync_history.moneyflow_ind_ths`：`trade_date` 或 `start_date+end_date`（可选 `ts_code`）
+  - `moneyflow_ind_ths.maintain`：`trade_date` 或 `start_date+end_date`（可选 `ts_code`）
 - 分页策略：每个 `trade_date`（及可选 `ts_code`）组合内，自动用 `limit` + `offset` 分页直至取完
 - 幂等：按主键 upsert
 - 进度日志示例：
@@ -148,7 +147,7 @@
 ## 8. 测试与验收
 
 - 单测：参数校验、区间推进、upsert 幂等
-- 集成：`sync_daily.moneyflow_ind_ths`、`sync_history.moneyflow_ind_ths`
+- 集成：`moneyflow_ind_ths.maintain`（单日/区间）
 - 回归：不影响板块成分/板块行情链路
 
 ---

@@ -5,7 +5,7 @@
 - 目标：新增 `stock_st` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 对外服务与 Ops 运维打通。
 - 本期边界：
   - 按交易日期维度同步，区间模式必须按交易日历扇出，不按自然日遍历。
-  - `sync_history.stock_st` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
+  - `stock_st.maintain` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
   - 数据起点受上游限制为 `2016-01-01`，更早日期不做补齐。
 
 ## 2. 上游接口信息
@@ -30,9 +30,7 @@
 
 ### 3.2 运维侧参数策略（面向用户）
 
-- `sync_daily.stock_st`
-  - 参数：`trade_date`，可选 `ts_code`
-- `sync_history.stock_st`
+- `stock_st.maintain`
   - 参数：`trade_date` 或 `start_date + end_date`，可选 `ts_code`
 - 分页参数 `limit/offset` 不暴露给用户，服务内部固定循环分页。
 - 历史同步不允许无时间参数启动。
@@ -68,15 +66,15 @@
   - `idx_equity_stock_st_trade_date(trade_date)`
   - `idx_equity_stock_st_ts_code(ts_code)`
 
-## 5. 同步实现策略
+## 5. 维护实现策略
 
-### 5.1 日常同步（INCREMENTAL）
+### 5.1 单日维护
 
 - 必传 `trade_date`。
 - 请求参数：`trade_date (+ ts_code 可选)`。
 - 单日请求内部使用 `limit=1000, offset` 分页，直到不足 1000 或无数据。
 
-### 5.2 历史同步（FULL）
+### 5.2 区间维护
 
 - 允许：
   - 单日（`trade_date`）
@@ -105,13 +103,13 @@
 - `tests/test_sync_stock_st_service.py`
   - 增量参数校验（`trade_date` 必填）
   - 单日分页循环（`limit/offset`）
-  - 历史同步显式时间约束
+  - 维护动作显式时间约束
   - 区间按交易日历扇出
   - 起始日期裁剪到 `2016-01-01`
 - `tests/test_sync_registry.py`
   - 注册表包含 `stock_st`
 - `tests/test_ops_action_catalog.py`
-  - `sync_daily.stock_st` / `sync_history.stock_st` 参数契约
+  - `stock_st.maintain` 参数契约
 - `tests/test_fields_constants.py`
   - `STOCK_ST_FIELDS` 字段常量
 - `tests/test_extended_models.py`

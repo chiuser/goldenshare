@@ -11,7 +11,7 @@
 1. 子系统边界以 `foundation / ops / biz / app` 为主，`platform / operations` 为 legacy 冻结目录。
 2. 数据集事实源收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
 3. 数据维护执行计划收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`。
-4. 旧 `src/foundation/services/sync_v2/**` 已物理删除，不再是当前实现或迁移兜底。
+4. 旧同步实现目录已物理删除，不再是当前实现或迁移兜底。
 5. 运维任务观测收敛到 `ops.task_run / task_run_node / task_run_issue` 与 TaskRun API。
 
 ---

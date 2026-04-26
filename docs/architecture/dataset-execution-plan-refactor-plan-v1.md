@@ -21,7 +21,7 @@
 
 用户、前端和 Ops API 只表达“维护哪个数据集、处理什么范围、带哪些筛选”。后端 resolver 根据 `DatasetDefinition` 生成 `DatasetExecutionPlan`，执行器只消费 `DatasetExecutionPlan`。
 
-`sync_daily`、`backfill_*`、`sync_history` 都是旧实现里对 `maintain` 的特例命名，不能继续作为执行模型。
+旧执行路由都是旧实现里对 `maintain` 的特例命名，不能继续作为执行模型。
 
 ---
 
@@ -75,7 +75,7 @@ JobSchedule(spec_type, spec_key, params_json)
 
 1. 工作流步骤引用旧 job key。
 2. 工作流把“编排顺序”和“底层执行路径”绑定死。
-3. 后续删除旧三件套前，工作流必须先切到 action/plan step。
+3. 后续删除旧执行路由前，工作流必须先切到 action/plan step。
 
 ### 2.4 Dispatcher 旧链路
 
@@ -83,11 +83,11 @@ JobSchedule(spec_type, spec_key, params_json)
 
 | 当前分支 | 问题 |
 |---|---|
-| `executor_kind=sync_service` | 还要继续判断 `category == sync_daily` |
-| `executor_kind=history_backfill_service` | 进入 `HistoryBackfillService`，重复实现范围和扇出 |
-| `category=backfill_equity_series` 等 | 以旧名字决定执行行为 |
+| `executor_kind=sync_service` | 还要继续判断旧任务 category |
+| 旧独立区间执行器 | 重复实现范围和扇出 |
+| 旧 category 分支 | 以旧名字决定执行行为 |
 
-这正是旧三件套无法消失的核心原因。
+这正是旧执行路由无法消失的核心原因。
 
 ### 2.5 历史提交链路事故暴露的问题
 
@@ -230,9 +230,9 @@ class DatasetTimeInput:
 
 约束：
 
-1. `mode=point` 表示单个时间点，不等于旧 `sync_daily`。
-2. `mode=range` 表示时间范围，不等于旧 `backfill_*`。
-3. `mode=none` 表示无时间维度，不等于旧 `sync_history`。
+1. `mode=point` 表示单个时间点，不等于任何旧单日执行路由。
+2. `mode=range` 表示时间范围，不等于任何旧区间执行路由。
+3. `mode=none` 表示无时间维度，不等于任何旧全量执行路由。
 4. 具体日期是否交易日、自然日、月份键，由 `DatasetDefinition.date_model` 决定。
 
 ### 3.4 执行计划模型
@@ -283,7 +283,7 @@ Resolver 只做一件事：把 `DatasetActionRequest + DatasetDefinition` 变成
 禁止规则：
 
 1. 不允许用旧 key 前缀判断 `run_profile`。
-2. 不允许 `spec_key.startswith("sync_history.")` 这种派生逻辑继续存在。
+2. 不允许通过旧 key 前缀派生执行逻辑。
 3. 不允许前端决定执行路径。
 
 ### 4.2 `date_model` 到 `time_scope`
@@ -313,7 +313,7 @@ Resolver 只做一件事：把 `DatasetActionRequest + DatasetDefinition` 变成
 | `pagination_policy` | `plan.planning.pagination_policy` | 定义源接口内部如何分页拉取。分页只影响单 unit 内部取数方式，不作为事务提交粒度。 |
 | `chunk_size` | `plan.planning.chunk_size` | 定义规划或写入过程的内部分块规模，用于控制内存和批量 SQL 大小，不等于事务边界。 |
 
-这样 `dc_hot` 的默认 `hot_type/is_new/market`、指数池扇出、板块代码扇出，都成为 definition 派生的 plan 行为，而不是散落在手动任务或 backfill service 中。
+这样 `dc_hot` 的默认 `hot_type/is_new/market`、指数池扇出、板块代码扇出，都成为 definition 派生的 plan 行为，而不是散落在手动任务或旧区间执行服务中。
 
 ---
 
@@ -355,17 +355,17 @@ class DatasetPlanExecutor:
 
 说明：`SyncV2Engine` 不再是当前代码名，也不是迁移兜底。
 
-`HistoryBackfillService` 中的区间循环、证券池循环、月份循环，必须并入标准 planner/executor。重构完成时，`HistoryBackfillService` 不能继续存在为独立执行器。
+旧独立区间执行器中的区间循环、证券池循环、月份循环，必须并入标准 planner/executor。重构完成时，旧独立区间执行器不能继续存在。
 
 落地要求：
 
 1. 迁移不是简单改名，必须逐数据集建立旧执行规则到新 `DatasetExecutionPlan` 的映射矩阵。
 2. 每个旧分支的日期展开、证券池/指数池读取、枚举扇出、分页、默认参数、进度语义、写入策略都必须在新 plan 中有等价表达。
-3. `HistoryBackfillService` 是迁移对象，不是目标架构组件。
-4. 任务最终完成门禁：`src/ops/services/operations_history_backfill_service.py` 中的独立执行器实现必须删除，活跃执行路径不得再 import、实例化或调用它。
+3. 旧独立区间执行器是迁移对象，不是目标架构组件。
+4. 任务最终完成门禁：旧独立区间执行器实现必须删除，活跃执行路径不得再 import、实例化或调用它。
 5. 删除前必须证明其所有可执行能力已由 planner/executor 覆盖。
-6. 不允许出现“先保留一条旧 backfill 分支兜底”的兼容方案；迁移期间如果短暂保留，只能作为待删除 legacy，且不得承接新功能。
-7. 验收必须执行引用审计，`rg "HistoryBackfillService|operations_history_backfill_service|history_backfill_service|executor_kind=history_backfill_service" src tests frontend` 结果中不得存在活跃主链引用。
+6. 不允许出现“先保留一条旧区间执行分支兜底”的兼容方案；迁移期间如果短暂保留，只能作为待删除 legacy，且不得承接新功能。
+7. 验收必须执行引用审计，旧独立区间执行器相关 class、文件名、dispatcher kind 在 `src tests frontend` 中不得存在活跃主链引用。
 
 ### 5.3 旧执行规则到新 plan 的映射门禁
 
@@ -389,10 +389,10 @@ class DatasetPlanExecutor:
 
 | dataset | 旧入口 | 新 plan |
 |---|---|---|
-| `index_daily` 区间维护 | `backfill_index_series.index_daily` | `run_profile=range_rebuild`，`fanout_axes=["ts_code"]`，`universe_source=ops_index_series_active`，每个激活指数生成一个 unit |
-| `dc_hot` 区间维护 | `backfill_by_trade_date.dc_hot` | `run_profile=range_rebuild`，`fanout_axes=["trade_date","market","hot_type","is_new"]`，默认扇出市场/热点类型/最新标记 |
-| `broker_recommend` 月份维护 | `backfill_by_month.broker_recommend` | `run_profile=range_rebuild`，`fanout_axes=["month"]`，按 `YYYYMM` 月份键生成 unit；`month` 不是月初/月中/月尾日期，而是自然月桶标识，来源于 `DatasetDateModel(date_axis="month_key", bucket_rule="every_natural_month")` |
-| `stk_mins` 区间维护 | `sync_minute_history.stk_mins` | `run_profile=range_rebuild`，`fanout_axes=["ts_code","freq"]`，时间窗口进入 unit request params，`commit_policy=per_unit` |
+| `index_daily` 区间维护 | 指数区间旧入口 | `run_profile=range_rebuild`，`fanout_axes=["ts_code"]`，`universe_source=ops_index_series_active`，每个激活指数生成一个 unit |
+| `dc_hot` 区间维护 | 交易日区间旧入口 | `run_profile=range_rebuild`，`fanout_axes=["trade_date","market","hot_type","is_new"]`，默认扇出市场/热点类型/最新标记 |
+| `broker_recommend` 月份维护 | 月份区间旧入口 | `run_profile=range_rebuild`，`fanout_axes=["month"]`，按 `YYYYMM` 月份键生成 unit；`month` 不是月初/月中/月尾日期，而是自然月桶标识，来源于 `DatasetDateModel(date_axis="month_key", bucket_rule="every_natural_month")` |
+| `stk_mins` 区间维护 | 分钟行情旧入口 | `run_profile=range_rebuild`，`fanout_axes=["ts_code","freq"]`，时间窗口进入 unit request params，`commit_policy=per_unit` |
 
 ### 5.4 单点、范围、无时间示例
 
@@ -851,7 +851,7 @@ DatasetObservability(
 
 这样做的好处：
 
-1. 中文文案不散落在 engine/backfill service 里。
+1. 中文文案不散落在 engine 或旧区间执行服务里。
 2. 前端不需要解析英文 token。
 3. 未来可以把进度展示从一行文字升级成结构化卡片。
 4. CLI 如果需要英文或紧凑输出，也可以使用另一个 formatter，而不影响 Web。
@@ -873,7 +873,7 @@ DatasetObservability(
 旧工作流：
 
 ```python
-WorkflowStepSpec("daily", "sync_daily.daily", "股票日线")
+WorkflowStepSpec("daily", "旧任务 key", "股票日线")
 ```
 
 目标工作流：
@@ -902,7 +902,7 @@ WorkflowActionStep(
 
 ```text
 spec_type=job
-spec_key=sync_daily.daily
+spec_key=旧任务 key
 params_json={"trade_date": "..."}
 ```
 
@@ -1084,7 +1084,7 @@ Unit 建议记录：
 门禁：
 
 ```bash
-rg "sync_daily|sync_history|sync_minute_history|backfill_(equity_series|index_series|fund_series|trade_cal|by_trade_date|by_date_range|by_month|low_frequency)" src/ops src/foundation src/app tests frontend
+rg "旧执行路由关键字" src/ops src/foundation src/app tests frontend
 ```
 
 结果要求：
@@ -1098,7 +1098,7 @@ rg "sync_daily|sync_history|sync_minute_history|backfill_(equity_series|index_se
 
 | 风险 | 控制方式 |
 |---|---|
-| range 行为与旧 backfill 不一致 | 每个 dataset 做旧路径到新 plan 的审计矩阵 |
+| range 行为与旧区间执行不一致 | 每个 dataset 做旧路径到新 plan 的审计矩阵 |
 | 周/月锚点误用自然日期 | plan snapshot 测试固定交易日历样例 |
 | 自动任务失效 | M5 重建 seed，不迁就旧 schedule |
 | 工作流步骤断裂 | 先将 WorkflowStep 改为 action step，再删旧 job key |

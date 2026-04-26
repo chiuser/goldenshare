@@ -6,7 +6,7 @@
 - 本期边界：
   - 先做 `tushare` 单源，不做多源融合。
   - 不纳入现有工作流（先独立任务稳定）。
-  - `sync_history.suspend_d` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
+  - `suspend_d.maintain` 必须显式传时间参数（`trade_date` 或 `start_date+end_date`），禁止无时间全量。
 
 ## 2. 上游接口
 
@@ -91,13 +91,12 @@
 
 > 评审建议：本数据集先采用 A，后续如业务确认需要保留“同键多条历史版本”再切 B。
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncSuspendDService`（新增）
+- IngestionExecutor / SourceClient：`suspend_d` 数据集维护链路
 - `target_table`：`core_serving.equity_suspend_d`
 - 参数构建规则：
-  - `sync_daily.suspend_d`：必须 `trade_date`
-  - `sync_history.suspend_d`：`trade_date` 或 `start_date+end_date`
+  - `suspend_d.maintain`：`trade_date` 或 `start_date+end_date`
   - 区间模式：按自然日逐日调用上游（每次传 `trade_date`）
 - 写入规则：
   - raw 先写入
@@ -121,8 +120,7 @@
   - 区间自然日推进
   - 幂等写入
 - 集成测试：
-  - `sync_daily.suspend_d`
-  - `sync_history.suspend_d`
+  - `suspend_d.maintain`（单日/区间）
   - Ops 手动任务参数链路
 - 回归测试：
   - 不影响现有股票日频数据集（`moneyflow/limit_list_d/stk_limit/stk_nineturn`）

@@ -54,7 +54,7 @@
    - 时间区间回补
 3. 分页接口必须内部自动循环，不把分页细节暴露为运营常规参数。
 4. 同步任务必须纳入 Ops 可观测对象（TaskRun + pipeline mode + layer snapshot）。
-5. `sync_daily / backfill_* / sync_history` 不再作为当前用户任务、API 或长期领域模型。
+5. 旧执行路由不再作为当前用户任务、API 或长期领域模型。
 
 ---
 

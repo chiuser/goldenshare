@@ -31,11 +31,11 @@
 - `idx_raw_biying_equity_daily_bar_trade_date(trade_date)`
 - `idx_raw_biying_equity_daily_bar_dm_trade_date(dm, trade_date)`
 
-## 4. 同步逻辑
+## 4. 维护逻辑
 
-### 4.1 历史同步
+### 4.1 区间维护
 
-- 任务：`sync_history.biying_equity_daily`
+- 动作：`biying_equity_daily.maintain`
 - 入参：`start_date`, `end_date`
 - 执行流程：
   1. 读取 `raw_biying.stock_basic` 股票池。
@@ -43,9 +43,9 @@
   3. 对日期区间按窗口切片请求（防止单次结果截断）。
   4. 归一化后 upsert 到 `raw_biying.equity_daily_bar`。
 
-### 4.2 日常同步
+### 4.2 单日维护
 
-- 任务：`sync_daily.biying_equity_daily`
+- 动作：`biying_equity_daily.maintain`
 - 入参：`trade_date`
 - 执行流程：按单日窗口对全股票池拉取 `n/f/b` 三种复权类型。
 
@@ -62,8 +62,8 @@
 - `tests/test_biying_connector.py`
   - 覆盖 `equity_daily_bar` URL 拼装与返回解析。
 - `tests/test_sync_biying_equity_daily_service.py`
-  - 覆盖历史同步主路径与增量参数校验。
+  - 覆盖区间维护主路径与单日参数校验。
 - `tests/test_raw_multi_schema_mapping.py`
   - 覆盖新 raw 多源表 schema 与主键定义。
 - `tests/test_ops_action_catalog.py`
-  - 覆盖新任务规格与参数暴露。
+  - 覆盖维护动作与参数暴露。

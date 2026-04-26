@@ -25,7 +25,7 @@
 
 ## 2. 本轮硬边界
 
-1. 本轮主目标是把数据集维护从旧 `sync_daily / backfill_* / sync_history` 心智收敛到 `DatasetDefinition + DatasetExecutionPlan + action=maintain`。
+1. 本轮主目标是把数据集维护从旧执行路由心智收敛到 `DatasetDefinition + DatasetExecutionPlan + action=maintain`。
 2. 不做计划外“顺手改造”。
 3. 遇到不清楚的实现，必须读代码确认，不能猜。
 4. 若评估不足导致无法稳妥推进，必须停下来抛出问题。
@@ -45,7 +45,7 @@
 | M3 | 收敛执行层状态与事务语义 | 执行器消费 plan；处理 data transaction 与 ops state 分离；收口旧状态写入语义 | plan executor、事务策略、结构化进度、单一 outcome 写入语义 | 不再依赖 `mark_success + mark_full_sync_done` 连续写同一行作为主链 |
 | M4 | 切换 Ops API / 前端消费新模型 | 手动任务、任务记录、详情、自动任务相关接口消费新字段 | API schema、query/service 调整、前端类型和页面适配 | UI 不再需要理解旧 spec 路径 |
 | M5 | 准备停机迁移与状态重建脚本 | 围绕 execution / schedule / resource state 做停机迁移准备 | migration 草案、seed/rebuild 脚本、演练说明 | 本地可重建，新旧运行状态语义可切换 |
-| M6 | 删除旧三类同步语义主链引用 | 主链删除 `sync_daily / backfill_* / sync_history` 作为执行模型的引用 | dispatcher/spec/workflow/schedule 旧分支删除，测试断言更新 | 活跃代码旧三件套引用清零或仅剩历史归档说明 |
+| M6 | 删除旧执行语义主链引用 | 主链删除旧执行路由作为执行模型的引用 | dispatcher/spec/workflow/schedule 旧分支删除，测试断言更新 | 活跃代码旧执行路由引用清零 |
 | M7 | 补齐架构测试和门禁 | 增加 definition、plan、旧名清零、`__ALL__`、事务边界、进度语义等护栏 | 单测、Web API 测试、架构测试、lint | 后续改动不能绕回旧模型或隐式大事务 |
 | M8 | 全量验证与交付总结 | 跑后端、架构、ingestion、Ops API、前端相关门禁并总结 | 验证记录、边界影响、剩余风险、后续建议 | 交付说明完整，主目标可验收 |
 

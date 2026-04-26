@@ -43,11 +43,11 @@
 - `idx_raw_biying_moneyflow_trade_date(trade_date)`
 - `idx_raw_biying_moneyflow_dm_trade_date(dm, trade_date)`
 
-## 4. 同步逻辑
+## 4. 维护逻辑
 
-### 4.1 历史同步
+### 4.1 区间维护
 
-- 任务：`sync_history.biying_moneyflow`
+- 动作：`biying_moneyflow.maintain`
 - 入参：`start_date`, `end_date`
 - 策略：
   1. 从 `raw_biying.stock_basic` 读取股票池；
@@ -55,9 +55,9 @@
   3. 按 `dm × 窗口` 扇出请求并 upsert；
   4. 窗口内不传 `lt`。
 
-### 4.2 日常同步
+### 4.2 单日维护
 
-- 任务：`sync_daily.biying_moneyflow`
+- 动作：`biying_moneyflow.maintain`
 - 入参：`trade_date`
 - 策略：把 `trade_date` 映射为 `st=et` 单日，按股票池扇出请求。
 
@@ -75,8 +75,8 @@
 - `tests/test_biying_connector.py`
   - 覆盖 `moneyflow` URL 拼装、空数据响应处理。
 - `tests/test_sync_biying_moneyflow_service.py`
-  - 覆盖 FULL 路径、INCREMENTAL 参数校验、字段归一化。
+  - 覆盖区间维护路径、单日参数校验、字段归一化。
 - `tests/test_raw_multi_schema_mapping.py`
   - 覆盖 `raw_biying.moneyflow` 的 schema 与主键。
 - `tests/test_ops_action_catalog.py`
-  - 覆盖 `sync_history.biying_moneyflow` / `sync_daily.biying_moneyflow` 规格。
+  - 覆盖 `biying_moneyflow.maintain` 维护动作。

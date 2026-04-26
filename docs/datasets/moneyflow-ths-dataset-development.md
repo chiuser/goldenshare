@@ -97,7 +97,7 @@
 
 ### 4.2 自动任务交互
 
-- 资源：`sync_daily.moneyflow_ths`
+- 资源：`moneyflow_ths.maintain`
 - 默认参数：仅 `trade_date`（由调度注入）
 - 可选扩展：`ts_code`
 
@@ -132,13 +132,12 @@
 
 ---
 
-## 6. 同步实现设计
+## 6. 维护实现设计
 
-- Sync Service：`SyncMoneyflowThsService`
+- IngestionExecutor / SourceClient：`moneyflow_ths` 数据集维护链路
 - `target_table`：`core_serving.equity_moneyflow_ths`
 - 参数构建：
-  - `sync_daily.moneyflow_ths`：`trade_date` + 可选 `ts_code`
-  - `sync_history.moneyflow_ths`：`trade_date` 或 `start_date+end_date` + 可选 `ts_code`
+  - `moneyflow_ths.maintain`：`trade_date` 或 `start_date+end_date` + 可选 `ts_code`
 - 幂等：按主键 upsert
 - 异常策略：上游异常按现有重试；参数异常中文提示
 - 进度日志示例：
@@ -164,8 +163,7 @@
   - 交易日历推进
   - upsert 幂等
 - 集成测试：
-  - `sync_daily.moneyflow_ths`
-  - `sync_history.moneyflow_ths`
+  - `moneyflow_ths.maintain`（单日/区间）
   - Ops 手动/自动任务链路
 - 回归测试：
   - 不影响既有 `moneyflow` / `moneyflow_dc` 等数据集
@@ -184,7 +182,7 @@
 - 发布顺序：
   1. 数据库迁移
   2. 部署代码
-  3. 触发一次 `sync_daily.moneyflow_ths` 验证
+  3. 触发一次 `moneyflow_ths.maintain` 验证
 - 回滚：回滚代码与任务注册，保留表数据
 
 ---
