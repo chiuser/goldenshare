@@ -31,6 +31,21 @@ class DatasetActionRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidatedDatasetActionRequest:
+    request_id: str
+    dataset_key: str
+    action: str
+    run_profile: str
+    trigger_source: str
+    params: dict[str, Any] = field(default_factory=dict)
+    source_key: str | None = None
+    trade_date: date | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    execution_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionTimeScope:
     mode: str
     start: date | str | None = None
@@ -90,6 +105,7 @@ class PlanUnitSnapshot:
     progress_context: dict[str, Any]
     pagination_policy: str | None = None
     page_limit: int | None = None
+    requested_source_key: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

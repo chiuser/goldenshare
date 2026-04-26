@@ -43,7 +43,7 @@
 ## 3.1 `index_daily`
 
 实现文件：
-- [src/foundation/services/sync_v2/registry_parts/contracts/index_series.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/index_series.py)
+- `src/foundation/services/sync_v2/registry_parts/contracts/index_series.py`（历史路径，已删除）
 
 行为：
 1. 如果传了 `ts_code`，只同步该代码，成功后写回筛选池 `resource=index_daily`。
@@ -57,7 +57,7 @@
 ## 3.2 `index_weekly`
 
 实现文件：
-- [src/foundation/services/sync_v2/registry_parts/contracts/index_series.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/index_series.py)
+- `src/foundation/services/sync_v2/registry_parts/contracts/index_series.py`（历史路径，已删除）
 
 行为：
 1. 目标代码集合由 `_target_codes()` 决定。
@@ -72,7 +72,7 @@
 ## 3.3 `index_monthly`
 
 实现文件：
-- [src/foundation/services/sync_v2/registry_parts/contracts/index_series.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/index_series.py)
+- `src/foundation/services/sync_v2/registry_parts/contracts/index_series.py`（历史路径，已删除）
 
 行为：
 1. 继承 `SyncIndexWeeklyService`。
@@ -84,7 +84,7 @@
 ## 3.4 `index_daily_basic`
 
 实现文件：
-- [src/foundation/services/sync_v2/registry_parts/contracts/index_series.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/index_series.py)
+- `src/foundation/services/sync_v2/registry_parts/contracts/index_series.py`（历史路径，已删除）
 
 行为：
 1. 同步后会把观测到的代码 upsert 到 `resource=index_daily_basic` 的筛选池。

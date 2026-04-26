@@ -3,9 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
+from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.foundation.services.sync_v2.contracts import DatasetDateModel
 from src.ops.schemas.catalog import ParameterSpecResponse
 from src.ops.schemas.manual_action import (
     ManualActionDateModelResponse,
@@ -270,7 +269,7 @@ class ManualActionQueryService:
     def _field_to_param_spec(field: DatasetInputField) -> ParameterSpec:
         return ParameterSpec(
             key=field.name,
-            display_name=ManualActionQueryService._field_display_name(field.name),
+            display_name=field.display_name or ManualActionQueryService._field_display_name(field.name),
             param_type=ManualActionQueryService._field_param_type(field),
             description=field.description,
             required=field.required,

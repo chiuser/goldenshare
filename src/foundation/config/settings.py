@@ -46,8 +46,6 @@ class Settings(BaseSettings):
     quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
     biz_use_serving_light: bool = Field(default=True, alias="BIZ_USE_SERVING_LIGHT")
     biz_serving_fallback: bool = Field(default=True, alias="BIZ_SERVING_FALLBACK")
-    sync_v2_strict_contract: bool = Field(default=True, alias="SYNC_V2_STRICT_CONTRACT")
-
     model_config = SettingsConfigDict(extra="ignore")
 
 

@@ -24,7 +24,7 @@
 2. `ops` 不得依赖 `biz`。
 3. `biz` 不得依赖 `ops` / `operations`。
 4. 不得把主实现写回 `src/platform/**` 或 `src/operations/**`。
-5. 不得新增 `src.foundation.services.sync.*` 导入路径；底层同步执行实现仍由 `sync_v2` 承接。
+5. 不得新增 `src.foundation.services.sync.*` 导入路径；数据维护执行主链只允许落在 `src/foundation/ingestion/**`。
 6. 不得把 `sync_daily / backfill_* / sync_history` 重新作为用户可见或 API 主执行模型。
 7. 不得恢复 `JobExecution*`、`sync_run_log` 或 `/api/v1/ops/executions*` 作为任务详情事实源。
 
@@ -50,7 +50,7 @@
 - 运维/运行时：`src/ops/**`（TaskRun、scheduler/worker、ops API/query/service）
 - 业务 API/查询：`src/biz/**`
 - 应用壳装配：`src/app/**`
-- 底层数据基座：`src/foundation/**`（DatasetDefinition、DatasetExecutionPlan、底层同步执行实现）
+- 底层数据基座：`src/foundation/**`（DatasetDefinition、DatasetExecutionPlan、IngestionExecutor 与数据模型）
 
 ---
 

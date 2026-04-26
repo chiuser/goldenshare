@@ -668,8 +668,9 @@ Date Model Freshness 收口必须完成：
 1. M1-M4 已进入代码实现：`TaskRun.current_context_json` 主链字段删除，替换为 `current_object_json`；`TaskRunIssue.object_json` 新增，用于失败位置快照。
 2. `TaskRunSyncContext` 已改为消费结构化 `current_object`，不再从 message 正则解析对象、行数或阶段字段。
 3. TaskRun view API 已改为返回 `progress.current_object` 展示模型；前端任务详情页不再展示 `key=value` 或 `暂无当前对象`。
-4. 新增 Alembic `20260426_000075_task_run_current_object_contract.py`，用于 schema 收口并按本方案清空 ops 运行观测/派生状态表；远程执行迁移和停机清表仍需走部署窗口。
-5. 本轮未删除 `ops.sync_job_state` 表和相关 Date Model Freshness 依赖；其彻底退场继续按工程风险登记中的 P1 项推进。
+4. 新增 Alembic `20260426_000075_task_run_current_object_contract.py`，并已在远程环境执行：`ops.task_run*`、`ops.sync_job_state`、`ops.job_schedule` 已按方案清空，旧 `job_execution* / sync_run_log` 已确认不存在。
+5. 远程发布后已执行 `ops-rebuild-dataset-status`，重建结果 `rebuilt=57`；`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current/history` 已恢复为有效派生状态。
+6. 本轮完成 `ops.sync_job_state` 退场审计：当前仍存在真实依赖，主要位于 `src/ops/queries/freshness_query_service.py`、`src/ops/dataset_status_projection.py`、`src/ops/services/operations_sync_job_state_reconciliation_service.py`、`src/cli.py` / `src/cli_parts/ops_handlers.py` 及对应测试，因此不在本轮直接删除；其彻底退场继续按工程风险登记中的 P1 项推进。
 
 ### M1：语义与 schema 收口
 

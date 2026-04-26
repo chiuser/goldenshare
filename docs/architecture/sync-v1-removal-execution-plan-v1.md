@@ -27,16 +27,16 @@
 
 ### 2.2 外部引用清单（Batch 0 冻结）
 
-1. [`src/foundation/services/sync_v2/base_sync_service.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/base_sync_service.py)  
-被 [`src/foundation/services/sync_v2/service.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/service.py) 引用。
-2. [`src/foundation/services/sync_v2/execution_errors.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/execution_errors.py)  
-被 [`src/foundation/services/sync_v2/engine.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/engine.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）引用。
-3. [`src/foundation/services/sync_v2/fields.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/fields.py)  
+1. ``src/foundation/services/sync_v2/base_sync_service.py``（历史路径，已删除）
+被 ``src/foundation/services/sync_v2/service.py``（历史路径，已删除） 引用。
+2. ``src/foundation/services/sync_v2/execution_errors.py``（历史路径，已删除）
+被 ``src/foundation/services/sync_v2/engine.py``（历史路径，已删除）、`src/ops/runtime/dispatcher.py`（历史实现，已退场）引用。
+3. ``src/foundation/services/sync_v2/fields.py``（历史路径，已删除）
 被 `sync_v2` contract/planner 与 `stk_factor_pro` 模型引用。
 4. `src/foundation/services/sync/registry.py`（历史基线记录，已在 Batch 4 删除）  
 被 [`src/cli.py`](/Users/congming/github/goldenshare/src/cli.py)、`src/ops/runtime/dispatcher.py`（历史实现，已退场）、`src/ops/services/operations_history_backfill_service.py`（历史实现，已退场）、`src/ops/services/operations_sync_job_state_reconciliation_service.py`（历史实现，已删除）、[`src/ops/specs/registry.py`](/Users/congming/github/goldenshare/src/ops/specs/registry.py) 引用。
 5. `src/foundation/services/sync/sync_moneyflow_service.py`（历史基线记录，已在 Batch 4 删除）  
-仅被 [`src/foundation/services/sync_v2/writer.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/writer.py) 引用（`publish_moneyflow_serving_for_keys`）。
+仅被 ``src/foundation/services/sync_v2/writer.py``（历史路径，已删除） 引用（`publish_moneyflow_serving_for_keys`）。
 
 ### 2.3 门禁测试冻结（后续每批至少通过）
 
@@ -51,10 +51,10 @@
 ### 2.4 Batch 1 完成结果（2026-04-23）
 
 1. V2 主路径不再直接依赖 V1 `base/errors/fields/moneyflow helper`：
-   - `BaseSyncService` 主实现迁至 [`src/foundation/services/sync_v2/base_sync_service.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/base_sync_service.py)
-   - `ExecutionCanceledError` 主实现迁至 [`src/foundation/services/sync_v2/execution_errors.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/execution_errors.py)
-   - 字段常量主实现迁至 [`src/foundation/services/sync_v2/fields.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/fields.py)
-   - `publish_moneyflow_serving_for_keys` 主实现迁至 [`src/foundation/services/sync_v2/moneyflow_publish.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/moneyflow_publish.py)
+   - `BaseSyncService` 主实现迁至 ``src/foundation/services/sync_v2/base_sync_service.py``（历史路径，已删除）
+   - `ExecutionCanceledError` 主实现迁至 ``src/foundation/services/sync_v2/execution_errors.py``（历史路径，已删除）
+   - 字段常量主实现迁至 ``src/foundation/services/sync_v2/fields.py``（历史路径，已删除）
+   - `publish_moneyflow_serving_for_keys` 主实现迁至 ``src/foundation/services/sync_v2/moneyflow_publish.py``（历史路径，已删除）
 2. `src/foundation/services/sync/*` 在 Batch 1 时曾保留最小兼容壳（不承接新逻辑）：
    - `src/foundation/services/sync/base_sync_service.py`（Batch 5 已删除）
    - `src/foundation/services/sync/errors.py`（Batch 5 已删除）
@@ -72,7 +72,7 @@
 ### 2.5 Batch 2 完成结果（2026-04-23）
 
 1. 新增 V2-only 运行注册入口：
-   - [`src/foundation/services/sync_v2/runtime_registry.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/runtime_registry.py)
+   - ``src/foundation/services/sync_v2/runtime_registry.py``（历史路径，已删除）
    - 提供统一的：
      - `SYNC_SERVICE_REGISTRY`
      - `build_sync_service`
@@ -125,8 +125,8 @@
    - `src/foundation/services/sync/sync_execution_context.py`
    - `src/foundation/services/sync/sync_state_store.py`
 2. 对应能力已迁入 `sync_v2`：
-   - [`src/foundation/services/sync_v2/sync_execution_context.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/sync_execution_context.py)
-   - [`src/foundation/services/sync_v2/sync_state_store.py`](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/sync_state_store.py)
+   - ``src/foundation/services/sync_v2/sync_execution_context.py``（历史路径，已删除）
+   - ``src/foundation/services/sync_v2/sync_state_store.py``（历史路径，已删除）
    - `src/foundation/services/sync_v2/base_sync_service.py` 已切换到新路径导入。
 3. 配套测试口径切换：
    - [`tests/test_fields_constants.py`](/Users/congming/github/goldenshare/tests/test_fields_constants.py) 改为引用 `sync_v2.fields`。

@@ -1,6 +1,6 @@
 # DatasetDefinition 单一事实源重构方案 v1
 
-- 状态：已部分落地；`src/foundation/datasets/**` 已建立 DatasetDefinition 骨架，长期目录命名和旧投影清理仍需继续收口
+- 状态：已落地到现行主链；`DatasetDefinition` 静态事实与执行静态事实已收口到 `src/foundation/datasets/**`
 - 日期：2026-04-25
 - 适用范围：`src/foundation/**`、`src/ops/**`、Ops Web API、任务中心前端、CLI
 - 关联方案：[DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
@@ -10,9 +10,12 @@
 ## 0. 当前落地状态（2026-04-26）
 
 1. `src/foundation/datasets/models.py` 与 `registry.py` 已建立 DatasetDefinition 主模型与查询入口。
-2. 当前 registry 仍会投影既有 Sync V2 contract，这是过渡实现事实，不应被理解为长期目录命名已经完成。
-3. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从 `JobSpec` 或前端 formatter 反推。
-4. 本文后续章节保留原方案和审计上下文；若与当前代码状态冲突，以本节和代码事实为准。
+2. `src/foundation/datasets/definitions/**` 已按领域落下 57 个数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
+3. [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md) 已记录当前 57 个数据集的身份、领域、来源 API、日期模型、输入字段、枚举、多选、写入目标和规划事实。
+4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
+5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
+6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从 `JobSpec`、Sync V2 contract 或前端 formatter 反推。
+7. 历史 `sync_v2` 目录已从代码仓物理删除；本文后续章节中出现的旧路径仅作为历史审计上下文。
 
 ---
 
@@ -37,19 +40,19 @@
 
 ---
 
-## 3. 当前代码审计结论
+## 3. 历史审计结论与当前处理
 
-### 3.1 现有事实源分散
+### 3.1 M0 前事实源分散
 
-当前最接近数据集事实源的是 `DatasetSyncContract`：
+M0 前最接近数据集事实源的是 `DatasetSyncContract`：
 
 - 位置：`src/foundation/services/sync_v2/contracts.py`
-- 数量：当前 57 个 contract
+- 数量：57 个 contract
 - 已包含：`dataset_key`、`display_name`、`job_name`、`run_profiles_supported`、`date_model`、`input_schema`、`planning_spec`、`source_spec`、`write_spec`、`observe_spec`
 
-说明：`src/foundation/services/sync_v2/contracts.py` 是现状位置，不是目标位置。后续重构必须同步调整目录名和文件名，避免“模型已经升级，但代码仍叫 sync_v2/contracts”的割裂感。
+说明：`src/foundation/services/sync_v2/contracts.py` 是历史运行投影位置，不是目标事实源位置。M2 后，DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；后续 M3 要继续把运行投影从 Sync V2 contract 迁出。
 
-但它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在 ops 或其他目录：
+M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在 ops 或其他目录：
 
 | 信息 | 当前位置 | 问题 |
 |---|---|---|
@@ -61,9 +64,9 @@
 | freshness 投影 | `DatasetFreshnessSpec` | 是有价值投影，但不应是事实源 |
 | `/ops/catalog` | `JobSpec` + `WorkflowSpec` 输出 | 暴露系统内部 spec，不是用户级数据集模型 |
 
-### 3.2 现有 JobSpec 膨胀
+### 3.2 M0 前 JobSpec 膨胀
 
-当前 57 个数据集对应 141 个 `JobSpec`：
+M0 前 57 个数据集对应 141 个 `JobSpec`：
 
 | category | 数量 |
 |---|---:|
@@ -76,13 +79,13 @@
 
 这说明 `JobSpec` 已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
 
-### 3.3 日期模型已经走在正确方向
+### 3.3 日期模型处理
 
-`DatasetSyncContract.date_model` 当前已经是日期语义单一事实源，见：
+M0 前 `DatasetSyncContract.date_model` 已经沉淀出正确日期语义，见：
 
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 
-这部分应保留并上移为 `DatasetDefinition.date_model`，不应再被 ops 侧单独定义或猜测。
+M2 后这部分已上移到 `DatasetDefinition.date_model` 的静态定义中。后续 M3 只允许从 Definition 派生运行投影，不应再由 ops 侧单独定义或猜测。
 
 ---
 
@@ -513,9 +516,10 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 
 | 里程碑 | 目标 | 主要产物 | 门禁 |
 |---|---|---|---|
-| M0 设计冻结 | 冻结术语和边界 | 两份方案评审通过 | 不允许再新增旧三件套引用 |
-| M1 Definition v1 | 建立 `DatasetDefinition` 主模型 | definition dataclass、分域 registry、57 个定义迁移 | definition lint、合同数量一致 |
-| M2 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetRuntimeContract`、Ops descriptor、freshness projection | 无重复元数据表 |
+| M0 设计冻结 | 冻结术语和边界 | 两份方案已标注当前落地状态与后续边界 | 不允许再新增旧三件套引用 |
+| M1 Definition 审计 | 建立事实审计矩阵 | 57 个数据集事实审计矩阵 | dataset key 覆盖 Sync V2 contract |
+| M2 Definition 独立化 | DatasetDefinition 不再运行时投影 Sync V2 contract | `src/foundation/datasets/definitions/**`、独立 registry、输入字段枚举事实 | registry 不导入 Sync V2 contract；definition tests |
+| M3 Runtime 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetRuntimeContract`、Ops descriptor、freshness projection | 无重复元数据表 |
 | M3 Ops API 切换 | API 不再输出旧 spec | datasets/actions/executions/schedules 新契约 | Web API 测试 |
 | M4 前端切换 | 任务中心只消费新模型 | 手动/记录/详情/自动任务页调整 | 前端单测、smoke、截图 |
 | M5 DB 停机迁移 | 重塑 execution/schedule 表 | migration、seed、清理脚本 | 本地重建、远程演练 |

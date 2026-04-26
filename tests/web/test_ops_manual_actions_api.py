@@ -74,6 +74,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert suspend_d_filters["suspend_type"]["multi_value"] is True
     assert suspend_d_filters["suspend_type"]["options"] == ["S", "R"]
 
+    dc_member_filters = {item["key"]: item for item in actions["dc_member"]["filters"]}
+    assert dc_member_filters["idx_type"]["param_type"] == "enum"
+    assert dc_member_filters["idx_type"]["multi_value"] is True
+    assert dc_member_filters["idx_type"]["options"] == ["行业板块", "概念板块", "地域板块"]
+
 
 def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)

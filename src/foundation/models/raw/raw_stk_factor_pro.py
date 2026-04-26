@@ -5,8 +5,11 @@ from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Float, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.models.base import Base
-from src.foundation.services.sync_v2.fields import STK_FACTOR_PRO_FIELDS
+
+
+STK_FACTOR_PRO_FIELDS = get_dataset_definition("stk_factor_pro").source.source_fields
 
 
 class RawStkFactorPro(Base):

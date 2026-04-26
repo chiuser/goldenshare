@@ -8,7 +8,7 @@
   - [freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)
   - [operations_dataset_status_snapshot_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py)
   - [registry.py](/Users/congming/github/goldenshare/src/ops/specs/registry.py)
-  - [date_models.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/common/date_models.py)
+  - `date_models.py`（历史路径，已删除）
 
 ---
 

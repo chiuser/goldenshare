@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date
 import hashlib
 import json
 from typing import Any
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -20,22 +19,18 @@ from src.foundation.ingestion.execution_plan import (
     PlanPlanning,
     PlanSource,
     PlanTransactionPolicy,
-    PlanUnitSnapshot,
     PlanWriting,
 )
-from src.foundation.services.sync_v2.contracts import RunRequest
-from src.foundation.services.sync_v2.planner import SyncV2Planner
-from src.foundation.services.sync_v2.registry import get_sync_v2_contract
-from src.foundation.services.sync_v2.runtime_contract import to_runtime_contract
-from src.foundation.services.sync_v2.validator import ContractValidator
+from src.foundation.ingestion.unit_planner import DatasetUnitPlanner
+from src.foundation.ingestion.validator import DatasetRequestValidator
 
 
 class DatasetActionResolver:
     def __init__(self, session: Session, *, strict_contract: bool = True) -> None:
         self.session = session
         self.strict_contract = strict_contract
-        self.validator = ContractValidator()
-        self.planner = SyncV2Planner(session)
+        self.validator = DatasetRequestValidator()
+        self.unit_planner = DatasetUnitPlanner(session)
 
     def build_plan(self, request: DatasetActionRequest) -> DatasetExecutionPlan:
         if request.action != "maintain":
@@ -45,47 +40,17 @@ class DatasetActionResolver:
         if action is None:
             raise ValueError(f"dataset={request.dataset_key} does not support action={request.action}")
 
-        contract = get_sync_v2_contract(request.dataset_key)
-        normalized_time = self._normalize_time_input(request.time_input, contract.date_model.input_shape)
+        normalized_time = self._normalize_time_input(request.time_input, definition.date_model.input_shape)
         run_profile = self._resolve_run_profile(normalized_time)
-        params = self._build_params(normalized_time, request.filters)
-        run_request = RunRequest(
-            request_id=uuid4().hex,
-            dataset_key=request.dataset_key,
+        normalized_request = replace(request, time_input=normalized_time)
+        validated = self.validator.validate(
+            request=normalized_request,
+            definition=definition,
             run_profile=run_profile,
-            trigger_source=request.trigger_source,
-            params=params,
-            trade_date=normalized_time.trade_date,
-            start_date=normalized_time.start_date,
-            end_date=normalized_time.end_date,
-            execution_id=request.execution_id,
+            strict=self.strict_contract,
         )
-        validated = self.validator.validate(request=run_request, contract=contract, strict=self.strict_contract)
-        runtime_contract = to_runtime_contract(contract)
-        if runtime_contract.strategy_fn is not None:
-            units = runtime_contract.strategy_fn(
-                validated,
-                contract,
-                self.planner.dao,
-                self.planner.settings,
-                self.session,
-            )
-        else:
-            units = self.planner.plan(validated, contract)
+        units = self.unit_planner.plan(validated, definition)
 
-        unit_snapshots = tuple(
-            PlanUnitSnapshot(
-                unit_id=unit.unit_id,
-                dataset_key=unit.dataset_key,
-                source_key=unit.source_key,
-                trade_date=unit.trade_date,
-                request_params=dict(unit.request_params),
-                progress_context=dict(unit.progress_context),
-                pagination_policy=unit.pagination_policy,
-                page_limit=unit.page_limit,
-            )
-            for unit in units
-        )
         plan_id = self._plan_id(
             dataset_key=request.dataset_key,
             action=request.action,
@@ -99,40 +64,40 @@ class DatasetActionResolver:
             action=request.action,
             run_profile=run_profile,
             time_scope=self._time_scope(normalized_time),
-            filters=dict(request.filters or {}),
+            filters=dict(validated.params),
             source=PlanSource(
-                source_key=validated.source_key or contract.source_spec.source_key_default,
-                adapter_key=contract.source_adapter_key,
-                api_name=contract.source_spec.api_name,
-                fields=contract.source_spec.fields,
+                source_key=validated.source_key or definition.source.source_key_default,
+                adapter_key=definition.source.adapter_key,
+                api_name=definition.source.api_name,
+                fields=definition.source.source_fields,
             ),
             planning=PlanPlanning(
-                universe_policy=contract.planning_spec.universe_policy,
-                enum_fanout_fields=contract.planning_spec.enum_fanout_fields,
-                enum_fanout_defaults=contract.planning_spec.enum_fanout_defaults,
-                pagination_policy=contract.planning_spec.pagination_policy,
-                chunk_size=contract.planning_spec.chunk_size,
-                max_units_per_execution=contract.planning_spec.max_units_per_execution,
+                universe_policy=definition.planning.universe_policy,
+                enum_fanout_fields=definition.planning.enum_fanout_fields,
+                enum_fanout_defaults=definition.planning.enum_fanout_defaults,
+                pagination_policy=definition.planning.pagination_policy,
+                chunk_size=definition.planning.chunk_size,
+                max_units_per_execution=definition.planning.max_units_per_execution,
                 unit_count=len(units),
             ),
             writing=PlanWriting(
-                target_table=contract.write_spec.target_table,
-                raw_dao_name=contract.write_spec.raw_dao_name,
-                core_dao_name=contract.write_spec.core_dao_name,
-                conflict_columns=contract.write_spec.conflict_columns,
-                write_path=contract.write_spec.write_path,
+                target_table=definition.storage.target_table,
+                raw_dao_name=definition.storage.raw_dao_name,
+                core_dao_name=definition.storage.core_dao_name,
+                conflict_columns=definition.storage.conflict_columns,
+                write_path=definition.storage.write_path,
             ),
             transaction=PlanTransactionPolicy(
-                commit_policy=contract.transaction_spec.commit_policy,
-                idempotent_write_required=contract.transaction_spec.idempotent_write_required,
-                write_volume_assessment=contract.transaction_spec.write_volume_assessment,
+                commit_policy=definition.transaction.commit_policy,
+                idempotent_write_required=definition.transaction.idempotent_write_required,
+                write_volume_assessment=definition.transaction.write_volume_assessment,
             ),
             observability=PlanObservability(
-                progress_label=contract.observe_spec.progress_label,
-                observed_field=contract.date_model.observed_field,
-                audit_applicable=contract.date_model.audit_applicable,
+                progress_label=definition.observability.progress_label,
+                observed_field=definition.date_model.observed_field,
+                audit_applicable=definition.date_model.audit_applicable,
             ),
-            units=unit_snapshots,
+            units=units,
         )
 
     @staticmethod
@@ -151,11 +116,7 @@ class DatasetActionResolver:
         normalized = replace(time_input, mode=mode)
         if mode == "point" and input_shape == "month_or_range":
             month = cls._normalize_month(normalized.month)
-            return replace(
-                normalized,
-                month=month,
-                trade_date=cls._month_end_date(month),
-            )
+            return replace(normalized, month=month, trade_date=cls._month_end_date(month))
         if mode == "range" and input_shape in {"month_or_range", "start_end_month_window"}:
             start_month = cls._normalize_month(normalized.start_month)
             end_month = cls._normalize_month(normalized.end_month)
@@ -167,15 +128,6 @@ class DatasetActionResolver:
                 end_date=cls._month_end_date(end_month),
             )
         return normalized
-
-    @staticmethod
-    def _build_params(time_input: DatasetTimeInput, filters: dict[str, Any]) -> dict[str, Any]:
-        params = dict(filters or {})
-        for key in ("month", "date_field"):
-            value = getattr(time_input, key)
-            if value not in (None, ""):
-                params[key] = value
-        return params
 
     @staticmethod
     def _time_scope(time_input: DatasetTimeInput) -> ExecutionTimeScope:

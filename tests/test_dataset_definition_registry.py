@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
-from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
+from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
-def test_dataset_definition_registry_covers_sync_v2_contracts() -> None:
+def test_dataset_definition_registry_is_not_runtime_contract_projection() -> None:
+    import inspect
+
+    import src.foundation.datasets.registry as registry
+
+    assert not hasattr(registry, "_from_contract")
+    assert "services.sync" not in inspect.getsource(registry)
+
+
+def test_dataset_definition_registry_covers_runtime_registry() -> None:
     definition_keys = {definition.dataset_key for definition in list_dataset_definitions()}
-    contract_keys = {contract.dataset_key for contract in list_sync_v2_contracts()}
+    runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
-    assert definition_keys == contract_keys
+    assert definition_keys == runtime_keys
+    assert len(definition_keys) == 57
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -20,3 +30,18 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.storage.target_table == "core_serving.dc_hot"
     assert definition.capabilities.get_action("maintain") is not None
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
+
+
+def test_dataset_definition_owns_dc_board_type_filter() -> None:
+    definition = get_dataset_definition("dc_member")
+    idx_type = next(field for field in definition.input_model.filters if field.name == "idx_type")
+
+    assert idx_type.display_name == "板块类型"
+    assert idx_type.field_type == "list"
+    assert idx_type.multi_value is True
+    assert idx_type.enum_values == ("行业板块", "概念板块", "地域板块")
+
+
+def test_dataset_definition_identity_does_not_keep_legacy_job_aliases() -> None:
+    for definition in list_dataset_definitions():
+        assert not any(alias.startswith(("sync_", "backfill_")) for alias in definition.identity.aliases)

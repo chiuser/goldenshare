@@ -148,7 +148,7 @@ class OpsCatalogQueryService:
     def _build_dataset_parameter(field: DatasetInputField) -> ParameterSpecResponse:
         return ParameterSpecResponse(
             key=field.name,
-            display_name=OpsCatalogQueryService._field_display_name(field.name),
+            display_name=field.display_name or OpsCatalogQueryService._field_display_name(field.name),
             param_type=OpsCatalogQueryService._field_param_type(field),
             description=field.description,
             required=field.required,

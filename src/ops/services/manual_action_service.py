@@ -8,11 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
-from src.foundation.services.sync_v2.dataset_strategies.dc_hot import (
-    DC_HOT_DEFAULT_HOT_TYPES,
-    DC_HOT_DEFAULT_IS_NEW,
-    DC_HOT_DEFAULT_MARKETS,
-)
+from src.foundation.datasets.registry import get_dataset_definition
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
 from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest, ManualActionTimeInput
 from src.ops.services.task_run_service import TaskRunCommandService
@@ -148,16 +144,24 @@ class ManualActionTaskRunResolver:
         if self.route.resource_key != "dc_hot":
             return filters
         with_defaults = dict(filters)
-        self._fill_default_filter(with_defaults, "market", DC_HOT_DEFAULT_MARKETS)
-        self._fill_default_filter(with_defaults, "hot_type", DC_HOT_DEFAULT_HOT_TYPES)
-        self._fill_default_filter(with_defaults, "is_new", DC_HOT_DEFAULT_IS_NEW)
+        defaults = self._dataset_default_filters("dc_hot")
+        self._fill_default_filter(with_defaults, "market", defaults.get("market", ()))
+        self._fill_default_filter(with_defaults, "hot_type", defaults.get("hot_type", ()))
+        self._fill_default_filter(with_defaults, "is_new", defaults.get("is_new", ()))
         return with_defaults
 
     @staticmethod
     def _fill_default_filter(filters: dict[str, Any], key: str, values: tuple[str, ...]) -> None:
+        if not values:
+            return
         current = filters.get(key)
         if current in (None, "", []):
             filters[key] = list(values) if len(values) > 1 else values[0]
+
+    @staticmethod
+    def _dataset_default_filters(dataset_key: str) -> dict[str, tuple[str, ...]]:
+        definition = get_dataset_definition(dataset_key)
+        return dict(definition.planning.enum_fanout_defaults)
 
     def _normalize_filter_value(self, param: ParameterSpec, value: Any) -> Any:
         if param.multi_value:

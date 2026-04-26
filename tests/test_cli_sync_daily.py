@@ -14,7 +14,7 @@ def test_resolve_default_sync_date_uses_pretrade_date_when_today_is_open(mocker)
     trade_calendar_dao.fetch_by_pk.return_value = mocker.Mock(is_open=True, pretrade_date=date(2026, 3, 23))
     trade_cal_service = mocker.Mock()
     trade_cal_service.dao.trade_calendar = trade_calendar_dao
-    mocker.patch("src.cli.build_sync_service", return_value=trade_cal_service)
+    mocker.patch("src.cli.build_dataset_maintain_service", return_value=trade_cal_service)
 
     result = _resolve_default_sync_date(session)
 
@@ -29,7 +29,7 @@ def test_resolve_default_sync_date_uses_latest_open_date_when_today_is_closed(mo
     trade_calendar_dao.fetch_by_pk.return_value = mocker.Mock(is_open=False, pretrade_date=date(2026, 3, 27))
     trade_cal_service = mocker.Mock()
     trade_cal_service.dao.trade_calendar = trade_calendar_dao
-    mocker.patch("src.cli.build_sync_service", return_value=trade_cal_service)
+    mocker.patch("src.cli.build_dataset_maintain_service", return_value=trade_cal_service)
 
     result = _resolve_default_sync_date(session)
 
@@ -43,7 +43,7 @@ def test_resolve_default_sync_date_raises_clear_error_when_today_row_missing(moc
     trade_calendar_dao.fetch_by_pk.return_value = None
     trade_cal_service = mocker.Mock()
     trade_cal_service.dao.trade_calendar = trade_calendar_dao
-    mocker.patch("src.cli.build_sync_service", return_value=trade_cal_service)
+    mocker.patch("src.cli.build_dataset_maintain_service", return_value=trade_cal_service)
 
     with pytest.raises(Exception, match="Today's trade calendar row is missing."):
         _resolve_default_sync_date(session)

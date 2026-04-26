@@ -42,8 +42,9 @@ from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
+from src.foundation.ingestion.linter import lint_all_dataset_definitions
+from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.services.migration import RawTushareBootstrapService
-from src.foundation.services.sync_v2.linter import lint_all_sync_v2_contracts
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker
@@ -58,7 +59,6 @@ from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowRec
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
-from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY, build_sync_service
 
 
 app = typer.Typer(help="goldenshare market data foundation CLI")
@@ -73,7 +73,7 @@ def _alembic_config() -> Config:
 def _resolve_default_sync_date(session) -> date:
     return _resolve_default_sync_date_impl(
         session,
-        build_sync_service_fn=build_sync_service,
+        build_maintain_service_fn=build_dataset_maintain_service,
         default_exchange=get_settings().default_exchange,
     )
 
@@ -181,7 +181,7 @@ def sync_snapshot(
 ) -> None:
     _run_sync_snapshot_impl(
         session_local=SessionLocal,
-        build_sync_service_fn=build_sync_service,
+        build_maintain_service_fn=build_dataset_maintain_service,
         attach_progress_fn=_attach_cli_progress_reporter,
         prepare_kwargs_fn=_prepare_sync_kwargs_for_service,
         snapshot_service_cls=DatasetStatusSnapshotService,
@@ -232,17 +232,17 @@ def refresh_serving_light(
 
 @app.command("list-resources")
 def list_resources() -> None:
-    for resource in SYNC_SERVICE_REGISTRY:
+    for resource in DATASET_RUNTIME_REGISTRY:
         typer.echo(resource)
 
 
-@app.command("sync-v2-lint-contracts")
-def sync_v2_lint_contracts() -> None:
-    report = lint_all_sync_v2_contracts()
+@app.command("ingestion-lint-definitions")
+def ingestion_lint_definitions() -> None:
+    report = lint_all_dataset_definitions()
     if report.passed:
-        typer.echo("sync-v2-lint-contracts: passed")
+        typer.echo("ingestion-lint-definitions: passed")
         return
-    typer.echo(f"sync-v2-lint-contracts: failed issues={len(report.issues)}")
+    typer.echo(f"ingestion-lint-definitions: failed issues={len(report.issues)}")
     for issue in report.issues:
         typer.echo(f" - dataset={issue.dataset_key} code={issue.code} message={issue.message}")
     raise typer.Exit(code=1)

@@ -2,6 +2,11 @@
 
 ## 1. 快速必读（S0）
 
+说明：
+
+- 当前数据维护唯一主链为 `DatasetDefinition -> DatasetExecutionPlan -> IngestionExecutor -> TaskRun`。
+- 所有带 `sync-v2` 名称的文档一律按“历史归档”理解，不再代表当前代码实现。
+
 - [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [子系统依赖矩阵](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)
 - [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
@@ -36,17 +41,18 @@ docs/
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
 - [数据同步统一架构与全量数据集矩阵 v2](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-unified-architecture-matrix-v1.md)
-- [数据同步 V2 重设计方案（含平稳迁移，历史主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
-- [DatasetDefinition 单一事实源重构方案 v1（已部分落地）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-- [DatasetExecutionPlan 执行计划模型重构方案 v1（已部分落地）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
+- [数据同步 V2 重设计方案（历史主案，归档）](/Users/congming/github/goldenshare/docs/architecture/dataset-sync-v2-redesign-plan.md)
+- [DatasetDefinition 单一事实源重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+- [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md)
+- [DatasetExecutionPlan 执行计划模型重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [Dataset Maintain 重构 M-1 到 M8 执行索引 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-maintenance-refactor-m-1-to-m8-execution-index-v1.md)
 - [数据集日期模型收敛方案 v1（单一事实源）](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-convergence-plan-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
-- [Sync V2 数据集策略简化方案 v1（全量 47 个 V2 数据集）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md)
+- [Sync V2 数据集策略简化方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-dataset-strategy-simplification-plan-v1.md)
 - [Sync V2 大数据集流式写入与检查点提交方案 v1（历史未采纳）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-large-dataset-streaming-and-checkpoint-plan-v1.md)
 - [Sync V2 事务风险审计与整改方案 v1（历史事故审计）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-transaction-risk-audit-and-fix-plan-v1.md)
-- [Sync V2 Registry 结构化重构方案 v1（两阶段）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-structure-refactor-plan-v1.md)
-- [Sync V2 Registry 开发指南 v1（新增数据集门禁）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md)
+- [Sync V2 Registry 结构化重构方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-structure-refactor-plan-v1.md)
+- [Sync V2 Registry 开发指南 v1（历史归档）](/Users/congming/github/goldenshare/docs/architecture/sync-v2-registry-development-guide-v1.md)
 - [Sync V1 旧路径移除执行计划 v1](/Users/congming/github/goldenshare/docs/architecture/sync-v1-removal-execution-plan-v1.md)
 - [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 - [Tushare 请求策略与 Sync V2 对齐方案 v1（归档）](/Users/congming/github/goldenshare/docs/architecture/tushare-request-policy-alignment-plan-v1.md)
@@ -69,7 +75,7 @@ docs/
 - [Ops `sync_job_state` 退场方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-sync-job-state-retirement-plan-v1.md)
 - [Ops 任务显示名单一事实源收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-task-display-name-single-source-plan-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
-- [数据同步 V2 切换运行手册 v1（Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
+- [数据同步 V2 切换运行手册 v1（历史 Runbook）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-cutover-runbook-v1.md)
 - [数据同步 V2 R3 切换方案 v1（板块/热榜/周期栏，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r3-cutover-plan-v1.md)
 - [数据同步 V2 R4-A 切换方案 v1（dividend / stk_holdernumber / index_weight，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4a-cutover-plan-v1.md)
 - [数据同步 V2 R4-B 切换方案 v1（index_weekly / index_monthly，归档）](/Users/congming/github/goldenshare/docs/ops/dataset-sync-v2-r4b-cutover-plan-v1.md)

@@ -4,9 +4,8 @@ from src.ops.specs.dataset_freshness_spec import DatasetFreshnessSpec
 from src.ops.specs.job_spec import JobSpec, ParameterSpec
 from src.ops.specs.observed_dataset_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.specs.workflow_spec import WorkflowSpec, WorkflowStepSpec
-from src.foundation.datasets.registry import get_dataset_definition
-from src.foundation.services.sync_v2.registry import get_sync_v2_contract
-from src.foundation.services.sync_v2.runtime_registry import SYNC_SERVICE_REGISTRY
+from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
+from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
 
 START_DATE_PARAM = ParameterSpec(
@@ -286,24 +285,26 @@ def validate_dataset_freshness_registry(
 
 
 _missing_freshness_metadata = find_missing_freshness_metadata_resources(
-    sync_resources=tuple(sorted(SYNC_SERVICE_REGISTRY)),
+    sync_resources=tuple(sorted(DATASET_RUNTIME_REGISTRY)),
     metadata=DATASET_FRESHNESS_METADATA,
 )
 if _missing_freshness_metadata:
     joined_missing = ", ".join(_missing_freshness_metadata)
     raise RuntimeError(f"Missing DATASET_FRESHNESS_METADATA entries for sync resources: {joined_missing}")
 
-for _resource, _service_cls in SYNC_SERVICE_REGISTRY.items():
+for _definition in list_dataset_definitions():
+    _resource = _definition.dataset_key
+    _runtime_spec = DATASET_RUNTIME_REGISTRY[_resource]
     _display_name, _domain_key, _domain_display_name, _cadence = DATASET_FRESHNESS_METADATA[_resource]
-    _observed_date_column = get_sync_v2_contract(_resource).date_model.observed_field
+    _observed_date_column = _definition.date_model.observed_field
     _spec = DatasetFreshnessSpec(
         dataset_key=_resource,
         resource_key=_resource,
-        job_name=_service_cls.job_name,
+        job_name=_runtime_spec.job_name,
         display_name=_display_name,
         domain_key=_domain_key,
         domain_display_name=_domain_display_name,
-        target_table=_service_cls.target_table,
+        target_table=_runtime_spec.target_table,
         cadence=_cadence,  # type: ignore[arg-type]
         raw_table=_raw_table_for_resource(_resource),
         observed_date_column=_observed_date_column,

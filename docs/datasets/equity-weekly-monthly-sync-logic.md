@@ -55,7 +55,7 @@
 
 文件：
 
-1. [market_equity.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/contracts/market_equity.py)
+1. `market_equity.py`（历史路径，已删除）
 
 关键字段：
 
@@ -67,15 +67,15 @@
 
 文件：
 
-1. [stk_period_bar_week.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_week.py)
-2. [stk_period_bar_month.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_month.py)
-3. [stk_period_bar_adj_week.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_adj_week.py)
-4. [stk_period_bar_adj_month.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/stk_period_bar_adj_month.py)
+1. `stk_period_bar_week.py`（历史路径，已删除）
+2. `stk_period_bar_month.py`（历史路径，已删除）
+3. `stk_period_bar_adj_week.py`（历史路径，已删除）
+4. `stk_period_bar_adj_month.py`（历史路径，已删除）
 
 共用锚点展开与分页能力：
 
-1. [common.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/dataset_strategies/common.py)
-2. [trade_date_expand.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/strategy_helpers/trade_date_expand.py)
+1. `common.py`（历史路径，已删除）
+2. `trade_date_expand.py`（历史路径，已删除）
 
 ### 4.3 当前执行计划投影
 
@@ -92,7 +92,7 @@
 
 关键测试覆盖：
 
-1. [test_extended_sync_services.py](/Users/congming/github/goldenshare/tests/test_extended_sync_services.py)（周/月线策略参数）
+1. `test_extended_sync_services.py`（历史路径，已删除）（周/月线策略参数）
 2. [test_ops_specs.py](/Users/congming/github/goldenshare/tests/test_ops_specs.py)（任务规格暴露）
 3. 后续执行计划覆盖应优先补到 DatasetExecutionPlan / resolver 测试，而不是恢复旧回补服务测试。
 

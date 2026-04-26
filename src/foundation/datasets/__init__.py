@@ -2,6 +2,7 @@ from src.foundation.datasets.models import (
     DatasetActionCapability,
     DatasetCapabilities,
     DatasetDefinition,
+    DatasetDateModel,
     DatasetDomain,
     DatasetIdentity,
     DatasetInputField,
@@ -12,6 +13,7 @@ from src.foundation.datasets.models import (
     DatasetQualityPolicy,
     DatasetSourceDefinition,
     DatasetStorageDefinition,
+    DatasetTransactionDefinition,
 )
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 
@@ -19,6 +21,7 @@ __all__ = [
     "DatasetActionCapability",
     "DatasetCapabilities",
     "DatasetDefinition",
+    "DatasetDateModel",
     "DatasetDomain",
     "DatasetIdentity",
     "DatasetInputField",
@@ -29,6 +32,7 @@ __all__ = [
     "DatasetQualityPolicy",
     "DatasetSourceDefinition",
     "DatasetStorageDefinition",
+    "DatasetTransactionDefinition",
     "get_dataset_definition",
     "list_dataset_definitions",
 ]

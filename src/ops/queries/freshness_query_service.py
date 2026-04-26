@@ -50,8 +50,8 @@ from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.services.sync_v2.contracts import DatasetDateModel
-from src.foundation.services.sync_v2.registry_parts.common.date_models import get_dataset_date_model
+from src.foundation.datasets.models import DatasetDateModel
+from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_hot import ThsHot
@@ -769,7 +769,7 @@ class OpsFreshnessQueryService:
     @staticmethod
     def _date_model_for_spec(spec: DatasetFreshnessSpec) -> DatasetDateModel | None:
         try:
-            return get_dataset_date_model(spec.resource_key)
+            return get_dataset_definition(spec.resource_key).date_model
         except KeyError:
             return None
 

@@ -1,6 +1,6 @@
 # DatasetExecutionPlan 执行计划模型重构方案 v1
 
-- 状态：已部分落地；`src/foundation/ingestion/**` 已建立 DatasetActionRequest / DatasetExecutionPlan / resolver，事务策略、自动任务和工作流彻底收口仍需继续推进
+- 状态：已落地到现行主链；resolver / executor / TaskRun dataset_action 已切到 `DatasetDefinition -> DatasetExecutionPlan -> IngestionExecutor`
 - 日期：2026-04-25
 - 适用范围：`src/ops/**`、`src/foundation/datasets/**`、`src/foundation/ingestion/**`、Ops Web API、CLI、任务中心前端
 - 前置方案：[DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
@@ -11,9 +11,10 @@
 ## 0. 当前落地状态（2026-04-26）
 
 1. `src/foundation/ingestion/execution_plan.py` 已建立 `DatasetActionRequest` 与 `DatasetExecutionPlan`。
-2. `src/foundation/ingestion/resolver.py` 已可按 dataset action 生成计划。
-3. TaskRun dispatcher 已在 dataset_action 主链中消费 DatasetActionResolver。
-4. 自动任务、工作流和更深层事务策略仍存在后续收口空间；本文中旧 execution / JobExecution 链路示意属于重构前审计上下文，不代表当前 API 主链。
+2. `src/foundation/ingestion/resolver.py` 现在只读取 `DatasetDefinition`，不再读取旧 contract / strategy 生成 unit。
+3. `src/foundation/ingestion/executor.py` 已作为唯一执行器接管 source / normalize / write / progress 主链。
+4. TaskRun dispatcher 已在 dataset_action 主链中消费 `DatasetMaintainService -> IngestionExecutor`。
+5. 自动任务、工作流和更深层事务策略仍存在后续收口空间；本文中旧 execution / JobExecution 链路示意属于重构前审计上下文，不代表当前 API 主链。
 
 ---
 

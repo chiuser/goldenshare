@@ -14,12 +14,10 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.ingestion.execution_errors import ExecutionCanceledError
+from src.foundation.ingestion.service import DatasetMaintainService
+from src.foundation.ingestion.null_runtime import NullExecutionResultStore, NullRunRecorder
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.services.sync_v2.contracts import PlanUnit
-from src.foundation.services.sync_v2.execution_errors import ExecutionCanceledError
-from src.foundation.services.sync_v2.runtime_registry import build_sync_service
-from src.foundation.services.sync_v2.sync_state_store import NullSyncExecutionResultStore, NullSyncRunRecorder
-from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -299,13 +297,12 @@ class TaskRunDispatcher:
         action_request: DatasetActionRequest,
         plan,
     ) -> tuple[int, int, int, str | None]:  # type: ignore[no-untyped-def]
-        service = build_sync_service(
-            plan.dataset_key,
+        service = DatasetMaintainService(
             session,
+            dataset_key=plan.dataset_key,
             execution_context=TaskRunSyncContext(session),
             run_recorder=NullSyncRunRecorder(),
             execution_result_store=NullSyncExecutionResultStore(),
-            index_series_active_store=OpsIndexSeriesActiveStore(session),
         )
         filters = dict(action_request.filters or {})
         time_input = action_request.time_input
@@ -316,33 +313,22 @@ class TaskRunDispatcher:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
             if not time_input.month and self._is_closed_trade_date(session, parsed_trade_date):
                 return 0, 0, 0, f"skip {plan.dataset_key} trade_date={parsed_trade_date.isoformat()} 非交易日"
-            extra_params = dict(filters)
-            if time_input.month:
-                extra_params["month"] = time_input.month
-            result = service.run_incremental(
-                trade_date=parsed_trade_date,
+            action_request = DatasetActionRequest(
+                dataset_key=action_request.dataset_key,
+                action=action_request.action,
+                time_input=replace(action_request.time_input, trade_date=parsed_trade_date),
+                filters=filters,
+                trigger_source=action_request.trigger_source,
+                requested_by_user_id=action_request.requested_by_user_id,
+                schedule_id=action_request.schedule_id,
+                workflow_key=action_request.workflow_key,
                 execution_id=task_run.id,
-                _plan_units=self._plan_units_from_snapshot(plan),
-                **extra_params,
             )
-        elif plan.run_profile == "range_rebuild":
-            if time_input.start_date is None or time_input.end_date is None:
-                raise ValueError("range maintain requires start_date and end_date")
-            result = service.run_full(
-                execution_id=task_run.id,
-                run_profile="range_rebuild",
-                start_date=time_input.start_date,
-                end_date=time_input.end_date,
-                _plan_units=self._plan_units_from_snapshot(plan),
-                **filters,
-            )
-        else:
-            result = service.run_full(
-                execution_id=task_run.id,
-                run_profile="snapshot_refresh",
-                _plan_units=self._plan_units_from_snapshot(plan),
-                **filters,
-            )
+        result = service.run_full(
+            execution_id=task_run.id,
+            _plan=plan,
+            _action_request=action_request,
+        )
 
         rows_fetched = int(result.rows_fetched or 0)
         rows_saved = int(result.rows_written or 0)
@@ -417,22 +403,6 @@ class TaskRunDispatcher:
             ],
             "units_preview_truncated": len(units) > 20,
         }
-
-    @staticmethod
-    def _plan_units_from_snapshot(plan) -> tuple[PlanUnit, ...]:  # type: ignore[no-untyped-def]
-        return tuple(
-            PlanUnit(
-                unit_id=unit.unit_id,
-                dataset_key=unit.dataset_key,
-                source_key=unit.source_key,
-                trade_date=unit.trade_date,
-                request_params=dict(unit.request_params),
-                progress_context=dict(unit.progress_context),
-                pagination_policy=unit.pagination_policy,
-                page_limit=unit.page_limit,
-            )
-            for unit in plan.units
-        )
 
     def _run_maintenance_job(self, session: Session, job_spec, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
         if job_spec.key == "maintenance.rebuild_dm":

@@ -4,9 +4,9 @@ from datetime import datetime
 from pathlib import Path
 
 from src.foundation.dao.factory import DAOFactory
+from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.datasets.registry import list_dataset_definitions
 from src.ops.specs.registry import DATASET_FRESHNESS_METADATA, JOB_SPEC_REGISTRY
-from src.foundation.services.sync_v2.contracts import DatasetSyncContract
-from src.foundation.services.sync_v2.registry import list_sync_v2_contracts
 
 
 OUTPUT_PATH = Path("docs/datasets/dataset-catalog.md")
@@ -116,16 +116,16 @@ def _job_keys_for_resource(resource: str) -> list[str]:
     return sorted(keys)
 
 
-def _resource_row(contract: DatasetSyncContract, factory: DAOFactory) -> dict[str, str]:
-    resource = contract.dataset_key
-    raw_dao_name = contract.write_spec.raw_dao_name or "-"
-    core_dao_name = contract.write_spec.core_dao_name or "-"
-    api_name = contract.source_spec.api_name or "-"
-    target_table = contract.write_spec.target_table or "-"
-    fields = list(contract.source_spec.fields or ())
+def _resource_row(definition: DatasetDefinition, factory: DAOFactory) -> dict[str, str]:
+    resource = definition.dataset_key
+    raw_dao_name = definition.storage.raw_dao_name or "-"
+    core_dao_name = definition.storage.core_dao_name or "-"
+    api_name = definition.source.api_name or "-"
+    target_table = definition.storage.target_table or "-"
+    fields = list(definition.source.source_fields or ())
     jobs = _job_keys_for_resource(resource)
     freshness = DATASET_FRESHNESS_METADATA.get(resource)
-    observed_date_column = freshness[4] if freshness else "-"
+    observed_date_column = definition.date_model.observed_field or "-"
 
     raw_table = _dao_to_table(factory, raw_dao_name if raw_dao_name != "-" else None) or "-"
     core_table = _dao_to_table(factory, core_dao_name if core_dao_name != "-" else None) or target_table
@@ -171,15 +171,15 @@ def _render_field_dict(columns_text: str) -> list[str]:
 
 def generate_markdown() -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    contracts = list_sync_v2_contracts()
+    definitions = list_dataset_definitions()
     factory = DAOFactory(None)
-    rows = [_resource_row(contract, factory) for contract in contracts]
+    rows = [_resource_row(definition, factory) for definition in definitions]
 
     lines: list[str] = []
     lines.append("# 数据集能力与字段说明（自动生成）")
     lines.append("")
     lines.append(f"- 生成时间: `{now}`")
-    lines.append("- 数据来源: `SYNC_V2_CONTRACTS`、`DAOFactory`、`JOB_SPEC_REGISTRY`")
+    lines.append("- 数据来源: `DatasetDefinition`、`DAOFactory`、`JOB_SPEC_REGISTRY`")
     lines.append("- 适用范围: 现有可同步数据集（raw/core 主链路）")
     lines.append("")
     lines.append("## 字段语义约定（通用）")

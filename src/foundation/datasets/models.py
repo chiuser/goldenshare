@@ -3,7 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.foundation.services.sync_v2.contracts import DatasetDateModel
+
+@dataclass(frozen=True, slots=True)
+class DatasetDateModel:
+    date_axis: str
+    bucket_rule: str
+    window_mode: str
+    input_shape: str
+    observed_field: str | None
+    audit_applicable: bool
+    not_applicable_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +37,8 @@ class DatasetSourceDefinition:
     api_name: str
     source_fields: tuple[str, ...]
     source_doc_id: str | None = None
+    request_builder_key: str = "generic"
+    base_params: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +49,7 @@ class DatasetInputField:
     default: Any = None
     enum_values: tuple[str, ...] = ()
     multi_value: bool = False
+    display_name: str = ""
     description: str = ""
 
 
@@ -65,8 +77,10 @@ class DatasetPlanningDefinition:
     enum_fanout_fields: tuple[str, ...] = ()
     enum_fanout_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
     pagination_policy: str = "none"
+    page_limit: int | None = None
     chunk_size: int | None = None
     max_units_per_execution: int | None = None
+    unit_builder_key: str = "generic"
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +102,13 @@ class DatasetObservability:
 class DatasetQualityPolicy:
     reject_policy: str = "record_rejections"
     required_fields: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetTransactionDefinition:
+    commit_policy: str = "task"
+    idempotent_write_required: bool = False
+    write_volume_assessment: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +141,7 @@ class DatasetDefinition:
     capabilities: DatasetCapabilities
     observability: DatasetObservability
     quality: DatasetQualityPolicy
+    transaction: DatasetTransactionDefinition
 
     @property
     def dataset_key(self) -> str:

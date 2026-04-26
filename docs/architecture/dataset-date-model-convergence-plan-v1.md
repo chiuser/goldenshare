@@ -26,7 +26,7 @@ M0 前日期语义曾分散在三处：
 1. **执行层（sync_v2 contract）**  
    - 定义位置：`DatasetSyncContract.planning_spec`  
    - 字段：`date_anchor_policy/anchor_type/window_policy` + `run_profiles_supported`  
-   - 文件：[/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py)
+   - 文件：`/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py`（历史路径，已删除）
 
 2. **状态层（freshness）**  
    - 定义位置：`DATASET_FRESHNESS_METADATA`  
@@ -42,10 +42,10 @@ M0 前日期语义曾分散在三处：
 1. **单一事实源**  
    - 定义位置：`DatasetSyncContract.date_model`  
    - 字段：`date_axis/bucket_rule/window_mode/input_shape/observed_field/audit_applicable/not_applicable_reason`
-   - 文件：[/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py)
+   - 文件：`/Users/congming/github/goldenshare/src/foundation/services/sync_v2/contracts.py`（历史路径，已删除）
 2. **分域注册**  
    - 所有 56 个 V2 数据集通过 `build_date_model(dataset_key)` 绑定日期模型。  
-   - 文件：[/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/common/date_models.py](/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/common/date_models.py)
+   - 文件：`/Users/congming/github/goldenshare/src/foundation/services/sync_v2/registry_parts/common/date_models.py`（历史路径，已删除）
 3. **执行层消费**  
    - `validator/planner/strategy_helpers` 通过 `resolve_contract_anchor_type()` 与 `resolve_contract_window_policy()` 从 `date_model` 派生运行时锚点语义。
    - `PlanningSpec` 不再保存 `anchor_type/window_policy/date_anchor_policy`。

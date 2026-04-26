@@ -29,7 +29,7 @@
 1. 禁止引入 `foundation -> ops|operations|biz|app|platform` 反向依赖。
 2. 禁止把主实现写回 `src/platform/**` 或 `src/operations/**`。
 3. 禁止恢复或新建 `src.foundation.services.sync.*`（Sync V1 已退场）。
-4. 底层同步执行实现仍由 `src/foundation/services/sync_v2/**` 承接，但不得把 `sync_v2` 命名扩散为用户可见领域语言。
+4. 数据维护执行实现只允许落在 `src/foundation/ingestion/**`，不得在其他目录另建执行事实源。
 5. 禁止把 `sync_daily / backfill_* / sync_history` 重新建模为长期领域概念。
 6. 不允许“补丁叠补丁”；发现结构失真时优先提出重构方案。
 
@@ -42,7 +42,7 @@
 3. `ingestion/`：DatasetActionRequest、DatasetExecutionPlan 与 resolver。
 4. `models/`：raw/core/core_serving/core_serving_light 等数据模型。
 5. `dao/`：数据访问层。
-6. `services/sync_v2/`：底层同步执行实现（contract/engine/planner/writer），不是用户任务模型。
+6. `services/`：仅承接 `transform/`、`migration/` 等辅助能力，不承接数据维护执行主链。
 7. `services/transform/`：离线转换与规范化工具。
 8. `services/migration/`：迁移辅助（仅迁移用途，不承接日常主链）。
 9. `connectors/`、`clients/`：外部源接入与 SDK/HTTP 客户端封装。
@@ -74,5 +74,5 @@
 
 1. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
 2. `pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py`
-3. `pytest -q tests/architecture/test_sync_v2_registry_guardrails.py`
-4. `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-v2-lint-contracts`
+3. `pytest -q tests/architecture/test_dataset_runtime_registry_guardrails.py`
+4. `goldenshare ingestion-lint-definitions`

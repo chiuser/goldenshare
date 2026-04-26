@@ -11,10 +11,10 @@ from sqlalchemy import func, select
 def resolve_default_sync_date(
     session,
     *,
-    build_sync_service_fn: Callable[..., Any],
+    build_maintain_service_fn: Callable[..., Any],
     default_exchange: str,
 ) -> date:
-    trade_cal = build_sync_service_fn("trade_cal", session)
+    trade_cal = build_maintain_service_fn("trade_cal", session)
     trade_cal.run_incremental()
     today = date.today()
     latest = trade_cal.dao.trade_calendar.get_latest_open_date(default_exchange, today)
@@ -60,17 +60,18 @@ def auto_reconcile_stale_task_runs(
 def prepare_sync_kwargs_for_service(service, kwargs: dict[str, object | None]) -> dict[str, object]:
     filtered = {key: value for key, value in kwargs.items() if value is not None}
     service_vars = vars(service)
-    if "contract" not in service_vars:
+    if "definition" not in service_vars:
         return filtered
-    contract = service_vars.get("contract")
-    input_schema = getattr(contract, "input_schema", None)
-    fields = getattr(input_schema, "fields", None)
-    if not isinstance(fields, (list, tuple)) or not fields:
+    definition = service_vars.get("definition")
+    input_model = getattr(definition, "input_model", None)
+    time_fields = getattr(input_model, "time_fields", None)
+    filter_fields = getattr(input_model, "filters", None)
+    if not isinstance(time_fields, (list, tuple)) or not isinstance(filter_fields, (list, tuple)):
         return filtered
 
     allowed = {
         getattr(field, "name", "")
-        for field in fields
+        for field in (*time_fields, *filter_fields)
         if getattr(field, "name", "")
     }
     passthrough = {"run_profile", "source_key", "correlation_id", "rerun_id", "trigger_source", "request_id"}
@@ -81,7 +82,7 @@ def attach_cli_progress_reporter(service, *, resource: str) -> None:
     if not hasattr(service, "set_cli_progress_reporter"):
         return
     service_vars = vars(service)
-    if "contract" not in service_vars:
+    if "definition" not in service_vars:
         return
 
     state: dict[str, float | int] = {

@@ -7,7 +7,7 @@ from typing import Callable
 def run_sync_snapshot(
     *,
     session_local,
-    build_sync_service_fn,
+    build_maintain_service_fn,
     attach_progress_fn: Callable[..., None],
     prepare_kwargs_fn: Callable[..., dict[str, object]],
     snapshot_service_cls,
@@ -32,7 +32,7 @@ def run_sync_snapshot(
     with session_local() as session:
         snapshot_service = snapshot_service_cls()
         for resource in resources:
-            service = build_sync_service_fn(resource, session)
+            service = build_maintain_service_fn(resource, session)
             attach_progress_fn(service, resource=resource)
             kwargs = {
                 "source_key": source_key,

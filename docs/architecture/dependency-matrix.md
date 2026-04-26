@@ -65,7 +65,7 @@ src/
 执行建议：
 
 1. 涉及目录边界改动时，至少先跑以上 3 个测试。
-2. 涉及同步 V2 路径收口时，再补跑 `tests/architecture/test_sync_v2_registry_guardrails.py`。
+2. 涉及数据维护主链改动时，再补跑 `tests/architecture/test_dataset_runtime_registry_guardrails.py` 与 `tests/architecture/test_dataset_codebook_guardrails.py`。
 
 ---
 
@@ -84,4 +84,3 @@ src/
 2. `ops`：运维治理、调度执行、探测、状态投影、运行时编排。
 3. `biz`：对上业务 API/查询/聚合服务。
 4. `app`：应用创建、路由聚合、依赖装配、认证壳、运行入口。
-
