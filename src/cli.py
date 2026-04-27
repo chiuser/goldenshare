@@ -34,7 +34,6 @@ from src.cli_parts.ops_handlers import (
     run_reconcile_stock_basic as _run_reconcile_stock_basic_impl,
 )
 from src.cli_parts.maintenance_handlers import (
-    run_reconcile_dataset as _run_reconcile_dataset_impl,
     run_refresh_serving_light as _run_refresh_serving_light_impl,
 )
 from src.foundation.dao.factory import DAOFactory
@@ -48,7 +47,6 @@ from src.foundation.serving import ServingPublishService, validate_serving_cover
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
-from src.ops.services.operations_dataset_reconcile_service import DatasetReconcileService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
@@ -244,44 +242,6 @@ def ingestion_lint_definitions() -> None:
     for issue in report.issues:
         typer.echo(f" - dataset={issue.dataset_key} code={issue.code} message={issue.message}")
     raise typer.Exit(code=1)
-
-
-@app.command("reconcile-dataset")
-def reconcile_dataset(
-    dataset: str = typer.Option(
-        ...,
-        "--dataset",
-        "-d",
-        help=(
-            "当前支持 trade_cal/daily/daily_basic/fund_daily/adj_factor/stk_limit/"
-            "suspend_d/margin/dc_index/index_daily/index_daily_basic/"
-            "limit_list_d/limit_list_ths/"
-            "moneyflow/moneyflow_ths/moneyflow_dc/moneyflow_cnt_ths/"
-            "moneyflow_ind_ths/moneyflow_ind_dc/moneyflow_mkt_dc/"
-            "top_list/block_trade/stock_st/stk_nineturn/stk_factor_pro/dc_member/"
-            "fund_adj/index_basic/etf_basic/etf_index/hk_basic/us_basic/"
-            "ths_index/kpl_list/kpl_concept_cons/broker_recommend"
-        ),
-    ),
-    start_date: str | None = typer.Option(None, "--start-date", help="可选：起始日期 YYYY-MM-DD"),
-    end_date: str | None = typer.Option(None, "--end-date", help="可选：结束日期 YYYY-MM-DD"),
-    sample_limit: int = typer.Option(20, "--sample-limit", min=0, max=200, help="输出每日差异样例上限"),
-    abs_diff_threshold: int = typer.Option(
-        -1,
-        "--abs-diff-threshold",
-        help="总行数绝对差阈值；-1 表示不校验。超过阈值时返回非 0。",
-    ),
-) -> None:
-    _run_reconcile_dataset_impl(
-        session_local=SessionLocal,
-        reconcile_service_cls=DatasetReconcileService,
-        dataset=dataset,
-        start_date=start_date,
-        end_date=end_date,
-        sample_limit=sample_limit,
-        abs_diff_threshold=abs_diff_threshold,
-        echo_fn=typer.echo,
-    )
 
 
 @app.command("ops-rebuild-dataset-status")

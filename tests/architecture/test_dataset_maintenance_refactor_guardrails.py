@@ -290,6 +290,12 @@ def test_ops_observation_registry_does_not_hardcode_table_model_facts() -> None:
     assert not violations, "Ops 观测模型映射不得手写表名事实，必须从 ORM metadata 派生:\n" + "\n".join(violations)
 
 
+def test_ops_does_not_keep_parallel_dataset_reconcile_fact_registry() -> None:
+    path = REPO_ROOT / "src/ops/services/operations_dataset_reconcile_service.py"
+
+    assert not path.exists(), "不得保留 Ops 侧并行维护 raw/serving/date 字段的数据集对账事实源"
+
+
 def test_ops_and_ingestion_do_not_infer_source_from_dataset_key_prefix() -> None:
     forbidden_tokens = (
         "startswith(\"biying_\")",
