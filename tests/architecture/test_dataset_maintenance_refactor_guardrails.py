@@ -320,6 +320,7 @@ def test_probe_runtime_messages_do_not_emit_raw_rows_machine_summary() -> None:
     text = path.read_text(encoding="utf-8")
 
     assert "raw rows_in=" not in text
+    assert "probe action_key is required" not in text
 
 
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:

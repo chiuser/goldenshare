@@ -160,7 +160,7 @@ def test_probe_runtime_requires_explicit_action_key(db_session, probe_rule_facto
         },
     )
 
-    with pytest.raises(ValueError, match="probe action_key is required"):
+    with pytest.raises(ValueError, match="探测触发动作缺少 action_key"):
         ProbeRuntimeService()._enqueue_on_match(db_session, rule)
 
 

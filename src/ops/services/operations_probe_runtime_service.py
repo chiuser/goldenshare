@@ -164,7 +164,7 @@ class ProbeRuntimeService:
             raise ValueError(f"不支持的探测触发动作类型：{action_type}")
         action_key = str(action.get("action_key") or "").strip()
         if not action_key:
-            raise ValueError("probe action_key is required")
+            raise ValueError("探测触发动作缺少 action_key")
         definition, action_name = get_dataset_definition_by_action_key(action_key)
         request = dict(action.get("request") or {})
         time_input = dict(request.get("time_input") or {"mode": "point"})
