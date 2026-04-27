@@ -457,6 +457,19 @@ def test_ops_layer_stage_plan_is_not_rederived_in_consumers() -> None:
     assert not violations, "layer stage 启用规则必须来自 DatasetDefinition projection，消费者不得按 delivery_mode 重推:\n" + "\n".join(violations)
 
 
+def test_layer_snapshot_query_messages_do_not_emit_internal_field_tokens() -> None:
+    path = REPO_ROOT / "src/ops/queries/layer_snapshot_query_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        "Layer snapshot dataset display name is unavailable",
+        "Layer snapshot source display name is unavailable",
+        "Layer snapshot stage display name is unavailable",
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "层快照 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_workflow_domain_display_facts_stay_in_action_catalog() -> None:
     path_tokens = {
         REPO_ROOT / "src/ops/queries/catalog_query_service.py": (

@@ -127,3 +127,33 @@ def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
     assert ("daily", "tushare", "raw") not in keys
     all_scope = next(item for item in payload["items"] if item["dataset_key"] == "stock_basic")
     assert all_scope["source_display_name"] == "综合来源"
+
+
+def test_ops_layer_snapshot_latest_returns_readable_dataset_label_error(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    db_session.add(
+        DatasetLayerSnapshotCurrent(
+            dataset_key="unknown_dataset",
+            source_key="tushare",
+            stage="raw",
+            status="healthy",
+            rows_out=10,
+            calculated_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/layer-snapshots/latest",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "层快照数据集缺少显示名称"

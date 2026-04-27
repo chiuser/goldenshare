@@ -230,19 +230,19 @@ class LayerSnapshotQueryService:
 def _require_dataset_display_name(dataset_key: str | None) -> str:
     display_name = get_dataset_display_name(dataset_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot dataset display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="层快照数据集缺少显示名称")
     return display_name
 
 
 def _require_source_display_name(source_key: str | None) -> str:
     display_name = get_source_display_name(source_key or "combined")
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot source display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="层快照来源缺少显示名称")
     return display_name
 
 
 def _require_stage_display_name(stage: str | None) -> str:
     display_name = get_layer_stage_display_name(stage)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot stage display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="层快照层级缺少显示名称")
     return display_name
