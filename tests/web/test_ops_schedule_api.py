@@ -366,6 +366,8 @@ def test_ops_schedule_probe_mode_creates_probe_rules_for_workflow(app_client, us
     assert all(item["rule_version"] == 1 for item in probe_payload["items"])
     assert all(item["on_success_action_json"]["action_type"] == "dataset_action" for item in probe_payload["items"])
     assert all("action_key" in item["on_success_action_json"] for item in probe_payload["items"])
+    assert all("dataset_key" not in item["on_success_action_json"]["request"] for item in probe_payload["items"])
+    assert all("action" not in item["on_success_action_json"]["request"] for item in probe_payload["items"])
 
 
 def test_ops_schedule_probe_mode_rejects_unknown_workflow_dataset_key(app_client, user_factory) -> None:

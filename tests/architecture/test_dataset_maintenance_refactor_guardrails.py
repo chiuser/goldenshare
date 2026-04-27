@@ -296,6 +296,18 @@ def test_probe_rule_names_do_not_embed_dataset_keys() -> None:
     assert "{template.dataset_key}" not in text
 
 
+def test_probe_trigger_payload_does_not_duplicate_dataset_action_facts() -> None:
+    path = REPO_ROOT / "src/ops/services/schedule_probe_binding_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        '"dataset_key": dataset_key',
+        '"action": "maintain"',
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "探测触发配置已有 action_key，不得在 request 中重复固化 dataset/action 事实:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

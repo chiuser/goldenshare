@@ -89,8 +89,6 @@ class ScheduleProbeBindingService:
                 "action_type": "dataset_action",
                 "action_key": get_dataset_action_key(dataset_key, "maintain"),
                 "request": {
-                    "dataset_key": dataset_key,
-                    "action": "maintain",
                     "time_input": {"mode": "point"},
                     "filters": {},
                     "run_scope": "probe_triggered",
