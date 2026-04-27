@@ -371,6 +371,39 @@ def test_probe_validation_messages_do_not_emit_internal_field_tokens() -> None:
     assert not violations, "探测规则 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 
 
+def test_schedule_validation_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (
+        REPO_ROOT / "src/ops/services/operations_schedule_service.py",
+        REPO_ROOT / "src/ops/services/schedule_planner.py",
+    )
+    forbidden_snippets = (
+        "Schedule does not exist",
+        "display_name cannot be empty",
+        "next_run_at is required",
+        "cron_expr is required",
+        "Unsupported schedule_type",
+        "Unsupported target_type",
+        "Unsupported trigger_mode",
+        "Workflow does not exist",
+        "Dataset action does not exist",
+        "Unsupported maintenance action",
+        "must include timezone information",
+        "One-shot schedule requires",
+        "Unable to resolve next_run_at",
+        "cron_expr must contain",
+        "Invalid cron",
+        "Cron value out of range",
+    )
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
+
+    assert not violations, "自动任务 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

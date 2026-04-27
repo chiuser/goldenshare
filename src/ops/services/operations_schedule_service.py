@@ -100,7 +100,7 @@ class OperationsScheduleService:
     ) -> OpsSchedule:
         schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
 
         before = self._snapshot(schedule)
         changed_fields = set(changes)
@@ -117,7 +117,7 @@ class OperationsScheduleService:
         if "display_name" in changed_fields:
             display_name = str(changes["display_name"]).strip()
             if not display_name:
-                raise WebAppError(status_code=422, code="validation_error", message="display_name cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="自动任务名称不能为空")
             schedule.display_name = display_name
 
         if "schedule_type" in changed_fields:
@@ -160,7 +160,7 @@ class OperationsScheduleService:
             )
 
         if schedule.schedule_type == "once" and schedule.status == "active" and schedule.next_run_at is None:
-            raise WebAppError(status_code=422, code="validation_error", message="next_run_at is required for once schedules")
+            raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
 
         schedule.updated_by_user_id = updated_by_user_id
         self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)
@@ -185,7 +185,7 @@ class OperationsScheduleService:
     def pause_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> OpsSchedule:
         schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
         if schedule.status == "paused":
             session.refresh(schedule)
             return schedule
@@ -209,7 +209,7 @@ class OperationsScheduleService:
     def resume_schedule(self, session: Session, *, schedule_id: int, updated_by_user_id: int) -> OpsSchedule:
         schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
         if schedule.status == "active":
             session.refresh(schedule)
             return schedule
@@ -220,7 +220,7 @@ class OperationsScheduleService:
                 raise WebAppError(
                     status_code=409,
                     code="conflict",
-                    message="One-shot schedule requires next_run_at before it can be resumed",
+                    message="单次排程恢复前必须填写下次运行时间",
                 )
         else:
             schedule.next_run_at = self._resolve_next_run_at(
@@ -247,7 +247,7 @@ class OperationsScheduleService:
     def delete_schedule(self, session: Session, *, schedule_id: int, deleted_by_user_id: int) -> int:
         schedule = session.scalar(select(OpsSchedule).where(OpsSchedule.id == schedule_id))
         if schedule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
 
         before = self._snapshot(schedule)
         if schedule.status == "active":
@@ -360,7 +360,7 @@ class OperationsScheduleService:
     def _default_display_name(target_type: str, target_key: str) -> str:
         display_name = get_action_display_name(target_type, target_key)
         if display_name is None:
-            raise WebAppError(status_code=422, code="validation_error", message="Schedule target display name is unavailable")
+            raise WebAppError(status_code=422, code="validation_error", message="自动任务目标缺少显示名称")
         return display_name
 
     @staticmethod
@@ -369,21 +369,21 @@ class OperationsScheduleService:
             try:
                 get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="Dataset action does not exist") from exc
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
             if not action_is_schedulable(target_type, target_key):
-                raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
+                raise WebAppError(status_code=422, code="validation_error", message="所选目标不支持自动任务")
             return
         if target_type == "maintenance_action":
             action = get_maintenance_action(target_key)
             if action is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Unsupported maintenance action")
+                raise WebAppError(status_code=422, code="validation_error", message="系统维护动作不存在")
         elif target_type == "workflow":
             if get_workflow_definition(target_key) is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="自动流程不存在")
         else:
-            raise WebAppError(status_code=422, code="validation_error", message="Unsupported target_type")
+            raise WebAppError(status_code=422, code="validation_error", message="不支持的自动任务目标类型")
         if not action_is_schedulable(target_type, target_key):
-            raise WebAppError(status_code=422, code="validation_error", message="Selected target does not support scheduling")
+            raise WebAppError(status_code=422, code="validation_error", message="所选目标不支持自动任务")
 
     def _resolve_next_run_at(
         self,
@@ -397,7 +397,7 @@ class OperationsScheduleService:
         if normalized is not None:
             return normalized
         if schedule_type == "once":
-            raise WebAppError(status_code=422, code="validation_error", message="next_run_at is required for once schedules")
+            raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
         return compute_next_run_at(
             schedule_type=schedule_type,
             timezone_name=timezone_name,
@@ -409,7 +409,7 @@ class OperationsScheduleService:
     def _normalize_trigger_mode(value: str | None) -> str:
         mode = str(value or "schedule").strip().lower()
         if mode not in {"schedule", "probe", "schedule_probe_fallback"}:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported trigger_mode: {mode}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的触发方式：{mode}")
         return mode
 
     @staticmethod

@@ -26,7 +26,7 @@ def ensure_schedule_type(schedule_type: str) -> None:
         raise WebAppError(
             status_code=422,
             code="validation_error",
-            message=f"Unsupported schedule_type: {schedule_type}",
+            message=f"不支持的排程类型：{schedule_type}",
         )
 
 
@@ -34,7 +34,7 @@ def ensure_timezone(timezone_name: str) -> ZoneInfo:
     try:
         return ZoneInfo(timezone_name)
     except ZoneInfoNotFoundError as exc:
-        raise WebAppError(status_code=422, code="validation_error", message="Invalid timezone") from exc
+        raise WebAppError(status_code=422, code="validation_error", message="排程时区无效") from exc
 
 
 def normalize_schedule_datetime(value: datetime | None, *, field_name: str) -> datetime | None:
@@ -44,9 +44,17 @@ def normalize_schedule_datetime(value: datetime | None, *, field_name: str) -> d
         raise WebAppError(
             status_code=422,
             code="validation_error",
-            message=f"{field_name} must include timezone information",
+            message=f"{_schedule_datetime_label(field_name)}必须包含时区信息",
         )
     return value.astimezone(timezone.utc)
+
+
+def _schedule_datetime_label(field_name: str) -> str:
+    labels = {
+        "next_run_at": "下次运行时间",
+        "after": "排程计算时间",
+    }
+    return labels.get(field_name, field_name)
 
 
 def compute_next_run_at(
@@ -58,15 +66,15 @@ def compute_next_run_at(
 ) -> datetime | None:
     ensure_schedule_type(schedule_type)
     if after.tzinfo is None:
-        raise WebAppError(status_code=422, code="validation_error", message="after must include timezone information")
+        raise WebAppError(status_code=422, code="validation_error", message="排程计算时间必须包含时区信息")
     if schedule_type == "once":
         return None
     if schedule_type == "cron":
         if not cron_expr:
-            raise WebAppError(status_code=422, code="validation_error", message="cron_expr is required for cron schedules")
+            raise WebAppError(status_code=422, code="validation_error", message="周期排程必须填写周期表达式")
         zone = ensure_timezone(timezone_name)
         return _next_cron_occurrence(cron_expr, after=after, zone=zone)
-    raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported schedule_type: {schedule_type}")
+    raise WebAppError(status_code=422, code="validation_error", message=f"不支持的排程类型：{schedule_type}")
 
 
 def preview_schedule_runs(
@@ -82,12 +90,12 @@ def preview_schedule_runs(
     count = max(1, min(count, 10))
     now = after or datetime.now(timezone.utc)
     if now.tzinfo is None:
-        raise WebAppError(status_code=422, code="validation_error", message="after must include timezone information")
+        raise WebAppError(status_code=422, code="validation_error", message="排程预览时间必须包含时区信息")
 
     if schedule_type == "once":
         resolved_next_run = normalize_schedule_datetime(next_run_at, field_name="next_run_at")
         if resolved_next_run is None:
-            raise WebAppError(status_code=422, code="validation_error", message="next_run_at is required for once schedules")
+            raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
         return [resolved_next_run]
 
     runs: list[datetime] = []
@@ -122,14 +130,14 @@ def _next_cron_occurrence(cron_expr: str, *, after: datetime, zone: ZoneInfo) ->
     raise WebAppError(
         status_code=422,
         code="validation_error",
-        message="Unable to resolve next_run_at from cron_expr within 366 days",
+        message="无法在未来 366 天内计算出下一次运行时间",
     )
 
 
 def _parse_cron_expr(cron_expr: str) -> CronExpression:
     parts = cron_expr.split()
     if len(parts) != 5:
-        raise WebAppError(status_code=422, code="validation_error", message="cron_expr must contain 5 fields")
+        raise WebAppError(status_code=422, code="validation_error", message="周期表达式必须包含 5 段")
 
     minute_expr, hour_expr, dom_expr, month_expr, dow_expr = parts
     return CronExpression(
@@ -148,7 +156,7 @@ def _parse_field(expr: str, *, minimum: int, maximum: int, normalize_day_of_week
     for part in expr.split(","):
         part = part.strip()
         if not part:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Invalid cron field: {expr}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"周期表达式字段无效：{expr}")
         values.update(
             _expand_part(
                 part,
@@ -164,7 +172,7 @@ def _expand_part(part: str, *, minimum: int, maximum: int, normalize_day_of_week
     if "/" in part:
         base, step_str = part.split("/", 1)
         if not step_str.isdigit() or int(step_str) <= 0:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Invalid cron step: {part}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"周期表达式步长无效：{part}")
         step = int(step_str)
     else:
         base = part
@@ -178,7 +186,7 @@ def _expand_part(part: str, *, minimum: int, maximum: int, normalize_day_of_week
         start = _parse_numeric_value(start_str, minimum=minimum, maximum=maximum, normalize_day_of_week=normalize_day_of_week)
         end = _parse_numeric_value(end_str, minimum=minimum, maximum=maximum, normalize_day_of_week=normalize_day_of_week)
         if end < start:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Invalid cron range: {part}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"周期表达式范围无效：{part}")
     else:
         value = _parse_numeric_value(base, minimum=minimum, maximum=maximum, normalize_day_of_week=normalize_day_of_week)
         return {value}
@@ -188,11 +196,11 @@ def _expand_part(part: str, *, minimum: int, maximum: int, normalize_day_of_week
 
 def _parse_numeric_value(raw: str, *, minimum: int, maximum: int, normalize_day_of_week: bool) -> int:
     if not raw.isdigit():
-        raise WebAppError(status_code=422, code="validation_error", message=f"Invalid cron token: {raw}")
+        raise WebAppError(status_code=422, code="validation_error", message=f"周期表达式包含非数字值：{raw}")
     value = int(raw)
     normalized = _normalize_value(value, normalize_day_of_week)
     if normalized < minimum or normalized > maximum:
-        raise WebAppError(status_code=422, code="validation_error", message=f"Cron value out of range: {raw}")
+        raise WebAppError(status_code=422, code="validation_error", message=f"周期表达式数值超出范围：{raw}")
     return normalized
 
 

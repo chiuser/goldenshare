@@ -74,6 +74,27 @@ def test_ops_schedule_create_rejects_unschedulable_target(app_client, user_facto
     assert response.json()["code"] == "validation_error"
 
 
+def test_ops_schedule_create_returns_readable_once_time_validation_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "workflow",
+            "target_key": "daily_market_close_maintenance",
+            "display_name": "单次维护",
+            "schedule_type": "once",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "单次排程必须填写下次运行时间"
+
+
 def test_ops_schedule_create_rejects_dataset_action_without_maintain_suffix(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
