@@ -34,11 +34,11 @@ class DatasetActionResolver:
 
     def build_plan(self, request: DatasetActionRequest) -> DatasetExecutionPlan:
         if request.action != "maintain":
-            raise ValueError(f"unsupported dataset action: {request.action}")
+            raise ValueError(f"不支持的数据集操作：{request.action}")
         definition = get_dataset_definition(request.dataset_key)
         action = definition.capabilities.get_action(request.action)
         if action is None:
-            raise ValueError(f"dataset={request.dataset_key} does not support action={request.action}")
+            raise ValueError(f"{definition.display_name} 不支持该操作：{request.action}")
 
         normalized_time = self._normalize_time_input(request.time_input, definition.date_model.input_shape)
         run_profile = self._resolve_run_profile(normalized_time)
@@ -108,7 +108,7 @@ class DatasetActionResolver:
             return "range_rebuild"
         if time_input.mode == "none":
             return "snapshot_refresh"
-        raise ValueError(f"unsupported time_input.mode={time_input.mode}")
+        raise ValueError(f"不支持的时间输入模式：{time_input.mode}")
 
     @classmethod
     def _normalize_time_input(cls, time_input: DatasetTimeInput, input_shape: str) -> DatasetTimeInput:

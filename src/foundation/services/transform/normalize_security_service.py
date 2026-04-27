@@ -15,7 +15,7 @@ class NormalizeSecurityService:
     def _normalize_biying(self, row: dict[str, Any]) -> dict[str, Any]:
         ts_code = (row.get("dm") or "").strip()
         if not ts_code:
-            raise ValueError("missing dm")
+            raise ValueError("证券基础信息缺少股票代码")
         symbol = ts_code.split(".", 1)[0] if "." in ts_code else ts_code
         normalized: dict[str, Any] = {
             "ts_code": ts_code,

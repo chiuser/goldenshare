@@ -40,7 +40,7 @@ def assert_no_forbidden_business_sentinel(value: Any, *, location: str) -> None:
     if found is None:
         return
     path, sentinel = found
-    raise ValueError(f"forbidden business sentinel {sentinel!r} at {location}{path}")
+    raise ValueError(f"检测到非法业务占位值：{sentinel!r}，位置：{location}{path}")
 
 
 def should_guard_dataset_rows(dataset_key: str) -> bool:

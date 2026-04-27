@@ -74,7 +74,7 @@ class DatasetNormalizer:
                             error_code="forbidden_sentinel",
                             error_type="normalize",
                             phase="normalizer",
-                            message=f"forbidden business sentinel {value} at {path}",
+                            message=f"检测到非法业务占位值：{value}，位置：{path}",
                             retryable=False,
                             unit_id=fetch_result.unit_id,
                         )

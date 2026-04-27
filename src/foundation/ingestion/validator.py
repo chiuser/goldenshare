@@ -22,23 +22,23 @@ class DatasetRequestValidator:
         if request.dataset_key != definition.dataset_key:
             raise self._error(
                 error_code="dataset_mismatch",
-                message=f"request.dataset_key={request.dataset_key} does not match definition={definition.dataset_key}",
+                message=f"请求的数据集与定义不一致：{request.dataset_key} / {definition.dataset_key}",
             )
         action = definition.capabilities.get_action(request.action)
         if action is None:
             raise self._error(
                 error_code="run_profile_unsupported",
-                message=f"dataset={definition.dataset_key} does not support action={request.action}",
+                message=f"{definition.display_name} 不支持该操作：{request.action}",
             )
         if run_profile == "point_incremental" and "point" not in action.supported_time_modes:
             raise self._error(
                 error_code="run_profile_unsupported",
-                message=f"dataset={definition.dataset_key} does not support point maintain",
+                message=f"{definition.display_name} 不支持按单个日期维护",
             )
         if run_profile == "range_rebuild" and "range" not in action.supported_time_modes:
             raise self._error(
                 error_code="run_profile_unsupported",
-                message=f"dataset={definition.dataset_key} does not support range maintain",
+                message=f"{definition.display_name} 不支持按日期区间维护",
             )
         if run_profile == "snapshot_refresh" and "none" not in action.supported_time_modes and action.supported_time_modes:
             # Snapshot datasets often model point mode in UI, but the execution profile
@@ -57,7 +57,7 @@ class DatasetRequestValidator:
             if date_model.window_mode not in {"point", "point_or_range"}:
                 raise self._error(
                     "invalid_window_for_profile",
-                    f"run_profile=point_incremental is not allowed for window_mode={date_model.window_mode}",
+                    "当前数据集不支持按单个日期维护",
                 )
             trade_date, start_date, end_date = self._validate_point_incremental_anchor(
                 date_model=date_model,
@@ -70,7 +70,7 @@ class DatasetRequestValidator:
             if date_model.window_mode not in {"range", "point_or_range"}:
                 raise self._error(
                     "invalid_window_for_profile",
-                    f"run_profile=range_rebuild is not allowed for window_mode={date_model.window_mode}",
+                    "当前数据集不支持按日期区间维护",
                 )
             trade_date, start_date, end_date = self._validate_range_rebuild_anchor(
                 date_model=date_model,
@@ -88,7 +88,7 @@ class DatasetRequestValidator:
             if end_date is None:
                 end_date = self._to_optional_date(normalized_params.get("end_date"))
             if any(value is not None for value in (trade_date, start_date, end_date, month_key)):
-                raise self._error("time_anchor_not_allowed", "snapshot_refresh does not accept time anchors")
+                raise self._error("time_anchor_not_allowed", "当前数据集不需要填写日期条件")
             normalized_params.pop("trade_date", None)
             normalized_params.pop("start_date", None)
             normalized_params.pop("end_date", None)
@@ -120,7 +120,7 @@ class DatasetRequestValidator:
         params: dict,
     ) -> tuple[date | None, date | None, date | None]:
         if start_date is not None or end_date is not None:
-            raise self._error("range_not_allowed", "point_incremental does not allow start_date/end_date")
+            raise self._error("range_not_allowed", "按单个日期维护时不能填写日期区间")
         if date_model.input_shape == "month_or_range":
             month_key = self._normalize_month_key(params.get("month"))
             if month_key is None:
@@ -129,7 +129,7 @@ class DatasetRequestValidator:
                 elif self._to_optional_date(params.get("trade_date")) is not None:
                     month_key = self._to_optional_date(params.get("trade_date")).strftime("%Y%m")
             if month_key is None:
-                raise self._error("missing_anchor_fields", "month_or_range requires month or trade_date")
+                raise self._error("missing_anchor_fields", "请填写月份或交易日期")
             params["month"] = month_key
             return trade_date, start_date, end_date
 
@@ -142,7 +142,7 @@ class DatasetRequestValidator:
             if trade_date is None and date_model.input_shape == "ann_date_or_start_end":
                 trade_date = self._to_optional_date(params.get("ann_date"))
             if trade_date is None:
-                raise self._error("missing_anchor_fields", f"dataset requires point date input for {date_model.input_shape}")
+                raise self._error("missing_anchor_fields", "请填写日期")
             if date_model.input_shape == "ann_date_or_start_end":
                 params["ann_date"] = trade_date
             else:
@@ -152,7 +152,7 @@ class DatasetRequestValidator:
         if date_model.date_axis == "none":
             return trade_date, start_date, end_date
 
-        raise self._error("invalid_anchor_type", f"unsupported date model input_shape={date_model.input_shape}")
+        raise self._error("invalid_anchor_type", f"不支持的日期输入模型：{date_model.input_shape}")
 
     def _validate_range_rebuild_anchor(
         self,
@@ -195,25 +195,27 @@ class DatasetRequestValidator:
 
         for group in definition.input_model.required_groups:
             if not any(normalized.get(key) not in (None, "", []) for key in group):
-                labels = [fields[key].label or fields[key].name for key in group if key in fields]
+                labels = [fields[key].display_label for key in group if key in fields]
                 joined = "、".join(labels or group)
                 raise self._error("required_group_unsatisfied", f"至少需要填写其中一个参数：{joined}")
 
         for group in definition.input_model.mutually_exclusive_groups:
             present = [key for key in group if normalized.get(key) not in (None, "", [])]
             if len(present) > 1:
-                labels = [fields[key].label or fields[key].name for key in present if key in fields]
+                labels = [fields[key].display_label for key in present if key in fields]
                 joined = "、".join(labels or present)
                 raise self._error("mutually_exclusive_violation", f"这些参数不能同时填写：{joined}")
 
         for left, right in definition.input_model.dependencies:
             if normalized.get(left) not in (None, "", []) and normalized.get(right) in (None, "", []):
-                raise self._error("dependency_violation", f"{left} requires {right}")
+                left_label = self._field_label(fields.get(left), left)
+                right_label = self._field_label(fields.get(right), right)
+                raise self._error("dependency_violation", f"填写{left_label}时必须同时填写{right_label}")
 
         sentinel = find_forbidden_business_sentinel(normalized, path="params")
         if sentinel is not None:
             path, value = sentinel
-            raise self._error("forbidden_sentinel", f"forbidden business sentinel {value} at {path}")
+            raise self._error("forbidden_sentinel", f"检测到非法业务占位值：{value}，位置：{path}")
         return normalized
 
     def _coerce_value(self, field: DatasetInputField, value):  # type: ignore[no-untyped-def]
@@ -222,13 +224,13 @@ class DatasetRequestValidator:
         if field.field_type == "date":
             parsed = self._to_optional_date(value)
             if parsed is None:
-                raise self._error("invalid_date", f"invalid date for {field.name}")
+                raise self._error("invalid_date", f"{self._field_label(field, field.name)}日期格式不正确")
             return parsed
         if field.field_type == "integer":
             try:
                 return int(value)
             except (TypeError, ValueError) as exc:
-                raise self._error("invalid_integer", f"invalid integer for {field.name}") from exc
+                raise self._error("invalid_integer", f"{self._field_label(field, field.name)}必须是整数") from exc
         if field.field_type == "boolean":
             if isinstance(value, bool):
                 return value
@@ -237,13 +239,13 @@ class DatasetRequestValidator:
                 return True
             if text in {"0", "false", "no"}:
                 return False
-            raise self._error("invalid_boolean", f"invalid boolean for {field.name}")
+            raise self._error("invalid_boolean", f"{self._field_label(field, field.name)}必须是布尔值")
         if field.field_type in {"enum", "string"}:
             text = str(value).strip()
             if field.enum_values and text not in field.enum_values:
-                raise self._error("invalid_enum", f"invalid enum for {field.name}: {text}")
+                raise self._error("invalid_enum", f"{self._field_label(field, field.name)}不在可选范围内：{text}")
             if not text and field.required:
-                raise self._error("empty_not_allowed", f"empty value is not allowed for {field.name}")
+                raise self._error("empty_not_allowed", f"{self._field_label(field, field.name)}不能为空")
             return text
         if field.field_type == "list":
             if isinstance(value, list):
@@ -257,9 +259,15 @@ class DatasetRequestValidator:
             if field.enum_values:
                 invalid = [item for item in normalized_values if item not in field.enum_values]
                 if invalid:
-                    raise self._error("invalid_enum", f"invalid enum for {field.name}: {', '.join(invalid)}")
+                    raise self._error("invalid_enum", f"{self._field_label(field, field.name)}不在可选范围内：{', '.join(invalid)}")
             return normalized_values
         return value
+
+    @staticmethod
+    def _field_label(field: DatasetInputField | None, fallback: str) -> str:
+        if field is None:
+            return fallback
+        return field.display_label
 
     @staticmethod
     def _to_optional_date(value) -> date | None:  # type: ignore[no-untyped-def]

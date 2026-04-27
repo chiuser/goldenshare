@@ -45,5 +45,5 @@ def test_bulk_upsert_raises_when_conflict_key_missing() -> None:
     session = DummySession()
     dao = BaseDAO(session, DummyRow)
 
-    with pytest.raises(ValueError, match="missing conflict key fields: id"):
+    with pytest.raises(ValueError, match="缺少写入主键字段：id"):
         dao.bulk_upsert([{"value": "missing-id"}])

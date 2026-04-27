@@ -23,7 +23,7 @@ def test_biying_connector_fetches_stock_basic_rows(mocker) -> None:
 
 def test_biying_connector_requires_token() -> None:
     connector = BiyingSourceConnector(token="", base_url="https://api.biyingapi.com")
-    with pytest.raises(ValueError, match="BIYING_TOKEN is empty"):
+    with pytest.raises(ValueError, match="Biying 数据源令牌未配置"):
         connector.call("stock_basic")
 
 

@@ -59,7 +59,7 @@ class DatasetWriter:
                             error_code="forbidden_sentinel",
                             error_type="write",
                             phase="writer",
-                            message=f"forbidden business sentinel {value} at {path}",
+                            message=f"检测到非法业务占位值：{value}，位置：{path}",
                             retryable=False,
                             unit_id=batch.unit_id,
                         )
@@ -134,7 +134,7 @@ class DatasetWriter:
                     raw_dao=raw_dao,
                 )
             if definition.storage.write_path != "raw_core_upsert":
-                raise ValueError(f"unsupported write_path: {definition.storage.write_path}")
+                raise ValueError(f"不支持的写入路径：{definition.storage.write_path}")
             rows_upserted = self._write_raw_and_core(
                 batch=batch,
                 raw_dao=raw_dao,
@@ -492,7 +492,7 @@ class DatasetWriter:
             if str(code).strip()
         }
         if not normalized:
-            raise ValueError("no active index codes found for index period serving")
+            raise ValueError("未找到可维护的指数代码")
         return normalized
 
     @staticmethod
@@ -524,7 +524,7 @@ class DatasetWriter:
             return trade_date.replace(day=1)
         if dataset_key == "index_weekly":
             return trade_date - timedelta(days=trade_date.weekday())
-        raise ValueError(f"unsupported dataset for index period serving: {dataset_key}")
+        raise ValueError(f"不支持生成指数周期服务数据：{dataset_key}")
 
     @staticmethod
     def _write_raw_and_core(
@@ -552,7 +552,7 @@ class DatasetWriter:
             plan_unit.requested_source_key if plan_unit is not None else source_key
         ).strip().lower()
         if source_key not in {"tushare", "biying"}:
-            raise ValueError(f"stock_basic writer received unsupported source_key={source_key}")
+            raise ValueError(f"股票基础信息不支持该数据来源：{source_key}")
 
         raw_dao = self.dao.raw_tushare_stock_basic if source_key == "tushare" else self.dao.raw_biying_stock_basic
         raw_rows = self._prepare_stock_basic_raw_rows(rows=batch.rows_normalized, source_key=source_key)

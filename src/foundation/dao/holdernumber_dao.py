@@ -28,7 +28,7 @@ class _HolderNumberHashDAO(BaseDAO[ModelT], Generic[ModelT]):
             if missing_columns:
                 missing_text = ", ".join(missing_columns)
                 raise ValueError(
-                    f"{self.model.__name__}.bulk_upsert missing conflict key fields: {missing_text}; row={row}"
+                    f"{self.model.__name__} 缺少写入主键字段：{missing_text}；row={row}"
                 )
             key = tuple(row[column] for column in conflict_target)
             deduped_by_key[key] = row

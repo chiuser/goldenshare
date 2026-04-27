@@ -15,7 +15,7 @@ class NormalizeMoneyflowService:
     def normalize_dm_to_ts_code(cls, dm: str | None) -> str:
         raw = (dm or "").strip().upper()
         if not raw:
-            raise ValueError("missing dm")
+            raise ValueError("资金流记录缺少股票代码")
         if "." in raw:
             return raw
         if len(raw) == 6:
@@ -29,10 +29,10 @@ class NormalizeMoneyflowService:
     def to_std_from_tushare(self, row: dict[str, Any]) -> dict[str, Any]:
         ts_code = (row.get("ts_code") or "").strip().upper()
         if not ts_code:
-            raise ValueError("missing ts_code")
+            raise ValueError("资金流记录缺少股票代码")
         trade_date = row.get("trade_date")
         if not isinstance(trade_date, date):
-            raise ValueError("missing trade_date")
+            raise ValueError("资金流记录缺少交易日期")
         return {
             "source_key": "tushare",
             "ts_code": ts_code,
@@ -61,7 +61,7 @@ class NormalizeMoneyflowService:
         ts_code = self.normalize_dm_to_ts_code(row.get("dm"))
         trade_date = row.get("trade_date")
         if not isinstance(trade_date, date):
-            raise ValueError("missing trade_date")
+            raise ValueError("资金流记录缺少交易日期")
 
         buy_sm_vol = self._to_int(row.get("zmbxdcjl"))
         buy_sm_amount = self._to_decimal(row.get("zmbxdcje"))

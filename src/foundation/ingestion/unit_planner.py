@@ -153,7 +153,7 @@ class DatasetUnitPlanner:
                 codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
             normalized_codes = sorted({str(code).strip().upper() for code in codes if str(code).strip()})
             if not normalized_codes:
-                raise self._planning_error("universe_empty", f"no active index codes found for dataset={request.dataset_key}")
+                raise self._planning_error("universe_empty", f"{definition.display_name} 未找到可维护的指数代码")
             return [{"ts_code": code} for code in normalized_codes]
 
         if policy == "ths_index_board_codes":
@@ -167,11 +167,11 @@ class DatasetUnitPlanner:
             codes = [str(item).strip().upper() for item in self.session.scalars(stmt) if str(item).strip()]
             normalized_codes = sorted(set(codes))
             if not normalized_codes:
-                raise self._planning_error("universe_empty", "no ths_index board codes found")
+                raise self._planning_error("universe_empty", "未找到可维护的同花顺板块代码")
             return [{"ts_code": code} for code in normalized_codes]
 
         if policy != "dc_index_board_codes":
-            raise self._planning_error("unknown_universe_policy", f"unsupported universe_policy={policy}")
+            raise self._planning_error("unknown_universe_policy", f"不支持的维护对象展开规则：{policy}")
 
         ts_code = str(request.params.get("ts_code") or "").strip().upper()
         con_code = str(request.params.get("con_code") or "").strip().upper()
@@ -301,7 +301,7 @@ def _resolve_index_codes(request: ValidatedDatasetActionRequest, dao) -> list[st
         active_codes = [item.ts_code for item in dao.index_basic.get_active_indexes() if item.ts_code]
     normalized = sorted({str(code).strip().upper() for code in active_codes if str(code).strip()})
     if not normalized:
-        raise DatasetUnitPlanner._planning_error("universe_empty", f"no active index codes found for dataset={request.dataset_key}")
+        raise DatasetUnitPlanner._planning_error("universe_empty", "未找到可维护的指数代码")
     return normalized
 
 
@@ -403,7 +403,7 @@ def _build_stock_basic_units(planner: DatasetUnitPlanner, request: ValidatedData
     request_builder = planner._resolve_request_builder(definition)
     source_mode = str(request.source_key or request.params.get("source_key") or definition.source.source_key_default).strip().lower()
     if source_mode not in {"tushare", "biying", "all"}:
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"stock_basic unsupported source_key={source_mode}")
+        raise DatasetUnitPlanner._planning_error("invalid_enum", f"{definition.display_name} 不支持该数据来源：{source_mode}")
 
     units: list[PlanUnitSnapshot] = []
     if source_mode in {"tushare", "all"}:
@@ -582,7 +582,7 @@ def _build_biying_units(
         if values:
             invalid = sorted({value for value in values if value not in {"n", "f", "b"}})
             if invalid:
-                raise DatasetUnitPlanner._planning_error("invalid_enum", f"biying_equity_daily invalid adj_type={','.join(invalid)}")
+                raise DatasetUnitPlanner._planning_error("invalid_enum", f"{definition.display_name} 复权类型不在可选范围内：{','.join(invalid)}")
             adj_types = [item for item in ("n", "f", "b") if item in set(values)]
 
     units: list[PlanUnitSnapshot] = []
