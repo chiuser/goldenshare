@@ -144,6 +144,7 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "getDatasetLabelFromCatalog",
         "probe_config.workflow_dataset_keys || []).map",
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
+        "buildFreshnessDisplayNameMap",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
         "route_" + "keys",
         "active_" + "execution_" + "status",

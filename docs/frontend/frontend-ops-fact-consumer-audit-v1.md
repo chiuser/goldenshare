@@ -43,9 +43,9 @@
 
 | 编号 | 页面/文件 | 问题 | 处理 |
 | --- | --- | --- | --- |
-| F-001 | `ops-v21-source-page.tsx` | “最近同步”只看 `freshItem.latest_success_at || rawLatest.last_success_at`，没有消费服务端 `last_sync_date`，导致 `limit_list_ths` 显示 `—`。 | 已修复：显示顺序调整为 `latest_success_at -> raw.last_success_at -> last_sync_date -> —`，并补回归测试。 |
+| F-001 | `ops-v21-source-page.tsx` | “最近同步”曾绕开服务端同步日期口径，导致 `limit_list_ths` 显示 `—`。 | 已修复：数据源卡片页只消费 `/api/v1/ops/dataset-cards` 返回的 `last_sync_date` 与运行状态字段。 |
 | F-002 | `ops-v21-dataset-detail-page.tsx` | 没有 layer snapshot 时，页面用 freshness 自行构造 raw/serving 两条假 snapshot。 | 已删除：详情页只展示 layer snapshot API 返回的真实层级状态。 |
-| F-003 | `ops-v21-shared.ts` | 保留了未使用的 `groupDatasetSummariesWithFreshnessFallback()`，会把 freshness 转成 synthetic snapshot。 | 已删除：共享文件只保留当前仍被使用的 display name 映射。 |
+| F-003 | 前端详情页共享 helper | 曾保留未使用的 freshness 转 snapshot helper，后续又残留了详情页 display name 映射 helper。 | 已删除：详情页标题与手动动作入口改为消费 `/api/v1/ops/dataset-cards`，不再从 freshness 建本地 map。 |
 | F-004 | `ops-v21-source-page.tsx` | 页面用 `sourceKey + dataset_key` 拼 raw 表名，并把 `raw_tushare` 替换成当前来源表名前缀。 | 已删除：表名只来自 `/api/v1/ops/dataset-cards` 返回字段，缺失则显示 `—`。 |
 | F-005 | `ops-v21-overview-page.tsx` | 总览页曾直接合并旧模式 API 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
 | F-006 | `ops-v21-source-page.tsx` / `ops-v21-source-page-utils.ts` | 数据源页用 `dataset_key/raw_table/source_scope` 做来源偏好评分和去重。 | 已收口：数据源页改为消费 `/api/v1/ops/dataset-cards?source_key=...`，旧 utils 删除。 |

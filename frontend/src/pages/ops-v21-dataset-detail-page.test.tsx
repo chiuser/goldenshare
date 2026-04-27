@@ -42,55 +42,33 @@ function renderPage() {
   );
 }
 
+function datasetCardsPayload() {
+  return {
+    total: 1,
+    groups: [
+      {
+        domain_key: "equity",
+        domain_display_name: "股票",
+        items: [
+          {
+            card_key: "daily",
+            dataset_key: "daily",
+            detail_dataset_key: "daily",
+            resource_key: "daily",
+            display_name: "股票日线",
+            primary_action_key: "daily.maintain",
+          },
+        ],
+      },
+    ],
+  };
+}
+
 describe("V2.1 数据集详情页", () => {
   it("使用统一指标面板和数据表展示详情状态与执行记录", async () => {
     apiRequest.mockImplementation(async (url: string) => {
-      if (url === "/api/v1/ops/freshness") {
-        return {
-          summary: {
-            total_datasets: 1,
-            fresh_datasets: 1,
-            lagging_datasets: 0,
-            stale_datasets: 0,
-            unknown_datasets: 0,
-            disabled_datasets: 0,
-          },
-          groups: [
-            {
-              domain_key: "equity",
-              domain_display_name: "股票",
-              items: [
-                {
-                  dataset_key: "daily",
-                  resource_key: "daily",
-                  display_name: "股票日线",
-                  cadence: "daily",
-                  target_table: "core_serving.daily",
-                  raw_table: "raw_tushare.daily",
-                  earliest_business_date: "2026-04-01",
-                  observed_business_date: "2026-04-17",
-                  latest_business_date: "2026-04-17",
-                  freshness_note: null,
-                  latest_success_at: "2026-04-17T09:10:00+08:00",
-                  last_sync_date: "2026-04-17",
-                  expected_business_date: "2026-04-17",
-                  lag_days: 0,
-                  freshness_status: "fresh",
-                  recent_failure_message: null,
-                  recent_failure_summary: null,
-                  recent_failure_at: null,
-                  primary_action_key: "daily.maintain",
-                  auto_schedule_status: "active",
-                  auto_schedule_total: 1,
-                  auto_schedule_active: 1,
-                  auto_schedule_next_run_at: "2026-04-18T16:00:00+08:00",
-                  active_task_run_status: null,
-                  active_task_run_started_at: null,
-                },
-              ],
-            },
-          ],
-        };
+      if (url === "/api/v1/ops/dataset-cards?limit=2000") {
+        return datasetCardsPayload();
       }
       if (url === "/api/v1/ops/layer-snapshots/latest?dataset_key=daily&limit=200") {
         return {
@@ -269,52 +247,8 @@ describe("V2.1 数据集详情页", () => {
 
   it("没有 layer snapshot 时不再用 freshness 伪造层级状态", async () => {
     apiRequest.mockImplementation(async (url: string) => {
-      if (url === "/api/v1/ops/freshness") {
-        return {
-          summary: {
-            total_datasets: 1,
-            fresh_datasets: 1,
-            lagging_datasets: 0,
-            stale_datasets: 0,
-            unknown_datasets: 0,
-            disabled_datasets: 0,
-          },
-          groups: [
-            {
-              domain_key: "equity",
-              domain_display_name: "股票",
-              items: [
-                {
-                  dataset_key: "daily",
-                  resource_key: "daily",
-                  display_name: "股票日线",
-                  cadence: "daily",
-                  target_table: "core_serving.daily",
-                  raw_table: "raw_tushare.daily",
-                  earliest_business_date: "2026-04-01",
-                  observed_business_date: "2026-04-17",
-                  latest_business_date: "2026-04-17",
-                  freshness_note: null,
-                  latest_success_at: "2026-04-17T09:10:00+08:00",
-                  last_sync_date: "2026-04-17",
-                  expected_business_date: "2026-04-17",
-                  lag_days: 0,
-                  freshness_status: "fresh",
-                  recent_failure_message: null,
-                  recent_failure_summary: null,
-                  recent_failure_at: null,
-                  primary_action_key: "daily.maintain",
-                  auto_schedule_status: "active",
-                  auto_schedule_total: 1,
-                  auto_schedule_active: 1,
-                  auto_schedule_next_run_at: "2026-04-18T16:00:00+08:00",
-                  active_task_run_status: null,
-                  active_task_run_started_at: null,
-                },
-              ],
-            },
-          ],
-        };
+      if (url === "/api/v1/ops/dataset-cards?limit=2000") {
+        return datasetCardsPayload();
       }
       if (url === "/api/v1/ops/layer-snapshots/latest?dataset_key=daily&limit=200") {
         return { total: 0, items: [] };

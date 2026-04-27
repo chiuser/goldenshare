@@ -4,9 +4,9 @@ import { Link } from "@tanstack/react-router";
 
 import { apiRequest } from "../shared/api/client";
 import type {
+  DatasetCardListResponse,
   LayerSnapshotHistoryResponse,
   LayerSnapshotLatestResponse,
-  OpsFreshnessResponse,
   ProbeRuleListResponse,
   ResolutionReleaseListResponse,
   StdCleansingRuleListResponse,
@@ -21,7 +21,6 @@ import { EmptyState } from "../shared/ui/empty-state";
 import { MetricPanel } from "../shared/ui/metric-panel";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { buildFreshnessDisplayNameMap } from "./ops-v21-shared";
 
 
 type TaskRunRow = TaskRunListResponse["items"][number];
@@ -47,9 +46,9 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
 }
 
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
-  const freshnessQuery = useQuery({
-    queryKey: ["ops", "freshness", "v21-dataset-detail", datasetKey],
-    queryFn: () => apiRequest<OpsFreshnessResponse>("/api/v1/ops/freshness"),
+  const cardQuery = useQuery({
+    queryKey: ["ops", "dataset-cards", "v21-dataset-detail", datasetKey],
+    queryFn: () => apiRequest<DatasetCardListResponse>("/api/v1/ops/dataset-cards?limit=2000"),
   });
   const latestQuery = useQuery({
     queryKey: ["ops", "layer-snapshot", "latest", "v21-dataset-detail", datasetKey],
@@ -81,7 +80,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   });
 
   const isLoading = [
-    freshnessQuery,
+    cardQuery,
     latestQuery,
     historyQuery,
     taskRunQuery,
@@ -90,13 +89,12 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     mappingQuery,
     cleansingQuery,
   ].some((query) => query.isLoading);
-  const error = freshnessQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
+  const error = cardQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
-  const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
-  const displayName = displayNameMap[datasetKey] || "数据集详情";
-  const freshnessItem = (freshnessQuery.data?.groups || [])
+  const datasetCard = (cardQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
-    .find((item) => item.dataset_key === datasetKey);
+    .find((item) => item.detail_dataset_key === datasetKey || item.dataset_key === datasetKey);
+  const displayName = datasetCard?.display_name || "数据集详情";
   const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
   const stageOrder = ["raw", "std", "resolution", "serving"];
@@ -106,7 +104,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const taskRunItems = taskRunQuery.data?.items || [];
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
-  const manualActionKey = freshnessItem?.primary_action_key || null;
+  const manualActionKey = datasetCard?.primary_action_key || null;
   const sourceGroups = new Map<string, { label: string; items: typeof latestItems }>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
