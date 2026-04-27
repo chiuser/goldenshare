@@ -8,7 +8,7 @@
 ## 1. 审计结论
 
 1. 数据集身份、领域、来源 API、日期模型、输入字段、枚举、多选、写入目标、观测字段，已经形成 `DatasetDefinition` 形态的静态事实。
-2. `DatasetDefinition` registry 不再运行时遍历 Sync V2 contract 生成定义；Sync V2 contract 仍作为后续 M3 的执行运行投影改造对象。
+2. `DatasetDefinition` registry 不再运行时遍历历史执行契约生成定义；执行运行投影也必须从 `DatasetDefinition` 派生，不能保留第二套事实。
 3. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已明确为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
 4. 本矩阵只记录数据集事实，不记录任务状态、freshness 状态、TaskRun 状态，也不引入 checkpoint/acquire/replay 语义。
 
@@ -89,6 +89,6 @@
 ## 4. 后续进入 M3 前的检查点
 
 1. 新增或修改数据集时，必须先改 `src/foundation/datasets/definitions/**`，再派生执行投影。
-2. M3 要把执行运行投影从 Sync V2 contract 迁到 `DatasetDefinition -> DatasetRuntimeContract`，不能继续手写两套事实。
+2. M3 要把执行运行投影统一收口到 `DatasetDefinition -> DatasetExecutionPlan`，不能继续手写两套事实。
 3. 若某个字段是业务枚举，必须在 `DatasetDefinition.input_model.filters` 中声明 `enum_values` 与 `multi_value`，不能让 Ops 或前端猜。
 4. 若源接口参数值与用户可读标签不同，需要先扩展输入字段模型表达 value/label，再接入 UI；不能用错误字符串凑展示。

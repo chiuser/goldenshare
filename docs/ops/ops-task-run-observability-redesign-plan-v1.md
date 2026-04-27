@@ -961,7 +961,7 @@ flowchart TD
 
 状态：已落地。
 
-1. 删除旧 `JobExecution*` / `SyncRunLog` ORM 和 schema 引用。
+1. 删除旧任务观测 ORM 和 schema 引用。
 2. 删除旧 `ExecutionQueryService` 的 detail / steps / events / logs 主链。
 3. 删除旧前端 API 类型和页面 helper。
 4. 删除旧任务运行 API 主路由，保留“旧路由不存在”的防回退测试。

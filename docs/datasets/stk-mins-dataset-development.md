@@ -4,10 +4,10 @@
 
 - 目标：新增 Tushare `stk_mins` 数据集，接入 A 股历史分钟行情，支持 `1min/5min/15min/30min/60min` 五种频度的按交易日或交易日区间拉取。
 - 数据源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
-- 本期只接入当前 Sync V2 主链路，不新增 V1 路径，不回流到 `src/platform` 或 `src/operations`。
+- 本期只接入当前 ingestion 主链路，不新增旧路径，不回流到 `src/platform` 或 `src/operations`。
 - 因分钟数据量巨大，本数据集不做 Raw 表与 Core Serving 表双份存储；采用“Raw 单物理表 + Core Serving 只读 View”的方式降低磁盘消耗，同时保留服务层访问入口。
 - 支持全市场同步：未指定 `ts_code` 时，按 Tushare `stock_basic` 证券池中的 `ts_code` 扇出请求。
-- 不加入每日自动工作流；第一期通过独立 CLI `goldenshare sync-minute-history` 和 Ops 手动任务触发。
+- 不加入每日自动工作流；第一期通过 Ops 手动维护入口触发，CLI 只能走统一 `maintain-dataset` 入口，不新增专用历史命名入口。
 - 用户侧时间选择只能选择交易日或交易日区间，不能选择具体时间；程序内部转换为 `09:00:00~19:00:00` datetime 窗口后分页请求。
 
 ## 2. 上游接口事实
@@ -82,7 +82,7 @@
 | 请求构建 | `src/foundation/ingestion/request_builders.py` | 注册 `build_stk_mins_units`，生成分钟线执行单元 |
 | 定义域 | `src/foundation/datasets/definitions/market_equity.py` | 股票行情类数据集 |
 
-说明：旧模板中提到 `Raw -> Std -> Serving`，但当前 V2 主链路已收敛为按数据集选择写入路径；本数据集不引入 Std 层，不创建 `core_serving.equity_minute_bar` 物理表，只创建同名服务层 View。
+说明：旧模板中提到 `Raw -> Std -> Serving`，但当前 ingestion 主链路已收敛为按数据集选择写入路径；本数据集不引入 Std 层，不创建 `core_serving.equity_minute_bar` 物理表，只创建同名服务层 View。
 
 ## 5. 数据模型设计
 
@@ -273,7 +273,7 @@ offset = 0, 8000, 16000, ...
 
 说明：这里只保留 Tushare 请求 `limit/offset` 这一类内部分页，固定按 `8000` 递增，不作为用户输入参数暴露。
 
-## 8. Sync V2 接入方案
+## 8. Ingestion 接入方案
 
 ### 8.1 字段常量
 
@@ -429,8 +429,8 @@ STK_MINS_FIELDS = (
 
 本期不加入：
 
-- `daily_market_close_sync`
-- `reference_data_refresh`
+- 每日收盘后维护工作流
+- 基础主数据刷新工作流
 - 任何自动任务工作流
 
 原因：
@@ -441,21 +441,13 @@ STK_MINS_FIELDS = (
 
 ## 10. CLI 接入
 
-新增专用 CLI：
-
-```bash
-goldenshare sync-minute-history \
-  --freq 30min \
-  --start-date 2026-04-23 \
-  --end-date 2026-04-23 \
-  --ts-code 600000.SH
-```
+不新增专用历史命名 CLI。若需要命令行触发，必须走统一 `maintain-dataset` 入口，并与 DatasetDefinition 输入模型保持一致。
 
 CLI 行为：
 
 - `--ts-code` 可选。
 - 未传 `--ts-code` 时，从股票池读取证券代码。
-- 通过 V2 进度上报输出执行单元进度。
+- 通过 ingestion 进度上报输出执行单元进度。
 - 每个 unit 输出 `unit=stock ts_code security_name freq unit_fetched/unit_written fetched/written/rejected`；其中 `fetched/written` 为任务累计，`unit_fetched/unit_written` 为当前 unit。
 
 ## 11. 对账与数据质量
@@ -528,9 +520,9 @@ CLI 行为：
 ### 12.4 CLI
 
 - `src/cli.py` 或 `src/cli_parts/*`
-  - 新增 `goldenshare sync-minute-history`。
-  - 支持 `--freq`、`--ts-code`、`--trade-date`、`--start-date`、`--end-date`。
-  - 输出 V2 执行进度。
+  - 如需命令行触发，必须接入统一 `maintain-dataset` 命令。
+  - 支持参数必须从 DatasetDefinition 输入模型派生。
+  - 输出 ingestion 执行进度。
 
 ### 12.5 Frontend
 
@@ -580,22 +572,9 @@ CLI 行为：
 
 ### 13.3 最小真实冒烟
 
-在确认分钟权限已开通后执行小窗口：
+在确认分钟权限已开通后，通过 Ops 手动维护入口执行小窗口：单股票、单交易日、单频率。
 
-```bash
-GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
-  --ts-code 600000.SH \
-  --freq 30min \
-  --trade-date 2026-04-23
-```
-
-全市场冒烟：
-
-```bash
-GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
-  --freq 60min \
-  --trade-date 2026-04-23
-```
+全市场冒烟必须单独评审执行窗口和磁盘容量，不能直接从文档复制命令运行。
 
 验证：
 
@@ -623,7 +602,7 @@ GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
 1. 确认 Tushare 分钟权限。
 2. 新增 Alembic + Raw ORM + DAO + Core Serving View。
 3. 新增字段常量、DatasetDefinition、日期模型、请求构建与 normalizer。
-4. 新增 `sync-minute-history` CLI。
+4. 如确有命令行需求，接入统一 `maintain-dataset` CLI。
 5. 接入 Ops 手动任务。
 6. 补测试门禁。
 7. 用单股票、单交易日、单频度真实冒烟。

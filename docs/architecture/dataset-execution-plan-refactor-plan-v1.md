@@ -13,7 +13,7 @@
 2. `src/foundation/ingestion/resolver.py` 现在只读取 `DatasetDefinition`，不再读取旧 contract / strategy 生成 unit。
 3. `src/foundation/ingestion/executor.py` 已作为唯一执行器接管 source / normalize / write / progress 主链。
 4. TaskRun dispatcher 已在 dataset_action 主链中消费 `DatasetMaintainService -> IngestionExecutor`。
-5. 自动任务、工作流和更深层事务策略仍存在后续收口空间；本文中旧 execution / JobExecution 链路示意属于重构前审计上下文，不代表当前 API 主链。
+5. 自动任务、工作流和更深层事务策略仍存在后续收口空间；本文中历史任务观测链路示意属于重构前审计上下文，不代表当前 API 主链。
 
 ---
 
@@ -39,7 +39,7 @@ POST /ops/manual-actions/{action_key}/executions
   -> 旧任务观测表
   -> OperationsDispatcher
   -> 旧任务规格 category / executor_kind 分支
-  -> SyncV2Service 或 HistoryBackfillService
+  -> 历史同步执行器或历史区间执行器
 ```
 
 问题：
@@ -51,9 +51,9 @@ POST /ops/manual-actions/{action_key}/executions
 ### 2.2 自动任务链路
 
 ```text
-JobSchedule(spec_type, spec_key, params_json)
+旧自动任务配置(spec_type, spec_key, params_json)
   -> enqueue_due_schedules
-  -> JobExecution(spec_type, spec_key)
+  -> 旧任务观测记录(spec_type, spec_key)
   -> dispatcher
 ```
 
@@ -128,14 +128,14 @@ start_log
 
 | 风险来源 | 审计结论 | 本方案处理 |
 |---|---|---|
-| `BaseSyncService._run()` | 所有 Sync V2 数据集共享任务级最终提交，是 P0 根因 | 删除任务级大事务默认假设，引入 `PlanTransactionPolicy` |
-| `SyncV2Engine` | unit 循环写入但由上层最终提交 | 引入 unit 级 data transaction 提交 |
-| `SyncV2Writer` | writer 只写不提交，所有 write_path 被动落入外层大事务 | 保持 writer 不提交，但提交边界由 executor/transaction policy 控制 |
+| 历史同步服务主流程 | 所有旧数据集共享任务级最终提交，是 P0 根因 | 删除任务级大事务默认假设，引入 `PlanTransactionPolicy` |
+| 历史执行引擎 | unit 循环写入但由上层最终提交 | 引入 unit 级 data transaction 提交 |
+| 历史写入器 | writer 只写不提交，所有 write_path 被动落入外层大事务 | 保持 writer 不提交，但提交边界由 executor/transaction policy 控制 |
 | `BaseDAO.bulk_*` | batch 只是 SQL 分批，不是事务分段 | 明确禁止把 batch size 当提交边界 |
 | Worker pagination | 单 unit 内分页会累积 rows | 作为单元内部内存优化处理，不作为事务提交粒度 |
-| `JobExecutionSyncContext` | 进度独立提交，数据未提交也显示 written | Web 只把已提交行数展示为入库结果 |
+| 历史任务进度上下文 | 进度独立提交，数据未提交也显示 written | Web 只把已提交行数展示为入库结果 |
 | Dispatcher | 大任务进入单次 service run | dispatcher 改为执行 plan，不再绕过 transaction policy |
-| `HistoryBackfillService` | 外层分段较好，但单段仍依赖 Sync V2 大事务 | 并入标准 planner/executor，逐数据集映射 |
+| 历史独立区间执行器 | 外层分段较好，但单段仍依赖旧大事务 | 并入标准 planner/executor，逐数据集映射 |
 | Worker 生命周期 | claim/finalize 是小事务 | 保留，但补充 partial committed / state failed 语义 |
 | RawTushareBootstrapService | 迁移脚本按表大事务 | 标为迁移风险，不进入日常主链；大表迁移需单独 guard |
 | `__ALL__` 哨兵值 | 可能从 contract/param policy/adapter/row transform 进入请求和落库字段，造成主键碰撞和脏数据 | 列为 P0，清理 `dc_hot/ths_hot/kpl_list/limit_list_ths`，全选只能展开真实枚举 |
@@ -185,8 +185,8 @@ flowchart LR
   C["DatasetDefinition"] --> B
   B --> D["DatasetExecutionPlan"]
   D --> E["DatasetPlanExecutor"]
-  E --> F["SyncV2Engine / Writer / Observer"]
-  E --> G["Ops execution state"]
+  E --> F["SourceClient / Normalizer / Writer"]
+  E --> G["TaskRun 观测事件"]
 ```
 
 ### 3.2 请求模型
@@ -342,7 +342,7 @@ class DatasetPlanExecutor:
 
 ### 5.2 与旧引擎能力的关系
 
-旧执行器中的“取数、归一化、写入、观测”能力已经迁入 `src/foundation/ingestion/**`，不得再以 Sync V2 命名或旧 contract 形态存在：
+旧执行器中的“取数、归一化、写入、观测”能力已经迁入 `src/foundation/ingestion/**`，不得再以历史命名或旧契约形态存在：
 
 | 当前能力 | 处理方式 | 保留原因 |
 |---|---|---|
@@ -353,7 +353,7 @@ class DatasetPlanExecutor:
 | writer | `src/foundation/ingestion/writer.py` | 负责幂等写入、write path、DAO 路由和 reject 汇总；不直接提交事务。 |
 | observer/progress | `src/foundation/ingestion/progress.py` + `src/ops/services/task_run_ingestion_context.py` | 执行层上报结构化进度，Ops 负责 TaskRun 观测落库。 |
 
-说明：`SyncV2Engine` 不再是当前代码名，也不是迁移兜底。
+说明：历史执行引擎不再是当前代码名，也不是迁移兜底。
 
 旧独立区间执行器中的区间循环、证券池循环、月份循环，必须并入标准 planner/executor。重构完成时，旧独立区间执行器不能继续存在。
 
@@ -374,7 +374,7 @@ class DatasetPlanExecutor:
 | 字段 | 说明 |
 |---|---|
 | `dataset_key` | 数据集标识 |
-| 旧入口 | 当前旧任务规格 / dispatcher / `HistoryBackfillService` 分支 |
+| 旧入口 | 历史任务规格 / dispatcher / 历史独立区间执行器分支 |
 | 时间模型 | `date_model.input_shape/window_mode/bucket_rule` |
 | 旧参数 | 当前支持的 `trade_date/start_date/end_date/month/filters` |
 | 新 `time_scope` | 新模型中的标准处理范围 |
@@ -860,10 +860,10 @@ DatasetObservability(
 
 完成执行层重构时必须满足：
 
-1. `SyncV2Engine._build_progress_message` 这类拼英文 token 的方法被删除或降级为测试/CLI 专用 formatter。
-2. `HistoryBackfillService._format_progress_message` 被删除，不再作为主链进度来源。
-3. `JobExecution.progress_message` 存中文展示文本。
-4. `JobExecutionEvent.payload_json` 存结构化 `progress_snapshot`。
+1. 历史执行器中拼英文 token 的进度方法被删除或降级为测试/CLI 专用 formatter。
+2. 历史独立区间执行器中的进度文案方法被删除，不再作为主链进度来源。
+3. TaskRun 节点进度存中文展示文本。
+4. TaskRun 观测事件存结构化 `progress_snapshot`。
 5. Web API 返回的任务详情和阶段进展不再包含 `fetched=... written=...` 这类英文 token。
 6. 进度格式化有单元测试覆盖，至少覆盖 `trade_date`、`ts_code`、`freq`、`enum fanout`、`rejected reason`。
 7. Web 展示主指标必须使用 `committed`，不得把未提交行数表述为“已入库”。
@@ -932,7 +932,7 @@ params_json={"trade_date": "..."}
 
 ### 10.1 Execution
 
-`JobExecution` 应从旧 spec 模型改为 action/plan 模型。
+任务运行记录应从旧 spec 模型改为 action/plan 模型。
 
 建议保留：
 
@@ -1027,7 +1027,7 @@ Unit 建议记录：
 
 1. 新增 `DatasetPlanExecutor`。
 2. dispatcher 改为按 plan 执行。
-3. `HistoryBackfillService` 独立执行器删除，区间循环、证券池循环、月份循环全部由 planner/executor 承接。
+3. 历史独立区间执行器删除，区间循环、证券池循环、月份循环全部由 planner/executor 承接。
 4. 进度上报改为结构化 snapshot + 中文 formatter。
 5. 数据提交与 ops state 两个事务域解耦。
 6. 只做 `unit` 级 data transaction；分页优化只解决内存峰值，不改变提交边界。
@@ -1043,7 +1043,7 @@ Unit 建议记录：
 6. 第 N 个 unit 失败时，前 N-1 个 unit 仍已提交且可观测。
 7. 任务级事务数据集的阶段进度不得被表述成已提交。
 9. point/range/none 成功只写一次资源状态，且不得丢失业务日期。
-10. `HistoryBackfillService` 不再存在为独立执行器；活跃路径引用审计清零。
+10. 历史独立区间执行器不再存在为独立执行器；活跃路径引用审计清零。
 
 ### M4 Ops API 与前端切换
 

@@ -755,7 +755,7 @@ Tab：
    - 入口：`src.foundation.datasets.registry.list_dataset_definitions`
    - 单数据集：`src.foundation.datasets.registry.get_dataset_definition`
    - 日期模型字段：`DatasetDefinition.date_model`
-2. 当前 `DatasetDefinition` 仍由 Sync V2 contract 派生，但这是迁移期内部实现细节。审计模块长期入口必须是 `DatasetDefinition`。
+2. 当前 `DatasetDefinition` 已经是审计模块唯一可消费的数据集事实入口，审计模块不得读取历史执行契约或历史任务规格。
 3. 数据维护执行计划已经收敛到 `src/foundation/ingestion/**` 的 `DatasetExecutionPlan`。日期完整性审计可以借鉴该计划快照方式，但不应把审计任务伪装成数据维护 `dataset_action`。
 4. TaskRun 主链已经落在 `src/ops/**`，当前任务详情 API 为：
    - `GET /api/v1/ops/task-runs/{id}/view`
@@ -770,7 +770,7 @@ Tab：
 
 ### 12.2 对原方案的修正结论
 
-1. 原方案中所有“读取 `DatasetSyncContract.date_model`”的表述，统一修正为“读取 `DatasetDefinition.date_model`”。
+1. 原方案中所有“读取历史执行契约 date_model”的表述，统一修正为“读取 `DatasetDefinition.date_model`”。
 2. 原方案中所有 `current_context_json` 表述，统一修正为 `current_object_json`。
 3. 审计执行入口不复用旧任务观测链路或旧任务 API。
 4. 审计任务新增 `task_type=dataset_audit`，并在 TaskRun dispatcher 中建立独立分支。

@@ -453,14 +453,9 @@ CLI 任务语义
 4. 查询数据状态。
 5. 打开 Ops 页面确认分钟线展示口径正确。
 
-建议命令：
+建议方式：
 
-```bash
-GOLDENSHARE_ENV_FILE=.env.web.local goldenshare sync-minute-history \
-  --ts-code 000001.SZ \
-  --freq 60min \
-  --trade-date 2026-04-24
-```
+通过 Ops 手动维护入口创建 `stk_mins` 小窗口任务，限定单股票、单交易日、单频率后再验收 raw 表、View 和数据状态展示。
 
 验证 SQL：
 

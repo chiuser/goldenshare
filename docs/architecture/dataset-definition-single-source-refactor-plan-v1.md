@@ -409,7 +409,7 @@ Ops 展示投影只回答：
 
 | 现有模型 | 处理方式 |
 |---|---|
-| `DatasetSyncContract` | 历史模型已退场；事实迁入 `DatasetDefinition`，运行投影迁入 `DatasetExecutionPlan` |
+| 历史数据集执行契约 | 历史模型已退场；事实迁入 `DatasetDefinition`，运行投影迁入 `DatasetExecutionPlan` |
 | `DatasetDateModel` | 保留语义，上移为 `DatasetDefinition.date_model` |
 | `InputSchema/InputField` | 合入 `DatasetInputModel`，并派生 API/前端参数展示 |
 | `PlanningSpec` | 保留为执行计划输入，但从 definition 派生 |
