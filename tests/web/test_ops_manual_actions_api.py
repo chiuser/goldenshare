@@ -139,6 +139,19 @@ def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, u
     }
 
 
+def test_ops_manual_action_task_run_returns_readable_time_validation_message(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/daily.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "range", "start_date": "2026-04-24", "end_date": "2026-04-01"}, "filters": {}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "开始日期不能晚于结束日期"
+
+
 def test_ops_manual_action_task_run_uses_workflow_catalog_title(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 

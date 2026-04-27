@@ -323,6 +323,24 @@ def test_probe_runtime_messages_do_not_emit_raw_rows_machine_summary() -> None:
     assert "probe action_key is required" not in text
 
 
+def test_manual_action_validation_messages_do_not_emit_field_token_english() -> None:
+    path = REPO_ROOT / "src/ops/services/manual_action_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        " is required",
+        " must be YYYY",
+        "start_date must",
+        "start_month must",
+        "Invalid integer filter",
+        "Invalid option for",
+        "Unsupported " + "time mode",
+        "Unsupported " + "filter",
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "手动任务参数校验不得向前端返回英文机器字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

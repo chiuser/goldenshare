@@ -82,7 +82,7 @@ class ManualActionTaskRunResolver:
         time_input = body.time_input
         mode = (time_input.mode or "none").strip()
         if mode not in self.route.time_form.allowed_modes:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported time mode: {mode}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode}")
 
         if self.route.action_type == "dataset_action":
             time_params = self._resolve_dataset_action_time(mode=mode, time_input=time_input)
@@ -149,7 +149,7 @@ class ManualActionTaskRunResolver:
             end_date = self._require_date_text(time_input.end_date, "end_date")
             self._validate_date_order(start_date, end_date)
             return {"start_date": start_date, "end_date": end_date}
-        raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported time mode: {mode}")
+        raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode}")
 
     def _resolve_workflow_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
         if mode == "none":
@@ -178,7 +178,7 @@ class ManualActionTaskRunResolver:
                 continue
             param = allowed.get(key)
             if param is None:
-                raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported filter: {key}")
+                raise WebAppError(status_code=422, code="validation_error", message=f"不支持的筛选项：{key}")
             normalized_value = self._normalize_filter_value(param, value)
             if self._is_empty(normalized_value):
                 continue
@@ -212,7 +212,7 @@ class ManualActionTaskRunResolver:
             try:
                 return int(single_value)
             except (TypeError, ValueError) as exc:
-                raise WebAppError(status_code=422, code="validation_error", message=f"Invalid integer filter: {param.key}") from exc
+                raise WebAppError(status_code=422, code="validation_error", message=f"{self._param_label(param)}必须是整数") from exc
         text = str(single_value).strip()
         self._validate_options(param, [text])
         return text
@@ -223,7 +223,7 @@ class ManualActionTaskRunResolver:
             return
         invalid = [value for value in values if value not in param.options]
         if invalid:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Invalid option for {param.key}: {invalid[0]}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._param_label(param)}不支持选项：{invalid[0]}")
 
     def _input_shape(self) -> str:
         if self.route.date_model is None:
@@ -233,38 +233,55 @@ class ManualActionTaskRunResolver:
     @staticmethod
     def _require_date_text(value: str | None, field: str) -> str:
         if not value:
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field} is required")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._field_label(field)}不能为空")
         parsed = ManualActionTaskRunResolver._parse_date(value, field)
         return parsed.isoformat()
 
     @staticmethod
     def _require_month(value: str | None, field: str) -> str:
         if not value:
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field} is required")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._field_label(field)}不能为空")
         cleaned = value.strip().replace("-", "")
         if len(cleaned) != 6 or not cleaned.isdigit():
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field} must be YYYY-MM or YYYYMM")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._field_label(field)}必须是 YYYY-MM 或 YYYYMM")
         month = int(cleaned[4:6])
         if month < 1 or month > 12:
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field} must be a valid month")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._field_label(field)}不是有效月份")
         return cleaned
 
     @staticmethod
     def _validate_date_order(start_date: str, end_date: str) -> None:
         if ManualActionTaskRunResolver._parse_date(start_date, "start_date") > ManualActionTaskRunResolver._parse_date(end_date, "end_date"):
-            raise WebAppError(status_code=422, code="validation_error", message="start_date must be <= end_date")
+            raise WebAppError(status_code=422, code="validation_error", message="开始日期不能晚于结束日期")
 
     @staticmethod
     def _validate_month_order(start_month: str, end_month: str) -> None:
         if int(start_month) > int(end_month):
-            raise WebAppError(status_code=422, code="validation_error", message="start_month must be <= end_month")
+            raise WebAppError(status_code=422, code="validation_error", message="开始月份不能晚于结束月份")
 
     @staticmethod
     def _parse_date(value: str, field: str) -> date:
         try:
             return datetime.strptime(value.strip(), "%Y-%m-%d").date()
         except ValueError as exc:
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field} must be YYYY-MM-DD") from exc
+            raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._field_label(field)}必须是 YYYY-MM-DD") from exc
+
+    @staticmethod
+    def _param_label(param: ActionParameter) -> str:
+        return (param.display_name or param.key).strip()
+
+    @staticmethod
+    def _field_label(field: str) -> str:
+        labels = {
+            "trade_date": "处理日期",
+            "start_date": "开始日期",
+            "end_date": "结束日期",
+            "month": "处理月份",
+            "start_month": "开始月份",
+            "end_month": "结束月份",
+            "ann_date": "公告日期",
+        }
+        return labels.get(field, field)
 
     @staticmethod
     def _month_start_date(month: str) -> str:
