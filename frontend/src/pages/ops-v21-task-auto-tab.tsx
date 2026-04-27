@@ -96,7 +96,7 @@ const emptyForm = {
   repeat_month_day: "1",
   repeat_time: "19:00",
   trigger_mode: "schedule" as TriggerMode,
-  probe_source_key: "tushare",
+  probe_source_key: "all",
   probe_window_start: "15:30",
   probe_window_end: "17:00",
   probe_interval_seconds: "300",
@@ -329,10 +329,7 @@ function getScheduleTargetLabel(item: { target_display_name: string }): string {
 }
 
 function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sourceKey: string | null | undefined): string {
-  const normalized = String(sourceKey || "").trim();
-  if (!normalized || normalized === "all") {
-    return "全部来源";
-  }
+  const normalized = String(sourceKey || "all").trim();
   const source = getCatalogSources(catalog).find((item) => item.source_key === normalized);
   return source?.display_name || "来源配置异常";
 }
@@ -550,13 +547,11 @@ export function OpsAutomationPage() {
   );
 
   const probeSourceOptions = useMemo(
-    () => [
-      ...getCatalogSources(catalogQuery.data).map((item) => ({
+    () =>
+      getCatalogSources(catalogQuery.data).map((item) => ({
         value: item.source_key,
         label: item.display_name,
       })),
-      { value: "all", label: "全部来源" },
-    ],
     [catalogQuery.data],
   );
 
@@ -845,7 +840,7 @@ export function OpsAutomationPage() {
           form.trigger_mode === "schedule"
             ? null
             : {
-              source_key: form.probe_source_key || null,
+              source_key: form.probe_source_key === "all" ? null : form.probe_source_key || null,
               window_start: form.probe_window_start || null,
               window_end: form.probe_window_end || null,
               probe_interval_seconds: Number(form.probe_interval_seconds || "300"),
@@ -978,7 +973,7 @@ export function OpsAutomationPage() {
       repeat_weekdays: parsedCron?.repeatWeekdays || ["1", "2", "3", "4", "5"],
       repeat_month_day: parsedCron?.repeatMonthDay || "1",
       repeat_time: parsedCron?.repeatTime || "19:00",
-      probe_source_key: probeConfig?.source_key || "tushare",
+      probe_source_key: probeConfig?.source_key || "all",
       probe_window_start: probeConfig?.window_start || "15:30",
       probe_window_end: probeConfig?.window_end || "17:00",
       probe_interval_seconds: String(probeConfig?.probe_interval_seconds || 300),
@@ -1468,7 +1463,7 @@ export function OpsAutomationPage() {
                   label="探测来源"
                   data={probeSourceOptions}
                   value={form.probe_source_key}
-                  onChange={(value) => setForm((current) => ({ ...current, probe_source_key: value || "tushare" }))}
+                  onChange={(value) => setForm((current) => ({ ...current, probe_source_key: value || "all" }))}
                 />
                 <Select
                   label="探测条件"

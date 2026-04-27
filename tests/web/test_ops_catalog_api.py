@@ -46,6 +46,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
     assert sources["tushare"]["display_name"] == "Tushare"
     assert sources["biying"]["display_name"] == "Biying"
+    assert sources["all"]["display_name"] == "全部来源"
 
     daily = actions["daily.maintain"]
     assert daily["action_type"] == "dataset_action"

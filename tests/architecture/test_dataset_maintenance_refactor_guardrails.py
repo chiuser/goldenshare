@@ -168,6 +168,8 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "sourceLabel(sourceKey",
         "item.raw_table_label || item.raw_table",
         "probe_config.source_key || \"全部来源\"",
+        "return \"全部来源\"",
+        'label: "全部来源"',
         "来源 {form.probe_source_key",
         "MetricPanel label={source}",
         "title={`${datasetKey} ·",

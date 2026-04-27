@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
+from src.foundation.datasets.source_registry import list_source_selection_definitions
 
 
 def test_source_registry_table_shape() -> None:
@@ -24,3 +25,13 @@ def test_dataset_source_status_table_shape() -> None:
     assert DatasetSourceStatus.__table__.schema == "foundation"
     assert [column.name for column in DatasetSourceStatus.__table__.primary_key.columns] == ["dataset_key", "source_key"]
     assert {index.name for index in DatasetSourceStatus.__table__.indexes} == {"idx_dataset_source_status_active"}
+
+
+def test_source_selection_registry_owns_special_source_options() -> None:
+    sources = list_source_selection_definitions(include_all=True)
+
+    assert [(item.source_key, item.display_name) for item in sources] == [
+        ("tushare", "Tushare"),
+        ("biying", "Biying"),
+        ("all", "全部来源"),
+    ]
