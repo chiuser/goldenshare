@@ -461,14 +461,14 @@ export function OpsAutomationPage() {
         .map((item) => ({
           value: `${item.action_type}:${item.key}`,
           label: `${item.action_type === "dataset_action" ? "【数据】" : "【维护】"}${getCatalogActionLabel(item)}`,
-          domain: item.domain_display_name || "其他",
+          domain: item.domain_display_name || "分类配置异常",
         })),
       ...getCatalogWorkflows(catalogQuery.data)
         .filter((item) => item.schedule_enabled !== false)
         .map((item) => ({
           value: `workflow:${item.key}`,
           label: `【流程】${item.display_name}`,
-          domain: item.domain_display_name || "工作流",
+          domain: item.domain_display_name || "分类配置异常",
         })),
     ];
   }, [catalogQuery.data]);

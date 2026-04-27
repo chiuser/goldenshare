@@ -205,6 +205,8 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "groupKey.split",
         "domain_key || item.domain_key",
         "domain_display_name || item.domain_display_name",
+        'domain_display_name || "其他"',
+        'domain_display_name || "工作流"',
         'key: "spec"',
     )
     violations: list[str] = []
