@@ -179,12 +179,12 @@ describe("任务记录页", () => {
 
     const statusFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "当前状态" });
     const triggerFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "发起方式" });
-    const specFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "任务名称" });
+    const taskFilter = within(taskRecordsCard as HTMLElement).getByRole("textbox", { name: "任务名称" });
 
     expect(statusFilter).toHaveValue("全选");
     expect(triggerFilter).toHaveValue("全选");
-    expect(specFilter).toHaveValue("全选");
-    fireEvent.click(specFilter);
+    expect(taskFilter).toHaveValue("全选");
+    fireEvent.click(taskFilter);
     expect(await screen.findByRole("option", { name: "股票日线", hidden: true })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "刷新数据集市快照", hidden: true })).not.toBeInTheDocument();
   });

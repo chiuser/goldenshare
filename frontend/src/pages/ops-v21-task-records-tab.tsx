@@ -284,7 +284,7 @@ export function OpsTasksPage() {
 
   const taskRunColumns = useMemo<DataTableColumn<TaskRunListResponse["items"][number]>[]>(() => [
     {
-      key: "spec",
+      key: "task",
       header: "任务名称",
       align: "left",
       width: "24%",

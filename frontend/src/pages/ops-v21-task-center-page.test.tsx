@@ -299,7 +299,7 @@ describe("任务中心页", () => {
     expect(requestedPaths).not.toContain("/api/v1/ops/probes?schedule_id=201&limit=50");
   });
 
-  it("从数据源卡片进入手动页时保留 spec 参数并预选分组和维护对象", async () => {
+  it("从数据源卡片进入手动页时保留任务参数并预选分组和维护对象", async () => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
