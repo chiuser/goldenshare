@@ -598,6 +598,18 @@ def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> No
     assert not violations, "dataset-cards 不得再从 key/table 前缀推断卡片归并事实:\n" + "\n".join(violations)
 
 
+def test_ops_dataset_card_messages_do_not_emit_internal_field_tokens() -> None:
+    path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        "Dataset card source display name is unavailable",
+        "Dataset card stage display name is unavailable",
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "dataset-cards API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_services_do_not_infer_source_from_raw_table_prefix() -> None:
     forbidden_tokens = (
         "source_raw_prefix",

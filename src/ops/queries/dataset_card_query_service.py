@@ -562,12 +562,12 @@ def _optional_source_display_name(source_key: str | None) -> str | None:
 def _require_source_display_name(source_key: str | None) -> str:
     display_name = get_source_display_name(source_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Dataset card source display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="数据源卡片来源缺少显示名称")
     return display_name
 
 
 def _require_stage_display_name(stage: str | None) -> str:
     display_name = get_layer_stage_display_name(stage)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Dataset card stage display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="数据源卡片层级缺少显示名称")
     return display_name
