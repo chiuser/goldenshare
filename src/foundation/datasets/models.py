@@ -63,6 +63,7 @@ class DatasetDomain:
 @dataclass(frozen=True, slots=True)
 class DatasetSourceDefinition:
     source_key_default: str
+    source_keys: tuple[str, ...]
     adapter_key: str
     api_name: str
     source_fields: tuple[str, ...]

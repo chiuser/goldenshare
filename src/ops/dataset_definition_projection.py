@@ -45,7 +45,7 @@ def build_dataset_layer_projection(definition: DatasetDefinition) -> DatasetLaye
     delivery_mode = _delivery_mode_from_definition(definition)
     return DatasetLayerProjection(
         dataset_key=definition.dataset_key,
-        source_keys=_source_keys_from_definition(definition),
+        source_keys=definition.source.source_keys,
         delivery_mode=delivery_mode,
         layer_plan=_layer_plan(delivery_mode),
         raw_table=definition.storage.raw_table,
@@ -176,18 +176,3 @@ def delivery_mode_tone(delivery_mode: str) -> str:
     if delivery_mode == "core_direct":
         return "warning"
     return "neutral"
-
-
-def _source_keys_from_definition(definition: DatasetDefinition) -> tuple[str, ...]:
-    source_values: set[str] = set()
-    for field in definition.input_model.filters:
-        if field.name != "source_key":
-            continue
-        source_values.update(
-            value.lower()
-            for value in field.enum_values
-            if value and value.lower() != "all"
-        )
-    if not source_values:
-        source_values.add(definition.source.source_key_default.lower())
-    return tuple(sorted(source_values))

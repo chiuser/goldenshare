@@ -5,9 +5,10 @@ from dataclasses import MISSING, fields
 
 from src.foundation.datasets.definitions import ALL_DATASET_ROWS
 import src.foundation.datasets.definitions._builder as definition_builder
-from src.foundation.datasets.models import DatasetStorageDefinition, DatasetTransactionDefinition
+from src.foundation.datasets.models import DatasetSourceDefinition, DatasetStorageDefinition, DatasetTransactionDefinition
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
+import src.ops.dataset_definition_projection as dataset_definition_projection
 
 
 def test_dataset_definition_registry_is_not_runtime_contract_projection() -> None:
@@ -82,6 +83,19 @@ def test_dataset_definition_storage_raw_table_is_explicit_fact() -> None:
     assert get_dataset_definition("stk_period_bar_adj_month").storage.raw_table == "raw_tushare.stk_period_bar_adj"
 
 
+def test_dataset_definition_source_keys_are_explicit_fact() -> None:
+    missing = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if not row["source"].get("source_keys")
+    ]
+
+    assert not missing
+    assert get_dataset_definition("daily").source.source_keys == ("tushare",)
+    assert get_dataset_definition("biying_equity_daily").source.source_keys == ("biying",)
+    assert get_dataset_definition("stock_basic").source.source_keys == ("biying", "tushare")
+
+
 def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
     builder_source = inspect.getsource(definition_builder)
 
@@ -90,6 +104,17 @@ def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
     assert "startswith(\"biying_\")" not in builder_source
     raw_table_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "raw_table")
     assert raw_table_field.default is MISSING
+
+
+def test_dataset_definition_builder_does_not_infer_source_keys() -> None:
+    builder_source = inspect.getsource(definition_builder)
+    projection_source = inspect.getsource(dataset_definition_projection)
+
+    assert "source_key_default.lower())" not in builder_source
+    assert "field.name != \"source_key\"" not in projection_source
+    assert "_source_keys_from_definition" not in projection_source
+    source_keys_field = next(item for item in fields(DatasetSourceDefinition) if item.name == "source_keys")
+    assert source_keys_field.default is MISSING
 
 
 def test_dataset_definition_transaction_policy_is_explicit_fact() -> None:
