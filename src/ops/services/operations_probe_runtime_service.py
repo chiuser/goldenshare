@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.datasets.registry import (
-    get_dataset_action_key,
     get_dataset_definition,
     get_dataset_definition_by_action_key,
 )
@@ -162,7 +161,9 @@ class ProbeRuntimeService:
         action_type = str(action.get("action_type") or "dataset_action")
         if action_type != "dataset_action":
             raise ValueError(f"unsupported probe action_type={action_type}")
-        action_key = str(action.get("action_key") or get_dataset_action_key(rule.dataset_key, "maintain"))
+        action_key = str(action.get("action_key") or "").strip()
+        if not action_key:
+            raise ValueError("probe action_key is required")
         definition, action_name = get_dataset_definition_by_action_key(action_key)
         request = dict(action.get("request") or {})
         time_input = dict(request.get("time_input") or {"mode": "point"})

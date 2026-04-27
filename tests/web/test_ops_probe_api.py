@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
+from src.ops.services.operations_probe_runtime_service import ProbeRuntimeService
+
 
 def test_ops_probe_list_rejects_non_admin(app_client, user_factory) -> None:
     user_factory(username="user", password="secret", is_admin=False)
@@ -144,3 +148,39 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_dataset_payload["items"][0]["dataset_key"] == "biying_equity_daily"
     assert by_dataset_payload["items"][0]["status"] == "failed"
     assert by_dataset_payload["items"][0]["rule_version"] == 1
+
+
+def test_probe_runtime_requires_explicit_action_key(db_session, probe_rule_factory) -> None:
+    rule = probe_rule_factory(
+        name="股票日线探测",
+        dataset_key="daily",
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "request": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    with pytest.raises(ValueError, match="probe action_key is required"):
+        ProbeRuntimeService()._enqueue_on_match(db_session, rule)
+
+
+def test_probe_runtime_uses_action_key_as_dataset_action_fact(db_session, probe_rule_factory) -> None:
+    rule = probe_rule_factory(
+        name="股票日线探测",
+        dataset_key="stock_basic",
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "daily.maintain",
+            "request": {
+                "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    task_run = ProbeRuntimeService()._enqueue_on_match(db_session, rule)
+
+    assert task_run.resource_key == "daily"
+    assert task_run.action == "maintain"
+    assert task_run.request_payload_json["resource_key"] == "daily"

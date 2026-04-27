@@ -308,6 +308,13 @@ def test_probe_trigger_payload_does_not_duplicate_dataset_action_facts() -> None
     assert not violations, "探测触发配置已有 action_key，不得在 request 中重复固化 dataset/action 事实:\n" + "\n".join(violations)
 
 
+def test_probe_runtime_does_not_infer_action_key_from_rule_dataset() -> None:
+    path = REPO_ROOT / "src/ops/services/operations_probe_runtime_service.py"
+    text = path.read_text(encoding="utf-8")
+
+    assert "get_dataset_action_key(rule.dataset_key" not in text
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")
