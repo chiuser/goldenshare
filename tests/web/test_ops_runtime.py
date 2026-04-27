@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
+from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
@@ -209,3 +211,31 @@ def test_task_run_dispatcher_refreshes_daily_serving_light_with_current_service_
             "commit": True,
         }
     ]
+
+
+def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
+    db_session,
+    task_run_factory,
+    trade_calendar_factory,
+) -> None:
+    task_run = task_run_factory(status="running", resource_key="daily", title="股票日线")
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 25), is_open=False)
+    plan = SimpleNamespace(dataset_key="daily", run_profile="point_incremental")
+    action_request = DatasetActionRequest(
+        dataset_key="daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 25)),
+        filters={},
+        trigger_source="manual",
+        run_id=task_run.id,
+    )
+
+    rows_fetched, rows_saved, rows_rejected, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
+        db_session,
+        task_run,
+        action_request,
+        plan,
+    )
+
+    assert (rows_fetched, rows_saved, rows_rejected) == (0, 0, 0)
+    assert summary_message == "股票日线：2026-04-25 非交易日，已跳过维护。"

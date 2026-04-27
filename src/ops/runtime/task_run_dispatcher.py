@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
-from src.foundation.datasets.registry import get_dataset_definition_by_action_key
+from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
@@ -324,7 +324,8 @@ class TaskRunDispatcher:
             if parsed_trade_date is None:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
             if not time_input.month and self._is_closed_trade_date(session, parsed_trade_date):
-                return 0, 0, 0, f"skip {plan.dataset_key} trade_date={parsed_trade_date.isoformat()} 非交易日"
+                definition = get_dataset_definition(plan.dataset_key)
+                return 0, 0, 0, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
             action_request = DatasetActionRequest(
                 dataset_key=action_request.dataset_key,
                 action=action_request.action,
