@@ -288,6 +288,13 @@ def test_schedule_dataset_task_uses_target_key_as_single_action_fact() -> None:
     assert not violations, "自动任务创建 TaskRun 时不得让 params_json 覆盖 target_key 解析出的数据集动作事实:\n" + "\n".join(violations)
 
 
+def test_probe_rule_names_do_not_embed_dataset_keys() -> None:
+    path = REPO_ROOT / "src/ops/services/schedule_probe_binding_service.py"
+    text = path.read_text(encoding="utf-8")
+
+    assert "{template.dataset_key}" not in text
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

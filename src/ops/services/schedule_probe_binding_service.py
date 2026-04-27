@@ -43,10 +43,11 @@ class ScheduleProbeBindingService:
 
         templates = self._build_templates(schedule=schedule)
         for template in templates:
+            definition = get_dataset_definition(template.dataset_key)
             session.add(
                 ProbeRule(
                     schedule_id=schedule.id,
-                    name=f"{schedule.display_name} / {template.dataset_key}",
+                    name=f"{schedule.display_name} / {definition.display_name}",
                     dataset_key=template.dataset_key,
                     trigger_mode=template.trigger_mode,
                     workflow_key=template.workflow_key,
