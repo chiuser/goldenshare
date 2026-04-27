@@ -118,3 +118,61 @@ def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_c
     assert cards["biying_moneyflow"]["card_key"] == "moneyflow"
     assert cards["biying_equity_daily"]["dataset_key"] == "biying_equity_daily"
     assert cards["biying_equity_daily"]["card_key"] == "biying_equity_daily"
+
+
+def test_ops_dataset_cards_accepts_legacy_all_scope_raw_snapshot_source_key(app_client, user_factory, db_session) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    now = datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc)
+    db_session.add_all(
+        [
+            DatasetStatusSnapshot(
+                dataset_key="stock_basic",
+                resource_key="stock_basic",
+                display_name="股票主数据",
+                domain_key="reference_data",
+                domain_display_name="基础主数据",
+                target_table="core_serving.security_serving",
+                cadence="snapshot",
+                latest_business_date=None,
+                last_sync_date=date(2026, 4, 24),
+                latest_success_at=None,
+                freshness_status="unknown",
+                primary_action_key="stock_basic.maintain",
+                snapshot_date=date(2026, 4, 24),
+                last_calculated_at=now,
+            ),
+            DatasetLayerSnapshotCurrent(
+                dataset_key="stock_basic",
+                source_key="__all__",
+                stage="raw",
+                status="healthy",
+                rows_in=2000,
+                rows_out=2000,
+                error_count=0,
+                last_success_at=None,
+                calculated_at=now,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/dataset-cards?source_key=biying",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    cards = {
+        item["detail_dataset_key"]: item
+        for group in response.json()["groups"]
+        for item in group["items"]
+    }
+    stock_basic = cards["stock_basic"]
+    raw_stage = next(item for item in stock_basic["stage_statuses"] if item["stage"] == "raw")
+    assert raw_stage["source_key"] == "combined"
+    assert raw_stage["source_display_name"] == "综合来源"
+    raw_source = next(item for item in stock_basic["raw_sources"] if item["source_key"] == "combined")
+    assert raw_source["source_display_name"] == "综合来源"

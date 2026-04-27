@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.source_registry import get_source_display_name
+from src.ops.layer_snapshot_source_scope import normalize_layer_snapshot_source_key
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.layer_stage_labels import get_layer_stage_display_name
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
@@ -42,7 +43,12 @@ class LayerSnapshotQueryService:
         if dataset_key:
             filters.append(DatasetLayerSnapshotHistory.dataset_key == dataset_key)
         if source_key:
-            filters.append(DatasetLayerSnapshotHistory.source_key == source_key)
+            normalized_source = normalize_layer_snapshot_source_key(source_key)
+            filters.append(
+                DatasetLayerSnapshotHistory.source_key.in_(
+                    [normalized_source, "combined", "__all__", None]
+                )
+            )
         if stage:
             filters.append(DatasetLayerSnapshotHistory.stage == stage)
         if status:
@@ -89,8 +95,8 @@ class LayerSnapshotQueryService:
         if dataset_key:
             filters.append(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
         if source_key:
-            normalized_source = source_key.strip()
-            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "combined"]))
+            normalized_source = normalize_layer_snapshot_source_key(source_key)
+            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "combined", "__all__"]))
         if stage:
             filters.append(DatasetLayerSnapshotCurrent.stage == stage)
         if status:
@@ -128,7 +134,7 @@ class LayerSnapshotQueryService:
                     snapshot_date=row.calculated_at.date(),
                     dataset_key=row.dataset_key,
                     dataset_display_name=_require_dataset_display_name(row.dataset_key),
-                    source_key=row.source_key,
+                    source_key=normalize_layer_snapshot_source_key(row.source_key),
                     source_display_name=_require_source_display_name(row.source_key),
                     stage=row.stage,
                     stage_display_name=_require_stage_display_name(row.stage),
@@ -159,8 +165,10 @@ class LayerSnapshotQueryService:
         if dataset_key:
             history_filters.append(DatasetLayerSnapshotHistory.dataset_key == dataset_key)
         if source_key:
-            normalized_source = source_key.strip()
-            history_filters.append(DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "combined"]))
+            normalized_source = normalize_layer_snapshot_source_key(source_key)
+            history_filters.append(
+                DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "combined", "__all__", None])
+            )
         if stage:
             history_filters.append(DatasetLayerSnapshotHistory.stage == stage)
         if status:
@@ -178,7 +186,8 @@ class LayerSnapshotQueryService:
         unique_items: list[LayerSnapshotLatestItem] = []
         seen_keys: set[tuple[str, str, str]] = set()
         for row in history_rows:
-            key = (row.dataset_key, row.source_key, row.stage)
+            normalized_source_key = normalize_layer_snapshot_source_key(row.source_key)
+            key = (row.dataset_key, normalized_source_key or "combined", row.stage)
             if key in seen_keys:
                 continue
             seen_keys.add(key)
@@ -187,7 +196,7 @@ class LayerSnapshotQueryService:
                     snapshot_date=row.snapshot_date,
                     dataset_key=row.dataset_key,
                     dataset_display_name=_require_dataset_display_name(row.dataset_key),
-                    source_key=row.source_key,
+                    source_key=normalized_source_key,
                     source_display_name=_require_source_display_name(row.source_key),
                     stage=row.stage,
                     stage_display_name=_require_stage_display_name(row.stage),
@@ -211,7 +220,7 @@ class LayerSnapshotQueryService:
             snapshot_date=row.snapshot_date,
             dataset_key=row.dataset_key,
             dataset_display_name=_require_dataset_display_name(row.dataset_key),
-            source_key=row.source_key,
+            source_key=normalize_layer_snapshot_source_key(row.source_key),
             source_display_name=_require_source_display_name(row.source_key),
             stage=row.stage,
             stage_display_name=_require_stage_display_name(row.stage),
@@ -235,7 +244,7 @@ def _require_dataset_display_name(dataset_key: str | None) -> str:
 
 
 def _require_source_display_name(source_key: str | None) -> str:
-    display_name = get_source_display_name(source_key or "combined")
+    display_name = get_source_display_name(normalize_layer_snapshot_source_key(source_key) or "combined")
     if display_name is None:
         raise WebAppError(status_code=422, code="validation_error", message="层快照来源缺少显示名称")
     return display_name

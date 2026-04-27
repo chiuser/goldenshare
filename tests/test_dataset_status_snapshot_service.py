@@ -195,6 +195,48 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
     assert by_stage["serving"].status == "fresh"
 
 
+def test_refresh_resources_rewrites_legacy_all_scope_current_rows_to_combined(db_session: Session) -> None:
+    class _FakeQueryService:
+        def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
+            assert resource_keys == ["stock_basic"]
+            return [
+                DatasetFreshnessItem(
+                    dataset_key="stock_basic",
+                    resource_key="stock_basic",
+                    display_name="股票主数据",
+                    domain_key="reference_data",
+                    domain_display_name="基础主数据",
+                    target_table="core_serving.security_serving",
+                    cadence="reference",
+                    latest_business_date=date(2026, 4, 1),
+                    freshness_status="fresh",
+                    last_sync_date=date(2026, 4, 1),
+                )
+            ]
+
+    db_session.add(
+        DatasetLayerSnapshotCurrent(
+            dataset_key="stock_basic",
+            source_key="__all__",
+            stage="raw",
+            status="unknown",
+            calculated_at=datetime(2026, 3, 31, 0, 0, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+
+    service = DatasetStatusSnapshotService(query_service=_FakeQueryService())
+    refreshed = service.refresh_resources(db_session, ["stock_basic"], today=date(2026, 4, 1))
+
+    assert refreshed == 1
+    rows = list(
+        db_session.scalars(
+            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "stock_basic")
+        )
+    )
+    assert {row.source_key for row in rows} == {"combined"}
+
+
 def test_refresh_resources_writes_light_stage_snapshot_for_equity_daily(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:

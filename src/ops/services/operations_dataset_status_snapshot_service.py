@@ -20,6 +20,7 @@ from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.action_catalog import get_workflow_definition
+from src.ops.layer_snapshot_source_scope import normalize_layer_snapshot_source_key
 
 
 class DatasetStatusSnapshotService:
@@ -189,7 +190,14 @@ class DatasetStatusSnapshotService:
             except KeyError:
                 continue
             projection = build_dataset_layer_projection(definition)
-            source_key = projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
+            source_key = normalize_layer_snapshot_source_key(
+                projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
+            )
+            DatasetStatusSnapshotService._delete_stale_current_rows(
+                session,
+                dataset_key=item.dataset_key,
+                expected_source_key=source_key,
+            )
 
             def upsert_stage(stage_projection: DatasetLayerStageProjection, status: str, message: str | None) -> None:
                 pk = (item.dataset_key, source_key, stage_projection.stage)
@@ -270,6 +278,21 @@ class DatasetStatusSnapshotService:
                 snapshot_row.resolution_stage_status = stage_statuses.get("resolution")
                 snapshot_row.serving_stage_status = stage_statuses.get("serving")
                 snapshot_row.state_updated_at = calculated_at
+
+    @staticmethod
+    def _delete_stale_current_rows(session: Session, *, dataset_key: str, expected_source_key: str | None) -> None:
+        rows = list(
+            session.scalars(
+                select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
+            )
+        )
+        normalized_expected = normalize_layer_snapshot_source_key(expected_source_key)
+        for row in rows:
+            normalized_row_source_key = normalize_layer_snapshot_source_key(row.source_key)
+            raw_row_source_key = (row.source_key or "").strip().lower()
+            if normalized_row_source_key == normalized_expected and raw_row_source_key == (normalized_expected or ""):
+                continue
+            session.delete(row)
 
     @staticmethod
     def _resolve_stage_status(stage_projection: DatasetLayerStageProjection, item: DatasetFreshnessItem) -> str:

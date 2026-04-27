@@ -10,6 +10,10 @@ from src.app.exceptions import WebAppError
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.datasets.source_registry import get_source_display_name
+from src.ops.layer_snapshot_source_scope import (
+    matches_layer_snapshot_source_filter,
+    normalize_layer_snapshot_source_key,
+)
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -154,7 +158,11 @@ class DatasetCardQueryService:
                 layers = [
                     item
                     for item in layers
-                    if item.stage != "raw" or item.source_key == source_key
+                    if item.stage != "raw"
+                    or matches_layer_snapshot_source_filter(
+                        row_source_key=item.source_key,
+                        requested_source_key=source_key,
+                    )
                 ]
 
             raw_sources = self._raw_sources(
@@ -259,7 +267,7 @@ class DatasetCardQueryService:
                     stage=stage,
                     stage_label=_require_stage_display_name(stage),
                     table_name=self._stage_table_name(stage, primary, raw_sources),
-                    source_key=latest.source_key if latest else None,
+                    source_key=normalize_layer_snapshot_source_key(latest.source_key) if latest else None,
                     source_display_name=_optional_source_display_name(latest.source_key if latest else None),
                     status=self._normalize_status(latest.status if latest else None),
                     rows_in=latest.rows_in if latest else None,
@@ -291,8 +299,11 @@ class DatasetCardQueryService:
 
         raw_layers = [item for item in layers if item.stage == "raw"]
         for item in raw_layers:
-            source = item.source_key or "combined"
-            if source_key is not None and source != source_key:
+            source = normalize_layer_snapshot_source_key(item.source_key) or "combined"
+            if source_key is not None and not matches_layer_snapshot_source_filter(
+                row_source_key=source,
+                requested_source_key=source_key,
+            ):
                 continue
             source_tables.setdefault(source, None)
 
@@ -323,7 +334,11 @@ class DatasetCardQueryService:
 
     @staticmethod
     def _latest_layer_for_source(raw_layers: list[LayerSnapshotLatestItem], source: str) -> LayerSnapshotLatestItem | None:
-        candidates = [item for item in raw_layers if (item.source_key or "combined") == source]
+        candidates = [
+            item
+            for item in raw_layers
+            if (normalize_layer_snapshot_source_key(item.source_key) or "combined") == source
+        ]
         if not candidates:
             return None
         return max(candidates, key=lambda item: item.calculated_at)
@@ -341,7 +356,11 @@ class DatasetCardQueryService:
             raw_statuses = [
                 item.status
                 for item in layers
-                if item.stage == "raw" and item.source_key == source_key
+                if item.stage == "raw"
+                and matches_layer_snapshot_source_filter(
+                    row_source_key=item.source_key,
+                    requested_source_key=source_key,
+                )
             ]
         if raw_statuses:
             return self._normalize_status(self._worse_raw_status(raw_statuses))
@@ -560,7 +579,7 @@ def _optional_source_display_name(source_key: str | None) -> str | None:
 
 
 def _require_source_display_name(source_key: str | None) -> str:
-    display_name = get_source_display_name(source_key)
+    display_name = get_source_display_name(normalize_layer_snapshot_source_key(source_key))
     if display_name is None:
         raise WebAppError(status_code=422, code="validation_error", message="数据源卡片来源缺少显示名称")
     return display_name
