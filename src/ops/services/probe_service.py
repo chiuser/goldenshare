@@ -76,19 +76,19 @@ class OpsProbeCommandService:
     ) -> int:
         rule = session.scalar(select(ProbeRule).where(ProbeRule.id == probe_rule_id))
         if rule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Probe rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="探测规则不存在")
 
         before = self._snapshot(rule)
         changed_fields = set(changes)
         if "name" in changed_fields:
             value = str(changes["name"] or "").strip()
             if not value:
-                raise WebAppError(status_code=422, code="validation_error", message="name cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="探测规则名称不能为空")
             rule.name = value
         if "dataset_key" in changed_fields:
             value = str(changes["dataset_key"] or "").strip()
             if not value:
-                raise WebAppError(status_code=422, code="validation_error", message="dataset_key cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="探测数据集不能为空")
             rule.dataset_key = value
         if "source_key" in changed_fields:
             value = changes["source_key"]
@@ -117,7 +117,7 @@ class OpsProbeCommandService:
         if "timezone_name" in changed_fields:
             value = str(changes["timezone_name"] or "").strip()
             if not value:
-                raise WebAppError(status_code=422, code="validation_error", message="timezone_name cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="探测时区不能为空")
             rule.timezone_name = value
 
         rule.updated_by_user_id = user.id
@@ -147,7 +147,7 @@ class OpsProbeCommandService:
     def delete_probe_rule(self, session: Session, *, user: AuthenticatedUser, probe_rule_id: int) -> int:
         rule = session.scalar(select(ProbeRule).where(ProbeRule.id == probe_rule_id))
         if rule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Probe rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="探测规则不存在")
         before = self._snapshot(rule)
         self._record_revision(
             session,
@@ -172,7 +172,7 @@ class OpsProbeCommandService:
     ) -> int:
         rule = session.scalar(select(ProbeRule).where(ProbeRule.id == probe_rule_id))
         if rule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Probe rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="探测规则不存在")
         if rule.status == status:
             session.refresh(rule)
             return rule.id
@@ -202,24 +202,32 @@ class OpsProbeCommandService:
         timezone_name: str,
     ) -> None:
         if not name.strip():
-            raise WebAppError(status_code=422, code="validation_error", message="name cannot be empty")
+            raise WebAppError(status_code=422, code="validation_error", message="探测规则名称不能为空")
         if not dataset_key.strip():
-            raise WebAppError(status_code=422, code="validation_error", message="dataset_key cannot be empty")
+            raise WebAppError(status_code=422, code="validation_error", message="探测数据集不能为空")
         self._ensure_status(status)
         self._ensure_positive_int(probe_interval_seconds, field_name="probe_interval_seconds")
         self._ensure_positive_int(max_triggers_per_day, field_name="max_triggers_per_day")
         if not timezone_name.strip():
-            raise WebAppError(status_code=422, code="validation_error", message="timezone_name cannot be empty")
+            raise WebAppError(status_code=422, code="validation_error", message="探测时区不能为空")
 
     @staticmethod
     def _ensure_status(status: str) -> None:
         if status not in {"active", "paused", "disabled"}:
-            raise WebAppError(status_code=422, code="validation_error", message="status must be active/paused/disabled")
+            raise WebAppError(status_code=422, code="validation_error", message="探测状态只能是 active、paused 或 disabled")
 
     @staticmethod
     def _ensure_positive_int(value: int, *, field_name: str) -> None:
         if value <= 0:
-            raise WebAppError(status_code=422, code="validation_error", message=f"{field_name} must be greater than 0")
+            raise WebAppError(status_code=422, code="validation_error", message=f"{OpsProbeCommandService._field_label(field_name)}必须大于 0")
+
+    @staticmethod
+    def _field_label(field_name: str) -> str:
+        labels = {
+            "probe_interval_seconds": "探测间隔",
+            "max_triggers_per_day": "每日最多触发次数",
+        }
+        return labels.get(field_name, field_name)
 
     @staticmethod
     def _snapshot(rule: ProbeRule) -> dict:

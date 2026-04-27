@@ -93,6 +93,32 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
     assert [item.action for item in revisions] == ["created", "updated", "paused", "resumed", "deleted"]
 
 
+def test_ops_probe_create_returns_readable_validation_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/probes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "",
+            "dataset_key": "daily",
+            "source_key": "tushare",
+            "window_start": "15:30",
+            "window_end": "17:30",
+            "probe_interval_seconds": 180,
+            "probe_condition_json": {},
+            "on_success_action_json": {"action_type": "dataset_action", "action_key": "daily.maintain"},
+            "max_triggers_per_day": 2,
+            "timezone_name": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "探测规则名称不能为空"
+
+
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     app_client,
     user_factory,

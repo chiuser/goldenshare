@@ -357,6 +357,20 @@ def test_task_run_validation_messages_do_not_emit_internal_field_tokens() -> Non
     assert not violations, "TaskRun API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 
 
+def test_probe_validation_messages_do_not_emit_internal_field_tokens() -> None:
+    path = REPO_ROOT / "src/ops/services/probe_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        "Probe rule does not exist",
+        "cannot be empty",
+        "must be active/paused/disabled",
+        "must be greater than 0",
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "探测规则 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")
