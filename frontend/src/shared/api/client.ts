@@ -7,6 +7,7 @@ interface ApiRequestOptions {
   token?: string | null;
   signal?: AbortSignal;
   skipAuthRefresh?: boolean;
+  timeoutMs?: number;
 }
 
 const AUTH_TOKEN_KEY = "goldenshare.frontend.auth.token";
@@ -93,7 +94,8 @@ function redirectToLoginOnUnauthorized(path: string, error: ApiError): void {
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const token = options.token ?? window.localStorage.getItem(AUTH_TOKEN_KEY);
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
+  const timeoutMs = options.timeoutMs ?? API_REQUEST_TIMEOUT_MS;
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(path, {

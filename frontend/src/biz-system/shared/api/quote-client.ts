@@ -36,5 +36,7 @@ export async function fetchQuoteRelatedInfo(tsCode: string, securityType: QuoteS
   const params = new URLSearchParams();
   appendParam(params, "ts_code", tsCode);
   appendParam(params, "security_type", securityType);
-  return apiRequest<QuoteRelatedInfoResponse>(`/api/v1/quote/detail/related-info?${params.toString()}`);
+  return apiRequest<QuoteRelatedInfoResponse>(`/api/v1/quote/detail/related-info?${params.toString()}`, {
+    timeoutMs: 20_000,
+  });
 }
