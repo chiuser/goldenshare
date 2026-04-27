@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -40,12 +41,32 @@ class MaintenanceActionDefinition:
     domain_key: str
     domain_display_name: str
     description: str
-    target_tables: tuple[str, ...]
+    executor_key: str
+    execution_config: Mapping[str, Any] = field(default_factory=dict)
     parameters: tuple[ActionParameter, ...] = ()
     default_params: dict[str, Any] = field(default_factory=dict)
     manual_enabled: bool = True
     schedule_enabled: bool = False
     retry_enabled: bool = True
+
+    @property
+    def target_tables(self) -> tuple[str, ...]:
+        view_name = self.execution_config.get("view_name")
+        if isinstance(view_name, str) and view_name.strip():
+            return (view_name.strip(),)
+        configured_targets = self.execution_config.get("target_tables")
+        if isinstance(configured_targets, Sequence) and not isinstance(configured_targets, str):
+            return tuple(str(target).strip() for target in configured_targets if str(target).strip())
+        period_targets = self.execution_config.get("period_targets")
+        if not isinstance(period_targets, Sequence) or isinstance(period_targets, str):
+            return ()
+        targets: list[str] = []
+        for period_target in period_targets:
+            if isinstance(period_target, Mapping):
+                target_table = period_target.get("target_table")
+                if isinstance(target_table, str) and target_table.strip():
+                    targets.append(target_table.strip())
+        return tuple(targets)
 
 
 @dataclass(slots=True, frozen=True)
@@ -99,7 +120,8 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         domain_key="maintenance",
         domain_display_name="维护动作",
         description="刷新数据集市中的物化视图。",
-        target_tables=("dm.equity_daily_snapshot",),
+        executor_key="refresh_materialized_view",
+        execution_config={"view_name": "dm.equity_daily_snapshot"},
         manual_enabled=True,
         schedule_enabled=True,
         retry_enabled=True,
@@ -110,7 +132,16 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         domain_key="maintenance",
         domain_display_name="维护动作",
         description="基于指数日线服务表补齐周线/月线服务表（API 优先，日线派生补缺）。",
-        target_tables=("core_serving.index_weekly_serving", "core_serving.index_monthly_serving"),
+        executor_key="rebuild_index_period_serving",
+        execution_config={
+            "calendar_table": "core_serving.trade_calendar",
+            "source_table": "core_serving.index_daily_serving",
+            "index_table": "core_serving.index_basic",
+            "period_targets": (
+                {"period_granularity": "week", "target_table": "core_serving.index_weekly_serving"},
+                {"period_granularity": "month", "target_table": "core_serving.index_monthly_serving"},
+            ),
+        },
         parameters=(START_DATE_PARAM, END_DATE_PARAM),
         manual_enabled=True,
         schedule_enabled=False,

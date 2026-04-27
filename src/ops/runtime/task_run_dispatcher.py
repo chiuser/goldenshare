@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 import hashlib
 import json
+import re
 from typing import Any
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -24,7 +26,7 @@ from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
-from src.ops.action_catalog import get_maintenance_action, get_workflow_definition
+from src.ops.action_catalog import MaintenanceActionDefinition, get_maintenance_action, get_workflow_definition
 from src.utils import truncate_text
 
 
@@ -42,6 +44,7 @@ class TaskRunDispatchOutcome:
 class TaskRunDispatcher:
     MAX_TECHNICAL_MESSAGE_LENGTH = 32_000
     MAX_OPERATOR_MESSAGE_LENGTH = 1_000
+    SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
     def __init__(self, serving_light_refresh_service: ServingLightRefreshService | None = None) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
@@ -414,44 +417,62 @@ class TaskRunDispatcher:
             "units_preview_truncated": len(units) > 20,
         }
 
-    def _run_maintenance_action(self, session: Session, action, params: dict[str, Any]) -> tuple[int, int, str | None]:  # type: ignore[no-untyped-def]
-        if action.key == "maintenance.rebuild_dm":
-            session.execute(text("REFRESH MATERIALIZED VIEW dm.equity_daily_snapshot"))
+    def _run_maintenance_action(
+        self,
+        session: Session,
+        action: MaintenanceActionDefinition,
+        params: dict[str, Any],
+    ) -> tuple[int, int, str | None]:
+        if action.executor_key == "refresh_materialized_view":
+            view_name = self._required_execution_text(action.execution_config, "view_name")
+            session.execute(text(f"REFRESH MATERIALIZED VIEW {self._sql_identifier(view_name)}"))
             session.commit()
             return 0, 0, "materialized view refreshed"
-        if action.key == "maintenance.rebuild_index_kline_serving":
+        if action.executor_key == "rebuild_index_period_serving":
             start_date = self._resolve_maintenance_start_date(params)
             end_date = self._resolve_maintenance_end_date(params)
             if start_date > end_date:
                 raise ValueError("start_date cannot be greater than end_date")
-            weekly_rows = self._rebuild_index_period_serving(
-                session=session,
-                target_table="core_serving.index_weekly_serving",
-                start_date=start_date,
-                end_date=end_date,
-                period_granularity="week",
-            )
-            monthly_rows = self._rebuild_index_period_serving(
-                session=session,
-                target_table="core_serving.index_monthly_serving",
-                start_date=start_date,
-                end_date=end_date,
-                period_granularity="month",
-            )
+            calendar_table = self._required_execution_text(action.execution_config, "calendar_table")
+            source_table = self._required_execution_text(action.execution_config, "source_table")
+            index_table = self._required_execution_text(action.execution_config, "index_table")
+            period_targets = self._required_period_targets(action.execution_config)
+            rows_by_granularity: dict[str, int] = {}
+            for period_target in period_targets:
+                target_table = self._required_execution_text(period_target, "target_table")
+                period_granularity = self._required_execution_text(period_target, "period_granularity")
+                rows_by_granularity[period_granularity] = self._rebuild_index_period_serving(
+                    session=session,
+                    target_table=target_table,
+                    source_table=source_table,
+                    index_table=index_table,
+                    calendar_table=calendar_table,
+                    start_date=start_date,
+                    end_date=end_date,
+                    period_granularity=period_granularity,
+                )
             session.commit()
-            written = weekly_rows + monthly_rows
-            return 0, written, f"index serving rebuilt weekly={weekly_rows} monthly={monthly_rows}"
-        raise ValueError(f"Unsupported maintenance action: {action.key}")
+            written = sum(rows_by_granularity.values())
+            detail = " ".join(f"{granularity}={rows}" for granularity, rows in rows_by_granularity.items())
+            return 0, written, f"index serving rebuilt {detail}".strip()
+        raise ValueError(f"Unsupported maintenance executor: {action.executor_key}")
 
     def _rebuild_index_period_serving(
         self,
         *,
         session: Session,
         target_table: str,
+        source_table: str,
+        index_table: str,
+        calendar_table: str,
         start_date: date,
         end_date: date,
         period_granularity: str,
     ) -> int:
+        target_table_sql = self._sql_identifier(target_table)
+        source_table_sql = self._sql_identifier(source_table)
+        index_table_sql = self._sql_identifier(index_table)
+        calendar_table_sql = self._sql_identifier(calendar_table)
         if period_granularity == "week":
             calendar_period_expr = "date_trunc('week', trade_date)::date"
             daily_period_expr = "date_trunc('week', d.trade_date)::date"
@@ -463,7 +484,7 @@ class TaskRunDispatcher:
         session.execute(
             text(
                 f"""
-                delete from {target_table}
+                delete from {target_table_sql}
                 where source <> 'api'
                   and trade_date between :start_date and :end_date
                 """
@@ -476,7 +497,7 @@ class TaskRunDispatcher:
                 select
                     {calendar_period_expr} as natural_period_start,
                     min(trade_date) as period_start_date
-                from core_serving.trade_calendar
+                from {calendar_table_sql}
                 where exchange = :exchange
                   and is_open is true
                   and trade_date between :start_date and :end_date
@@ -494,8 +515,8 @@ class TaskRunDispatcher:
                     d.vol,
                     d.amount,
                     cp.period_start_date as period_start_date
-                from core_serving.index_daily_serving d
-                join core_serving.index_basic b on b.ts_code = d.ts_code
+                from {source_table_sql} d
+                join {index_table_sql} b on b.ts_code = d.ts_code
                 join calendar_periods cp on cp.natural_period_start = {daily_period_expr}
                 where d.trade_date between :start_date and :end_date
             ),
@@ -527,7 +548,7 @@ class TaskRunDispatcher:
                 from win
                 group by ts_code, period_start_date
             )
-            insert into {target_table} (
+            insert into {target_table_sql} (
                 ts_code,
                 period_start_date,
                 trade_date,
@@ -560,7 +581,7 @@ class TaskRunDispatcher:
                 a.amount,
                 'derived_daily'
             from agg a
-            left join {target_table} existing_trade
+            left join {target_table_sql} existing_trade
               on existing_trade.ts_code = a.ts_code
              and existing_trade.trade_date = a.trade_date
              and existing_trade.period_start_date <> a.period_start_date
@@ -581,7 +602,7 @@ class TaskRunDispatcher:
                 amount = excluded.amount,
                 source = excluded.source,
                 updated_at = now()
-            where {target_table}.source <> 'api'
+            where {target_table_sql}.source <> 'api'
             """
         )
         result = session.execute(
@@ -593,6 +614,29 @@ class TaskRunDispatcher:
             },
         )
         return result.rowcount or 0
+
+    @classmethod
+    def _sql_identifier(cls, value: str) -> str:
+        if not cls.SQL_IDENTIFIER_PATTERN.fullmatch(value):
+            raise ValueError(f"Invalid SQL identifier: {value!r}")
+        return value
+
+    @staticmethod
+    def _required_execution_text(config: Mapping[str, Any], key: str) -> str:
+        value = config.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Maintenance action execution config is missing {key}")
+        return value.strip()
+
+    @staticmethod
+    def _required_period_targets(config: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
+        value = config.get("period_targets")
+        if not isinstance(value, Sequence) or isinstance(value, str):
+            raise ValueError("Maintenance action execution config is missing period_targets")
+        targets = tuple(target for target in value if isinstance(target, Mapping))
+        if len(targets) != len(value) or not targets:
+            raise ValueError("Maintenance action execution config has invalid period_targets")
+        return targets
 
     @staticmethod
     def _create_node(

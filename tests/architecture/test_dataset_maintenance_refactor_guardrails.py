@@ -110,6 +110,21 @@ def test_workflows_only_use_dataset_actions_or_maintenance_actions() -> None:
             assert definition.dataset_key in dataset_keys
 
 
+def test_task_run_dispatcher_does_not_hardcode_maintenance_action_facts() -> None:
+    path = REPO_ROOT / "src/ops/runtime/task_run_dispatcher.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "maintenance.rebuild_dm",
+        "maintenance.rebuild_index_kline_serving",
+        "dm.equity_daily_snapshot",
+        "core_serving.index_weekly_serving",
+        "core_serving.index_monthly_serving",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "维护动作事实必须来自 ActionCatalog，dispatcher 不得硬编码动作名或目标表:\n" + "\n".join(violations)
+
+
 def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
     forbidden_tokens = (
         "format" + "Spec" + "Display" + "Label",

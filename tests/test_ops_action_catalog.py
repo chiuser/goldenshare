@@ -15,6 +15,16 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
         "maintenance.rebuild_index_kline_serving",
     }
     assert {action.domain_key for action in MAINTENANCE_ACTION_REGISTRY.values()} == {"maintenance"}
+    assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].executor_key == "refresh_materialized_view"
+    assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].target_tables == ("dm.equity_daily_snapshot",)
+    assert (
+        MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_index_kline_serving"].executor_key
+        == "rebuild_index_period_serving"
+    )
+    assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_index_kline_serving"].target_tables == (
+        "core_serving.index_weekly_serving",
+        "core_serving.index_monthly_serving",
+    )
 
 
 def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:
