@@ -172,13 +172,13 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     },
     {
       key: "rows_in",
-      header: "rows_in",
+      header: "读取行数",
       width: "12%",
       render: (item) => <Text size="sm">{item.rows_fetched}</Text>,
     },
     {
       key: "rows_out",
-      header: "rows_out",
+      header: "保存行数",
       width: "12%",
       render: (item) => <Text size="sm">{item.rows_saved}</Text>,
     },
@@ -204,7 +204,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   return (
     <Stack gap="lg">
-      <SectionCard title={displayName} description="数据集详情页先按 V2.1 设计骨架接入已有能力，缺失部分用待补充占位。">
+      <SectionCard title={displayName} description="查看该数据集的层级状态、近期任务、调度覆盖与规则配置。">
         <Group justify="space-between" align="center">
           <Group gap="sm">
             <Button component={Link} to="/ops/v21/overview" variant="light" color="gray">
@@ -241,7 +241,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="serving 版本">
+          <MetricPanel label="服务层版本">
             <Text ff="var(--mantine-font-family-monospace)" fw={700} size="lg">
               {stageMap.get("serving") ? formatDateTimeLabel(stageMap.get("serving")?.calculated_at) : "—"}
             </Text>
@@ -253,7 +253,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="serving lag">
+          <MetricPanel label="服务层延迟">
             <Text fw={700} size="xl">
               {formatLagDuration(stageMap.get("serving")?.lag_seconds)}
             </Text>
@@ -276,8 +276,8 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
                     <StatusBadge value={item.status || "unknown"} label={formatDetailStatusLabel(item.status)} />
                     <Text size="sm">最近成功：{item.lastSuccessAt ? formatDateTimeLabel(item.lastSuccessAt) : "—"}</Text>
                     <Text size="sm">最近失败：{item.lastFailureAt ? formatDateTimeLabel(item.lastFailureAt) : "—"}</Text>
-                    <Text size="sm">rows_in：{item.rowsIn ?? "—"}</Text>
-                    <Text size="sm">rows_out：{item.rowsOut ?? "—"}</Text>
+                    <Text size="sm">读取行数：{item.rowsIn ?? "—"}</Text>
+                    <Text size="sm">保存行数：{item.rowsOut ?? "—"}</Text>
                   </Stack>
                 </MetricPanel>
               </Grid.Col>
@@ -326,7 +326,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           {probeQuery.data?.items?.map((item) => (
             <Group key={item.id} justify="space-between">
               <Group gap={8}>
-                <Badge variant="light" color="info">probe</Badge>
+                <Badge variant="light" color="info">探测</Badge>
                 <Text>{item.name}</Text>
               </Group>
               <Group gap={8}>
@@ -349,7 +349,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         />
       </SectionCard>
 
-      <SectionCard title="当前生效融合策略" description="先展示发布版本与规则规模，策略细节后续补充独立页面。">
+      <SectionCard title="当前生效融合策略" description="展示当前发布版本与规则规模。">
         <Grid>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
             <MetricPanel label="生效版本" align="start">
