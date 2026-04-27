@@ -143,7 +143,8 @@ class ProbeRuntimeService:
         if condition_type == "raw_rows_min":
             min_rows = int(condition.get("min_rows_in") or 1)
             matched = rows_in is not None and rows_in >= min_rows
-            return matched, (f"raw rows_in={rows_in}，阈值={min_rows}" if not matched else "raw 行数命中"), payload
+            message = "原始层行数已达到阈值" if matched else f"原始层行数 {rows_in if rows_in is not None else 0}，阈值 {min_rows}"
+            return matched, message, payload
 
         # Default: freshness_latest_open
         matched = latest_open is not None and item.latest_business_date == latest_open
@@ -160,7 +161,7 @@ class ProbeRuntimeService:
         action = dict(rule.on_success_action_json or {})
         action_type = str(action.get("action_type") or "dataset_action")
         if action_type != "dataset_action":
-            raise ValueError(f"unsupported probe action_type={action_type}")
+            raise ValueError(f"不支持的探测触发动作类型：{action_type}")
         action_key = str(action.get("action_key") or "").strip()
         if not action_key:
             raise ValueError("probe action_key is required")
