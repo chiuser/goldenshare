@@ -266,6 +266,7 @@ const mockManualActions = {
               required: false,
               multi_value: true,
               options: ["A股市场", "ETF基金", "港股市场", "美股市场"],
+              default_value: ["A股市场", "ETF基金", "港股市场", "美股市场"],
             },
             {
               key: "hot_type",
@@ -275,6 +276,7 @@ const mockManualActions = {
               required: false,
               multi_value: true,
               options: ["人气榜", "飙升榜"],
+              default_value: ["人气榜", "飙升榜"],
             },
             {
               ...textParam,
@@ -283,6 +285,7 @@ const mockManualActions = {
               param_type: "enum",
               description: "是否获取最新快照。",
               options: ["Y", "N"],
+              default_value: "Y",
             },
           ],
           search_keywords: ["dc_hot", "维护东方财富热榜"],

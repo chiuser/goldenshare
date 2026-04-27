@@ -6,6 +6,7 @@ from typing import Iterable
 from src.ops.action_catalog import (
     ActionParameter,
     WorkflowDefinition,
+    dataset_field_default_value,
     list_workflow_definitions,
 )
 from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
@@ -100,7 +101,10 @@ class ManualActionQueryService:
         group_key, group_label, group_order = self._group_meta_for_definition(definition)
         action_key = definition.action_key("maintain")
         display_name = definition.action_display_name("maintain")
-        filters = self._collect_dataset_filters(definition.input_model.filters)
+        filters = self._collect_dataset_filters(
+            definition.input_model.filters,
+            enum_fanout_defaults=definition.planning.enum_fanout_defaults,
+        )
         action = definition.capabilities.get_action("maintain")
         supported_modes = set(action.supported_time_modes if action else ())
         time_form = self._time_form_from_date_model(
@@ -155,12 +159,19 @@ class ManualActionQueryService:
         return tuple(filters.values())
 
     @staticmethod
-    def _collect_dataset_filters(fields: Iterable[DatasetInputField]) -> tuple[ActionParameter, ...]:
+    def _collect_dataset_filters(
+        fields: Iterable[DatasetInputField],
+        *,
+        enum_fanout_defaults: dict[str, tuple[str, ...]],
+    ) -> tuple[ActionParameter, ...]:
         filters: dict[str, ActionParameter] = {}
         for field in fields:
             if field.name in TIME_PARAM_KEYS or field.name in INTERNAL_PARAM_KEYS:
                 continue
-            filters[field.name] = ManualActionQueryService._field_to_action_parameter(field)
+            filters[field.name] = ManualActionQueryService._field_to_action_parameter(
+                field,
+                enum_fanout_defaults=enum_fanout_defaults,
+            )
         return tuple(filters.values())
 
     @staticmethod
@@ -256,7 +267,11 @@ class ManualActionQueryService:
         return GROUP_CONFIG.get(definition.domain.domain_key, GROUP_CONFIG["other"])
 
     @staticmethod
-    def _field_to_action_parameter(field: DatasetInputField) -> ActionParameter:
+    def _field_to_action_parameter(
+        field: DatasetInputField,
+        *,
+        enum_fanout_defaults: dict[str, tuple[str, ...]],
+    ) -> ActionParameter:
         return ActionParameter(
             key=field.name,
             display_name=field.display_label,
@@ -265,6 +280,7 @@ class ManualActionQueryService:
             required=field.required,
             options=tuple(field.enum_values),
             multi_value=field.multi_value,
+            default_value=dataset_field_default_value(field, enum_fanout_defaults),
         )
 
     @staticmethod
@@ -291,6 +307,7 @@ class ManualActionQueryService:
             required=param.required,
             options=list(param.options),
             multi_value=param.multi_value,
+            default_value=param.default_value,
         )
 
     def _to_response_item(self, route: ManualActionRoute) -> ManualActionItemResponse:

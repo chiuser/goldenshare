@@ -9,6 +9,7 @@ from src.foundation.datasets.source_registry import list_source_definitions
 from src.ops.action_catalog import (
     MaintenanceActionDefinition,
     WorkflowDefinition,
+    dataset_field_default_value,
     list_maintenance_actions,
     list_workflow_definitions,
 )
@@ -74,6 +75,7 @@ class OpsCatalogQueryService:
                             required=param.required,
                             options=list(param.options),
                             multi_value=param.multi_value,
+                            default_value=param.default_value,
                         )
                         for param in workflow.parameters
                     ],
@@ -127,6 +129,7 @@ class OpsCatalogQueryService:
                     required=param.required,
                     options=list(param.options),
                     multi_value=param.multi_value,
+                    default_value=param.default_value,
                 )
                 for param in action.parameters
             ],
@@ -156,13 +159,20 @@ class OpsCatalogQueryService:
             schedule_binding_count=bindings.get(("dataset_action", action_key), {}).get("schedule_binding_count", 0),
             active_schedule_count=bindings.get(("dataset_action", action_key), {}).get("active_schedule_count", 0),
             parameters=[
-                self._build_dataset_parameter(field)
+                self._build_dataset_parameter(
+                    field,
+                    enum_fanout_defaults=definition.planning.enum_fanout_defaults,
+                )
                 for field in (*definition.input_model.time_fields, *definition.input_model.filters)
             ],
         )
 
     @staticmethod
-    def _build_dataset_parameter(field: DatasetInputField) -> ActionParameterResponse:
+    def _build_dataset_parameter(
+        field: DatasetInputField,
+        *,
+        enum_fanout_defaults: dict[str, tuple[str, ...]],
+    ) -> ActionParameterResponse:
         return ActionParameterResponse(
             key=field.name,
             display_name=field.display_label,
@@ -171,4 +181,5 @@ class OpsCatalogQueryService:
             required=field.required,
             options=list(field.enum_values),
             multi_value=field.multi_value,
+            default_value=dataset_field_default_value(field, enum_fanout_defaults),
         )

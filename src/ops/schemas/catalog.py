@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -11,6 +13,7 @@ class ActionParameterResponse(BaseModel):
     required: bool
     options: list[str]
     multi_value: bool
+    default_value: Any | None = None
 
 
 class ActionCatalogItem(BaseModel):

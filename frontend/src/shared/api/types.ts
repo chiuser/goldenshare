@@ -489,6 +489,7 @@ export interface OpsCatalogResponse {
       required: boolean;
       options: string[];
       multi_value: boolean;
+      default_value: string | string[] | number | boolean | null;
     }>;
   }>;
   workflows: Array<{
@@ -510,6 +511,7 @@ export interface OpsCatalogResponse {
       required: boolean;
       options: string[];
       multi_value: boolean;
+      default_value: string | string[] | number | boolean | null;
     }>;
     steps?: Array<{
       step_key: string;
@@ -563,6 +565,7 @@ export interface OpsManualActionsResponse {
         required: boolean;
         options: string[];
         multi_value: boolean;
+        default_value: string | string[] | number | boolean | null;
       }>;
       search_keywords: string[];
       action_order: number;

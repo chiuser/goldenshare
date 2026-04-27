@@ -62,9 +62,13 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["stock_basic.maintain"]["time_form"]["allowed_modes"] == ["none"]
 
     dc_hot_filter_keys = [item["key"] for item in actions["dc_hot.maintain"]["filters"]]
+    dc_hot_filters = {item["key"]: item for item in actions["dc_hot.maintain"]["filters"]}
     assert dc_hot_filter_keys == ["ts_code", "market", "hot_type", "is_new"]
     assert "offset" not in dc_hot_filter_keys
     assert "limit" not in dc_hot_filter_keys
+    assert dc_hot_filters["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
+    assert dc_hot_filters["hot_type"]["default_value"] == ["人气榜", "飙升榜"]
+    assert dc_hot_filters["is_new"]["default_value"] == "Y"
 
     assert actions["stk_mins.maintain"]["time_form"]["control"] == "trade_date_or_range"
     assert actions["stk_mins.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]

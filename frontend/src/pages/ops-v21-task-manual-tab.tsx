@@ -92,18 +92,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function getDefaultFieldValue(action: ManualAction, param: ManualActionFilter): string | string[] | undefined {
-  if (action.resource_key !== "dc_hot") {
+function getDefaultFieldValue(_action: ManualAction, param: ManualActionFilter): string | string[] | undefined {
+  const value = param.default_value;
+  if (value === undefined || value === null || value === "") {
     return undefined;
   }
-  const options = normalizeParamOptions(param.options);
-  if (param.key === "market" || param.key === "hot_type") {
-    return options;
+  if (Array.isArray(value)) {
+    const values = value.map((item) => String(item)).filter(Boolean);
+    return values.length ? values : undefined;
   }
-  if (param.key === "is_new") {
-    return options.includes("Y") ? "Y" : options[0] || undefined;
+  if (param.multi_value) {
+    return [String(value)].filter(Boolean);
   }
-  return undefined;
+  return String(value);
 }
 
 function buildDefaultFieldValues(action: ManualAction) {

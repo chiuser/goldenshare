@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from src.foundation.datasets.models import DatasetDefinition
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import (
     get_dataset_definition,
     get_dataset_definition_by_action_key,
@@ -23,6 +23,14 @@ class ActionParameter:
     required: bool = False
     options: tuple[str, ...] = ()
     multi_value: bool = False
+    default_value: Any | None = None
+
+
+def dataset_field_default_value(field: DatasetInputField, enum_fanout_defaults: dict[str, tuple[str, ...]]) -> Any | None:
+    fanout_default = enum_fanout_defaults.get(field.name)
+    if fanout_default:
+        return list(fanout_default) if field.multi_value else fanout_default[0]
+    return None
 
 
 @dataclass(slots=True, frozen=True)

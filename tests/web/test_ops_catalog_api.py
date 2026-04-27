@@ -56,9 +56,12 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     dc_hot = actions["dc_hot.maintain"]
     dc_hot_params = {param["key"]: param for param in dc_hot["parameters"]}
     assert dc_hot_params["market"]["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
+    assert dc_hot_params["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
     assert dc_hot_params["hot_type"]["options"] == ["人气榜", "飙升榜"]
+    assert dc_hot_params["hot_type"]["default_value"] == ["人气榜", "飙升榜"]
     assert dc_hot_params["is_new"]["options"] == ["Y"]
     assert dc_hot_params["is_new"]["multi_value"] is False
+    assert dc_hot_params["is_new"]["default_value"] == "Y"
 
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"
