@@ -33,5 +33,5 @@ def test_connectors_expose_source_key() -> None:
 
 def test_biying_connector_rejects_unsupported_api() -> None:
     connector = BiyingSourceConnector(token="x", base_url="https://api.biyingapi.com")
-    with pytest.raises(ValueError, match="does not support"):
+    with pytest.raises(ValueError, match="不支持该接口"):
         connector.call("equity_daily")

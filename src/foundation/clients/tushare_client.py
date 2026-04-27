@@ -120,7 +120,7 @@ class TushareHttpClient:
             envelope = TushareEnvelope.model_validate(response.json())
         except requests.RequestException as exc:
             self.logger.warning(
-                "Tushare request failed api_name=%s params=%s error=%s",
+                "Tushare 请求失败：接口=%s 参数=%s 错误=%s",
                 api_name,
                 param_summary,
                 exc.__class__.__name__,
@@ -129,7 +129,7 @@ class TushareHttpClient:
         retry_count = self._retry_count(response)
         if retry_count:
             self.logger.info(
-                "Tushare request succeeded after retry api_name=%s params=%s retry_count=%s",
+                "Tushare 重试后请求成功：接口=%s 参数=%s 重试次数=%s",
                 api_name,
                 param_summary,
                 retry_count,

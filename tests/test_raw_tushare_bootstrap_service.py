@@ -21,7 +21,7 @@ def test_raw_tushare_bootstrap_service_rejects_unknown_table(mocker) -> None:
     session.execute.return_value.scalars.return_value = ["daily", "daily_basic"]
 
     service = RawTushareBootstrapService()
-    with pytest.raises(ValueError, match="Unknown raw tables"):
+    with pytest.raises(ValueError, match="未知 raw 表"):
         service.run(session, table_names=["daily", "not_exists"], migrate_data=False)
 
 
@@ -53,7 +53,7 @@ def test_raw_tushare_bootstrap_service_create_and_migrate_data(mocker) -> None:
     assert item.migrated is True
     assert item.inserted_rows == 123
     assert session.commit.call_count == 1
-    assert any("daily: done inserted=123" in message for message in messages)
+    assert any("daily：完成，写入行数=123" in message for message in messages)
 
 
 def test_raw_tushare_bootstrap_service_rejects_when_schema_not_identical(mocker) -> None:
@@ -73,5 +73,5 @@ def test_raw_tushare_bootstrap_service_rejects_when_schema_not_identical(mocker)
         SimpleNamespace(),  # create table
     ]
 
-    with pytest.raises(ValueError, match="Schema mismatch between raw and raw_tushare"):
+    with pytest.raises(ValueError, match="raw 与 raw_tushare 表结构不一致"):
         service.run(session, table_names=["stock_basic"], migrate_data=True)

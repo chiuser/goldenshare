@@ -825,6 +825,39 @@ def test_auth_messages_and_frontend_consumers_do_not_depend_on_english_error_tex
     assert not violations, "认证链路和前端页面不得依赖英文错误文案:\n" + "\n".join(violations)
 
 
+def test_foundation_support_logs_do_not_emit_english_machine_phrases() -> None:
+    path_tokens = {
+        REPO_ROOT / "src/foundation/clients/tushare_client.py": (
+            "Tushare request failed",
+            "Tushare request succeeded",
+            "api_name=%s",
+            "retry_count=%s",
+        ),
+        REPO_ROOT / "src/foundation/services/migration/raw_tushare_bootstrap_service.py": (
+            "Unknown raw tables",
+            "creating target table",
+            "validating schema parity",
+            "truncating target",
+            "copying rows",
+            "done inserted",
+            "Schema mismatch between",
+            "source_only",
+            "target_only",
+        ),
+        REPO_ROOT / "frontend/src/features/auth/auth-context.tsx": (
+            "useAuth must be used within AuthProvider",
+        ),
+    }
+    violations: list[str] = []
+    for path, forbidden_tokens in path_tokens.items():
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {token}")
+
+    assert not violations, "支撑层日志/内部错误不得恢复英文机器短语:\n" + "\n".join(violations)
+
+
 def test_ops_does_not_keep_parallel_dataset_reconcile_fact_registry() -> None:
     path = REPO_ROOT / "src/ops/services/operations_dataset_reconcile_service.py"
 

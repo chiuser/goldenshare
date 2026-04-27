@@ -63,18 +63,16 @@ class RawTushareBootstrapService:
             requested = [name.strip() for name in table_names if name.strip()]
             unknown = sorted(set(requested) - set(legacy_tables))
             if unknown:
-                raise ValueError(f"Unknown raw tables: {', '.join(unknown)}")
+                raise ValueError(f"未知 raw 表：{', '.join(unknown)}")
             target_tables = requested
         else:
             target_tables = legacy_tables
 
-        emit(
-            f"bootstrap-raw-tushare: start tables={len(target_tables)} migrate_data={migrate_data} drop_if_exists={drop_if_exists}"
-        )
+        emit(f"raw_tushare 初始化开始：表数量={len(target_tables)} 迁移数据={migrate_data} 覆盖已有表={drop_if_exists}")
         results: list[RawTushareTableBootstrapResult] = []
         for index, table_name in enumerate(target_tables, start=1):
             ident = self._quote_ident(table_name)
-            emit(f"[{index}/{len(target_tables)}] {table_name}: creating target table")
+            emit(f"[{index}/{len(target_tables)}] {table_name}：创建目标表")
             if drop_if_exists:
                 session.execute(text(f"DROP TABLE IF EXISTS raw_tushare.{ident}"))
             session.execute(
@@ -86,13 +84,13 @@ class RawTushareBootstrapService:
 
             inserted_rows = 0
             if migrate_data:
-                emit(f"[{index}/{len(target_tables)}] {table_name}: validating schema parity")
+                emit(f"[{index}/{len(target_tables)}] {table_name}：校验表结构一致性")
                 source_columns = self._list_columns(session, schema="raw", table_name=table_name)
                 target_columns = self._list_columns(session, schema="raw_tushare", table_name=table_name)
                 self._ensure_same_columns(table_name, source_columns=source_columns, target_columns=target_columns)
-                emit(f"[{index}/{len(target_tables)}] {table_name}: truncating target")
+                emit(f"[{index}/{len(target_tables)}] {table_name}：清空目标表")
                 session.execute(text(f"TRUNCATE TABLE raw_tushare.{ident} RESTART IDENTITY"))
-                emit(f"[{index}/{len(target_tables)}] {table_name}: copying rows")
+                emit(f"[{index}/{len(target_tables)}] {table_name}：复制数据")
                 inserted_rows = int(
                     session.execute(
                         text(f"INSERT INTO raw_tushare.{ident} SELECT * FROM raw.{ident}")
@@ -100,7 +98,7 @@ class RawTushareBootstrapService:
                     or 0
                 )
             session.commit()
-            emit(f"[{index}/{len(target_tables)}] {table_name}: done inserted={inserted_rows}")
+            emit(f"[{index}/{len(target_tables)}] {table_name}：完成，写入行数={inserted_rows}")
             results.append(
                 RawTushareTableBootstrapResult(
                     table_name=table_name,
@@ -134,9 +132,8 @@ class RawTushareBootstrapService:
     def _ensure_same_columns(table_name: str, *, source_columns: list[str], target_columns: list[str]) -> None:
         if source_columns == target_columns:
             return
-        source_only = [column for column in source_columns if column not in set(target_columns)]
-        target_only = [column for column in target_columns if column not in set(source_columns)]
+        source_extra_columns = [column for column in source_columns if column not in set(target_columns)]
+        target_extra_columns = [column for column in target_columns if column not in set(source_columns)]
         raise ValueError(
-            "Schema mismatch between raw and raw_tushare for table "
-            f"{table_name}: source_only={source_only}, target_only={target_only}"
+            f"raw 与 raw_tushare 表结构不一致：{table_name}，仅源表存在={source_extra_columns}，仅目标表存在={target_extra_columns}"
         )

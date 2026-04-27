@@ -45,7 +45,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error("useAuth 必须在 AuthProvider 内使用");
   }
   return context;
 }
