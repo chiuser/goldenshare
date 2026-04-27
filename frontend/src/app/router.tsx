@@ -28,6 +28,7 @@ import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
 import { ShareMarketPage } from "../pages/share-market-page";
 import { UserOverviewPage } from "../pages/user-overview-page";
+import { QuoteDetailPage } from "../biz-system/pages/quote-detail-page";
 import { OpsShell } from "./shell";
 import { ShareShell } from "./share-shell";
 
@@ -298,6 +299,18 @@ const platformCheckRoute = createRoute({
   component: PlatformCheckPage,
 });
 
+const quoteDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/quote/detail",
+  component: function QuoteDetailRouteComponent() {
+    return (
+      <UserLayout>
+        <QuoteDetailPage />
+      </UserLayout>
+    );
+  },
+});
+
 const opsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/ops",
@@ -426,6 +439,7 @@ const routeTree = rootRoute.addChildren([
   forgotPasswordRoute,
   resetPasswordRoute,
   userOverviewRoute,
+  quoteDetailRoute,
   platformCheckRoute,
   opsLayoutRoute.addChildren([
     opsIndexRoute,

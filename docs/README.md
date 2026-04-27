@@ -96,6 +96,12 @@ docs/
 
 - [前端技术与组件体系选型建议](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
+- [行情页架构复用与自研栈落地方案 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-page-architecture-reuse-native-stack-plan-v1.md)
+- [行情业务系统工程基线 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-system-engineering-baseline-v1.md)
+- [行情业务系统技术栈与库规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-technology-stack-and-library-standard-v1.md)
+- [行情业务系统 Web API 契约规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-web-api-contract-standard-v1.md)
+- [行情业务系统数据组织与页面编排规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-data-model-and-composition-standard-v1.md)
+- [首个业务页面落地清单 v1（页面骨架 + API 契约 + 四态 + smoke）](/Users/congming/github/goldenshare/docs/frontend/frontend-biz-first-page-implementation-checklist-v1.md)
 - [前端应用一期设计](/Users/congming/github/goldenshare/docs/frontend/frontend-application-phase1.md)
 - [前端交付流程规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-delivery-workflow-v1.md)
 - [前端设计 Tokens 与组件目录 v2](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)
