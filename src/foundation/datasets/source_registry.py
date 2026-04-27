@@ -17,7 +17,6 @@ SOURCE_DEFINITIONS: tuple[SourceDefinition, ...] = (
 _SOURCE_DISPLAY_NAMES = {item.source_key: item.display_name for item in SOURCE_DEFINITIONS}
 _SPECIAL_SOURCE_DISPLAY_NAMES = {
     "all": "全部来源",
-    "__all__": "全部来源",
     "combined": "综合来源",
 }
 

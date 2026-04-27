@@ -90,7 +90,7 @@ class LayerSnapshotQueryService:
             filters.append(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
         if source_key:
             normalized_source = source_key.strip()
-            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "__all__"]))
+            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "combined"]))
         if stage:
             filters.append(DatasetLayerSnapshotCurrent.stage == stage)
         if status:
@@ -160,7 +160,7 @@ class LayerSnapshotQueryService:
             history_filters.append(DatasetLayerSnapshotHistory.dataset_key == dataset_key)
         if source_key:
             normalized_source = source_key.strip()
-            history_filters.append(DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "__all__"]))
+            history_filters.append(DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "combined"]))
         if stage:
             history_filters.append(DatasetLayerSnapshotHistory.stage == stage)
         if status:
@@ -235,7 +235,7 @@ def _require_dataset_display_name(dataset_key: str | None) -> str:
 
 
 def _require_source_display_name(source_key: str | None) -> str:
-    display_name = get_source_display_name(source_key or "__all__")
+    display_name = get_source_display_name(source_key or "combined")
     if display_name is None:
         raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot source display name is unavailable")
     return display_name

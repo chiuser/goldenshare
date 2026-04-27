@@ -18,7 +18,7 @@ class DatasetLayerSnapshotCurrent(Base):
     )
 
     dataset_key: Mapped[str] = mapped_column(String(64), nullable=False)
-    source_key: Mapped[str] = mapped_column(String(32), nullable=False, default="__all__")
+    source_key: Mapped[str] = mapped_column(String(32), nullable=False, default="combined")
     stage: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     rows_in: Mapped[int | None] = mapped_column(BigInteger().with_variant(Integer, "sqlite"))

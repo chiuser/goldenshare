@@ -71,6 +71,23 @@ def test_active_code_does_not_reference_legacy_dataset_run_names() -> None:
     assert not violations, "旧数据集执行模型不得回到活跃代码:\n" + "\n".join(violations)
 
 
+def test_active_code_does_not_persist_double_underscore_all_source_scope() -> None:
+    forbidden_tokens = (
+        '"' + "__" + "all__" + '"',
+        "'" + "__" + "all__" + "'",
+    )
+    violations: list[str] = []
+    for root in ACTIVE_CODE_ROOTS:
+        for path in _python_and_frontend_files(root):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "Ops 来源范围不得再使用双下划线 all 哨兵；持久化范围统一使用 combined:\n" + "\n".join(violations)
+
+
 def test_active_code_does_not_reference_legacy_schedule_contract_names() -> None:
     forbidden_tokens = (
         "spec_" + "type",

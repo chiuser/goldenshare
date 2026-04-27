@@ -71,7 +71,7 @@ class ScheduleProbeBindingService:
         interval = max(int(config.get("probe_interval_seconds") or 300), 30)
         max_daily = max(int(config.get("max_triggers_per_day") or 1), 1)
         source_key_raw = str(config.get("source_key") or "").strip().lower()
-        source_key = None if source_key_raw in {"", "all", "__all__"} else source_key_raw
+        source_key = None if source_key_raw in {"", "all", "combined"} else source_key_raw
         window_start = self._normalize_time(config.get("window_start") or "15:30")
         window_end = self._normalize_time(config.get("window_end") or "17:00")
         timezone_name = str(config.get("timezone_name") or schedule.timezone or "Asia/Shanghai").strip() or "Asia/Shanghai"

@@ -263,7 +263,7 @@ class TaskRunQueryService:
         filter_source = (task_run.filters_json or {}).get("source_key")
         if isinstance(filter_source, str) and filter_source.strip():
             normalized = filter_source.strip().lower()
-            if normalized not in {"all", "__all__"}:
+            if normalized not in {"all", "combined"}:
                 return normalized
         return definition.source.source_key_default
 
