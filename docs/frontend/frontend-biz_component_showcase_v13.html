@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="v13">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>财势乾坤 · Component Showcase v13</title>
+<style>
+:root {
+  --bg-page: #080c14;
+  --bg-page-2: #0a1020;
+  --bg-page-3: #101827;
+
+  --bg-panel: rgba(19, 29, 48, 0.92);
+  --bg-panel-strong: rgba(14, 22, 37, 0.96);
+  --bg-card: rgba(255,255,255,0.04);
+  --bg-card-hover: rgba(255,255,255,0.065);
+  --bg-chip: rgba(255,255,255,0.05);
+
+  --border-subtle: rgba(148,163,184,0.12);
+  --border-default: rgba(148,163,184,0.16);
+  --border-strong: rgba(148,163,184,0.24);
+
+  --text-primary: #e5edf8;
+  --text-secondary: #8fa1b8;
+  --text-tertiary: #65748a;
+  --text-inverse: #fff6ea;
+
+  --color-rise: #ff4d5a;
+  --color-rise-soft: rgba(255,77,90,0.12);
+  --color-rise-border: rgba(255,77,90,0.24);
+  --color-rise-deep: rgba(54,10,16,0.96);
+
+  --color-fall: #15c784;
+  --color-fall-soft: rgba(21,199,132,0.10);
+  --color-fall-border: rgba(21,199,132,0.22);
+  --color-fall-deep: rgba(7,34,24,0.96);
+
+  --color-flat: #f7c76b;
+  --color-flat-soft: rgba(247,199,107,0.12);
+  --color-info: #5aa7ff;
+  --color-cyan: #22d3ee;
+
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 999px;
+
+  --shadow-panel: 0 18px 44px rgba(0,0,0,0.34);
+  --shadow-float: 0 18px 36px rgba(0,0,0,0.34);
+
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 18% -8%, rgba(255, 77, 90, 0.18), transparent 36%),
+    radial-gradient(circle at 75% 5%, rgba(247, 199, 107, 0.14), transparent 35%),
+    linear-gradient(135deg, #060912 0%, #0a1020 42%, #101827 100%);
+  min-height: 100vh;
+}
+.app-shell {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 24px 28px 40px;
+}
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.brand {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, rgba(255,77,90,0.95), rgba(135,26,36,0.9));
+  box-shadow: 0 12px 34px rgba(255,77,90,0.22);
+  font-weight: 900;
+  color: var(--text-inverse);
+}
+.brand h1 { margin: 0; font-size: 22px; letter-spacing: .4px; }
+.brand p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; }
+.nav {
+  display: flex;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--border-default);
+  background: rgba(13,20,34,.72);
+  border-radius: var(--radius-pill);
+}
+.nav button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  cursor: pointer;
+}
+.nav button.active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(255,77,90,.84), rgba(247,199,107,.22));
+  box-shadow: 0 8px 22px rgba(255,77,90,.18);
+}
+.grid {
+  display: grid;
+  gap: 18px;
+}
+.grid.two { grid-template-columns: 1fr 1fr; }
+.grid.three { grid-template-columns: repeat(3, 1fr); }
+.grid.four { grid-template-columns: repeat(4, 1fr); }
+.grid.six { grid-template-columns: repeat(6, 1fr); }
+.panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-default);
+  background: linear-gradient(180deg, rgba(19,29,48,.92), rgba(12,18,30,.88));
+  box-shadow: var(--shadow-panel);
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.04), transparent 30%);
+}
+.panel-header {
+  position: relative;
+  z-index: 1;
+  padding: 20px 22px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+.panel-title { margin: 0; font-size: 16px; }
+.panel-subtitle { margin: 6px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.panel-body {
+  position: relative;
+  z-index: 1;
+  padding: 16px 22px 22px;
+}
+.meta-note, .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: rgba(255,255,255,.03);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.chip.rise { color: #ffd7d3; border-color: var(--color-rise-border); background: var(--color-rise-soft); }
+.chip.fall { color: #d0ffea; border-color: var(--color-fall-border); background: var(--color-fall-soft); }
+.chip.flat { color: #ffe6b8; border-color: rgba(247,199,107,.22); background: var(--color-flat-soft); }
+.section-title {
+  margin: 6px 0 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.card {
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.card:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+.metric-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.metric-value { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.metric-value strong { font-size: 34px; line-height: 1; }
+.metric-value span { color: var(--text-secondary); font-size: 12px; }
+.metric-desc { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.up { color: var(--color-rise); }
+.down { color: var(--color-fall); }
+.flat { color: var(--color-flat); }
+.num { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+.meter {
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,.06);
+  overflow: hidden;
+  margin: 12px 0;
+}
+.meter .fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-fall), var(--color-flat), var(--color-rise));
+}
+.tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 5px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 14px;
+}
+.tab {
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.tab.active { background: rgba(255,77,90,.14); color: #fff; }
+.index-card {
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radius-lg);
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.index-card.rise { background: linear-gradient(180deg, rgba(54,10,16,.96), rgba(35,8,14,.94)); border-color: var(--color-rise-border); }
+.index-card.fall { background: linear-gradient(180deg, rgba(7,34,24,.96), rgba(6,24,18,.94)); border-color: var(--color-fall-border); }
+.index-card h4 { margin: 0; font-size: 13px; color: #f4f7fd; }
+.index-card strong { margin-top: 8px; font-size: 20px; line-height: 1.15; }
+.index-bottom { display: flex; gap: 8px; margin-top: 8px; font-size: 12px; }
+.rank-list { display: grid; gap: 10px; }
+.rank-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.rank-no {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.06);
+  font-weight: 700;
+  font-size: 12px;
+}
+.rank-item h5 { margin: 0 0 3px; font-size: 13px; }
+.rank-item p { margin: 0; color: var(--text-secondary); font-size: 11px; }
+.heat { color: var(--text-secondary); font-size: 11px; text-align: right; }
+.change { min-width: 68px; text-align: right; font-weight: 700; font-size: 13px; }
+.limit-card {
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,.06);
+  overflow: hidden;
+}
+.limit-head {
+  min-height: 40px;
+  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.limit-head.red { background: linear-gradient(180deg, rgba(76,6,9,.95), rgba(56,7,10,.9)); color: #ffd7d3; }
+.limit-head.green { background: linear-gradient(180deg, rgba(1,48,33,.95), rgba(3,39,28,.92)); color: #d0ffea; }
+.limit-body { padding: 12px; }
+.limit-values { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.limit-stat { text-align: center; }
+.limit-num { font-size: 21px; font-weight: 800; line-height: 1.2; }
+.limit-caption { margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
+.ladder-stage { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.stage-col {
+  min-height: 260px;
+  border-radius: var(--radius-lg);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.stage-col.hot { background: linear-gradient(180deg, rgba(58,8,12,.92), rgba(30,10,16,.88)); }
+.stage-top { display: flex; justify-content: space-between; align-items: center; }
+.stage-level { font-size: 15px; font-weight: 800; }
+.stage-count {
+  min-width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  font-size: 11px;
+}
+.stage-progress { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.progress-cell {
+  border-radius: 12px;
+  padding: 8px 9px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.05);
+}
+.progress-cell span { display: block; color: var(--text-secondary); font-size: 10px; margin-bottom: 4px; }
+.progress-cell strong { font-size: 13px; }
+.stock-chip {
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.stock-chip h5 { margin: 0; font-size: 12px; }
+.stock-chip p { margin: 4px 0 0; color: var(--text-secondary); font-size: 10px; }
+.stage-more {
+  margin-top: auto;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,.12);
+  background: rgba(255,255,255,.03);
+  color: #dde7f7;
+}
+.chart-card { min-height: 320px; }
+.chart-tools {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.range-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  border: 0;
+  font-weight: 700;
+  font-size: 11px;
+}
+.range-btn.active { background: rgba(255,255,255,.09); color: #fff; }
+.chart-box {
+  height: 180px;
+  margin-top: 12px;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 100% 45px, 76px 100%;
+  border: 1px solid rgba(255,255,255,.05);
+  position: relative;
+  overflow: hidden;
+}
+.chart-line {
+  position: absolute;
+  inset: 20px 20px 30px 32px;
+}
+.chart-line svg { width: 100%; height: 100%; overflow: visible; }
+.news-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.news-tag {
+  padding: 5px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(90,167,255,.14);
+  border: 1px solid rgba(90,167,255,.22);
+  color: #bdd9ff;
+  font-size: 10px;
+}
+.news-title { margin: 0 0 5px; font-size: 13px; line-height: 1.5; }
+.news-desc { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.drawer-demo {
+  height: 280px;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.drawer-main {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,.02);
+}
+.drawer-panel {
+  background: linear-gradient(180deg, rgba(13,20,34,.98), rgba(9,14,24,.98));
+  border-left: 1px solid rgba(255,255,255,.08);
+  padding: 16px;
+}
+.drawer-panel h4 { margin: 0 0 6px; }
+.drawer-panel p { margin: 0 0 12px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+@media (max-width: 1200px) {
+  .grid.two,.grid.three,.grid.four,.grid.six { grid-template-columns: 1fr; }
+  .ladder-stage { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">财</div>
+      <div>
+        <h1>财势乾坤 · Component Showcase v13</h1>
+        <p>基于 V13 原型风格：深色金融面板、红涨绿跌、金色强调、紧凑高信息密度</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="active">组件展示</button>
+      <button>Design Token</button>
+      <button>情绪分析</button>
+    </nav>
+  </header>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">1. Design Tokens</h2>
+        <p class="panel-subtitle">V13 使用深色金融终端视觉：暗背景、透明面板、弱边框、红涨绿跌、金色观察。</p>
+      </div>
+      <div class="meta-note">V13 Deep Finance</div>
+    </div>
+    <div class="panel-body">
+      <div class="grid four">
+        <div class="card"><div class="metric-label">页面背景</div><div class="metric-value"><strong style="font-size:18px">#080c14</strong></div><p class="metric-desc">深色基底，配合 radial glow。</p></div>
+        <div class="card"><div class="metric-label">Panel</div><div class="metric-value"><strong style="font-size:18px">rgba(19,29,48,.92)</strong></div><p class="metric-desc">一级模块容器。</p></div>
+        <div class="card"><div class="metric-label">上涨</div><div class="metric-value"><strong class="up">#ff4d5a</strong></div><p class="metric-desc">A 股红涨。</p></div>
+        <div class="card"><div class="metric-label">下跌</div><div class="metric-value"><strong class="down">#15c784</strong></div><p class="metric-desc">A 股绿跌。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">2. 基础组件</h2>
+        <p class="panel-subtitle">Panel、Tabs、Chip、MetricCard 是页面骨架的基本单位。</p>
+      </div>
+      <div class="meta-note">UI Base</div>
+    </div>
+    <div class="panel-body">
+      <div class="tabs">
+        <div class="tab active">今日热点</div>
+        <div class="tab">政策宏观</div>
+        <div class="tab">财经新闻</div>
+        <div class="tab">个股新闻</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="chip rise">上涨家数 3286</span>
+        <span class="chip fall">下跌家数 1140</span>
+        <span class="chip flat">成交额 1.19 万亿</span>
+        <span class="chip">交易中 14:36</span>
+      </div>
+      <div class="grid three">
+        <div class="card">
+          <div class="metric-label"><span>市场温度</span><span class="chip flat">核心</span></div>
+          <div class="metric-value"><strong class="num">73</strong><span>/ 100</span></div>
+          <div class="meter"><div class="fill" style="width:73%"></div></div>
+          <p class="metric-desc">位于偏热区间，适合围绕主线做结构性交易。</p>
+        </div>
+        <div class="card">
+          <div class="metric-label"><span>情绪指数</span><span class="chip rise">修复</span></div>
+          <div class="metric-value"><strong class="num">62</strong><span>/ 100</span></div>
+          <div class="meter"><div class="fill" style="width:62%"></div></div>
+          <p class="metric-desc">短线情绪从早盘分歧逐步修复。</p>
+        </div>
+        <div class="card">
+          <div class="metric-label"><span>交易适宜度</span><span class="chip">建议</span></div>
+          <div class="metric-value"><strong style="font-size:28px">中等偏适合</strong></div>
+          <div class="meter"><div class="fill" style="width:58%;background:linear-gradient(90deg,#22d3ee,#5aa7ff)"></div></div>
+          <p class="metric-desc">建议围绕主线，不宜泛题材追高。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">3. 行情领域组件</h2>
+        <p class="panel-subtitle">指数卡、榜单、新闻、图表是首页和情绪页的核心组件。</p>
+      </div>
+      <div class="meta-note">Market Domain</div>
+    </div>
+    <div class="panel-body">
+      <div class="section-title">IndexCard</div>
+      <div class="grid four">
+        <div class="index-card rise"><h4>上证指数</h4><strong class="up num">3,148.62</strong><div class="index-bottom"><span class="up">+21.27</span><span class="up">+0.68%</span></div></div>
+        <div class="index-card rise"><h4>创业板指</h4><strong class="up num">1,942.31</strong><div class="index-bottom"><span class="up">+29.83</span><span class="up">+1.56%</span></div></div>
+        <div class="index-card fall"><h4>科创50</h4><strong class="down num">898.77</strong><div class="index-bottom"><span class="down">-4.23</span><span class="down">-0.47%</span></div></div>
+        <div class="index-card fall"><h4>中证1000</h4><strong class="down num">6,390.88</strong><div class="index-bottom"><span class="down">-7.45</span><span class="down">-0.12%</span></div></div>
+      </div>
+
+      <div class="section-title">RankList</div>
+      <div class="grid two">
+        <div class="card">
+          <div class="tabs"><div class="tab active">领涨板块</div><div class="tab">领跌板块</div></div>
+          <div class="rank-list">
+            <div class="rank-item"><div class="rank-no">1</div><div><h5>算力租赁</h5><p>主线持续强化</p></div><div class="heat">热度 96</div><div class="change up">+5.82%</div></div>
+            <div class="rank-item"><div class="rank-no">2</div><div><h5>黄金概念</h5><p>避险与涨价共振</p></div><div class="heat">热度 91</div><div class="change up">+4.37%</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tabs"><div class="tab active">领涨个股</div><div class="tab">领跌个股</div></div>
+          <div class="rank-list">
+            <div class="rank-item"><div class="rank-no">1</div><div><h5>华峰算力</h5><p>市场高度龙头</p></div><div class="heat">换手 21.8%</div><div class="change up">+10.01%</div></div>
+            <div class="rank-item"><div class="rank-no">2</div><div><h5>鸿远黄金</h5><p>黄金趋势加强</p></div><div class="heat">封单 3.2 亿</div><div class="change up">+9.96%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">ChartCard</div>
+      <div class="grid two">
+        <div class="card chart-card">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div><h4 style="margin:0 0 6px">历史成交额</h4><p class="metric-desc">支持 5 / 10 / 20 日切换和 hover 联动。</p></div>
+            <div class="chart-tools"><button class="range-btn">5日</button><button class="range-btn active">10日</button><button class="range-btn">20日</button></div>
+          </div>
+          <div class="chart-box"><div class="chart-line"><svg viewBox="0 0 400 140" preserveAspectRatio="none"><polyline fill="none" stroke="#f7c76b" stroke-width="4" points="0,120 55,90 110,72 165,82 220,58 280,36 340,26 400,48"/></svg></div></div>
+        </div>
+        <div class="card chart-card">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div><h4 style="margin:0 0 6px">历史涨跌</h4><p class="metric-desc">上涨家数与下跌家数双线展示。</p></div>
+            <div class="chart-tools"><button class="range-btn">5日</button><button class="range-btn active">10日</button><button class="range-btn">20日</button></div>
+          </div>
+          <div class="chart-box"><div class="chart-line"><svg viewBox="0 0 400 140" preserveAspectRatio="none"><polyline fill="none" stroke="#ff4d5a" stroke-width="4" points="0,80 60,55 120,92 180,64 240,104 300,86 400,118"/><polyline fill="none" stroke="#15c784" stroke-width="4" points="0,92 60,104 120,58 180,94 240,45 300,70 400,35"/></svg></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">4. 涨跌停板与连板天梯</h2>
+        <p class="panel-subtitle">情绪分析页核心模块：上方看涨跌停强弱，下方看连板结构和接力状态。</p>
+      </div>
+      <div class="meta-note">Emotion Domain</div>
+    </div>
+    <div class="panel-body">
+      <div class="section-title">LimitBoard</div>
+      <div class="grid six">
+        <div class="limit-card"><div class="limit-head red">涨停板</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num up">59</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">53</div><div class="limit-caption">昨日</div></div></div></div></div>
+        <div class="limit-card"><div class="limit-head red">涨停封板率</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num up">69%</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">77%</div><div class="limit-caption">昨日</div></div></div></div></div>
+        <div class="limit-card"><div class="limit-head red">涨停打开</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num up">26</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">16</div><div class="limit-caption">昨日</div></div></div></div></div>
+        <div class="limit-card"><div class="limit-head green">跌停板</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num down">8</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">1</div><div class="limit-caption">昨日</div></div></div></div></div>
+        <div class="limit-card"><div class="limit-head green">跌停封板率</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num down">80%</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">25%</div><div class="limit-caption">昨日</div></div></div></div></div>
+        <div class="limit-card"><div class="limit-head green">跌停打开</div><div class="limit-body"><div class="limit-values"><div class="limit-stat"><div class="limit-num down">2</div><div class="limit-caption">今日</div></div><div class="limit-stat"><div class="limit-num">3</div><div class="limit-caption">昨日</div></div></div></div></div>
+      </div>
+
+      <div class="section-title">LimitUpLadder</div>
+      <div class="ladder-stage">
+        <div class="stage-col"><div class="stage-top"><span class="stage-level">首板</span><span class="stage-count">43</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">18.6%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">81.4%</strong></div></div><div class="stock-chip"><h5>中科智联</h5><p>算力分支 · 首板放量</p></div><button class="stage-more">查看全部 43 只</button></div>
+        <div class="stage-col"><div class="stage-top"><span class="stage-level">2板</span><span class="stage-count">8</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">62.5%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">37.5%</strong></div></div><div class="stock-chip"><h5>天岳智能</h5><p>AI 应用 · 竞价强势</p></div><button class="stage-more">查看全部 8 只</button></div>
+        <div class="stage-col"><div class="stage-top"><span class="stage-level">3板</span><span class="stage-count">5</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">60.0%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">40.0%</strong></div></div><div class="stock-chip"><h5>瑞能通信</h5><p>CPO 概念 · 高开高走</p></div><button class="stage-more">查看全部 5 只</button></div>
+        <div class="stage-col hot"><div class="stage-top"><span class="stage-level up">4板</span><span class="stage-count">3</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">66.7%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">33.3%</strong></div></div><div class="stock-chip"><h5>盛景铜业</h5><p>有色金属 · 资源轮动</p></div><button class="stage-more">查看全部 3 只</button></div>
+        <div class="stage-col hot"><div class="stage-top"><span class="stage-level up">5板</span><span class="stage-count">2</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">50.0%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">50.0%</strong></div></div><div class="stock-chip"><h5>鸿远黄金</h5><p>黄金概念 · 趋势加强</p></div><button class="stage-more">查看全部 2 只</button></div>
+        <div class="stage-col hot"><div class="stage-top"><span class="stage-level up">6板</span><span class="stage-count">1</span></div><div class="stage-progress"><div class="progress-cell"><span>晋级率</span><strong class="up">50.0%</strong></div><div class="progress-cell"><span>淘汰率</span><strong class="down">50.0%</strong></div></div><div class="stock-chip"><h5>华峰算力</h5><p>AI 算力 · 市场高度龙头</p></div><button class="stage-more">查看全部 1 只</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">5. Drawer / News / Advice</h2>
+        <p class="panel-subtitle">复杂股票名单进入 Drawer；资讯和建议模块保持克制。</p>
+      </div>
+      <div class="meta-note">Interaction</div>
+    </div>
+    <div class="panel-body">
+      <div class="grid two">
+        <div class="card">
+          <div class="tabs"><div class="tab active">今日热点</div><div class="tab">政策宏观</div><div class="tab">个股新闻</div></div>
+          <article class="news-item"><div class="news-tag">宏观</div><div><h4 class="news-title">央行公开市场继续净投放，流动性保持合理充裕。</h4><p class="news-desc">对高股息与金融权重形成支撑。</p></div><div class="heat">14:12</div></article>
+          <article class="news-item"><div class="news-tag">产业</div><div><h4 class="news-title">AI 算力链再度活跃，带动租赁与液冷方向走强。</h4><p class="news-desc">当前盘面最具持续性的主线之一。</p></div><div class="heat">13:48</div></article>
+        </div>
+        <div class="drawer-demo">
+          <div class="drawer-main">主页面保持总览感<br/>完整股票列表进入右侧抽屉</div>
+          <aside class="drawer-panel"><h4>3板 · 全部 5 只</h4><p>支持搜索、排序、行业筛选、加入自选。</p><div class="stock-chip"><h5>瑞能通信</h5><p>CPO 概念 · 高开高走</p></div><div style="height:8px"></div><div class="stock-chip"><h5>金盛矿业</h5><p>黄金链 · 换手充分</p></div></aside>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
