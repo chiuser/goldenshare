@@ -47,6 +47,12 @@ class OperationsScheduleService:
         created_by_user_id: int,
     ) -> OpsSchedule:
         self._validate_target(target_type, target_key)
+        normalized_params = dict(params_json or {})
+        self.task_run_service.validate_schedule_target(
+            target_type=target_type,
+            target_key=target_key,
+            params_json=normalized_params,
+        )
         ensure_schedule_type(schedule_type)
         ensure_timezone(timezone_name)
         trigger_mode = self._normalize_trigger_mode(trigger_mode)
@@ -68,7 +74,7 @@ class OperationsScheduleService:
             timezone=timezone_name,
             calendar_policy=calendar_policy,
             probe_config_json=dict(probe_config_json or {}),
-            params_json=dict(params_json or {}),
+            params_json=normalized_params,
             retry_policy_json=dict(retry_policy_json or {}),
             concurrency_policy_json=dict(concurrency_policy_json or {}),
             next_run_at=normalized_next_run_at,
@@ -161,6 +167,12 @@ class OperationsScheduleService:
 
         if schedule.schedule_type == "once" and schedule.status == "active" and schedule.next_run_at is None:
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
+
+        self.task_run_service.validate_schedule_target(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            params_json=dict(schedule.params_json or {}),
+        )
 
         schedule.updated_by_user_id = updated_by_user_id
         self.probe_binding_service.sync_for_schedule(session, schedule=schedule, actor_user_id=updated_by_user_id)

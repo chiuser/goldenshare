@@ -96,6 +96,28 @@ def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, ops_sched
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 3, 30, 11, 5, tzinfo=timezone.utc)
 
 
+def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_time_params(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="workflow",
+        target_key="daily_moneyflow_maintenance",
+        schedule_type="once",
+        params_json={},
+        next_run_at=datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.task_type == "workflow"
+    assert task_run.time_input_json == {"mode": "point"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "point"}
+
+
 def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_factory) -> None:
     task_run = task_run_factory(status="queued", resource_key="daily", title="股票日线")
     dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success", rows_fetched=10, rows_saved=8, rows_rejected=2))

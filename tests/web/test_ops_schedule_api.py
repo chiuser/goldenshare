@@ -52,6 +52,53 @@ def test_ops_schedule_create_supports_schedulable_workflow_and_records_revision(
     assert revisions_payload["items"][0]["changed_by_username"] == "admin"
 
 
+def test_ops_schedule_create_allows_daily_workflow_without_static_trade_date(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "workflow",
+            "target_key": "daily_moneyflow_maintenance",
+            "display_name": "每日资金流",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "params_json": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["target_key"] == "daily_moneyflow_maintenance"
+    assert response.json()["params_json"] == {}
+
+
+def test_ops_schedule_create_rejects_workflow_range_without_complete_dates(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "workflow",
+            "target_key": "daily_moneyflow_maintenance",
+            "display_name": "每日资金流",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "params_json": {"time_input": {"mode": "range", "start_date": "2026-04-24"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "自动流程 每日资金流向维护 的自动任务必须同时填写开始日期和结束日期"
+
+
 def test_ops_schedule_create_rejects_unschedulable_target(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
-from src.ops.action_catalog import get_maintenance_action, get_target_display_name, get_workflow_definition
+from src.ops.action_catalog import (
+    WorkflowDefinition,
+    get_maintenance_action,
+    get_target_display_name,
+    get_workflow_definition,
+)
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -76,6 +81,24 @@ class TaskRunCommandService:
             schedule_id=schedule_id,
         )
         return self.create_task_run(session, context=context)
+
+    def validate_schedule_target(
+        self,
+        *,
+        target_type: str,
+        target_key: str,
+        params_json: dict[str, Any] | None,
+        trigger_source: str = "schedule",
+    ) -> None:
+        context = self._context_from_schedule_target(
+            target_type=target_type,
+            target_key=target_key,
+            params_json=dict(params_json or {}),
+            trigger_source=trigger_source,
+            requested_by_user_id=None,
+            schedule_id=None,
+        )
+        self._validate_context(context)
 
     def create_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
         self._validate_context(context)
@@ -171,7 +194,11 @@ class TaskRunCommandService:
                 task_type="dataset_action",
                 resource_key=definition.dataset_key,
                 action=action,
-                time_input=self._extract_time_input(params_json),
+                time_input=self._resolve_schedule_time_input(
+                    target_type=target_type,
+                    target_key=target_key,
+                    params_json=params_json,
+                ),
                 filters=self._extract_filters(params_json),
                 request_payload=self._dataset_action_request_payload(params_json),
                 trigger_source=trigger_source,
@@ -179,13 +206,19 @@ class TaskRunCommandService:
                 schedule_id=schedule_id,
             )
         if target_type == "workflow":
-            if get_workflow_definition(target_key) is None:
+            workflow = get_workflow_definition(target_key)
+            if workflow is None:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
             return TaskRunCreateContext(
                 task_type="workflow",
                 resource_key=None,
                 action="maintain",
-                time_input=self._extract_time_input(params_json),
+                time_input=self._resolve_schedule_time_input(
+                    target_type=target_type,
+                    target_key=target_key,
+                    params_json=params_json,
+                    workflow=workflow,
+                ),
                 filters=self._extract_filters(params_json),
                 request_payload={**params_json, "target_type": target_type, "target_key": target_key},
                 trigger_source=trigger_source,
@@ -224,8 +257,14 @@ class TaskRunCommandService:
             return
         if context.task_type == "workflow":
             payload_target_key = str((context.request_payload or {}).get("target_key") or "")
-            if not payload_target_key or get_workflow_definition(payload_target_key) is None:
+            workflow = get_workflow_definition(payload_target_key) if payload_target_key else None
+            if workflow is None:
                 raise WebAppError(status_code=422, code="validation_error", message="自动流程任务缺少流程定义")
+            TaskRunCommandService._validate_workflow_time_input(
+                workflow=workflow,
+                time_input=dict(context.time_input or {}),
+                source=context.trigger_source,
+            )
             return
         if context.task_type == "maintenance_action":
             payload_target_key = str((context.request_payload or {}).get("target_key") or "")
@@ -273,6 +312,83 @@ class TaskRunCommandService:
                 "end_month": params_json.get("end_month"),
             }
         return {"mode": "none"}
+
+    @classmethod
+    def _resolve_schedule_time_input(
+        cls,
+        *,
+        target_type: str,
+        target_key: str,
+        params_json: dict[str, Any],
+        workflow: WorkflowDefinition | None = None,
+    ) -> dict[str, Any]:
+        if cls._has_explicit_time_input(params_json):
+            return cls._extract_time_input(params_json)
+        if target_type == "workflow":
+            resolved_workflow = workflow or get_workflow_definition(target_key)
+            if resolved_workflow is None:
+                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+            return cls._default_workflow_time_input(resolved_workflow)
+        return {"mode": "none"}
+
+    @staticmethod
+    def _has_explicit_time_input(params_json: dict[str, Any]) -> bool:
+        if isinstance(params_json.get("time_input"), dict):
+            return True
+        return any(
+            params_json.get(key) not in (None, "")
+            for key in ("trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month")
+        )
+
+    @staticmethod
+    def _default_workflow_time_input(workflow: WorkflowDefinition) -> dict[str, Any]:
+        keys = {param.key for param in workflow.parameters}
+        if not keys:
+            return {"mode": "none"}
+        if workflow.workflow_profile == "point_incremental" and "trade_date" in keys:
+            return {"mode": "point"}
+        raise WebAppError(
+            status_code=422,
+            code="validation_error",
+            message=f"自动流程 {workflow.display_name} 需要明确填写时间范围后才能用于自动任务",
+        )
+
+    @staticmethod
+    def _validate_workflow_time_input(*, workflow: WorkflowDefinition, time_input: dict[str, Any], source: str) -> None:
+        keys = {param.key for param in workflow.parameters}
+        mode = str(time_input.get("mode") or "none").strip() or "none"
+        if not keys:
+            return
+        if mode == "point":
+            if "trade_date" not in keys:
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message=f"自动流程 {workflow.display_name} 不支持按单日触发",
+                )
+            return
+        if mode == "range":
+            if not {"start_date", "end_date"}.issubset(keys):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message=f"自动流程 {workflow.display_name} 不支持按区间触发",
+                )
+            if source == "schedule":
+                start_date = time_input.get("start_date")
+                end_date = time_input.get("end_date")
+                if start_date in (None, "") or end_date in (None, ""):
+                    raise WebAppError(
+                        status_code=422,
+                        code="validation_error",
+                        message=f"自动流程 {workflow.display_name} 的自动任务必须同时填写开始日期和结束日期",
+                    )
+            return
+        raise WebAppError(
+            status_code=422,
+            code="validation_error",
+            message=f"自动流程 {workflow.display_name} 缺少可执行的时间配置",
+        )
 
     @staticmethod
     def _extract_filters(params_json: dict[str, Any]) -> dict[str, Any]:

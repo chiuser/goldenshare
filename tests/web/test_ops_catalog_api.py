@@ -27,6 +27,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     payload = response.json()
     actions = {item["key"]: item for item in payload["actions"]}
     workflow_keys = {item["key"] for item in payload["workflows"]}
+    workflows = {item["key"]: item for item in payload["workflows"]}
     sources = {item["source_key"]: item for item in payload["sources"]}
 
     assert "daily.maintain" in actions
@@ -44,6 +45,20 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
+    assert [param["key"] for param in workflows["daily_market_close_maintenance"]["parameters"]] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+    ]
+    assert [param["key"] for param in workflows["daily_moneyflow_maintenance"]["parameters"]] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+    ]
+    assert [param["key"] for param in workflows["index_extension_maintenance"]["parameters"]] == [
+        "start_date",
+        "end_date",
+    ]
     assert sources["tushare"]["display_name"] == "Tushare"
     assert sources["biying"]["display_name"] == "Biying"
     assert sources["all"]["display_name"] == "全部来源"

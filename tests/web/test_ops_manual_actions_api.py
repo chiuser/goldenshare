@@ -87,6 +87,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert dc_member_filters["idx_type"]["multi_value"] is True
     assert dc_member_filters["idx_type"]["options"] == ["行业板块", "概念板块", "地域板块"]
 
+    assert actions["workflow:daily_market_close_maintenance"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["workflow:daily_market_close_maintenance"]["time_form"]["control"] == "trade_date_or_range"
+    assert actions["workflow:daily_moneyflow_maintenance"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert actions["workflow:index_extension_maintenance"]["time_form"]["allowed_modes"] == ["range"]
+
 
 def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
@@ -171,13 +176,27 @@ def test_ops_manual_action_task_run_uses_workflow_catalog_title(app_client, user
     response = app_client.post(
         "/api/v1/ops/manual-actions/workflow:daily_market_close_maintenance/task-runs",
         headers=headers,
-        json={"time_input": {"mode": "none"}, "filters": {}},
+        json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": {}},
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["run"]["task_type"] == "workflow"
     assert payload["run"]["title"] == "每日收盘后维护"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
+
+
+def test_ops_manual_action_task_run_rejects_workflow_without_required_time_mode(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/workflow:daily_moneyflow_maintenance/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "不支持的时间模式：none"
 
 
 def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, user_factory) -> None:

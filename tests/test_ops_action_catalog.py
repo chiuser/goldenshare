@@ -56,6 +56,25 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
             assert definition.dataset_key in dataset_keys
 
 
+def test_workflow_time_contracts_match_step_requirements() -> None:
+    daily_market_close = WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"]
+    daily_moneyflow = WORKFLOW_DEFINITION_REGISTRY["daily_moneyflow_maintenance"]
+    index_extension = WORKFLOW_DEFINITION_REGISTRY["index_extension_maintenance"]
+    index_kline = WORKFLOW_DEFINITION_REGISTRY["index_kline_maintenance_pipeline"]
+
+    assert [param.key for param in daily_market_close.parameters] == ["trade_date", "start_date", "end_date"]
+    assert daily_market_close.workflow_profile == "point_incremental"
+
+    assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
+    assert daily_moneyflow.workflow_profile == "point_incremental"
+
+    assert [param.key for param in index_extension.parameters] == ["start_date", "end_date"]
+    assert index_extension.workflow_profile == "range_rebuild"
+
+    assert [param.key for param in index_kline.parameters] == ["start_date", "end_date"]
+    assert index_kline.workflow_profile == "range_rebuild"
+
+
 def test_workflow_catalog_does_not_use_legacy_execution_language() -> None:
     legacy_repair_term = "back" + "fill"
     for workflow in WORKFLOW_DEFINITION_REGISTRY.values():

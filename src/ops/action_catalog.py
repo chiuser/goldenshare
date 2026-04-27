@@ -117,6 +117,12 @@ END_DATE_PARAM = ActionParameter(
     param_type="date",
     description="维护窗口的结束日期。",
 )
+TRADE_DATE_PARAM = ActionParameter(
+    key="trade_date",
+    display_name="处理日期",
+    param_type="date",
+    description="只处理一个交易日。",
+)
 
 
 MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
@@ -186,6 +192,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         key="daily_market_close_maintenance",
         display_name="每日收盘后维护",
         description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日维护工作流。",
+        parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("daily", "daily"),
             _dataset_workflow_step("adj_factor", "adj_factor"),
@@ -214,6 +221,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("limit_cpt_list", "limit_cpt_list"),
             _dataset_workflow_step("kpl_concept_cons", "kpl_concept_cons"),
         ),
+        workflow_profile="point_incremental",
         default_schedule_policy="trading_day_close",
         schedule_enabled=True,
         manual_enabled=True,
@@ -222,6 +230,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         key="daily_moneyflow_maintenance",
         display_name="每日资金流向维护",
         description="覆盖个股、概念、行业、板块和市场维度的资金流向每日维护工作流。",
+        parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("moneyflow", "moneyflow"),
             _dataset_workflow_step("moneyflow_ths", "moneyflow_ths"),
@@ -231,6 +240,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("moneyflow_ind_dc", "moneyflow_ind_dc"),
             _dataset_workflow_step("moneyflow_mkt_dc", "moneyflow_mkt_dc"),
         ),
+        workflow_profile="point_incremental",
         schedule_enabled=True,
         manual_enabled=True,
     ),
@@ -249,6 +259,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         key="index_extension_maintenance",
         display_name="指数扩展数据维护",
         description="批量维护指数日线、周线、月线、日指标和成分权重。",
+        parameters=(START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("index_daily", "index_daily"),
             _dataset_workflow_step("index_weekly", "index_weekly"),
@@ -256,6 +267,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("index_daily_basic", "index_daily_basic"),
             _dataset_workflow_step("index_weight", "index_weight"),
         ),
+        workflow_profile="range_rebuild",
         manual_enabled=True,
     ),
     "index_kline_maintenance_pipeline": WorkflowDefinition(
@@ -269,6 +281,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("index_monthly", "index_monthly"),
             WorkflowStepDefinition("rebuild_index_serving", "maintenance.rebuild_index_kline_serving", "补齐指数服务表"),
         ),
+        workflow_profile="range_rebuild",
         manual_enabled=True,
         schedule_enabled=False,
     ),
