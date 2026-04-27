@@ -66,7 +66,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("worker_finalize_error", "执行收尾阶段异常", "runtime", "检查任务终态写入和快照刷新链路"),
     IngestionCodebookEntry("workflow_invalid", "工作流定义异常", "dispatcher", "检查 workflow spec 定义"),
     IngestionCodebookEntry("workflow_step_failed", "工作流步骤失败", "dispatcher", "定位失败步骤与上下游依赖"),
-    IngestionCodebookEntry("execution_failed", "执行失败（统一兜底）", "runtime", "查看 error_message 与运行事件"),
+    IngestionCodebookEntry("ingestion_failed", "维护执行失败（统一兜底）", "runtime", "查看 error_message 与运行事件"),
 )
 
 INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (

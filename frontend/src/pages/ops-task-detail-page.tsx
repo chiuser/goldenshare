@@ -135,7 +135,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
 
   const view = viewQuery.data;
   const headline = view ? buildStatusHeadline(view) : null;
-  const successReturnHref = buildDatasetCardPageHref(view?.run.resource_key);
+  const successReturnHref = buildDatasetCardPageHref(view?.run.source_key);
   const nodeColumns: DataTableColumn<TaskRunViewResponse["nodes"][number]>[] = [
     {
       key: "sequence",

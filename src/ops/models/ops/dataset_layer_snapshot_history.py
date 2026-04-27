@@ -32,5 +32,5 @@ class DatasetLayerSnapshotHistory(Base):
     message: Mapped[str | None] = mapped_column(Text)
     calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     snapshot_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    execution_id: Mapped[int | None] = mapped_column(BigInteger)
+    task_run_id: Mapped[int | None] = mapped_column(BigInteger)
     status_reason_code: Mapped[str | None] = mapped_column(String(64))

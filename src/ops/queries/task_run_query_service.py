@@ -10,6 +10,7 @@ from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
+from src.ops.action_catalog import get_manual_action_key_for_target
 from src.ops.schemas.task_run import (
     TaskRunActions,
     TaskRunDisplayField,
@@ -135,6 +136,7 @@ class TaskRunQueryService:
                 id=task_run.id,
                 task_type=task_run.task_type,
                 resource_key=task_run.resource_key,
+                source_key=self._source_key(task_run),
                 action_key=self._action_key(task_run),
                 action=task_run.action,
                 title=task_run.title,
@@ -246,7 +248,24 @@ class TaskRunQueryService:
             except KeyError:
                 return None
         target_key = str((task_run.request_payload_json or {}).get("target_key") or "").strip()
+        if task_run.task_type == "workflow" and target_key:
+            return get_manual_action_key_for_target("workflow", target_key)
         return target_key or None
+
+    @staticmethod
+    def _source_key(task_run: TaskRun) -> str | None:
+        if task_run.task_type != "dataset_action" or not task_run.resource_key:
+            return None
+        try:
+            definition = get_dataset_definition(task_run.resource_key)
+        except KeyError:
+            return None
+        filter_source = (task_run.filters_json or {}).get("source_key")
+        if isinstance(filter_source, str) and filter_source.strip():
+            normalized = filter_source.strip().lower()
+            if normalized not in {"all", "__all__"}:
+                return normalized
+        return definition.source.source_key_default
 
     def _issue_summary(self, issue: TaskRunIssue | None) -> TaskRunIssueSummary | None:
         if issue is None:

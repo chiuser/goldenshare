@@ -100,7 +100,7 @@ class ScheduleProbeBindingService:
             templates.append(
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,
-                    trigger_mode="dataset_execution",
+                    trigger_mode="task_run",
                     workflow_key=schedule.target_key if schedule.target_type == "workflow" else None,
                     step_key=step_key,
                     source_key=source_key,

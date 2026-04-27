@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass(slots=True)
 class ProgressSnapshot:
-    execution_id: int | None
+    run_id: int | None
     dataset_key: str
     unit_total: int
     unit_done: int
@@ -26,7 +26,7 @@ class IngestionObserver:
     def report_progress(
         self,
         *,
-        execution_id: int | None,
+        run_id: int | None,
         dataset_key: str,
         unit_total: int,
         unit_done: int,
@@ -42,7 +42,7 @@ class IngestionObserver:
         if self.progress_reporter is None:
             return
         snapshot = ProgressSnapshot(
-            execution_id=execution_id,
+            run_id=run_id,
             dataset_key=dataset_key,
             unit_total=unit_total,
             unit_done=unit_done,

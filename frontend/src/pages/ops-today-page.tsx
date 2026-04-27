@@ -98,7 +98,7 @@ export function OpsTodayPage() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {overview.recent_executions.slice(0, 8).map((item) => (
+                {overview.recent_task_runs.slice(0, 8).map((item) => (
                   <Table.Tr key={item.id}>
                     <OpsTableCell align="left" width="36%">
                       <OpsTableCellText fw={600} size="sm">{item.title}</OpsTableCellText>

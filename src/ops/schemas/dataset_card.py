@@ -59,8 +59,8 @@ class DatasetCardItem(BaseModel):
     lag_days: int | None = None
     freshness_note: str | None = None
     primary_action_key: str | None = None
-    active_execution_status: str | None = None
-    active_execution_started_at: datetime | None = None
+    active_task_run_status: str | None = None
+    active_task_run_started_at: datetime | None = None
     auto_schedule_status: str
     auto_schedule_total: int
     auto_schedule_active: int

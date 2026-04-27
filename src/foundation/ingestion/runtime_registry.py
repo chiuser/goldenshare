@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.ingestion.service import DatasetMaintainService
-from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
-from src.foundation.kernel.contracts.ingestion_state_store import IngestionExecutionResultStore, IngestionRunRecorder
+from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
+from src.foundation.kernel.contracts.ingestion_state_store import IngestionResultStore, IngestionRunRecorder
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,16 +29,16 @@ def build_dataset_maintain_service(
     resource: str,
     session: Session,
     *,
-    execution_context: IngestionExecutionContext | None = None,
+    run_context: IngestionRunContext | None = None,
     run_recorder: IngestionRunRecorder | None = None,
-    execution_result_store: IngestionExecutionResultStore | None = None,
+    result_store: IngestionResultStore | None = None,
 ):
     get_dataset_definition(resource)
     service = DatasetMaintainService(
         session,
         dataset_key=resource,
-        execution_context=execution_context,
+        run_context=run_context,
         run_recorder=run_recorder,
-        execution_result_store=execution_result_store,
+        result_store=result_store,
     )
     return service

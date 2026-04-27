@@ -128,7 +128,7 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
     db_session.commit()
 
     TaskRunIngestionContext(db_session).update_progress(
-        execution_id=task_run.id,
+        run_id=task_run.id,
         current=1,
         total=5,
         message="unused structured progress",

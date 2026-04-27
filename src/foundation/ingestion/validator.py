@@ -107,7 +107,7 @@ class DatasetRequestValidator:
             trade_date=trade_date,
             start_date=start_date,
             end_date=end_date,
-            execution_id=request.execution_id,
+            run_id=request.run_id,
         )
 
     def _validate_point_incremental_anchor(

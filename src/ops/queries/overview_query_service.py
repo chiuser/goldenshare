@@ -27,7 +27,7 @@ class OpsOverviewQueryService:
         ).all()
         counts = {status: count for status, count in rows}
         today_kpis = self._build_today_kpis(session)
-        recent_executions = self.task_run_query_service.list_task_runs(session, limit=10).items
+        recent_task_runs = self.task_run_query_service.list_task_runs(session, limit=10).items
         recent_failures = self.task_run_query_service.list_task_runs(session, status="failed", limit=5).items
         freshness_response = self.freshness_query_service.build_freshness(session)
         freshness_summary, _ = self.freshness_query_service.summarize(freshness_response)
@@ -38,17 +38,17 @@ class OpsOverviewQueryService:
                 update={"attention_dataset_count": len(attention_datasets)},
             ),
             kpis=OpsOverviewKpis(
-                total_executions=sum(counts.values()),
-                queued_executions=counts.get("queued", 0),
-                running_executions=counts.get("running", 0) + counts.get("canceling", 0),
-                success_executions=counts.get("success", 0),
-                failed_executions=counts.get("failed", 0),
-                canceled_executions=counts.get("canceled", 0),
-                partial_success_executions=counts.get("partial_success", 0),
+                total_task_runs=sum(counts.values()),
+                queued_task_runs=counts.get("queued", 0),
+                running_task_runs=counts.get("running", 0) + counts.get("canceling", 0),
+                success_task_runs=counts.get("success", 0),
+                failed_task_runs=counts.get("failed", 0),
+                canceled_task_runs=counts.get("canceled", 0),
+                partial_success_task_runs=counts.get("partial_success", 0),
             ),
             freshness_summary=freshness_summary,
             lagging_datasets=attention_datasets,
-            recent_executions=recent_executions,
+            recent_task_runs=recent_task_runs,
             recent_failures=recent_failures,
         )
 

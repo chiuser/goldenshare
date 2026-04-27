@@ -128,7 +128,7 @@ class ProbeQueryService:
                     message=log.message,
                     payload_json=dict(log.payload_json or {}),
                     probed_at=log.probed_at,
-                    triggered_execution_id=log.triggered_execution_id,
+                    triggered_task_run_id=log.triggered_task_run_id,
                     duration_ms=log.duration_ms,
                     rule_version=log.rule_version,
                     result_code=log.result_code,

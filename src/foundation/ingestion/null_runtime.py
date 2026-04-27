@@ -3,18 +3,18 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
-from src.foundation.kernel.contracts.ingestion_state_store import IngestionExecutionResultStore, IngestionRunRecorder
+from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
+from src.foundation.kernel.contracts.ingestion_state_store import IngestionResultStore, IngestionRunRecorder
 
 
-class NullExecutionContext(IngestionExecutionContext):
-    def is_cancel_requested(self, *, execution_id: int) -> bool:
+class NullRunContext(IngestionRunContext):
+    def is_cancel_requested(self, *, run_id: int) -> bool:
         return False
 
     def update_progress(
         self,
         *,
-        execution_id: int,
+        run_id: int,
         current: int,
         total: int,
         message: str,
@@ -27,8 +27,8 @@ class NullExecutionContext(IngestionExecutionContext):
 
 
 class NullRunRecorder(IngestionRunRecorder):
-    def start_run(self, *, dataset_key: str, run_mode: str, execution_id: int | None = None) -> object:
-        _ = (dataset_key, run_mode, execution_id)
+    def start_run(self, *, dataset_key: str, run_mode: str, run_id: int | None = None) -> object:
+        _ = (dataset_key, run_mode, run_id)
         return object()
 
     def finish_run(
@@ -44,8 +44,8 @@ class NullRunRecorder(IngestionRunRecorder):
         return None
 
 
-class NullExecutionResultStore(IngestionExecutionResultStore):
-    def record_execution_outcome(
+class NullIngestionResultStore(IngestionResultStore):
+    def record_run_outcome(
         self,
         *,
         dataset_key: str,

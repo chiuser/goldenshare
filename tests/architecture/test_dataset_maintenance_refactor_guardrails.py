@@ -32,7 +32,7 @@ def _python_and_frontend_files(root: Path) -> list[Path]:
     ]
 
 
-def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None:
+def test_active_code_does_not_reference_legacy_dataset_run_names() -> None:
     forbidden_tokens = (
         "sync" + "_daily",
         "sync" + "_history",
@@ -46,6 +46,18 @@ def test_active_code_does_not_reference_legacy_dataset_execution_names() -> None
         "sync" + "_run" + "_log",
         "History" + "BackfillService",
         "history" + "_back" + "fill_service",
+        "ingestion_" + "execution" + "_context",
+        "Ingestion" + "Execution" + "Context",
+        "Null" + "Execution" + "Context",
+        "Null" + "Execution" + "ResultStore",
+        "execution" + "_id",
+        "triggered_" + "execution" + "_id",
+        "created_" + "executions",
+        "dataset_" + "execution",
+        "execution_" + "summary",
+        "record_" + "execution" + "_outcome",
+        "execution" + "_failed",
+        "execution" + "_canceled",
     )
     violations: list[str] = []
     for root in ACTIVE_CODE_ROOTS:
@@ -131,6 +143,12 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "probe_config.workflow_dataset_keys || []).map",
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
+        "route_" + "keys",
+        "active_" + "execution_" + "status",
+        "active_" + "execution_" + "started_at",
+        "recent_" + "executions",
+        "total_" + "executions",
+        "resourceKey.startsWith(\"biying_",
     )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):

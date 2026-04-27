@@ -152,13 +152,13 @@ export interface OpsOverviewResponse {
     attention_dataset_count: number;
   };
   kpis: {
-    total_executions: number;
-    queued_executions: number;
-    running_executions: number;
-    success_executions: number;
-    failed_executions: number;
-    canceled_executions: number;
-    partial_success_executions: number;
+    total_task_runs: number;
+    queued_task_runs: number;
+    running_task_runs: number;
+    success_task_runs: number;
+    failed_task_runs: number;
+    canceled_task_runs: number;
+    partial_success_task_runs: number;
   };
   freshness_summary: {
     total_datasets: number;
@@ -182,7 +182,7 @@ export interface OpsOverviewResponse {
     recent_failure_summary?: string | null;
     recent_failure_at?: string | null;
   }>;
-  recent_executions: TaskRunListResponse["items"];
+  recent_task_runs: TaskRunListResponse["items"];
   recent_failures: TaskRunListResponse["items"];
 }
 
@@ -228,8 +228,8 @@ export interface OpsFreshnessResponse {
       auto_schedule_total: number;
       auto_schedule_active: number;
       auto_schedule_next_run_at: string | null;
-      active_execution_status: string | null;
-      active_execution_started_at: string | null;
+      active_task_run_status: string | null;
+      active_task_run_started_at: string | null;
     }>;
   }>;
 }
@@ -239,6 +239,7 @@ export interface ScheduleListResponse {
     id: number;
     target_type: string;
     target_key: string;
+    manual_action_key: string | null;
     target_display_name: string | null;
     display_name: string;
     status: string;
@@ -256,6 +257,7 @@ export interface ScheduleDetailResponse {
   id: number;
   target_type: string;
   target_key: string;
+  manual_action_key: string | null;
   target_display_name: string | null;
   display_name: string;
   status: string;
@@ -369,6 +371,7 @@ export interface TaskRunViewResponse {
     id: number;
     task_type: string;
     resource_key: string | null;
+    source_key: string | null;
     action_key: string | null;
     action: string;
     title: string;
@@ -530,7 +533,7 @@ export interface OpsManualActionsResponse {
     group_order: number;
     actions: Array<{
       action_key: string;
-      action_type: "dataset_action" | "job" | "workflow";
+      action_type: "dataset_action" | "workflow";
       display_name: string;
       description: string;
       resource_key: string | null;
@@ -563,7 +566,6 @@ export interface OpsManualActionsResponse {
       }>;
       search_keywords: string[];
       action_order: number;
-      route_keys: string[];
     }>;
   }>;
 }
@@ -778,8 +780,8 @@ export interface DatasetCardListResponse {
       lag_days: number | null;
       freshness_note: string | null;
       primary_action_key: string | null;
-      active_execution_status: string | null;
-      active_execution_started_at: string | null;
+      active_task_run_status: string | null;
+      active_task_run_started_at: string | null;
       auto_schedule_status: string;
       auto_schedule_total: number;
       auto_schedule_active: number;

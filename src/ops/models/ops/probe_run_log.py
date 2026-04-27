@@ -23,7 +23,7 @@ class ProbeRunLog(Base):
     message: Mapped[str | None] = mapped_column(Text)
     payload_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     probed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    triggered_execution_id: Mapped[int | None] = mapped_column(BigInteger)
+    triggered_task_run_id: Mapped[int | None] = mapped_column(BigInteger)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     rule_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     result_code: Mapped[str] = mapped_column(String(32), nullable=False, default="miss", server_default="miss")

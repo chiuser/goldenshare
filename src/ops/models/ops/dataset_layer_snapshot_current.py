@@ -31,5 +31,5 @@ class DatasetLayerSnapshotCurrent(Base):
     calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     state_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     status_reason_code: Mapped[str | None] = mapped_column(String(64))
-    execution_id: Mapped[int | None] = mapped_column(BigInteger)
+    task_run_id: Mapped[int | None] = mapped_column(BigInteger)
     run_profile: Mapped[str | None] = mapped_column(String(32))

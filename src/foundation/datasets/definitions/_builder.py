@@ -27,6 +27,11 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     storage_row = dict(row["storage"])
     if "raw_table" not in storage_row:
         raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.raw_table explicitly")
+    if "transaction" not in row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare transaction explicitly")
+    transaction_row = dict(row["transaction"])
+    if "commit_policy" not in transaction_row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare transaction.commit_policy explicitly")
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
@@ -47,7 +52,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         ),
         observability=DatasetObservability(**row["observability"]),
         quality=DatasetQualityPolicy(**row["quality"]),
-        transaction=DatasetTransactionDefinition(**row.get("transaction", {})),
+        transaction=DatasetTransactionDefinition(**transaction_row),
     )
 
 

@@ -1,8 +1,8 @@
-export function buildDatasetCardPageHref(resourceKey: string | null | undefined): string {
-  if (!resourceKey) {
+export function buildDatasetCardPageHref(sourceKey: string | null | undefined): string {
+  if (!sourceKey) {
     return "/app/ops/v21/overview";
   }
-  return resourceKey.startsWith("biying_")
+  return sourceKey === "biying"
     ? "/app/ops/v21/datasets/biying"
     : "/app/ops/v21/datasets/tushare";
 }

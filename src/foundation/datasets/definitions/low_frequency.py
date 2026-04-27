@@ -134,7 +134,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
   'observability': {'progress_label': 'dividend', 'observed_field': 'ann_date', 'audit_applicable': True},
   'quality': {'reject_policy': 'record_rejections',
               'required_fields': ('ts_code', 'end_date', 'ann_date', 'div_proc', 'row_key_hash', 'event_key_hash')},
-  'transaction': {'commit_policy': 'task', 'idempotent_write_required': False, 'write_volume_assessment': ''}},
+  'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}},
  {'identity': {'dataset_key': 'stk_holdernumber', 'display_name': '股东户数', 'description': '维护股东户数数据。', 'aliases': ()},
   'domain': {'domain_key': 'low_frequency', 'domain_display_name': '低频数据', 'cadence': 'low_frequency'},
   'source': {'source_key_default': 'tushare',
@@ -220,4 +220,4 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'dividend', 'display_name': '分红
   'observability': {'progress_label': 'stk_holdernumber', 'observed_field': 'ann_date', 'audit_applicable': True},
   'quality': {'reject_policy': 'record_rejections',
               'required_fields': ('ts_code', 'end_date', 'row_key_hash', 'event_key_hash')},
-  'transaction': {'commit_policy': 'task', 'idempotent_write_required': False, 'write_volume_assessment': ''}})
+  'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}})

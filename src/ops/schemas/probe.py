@@ -87,7 +87,7 @@ class ProbeRunLogItem(BaseModel):
     message: str | None = None
     payload_json: dict
     probed_at: datetime
-    triggered_execution_id: int | None = None
+    triggered_task_run_id: int | None = None
     duration_ms: int | None = None
     rule_version: int | None = None
     result_code: str | None = None

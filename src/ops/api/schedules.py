@@ -48,16 +48,16 @@ def _require_admin_from_stream_token(session: Session, token: str) -> None:
 
 def _schedule_signature(session: Session) -> dict[str, str | int | None]:
     schedule_updated_at = session.scalar(select(func.max(OpsSchedule.updated_at)))
-    execution_requested_at = session.scalar(select(func.max(TaskRun.requested_at)))
-    active_executions = session.scalar(
+    task_run_requested_at = session.scalar(select(func.max(TaskRun.requested_at)))
+    active_task_runs = session.scalar(
         select(func.count())
         .select_from(TaskRun)
         .where(TaskRun.status.in_(("queued", "running", "canceling")))
     ) or 0
     return {
         "schedule_updated_at": schedule_updated_at.isoformat() if isinstance(schedule_updated_at, datetime) else None,
-        "execution_requested_at": execution_requested_at.isoformat() if isinstance(execution_requested_at, datetime) else None,
-        "active_executions": int(active_executions),
+        "task_run_requested_at": task_run_requested_at.isoformat() if isinstance(task_run_requested_at, datetime) else None,
+        "active_task_runs": int(active_task_runs),
     }
 
 

@@ -5,7 +5,7 @@ from datetime import date
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
 from src.foundation.ingestion.errors import IngestionError, StructuredError
-from src.foundation.ingestion.execution_errors import ExecutionCanceledError
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.progress import IngestionObserver
@@ -78,7 +78,7 @@ class IngestionExecutor:
 
         total_units = len(units)
         for index, unit in enumerate(units, start=1):
-            self._ensure_not_canceled(cancel_checker=cancel_checker, execution_id=request.execution_id)
+            self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
             unit_rows_fetched = 0
             unit_rows_written = 0
             unit_rows_rejected = 0
@@ -100,27 +100,24 @@ class IngestionExecutor:
                 rows_rejected += unit_rows_rejected
                 for reason_code, count in normalized.rejected_reasons.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
-                if definition.transaction.commit_policy == "unit":
-                    self.session.commit()
-                    rows_committed += unit_rows_written
+                self.session.commit()
+                rows_committed += unit_rows_written
                 unit_done += 1
             except IngestionError as exc:
                 unit_failed += 1
-                if definition.transaction.commit_policy == "unit":
-                    self.session.rollback()
+                self.session.rollback()
                 error_code = exc.structured_error.error_code
                 error_counts[error_code] = error_counts.get(error_code, 0) + 1
                 raise
             except Exception as exc:
                 unit_failed += 1
-                if definition.transaction.commit_policy == "unit":
-                    self.session.rollback()
+                self.session.rollback()
                 structured = self.error_mapper.map_exception(exc=exc, phase="executor", unit_id=unit.unit_id)
                 error_counts[structured.error_code] = error_counts.get(structured.error_code, 0) + 1
                 raise IngestionError(structured) from exc
             finally:
                 observer.report_progress(
-                    execution_id=request.execution_id,
+                    run_id=request.run_id,
                     dataset_key=request.dataset_key,
                     unit_total=total_units,
                     unit_done=unit_done,
@@ -137,12 +134,12 @@ class IngestionExecutor:
                         total=total_units,
                         rows_fetched=rows_fetched,
                         rows_written=rows_written,
-                        rows_committed=rows_committed if definition.transaction.commit_policy == "unit" else None,
+                        rows_committed=rows_committed,
                         rows_rejected=rows_rejected,
                         unit=unit,
                         unit_rows_fetched=unit_rows_fetched,
                         unit_rows_written=unit_rows_written,
-                        unit_rows_committed=unit_rows_written if definition.transaction.commit_policy == "unit" else None,
+                        unit_rows_committed=unit_rows_written,
                         unit_rows_rejected=unit_rows_rejected,
                         rejected_reason_counts=rejected_reason_counts,
                     ),
@@ -173,11 +170,11 @@ class IngestionExecutor:
         return None
 
     @staticmethod
-    def _ensure_not_canceled(*, cancel_checker, execution_id: int | None) -> None:  # type: ignore[no-untyped-def]
-        if execution_id is None or cancel_checker is None:
+    def _ensure_not_canceled(*, cancel_checker, run_id: int | None) -> None:  # type: ignore[no-untyped-def]
+        if run_id is None or cancel_checker is None:
             return
-        if cancel_checker(execution_id):
-            raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
+        if cancel_checker(run_id):
+            raise IngestionCanceledError("任务已收到停止请求，正在结束处理。")
 
     @classmethod
     def _build_progress_message(

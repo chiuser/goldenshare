@@ -172,7 +172,7 @@ class DatasetStatusSnapshotService:
                     message=item.freshness_note,
                     calculated_at=calculated_at,
                     snapshot_at=calculated_at,
-                    execution_id=None,
+                    task_run_id=None,
                     status_reason_code=DatasetStatusSnapshotService._status_reason_code(item.freshness_status),
                 )
             )
@@ -207,7 +207,7 @@ class DatasetStatusSnapshotService:
                 row.calculated_at = calculated_at
                 row.state_updated_at = calculated_at
                 row.status_reason_code = DatasetStatusSnapshotService._status_reason_code(status)
-                row.execution_id = None
+                row.task_run_id = None
                 row.run_profile = None
 
             upsert_stage("raw", item.freshness_status if projection.raw_enabled else "skipped", projection.notes)

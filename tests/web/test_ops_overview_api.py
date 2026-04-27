@@ -30,7 +30,7 @@ def test_ops_overview_summary_allows_non_admin(app_client, user_factory) -> None
     assert "total_datasets" in payload["freshness_summary"]
 
 
-def test_ops_overview_returns_kpis_recent_executions_and_failures(
+def test_ops_overview_returns_kpis_recent_task_runs_and_failures(
     app_client,
     db_session,
     user_factory,
@@ -144,18 +144,18 @@ def test_ops_overview_returns_kpis_recent_executions_and_failures(
     assert payload["today_kpis"]["queued_requests"] == 1
     assert payload["today_kpis"]["attention_dataset_count"] >= 1
     assert payload["kpis"] == {
-        "total_executions": 6,
-        "queued_executions": 1,
-        "running_executions": 1,
-        "success_executions": 2,
-        "failed_executions": 1,
-        "canceled_executions": 0,
-        "partial_success_executions": 1,
+        "total_task_runs": 6,
+        "queued_task_runs": 1,
+        "running_task_runs": 1,
+        "success_task_runs": 2,
+        "failed_task_runs": 1,
+        "canceled_task_runs": 0,
+        "partial_success_task_runs": 1,
     }
     assert payload["freshness_summary"]["total_datasets"] >= 2
     assert payload["freshness_summary"]["fresh_datasets"] >= 1
     assert any(item["dataset_key"] == "index_monthly" for item in payload["lagging_datasets"])
-    assert len(payload["recent_executions"]) == 6
+    assert len(payload["recent_task_runs"]) == 6
     assert len(payload["recent_failures"]) == 1
     assert payload["recent_failures"][0]["id"] == failed.id
     assert payload["recent_failures"][0]["primary_issue_title"] == "任务失败"

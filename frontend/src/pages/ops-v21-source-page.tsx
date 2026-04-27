@@ -86,13 +86,13 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const cards: SourceCardItem[] = (cardQuery.data?.groups || [])
     .flatMap((group) => group.items.map((item) => ({ group, item })))
     .map(({ group, item }) => {
-      const activeExecutionStatus = (item.active_execution_status || "").toLowerCase();
-      const hasActiveExecution = activeExecutionStatus === "queued" || activeExecutionStatus === "running" || activeExecutionStatus === "canceling";
+      const activeTaskRunStatus = (item.active_task_run_status || "").toLowerCase();
+      const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
       const status = toCardStatus(item.status);
-      const lastSyncText = hasActiveExecution
+      const lastSyncText = hasActiveTaskRun
         ? (
-            item.active_execution_started_at
-              ? `执行中（开始于 ${formatDateTimeLabel(item.active_execution_started_at)}）`
+            item.active_task_run_started_at
+              ? `执行中（开始于 ${formatDateTimeLabel(item.active_task_run_started_at)}）`
               : "执行中"
           )
         : item.last_sync_date

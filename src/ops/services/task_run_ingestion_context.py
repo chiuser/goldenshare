@@ -6,27 +6,27 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
+from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_node import TaskRunNode
 
 
-class TaskRunIngestionContext(IngestionExecutionContext):
+class TaskRunIngestionContext(IngestionRunContext):
     """Ops 侧进度适配：数据维护执行器只更新 TaskRun 当前快照。"""
 
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def is_cancel_requested(self, *, execution_id: int) -> bool:
+    def is_cancel_requested(self, *, run_id: int) -> bool:
         cancel_requested_at = self.session.execute(
-            select(TaskRun.cancel_requested_at).where(TaskRun.id == execution_id)
+            select(TaskRun.cancel_requested_at).where(TaskRun.id == run_id)
         ).scalar_one_or_none()
         return isinstance(cancel_requested_at, datetime)
 
     def update_progress(
         self,
         *,
-        execution_id: int,
+        run_id: int,
         current: int,
         total: int,
         message: str,
@@ -40,7 +40,7 @@ class TaskRunIngestionContext(IngestionExecutionContext):
             return
         progress_session = Session(bind=bind, autoflush=False, autocommit=False, future=True)
         try:
-            task_run = progress_session.get(TaskRun, execution_id)
+            task_run = progress_session.get(TaskRun, run_id)
             if task_run is None:
                 return
             task_run.unit_done = max(int(current), 0)

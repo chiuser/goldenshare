@@ -15,9 +15,9 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.execution_errors import ExecutionCanceledError
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
-from src.foundation.ingestion.null_runtime import NullExecutionResultStore, NullRunRecorder
+from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -98,13 +98,13 @@ class TaskRunDispatcher:
                 rows_rejected=rows_rejected,
                 summary_message=summary_message,
             )
-        except ExecutionCanceledError as exc:
+        except IngestionCanceledError as exc:
             session.rollback()
             issue = self._record_issue(
                 session,
                 task_run=task_run,
                 node_id=node.id,
-                code="execution_canceled",
+                code="ingestion_canceled",
                 title="任务已停止",
                 operator_message="任务已收到停止请求，并在当前处理边界结束。",
                 suggested_action="如仍需处理，请重新提交任务。",
@@ -124,7 +124,7 @@ class TaskRunDispatcher:
                 session,
                 task_run=task_run,
                 node_id=node.id,
-                code="execution_failed",
+                code="ingestion_failed",
                 title="任务处理失败",
                 operator_message="任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
                 suggested_action="先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
@@ -309,9 +309,9 @@ class TaskRunDispatcher:
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
-            execution_context=TaskRunIngestionContext(session),
+            run_context=TaskRunIngestionContext(session),
             run_recorder=NullRunRecorder(),
-            execution_result_store=NullExecutionResultStore(),
+            result_store=NullIngestionResultStore(),
         )
         filters = dict(action_request.filters or {})
         time_input = action_request.time_input
@@ -331,11 +331,11 @@ class TaskRunDispatcher:
                 requested_by_user_id=action_request.requested_by_user_id,
                 schedule_id=action_request.schedule_id,
                 workflow_key=action_request.workflow_key,
-                execution_id=task_run.id,
+                run_id=task_run.id,
             )
         result = service.maintain(
             default_time_mode=None,
-            execution_id=task_run.id,
+            run_id=task_run.id,
             _plan=plan,
             _action_request=action_request,
         )
@@ -381,7 +381,7 @@ class TaskRunDispatcher:
             trigger_source=task_run.trigger_source,
             requested_by_user_id=task_run.requested_by_user_id,
             schedule_id=task_run.schedule_id,
-            execution_id=task_run.id,
+            run_id=task_run.id,
         )
 
     def _prepare_dataset_action_request(self, session: Session, request: DatasetActionRequest) -> DatasetActionRequest:

@@ -7,13 +7,13 @@ from typing import Any
 from uuid import uuid4
 
 from src.foundation.datasets.registry import get_dataset_definition
-from src.foundation.ingestion.execution_errors import ExecutionCanceledError
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import DatasetActionRequest, DatasetTimeInput, ValidatedDatasetActionRequest
 from src.foundation.ingestion.executor import IngestionExecutor
-from src.foundation.ingestion.null_runtime import NullExecutionContext, NullExecutionResultStore, NullRunRecorder
+from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunContext, NullRunRecorder
 from src.foundation.ingestion.resolver import DatasetActionResolver
-from src.foundation.kernel.contracts.ingestion_execution_context import IngestionExecutionContext
-from src.foundation.kernel.contracts.ingestion_state_store import IngestionExecutionResultStore, IngestionRunRecorder
+from src.foundation.kernel.contracts.ingestion_run_context import IngestionRunContext
+from src.foundation.kernel.contracts.ingestion_state_store import IngestionResultStore, IngestionRunRecorder
 
 
 @dataclass(slots=True)
@@ -30,7 +30,7 @@ class DatasetMaintainService:
     _REQUEST_ENVELOPE_KEYS = frozenset(
         {
             "request_id",
-            "execution_id",
+            "run_id",
             "run_profile",
             "trigger_source",
             "source_key",
@@ -49,32 +49,32 @@ class DatasetMaintainService:
         session,
         *,
         dataset_key: str,
-        execution_context: IngestionExecutionContext | None = None,
+        run_context: IngestionRunContext | None = None,
         run_recorder: IngestionRunRecorder | None = None,
-        execution_result_store: IngestionExecutionResultStore | None = None,
+        result_store: IngestionResultStore | None = None,
     ) -> None:  # type: ignore[no-untyped-def]
         self.session = session
         self.definition = get_dataset_definition(dataset_key)
         self.dataset_key = dataset_key
-        self.execution_context = execution_context or NullExecutionContext()
+        self.run_context = run_context or NullRunContext()
         self.run_recorder = run_recorder or NullRunRecorder()
-        self.execution_result_store = execution_result_store or NullExecutionResultStore()
+        self.result_store = result_store or NullIngestionResultStore()
         self.executor = IngestionExecutor(session)
         self.resolver = DatasetActionResolver(session)
         self.logger = logging.getLogger(self.__class__.__name__)
         self._cli_progress_reporter = None
 
-    def set_execution_context(self, execution_context: IngestionExecutionContext | None) -> None:
-        self.execution_context = execution_context or NullExecutionContext()
+    def set_run_context(self, run_context: IngestionRunContext | None) -> None:
+        self.run_context = run_context or NullRunContext()
 
     def set_state_stores(
         self,
         *,
         run_recorder: IngestionRunRecorder | None = None,
-        execution_result_store: IngestionExecutionResultStore | None = None,
+        result_store: IngestionResultStore | None = None,
     ) -> None:
         self.run_recorder = run_recorder or NullRunRecorder()
-        self.execution_result_store = execution_result_store or NullExecutionResultStore()
+        self.result_store = result_store or NullIngestionResultStore()
 
     def set_cli_progress_reporter(self, progress_reporter) -> None:  # type: ignore[no-untyped-def]
         self._cli_progress_reporter = progress_reporter
@@ -89,10 +89,10 @@ class DatasetMaintainService:
         return self._run("MAINTAIN", default_time_mode=default_time_mode, trade_date=trade_date, **kwargs)
 
     def _run(self, run_mode: str, *, default_time_mode: str | None, **kwargs: Any) -> DatasetMaintainResult:
-        execution_id = kwargs.pop("execution_id", None)
+        run_id = kwargs.pop("run_id", None)
         request = kwargs.pop("_action_request", None) or self._build_action_request(
             default_time_mode=default_time_mode,
-            execution_id=execution_id,
+            run_id=run_id,
             trade_date=kwargs.get("trade_date"),
             start_date=kwargs.get("start_date"),
             end_date=kwargs.get("end_date"),
@@ -104,8 +104,8 @@ class DatasetMaintainService:
         )
         plan = kwargs.pop("_plan", None) or self.resolver.build_plan(request)
         validated = self._validated_request_from_plan(request=request, plan=plan)
-        run_handle = self._start_run_handle(run_mode=run_mode, execution_id=execution_id)
-        self.ensure_not_canceled(execution_id)
+        run_handle = self._start_run_handle(run_mode=run_mode, run_id=run_id)
+        self.ensure_not_canceled(run_id)
         try:
             summary = self.executor.run(
                 request=validated,
@@ -115,9 +115,6 @@ class DatasetMaintainService:
                 progress_reporter=self._progress_reporter,
             )
             committed_rows = summary.rows_committed
-            if self.definition.transaction.commit_policy != "unit":
-                self.session.commit()
-                committed_rows = summary.rows_written
             self._finish_success(
                 run_handle=run_handle,
                 run_mode=run_mode,
@@ -134,28 +131,26 @@ class DatasetMaintainService:
                 trade_date=summary.result_date,
                 message=summary.message,
             )
-        except ExecutionCanceledError as exc:
-            if self.definition.transaction.commit_policy != "unit":
-                self.session.rollback()
+        except IngestionCanceledError as exc:
+            self.session.rollback()
             self._finish_failure(run_handle=run_handle, status="CANCELED", message=str(exc))
             raise
         except Exception as exc:
-            if self.definition.transaction.commit_policy != "unit":
-                self.session.rollback()
+            self.session.rollback()
             self._finish_failure(run_handle=run_handle, status="FAILED", message=str(exc))
             raise
 
-    def ensure_not_canceled(self, execution_id: int | None) -> None:
-        if execution_id is None:
+    def ensure_not_canceled(self, run_id: int | None) -> None:
+        if run_id is None:
             return
-        if self.execution_context.is_cancel_requested(execution_id=execution_id):
-            raise ExecutionCanceledError("任务已收到停止请求，正在结束处理。")
+        if self.run_context.is_cancel_requested(run_id=run_id):
+            raise IngestionCanceledError("任务已收到停止请求，正在结束处理。")
 
     def _build_action_request(
         self,
         *,
         default_time_mode: str | None,
-        execution_id: int | None,
+        run_id: int | None,
         trade_date: date | None,
         start_date: date | None,
         end_date: date | None,
@@ -187,7 +182,7 @@ class DatasetMaintainService:
             ),
             filters=filters,
             trigger_source=trigger_source,
-            execution_id=execution_id,
+            run_id=run_id,
         )
 
     @classmethod
@@ -207,12 +202,12 @@ class DatasetMaintainService:
             trade_date=request.time_input.trade_date,
             start_date=request.time_input.start_date,
             end_date=request.time_input.end_date,
-            execution_id=request.execution_id,
+            run_id=request.run_id,
         )
 
-    def _start_run_handle(self, *, run_mode: str, execution_id: int | None) -> object:
+    def _start_run_handle(self, *, run_mode: str, run_id: int | None) -> object:
         try:
-            return self.run_recorder.start_run(dataset_key=self.dataset_key, run_mode=run_mode, execution_id=execution_id)
+            return self.run_recorder.start_run(dataset_key=self.dataset_key, run_mode=run_mode, run_id=run_id)
         except Exception:
             self.logger.warning("Failed to start run recorder.", exc_info=True)
             return object()
@@ -238,7 +233,7 @@ class DatasetMaintainService:
         except Exception:
             self.logger.warning("Failed to finish run recorder.", exc_info=True)
         try:
-            self.execution_result_store.record_execution_outcome(
+            self.result_store.record_run_outcome(
                 dataset_key=self.dataset_key,
                 target_table=self.definition.storage.target_table,
                 run_mode=run_mode,
@@ -247,7 +242,7 @@ class DatasetMaintainService:
                 rows_committed=rows_written,
             )
         except Exception:
-            self.logger.warning("Failed to persist execution outcome.", exc_info=True)
+            self.logger.warning("Failed to persist ingestion run outcome.", exc_info=True)
 
     def _finish_failure(self, *, run_handle: object, status: str, message: str) -> None:
         try:
@@ -261,15 +256,15 @@ class DatasetMaintainService:
         except Exception:
             self.logger.warning("Failed to finish failed run recorder.", exc_info=True)
 
-    def _is_cancel_requested(self, execution_id: int) -> bool:
-        return self.execution_context.is_cancel_requested(execution_id=execution_id)
+    def _is_cancel_requested(self, run_id: int) -> bool:
+        return self.run_context.is_cancel_requested(run_id=run_id)
 
     def _progress_reporter(self, progress_snapshot, message: str) -> None:  # type: ignore[no-untyped-def]
-        rows_saved = progress_snapshot.rows_committed or progress_snapshot.rows_written
+        rows_saved = progress_snapshot.rows_committed
         try:
-            if progress_snapshot.execution_id is not None:
-                self.execution_context.update_progress(
-                    execution_id=progress_snapshot.execution_id,
+            if progress_snapshot.run_id is not None:
+                self.run_context.update_progress(
+                    run_id=progress_snapshot.run_id,
                     current=progress_snapshot.unit_done + progress_snapshot.unit_failed,
                     total=progress_snapshot.unit_total,
                     message=message,
@@ -279,7 +274,7 @@ class DatasetMaintainService:
                     current_object=progress_snapshot.current_object,
                 )
         except Exception:
-            self.logger.warning("Failed to persist execution progress update.", exc_info=True)
+            self.logger.warning("Failed to persist ingestion progress update.", exc_info=True)
         if callable(self._cli_progress_reporter):
             try:
                 self._cli_progress_reporter(progress_snapshot, message)

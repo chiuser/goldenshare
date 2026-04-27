@@ -3,21 +3,21 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 
-class IngestionExecutionContext(Protocol):
-    """数据维护执行上下文 contract。
+class IngestionRunContext(Protocol):
+    """数据维护运行上下文 contract。
 
     用于 foundation 在不依赖 ops ORM 模型的前提下，完成：
     1. 取消检查
     2. 进度写回
     """
 
-    def is_cancel_requested(self, *, execution_id: int) -> bool:
+    def is_cancel_requested(self, *, run_id: int) -> bool:
         """返回该任务是否已收到取消请求。"""
 
     def update_progress(
         self,
         *,
-        execution_id: int,
+        run_id: int,
         current: int,
         total: int,
         message: str,

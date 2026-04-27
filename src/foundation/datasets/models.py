@@ -155,7 +155,7 @@ class DatasetQualityPolicy:
 
 @dataclass(frozen=True, slots=True)
 class DatasetTransactionDefinition:
-    commit_policy: str = "task"
+    commit_policy: str
     idempotent_write_required: bool = False
     write_volume_assessment: str = ""
 

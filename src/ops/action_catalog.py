@@ -260,6 +260,18 @@ def get_catalog_target(action_type: str, action_key: str) -> DatasetDefinition |
     return None
 
 
+def get_manual_action_key_for_target(target_type: str, target_key: str) -> str | None:
+    if target_type == "dataset_action":
+        try:
+            get_dataset_definition_by_action_key(target_key)
+            return target_key
+        except KeyError:
+            return None
+    if target_type == "workflow":
+        return f"workflow:{target_key}" if get_workflow_definition(target_key) is not None else None
+    return None
+
+
 def get_action_display_name(action_type: str, action_key: str) -> str | None:
     if action_type == "dataset_action":
         try:

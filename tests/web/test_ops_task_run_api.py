@@ -133,7 +133,7 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     issue = task_run_issue_factory(
         task_run_id=task_run.id,
         node_id=node.id,
-        code="execution_failed",
+        code="ingestion_failed",
         title="任务处理失败",
         message="唯一键冲突",
         object_json={

@@ -108,7 +108,7 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
         condition_matched=True,
         message="hit",
         payload_json={"max_trade_date": "2026-04-14"},
-        triggered_execution_id=101,
+        triggered_task_run_id=101,
     )
     probe_run_log_factory(
         probe_rule_id=etf_rule.id,

@@ -204,7 +204,7 @@ def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_sched
     assert grouped["reference_data"]["trade_cal"]["auto_schedule_total"] == 1
 
 
-def test_ops_freshness_exposes_active_execution_status_for_dataset(
+def test_ops_freshness_exposes_active_task_run_status_for_dataset(
     app_client,
     user_factory,
     trade_calendar_factory,
@@ -239,8 +239,8 @@ def test_ops_freshness_exposes_active_execution_status_for_dataset(
         for group in payload["groups"]
     }
     block_trade = grouped["equity_market"]["block_trade"]
-    assert block_trade["active_execution_status"] == "running"
-    assert block_trade["active_execution_started_at"] == "2026-04-17T08:01:00"
+    assert block_trade["active_task_run_status"] == "running"
+    assert block_trade["active_task_run_started_at"] == "2026-04-17T08:01:00"
 
 
 def test_ops_freshness_hides_historical_failure_when_newer_success_exists(

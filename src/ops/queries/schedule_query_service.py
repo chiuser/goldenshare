@@ -7,7 +7,7 @@ from src.app.models.app_user import AppUser
 from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
-from src.ops.action_catalog import get_target_display_name
+from src.ops.action_catalog import get_manual_action_key_for_target, get_target_display_name
 from src.app.exceptions import WebAppError
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.schemas.schedule import (
@@ -84,6 +84,7 @@ class ScheduleQueryService:
             id=schedule.id,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
+            manual_action_key=get_manual_action_key_for_target(schedule.target_type, schedule.target_key),
             target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,
@@ -141,6 +142,7 @@ class ScheduleQueryService:
             id=schedule.id,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
+            manual_action_key=get_manual_action_key_for_target(schedule.target_type, schedule.target_key),
             target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,

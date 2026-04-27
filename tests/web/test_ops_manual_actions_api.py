@@ -49,7 +49,6 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert actions["daily.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
     assert actions["daily.maintain"]["time_form"]["selection_rule"] == "trading_day_only"
     assert actions["daily.maintain"]["action_type"] == "dataset_action"
-    assert actions["daily.maintain"]["route_keys"] == ["daily.maintain"]
 
     assert actions["stk_period_bar_week.maintain"]["time_form"]["selection_rule"] == "week_last_trading_day"
     assert actions["stk_period_bar_month.maintain"]["time_form"]["selection_rule"] == "month_last_trading_day"
@@ -69,7 +68,6 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
 
     assert actions["stk_mins.maintain"]["time_form"]["control"] == "trade_date_or_range"
     assert actions["stk_mins.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["stk_mins.maintain"]["route_keys"] == ["stk_mins.maintain"]
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins.maintain"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 

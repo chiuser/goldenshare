@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import inspect
+from dataclasses import MISSING, fields
 
 from src.foundation.datasets.definitions import ALL_DATASET_ROWS
 import src.foundation.datasets.definitions._builder as definition_builder
+from src.foundation.datasets.models import DatasetTransactionDefinition
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
@@ -86,3 +88,23 @@ def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
     assert not hasattr(definition_builder, "_infer_raw_table")
     assert "setdefault(\"raw_table\"" not in builder_source
     assert "startswith(\"biying_\")" not in builder_source
+
+
+def test_dataset_definition_transaction_policy_is_explicit_fact() -> None:
+    missing_transaction = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if "transaction" not in row
+    ]
+    missing_commit_policy = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if "transaction" in row and "commit_policy" not in row["transaction"]
+    ]
+
+    assert not missing_transaction
+    assert not missing_commit_policy
+    assert "row.get(\"transaction\", {})" not in inspect.getsource(definition_builder)
+    commit_policy_field = next(item for item in fields(DatasetTransactionDefinition) if item.name == "commit_policy")
+    assert commit_policy_field.default is MISSING
+    assert {definition.transaction.commit_policy for definition in list_dataset_definitions()} == {"unit"}

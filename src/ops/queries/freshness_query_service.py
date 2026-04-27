@@ -487,7 +487,7 @@ class OpsFreshnessQueryService:
 
     def _attach_runtime_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
         response = self._attach_auto_schedule_metadata(session, response)
-        response = self._attach_active_execution_metadata(session, response)
+        response = self._attach_active_task_run_metadata(session, response)
         return response
 
     def _attach_auto_schedule_metadata(self, session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
@@ -519,7 +519,7 @@ class OpsFreshnessQueryService:
         return response
 
     @staticmethod
-    def _attach_active_execution_metadata(session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
+    def _attach_active_task_run_metadata(session: Session, response: OpsFreshnessResponse) -> OpsFreshnessResponse:
         action_keys = {
             item.primary_action_key
             for group in response.groups
@@ -571,8 +571,8 @@ class OpsFreshnessQueryService:
                     active = by_dataset_key.get(item.dataset_key)
                 if active is None:
                     continue
-                item.active_execution_status = active[0]
-                item.active_execution_started_at = active[1]
+                item.active_task_run_status = active[0]
+                item.active_task_run_started_at = active[1]
         return response
 
     @staticmethod

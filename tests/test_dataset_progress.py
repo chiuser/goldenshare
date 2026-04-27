@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.executor import IngestionExecutor
 from src.foundation.ingestion.progress import IngestionObserver, ProgressSnapshot
+from src.foundation.ingestion.service import DatasetMaintainService
 
 
-def test_observer_emits_progress_without_execution_id() -> None:
+def test_observer_emits_progress_without_run_id() -> None:
     captured: list[tuple[ProgressSnapshot, str]] = []
 
     def reporter(snapshot: ProgressSnapshot, message: str) -> None:
@@ -13,7 +16,7 @@ def test_observer_emits_progress_without_execution_id() -> None:
 
     observer = IngestionObserver(progress_reporter=reporter)
     observer.report_progress(
-        execution_id=None,
+        run_id=None,
         dataset_key="index_daily",
         unit_total=100,
         unit_done=1,
@@ -31,7 +34,7 @@ def test_observer_emits_progress_without_execution_id() -> None:
 
     assert len(captured) == 1
     snapshot, message = captured[0]
-    assert snapshot.execution_id is None
+    assert snapshot.run_id is None
     assert snapshot.rows_committed == 2000
     assert snapshot.current_object["entity"]["code"] == "000001.SH"
     assert message == "index_daily: 1/100 fetched=2000 written=2000 committed=2000"
@@ -84,3 +87,31 @@ def test_executor_progress_message_includes_generic_unit_tokens() -> None:
     assert "end_date=2026-04-23_19:00:00" in message
     assert "unit_committed=7999" in message
     assert "committed=15998" in message
+
+
+def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
+    captured: list[dict[str, object]] = []
+
+    class CaptureRunContext:
+        def is_cancel_requested(self, *, run_id: int) -> bool:
+            return False
+
+        def update_progress(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            captured.append(kwargs)
+
+    service = DatasetMaintainService(object(), dataset_key="daily", run_context=CaptureRunContext())
+    snapshot = SimpleNamespace(
+        run_id=123,
+        unit_done=1,
+        unit_failed=0,
+        unit_total=5,
+        rows_fetched=100,
+        rows_written=100,
+        rows_committed=0,
+        rows_rejected=0,
+        current_object={},
+    )
+
+    service._progress_reporter(snapshot, "daily: 1/5 fetched=100 written=100 rejected=0")
+
+    assert captured[0]["rows_saved"] == 0

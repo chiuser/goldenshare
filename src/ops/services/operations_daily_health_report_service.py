@@ -21,7 +21,7 @@ class DailyHealthReport:
     generated_at: datetime
     timezone_name: str
     freshness_summary: dict[str, int]
-    execution_summary: dict[str, int]
+    task_run_summary: dict[str, int]
     datasets: list[dict]
     dataset_runs: list[dict]
     key_alerts: list[str]
@@ -32,7 +32,7 @@ class DailyHealthReport:
             "generated_at": self.generated_at.isoformat(),
             "timezone": self.timezone_name,
             "freshness_summary": self.freshness_summary,
-            "execution_summary": self.execution_summary,
+            "task_run_summary": self.task_run_summary,
             "datasets": self.datasets,
             "dataset_runs": self.dataset_runs,
             "key_alerts": self.key_alerts,
@@ -54,7 +54,7 @@ class DailyHealthReportService:
         dataset_items = [item for group in freshness.groups for item in group.items]
         task_runs = self._load_task_runs(session, start_utc=start_utc, end_utc=end_utc)
 
-        execution_summary = self._summarize_task_runs(task_runs)
+        task_run_summary = self._summarize_task_runs(task_runs)
         dataset_runs = self._summarize_dataset_runs(task_runs)
         datasets = self._serialize_dataset_items(dataset_items)
         key_alerts = self._build_key_alerts(
@@ -77,7 +77,7 @@ class DailyHealthReportService:
                 "unknown_datasets": freshness.summary.unknown_datasets,
                 "disabled_datasets": freshness.summary.disabled_datasets,
             },
-            execution_summary=execution_summary,
+            task_run_summary=task_run_summary,
             datasets=datasets,
             dataset_runs=dataset_runs,
             key_alerts=key_alerts,
@@ -97,9 +97,9 @@ class DailyHealthReportService:
             f"未知 {report.freshness_summary['unknown_datasets']}，已停用 {report.freshness_summary['disabled_datasets']}"
         )
         lines.append(
-            f"- 今日任务：总计 {report.execution_summary['total']}，成功 {report.execution_summary['success']}，"
-            f"失败 {report.execution_summary['failed']}，执行中 {report.execution_summary['running']}，"
-            f"等待中 {report.execution_summary['queued']}"
+            f"- 今日任务：总计 {report.task_run_summary['total']}，成功 {report.task_run_summary['success']}，"
+            f"失败 {report.task_run_summary['failed']}，执行中 {report.task_run_summary['running']}，"
+            f"等待中 {report.task_run_summary['queued']}"
         )
         lines.append("")
         lines.append("## 重点关注")

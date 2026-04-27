@@ -148,26 +148,18 @@ function getActionDomain(action: Pick<ManualAction, "groupLabel"> | { domainLabe
   return "groupLabel" in action ? action.groupLabel : action.domainLabel || "";
 }
 
-function normalizeDraftActionId(actionId: string) {
-  if (actionId.startsWith("job:")) {
-    return actionId.slice(4);
-  }
-  return actionId;
-}
-
 function findManualAction(actions: ManualAction[], actionId: string) {
-  const normalized = normalizeDraftActionId(actionId);
-  return actions.find((action) => action.action_key === normalized) || null;
+  return actions.find((action) => action.action_key === actionId) || null;
 }
 
-function matchesActionRoute(action: ManualAction, actionType: string | null, actionKey: string | null) {
+function matchesActionKey(action: ManualAction, actionType: string | null, actionKey: string | null) {
   if (!actionKey) {
     return false;
   }
   if (actionType && action.action_type !== actionType) {
     return false;
   }
-  return action.route_keys.includes(actionKey);
+  return action.action_key === actionKey;
 }
 
 export function shouldAutoAlignDomain(selectedDomain: string, selectedAction: ManualAction | { domainLabel?: string } | null) {
@@ -562,11 +554,11 @@ export function OpsManualTaskTab() {
       prefillActionAppliedRef.current = true;
       return;
     }
-    const prefilledAction = manualActions.find((item) => matchesActionRoute(item, prefillActionType, prefillActionKey));
+    const prefilledAction = manualActions.find((item) => matchesActionKey(item, prefillActionType, prefillActionKey));
     if (prefilledAction) {
       setSelectedDomain(prefilledAction.groupLabel);
       setDraft((current) => {
-        const base = normalizeDraftActionId(current.action_id) === prefilledAction.action_key
+        const base = current.action_id === prefilledAction.action_key
           ? current
           : buildDraftForActionSelection(prefilledAction);
         if (!prefillTradeDate) {
@@ -591,7 +583,7 @@ export function OpsManualTaskTab() {
     if (!manualActions.length || !prefillTaskRunQuery.data) {
       return;
     }
-    const action = manualActions.find((item) => matchesActionRoute(item, prefillTaskRunQuery.data?.run.task_type || null, prefillTaskRunQuery.data?.run.action_key || null));
+    const action = manualActions.find((item) => matchesActionKey(item, prefillTaskRunQuery.data?.run.task_type || null, prefillTaskRunQuery.data?.run.action_key || null));
     if (!action) {
       prefillTaskRunAppliedRef.current = true;
       return;
@@ -608,7 +600,7 @@ export function OpsManualTaskTab() {
     if (!manualActions.length || !prefillScheduleQuery.data) {
       return;
     }
-    const action = manualActions.find((item) => matchesActionRoute(item, prefillScheduleQuery.data.target_type, prefillScheduleQuery.data.target_key));
+    const action = manualActions.find((item) => matchesActionKey(item, prefillScheduleQuery.data.target_type, prefillScheduleQuery.data.manual_action_key));
     if (!action) {
       prefillScheduleAppliedRef.current = true;
       return;
@@ -713,7 +705,7 @@ export function OpsManualTaskTab() {
                     label="选择维护对象"
                     placeholder="例如：股票日线、分红送转、指数周线、交易日历"
                     data={actionOptions}
-                    value={normalizeDraftActionId(draft.action_id) || null}
+                    value={draft.action_id || null}
                     nothingFoundMessage="没有找到匹配任务"
                     onChange={(value) => {
                       if (!value) {
@@ -723,7 +715,7 @@ export function OpsManualTaskTab() {
                       const nextAction = findManualAction(manualActions, value);
                       if (nextAction) {
                         setSelectedDomain(nextAction.groupLabel);
-                        setRecentActionIds((current) => [nextAction.action_key, ...current.filter((item) => normalizeDraftActionId(item) !== nextAction.action_key)].slice(0, 10));
+                        setRecentActionIds((current) => [nextAction.action_key, ...current.filter((item) => item !== nextAction.action_key)].slice(0, 10));
                         setDraft(() => buildDraftForActionSelection(nextAction));
                       }
                     }}
@@ -737,7 +729,7 @@ export function OpsManualTaskTab() {
                         <Button
                           key={action.action_key}
                           size="xs"
-                          variant={normalizeDraftActionId(draft.action_id) === action.action_key ? "filled" : "light"}
+                          variant={draft.action_id === action.action_key ? "filled" : "light"}
                           onClick={() => {
                             setSelectedDomain(action.groupLabel);
                             setDraft(() => buildDraftForActionSelection(action));

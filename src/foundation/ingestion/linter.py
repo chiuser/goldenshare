@@ -32,12 +32,12 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             issues.append(IngestionLintIssue(dataset_key, "missing_source_fields", "source_fields 不能为空"))
         if not definition.storage.target_table.strip():
             issues.append(IngestionLintIssue(dataset_key, "missing_target_table", "target_table 不能为空"))
-        if definition.transaction.commit_policy not in {"task", "unit"}:
+        if definition.transaction.commit_policy != "unit":
             issues.append(
                 IngestionLintIssue(
                     dataset_key,
                     "invalid_commit_policy",
-                    f"未知 transaction.commit_policy={definition.transaction.commit_policy}",
+                    f"transaction.commit_policy 必须为 unit，当前为 {definition.transaction.commit_policy}",
                 )
             )
         if definition.planning.max_units_per_execution is not None and definition.planning.max_units_per_execution <= 0:

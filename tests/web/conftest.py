@@ -490,7 +490,7 @@ def probe_run_log_factory(db_session: Session) -> Callable[..., ProbeRunLog]:
         message: str | None = None,
         payload_json: dict | None = None,
         probed_at: datetime | None = None,
-        triggered_execution_id: int | None = None,
+        triggered_task_run_id: int | None = None,
         duration_ms: int | None = None,
     ) -> ProbeRunLog:
         next_id = (db_session.scalar(select(func.max(ProbeRunLog.id))) or 0) + 1
@@ -502,7 +502,7 @@ def probe_run_log_factory(db_session: Session) -> Callable[..., ProbeRunLog]:
             message=message,
             payload_json=payload_json or {},
             probed_at=probed_at or datetime.now(timezone.utc),
-            triggered_execution_id=triggered_execution_id,
+            triggered_task_run_id=triggered_task_run_id,
             duration_ms=duration_ms,
         )
         db_session.add(log)

@@ -23,7 +23,7 @@ from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCrea
 class ProbeTickResult:
     processed_rules: int = 0
     triggered_rules: int = 0
-    created_executions: int = 0
+    created_task_runs: int = 0
 
 
 class ProbeRuntimeService:
@@ -54,8 +54,8 @@ class ProbeRuntimeService:
             matched = False
             message: str | None = None
             payload: dict = {}
-            execution_id: int | None = None
-            execution_correlation_id: str | None = None
+            task_run_id: int | None = None
+            task_run_correlation_id: str | None = None
             status = "success"
             result_code = "miss"
             result_reason = skip_reason
@@ -64,8 +64,8 @@ class ProbeRuntimeService:
                 rule.last_probed_at = started_at
                 if matched:
                     task_run = self._enqueue_on_match(session, rule)
-                    execution_id = task_run.id
-                    execution_correlation_id = str(task_run.id)
+                    task_run_id = task_run.id
+                    task_run_correlation_id = str(task_run.id)
                     task_runs.append(task_run)
                     triggered += 1
                     rule.last_triggered_at = datetime.now(timezone.utc)
@@ -90,12 +90,12 @@ class ProbeRuntimeService:
                     message=message or ("命中探测条件" if matched else (skip_reason or "未命中探测条件")),
                     payload_json=payload,
                     probed_at=started_at,
-                    triggered_execution_id=execution_id,
+                    triggered_task_run_id=task_run_id,
                     duration_ms=max(int((ended_at - started_at).total_seconds() * 1000), 0),
                     rule_version=rule.rule_version,
                     result_code=result_code,
                     result_reason=result_reason,
-                    correlation_id=execution_correlation_id,
+                    correlation_id=task_run_correlation_id,
                 )
                 session.add(run_log)
                 session.commit()
@@ -103,7 +103,7 @@ class ProbeRuntimeService:
         return task_runs, ProbeTickResult(
             processed_rules=processed,
             triggered_rules=triggered,
-            created_executions=len(task_runs),
+            created_task_runs=len(task_runs),
         )
 
     def _evaluate_rule(

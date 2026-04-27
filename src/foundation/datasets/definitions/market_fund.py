@@ -77,7 +77,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'fund_adj', 'display_name': '基金
                                 'supported_time_modes': ('point', 'range')},)},
   'observability': {'progress_label': 'fund_adj', 'observed_field': 'trade_date', 'audit_applicable': True},
   'quality': {'reject_policy': 'record_rejections', 'required_fields': ('trade_date', 'ts_code')},
-  'transaction': {'commit_policy': 'task', 'idempotent_write_required': False, 'write_volume_assessment': ''}},
+  'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}},
  {'identity': {'dataset_key': 'fund_daily', 'display_name': '基金日线行情', 'description': '维护基金日线行情数据。', 'aliases': ()},
   'domain': {'domain_key': 'index_fund', 'domain_display_name': '指数 / ETF', 'cadence': 'daily'},
   'source': {'source_key_default': 'tushare',
@@ -180,4 +180,4 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'fund_adj', 'display_name': '基金
                                 'supported_time_modes': ('point', 'range')},)},
   'observability': {'progress_label': 'fund_daily', 'observed_field': 'trade_date', 'audit_applicable': True},
   'quality': {'reject_policy': 'record_rejections', 'required_fields': ('trade_date', 'ts_code')},
-  'transaction': {'commit_policy': 'task', 'idempotent_write_required': False, 'write_volume_assessment': ''}})
+  'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}})

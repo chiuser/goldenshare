@@ -27,7 +27,7 @@ class DatasetActionRequest:
     requested_by_user_id: int | None = None
     schedule_id: int | None = None
     workflow_key: str | None = None
-    execution_id: int | None = None
+    run_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +42,7 @@ class ValidatedDatasetActionRequest:
     trade_date: date | None = None
     start_date: date | None = None
     end_date: date | None = None
-    execution_id: int | None = None
+    run_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

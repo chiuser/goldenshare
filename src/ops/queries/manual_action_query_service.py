@@ -63,7 +63,6 @@ class ManualActionRoute:
     date_model: DatasetDateModel | None
     time_form: ManualActionTimeFormResponse
     filters: tuple[ActionParameter, ...]
-    route_keys: tuple[str, ...]
     workflow: WorkflowDefinition | None = None
 
 
@@ -123,7 +122,6 @@ class ManualActionQueryService:
             date_model=date_model,
             time_form=time_form,
             filters=filters,
-            route_keys=(action_key,),
         )
 
     def _build_workflow_route(self, workflow: WorkflowDefinition) -> ManualActionRoute:
@@ -142,7 +140,6 @@ class ManualActionQueryService:
             date_model=None,
             time_form=self._time_form_from_params(workflow.parameters),
             filters=self._collect_filters((workflow.parameters,)),
-            route_keys=(workflow.key,),
             workflow=workflow,
         )
 
@@ -314,5 +311,4 @@ class ManualActionQueryService:
             filters=[self._to_param_response(param) for param in route.filters],
             search_keywords=list(dict.fromkeys(keywords)),
             action_order=route.action_order,
-            route_keys=list(route.route_keys),
         )

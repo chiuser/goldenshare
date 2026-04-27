@@ -164,7 +164,7 @@ class DatasetCardQueryService:
                 layers,
                 raw_sources=raw_sources,
             )
-            active_status = (primary_freshness.active_execution_status if primary_freshness else None)
+            active_status = (primary_freshness.active_task_run_status if primary_freshness else None)
             has_active = (active_status or "").lower() in {"queued", "running", "canceling"}
             status = "running" if has_active else self._card_status(members, member_freshness, layers, source_key=source_key)
             probe_total, probe_active = self._combined_probe_counts([item.dataset_key for item in members], probe_counts)
@@ -216,8 +216,8 @@ class DatasetCardQueryService:
                     ),
                     freshness_note=(primary_freshness.freshness_note if primary_freshness else None) or (primary_snapshot.freshness_note if primary_snapshot else None),
                     primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or (primary_snapshot.primary_action_key if primary_snapshot else None) or primary.primary_action_key,
-                    active_execution_status=active_status,
-                    active_execution_started_at=primary_freshness.active_execution_started_at if primary_freshness else None,
+                    active_task_run_status=active_status,
+                    active_task_run_started_at=primary_freshness.active_task_run_started_at if primary_freshness else None,
                     auto_schedule_status=primary_freshness.auto_schedule_status if primary_freshness else "none",
                     auto_schedule_total=sum(item.auto_schedule_total for item in member_freshness),
                     auto_schedule_active=sum(item.auto_schedule_active for item in member_freshness),

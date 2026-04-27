@@ -62,6 +62,7 @@ class ScheduleListItem(BaseModel):
     id: int
     target_type: str
     target_key: str
+    manual_action_key: str | None = None
     target_display_name: str | None = None
     display_name: str
     status: str
@@ -87,6 +88,7 @@ class ScheduleDetailResponse(BaseModel):
     id: int
     target_type: str
     target_key: str
+    manual_action_key: str | None = None
     target_display_name: str | None = None
     display_name: str
     status: str

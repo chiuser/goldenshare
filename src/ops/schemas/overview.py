@@ -9,13 +9,13 @@ from src.ops.schemas.task_run import TaskRunListItem
 
 
 class OpsOverviewKpis(BaseModel):
-    total_executions: int
-    queued_executions: int
-    running_executions: int
-    success_executions: int
-    failed_executions: int
-    canceled_executions: int
-    partial_success_executions: int
+    total_task_runs: int
+    queued_task_runs: int
+    running_task_runs: int
+    success_task_runs: int
+    failed_task_runs: int
+    canceled_task_runs: int
+    partial_success_task_runs: int
 
 
 class OpsTodayKpis(BaseModel):
@@ -33,7 +33,7 @@ class OpsOverviewResponse(BaseModel):
     kpis: OpsOverviewKpis
     freshness_summary: OpsFreshnessSummary
     lagging_datasets: list[DatasetFreshnessItem]
-    recent_executions: list[TaskRunListItem]
+    recent_task_runs: list[TaskRunListItem]
     recent_failures: list[TaskRunListItem]
 
 
