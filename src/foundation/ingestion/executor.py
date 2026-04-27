@@ -157,7 +157,7 @@ class IngestionExecutor:
             rows_rejected=rows_rejected,
             rejected_reason_counts=rejected_reason_counts,
             result_date=self._resolve_result_date(request),
-            message=f"units={total_units} done={unit_done} failed={unit_failed}",
+            message=f"共 {total_units} 个单元，成功 {unit_done} 个，失败 {unit_failed} 个",
             error_counts=error_counts,
         )
 
@@ -194,29 +194,34 @@ class IngestionExecutor:
         unit_rows_committed: int | None = None,
         unit_rows_rejected: int | None = None,
     ) -> str:
-        tokens = cls._build_progress_context_tokens(
+        context_parts = cls._build_progress_context_parts(
             unit=unit,
+        )
+        unit_metric_parts = cls._build_progress_unit_metric_parts(
             unit_rows_fetched=unit_rows_fetched,
             unit_rows_written=unit_rows_written,
             unit_rows_committed=unit_rows_committed,
             unit_rows_rejected=unit_rows_rejected,
         )
-        if tokens:
-            token_text = " ".join(tokens)
-            committed_text = f" committed={rows_committed}" if rows_committed is not None else ""
-            message = f"{progress_label}: {current}/{total} {token_text} fetched={rows_fetched} written={rows_written}{committed_text} rejected={rows_rejected}"
-        else:
-            committed_text = f" committed={rows_committed}" if rows_committed is not None else ""
-            message = f"{progress_label}: {current}/{total} fetched={rows_fetched} written={rows_written}{committed_text} rejected={rows_rejected}"
+        saved_rows = rows_committed if rows_committed is not None else rows_written
+        message_parts = [
+            f"{progress_label}：{current}/{total}",
+            f"累计读取 {rows_fetched}",
+            f"累计保存 {saved_rows}",
+            f"累计拒绝 {rows_rejected}",
+        ]
+        if context_parts or unit_metric_parts:
+            unit_parts = [*context_parts, *unit_metric_parts]
+            message_parts.insert(1, f"本单元：{'，'.join(unit_parts)}")
         normalized_counts = cls._normalize_reason_counts(rejected_reason_counts)
         if not normalized_counts:
-            return message
+            return "；".join(message_parts)
         encoded, truncated = cls._encode_reason_counts(normalized_counts, max_items=cls.MAX_REASON_BUCKETS)
         if encoded:
-            message = f"{message} reasons={encoded}"
+            message_parts.append(f"拒绝原因：{encoded}")
         if truncated:
-            message = f"{message} reason_stats_truncated=1"
-        return message
+            message_parts.append("拒绝原因已截断")
+        return "；".join(message_parts)
 
     @staticmethod
     def _normalize_reason_counts(reason_counts: dict[str, int]) -> dict[str, int]:
@@ -239,54 +244,90 @@ class IngestionExecutor:
         ordered = sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
         truncated = len(ordered) > max_items
         limited = ordered[:max_items]
-        encoded = "|".join(f"{reason_code}:{count}" for reason_code, count in limited)
+        encoded = "、".join(f"{reason_code} {count}" for reason_code, count in limited)
         return encoded, truncated
 
     @classmethod
-    def _build_progress_context_tokens(
+    def _build_progress_context_parts(
         cls,
         *,
         unit: PlanUnitSnapshot | None,
+    ) -> list[str]:
+        if unit is None:
+            return []
+        context = dict(unit.progress_context or {})
+        parts: list[str] = []
+        unit_label = cls._format_progress_value(context.get("unit"))
+        if unit_label:
+            parts.append(f"单元 {unit_label}")
+        security_code = cls._format_progress_value(context.get("ts_code"))
+        security_name = cls._format_progress_value(context.get("security_name"))
+        if security_name and security_code:
+            parts.append(f"证券 {security_name}（{security_code}）")
+        elif security_name or security_code:
+            parts.append(f"证券 {security_name or security_code}")
+        index_code = cls._format_progress_value(context.get("index_code"))
+        index_name = cls._format_progress_value(context.get("index_name"))
+        if index_name and index_code:
+            parts.append(f"指数 {index_name}（{index_code}）")
+        elif index_name or index_code:
+            parts.append(f"指数 {index_name or index_code}")
+        board_code = cls._format_progress_value(context.get("board_code"))
+        board_name = cls._format_progress_value(context.get("board_name"))
+        if board_name and board_code:
+            parts.append(f"板块 {board_name}（{board_code}）")
+        elif board_name or board_code:
+            parts.append(f"板块 {board_name or board_code}")
+        trade_date = cls._format_progress_value(context.get("trade_date"))
+        if trade_date:
+            parts.append(f"日期 {trade_date}")
+        freq = cls._format_progress_value(context.get("freq"))
+        if freq:
+            parts.append(f"频率 {freq}")
+        start_date = cls._format_progress_value(context.get("start_date"))
+        end_date = cls._format_progress_value(context.get("end_date"))
+        if start_date or end_date:
+            parts.append(cls._range_context_part(start_date=start_date, end_date=end_date))
+        enum_field = cls._format_progress_value(context.get("enum_field"))
+        enum_value = cls._format_progress_value(context.get("enum_value"))
+        if enum_field and enum_value:
+            parts.append(f"{enum_field} {enum_value}")
+        elif enum_value:
+            parts.append(f"类型 {enum_value}")
+        return parts
+
+    @staticmethod
+    def _build_progress_unit_metric_parts(
+        *,
         unit_rows_fetched: int | None,
         unit_rows_written: int | None,
         unit_rows_committed: int | None,
         unit_rows_rejected: int | None,
     ) -> list[str]:
-        tokens: list[str] = []
-        if unit is not None:
-            context_keys = (
-                "unit",
-                "ts_code",
-                "security_name",
-                "index_code",
-                "index_name",
-                "board_code",
-                "board_name",
-                "trade_date",
-                "freq",
-                "start_date",
-                "end_date",
-                "enum_field",
-                "enum_value",
-            )
-            for key in context_keys:
-                value = unit.progress_context.get(key)
-                if value in (None, ""):
-                    continue
-                tokens.append(f"{key}={cls._format_progress_token_value(value)}")
+        parts: list[str] = []
         if unit_rows_fetched is not None:
-            tokens.append(f"unit_fetched={int(unit_rows_fetched or 0)}")
-        if unit_rows_written is not None:
-            tokens.append(f"unit_written={int(unit_rows_written or 0)}")
-        if unit_rows_committed is not None:
-            tokens.append(f"unit_committed={int(unit_rows_committed or 0)}")
+            parts.append(f"读取 {int(unit_rows_fetched or 0)}")
+        unit_rows_saved = unit_rows_committed if unit_rows_committed is not None else unit_rows_written
+        if unit_rows_saved is not None:
+            parts.append(f"保存 {int(unit_rows_saved or 0)}")
         if unit_rows_rejected is not None and unit_rows_rejected > 0:
-            tokens.append(f"unit_rejected={int(unit_rows_rejected or 0)}")
-        return tokens
+            parts.append(f"拒绝 {int(unit_rows_rejected or 0)}")
+        return parts
 
     @staticmethod
-    def _format_progress_token_value(value) -> str:  # type: ignore[no-untyped-def]
-        return "_".join(str(value).strip().split())
+    def _format_progress_value(value) -> str | None:  # type: ignore[no-untyped-def]
+        if value in (None, ""):
+            return None
+        text = " ".join(str(value).strip().split())
+        return text or None
+
+    @staticmethod
+    def _range_context_part(*, start_date: str | None, end_date: str | None) -> str:
+        if start_date and end_date:
+            return f"范围 {start_date}" if start_date == end_date else f"范围 {start_date} ~ {end_date}"
+        if start_date:
+            return f"范围从 {start_date} 开始"
+        return f"范围截至 {end_date}"
 
     @classmethod
     def _build_current_object(cls, unit: PlanUnitSnapshot) -> dict:

@@ -241,6 +241,24 @@ def test_task_run_query_does_not_use_technical_unit_id_as_display_title() -> Non
     assert '"unit_id"' not in text
 
 
+def test_ingestion_progress_message_does_not_emit_machine_token_summary() -> None:
+    path = REPO_ROOT / "src/foundation/ingestion/executor.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        " fetched" + "=",
+        " written" + "=",
+        " committed" + "=",
+        " rejected" + "=",
+        "unit" + "_fetched" + "=",
+        "unit" + "_written" + "=",
+        "unit" + "_committed" + "=",
+        "reason" + "_stats" + "_truncated" + "=",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "Ingestion 进度摘要不得恢复英文机器 token:\n" + "\n".join(violations)
+
+
 def test_ops_does_not_parse_dataset_identity_from_route_key_text() -> None:
     forbidden_snippets = (
         'split(".", 1)[1]',

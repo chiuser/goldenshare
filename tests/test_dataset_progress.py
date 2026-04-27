@@ -24,7 +24,7 @@ def test_observer_emits_progress_without_run_id() -> None:
         rows_fetched=2000,
         rows_written=2000,
         rows_committed=2000,
-        message="index_daily: 1/100 fetched=2000 written=2000 committed=2000",
+        message="指数日线：1/100；累计读取 2000；累计保存 2000",
         current_object={
             "entity": {"kind": "index", "code": "000001.SH"},
             "time": {"point": "2026-04-24"},
@@ -37,10 +37,10 @@ def test_observer_emits_progress_without_run_id() -> None:
     assert snapshot.run_id is None
     assert snapshot.rows_committed == 2000
     assert snapshot.current_object["entity"]["code"] == "000001.SH"
-    assert message == "index_daily: 1/100 fetched=2000 written=2000 committed=2000"
+    assert message == "指数日线：1/100；累计读取 2000；累计保存 2000"
 
 
-def test_executor_progress_message_includes_generic_unit_tokens() -> None:
+def test_executor_progress_message_uses_operator_readable_summary() -> None:
     unit = PlanUnitSnapshot(
         unit_id="u-stk-mins",
         dataset_key="stk_mins",
@@ -78,15 +78,15 @@ def test_executor_progress_message_includes_generic_unit_tokens() -> None:
         unit_rows_rejected=1,
     )
 
-    assert "stk_mins: 2/10" in message
-    assert "unit=stock" in message
-    assert "ts_code=000001.SZ" in message
-    assert "security_name=平安银行" in message
-    assert "freq=1min" in message
-    assert "start_date=2026-04-23_09:00:00" in message
-    assert "end_date=2026-04-23_19:00:00" in message
-    assert "unit_committed=7999" in message
-    assert "committed=15998" in message
+    assert "stk_mins：2/10" in message
+    assert "单元 stock" in message
+    assert "证券 平安银行（000001.SZ）" in message
+    assert "频率 1min" in message
+    assert "范围 2026-04-23 09:00:00 ~ 2026-04-23 19:00:00" in message
+    assert "保存 7999" in message
+    assert "累计保存 15998" in message
+    assert "unit=" not in message
+    assert "committed=" not in message
 
 
 def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
@@ -112,6 +112,6 @@ def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
         current_object={},
     )
 
-    service._progress_reporter(snapshot, "daily: 1/5 fetched=100 written=100 rejected=0")
+    service._progress_reporter(snapshot, "股票日线：1/5；累计读取 100；累计保存 0")
 
     assert captured[0]["rows_saved"] == 0
