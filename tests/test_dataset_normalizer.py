@@ -136,3 +136,27 @@ def test_reference_security_normalizers_resolve_hk_and_us_row_transforms() -> No
     assert hk_batch.rows_normalized[0]["source"] == "tushare"
     assert us_batch.rows_rejected == 0
     assert us_batch.rows_normalized[0]["source"] == "tushare"
+
+
+def test_kpl_concept_cons_normalizer_resolves_board_name_alias() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("kpl_concept_cons"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-kpl-concept-cons",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "2026-04-24",
+                    "ts_code": "BK1234",
+                    "ts_name": "AI算力",
+                    "con_code": "000001.SZ",
+                    "con_name": "",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["con_name"] == "AI算力"

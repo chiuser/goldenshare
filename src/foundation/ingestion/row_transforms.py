@@ -63,6 +63,13 @@ def _us_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _kpl_concept_cons_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    if transformed.get("con_name") in (None, "") and transformed.get("ts_name"):
+        transformed["con_name"] = transformed["ts_name"]
+    return transformed
+
+
 def _suspend_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["row_key_hash"] = build_suspend_d_row_key_hash(transformed)
@@ -351,6 +358,7 @@ __all__ = [
     "_stock_basic_row_transform",
     "_hk_security_row_transform",
     "_us_security_row_transform",
+    "_kpl_concept_cons_row_transform",
     "_suspend_d_row_transform",
     "_top_list_row_transform",
     "_daily_row_transform",

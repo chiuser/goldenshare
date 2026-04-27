@@ -317,13 +317,6 @@ def _stk_holdernumber_params(request, anchor_date: date | None, enum_values: dic
     return params
 
 
-def _kpl_concept_cons_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    transformed = dict(row)
-    if transformed.get("con_name") in (None, "") and transformed.get("ts_name"):
-        transformed["con_name"] = transformed["ts_name"]
-    return transformed
-
-
 def _dc_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("缺少日期锚点")
@@ -865,7 +858,6 @@ __all__ = [
     "_broker_recommend_params",
     "_dividend_params",
     "_stk_holdernumber_params",
-    "_kpl_concept_cons_row_transform",
     "_dc_index_params",
     "_index_daily_basic_params",
     "_index_daily_params",
