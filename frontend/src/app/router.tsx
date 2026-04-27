@@ -13,6 +13,7 @@ import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 import { LoginPage } from "../pages/login-page";
 import { RegisterPage } from "../pages/register-page";
 import { ForgotPasswordPage } from "../pages/forgot-password-page";
+import { MarketHomepagePage } from "../pages/market-homepage/market-homepage-page";
 import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
@@ -26,10 +27,8 @@ import { OpsV21ReviewIndexPage } from "../pages/ops-v21-review-index-page";
 import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
 import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
-import { ShareMarketPage } from "../pages/share-market-page";
 import { UserOverviewPage } from "../pages/user-overview-page";
 import { OpsShell } from "./shell";
-import { ShareShell } from "./share-shell";
 
 
 function AppRoot() {
@@ -180,14 +179,6 @@ function OpsLayout() {
   );
 }
 
-function ShareLayout() {
-  return (
-    <AdminLayout>
-      <ShareShell />
-    </AdminLayout>
-  );
-}
-
 function UserOverviewLayout() {
   return (
     <UserLayout>
@@ -298,16 +289,16 @@ const platformCheckRoute = createRoute({
   component: PlatformCheckPage,
 });
 
+const marketHomepageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/market",
+  component: MarketHomepagePage,
+});
+
 const opsLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/ops",
   component: OpsLayout,
-});
-
-const shareLayoutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/share",
-  component: ShareLayout,
 });
 
 const opsIndexRoute = createRoute({
@@ -413,12 +404,6 @@ const opsV21DatasetDetailRoute = createRoute({
   },
 });
 
-const shareIndexRoute = createRoute({
-  getParentRoute: () => shareLayoutRoute,
-  path: "/",
-  component: ShareMarketPage,
-});
-
 const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
@@ -427,6 +412,7 @@ const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
   userOverviewRoute,
   platformCheckRoute,
+  marketHomepageRoute,
   opsLayoutRoute.addChildren([
     opsIndexRoute,
     opsOverviewRoute,
@@ -444,9 +430,6 @@ const routeTree = rootRoute.addChildren([
     opsTaskRunsRoute,
     opsTaskRunDetailRoute,
     opsV21AccountRoute,
-  ]),
-  shareLayoutRoute.addChildren([
-    shareIndexRoute,
   ]),
 ]);
 
