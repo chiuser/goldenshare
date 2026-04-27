@@ -16,6 +16,7 @@ from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.dataset_definition_projection import (
+    LAYER_STAGE_ORDER,
     build_dataset_layer_projection,
     delivery_mode_label,
     delivery_mode_tone,
@@ -53,6 +54,7 @@ class DatasetCardFact:
     raw_table: str
     std_table_hint: str | None
     serving_table: str | None
+    stage_keys: tuple[str, ...]
     primary_action_key: str | None
     std_mapping_configured: bool
     std_cleansing_configured: bool
@@ -248,7 +250,7 @@ class DatasetCardQueryService:
             if previous is None or item.calculated_at > previous.calculated_at:
                 stage_latest[item.stage] = item
 
-        stages = self._expected_stages(primary.delivery_mode, layers)
+        stages = self._expected_stages(primary.stage_keys, layers)
         result: list[DatasetCardStageStatus] = []
         for stage in stages:
             latest = stage_latest.get(stage)
@@ -373,18 +375,11 @@ class DatasetCardQueryService:
         return members[0].delivery_mode
 
     @staticmethod
-    def _expected_stages(delivery_mode: str, layers: list[LayerSnapshotLatestItem]) -> list[str]:
-        if delivery_mode == "multi_source_fusion":
-            base = ["raw", "std", "resolution", "serving"]
-        elif delivery_mode == "single_source_serving":
-            base = ["raw", "serving"]
-        elif delivery_mode in {"raw_collection", "core_direct"}:
-            base = ["raw"]
-        else:
-            base = ["raw", "serving"]
+    def _expected_stages(stage_keys: tuple[str, ...], layers: list[LayerSnapshotLatestItem]) -> list[str]:
+        base = list(stage_keys)
         extra = [
             stage
-            for stage in ("std", "resolution", "serving", "light")
+            for stage in LAYER_STAGE_ORDER
             if stage not in base and any(item.stage == stage for item in layers)
         ]
         return [*base, *extra]
@@ -435,6 +430,7 @@ class DatasetCardQueryService:
             raw_table=projection.raw_table,
             std_table_hint=projection.std_table_hint,
             serving_table=projection.serving_table,
+            stage_keys=projection.stage_keys,
             primary_action_key=self._primary_action_key(definition),
             std_mapping_configured=std_mapping_configured,
             std_cleansing_configured=std_cleansing_configured,

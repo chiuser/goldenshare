@@ -260,6 +260,33 @@ def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> N
     assert not violations, "dataset-cards 静态事实必须从 DatasetDefinition 派生:\n" + "\n".join(violations)
 
 
+def test_ops_layer_stage_plan_is_not_rederived_in_consumers() -> None:
+    path_tokens = {
+        REPO_ROOT / "src/ops/queries/dataset_card_query_service.py": (
+            "_expected_stages(delivery_mode",
+            'delivery_mode == "single_source_serving"',
+            'delivery_mode in {"raw_collection", "core_direct"}',
+        ),
+        REPO_ROOT / "src/ops/services/operations_dataset_status_snapshot_service.py": (
+            "projection.raw_enabled",
+            "projection.std_enabled",
+            "projection.resolution_enabled",
+            "projection.serving_enabled",
+            "当前模式未启用 std 物化",
+            "当前模式不产出 serving",
+        ),
+    }
+    violations: list[str] = []
+    for path, forbidden_tokens in path_tokens.items():
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "layer stage 启用规则必须来自 DatasetDefinition projection，消费者不得按 delivery_mode 重推:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

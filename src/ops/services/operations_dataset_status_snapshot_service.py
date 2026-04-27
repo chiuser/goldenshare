@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.dataset_definition_projection import (
+    DatasetLayerStageProjection,
     build_dataset_layer_projection,
     get_dataset_freshness_projection,
 )
@@ -190,19 +191,24 @@ class DatasetStatusSnapshotService:
             projection = build_dataset_layer_projection(definition)
             source_key = projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
 
-            def upsert_stage(stage: str, status: str, message: str | None) -> None:
-                pk = (item.dataset_key, source_key, stage)
+            def upsert_stage(stage_projection: DatasetLayerStageProjection, status: str, message: str | None) -> None:
+                pk = (item.dataset_key, source_key, stage_projection.stage)
                 row = session.get(DatasetLayerSnapshotCurrent, pk)
                 if row is None:
-                    row = DatasetLayerSnapshotCurrent(dataset_key=item.dataset_key, source_key=source_key, stage=stage)
+                    row = DatasetLayerSnapshotCurrent(
+                        dataset_key=item.dataset_key,
+                        source_key=source_key,
+                        stage=stage_projection.stage,
+                    )
                     session.add(row)
                 row.status = status
                 row.rows_in = None
                 row.rows_out = None
-                row.error_count = 1 if item.recent_failure_summary and stage == "serving" else 0
-                row.last_success_at = item.latest_success_at if stage == "serving" else None
-                row.last_failure_at = item.recent_failure_at if stage == "serving" else None
-                row.lag_seconds = (item.lag_days * 86400) if (item.lag_days is not None and stage == "serving") else None
+                is_serving_status = stage_projection.enabled and stage_projection.stage == "serving"
+                row.error_count = 1 if item.recent_failure_summary and is_serving_status else 0
+                row.last_success_at = item.latest_success_at if is_serving_status else None
+                row.last_failure_at = item.recent_failure_at if is_serving_status else None
+                row.lag_seconds = (item.lag_days * 86400) if (item.lag_days is not None and is_serving_status) else None
                 row.message = message
                 row.calculated_at = calculated_at
                 row.state_updated_at = calculated_at
@@ -210,21 +216,16 @@ class DatasetStatusSnapshotService:
                 row.task_run_id = None
                 row.run_profile = None
 
-            upsert_stage("raw", item.freshness_status if projection.raw_enabled else "skipped", projection.notes)
-            if projection.std_enabled:
-                upsert_stage("std", "unobserved", "该层已启用，但暂未接入独立观测指标")
-            else:
-                upsert_stage("std", "skipped", "当前模式未启用 std 物化")
-            if projection.resolution_enabled:
-                upsert_stage("resolution", "unobserved", "该层已启用，但暂未接入独立观测指标")
-            else:
-                upsert_stage("resolution", "skipped", "当前模式未启用融合决策层")
-            if projection.serving_enabled:
-                upsert_stage("serving", item.freshness_status, item.freshness_note)
-            else:
-                upsert_stage("serving", "skipped", "当前模式不产出 serving")
+            stage_statuses: dict[str, str] = {}
+            for stage_projection in projection.stages:
+                status = DatasetStatusSnapshotService._resolve_stage_status(stage_projection, item)
+                message = item.freshness_note if stage_projection.stage == "serving" and stage_projection.enabled else stage_projection.message
+                upsert_stage(stage_projection, status, message)
+                stage_statuses[stage_projection.stage] = status
+
             light_snapshot = light_snapshot_by_dataset.get(item.dataset_key)
-            if item.dataset_key == "daily" and projection.serving_enabled:
+            serving_stage = projection.stage("serving")
+            if item.dataset_key == "daily" and serving_stage is not None and serving_stage.enabled:
                 pk = (item.dataset_key, source_key, "light")
                 row = session.get(DatasetLayerSnapshotCurrent, pk)
                 if row is None:
@@ -264,11 +265,21 @@ class DatasetStatusSnapshotService:
 
             snapshot_row = session.get(DatasetStatusSnapshot, item.dataset_key)
             if snapshot_row is not None:
-                snapshot_row.raw_stage_status = item.freshness_status if projection.raw_enabled else "skipped"
-                snapshot_row.std_stage_status = "unobserved" if projection.std_enabled else "skipped"
-                snapshot_row.resolution_stage_status = "unobserved" if projection.resolution_enabled else "skipped"
-                snapshot_row.serving_stage_status = item.freshness_status if projection.serving_enabled else "skipped"
+                snapshot_row.raw_stage_status = stage_statuses.get("raw")
+                snapshot_row.std_stage_status = stage_statuses.get("std")
+                snapshot_row.resolution_stage_status = stage_statuses.get("resolution")
+                snapshot_row.serving_stage_status = stage_statuses.get("serving")
                 snapshot_row.state_updated_at = calculated_at
+
+    @staticmethod
+    def _resolve_stage_status(stage_projection: DatasetLayerStageProjection, item: DatasetFreshnessItem) -> str:
+        if not stage_projection.enabled:
+            return "skipped"
+        if stage_projection.status_source == "freshness":
+            return item.freshness_status
+        if stage_projection.status_source in {"unobserved", "skipped"}:
+            return stage_projection.status_source
+        raise ValueError(f"Unsupported layer stage status source: {stage_projection.status_source}")
 
     @staticmethod
     def _status_reason_code(status: str | None) -> str | None:

@@ -117,6 +117,21 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     assert get_dataset_definition("stk_mins").storage.serving_table is None
 
 
+def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
+    daily = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("daily"))
+    stock_basic = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stock_basic"))
+    stk_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stk_mins"))
+
+    assert daily.stage_keys == ("raw", "serving")
+    assert daily.all_stage_keys == ("raw", "std", "resolution", "serving")
+    assert daily.stage("std").enabled is False
+    assert daily.stage("std").message == "当前模式未启用 std 物化"
+    assert stock_basic.stage_keys == ("raw", "std", "resolution", "serving")
+    assert stock_basic.stage("resolution").status_source == "unobserved"
+    assert stk_mins.stage_keys == ("raw",)
+    assert stk_mins.stage("serving").message == "当前模式不产出 serving"
+
+
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:
     missing = [
         row["identity"]["dataset_key"]
