@@ -5,6 +5,9 @@ from typing import Iterable
 
 from src.ops.action_catalog import (
     ActionParameter,
+    WORKFLOW_DOMAIN_KEY,
+    WORKFLOW_DOMAIN_DISPLAY_NAME,
+    WORKFLOW_GROUP_ORDER,
     WorkflowDefinition,
     dataset_field_default_value,
     list_workflow_definitions,
@@ -45,7 +48,7 @@ GROUP_CONFIG = {
     "ranking": ("event_stats", "榜单 / 事件", 60),
     "event": ("event_stats", "榜单 / 事件", 60),
     "low_frequency": ("event_stats", "榜单 / 事件", 60),
-    "workflow": ("workflow", "工作流", 80),
+    WORKFLOW_DOMAIN_KEY: (WORKFLOW_DOMAIN_KEY, WORKFLOW_DOMAIN_DISPLAY_NAME, WORKFLOW_GROUP_ORDER),
     "other": ("other", "其他", 90),
 }
 
@@ -129,13 +132,12 @@ class ManualActionQueryService:
         )
 
     def _build_workflow_route(self, workflow: WorkflowDefinition) -> ManualActionRoute:
-        group_key, group_label, group_order = GROUP_CONFIG["workflow"]
         return ManualActionRoute(
             action_key=f"workflow:{workflow.key}",
             action_type="workflow",
-            group_key=group_key,
-            group_label=group_label,
-            group_order=group_order,
+            group_key=workflow.domain_key,
+            group_label=workflow.domain_display_name,
+            group_order=workflow.group_order,
             action_order=100,
             display_name=workflow.display_name,
             description=workflow.description,

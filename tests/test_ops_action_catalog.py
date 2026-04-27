@@ -4,6 +4,9 @@ from src.foundation.datasets.registry import get_dataset_definition, get_dataset
 from src.ops.action_catalog import (
     MAINTENANCE_ACTION_REGISTRY,
     WORKFLOW_DEFINITION_REGISTRY,
+    WORKFLOW_DOMAIN_DISPLAY_NAME,
+    WORKFLOW_DOMAIN_KEY,
+    WORKFLOW_GROUP_ORDER,
     get_action_display_name,
     get_catalog_target,
 )
@@ -41,6 +44,9 @@ def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:
 def test_workflow_steps_reference_dataset_action_keys() -> None:
     dataset_keys = {definition.dataset_key for definition in list_dataset_definitions()}
     for workflow in WORKFLOW_DEFINITION_REGISTRY.values():
+        assert workflow.domain_key == WORKFLOW_DOMAIN_KEY
+        assert workflow.domain_display_name == WORKFLOW_DOMAIN_DISPLAY_NAME
+        assert workflow.group_order == WORKFLOW_GROUP_ORDER
         for step in workflow.steps:
             if step.action_key.startswith("maintenance."):
                 assert step.action_key in MAINTENANCE_ACTION_REGISTRY

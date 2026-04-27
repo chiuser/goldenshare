@@ -13,6 +13,9 @@ from src.foundation.datasets.registry import (
 
 ParameterType = Literal["string", "date", "month", "integer", "boolean", "enum"]
 ActionType = Literal["dataset_action", "maintenance_action", "workflow"]
+WORKFLOW_DOMAIN_KEY = "workflow"
+WORKFLOW_DOMAIN_DISPLAY_NAME = "工作流"
+WORKFLOW_GROUP_ORDER = 80
 
 
 @dataclass(slots=True, frozen=True)
@@ -88,6 +91,9 @@ class WorkflowDefinition:
     display_name: str
     description: str
     steps: tuple[WorkflowStepDefinition, ...]
+    domain_key: str = WORKFLOW_DOMAIN_KEY
+    domain_display_name: str = WORKFLOW_DOMAIN_DISPLAY_NAME
+    group_order: int = WORKFLOW_GROUP_ORDER
     parameters: tuple[ActionParameter, ...] = ()
     parallel_policy: str = "by_dependency"
     default_schedule_policy: str | None = None

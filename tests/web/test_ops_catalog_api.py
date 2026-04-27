@@ -43,6 +43,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "reference_data_refresh" in workflow_keys
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
+    assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
     assert sources["tushare"]["display_name"] == "Tushare"
     assert sources["biying"]["display_name"] == "Biying"
 

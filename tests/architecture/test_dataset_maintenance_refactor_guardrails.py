@@ -287,6 +287,36 @@ def test_ops_layer_stage_plan_is_not_rederived_in_consumers() -> None:
     assert not violations, "layer stage 启用规则必须来自 DatasetDefinition projection，消费者不得按 delivery_mode 重推:\n" + "\n".join(violations)
 
 
+def test_workflow_domain_display_facts_stay_in_action_catalog() -> None:
+    path_tokens = {
+        REPO_ROOT / "src/ops/queries/catalog_query_service.py": (
+            'domain_display_name="工作流"',
+            'domain_key="workflow"',
+        ),
+        REPO_ROOT / "src/ops/schemas/catalog.py": (
+            'domain_display_name: str = "工作流"',
+            'domain_key: str = "workflow"',
+        ),
+        REPO_ROOT / "src/ops/queries/manual_action_query_service.py": (
+            'GROUP_CONFIG["workflow"]',
+            '("workflow", "工作流"',
+        ),
+        REPO_ROOT / "src/ops/services/task_run_service.py": (
+            '"工作流维护"',
+            '"系统维护"',
+        ),
+    }
+    violations: list[str] = []
+    for path, forbidden_tokens in path_tokens.items():
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "workflow 领域与标题事实必须来自 ActionCatalog，消费者不得本地硬编码:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

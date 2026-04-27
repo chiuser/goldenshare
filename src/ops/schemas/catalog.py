@@ -48,8 +48,8 @@ class WorkflowCatalogItem(BaseModel):
     key: str
     display_name: str
     description: str
-    domain_key: str = "workflow"
-    domain_display_name: str = "工作流"
+    domain_key: str
+    domain_display_name: str
     parallel_policy: str
     default_schedule_policy: str | None = None
     schedule_enabled: bool

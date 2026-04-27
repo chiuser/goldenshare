@@ -41,6 +41,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert "equity_market" in group_keys
     assert "reference_data" in group_keys
     assert "workflow" in group_keys
+    workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
+    assert workflow_group["group_label"] == "工作流"
 
     actions = _actions_by_key(payload)
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
@@ -135,6 +137,21 @@ def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, u
         "hot_type": ["人气榜"],
         "is_new": "Y",
     }
+
+
+def test_ops_manual_action_task_run_uses_workflow_catalog_title(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/workflow:daily_market_close_maintenance/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["task_type"] == "workflow"
+    assert payload["run"]["title"] == "每日收盘后维护"
 
 
 def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, user_factory) -> None:

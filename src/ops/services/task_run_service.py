@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
-from src.ops.action_catalog import get_maintenance_action, get_workflow_definition
+from src.ops.action_catalog import get_maintenance_action, get_target_display_name, get_workflow_definition
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -80,7 +80,7 @@ class TaskRunCommandService:
     def create_task_run(self, session: Session, *, context: TaskRunCreateContext) -> TaskRun:
         self._validate_context(context)
         now = datetime.now(timezone.utc)
-        title = self._resolve_title(task_type=context.task_type, resource_key=context.resource_key, action=context.action)
+        title = self._resolve_title(context)
         request_payload = {
             **dict(context.request_payload or {}),
             "task_type": context.task_type,
@@ -236,14 +236,14 @@ class TaskRunCommandService:
         raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
 
     @staticmethod
-    def _resolve_title(*, task_type: str, resource_key: str | None, action: str) -> str:
-        if resource_key:
-            return get_dataset_definition(resource_key).display_name
-        if task_type == "workflow":
-            return "工作流维护"
-        if task_type == "maintenance_action":
-            return "系统维护"
-        return action
+    def _resolve_title(context: TaskRunCreateContext) -> str:
+        if context.resource_key:
+            return get_dataset_definition(context.resource_key).display_name
+        target_key = str((context.request_payload or {}).get("target_key") or "").strip()
+        display_name = get_target_display_name(context.task_type, target_key) if target_key else None
+        if display_name is not None:
+            return display_name
+        return context.action
 
     @staticmethod
     def _extract_time_input(params_json: dict[str, Any]) -> dict[str, Any]:
