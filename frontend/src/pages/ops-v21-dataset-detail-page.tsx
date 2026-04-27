@@ -24,15 +24,20 @@ import { StatusBadge } from "../shared/ui/status-badge";
 
 
 type TaskRunRow = TaskRunListResponse["items"][number];
-
-function stageTitle(stage: string) {
-  if (stage === "raw") return "raw";
-  if (stage === "std") return "std";
-  if (stage === "resolution") return "resolution";
-  if (stage === "serving") return "serving";
-  if (stage === "light") return "light";
-  return stage;
-}
+type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
+type DatasetCardStage = DatasetCard["stage_statuses"][number];
+type LayerLatestItem = LayerSnapshotLatestResponse["items"][number];
+type StageCard = {
+  stage: string;
+  stageLabel: string;
+  status: string;
+  rowsIn: number | null;
+  rowsOut: number | null;
+  lagSeconds: number | null;
+  calculatedAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+};
 
 function formatLagDuration(lagSeconds: number | null | undefined): string {
   if (!lagSeconds) return "—";
@@ -43,6 +48,34 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
   const normalized = (value || "unknown").toLowerCase();
   if (normalized === "healthy") return "正常";
   return formatStatusLabel(value);
+}
+
+function stageCardFromDatasetCard(item: DatasetCardStage): StageCard {
+  return {
+    stage: item.stage,
+    stageLabel: item.stage_label,
+    status: item.status,
+    rowsIn: item.rows_in,
+    rowsOut: item.rows_out,
+    lagSeconds: item.lag_seconds,
+    calculatedAt: item.calculated_at,
+    lastSuccessAt: item.last_success_at,
+    lastFailureAt: item.last_failure_at,
+  };
+}
+
+function stageCardFromLatestItem(item: LayerLatestItem): StageCard {
+  return {
+    stage: item.stage,
+    stageLabel: item.stage_display_name,
+    status: item.status,
+    rowsIn: item.rows_in,
+    rowsOut: item.rows_out,
+    lagSeconds: item.lag_seconds,
+    calculatedAt: item.calculated_at,
+    lastSuccessAt: item.last_success_at,
+    lastFailureAt: item.last_failure_at,
+  };
 }
 
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
@@ -97,10 +130,9 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const displayName = datasetCard?.display_name || "数据集未找到";
   const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
-  const stageOrder = ["raw", "std", "resolution", "serving"];
-  if (datasetKey === "daily" || stageMap.has("light")) {
-    stageOrder.push("light");
-  }
+  const stageCards: StageCard[] = datasetCard?.stage_statuses?.length
+    ? datasetCard.stage_statuses.map(stageCardFromDatasetCard)
+    : latestItems.map(stageCardFromLatestItem);
   const taskRunItems = taskRunQuery.data?.items || [];
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
@@ -234,19 +266,18 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         </Grid.Col>
       </Grid>
 
-      <SectionCard title="全链路层级状态" description="raw / std / resolution / serving / light 的最新状态。">
+      <SectionCard title="全链路层级状态" description="按服务端返回的层级计划展示最新状态。">
         <Grid>
-          {stageOrder.map((stage) => {
-            const item = stageMap.get(stage);
+          {stageCards.map((item) => {
             return (
-              <Grid.Col key={stage} span={{ base: 12, md: 6, xl: 3 }}>
-                <MetricPanel label={stageTitle(stage)} align="start" minHeight={176}>
+              <Grid.Col key={item.stage} span={{ base: 12, md: 6, xl: 3 }}>
+                <MetricPanel label={item.stageLabel} align="start" minHeight={176}>
                   <Stack gap={6} w="100%">
-                    <StatusBadge value={item?.status || "unknown"} label={formatDetailStatusLabel(item?.status)} />
-                    <Text size="sm">最近成功：{item?.last_success_at ? formatDateTimeLabel(item.last_success_at) : "—"}</Text>
-                    <Text size="sm">最近失败：{item?.last_failure_at ? formatDateTimeLabel(item.last_failure_at) : "—"}</Text>
-                    <Text size="sm">rows_in：{item?.rows_in ?? "—"}</Text>
-                    <Text size="sm">rows_out：{item?.rows_out ?? "—"}</Text>
+                    <StatusBadge value={item.status || "unknown"} label={formatDetailStatusLabel(item.status)} />
+                    <Text size="sm">最近成功：{item.lastSuccessAt ? formatDateTimeLabel(item.lastSuccessAt) : "—"}</Text>
+                    <Text size="sm">最近失败：{item.lastFailureAt ? formatDateTimeLabel(item.lastFailureAt) : "—"}</Text>
+                    <Text size="sm">rows_in：{item.rowsIn ?? "—"}</Text>
+                    <Text size="sm">rows_out：{item.rowsOut ?? "—"}</Text>
                   </Stack>
                 </MetricPanel>
               </Grid.Col>
