@@ -58,11 +58,10 @@ export function useQuotePageQueries(state: QuotePageState) {
   const relatedInfoQuery = useQuery({
     queryKey: ["biz-system", "quote", "related-info", state.tsCode, state.securityType],
     queryFn: () => fetchQuoteRelatedInfo(state.tsCode, state.securityType),
-    retry: false,
   });
 
   const viewModel = useMemo<QuotePageViewModel | null>(() => {
-    if (!pageInitQuery.data || !klineQuery.data) {
+    if (!pageInitQuery.data || !klineQuery.data || !relatedInfoQuery.data) {
       return null;
     }
     return {
@@ -73,13 +72,14 @@ export function useQuotePageQueries(state: QuotePageState) {
         adjustment: klineQuery.data.adjustment,
         bars: mapKlineBars(klineQuery.data),
       },
-      related: relatedInfoQuery.data ? mapRelatedInfo(relatedInfoQuery.data) : [],
+      related: mapRelatedInfo(relatedInfoQuery.data),
     };
   }, [klineQuery.data, pageInitQuery.data, relatedInfoQuery.data]);
 
   const firstError =
     (pageInitQuery.error as Error | null) ||
     (klineQuery.error as Error | null) ||
+    (relatedInfoQuery.error as Error | null) ||
     null;
 
   const loading =
