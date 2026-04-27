@@ -119,14 +119,14 @@ class ScheduleProbeBindingService:
         if schedule.target_type == "dataset_action":
             return [(self._dataset_from_action_target(schedule.target_key), None)]
         if schedule.target_type == "maintenance_action":
-            raise WebAppError(status_code=422, code="validation_error", message="Probe schedules require dataset actions or workflows")
+            raise WebAppError(status_code=422, code="validation_error", message="探测排程只能绑定数据集维护或工作流")
         if schedule.target_type == "workflow":
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
                 return sorted({(self._dataset_from_key(item), None) for item in raw_dataset_keys})
             workflow = get_workflow_definition(schedule.target_key)
             if workflow is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="工作流不存在")
             dataset_targets = []
             for step in workflow.steps:
                 dataset_key = step.dataset_key
@@ -138,14 +138,14 @@ class ScheduleProbeBindingService:
                     dataset_key = definition.dataset_key
                 dataset_targets.append((dataset_key, step.step_key))
             return sorted(set(dataset_targets))
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported schedule target_type for probe")
+        raise WebAppError(status_code=422, code="validation_error", message="不支持的探测排程目标类型")
 
     @staticmethod
     def _dataset_from_action_target(target_key: str) -> str:
         try:
             definition, _action = get_dataset_definition_by_action_key(target_key)
         except KeyError as exc:
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
+            raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作无效") from exc
         return definition.dataset_key
 
     @staticmethod
@@ -153,7 +153,7 @@ class ScheduleProbeBindingService:
         try:
             return get_dataset_definition(dataset_key).dataset_key
         except KeyError as exc:
-            raise WebAppError(status_code=422, code="validation_error", message="Invalid workflow probe dataset_key") from exc
+            raise WebAppError(status_code=422, code="validation_error", message="工作流探测数据集无效") from exc
 
     @staticmethod
     def _normalize_time(value: object) -> str:
@@ -170,5 +170,5 @@ class ScheduleProbeBindingService:
     def _normalize_trigger_mode(value: str | None) -> str:
         trigger_mode = str(value or "schedule").strip().lower()
         if trigger_mode not in SUPPORTED_TRIGGER_MODES:
-            raise WebAppError(status_code=422, code="validation_error", message=f"Unsupported trigger_mode: {trigger_mode}")
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的触发方式：{trigger_mode}")
         return trigger_mode
