@@ -266,6 +266,7 @@ def test_ops_schedule_detail_returns_not_found_for_missing_schedule(app_client, 
 
     assert response.status_code == 404
     assert response.json()["code"] == "not_found"
+    assert response.json()["message"] == "自动任务不存在"
 
 
 def test_ops_schedule_once_requires_timezone_aware_next_run_at(app_client, user_factory) -> None:

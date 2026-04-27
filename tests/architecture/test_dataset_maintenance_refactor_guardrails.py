@@ -375,6 +375,7 @@ def test_schedule_validation_messages_do_not_emit_internal_field_tokens() -> Non
     paths = (
         REPO_ROOT / "src/ops/services/operations_schedule_service.py",
         REPO_ROOT / "src/ops/services/schedule_planner.py",
+        REPO_ROOT / "src/ops/queries/schedule_query_service.py",
     )
     forbidden_snippets = (
         "Schedule does not exist",
@@ -393,6 +394,9 @@ def test_schedule_validation_messages_do_not_emit_internal_field_tokens() -> Non
         "cron_expr must contain",
         "Invalid cron",
         "Cron value out of range",
+        "Probe source display name is unavailable",
+        "Schedule target display name is unavailable",
+        "Probe dataset display name is unavailable",
     )
     violations: list[str] = []
     for path in paths:

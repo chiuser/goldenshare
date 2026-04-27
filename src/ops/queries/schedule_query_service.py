@@ -78,7 +78,7 @@ class ScheduleQueryService:
         )
         row = session.execute(stmt).one_or_none()
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
         schedule, created_by_username, updated_by_username = row
         return ScheduleDetailResponse(
             id=schedule.id,
@@ -108,7 +108,7 @@ class ScheduleQueryService:
     def list_schedule_revisions(self, session: Session, schedule_id: int) -> ScheduleRevisionListResponse:
         schedule = session.scalar(select(OpsSchedule.id).where(OpsSchedule.id == schedule_id))
         if schedule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Schedule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="自动任务不存在")
 
         changed_by = aliased(AppUser)
         stmt = (
@@ -166,7 +166,7 @@ class ScheduleQueryService:
         payload = dict(probe_config_json)
         source_display_name = get_source_display_name(payload.get("source_key") or "all")
         if source_display_name is None:
-            raise WebAppError(status_code=422, code="validation_error", message="Probe source display name is unavailable")
+            raise WebAppError(status_code=422, code="validation_error", message="探测源缺少显示名称")
         payload["source_display_name"] = source_display_name
         payload["workflow_dataset_targets"] = [
             _probe_dataset_target(dataset_key)
@@ -184,14 +184,14 @@ def _normalize_dataset_keys(value: object) -> list[str]:
 def _require_target_display_name(target_type: str, target_key: str) -> str:
     display_name = get_target_display_name(target_type, target_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Schedule target display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="自动任务目标缺少显示名称")
     return display_name
 
 
 def _probe_dataset_target(dataset_key: str) -> dict[str, str]:
     display_name = get_dataset_display_name(dataset_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Probe dataset display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="探测数据集缺少显示名称")
     return {
         "dataset_key": dataset_key,
         "dataset_display_name": display_name,
