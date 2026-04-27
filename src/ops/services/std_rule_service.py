@@ -31,7 +31,7 @@ class OpsStdRuleCommandService:
         )
         self._ensure_rule_status(rule.status)
         if rule.rule_set_version <= 0:
-            raise WebAppError(status_code=422, code="validation_error", message="rule_set_version must be greater than 0")
+            raise WebAppError(status_code=422, code="validation_error", message="规则版本必须大于 0")
         session.add(rule)
         session.flush()
         self._record_revision("std_mapping_rule", str(rule.id), "created", None, self._snapshot_mapping(rule), user.id, session)
@@ -57,7 +57,7 @@ class OpsStdRuleCommandService:
         if "rule_set_version" in changed_fields:
             version = int(changes["rule_set_version"])
             if version <= 0:
-                raise WebAppError(status_code=422, code="validation_error", message="rule_set_version must be greater than 0")
+                raise WebAppError(status_code=422, code="validation_error", message="规则版本必须大于 0")
             rule.rule_set_version = version
         rule.updated_by_user_id = user.id
         after = self._snapshot_mapping(rule)
@@ -91,7 +91,7 @@ class OpsStdRuleCommandService:
         )
         self._ensure_rule_status(rule.status)
         if rule.rule_set_version <= 0:
-            raise WebAppError(status_code=422, code="validation_error", message="rule_set_version must be greater than 0")
+            raise WebAppError(status_code=422, code="validation_error", message="规则版本必须大于 0")
         session.add(rule)
         session.flush()
         self._record_revision("std_cleansing_rule", str(rule.id), "created", None, self._snapshot_cleansing(rule), user.id, session)
@@ -106,7 +106,7 @@ class OpsStdRuleCommandService:
         if "rule_type" in changed_fields:
             value = str(changes["rule_type"] or "").strip()
             if not value:
-                raise WebAppError(status_code=422, code="validation_error", message="rule_type cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="规则类型不能为空")
             rule.rule_type = value
         if "target_fields_json" in changed_fields:
             rule.target_fields_json = list(changes["target_fields_json"] or [])
@@ -115,7 +115,7 @@ class OpsStdRuleCommandService:
         if "action" in changed_fields:
             value = str(changes["action"] or "").strip()
             if not value:
-                raise WebAppError(status_code=422, code="validation_error", message="action cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message="处理动作不能为空")
             rule.action = value
         if "status" in changed_fields:
             self._ensure_rule_status(changes["status"])
@@ -123,7 +123,7 @@ class OpsStdRuleCommandService:
         if "rule_set_version" in changed_fields:
             version = int(changes["rule_set_version"])
             if version <= 0:
-                raise WebAppError(status_code=422, code="validation_error", message="rule_set_version must be greater than 0")
+                raise WebAppError(status_code=422, code="validation_error", message="规则版本必须大于 0")
             rule.rule_set_version = version
         rule.updated_by_user_id = user.id
         after = self._snapshot_cleansing(rule)
@@ -171,18 +171,30 @@ class OpsStdRuleCommandService:
     def _validate_mapping_required(payload: dict) -> None:
         for field in ("dataset_key", "source_key", "src_field", "std_field"):
             if not str(payload.get(field) or "").strip():
-                raise WebAppError(status_code=422, code="validation_error", message=f"{field} cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message=f"{OpsStdRuleCommandService._field_label(field)}不能为空")
 
     @staticmethod
     def _validate_cleansing_required(payload: dict) -> None:
         for field in ("dataset_key", "source_key", "rule_type", "action"):
             if not str(payload.get(field) or "").strip():
-                raise WebAppError(status_code=422, code="validation_error", message=f"{field} cannot be empty")
+                raise WebAppError(status_code=422, code="validation_error", message=f"{OpsStdRuleCommandService._field_label(field)}不能为空")
 
     @staticmethod
     def _ensure_rule_status(status: str) -> None:
         if status not in {"active", "disabled"}:
-            raise WebAppError(status_code=422, code="validation_error", message="status must be active/disabled")
+            raise WebAppError(status_code=422, code="validation_error", message="规则状态无效")
+
+    @staticmethod
+    def _field_label(field_name: str) -> str:
+        labels = {
+            "dataset_key": "数据集",
+            "source_key": "来源",
+            "src_field": "源字段",
+            "std_field": "标准字段",
+            "rule_type": "规则类型",
+            "action": "处理动作",
+        }
+        return labels.get(field_name, field_name)
 
     @staticmethod
     def _snapshot_mapping(rule: StdMappingRule) -> dict:

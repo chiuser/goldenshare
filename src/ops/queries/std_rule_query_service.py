@@ -121,26 +121,26 @@ class StdRuleQueryService:
     def get_mapping_rule(session: Session, rule_id: int) -> StdMappingRule:
         rule = session.scalar(select(StdMappingRule).where(StdMappingRule.id == rule_id))
         if rule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Std mapping rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="字段映射规则不存在")
         return rule
 
     @staticmethod
     def get_cleansing_rule(session: Session, rule_id: int) -> StdCleansingRule:
         rule = session.scalar(select(StdCleansingRule).where(StdCleansingRule.id == rule_id))
         if rule is None:
-            raise WebAppError(status_code=404, code="not_found", message="Std cleansing rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="清洗规则不存在")
         return rule
 
 
 def _require_dataset_display_name(dataset_key: str | None) -> str:
     display_name = get_dataset_display_name(dataset_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Std rule dataset display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="标准规则数据集缺少显示名称")
     return display_name
 
 
 def _require_source_display_name(source_key: str | None) -> str:
     display_name = get_source_display_name(source_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Std rule source display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="标准规则来源缺少显示名称")
     return display_name

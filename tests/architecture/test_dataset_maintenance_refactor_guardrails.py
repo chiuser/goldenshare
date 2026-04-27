@@ -546,6 +546,32 @@ def test_std_rule_queries_do_not_synthesize_default_rules() -> None:
     assert not violations, "std rule 查询不得伪造默认规则；默认规则必须由 seed/写入链路落库后再查询:\n" + "\n".join(violations)
 
 
+def test_std_rule_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (
+        REPO_ROOT / "src/ops/services/std_rule_service.py",
+        REPO_ROOT / "src/ops/queries/std_rule_query_service.py",
+    )
+    forbidden_snippets = (
+        "rule_set_version must be greater than 0",
+        "rule_type cannot be empty",
+        "action cannot be empty",
+        "cannot be empty",
+        "status must be active/disabled",
+        "Std mapping rule does not exist",
+        "Std cleansing rule does not exist",
+        "Std rule dataset display name is unavailable",
+        "Std rule source display name is unavailable",
+    )
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
+
+    assert not violations, "标准规则 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

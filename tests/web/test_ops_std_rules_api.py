@@ -77,6 +77,28 @@ def test_ops_std_mapping_rule_crud_like_flow(app_client, user_factory) -> None:
     assert state["status"] == "active"
 
 
+def test_ops_std_mapping_rule_returns_readable_validation_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/std-rules/mapping",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "dataset_key": "daily",
+            "source_key": "tushare",
+            "src_field": "",
+            "std_field": "ts_code",
+            "status": "active",
+            "rule_set_version": 1,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "源字段不能为空"
+
+
 def test_ops_std_cleansing_rule_crud_like_flow(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
