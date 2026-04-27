@@ -116,6 +116,10 @@ class DatasetStorageDefinition:
     raw_dao_name: str
     core_dao_name: str
     target_table: str
+    delivery_mode: str
+    layer_plan: str
+    std_table: str | None
+    serving_table: str | None
     raw_table: str
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"

@@ -42,15 +42,15 @@ class DatasetFreshnessProjection:
 
 
 def build_dataset_layer_projection(definition: DatasetDefinition) -> DatasetLayerProjection:
-    delivery_mode = _delivery_mode_from_definition(definition)
+    delivery_mode = definition.storage.delivery_mode
     return DatasetLayerProjection(
         dataset_key=definition.dataset_key,
         source_keys=definition.source.source_keys,
         delivery_mode=delivery_mode,
-        layer_plan=_layer_plan(delivery_mode),
+        layer_plan=definition.storage.layer_plan,
         raw_table=definition.storage.raw_table,
-        std_table_hint=_std_table_hint(definition, delivery_mode),
-        serving_table=_serving_table(definition, delivery_mode),
+        std_table_hint=definition.storage.std_table,
+        serving_table=definition.storage.serving_table,
         raw_enabled=True,
         std_enabled=delivery_mode == "multi_source_fusion",
         resolution_enabled=delivery_mode == "multi_source_fusion",
@@ -114,44 +114,6 @@ def validate_dataset_freshness_projections(
     if missing_columns:
         errors.append(f"Missing observed date column on mapped model: {', '.join(missing_columns)}")
     return errors
-
-
-def _delivery_mode_from_definition(definition: DatasetDefinition) -> str:
-    write_path = definition.storage.write_path
-    target_table = definition.storage.target_table
-    if write_path.startswith("raw_std_publish"):
-        return "multi_source_fusion"
-    if write_path == "raw_only_upsert" or target_table.startswith("raw_"):
-        return "raw_collection"
-    if target_table.startswith("core_serving."):
-        return "single_source_serving"
-    return "core_direct"
-
-
-def _layer_plan(delivery_mode: str) -> str:
-    if delivery_mode == "multi_source_fusion":
-        return "raw->std->resolution->serving"
-    if delivery_mode == "single_source_serving":
-        return "raw->serving"
-    if delivery_mode == "raw_collection":
-        return "raw-only"
-    if delivery_mode == "core_direct":
-        return "raw->core"
-    return "unknown"
-
-
-def _std_table_hint(definition: DatasetDefinition, delivery_mode: str) -> str | None:
-    if delivery_mode != "multi_source_fusion":
-        return None
-    return f"core_multi.{definition.storage.core_dao_name}"
-
-
-def _serving_table(definition: DatasetDefinition, delivery_mode: str) -> str | None:
-    if delivery_mode in {"raw_collection", "core_direct"}:
-        return None
-    if definition.storage.target_table.startswith("core_serving."):
-        return definition.storage.target_table
-    return None
 
 
 def delivery_mode_label(delivery_mode: str) -> str:

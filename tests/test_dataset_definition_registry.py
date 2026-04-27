@@ -83,6 +83,40 @@ def test_dataset_definition_storage_raw_table_is_explicit_fact() -> None:
     assert get_dataset_definition("stk_period_bar_adj_month").storage.raw_table == "raw_tushare.stk_period_bar_adj"
 
 
+def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
+    missing_delivery_mode = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if not str(row["storage"].get("delivery_mode") or "").strip()
+    ]
+    missing_layer_plan = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if not str(row["storage"].get("layer_plan") or "").strip()
+    ]
+    missing_std_table = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if "std_table" not in row["storage"]
+    ]
+    missing_serving_table = [
+        row["identity"]["dataset_key"]
+        for row in ALL_DATASET_ROWS
+        if "serving_table" not in row["storage"]
+    ]
+
+    assert not missing_delivery_mode
+    assert not missing_layer_plan
+    assert not missing_std_table
+    assert not missing_serving_table
+    assert get_dataset_definition("daily").storage.delivery_mode == "single_source_serving"
+    assert get_dataset_definition("stock_basic").storage.delivery_mode == "multi_source_fusion"
+    assert get_dataset_definition("stock_basic").storage.std_table == "core_multi.security_std"
+    assert get_dataset_definition("daily").storage.serving_table == "core_serving.equity_daily_bar"
+    assert get_dataset_definition("stk_mins").storage.layer_plan == "raw-only"
+    assert get_dataset_definition("stk_mins").storage.serving_table is None
+
+
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:
     missing = [
         row["identity"]["dataset_key"]
@@ -98,12 +132,25 @@ def test_dataset_definition_source_keys_are_explicit_fact() -> None:
 
 def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
     builder_source = inspect.getsource(definition_builder)
+    projection_source = inspect.getsource(dataset_definition_projection)
 
     assert not hasattr(definition_builder, "_infer_raw_table")
     assert "setdefault(\"raw_table\"" not in builder_source
     assert "startswith(\"biying_\")" not in builder_source
+    assert "_delivery_mode_from_definition" not in projection_source
+    assert "_layer_plan(" not in projection_source
+    assert "_std_table_hint" not in projection_source
+    assert "_serving_table" not in projection_source
     raw_table_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "raw_table")
     assert raw_table_field.default is MISSING
+    delivery_mode_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "delivery_mode")
+    layer_plan_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "layer_plan")
+    std_table_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "std_table")
+    serving_table_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "serving_table")
+    assert delivery_mode_field.default is MISSING
+    assert layer_plan_field.default is MISSING
+    assert std_table_field.default is MISSING
+    assert serving_table_field.default is MISSING
 
 
 def test_dataset_definition_builder_does_not_infer_source_keys() -> None:

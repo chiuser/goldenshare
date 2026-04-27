@@ -38,6 +38,14 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     storage_row = dict(row["storage"])
     if "raw_table" not in storage_row:
         raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.raw_table explicitly")
+    if "delivery_mode" not in storage_row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.delivery_mode explicitly")
+    if "layer_plan" not in storage_row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.layer_plan explicitly")
+    if "std_table" not in storage_row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.std_table explicitly")
+    if "serving_table" not in storage_row:
+        raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare storage.serving_table explicitly")
     if "transaction" not in row:
         raise ValueError(f"DatasetDefinition {identity.dataset_key} must declare transaction explicitly")
     transaction_row = dict(row["transaction"])
