@@ -469,10 +469,10 @@ export interface OpsCatalogResponse {
     key: string;
     action_type: string;
     display_name: string;
-    target_key?: string | null;
-    target_display_name?: string | null;
-    domain_key?: string | null;
-    domain_display_name?: string | null;
+    target_key: string;
+    target_display_name: string;
+    domain_key: string;
+    domain_display_name: string;
     date_selection_rule?: string | null;
     description: string;
     target_tables: string[];

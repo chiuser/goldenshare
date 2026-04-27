@@ -309,11 +309,7 @@ function buildReadableParamRows(params: Record<string, unknown>, labelMap: Map<s
 }
 
 function getCatalogActionLabel(item: CatalogAction): string {
-  if (item.action_type === "dataset_action") {
-    return item.target_display_name || "数据集名称缺失";
-  }
-  const targetDisplayName = item.target_display_name;
-  return targetDisplayName ? targetDisplayName : item.display_name;
+  return item.target_display_name;
 }
 
 function getCatalogActions(catalog: OpsCatalogResponse | undefined): CatalogAction[] {

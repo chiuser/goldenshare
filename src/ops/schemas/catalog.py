@@ -17,10 +17,10 @@ class ActionCatalogItem(BaseModel):
     key: str
     action_type: str
     display_name: str
-    target_key: str | None = None
-    target_display_name: str | None = None
-    domain_key: str | None = None
-    domain_display_name: str | None = None
+    target_key: str
+    target_display_name: str
+    domain_key: str
+    domain_display_name: str
     date_selection_rule: str | None = None
     description: str
     target_tables: list[str]

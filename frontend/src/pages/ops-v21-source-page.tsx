@@ -101,8 +101,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
-        domainKey: group.domain_key || item.domain_key || "uncategorized",
-        domainDisplayName: group.domain_display_name || item.domain_display_name || "未分组",
+        domainKey: group.domain_key,
+        domainDisplayName: group.domain_display_name,
         rawTableLabel: item.raw_table_label || "—",
         status,
         lastSyncText,
@@ -122,12 +122,11 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
 
-  const groupedCards = new Map<string, SourceCardItem[]>();
+  const groupedCards = new Map<string, { domainDisplayName: string; items: SourceCardItem[] }>();
   for (const card of cards) {
-    const key = `${card.domainKey}::${card.domainDisplayName}`;
-    const list = groupedCards.get(key) || [];
-    list.push(card);
-    groupedCards.set(key, list);
+    const group = groupedCards.get(card.domainKey) || { domainDisplayName: card.domainDisplayName, items: [] };
+    group.items.push(card);
+    groupedCards.set(card.domainKey, group);
   }
 
   return (
@@ -150,8 +149,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         </Alert>
       ) : null}
 
-      {Array.from(groupedCards.entries()).map(([groupKey, items]) => {
-        const [, groupDisplayName] = groupKey.split("::");
+      {Array.from(groupedCards.entries()).map(([groupKey, group]) => {
+        const { domainDisplayName: groupDisplayName, items } = group;
         return (
           <SectionCard key={groupKey} title={groupDisplayName} description={`共 ${items.length} 个数据集`}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing="md" verticalSpacing="md">

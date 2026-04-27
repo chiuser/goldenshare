@@ -158,6 +158,9 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "未命名执行对象",
         "未指定来源",
         "未定义层级",
+        "groupKey.split",
+        "domain_key || item.domain_key",
+        "domain_display_name || item.domain_display_name",
     )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):
@@ -238,6 +241,23 @@ def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> No
     violations = [token for token in forbidden_tokens if token in text]
 
     assert not violations, "dataset-cards 不得再从 key/table 前缀推断卡片归并事实:\n" + "\n".join(violations)
+
+
+def test_ops_services_do_not_infer_source_from_raw_table_prefix() -> None:
+    forbidden_tokens = (
+        "source_raw_prefix",
+        ".raw_table.startswith",
+        "raw_table.startswith",
+    )
+    violations: list[str] = []
+    for path in _python_and_frontend_files(REPO_ROOT / "src/ops"):
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "Ops 服务不得从 raw table 前缀反推 source，必须使用 DatasetDefinition source facts:\n" + "\n".join(violations)
 
 
 def test_active_code_does_not_reference_retired_dataset_fact_table() -> None:
