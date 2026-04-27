@@ -317,18 +317,6 @@ def _stk_holdernumber_params(request, anchor_date: date | None, enum_values: dic
     return params
 
 
-def _hk_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    transformed = dict(row)
-    transformed["source"] = "tushare"
-    return transformed
-
-
-def _us_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    transformed = dict(row)
-    transformed["source"] = "tushare"
-    return transformed
-
-
 def _kpl_concept_cons_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     if transformed.get("con_name") in (None, "") and transformed.get("ts_name"):
@@ -877,8 +865,6 @@ __all__ = [
     "_broker_recommend_params",
     "_dividend_params",
     "_stk_holdernumber_params",
-    "_hk_security_row_transform",
-    "_us_security_row_transform",
     "_kpl_concept_cons_row_transform",
     "_dc_index_params",
     "_index_daily_basic_params",

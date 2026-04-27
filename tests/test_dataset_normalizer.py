@@ -96,3 +96,43 @@ def test_stk_mins_normalizer_rejects_outside_trading_session() -> None:
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
     assert batch.rejected_reasons == {"normalize.row_transform_failed": 1}
+
+
+def test_reference_security_normalizers_resolve_hk_and_us_row_transforms() -> None:
+    hk_batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("hk_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-hk-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "00700.HK",
+                    "name": "腾讯控股",
+                    "list_date": "2004-06-16",
+                }
+            ],
+        ),
+    )
+    us_batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("us_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-us-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "AAPL.O",
+                    "name": "Apple Inc.",
+                    "list_date": "1980-12-12",
+                }
+            ],
+        ),
+    )
+
+    assert hk_batch.rows_rejected == 0
+    assert hk_batch.rows_normalized[0]["source"] == "tushare"
+    assert us_batch.rows_rejected == 0
+    assert us_batch.rows_normalized[0]["source"] == "tushare"
