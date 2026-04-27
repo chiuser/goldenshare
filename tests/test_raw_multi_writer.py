@@ -30,7 +30,7 @@ def test_raw_multi_writer_routes_to_expected_dao() -> None:
 
 def test_raw_multi_writer_rejects_unknown_route() -> None:
     writer = RawMultiWriter(SimpleNamespace())  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match="Unsupported raw multi route"):
+    with pytest.raises(ValueError, match="不支持的多来源原始写入路径"):
         writer.bulk_upsert("unknown", "stock_basic", [])
 
 

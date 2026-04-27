@@ -26,5 +26,5 @@ def test_factory_creates_biying_connector() -> None:
 
 
 def test_factory_rejects_unknown_source_key() -> None:
-    with pytest.raises(ValueError, match="Unsupported source_key: unknown"):
+    with pytest.raises(ValueError, match="不支持的数据源：unknown"):
         create_source_connector("unknown")

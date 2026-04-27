@@ -15,5 +15,5 @@ def create_source_connector(source_key: str) -> SourceConnector:
     connector_type = CONNECTOR_TYPES.get(source_key)
     if connector_type is None:
         supported = ", ".join(sorted(CONNECTOR_TYPES.keys()))
-        raise ValueError(f"Unsupported source_key: {source_key}. Supported source keys: {supported}")
+        raise ValueError(f"不支持的数据源：{source_key}。当前支持：{supported}")
     return connector_type()

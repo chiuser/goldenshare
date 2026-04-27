@@ -18,6 +18,6 @@ class RawMultiWriter:
     def bulk_upsert(self, source_key: str, dataset_key: str, rows: list[dict[str, Any]]) -> int:
         dao_name = RAW_MULTI_DAO_NAME.get((source_key, dataset_key))
         if dao_name is None:
-            raise ValueError(f"Unsupported raw multi route: source={source_key}, dataset={dataset_key}")
+            raise ValueError(f"不支持的多来源原始写入路径：source={source_key}，dataset={dataset_key}")
         dao = getattr(self.dao_factory, dao_name)
         return dao.bulk_upsert(rows)

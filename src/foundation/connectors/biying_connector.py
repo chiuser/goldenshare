@@ -93,9 +93,9 @@ class BiyingSourceConnector(SourceConnector):
         fields: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
         if not self.supports_api(api_name):
-            raise ValueError(f"Biying source does not support api_name={api_name}")
+            raise ValueError(f"Biying 数据源不支持该接口：{api_name}")
         if not self.token:
-            raise ValueError("BIYING_TOKEN is empty")
+            raise ValueError("Biying 数据源令牌未配置")
         _get_rate_limiter().acquire()
 
         if api_name == "stock_basic":
@@ -110,7 +110,7 @@ class BiyingSourceConnector(SourceConnector):
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, list):
-            raise RuntimeError("Biying API response format invalid: expected list")
+            raise RuntimeError("Biying 接口响应格式无效：期望返回列表")
         rows: list[dict[str, Any]] = []
         for item in payload:
             if isinstance(item, dict):
@@ -121,13 +121,13 @@ class BiyingSourceConnector(SourceConnector):
         payload = params or {}
         dm = str(payload.get("dm") or "").strip().upper()
         if not dm:
-            raise ValueError("dm is required for biying equity_daily_bar")
+            raise ValueError("Biying 股票日线缺少股票代码")
         freq = str(payload.get("freq") or "d").strip().lower()
         adj_type = str(payload.get("adj_type") or "f").strip().lower()
         if freq != "d":
-            raise ValueError("Only daily freq=d is supported for biying equity_daily_bar")
+            raise ValueError("Biying 股票日线仅支持日频")
         if adj_type not in {"n", "f", "b", "fr", "br"}:
-            raise ValueError("adj_type must be one of n/f/b/fr/br")
+            raise ValueError("Biying 股票日线复权类型必须是 n、f、b、fr 或 br")
 
         query: dict[str, str] = {}
         start = payload.get("st")
@@ -157,7 +157,7 @@ class BiyingSourceConnector(SourceConnector):
                 )
                 return []
         if not isinstance(data, list):
-            raise RuntimeError("Biying equity_daily_bar response format invalid: expected list")
+            raise RuntimeError("Biying 股票日线响应格式无效：期望返回列表")
         rows: list[dict[str, Any]] = []
         for item in data:
             if isinstance(item, dict):
@@ -168,7 +168,7 @@ class BiyingSourceConnector(SourceConnector):
         payload = params or {}
         dm = str(payload.get("dm") or "").strip().upper()
         if not dm:
-            raise ValueError("dm is required for biying moneyflow")
+            raise ValueError("Biying 资金流缺少股票代码")
 
         query: dict[str, str] = {}
         start = payload.get("st")
@@ -197,7 +197,7 @@ class BiyingSourceConnector(SourceConnector):
                 )
                 return []
         if not isinstance(data, list):
-            raise RuntimeError("Biying moneyflow response format invalid: expected list")
+            raise RuntimeError("Biying 资金流响应格式无效：期望返回列表")
         rows: list[dict[str, Any]] = []
         for item in data:
             if isinstance(item, dict):

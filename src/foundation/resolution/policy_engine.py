@@ -44,7 +44,7 @@ class ResolutionPolicyEngine:
         elif policy.mode == "freshness_first":
             resolved_source, resolved_record = self._resolve_freshness_first(candidates, policy)
         else:
-            raise ValueError(f"Unsupported resolution mode: {policy.mode}")
+            raise ValueError(f"不支持的数据源融合策略：{policy.mode}")
 
         return ResolutionOutput(
             dataset_key=resolution_input.dataset_key,

@@ -150,7 +150,7 @@ class MoneyflowMultiSourceSeedService:
         primary_source = canonical.source.source_key_default
         fallback_sources = tuple(source_key for source_key in source_keys if source_key != primary_source)
         if not fallback_sources:
-            raise ValueError("moneyflow multi-source DatasetDefinition group must declare fallback sources")
+            raise ValueError("资金流多来源数据集组缺少备选来源")
         return MultiSourceSeedPlan(
             dataset_key=canonical.dataset_key,
             primary_source=primary_source,
