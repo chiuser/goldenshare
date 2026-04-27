@@ -117,7 +117,7 @@ class TaskRunQueryService:
             .where(TaskRun.id == task_run_id)
         ).one_or_none()
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         task_run, username, schedule_display_name, primary_issue = row
         node_total = int(
             session.scalar(select(func.count()).select_from(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id)) or 0
@@ -187,7 +187,7 @@ class TaskRunQueryService:
             .where(TaskRunIssue.id == issue_id)
         )
         if issue is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run issue does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务问题不存在")
         return TaskRunIssueDetailResponse(
             id=issue.id,
             task_run_id=issue.task_run_id,

@@ -362,6 +362,44 @@ def test_task_run_validation_messages_do_not_emit_internal_field_tokens() -> Non
     assert not violations, "TaskRun API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 
 
+def test_task_run_runtime_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (
+        REPO_ROOT / "src/ops/queries/task_run_query_service.py",
+        REPO_ROOT / "src/ops/runtime/worker.py",
+        REPO_ROOT / "src/ops/runtime/task_run_dispatcher.py",
+    )
+    forbidden_snippets = (
+        "Task run does not exist",
+        "Task run issue does not exist",
+        "Only queued task runs can start immediately",
+        "Task run status changed before",
+        "Database bind is unavailable",
+        "Snapshot refresh returned 0 rows",
+        "Unsupported task_type",
+        "Workflow does not exist",
+        "Workflow step maintenance action does not exist",
+        "Maintenance action does not exist",
+        "resource_key is required",
+        "materialized view refreshed",
+        "start_date cannot be greater than end_date",
+        "index serving rebuilt",
+        "Unsupported maintenance executor",
+        "Unsupported period granularity",
+        "Invalid SQL identifier",
+        "Maintenance action execution config is missing",
+        "Maintenance action execution config has invalid",
+        "Invalid date value",
+    )
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
+
+    assert not violations, "TaskRun 查询与运行时不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_probe_validation_messages_do_not_emit_internal_field_tokens() -> None:
     paths = (
         REPO_ROOT / "src/ops/services/probe_service.py",

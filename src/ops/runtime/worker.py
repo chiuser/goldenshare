@@ -42,16 +42,16 @@ class OperationsWorker:
     def run_task_run(self, session: Session, task_run_id: int) -> TaskRun:
         task_run = session.get(TaskRun, task_run_id)
         if task_run is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         if task_run.status != "queued":
-            raise WebAppError(status_code=409, code="conflict", message="Only queued task runs can start immediately")
+            raise WebAppError(status_code=409, code="conflict", message="只能启动排队中的任务")
         if task_run.cancel_requested_at is not None:
             canceled = self._cancel_queued_task_run(session, task_run.id)
             if canceled is None:
-                raise WebAppError(status_code=409, code="conflict", message="Task run status changed before canceling")
+                raise WebAppError(status_code=409, code="conflict", message="任务状态已变化，无法停止")
             return canceled
         if not self._claim_task_run(session, task_run.id):
-            raise WebAppError(status_code=409, code="conflict", message="Task run status changed before start")
+            raise WebAppError(status_code=409, code="conflict", message="任务状态已变化，无法启动")
         return self._run_started_task_run(session, task_run.id)
 
     def _cancel_next_queued_task_run(self, session: Session) -> TaskRun | None:
@@ -111,7 +111,7 @@ class OperationsWorker:
     def _run_started_task_run(self, session: Session, task_run_id: int) -> TaskRun:
         task_run = session.get(TaskRun, task_run_id)
         if task_run is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         try:
             try:
                 outcome = self.dispatcher.dispatch(session, task_run)
@@ -135,7 +135,7 @@ class OperationsWorker:
     def _finalize_task_run(self, session: Session, task_run_id: int, outcome: TaskRunDispatchOutcome) -> TaskRun:
         task_run = session.get(TaskRun, task_run_id)
         if task_run is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         now = datetime.now(timezone.utc)
         final_status = outcome.status
         if task_run.cancel_requested_at is not None and final_status in {"success", "partial_success"}:
@@ -163,7 +163,7 @@ class OperationsWorker:
     def _record_worker_issue(self, session: Session, *, task_run_id: int, message: str) -> TaskRunIssue:
         task_run = session.get(TaskRun, task_run_id)
         if task_run is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         issue = TaskRunIssue(
             task_run_id=task_run_id,
             node_id=task_run.current_node_id,
@@ -220,7 +220,7 @@ class OperationsWorker:
             return str(exc)
         bind = session.get_bind()
         if bind is None:
-            return "Database bind is unavailable for snapshot refresh."
+            return "数据状态快照刷新缺少数据库连接。"
         try:
             with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
                 refreshed = DatasetStatusSnapshotService().refresh_for_target(
@@ -230,7 +230,7 @@ class OperationsWorker:
                     strict=True,
                 )
             if refreshed <= 0:
-                return f"Snapshot refresh returned 0 rows for dataset_action:{action_key}."
+                return f"数据状态快照刷新未产生记录：{action_key}。"
             return None
         except Exception as exc:
             return str(exc)

@@ -56,7 +56,7 @@ class TaskRunDispatcher:
             return self._dispatch_workflow(session, task_run)
         if task_run.task_type == "maintenance_action":
             return self._dispatch_maintenance_action(session, task_run)
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
+        raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(task_run))
@@ -151,7 +151,7 @@ class TaskRunDispatcher:
         target_key = str((task_run.request_payload_json or {}).get("target_key") or "")
         workflow = get_workflow_definition(target_key)
         if workflow is None:
-            raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="工作流不存在")
 
         total_fetched = 0
         total_saved = 0
@@ -195,7 +195,7 @@ class TaskRunDispatcher:
                 else:
                     action = get_maintenance_action(workflow_step.action_key)
                     if action is None:
-                        raise ValueError(f"Workflow step maintenance action does not exist: {workflow_step.action_key}")
+                        raise ValueError(f"工作流步骤维护动作不存在：{workflow_step.action_key}")
                     rows_fetched, rows_saved, message = self._run_maintenance_action(session, action, params)
                     rows_rejected = max(rows_fetched - rows_saved, 0)
                 self._finish_node(
@@ -255,7 +255,7 @@ class TaskRunDispatcher:
         target_key = str((task_run.request_payload_json or {}).get("target_key") or "")
         action = get_maintenance_action(target_key)
         if action is None:
-            raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="系统维护动作不存在")
         node = self._create_node(
             session,
             task_run_id=task_run.id,
@@ -367,7 +367,7 @@ class TaskRunDispatcher:
         filters = dict(task_run.filters_json or {})
         resource_key = str(task_run.resource_key or "").strip()
         if not resource_key:
-            raise ValueError("resource_key is required")
+            raise ValueError("任务缺少维护对象")
         return DatasetActionRequest(
             dataset_key=resource_key,
             action=str(task_run.action or "maintain").strip() or "maintain",
@@ -428,12 +428,12 @@ class TaskRunDispatcher:
             view_name = self._required_execution_text(action.execution_config, "view_name")
             session.execute(text(f"REFRESH MATERIALIZED VIEW {self._sql_identifier(view_name)}"))
             session.commit()
-            return 0, 0, "materialized view refreshed"
+            return 0, 0, "物化视图已刷新"
         if action.executor_key == "rebuild_index_period_serving":
             start_date = self._resolve_maintenance_start_date(params)
             end_date = self._resolve_maintenance_end_date(params)
             if start_date > end_date:
-                raise ValueError("start_date cannot be greater than end_date")
+                raise ValueError("开始日期不能晚于结束日期")
             calendar_table = self._required_execution_text(action.execution_config, "calendar_table")
             source_table = self._required_execution_text(action.execution_config, "source_table")
             index_table = self._required_execution_text(action.execution_config, "index_table")
@@ -455,8 +455,8 @@ class TaskRunDispatcher:
             session.commit()
             written = sum(rows_by_granularity.values())
             detail = " ".join(f"{granularity}={rows}" for granularity, rows in rows_by_granularity.items())
-            return 0, written, f"index serving rebuilt {detail}".strip()
-        raise ValueError(f"Unsupported maintenance executor: {action.executor_key}")
+            return 0, written, f"指数周期服务层已重建 {detail}".strip()
+        raise ValueError(f"不支持的系统维护执行器：{action.executor_key}")
 
     def _rebuild_index_period_serving(
         self,
@@ -481,7 +481,7 @@ class TaskRunDispatcher:
             calendar_period_expr = "date_trunc('month', trade_date)::date"
             daily_period_expr = "date_trunc('month', d.trade_date)::date"
         else:
-            raise ValueError(f"Unsupported period granularity: {period_granularity}")
+            raise ValueError(f"不支持的周期粒度：{period_granularity}")
         session.execute(
             text(
                 f"""
@@ -619,24 +619,24 @@ class TaskRunDispatcher:
     @classmethod
     def _sql_identifier(cls, value: str) -> str:
         if not cls.SQL_IDENTIFIER_PATTERN.fullmatch(value):
-            raise ValueError(f"Invalid SQL identifier: {value!r}")
+            raise ValueError(f"SQL 标识符无效：{value!r}")
         return value
 
     @staticmethod
     def _required_execution_text(config: Mapping[str, Any], key: str) -> str:
         value = config.get(key)
         if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"Maintenance action execution config is missing {key}")
+            raise ValueError(f"系统维护动作执行配置缺少 {key}")
         return value.strip()
 
     @staticmethod
     def _required_period_targets(config: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
         value = config.get("period_targets")
         if not isinstance(value, Sequence) or isinstance(value, str):
-            raise ValueError("Maintenance action execution config is missing period_targets")
+            raise ValueError("系统维护动作执行配置缺少周期目标")
         targets = tuple(target for target in value if isinstance(target, Mapping))
         if len(targets) != len(value) or not targets:
-            raise ValueError("Maintenance action execution config has invalid period_targets")
+            raise ValueError("系统维护动作执行配置中的周期目标无效")
         return targets
 
     @staticmethod
@@ -825,7 +825,7 @@ class TaskRunDispatcher:
             return value
         if isinstance(value, str):
             return date.fromisoformat(value)
-        raise ValueError(f"Invalid date value: {value!r}")
+        raise ValueError(f"日期值无效：{value!r}")
 
     @staticmethod
     def _as_aware_utc(value: datetime) -> datetime:
