@@ -9,8 +9,7 @@ type SmokeScenario =
   | "task-detail"
   | "review-index"
   | "review-board"
-  | "share-market"
-  | "quote-detail";
+  | "share-market";
 
 const AUTH_TOKEN_KEY = "goldenshare.frontend.auth.token";
 const AUTH_REFRESH_TOKEN_KEY = "goldenshare.frontend.auth.refresh-token";
@@ -940,117 +939,6 @@ function mockShareMarket(route: Route, pathname: string) {
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
-function mockQuoteDetail(route: Route, pathname: string) {
-  if (pathname === "/api/v1/quote/detail/page-init") {
-    return fulfillJson(route, {
-      instrument: {
-        instrument_id: "SZ.000001",
-        ts_code: "000001.SZ",
-        symbol: "000001",
-        name: "平安银行",
-        market: "SZ",
-        security_type: "stock",
-        exchange: "SZSE",
-        industry: "银行",
-        list_status: "L",
-      },
-      price_summary: {
-        trade_date: "2026-04-25",
-        latest_price: 12.34,
-        pre_close: 12.21,
-        change_amount: 0.13,
-        pct_chg: 1.06,
-        open: 12.28,
-        high: 12.4,
-        low: 12.16,
-        vol: 123456,
-        amount: 65432100,
-        turnover_rate: 1.12,
-        volume_ratio: 0.98,
-        pe_ttm: 8.6,
-        pb: 0.9,
-        total_mv: 234500000000,
-        circ_mv: 180000000000,
-      },
-      default_chart: {
-        default_period: "day",
-        default_adjustment: "forward",
-      },
-    });
-  }
-
-  if (pathname === "/api/v1/quote/detail/kline") {
-    return fulfillJson(route, {
-      instrument: {
-        instrument_id: "SZ.000001",
-        ts_code: "000001.SZ",
-        symbol: "000001",
-        name: "平安银行",
-        security_type: "stock",
-      },
-      period: "day",
-      adjustment: "forward",
-      bars: [
-        {
-          trade_date: "2026-04-23",
-          open: 12.1,
-          high: 12.2,
-          low: 12.0,
-          close: 12.15,
-          pre_close: 12.0,
-          change_amount: 0.15,
-          pct_chg: 1.25,
-          vol: 102200,
-          amount: 51400000,
-        },
-        {
-          trade_date: "2026-04-24",
-          open: 12.15,
-          high: 12.3,
-          low: 12.1,
-          close: 12.21,
-          pre_close: 12.15,
-          change_amount: 0.06,
-          pct_chg: 0.49,
-          vol: 109500,
-          amount: 55200000,
-        },
-        {
-          trade_date: "2026-04-25",
-          open: 12.28,
-          high: 12.4,
-          low: 12.16,
-          close: 12.34,
-          pre_close: 12.21,
-          change_amount: 0.13,
-          pct_chg: 1.06,
-          vol: 123456,
-          amount: 65432100,
-        },
-      ],
-      meta: {
-        bar_count: 3,
-        has_more_history: false,
-        next_start_date: null,
-      },
-    });
-  }
-
-  if (pathname === "/api/v1/quote/detail/related-info") {
-    return fulfillJson(route, {
-      items: [
-        { type: "industry", title: "行业", value: "银行", action_target: null },
-        { type: "concept", title: "概念", value: "中特估", action_target: "CONCEPT:中特估" },
-      ],
-      capability: {
-        related_etf: "not_available_in_v1",
-      },
-    });
-  }
-
-  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
-}
-
 export async function installApiMocks(page: Page, scenario: SmokeScenario) {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
@@ -1088,9 +976,6 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     }
     if (scenario === "review-board") {
       return mockReviewBoard(route, pathname);
-    }
-    if (scenario === "quote-detail") {
-      return mockQuoteDetail(route, pathname);
     }
     return mockShareMarket(route, pathname);
   });

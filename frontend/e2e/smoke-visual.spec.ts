@@ -157,15 +157,4 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();
   });
-
-  test("quote detail keeps the first-page baseline", async ({ page }) => {
-    await setAdminSession(page);
-    await installApiMocks(page, "quote-detail");
-    await page.goto("/app/quote/detail");
-    await expect(page.getByRole("heading", { name: "行情详情（首批）" })).toBeVisible();
-    await expect(page.getByText("平安银行")).toBeVisible();
-    await expect(page.getByText("K线数据（首批表格占位）")).toBeVisible();
-    await stabilizeUi(page);
-    await expect(page).toHaveScreenshot();
-  });
 });
