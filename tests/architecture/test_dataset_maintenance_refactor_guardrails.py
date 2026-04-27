@@ -296,6 +296,19 @@ def test_ops_does_not_keep_parallel_dataset_reconcile_fact_registry() -> None:
     assert not path.exists(), "不得保留 Ops 侧并行维护 raw/serving/date 字段的数据集对账事实源"
 
 
+def test_moneyflow_multi_source_seed_uses_dataset_definition_source_facts() -> None:
+    path = REPO_ROOT / "src/ops/services/operations_moneyflow_multi_source_seed_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "_primary_source",
+        "_fallback_sources",
+        "_all_sources",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "moneyflow 多源 seed 不得硬编码主备来源，必须从 DatasetDefinition 派生:\n" + "\n".join(violations)
+
+
 def test_ops_and_ingestion_do_not_infer_source_from_dataset_key_prefix() -> None:
     forbidden_tokens = (
         "startswith(\"biying_\")",

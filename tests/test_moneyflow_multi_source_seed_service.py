@@ -57,6 +57,14 @@ def test_moneyflow_multi_source_seed_apply_is_idempotent(db_session: Session) ->
     assert second.updated_resolution_policy == 0
 
 
+def test_moneyflow_multi_source_seed_plan_comes_from_dataset_definitions() -> None:
+    plan = MoneyflowMultiSourceSeedService._build_seed_plan()
+
+    assert plan.dataset_key == "moneyflow"
+    assert plan.primary_source == "tushare"
+    assert plan.fallback_sources == ("biying",)
+
+
 def test_moneyflow_multi_source_seed_upgrades_resolution_policy(db_session: Session) -> None:
     db_session.add(
         DatasetResolutionPolicy(
