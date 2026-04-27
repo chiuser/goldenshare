@@ -335,6 +335,11 @@ def test_manual_action_validation_messages_do_not_emit_field_token_english() -> 
         "Invalid option for",
         "Unsupported " + "time mode",
         "Unsupported " + "filter",
+        "Manual action does not exist",
+        "Manual workflow route is not configured",
+        "Manual action resource route is not configured",
+        "Manual action workflow route is not configured",
+        "Unsupported manual action type",
     )
     violations = [snippet for snippet in forbidden_snippets if snippet in text]
 

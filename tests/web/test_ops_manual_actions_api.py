@@ -116,6 +116,19 @@ def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, 
     }
 
 
+def test_ops_manual_action_task_run_returns_readable_not_found_message(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/not_exist/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["message"] == "手动任务不存在"
+
+
 def test_ops_manual_action_task_run_creates_range_job_with_filters(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 

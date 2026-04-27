@@ -42,11 +42,11 @@ class ManualActionCommandService:
     ) -> int:
         route = self.query_service.get_action_route(action_key)
         if route is None:
-            raise WebAppError(status_code=404, code="not_found", message="Manual action does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="手动任务不存在")
         resolved = ManualActionTaskRunResolver(route).resolve(body)
         if resolved.task_type == "workflow":
             if not resolved.target_type or not resolved.target_key:
-                raise WebAppError(status_code=422, code="validation_error", message="Manual workflow route is not configured")
+                raise WebAppError(status_code=422, code="validation_error", message="手动工作流路由未配置")
             task_run = self.task_run_service.create_from_schedule_target(
                 session,
                 target_type=resolved.target_type,
@@ -87,7 +87,7 @@ class ManualActionTaskRunResolver:
         if self.route.action_type == "dataset_action":
             time_params = self._resolve_dataset_action_time(mode=mode, time_input=time_input)
             if self.route.resource_key is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Manual action resource route is not configured")
+                raise WebAppError(status_code=422, code="validation_error", message="手动任务资源路由未配置")
             return ResolvedManualTaskRun(
                 task_type="dataset_action",
                 resource_key=self.route.resource_key,
@@ -100,7 +100,7 @@ class ManualActionTaskRunResolver:
         if self.route.action_type == "workflow":
             workflow = self.route.workflow
             if workflow is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Manual action workflow route is not configured")
+                raise WebAppError(status_code=422, code="validation_error", message="手动任务工作流路由未配置")
             time_params = self._resolve_workflow_time(mode=mode, time_input=time_input)
             return ResolvedManualTaskRun(
                 task_type="workflow",
@@ -112,7 +112,7 @@ class ManualActionTaskRunResolver:
                 target_type="workflow",
                 target_key=workflow.key,
             )
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported manual action type")
+        raise WebAppError(status_code=422, code="validation_error", message="不支持的手动任务类型")
 
     @staticmethod
     def _dataset_time_input_payload(*, mode: str, time_params: dict[str, Any]) -> dict[str, Any]:
