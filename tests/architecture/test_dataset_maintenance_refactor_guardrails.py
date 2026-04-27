@@ -276,6 +276,20 @@ def test_ops_services_do_not_infer_source_from_raw_table_prefix() -> None:
     assert not violations, "Ops 服务不得从 raw table 前缀反推 source，必须使用 DatasetDefinition source facts:\n" + "\n".join(violations)
 
 
+def test_ops_observation_registry_does_not_hardcode_table_model_facts() -> None:
+    path = REPO_ROOT / "src/ops/dataset_observation_registry.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "core.",
+        "core_serving.",
+        "raw_biying.",
+        "raw_tushare.",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "Ops 观测模型映射不得手写表名事实，必须从 ORM metadata 派生:\n" + "\n".join(violations)
+
+
 def test_ops_and_ingestion_do_not_infer_source_from_dataset_key_prefix() -> None:
     forbidden_tokens = (
         "startswith(\"biying_\")",

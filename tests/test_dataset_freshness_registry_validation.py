@@ -28,6 +28,7 @@ def _build_projection(
         domain_display_name="股票",
         target_table=target_table,
         cadence="daily",
+        raw_table="raw_tushare.daily",
         observed_date_column=observed_date_column,
     )
 
