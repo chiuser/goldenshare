@@ -174,34 +174,12 @@ export function formatServiceNameLabel(value: string | null | undefined): string
   return serviceNameLabelMap[key] || "系统服务";
 }
 
-function stripMaintenanceAffix(value: string): string {
-  if (value.startsWith("维护")) {
-    return value.slice("维护".length).trim() || value;
-  }
-  if (value.endsWith("维护")) {
-    return value.slice(0, -"维护".length).trim() || value;
-  }
-  return value;
-}
-
-export function formatExecutionResourceLabel(item: {
+export function formatTaskRunResourceLabel(item: {
   title?: string | null;
-  resource_display_name?: string | null;
-  action_display_name?: string | null;
 }): string {
   const title = normalizeKey(item.title);
   if (title) {
-    return stripMaintenanceAffix(title);
-  }
-
-  const resourceDisplayName = normalizeKey(item.resource_display_name);
-  if (resourceDisplayName) {
-    return resourceDisplayName;
-  }
-
-  const actionDisplayName = normalizeKey(item.action_display_name);
-  if (actionDisplayName) {
-    return stripMaintenanceAffix(actionDisplayName);
+    return title;
   }
 
   return "未命名任务";

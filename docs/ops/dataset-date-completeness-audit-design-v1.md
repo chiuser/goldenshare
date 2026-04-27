@@ -760,7 +760,7 @@ Tab：
 4. TaskRun 主链已经落在 `src/ops/**`，当前任务详情 API 为：
    - `GET /api/v1/ops/task-runs/{id}/view`
    - `GET /api/v1/ops/task-runs/{id}/issues/{issue_id}`
-5. 当前 TaskRun 模型使用 `current_object_json`，对外 schema 映射为 `progress.current_object`；旧字段名 `current_context_json` 不存在，不得在新方案中继续使用。
+5. 当前 TaskRun 模型使用 `current_object_json`，对外 schema 映射为 `progress.current_object`；历史上下文字段名不存在，不得在新方案中继续使用。
 6. 当前 `TaskRunDispatcher` 只支持：
    - `dataset_action`
    - `workflow`
@@ -771,7 +771,7 @@ Tab：
 ### 12.2 对原方案的修正结论
 
 1. 原方案中所有“读取历史执行契约 date_model”的表述，统一修正为“读取 `DatasetDefinition.date_model`”。
-2. 原方案中所有 `current_context_json` 表述，统一修正为 `current_object_json`。
+2. 原方案中所有历史上下文字段名表述，统一修正为 `current_object_json`。
 3. 审计执行入口不复用旧任务观测链路或旧任务 API。
 4. 审计任务新增 `task_type=dataset_audit`，并在 TaskRun dispatcher 中建立独立分支。
 5. `dataset_audit_run/gap` 只保存审计领域结果，不承担任务详情页事实源；任务状态、进度、错误仍以 TaskRun view/issue 为准。

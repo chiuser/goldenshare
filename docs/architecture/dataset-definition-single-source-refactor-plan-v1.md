@@ -47,7 +47,7 @@
 M0 前最接近数据集事实源的是旧数据集执行契约：
 
 - 数量：57 个 contract
-- 已包含：`dataset_key`、`display_name`、`job_name`、`run_profiles_supported`、`date_model`、`input_schema`、`planning_spec`、`source_spec`、`write_spec`、`observe_spec`
+- 已包含：数据集标识、展示名、运行画像、日期模型、输入模型、规划策略、来源策略、写入策略、观测策略
 
 说明：旧数据集执行契约是历史运行投影位置，不是目标事实源位置。当前 DatasetDefinition 静态事实已落到 `src/foundation/datasets/definitions/**`；运行投影由 `src/foundation/ingestion/**` 从 Definition 派生。
 
@@ -85,7 +85,7 @@ M2 后这部分已上移到 `DatasetDefinition.date_model` 的静态定义中。
 
 ```mermaid
 flowchart LR
-  A["DatasetDefinition<br/>数据集单一事实源"] --> B["DatasetRuntimeContract<br/>执行运行投影"]
+  A["DatasetDefinition<br/>数据集单一事实源"] --> B["DatasetExecutionPlan<br/>执行计划投影"]
   A --> C["DatasetOpsDescriptor<br/>Ops 展示投影"]
   A --> D["DatasetActionCatalog<br/>用户动作目录"]
   A --> E["DatasetFreshnessProjection<br/>状态观测投影"]
@@ -127,16 +127,14 @@ src/
         reference_master.py
         low_frequency.py
     ingestion/
-      runtime_contract.py    # DatasetRuntimeContract 投影
       execution_plan.py      # foundation 可理解的计划结构
-      planner.py
-      engine.py
+      resolver.py            # DatasetActionRequest -> DatasetExecutionPlan
+      unit_planner.py
       executor.py
-      adapters/
+      source_client.py
       normalizer.py
       writer.py
-      observer.py
-      strategies/
+      progress.py
   ops/
     actions/
       resolver.py            # DatasetActionRequest -> DatasetExecutionPlan

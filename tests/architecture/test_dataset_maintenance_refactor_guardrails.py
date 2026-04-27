@@ -113,8 +113,10 @@ def test_workflows_only_use_dataset_actions_or_maintenance_actions() -> None:
 def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
     forbidden_tokens = (
         "format" + "Spec" + "Display" + "Label",
+        "format" + "Execution" + "Resource" + "Label",
         "format" + "Resource" + "Label",
         "format" + "Progress" + "Message" + "Label",
+        "strip" + "Maintenance" + "Affix",
         "primary_execution_" + "spec_" + "key",
         "route_" + "spec_" + "keys",
     )
@@ -321,3 +323,41 @@ def test_ingestion_layer_has_no_checkpoint_or_acquire_semantics() -> None:
                 violations.append(f"{rel_path}: {token}")
 
     assert not violations, "本轮未规划 checkpoint/acquire 续跑语义，不得引入:\n" + "\n".join(violations)
+
+
+def test_current_docs_do_not_reintroduce_retired_execution_field_names() -> None:
+    forbidden_tokens = (
+        "spec" + "_type",
+        "spec" + "_key",
+        "executor" + "_kind",
+        "job" + "_name",
+        "execution" + "_id",
+        "current" + "_context" + "_json",
+        "triggered" + "_execution" + "_id",
+        "Dataset" + "Runtime" + "Contract",
+        "Dataset" + "Sync" + "Contract",
+        "sync" + "_v2",
+        "Sync" + "V2",
+        "sync" + "_run" + "_log",
+        "sync" + "_job" + "_state",
+        "/api/v1/ops/" + "executions",
+        "sync" + "_daily",
+        "sync" + "_history",
+        "backfill" + "_",
+    )
+    violations: list[str] = []
+    docs_root = REPO_ROOT / "docs"
+    for path in sorted(docs_root.rglob("*")):
+        if not path.is_file():
+            continue
+        if "archive" in path.parts or path.name == "AGENTS.md":
+            continue
+        if path.suffix not in {".md", ".html"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for token in forbidden_tokens:
+            if token in text:
+                rel_path = path.relative_to(REPO_ROOT).as_posix()
+                violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "当前基线文档不得重新写入旧执行字段或旧链路细节:\n" + "\n".join(violations)

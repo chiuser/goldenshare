@@ -115,7 +115,7 @@ class DatasetStorageDefinition:
     raw_dao_name: str
     core_dao_name: str
     target_table: str
-    raw_table: str | None = None
+    raw_table: str
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
 

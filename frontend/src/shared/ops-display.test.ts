@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatCategoryLabel,
   formatEventTypeLabel,
-  formatExecutionResourceLabel,
+  formatTaskRunResourceLabel,
   formatStatusLabel,
   formatTriggerSourceLabel,
 } from "./ops-display";
@@ -18,17 +18,13 @@ describe("运维前端显示层映射", () => {
     expect(formatEventTypeLabel("serving_light_refreshed")).toBe("轻量层刷新成功");
   });
 
-  it("任务记录和详情只使用后端返回的结构化名称", () => {
-    expect(formatExecutionResourceLabel({
-      resource_display_name: "股票日线",
-      action_display_name: "维护股票日线",
+  it("任务记录只使用后端返回的任务标题", () => {
+    expect(formatTaskRunResourceLabel({
+      title: "股票日线",
     })).toBe("股票日线");
-    expect(formatExecutionResourceLabel({
-      action_display_name: "维护东方财富热榜",
-    })).toBe("东方财富热榜");
-    expect(formatExecutionResourceLabel({
-      title: "维护股票日线",
-    })).toBe("股票日线");
-    expect(formatExecutionResourceLabel({})).toBe("未命名任务");
+    expect(formatTaskRunResourceLabel({
+      title: "系统维护",
+    })).toBe("系统维护");
+    expect(formatTaskRunResourceLabel({})).toBe("未命名任务");
   });
 });

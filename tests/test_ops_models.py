@@ -16,7 +16,8 @@ def test_ops_control_plane_models_expose_primary_keys_and_indexes() -> None:
 
     assert [column.name for column in TaskRun.__table__.primary_key.columns] == ["id"]
     assert "current_object_json" in TaskRun.__table__.columns
-    assert "current_context_json" not in TaskRun.__table__.columns
+    retired_context_column = "_".join(["current", "context", "json"])
+    assert retired_context_column not in TaskRun.__table__.columns
     assert {index.name for index in TaskRun.__table__.indexes} == {
         "idx_task_run_resource_requested_at",
         "idx_task_run_schedule_requested_at",

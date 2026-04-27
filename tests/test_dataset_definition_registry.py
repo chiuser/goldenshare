@@ -5,7 +5,7 @@ from dataclasses import MISSING, fields
 
 from src.foundation.datasets.definitions import ALL_DATASET_ROWS
 import src.foundation.datasets.definitions._builder as definition_builder
-from src.foundation.datasets.models import DatasetTransactionDefinition
+from src.foundation.datasets.models import DatasetStorageDefinition, DatasetTransactionDefinition
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 
@@ -71,7 +71,7 @@ def test_dataset_definition_storage_raw_table_is_explicit_fact() -> None:
     missing = [
         row["identity"]["dataset_key"]
         for row in ALL_DATASET_ROWS
-        if "raw_table" not in row["storage"]
+        if not str(row["storage"].get("raw_table") or "").strip()
     ]
 
     assert not missing
@@ -88,6 +88,8 @@ def test_dataset_definition_builder_does_not_infer_storage_raw_table() -> None:
     assert not hasattr(definition_builder, "_infer_raw_table")
     assert "setdefault(\"raw_table\"" not in builder_source
     assert "startswith(\"biying_\")" not in builder_source
+    raw_table_field = next(item for item in fields(DatasetStorageDefinition) if item.name == "raw_table")
+    assert raw_table_field.default is MISSING
 
 
 def test_dataset_definition_transaction_policy_is_explicit_fact() -> None:

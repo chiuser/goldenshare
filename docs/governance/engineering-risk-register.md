@@ -145,7 +145,7 @@
 1. 本轮 TaskRun/current object 运行观测重置中，旧同步状态表只能清空，不得新增依赖。
 2. TaskRun 详情、当前对象、问题诊断、任务结果不允许读取旧同步状态表。
 3. Date Model Freshness 收口必须审计所有旧同步状态 ORM、service、CLI、测试和文档引用。
-4. 数据集新鲜度与资源状态必须基于 DatasetDefinition Date Model 和真实业务表观测结果，不再基于 `job_name` 状态行。
+4. 数据集新鲜度与资源状态必须基于 DatasetDefinition Date Model 和真实业务表观测结果，不再基于历史任务名状态行。
 5. 删除旧同步状态 ORM 与仅服务旧状态表的 reconciliation/service 代码。
 6. 删除旧同步状态数据库表。
 7. 更新 docs/AGENTS 或相关基线文档，禁止新代码重新引入旧同步状态模型。

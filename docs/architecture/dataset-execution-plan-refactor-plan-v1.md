@@ -34,32 +34,32 @@
 ```text
 POST /ops/manual-actions/{action_key}/executions
   -> ManualActionExecutionResolver
-  -> spec_type + spec_key + params_json
+  -> 历史任务目标字段 + params_json
   -> OperationsExecutionService.create_execution
   -> 旧任务观测表
   -> OperationsDispatcher
-  -> 旧任务规格 category / executor_kind 分支
+  -> 旧任务规格分类与执行器分支
   -> 历史同步执行器或历史区间执行器
 ```
 
 问题：
 
-1. Resolver 输出的是旧 `spec_key`，不是标准执行意图。
+1. Resolver 输出的是历史任务目标字段，不是标准执行意图。
 2. `time_input` 已经接近正确模型，但最终仍被降级成旧路径。
 3. 前端虽然隐藏了大部分旧词，但任务底层仍依赖旧路由。
 
 ### 2.2 自动任务链路
 
 ```text
-旧自动任务配置(spec_type, spec_key, params_json)
+旧自动任务配置(历史目标字段 + params_json)
   -> enqueue_due_schedules
-  -> 旧任务观测记录(spec_type, spec_key)
+  -> 旧任务观测记录(历史目标字段)
   -> dispatcher
 ```
 
 问题：
 
-1. 自动任务直接绑定旧 `spec_key`。
+1. 自动任务直接绑定历史任务目标字段。
 2. 自动任务列表因此不得不理解旧任务规格。
 3. schedule 的目标应该是“某个 dataset 的 maintain action”，不是“某个旧执行路径”。
 
@@ -79,11 +79,11 @@ POST /ops/manual-actions/{action_key}/executions
 
 ### 2.4 Dispatcher 旧链路
 
-历史 dispatcher 主要按 `executor_kind` 和 `category` 分发：
+历史 dispatcher 主要按旧任务分类和执行器类型分发：
 
 | 当前分支 | 问题 |
 |---|---|
-| `executor_kind=sync_service` | 还要继续判断旧任务 category |
+| 历史同步服务分支 | 还要继续判断旧任务分类 |
 | 旧独立区间执行器 | 重复实现范围和扇出 |
 | 旧 category 分支 | 以旧名字决定执行行为 |
 
@@ -110,7 +110,7 @@ start_log
 1. `stk_mins` full run 拉取和写入 1.2 亿行。
 2. 结束时连续调用两个状态写入方法。
 3. 如果旧同步状态表原本没有目标任务行，两个方法会在同一事务里各自创建 pending ORM 对象。
-4. 最终 commit 时同一个 `job_name` 插入两次，触发唯一键冲突。
+4. 最终 commit 时同一个历史任务名插入两次，触发唯一键冲突。
 5. 因为业务数据和状态写入处在同一事务，最后的状态错误导致数据写入成果被回滚。
 
 这个问题不能只作为局部 bug 修复。新执行模型必须明确：
@@ -336,7 +336,7 @@ class DatasetPlanExecutor:
 它不允许消费：
 
 1. 旧任务规格 category
-2. `executor_kind`
+2. 旧执行器类型
 3. 旧 key 前缀
 4. 前端传来的执行路径
 
@@ -636,10 +636,10 @@ PlanTransactionPolicy(
 2. 目标模型不保留 `FULL/INCREMENTAL` 作为执行语义；改用 `action + time_scope + run_profile` 表达：例如 `maintain + point`、`maintain + range`、`maintain + none`。
 3. 目标模型不保留旧全量完成布尔值作为资源健康判断字段；改用资源状态字段表达：`coverage_status`、`coverage_scope`、`latest_observed_business_date`、`last_success_at`、`data_completeness_status`。
 4. 新增单一资源状态写入语义，例如 `record_execution_outcome(...)` 或等价命名。
-5. 单一接口一次性接收 `execution_id`、`dataset_key`、`resource_key`、`action`、`time_scope`、`run_profile`、`coverage_scope`、`result_business_date`、`committed_rows`。
+5. 单一接口一次性接收任务运行标识、`dataset_key`、`resource_key`、`action`、`time_scope`、`run_profile`、`coverage_scope`、`result_business_date`、`committed_rows`。
 6. 对有业务日期的数据集，成功结果必须更新 `latest_observed_business_date` 或对应 coverage；不得被“全量完成”这类布尔值置空。
 7. 对无业务日期的数据集，必须由 `DatasetDefinition.date_model` 显式声明 `time_axis=none`，状态写入只能更新 `last_success_at` 和 `coverage_status`。
-8. 旧 `job_name` 唯一键冲突不允许导致业务数据回滚。
+8. 旧任务名唯一键冲突不允许导致业务数据回滚。
 9. 状态写入失败时记录 `state_update_failed` 事件，并进入可对账队列。
 10. 状态对账可以通过目标表观测值补齐 `latest_observed_business_date` 和 coverage，不再补旧全量完成布尔值。
 11. 状态表写入必须有独立测试覆盖：空状态、已有状态、point、range、none、重复重试、状态写失败。
@@ -901,8 +901,8 @@ WorkflowActionStep(
 旧 schedule：
 
 ```text
-spec_type=job
-spec_key=旧任务 key
+旧目标类型=job
+旧目标 key=旧任务 key
 params_json={"trade_date": "..."}
 ```
 
@@ -947,8 +947,8 @@ params_json={"trade_date": "..."}
 
 | 旧字段 | 新字段 |
 |---|---|
-| `spec_type` | `execution_kind` |
-| `spec_key` | `action` / `workflow_key` |
+| 旧目标类型 | `task_type` |
+| 旧目标 key | `action` / `workflow_key` |
 | `params_json` | `time_scope_json` + `filters_json` + `execution_plan_json` |
 
 ### 10.2 Step / Unit

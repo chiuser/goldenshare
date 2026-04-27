@@ -13,7 +13,7 @@ class DatasetLayerProjection:
     source_keys: tuple[str, ...]
     delivery_mode: str
     layer_plan: str
-    raw_table: str | None
+    raw_table: str
     std_table_hint: str | None
     serving_table: str | None
     raw_enabled: bool
@@ -36,7 +36,7 @@ class DatasetFreshnessProjection:
     domain_display_name: str
     target_table: str
     cadence: str
-    raw_table: str | None = None
+    raw_table: str
     observed_date_column: str | None = None
     primary_action_key: str | None = None
 

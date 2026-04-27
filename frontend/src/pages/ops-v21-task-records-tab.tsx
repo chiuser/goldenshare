@@ -22,7 +22,7 @@ import type {
 } from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import {
-  formatExecutionResourceLabel,
+  formatTaskRunResourceLabel,
   formatStatusLabel,
   formatTriggerSourceLabel,
 } from "../shared/ops-display";
@@ -291,7 +291,7 @@ export function OpsTasksPage() {
       render: (item) => (
         <Stack gap={2}>
           <OpsTableCellText fw={600} size="sm">
-            {formatExecutionResourceLabel(item)}
+            {formatTaskRunResourceLabel(item)}
           </OpsTableCellText>
         </Stack>
       ),

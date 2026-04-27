@@ -180,7 +180,7 @@ create table ops.task_run (
   unit_failed bigint not null default 0,
   progress_percent integer,
   current_node_id bigint,
-  current_context_json jsonb not null default '{}'::jsonb,
+  current_object_json jsonb not null default '{}'::jsonb,
 
   rows_fetched bigint not null default 0,
   rows_saved bigint not null default 0,
@@ -219,7 +219,7 @@ create index idx_task_run_schedule_requested_at
 | `time_input_json` | 时间输入单一事实源，保留原始语义 |
 | `filters_json` | 业务筛选条件 |
 | `plan_snapshot_json` | 任务执行计划快照，供审计和重试参考 |
-| `current_context_json` | 当前处理对象，如 `ts_code/freq/trade_date/hot_type` |
+| `current_object_json` | 当前处理对象，如 `ts_code/freq/trade_date/hot_type` |
 | `rows_saved` | 页面主指标，表示已经保存到数据库的结果 |
 | `primary_issue_id` | 主问题引用；完整错误在 `task_run_issue` |
 

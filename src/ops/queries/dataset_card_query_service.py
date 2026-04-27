@@ -49,7 +49,7 @@ class DatasetCardFact:
     source_keys: tuple[str, ...]
     delivery_mode: str
     layer_plan: str
-    raw_table: str | None
+    raw_table: str
     std_table_hint: str | None
     serving_table: str | None
     primary_action_key: str | None

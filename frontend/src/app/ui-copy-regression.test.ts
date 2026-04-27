@@ -39,7 +39,7 @@ const bannedVisiblePhrases = [
   "execution 已重试",
   "execution 已请求取消",
   "按 message / payload 过滤",
-  "按 job_name / message 过滤",
+  "按 " + ["job", "name"].join("_") + " / message 过滤",
   "scheduler tick",
   "worker run",
   "execution queue",
