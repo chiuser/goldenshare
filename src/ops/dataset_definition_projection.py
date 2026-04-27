@@ -214,5 +214,5 @@ def get_layer_stage_display_name(stage: str | None) -> str | None:
 def _require_layer_stage_display_name(stage: str) -> str:
     display_name = get_layer_stage_display_name(stage)
     if display_name is None:
-        raise ValueError(f"Layer stage display name is unavailable: {stage}")
+        raise ValueError(f"层级缺少显示名称：{stage}")
     return display_name

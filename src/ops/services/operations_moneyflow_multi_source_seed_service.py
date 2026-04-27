@@ -144,7 +144,7 @@ class MoneyflowMultiSourceSeedService:
             if definition.logical_key == "moneyflow" and definition.storage.delivery_mode == "multi_source_fusion"
         ]
         if not definitions:
-            raise ValueError("moneyflow multi-source DatasetDefinition group is unavailable")
+            raise ValueError("资金流多来源数据集分组缺失")
         canonical = min(definitions, key=lambda item: (item.logical_priority, item.dataset_key))
         source_keys = MoneyflowMultiSourceSeedService._source_keys_by_definition_priority(definitions)
         primary_source = canonical.source.source_key_default

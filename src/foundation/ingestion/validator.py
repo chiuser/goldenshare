@@ -168,9 +168,9 @@ class DatasetRequestValidator:
         if end_date is None:
             end_date = self._to_optional_date(params.get("end_date"))
         if start_date is None or end_date is None:
-            raise self._error("range_required", "range_rebuild requires start_date and end_date")
+            raise self._error("range_required", "区间维护必须同时填写开始日期和结束日期")
         if start_date > end_date:
-            raise self._error("invalid_range", "start_date must be <= end_date")
+            raise self._error("invalid_range", "开始日期不能晚于结束日期")
         params["start_date"] = start_date
         params["end_date"] = end_date
         return trade_date, start_date, end_date
@@ -183,7 +183,7 @@ class DatasetRequestValidator:
             if field.name not in normalized and field.default is not None:
                 normalized[field.name] = field.default
             if field.required and field.name not in normalized:
-                raise self._error("required_param_missing", f"missing required param: {field.name}")
+                raise self._error("required_param_missing", f"缺少必填参数：{field.label or field.name}")
             if field.name in normalized:
                 normalized[field.name] = self._coerce_value(field, normalized[field.name])
 
@@ -191,18 +191,20 @@ class DatasetRequestValidator:
             unknown = sorted(set(normalized) - set(fields))
             if unknown:
                 joined = ", ".join(unknown)
-                raise self._error("unknown_params", f"unknown params for {definition.dataset_key}: {joined}")
+                raise self._error("unknown_params", f"{definition.display_name} 存在未定义参数：{joined}")
 
         for group in definition.input_model.required_groups:
             if not any(normalized.get(key) not in (None, "", []) for key in group):
-                joined = ", ".join(group)
-                raise self._error("required_group_unsatisfied", f"at least one of [{joined}] is required")
+                labels = [fields[key].label or fields[key].name for key in group if key in fields]
+                joined = "、".join(labels or group)
+                raise self._error("required_group_unsatisfied", f"至少需要填写其中一个参数：{joined}")
 
         for group in definition.input_model.mutually_exclusive_groups:
             present = [key for key in group if normalized.get(key) not in (None, "", [])]
             if len(present) > 1:
-                joined = ", ".join(present)
-                raise self._error("mutually_exclusive_violation", f"mutually exclusive params present: {joined}")
+                labels = [fields[key].label or fields[key].name for key in present if key in fields]
+                joined = "、".join(labels or present)
+                raise self._error("mutually_exclusive_violation", f"这些参数不能同时填写：{joined}")
 
         for left, right in definition.input_model.dependencies:
             if normalized.get(left) not in (None, "", []) and normalized.get(right) in (None, "", []):
@@ -282,7 +284,7 @@ class DatasetRequestValidator:
         parsed = parse_tushare_date(text)
         if parsed is not None:
             return parsed.strftime("%Y%m")
-        raise DatasetRequestValidator._error("invalid_month_key", "month must be YYYYMM or YYYY-MM")
+        raise DatasetRequestValidator._error("invalid_month_key", "月份必须是 YYYYMM 或 YYYY-MM")
 
     @staticmethod
     def _error(error_code: str, message: str) -> IngestionValidationError:

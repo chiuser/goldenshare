@@ -101,7 +101,7 @@ class DatasetUnitPlanner:
                     error_code="range_required",
                     error_type="planning",
                     phase="planner",
-                    message="range_rebuild requires start_date and end_date",
+                    message="区间维护必须同时填写开始日期和结束日期",
                     retryable=False,
                 )
             )
@@ -200,11 +200,11 @@ class DatasetUnitPlanner:
             if anchor is None and request.trade_date is None and request.start_date is None and request.end_date is None:
                 raise self._planning_error(
                     "trade_date_anchor_required",
-                    "dc_index_board_codes requires trade_date or start/end range",
+                    "板块代码范围规划需要交易日期或起止日期",
                 )
             raise self._planning_error(
                 "universe_empty",
-                "no dc_index board codes found for requested anchor/range",
+                "未找到指定日期范围内的东方财富板块代码",
             )
         return [{"ts_code": code} for code in board_codes]
 
@@ -324,10 +324,10 @@ def _build_dividend_units(planner: DatasetUnitPlanner, request: ValidatedDataset
             anchors = [explicit_ann_date]
         else:
             if request.start_date is None or request.end_date is None:
-                raise DatasetUnitPlanner._planning_error("range_required", "dividend range_rebuild requires start_date and end_date")
+                raise DatasetUnitPlanner._planning_error("range_required", "分红送股区间维护必须同时填写开始日期和结束日期")
             anchors = _expand_natural_dates(request.start_date, request.end_date)
     else:
-        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"dividend unsupported run_profile: {request.run_profile}")
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"分红送股不支持该运行模式：{request.run_profile}")
     return build_plan_units(
         request=request,
         definition=definition,
@@ -350,10 +350,10 @@ def _build_holdernumber_units(planner: DatasetUnitPlanner, request: ValidatedDat
             anchors = [explicit_ann_date]
         else:
             if request.start_date is None or request.end_date is None:
-                raise DatasetUnitPlanner._planning_error("range_required", "stk_holdernumber range_rebuild requires start_date and end_date")
+                raise DatasetUnitPlanner._planning_error("range_required", "股东户数区间维护必须同时填写开始日期和结束日期")
             anchors = _expand_natural_dates(request.start_date, request.end_date)
     else:
-        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"stk_holdernumber unsupported run_profile: {request.run_profile}")
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"股东户数不支持该运行模式：{request.run_profile}")
     return build_plan_units(
         request=request,
         definition=definition,
@@ -453,10 +453,10 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
     raw_freqs = split_multi_values(request.params.get("freq"))
     allowed_freqs = ("1min", "5min", "15min", "30min", "60min")
     if not raw_freqs:
-        raise DatasetUnitPlanner._planning_error("required_param_missing", "stk_mins requires at least one freq")
+        raise DatasetUnitPlanner._planning_error("required_param_missing", "股票历史分钟行情至少需要选择一个频率")
     invalid = sorted({value for value in raw_freqs if value not in allowed_freqs})
     if invalid:
-        raise DatasetUnitPlanner._planning_error("invalid_enum", f"stk_mins invalid freq: {', '.join(invalid)}")
+        raise DatasetUnitPlanner._planning_error("invalid_enum", f"股票历史分钟行情频率无效：{', '.join(invalid)}")
     selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
 
     explicit_codes = split_multi_values(request.params.get("ts_code"))
@@ -482,7 +482,7 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
         targets_by_code = {code: (code, name) for code, name in (tushare_targets or all_targets) if code}
         targets = [targets_by_code[code] for code in sorted(targets_by_code)]
         if not targets:
-            raise DatasetUnitPlanner._planning_error("universe_empty", "stk_mins requires stock_basic/security pool before full-market sync")
+            raise DatasetUnitPlanner._planning_error("universe_empty", "全市场分钟行情需要先准备股票主数据")
 
     if request.trade_date is not None:
         trade_date = request.trade_date
@@ -494,7 +494,7 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
         window_end = f"{request.end_date.isoformat()} 19:00:00"
         unit_trade_date = None
     else:
-        raise DatasetUnitPlanner._planning_error("range_required", "stk_mins requires trade_date or start_date/end_date")
+        raise DatasetUnitPlanner._planning_error("range_required", "股票历史分钟行情需要交易日期或起止日期")
 
     units: list[PlanUnitSnapshot] = []
     ordinal = 0
@@ -558,15 +558,15 @@ def _build_biying_units(
         by_dm = {dm for dm, _ in stocks}
         stocks.extend((dm, None) for dm in explicit_dms if dm not in by_dm)
     if not stocks:
-        raise DatasetUnitPlanner._planning_error("universe_empty", f"raw_biying.stock_basic is empty for {request.dataset_key}")
+        raise DatasetUnitPlanner._planning_error("universe_empty", f"Biying 股票池为空，无法维护 {request.dataset_key}")
 
     if request.run_profile == "point_incremental":
         if request.trade_date is None:
-            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", f"{request.dataset_key} point_incremental requires trade_date")
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", f"{request.dataset_key} 单日维护缺少交易日期")
         windows = [(request.trade_date, request.trade_date)]
     elif request.run_profile == "range_rebuild":
         if request.start_date is None or request.end_date is None:
-            raise DatasetUnitPlanner._planning_error("range_required", f"{request.dataset_key} range_rebuild requires start_date and end_date")
+            raise DatasetUnitPlanner._planning_error("range_required", f"{request.dataset_key} 区间维护必须同时填写开始日期和结束日期")
         windows = []
         cursor = request.start_date
         while cursor <= request.end_date:
@@ -574,7 +574,7 @@ def _build_biying_units(
             windows.append((cursor, window_end))
             cursor = window_end + timedelta(days=1)
     else:
-        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"{request.dataset_key} unsupported run_profile: {request.run_profile}")
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"{request.dataset_key} 不支持该运行模式：{request.run_profile}")
 
     adj_types = ["n", "f", "b"]
     if include_adj_type:

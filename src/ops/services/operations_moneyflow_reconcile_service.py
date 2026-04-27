@@ -107,7 +107,7 @@ class MoneyflowReconcileService:
             range_days=max(1, range_days),
         )
         if resolved_start > resolved_end:
-            raise ValueError("start_date must be <= end_date")
+            raise ValueError("开始日期不能晚于结束日期")
 
         tushare_rows = list(
             session.scalars(

@@ -279,7 +279,7 @@ class DatasetStatusSnapshotService:
             return item.freshness_status
         if stage_projection.status_source in {"unobserved", "skipped"}:
             return stage_projection.status_source
-        raise ValueError(f"Unsupported layer stage status source: {stage_projection.status_source}")
+        raise ValueError(f"不支持的层状态来源：{stage_projection.status_source}")
 
     @staticmethod
     def _status_reason_code(status: str | None) -> str | None:

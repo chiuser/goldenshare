@@ -24,7 +24,7 @@ def _moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
             continue
         decimal_value = Decimal(str(value))
         if decimal_value != decimal_value.to_integral_value():
-            raise ValueError(f"moneyflow field `{field}` must be integer-like, got: {value}")
+            raise ValueError(f"资金流字段 `{field}` 必须是整数格式，实际值：{value}")
         transformed[field] = int(decimal_value)
     return transformed
 
@@ -136,12 +136,12 @@ def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     current_time = trade_time.time()
     is_trading_session = time(9, 30) <= current_time <= time(11, 30) or time(13, 0) <= current_time <= time(15, 0)
     if not is_trading_session:
-        raise ValueError(f"stk_mins trade_time outside trading sessions: {trade_time}")
+        raise ValueError(f"股票分钟时间不在交易时段内：{trade_time}")
 
     freq = str(transformed.get("freq") or "").strip()
     freq_map = {"1min": 1, "5min": 5, "15min": 15, "30min": 30, "60min": 60}
     if freq not in freq_map:
-        raise ValueError(f"stk_mins invalid freq: {freq}")
+        raise ValueError(f"股票分钟频率无效：{freq}")
 
     transformed["ts_code"] = str(transformed.get("ts_code") or "").strip().upper()
     transformed["freq"] = freq_map[freq]
@@ -174,7 +174,7 @@ def _optional_int(value: Any) -> int | None:
         return None
     decimal_value = Decimal(str(value))
     if decimal_value != decimal_value.to_integral_value():
-        raise ValueError(f"stk_mins vol must be integer-like, got: {value}")
+        raise ValueError(f"股票分钟成交量必须是整数格式，实际值：{value}")
     return int(decimal_value)
 
 
@@ -291,7 +291,7 @@ def _to_int_like(value: Any) -> int | None:
         return None
     decimal_value = Decimal(str(value))
     if decimal_value != decimal_value.to_integral_value():
-        raise ValueError(f"value must be integer-like, got: {value}")
+        raise ValueError(f"值必须是整数格式，实际值：{value}")
     return int(decimal_value)
 
 

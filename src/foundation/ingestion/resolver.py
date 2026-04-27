@@ -170,10 +170,10 @@ class DatasetActionResolver:
     def _normalize_month(value: str | None) -> str:
         text = str(value or "").strip().replace("-", "")
         if len(text) != 6 or not text.isdigit():
-            raise ValueError("month must be YYYYMM or YYYY-MM")
+            raise ValueError("月份必须是 YYYYMM 或 YYYY-MM")
         month = int(text[4:6])
         if month < 1 or month > 12:
-            raise ValueError("month must be a valid month")
+            raise ValueError("月份值无效")
         return text
 
     @staticmethod

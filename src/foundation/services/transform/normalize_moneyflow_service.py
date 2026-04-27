@@ -125,7 +125,7 @@ class NormalizeMoneyflowService:
             return None
         decimal_value = Decimal(str(value))
         if decimal_value != decimal_value.to_integral_value():
-            raise ValueError(f"value must be integer-like, got: {value}")
+            raise ValueError(f"值必须是整数格式，实际值：{value}")
         return int(decimal_value)
 
     @staticmethod

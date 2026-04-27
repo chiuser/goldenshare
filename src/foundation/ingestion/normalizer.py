@@ -39,7 +39,7 @@ class DatasetNormalizer:
                         error_code="normalize.row_transform_failed",
                         error_type="normalize",
                         phase="normalizer",
-                        message=f"unknown row transform: {definition.normalization.row_transform_name}",
+                        message=f"未知行转换：{definition.normalization.row_transform_name}",
                         retryable=False,
                         unit_id=fetch_result.unit_id,
                     )

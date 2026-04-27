@@ -39,9 +39,9 @@ def _require_admin_from_stream_token(session: Session, token: str) -> None:
     token_payload = jwt_service.decode(token)
     user = UserRepository().get_by_id(session, token_payload.sub)
     if user is None:
-        raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户不存在")
     if not user.is_active:
-        raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户已停用")
     if not user.is_admin:
         raise WebAppError(status_code=403, code="forbidden", message="Admin permission required")
 

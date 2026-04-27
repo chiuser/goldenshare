@@ -679,6 +679,52 @@ def test_ops_observation_registry_does_not_hardcode_table_model_facts() -> None:
     assert not violations, "Ops 观测模型映射不得手写表名事实，必须从 ORM metadata 派生:\n" + "\n".join(violations)
 
 
+def test_supporting_validation_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (
+        REPO_ROOT / "src/foundation/ingestion/resolver.py",
+        REPO_ROOT / "src/foundation/ingestion/request_builders.py",
+        REPO_ROOT / "src/foundation/ingestion/unit_planner.py",
+        REPO_ROOT / "src/foundation/ingestion/normalizer.py",
+        REPO_ROOT / "src/foundation/ingestion/row_transforms.py",
+        REPO_ROOT / "src/foundation/ingestion/validator.py",
+        REPO_ROOT / "src/foundation/services/transform/normalize_moneyflow_service.py",
+        REPO_ROOT / "src/ops/dataset_definition_projection.py",
+        REPO_ROOT / "src/ops/services/operations_moneyflow_multi_source_seed_service.py",
+        REPO_ROOT / "src/ops/services/operations_moneyflow_reconcile_service.py",
+        REPO_ROOT / "src/ops/services/operations_dataset_status_snapshot_service.py",
+        REPO_ROOT / "src/ops/api/schedules.py",
+    )
+    forbidden_snippets = (
+        "Layer stage display name is unavailable",
+        "DatasetDefinition group is unavailable",
+        "User does not exist",
+        "User is inactive",
+        "unknown row transform",
+        "month must be",
+        "start_date must",
+        "at least one of",
+        "must be integer-like",
+        "adj_type must be",
+        "requires trade_date",
+        "requires dm",
+        "unknown params",
+        "missing required param",
+        "mutually exclusive params",
+        "Unsupported layer stage status source",
+        "unsupported run_profile",
+        "invalid freq",
+        "outside trading sessions",
+    )
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
+
+    assert not violations, "支撑层校验不得向前端或运行日志返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_does_not_keep_parallel_dataset_reconcile_fact_registry() -> None:
     path = REPO_ROOT / "src/ops/services/operations_dataset_reconcile_service.py"
 
