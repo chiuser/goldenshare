@@ -191,6 +191,51 @@ def test_ops_task_run_view_returns_display_current_object_for_running_task(
     assert {"label": "证券代码", "value": "920429.BJ"} in current_object["fields"]
 
 
+def test_ops_task_run_view_resolves_dataset_attribute_title_from_definition(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="daily",
+        title="股票日线",
+        status="running",
+        current_object_json={
+            "attributes": {"dataset_key": "daily"},
+        },
+    )
+
+    response = app_client.get(f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client))
+
+    assert response.status_code == 200
+    current_object = response.json()["progress"]["current_object"]
+    assert current_object["title"] == "正在处理：股票日线"
+
+
+def test_ops_task_run_view_does_not_show_unit_id_as_current_object_title(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="daily",
+        title="股票日线",
+        status="running",
+        current_object_json={
+            "attributes": {"unit_id": "daily:2026-04-24:0"},
+        },
+    )
+
+    response = app_client.get(f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client))
+
+    assert response.status_code == 200
+    assert response.json()["progress"]["current_object"] is None
+
+
 def test_ops_task_run_retry_and_cancel_use_task_run_api(app_client, user_factory, task_run_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     failed = task_run_factory(

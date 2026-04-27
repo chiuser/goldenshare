@@ -336,11 +336,16 @@ class TaskRunQueryService:
 
     @classmethod
     def _attribute_label(cls, attributes: dict) -> str | None:
-        for key in ("enum_value", "dataset_key", "unit_id"):
-            value = cls._text(attributes.get(key))
-            if value:
-                return value
-        return None
+        enum_value = cls._text(attributes.get("enum_value"))
+        if enum_value:
+            return enum_value
+        dataset_key = cls._text(attributes.get("dataset_key"))
+        if not dataset_key:
+            return None
+        try:
+            return get_dataset_definition(dataset_key).display_name
+        except KeyError:
+            return None
 
     @classmethod
     def _display_fields(cls, *, entity: dict, time: dict, attributes: dict) -> list[TaskRunDisplayField]:

@@ -234,6 +234,13 @@ def test_ops_services_do_not_fallback_display_names_to_keys() -> None:
     assert not violations, "Ops 服务不得把 key 当作展示名兜底，展示事实必须来自 Definition/ActionCatalog:\n" + "\n".join(violations)
 
 
+def test_task_run_query_does_not_use_technical_unit_id_as_display_title() -> None:
+    path = REPO_ROOT / "src/ops/queries/task_run_query_service.py"
+    text = path.read_text(encoding="utf-8")
+
+    assert '"unit_id"' not in text
+
+
 def test_ops_does_not_parse_dataset_identity_from_route_key_text() -> None:
     forbidden_snippets = (
         'split(".", 1)[1]',
