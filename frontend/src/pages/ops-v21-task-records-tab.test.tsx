@@ -1,4 +1,5 @@
 import { MantineProvider } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -354,5 +355,62 @@ describe("任务记录页", () => {
       expect(screen.getByText("当前筛选下没有任务记录")).toBeInTheDocument();
       expect(screen.queryByText("正在刷新...")).not.toBeInTheDocument();
     });
+  });
+
+  it("重新提交失败的自动流程任务失败时，必须给出错误提示", async () => {
+    const notificationSpy = vi.spyOn(notifications, "show").mockReturnValue("retry-error");
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      const url = new URL(path, "https://example.test");
+      if (url.pathname === "/api/v1/ops/catalog") {
+        return {
+          actions: [],
+          workflows: [],
+        };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs/summary") {
+        return {
+          total: 1,
+          queued: 0,
+          running: 0,
+          success: 0,
+          failed: 1,
+          canceled: 0,
+        };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs") {
+        return {
+          total: 1,
+          items: [
+            createTaskRunItem(99, {
+              task_type: "workflow",
+              resource_key: null,
+              title: "每日资金流维护",
+              trigger_source: "scheduled",
+              status: "failed",
+              primary_issue_title: "自动流程任务缺少流程定义",
+            }),
+          ],
+        };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs/99/retry") {
+        throw new Error("自动流程任务缺少流程定义");
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    const user = userEvent.setup();
+    renderTaskRecordsPage();
+
+    await user.click(await screen.findByRole("button", { name: "重新提交" }));
+
+    await waitFor(() => {
+      expect(vi.mocked(apiRequest)).toHaveBeenCalledWith("/api/v1/ops/task-runs/99/retry", { method: "POST" });
+      expect(notificationSpy).toHaveBeenCalledWith(expect.objectContaining({
+        color: "error",
+        title: "重新提交失败",
+        message: "自动流程任务缺少流程定义",
+      }));
+    });
+    notificationSpy.mockRestore();
   });
 });

@@ -16,6 +16,7 @@ from src.ops.action_catalog import (
     get_target_display_name,
     get_workflow_definition,
 )
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -135,28 +136,20 @@ class TaskRunCommandService:
     def retry_task_run(self, session: Session, *, task_run_id: int, requested_by_user_id: int) -> TaskRun:
         existing = session.scalar(select(TaskRun).where(TaskRun.id == task_run_id))
         if existing is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
-        return self.create_task_run(
-            session,
-            context=TaskRunCreateContext(
-                task_type=existing.task_type,
-                resource_key=existing.resource_key,
-                action=existing.action,
-                time_input=dict(existing.time_input_json or {}),
-                filters=dict(existing.filters_json or {}),
-                request_payload=dict(existing.request_payload_json or {}),
-                trigger_source="retry",
-                requested_by_user_id=requested_by_user_id,
-                schedule_id=existing.schedule_id,
-            ),
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
+        context = self._context_from_retry(
+            session=session,
+            existing=existing,
+            requested_by_user_id=requested_by_user_id,
         )
+        return self.create_task_run(session, context=context)
 
     def request_cancel(self, session: Session, *, task_run_id: int, requested_by_user_id: int) -> TaskRun:
         task_run = session.scalar(select(TaskRun).where(TaskRun.id == task_run_id))
         if task_run is None:
-            raise WebAppError(status_code=404, code="not_found", message="Task run does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="任务记录不存在")
         if task_run.status in {"success", "failed", "partial_success", "canceled"}:
-            raise WebAppError(status_code=409, code="conflict", message="Task run is already finished")
+            raise WebAppError(status_code=409, code="conflict", message="任务已经结束")
         if task_run.cancel_requested_at is not None:
             session.refresh(task_run)
             return task_run
@@ -189,7 +182,7 @@ class TaskRunCommandService:
             try:
                 definition, action = get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
-                raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护目标不存在") from exc
             return TaskRunCreateContext(
                 task_type="dataset_action",
                 resource_key=definition.dataset_key,
@@ -208,7 +201,7 @@ class TaskRunCommandService:
         if target_type == "workflow":
             workflow = get_workflow_definition(target_key)
             if workflow is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="自动流程不存在")
             return TaskRunCreateContext(
                 task_type="workflow",
                 resource_key=None,
@@ -228,7 +221,7 @@ class TaskRunCommandService:
         if target_type == "maintenance_action":
             action = get_maintenance_action(target_key)
             if action is None:
-                raise WebAppError(status_code=404, code="not_found", message="Maintenance action does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="系统维护动作不存在")
             return TaskRunCreateContext(
                 task_type="maintenance_action",
                 resource_key=None,
@@ -240,7 +233,7 @@ class TaskRunCommandService:
                 requested_by_user_id=requested_by_user_id,
                 schedule_id=schedule_id,
             )
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported task type")
+        raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
     @staticmethod
     def _validate_context(context: TaskRunCreateContext) -> None:
@@ -327,7 +320,7 @@ class TaskRunCommandService:
         if target_type == "workflow":
             resolved_workflow = workflow or get_workflow_definition(target_key)
             if resolved_workflow is None:
-                raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
+                raise WebAppError(status_code=404, code="not_found", message="自动流程不存在")
             return cls._default_workflow_time_input(resolved_workflow)
         return {"mode": "none"}
 
@@ -429,3 +422,40 @@ class TaskRunCommandService:
         payload.pop("dataset_key", None)
         payload.pop("action", None)
         return payload
+
+    def _context_from_retry(
+        self,
+        *,
+        session: Session,
+        existing: TaskRun,
+        requested_by_user_id: int,
+    ) -> TaskRunCreateContext:
+        return TaskRunCreateContext(
+            task_type=existing.task_type,
+            resource_key=existing.resource_key,
+            action=existing.action,
+            time_input=dict(existing.time_input_json or {}),
+            filters=dict(existing.filters_json or {}),
+            request_payload=self._retry_request_payload(session, existing),
+            trigger_source="retry",
+            requested_by_user_id=requested_by_user_id,
+            schedule_id=existing.schedule_id,
+        )
+
+    @staticmethod
+    def _retry_request_payload(session: Session, existing: TaskRun) -> dict[str, Any]:
+        request_payload = dict(existing.request_payload_json or {})
+        if existing.task_type not in {"workflow", "maintenance_action"}:
+            return request_payload
+        if str(request_payload.get("target_key") or "").strip():
+            return request_payload
+        if existing.schedule_id is None:
+            return request_payload
+        schedule = session.get(OpsSchedule, existing.schedule_id)
+        if schedule is None or schedule.target_type != existing.task_type:
+            return request_payload
+        return {
+            **request_payload,
+            "target_type": schedule.target_type,
+            "target_key": schedule.target_key,
+        }

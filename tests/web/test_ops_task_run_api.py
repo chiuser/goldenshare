@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from src.ops.models.ops.task_run import TaskRun
+
 
 def auth_headers(app_client, username: str = "admin", password: str = "secret") -> dict[str, str]:  # type: ignore[no-untyped-def]
     login = app_client.post("/api/v1/auth/login", json={"username": username, "password": password})
@@ -274,6 +276,47 @@ def test_ops_task_run_retry_and_cancel_use_task_run_api(app_client, user_factory
     assert retry.json()["id"] != failed.id
     assert cancel.status_code == 200
     assert cancel.json()["status"] == "canceled"
+
+
+def test_ops_task_run_retry_recovers_scheduled_workflow_target(
+    app_client,
+    db_session,
+    user_factory,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    schedule = ops_schedule_factory(
+        target_type="workflow",
+        target_key="daily_moneyflow_maintenance",
+        display_name="每日资金流维护",
+        params_json={},
+    )
+    failed = task_run_factory(
+        task_type="workflow",
+        resource_key=None,
+        action="maintain",
+        title="每日资金流维护",
+        trigger_source="scheduled",
+        status="failed",
+        requested_by_user_id=admin.id,
+        schedule_id=schedule.id,
+        time_input_json={"mode": "point"},
+        request_payload_json={},
+    )
+
+    retry = app_client.post(f"/api/v1/ops/task-runs/{failed.id}/retry", headers=auth_headers(app_client))
+
+    assert retry.status_code == 200
+    body = retry.json()
+    assert body["status"] == "queued"
+    new_task_run = db_session.get(TaskRun, body["id"])
+    assert new_task_run is not None
+    assert new_task_run.task_type == "workflow"
+    assert new_task_run.trigger_source == "retry"
+    assert new_task_run.schedule_id == schedule.id
+    assert new_task_run.request_payload_json["target_type"] == "workflow"
+    assert new_task_run.request_payload_json["target_key"] == "daily_moneyflow_maintenance"
 
 
 def test_removed_ops_executions_routes_do_not_exist(app_client, user_factory) -> None:

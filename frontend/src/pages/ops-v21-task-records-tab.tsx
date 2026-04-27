@@ -239,6 +239,13 @@ export function OpsTasksPage() {
       await queryClient.invalidateQueries({ queryKey: ["ops", "task-run-summary"] });
       await navigate({ to: "/ops/tasks/$taskRunId", params: { taskRunId: String(data.id) } });
     },
+    onError: (error) => {
+      notifications.show({
+        color: "error",
+        title: "重新提交失败",
+        message: error instanceof Error ? error.message : "系统没有成功提交新任务，请查看任务详情。",
+      });
+    },
   });
 
   const cancelMutation = useMutation({
@@ -255,6 +262,13 @@ export function OpsTasksPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["ops", "task-runs"] });
       await queryClient.invalidateQueries({ queryKey: ["ops", "task-run-summary"] });
+    },
+    onError: (error) => {
+      notifications.show({
+        color: "error",
+        title: "停止任务失败",
+        message: error instanceof Error ? error.message : "系统没有成功提交停止请求，请查看任务详情。",
+      });
     },
   });
 
@@ -349,6 +363,8 @@ export function OpsTasksPage() {
             <Button
               type="button"
               onClick={() => retryMutation.mutate(item.id)}
+              loading={retryMutation.isPending && retryMutation.variables === item.id}
+              disabled={retryMutation.isPending}
               size="xs"
               variant="light"
               color="brand"
@@ -360,6 +376,8 @@ export function OpsTasksPage() {
             <Button
               type="button"
               onClick={() => cancelMutation.mutate(item.id)}
+              loading={cancelMutation.isPending && cancelMutation.variables === item.id}
+              disabled={cancelMutation.isPending}
               size="xs"
               variant="light"
               color="error"
