@@ -358,15 +358,24 @@ def test_task_run_validation_messages_do_not_emit_internal_field_tokens() -> Non
 
 
 def test_probe_validation_messages_do_not_emit_internal_field_tokens() -> None:
-    path = REPO_ROOT / "src/ops/services/probe_service.py"
-    text = path.read_text(encoding="utf-8")
+    paths = (
+        REPO_ROOT / "src/ops/services/probe_service.py",
+        REPO_ROOT / "src/ops/queries/probe_query_service.py",
+    )
     forbidden_snippets = (
         "Probe rule does not exist",
         "cannot be empty",
         "must be active/paused/disabled",
         "must be greater than 0",
+        "Probe dataset display name is unavailable",
+        "Probe source display name is unavailable",
     )
-    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
 
     assert not violations, "探测规则 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 

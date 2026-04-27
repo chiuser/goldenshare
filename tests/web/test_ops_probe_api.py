@@ -81,6 +81,7 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
     detail_after_delete = app_client.get(f"/api/v1/ops/probes/{probe_rule_id}", headers={"Authorization": f"Bearer {token}"})
     assert detail_after_delete.status_code == 404
     assert detail_after_delete.json()["code"] == "not_found"
+    assert detail_after_delete.json()["message"] == "探测规则不存在"
 
     revisions = list(
         db_session.scalars(

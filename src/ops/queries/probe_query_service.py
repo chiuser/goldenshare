@@ -64,7 +64,7 @@ class ProbeQueryService:
         )
         row = session.execute(stmt).one_or_none()
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Probe rule does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="探测规则不存在")
         rule, created_by_username, updated_by_username = row
         item = self._list_item(rule)
         return ProbeRuleDetailResponse(
@@ -171,12 +171,12 @@ class ProbeQueryService:
 def _require_dataset_display_name(dataset_key: str | None) -> str:
     display_name = get_dataset_display_name(dataset_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Probe dataset display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="探测数据集缺少显示名称")
     return display_name
 
 
 def _require_source_display_name(source_key: str | None) -> str:
     display_name = get_source_display_name(source_key or "all")
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Probe source display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="探测源缺少显示名称")
     return display_name
