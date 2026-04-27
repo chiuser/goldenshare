@@ -181,7 +181,7 @@ export function OpsV21OverviewPage() {
                               {item.raw_sources.map((entry, sourceIndex) => (
                                 <Group key={`${item.card_key}-raw-source-${sourceIndex}`} justify="space-between" align="center">
                                   <Text size="sm" c="dimmed">
-                                    {entry.source_display_name || "未指定来源"}
+                                    {entry.source_display_name || "来源名称缺失"}
                                     {entry.table_name ? `（${entry.table_name}）` : ""}
                                   </Text>
                                   <StatusBadge value={entry.status} />

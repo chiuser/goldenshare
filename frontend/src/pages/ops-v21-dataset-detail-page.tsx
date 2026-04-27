@@ -93,7 +93,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const error = freshnessQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
   const displayNameMap = buildFreshnessDisplayNameMap(freshnessQuery.data);
-  const displayName = displayNameMap[datasetKey] || "未命名数据集";
+  const displayName = displayNameMap[datasetKey] || "数据集详情";
   const freshnessItem = (freshnessQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
     .find((item) => item.dataset_key === datasetKey);
@@ -110,7 +110,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const sourceGroups = new Map<string, { label: string; items: typeof latestItems }>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
-    const group = sourceGroups.get(key) || { label: item.source_display_name || "未指定来源", items: [] };
+    const group = sourceGroups.get(key) || { label: item.source_display_name || "来源名称缺失", items: [] };
     group.items.push(item);
     sourceGroups.set(key, group);
   }
@@ -276,7 +276,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
                     <Stack gap={6}>
                       {items.map((item) => (
                         <Group key={`${source}-${item.stage}`} justify="space-between" wrap="nowrap">
-                          <Text size="sm">{item.stage_display_name || "未定义层级"}</Text>
+                          <Text size="sm">{item.stage_display_name || "层级名称缺失"}</Text>
                           <Group gap={8} wrap="nowrap">
                             <StatusBadge value={item.status} label={formatDetailStatusLabel(item.status)} />
                             <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>

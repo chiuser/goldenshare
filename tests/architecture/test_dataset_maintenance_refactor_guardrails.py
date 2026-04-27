@@ -152,6 +152,10 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "JSON.stringify(resolvedParamsJson",
         "内部规则：",
         "同步参数：",
+        "未命名数据集",
+        "未命名执行对象",
+        "未指定来源",
+        "未定义层级",
     )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):

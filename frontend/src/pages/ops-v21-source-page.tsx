@@ -100,9 +100,9 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
           : "—";
       return {
         datasetKey: item.card_key,
-        displayName: item.display_name || "未命名数据集",
+        displayName: item.display_name,
         domainKey: group.domain_key || item.domain_key || "uncategorized",
-        domainDisplayName: group.domain_display_name || item.domain_display_name || "未分类",
+        domainDisplayName: group.domain_display_name || item.domain_display_name || "未分组",
         rawTableLabel: item.raw_table_label || "—",
         status,
         lastSyncText,

@@ -310,7 +310,7 @@ function buildReadableParamRows(params: Record<string, unknown>, labelMap: Map<s
 
 function getCatalogActionLabel(item: CatalogAction): string {
   if (item.action_type === "dataset_action") {
-    return item.target_display_name || "未命名数据集";
+    return item.target_display_name || "数据集名称缺失";
   }
   const targetDisplayName = item.target_display_name;
   return targetDisplayName ? targetDisplayName : item.display_name;
@@ -329,7 +329,7 @@ function getCatalogSources(catalog: OpsCatalogResponse | undefined): CatalogSour
 }
 
 function getScheduleTargetLabel(item: { target_display_name?: string | null }): string {
-  return item.target_display_name || "未命名执行对象";
+  return item.target_display_name || "执行对象名称缺失";
 }
 
 function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sourceKey: string | null | undefined): string {
@@ -338,7 +338,7 @@ function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sour
     return "全部来源";
   }
   const source = getCatalogSources(catalog).find((item) => item.source_key === normalized);
-  return source?.display_name || "未指定来源";
+  return source?.display_name || "来源名称缺失";
 }
 
 function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
@@ -1153,7 +1153,7 @@ export function OpsAutomationPage() {
                           <Text size="sm" ta="right">
                             {(detailQuery.data.probe_config.workflow_dataset_targets || []).length
                               ? (detailQuery.data.probe_config.workflow_dataset_targets || [])
-                                .map((item) => item.dataset_display_name || "未命名数据集")
+                                .map((item) => item.dataset_display_name || "数据集名称缺失")
                                 .join("、")
                               : "未配置"}
                           </Text>
@@ -1167,7 +1167,7 @@ export function OpsAutomationPage() {
                       {probeRulesQuery.data?.items?.length ? (
                         probeRulesQuery.data.items.map((rule) => (
                           <Group key={rule.id} justify="space-between" align="center">
-                            <Text size="sm">{rule.dataset_display_name || "未命名数据集"}</Text>
+                            <Text size="sm">{rule.dataset_display_name || "数据集名称缺失"}</Text>
                             <Group gap={6}>
                               <StatusBadge value={rule.status} />
                               <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>
