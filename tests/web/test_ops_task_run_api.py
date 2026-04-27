@@ -93,6 +93,19 @@ def test_ops_task_run_summary_returns_filtered_status_counts(
     }
 
 
+def test_ops_task_run_create_returns_readable_missing_dataset_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+
+    response = app_client.post(
+        "/api/v1/ops/task-runs",
+        headers=auth_headers(app_client),
+        json={"task_type": "dataset_action", "action": "maintain", "time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "数据集任务缺少维护对象"
+
+
 def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     app_client,
     db_session,

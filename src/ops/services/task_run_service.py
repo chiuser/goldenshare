@@ -213,26 +213,26 @@ class TaskRunCommandService:
     def _validate_context(context: TaskRunCreateContext) -> None:
         if context.task_type == "dataset_action":
             if not context.resource_key:
-                raise WebAppError(status_code=422, code="validation_error", message="resource_key is required")
+                raise WebAppError(status_code=422, code="validation_error", message="数据集任务缺少维护对象")
             try:
                 definition = get_dataset_definition(context.resource_key)
             except KeyError as exc:
-                raise WebAppError(status_code=404, code="not_found", message="Dataset definition does not exist") from exc
+                raise WebAppError(status_code=404, code="not_found", message="数据集定义不存在") from exc
             action = definition.capabilities.get_action(context.action)
             if action is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Dataset action is not supported")
+                raise WebAppError(status_code=422, code="validation_error", message="数据集不支持该维护动作")
             return
         if context.task_type == "workflow":
             payload_target_key = str((context.request_payload or {}).get("target_key") or "")
             if not payload_target_key or get_workflow_definition(payload_target_key) is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Workflow is required")
+                raise WebAppError(status_code=422, code="validation_error", message="自动流程任务缺少流程定义")
             return
         if context.task_type == "maintenance_action":
             payload_target_key = str((context.request_payload or {}).get("target_key") or "")
             if not payload_target_key or get_maintenance_action(payload_target_key) is None:
-                raise WebAppError(status_code=422, code="validation_error", message="Maintenance action is required")
+                raise WebAppError(status_code=422, code="validation_error", message="系统维护任务缺少维护动作")
             return
-        raise WebAppError(status_code=422, code="validation_error", message="Unsupported task_type")
+        raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
     @staticmethod
     def _resolve_title(context: TaskRunCreateContext) -> str:

@@ -341,6 +341,22 @@ def test_manual_action_validation_messages_do_not_emit_field_token_english() -> 
     assert not violations, "手动任务参数校验不得向前端返回英文机器字段文案:\n" + "\n".join(violations)
 
 
+def test_task_run_validation_messages_do_not_emit_internal_field_tokens() -> None:
+    path = REPO_ROOT / "src/ops/services/task_run_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        "resource_key is required",
+        "Workflow is required",
+        "Maintenance action is required",
+        "Dataset definition does not exist",
+        "Dataset action is not supported",
+        "Unsupported task_type",
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "TaskRun API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")
