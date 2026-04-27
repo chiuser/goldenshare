@@ -120,9 +120,9 @@ class ProbeQueryService:
                     probe_rule_id=log.probe_rule_id,
                     probe_rule_name=rule_name,
                     dataset_key=resolved_dataset_key,
-                    dataset_display_name=get_dataset_display_name(resolved_dataset_key),
+                    dataset_display_name=_require_dataset_display_name(resolved_dataset_key),
                     source_key=resolved_source_key,
-                    source_display_name=get_source_display_name(resolved_source_key),
+                    source_display_name=_require_source_display_name(resolved_source_key),
                     status=log.status,
                     condition_matched=log.condition_matched,
                     message=log.message,
@@ -146,13 +146,13 @@ class ProbeQueryService:
             schedule_id=rule.schedule_id,
             name=rule.name,
             dataset_key=rule.dataset_key,
-            dataset_display_name=get_dataset_display_name(rule.dataset_key),
+            dataset_display_name=_require_dataset_display_name(rule.dataset_key),
             trigger_mode=rule.trigger_mode,
             workflow_key=rule.workflow_key,
             step_key=rule.step_key,
             rule_version=rule.rule_version,
             source_key=rule.source_key,
-            source_display_name=get_source_display_name(rule.source_key),
+            source_display_name=_require_source_display_name(rule.source_key),
             status=rule.status,
             window_start=rule.window_start,
             window_end=rule.window_end,
@@ -166,3 +166,17 @@ class ProbeQueryService:
             created_at=rule.created_at,
             updated_at=rule.updated_at,
         )
+
+
+def _require_dataset_display_name(dataset_key: str | None) -> str:
+    display_name = get_dataset_display_name(dataset_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Probe dataset display name is unavailable")
+    return display_name
+
+
+def _require_source_display_name(source_key: str | None) -> str:
+    display_name = get_source_display_name(source_key or "all")
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Probe source display name is unavailable")
+    return display_name

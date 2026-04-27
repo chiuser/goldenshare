@@ -117,11 +117,11 @@ class ResolutionReleaseQueryService:
                     id=item.id,
                     release_id=item.release_id,
                     dataset_key=item.dataset_key,
-                    dataset_display_name=get_dataset_display_name(item.dataset_key),
+                    dataset_display_name=_require_dataset_display_name(item.dataset_key),
                     source_key=item.source_key,
-                    source_display_name=get_source_display_name(item.source_key),
+                    source_display_name=_require_source_display_name(item.source_key),
                     stage=item.stage,
-                    stage_display_name=get_layer_stage_display_name(item.stage),
+                    stage_display_name=_require_stage_display_name(item.stage),
                     status=item.status,
                     rows_in=item.rows_in,
                     rows_out=item.rows_out,
@@ -137,7 +137,7 @@ class ResolutionReleaseQueryService:
         return ResolutionReleaseListItem(
             id=release.id,
             dataset_key=release.dataset_key,
-            dataset_display_name=get_dataset_display_name(release.dataset_key),
+            dataset_display_name=_require_dataset_display_name(release.dataset_key),
             target_policy_version=release.target_policy_version,
             status=release.status,
             triggered_by_username=username,
@@ -166,3 +166,24 @@ class ResolutionReleaseQueryService:
             source_condition,
             ResolutionReleaseStageStatus.stage == stage,
         )
+
+
+def _require_dataset_display_name(dataset_key: str | None) -> str:
+    display_name = get_dataset_display_name(dataset_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Resolution release dataset display name is unavailable")
+    return display_name
+
+
+def _require_source_display_name(source_key: str | None) -> str:
+    display_name = get_source_display_name(source_key or "combined")
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Resolution release source display name is unavailable")
+    return display_name
+
+
+def _require_stage_display_name(stage: str | None) -> str:
+    display_name = get_layer_stage_display_name(stage)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Resolution release stage display name is unavailable")
+    return display_name

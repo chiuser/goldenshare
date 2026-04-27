@@ -27,7 +27,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
 
     dataset_layer_snapshot_history_factory(
         snapshot_date=date(2026, 4, 13),
-        dataset_key="equity_daily",
+        dataset_key="daily",
         source_key="tushare",
         stage="serving",
         status="stale",
@@ -38,7 +38,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     db_session.add_all(
         [
             DatasetLayerSnapshotCurrent(
-                dataset_key="equity_daily",
+                dataset_key="daily",
                 source_key="tushare",
                 stage="serving",
                 status="healthy",
@@ -47,7 +47,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
                 calculated_at=datetime(2026, 4, 14, 16, 0, tzinfo=timezone.utc),
             ),
             DatasetLayerSnapshotCurrent(
-                dataset_key="etf_daily",
+                dataset_key="biying_equity_daily",
                 source_key="biying",
                 stage="std",
                 status="failed",
@@ -60,7 +60,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     db_session.commit()
 
     history = app_client.get(
-        "/api/v1/ops/layer-snapshots/history?dataset_key=equity_daily&stage=serving",
+        "/api/v1/ops/layer-snapshots/history?dataset_key=daily&stage=serving",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert history.status_code == 200
@@ -79,10 +79,10 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     latest_payload = latest.json()
     assert latest_payload["total"] == 2
     latest_by_key = {(item["dataset_key"], item["source_key"], item["stage"]): item for item in latest_payload["items"]}
-    assert latest_by_key[("equity_daily", "tushare", "serving")]["status"] == "healthy"
-    assert latest_by_key[("equity_daily", "tushare", "serving")]["source_display_name"] == "Tushare"
-    assert latest_by_key[("equity_daily", "tushare", "serving")]["stage_display_name"] == "服务层"
-    assert latest_by_key[("etf_daily", "biying", "std")]["status"] == "failed"
+    assert latest_by_key[("daily", "tushare", "serving")]["status"] == "healthy"
+    assert latest_by_key[("daily", "tushare", "serving")]["source_display_name"] == "Tushare"
+    assert latest_by_key[("daily", "tushare", "serving")]["stage_display_name"] == "服务层"
+    assert latest_by_key[("biying_equity_daily", "biying", "std")]["status"] == "failed"
 
 
 def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
@@ -105,7 +105,7 @@ def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
                 calculated_at=datetime(2026, 4, 15, 10, 0, tzinfo=timezone.utc),
             ),
             DatasetLayerSnapshotCurrent(
-                dataset_key="etf_daily",
+                dataset_key="daily",
                 source_key="tushare",
                 stage="raw",
                 status="healthy",
@@ -124,6 +124,6 @@ def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
     payload = latest.json()
     keys = {(item["dataset_key"], item["source_key"], item["stage"]) for item in payload["items"]}
     assert ("stock_basic", "__all__", "raw") in keys
-    assert ("etf_daily", "tushare", "raw") not in keys
+    assert ("daily", "tushare", "raw") not in keys
     all_scope = next(item for item in payload["items"] if item["dataset_key"] == "stock_basic")
     assert all_scope["source_display_name"] == "全部来源"

@@ -240,7 +240,7 @@ export interface ScheduleListResponse {
     target_type: string;
     target_key: string;
     manual_action_key: string | null;
-    target_display_name: string | null;
+    target_display_name: string;
     display_name: string;
     status: string;
     schedule_type: string;
@@ -258,7 +258,7 @@ export interface ScheduleDetailResponse {
   target_type: string;
   target_key: string;
   manual_action_key: string | null;
-  target_display_name: string | null;
+  target_display_name: string;
   display_name: string;
   status: string;
   schedule_type: string;
@@ -268,7 +268,7 @@ export interface ScheduleDetailResponse {
   calendar_policy: string | null;
   probe_config: {
     source_key: string | null;
-    source_display_name: string | null;
+    source_display_name: string;
     window_start: string | null;
     window_end: string | null;
     probe_interval_seconds: number;
@@ -278,7 +278,7 @@ export interface ScheduleDetailResponse {
     workflow_dataset_keys: string[];
     workflow_dataset_targets: Array<{
       dataset_key: string;
-      dataset_display_name: string | null;
+      dataset_display_name: string;
     }>;
   } | null;
   params_json: Record<string, unknown>;
@@ -622,9 +622,9 @@ export interface ProbeRuleListResponse {
     id: number;
     name: string;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     source_key: string | null;
-    source_display_name: string | null;
+    source_display_name: string;
     status: string;
     probe_interval_seconds: number;
     window_start: string | null;
@@ -640,7 +640,7 @@ export interface ResolutionReleaseListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     target_policy_version: number;
     status: string;
     triggered_by_username: string | null;
@@ -655,9 +655,9 @@ export interface StdMappingRuleListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     source_key: string;
-    source_display_name: string | null;
+    source_display_name: string;
     src_field: string;
     std_field: string;
     transform_fn: string | null;
@@ -672,9 +672,9 @@ export interface StdCleansingRuleListResponse {
   items: Array<{
     id: number;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     source_key: string;
-    source_display_name: string | null;
+    source_display_name: string;
     rule_type: string;
     action: string;
     status: string;
@@ -688,11 +688,11 @@ export interface LayerSnapshotLatestResponse {
   items: Array<{
     snapshot_date: string;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     source_key: string | null;
-    source_display_name: string | null;
+    source_display_name: string;
     stage: string;
-    stage_display_name: string | null;
+    stage_display_name: string;
     status: string;
     rows_in: number | null;
     rows_out: number | null;
@@ -710,11 +710,11 @@ export interface LayerSnapshotHistoryResponse {
   items: Array<{
     snapshot_date: string;
     dataset_key: string;
-    dataset_display_name: string | null;
+    dataset_display_name: string;
     source_key: string | null;
-    source_display_name: string | null;
+    source_display_name: string;
     stage: string;
-    stage_display_name: string | null;
+    stage_display_name: string;
     status: string;
     rows_in: number | null;
     rows_out: number | null;
@@ -810,7 +810,7 @@ export interface DatasetCardListResponse {
       }>;
       raw_sources: Array<{
         source_key: string;
-        source_display_name: string | null;
+        source_display_name: string;
         table_name: string | null;
         status: string;
         calculated_at: string | null;

@@ -26,7 +26,7 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
         headers={"Authorization": f"Bearer {token}"},
         json={
             "name": "收盘后日线探测",
-            "dataset_key": "equity_daily",
+            "dataset_key": "daily",
             "source_key": "tushare",
             "window_start": "15:30",
             "window_end": "17:30",
@@ -41,11 +41,11 @@ def test_ops_probe_create_list_update_pause_resume_delete(app_client, user_facto
     created = create.json()
     probe_rule_id = created["id"]
     assert created["status"] == "active"
-    assert created["dataset_key"] == "equity_daily"
+    assert created["dataset_key"] == "daily"
     assert created["probe_interval_seconds"] == 180
     assert created["created_by_username"] == "admin"
 
-    listed = app_client.get("/api/v1/ops/probes?dataset_key=equity_daily", headers={"Authorization": f"Bearer {token}"})
+    listed = app_client.get("/api/v1/ops/probes?dataset_key=daily", headers={"Authorization": f"Bearer {token}"})
     assert listed.status_code == 200
     listed_payload = listed.json()
     assert listed_payload["total"] == 1
@@ -99,8 +99,8 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    equity_rule = probe_rule_factory(name="股票日线探测", dataset_key="equity_daily", source_key="tushare")
-    etf_rule = probe_rule_factory(name="ETF日线探测", dataset_key="etf_daily", source_key="biying")
+    equity_rule = probe_rule_factory(name="股票日线探测", dataset_key="daily", source_key="tushare")
+    biying_rule = probe_rule_factory(name="Biying 股票日线探测", dataset_key="biying_equity_daily", source_key="biying")
 
     probe_run_log_factory(
         probe_rule_id=equity_rule.id,
@@ -111,7 +111,7 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
         triggered_task_run_id=101,
     )
     probe_run_log_factory(
-        probe_rule_id=etf_rule.id,
+        probe_rule_id=biying_rule.id,
         status="failed",
         condition_matched=False,
         message="timeout",
@@ -122,7 +122,7 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert all_runs.status_code == 200
     all_payload = all_runs.json()
     assert all_payload["total"] == 2
-    assert {item["dataset_key"] for item in all_payload["items"]} == {"equity_daily", "etf_daily"}
+    assert {item["dataset_key"] for item in all_payload["items"]} == {"daily", "biying_equity_daily"}
 
     by_rule = app_client.get(f"/api/v1/ops/probes/{equity_rule.id}/runs", headers={"Authorization": f"Bearer {token}"})
     assert by_rule.status_code == 200
@@ -135,12 +135,12 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_rule_payload["items"][0]["result_code"] in {"miss", "hit", "error"}
 
     by_dataset = app_client.get(
-        "/api/v1/ops/probes/runs?dataset_key=etf_daily",
+        "/api/v1/ops/probes/runs?dataset_key=biying_equity_daily",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert by_dataset.status_code == 200
     by_dataset_payload = by_dataset.json()
     assert by_dataset_payload["total"] == 1
-    assert by_dataset_payload["items"][0]["dataset_key"] == "etf_daily"
+    assert by_dataset_payload["items"][0]["dataset_key"] == "biying_equity_daily"
     assert by_dataset_payload["items"][0]["status"] == "failed"
     assert by_dataset_payload["items"][0]["rule_version"] == 1

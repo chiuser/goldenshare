@@ -324,8 +324,8 @@ function getCatalogSources(catalog: OpsCatalogResponse | undefined): CatalogSour
   return Array.isArray(catalog?.sources) ? catalog.sources : [];
 }
 
-function getScheduleTargetLabel(item: { target_display_name?: string | null }): string {
-  return item.target_display_name || "执行对象名称缺失";
+function getScheduleTargetLabel(item: { target_display_name: string }): string {
+  return item.target_display_name;
 }
 
 function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sourceKey: string | null | undefined): string {
@@ -334,7 +334,7 @@ function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sour
     return "全部来源";
   }
   const source = getCatalogSources(catalog).find((item) => item.source_key === normalized);
-  return source?.display_name || "来源名称缺失";
+  return source?.display_name || "来源配置异常";
 }
 
 function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
@@ -1142,14 +1142,14 @@ export function OpsAutomationPage() {
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测窗口</Text><Text size="sm">{detailQuery.data.probe_config.window_start || "—"} ~ {detailQuery.data.probe_config.window_end || "—"}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
-                      <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_display_name || "全部来源"}</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_display_name}</Text></Group>
                       {detailQuery.data.target_type === "workflow" ? (
                         <Group justify="space-between" align="flex-start">
                           <Text size="sm" c="dimmed">工作流探测目标</Text>
                           <Text size="sm" ta="right">
                             {(detailQuery.data.probe_config.workflow_dataset_targets || []).length
                               ? (detailQuery.data.probe_config.workflow_dataset_targets || [])
-                                .map((item) => item.dataset_display_name || "数据集名称缺失")
+                                .map((item) => item.dataset_display_name)
                                 .join("、")
                               : "未配置"}
                           </Text>
@@ -1163,7 +1163,7 @@ export function OpsAutomationPage() {
                       {probeRulesQuery.data?.items?.length ? (
                         probeRulesQuery.data.items.map((rule) => (
                           <Group key={rule.id} justify="space-between" align="center">
-                            <Text size="sm">{rule.dataset_display_name || "数据集名称缺失"}</Text>
+                            <Text size="sm">{rule.dataset_display_name}</Text>
                             <Group gap={6}>
                               <StatusBadge value={rule.status} />
                               <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>

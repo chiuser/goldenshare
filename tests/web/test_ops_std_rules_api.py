@@ -20,7 +20,7 @@ def test_ops_std_mapping_rule_crud_like_flow(app_client, user_factory) -> None:
         "/api/v1/ops/std-rules/mapping",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "dataset_key": "security_master",
+            "dataset_key": "biying_equity_daily",
             "source_key": "biying",
             "src_field": "dm",
             "std_field": "ts_code",
@@ -72,7 +72,7 @@ def test_ops_std_cleansing_rule_crud_like_flow(app_client, user_factory) -> None
         "/api/v1/ops/std-rules/cleansing",
         headers={"Authorization": f"Bearer {token}"},
         json={
-            "dataset_key": "security_master",
+            "dataset_key": "biying_equity_daily",
             "source_key": "biying",
             "rule_type": "required_fields",
             "target_fields_json": ["ts_code", "name"],

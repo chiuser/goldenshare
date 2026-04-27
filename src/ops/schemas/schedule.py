@@ -18,11 +18,11 @@ class ScheduleProbeConfig(BaseModel):
 
 class ScheduleProbeDatasetTargetResponse(BaseModel):
     dataset_key: str
-    dataset_display_name: str | None = None
+    dataset_display_name: str
 
 
 class ScheduleProbeConfigResponse(ScheduleProbeConfig):
-    source_display_name: str | None = None
+    source_display_name: str
     workflow_dataset_targets: list[ScheduleProbeDatasetTargetResponse] = []
 
 
@@ -63,7 +63,7 @@ class ScheduleListItem(BaseModel):
     target_type: str
     target_key: str
     manual_action_key: str | None = None
-    target_display_name: str | None = None
+    target_display_name: str
     display_name: str
     status: str
     schedule_type: str
@@ -89,7 +89,7 @@ class ScheduleDetailResponse(BaseModel):
     target_type: str
     target_key: str
     manual_action_key: str | None = None
-    target_display_name: str | None = None
+    target_display_name: str
     display_name: str
     status: str
     schedule_type: str

@@ -9,11 +9,11 @@ class LayerSnapshotHistoryItem(BaseModel):
     id: int
     snapshot_date: date
     dataset_key: str
-    dataset_display_name: str | None = None
+    dataset_display_name: str
     source_key: str | None = None
-    source_display_name: str | None = None
+    source_display_name: str
     stage: str
-    stage_display_name: str | None = None
+    stage_display_name: str
     status: str
     rows_in: int | None = None
     rows_out: int | None = None
@@ -33,11 +33,11 @@ class LayerSnapshotHistoryResponse(BaseModel):
 class LayerSnapshotLatestItem(BaseModel):
     snapshot_date: date
     dataset_key: str
-    dataset_display_name: str | None = None
+    dataset_display_name: str
     source_key: str | None = None
-    source_display_name: str | None = None
+    source_display_name: str
     stage: str
-    stage_display_name: str | None = None
+    stage_display_name: str
     status: str
     rows_in: int | None = None
     rows_out: int | None = None

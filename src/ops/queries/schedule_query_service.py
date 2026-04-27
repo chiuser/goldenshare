@@ -85,7 +85,7 @@ class ScheduleQueryService:
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             manual_action_key=get_manual_action_key_for_target(schedule.target_type, schedule.target_key),
-            target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
+            target_display_name=_require_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,
@@ -143,7 +143,7 @@ class ScheduleQueryService:
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             manual_action_key=get_manual_action_key_for_target(schedule.target_type, schedule.target_key),
-            target_display_name=get_target_display_name(schedule.target_type, schedule.target_key),
+            target_display_name=_require_target_display_name(schedule.target_type, schedule.target_key),
             display_name=schedule.display_name,
             status=schedule.status,
             schedule_type=schedule.schedule_type,
@@ -164,12 +164,12 @@ class ScheduleQueryService:
         if not probe_config_json:
             return None
         payload = dict(probe_config_json)
-        payload["source_display_name"] = get_source_display_name(payload.get("source_key"))
+        source_display_name = get_source_display_name(payload.get("source_key") or "all")
+        if source_display_name is None:
+            raise WebAppError(status_code=422, code="validation_error", message="Probe source display name is unavailable")
+        payload["source_display_name"] = source_display_name
         payload["workflow_dataset_targets"] = [
-            {
-                "dataset_key": dataset_key,
-                "dataset_display_name": get_dataset_display_name(dataset_key),
-            }
+            _probe_dataset_target(dataset_key)
             for dataset_key in _normalize_dataset_keys(payload.get("workflow_dataset_keys"))
         ]
         return payload
@@ -179,3 +179,20 @@ def _normalize_dataset_keys(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _require_target_display_name(target_type: str, target_key: str) -> str:
+    display_name = get_target_display_name(target_type, target_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Schedule target display name is unavailable")
+    return display_name
+
+
+def _probe_dataset_target(dataset_key: str) -> dict[str, str]:
+    display_name = get_dataset_display_name(dataset_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Probe dataset display name is unavailable")
+    return {
+        "dataset_key": dataset_key,
+        "dataset_display_name": display_name,
+    }

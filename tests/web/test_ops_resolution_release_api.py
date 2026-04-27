@@ -24,17 +24,17 @@ def test_ops_resolution_release_create_list_and_update_status(app_client, user_f
     created = app_client.post(
         "/api/v1/ops/releases",
         headers={"Authorization": f"Bearer {token}"},
-        json={"dataset_key": "security_master", "target_policy_version": 3, "status": "previewing"},
+        json={"dataset_key": "daily", "target_policy_version": 3, "status": "previewing"},
     )
     assert created.status_code == 200
     created_payload = created.json()
     release_id = created_payload["id"]
-    assert created_payload["dataset_key"] == "security_master"
+    assert created_payload["dataset_key"] == "daily"
     assert created_payload["target_policy_version"] == 3
     assert created_payload["status"] == "previewing"
     assert created_payload["triggered_by_username"] == "admin"
 
-    listed = app_client.get("/api/v1/ops/releases?dataset_key=security_master", headers={"Authorization": f"Bearer {token}"})
+    listed = app_client.get("/api/v1/ops/releases?dataset_key=daily", headers={"Authorization": f"Bearer {token}"})
     assert listed.status_code == 200
     listed_payload = listed.json()
     assert listed_payload["total"] == 1
@@ -77,7 +77,7 @@ def test_ops_resolution_release_stage_status_upsert_and_query(
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    release = resolution_release_factory(dataset_key="security_master", target_policy_version=2, status="running")
+    release = resolution_release_factory(dataset_key="daily", target_policy_version=2, status="running")
 
     upsert = app_client.put(
         f"/api/v1/ops/releases/{release.id}/stages",
@@ -85,7 +85,7 @@ def test_ops_resolution_release_stage_status_upsert_and_query(
         json={
             "items": [
                 {
-                    "dataset_key": "security_master",
+                    "dataset_key": "daily",
                     "source_key": "tushare",
                     "stage": "std",
                     "status": "success",
@@ -94,7 +94,7 @@ def test_ops_resolution_release_stage_status_upsert_and_query(
                     "message": "ok",
                 },
                 {
-                    "dataset_key": "security_master",
+                    "dataset_key": "biying_equity_daily",
                     "source_key": "biying",
                     "stage": "std",
                     "status": "failed",

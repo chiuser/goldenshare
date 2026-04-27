@@ -38,13 +38,13 @@ class ProbeRuleListItem(BaseModel):
     schedule_id: int | None = None
     name: str
     dataset_key: str
-    dataset_display_name: str | None = None
+    dataset_display_name: str
     trigger_mode: str | None = None
     workflow_key: str | None = None
     step_key: str | None = None
     rule_version: int | None = None
     source_key: str | None = None
-    source_display_name: str | None = None
+    source_display_name: str
     status: str
     window_start: str | None = None
     window_end: str | None = None
@@ -79,9 +79,9 @@ class ProbeRunLogItem(BaseModel):
     probe_rule_id: int
     probe_rule_name: str | None = None
     dataset_key: str | None = None
-    dataset_display_name: str | None = None
+    dataset_display_name: str
     source_key: str | None = None
-    source_display_name: str | None = None
+    source_display_name: str
     status: str
     condition_matched: bool
     message: str | None = None

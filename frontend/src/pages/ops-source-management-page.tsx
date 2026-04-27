@@ -13,16 +13,16 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
-function datasetLabel(item: { dataset_display_name?: string | null }) {
-  return item.dataset_display_name || "数据集名称缺失";
+function datasetLabel(item: { dataset_display_name: string }) {
+  return item.dataset_display_name;
 }
 
-function sourceLabel(item: { source_display_name?: string | null }) {
-  return item.source_display_name || "来源名称缺失";
+function sourceLabel(item: { source_display_name: string }) {
+  return item.source_display_name;
 }
 
-function stageLabel(item: { stage_display_name?: string | null }) {
-  return item.stage_display_name || "层级名称缺失";
+function stageLabel(item: { stage_display_name: string }) {
+  return item.stage_display_name;
 }
 
 export function OpsSourceManagementPage() {

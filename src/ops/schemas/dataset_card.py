@@ -24,7 +24,7 @@ class DatasetCardStageStatus(BaseModel):
 
 class DatasetCardSourceStatus(BaseModel):
     source_key: str
-    source_display_name: str | None = None
+    source_display_name: str
     table_name: str | None = None
     status: str
     calculated_at: datetime | None = None

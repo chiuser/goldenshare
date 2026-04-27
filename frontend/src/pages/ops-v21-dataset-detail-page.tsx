@@ -94,7 +94,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const datasetCard = (cardQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
     .find((item) => item.detail_dataset_key === datasetKey || item.dataset_key === datasetKey);
-  const displayName = datasetCard?.display_name || "数据集详情";
+  const displayName = datasetCard?.display_name || "数据集未找到";
   const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
   const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
   const stageOrder = ["raw", "std", "resolution", "serving"];
@@ -108,7 +108,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
   const sourceGroups = new Map<string, { label: string; items: typeof latestItems }>();
   for (const item of latestItems) {
     const key = item.source_key || "unknown";
-    const group = sourceGroups.get(key) || { label: item.source_display_name || "来源名称缺失", items: [] };
+    const group = sourceGroups.get(key) || { label: item.source_display_name, items: [] };
     group.items.push(item);
     sourceGroups.set(key, group);
   }
@@ -274,7 +274,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
                     <Stack gap={6}>
                       {items.map((item) => (
                         <Group key={`${source}-${item.stage}`} justify="space-between" wrap="nowrap">
-                          <Text size="sm">{item.stage_display_name || "层级名称缺失"}</Text>
+                          <Text size="sm">{item.stage_display_name}</Text>
                           <Group gap={8} wrap="nowrap">
                             <StatusBadge value={item.status} label={formatDetailStatusLabel(item.status)} />
                             <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>

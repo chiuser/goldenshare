@@ -66,9 +66,9 @@ class StdRuleQueryService:
                 StdMappingRuleItem(
                     id=row.id,
                     dataset_key=row.dataset_key,
-                    dataset_display_name=get_dataset_display_name(row.dataset_key),
+                    dataset_display_name=_require_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
-                    source_display_name=get_source_display_name(row.source_key),
+                    source_display_name=_require_source_display_name(row.source_key),
                     src_field=row.src_field,
                     std_field=row.std_field,
                     src_type=row.src_type,
@@ -127,9 +127,9 @@ class StdRuleQueryService:
                 StdCleansingRuleItem(
                     id=row.id,
                     dataset_key=row.dataset_key,
-                    dataset_display_name=get_dataset_display_name(row.dataset_key),
+                    dataset_display_name=_require_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
-                    source_display_name=get_source_display_name(row.source_key),
+                    source_display_name=_require_source_display_name(row.source_key),
                     rule_type=row.rule_type,
                     target_fields_json=list(row.target_fields_json or []),
                     condition_expr=row.condition_expr,
@@ -187,9 +187,9 @@ class StdRuleQueryService:
             StdMappingRuleItem(
                 id=-(100000 + idx),
                 dataset_key=key,
-                dataset_display_name=get_dataset_display_name(key),
+                dataset_display_name=_require_dataset_display_name(key),
                 source_key="tushare",
-                source_display_name=get_source_display_name("tushare"),
+                source_display_name=_require_source_display_name("tushare"),
                 src_field="*",
                 std_field="*",
                 src_type=None,
@@ -225,9 +225,9 @@ class StdRuleQueryService:
             StdCleansingRuleItem(
                 id=-(200000 + idx),
                 dataset_key=key,
-                dataset_display_name=get_dataset_display_name(key),
+                dataset_display_name=_require_dataset_display_name(key),
                 source_key="tushare",
-                source_display_name=get_source_display_name("tushare"),
+                source_display_name=_require_source_display_name("tushare"),
                 rule_type="builtin_default",
                 target_fields_json=[],
                 condition_expr=None,
@@ -241,3 +241,17 @@ class StdRuleQueryService:
         ]
         total = len(items)
         return StdCleansingRuleListResponse(items=items[offset : offset + limit], total=total)
+
+
+def _require_dataset_display_name(dataset_key: str | None) -> str:
+    display_name = get_dataset_display_name(dataset_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Std rule dataset display name is unavailable")
+    return display_name
+
+
+def _require_source_display_name(source_key: str | None) -> str:
+    display_name = get_source_display_name(source_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Std rule source display name is unavailable")
+    return display_name

@@ -6,9 +6,10 @@ from datetime import datetime
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from src.foundation.datasets.source_registry import get_source_display_name
+from src.app.exceptions import WebAppError
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
+from src.foundation.datasets.source_registry import get_source_display_name
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -254,10 +255,10 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardStageStatus(
                     stage=stage,
-                    stage_label=get_layer_stage_display_name(stage),
+                    stage_label=_require_stage_display_name(stage),
                     table_name=self._stage_table_name(stage, primary, raw_sources),
                     source_key=latest.source_key if latest else None,
-                    source_display_name=get_source_display_name(latest.source_key if latest else None),
+                    source_display_name=_optional_source_display_name(latest.source_key if latest else None),
                     status=self._normalize_status(latest.status if latest else None),
                     rows_in=latest.rows_in if latest else None,
                     rows_out=latest.rows_out if latest else None,
@@ -299,7 +300,7 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardSourceStatus(
                     source_key=source,
-                    source_display_name=get_source_display_name(source),
+                    source_display_name=_require_source_display_name(source),
                     table_name=table_name,
                     status=self._normalize_status(latest.status if latest else None),
                     calculated_at=latest.calculated_at if latest else None,
@@ -310,7 +311,7 @@ class DatasetCardQueryService:
             result.append(
                 DatasetCardSourceStatus(
                     source_key=source_key or "combined",
-                    source_display_name=get_source_display_name(source_key or "combined"),
+                    source_display_name=_require_source_display_name(source_key or "combined"),
                     table_name=table,
                     status="unknown",
                     calculated_at=None,
@@ -554,3 +555,23 @@ class DatasetCardQueryService:
             )
             for dataset_key in dataset_keys
         }
+
+
+def _optional_source_display_name(source_key: str | None) -> str | None:
+    if not source_key:
+        return None
+    return _require_source_display_name(source_key)
+
+
+def _require_source_display_name(source_key: str | None) -> str:
+    display_name = get_source_display_name(source_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Dataset card source display name is unavailable")
+    return display_name
+
+
+def _require_stage_display_name(stage: str | None) -> str:
+    display_name = get_layer_stage_display_name(stage)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Dataset card stage display name is unavailable")
+    return display_name

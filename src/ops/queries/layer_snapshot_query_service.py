@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from src.app.exceptions import WebAppError
 from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.layer_stage_labels import get_layer_stage_display_name
@@ -126,11 +127,11 @@ class LayerSnapshotQueryService:
                 LayerSnapshotLatestItem(
                     snapshot_date=row.calculated_at.date(),
                     dataset_key=row.dataset_key,
-                    dataset_display_name=get_dataset_display_name(row.dataset_key),
+                    dataset_display_name=_require_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
-                    source_display_name=get_source_display_name(row.source_key),
+                    source_display_name=_require_source_display_name(row.source_key),
                     stage=row.stage,
-                    stage_display_name=get_layer_stage_display_name(row.stage),
+                    stage_display_name=_require_stage_display_name(row.stage),
                     status=row.status,
                     rows_in=row.rows_in,
                     rows_out=row.rows_out,
@@ -185,11 +186,11 @@ class LayerSnapshotQueryService:
                 LayerSnapshotLatestItem(
                     snapshot_date=row.snapshot_date,
                     dataset_key=row.dataset_key,
-                    dataset_display_name=get_dataset_display_name(row.dataset_key),
+                    dataset_display_name=_require_dataset_display_name(row.dataset_key),
                     source_key=row.source_key,
-                    source_display_name=get_source_display_name(row.source_key),
+                    source_display_name=_require_source_display_name(row.source_key),
                     stage=row.stage,
-                    stage_display_name=get_layer_stage_display_name(row.stage),
+                    stage_display_name=_require_stage_display_name(row.stage),
                     status=row.status,
                     rows_in=row.rows_in,
                     rows_out=row.rows_out,
@@ -209,11 +210,11 @@ class LayerSnapshotQueryService:
             id=row.id,
             snapshot_date=row.snapshot_date,
             dataset_key=row.dataset_key,
-            dataset_display_name=get_dataset_display_name(row.dataset_key),
+            dataset_display_name=_require_dataset_display_name(row.dataset_key),
             source_key=row.source_key,
-            source_display_name=get_source_display_name(row.source_key),
+            source_display_name=_require_source_display_name(row.source_key),
             stage=row.stage,
-            stage_display_name=get_layer_stage_display_name(row.stage),
+            stage_display_name=_require_stage_display_name(row.stage),
             status=row.status,
             rows_in=row.rows_in,
             rows_out=row.rows_out,
@@ -224,3 +225,24 @@ class LayerSnapshotQueryService:
             message=row.message,
             calculated_at=row.calculated_at,
         )
+
+
+def _require_dataset_display_name(dataset_key: str | None) -> str:
+    display_name = get_dataset_display_name(dataset_key)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot dataset display name is unavailable")
+    return display_name
+
+
+def _require_source_display_name(source_key: str | None) -> str:
+    display_name = get_source_display_name(source_key or "__all__")
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot source display name is unavailable")
+    return display_name
+
+
+def _require_stage_display_name(stage: str | None) -> str:
+    display_name = get_layer_stage_display_name(stage)
+    if display_name is None:
+        raise WebAppError(status_code=422, code="validation_error", message="Layer snapshot stage display name is unavailable")
+    return display_name
