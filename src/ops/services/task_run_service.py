@@ -167,11 +167,10 @@ class TaskRunCommandService:
                 definition, action = get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
                 raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
-            resource_key = str(params_json.get("dataset_key") or definition.dataset_key).strip()
             return TaskRunCreateContext(
                 task_type="dataset_action",
-                resource_key=resource_key,
-                action=str(params_json.get("action") or action).strip() or action,
+                resource_key=definition.dataset_key,
+                action=action,
                 time_input=self._extract_time_input(params_json),
                 filters=self._extract_filters(params_json),
                 request_payload=self._dataset_action_request_payload(params_json),
@@ -311,4 +310,6 @@ class TaskRunCommandService:
         payload = dict(params_json or {})
         payload.pop("target_type", None)
         payload.pop("target_key", None)
+        payload.pop("dataset_key", None)
+        payload.pop("action", None)
         return payload

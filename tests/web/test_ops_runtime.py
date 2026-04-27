@@ -45,6 +45,34 @@ def test_scheduler_enqueues_due_once_schedule(db_session, ops_schedule_factory) 
     assert refreshed.next_run_at is None
 
 
+def test_scheduler_dataset_task_uses_target_key_as_single_resource_fact(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="daily.maintain",
+        schedule_type="once",
+        params_json={
+            "dataset_key": "stock_basic",
+            "action": "wrong_action",
+            "trade_date": "2026-04-24",
+        },
+        next_run_at=datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.resource_key == "daily"
+    assert task_run.action == "maintain"
+    assert task_run.request_payload_json["resource_key"] == "daily"
+    assert task_run.request_payload_json["action"] == "maintain"
+    assert "dataset_key" not in task_run.request_payload_json
+
+
 def test_scheduler_reschedules_cron_schedule_after_trigger(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="dataset_action",

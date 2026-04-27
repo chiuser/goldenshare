@@ -276,6 +276,18 @@ def test_ops_does_not_parse_dataset_identity_from_route_key_text() -> None:
     assert not violations, "Ops 不得从路由 key 文本拆出 dataset identity，必须走 DatasetDefinition registry:\n" + "\n".join(violations)
 
 
+def test_schedule_dataset_task_uses_target_key_as_single_action_fact() -> None:
+    path = REPO_ROOT / "src/ops/services/task_run_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_snippets = (
+        'params_json.get("dataset_key")',
+        'params_json.get("action") or action',
+    )
+    violations = [snippet for snippet in forbidden_snippets if snippet in text]
+
+    assert not violations, "自动任务创建 TaskRun 时不得让 params_json 覆盖 target_key 解析出的数据集动作事实:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")
