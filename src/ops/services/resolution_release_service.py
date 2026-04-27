@@ -60,7 +60,7 @@ class OpsResolutionReleaseCommandService:
         self._ensure_release_status(status)
         release = session.scalar(select(ResolutionRelease).where(ResolutionRelease.id == release_id))
         if release is None:
-            raise WebAppError(status_code=404, code="not_found", message="Resolution release does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="数据发布记录不存在")
 
         before = self._snapshot(release)
         release.status = status
@@ -94,9 +94,9 @@ class OpsResolutionReleaseCommandService:
     ) -> int:
         release = session.scalar(select(ResolutionRelease).where(ResolutionRelease.id == release_id))
         if release is None:
-            raise WebAppError(status_code=404, code="not_found", message="Resolution release does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="数据发布记录不存在")
         if not items:
-            raise WebAppError(status_code=422, code="validation_error", message="items cannot be empty")
+            raise WebAppError(status_code=422, code="validation_error", message="发布阶段列表不能为空")
 
         now = datetime.now(timezone.utc)
         upserted_count = 0
@@ -145,19 +145,19 @@ class OpsResolutionReleaseCommandService:
     @staticmethod
     def _validate_release_inputs(*, dataset_key: str, target_policy_version: int, status: str) -> None:
         if not dataset_key.strip():
-            raise WebAppError(status_code=422, code="validation_error", message="dataset_key cannot be empty")
+            raise WebAppError(status_code=422, code="validation_error", message="发布数据集不能为空")
         if target_policy_version <= 0:
-            raise WebAppError(status_code=422, code="validation_error", message="target_policy_version must be greater than 0")
+            raise WebAppError(status_code=422, code="validation_error", message="目标策略版本必须大于 0")
         OpsResolutionReleaseCommandService._ensure_release_status(status)
 
     @staticmethod
     def _validate_stage_item(item: dict) -> None:
         if not str(item.get("dataset_key") or "").strip():
-            raise WebAppError(status_code=422, code="validation_error", message="dataset_key is required in stage item")
+            raise WebAppError(status_code=422, code="validation_error", message="发布阶段缺少数据集")
         if not str(item.get("stage") or "").strip():
-            raise WebAppError(status_code=422, code="validation_error", message="stage is required in stage item")
+            raise WebAppError(status_code=422, code="validation_error", message="发布阶段缺少层级")
         if not str(item.get("status") or "").strip():
-            raise WebAppError(status_code=422, code="validation_error", message="status is required in stage item")
+            raise WebAppError(status_code=422, code="validation_error", message="发布阶段缺少状态")
 
     @staticmethod
     def _ensure_release_status(status: str) -> None:
@@ -165,7 +165,7 @@ class OpsResolutionReleaseCommandService:
             raise WebAppError(
                 status_code=422,
                 code="validation_error",
-                message="status must be previewing/running/completed/rolled_back/failed",
+                message="发布状态无效",
             )
 
     @staticmethod

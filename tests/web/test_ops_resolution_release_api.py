@@ -68,6 +68,32 @@ def test_ops_resolution_release_create_list_and_update_status(app_client, user_f
     assert [item.action for item in revisions] == ["created", "status_updated", "status_updated"]
 
 
+def test_ops_resolution_release_create_returns_readable_validation_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/releases",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"dataset_key": "", "target_policy_version": 3, "status": "previewing"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "发布数据集不能为空"
+
+
+def test_ops_resolution_release_detail_returns_readable_not_found_message(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.get("/api/v1/ops/releases/9999", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 404
+    assert response.json()["message"] == "数据发布记录不存在"
+
+
 def test_ops_resolution_release_stage_status_upsert_and_query(
     app_client,
     user_factory,

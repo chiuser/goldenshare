@@ -470,6 +470,34 @@ def test_layer_snapshot_query_messages_do_not_emit_internal_field_tokens() -> No
     assert not violations, "层快照 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
 
 
+def test_resolution_release_messages_do_not_emit_internal_field_tokens() -> None:
+    paths = (
+        REPO_ROOT / "src/ops/services/resolution_release_service.py",
+        REPO_ROOT / "src/ops/queries/resolution_release_query_service.py",
+    )
+    forbidden_snippets = (
+        "Resolution release does not exist",
+        "items cannot be empty",
+        "dataset_key cannot be empty",
+        "target_policy_version must be greater than 0",
+        "dataset_key is required in stage item",
+        "stage is required in stage item",
+        "status is required in stage item",
+        "status must be previewing/running/completed/rolled_back/failed",
+        "Resolution release dataset display name is unavailable",
+        "Resolution release source display name is unavailable",
+        "Resolution release stage display name is unavailable",
+    )
+    violations: list[str] = []
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for snippet in forbidden_snippets:
+            if snippet in text:
+                violations.append(f"{path.relative_to(REPO_ROOT).as_posix()}: {snippet}")
+
+    assert not violations, "数据发布 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+
+
 def test_workflow_domain_display_facts_stay_in_action_catalog() -> None:
     path_tokens = {
         REPO_ROOT / "src/ops/queries/catalog_query_service.py": (

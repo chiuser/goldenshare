@@ -66,7 +66,7 @@ class ResolutionReleaseQueryService:
         )
         row = session.execute(stmt).one_or_none()
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Resolution release does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="数据发布记录不存在")
         release, username = row
         item = self._list_item(release, username)
         return ResolutionReleaseDetailResponse(**item.model_dump())
@@ -84,7 +84,7 @@ class ResolutionReleaseQueryService:
     ) -> ResolutionReleaseStageStatusListResponse:
         release_exists = session.scalar(select(ResolutionRelease.id).where(ResolutionRelease.id == release_id))
         if release_exists is None:
-            raise WebAppError(status_code=404, code="not_found", message="Resolution release does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="数据发布记录不存在")
 
         filters = [ResolutionReleaseStageStatus.release_id == release_id]
         if dataset_key:
@@ -171,19 +171,19 @@ class ResolutionReleaseQueryService:
 def _require_dataset_display_name(dataset_key: str | None) -> str:
     display_name = get_dataset_display_name(dataset_key)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Resolution release dataset display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="发布数据集缺少显示名称")
     return display_name
 
 
 def _require_source_display_name(source_key: str | None) -> str:
     display_name = get_source_display_name(source_key or "combined")
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Resolution release source display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="发布来源缺少显示名称")
     return display_name
 
 
 def _require_stage_display_name(stage: str | None) -> str:
     display_name = get_layer_stage_display_name(stage)
     if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="Resolution release stage display name is unavailable")
+        raise WebAppError(status_code=422, code="validation_error", message="发布层级缺少显示名称")
     return display_name
