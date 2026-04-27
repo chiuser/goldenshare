@@ -31,7 +31,7 @@ export function RegisterPage() {
       if (error.code === "registration_closed") {
         return "当前后端未开启注册，请管理员在环境配置中设置 AUTH_REGISTER_MODE=invite_only。";
       }
-      if (error.code === "validation_error" && error.message.includes("Invite code is required")) {
+      if (error.code === "invite_code_required") {
         return "请输入邀请码后再注册。";
       }
     }

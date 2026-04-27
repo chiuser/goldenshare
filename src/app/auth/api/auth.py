@@ -78,7 +78,7 @@ def resend_verification(
     expose = service.should_expose_action_token_debug()
     return LookupAccountResponse(
         ok=True,
-        message="If account exists, a verification instruction has been sent",
+        message="如果账号存在，验证指引已发送",
         token_debug=debug_token if expose else None,
     )
 
@@ -166,7 +166,7 @@ def forgot_password(
     expose = service.should_expose_action_token_debug()
     return LookupAccountResponse(
         ok=True,
-        message="If account exists, reset instruction has been sent",
+        message="如果账号存在，重置指引已发送",
         token_debug=debug_token if expose else None,
     )
 

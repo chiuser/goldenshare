@@ -65,7 +65,7 @@ class AuthService:
                 detail={"reason": "user_not_found"},
             )
             session.commit()
-            raise WebAppError(status_code=401, code="unauthorized", message="Username or password is incorrect")
+            raise WebAppError(status_code=401, code="unauthorized", message="用户名或密码不正确")
 
         if self._is_locked(user, now):
             self._audit(
@@ -78,7 +78,7 @@ class AuthService:
                 detail={"reason": "locked", "locked_until": self._iso(user.locked_until)},
             )
             session.commit()
-            raise WebAppError(status_code=401, code="unauthorized", message="Account is temporarily locked")
+            raise WebAppError(status_code=401, code="unauthorized", message="账号已临时锁定")
 
         if not self.password_service.verify_password(password, user.password_hash):
             self._record_failed_login(session, user=user, now=now)
@@ -92,7 +92,7 @@ class AuthService:
                 detail={"reason": "bad_password", "failed_login_count": user.failed_login_count},
             )
             session.commit()
-            raise WebAppError(status_code=401, code="unauthorized", message="Username or password is incorrect")
+            raise WebAppError(status_code=401, code="unauthorized", message="用户名或密码不正确")
 
         if not user.is_active:
             self._audit(
@@ -105,7 +105,7 @@ class AuthService:
                 detail={"reason": "inactive"},
             )
             session.commit()
-            raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+            raise WebAppError(status_code=401, code="unauthorized", message="用户已停用")
 
         if user.account_state == ACCOUNT_STATE_PENDING_VERIFICATION:
             self._audit(
@@ -121,7 +121,7 @@ class AuthService:
             raise WebAppError(
                 status_code=403,
                 code="email_verification_required",
-                message="Email verification is required before login",
+                message="请先完成邮箱验证",
             )
         if user.account_state == ACCOUNT_STATE_SUSPENDED:
             self._audit(
@@ -134,7 +134,7 @@ class AuthService:
                 detail={"reason": "suspended"},
             )
             session.commit()
-            raise WebAppError(status_code=403, code="account_suspended", message="User account is suspended")
+            raise WebAppError(status_code=403, code="account_suspended", message="账号已停用")
 
         self._ensure_authorization_seed(session)
         user.failed_login_count = 0
@@ -187,7 +187,7 @@ class AuthService:
         if register_mode not in {"public", "invite_only", "closed"}:
             register_mode = "closed"
         if register_mode == "closed":
-            raise WebAppError(status_code=403, code="registration_closed", message="User registration is disabled")
+            raise WebAppError(status_code=403, code="registration_closed", message="当前未开放注册")
 
         normalized_username = normalize_username(username)
         normalized_email = normalize_email(email)
@@ -195,19 +195,19 @@ class AuthService:
         self._ensure_authorization_seed(session)
 
         if self.user_repository.get_by_username(session, normalized_username):
-            raise WebAppError(status_code=409, code="conflict", message="Username already exists")
+            raise WebAppError(status_code=409, code="conflict", message="用户名已存在")
         if normalized_email and self.user_repository.get_by_email(session, normalized_email):
-            raise WebAppError(status_code=409, code="conflict", message="Email already exists")
+            raise WebAppError(status_code=409, code="conflict", message="邮箱已存在")
 
         invite = None
         if register_mode == "invite_only":
             if not invite_code:
-                raise WebAppError(status_code=422, code="validation_error", message="Invite code is required")
+                raise WebAppError(status_code=422, code="invite_code_required", message="请输入邀请码")
             invite = self._require_valid_invite(session, invite_code=invite_code, email=normalized_email)
 
         require_verify = bool(self.settings.auth_require_email_verification)
         if require_verify and not normalized_email:
-            raise WebAppError(status_code=422, code="validation_error", message="Email is required for registration")
+            raise WebAppError(status_code=422, code="email_required", message="请输入邮箱")
 
         role_key = invite.role_key if invite else self._default_role()
         is_admin = role_key == ROLE_ADMIN
@@ -455,10 +455,10 @@ class AuthService:
             )
         )
         if token_row is None:
-            raise WebAppError(status_code=401, code="unauthorized", message="Refresh token is invalid or expired")
+            raise WebAppError(status_code=401, code="unauthorized", message="登录状态已失效")
         user = self.user_repository.get_by_id(session, token_row.user_id)
         if user is None or not user.is_active:
-            raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
+            raise WebAppError(status_code=401, code="unauthorized", message="用户不存在或已停用")
 
         new_refresh_token = self._issue_refresh_token(session, user_id=user.id, ip_address=ip_address, user_agent=user_agent)
         token_row.revoked_at = now
@@ -532,7 +532,7 @@ class AuthService:
             )
         )
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Session does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="登录会话不存在")
         if row.revoked_at is None:
             now = self._now()
             row.revoked_at = now
@@ -557,8 +557,8 @@ class AuthService:
         if len(password) < max(1, self.settings.auth_password_min_length):
             raise WebAppError(
                 status_code=422,
-                code="validation_error",
-                message=f"Password must be at least {self.settings.auth_password_min_length} characters",
+                code="password_too_short",
+                message=f"密码至少需要 {self.settings.auth_password_min_length} 个字符",
             )
 
     @staticmethod
@@ -683,10 +683,10 @@ class AuthService:
         )
         expires_at = self._coerce_utc(row.expires_at) if row else None
         if row is None or expires_at is None or expires_at <= now:
-            raise WebAppError(status_code=400, code="invalid_token", message="Token is invalid or expired")
+            raise WebAppError(status_code=400, code="invalid_token", message="令牌无效或已过期")
         user = self.user_repository.get_by_id(session, row.user_id)
         if user is None:
-            raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
+            raise WebAppError(status_code=401, code="unauthorized", message="用户不存在")
         return row, user
 
     def _find_user_by_identifier(self, session: Session, identifier: str) -> AppUser | None:
@@ -708,15 +708,15 @@ class AuthService:
             )
         )
         if row is None:
-            raise WebAppError(status_code=422, code="invalid_invite", message="Invite code is invalid")
+            raise WebAppError(status_code=422, code="invalid_invite", message="邀请码无效")
         expires_at = self._coerce_utc(row.expires_at)
         if expires_at and expires_at <= now:
-            raise WebAppError(status_code=422, code="invalid_invite", message="Invite code has expired")
+            raise WebAppError(status_code=422, code="invalid_invite", message="邀请码已过期")
         if row.used_count >= row.max_uses:
-            raise WebAppError(status_code=422, code="invalid_invite", message="Invite code has been fully used")
+            raise WebAppError(status_code=422, code="invalid_invite", message="邀请码已用完")
         if row.assigned_email:
             if not email or row.assigned_email.lower() != email.lower():
-                raise WebAppError(status_code=422, code="invalid_invite", message="Invite code does not match the email")
+                raise WebAppError(status_code=422, code="invalid_invite", message="邀请码与邮箱不匹配")
         return row
 
     def _list_role_keys_for_user(self, session: Session, user_id: int) -> list[str]:

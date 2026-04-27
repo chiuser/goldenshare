@@ -65,9 +65,9 @@ class AdminUserService:
         normalized_email = normalize_email(email)
         self.auth_service.validate_password(password)
         if self.user_repository.get_by_username(session, normalized_username):
-            raise WebAppError(status_code=409, code="conflict", message="Username already exists")
+            raise WebAppError(status_code=409, code="conflict", message="用户名已存在")
         if normalized_email and self.user_repository.get_by_email(session, normalized_email):
-            raise WebAppError(status_code=409, code="conflict", message="Email already exists")
+            raise WebAppError(status_code=409, code="conflict", message="邮箱已存在")
 
         role_keys = sorted(set(roles)) if roles else [ROLE_ADMIN if is_admin else ROLE_VIEWER]
         if ROLE_ADMIN in role_keys:
@@ -114,7 +114,7 @@ class AdminUserService:
     ) -> AppUser:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         if display_name is not None:
             user.display_name = display_name.strip() or None
         if email is not None:
@@ -122,7 +122,7 @@ class AdminUserService:
             if normalized_email and normalized_email != (user.email or ""):
                 exists = self.user_repository.get_by_email(session, normalized_email)
                 if exists is not None and exists.id != user.id:
-                    raise WebAppError(status_code=409, code="conflict", message="Email already exists")
+                    raise WebAppError(status_code=409, code="conflict", message="邮箱已存在")
             user.email = normalized_email
         if is_admin is not None:
             user.is_admin = is_admin
@@ -145,7 +145,7 @@ class AdminUserService:
     ) -> list[str]:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         final_roles = self.auth_service.replace_roles(
             session,
             user_id=user_id,
@@ -166,7 +166,7 @@ class AdminUserService:
     def suspend_user(self, session: Session, *, user_id: int) -> AppUser:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         user.is_active = False
         user.account_state = ACCOUNT_STATE_SUSPENDED
         self._audit(session, event_type="admin.user.suspend", user_id=user.id, username_snapshot=user.username, detail={})
@@ -177,7 +177,7 @@ class AdminUserService:
     def activate_user(self, session: Session, *, user_id: int) -> AppUser:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         user.is_active = True
         user.account_state = ACCOUNT_STATE_ACTIVE
         self._audit(session, event_type="admin.user.activate", user_id=user.id, username_snapshot=user.username, detail={})
@@ -188,7 +188,7 @@ class AdminUserService:
     def admin_reset_password(self, session: Session, *, user_id: int, password: str) -> AppUser:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         self.auth_service.validate_password(password)
         user.password_hash = self.password_service.hash_password(password)
         user.password_changed_at = self._now()
@@ -205,9 +205,9 @@ class AdminUserService:
     def delete_user(self, session: Session, *, user_id: int, actor_user_id: int | None) -> int:
         user = self.user_repository.get_by_id(session, user_id)
         if user is None:
-            raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="用户不存在")
         if actor_user_id is not None and actor_user_id == user.id:
-            raise WebAppError(status_code=422, code="validation_error", message="Can not delete current user")
+            raise WebAppError(status_code=422, code="validation_error", message="不能删除当前登录用户")
 
         if user.is_admin:
             remaining_admins = int(
@@ -218,7 +218,7 @@ class AdminUserService:
                 ) or 0
             )
             if remaining_admins <= 0:
-                raise WebAppError(status_code=422, code="validation_error", message="Can not delete last admin user")
+                raise WebAppError(status_code=422, code="validation_error", message="不能删除最后一个管理员")
 
         session.execute(delete(AuthUserRole).where(AuthUserRole.user_id == user.id))
         session.execute(delete(AuthRefreshToken).where(AuthRefreshToken.user_id == user.id))
@@ -298,7 +298,7 @@ class AdminUserService:
     def disable_invite(self, session: Session, *, invite_id: int, actor_user_id: int | None) -> int:
         row = session.get(AuthInviteCode, invite_id)
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Invite does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="邀请码不存在")
         row.disabled_at = self._now()
         self._audit(session, event_type="admin.invite.disable", user_id=actor_user_id, detail={"invite_id": invite_id})
         session.commit()
@@ -307,7 +307,7 @@ class AdminUserService:
     def delete_invite(self, session: Session, *, invite_id: int, actor_user_id: int | None) -> int:
         row = session.get(AuthInviteCode, invite_id)
         if row is None:
-            raise WebAppError(status_code=404, code="not_found", message="Invite does not exist")
+            raise WebAppError(status_code=404, code="not_found", message="邀请码不存在")
         session.delete(row)
         self._audit(session, event_type="admin.invite.delete", user_id=actor_user_id, detail={"invite_id": invite_id})
         session.commit()

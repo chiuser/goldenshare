@@ -35,7 +35,7 @@ def test_login_rejects_inactive_user(app_client, user_factory) -> None:
     response = app_client.post("/api/v1/auth/login", json={"username": "inactive", "password": "secret"})
 
     assert response.status_code == 401
-    assert response.json()["message"] == "User is inactive"
+    assert response.json()["message"] == "用户已停用"
 
 
 def test_auth_me_requires_token(app_client) -> None:

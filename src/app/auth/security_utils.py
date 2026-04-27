@@ -17,7 +17,7 @@ def hash_raw_token(raw_token: str) -> str:
 def normalize_username(username: str) -> str:
     normalized = username.strip()
     if not normalized:
-        raise WebAppError(status_code=422, code="validation_error", message="Username can not be empty")
+        raise WebAppError(status_code=422, code="username_required", message="用户名不能为空")
     return normalized
 
 

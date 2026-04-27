@@ -24,13 +24,13 @@ describe("apiRequest unauthorized handling", () => {
       "fetch",
       vi.fn()
         .mockResolvedValueOnce(
-          new Response(JSON.stringify({ code: "unauthorized", message: "Token has expired" }), {
+          new Response(JSON.stringify({ code: "unauthorized", message: "登录状态已过期" }), {
             status: 401,
             headers: { "Content-Type": "application/json" },
           }),
         )
         .mockResolvedValueOnce(
-          new Response(JSON.stringify({ code: "unauthorized", message: "Refresh token is invalid" }), {
+          new Response(JSON.stringify({ code: "unauthorized", message: "登录状态无效" }), {
             status: 401,
             headers: { "Content-Type": "application/json" },
           }),
@@ -56,7 +56,7 @@ describe("apiRequest unauthorized handling", () => {
       "fetch",
       vi.fn()
         .mockResolvedValueOnce(
-          new Response(JSON.stringify({ code: "unauthorized", message: "Token has expired" }), {
+          new Response(JSON.stringify({ code: "unauthorized", message: "登录状态已过期" }), {
             status: 401,
             headers: { "Content-Type": "application/json" },
           }),
@@ -92,7 +92,7 @@ describe("apiRequest unauthorized handling", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(JSON.stringify({ code: "unauthorized", message: "Username or password is incorrect" }), {
+        new Response(JSON.stringify({ code: "unauthorized", message: "用户名或密码不正确" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
         })),

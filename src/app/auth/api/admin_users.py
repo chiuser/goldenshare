@@ -118,7 +118,7 @@ def replace_user_roles(
     )
     target = service.user_repository.get_by_id(session, user_id)
     if target is None:
-        raise WebAppError(status_code=404, code="not_found", message="User does not exist")
+        raise WebAppError(status_code=404, code="not_found", message="用户不存在")
     return _serialize_user(target, role_keys)
 
 

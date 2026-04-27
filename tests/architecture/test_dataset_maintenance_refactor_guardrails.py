@@ -776,6 +776,55 @@ def test_supporting_validation_messages_do_not_emit_internal_field_tokens() -> N
     assert not violations, "支撑层校验不得向前端或运行日志返回英文内部字段文案:\n" + "\n".join(violations)
 
 
+def test_auth_messages_and_frontend_consumers_do_not_depend_on_english_error_text() -> None:
+    path_tokens = {
+        REPO_ROOT / "src/app/auth": (
+            "Username can not be empty",
+            "Authentication required",
+            "User does not exist",
+            "User is inactive",
+            "Admin permission required",
+            "Permission required",
+            "Username already exists",
+            "Email already exists",
+            "Can not delete",
+            "Invite does not exist",
+            "Username or password is incorrect",
+            "Account is temporarily locked",
+            "Email verification is required",
+            "User account is suspended",
+            "User registration is disabled",
+            "Invite code is required",
+            "Email is required",
+            "Refresh token is invalid",
+            "Session does not exist",
+            "Password must be",
+            "Token is invalid",
+            "Token has expired",
+            "Invite code is invalid",
+            "Invite code has expired",
+            "Invite code has been fully used",
+            "Invite code does not match",
+            "JWT secret",
+            "If account exists",
+        ),
+        REPO_ROOT / "frontend/src/pages/register-page.tsx": (
+            "Invite code is required",
+            "message.includes",
+        ),
+    }
+    violations: list[str] = []
+    for path, forbidden_tokens in path_tokens.items():
+        for target in _python_and_frontend_files(path):
+            text = target.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = target.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "认证链路和前端页面不得依赖英文错误文案:\n" + "\n".join(violations)
+
+
 def test_ops_does_not_keep_parallel_dataset_reconcile_fact_registry() -> None:
     path = REPO_ROOT / "src/ops/services/operations_dataset_reconcile_service.py"
 

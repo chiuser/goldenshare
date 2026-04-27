@@ -53,15 +53,15 @@ def get_current_user(
     session: Session = Depends(get_db_session),
 ) -> AuthenticatedUser:
     if credentials is None or not credentials.credentials:
-        raise WebAppError(status_code=401, code="unauthorized", message="Authentication required")
+        raise WebAppError(status_code=401, code="unauthorized", message="请先登录")
 
     jwt_service = JWTService()
     token_payload = jwt_service.decode(credentials.credentials)
     user = UserRepository().get_by_id(session, token_payload.sub)
     if user is None:
-        raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户不存在")
     if not user.is_active:
-        raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户已停用")
     roles, permissions = _load_roles_permissions(session, user.id, is_admin=user.is_admin)
     return AuthenticatedUser(
         id=user.id,
@@ -82,7 +82,7 @@ def require_authenticated(user: AuthenticatedUser = Depends(get_current_user)) -
 
 def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
     if not user.is_admin:
-        raise WebAppError(status_code=403, code="forbidden", message="Admin permission required")
+        raise WebAppError(status_code=403, code="forbidden", message="需要管理员权限")
     return user
 
 
@@ -91,7 +91,7 @@ def require_permission(permission_key: str):
         if user.is_admin:
             return user
         if permission_key not in user.permissions:
-            raise WebAppError(status_code=403, code="forbidden", message=f"Permission required: {permission_key}")
+            raise WebAppError(status_code=403, code="forbidden", message=f"缺少权限：{permission_key}")
         return user
 
     return _dependency
@@ -108,9 +108,9 @@ def get_current_user_optional(
     token_payload = jwt_service.decode(credentials.credentials)
     user = UserRepository().get_by_id(session, token_payload.sub)
     if user is None:
-        raise WebAppError(status_code=401, code="unauthorized", message="User does not exist")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户不存在")
     if not user.is_active:
-        raise WebAppError(status_code=401, code="unauthorized", message="User is inactive")
+        raise WebAppError(status_code=401, code="unauthorized", message="用户已停用")
     roles, permissions = _load_roles_permissions(session, user.id, is_admin=user.is_admin)
     return AuthenticatedUser(
         id=user.id,
