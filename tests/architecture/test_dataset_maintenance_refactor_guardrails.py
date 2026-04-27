@@ -149,6 +149,9 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "recent_" + "executions",
         "total_" + "executions",
         "resourceKey.startsWith(\"biying_",
+        "JSON.stringify(resolvedParamsJson",
+        "内部规则：",
+        "同步参数：",
     )
     violations: list[str] = []
     for root in (REPO_ROOT / "frontend/src",):

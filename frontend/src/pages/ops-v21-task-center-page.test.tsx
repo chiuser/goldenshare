@@ -46,6 +46,15 @@ beforeEach(() => {
                 multi_value: false,
                 options: [],
               },
+              {
+                key: "ts_code",
+                display_name: "证券代码",
+                param_type: "string",
+                description: "证券代码。",
+                required: false,
+                multi_value: false,
+                options: [],
+              },
             ],
           },
         ],
@@ -175,7 +184,12 @@ beforeEach(() => {
         timezone: "Asia/Shanghai",
         calendar_policy: null,
         probe_config: null,
-        params_json: { trade_date: "2026-04-17" },
+        params_json: {
+          dataset_key: "daily",
+          action: "maintain",
+          time_input: { mode: "point", trade_date: "2026-04-17" },
+          filters: { ts_code: "000001.SZ" },
+        },
         retry_policy_json: {},
         concurrency_policy_json: {},
         next_run_at: "2026-04-20T19:00:00+08:00",
@@ -230,6 +244,13 @@ describe("任务中心页", () => {
 
     expect(await screen.findByRole("tab", { name: "自动运行", selected: true })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "新建自动任务" })).toBeInTheDocument();
+    expect(await screen.findByText("交易日期")).toBeInTheDocument();
+    expect(await screen.findByText("2026-04-17")).toBeInTheDocument();
+    expect(await screen.findByText("证券代码")).toBeInTheDocument();
+    expect(await screen.findByText("000001.SZ")).toBeInTheDocument();
+    expect(screen.queryByText("dataset_key")).not.toBeInTheDocument();
+    expect(screen.queryByText("time_input")).not.toBeInTheDocument();
+    expect(screen.queryByText("filters")).not.toBeInTheDocument();
   });
 
   it("默认进入任务记录时，只挂载当前激活页并避免提前请求自动运行数据", async () => {

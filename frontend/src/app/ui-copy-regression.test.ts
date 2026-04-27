@@ -30,6 +30,8 @@ const bannedVisiblePhrases = [
   "调度参数（JSON）",
   "重试策略（JSON）",
   "并发策略（JSON）",
+  "内部" + "规则：",
+  "同步" + "参数：",
   "当前筛选下没有 execution",
   "最近一次 execution 操作",
   "execution 已创建",

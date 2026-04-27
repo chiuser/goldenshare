@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.schedule import OpsSchedule
-from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
+from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition, get_dataset_definition_by_action_key
 from src.ops.action_catalog import get_workflow_definition
 from src.app.exceptions import WebAppError
 
@@ -124,7 +124,7 @@ class ScheduleProbeBindingService:
         if schedule.target_type == "workflow":
             raw_dataset_keys = [str(item).strip() for item in (config.get("workflow_dataset_keys") or []) if str(item).strip()]
             if raw_dataset_keys:
-                return sorted({(item, None) for item in raw_dataset_keys})
+                return sorted({(self._dataset_from_key(item), None) for item in raw_dataset_keys})
             workflow = get_workflow_definition(schedule.target_key)
             if workflow is None:
                 raise WebAppError(status_code=404, code="not_found", message="Workflow does not exist")
@@ -148,6 +148,13 @@ class ScheduleProbeBindingService:
         except KeyError as exc:
             raise WebAppError(status_code=422, code="validation_error", message="Invalid dataset action target_key") from exc
         return definition.dataset_key
+
+    @staticmethod
+    def _dataset_from_key(dataset_key: str) -> str:
+        try:
+            return get_dataset_definition(dataset_key).dataset_key
+        except KeyError as exc:
+            raise WebAppError(status_code=422, code="validation_error", message="Invalid workflow probe dataset_key") from exc
 
     @staticmethod
     def _normalize_time(value: object) -> str:

@@ -44,6 +44,12 @@ type TaskFilters = {
   trigger_source: string;
   resource_key: string;
 };
+type CatalogAction = OpsCatalogResponse["actions"][number];
+type DatasetCatalogAction = CatalogAction & {
+  action_type: "dataset_action";
+  target_key: string;
+  target_display_name: string;
+};
 
 function buildTaskRunsRefetchInterval(data: TaskRunListResponse | undefined) {
   if (!data?.items?.length) {
@@ -91,8 +97,18 @@ function buildListParams(filters: TaskFilters, page: number) {
   return params;
 }
 
-function formatCatalogTaskOption(item: { key: string; display_name: string; target_display_name?: string | null }) {
-  return item.target_display_name || item.display_name;
+function isDatasetCatalogAction(item: CatalogAction): item is DatasetCatalogAction {
+  return (
+    item.action_type === "dataset_action"
+    && typeof item.target_key === "string"
+    && item.target_key.trim().length > 0
+    && typeof item.target_display_name === "string"
+    && item.target_display_name.trim().length > 0
+  );
+}
+
+function formatCatalogTaskOption(item: DatasetCatalogAction) {
+  return item.target_display_name;
 }
 
 function formatExecutionTimeScopeLabel(item: { time_scope_label?: string | null }) {
@@ -164,10 +180,12 @@ export function OpsTasksPage() {
 
   const resourceOptions = useMemo(() => {
     const items = [
-      ...getCatalogActions(catalogQuery.data).map((item) => ({
-        value: item.target_key || item.key,
-        label: formatCatalogTaskOption(item),
-      })),
+      ...getCatalogActions(catalogQuery.data)
+        .filter(isDatasetCatalogAction)
+        .map((item) => ({
+          value: item.target_key,
+          label: formatCatalogTaskOption(item),
+        })),
     ];
     return [{ value: ALL_FILTER_VALUE, label: "全选" }, ...items];
   }, [catalogQuery.data]);

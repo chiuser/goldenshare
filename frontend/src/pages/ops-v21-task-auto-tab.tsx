@@ -57,6 +57,11 @@ import { TradeDateField } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
 type CatalogAction = OpsCatalogResponse["actions"][number];
+type DatasetCatalogAction = CatalogAction & {
+  action_type: "dataset_action";
+  target_key: string;
+  target_display_name: string;
+};
 type CatalogWorkflow = OpsCatalogResponse["workflows"][number];
 type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
@@ -65,6 +70,16 @@ type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
+const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "filters"]);
+const DEFAULT_PARAM_LABELS = new Map([
+  ["trade_date", "维护日期"],
+  ["start_date", "开始日期"],
+  ["end_date", "结束日期"],
+  ["month", "月份"],
+  ["start_month", "开始月份"],
+  ["end_month", "结束月份"],
+  ["ann_date", "公告日期"],
+]);
 
 const emptyForm = {
   id: null as number | null,
@@ -246,8 +261,59 @@ function formatParamValue(value: unknown): string {
   return String(value);
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isDatasetCatalogAction(item: CatalogAction): item is DatasetCatalogAction {
+  return (
+    item.action_type === "dataset_action"
+    && typeof item.target_key === "string"
+    && item.target_key.trim().length > 0
+    && typeof item.target_display_name === "string"
+    && item.target_display_name.trim().length > 0
+  );
+}
+
+function buildReadableParamRows(params: Record<string, unknown>, labelMap: Map<string, string>) {
+  const rows: Array<{ key: string; label: string; value: string }> = [];
+  const seen = new Set<string>();
+  const pushRow = (key: string, value: unknown) => {
+    if (seen.has(key) || key === "mode" || value === undefined || value === null || value === "") {
+      return;
+    }
+    seen.add(key);
+    rows.push({
+      key,
+      label: labelMap.get(key) || DEFAULT_PARAM_LABELS.get(key) || key,
+      value: formatParamValue(value),
+    });
+  };
+
+  for (const [key, value] of Object.entries(params)) {
+    if (!PARAM_RESERVED_KEYS.has(key)) {
+      pushRow(key, value);
+    }
+  }
+  if (isPlainRecord(params.time_input)) {
+    for (const [key, value] of Object.entries(params.time_input)) {
+      pushRow(key, value);
+    }
+  }
+  if (isPlainRecord(params.filters)) {
+    for (const [key, value] of Object.entries(params.filters)) {
+      pushRow(key, value);
+    }
+  }
+  return rows;
+}
+
 function getCatalogActionLabel(item: CatalogAction): string {
-  return item.target_display_name || item.display_name;
+  if (item.action_type === "dataset_action") {
+    return item.target_display_name || "未命名数据集";
+  }
+  const targetDisplayName = item.target_display_name;
+  return targetDisplayName ? targetDisplayName : item.display_name;
 }
 
 function getCatalogActions(catalog: OpsCatalogResponse | undefined): CatalogAction[] {
@@ -262,8 +328,8 @@ function getCatalogSources(catalog: OpsCatalogResponse | undefined): CatalogSour
   return Array.isArray(catalog?.sources) ? catalog.sources : [];
 }
 
-function getScheduleTargetLabel(item: { target_display_name?: string | null; display_name: string }): string {
-  return item.target_display_name || item.display_name;
+function getScheduleTargetLabel(item: { target_display_name?: string | null }): string {
+  return item.target_display_name || "未命名执行对象";
 }
 
 function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sourceKey: string | null | undefined): string {
@@ -478,14 +544,11 @@ export function OpsAutomationPage() {
   const workflowProbeDatasetOptions = useMemo(
     () =>
       getCatalogActions(catalogQuery.data)
-        .filter((item) => item.action_type === "dataset_action" && item.target_key)
-        .map((item) => {
-          const datasetKey = item.target_key || "";
-          return {
-            value: datasetKey,
-            label: getCatalogActionLabel(item),
-          };
-        })
+        .filter(isDatasetCatalogAction)
+        .map((item) => ({
+          value: item.target_key,
+          label: getCatalogActionLabel(item),
+        }))
         .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
     [catalogQuery.data],
   );
@@ -563,7 +626,10 @@ export function OpsAutomationPage() {
       params.end_date = form.end_date;
     }
     if (form.action_type === "dataset_action" && selectedAction) {
-      const datasetKey = selectedAction.target_key || "";
+      if (!selectedAction.target_key) {
+        return params;
+      }
+      const datasetKey = selectedAction.target_key;
       const timeKeys = new Set(["trade_date", "start_date", "end_date", "month", "start_month", "end_month", "ann_date"]);
       const filters = Object.fromEntries(Object.entries(params).filter(([key]) => !timeKeys.has(key)));
       const timeInput: Record<string, unknown> = {};
@@ -637,6 +703,15 @@ export function OpsAutomationPage() {
       };
     }
   }, [form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+
+  const resolvedParameterRows = useMemo(() => {
+    const labelMap = new Map(selectedActionParameters.map((param) => [param.key, param.display_name]));
+    return buildReadableParamRows(resolvedParamsJson, labelMap);
+  }, [resolvedParamsJson, selectedActionParameters]);
+
+  const detailParameterRows = useMemo(() => (
+    buildReadableParamRows(detailQuery.data?.params_json || {}, detailParamLabelMap)
+  ), [detailParamLabelMap, detailQuery.data?.params_json]);
 
   const summary = useMemo(() => {
     const items = schedulesQuery.data?.items || [];
@@ -751,6 +826,9 @@ export function OpsAutomationPage() {
     mutationFn: async () => {
       if (form.trigger_mode !== "schedule" && form.action_type === "workflow" && form.workflow_probe_dataset_keys.length === 0) {
         throw new Error("工作流使用探测触发时，请至少选择一个探测目标数据集。");
+      }
+      if (form.action_type === "dataset_action" && !selectedAction?.target_key) {
+        throw new Error("当前数据集动作缺少维护对象，请刷新后重试。");
       }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
@@ -967,7 +1045,7 @@ export function OpsAutomationPage() {
               emptyState={(
                 <EmptyState
                   title="还没有自动任务"
-                  description="你可以先新建一个自动任务，让系统在固定时间自动同步数据。"
+                  description="你可以先新建一个自动任务，让系统在固定时间自动维护数据。"
                   action={<Button onClick={openCreate}>立即新建</Button>}
                 />
               )}
@@ -1103,11 +1181,11 @@ export function OpsAutomationPage() {
                     </DetailInfoPanel>
                   ) : null}
                   <DetailInfoPanel label="任务参数">
-                    {Object.keys(detailQuery.data.params_json || {}).length ? (
-                      Object.entries(detailQuery.data.params_json || {}).map(([key, value]) => (
-                        <Group key={key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
-                          <Text size="sm" c="dimmed">{detailParamLabelMap.get(key) || key}</Text>
-                          <Text size="sm" ta="right">{formatParamValue(value)}</Text>
+                    {detailParameterRows.length ? (
+                      detailParameterRows.map((row) => (
+                        <Group key={row.key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
+                          <Text size="sm" c="dimmed">{row.label}</Text>
+                          <Text size="sm" ta="right">{row.value}</Text>
                         </Group>
                       ))
                     ) : (
@@ -1206,7 +1284,7 @@ export function OpsAutomationPage() {
       </Grid>
 
       <DetailDrawer
-        description="统一维护调度规则、探测触发与同步参数。"
+        description="统一维护调度规则、探测触发与维护参数。"
         footer={
           <>
             <Button variant="default" onClick={close}>
@@ -1468,12 +1546,12 @@ export function OpsAutomationPage() {
 
           <Accordion variant="separated" radius="md">
             <Accordion.Item value="params">
-              <Accordion.Control>同步参数</Accordion.Control>
+              <Accordion.Control>维护参数</Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
                   {(supportsSingleDay || supportsDateRange) ? (
                     <Stack gap="xs">
-                      <Text fw={700} size="sm">可选：固定同步日期</Text>
+                      <Text fw={700} size="sm">可选：固定维护日期</Text>
                       {(supportsSingleDay && supportsDateRange) ? (
                         <Group grow>
                           <Button
@@ -1494,7 +1572,7 @@ export function OpsAutomationPage() {
                         <TradeDateField
                           {...singleTradeCalendar.calendarProps}
                           isTradingDay={singleTradeCalendar.isTradingDay}
-                          label="同步日期（可留空）"
+                          label="维护日期（可留空）"
                           placeholder="留空表示按系统自动判断业务日期"
                           value={form.selected_date}
                           selectionRule={selectedActionDateRule}
@@ -1620,18 +1698,24 @@ export function OpsAutomationPage() {
                     <Stack gap={6}>
                       <Text size="sm">触发方式：{formatTriggerModeLabel(form.trigger_mode)}</Text>
                       <Text size="sm">调度策略：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}</Text>
-                      {resolvedScheduleSummary.cronExpr ? (
-                        <Text size="xs" c="dimmed">内部规则：{resolvedScheduleSummary.cronExpr}</Text>
-                      ) : null}
                       {form.trigger_mode !== "schedule" ? (
                         <Text size="sm">
                           探测配置：{form.probe_window_start || "—"}~{form.probe_window_end || "—"}，每 {form.probe_interval_seconds || "300"} 秒探测，来源 {getSourceLabelFromCatalog(catalogQuery.data, form.probe_source_key)}
                         </Text>
                       ) : null}
-                      <Text size="sm">同步参数：</Text>
-                      <Text component="pre" ff="monospace" fz={12} style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                        {JSON.stringify(resolvedParamsJson, null, 2)}
-                      </Text>
+                      <Text size="sm">维护参数：</Text>
+                      {resolvedParameterRows.length ? (
+                        <Stack gap={4}>
+                          {resolvedParameterRows.map((row) => (
+                            <Group key={row.key} justify="space-between" align="flex-start" gap="md" wrap="nowrap">
+                              <Text size="sm" c="dimmed">{row.label}</Text>
+                              <Text size="sm" ta="right">{row.value}</Text>
+                            </Group>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Text size="sm" c="dimmed">未指定额外维护参数，系统将按数据集定义自动处理。</Text>
+                      )}
                     </Stack>
                   </AlertBar>
                 </Stack>

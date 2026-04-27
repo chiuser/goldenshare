@@ -86,6 +86,10 @@ function renderTaskRecordsPage(initialEntry = "/app/ops/tasks") {
 }
 
 beforeEach(() => {
+  Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
   vi.mocked(apiRequest).mockClear();
   vi.mocked(apiRequest).mockImplementation(async (path: string) => {
     const url = new URL(path, "https://example.test");
@@ -98,6 +102,13 @@ beforeEach(() => {
             display_name: "股票日线维护",
             target_key: "daily",
             target_display_name: "股票日线",
+          },
+          {
+            key: "maintenance.rebuild_dm",
+            action_type: "maintenance_action",
+            display_name: "刷新数据集市快照",
+            target_key: "maintenance.rebuild_dm",
+            target_display_name: "刷新数据集市快照",
           },
         ],
         workflows: [],
@@ -173,6 +184,9 @@ describe("任务记录页", () => {
     expect(statusFilter).toHaveValue("全选");
     expect(triggerFilter).toHaveValue("全选");
     expect(specFilter).toHaveValue("全选");
+    fireEvent.click(specFilter);
+    expect(await screen.findByRole("option", { name: "股票日线", hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "刷新数据集市快照", hidden: true })).not.toBeInTheDocument();
   });
 
   it("列表数据准备好后，不再等待 catalog 请求才能显示任务记录", async () => {
@@ -264,10 +278,6 @@ describe("任务记录页", () => {
   });
 
   it("第一次切换到未缓存筛选项时，保留上一份列表并显示刷新提示", async () => {
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
-      configurable: true,
-      value: vi.fn(),
-    });
     let resolveFilteredTaskRuns!: (value: TaskRunListResponse) => void;
     let resolveFilteredSummary!: (value: TaskRunSummaryResponse) => void;
     vi.mocked(apiRequest).mockImplementation((path: string) => {
