@@ -317,6 +317,24 @@ def test_workflow_domain_display_facts_stay_in_action_catalog() -> None:
     assert not violations, "workflow 领域与标题事实必须来自 ActionCatalog，消费者不得本地硬编码:\n" + "\n".join(violations)
 
 
+def test_std_rule_queries_do_not_synthesize_default_rules() -> None:
+    path = REPO_ROOT / "src/ops/queries/std_rule_query_service.py"
+    text = path.read_text(encoding="utf-8")
+    forbidden_tokens = (
+        "_default_mapping_rules",
+        "_default_cleansing_rules",
+        "list_dataset_freshness_projections",
+        "identity_pass_through",
+        "builtin_default",
+        'source_key="tushare"',
+        "id=-(100000",
+        "id=-(200000",
+    )
+    violations = [token for token in forbidden_tokens if token in text]
+
+    assert not violations, "std rule 查询不得伪造默认规则；默认规则必须由 seed/写入链路落库后再查询:\n" + "\n".join(violations)
+
+
 def test_ops_dataset_card_view_does_not_infer_grouping_from_key_prefixes() -> None:
     path = REPO_ROOT / "src/ops/queries/dataset_card_query_service.py"
     text = path.read_text(encoding="utf-8")

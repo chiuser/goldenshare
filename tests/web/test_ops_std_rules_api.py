@@ -11,6 +11,20 @@ def test_ops_std_rules_reject_non_admin(app_client, user_factory) -> None:
     assert response.json()["code"] == "forbidden"
 
 
+def test_ops_std_rules_do_not_return_synthetic_defaults(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    mapping = app_client.get("/api/v1/ops/std-rules/mapping", headers={"Authorization": f"Bearer {token}"})
+    cleansing = app_client.get("/api/v1/ops/std-rules/cleansing", headers={"Authorization": f"Bearer {token}"})
+
+    assert mapping.status_code == 200
+    assert mapping.json() == {"items": [], "total": 0}
+    assert cleansing.status_code == 200
+    assert cleansing.json() == {"items": [], "total": 0}
+
+
 def test_ops_std_mapping_rule_crud_like_flow(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

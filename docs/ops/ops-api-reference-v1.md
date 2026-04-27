@@ -913,6 +913,7 @@ curl -X PUT -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/jso
 ### 7.1 GET /api/v1/ops/std-rules/mapping
 
 - 功能：分页查询 std mapping 规则。
+- 口径：只返回已落库的规则；不会在查询层临时生成默认规则。
 - Query 参数：`dataset_key, source_key, status, limit(1..500), offset`
 - 返回：`StdMappingRuleListResponse`
 - 示例：
@@ -996,6 +997,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
 ### 7.6 GET /api/v1/ops/std-rules/cleansing
 
 - 功能：分页查询 std cleansing 规则。
+- 口径：只返回已落库的规则；不会在查询层临时生成默认规则。
 - Query 参数：`dataset_key, source_key, status, limit(1..500), offset`
 - 返回：`StdCleansingRuleListResponse`
 - 示例：
