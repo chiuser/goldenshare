@@ -7,7 +7,11 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition_by_action_key
+from src.foundation.datasets.registry import (
+    get_dataset_action_key,
+    get_dataset_definition,
+    get_dataset_definition_by_action_key,
+)
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -251,9 +255,7 @@ class ProbeRuntimeService:
 
     @staticmethod
     def _normalize_source_key(source_key: str | None, *, dataset_key: str) -> str:
-        normalized = (source_key or "").strip()
+        normalized = (source_key or "").strip().lower()
         if normalized:
             return normalized
-        if dataset_key.startswith("biying_"):
-            return "biying"
-        return "tushare"
+        return get_dataset_definition(dataset_key).source.source_key_default

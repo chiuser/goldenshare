@@ -261,6 +261,23 @@ def test_ops_services_do_not_infer_source_from_raw_table_prefix() -> None:
     assert not violations, "Ops 服务不得从 raw table 前缀反推 source，必须使用 DatasetDefinition source facts:\n" + "\n".join(violations)
 
 
+def test_ops_and_ingestion_do_not_infer_source_from_dataset_key_prefix() -> None:
+    forbidden_tokens = (
+        "startswith(\"biying_\")",
+        "startswith(\"tushare_\")",
+    )
+    violations: list[str] = []
+    for root in (REPO_ROOT / "src/ops", REPO_ROOT / "src/foundation/ingestion"):
+        for path in _python_and_frontend_files(root):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden_tokens:
+                if token in text:
+                    rel_path = path.relative_to(REPO_ROOT).as_posix()
+                    violations.append(f"{rel_path}: {token}")
+
+    assert not violations, "Ops/Ingestion 不得从 dataset_key 前缀反推 source，必须使用 DatasetDefinition source facts:\n" + "\n".join(violations)
+
+
 def test_active_code_does_not_reference_retired_dataset_fact_table() -> None:
     forbidden_tokens = (
         "dataset_" + "pipeline_" + "mode",
