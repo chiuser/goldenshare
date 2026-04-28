@@ -180,6 +180,7 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
         "buildFreshnessDisplayNameMap",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
+        "layer-snapshots/latest?dataset_key=",
         "function stageTitle",
         'const stageOrder = ["raw", "std", "resolution", "serving"]',
         "route_" + "keys",

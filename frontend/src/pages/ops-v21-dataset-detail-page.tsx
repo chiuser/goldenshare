@@ -6,7 +6,6 @@ import { apiRequest } from "../shared/api/client";
 import type {
   DatasetCardListResponse,
   LayerSnapshotHistoryResponse,
-  LayerSnapshotLatestResponse,
   ProbeRuleListResponse,
   ResolutionReleaseListResponse,
   StdCleansingRuleListResponse,
@@ -26,7 +25,7 @@ import { StatusBadge } from "../shared/ui/status-badge";
 type TaskRunRow = TaskRunListResponse["items"][number];
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 type DatasetCardStage = DatasetCard["stage_statuses"][number];
-type LayerLatestItem = LayerSnapshotLatestResponse["items"][number];
+type DatasetCardSource = DatasetCard["raw_sources"][number];
 type StageCard = {
   stage: string;
   stageLabel: string;
@@ -64,28 +63,10 @@ function stageCardFromDatasetCard(item: DatasetCardStage): StageCard {
   };
 }
 
-function stageCardFromLatestItem(item: LayerLatestItem): StageCard {
-  return {
-    stage: item.stage,
-    stageLabel: item.stage_display_name,
-    status: item.status,
-    rowsIn: item.rows_in,
-    rowsOut: item.rows_out,
-    lagSeconds: item.lag_seconds,
-    calculatedAt: item.calculated_at,
-    lastSuccessAt: item.last_success_at,
-    lastFailureAt: item.last_failure_at,
-  };
-}
-
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
   const cardQuery = useQuery({
     queryKey: ["ops", "dataset-cards", "v21-dataset-detail", datasetKey],
     queryFn: () => apiRequest<DatasetCardListResponse>("/api/v1/ops/dataset-cards?limit=2000"),
-  });
-  const latestQuery = useQuery({
-    queryKey: ["ops", "layer-snapshot", "latest", "v21-dataset-detail", datasetKey],
-    queryFn: () => apiRequest<LayerSnapshotLatestResponse>(`/api/v1/ops/layer-snapshots/latest?dataset_key=${encodeURIComponent(datasetKey)}&limit=200`),
   });
   const historyQuery = useQuery({
     queryKey: ["ops", "layer-snapshot", "history", "v21-dataset-detail", datasetKey],
@@ -114,7 +95,6 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   const isLoading = [
     cardQuery,
-    latestQuery,
     historyQuery,
     taskRunQuery,
     probeQuery,
@@ -122,28 +102,19 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
     mappingQuery,
     cleansingQuery,
   ].some((query) => query.isLoading);
-  const error = cardQuery.error || latestQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
+  const error = cardQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
   const datasetCard = (cardQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
     .find((item) => item.detail_dataset_key === datasetKey || item.dataset_key === datasetKey);
   const displayName = datasetCard?.display_name || "数据集未找到";
-  const latestItems = (latestQuery.data?.items?.length ? latestQuery.data.items : []) as LayerSnapshotLatestResponse["items"];
-  const stageMap = new Map(latestItems.map((item) => [item.stage, item]));
-  const stageCards: StageCard[] = datasetCard?.stage_statuses?.length
-    ? datasetCard.stage_statuses.map(stageCardFromDatasetCard)
-    : latestItems.map(stageCardFromLatestItem);
+  const stageCards: StageCard[] = datasetCard?.stage_statuses?.map(stageCardFromDatasetCard) || [];
+  const stageMap = new Map(stageCards.map((item) => [item.stage, item]));
   const taskRunItems = taskRunQuery.data?.items || [];
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
   const manualActionKey = datasetCard?.primary_action_key || null;
-  const sourceGroups = new Map<string, { label: string; items: typeof latestItems }>();
-  for (const item of latestItems) {
-    const key = item.source_key || "unknown";
-    const group = sourceGroups.get(key) || { label: item.source_display_name, items: [] };
-    group.items.push(item);
-    sourceGroups.set(key, group);
-  }
+  const rawSources: DatasetCardSource[] = datasetCard?.raw_sources || [];
   const releaseItems = releaseQuery.data?.items || [];
   const latestRelease = releaseItems[0];
   const taskRunColumns: DataTableColumn<TaskRunRow>[] = [
@@ -233,7 +204,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           {error instanceof Error ? error.message : "未知错误"}
         </Alert>
       ) : null}
-      {!isLoading && !error && latestItems.length === 0 && taskRunItems.length === 0 ? (
+      {!isLoading && !error && stageCards.length === 0 && taskRunItems.length === 0 ? (
         <Alert color="info" title="该数据集暂无可展示记录">
           还没有该数据集的层级快照与执行记录。先执行一次同步任务后再查看详情。
         </Alert>
@@ -243,7 +214,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="服务层版本">
             <Text ff="var(--mantine-font-family-monospace)" fw={700} size="lg">
-              {stageMap.get("serving") ? formatDateTimeLabel(stageMap.get("serving")?.calculated_at) : "—"}
+              {stageMap.get("serving")?.calculatedAt ? formatDateTimeLabel(stageMap.get("serving")?.calculatedAt) : "—"}
             </Text>
           </MetricPanel>
         </Grid.Col>
@@ -255,7 +226,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="服务层延迟">
             <Text fw={700} size="xl">
-              {formatLagDuration(stageMap.get("serving")?.lag_seconds)}
+              {formatLagDuration(stageMap.get("serving")?.lagSeconds)}
             </Text>
           </MetricPanel>
         </Grid.Col>
@@ -288,36 +259,27 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
       <SectionCard title="数据来源状态" description="按来源展示该数据集最新状态。">
         <Grid>
-          {Array.from(sourceGroups.entries()).map(([source, group]) => {
-            const items = group.items;
-            const failedCount = items.filter((item) => item.status === "failed").length;
-            return (
-              <Grid.Col key={source} span={{ base: 12, xl: 6 }}>
-                <MetricPanel label={group.label} align="start" minHeight={220}>
-                  <Stack gap="sm" w="100%">
-                    <Group justify="space-between" wrap="nowrap">
-                      <StatusBadge
-                        value={failedCount > 0 ? "failed" : "healthy"}
-                        label={failedCount > 0 ? "存在失败" : "状态正常"}
-                      />
-                      <Text c="dimmed" size="sm">条目数：{items.length}</Text>
-                    </Group>
-                    <Stack gap={6}>
-                      {items.map((item) => (
-                        <Group key={`${source}-${item.stage}`} justify="space-between" wrap="nowrap">
-                          <Text size="sm">{item.stage_display_name}</Text>
-                          <Group gap={8} wrap="nowrap">
-                            <StatusBadge value={item.status} label={formatDetailStatusLabel(item.status)} />
-                            <Text size="sm" c="dimmed">{formatDateTimeLabel(item.calculated_at)}</Text>
-                          </Group>
-                        </Group>
-                      ))}
-                    </Stack>
-                  </Stack>
-                </MetricPanel>
-              </Grid.Col>
-            );
-          })}
+          {rawSources.map((source) => (
+            <Grid.Col key={source.source_key} span={{ base: 12, xl: 6 }}>
+              <MetricPanel label={source.source_display_name} align="start" minHeight={180}>
+                <Stack gap="sm" w="100%">
+                  <Group justify="space-between" wrap="nowrap">
+                    <StatusBadge value={source.status} label={formatDetailStatusLabel(source.status)} />
+                    <Text c="dimmed" size="sm">{source.calculated_at ? formatDateTimeLabel(source.calculated_at) : "—"}</Text>
+                  </Group>
+                  <Group justify="space-between" wrap="nowrap">
+                    <Text size="sm">原始表</Text>
+                    <Text size="sm" c="dimmed">{source.table_name || "—"}</Text>
+                  </Group>
+                </Stack>
+              </MetricPanel>
+            </Grid.Col>
+          ))}
+          {rawSources.length === 0 ? (
+            <Grid.Col span={12}>
+              <Text c="dimmed" size="sm">暂无来源状态</Text>
+            </Grid.Col>
+          ) : null}
         </Grid>
       </SectionCard>
 

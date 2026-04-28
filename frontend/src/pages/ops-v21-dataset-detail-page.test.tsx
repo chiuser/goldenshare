@@ -61,41 +61,59 @@ function datasetCardsPayload() {
               {
                 stage: "raw",
                 stage_label: "原始层",
-                status: "unknown",
-                rows_in: null,
-                rows_out: null,
+                table_name: "raw_tushare.daily",
+                source_key: "tushare",
+                source_display_name: "Tushare",
+                status: "success",
+                rows_in: 120,
+                rows_out: 120,
                 error_count: null,
                 lag_seconds: null,
                 message: null,
-                calculated_at: null,
-                last_success_at: null,
+                calculated_at: "2026-04-17T09:10:00+08:00",
+                last_success_at: "2026-04-17T09:10:00+08:00",
                 last_failure_at: null,
               },
               {
                 stage: "std",
                 stage_label: "标准层",
-                status: "unknown",
-                rows_in: null,
-                rows_out: null,
-                error_count: null,
-                lag_seconds: null,
+                table_name: "core.daily",
+                source_key: null,
+                source_display_name: null,
+                status: "warning",
+                rows_in: 120,
+                rows_out: 118,
+                error_count: 1,
+                lag_seconds: 1200,
                 message: null,
-                calculated_at: null,
-                last_success_at: null,
+                calculated_at: "2026-04-17T09:20:00+08:00",
+                last_success_at: "2026-04-17T09:20:00+08:00",
                 last_failure_at: null,
               },
               {
                 stage: "serving",
                 stage_label: "服务层",
-                status: "unknown",
-                rows_in: null,
-                rows_out: null,
+                table_name: "core_serving.daily",
+                source_key: null,
+                source_display_name: null,
+                status: "success",
+                rows_in: 120,
+                rows_out: 120,
                 error_count: null,
-                lag_seconds: null,
+                lag_seconds: 1800,
                 message: null,
-                calculated_at: null,
-                last_success_at: null,
+                calculated_at: "2026-04-17T09:30:00+08:00",
+                last_success_at: "2026-04-17T09:30:00+08:00",
                 last_failure_at: null,
+              },
+            ],
+            raw_sources: [
+              {
+                source_key: "tushare",
+                source_display_name: "Tushare",
+                table_name: "raw_tushare.daily",
+                status: "success",
+                calculated_at: "2026-04-17T09:10:00+08:00",
               },
             ],
           },
@@ -105,72 +123,29 @@ function datasetCardsPayload() {
   };
 }
 
+function datasetCardsWithoutCurrentRuntimePayload() {
+  const payload = datasetCardsPayload();
+  const item = payload.groups[0].items[0];
+  item.stage_statuses = item.stage_statuses.map((stage) => ({
+    ...stage,
+    status: "unknown",
+    rows_in: null,
+    rows_out: null,
+    error_count: null,
+    lag_seconds: null,
+    calculated_at: null,
+    last_success_at: null,
+    last_failure_at: null,
+  }));
+  item.raw_sources = [];
+  return payload;
+}
+
 describe("V2.1 数据集详情页", () => {
   it("使用统一指标面板和数据表展示详情状态与执行记录", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?limit=2000") {
         return datasetCardsPayload();
-      }
-      if (url === "/api/v1/ops/layer-snapshots/latest?dataset_key=daily&limit=200") {
-        return {
-          total: 3,
-          items: [
-            {
-              snapshot_date: "2026-04-17",
-              dataset_key: "daily",
-              dataset_display_name: "股票日线",
-              source_key: "tushare",
-              source_display_name: "Tushare",
-              stage: "raw",
-              stage_display_name: "原始层",
-              status: "success",
-              rows_in: 120,
-              rows_out: 120,
-              error_count: 0,
-              lag_seconds: 0,
-              message: null,
-              calculated_at: "2026-04-17T09:10:00+08:00",
-              last_success_at: "2026-04-17T09:10:00+08:00",
-              last_failure_at: null,
-            },
-            {
-              snapshot_date: "2026-04-17",
-              dataset_key: "daily",
-              dataset_display_name: "股票日线",
-              source_key: "tushare",
-              source_display_name: "Tushare",
-              stage: "serving",
-              stage_display_name: "服务层",
-              status: "success",
-              rows_in: 120,
-              rows_out: 120,
-              error_count: 0,
-              lag_seconds: 1800,
-              message: null,
-              calculated_at: "2026-04-17T09:30:00+08:00",
-              last_success_at: "2026-04-17T09:30:00+08:00",
-              last_failure_at: null,
-            },
-            {
-              snapshot_date: "2026-04-17",
-              dataset_key: "daily",
-              dataset_display_name: "股票日线",
-              source_key: "tushare",
-              source_display_name: "Tushare",
-              stage: "std",
-              stage_display_name: "标准层",
-              status: "warning",
-              rows_in: 120,
-              rows_out: 118,
-              error_count: 1,
-              lag_seconds: 1200,
-              message: "部分记录待复核",
-              calculated_at: "2026-04-17T09:20:00+08:00",
-              last_success_at: "2026-04-17T09:20:00+08:00",
-              last_failure_at: null,
-            },
-          ],
-        };
       }
       if (url === "/api/v1/ops/layer-snapshots/history?dataset_key=daily&limit=50") {
         return {
@@ -289,10 +264,7 @@ describe("V2.1 数据集详情页", () => {
   it("没有 layer snapshot 时不再用 freshness 伪造层级状态", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?limit=2000") {
-        return datasetCardsPayload();
-      }
-      if (url === "/api/v1/ops/layer-snapshots/latest?dataset_key=daily&limit=200") {
-        return { total: 0, items: [] };
+        return datasetCardsWithoutCurrentRuntimePayload();
       }
       if (url === "/api/v1/ops/layer-snapshots/history?dataset_key=daily&limit=50") {
         return { total: 0, items: [] };
@@ -317,8 +289,7 @@ describe("V2.1 数据集详情页", () => {
 
     renderPage();
 
-    expect(await screen.findByText("该数据集暂无可展示记录")).toBeInTheDocument();
-    expect(screen.getAllByText("最近成功：—").length).toBeGreaterThan(0);
+    expect(await screen.findByText("全链路层级状态")).toBeInTheDocument();
     expect(screen.queryByText(/最近成功：2026\/04\/17/)).not.toBeInTheDocument();
   });
 });
