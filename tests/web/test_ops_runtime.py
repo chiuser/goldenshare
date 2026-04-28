@@ -133,6 +133,62 @@ def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_fa
     assert dispatcher.calls == [task_run.id]
 
 
+def test_worker_refreshes_snapshot_after_workflow_success(db_session, task_run_factory, monkeypatch) -> None:
+    calls: list[tuple[str, str, bool]] = []
+
+    class FakeSnapshotService:
+        def refresh_for_target(self, session, *, target_type, target_key, strict, today=None):  # type: ignore[no-untyped-def]
+            calls.append((target_type, target_key, strict))
+            return 7
+
+    monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
+    task_run = task_run_factory(
+        task_type="workflow",
+        resource_key=None,
+        title="每日资金流向维护",
+        status="queued",
+        request_payload_json={
+            "target_type": "workflow",
+            "target_key": "daily_moneyflow_maintenance",
+        },
+    )
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.status == "success"
+    assert calls == [("workflow", "daily_moneyflow_maintenance", True)]
+
+
+def test_worker_skips_snapshot_refresh_for_maintenance_action(db_session, task_run_factory, monkeypatch) -> None:
+    calls: list[tuple[str, str, bool]] = []
+
+    class FakeSnapshotService:
+        def refresh_for_target(self, session, *, target_type, target_key, strict, today=None):  # type: ignore[no-untyped-def]
+            calls.append((target_type, target_key, strict))
+            return 1
+
+    monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
+    task_run = task_run_factory(
+        task_type="maintenance_action",
+        resource_key=None,
+        title="刷新数据集市快照",
+        status="queued",
+        request_payload_json={
+            "target_type": "maintenance_action",
+            "target_key": "maintenance.rebuild_dm",
+        },
+    )
+    dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success"))
+
+    result = OperationsWorker(dispatcher=dispatcher).run_next(db_session)
+
+    assert result is not None
+    assert result.status == "success"
+    assert calls == []
+
+
 def test_worker_cancels_queued_task_run_before_dispatch(db_session, task_run_factory) -> None:
     requested_at = datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc)
     task_run = task_run_factory(

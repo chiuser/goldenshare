@@ -212,12 +212,12 @@ class OperationsWorker:
 
     @staticmethod
     def _refresh_snapshot_for_task_run(session: Session, task_run: TaskRun) -> str | None:
-        if task_run.task_type != "dataset_action" or not task_run.resource_key:
+        refresh_target = OperationsWorker._snapshot_refresh_target(task_run)
+        if refresh_target is None:
             return None
-        try:
-            action_key = get_dataset_action_key(task_run.resource_key, task_run.action or "maintain")
-        except KeyError as exc:
-            return str(exc)
+        if isinstance(refresh_target, str):
+            return refresh_target
+        target_type, target_key = refresh_target
         bind = session.get_bind()
         if bind is None:
             return "数据状态快照刷新缺少数据库连接。"
@@ -225,12 +225,33 @@ class OperationsWorker:
             with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
                 refreshed = DatasetStatusSnapshotService().refresh_for_target(
                     snapshot_session,
-                    target_type="dataset_action",
-                    target_key=action_key,
+                    target_type=target_type,
+                    target_key=target_key,
                     strict=True,
                 )
             if refreshed <= 0:
-                return f"数据状态快照刷新未产生记录：{action_key}。"
+                return f"数据状态快照刷新未产生记录：{target_type}:{target_key}。"
             return None
         except Exception as exc:
             return str(exc)
+
+    @staticmethod
+    def _snapshot_refresh_target(task_run: TaskRun) -> tuple[str, str] | str | None:
+        if task_run.task_type == "dataset_action":
+            if not task_run.resource_key:
+                return None
+            try:
+                return (
+                    "dataset_action",
+                    get_dataset_action_key(task_run.resource_key, task_run.action or "maintain"),
+                )
+            except KeyError as exc:
+                return str(exc)
+        if task_run.task_type == "workflow":
+            target_key = str((task_run.request_payload_json or {}).get("target_key") or "").strip()
+            if not target_key:
+                return "数据状态快照刷新缺少 workflow target_key。"
+            return ("workflow", target_key)
+        if task_run.task_type == "maintenance_action":
+            return None
+        return None
