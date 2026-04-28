@@ -730,15 +730,15 @@ PlanTransactionPolicy(
 
 ## 7. 进度消息模型
 
-当前 ingestion 主链仍会生成一行兼容进度 message，例如：
+当前 ingestion 主链已经禁止恢复英文机器 token 摘要。执行器可以生成面向人的中文进度 message，但结构化事实必须仍来自 observer 上报字段，例如 `unit_total`、`unit_done`、`rows_fetched`、`rows_committed`、`rows_rejected` 与 `current_object`。
 
 ```text
-stk_mins: 28460/29160 unit=stock ts_code=920429.BJ security_name=康比特 freq=60min start_date=2026-01-05_09:00:00 end_date=2026-04-24_19:00:00 unit_fetched=365 unit_written=365 fetched=125327067 written=125327067 rejected=0
+股票分钟行情：28460/29160；本单元：股票 920429.BJ，频率 60min；累计读取 125327067；累计保存 125327067；累计拒绝 0
 ```
 
-当前生成点是 `src/foundation/ingestion/executor.py` 的 `_build_progress_message`。这行 message 只能作为兼容展示文本，不允许成为页面或查询层解析事实字段的来源。
+当前生成点是 `src/foundation/ingestion/executor.py` 的 `_build_progress_message`。这行 message 只能作为辅助展示文本，不允许成为页面或查询层解析事实字段的来源。
 
-这类字符串不应继续由执行器随手拼，也不应交给前端猜测翻译。目标是：执行层上报结构化进度，Ops 统一格式化为中文展示文案。
+这类字符串不应交给前端猜测翻译。目标是：执行层上报结构化进度，Ops 统一格式化为中文展示文案；架构门禁已禁止 `fetched=`、`written=`、`unit_written=` 这类机器 token 摘要回流。
 
 ### 7.1 目标结构
 
