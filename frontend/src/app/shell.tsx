@@ -70,7 +70,7 @@ export function OpsShell(_props: PropsWithChildren) {
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
             <img
-              src="/app/brand/logo-icon.png"
+              src="/app/brand/logo_new.png"
               alt="财势乾坤图标"
               className="app-brand-mark"
             />
