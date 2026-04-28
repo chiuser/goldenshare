@@ -125,20 +125,27 @@ function datasetCardsPayload() {
 
 function datasetCardsWithoutCurrentRuntimePayload() {
   const payload = datasetCardsPayload();
-  const item = payload.groups[0].items[0];
-  item.stage_statuses = item.stage_statuses.map((stage) => ({
-    ...stage,
-    status: "unknown",
-    rows_in: null,
-    rows_out: null,
-    error_count: null,
-    lag_seconds: null,
-    calculated_at: null,
-    last_success_at: null,
-    last_failure_at: null,
-  }));
-  item.raw_sources = [];
-  return payload;
+  return {
+    ...payload,
+    groups: payload.groups.map((group) => ({
+      ...group,
+      items: group.items.map((item) => ({
+        ...item,
+        stage_statuses: item.stage_statuses.map((stage) => ({
+          ...stage,
+          status: "unknown",
+          rows_in: null,
+          rows_out: null,
+          error_count: null,
+          lag_seconds: null,
+          calculated_at: null,
+          last_success_at: null,
+          last_failure_at: null,
+        })),
+        raw_sources: [],
+      })),
+    })),
+  };
 }
 
 describe("V2.1 数据集详情页", () => {
