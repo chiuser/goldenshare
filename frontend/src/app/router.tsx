@@ -17,7 +17,6 @@ import { MarketHomepagePage } from "../pages/market-homepage/market-homepage-pag
 import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
-import { OpsSourceManagementPage } from "../pages/ops-source-management-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
 import { OpsV21AccountPage } from "../pages/ops-v21-account-page";
 import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
@@ -340,12 +339,6 @@ const opsTaskRunDetailRoute = createRoute({
   },
 });
 
-const opsSourceManagementRoute = createRoute({
-  getParentRoute: () => opsLayoutRoute,
-  path: "/source-management",
-  component: OpsSourceManagementPage,
-});
-
 const opsV21OverviewRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/overview",
@@ -418,7 +411,6 @@ const routeTree = rootRoute.addChildren([
     opsOverviewRoute,
     opsFreshnessRoute,
     opsSchedulesRoute,
-    opsSourceManagementRoute,
     opsV21OverviewRoute,
     opsV21TodayRoute,
     opsV21ReviewIndexRoute,

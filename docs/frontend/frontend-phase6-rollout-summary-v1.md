@@ -17,12 +17,11 @@
 
 ## 2. 推广范围与结果
 
-`Phase 6` 第一轮推广按计划完成了 4 个批次、共 `8` 个页面：
+`Phase 6` 第一轮推广按计划完成了 4 个批次；其中旧数据源桥接页已在后续架构收口中下线。
 
 1. `P6-1` 低风险推广批
    - `platform-check-page.tsx`
    - `user-overview-page.tsx`
-   - `ops-source-management-page.tsx`
 2. `P6-2` 审查中心推广批
    - `ops-v21-review-index-page.tsx`
    - `ops-v21-review-board-page.tsx`

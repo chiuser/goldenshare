@@ -729,26 +729,6 @@ export interface LayerSnapshotHistoryResponse {
   total: number;
 }
 
-export interface SourceManagementBridgeResponse {
-  summary: {
-    probe_total: number;
-    probe_active: number;
-    release_total: number;
-    release_running: number;
-    std_mapping_total: number;
-    std_mapping_active: number;
-    std_cleansing_total: number;
-    std_cleansing_active: number;
-    layer_latest_total: number;
-    layer_latest_failed: number;
-  };
-  probe_rules: ProbeRuleListResponse["items"];
-  releases: ResolutionReleaseListResponse["items"];
-  std_mapping_rules: StdMappingRuleListResponse["items"];
-  std_cleansing_rules: StdCleansingRuleListResponse["items"];
-  layer_latest: LayerSnapshotLatestResponse["items"];
-}
-
 export interface DatasetCardListResponse {
   total: number;
   groups: Array<{

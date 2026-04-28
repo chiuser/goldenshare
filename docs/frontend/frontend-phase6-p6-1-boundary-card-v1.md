@@ -11,7 +11,6 @@
 
 1. `frontend/src/pages/platform-check-page.tsx`
 2. `frontend/src/pages/user-overview-page.tsx`
-3. `frontend/src/pages/ops-source-management-page.tsx`
 
 ---
 
@@ -42,20 +41,18 @@
 
 1. `frontend/src/pages/platform-check-page.tsx`
 2. `frontend/src/pages/user-overview-page.tsx`
-3. `frontend/src/pages/ops-source-management-page.tsx`
-4. `frontend/src/shared/ui/status-badge.tsx`
+3. `frontend/src/shared/ui/status-badge.tsx`
 
 测试文件可按需进入：
 
-5. `frontend/src/pages/platform-check-page.test.tsx`
-6. `frontend/src/pages/user-overview-page.test.tsx`
-7. `frontend/src/pages/ops-source-management-page.test.tsx`
-8. `frontend/src/shared/ui/status-badge.test.tsx`
+4. `frontend/src/pages/platform-check-page.test.tsx`
+5. `frontend/src/pages/user-overview-page.test.tsx`
+6. `frontend/src/shared/ui/status-badge.test.tsx`
 
 文档文件可按需进入：
 
-9. `docs/frontend/frontend-phase6-p6-1-boundary-card-v1.md`
-10. `docs/README.md`
+7. `docs/frontend/frontend-phase6-p6-1-boundary-card-v1.md`
+8. `docs/README.md`
 
 ---
 
@@ -63,7 +60,6 @@
 
 1. `platform-check-page.tsx` 已使用 `PageHeader / SectionCard / StatCard`，主问题是高可见状态表达还可以更统一。
 2. `user-overview-page.tsx` 仍直接使用 `glass-card` 与手写头部结构。
-3. `ops-source-management-page.tsx` 已广泛使用 `SectionCard / StatCard / StatusBadge`，主问题是缺少统一页头和局部空态表达还可继续收敛。
 
 ---
 

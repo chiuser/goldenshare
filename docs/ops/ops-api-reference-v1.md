@@ -251,34 +251,6 @@ curl -H "Authorization: Bearer <TOKEN>" \
 }
 ```
 
-### 2.6 GET /api/v1/ops/source-management/bridge
-
-- 功能：返回数据源页面聚合桥接数据（probe/release/std rule/layer snapshot）。
-- Query 参数：
-  - `probe_limit`：默认 20，`1..200`
-  - `release_limit`：默认 20，`1..200`
-  - `std_rule_limit`：默认 200，`1..500`
-  - `layer_limit`：默认 500，`1..5000`
-- 返回：`SourceManagementBridgeResponse`
-  - `summary`
-  - `probe_rules, releases, std_mapping_rules, std_cleansing_rules, layer_latest`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/source-management/bridge?probe_limit=10&release_limit=10"
-```
-
-```json
-{
-  "summary": {"probe_total": 8, "release_total": 5, "layer_latest_total": 120},
-  "probe_rules": [],
-  "releases": []
-}
-```
-
----
-
 ## 3. 调度（Schedule）接口
 
 ### 3.1 GET /api/v1/ops/schedules
@@ -1393,9 +1365,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ReviewEquityBoardMembershipItem`：`ts_code, equity_name, board_count, boards`
 - `ReviewEquitySuggestResponse`：`items`
 - `ReviewEquitySuggestItem`：`ts_code, name`
-- `SourceManagementBridgeResponse`：`summary, probe_rules, releases, std_mapping_rules, std_cleansing_rules, layer_latest`
-- `SourceManagementBridgeSummary`：`probe_total, probe_active, release_total, release_running, std_mapping_total, std_mapping_active, std_cleansing_total, std_cleansing_active, layer_latest_total, layer_latest_failed`
-
 ---
 
 ## 13. 运营后台页面与接口映射（前端调用）
@@ -1457,8 +1426,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `DELETE /api/v1/ops/schedules/{schedule_id}`
    - 代码：[ops-v21-task-auto-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx)
 9. `OpsV21DatasetDetailPage`（`/ops/v21/datasets/detail/{datasetKey}`）
-   - `GET /api/v1/ops/freshness`
-   - `GET /api/v1/ops/layer-snapshots/latest?dataset_key=...&limit=200`
+   - `GET /api/v1/ops/dataset-cards?limit=2000`
    - `GET /api/v1/ops/layer-snapshots/history?dataset_key=...&limit=50`
    - `GET /api/v1/ops/task-runs?resource_key=...&limit=20`
    - `GET /api/v1/ops/probes?dataset_key=...&limit=20`
@@ -1496,10 +1464,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     - `DELETE /api/v1/admin/invites/{id}`
     - `DELETE /api/v1/admin/invites/{id}/hard-delete`
     - 代码：[ops-v21-account-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-account-page.tsx)
-14. `OpsSourceManagementPage`（`/ops/source-management`，过渡页）
-    - `GET /api/v1/ops/source-management/bridge`
-    - 代码：[ops-source-management-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-source-management-page.tsx)
-
 ### 13.3 路由别名与重定向（无直接接口请求）
 
 - `/ops` -> 重定向到 `/ops/v21/overview`

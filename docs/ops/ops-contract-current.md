@@ -10,7 +10,7 @@
 本文件是 Ops 领域的**单一事实文档**，统一收口以下历史内容：
 
 1. 多源运维契约（页面与对象边界）
-2. Source 管理桥接契约
+2. 数据源卡片与治理对象查询契约
 3. 数据集 pipeline mode 与层级观测契约
 4. 数据集停用策略（`disabled` 状态语义）
 5. 融合策略中心准备度与上线前置条件
@@ -121,34 +121,13 @@
 
 ---
 
-## 4. 查询与桥接契约
+## 4. 查询契约
 
 ### 4.1 推荐主查询接口
 
 1. `GET /api/v1/ops/dataset-cards`
 2. `GET /api/v1/ops/layer-snapshots/latest`
 3. `GET /api/v1/ops/freshness`
-
-### 4.2 Source 管理桥接
-
-接口：`GET /api/v1/ops/source-management/bridge`  
-定位：过渡期聚合接口，供 Source 页面低成本读取多对象快照。
-
-聚合内容：
-
-1. `summary`
-2. `probe_rules`
-3. `releases`
-4. `std_mapping_rules`
-5. `std_cleansing_rules`
-6. `layer_latest`
-
-约束：
-
-1. 桥接层仅做只读聚合，不承载业务计算
-2. 新页面稳定后可逐步收缩桥接层
-
----
 
 ## 5. 模式推导与默认策略
 
@@ -208,7 +187,7 @@
 1. std 规则 API：`/api/v1/ops/std-rules/*`
 2. release 对象 API：`/api/v1/ops/resolution-releases/*`
 3. dataset card API：`/api/v1/ops/dataset-cards`
-4. source bridge API：`/api/v1/ops/source-management/bridge`
+4. 数据源卡片页：`/ops/v21/datasets/tushare`、`/ops/v21/datasets/biying`
 5. 层级快照模型：`dataset_layer_snapshot_current/history`
 6. Foundation 融合引擎：`policy_store/policy_engine/publish_service`
 7. 可运行回归基线：`stock_basic`

@@ -30,11 +30,11 @@
 
 | 展示事实 | 前端应消费的权威来源 | 说明 |
 | --- | --- | --- |
-| 数据集卡片名称 | `/api/v1/ops/dataset-cards` 的 `display_name` | 总览页、数据源页只做展示，不再根据 key 拼中文名。 |
+| 数据集卡片名称 | `/api/v1/ops/dataset-cards` 的 `display_name` | 总览页、数据源页、数据集详情页只做展示，不再根据 key 拼中文名。 |
 | 数据集卡片状态 | `/api/v1/ops/dataset-cards` 的 `status/freshness_status` | 页面可以映射颜色和中文标签，但不能重新计算新鲜度或层级健康度。 |
 | 最近同步日期 | `/api/v1/ops/dataset-cards` 的 `last_sync_date` | `latest_success_at` 是任务成功时间，`last_sync_date` 是服务端给出的同步日期口径。 |
 | 最近成功时间 | `/api/v1/ops/dataset-cards` 的 `latest_success_at` | 用于时间戳展示时可以优先显示更精确的成功时间，但不能忽略 `last_sync_date`。 |
-| layer 状态 | `/api/v1/ops/dataset-cards` 的 `stage_statuses/raw_sources` | 总览页、数据源页不得直接拼 layer snapshot；详情页仍直接消费 `/api/v1/ops/layer-snapshots/latest` 的真实快照。 |
+| layer 状态 | `/api/v1/ops/dataset-cards` 的 `stage_statuses/raw_sources` | 总览页、数据源页、数据集详情页不得直接拼 layer snapshot。 |
 | raw 表名 | `/api/v1/ops/dataset-cards` 的 `raw_table/raw_table_label/raw_sources[].table_name` | 页面不得根据 `sourceKey + dataset_key` 拼表名。 |
 | 数据源裁决与卡片去重 | `/api/v1/ops/dataset-cards?source_key=...` 返回的结果 | 页面不得用 `dataset_key/raw_table/source_scope` 自己判断某卡片属于哪个数据源。 |
 | 任务运行状态 | `/api/v1/ops/task-runs*` | 页面不得回退到旧 execution/steps/events/logs 拼装任务状态。 |
@@ -44,7 +44,7 @@
 | 编号 | 页面/文件 | 问题 | 处理 |
 | --- | --- | --- | --- |
 | F-001 | `ops-v21-source-page.tsx` | “最近同步”曾绕开服务端同步日期口径，导致 `limit_list_ths` 显示 `—`。 | 已修复：数据源卡片页只消费 `/api/v1/ops/dataset-cards` 返回的 `last_sync_date` 与运行状态字段。 |
-| F-002 | `ops-v21-dataset-detail-page.tsx` | 没有 layer snapshot 时，页面用 freshness 自行构造 raw/serving 两条假 snapshot。 | 已删除：详情页只展示 layer snapshot API 返回的真实层级状态。 |
+| F-002 | `ops-v21-dataset-detail-page.tsx` | 没有 layer snapshot 时，页面用 freshness 自行构造 raw/serving 两条假 snapshot。 | 已删除：详情页当前层级与来源状态只消费 `/api/v1/ops/dataset-cards` 返回的 `stage_statuses/raw_sources`。 |
 | F-003 | 前端详情页共享 helper | 曾保留未使用的 freshness 转 snapshot helper，后续又残留了详情页 display name 映射 helper。 | 已删除：详情页标题与手动动作入口改为消费 `/api/v1/ops/dataset-cards`，不再从 freshness 建本地 map。 |
 | F-004 | `ops-v21-source-page.tsx` | 页面用 `sourceKey + dataset_key` 拼 raw 表名，并把 `raw_tushare` 替换成当前来源表名前缀。 | 已删除：表名只来自 `/api/v1/ops/dataset-cards` 返回字段，缺失则显示 `—`。 |
 | F-005 | `ops-v21-overview-page.tsx` | 总览页曾直接合并旧模式 API 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |

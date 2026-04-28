@@ -74,10 +74,6 @@ from src.ops.schemas.schedule import (
     ScheduleRevisionListResponse,
     UpdateScheduleRequest,
 )
-from src.ops.schemas.source_management_bridge import (
-    SourceManagementBridgeResponse,
-    SourceManagementBridgeSummary,
-)
 from src.ops.schemas.std_rule import (
     CreateStdCleansingRuleRequest,
     CreateStdMappingRuleRequest,
@@ -172,8 +168,6 @@ __all__ = [
     "SchedulerTickResponse",
     "IngestionCodebookItem",
     "IngestionCodebookResponse",
-    "SourceManagementBridgeResponse",
-    "SourceManagementBridgeSummary",
     "StdCleansingRuleItem",
     "StdCleansingRuleListResponse",
     "StdMappingRuleItem",

@@ -575,7 +575,6 @@ Phase 4 的支持任务要求：
 1. `P6-1` 低风险推广批：
    - `platform-check-page.tsx`
    - `user-overview-page.tsx`
-   - `ops-source-management-page.tsx`
 2. `P6-2` 审查中心推广批：
    - `ops-v21-review-index-page.tsx`
    - `ops-v21-review-board-page.tsx`

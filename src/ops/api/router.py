@@ -13,7 +13,6 @@ from src.ops.api import (
     resolution_releases,
     runtime,
     schedules,
-    source_management_bridge,
     std_rules,
     task_runs,
 )
@@ -27,7 +26,6 @@ router.include_router(probes.router)
 router.include_router(resolution_releases.router)
 router.include_router(std_rules.router)
 router.include_router(layer_snapshots.router)
-router.include_router(source_management_bridge.router)
 router.include_router(runtime.router)
 router.include_router(catalog.router)
 router.include_router(manual_actions.router)

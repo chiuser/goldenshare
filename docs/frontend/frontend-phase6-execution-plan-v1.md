@@ -57,7 +57,6 @@
 1. 低风险页已经部分接入标准件，但仍有局部遗留：
    - `platform-check-page.tsx` 已使用 `PageHeader / SectionCard / StatCard`
    - `user-overview-page.tsx` 仍有 `glass-card`
-   - `ops-source-management-page.tsx` 已大量使用 `SectionCard / StatCard / StatusBadge`
 2. 审查中心页已经部分接入标准件，但仍有旧语义残留：
    - `ops-v21-review-index-page.tsx` 已使用 `SectionCard`
    - `ops-v21-review-board-page.tsx` 仍有 `violet` provider tone，且文件达到 `893` 行
@@ -124,13 +123,11 @@
 
 1. `frontend/src/pages/platform-check-page.tsx`
 2. `frontend/src/pages/user-overview-page.tsx`
-3. `frontend/src/pages/ops-source-management-page.tsx`
 
 当前证据：
 
 - `platform-check-page.tsx` 已使用 `PageHeader / SectionCard / StatCard`
 - `user-overview-page.tsx` 仍有 `glass-card`
-- `ops-source-management-page.tsx` 已广泛接入 `SectionCard / StatCard / StatusBadge`
 
 允许复用的标准件：
 
