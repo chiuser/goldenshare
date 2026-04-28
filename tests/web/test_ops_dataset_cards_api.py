@@ -120,7 +120,7 @@ def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_c
     assert cards["biying_equity_daily"]["card_key"] == "biying_equity_daily"
 
 
-def test_ops_dataset_cards_accepts_legacy_all_scope_raw_snapshot_source_key(app_client, user_factory, db_session) -> None:
+def test_ops_dataset_cards_uses_combined_scope_raw_snapshot_source_key(app_client, user_factory, db_session) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -146,7 +146,7 @@ def test_ops_dataset_cards_accepts_legacy_all_scope_raw_snapshot_source_key(app_
             ),
             DatasetLayerSnapshotCurrent(
                 dataset_key="stock_basic",
-                source_key="__all__",
+                source_key="combined",
                 stage="raw",
                 status="healthy",
                 rows_in=2000,

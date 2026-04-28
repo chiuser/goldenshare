@@ -195,7 +195,7 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
     assert by_stage["serving"].status == "fresh"
 
 
-def test_refresh_resources_rewrites_legacy_all_scope_current_rows_to_combined(db_session: Session) -> None:
+def test_refresh_resources_keeps_combined_scope_current_rows(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
             assert resource_keys == ["stock_basic"]
@@ -217,7 +217,7 @@ def test_refresh_resources_rewrites_legacy_all_scope_current_rows_to_combined(db
     db_session.add(
         DatasetLayerSnapshotCurrent(
             dataset_key="stock_basic",
-            source_key="__all__",
+            source_key="combined",
             stage="raw",
             status="unknown",
             calculated_at=datetime(2026, 3, 31, 0, 0, tzinfo=timezone.utc),

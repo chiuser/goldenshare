@@ -85,7 +85,7 @@ def test_ops_layer_snapshot_history_and_latest_queries(
     assert latest_by_key[("biying_equity_daily", "biying", "std")]["status"] == "failed"
 
 
-def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
+def test_ops_layer_snapshot_latest_source_filter_includes_combined_scope(
     app_client,
     user_factory,
     db_session,
@@ -125,11 +125,11 @@ def test_ops_layer_snapshot_latest_source_filter_includes_all_scope(
     keys = {(item["dataset_key"], item["source_key"], item["stage"]) for item in payload["items"]}
     assert ("stock_basic", "combined", "raw") in keys
     assert ("daily", "tushare", "raw") not in keys
-    all_scope = next(item for item in payload["items"] if item["dataset_key"] == "stock_basic")
-    assert all_scope["source_display_name"] == "综合来源"
+    combined_scope = next(item for item in payload["items"] if item["dataset_key"] == "stock_basic")
+    assert combined_scope["source_display_name"] == "综合来源"
 
 
-def test_ops_layer_snapshot_latest_normalizes_legacy_all_scope_source_key(
+def test_ops_layer_snapshot_latest_uses_combined_source_key(
     app_client,
     user_factory,
     db_session,
@@ -141,7 +141,7 @@ def test_ops_layer_snapshot_latest_normalizes_legacy_all_scope_source_key(
     db_session.add(
         DatasetLayerSnapshotCurrent(
             dataset_key="stock_basic",
-            source_key="__all__",
+            source_key="combined",
             stage="raw",
             status="healthy",
             rows_out=2000,

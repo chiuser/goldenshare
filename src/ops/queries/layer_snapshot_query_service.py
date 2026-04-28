@@ -46,7 +46,7 @@ class LayerSnapshotQueryService:
             normalized_source = normalize_layer_snapshot_source_key(source_key)
             filters.append(
                 DatasetLayerSnapshotHistory.source_key.in_(
-                    [normalized_source, "combined", "__all__", None]
+                    [normalized_source, "combined", None]
                 )
             )
         if stage:
@@ -96,7 +96,7 @@ class LayerSnapshotQueryService:
             filters.append(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
         if source_key:
             normalized_source = normalize_layer_snapshot_source_key(source_key)
-            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "combined", "__all__"]))
+            filters.append(DatasetLayerSnapshotCurrent.source_key.in_([normalized_source, "combined"]))
         if stage:
             filters.append(DatasetLayerSnapshotCurrent.stage == stage)
         if status:
@@ -167,7 +167,7 @@ class LayerSnapshotQueryService:
         if source_key:
             normalized_source = normalize_layer_snapshot_source_key(source_key)
             history_filters.append(
-                DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "combined", "__all__", None])
+                DatasetLayerSnapshotHistory.source_key.in_([normalized_source, "combined", None])
             )
         if stage:
             history_filters.append(DatasetLayerSnapshotHistory.stage == stage)
