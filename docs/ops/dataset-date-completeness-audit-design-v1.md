@@ -1,11 +1,13 @@
-# 数据集日期完整性审计设计 v1（审查中心）
+# 数据集日期完整性审计设计 v1（历史稿）
 
 - 版本：v1
-- 状态：待评审（基于当前 `DatasetDefinition.date_model` 的新版设计稿；尚未进入开发）
+- 状态：历史归档，已被 [数据集日期完整性审计设计 v2（独立审计系统）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md) 替代
 - 更新时间：2026-04-26
 - 适用范围：`src/ops` 审查中心 + 任务执行链路（手动审计/自动审计）
 - 前置事实源：`DatasetDefinition.date_model`
 - 执行观测前置方案：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
+
+> 归档说明：v1 曾设计为接入 TaskRun 的审计能力。当前已明确改为独立审计系统，不复用 TaskRun、不混入 freshness/status/snapshot。后续评审与开发以 v2 为准。
 
 > 当前口径：本文不再维护独立的审计日期规则表。
 > 日期完整性审计必须读取 [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) 定义的 `DatasetDefinition.date_model` 消费口径。
