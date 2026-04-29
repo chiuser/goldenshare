@@ -8,7 +8,8 @@ type SmokeScenario =
   | "task-auto"
   | "task-detail"
   | "review-index"
-  | "review-board";
+  | "review-board"
+  | "share-market";
 
 const AUTH_TOKEN_KEY = "goldenshare.frontend.auth.token";
 const AUTH_REFRESH_TOKEN_KEY = "goldenshare.frontend.auth.refresh-token";
@@ -907,6 +908,37 @@ function mockReviewBoard(route: Route, pathname: string) {
   return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
 }
 
+function mockShareMarket(route: Route, pathname: string) {
+  if (pathname === "/api/v1/share/market-overview") {
+    return fulfillJson(route, {
+      available: true,
+      unavailable_reason: null,
+      summary: {
+        as_of_date: "2026-04-17",
+        total_symbols: 5236,
+        up_count: 3120,
+        down_count: 1892,
+        avg_pct_change: "1.26",
+        total_amount: "1289000000000",
+      },
+      top_by_amount: [
+        { ts_code: "600519.SH", name: "贵州茅台", trade_date: "2026-04-17", close: "1820.50", pct_change: "2.35", amount: "12450000000" },
+        { ts_code: "300750.SZ", name: "宁德时代", trade_date: "2026-04-17", close: "268.40", pct_change: "-1.12", amount: "9860000000" },
+      ],
+      top_gainers: [
+        { ts_code: "688256.SH", name: "寒武纪", trade_date: "2026-04-17", close: "328.10", pct_change: "12.24", amount: "5620000000" },
+        { ts_code: "002594.SZ", name: "比亚迪", trade_date: "2026-04-17", close: "255.80", pct_change: "8.51", amount: "7340000000" },
+      ],
+      top_losers: [
+        { ts_code: "601012.SH", name: "隆基绿能", trade_date: "2026-04-17", close: "18.42", pct_change: "-7.83", amount: "3420000000" },
+        { ts_code: "002466.SZ", name: "天齐锂业", trade_date: "2026-04-17", close: "28.16", pct_change: "-6.45", amount: "2910000000" },
+      ],
+    });
+  }
+
+  return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+}
+
 export async function installApiMocks(page: Page, scenario: SmokeScenario) {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
@@ -945,7 +977,7 @@ export async function installApiMocks(page: Page, scenario: SmokeScenario) {
     if (scenario === "review-board") {
       return mockReviewBoard(route, pathname);
     }
-    return fulfillJson(route, { detail: `unhandled api: ${pathname}` }, 404);
+    return mockShareMarket(route, pathname);
   });
 }
 

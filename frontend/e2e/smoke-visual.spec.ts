@@ -148,4 +148,13 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await expect(page).toHaveScreenshot();
   });
 
+  test("share market keeps the market snapshot baseline", async ({ page }) => {
+    await setAdminSession(page);
+    await installApiMocks(page, "share-market");
+    await page.goto("/app/share");
+    await expect(page.getByText("市场总览")).toBeVisible();
+    await expect(page.getByText("成交额前十")).toBeVisible();
+    await stabilizeUi(page);
+    await expect(page).toHaveScreenshot();
+  });
 });
