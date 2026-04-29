@@ -61,13 +61,13 @@ export function OpsShell(_props: PropsWithChildren) {
   return (
     <AppShell
       className="app-gradient-shell"
-      header={{ height: 72 }}
+      header={{ height: 80 }}
       navbar={{ width: 280, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"
     >
       <AppShell.Header className="app-shell-header" px="lg">
         <Group justify="space-between" h="100%">
-          <Group gap="sm">
+          <Group gap="md">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
             <img
               src="/app/brand/logo_new.png"
