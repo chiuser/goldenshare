@@ -111,7 +111,7 @@
   - `ops/v21/datasets/tasks?tab=auto`
   - `ops/v21/datasets/tasks/detail`
   - `ops/v21/review/index`
-  - `share`
+  - `ops/v21/review/board?tab=equity`
 - 当前仍未引入完整 Storybook / Chromatic / Percy，这部分维持后续评估
 
 ### 4.4 风格现状

@@ -25,10 +25,8 @@ import { OpsV21ReviewIndexPage } from "../pages/ops-v21-review-index-page";
 import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
 import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
 import { PlatformCheckPage } from "../pages/platform-check-page";
-import { ShareMarketPage } from "../pages/share-market-page";
 import { UserOverviewPage } from "../pages/user-overview-page";
 import { OpsShell } from "./shell";
-import { ShareShell } from "./share-shell";
 
 
 function AppRoot() {
@@ -179,14 +177,6 @@ function OpsLayout() {
   );
 }
 
-function ShareLayout() {
-  return (
-    <AdminLayout>
-      <ShareShell />
-    </AdminLayout>
-  );
-}
-
 function UserOverviewLayout() {
   return (
     <UserLayout>
@@ -303,12 +293,6 @@ const opsLayoutRoute = createRoute({
   component: OpsLayout,
 });
 
-const shareLayoutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/share",
-  component: ShareLayout,
-});
-
 const opsIndexRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/",
@@ -406,12 +390,6 @@ const opsV21DatasetDetailRoute = createRoute({
   },
 });
 
-const shareIndexRoute = createRoute({
-  getParentRoute: () => shareLayoutRoute,
-  path: "/",
-  component: ShareMarketPage,
-});
-
 const routeTree = rootRoute.addChildren([
   homeRoute,
   loginRoute,
@@ -436,9 +414,6 @@ const routeTree = rootRoute.addChildren([
     opsTaskRunsRoute,
     opsTaskRunDetailRoute,
     opsV21AccountRoute,
-  ]),
-  shareLayoutRoute.addChildren([
-    shareIndexRoute,
   ]),
 ]);
 

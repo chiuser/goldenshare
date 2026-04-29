@@ -49,7 +49,6 @@
 5. `ops/v21/datasets/tasks?tab=auto`
 6. `ops/v21/datasets/tasks/detail`
 7. `ops/v21/review/index`
-8. `share`
 
 ---
 

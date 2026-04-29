@@ -38,7 +38,6 @@
 8. `ops/tasks/:id`
 9. `ops/v21/review/index`
 10. `ops/v21/review/board?tab=equity`
-11. `share`
 
 覆盖目标：
 

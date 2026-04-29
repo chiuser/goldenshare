@@ -86,7 +86,6 @@ Phase 2 默认只允许直接改动：
 例如：
 
 - `frontend/src/app/shell.tsx`
-- `frontend/src/app/share-shell.tsx`
 - `frontend/src/shared/ui/section-card.tsx`
 
 但这些联动修补必须满足：
@@ -160,7 +159,7 @@ Phase 2 默认至少会涉及：
 
 - `theme.ts` 中品牌色、圆角、阴影、组件默认样式
 - `styles.css` 中渐变背景、`glass-card`、品牌相关 class
-- `shell.tsx` / `share-shell.tsx` 对这些样式的直接消费
+- `shell.tsx` 对这些样式的直接消费
 
 产出：
 
@@ -219,7 +218,6 @@ Phase 2 默认至少会涉及：
 优先范围：
 
 - `app/shell.tsx`
-- `app/share-shell.tsx`
 - `shared/ui/section-card.tsx`
 
 ### Step 6：验证与记录

@@ -94,7 +94,7 @@
 
 - `features/ops-task-*`
 - `features/ops-review-*`
-- `features/share-*`
+- `features/market-*`
 - `features/trade-calendar`
 
 当前门禁深化与推广准备期的额外口径：

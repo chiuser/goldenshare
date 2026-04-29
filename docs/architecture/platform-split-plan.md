@@ -15,7 +15,7 @@
 4. app 通用 schema 已迁至 `src/app/schemas/*`
 5. API 聚合入口已迁至 `src/app/api/*`
 6. web 主入口与支撑模块已迁至 `src/app/web/*`
-7. share 业务线已迁至 `src/biz/*`
+7. 旧市场快照试点业务线已删除，不再作为业务系统基线
 8. 运行静态资源主路径已收敛到 `src/app/web/static`
 
 ---

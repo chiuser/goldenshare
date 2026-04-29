@@ -59,7 +59,7 @@
 
 - `auth-types.ts`
 - `ops-types.ts`
-- `share-types.ts`
+- `market-types.ts`
 - `calendar-types.ts`
 
 ### 4. API 层不直接承接页面语义

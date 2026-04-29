@@ -103,44 +103,6 @@ export interface HealthResponse {
   env: string;
 }
 
-export interface ShareMarketOverviewResponse {
-  available: boolean;
-  unavailable_reason: string | null;
-  summary: {
-    as_of_date: string | null;
-    total_symbols: number;
-    up_count: number | null;
-    down_count: number | null;
-    flat_count: number | null;
-    avg_pct_change: string | null;
-    total_amount: string | null;
-  } | null;
-  top_by_amount: Array<{
-    ts_code: string;
-    name: string | null;
-    trade_date: string | null;
-    close: string | null;
-    pct_change: string | null;
-    amount: string | null;
-  }>;
-  top_gainers: Array<{
-    ts_code: string;
-    name: string | null;
-    trade_date: string | null;
-    close: string | null;
-    pct_change: string | null;
-    amount: string | null;
-  }>;
-  top_losers: Array<{
-    ts_code: string;
-    name: string | null;
-    trade_date: string | null;
-    close: string | null;
-    pct_change: string | null;
-    amount: string | null;
-  }>;
-}
-
 export interface OpsOverviewResponse {
   today_kpis: {
     business_date: string;

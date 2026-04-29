@@ -76,7 +76,6 @@ CI 当前执行顺序：
 | `ops/tasks/:id` | 有 | 有 | 详情页主路径保护较稳 |
 | `ops/v21/review/index` | 有 | 有 | 审查中心指数页已形成 smoke + 页测双层保护 |
 | `ops/v21/review/board` | 有 | 有 | 审查中心板块页已进入统一回归口径 |
-| `share` | 有 | 无 | 依赖 smoke 保护，缺少页级单测 |
 
 补充说明：
 
@@ -108,14 +107,14 @@ CI 当前执行顺序：
 | 组件 | 当前保护方式 |
 | --- | --- |
 | `AuthPageLayout` | 组件单测 + `login` smoke |
-| `AlertBar` | 组件单测 + `task-manual / task-auto / task-detail / share` smoke |
+| `AlertBar` | 组件单测 + `task-manual / task-auto / task-detail` smoke |
 | `StatusBadge` | 组件单测 + `overview / task-records / task-auto / task-detail` smoke |
 | `FilterBar` | 组件单测 + `task-records / review-index / review-board` smoke |
 | `DetailDrawer` | 组件单测 + `task-auto` smoke |
 | `ActivityTimeline` | 组件单测 + `task-auto / task-detail` smoke |
 | `TradeDateField` | 组件单测 + `task-manual / task-auto` smoke |
-| `PriceText` | 组件单测 + `share` smoke |
-| `ChangeText` | 组件单测 + `share` smoke |
+| `PriceText` | 组件单测 |
+| `ChangeText` | 组件单测 |
 | `DataTable` | 组件单测 + `task-records / task-auto / task-detail` smoke |
 | `MetricPanel` | 组件单测 + `task-detail` smoke |
 | `TableShell` | 组件单测 + 通过 `DataTable` 间接受到 smoke 保护 |
@@ -156,9 +155,8 @@ CI 当前执行顺序：
 当前薄弱点：
 
 1. `task-auto` 仍主要依赖 smoke，没有独立页级单测
-2. `share` 仍主要依赖 smoke，没有独立页级单测
-3. smoke fixtures 目前以“主路径、数据存在”为主，未系统覆盖空态 / 错误态
-4. `ops-v21-source-page.tsx` 与 `ops-v21-dataset-detail-page.tsx` 已补页级测试，但当前仍未进入 smoke / visual gate
+2. smoke fixtures 目前以“主路径、数据存在”为主，未系统覆盖空态 / 错误态
+3. `ops-v21-source-page.tsx` 与 `ops-v21-dataset-detail-page.tsx` 已补页级测试，但当前仍未进入 smoke / visual gate
 
 结论：
 
