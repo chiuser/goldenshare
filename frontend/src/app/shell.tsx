@@ -28,15 +28,13 @@ import type { PropsWithChildren } from "react";
 
 import { useAuth, useCurrentUser } from "../features/auth/auth-context";
 const opsV21Links = [
-  { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
   { to: "/ops/v21/today", label: "今日运行", icon: IconGauge },
-  { to: "/ops/v21/account", label: "帐号管理", icon: IconShieldLock },
 ];
 
 const opsV21SourceLinks = [
+  { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
   { to: "/ops/v21/datasets/tushare", label: "Tushare", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/biying", label: "Biying", icon: IconTopologyRing3 },
-  { to: "/ops/v21/datasets/tasks", label: "任务中心", icon: IconListDetails },
 ];
 
 const opsV21ReviewLinks = [
@@ -133,6 +131,15 @@ export function OpsShell(_props: PropsWithChildren) {
                 style={{ marginLeft: 8 }}
               />
             ))}
+            <NavLink
+              component={Link}
+              to="/ops/v21/datasets/tasks"
+              label="任务中心"
+              leftSection={<IconListDetails size={18} />}
+              active={location.pathname === "/ops/v21/datasets/tasks" || location.pathname.startsWith("/ops/v21/datasets/tasks/")}
+              variant="light"
+              color="brand"
+            />
 
             <ShellSectionLabel label="审查中心" />
             {opsV21ReviewLinks.map((link) => (
@@ -154,14 +161,21 @@ export function OpsShell(_props: PropsWithChildren) {
               leftSection={<IconSparkles size={16} />}
               disabled
               variant="subtle"
-              style={{ marginLeft: 10 }}
             />
             <NavLink
               label="发布中心（即将开放）"
               leftSection={<IconSparkles size={16} />}
               disabled
               variant="subtle"
-              style={{ marginLeft: 10 }}
+            />
+            <NavLink
+              component={Link}
+              to="/ops/v21/account"
+              label="帐号管理"
+              leftSection={<IconShieldLock size={18} />}
+              active={location.pathname === "/ops/v21/account"}
+              variant="light"
+              color="brand"
             />
           </Stack>
         </AppShell.Section>
