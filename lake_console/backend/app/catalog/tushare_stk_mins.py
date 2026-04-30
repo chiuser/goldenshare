@@ -20,6 +20,13 @@ STOCK_BASIC_FIELDS = (
     "act_ent_type",
 )
 
+TRADE_CAL_FIELDS = (
+    "exchange",
+    "cal_date",
+    "is_open",
+    "pretrade_date",
+)
+
 STK_MINS_FIELDS = (
     "ts_code",
     "trade_time",

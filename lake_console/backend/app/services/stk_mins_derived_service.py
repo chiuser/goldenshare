@@ -123,18 +123,21 @@ class StkMinsDerivedService:
 
 
 def derive_rows(source_rows: list[dict[str, Any]], *, target_freq: int, group_size: int) -> list[dict[str, Any]]:
-    rows_by_code_session: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    rows_by_code_day: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in source_rows:
         ts_code = str(row.get("ts_code") or "").strip()
-        if ts_code:
-            rows_by_code_session[(ts_code, _session_key(row.get("trade_time")))].append(row)
+        trade_time = _parse_trade_time(row.get("trade_time"))
+        if ts_code and trade_time:
+            if target_freq == 90 and trade_time.time() == time(9, 30):
+                continue
+            rows_by_code_day[(ts_code, trade_time.date().isoformat())].append(row)
 
     result: list[dict[str, Any]] = []
-    for (ts_code, _session), rows in sorted(rows_by_code_session.items()):
+    for (ts_code, _trade_date), rows in sorted(rows_by_code_day.items()):
         sorted_rows = sorted(rows, key=lambda item: str(item.get("trade_time") or ""))
         for start in range(0, len(sorted_rows), group_size):
             chunk = sorted_rows[start : start + group_size]
-            if len(chunk) < group_size:
+            if len(chunk) < group_size and target_freq != 90:
                 continue
             result.append(_aggregate_chunk(ts_code=ts_code, target_freq=target_freq, chunk=chunk))
     return result
@@ -158,14 +161,6 @@ def _number(value: Any) -> float:
     if value is None:
         return 0.0
     return float(value)
-
-
-def _session_key(value: Any) -> str:
-    trade_time = _parse_trade_time(value)
-    if trade_time is None:
-        return "unknown"
-    session = "am" if trade_time.time() < time(12, 0) else "pm"
-    return f"{trade_time.date().isoformat()}-{session}"
 
 
 def _parse_trade_time(value: Any) -> datetime | None:

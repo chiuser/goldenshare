@@ -19,30 +19,41 @@ def test_derive_rows_aggregates_complete_chunks_only():
     result = derive_rows(rows, target_freq=90, group_size=3)
 
     assert len(result) == 1
-    assert result[0]["trade_time"] == "2026-04-24 10:30:00"
-    assert result[0]["open"] == 10
-    assert result[0]["close"] == 13
-    assert result[0]["high"] == 14
-    assert result[0]["low"] == 9
-    assert result[0]["vol"] == 600
-    assert result[0]["amount"] == 6000
+    assert result[0]["trade_time"] == "2026-04-24 11:00:00"
+    assert result[0]["open"] == 11
+    assert result[0]["close"] == 14
+    assert result[0]["high"] == 15
+    assert result[0]["low"] == 10
+    assert result[0]["vol"] == 900
+    assert result[0]["amount"] == 9000
 
 
-def test_derive_rows_does_not_cross_lunch_break():
+def test_derive_rows_uses_effective_intraday_bars_for_90min():
     rows = [
-        _row("000001.SZ", "2026-04-24 10:30:00", 10, 11, 12, 9, 100, 1000),
-        _row("000001.SZ", "2026-04-24 11:00:00", 11, 12, 13, 10, 200, 2000),
-        _row("000001.SZ", "2026-04-24 13:30:00", 20, 21, 22, 19, 300, 3000),
-        _row("000001.SZ", "2026-04-24 14:00:00", 21, 22, 23, 20, 400, 4000),
-        _row("000001.SZ", "2026-04-24 14:30:00", 22, 23, 24, 21, 500, 5000),
+        _row("000001.SZ", "2026-04-24 09:30:00", 9, 10, 11, 8, 90, 900),
+        _row("000001.SZ", "2026-04-24 10:00:00", 10, 11, 12, 9, 100, 1000),
+        _row("000001.SZ", "2026-04-24 10:30:00", 11, 12, 13, 10, 200, 2000),
+        _row("000001.SZ", "2026-04-24 11:00:00", 12, 13, 14, 11, 300, 3000),
+        _row("000001.SZ", "2026-04-24 11:30:00", 13, 14, 15, 12, 400, 4000),
+        _row("000001.SZ", "2026-04-24 13:30:00", 20, 21, 22, 19, 500, 5000),
+        _row("000001.SZ", "2026-04-24 14:00:00", 21, 22, 23, 20, 600, 6000),
+        _row("000001.SZ", "2026-04-24 14:30:00", 22, 23, 24, 21, 700, 7000),
+        _row("000001.SZ", "2026-04-24 15:00:00", 23, 24, 25, 22, 800, 8000),
     ]
 
     result = derive_rows(rows, target_freq=90, group_size=3)
 
-    assert len(result) == 1
-    assert result[0]["trade_time"] == "2026-04-24 14:30:00"
-    assert result[0]["open"] == 20
-    assert result[0]["close"] == 23
+    assert [row["trade_time"] for row in result] == [
+        "2026-04-24 11:00:00",
+        "2026-04-24 14:00:00",
+        "2026-04-24 15:00:00",
+    ]
+    assert result[0]["open"] == 10
+    assert result[0]["close"] == 13
+    assert result[1]["open"] == 13
+    assert result[1]["close"] == 22
+    assert result[2]["open"] == 22
+    assert result[2]["close"] == 24
 
 
 def test_derive_day_writes_derived_partition(tmp_path, monkeypatch):
@@ -57,6 +68,7 @@ def test_derive_day_writes_derived_partition(tmp_path, monkeypatch):
             _row("000001.SZ", "2026-04-24 09:30:00", 10, 11, 12, 9, 100, 1000),
             _row("000001.SZ", "2026-04-24 10:00:00", 11, 12, 13, 10, 200, 2000),
             _row("000001.SZ", "2026-04-24 10:30:00", 12, 13, 14, 11, 300, 3000),
+            _row("000001.SZ", "2026-04-24 11:00:00", 13, 14, 15, 12, 400, 4000),
         ],
     )
     monkeypatch.setattr(derived_module, "read_parquet_row_count", lambda path: 1)

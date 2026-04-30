@@ -33,6 +33,12 @@ export GOLDENSHARE_LAKE_ROOT=/Volumes/TushareData/goldenshare-tushare-lake
 export TUSHARE_TOKEN=...
 ```
 
+The local Tushare client is rate-limited globally. The default is 500 requests per minute:
+
+```toml
+tushare_request_limit_per_minute = 500
+```
+
 ## Local Backend
 
 Install local backend dependencies:
@@ -60,6 +66,14 @@ Run stock basic sync:
 lake-console sync-stock-basic
 ```
 
+Run trade calendar sync:
+
+```bash
+lake-console sync-trade-cal \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30
+```
+
 Run single-symbol minute sync:
 
 ```bash
@@ -76,6 +90,16 @@ lake-console sync-stk-mins \
   --all-market \
   --freqs 1,5,15,30,60 \
   --trade-date 2026-04-24
+```
+
+Run all-market minute sync by local open trading days:
+
+```bash
+lake-console sync-stk-mins-range \
+  --all-market \
+  --freqs 1,5,15,30,60 \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30
 ```
 
 Generate local 90/120 minute derived bars from existing 30/60 minute by-date partitions:
@@ -119,6 +143,12 @@ Local stock universe for execution:
 
 ```text
 manifest/security_universe/tushare_stock_basic.parquet
+```
+
+Local trading calendar for range sync:
+
+```text
+manifest/trading_calendar/tushare_trade_cal.parquet
 ```
 
 Minute bars by date:

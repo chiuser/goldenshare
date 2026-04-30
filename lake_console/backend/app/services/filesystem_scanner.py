@@ -16,6 +16,10 @@ class FilesystemScanner:
             stock_basic = self._stock_basic_summary()
             if stock_basic is not None:
                 result.append(stock_basic)
+        if dataset_key in {None, "trade_cal"} and layer in {None, "raw_tushare"}:
+            trade_cal = self._trade_cal_summary()
+            if trade_cal is not None:
+                result.append(trade_cal)
         if dataset_key not in {None, "stk_mins"}:
             return result
         partitions = self.list_partitions(dataset_key="stk_mins", layer=layer)
@@ -169,6 +173,28 @@ class FilesystemScanner:
         return LakeDatasetSummary(
             dataset_key="stock_basic",
             display_name="股票基础信息",
+            layers=["raw_tushare"],
+            freqs=[],
+            partition_count=1,
+            file_count=1,
+            total_bytes=file.stat().st_size,
+            earliest_trade_date=None,
+            latest_trade_date=None,
+            latest_modified_at=modified_at,
+            risks=risks,
+        )
+
+    def _trade_cal_summary(self) -> LakeDatasetSummary | None:
+        file = self.lake_root / "raw_tushare" / "trade_cal" / "current" / "part-000.parquet"
+        if not file.exists():
+            return None
+        risks: list[LakeRiskItem] = []
+        if file.stat().st_size == 0:
+            risks.append(LakeRiskItem(severity="warning", code="empty_file", message="trade_cal 正式 Parquet 文件为空。", path=str(file)))
+        modified_at = datetime.fromtimestamp(file.stat().st_mtime, tz=timezone.utc)
+        return LakeDatasetSummary(
+            dataset_key="trade_cal",
+            display_name="交易日历",
             layers=["raw_tushare"],
             freqs=[],
             partition_count=1,

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -12,8 +14,9 @@ from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDe
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
-from lake_console.backend.app.services.tushare_stk_mins_sync_service import TushareStkMinsSyncService
+from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
+from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
 from lake_console.backend.app.settings import load_settings
 
 
@@ -53,6 +56,13 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_lake_root_arg(stock_parser)
     stock_parser.set_defaults(handler=_handle_sync_stock_basic)
 
+    trade_cal_parser = subparsers.add_parser("sync-trade-cal", help="从 Tushare 拉取交易日历并写入本地交易日历")
+    _add_lake_root_arg(trade_cal_parser)
+    trade_cal_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    trade_cal_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    trade_cal_parser.add_argument("--exchange", default="SSE", help="交易所，默认 SSE")
+    trade_cal_parser.set_defaults(handler=_handle_sync_trade_cal)
+
     mins_parser = subparsers.add_parser("sync-stk-mins", help="从 Tushare 拉取单股票单日分钟线并写入 by_date 分区")
     _add_lake_root_arg(mins_parser)
     mins_parser.add_argument("--ts-code", default=None, help="股票代码，例如 000001.SZ；单股票模式必填")
@@ -62,6 +72,17 @@ def _build_parser() -> argparse.ArgumentParser:
     mins_parser.add_argument("--all-market", action="store_true", help="从本地 stock_basic 股票池读取全市场 ts_code 并扇出请求")
     mins_parser.add_argument("--part-rows", default=200_000, type=int, help="全市场模式下每个 Parquet part 的最大行数")
     mins_parser.set_defaults(handler=_handle_sync_stk_mins)
+
+    range_parser = subparsers.add_parser("sync-stk-mins-range", help="按本地交易日历拉取区间内分钟线行情")
+    _add_lake_root_arg(range_parser)
+    range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    range_parser.add_argument("--all-market", action="store_true", help="从本地 stock_basic 股票池读取全市场 ts_code 并扇出请求")
+    range_parser.add_argument("--ts-code", default=None, help="股票代码，例如 000001.SZ；单股票模式必填")
+    range_parser.add_argument("--freq", default=None, type=int, choices=(1, 5, 15, 30, 60), help="单个分钟周期")
+    range_parser.add_argument("--freqs", default=None, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60；全市场模式可用")
+    range_parser.add_argument("--part-rows", default=200_000, type=int, help="全市场模式下每个 Parquet part 的最大行数")
+    range_parser.set_defaults(handler=_handle_sync_stk_mins_range)
 
     derive_parser = subparsers.add_parser("derive-stk-mins", help="从 30/60 分钟线派生 90/120 分钟线")
     _add_lake_root_arg(derive_parser)
@@ -132,9 +153,26 @@ def _handle_sync_stock_basic(args: argparse.Namespace) -> int:
     settings = _settings(args)
     service = TushareStockBasicSyncService(
         lake_root=settings.lake_root,
-        client=TushareLakeClient(settings.tushare_token),
+        client=TushareLakeClient(
+            settings.tushare_token,
+            request_limit_per_minute=settings.tushare_request_limit_per_minute,
+        ),
     )
     summary = service.sync()
+    _print_json(summary)
+    return 0
+
+
+def _handle_sync_trade_cal(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    service = TushareTradeCalSyncService(
+        lake_root=settings.lake_root,
+        client=TushareLakeClient(
+            settings.tushare_token,
+            request_limit_per_minute=settings.tushare_request_limit_per_minute,
+        ),
+    )
+    summary = service.sync(start_date=args.start_date, end_date=args.end_date, exchange=args.exchange)
     _print_json(summary)
     return 0
 
@@ -143,7 +181,10 @@ def _handle_sync_stk_mins(args: argparse.Namespace) -> int:
     settings = _settings(args)
     service = TushareStkMinsSyncService(
         lake_root=settings.lake_root,
-        client=TushareLakeClient(settings.tushare_token),
+        client=TushareLakeClient(
+            settings.tushare_token,
+            request_limit_per_minute=settings.tushare_request_limit_per_minute,
+        ),
     )
     if args.all_market:
         freqs = _parse_freqs(args.freqs, fallback=args.freq)
@@ -154,6 +195,48 @@ def _handle_sync_stk_mins(args: argparse.Namespace) -> int:
         if args.freq is None:
             raise SystemExit("单股票模式必须传 --freq。")
         summary = service.sync_single_symbol_day(ts_code=args.ts_code, freq=args.freq, trade_date=args.trade_date)
+    _print_json(summary)
+    return 0
+
+
+def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    progress = StkMinsTerminalProgress() if args.all_market else None
+    service = TushareStkMinsSyncService(
+        lake_root=settings.lake_root,
+        client=TushareLakeClient(
+            settings.tushare_token,
+            request_limit_per_minute=settings.tushare_request_limit_per_minute,
+        ),
+        progress=progress,
+    )
+    try:
+        if args.all_market:
+            freqs = _parse_freqs(args.freqs, fallback=args.freq)
+            summary = service.sync_range(
+                start_date=args.start_date,
+                end_date=args.end_date,
+                freqs=freqs,
+                all_market=True,
+                part_rows=args.part_rows,
+            )
+        else:
+            if not args.ts_code:
+                raise SystemExit("单股票区间模式必须传 --ts-code；全市场请传 --all-market。")
+            if args.freq is None:
+                raise SystemExit("单股票区间模式必须传 --freq。")
+            summary = service.sync_range(
+                start_date=args.start_date,
+                end_date=args.end_date,
+                freqs=[],
+                all_market=False,
+                ts_code=args.ts_code,
+                freq=args.freq,
+                part_rows=args.part_rows,
+            )
+    finally:
+        if progress:
+            progress.finish()
     _print_json(summary)
     return 0
 
@@ -201,6 +284,61 @@ def _parse_int_csv(raw_value: str, *, allowed: set[int], label: str) -> list[int
 
 def _print_json(payload: Any) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+class StkMinsTerminalProgress:
+    def __init__(self, *, stream=None, width: int = 24, min_interval_seconds: float = 0.2) -> None:
+        self.stream = stream or sys.stderr
+        self.width = width
+        self.min_interval_seconds = min_interval_seconds
+        self._last_render_at = 0.0
+        self._last_line_length = 0
+        self._line_active = False
+
+    def __call__(self, payload: str | StkMinsProgressEvent) -> None:
+        if isinstance(payload, StkMinsProgressEvent):
+            self._render_event(payload)
+            return
+        self._print_message(payload)
+
+    def finish(self) -> None:
+        if self._line_active:
+            self.stream.write("\n")
+            self.stream.flush()
+            self._line_active = False
+            self._last_line_length = 0
+
+    def _render_event(self, event: StkMinsProgressEvent) -> None:
+        now = time.monotonic()
+        if event.units_done < event.units_total and now - self._last_render_at < self.min_interval_seconds:
+            return
+        self._last_render_at = now
+        percent = 0.0 if event.units_total <= 0 else min(1.0, event.units_done / event.units_total)
+        filled = int(round(self.width * percent))
+        bar = "█" * filled + "░" * (self.width - filled)
+        line = (
+            f"[{bar}] {percent * 100:6.2f}% "
+            f"unit={event.units_done}/{event.units_total} "
+            f"ts_code={event.ts_code} trade_date={event.trade_date.isoformat()} freq={event.freq} "
+            f"fetched={event.fetched_rows} written={event.written_rows}"
+        )
+        if self.stream.isatty():
+            padding = " " * max(0, self._last_line_length - len(line))
+            self.stream.write(f"\r{line}{padding}")
+            self.stream.flush()
+            self._last_line_length = len(line)
+            self._line_active = True
+        else:
+            self.stream.write(line + "\n")
+            self.stream.flush()
+
+    def _print_message(self, message: str) -> None:
+        if self._line_active:
+            self.stream.write("\n")
+            self._line_active = False
+            self._last_line_length = 0
+        self.stream.write(message + "\n")
+        self.stream.flush()
 
 
 if __name__ == "__main__":
