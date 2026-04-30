@@ -317,6 +317,31 @@ def run_ops_worker_run(
         )
 
 
+def run_ops_date_completeness_worker_run(
+    *,
+    session_local,
+    worker_cls,
+    limit: int,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        worker = worker_cls()
+        processed = 0
+        for _ in range(limit):
+            run = worker.run_next(session)
+            if run is None:
+                break
+            processed += 1
+            echo_fn(
+                "processed "
+                f"date_completeness_run#{run.id} "
+                f"dataset={run.dataset_key} "
+                f"run_status={run.run_status} "
+                f"result_status={run.result_status or '-'}"
+            )
+        echo_fn(f"ops-date-completeness-worker-run: 本轮审计={processed}")
+
+
 def run_ops_scheduler_serve(
     *,
     session_local,

@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from src.ops.api import (
     catalog,
     codebook,
+    date_completeness,
     dataset_cards,
     freshness,
     layer_snapshots,
@@ -31,6 +32,7 @@ router.include_router(catalog.router)
 router.include_router(manual_actions.router)
 router.include_router(dataset_cards.router)
 router.include_router(review_center.router)
+router.include_router(date_completeness.router)
 router.include_router(codebook.router)
 router.include_router(task_runs.router)
 

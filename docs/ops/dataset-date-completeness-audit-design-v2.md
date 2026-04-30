@@ -1,8 +1,8 @@
 # 数据集日期完整性审计设计 v2（独立审计系统）
 
 - 版本：v2
-- 状态：待评审
-- 更新时间：2026-04-29
+- 状态：可开发
+- 更新时间：2026-04-30
 - 适用范围：`src/ops` 审查中心的数据日期完整性审计能力
 - 前置事实源：`src/foundation/datasets/**` 的 `DatasetDefinition.date_model`
 - 替代文档：[数据集日期完整性审计设计 v1（历史稿）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
@@ -35,15 +35,14 @@
 1. 某个数据集在指定时间范围内，按它的日期模型应该有哪些日期桶。
 2. 业务目标表里实际有哪些日期桶。
 3. 缺哪些日期桶，缺口能否压缩成区间。
-4. 审计结论是通过、不通过、不适用，还是审计执行错误。
+4. 审计结论是通过、不通过，还是审计执行错误。
 
-审计结论只允许四类：
+审计 run 结论只允许三类；不适用数据集不创建 run，只在规则列表展示原因：
 
 | 结论 | 含义 |
 |---|---|
 | `passed` | 范围内期望桶均有数据 |
 | `failed` | 范围内存在缺失桶 |
-| `not_applicable` | 该数据集不适合日期完整性审计 |
 | `error` | 审计执行失败，例如目标表不可读、规则缺失、SQL 失败 |
 
 ### 1.2 非目标
@@ -144,7 +143,7 @@ flowchart LR
 | `target_table` | varchar(160) | 本次审计读取的目标表快照 |
 | `run_mode` | varchar(16) | `manual` / `scheduled` |
 | `run_status` | varchar(24) | `queued` / `running` / `succeeded` / `failed` / `canceled` |
-| `result_status` | varchar(24) | `passed` / `failed` / `not_applicable` / `error`，运行中为空 |
+| `result_status` | varchar(24) | `passed` / `failed` / `error`，运行中为空 |
 | `start_date` | date | 审计范围起点 |
 | `end_date` | date | 审计范围终点 |
 | `date_axis` | varchar(32) | `date_model.date_axis` 快照 |
@@ -172,8 +171,7 @@ flowchart LR
 1. `run_status=succeeded` 时 `result_status` 必须非空。
 2. `result_status=passed` 时 `missing_bucket_count=0`。
 3. `result_status=failed` 时 `missing_bucket_count>0`。
-4. `result_status=not_applicable` 时必须有 `operator_message`。
-5. `start_date <= end_date`。
+4. `start_date <= end_date`。
 
 ### 4.2 表：`ops.dataset_date_completeness_gap`
 
@@ -201,10 +199,13 @@ flowchart LR
 | `dataset_key` | varchar(96) | 数据集键 |
 | `display_name` | varchar(160) | 计划名称 |
 | `status` | varchar(16) | `active` / `paused` |
-| `window_mode` | varchar(32) | `fixed_range` / `lookback_days` |
+| `window_mode` | varchar(32) | `fixed_range` / `rolling` |
 | `start_date` | date | 固定窗口起点 |
 | `end_date` | date | 固定窗口终点 |
-| `lookback_days` | int | 回看天数 |
+| `lookback_count` | int | 滚动窗口数量 |
+| `lookback_unit` | varchar(32) | `calendar_day` / `open_day` / `month` |
+| `calendar_scope` | varchar(32) | `default_cn_market` / `cn_a_share` / `hk_market` / `custom_exchange` |
+| `calendar_exchange` | varchar(32) | 具体交易所代码，可空 |
 | `cron_expr` | varchar(64) | 定时表达式 |
 | `timezone` | varchar(64) | 默认 `Asia/Shanghai` |
 | `next_run_at` | timestamptz | 下次运行时间 |
@@ -214,7 +215,21 @@ flowchart LR
 | `created_at` | timestamptz | 创建时间 |
 | `updated_at` | timestamptz | 更新时间 |
 
-说明：第一版也可以只做手动审计，不实现 schedule 表。若实现自动审计，必须使用独立 schedule 表，不挂到 `ops.schedule`。
+窗口语义：
+
+1. `window_mode=fixed_range`：每次自动审计都使用固定 `start_date/end_date`，适合历史专项核查。
+2. `window_mode=rolling`：每次自动审计按运行时刻动态计算审计窗口，适合日常巡检。
+3. `lookback_count=10, lookback_unit=open_day`：表示回看最近 10 个开市交易日。
+4. `lookback_count=30, lookback_unit=calendar_day`：表示回看最近 30 个自然日。
+5. `lookback_count=6, lookback_unit=month`：表示回看最近 6 个自然月窗口。
+
+交易日历语义：
+
+1. 第一版默认 `calendar_scope=default_cn_market`，使用系统默认 A 股交易日历。
+2. 若未来支持港股，新增 `calendar_scope=hk_market` 或 `custom_exchange + calendar_exchange=HKEX`，不改表结构。
+3. 审计 SQL 不允许临时写死交易所；交易所口径必须来自 schedule 或请求协议。
+
+说明：自动审计第一版必须使用本独立 schedule 表，不挂到 `ops.schedule`。
 
 ---
 
@@ -334,7 +349,7 @@ sequenceDiagram
 规则：
 
 1. API 不接受前端传入 `date_axis`、`bucket_rule`、`observed_field`。
-2. `audit_applicable=false` 的数据集，可以选择直接创建 `result_status=not_applicable` 的 completed run，也可以返回 422。建议创建 run，便于页面留下审计记录。
+2. `audit_applicable=false` 的数据集不可创建 run，后端返回 422，前端不展示创建入口。
 3. 范围参数按 `input_shape` 校验。
 
 ### 7.3 `GET /runs`
@@ -357,7 +372,7 @@ sequenceDiagram
 
 ### 7.6 自动审计 API
 
-若第一版实现自动审计，新增：
+第一版包含自动审计，新增：
 
 1. `GET /schedules`
 2. `POST /schedules`
@@ -366,13 +381,15 @@ sequenceDiagram
 5. `POST /schedules/{schedule_id}/resume`
 6. `DELETE /schedules/{schedule_id}`
 
-若第一版只做手动审计，自动审计 API 暂缓，不得复用 `ops.schedule` 作为临时方案。
+自动审计必须使用 `ops.dataset_date_completeness_schedule`，不得复用 `ops.schedule` 作为临时方案。
 
 ---
 
 ## 8. 页面设计
 
-新增页面：`审查中心 -> 日期完整性`
+新增页面：`审查中心 -> 数据集审计`
+
+说明：页面名称为“数据集审计”，本方案是该页面第一期能力“日期完整性审计”的技术设计。后续其他审计能力不得与本期日期完整性结果表混写。
 
 Tab：
 
@@ -394,10 +411,10 @@ Tab：
 展示原则：
 
 1. 页面只表达日期完整性，不混入 freshness。
-2. 结果用“通过 / 不通过 / 不适用 / 执行错误”。
+2. 结果用“通过 / 不通过 / 执行错误”；不适用只在规则列表展示，不进入审计记录。
 3. 重点展示审计范围、期望日期数、实际日期数、缺失日期数、缺失区间。
 4. 不展示 TaskRun 信息，不跳转任务详情页。
-5. 不适用数据集展示原因，不展示创建按钮或创建后直接显示 `not_applicable` 记录，两种交互需评审二选一。
+5. 不适用数据集展示原因，不展示创建按钮。
 
 ---
 
@@ -512,7 +529,7 @@ Tab：
 实现后门禁：
 
 1. 每种 `date_axis + bucket_rule` 至少一个单测。
-2. `passed / failed / not_applicable / error` 四类结果路径都有测试。
+2. `passed / failed / error` 三类 run 结果路径都有测试；不适用数据集必须覆盖 422 校验路径。
 3. API 不允许前端传规则字段。
 4. 前端不允许复制规则常量。
 5. 审计执行不写 TaskRun、freshness、snapshot 表。
@@ -528,8 +545,8 @@ Tab：
 | M1 | 规则投影 | Rule service + `/rules` schema | 57 个 Definition 全覆盖 |
 | M2 | 核心审计引擎 | Expected planner、actual reader、gap detector | 所有 date model 组合有单测 |
 | M3 | 独立审计表 | run/gap ORM + Alembic | 不依赖 TaskRun，不写 freshness |
-| M4 | 手动审计 API | 创建 run、执行 run、查询 run/gap | PASS/FAIL/NA/ERROR 全路径 |
-| M5 | 独立 worker | `DateCompletenessAuditWorker` 与一次性消费命令 | queued -> running -> succeeded/failed |
+| M4 | 手动审计 API | 创建 run、查询 run/gap | 不适用数据集返回 422，API 不接受前端传规则字段 |
+| M5 | 独立 worker | 执行 run、`DateCompletenessAuditWorker` 与一次性消费命令 | queued -> running -> succeeded/failed，PASS/FAIL/ERROR 路径 |
 | M6 | 审查中心页面 | 手动审计 + 审计记录 | 页面不读取 TaskRun view |
 | M7 | 自动审计 | 独立 schedule 表和 worker 调度 | 可配置、可暂停、可查看最近结果 |
 | M8 | 远程验证 | 小窗口真实执行验证 | 覆盖交易日、月份键、月窗口、不适用路径 |
@@ -545,9 +562,15 @@ Tab：
 
 ## 14. 待评审决策点
 
-1. `audit_applicable=false` 时，创建 `not_applicable` run，还是 API 直接返回不可创建。
-2. 第一版是否实现独立 worker，还是 API 创建后同步执行并立即返回结果。
-3. 第一版是否包含自动审计，还是只做手动审计和历史记录。
-4. 自动审计 schedule 是否第一版建表，还是 M7 后置。
-5. `trade_cal` 是否第一版固定默认交易所，还是审计请求显式传 `exchange`。
+### 14.1 已确认决策
 
+1. `audit_applicable=false` 时不可创建审计 run；前端不展示创建入口，后端收到请求直接返回校验错误。
+2. 第一版创建独立 `DateCompletenessAuditWorker`，不使用 TaskRun，不使用数据维护 worker。
+3. 第一版包含自动审计。
+4. 第一版创建 `ops.dataset_date_completeness_schedule`，它就是自动审计配置表。
+5. 第一版使用默认交易所口径；表结构保留 `calendar_scope/calendar_exchange`，为未来港股或自定义交易所留扩展口。
+
+### 14.2 剩余待评审
+
+1. 自动审计默认推荐窗口：例如交易日数据默认 `lookback_count=10, lookback_unit=open_day`，月度数据默认 `lookback_count=6, lookback_unit=month`。
+2. 审计详情页是否默认展开全部缺口区间，还是只展示摘要并按需展开。

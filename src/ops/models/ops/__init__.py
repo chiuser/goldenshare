@@ -1,6 +1,9 @@
 """Ops schema models."""
 
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
+from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
+from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
@@ -18,6 +21,9 @@ from src.ops.models.ops.task_run_node import TaskRunNode
 
 __all__ = [
     "ConfigRevision",
+    "DatasetDateCompletenessGap",
+    "DatasetDateCompletenessRun",
+    "DatasetDateCompletenessSchedule",
     "DatasetLayerSnapshotCurrent",
     "DatasetLayerSnapshotHistory",
     "DatasetStatusSnapshot",

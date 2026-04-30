@@ -32,6 +32,9 @@ from src.foundation.models.core_serving.index_monthly_serving import IndexMonthl
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
+from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
+from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
@@ -96,6 +99,9 @@ def web_engine(configured_web_env) -> Generator:
         DcMember.__table__.create(connection)
         Security.__table__.create(connection)
         TradeCalendar.__table__.create(connection)
+        DatasetDateCompletenessRun.__table__.create(connection)
+        DatasetDateCompletenessGap.__table__.create(connection)
+        DatasetDateCompletenessSchedule.__table__.create(connection)
         OpsSchedule.__table__.create(connection)
         TaskRun.__table__.create(connection)
         TaskRunNode.__table__.create(connection)

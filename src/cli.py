@@ -20,6 +20,7 @@ from src.cli_parts.ingestion_handlers import (
     run_ingestion_snapshot as _run_ingestion_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
+    run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
     run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
@@ -54,6 +55,7 @@ from src.ops.services.operations_moneyflow_multi_source_seed_service import Mone
 from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowReconcileService
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
+from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 
 
@@ -416,6 +418,18 @@ def ops_worker_run(
         limit=limit,
         auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
         auto_reconcile_limit=auto_reconcile_limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-date-completeness-worker-run")
+def ops_date_completeness_worker_run(
+    limit: int = typer.Option(1, min=1, max=1000, help="Maximum queued date completeness audit runs to consume."),
+) -> None:
+    _run_ops_date_completeness_worker_run_impl(
+        session_local=SessionLocal,
+        worker_cls=DateCompletenessAuditWorker,
+        limit=limit,
         echo_fn=typer.echo,
     )
 
