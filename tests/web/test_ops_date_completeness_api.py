@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import select
 from sqlalchemy import text
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 
 
@@ -160,6 +162,120 @@ def test_create_date_completeness_run_rejects_invalid_range(app_client, user_fac
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_date_completeness_schedule_crud_and_rejects_unsupported_dataset(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/schedules",
+        headers=headers,
+        json={
+            "dataset_key": "moneyflow_ind_dc",
+            "display_name": "板块资金流向审计",
+            "window_mode": "fixed_range",
+            "start_date": "2026-04-20",
+            "end_date": "2026-04-24",
+            "calendar_scope": "default_cn_market",
+            "cron_expr": "0 22 * * *",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created["dataset_key"] == "moneyflow_ind_dc"
+    assert created["display_name"] == "板块资金流向审计"
+    assert created["status"] == "active"
+    assert created["next_run_at"] is not None
+
+    list_response = app_client.get("/api/v1/ops/review/date-completeness/schedules?limit=50&offset=0", headers=headers)
+    assert list_response.status_code == 200
+    assert list_response.json()["total"] == 1
+
+    pause_response = app_client.post(
+        f"/api/v1/ops/review/date-completeness/schedules/{created['id']}/pause",
+        headers=headers,
+    )
+    assert pause_response.status_code == 200
+    assert pause_response.json()["status"] == "paused"
+
+    resume_response = app_client.post(
+        f"/api/v1/ops/review/date-completeness/schedules/{created['id']}/resume",
+        headers=headers,
+    )
+    assert resume_response.status_code == 200
+    assert resume_response.json()["status"] == "active"
+
+    delete_response = app_client.delete(
+        f"/api/v1/ops/review/date-completeness/schedules/{created['id']}",
+        headers=headers,
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json() == {"id": created["id"], "status": "deleted"}
+
+    unsupported_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/schedules",
+        headers=headers,
+        json={
+            "dataset_key": "stock_basic",
+            "window_mode": "fixed_range",
+            "start_date": "2026-04-20",
+            "end_date": "2026-04-24",
+            "calendar_scope": "default_cn_market",
+            "cron_expr": "0 22 * * *",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+    assert unsupported_response.status_code == 422
+    assert unsupported_response.json()["code"] == "audit_not_applicable"
+
+
+def test_date_completeness_schedule_tick_creates_independent_scheduled_run(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 22), is_open=True, pretrade_date=date(2026, 4, 21)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 23), is_open=True, pretrade_date=date(2026, 4, 22)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 24), is_open=True, pretrade_date=date(2026, 4, 23)),
+        ]
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/schedules",
+        headers=headers,
+        json={
+            "dataset_key": "moneyflow_ind_dc",
+            "window_mode": "rolling",
+            "lookback_count": 3,
+            "lookback_unit": "open_day",
+            "calendar_scope": "default_cn_market",
+            "cron_expr": "0 22 * * *",
+            "timezone": "Asia/Shanghai",
+        },
+    )
+    assert create_response.status_code == 200
+    schedule_id = create_response.json()["id"]
+    schedule = db_session.scalar(
+        select(DatasetDateCompletenessSchedule).where(DatasetDateCompletenessSchedule.id == schedule_id)
+    )
+    assert schedule is not None
+    schedule.next_run_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    db_session.commit()
+
+    tick_response = app_client.post("/api/v1/ops/review/date-completeness/schedules/tick?limit=10", headers=headers)
+
+    assert tick_response.status_code == 200
+    payload = tick_response.json()
+    assert payload["scheduled"] == 1
+    detail_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{payload['run_ids'][0]}", headers=headers)
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["run_mode"] == "scheduled"
+    assert detail["schedule_id"] == schedule_id
+    assert detail["start_date"] == "2026-04-22"
+    assert detail["end_date"] == "2026-04-24"
 
 
 def test_date_completeness_worker_executes_queued_run_and_records_gaps(app_client, user_factory, db_session) -> None:

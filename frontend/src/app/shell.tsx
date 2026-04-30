@@ -52,6 +52,12 @@ export function OpsShell(_props: PropsWithChildren) {
   const userQuery = useCurrentUser();
   const versionText = `v${__APP_VERSION__} · ${__APP_COMMIT__}`;
   const buildTimeText = __APP_BUILD_TIME__.replace("T", " ").replace("Z", " UTC");
+  const isSourceSectionActive =
+    location.pathname === "/ops/v21/overview" ||
+    location.pathname === "/ops/v21/datasets/tushare" ||
+    location.pathname === "/ops/v21/datasets/biying" ||
+    location.pathname.startsWith("/ops/v21/datasets/detail/");
+  const isReviewSectionActive = location.pathname.startsWith("/ops/v21/review/");
 
   const logout = async () => {
     clearToken();
@@ -119,7 +125,7 @@ export function OpsShell(_props: PropsWithChildren) {
                 color="brand"
               />
             ))}
-            <ShellSectionLabel label="数据源" />
+            <ShellParentNavLabel label="数据源" icon={IconStack2} active={isSourceSectionActive} />
             {opsV21SourceLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -143,7 +149,7 @@ export function OpsShell(_props: PropsWithChildren) {
               color="brand"
             />
 
-            <ShellSectionLabel label="审查中心" />
+            <ShellParentNavLabel label="审查中心" icon={IconStack2} active={isReviewSectionActive} />
             {opsV21ReviewLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -231,13 +237,14 @@ export function OpsShell(_props: PropsWithChildren) {
   );
 }
 
-function ShellSectionLabel({ label }: { label: string }) {
+function ShellParentNavLabel({ label, icon: Icon, active }: { label: string; icon: typeof IconStack2; active: boolean }) {
   return (
-    <Group gap={8} px="xs" pt="sm" pb={4}>
-      <IconStack2 size={16} color="var(--gs-neutral-6)" />
-      <Text className="app-shell-section-caption" size="xs" fw={600}>
-        {label}
-      </Text>
-    </Group>
+    <NavLink
+      label={label}
+      leftSection={<Icon size={18} />}
+      variant="light"
+      color="brand"
+      active={active}
+    />
   );
 }

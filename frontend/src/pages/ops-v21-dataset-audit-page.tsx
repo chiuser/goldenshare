@@ -35,6 +35,7 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 import { TableShell } from "../shared/ui/table-shell";
+import { OpsV21DatasetAuditSchedulesPanel } from "./ops-v21-dataset-audit-schedules-panel";
 
 type AuditTab = "datasets" | "runs" | "schedules";
 
@@ -310,9 +311,7 @@ export function OpsV21DatasetAuditPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="schedules" pt="lg">
-          <SectionCard title="自动审计" description="自动审计会使用独立 schedule 表，不复用任务中心自动任务。">
-            <EmptyState title="自动审计配置待接入" description="后端独立 schedule API 完成后，这里会提供创建、暂停和最近结果查看。" />
-          </SectionCard>
+          <OpsV21DatasetAuditSchedulesPanel supportedRules={supportedRules} />
         </Tabs.Panel>
       </Tabs>
 

@@ -20,6 +20,7 @@ from src.cli_parts.ingestion_handlers import (
     run_ingestion_snapshot as _run_ingestion_snapshot_impl,
 )
 from src.cli_parts.ops_handlers import (
+    run_ops_date_completeness_scheduler_tick as _run_ops_date_completeness_scheduler_tick_impl,
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
@@ -56,6 +57,7 @@ from src.ops.services.operations_moneyflow_reconcile_service import MoneyflowRec
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.operations_stock_basic_reconcile_service import StockBasicReconcileService
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
+from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
 
 
@@ -429,6 +431,18 @@ def ops_date_completeness_worker_run(
     _run_ops_date_completeness_worker_run_impl(
         session_local=SessionLocal,
         worker_cls=DateCompletenessAuditWorker,
+        limit=limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-date-completeness-scheduler-tick")
+def ops_date_completeness_scheduler_tick(
+    limit: int = typer.Option(100, min=1, max=1000, help="Maximum due date completeness schedules to enqueue."),
+) -> None:
+    _run_ops_date_completeness_scheduler_tick_impl(
+        session_local=SessionLocal,
+        schedule_service_cls=DateCompletenessScheduleCommandService,
         limit=limit,
         echo_fn=typer.echo,
     )

@@ -1,7 +1,7 @@
 # 数据集日期完整性审计设计 v2（独立审计系统）
 
 - 版本：v2
-- 状态：可开发
+- 状态：M7 已完成本地验证（手动审计、独立 worker、自动审计配置与 tick 已接入；M8 远程验证待做）
 - 更新时间：2026-04-30
 - 适用范围：`src/ops` 审查中心的数据日期完整性审计能力
 - 前置事实源：`src/foundation/datasets/**` 的 `DatasetDefinition.date_model`
@@ -376,12 +376,20 @@ sequenceDiagram
 
 1. `GET /schedules`
 2. `POST /schedules`
-3. `PATCH /schedules/{schedule_id}`
-4. `POST /schedules/{schedule_id}/pause`
-5. `POST /schedules/{schedule_id}/resume`
-6. `DELETE /schedules/{schedule_id}`
+3. `GET /schedules/{schedule_id}`
+4. `PATCH /schedules/{schedule_id}`
+5. `POST /schedules/tick`
+6. `POST /schedules/{schedule_id}/pause`
+7. `POST /schedules/{schedule_id}/resume`
+8. `DELETE /schedules/{schedule_id}`
 
 自动审计必须使用 `ops.dataset_date_completeness_schedule`，不得复用 `ops.schedule` 作为临时方案。
+
+调度入口：
+
+1. API tick：`POST /schedules/tick`，用于一次性扫描 due schedule 并创建 `run_mode=scheduled` 的审计 run。
+2. CLI tick：`goldenshare ops-date-completeness-scheduler-tick --limit N`，用于独立调度进程或系统定时器调用。
+3. 审计执行仍由 `DateCompletenessAuditWorker` 消费 queued run；调度只创建 run，不直接读取业务表。
 
 ---
 
@@ -548,7 +556,7 @@ Tab：
 | M4 | 手动审计 API | 创建 run、查询 run/gap | 不适用数据集返回 422，API 不接受前端传规则字段 |
 | M5 | 独立 worker | 执行 run、`DateCompletenessAuditWorker` 与一次性消费命令 | queued -> running -> succeeded/failed，PASS/FAIL/ERROR 路径 |
 | M6 | 审查中心页面 | 手动审计 + 审计记录 | 页面不读取 TaskRun view |
-| M7 | 自动审计 | 独立 schedule 表和 worker 调度 | 可配置、可暂停、可查看最近结果 |
+| M7 | 自动审计 | 独立 schedule 表、schedule API、scheduler tick、前端自动审计 Tab | 可配置、可暂停/恢复/删除、可查看最近结果 |
 | M8 | 远程验证 | 小窗口真实执行验证 | 覆盖交易日、月份键、月窗口、不适用路径 |
 
 建议第一批验证数据集：

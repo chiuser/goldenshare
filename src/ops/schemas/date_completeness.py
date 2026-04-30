@@ -105,3 +105,72 @@ class DateCompletenessGapItem(BaseModel):
 class DateCompletenessGapListResponse(BaseModel):
     total: int
     items: list[DateCompletenessGapItem]
+
+
+class DateCompletenessScheduleCreateRequest(BaseModel):
+    dataset_key: str
+    display_name: str | None = None
+    status: str = "active"
+    window_mode: str
+    start_date: date | None = None
+    end_date: date | None = None
+    lookback_count: int | None = None
+    lookback_unit: str | None = None
+    calendar_scope: str = "default_cn_market"
+    calendar_exchange: str | None = None
+    cron_expr: str
+    timezone: str = "Asia/Shanghai"
+
+
+class DateCompletenessScheduleUpdateRequest(BaseModel):
+    display_name: str | None = None
+    status: str | None = None
+    window_mode: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    lookback_count: int | None = None
+    lookback_unit: str | None = None
+    calendar_scope: str | None = None
+    calendar_exchange: str | None = None
+    cron_expr: str | None = None
+    timezone: str | None = None
+
+
+class DateCompletenessScheduleItem(BaseModel):
+    id: int
+    dataset_key: str
+    display_name: str
+    status: str
+    window_mode: str
+    start_date: date | None = None
+    end_date: date | None = None
+    lookback_count: int | None = None
+    lookback_unit: str | None = None
+    calendar_scope: str
+    calendar_exchange: str | None = None
+    cron_expr: str
+    timezone: str
+    next_run_at: datetime | None = None
+    last_run_id: int | None = None
+    last_run_status: str | None = None
+    last_result_status: str | None = None
+    last_run_finished_at: datetime | None = None
+    created_by_user_id: int | None = None
+    updated_by_user_id: int | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DateCompletenessScheduleListResponse(BaseModel):
+    total: int
+    items: list[DateCompletenessScheduleItem]
+
+
+class DateCompletenessScheduleDeleteResponse(BaseModel):
+    id: int
+    status: str = "deleted"
+
+
+class DateCompletenessScheduleTickResponse(BaseModel):
+    scheduled: int
+    run_ids: list[int]

@@ -133,6 +133,35 @@ function mockApi() {
     if (path === "/api/v1/ops/review/date-completeness/runs/7/gaps") {
       return { total: 0, items: [] };
     }
+    if (path === "/api/v1/ops/review/date-completeness/schedules?limit=50&offset=0") {
+      return { total: 0, items: [] };
+    }
+    if (path === "/api/v1/ops/review/date-completeness/schedules" && options?.method === "POST") {
+      return {
+        id: 3,
+        dataset_key: "moneyflow_ind_dc",
+        display_name: "板块资金流向(DC) 日期完整性审计",
+        status: "active",
+        window_mode: "rolling",
+        start_date: null,
+        end_date: null,
+        lookback_count: 10,
+        lookback_unit: "open_day",
+        calendar_scope: "default_cn_market",
+        calendar_exchange: null,
+        cron_expr: "0 22 * * *",
+        timezone: "Asia/Shanghai",
+        next_run_at: "2026-04-30T14:00:00Z",
+        last_run_id: null,
+        last_run_status: null,
+        last_result_status: null,
+        last_run_finished_at: null,
+        created_by_user_id: 1,
+        updated_by_user_id: 1,
+        created_at: "2026-04-30T10:00:00+08:00",
+        updated_at: "2026-04-30T10:00:00+08:00",
+      };
+    }
     throw new Error(`unexpected path: ${path}`);
   });
 }
@@ -162,6 +191,36 @@ describe("数据集审计页", () => {
           dataset_key: "moneyflow_ind_dc",
           start_date: "2026-04-20",
           end_date: "2026-04-24",
+        },
+      });
+    });
+    expect(apiRequest.mock.calls.some(([path]) => String(path).includes("/api/v1/ops/task-runs"))).toBe(false);
+  });
+
+  it("在自动审计页创建独立 schedule，不复用任务中心接口", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /自动审计/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "创建自动审计" }));
+    await screen.findByText("日历：默认 A 股交易日历。港股/自定义交易所入口已预留，后续按业务口径开启。");
+    fireEvent.click(screen.getByRole("button", { name: "确认创建自动审计" }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/schedules", {
+        method: "POST",
+        body: {
+          dataset_key: "moneyflow_ind_dc",
+          display_name: null,
+          status: "active",
+          window_mode: "rolling",
+          start_date: null,
+          end_date: null,
+          lookback_count: 10,
+          lookback_unit: "open_day",
+          calendar_scope: "default_cn_market",
+          calendar_exchange: null,
+          cron_expr: "0 22 * * *",
+          timezone: "Asia/Shanghai",
         },
       });
     });

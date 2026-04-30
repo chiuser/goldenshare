@@ -91,3 +91,48 @@ export interface DateCompletenessGapListResponse {
   total: number;
   items: DateCompletenessGapItem[];
 }
+
+export interface DateCompletenessScheduleItem {
+  id: number;
+  dataset_key: string;
+  display_name: string;
+  status: "active" | "paused";
+  window_mode: "fixed_range" | "rolling";
+  start_date: string | null;
+  end_date: string | null;
+  lookback_count: number | null;
+  lookback_unit: "calendar_day" | "open_day" | "month" | null;
+  calendar_scope: "default_cn_market" | "cn_a_share" | "hk_market" | "custom_exchange";
+  calendar_exchange: string | null;
+  cron_expr: string;
+  timezone: string;
+  next_run_at: string | null;
+  last_run_id: number | null;
+  last_run_status: DateCompletenessRunItem["run_status"] | null;
+  last_result_status: DateCompletenessRunItem["result_status"];
+  last_run_finished_at: string | null;
+  created_by_user_id: number | null;
+  updated_by_user_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DateCompletenessScheduleListResponse {
+  total: number;
+  items: DateCompletenessScheduleItem[];
+}
+
+export interface DateCompletenessScheduleCreateRequest {
+  dataset_key: string;
+  display_name?: string | null;
+  status: "active" | "paused";
+  window_mode: "fixed_range" | "rolling";
+  start_date?: string | null;
+  end_date?: string | null;
+  lookback_count?: number | null;
+  lookback_unit?: "calendar_day" | "open_day" | "month" | null;
+  calendar_scope: "default_cn_market";
+  calendar_exchange?: string | null;
+  cron_expr: string;
+  timezone: string;
+}

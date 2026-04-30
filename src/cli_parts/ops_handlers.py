@@ -342,6 +342,26 @@ def run_ops_date_completeness_worker_run(
         echo_fn(f"ops-date-completeness-worker-run: 本轮审计={processed}")
 
 
+def run_ops_date_completeness_scheduler_tick(
+    *,
+    session_local,
+    schedule_service_cls,
+    limit: int,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        runs = schedule_service_cls().enqueue_due_schedules(session, limit=limit)
+        for run in runs:
+            echo_fn(
+                "scheduled "
+                f"date_completeness_run#{run.id} "
+                f"schedule_id={run.schedule_id} "
+                f"dataset={run.dataset_key} "
+                f"range={run.start_date.isoformat()}~{run.end_date.isoformat()}"
+            )
+        echo_fn(f"ops-date-completeness-scheduler-tick: scheduled={len(runs)}")
+
+
 def run_ops_scheduler_serve(
     *,
     session_local,
