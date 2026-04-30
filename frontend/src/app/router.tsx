@@ -29,6 +29,7 @@ import { PlatformCheckPage } from "../pages/platform-check-page";
 import { UserOverviewPage } from "../pages/user-overview-page";
 import { OpsShell } from "./shell";
 
+export const ADMIN_DEFAULT_ROUTE = "/ops/v21/today";
 
 function AppRoot() {
   return <Outlet />;
@@ -52,7 +53,7 @@ function HomeRoutePage() {
     if (!userQuery.data) {
       return;
     }
-    void navigate({ to: userQuery.data.is_admin ? "/ops/v21/overview" : "/user/overview", replace: true });
+    void navigate({ to: userQuery.data.is_admin ? ADMIN_DEFAULT_ROUTE : "/user/overview", replace: true });
   }, [clearToken, navigate, token, userQuery.data, userQuery.error]);
 
   return (
@@ -189,7 +190,7 @@ function UserOverviewLayout() {
 function OpsIndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    void navigate({ to: "/ops/v21/overview", replace: true });
+    void navigate({ to: ADMIN_DEFAULT_ROUTE, replace: true });
   }, [navigate]);
   return (
     <Center mih="100vh">

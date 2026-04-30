@@ -50,7 +50,7 @@ export function RegisterPage() {
       setErrorText(null);
       setTipText("验证完成，已自动登录。");
       setToken(data.token, data.refresh_token);
-      await navigate({ to: data.is_admin ? "/ops/v21/overview" : "/user/overview" });
+      await navigate({ to: data.is_admin ? "/ops/v21/today" : "/user/overview" });
     },
     onError: (error) => {
       setShowVerifySection(true);
@@ -101,7 +101,7 @@ export function RegisterPage() {
       if (data.token) {
         setToken(data.token, data.refresh_token);
         const profile = await apiRequest<CurrentUserResponse>("/api/v1/auth/me", { token: data.token });
-        await navigate({ to: profile.is_admin ? "/ops/v21/overview" : "/user/overview" });
+        await navigate({ to: profile.is_admin ? "/ops/v21/today" : "/user/overview" });
         return;
       }
       if (!data.requires_email_verification) {

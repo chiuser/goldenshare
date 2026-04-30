@@ -27,7 +27,7 @@ export function LoginPage() {
     onSuccess: async (data) => {
       setErrorText(null);
       setToken(data.token, data.refresh_token);
-      await navigate({ to: data.is_admin ? "/ops/v21/overview" : "/user/overview" });
+      await navigate({ to: data.is_admin ? "/ops/v21/today" : "/user/overview" });
     },
     onError: (error) => {
       if (error instanceof ApiError && error.code === "email_verification_required") {

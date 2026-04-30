@@ -1,268 +1,564 @@
-# 数据集开发说明模板（按当前代码现状）
+# 数据集开发说明模板（DatasetDefinition 主线）
 
 > 使用说明：
-> - 每新增一个数据集，必须复制本模板生成一份独立文档，放在 `docs/datasets/` 目录。
-> - 文档命名建议：`<dataset>-dataset-development.md`。
-> - 未完成本文档，不得进入开发与发布。
-
-## 0. 当前架构基线（必须遵守）
-
-本仓当前存在三种落库路径，新增数据集必须先选一种并写清理由：
-
-1. `raw_<source> -> core_serving`（单源直出，当前主流）
-2. `raw_<source> -> *_std -> core_serving`（多源融合，推荐目标态）
-3. `raw_<source>` only（仅采集，不对外服务）
-
-判定规则（必须在文档中填写）：
-- 该数据集是否对外服务：是/否
-- 当前是否多源：是/否
-- 是否已具备 std 映射与融合策略：是/否
-- 本次 target_table 选择：`raw_*` / `core.*` / `core_serving.*` / `core_serving_light.*`
-
-说明：
-- 目前绝大多数“对外服务”数据集已迁到 `core_serving.*`。
-- 以下 2 类当前仍保留在 `core`：`equity_adj_factor`、`fund_adj_factor`。
-- 若启用 `core_serving_light.*`，必须仍保留 `core_serving.*` 作为业务契约层。
+> - 每新增一个数据集，先复制本模板生成独立文档，放在 `docs/datasets/` 目录。
+> - 文档命名建议：`<dataset-key>-dataset-development.md`。
+> - 未完成本文档，不得进入编码、发版或远程同步。
+> - 本模板以当前新架构为准：数据集事实源是 `DatasetDefinition`，执行主链是 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`，任务观测主链是 Ops TaskRun。
 
 ---
 
-## 1. 标准交付流程（必须按顺序）
+## 0. 架构基线与禁止项
 
-1. 固定上游文档与接口版本。
-2. 分析输入参数与输出字段（含分页能力）。
-3. 明确落库路径与 target_table（按第 0 节规则）。
-4. 设计表结构、主键、幂等、去重、异常处理。
-5. 接入 Ops（任务规格、手动/自动交互、数据状态观测）。
-6. 实现同步代码与必要查询/接口改造。
-7. 完成测试（单测、集成、回归）。
-8. 更新文档索引并验收。
+### 0.1 当前必须遵守的主线
+
+1. 数据集身份、来源、输入、日期模型、落库、规划、清洗、能力、观测、质量、事务，全部收敛到 `src/foundation/datasets/**` 的 `DatasetDefinition`。
+2. 维护动作统一为 `action=maintain`，动作 key 由 `DatasetDefinition.action_key("maintain")` 派生，格式为 `<dataset_key>.maintain`。
+3. 执行计划由 `DatasetActionResolver` 根据 `DatasetDefinition` 生成，执行器只消费 `DatasetExecutionPlan` 和 plan units。
+4. Ops 手动任务、自动任务、任务详情、数据状态、数据源卡片均消费由 `DatasetDefinition` 派生的事实，不在前端或 Ops 查询层重新拼装数据集事实。
+5. 任务运行与问题诊断只走 TaskRun 主链：`ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`。
+
+### 0.2 禁止项
+
+1. 不得新增或恢复 `sync_daily`、`backfill_*`、`sync_history` 作为用户可见或 API 主执行模型。
+2. 不得新增 `src.foundation.services.sync.*`、`src.foundation.services.sync_v2.*` 或旧 `operations/platform` 主实现。
+3. 不得在 foundation 中依赖 ops、biz、app、platform、operations。
+4. 不得使用 `__ALL__` / `__all__` 这类业务占位值污染请求参数、落库行或 source key。需要全量枚举时，必须在 `enum_fanout_defaults` 中显式列出真实枚举值。
+5. 不得引入 checkpoint / acquire / 定点跳过语义；除非项目负责人明确提出该能力，并先完成专项方案评审。
+6. 不得把状态写入失败设计成回滚业务数据；Ops/TaskRun/freshness/snapshot/schedule 等状态写入只能影响观测状态。
+7. 不得写“临时方案”。如果事实或能力还没准备好，应标为“不支持 / 暂不接入”，不要把临时路径做进主链。
+
+---
+
+## 1. 标准交付流程
+
+1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
+2. 新增或更新 `docs/sources/**` 源站文档；Tushare 文档必须同步 `docs/sources/tushare/docs_index.csv`。
+3. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
+4. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
+5. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
+6. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
+7. 确认 Ops 派生能力：manual actions、catalog、freshness、dataset cards、TaskRun 详情。
+8. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁。
+9. 本地执行门禁并记录命令。
+10. 发版前在开发库跑最小真实同步，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
 
 ---
 
 ## 2. 基本信息
 
-- 数据集名称：
-- 资源 key：
-- 所属域（基础主数据 / 股票 / 指数 / 板块 / 榜单 / 低频事件 / 其他）：
+- 数据集 key：
+- 中文显示名：
+- 所属定义文件：`src/foundation/datasets/definitions/<domain>.py`
+- 所属域：`reference_master` / `market_equity` / `market_fund` / `index_series` / `board_hotspot` / `moneyflow` / `low_frequency` / 其他（新增域需先评审）
 - 数据源：`tushare` / `biying` / 其他
-- 官方文档链接：
-- 数据源接口说明文档（建议放在 `docs/sources/`）：
-- API 名称：
+- 源站 API 名称：
+- 源站文档链接：
+- 本地源站文档路径：
 - 文档抓取日期：
+- 是否对外服务：是 / 否
+- 是否多源融合：是 / 否
+- 是否纳入自动任务：是 / 否
+- 是否纳入日期完整性审计：是 / 否
 
 ---
 
-## 3. 接口分析
+## 3. 源站接口分析
 
-### 3.1 输入参数（上游原生）
+### 3.1 输入参数
 
-| 参数名 | 类型 | 必填 | 说明 | 类别（时间/枚举/代码/分页） | 是否暴露给用户 | 前端控件 | 执行层映射 |
+| 参数名 | 类型 | 必填 | 说明 | 类别（时间/枚举/代码/分页/其他） | 是否给运营用户填写 | 对应 `DatasetInputField` | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
-### 3.2 输出字段（上游原生）
+### 3.2 输出字段
 
-| 字段名 | 类型 | 含义 | 是否落库 |
-| --- | --- | --- | --- |
+| 字段名 | 类型 | 含义 | 是否落 raw | 是否进入 serving/core | 清洗规则 |
+| --- | --- | --- | --- | --- | --- |
 
-### 3.3 同步策略结论（必须）
+### 3.3 源端行为
 
-- 是否支持单次时间点：
-- 是否支持区间回补：
-- 时间粒度（日/周/月）：
-- 时间推进策略（交易日历/自然日/周五/月末）：
-- 是否需要分页循环（`limit/offset/page_num`）：
-- 是否有级联依赖（如先同步索引再同步成分）：
+- 是否分页：
+- 分页参数与结束条件：
+- 是否限速或有积分限制：
+- 是否需要按代码池、日期、月份、枚举拆分请求：
+- 是否有上游脏值或缺字段风险：
+- 是否有级联依赖（例如先同步指数/板块主表，再同步成分）：
 
 ---
 
-## 4. 参数与交互设计（Ops）
+## 4. DatasetDefinition 事实设计
 
-### 4.1 手动任务交互（统一规范）
+### 4.1 `identity`
 
-1. 第一步：选择要维护的数据（按数据分组）。
-2. 第二步：时间参数（仅当接口有时间语义时显示）。
-3. 第三步：其他输入条件（仅当存在非时间参数时显示）。
+```python
+"identity": {
+    "dataset_key": "",
+    "display_name": "",
+    "description": "",
+    "aliases": (),
+    "logical_key": None,
+    "logical_priority": 100,
+}
+```
+
+- `dataset_key`：
+- `display_name`：
+- `description`：
+- `aliases`：
+- `logical_key` / `logical_priority`（多源或同逻辑数据集时必填）：
+
+### 4.2 `domain`
+
+```python
+"domain": {
+    "domain_key": "",
+    "domain_display_name": "",
+    "cadence": "daily",
+}
+```
+
+- `domain_key`：
+- `domain_display_name`：
+- `cadence`：`daily` / `weekly` / `monthly` / `intraday` / `low_frequency` / `snapshot` / `on_demand`
+
+### 4.3 `source`
+
+```python
+"source": {
+    "source_key_default": "",
+    "source_keys": ("",),
+    "adapter_key": "",
+    "api_name": "",
+    "source_fields": (),
+    "source_doc_id": "",
+    "request_builder_key": "generic",
+    "base_params": {},
+}
+```
+
+- `source_key_default` 必须属于 `source_keys`。
+- `source_fields` 必须与源站文档和实际请求字段一致。
+- 自定义请求参数构造器必须注册在 `src/foundation/ingestion/request_builders.py`。
+- 不得从 `dataset_key` 前缀反推 source；source 事实只能来自这里。
+
+### 4.4 `date_model`
+
+```python
+"date_model": {
+    "date_axis": "",
+    "bucket_rule": "",
+    "window_mode": "",
+    "input_shape": "",
+    "observed_field": None,
+    "audit_applicable": False,
+    "not_applicable_reason": None,
+}
+```
+
+- `date_axis`：`trade_open_day` / `natural_day` / `month_key` / `month_window` / `none`
+- `bucket_rule`：`every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `every_natural_month` / `month_window_has_data` / `not_applicable`
+- `window_mode`：`point` / `range` / `point_or_range` / `none`
+- `input_shape`：按现有代码枚举选择，例如 `trade_date_or_start_end`、`month_or_range`、`start_end_month_window`、`ann_date_or_start_end`、`none`
+- `observed_field`：用于 freshness 和日期审计观测的目标表字段；没有业务日期时填 `None`
+- `audit_applicable`：
+- `not_applicable_reason`：
+
+说明：
+- 周线/月线必须使用 `week_last_open_day` / `month_last_open_day`，语义是每周/每月最后一个交易日。
+- 快照/主数据通常使用 `date_axis="none"`、`bucket_rule="not_applicable"`，并给出 `not_applicable_reason`。
+- 前端日期控件、审计能力、freshness 口径都从 `date_model` 派生，不允许另建第二套日期规则。
+
+### 4.5 `input_model`
+
+```python
+"input_model": {
+    "time_fields": (),
+    "filters": (),
+    "required_groups": (),
+    "mutually_exclusive_groups": (),
+    "dependencies": (),
+}
+```
+
+| 字段 | 类型 | 是否必填 | 默认值 | 枚举值 | 是否多选 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
 约束：
-- 时间统一用日期/月份选择器，不允许自由文本日期。
-- 枚举支持多选时，前端用勾选下拉；执行层按接口要求拼接（常见为逗号）。
-- 分页参数默认不暴露给运营用户，由服务内部循环。
+- 时间字段必须与 `date_model.input_shape` 一致。
+- 给用户看的 `display_name` 必须是中文业务名，不得暴露内部字段含义。
+- 枚举多选如果要默认展开，必须同步配置 `planning.enum_fanout_defaults`。
 
-### 4.2 自动任务交互（统一规范）
+### 4.6 `storage`
 
-- 调度：单次 / 每日 / 每周 / 每月 + 时间选择器。
-- 不直接暴露底层字段名（`trade_date/start_date/end_date` 只作为内部映射）。
-- 页面展示“业务化配置”与“最终执行参数”。
+```python
+"storage": {
+    "raw_dao_name": "",
+    "core_dao_name": "",
+    "target_table": "",
+    "delivery_mode": "",
+    "layer_plan": "",
+    "std_table": None,
+    "serving_table": None,
+    "raw_table": "",
+    "conflict_columns": None,
+    "write_path": "raw_core_upsert",
+}
+```
+
+- `raw_table`：
+- `target_table`：
+- `delivery_mode`：
+- `layer_plan`：例如 `raw-only`、`raw->core`、`raw->serving`、`raw->std->serving`
+- `raw_dao_name`：
+- `core_dao_name`：
+- `conflict_columns`：
+- `write_path`：
+
+常见 `write_path`：
+- `raw_only_upsert`
+- `raw_core_upsert`
+- `raw_core_snapshot_insert_by_trade_date`
+- `raw_std_publish_stock_basic`
+- `raw_std_publish_moneyflow`
+- `raw_std_publish_moneyflow_biying`
+- `raw_index_period_serving_upsert`
+
+如果需要新增 `write_path`，必须说明为什么现有路径不能承载，并补 writer 测试。
+
+### 4.7 `planning`
+
+```python
+"planning": {
+    "universe_policy": "none",
+    "enum_fanout_fields": (),
+    "enum_fanout_defaults": {},
+    "pagination_policy": "none",
+    "page_limit": None,
+    "chunk_size": None,
+    "max_units_per_execution": None,
+    "unit_builder_key": "generic",
+}
+```
+
+- `universe_policy`：是否按股票池、指数池、板块池等展开。
+- `enum_fanout_fields`：哪些枚举字段参与 unit 扇出。
+- `enum_fanout_defaults`：用户未填写枚举时默认展开的真实枚举值集合。
+- `pagination_policy`：`none` / `offset_limit` / 其他现有策略。
+- `page_limit`：
+- `chunk_size`：
+- `max_units_per_execution`：
+- `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
+
+写入量评估：
+- 必须估算单个 unit 的最大写入行数：
+- 必须估算单个数据库事务的最大写入行数：
+- 若单个 unit 可能形成超大事务，必须先调整 unit 拆分规则，不能靠分页掩盖事务风险。
+
+### 4.8 `normalization`
+
+```python
+"normalization": {
+    "date_fields": (),
+    "decimal_fields": (),
+    "required_fields": (),
+    "row_transform_name": None,
+}
+```
+
+- `date_fields`：
+- `decimal_fields`：
+- `required_fields`：
+- `row_transform_name`：
+
+约束：
+- 行转换函数必须注册在 `src/foundation/ingestion/row_transforms.py`，不能放在 request builder 里。
+- `required_fields` 缺失应进入 reject 统计，不得静默写入不完整业务行。
+- 新增 row transform 必须补 normalizer 测试。
+
+### 4.9 `capabilities`
+
+```python
+"capabilities": {
+    "actions": (
+        {
+            "action": "maintain",
+            "manual_enabled": True,
+            "schedule_enabled": True,
+            "retry_enabled": True,
+            "supported_time_modes": (),
+        },
+    ),
+}
+```
+
+- 是否允许手动维护：
+- 是否允许自动调度：
+- 是否允许重试：
+- `supported_time_modes`：`point` / `range` / `none`
+
+### 4.10 `observability`、`quality`、`transaction`
+
+```python
+"observability": {
+    "progress_label": "",
+    "observed_field": None,
+    "audit_applicable": False,
+},
+"quality": {
+    "reject_policy": "record_rejections",
+    "required_fields": (),
+},
+"transaction": {
+    "commit_policy": "unit",
+    "idempotent_write_required": False,
+    "write_volume_assessment": "",
+}
+```
+
+- `observability.progress_label`：
+- `observability.observed_field` 必须与 `date_model.observed_field` 保持一致。
+- `quality.required_fields` 必须覆盖不能缺失的业务主键和日期字段。
+- `transaction.commit_policy` 当前必须为 `unit`。
+- `transaction.write_volume_assessment` 必须写人话，说明单事务写入量如何被控制。
 
 ---
 
-## 5. 落库与发布设计（必须写清）
+## 5. 表结构、DAO 与迁移设计
 
-### 5.1 路径选择（必填）
-
-- 路径类型：`raw only` / `raw -> core_serving` / `raw -> std -> core_serving` / `raw -> core_serving -> core_serving_light`
-- 选择理由：
-- 是否为临时方案：是/否
-- 若临时，后续收敛计划与截止时间：
-
-### 5.2 表设计
-
-### 5.2.0 工程硬约束（必须逐项填写）
-
-1. 数值类型策略：
-- 默认使用 `DOUBLE PRECISION`。
-- 若使用 `NUMERIC`，必须逐字段说明理由（例如监管口径、财务精确记账）。
-
-2. 分区策略（有 `trade_date` 时强制）：
-- 按 `trade_date` 做范围分区。
-- 默认年分区；超大表可月分区（需给出判断依据）。
-
-3. 主键与索引策略（有 `ts_code + trade_date` 语义时强制）：
-- 主键：`(ts_code, trade_date)`。
-- 必备索引：`trade_date` 方向索引（用于按日同步与检索）。
-- 可选索引：`(ts_code, trade_date DESC)`（用于单标的最近序列查询）。
-
-4. 本次设计填写：
-- 数值字段中 `DOUBLE PRECISION` 占比与例外字段：
-- 分区粒度（年/月）与理由：
-- 主键与索引清单：
+### 5.1 表设计
 
 #### A. `raw_<source>.<table>`
-- 主键策略：
+
+- ORM 模型路径：
+- 主键：
 - 字段清单：
-- 审计字段（如 `api_name`、`fetched_at`）：
+- 审计字段：
 - 索引：
+- 是否分区：
 
 #### B. `*_std.<table>`（如启用）
-- 标准字段映射规则：
+
+- ORM 模型路径：
+- 标准字段映射：
 - 清洗规则：
 - 主键与索引：
 
-#### C. `core_serving.<table>`（如启用）
-- 对外字段口径：
-- `resolved_source_key` / `resolved_policy_version` / `resolved_at` 是否需要：
-- upsert 主键：
+#### C. `core` / `core_serving` / `core_serving_light`（如启用）
 
-#### D. `core_serving_light.<table>`（如启用）
-- 轻量字段清单（仅高频查询字段）：
-- 与 `core_serving` 一致性策略（字段映射/回退规则）：
-- 分区策略（年/月）：
-- upsert 主键与索引：
+- ORM 模型路径：
+- 对外字段口径：
+- 主键：
+- upsert 冲突列：
+- 索引：
+- 是否分区：
+
+### 5.2 工程硬约束
+
+1. 数值类型默认使用 `DOUBLE PRECISION`；若使用 `NUMERIC`，必须逐字段说明理由。
+2. 有 `trade_date` 且数据量较大的表，必须评估分区；默认年分区，超大表可月分区。
+3. 有 `ts_code + trade_date` 语义时，默认主键为 `(ts_code, trade_date)`，并评估 `trade_date` 方向索引。
+4. 新 ORM 模型必须能被 `src.foundation.models.table_model_registry.table_model_registry()` 发现；freshness 观测依赖该 registry。
+5. 新表必须有 Alembic 迁移，迁移和 ORM 模型字段必须一致。
+
+### 5.3 DAO
+
+- Raw DAO：
+- Core/Serving DAO：
+- 是否需要新增 DAOFactory 属性：
+- `bulk_upsert` / `insert` / 特殊写入策略：
+- 幂等策略：
 
 ---
 
-## 6. 维护实现设计
+## 6. Ingestion 实现设计
 
-- IngestionExecutor / SourceClient：
-- `target_table`：
-- 参数构建规则（UI -> 执行参数）：
-- 分页循环策略：
+### 6.1 请求构造
+
+- `request_builder_key`：
+- 函数位置：`src/foundation/ingestion/request_builders.py`
+- 输入来自 `DatasetActionRequest.time_input` / `filters` / `base_params`：
+- 是否需要源端字段名转换：
+- 是否需要默认参数：
+
+### 6.2 Unit 规划
+
+- `unit_builder_key`：
+- unit 维度：日期 / 月份 / 股票 / 指数 / 板块 / 枚举 / 组合
+- unit_id 组成：
+- `progress_context` 字段：
+- 单 unit 最大数据量评估：
+- 单次执行最大 unit 数评估：
+
+### 6.3 Source Client 与分页
+
+- adapter：`tushare` / `biying` / 其他
+- `pagination_policy`：
+- 单页参数：
+- 结束条件：
+- 限速策略：
+- 源端错误映射：
+
+### 6.4 Normalizer
+
+- 字段类型转换：
+- 日期转换：
+- decimal/float 转换：
+- required 字段拒绝策略：
+- row transform：
+- reject reason code：
+
+### 6.5 Writer
+
+- `write_path`：
+- raw 写入：
+- serving/core 写入：
+- 是否先删后写：
 - 幂等写入策略：
-- 去重规则：
-- 异常分类与重试策略：
+- 冲突列：
+- 事务边界：每个 unit 一个业务数据事务
 
-### 6.1 数据同步信息上报设计（必须）
+### 6.6 结构化错误与 codebook
 
-新增数据集必须单独设计“任务执行中如何向运营人员说明当前处理进度”。
+- 新增 `error_code`：
+- 中文语义：
+- 建议动作：
+- 是否需要加入 `src/foundation/ingestion/codebook.py`：
+- 前端是否能通过 codebook 展示，不硬编码语义：
 
-参考文档：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
+---
+
+## 7. Ops、TaskRun 与页面派生
+
+### 7.1 手动任务
+
+- `GET /api/v1/ops/manual-actions` 是否能看到该数据集：
+- 分组是否来自 `DatasetDefinition.domain`：
+- 名称是否来自 `DatasetDefinition.display_name`：
+- 时间控件是否由 `date_model` 正确派生：
+- filter 控件是否由 `input_model.filters` 正确派生：
+- 提交接口：`POST /api/v1/ops/manual-actions/<dataset_key>.maintain/task-runs`
+
+### 7.2 自动任务
+
+- 是否允许 `schedule_enabled=True`：
+- 自动任务是否只选择数据集动作，不暴露底层执行路径：
+- 是否需要放入 workflow：如需要，使用 `docs/templates/workflow-development-template.md` 另写方案。
+
+### 7.3 TaskRun 观测
+
+参考：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 
 必须填写：
 
-1. 当前处理对象类型：
-   - `unit=stock`：股票维度
-   - `unit=index`：指数维度
-   - `unit=board`：板块维度
-   - `unit=trade_date`：交易日维度
-   - `unit=enum`：枚举维度
-   - `unit=code`：其它代码维度
-2. 当前处理对象标识：
-   - 股票：`ts_code`，可选 `security_name`
-   - 指数：`index_code`，可选 `index_name`
-   - 板块：`board_code`，可选 `board_name`
-   - 日期：`trade_date`
-   - 枚举：`enum_field`、`enum_value`
-3. 当前窗口信息：
-   - 如有时间窗口，填写 `start_date/end_date`
-   - 如有频度，填写 `freq`
-4. 行数统计语义：
-   - `fetched/written` 固定表示全任务累计读取/写入
-   - `unit_fetched/unit_written` 表示当前 unit 读取/写入
-   - 不得把 `fetched/written` 改成当前对象语义
-5. 前端复用要求：
-   - 后端输出通用 token，不输出页面专用文案
-   - 前端只按 token 解析展示，不按 dataset_key 写专用分支
-6. 示例进度消息：
+- 当前对象类型：股票 / 指数 / 板块 / 日期 / 月份 / 枚举 / 其他
+- 当前对象标识字段：
+- 当前窗口字段：
+- `progress_context` 示例：
+- 失败时 `TaskRunIssue.object_json` 示例：
+- 是否有 `rows_rejected`：
+- 是否有 `rejected_reason_counts` / `rejected_reason_samples`：
 
-```text
-<dataset_key>: <current>/<total> unit=<unit_type> ts_code=<code> security_name=<name> freq=<freq> unit_fetched=<n> unit_written=<n> fetched=<total_n> written=<total_n> rejected=<n>
+展示原则：
+- 页面主指标只展示最终已提交结果，不把中间尝试写入量当成已入库结果。
+- 后端输出结构化 token，Ops 层负责转换为用户可读展示。
+- 不得在前端按 dataset_key 写专用文案分支。
+
+### 7.4 数据状态、数据源卡片与 freshness
+
+- `target_table` 是否能在 `table_model_registry()` 找到 ORM 模型：
+- `date_model.observed_field` 是否存在于目标 ORM 模型：
+- 无日期数据集是否明确展示最近同步迹象而非新鲜/滞后：
+- 数据源卡片是否显示正确 source：
+- `ops-rebuild-dataset-status` 后是否能生成正确快照：
+
+### 7.5 日期完整性审计
+
+- `audit_applicable`：
+- 审计日期桶：
+- 期望桶生成规则：
+- 实际桶读取字段：
+- 不适用原因：
+
+---
+
+## 8. 测试与门禁
+
+### 8.1 必补测试
+
+- DatasetDefinition registry：
+  - 新 dataset key 在正确 domain 文件中
+  - `tests/architecture/test_dataset_runtime_registry_guardrails.py` 的 domain key 矩阵已更新
+- Resolver / planner：
+  - point / range / none / month 视数据集能力覆盖
+  - unit_count、unit_id、request_params、progress_context 正确
+- Request builder：
+  - 时间参数映射
+  - filter / enum 参数映射
+  - 不产生非法 ALL sentinel
+- Normalizer：
+  - date / decimal / required fields
+  - row transform 可注册并可执行
+  - reject reason 统计
+- Writer：
+  - 幂等 upsert
+  - conflict_columns
+  - 单 unit 事务边界
+- Ops API：
+  - manual-actions
+  - catalog
+  - task-runs
+  - freshness / dataset-cards
+- Frontend（如显示或交互变化）：
+  - 页面能看到动作
+  - 表单控件正确
+  - 任务详情和数据状态展示正确
+
+### 8.2 必跑命令
+
+```bash
+pytest -q tests/architecture/test_subsystem_dependency_matrix.py
+pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py tests/test_dataset_unit_planner.py
+pytest -q tests/architecture/test_dataset_runtime_registry_guardrails.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py tests/architecture/test_arch_no_all_sentinel.py
+GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions
+python3 scripts/check_docs_integrity.py
 ```
 
-- 进度事件规范（必须面向用户可读）：
-  - 时间推进型：当前处理到哪个日期/周/月
-  - 代码推进型：当前处理到哪个代码
-  - 统计：读取/写入/失败
-- 结构化错误与拒绝统计（必须）：
-  - 失败场景输出稳定 `error_code`，并在 codebook 中可查中文语义与建议动作
-  - 当 `fetched != written` 时，`step_progress.payload_json` 至少包含 `rows_rejected`
-  - 优先输出 `rejected_reason_counts`（TopN）与 `rejected_reason_samples`（TopN），超长时标记 `reason_stats_truncated`
+按改动范围追加：
 
----
+```bash
+pytest -q tests/test_dataset_normalizer.py
+pytest -q tests/test_dataset_writer_<dataset>.py
+pytest -q tests/web/test_ops_manual_actions_api.py tests/web/test_ops_catalog_api.py tests/web/test_ops_freshness_api.py
+cd frontend && npm run typecheck
+```
 
-## 7. 数据状态与健康度观测
+### 8.3 验收勾选
 
-- 该数据集在数据状态页的分组：
-- 健康度口径：
-  - 有业务日期：展示“日期范围”
-  - 无业务日期：展示“最近同步日期”
-- 业务日期观测一致性（有业务日期时必填）：
-  - `DatasetDefinition.date_model.observed_field` 已配置（通常为 `trade_date`）
-  - 由 `DatasetDefinition` 派生的 freshness projection 的 `target_table` 已在 `OBSERVED_DATE_MODEL_REGISTRY` 中配置模型映射
-  - 映射模型中存在 `observed_date_column` 对应字段
-  - Tushare/Biying 源页面卡片展示“最新业务日/日期范围”，不会退化为“最近同步”
-- 异常展示口径（中文）：
-- 是否纳入自动任务覆盖标识：
-
----
-
-## 8. 测试与验收
-
-### 8.1 测试清单（必须）
-
-- 单元测试：
-  - 参数映射与校验
-  - 时间规则（交易日历/周月边界）
-  - 幂等与去重
-- 集成测试：
-  - 任务执行与落库
-  - Ops 可见（手动/自动/任务详情/数据状态）
-- 回归测试：
-  - 同域旧数据集不受影响
-
-### 8.2 验收勾选
-
-- [ ] 输出字段已全量落库（与文档一致）
-- [ ] `target_table` 选择有明确理由并与代码一致
-- [ ] 手动任务交互符合 1-2-3 步规范
-- [ ] 自动任务可配置且文案面向用户
-- [ ] 数据状态可观测且口径正确
-- [ ] 有业务日期的数据集已完成“业务日期观测一致性”检查（metadata / model registry / 字段存在 / 页面展示）
-- [ ] 已验证 freshness 守门校验：缺失 metadata 或 observed 映射时，启动期会被直接拦截
-- [ ] 失败可诊断（中文可读 + 原始错误可追踪）
-- [ ] 已完成 `error_code/reason_code` 编码治理：新增 code 已登记 codebook，前端不依赖硬编码语义
-- [ ] 已验证拒绝统计链路：`rows_rejected`、`rejected_reason_counts`、`rejected_reason_samples` 在任务详情页可见
-- [ ] 已验证统计截断兜底：超长时 `reason_stats_truncated` 与提示文案可见，接口与页面均不报错
-- [ ] 测试通过并记录命令
-- [ ] 文档已加入 `docs/README.md` 索引
+- [ ] 源站文档与 docs index 已更新
+- [ ] DatasetDefinition 十段事实完整
+- [ ] 新数据集没有旧执行术语或旧路由
+- [ ] 没有新增 `__ALL__` / `__all__` 业务占位值
+- [ ] 没有新增 checkpoint / acquire 语义
+- [ ] ORM、DAO、迁移一致
+- [ ] `target_table` 能被 table model registry 发现
+- [ ] 日期模型能驱动手动任务、freshness 和审计
+- [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
+- [ ] request builder、unit planner、normalizer、writer 均有测试
+- [ ] TaskRun 详情展示可读，无重复错误信息
+- [ ] 数据源卡片和数据状态页展示正确
+- [ ] 门禁命令已通过并记录输出
 
 ---
 
 ## 9. 发布与回滚
 
-- 迁移脚本：
+- Alembic 迁移：
 - 发布顺序：
-- 回滚步骤：
-- 风险点与应对：
+- 是否需要重建数据状态：`goldenshare ops-rebuild-dataset-status`
+- 最小真实同步命令：
+- 验收查询 SQL：
+- 回滚方式：
+- 风险点与处理：
 
 ---
 
@@ -270,4 +566,5 @@
 
 - 当前已支持：
 - 当前不支持：
+- 已知风险：
 - 后续计划：

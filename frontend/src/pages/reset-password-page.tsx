@@ -28,7 +28,7 @@ export function ResetPasswordPage() {
     onSuccess: async (data) => {
       setErrorText(null);
       setToken(data.token, data.refresh_token);
-      await navigate({ to: data.is_admin ? "/ops/v21/overview" : "/user/overview" });
+      await navigate({ to: data.is_admin ? "/ops/v21/today" : "/user/overview" });
     },
     onError: (error) => {
       setErrorText(error instanceof Error ? error.message : "密码重置失败，请稍后重试");

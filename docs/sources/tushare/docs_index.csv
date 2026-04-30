@@ -1,6 +1,6 @@
 ﻿doc_id,title,api_name,category_path,source_url,local_path
 19,公募基金列表,fund_basic,公募基金,https://tushare.pro/document/2?doc_id=19,公募基金/0019_公募基金列表.md
-25,股票基础信息,stock_basic,股票数据 / 基础数据,https://tushare.pro/document/2?doc_id=25,股票数据/基础数据/0025_股票基础信息.md
+25,股票基础信息,stock_basic,股票数据 / 基础数据,https://tushare.pro/document/2?doc_id=25,股票数据/基础数据/0025_基础信息.md
 26,交易日历,trade_cal,股票数据 / 基础数据,https://tushare.pro/document/2?doc_id=26,股票数据/基础数据/0026_交易日历.md
 27,A股日线行情,daily,股票数据 / 行情数据,https://tushare.pro/document/2?doc_id=27,股票数据/行情数据/0027_A股日线行情.md
 28,复权因子,adj_factor,股票数据 / 行情数据,https://tushare.pro/document/2?doc_id=28,股票数据/行情数据/0028_复权因子.md

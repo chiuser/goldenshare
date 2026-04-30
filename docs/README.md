@@ -99,7 +99,6 @@ docs/
 
 - [前端技术与组件体系选型建议](/Users/congming/github/goldenshare/docs/frontend/frontend-technology-and-component-selection.md)
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
-- [前端应用一期设计](/Users/congming/github/goldenshare/docs/frontend/frontend-application-phase1.md)
 - [前端交付流程规范 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-delivery-workflow-v1.md)
 - [前端设计 Tokens 与组件目录 v2](/Users/congming/github/goldenshare/docs/frontend/frontend-design-tokens-and-component-catalog-v1.md)
 - [前端组件 Showcase v1（HTML 对照）](/Users/congming/github/goldenshare/docs/frontend/frontend-component-showcase-v1.html)
