@@ -1,0 +1,13 @@
+# Copy this file to lake_console/config.local.toml and fill local-only values.
+# config.local.toml is ignored by git and must never be committed.
+
+lake_root = "/Volumes/YourDisk/goldenshare-tushare-lake"
+tushare_token = "fill-your-tushare-token-here"
+
+# Optional local server settings.
+host = "127.0.0.1"
+port = 8010
+
+# Optional stk_mins write tuning.
+bucket_count = 32
+target_part_size_mb = 256

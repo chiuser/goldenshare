@@ -153,6 +153,11 @@ frontend/.playwright/
 frontend/playwright-report/
 frontend/test-results/
 *.tsbuildinfo
+lake_console/config.local.toml
+lake_console/.venv/
+lake_console/frontend/node_modules/
+lake_console/frontend/dist/
+lake_console/frontend/*.tsbuildinfo
 
 # Local agent notes (may include machine paths/connection hints)
 AGENTS.local.md

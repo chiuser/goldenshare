@@ -43,3 +43,16 @@
 2. 三个 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
 
 不要给无边界的 root 命令白名单。
+
+---
+
+## 本地 Lake Console 脚本
+
+`scripts/local-lake-console.sh` 只用于本地移动盘 Lake Console。
+
+约束：
+
+1. 不参与生产部署。
+2. 不启动生产 web/worker/scheduler。
+3. 不读取或写入远程 `goldenshare-db`。
+4. 必须通过 `GOLDENSHARE_LAKE_ROOT` 指定本地移动盘 Lake 根目录。
