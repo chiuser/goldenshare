@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date
 from datetime import timedelta
 from typing import Any
@@ -8,7 +9,6 @@ from sqlalchemy import delete, or_, select, text, tuple_
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.factory import DAOFactory
-from dataclasses import dataclass
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.errors import IngestionWriteError, StructuredError
@@ -32,6 +32,8 @@ class WriteResult:
     rows_skipped: int
     target_table: str
     conflict_strategy: str
+    rows_rejected: int = 0
+    rejected_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 class DatasetWriter:
@@ -141,6 +143,13 @@ class DatasetWriter:
                 core_dao=core_dao,
                 conflict_columns=definition.storage.conflict_columns,
             )
+            rejected_reason_counts = self._duplicate_reason_counts(
+                rows=batch.rows_normalized,
+                conflict_columns=self._resolve_conflict_columns(
+                    core_dao,
+                    definition.storage.conflict_columns,
+                ),
+            )
         except Exception as exc:
             raise IngestionWriteError(
                 StructuredError(
@@ -160,6 +169,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="upsert",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     def _write_index_period_serving(
@@ -174,6 +185,7 @@ class DatasetWriter:
     ) -> WriteResult:
         rows_written = 0
         conflict_strategy = "upsert"
+        rejected_reason_counts: dict[str, int] = {}
         active_codes = self._resolve_active_index_codes()
         explicit_ts_code = bool(
             plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
@@ -184,6 +196,10 @@ class DatasetWriter:
                 rows=batch.rows_normalized,
                 active_codes=active_codes,
             )
+            rejected_reason_counts = self._reason_count(
+                "write.filtered_by_business_rule:ts_code",
+                len(batch.rows_normalized) - len(filtered_rows),
+            )
             if not filtered_rows:
                 return WriteResult(
                     unit_id=batch.unit_id,
@@ -192,7 +208,19 @@ class DatasetWriter:
                     rows_skipped=batch.rows_rejected,
                     target_table=definition.storage.target_table,
                     conflict_strategy="index_period_filtered_empty",
+                    rows_rejected=sum(rejected_reason_counts.values()),
+                    rejected_reason_counts=rejected_reason_counts,
                 )
+            self._merge_reason_counts(
+                rejected_reason_counts,
+                self._duplicate_reason_counts(
+                    rows=filtered_rows,
+                    conflict_columns=self._resolve_conflict_columns(
+                        raw_dao,
+                        definition.storage.conflict_columns,
+                    ),
+                ),
+            )
             if full_date_refresh:
                 self._purge_index_period_raw_rows_by_trade_dates(raw_dao=raw_dao, rows=filtered_rows)
             if definition.storage.conflict_columns:
@@ -269,6 +297,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy=conflict_strategy,
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     def _build_index_period_serving_rows(
@@ -540,6 +570,58 @@ class DatasetWriter:
         raw_dao.bulk_upsert(batch.rows_normalized)
         return core_dao.bulk_upsert(batch.rows_normalized)
 
+    @staticmethod
+    def _resolve_conflict_columns(dao, explicit_columns: tuple[str, ...] | None) -> tuple[str, ...]:
+        if explicit_columns:
+            return tuple(explicit_columns)
+        model = getattr(dao, "model", None)
+        table = getattr(model, "__table__", None)
+        primary_key = getattr(table, "primary_key", None)
+        if primary_key is None:
+            return ()
+        return tuple(column.name for column in primary_key.columns)
+
+    @classmethod
+    def _duplicate_reason_counts(
+        cls,
+        *,
+        rows: list[dict[str, Any]],
+        conflict_columns: tuple[str, ...] | list[str] | None,
+    ) -> dict[str, int]:
+        columns = tuple(conflict_columns or ())
+        if not rows or not columns:
+            return {}
+        seen: set[tuple[Any, ...]] = set()
+        duplicate_count = 0
+        for row in rows:
+            if any(column not in row or row[column] is None for column in columns):
+                continue
+            key = tuple(row[column] for column in columns)
+            if key in seen:
+                duplicate_count += 1
+                continue
+            seen.add(key)
+        return cls._reason_count(
+            f"write.duplicate_conflict_key_in_batch:{','.join(columns)}",
+            duplicate_count,
+        )
+
+    @staticmethod
+    def _reason_count(reason_key: str, count: int) -> dict[str, int]:
+        normalized_count = int(count or 0)
+        if normalized_count <= 0:
+            return {}
+        return {reason_key: normalized_count}
+
+    @staticmethod
+    def _merge_reason_counts(target: dict[str, int], source: dict[str, int]) -> None:
+        for key, count in source.items():
+            normalized_key = str(key or "").strip()
+            normalized_count = int(count or 0)
+            if not normalized_key or normalized_count <= 0:
+                continue
+            target[normalized_key] = target.get(normalized_key, 0) + normalized_count
+
     def _write_stock_basic_std_publish(
         self,
         *,
@@ -565,6 +647,7 @@ class DatasetWriter:
 
         written = 0
         conflict_strategy = "upsert"
+        rejected_reason_counts: dict[str, int] = {}
         if requested_source_key == "all":
             touched_ts_codes = {
                 str(row.get("ts_code")).strip().upper()
@@ -588,6 +671,10 @@ class DatasetWriter:
             ]
             written = self.dao.security.upsert_many(serving_rows) if serving_rows else 0
             conflict_strategy = "biying_missing_only"
+            rejected_reason_counts = self._reason_count(
+                "write.filtered_by_business_rule:ts_code",
+                len(std_rows) - len(serving_rows),
+            )
         else:
             serving_rows = [{key: value for key, value in row.items() if key != "source_key"} for row in std_rows]
             written = self.dao.security.upsert_many(serving_rows) if serving_rows else 0
@@ -600,6 +687,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy=conflict_strategy,
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     @staticmethod
@@ -652,6 +741,10 @@ class DatasetWriter:
         raw_dao,
         std_dao,
     ) -> WriteResult:
+        rejected_reason_counts = self._duplicate_reason_counts(
+            rows=batch.rows_normalized,
+            conflict_columns=self._resolve_conflict_columns(std_dao, definition.storage.conflict_columns),
+        )
         if definition.storage.conflict_columns:
             raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(definition.storage.conflict_columns))
         else:
@@ -678,6 +771,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="upsert",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     def _write_moneyflow_std_publish_biying(
@@ -688,6 +783,10 @@ class DatasetWriter:
         raw_dao,
         std_dao,
     ) -> WriteResult:
+        rejected_reason_counts = self._duplicate_reason_counts(
+            rows=batch.rows_normalized,
+            conflict_columns=self._resolve_conflict_columns(std_dao, definition.storage.conflict_columns),
+        )
         if definition.storage.conflict_columns:
             raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(definition.storage.conflict_columns))
         else:
@@ -714,6 +813,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="upsert",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     @staticmethod
@@ -724,11 +825,19 @@ class DatasetWriter:
         raw_dao,
     ) -> WriteResult:
         if definition.storage.conflict_columns:
+            rejected_reason_counts = DatasetWriter._duplicate_reason_counts(
+                rows=batch.rows_normalized,
+                conflict_columns=definition.storage.conflict_columns,
+            )
             rows_written = raw_dao.bulk_upsert(
                 batch.rows_normalized,
                 conflict_columns=list(definition.storage.conflict_columns),
             )
         else:
+            rejected_reason_counts = DatasetWriter._duplicate_reason_counts(
+                rows=batch.rows_normalized,
+                conflict_columns=DatasetWriter._resolve_conflict_columns(raw_dao, None),
+            )
             rows_written = raw_dao.bulk_upsert(batch.rows_normalized)
         return WriteResult(
             unit_id=batch.unit_id,
@@ -737,6 +846,8 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="upsert",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
         )
 
     @staticmethod
@@ -761,4 +872,6 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="snapshot_insert_by_trade_date",
+            rows_rejected=0,
+            rejected_reason_counts={},
         )

@@ -94,11 +94,13 @@ class IngestionExecutor:
                 )
                 unit_rows_fetched = len(fetched.rows_raw)
                 unit_rows_written = written.rows_written
-                unit_rows_rejected = normalized.rows_rejected
+                unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
                 rows_fetched += unit_rows_fetched
                 rows_written += unit_rows_written
                 rows_rejected += unit_rows_rejected
                 for reason_code, count in normalized.rejected_reasons.items():
+                    rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+                for reason_code, count in written.rejected_reason_counts.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
                 self.session.commit()
                 rows_committed += unit_rows_written

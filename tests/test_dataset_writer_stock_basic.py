@@ -128,3 +128,18 @@ def test_writer_stock_basic_biying_only_inserts_missing_codes(mocker) -> None:
     assert len(security.upsert_calls) == 1
     assert [row["ts_code"] for row in security.upsert_calls[0]] == ["000002.SZ"]
     assert result.conflict_strategy == "biying_missing_only"
+    assert result.rows_rejected == 1
+    assert result.rejected_reason_counts == {"write.filtered_by_business_rule:ts_code": 1}
+
+
+def test_writer_counts_duplicate_conflict_keys() -> None:
+    reason_counts = DatasetWriter._duplicate_reason_counts(
+        rows=[
+            {"row_key_hash": "a", "title": "第一条"},
+            {"row_key_hash": "a", "title": "重复条"},
+            {"row_key_hash": "b", "title": "第二条"},
+        ],
+        conflict_columns=("row_key_hash",),
+    )
+
+    assert reason_counts == {"write.duplicate_conflict_key_in_batch:row_key_hash": 1}

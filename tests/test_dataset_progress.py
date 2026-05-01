@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.executor import IngestionExecutor
+from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.progress import IngestionObserver, ProgressSnapshot
 from src.foundation.ingestion.service import DatasetMaintainService
+from src.foundation.ingestion.source_client import SourceFetchResult
+from src.foundation.ingestion.writer import WriteResult
 
 
 def test_observer_emits_progress_without_run_id() -> None:
@@ -115,3 +119,83 @@ def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
     service._progress_reporter(snapshot, "股票日线：1/5；累计读取 100；累计保存 0")
 
     assert captured[0]["rows_saved"] == 0
+
+
+def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
+    captured: list[tuple[ProgressSnapshot, str]] = []
+
+    class StubSession:
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    class StubSourceClient:
+        def fetch(self, *, definition, unit):  # type: ignore[no-untyped-def]
+            return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}, {}, {}])
+
+    class StubNormalizer:
+        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+            return NormalizedBatch(
+                unit_id=fetch_result.unit_id,
+                rows_normalized=[{"row_key_hash": "a"}, {"row_key_hash": "b"}],
+                rows_rejected=1,
+                rejected_reasons={"normalize.required_field_missing:trade_date": 1},
+            )
+
+        def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]
+            return None
+
+    class StubWriter:
+        def write(self, **kwargs):  # type: ignore[no-untyped-def]
+            return WriteResult(
+                unit_id="u-1",
+                rows_written=1,
+                rows_upserted=1,
+                rows_skipped=0,
+                target_table="raw_tushare.test",
+                conflict_strategy="upsert",
+                rows_rejected=1,
+                rejected_reason_counts={"write.duplicate_conflict_key_in_batch:row_key_hash": 1},
+            )
+
+    executor = IngestionExecutor(StubSession())
+    executor.source_client = StubSourceClient()  # type: ignore[assignment]
+    executor.normalizer = StubNormalizer()  # type: ignore[assignment]
+    executor.writer = StubWriter()  # type: ignore[assignment]
+    unit = PlanUnitSnapshot(
+        unit_id="u-1",
+        dataset_key="major_news",
+        source_key="tushare",
+        trade_date=None,
+        request_params={},
+        progress_context={},
+    )
+    request = ValidatedDatasetActionRequest(
+        request_id="r-1",
+        dataset_key="major_news",
+        action="maintain",
+        run_profile="no_time_refresh",
+        trigger_source="test",
+        params={},
+        source_key=None,
+        trade_date=None,
+        start_date=None,
+        end_date=None,
+        run_id=123,
+    )
+
+    summary = executor.run(
+        request=request,
+        definition=get_dataset_definition("major_news"),
+        units=(unit,),
+        progress_reporter=lambda snapshot, message: captured.append((snapshot, message)),
+    )
+
+    assert summary.rows_rejected == 2
+    assert summary.rejected_reason_counts == {
+        "normalize.required_field_missing:trade_date": 1,
+        "write.duplicate_conflict_key_in_batch:row_key_hash": 1,
+    }
+    assert captured[0][0].rejected_reason_counts == summary.rejected_reason_counts
