@@ -14,7 +14,11 @@ from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDe
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
-from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
+from lake_console.backend.app.services.tushare_stk_mins_sync_service import (
+    DEFAULT_PART_ROWS,
+    StkMinsProgressEvent,
+    TushareStkMinsSyncService,
+)
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
 from lake_console.backend.app.settings import load_settings
@@ -70,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     mins_parser.add_argument("--freqs", default=None, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60；全市场模式可用")
     mins_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="交易日，格式 YYYY-MM-DD")
     mins_parser.add_argument("--all-market", action="store_true", help="从本地 stock_basic 股票池读取全市场 ts_code 并扇出请求")
-    mins_parser.add_argument("--part-rows", default=200_000, type=int, help="全市场模式下每个 Parquet part 的最大行数")
+    mins_parser.add_argument("--part-rows", default=DEFAULT_PART_ROWS, type=int, help="全市场模式下每个 Parquet part 的最大行数")
     mins_parser.set_defaults(handler=_handle_sync_stk_mins)
 
     range_parser = subparsers.add_parser("sync-stk-mins-range", help="按本地交易日历拉取区间内分钟线行情")
@@ -81,7 +85,7 @@ def _build_parser() -> argparse.ArgumentParser:
     range_parser.add_argument("--ts-code", default=None, help="股票代码，例如 000001.SZ；单股票模式必填")
     range_parser.add_argument("--freq", default=None, type=int, choices=(1, 5, 15, 30, 60), help="单个分钟周期")
     range_parser.add_argument("--freqs", default=None, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60；全市场模式可用")
-    range_parser.add_argument("--part-rows", default=200_000, type=int, help="全市场模式下每个 Parquet part 的最大行数")
+    range_parser.add_argument("--part-rows", default=DEFAULT_PART_ROWS, type=int, help="全市场模式下每个 Parquet part 的最大行数")
     range_parser.set_defaults(handler=_handle_sync_stk_mins_range)
 
     derive_parser = subparsers.add_parser("derive-stk-mins", help="从 30/60 分钟线派生 90/120 分钟线")

@@ -51,6 +51,8 @@
 3. 分区可解释：每个分区都必须说明它的分区键、覆盖范围、替换范围和推荐用途。
 4. 风险结构化：空文件、临时目录残留、schema 不一致、小文件过多等风险要有统一对象。
 5. 读写分离：本模型先支持读和展示；写能力后续基于该模型再设计，不在本轮混入。
+6. 展示目录独立：`category` / `group_key` 等用户可见分组必须参考 Ops 默认展示目录，不得直接使用生产 `DatasetDefinition.domain` 或 Lake catalog 代码文件名。
+7. 列表轻量：数据集列表默认只展示 `file_count`、`total_bytes`、日期范围、最近修改时间；`row_count` 不在列表页默认计算。
 
 ---
 
@@ -157,7 +159,10 @@ LakeDataset
 | `dataset_key` | string | 是 | 数据集唯一标识，例如 `stk_mins` |
 | `display_name` | string | 是 | 展示名，例如 `股票历史分钟行情` |
 | `source` | string | 是 | 数据来源，例如 `tushare`、`local` |
-| `category` | string | 是 | 数据集分类，例如 `行情数据`、`基础资料` |
+| `category` | string | 是 | 用户可见分组名称，参考 Ops 默认展示目录，例如 `A股行情`、`资金流向` |
+| `group_key` | string | 是 | 用户可见分组 key，参考 Ops 默认展示目录，例如 `equity_market` |
+| `group_label` | string | 是 | 用户可见分组名称，例如 `A股行情` |
+| `group_order` | integer | 是 | 用户可见分组排序 |
 | `description` | string 或 null | 否 | 给用户看的简短说明 |
 | `dataset_role` | `DatasetRole` | 是 | 数据集角色 |
 | `storage_root` | string | 是 | 相对 Lake Root 的存储根路径 |
@@ -181,6 +186,47 @@ LakeDataset
 | `health_status` | `HealthStatus` | 是 | 数据集健康状态 |
 | `risks` | `LakeRiskItem[]` | 是 | 数据集级风险 |
 
+### 6.1.1 行数统计口径
+
+`row_count` 不在数据集列表页默认计算。
+
+原因：
+
+1. 小数据集读取 Parquet metadata 成本很低，但大数据集可能有大量分区和文件。
+2. `stk_mins` 这类数据集未来可能有数万到数十万个 Parquet 文件，列表页逐个读取 metadata 会拖慢页面。
+3. 移动硬盘随机 IO 能力弱于本机 SSD，频繁扫 metadata 会让“打开页面”变成重操作。
+
+统一口径：
+
+| 页面 / 动作 | 是否计算 `row_count` | 说明 |
+|---|---:|---|
+| 数据集列表页 | 否 | 默认展示 `file_count`、`total_bytes`、日期范围、最近修改时间 |
+| 数据集详情页 | 是 | 用户进入详情后可计算该数据集或该层级行数 |
+| 显式刷新统计 | 是 | 后续可提供“刷新行数统计”动作，但不在列表页自动触发 |
+
+### 6.1.2 小文件风险口径
+
+小文件过多会影响：
+
+1. 目录扫描速度。
+2. Parquet metadata 读取速度。
+3. DuckDB 查询规划速度。
+4. 移动硬盘随机 IO 压力。
+
+默认建议阈值：
+
+| 风险项 | warning | error |
+|---|---:|---:|
+| 单文件平均大小 | `< 8MB` | `< 1MB` |
+| 单分区文件数 | `> 20` | `> 100` |
+| 单数据集文件数 | `> 10000` | `> 50000` |
+
+说明：
+
+1. 阈值用于风险提示，不阻断读取。
+2. 小型快照数据集天然文件小，例如 `stock_basic`，不应按同一阈值误报。
+3. 大体量数据集如 `stk_mins`、后续 Tick 或分钟级衍生数据，应优先关注该风险。
+
 ### 6.2 示例：`stock_basic`
 
 ```json
@@ -188,7 +234,10 @@ LakeDataset
   "dataset_key": "stock_basic",
   "display_name": "股票基础信息",
   "source": "tushare",
-  "category": "基础资料",
+  "category": "A股基础数据",
+  "group_key": "reference_data",
+  "group_label": "A股基础数据",
+  "group_order": 1,
   "dataset_role": "raw_dataset",
   "storage_root": "raw_tushare/stock_basic",
   "partition_count": 1,
@@ -203,6 +252,36 @@ LakeDataset
 }
 ```
 
+### 6.4 层级展示口径
+
+`raw_tushare`、`manifest`、`derived`、`research` 都必须可见，不能因为它们是辅助层就从总览中消失。
+
+推荐展示：
+
+```text
+stock_basic
+  raw_tushare：正式研究数据
+  manifest：本地同步使用的股票池
+
+trade_cal
+  raw_tushare：正式交易日历数据
+  manifest：本地同步使用的交易日历
+
+stk_mins
+  raw_tushare：Tushare 原始分钟线
+  derived：90/120 等本地派生分钟线
+  research：面向回测和查询优化的重排布局
+```
+
+`research` 第一版作为 `stk_mins` 的子层展示，不作为独立数据集卡片展示。
+
+原因：
+
+1. `research` 不是新数据源事实，而是同一数据集的物理重排。
+2. 用户更容易理解为“这个数据集有哪些层级”。
+3. 后续如果 `derived` 或 `research` 出现多种布局，可以在详情页扩展成多层级、多布局列表。
+
+
 ### 6.3 示例：`stk_mins`
 
 ```json
@@ -210,7 +289,10 @@ LakeDataset
   "dataset_key": "stk_mins",
   "display_name": "股票历史分钟行情",
   "source": "tushare",
-  "category": "行情数据",
+  "category": "A股行情",
+  "group_key": "equity_market",
+  "group_label": "A股行情",
+  "group_order": 2,
   "dataset_role": "raw_dataset",
   "storage_root": "raw_tushare/stk_mins_by_date",
   "supported_freqs": [1, 5, 15, 30, 60, 90, 120],
@@ -398,7 +480,10 @@ LakeDataset
 | `dataset_key` | `stock_basic` |
 | `display_name` | 股票基础信息 |
 | `source` | `tushare` |
-| `category` | 基础资料 |
+| `category` | A股基础数据 |
+| `group_key` | `reference_data` |
+| `group_label` | A股基础数据 |
+| `group_order` | 1 |
 | `dataset_role` | `raw_dataset` |
 | `primary_layout` | `current_file` |
 | `storage_root` | `raw_tushare/stock_basic` |
@@ -418,7 +503,10 @@ LakeDataset
 | `dataset_key` | `stock_basic_universe` |
 | `display_name` | Tushare 股票池清单 |
 | `source` | `tushare` |
-| `category` | 执行辅助 |
+| `category` | A股基础数据 |
+| `group_key` | `reference_data` |
+| `group_label` | A股基础数据 |
+| `group_order` | 1 |
 | `dataset_role` | `universe_manifest` |
 | `primary_layout` | `manifest_file` |
 | `storage_root` | `manifest/security_universe` |
@@ -437,7 +525,10 @@ LakeDataset
 | `dataset_key` | `trade_cal` |
 | `display_name` | 交易日历 |
 | `source` | `tushare` |
-| `category` | 基础资料 |
+| `category` | A股基础数据 |
+| `group_key` | `reference_data` |
+| `group_label` | A股基础数据 |
+| `group_order` | 1 |
 | `dataset_role` | `raw_dataset` |
 | `primary_layout` | `current_file` |
 | `storage_root` | `raw_tushare/trade_cal` |
@@ -455,7 +546,10 @@ LakeDataset
 | `dataset_key` | `stk_mins` |
 | `display_name` | 股票历史分钟行情 |
 | `source` | `tushare` |
-| `category` | 行情数据 |
+| `category` | A股行情 |
+| `group_key` | `equity_market` |
+| `group_label` | A股行情 |
+| `group_order` | 2 |
 | `dataset_role` | `raw_dataset` |
 | `primary_layout` | `by_date` |
 | `storage_root` | `raw_tushare/stk_mins_by_date` |
@@ -504,10 +598,10 @@ GET /api/lake/datasets/{dataset_key}/files
 
 ---
 
-## 13. 后续待讨论问题
+## 13. 已确认口径
 
-1. 页面是否需要展示 `manifest` 层为单独数据集，还是作为 `stock_basic` 的辅助层。
-2. `row_count` 是否默认读取 Parquet metadata，还是只在详情页或显式刷新时读取。
-3. 小文件过多的阈值如何设定。
-4. `research` 重排是否作为 `stk_mins` 的子层展示，还是作为独立 materialized layout 展示。
-5. 写入能力的页面入口如何设计，包括命令模板、后台任务、进度恢复和取消能力。
+1. `manifest` 层必须展示。它可以作为数据集辅助层展示，也可以在 Lake 层级总览中统计，但不能从页面隐藏。
+2. 数据集列表页默认不计算 `row_count`，只展示 `file_count`、`total_bytes`、日期范围和最近修改时间。
+3. `row_count` 在详情页或显式刷新时计算。
+4. `research` 第一版作为 `stk_mins` 子层展示，不作为独立数据集卡片展示。
+5. 写入页面入口暂缓；第一版先做“命令示例 / 操作提示”页面，不触发写入。

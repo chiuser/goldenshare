@@ -23,7 +23,7 @@ from lake_console.backend.app.services.tushare_client import TushareLakeClient
 
 
 STK_MINS_PAGE_LIMIT = 8000
-DEFAULT_PART_ROWS = 200_000
+DEFAULT_PART_ROWS = 500_000
 DEFAULT_REQUEST_WINDOW_DAYS = 31
 
 
