@@ -7,6 +7,8 @@ from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.models.core.index_basic import IndexBasic
+from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 
 
 class _StubUpsertDao:
@@ -143,3 +145,23 @@ def test_writer_counts_duplicate_conflict_keys() -> None:
     )
 
     assert reason_counts == {"write.duplicate_conflict_key_in_batch:row_key_hash": 1}
+
+
+def test_writer_coerces_rows_per_target_model_date_columns() -> None:
+    rows = [
+        {
+            "ts_code": "000300.SH",
+            "base_date": "20041231",
+            "list_date": "20050408",
+            "exp_date": "",
+        }
+    ]
+
+    raw_rows = DatasetWriter._coerce_rows_for_dao(rows, SimpleNamespace(model=RawIndexBasic))
+    core_rows = DatasetWriter._coerce_rows_for_dao(rows, SimpleNamespace(model=IndexBasic))
+
+    assert raw_rows[0]["base_date"] == "20041231"
+    assert raw_rows[0]["list_date"] == "20050408"
+    assert core_rows[0]["base_date"] == date(2004, 12, 31)
+    assert core_rows[0]["list_date"] == date(2005, 4, 8)
+    assert core_rows[0]["exp_date"] is None

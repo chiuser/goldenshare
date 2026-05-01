@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date
+
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,6 +24,11 @@ class IndexBasicDAO(BaseDAO[IndexBasic]):
         stmt = select(IndexBasic).where(IndexBasic.market == market)
         return list(self.session.scalars(stmt))
 
-    def get_active_indexes(self) -> list[IndexBasic]:
-        stmt = select(IndexBasic)
+    def get_active_indexes(self, as_of: date | None = None) -> list[IndexBasic]:
+        effective_date = as_of or date.today()
+        stmt = (
+            select(IndexBasic)
+            .where(or_(IndexBasic.exp_date.is_(None), IndexBasic.exp_date >= effective_date))
+            .order_by(IndexBasic.ts_code)
+        )
         return list(self.session.scalars(stmt))

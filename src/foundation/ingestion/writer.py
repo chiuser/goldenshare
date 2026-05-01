@@ -5,6 +5,8 @@ from datetime import date
 from datetime import timedelta
 from typing import Any
 
+from sqlalchemy import Date as SqlDate
+from sqlalchemy import DateTime as SqlDateTime
 from sqlalchemy import delete, or_, select, text, tuple_
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,7 @@ from src.foundation.ingestion.sentinel_guard import (
 )
 from src.foundation.services.transform.normalize_moneyflow_service import NormalizeMoneyflowService
 from src.foundation.services.transform.normalize_security_service import NormalizeSecurityService
+from src.utils import parse_tushare_date
 from src.foundation.serving.publish_service import ServingPublishService
 
 
@@ -556,19 +559,44 @@ class DatasetWriter:
             return trade_date - timedelta(days=trade_date.weekday())
         raise ValueError(f"不支持生成指数周期服务数据：{dataset_key}")
 
-    @staticmethod
+    @classmethod
     def _write_raw_and_core(
+        cls,
         *,
         batch: NormalizedBatch,
         raw_dao,
         core_dao,
         conflict_columns: tuple[str, ...] | None,
     ) -> int:
+        raw_rows = cls._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
+        core_rows = cls._coerce_rows_for_dao(batch.rows_normalized, core_dao)
         if conflict_columns:
-            raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(conflict_columns))
-            return core_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(conflict_columns))
-        raw_dao.bulk_upsert(batch.rows_normalized)
-        return core_dao.bulk_upsert(batch.rows_normalized)
+            raw_dao.bulk_upsert(raw_rows, conflict_columns=list(conflict_columns))
+            return core_dao.bulk_upsert(core_rows, conflict_columns=list(conflict_columns))
+        raw_dao.bulk_upsert(raw_rows)
+        return core_dao.bulk_upsert(core_rows)
+
+    @staticmethod
+    def _coerce_rows_for_dao(rows: list[dict[str, Any]], dao) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
+        model = getattr(dao, "model", None)
+        table = getattr(model, "__table__", None)
+        if table is None:
+            return [dict(row) for row in rows]
+        date_columns = {
+            column.name
+            for column in table.columns
+            if isinstance(column.type, SqlDate) and not isinstance(column.type, SqlDateTime)
+        }
+        if not date_columns:
+            return [dict(row) for row in rows]
+        prepared: list[dict[str, Any]] = []
+        for row in rows:
+            normalized = dict(row)
+            for column_name in date_columns:
+                if column_name in normalized:
+                    normalized[column_name] = parse_tushare_date(normalized[column_name])
+            prepared.append(normalized)
+        return prepared
 
     @staticmethod
     def _resolve_conflict_columns(dao, explicit_columns: tuple[str, ...] | None) -> tuple[str, ...]:

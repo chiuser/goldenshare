@@ -131,6 +131,35 @@ def test_major_news_normalizer_uses_url_in_row_hash() -> None:
     assert batch.rows_normalized[0]["row_key_hash"] != batch.rows_normalized[1]["row_key_hash"]
 
 
+def test_index_basic_normalizer_keeps_source_date_strings_for_raw_layer() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("index_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-index-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000300.SH",
+                    "name": "沪深300",
+                    "base_date": "20041231",
+                    "base_point": "1000",
+                    "list_date": "20050408",
+                    "exp_date": "",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["base_date"] == "20041231"
+    assert normalized["list_date"] == "20050408"
+    assert normalized["exp_date"] == ""
+    assert str(normalized["base_point"]) == "1000"
+
+
 def test_major_news_normalizer_allows_title_or_content_only() -> None:
     base_row = {
         "src": "新浪财经",

@@ -49,10 +49,14 @@ def test_index_basic_dao_get_active_indexes_loads_rows(mocker) -> None:
     session.scalars.return_value = iter([mocker.Mock(ts_code="000001.SH"), mocker.Mock(ts_code="000300.SH")])
     dao = IndexBasicDAO(session)
 
-    rows = dao.get_active_indexes()
+    rows = dao.get_active_indexes(as_of=date(2026, 4, 24))
 
     assert len(rows) == 2
     session.scalars.assert_called_once()
+    statement = session.scalars.call_args.args[0]
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "exp_date IS NULL" in compiled
+    assert "exp_date >= '2026-04-24'" in compiled
 
 
 def test_dao_factory_exposes_etf_basic_daos(mocker) -> None:

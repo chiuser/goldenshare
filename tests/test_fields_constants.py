@@ -82,6 +82,18 @@ def test_dataset_definition_source_fields_cover_extended_resources() -> None:
     assert "session_tag" not in stk_mins.normalization.required_fields
     assert "open_qfq" in _source_fields("stk_period_bar_adj_week")
     assert "publisher" in _source_fields("index_basic")
+    index_basic = get_dataset_definition("index_basic")
+    assert index_basic.date_model.window_mode == "none"
+    assert index_basic.input_model.time_fields == ()
+    assert {field.name for field in index_basic.input_model.filters} == {
+        "ts_code",
+        "symbol",
+        "name",
+        "market",
+        "publisher",
+        "category",
+    }
+    assert index_basic.capabilities.get_action("maintain").supported_time_modes == ("none",)
     assert tuple(_source_fields("index_weight")) == ("index_code", "con_code", "trade_date", "weight")
     assert tuple(_source_fields("broker_recommend")) == (
         "month",

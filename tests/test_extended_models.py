@@ -28,6 +28,7 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
+from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 
 
 def test_security_includes_curr_type() -> None:
@@ -72,6 +73,8 @@ def test_index_supplement_models_match_expected_keys() -> None:
         "idx_broker_recommend_ts_code_month",
     }
     assert [column.name for column in IndexBasic.__table__.primary_key.columns] == ["ts_code"]
+    assert str(RawIndexBasic.__table__.columns["base_date"].type) == "VARCHAR(16)"
+    assert str(IndexBasic.__table__.columns["base_date"].type) == "DATE"
     assert [column.name for column in IndexWeeklyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexMonthlyBar.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in IndexWeight.__table__.primary_key.columns] == ["index_code", "trade_date", "con_code"]

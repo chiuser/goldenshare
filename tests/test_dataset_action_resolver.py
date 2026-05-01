@@ -54,6 +54,46 @@ def test_dataset_action_resolver_builds_no_time_plan(mocker) -> None:
     assert plan.planning.unit_count >= 1
 
 
+def test_dataset_action_resolver_builds_index_basic_full_snapshot_with_pagination(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_basic",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 6000
+
+
+def test_dataset_action_resolver_builds_index_basic_explicit_filters(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_basic",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+        filters={
+            "symbol": ["000300", "000905"],
+            "market": "CSI",
+            "category": "规模指数",
+        },
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.units[0].request_params == {
+        "symbol": "000300,000905",
+        "category": "规模指数",
+        "market": "CSI",
+    }
+
+
 def test_dataset_action_resolver_builds_cctv_news_range_by_natural_day(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

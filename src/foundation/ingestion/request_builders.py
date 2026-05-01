@@ -150,16 +150,20 @@ def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
-    for key in ("name", "publisher"):
+    symbol = request.params.get("symbol")
+    if isinstance(symbol, (list, tuple, set)):
+        values = [str(item).strip() for item in symbol if str(item).strip()]
+        if values:
+            params["symbol"] = ",".join(values)
+    elif symbol not in (None, ""):
+        params["symbol"] = str(symbol).strip()
+    for key in ("name", "publisher", "category"):
         value = request.params.get(key)
         if value not in (None, ""):
             params[key] = str(value).strip()
-    market = enum_values.get("market", request.params.get("market"))
-    category = enum_values.get("category", request.params.get("category"))
+    market = request.params.get("market")
     if _has_value(market):
         params["market"] = str(market).strip()
-    if _has_value(category):
-        params["category"] = str(category).strip()
     return params
 
 
