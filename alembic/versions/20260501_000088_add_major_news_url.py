@@ -31,9 +31,9 @@ def upgrade() -> None:
             pub_time,
             title,
             content,
-            url,
             'tushare'::varchar(32) AS source,
-            fetched_at
+            fetched_at,
+            url
         FROM raw_tushare.major_news
         """
     )
@@ -44,9 +44,10 @@ def downgrade() -> None:
     if bind.dialect.name != "postgresql":
         return
 
+    op.execute("DROP VIEW IF EXISTS core_serving_light.major_news")
     op.execute(
         """
-        CREATE OR REPLACE VIEW core_serving_light.major_news AS
+        CREATE VIEW core_serving_light.major_news AS
         SELECT
             row_key_hash,
             src,
