@@ -39,6 +39,13 @@ The local Tushare client is rate-limited globally. The default is 500 requests p
 tushare_request_limit_per_minute = 500
 ```
 
+Minute range sync requests one symbol/frequency per date window, then writes rows
+back to daily partitions. The default window is roughly one natural month:
+
+```toml
+stk_mins_request_window_days = 31
+```
+
 ## Local Backend
 
 Install local backend dependencies:
@@ -101,6 +108,11 @@ lake-console sync-stk-mins-range \
   --start-date 2026-04-01 \
   --end-date 2026-04-30
 ```
+
+This command downloads by `ts_code + freq + date window`, paginates each Tushare
+request, then writes the returned rows into `freq=*/trade_date=*` Parquet
+partitions. The terminal progress bar shows the current window, symbol, freq,
+page and offset without printing one line per request.
 
 Generate local 90/120 minute derived bars from existing 30/60 minute by-date partitions:
 

@@ -231,7 +231,100 @@ def test_stk_mins_range_all_market_emits_structured_progress(tmp_path, monkeypat
 
     assert summary["trade_date_count"] == 1
     assert summary["written_rows"] == 4
-    assert [event.units_done for event in progress_events] == [1, 2, 3, 4]
-    assert progress_events[-1].units_total == 4
-    assert progress_events[-1].ts_code == "000002.SZ"
+    completed_events = [event for event in progress_events if event.page is None]
+    page_events = [event for event in progress_events if event.page is not None]
+
+    assert [event.units_done for event in completed_events] == [1, 2, 3, 4]
+    assert completed_events[-1].units_total == 4
+    assert completed_events[-1].ts_code == "000002.SZ"
+    assert completed_events[-1].window_start == date(2026, 4, 24)
+    assert completed_events[-1].window_end == date(2026, 4, 24)
+    assert page_events
     assert not any("page=" in message for message in text_messages)
+
+
+def test_stk_mins_range_all_market_requests_window_and_splits_daily_partitions(tmp_path, monkeypatch):
+    calls: list[dict[str, Any]] = []
+    written_paths: list[str] = []
+
+    class WindowClient(FakeClient):
+        def stk_mins(
+            self,
+            *,
+            ts_code: str,
+            freq: int,
+            start_date: str,
+            end_date: str,
+            limit: int,
+            offset: int,
+        ) -> list[dict[str, Any]]:
+            calls.append(
+                {
+                    "ts_code": ts_code,
+                    "freq": freq,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+            if offset:
+                return []
+            return [
+                {
+                    "ts_code": ts_code,
+                    "trade_time": "2026-04-24 10:00:00",
+                    "open": 10.1,
+                    "close": 10.2,
+                    "high": 10.3,
+                    "low": 10.0,
+                    "vol": 1000,
+                    "amount": 10200.0,
+                },
+                {
+                    "ts_code": ts_code,
+                    "trade_time": "2026-04-27 10:00:00",
+                    "open": 10.2,
+                    "close": 10.3,
+                    "high": 10.4,
+                    "low": 10.1,
+                    "vol": 2000,
+                    "amount": 20400.0,
+                },
+            ]
+
+    def fake_read(path: Path) -> list[dict[str, Any]]:
+        if "trading_calendar" in str(path):
+            return [
+                {"cal_date": "2026-04-24", "is_open": True},
+                {"cal_date": "2026-04-27", "is_open": True},
+            ]
+        return [{"ts_code": "000001.SZ", "list_status": "L"}]
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written_paths.append(str(output_path))
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(mins_module, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(mins_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(mins_module, "read_parquet_row_count", lambda path: 1)
+    (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
+    (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake parquet", encoding="utf-8")
+    (tmp_path / "manifest" / "security_universe").mkdir(parents=True)
+    (tmp_path / "manifest" / "security_universe" / "tushare_stock_basic.parquet").write_text("fake parquet", encoding="utf-8")
+
+    summary = TushareStkMinsSyncService(lake_root=tmp_path, client=WindowClient(), progress=lambda payload: None).sync_range(
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 27),
+        freqs=[30],
+        all_market=True,
+        part_rows=100,
+    )
+
+    assert calls[0]["start_date"] == "2026-04-24 09:00:00"
+    assert calls[0]["end_date"] == "2026-04-27 19:00:00"
+    assert summary["written_rows"] == 2
+    assert any("trade_date=2026-04-24" in path for path in written_paths)
+    assert any("trade_date=2026-04-27" in path for path in written_paths)

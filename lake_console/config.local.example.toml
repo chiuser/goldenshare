@@ -14,3 +14,7 @@ target_part_size_mb = 256
 
 # Optional Tushare API rate limit. Keep requests at or below this per minute.
 tushare_request_limit_per_minute = 500
+
+# Optional stk_mins request window. Range sync requests one symbol/freq per window,
+# then writes rows back to daily partitions. 31 means roughly one natural month.
+stk_mins_request_window_days = 31

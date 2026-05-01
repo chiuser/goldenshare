@@ -20,6 +20,7 @@ class LakeConsoleSettings:
     bucket_count: int = 32
     target_part_size_mb: int = 256
     tushare_request_limit_per_minute: int = 500
+    stk_mins_request_window_days: int = 31
 
 
 def load_settings(*, lake_root: str | None = None, require_lake_root: bool = True) -> LakeConsoleSettings:
@@ -45,6 +46,11 @@ def load_settings(*, lake_root: str | None = None, require_lake_root: bool = Tru
             os.getenv("LAKE_TUSHARE_REQUEST_LIMIT_PER_MINUTE")
             or _config_int(config_file, "tushare_request_limit_per_minute")
             or 500
+        ),
+        stk_mins_request_window_days=int(
+            os.getenv("LAKE_STK_MINS_REQUEST_WINDOW_DAYS")
+            or _config_int(config_file, "stk_mins_request_window_days")
+            or 31
         ),
     )
 

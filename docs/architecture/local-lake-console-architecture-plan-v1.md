@@ -373,16 +373,42 @@ by_symbol_month  # 研究查询友好
 
 ```text
 1. 用户选择 ts_code / freq / trade_date 或 date range
-2. 程序生成 Tushare 请求参数
-3. 按 ts_code x freq x datetime window 请求 Tushare
-4. limit=8000, offset 递增分页
-5. 将返回行归一化为统一字段
-6. 按 freq + trade_date 写入 by_date 临时分区
-7. 校验临时分区 Parquet 可读、schema 正确、行数合理
-8. 用临时分区替换正式 by_date 分区
-9. 写 manifest/sync_runs.jsonl
-10. 后续按需从 by_date 生成 derived 和 research 层
+2. 单日命令按 ts_code x freq x trade_date 请求
+3. 区间全市场命令按自然月或 stk_mins_request_window_days 切请求窗口
+4. 按 ts_code x freq x request window 请求 Tushare
+5. limit=8000, offset 递增分页
+6. 将返回行按 trade_time 拆回 freq + trade_date 分区
+7. 将返回行归一化为统一字段
+8. 写入 by_date 临时分区
+9. 校验临时分区 Parquet 可读、schema 正确、行数合理
+10. 请求窗口完成后替换该窗口覆盖的正式 by_date 分区
+11. 写 manifest/sync_runs.jsonl
+12. 写 manifest/sync_checkpoints/stk_mins_range/run_id=*/checkpoint.jsonl
+13. 后续按需从 by_date 生成 derived 和 research 层
 ```
+
+关键约束：
+
+```text
+下载维度：ts_code x freq x request window
+落盘维度：freq x trade_date
+```
+
+这样可以减少 Tushare 请求次数，同时不改变按交易日落盘和补数的文件事实模型。
+
+旧的“每个交易日、每个频率、每个股票都请求一次”的方式只适合很小窗口；全市场长区间会把请求次数放大到：
+
+```text
+trade_date_count x freq_count x symbol_count
+```
+
+当前区间全市场命令改为：
+
+```text
+request_window_count x freq_count x symbol_count x page_count
+```
+
+其中 `request_window_count` 默认约等于自然月数量。
 
 第一层正式写入路径：
 

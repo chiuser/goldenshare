@@ -219,6 +219,7 @@ def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
                 freqs=freqs,
                 all_market=True,
                 part_rows=args.part_rows,
+                request_window_days=settings.stk_mins_request_window_days,
             )
         else:
             if not args.ts_code:
@@ -233,6 +234,7 @@ def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
                 ts_code=args.ts_code,
                 freq=args.freq,
                 part_rows=args.part_rows,
+                request_window_days=settings.stk_mins_request_window_days,
             )
     finally:
         if progress:
@@ -319,18 +321,16 @@ class StkMinsTerminalProgress:
         line = (
             f"[{bar}] {percent * 100:6.2f}% "
             f"unit={event.units_done}/{event.units_total} "
-            f"ts_code={event.ts_code} trade_date={event.trade_date.isoformat()} freq={event.freq} "
+            f"ts_code={event.ts_code} {_format_event_window(event)} freq={event.freq} "
             f"fetched={event.fetched_rows} written={event.written_rows}"
         )
-        if self.stream.isatty():
-            padding = " " * max(0, self._last_line_length - len(line))
-            self.stream.write(f"\r{line}{padding}")
-            self.stream.flush()
-            self._last_line_length = len(line)
-            self._line_active = True
-        else:
-            self.stream.write(line + "\n")
-            self.stream.flush()
+        if event.page is not None and event.offset is not None:
+            line += f" page={event.page} offset={event.offset}"
+        padding = " " * max(0, self._last_line_length - len(line))
+        self.stream.write(f"\r{line}{padding}")
+        self.stream.flush()
+        self._last_line_length = len(line)
+        self._line_active = True
 
     def _print_message(self, message: str) -> None:
         if self._line_active:
@@ -339,6 +339,14 @@ class StkMinsTerminalProgress:
             self._last_line_length = 0
         self.stream.write(message + "\n")
         self.stream.flush()
+
+
+def _format_event_window(event: StkMinsProgressEvent) -> str:
+    if event.window_start and event.window_end:
+        return f"window={event.window_start.isoformat()}~{event.window_end.isoformat()}"
+    if event.trade_date:
+        return f"trade_date={event.trade_date.isoformat()}"
+    return "window=-"
 
 
 if __name__ == "__main__":

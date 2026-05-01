@@ -429,30 +429,52 @@ manifest/security_universe/tushare_stock_basic.parquet
 同步维度：
 
 ```text
-ts_code x freq x datetime window
+ts_code x freq x request window
 ```
 
 全市场同步时：
 
 1. 从本地股票池 `manifest/security_universe/tushare_stock_basic.parquet` 获取全部 `ts_code`。
-2. 对每个 `ts_code`、每个 `freq` 请求 Tushare。
-3. `limit=8000`，`offset` 递增分页。
-4. 将返回行按 `trade_time` 归入对应 `trade_date` 分区。
-5. 写入 `_tmp` 下的临时分区。
-6. 分区写入完成并校验后，原子替换正式分区。
+2. 按自然月或 `stk_mins_request_window_days` 把用户输入区间切成请求窗口，默认约一个自然月。
+3. 对每个请求窗口、每个 `freq`、每个 `ts_code` 请求 Tushare。
+4. `limit=8000`，`offset` 递增分页。
+5. 将返回行按 `trade_time` 拆回对应 `trade_date` 分区。
+6. 写入 `_tmp` 下的临时分区。
+7. 请求窗口内所有 `ts_code + freq` 完成后，校验并替换该窗口覆盖的正式分区。
 
-请求窗口：
+请求窗口示例：
 
 ```text
-start_date = 交易日 09:00:00
-end_date   = 交易日 19:00:00
+用户选择：2026-04-01 ~ 2026-04-30
+
+请求：
+stk_mins(ts_code=600000.SH, freq=30min, start_date=2026-04-01 09:00:00, end_date=2026-04-30 19:00:00, limit=8000, offset=0...)
+
+落盘：
+raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-01/
+raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-02/
+...
 ```
 
 说明：
 
-1. 用户只选择交易日，不选择具体时间。
+1. 下载维度是“单股票 + 单频率 + 宽日期窗口”，用于减少请求次数。
+2. 存储维度仍然是 `freq + trade_date`，用于保留按交易日补数、校验和查询的便利性。
+3. `limit=8000`，`offset` 递增分页。
+
+请求窗口：
+
+```text
+start_date = 窗口开始日 09:00:00
+end_date   = 窗口结束日 19:00:00
+```
+
+说明：
+
+1. 用户只选择交易日期范围，不选择具体时间。
 2. 程序内部用大窗口覆盖交易时段。
 3. 写入前可过滤明显不在交易日当天的异常行。
+4. 每完成一个 `ts_code + freq + request window`，追加 checkpoint 到 `manifest/sync_checkpoints/stk_mins_range/run_id=*/checkpoint.jsonl`。
 
 ### 7.2 分区覆盖
 

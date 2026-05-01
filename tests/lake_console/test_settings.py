@@ -16,6 +16,7 @@ def test_load_settings_reads_local_config_file(tmp_path, monkeypatch):
                 "bucket_count = 64",
                 "target_part_size_mb = 512",
                 "tushare_request_limit_per_minute = 300",
+                "stk_mins_request_window_days = 20",
             ]
         ),
         encoding="utf-8",
@@ -33,6 +34,7 @@ def test_load_settings_reads_local_config_file(tmp_path, monkeypatch):
     assert settings.bucket_count == 64
     assert settings.target_part_size_mb == 512
     assert settings.tushare_request_limit_per_minute == 300
+    assert settings.stk_mins_request_window_days == 20
 
 
 def test_environment_overrides_local_config_file(tmp_path, monkeypatch):
