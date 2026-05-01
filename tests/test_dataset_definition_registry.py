@@ -25,7 +25,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 57
+    assert len(definition_keys) == 58
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -38,6 +38,22 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.storage.target_table == "core_serving.dc_hot"
     assert definition.capabilities.get_action("maintain") is not None
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
+
+
+def test_dataset_definition_projects_cctv_news_facts() -> None:
+    definition = get_dataset_definition("cctv_news")
+
+    assert definition.identity.display_name == "新闻联播文字稿"
+    assert definition.domain.domain_key == "news"
+    assert definition.domain.domain_display_name == "新闻资讯"
+    assert definition.source.api_name == "cctv_news"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.observed_field == "date"
+    assert definition.storage.raw_table == "raw_tushare.cctv_news"
+    assert definition.storage.target_table == "core_serving_light.cctv_news"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 400
 
 
 def test_dataset_definition_owns_dc_board_type_filter() -> None:
@@ -121,6 +137,7 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     daily = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("daily"))
     stock_basic = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stock_basic"))
     stk_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stk_mins"))
+    cctv_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("cctv_news"))
 
     assert daily.stage_keys == ("raw", "serving")
     assert daily.all_stage_keys == ("raw", "std", "resolution", "serving")
@@ -130,6 +147,8 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     assert stock_basic.stage("resolution").status_source == "unobserved"
     assert stk_mins.stage_keys == ("raw",)
     assert stk_mins.stage("serving").message == "当前模式不产出 serving"
+    assert cctv_news.stage_keys == ("raw", "light")
+    assert cctv_news.stage("light").display_name == "轻量服务层"
 
 
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:

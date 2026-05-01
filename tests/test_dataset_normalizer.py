@@ -25,6 +25,33 @@ def test_dc_daily_normalizer_keeps_required_fields() -> None:
     assert batch.rows_normalized[0]["ts_code"] == "BK001"
 
 
+def test_cctv_news_normalizer_keeps_source_date_and_builds_row_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("cctv_news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-cctv-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "date": "20260424",
+                    "title": "  央视快讯  ",
+                    "content": "  新闻联播内容  ",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["date"] == date(2026, 4, 24)
+    assert normalized["title"] == "央视快讯"
+    assert normalized["content"] == "新闻联播内容"
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
 def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("stk_mins"),

@@ -44,7 +44,7 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"] == {"total": 57, "supported": 48, "unsupported": 9}
+    assert payload["summary"] == {"total": 58, "supported": 49, "unsupported": 9}
 
     groups = _groups_by_key(payload)
     assert list(groups) == ["supported", "unsupported"]
@@ -61,6 +61,12 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["observed_field"] == "trade_date"
     assert supported["moneyflow_ind_dc"]["rule_label"] == "每个开市交易日"
     assert supported["moneyflow_ind_dc"]["audit_applicable"] is True
+    assert supported["cctv_news"]["display_name"] == "新闻联播文字稿"
+    assert supported["cctv_news"]["target_table"] == "core_serving_light.cctv_news"
+    assert supported["cctv_news"]["date_axis"] == "natural_day"
+    assert supported["cctv_news"]["bucket_rule"] == "every_natural_day"
+    assert supported["cctv_news"]["observed_field"] == "date"
+    assert supported["cctv_news"]["rule_label"] == "每个自然日"
 
     assert unsupported["stock_basic"]["audit_applicable"] is False
     assert unsupported["stock_basic"]["not_applicable_reason"] == "snapshot/master dataset"

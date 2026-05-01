@@ -8,6 +8,7 @@ from src.foundation.datasets.definitions.board_hotspot import DATASET_ROWS as BO
 from src.foundation.datasets.definitions.moneyflow import DATASET_ROWS as MONEYFLOW_ROWS
 from src.foundation.datasets.definitions.reference_master import DATASET_ROWS as REFERENCE_MASTER_ROWS
 from src.foundation.datasets.definitions.low_frequency import DATASET_ROWS as LOW_FREQUENCY_ROWS
+from src.foundation.datasets.definitions.news import DATASET_ROWS as NEWS_ROWS
 
 ALL_DATASET_ROWS = (
     *MARKET_EQUITY_ROWS,
@@ -17,6 +18,7 @@ ALL_DATASET_ROWS = (
     *MONEYFLOW_ROWS,
     *REFERENCE_MASTER_ROWS,
     *LOW_FREQUENCY_ROWS,
+    *NEWS_ROWS,
 )
 
 

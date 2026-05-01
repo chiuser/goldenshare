@@ -366,6 +366,30 @@ def _build_holdernumber_units(planner: DatasetUnitPlanner, request: ValidatedDat
     )
 
 
+def _build_cctv_news_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "新闻联播文字稿单日维护缺少日期")
+        anchors: list[date | None] = [request.trade_date]
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error("range_required", "新闻联播文字稿区间维护必须同时填写开始日期和结束日期")
+        anchors = _expand_natural_dates(request.start_date, request.end_date)
+    else:
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"新闻联播文字稿不支持该运行模式：{request.run_profile}")
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=anchors,
+        enum_combinations=[{}],
+        request_builder=request_builder,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._build_generic_progress_context,
+    )
+
+
 def _build_index_daily_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     anchors = [request.trade_date] if request.run_profile == "point_incremental" else [None]
@@ -622,6 +646,7 @@ def _build_biying_units(
 _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetActionRequest, DatasetDefinition], list[PlanUnitSnapshot]]] = {
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
+    "build_cctv_news_units": _build_cctv_news_units,
     "build_dividend_units": _build_dividend_units,
     "build_index_daily_units": _build_index_daily_units,
     "build_index_weight_units": _build_index_weight_units,

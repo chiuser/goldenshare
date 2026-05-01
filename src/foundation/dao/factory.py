@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from src.foundation.dao.cctv_news_dao import RawCctvNewsDAO
 from src.foundation.dao.etf_basic_dao import EtfBasicDAO
 from src.foundation.dao.equity_adj_factor_dao import EquityAdjFactorDAO
 from src.foundation.dao.equity_daily_bar_dao import EquityDailyBarDAO
@@ -231,6 +232,7 @@ class DAOFactory:
         self.raw_kpl_list = GenericDAO(session, RawKplList)
         self.raw_kpl_concept_cons = GenericDAO(session, RawKplConceptCons)
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
+        self.raw_cctv_news = RawCctvNewsDAO(session)
         self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
         self.raw_limit_step = GenericDAO(session, RawLimitStep)
         self.raw_margin = GenericDAO(session, RawMargin)

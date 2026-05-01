@@ -80,7 +80,8 @@ def build_dataset_layer_projection(definition: DatasetDefinition) -> DatasetLaye
 def build_layer_stage_projections(delivery_mode: str) -> tuple[DatasetLayerStageProjection, ...]:
     std_enabled = delivery_mode == "multi_source_fusion"
     serving_enabled = delivery_mode in {"single_source_serving", "multi_source_fusion"}
-    return (
+    light_enabled = delivery_mode == "raw_with_serving_light_view"
+    stages = [
         DatasetLayerStageProjection(
             stage="raw",
             display_name=_require_layer_stage_display_name("raw"),
@@ -109,7 +110,18 @@ def build_layer_stage_projections(delivery_mode: str) -> tuple[DatasetLayerStage
             status_source="freshness" if serving_enabled else "skipped",
             message=None if serving_enabled else "当前模式不产出 serving",
         ),
-    )
+    ]
+    if light_enabled:
+        stages.append(
+            DatasetLayerStageProjection(
+                stage="light",
+                display_name=_require_layer_stage_display_name("light"),
+                enabled=True,
+                status_source="freshness",
+                message="当前模式通过轻量服务 view 直出",
+            )
+        )
+    return tuple(stages)
 
 
 def build_dataset_freshness_projection(definition: DatasetDefinition) -> DatasetFreshnessProjection:
@@ -176,6 +188,8 @@ def delivery_mode_label(delivery_mode: str) -> str:
         return "多源融合"
     if delivery_mode == "raw_collection":
         return "原始采集"
+    if delivery_mode == "raw_with_serving_light_view":
+        return "轻量服务直出"
     if delivery_mode == "core_direct":
         return "核心直写"
     return "未定义"
@@ -188,6 +202,8 @@ def delivery_mode_tone(delivery_mode: str) -> str:
         return "info"
     if delivery_mode == "raw_collection":
         return "neutral"
+    if delivery_mode == "raw_with_serving_light_view":
+        return "success"
     if delivery_mode == "core_direct":
         return "warning"
     return "neutral"

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from datetime import datetime, time
 from decimal import Decimal, ROUND_HALF_UP
+import hashlib
 import json
 from typing import Any
 
@@ -87,6 +88,19 @@ def _daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["change_amount"] = transformed.get("change")
     transformed["source"] = "tushare"
+    return transformed
+
+
+def _cctv_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    title = str(transformed.get("title") or "").strip()
+    content = str(transformed.get("content") or "").strip()
+    transformed["title"] = title
+    transformed["content"] = content
+    date_value = transformed.get("date")
+    date_text = date_value.isoformat() if isinstance(date_value, date) else str(date_value or "").strip()
+    hash_input = "\x1f".join((date_text, title, content))
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
     return transformed
 
 
@@ -362,6 +376,7 @@ __all__ = [
     "_suspend_d_row_transform",
     "_top_list_row_transform",
     "_daily_row_transform",
+    "_cctv_news_row_transform",
     "_fund_daily_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",

@@ -52,3 +52,25 @@ def test_dataset_action_resolver_builds_no_time_plan(mocker) -> None:
     assert plan.run_profile == "snapshot_refresh"
     assert plan.time_scope.mode == "none"
     assert plan.planning.unit_count >= 1
+
+
+def test_dataset_action_resolver_builds_cctv_news_range_by_natural_day(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cctv_news",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 4, 24),
+            end_date=date(2026, 4, 26),
+        ),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.dataset_key == "cctv_news"
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 3
+    assert [unit.request_params["date"] for unit in plan.units] == ["20260424", "20260425", "20260426"]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {400}

@@ -10,6 +10,7 @@ from src.foundation.datasets.definitions import (
     MARKET_EQUITY_ROWS,
     MARKET_FUND_ROWS,
     MONEYFLOW_ROWS,
+    NEWS_ROWS,
     REFERENCE_MASTER_ROWS,
     list_defined_datasets,
 )
@@ -25,6 +26,7 @@ EXPECTED_DOMAIN_FILES = {
     "index_series",
     "board_hotspot",
     "moneyflow",
+    "news",
     "reference_master",
     "low_frequency",
 }
@@ -89,6 +91,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     },
     "reference_master": {"trade_cal", "stock_basic", "hk_basic", "us_basic", "etf_basic"},
     "low_frequency": {"dividend", "stk_holdernumber"},
+    "news": {"cctv_news"},
 }
 
 LEGACY_ROUTE_TOGGLE_TOKENS = (
@@ -113,6 +116,7 @@ def test_definition_domain_keys_match_guardrail_matrix() -> None:
         "index_series": {row["identity"]["dataset_key"] for row in INDEX_SERIES_ROWS},
         "board_hotspot": {row["identity"]["dataset_key"] for row in BOARD_HOTSPOT_ROWS},
         "moneyflow": {row["identity"]["dataset_key"] for row in MONEYFLOW_ROWS},
+        "news": {row["identity"]["dataset_key"] for row in NEWS_ROWS},
         "reference_master": {row["identity"]["dataset_key"] for row in REFERENCE_MASTER_ROWS},
         "low_frequency": {row["identity"]["dataset_key"] for row in LOW_FREQUENCY_ROWS},
     }
