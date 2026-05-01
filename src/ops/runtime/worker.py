@@ -146,6 +146,7 @@ class OperationsWorker:
         task_run.rows_fetched = int(outcome.rows_fetched or task_run.rows_fetched or 0)
         task_run.rows_saved = int(outcome.rows_saved or task_run.rows_saved or 0)
         task_run.rows_rejected = int(outcome.rows_rejected or task_run.rows_rejected or 0)
+        task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.primary_issue_id = outcome.issue_id or task_run.primary_issue_id
         task_run.current_object_json = {}
         if final_status == "success":

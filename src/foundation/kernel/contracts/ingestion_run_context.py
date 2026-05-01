@@ -24,6 +24,7 @@ class IngestionRunContext(Protocol):
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rejected_reason_counts: dict[str, int] | None = None,
         current_object: dict[str, Any] | None = None,
     ) -> None:
         """持久化任务进度。"""

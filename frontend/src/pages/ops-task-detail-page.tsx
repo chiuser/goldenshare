@@ -88,6 +88,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [diagnosticOpened, setDiagnosticOpened] = useState(false);
+  const [rejectReasonOpened, setRejectReasonOpened] = useState(false);
 
   const viewQuery = useQuery({
     queryKey: ["ops", "task-run-view", taskRunId],
@@ -313,7 +314,14 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       <Text fw={700}>{view.progress.rows_saved.toLocaleString()}</Text>
                     </MetricPanel>
                     <MetricPanel label="拒绝">
-                      <Text fw={700}>{view.progress.rows_rejected.toLocaleString()}</Text>
+                      <Stack gap={4}>
+                        <Text fw={700}>{view.progress.rows_rejected.toLocaleString()}</Text>
+                        {view.progress.rows_rejected > 0 ? (
+                          <Button size="compact-xs" variant="subtle" onClick={() => setRejectReasonOpened(true)}>
+                            查看原因
+                          </Button>
+                        ) : null}
+                      </Stack>
                     </MetricPanel>
                   </SimpleGrid>
                 </Stack>
@@ -339,6 +347,46 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
               rows={view.nodes}
             />
           </SectionCard>
+
+          <DetailDrawer
+            opened={rejectReasonOpened}
+            onClose={() => setRejectReasonOpened(false)}
+            title="拒绝原因详情"
+            description="这里展示本次任务已记录的拒绝原因分布。"
+            size="lg"
+          >
+            <Stack gap="md">
+              <AlertBar tone="warning" title={`本批次拒绝 ${view.progress.rows_rejected.toLocaleString()} 条`}>
+                {view.progress.rejected_reasons.length > 0
+                  ? "系统已经记录结构化原因，可按原因分布判断是否需要调整数据或规则。"
+                  : "当前只有拒绝总数，暂时还没有更细的结构化原因分布。"}
+              </AlertBar>
+              {view.progress.rejected_reasons.length > 0 ? (
+                <Stack gap="sm">
+                  {view.progress.rejected_reasons.map((reason) => (
+                    <SectionCard
+                      key={reason.reason_key}
+                      title={reason.label || reason.reason_code}
+                      description={reason.suggested_action || "暂无处理建议。"}
+                    >
+                      <Stack gap={6}>
+                        <Group gap="xs" align="center">
+                          <Badge variant="light">{reason.reason_code}</Badge>
+                          {reason.field ? <Badge variant="light">{reason.field}</Badge> : null}
+                          <Text size="sm" fw={700}>
+                            {reason.count.toLocaleString()} 条
+                          </Text>
+                        </Group>
+                        {reason.suggested_action ? (
+                          <Text size="sm" c="dimmed">{`建议：${reason.suggested_action}`}</Text>
+                        ) : null}
+                      </Stack>
+                    </SectionCard>
+                  ))}
+                </Stack>
+              ) : null}
+            </Stack>
+          </DetailDrawer>
 
           <DetailDrawer
             opened={diagnosticOpened}

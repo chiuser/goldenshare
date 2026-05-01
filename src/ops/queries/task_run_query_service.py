@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion.codebook import INGESTION_REASON_CODEBOOK
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -22,6 +23,7 @@ from src.ops.schemas.task_run import (
     TaskRunListResponse,
     TaskRunNodeItem,
     TaskRunProgress,
+    TaskRunRejectionReasonItem,
     TaskRunSummaryResponse,
     TaskRunTimeScope,
     TaskRunViewResponse,
@@ -131,6 +133,7 @@ class TaskRunQueryService:
             )
         )
         time_scope = self._time_scope(dict(task_run.time_input_json or {}))
+        rejected_reason_counts = self._normalize_reason_counts(task_run.rejected_reason_counts_json)
         return TaskRunViewResponse(
             run=TaskRunInfo(
                 id=task_run.id,
@@ -164,6 +167,8 @@ class TaskRunQueryService:
                 rows_fetched=task_run.rows_fetched,
                 rows_saved=task_run.rows_saved,
                 rows_rejected=task_run.rows_rejected,
+                rejected_reason_counts=rejected_reason_counts,
+                rejected_reasons=self._rejection_reason_items(rejected_reason_counts),
                 current_object=self._display_current_object(
                     dict(task_run.current_object_json or {}),
                     status=task_run.status,
@@ -398,8 +403,9 @@ class TaskRunQueryService:
         }
         return labels.get(kind or "")
 
-    @staticmethod
-    def _node_item(node: TaskRunNode) -> TaskRunNodeItem:
+    @classmethod
+    def _node_item(cls, node: TaskRunNode) -> TaskRunNodeItem:
+        rejected_reason_counts = cls._normalize_reason_counts(node.rejected_reason_counts_json)
         return TaskRunNodeItem(
             id=node.id,
             parent_node_id=node.parent_node_id,
@@ -414,11 +420,58 @@ class TaskRunQueryService:
             rows_fetched=node.rows_fetched,
             rows_saved=node.rows_saved,
             rows_rejected=node.rows_rejected,
+            rejected_reason_counts=rejected_reason_counts,
+            rejected_reasons=cls._rejection_reason_items(rejected_reason_counts),
             issue_id=node.issue_id,
             started_at=node.started_at,
             ended_at=node.ended_at,
             duration_ms=node.duration_ms,
         )
+
+    @classmethod
+    def _rejection_reason_items(cls, reason_counts: dict[str, int]) -> list[TaskRunRejectionReasonItem]:
+        codebook = {entry.code: entry for entry in INGESTION_REASON_CODEBOOK}
+        items: list[TaskRunRejectionReasonItem] = []
+        for reason_key, count in sorted(reason_counts.items(), key=lambda item: (-item[1], item[0])):
+            reason_code, field = cls._split_reason_key(reason_key)
+            entry = codebook.get(reason_code)
+            items.append(
+                TaskRunRejectionReasonItem(
+                    reason_key=reason_key,
+                    reason_code=reason_code,
+                    field=field,
+                    count=count,
+                    label=entry.label if entry else None,
+                    suggested_action=entry.suggested_action if entry else None,
+                )
+            )
+        return items
+
+    @staticmethod
+    def _split_reason_key(reason_key: str) -> tuple[str, str | None]:
+        if ":" not in reason_key:
+            return reason_key, None
+        reason_code, field = reason_key.split(":", 1)
+        field = field.strip()
+        return reason_code.strip(), field or None
+
+    @staticmethod
+    def _normalize_reason_counts(reason_counts: object) -> dict[str, int]:
+        if not isinstance(reason_counts, dict):
+            return {}
+        normalized: dict[str, int] = {}
+        for raw_key, raw_count in reason_counts.items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            try:
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            normalized[key] = normalized.get(key, 0) + count
+        return normalized
 
     @staticmethod
     def _time_scope(time_input: dict) -> TaskRunTimeScope | None:

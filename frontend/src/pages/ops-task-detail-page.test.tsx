@@ -60,6 +60,19 @@ function createTaskRunView(status = "failed") {
       rows_fetched: 6,
       rows_saved: 5,
       rows_rejected: 1,
+      rejected_reason_counts: {
+        "normalize.required_field_missing:trade_date": 1,
+      },
+      rejected_reasons: [
+        {
+          reason_key: "normalize.required_field_missing:trade_date",
+          reason_code: "normalize.required_field_missing",
+          field: "trade_date",
+          count: 1,
+          label: "必填字段缺失",
+          suggested_action: "检查字段映射和空值处理",
+        },
+      ],
       current_object:
         status === "running"
           ? {
@@ -111,6 +124,19 @@ function createTaskRunView(status = "failed") {
         rows_fetched: 6,
         rows_saved: 5,
         rows_rejected: 1,
+        rejected_reason_counts: {
+          "normalize.required_field_missing:trade_date": 1,
+        },
+        rejected_reasons: [
+          {
+            reason_key: "normalize.required_field_missing:trade_date",
+            reason_code: "normalize.required_field_missing",
+            field: "trade_date",
+            count: 1,
+            label: "必填字段缺失",
+            suggested_action: "检查字段映射和空值处理",
+          },
+        ],
         issue_id: hasIssue ? 99 : null,
         started_at: "2026-03-31T01:00:02Z",
         ended_at: null,
@@ -211,6 +237,13 @@ describe("任务详情页", () => {
     expect(await screen.findByText(/问题位置：美欣达（002034\.SZ）/)).toBeInTheDocument();
     expect(await screen.findByText("执行过程")).toBeInTheDocument();
     expect(await screen.findByText("读取 6，保存 5，拒绝 1")).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "查看原因" }));
+
+    expect(await screen.findByText("拒绝原因详情")).toBeInTheDocument();
+    expect(await screen.findByText("必填字段缺失")).toBeInTheDocument();
+    expect(await screen.findByText("trade_date")).toBeInTheDocument();
+    expect(await screen.findByText(/检查字段映射和空值处理/)).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "查看技术诊断" }));
 

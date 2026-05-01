@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 from uuid import uuid4
@@ -22,6 +22,8 @@ class DatasetMaintainResult:
     run_mode: str
     rows_fetched: int = 0
     rows_written: int = 0
+    rows_rejected: int = 0
+    rejected_reason_counts: dict[str, int] = field(default_factory=dict)
     trade_date: date | None = None
     message: str | None = None
 
@@ -128,6 +130,8 @@ class DatasetMaintainService:
                 run_mode=run_mode,
                 rows_fetched=summary.rows_fetched,
                 rows_written=committed_rows,
+                rows_rejected=summary.rows_rejected,
+                rejected_reason_counts=dict(summary.rejected_reason_counts or {}),
                 trade_date=summary.result_date,
                 message=summary.message,
             )
@@ -271,6 +275,7 @@ class DatasetMaintainService:
                     rows_fetched=progress_snapshot.rows_fetched,
                     rows_saved=rows_saved,
                     rows_rejected=progress_snapshot.rows_rejected,
+                    rejected_reason_counts=getattr(progress_snapshot, "rejected_reason_counts", {}),
                     current_object=progress_snapshot.current_object,
                 )
         except Exception:

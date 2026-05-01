@@ -36,6 +36,7 @@ class TaskRunDispatchOutcome:
     rows_fetched: int = 0
     rows_saved: int = 0
     rows_rejected: int = 0
+    rejected_reason_counts: dict[str, int] | None = None
     summary_message: str | None = None
     issue_id: int | None = None
     status_reason_code: str | None = None
@@ -77,7 +78,7 @@ class TaskRunDispatcher:
         task_run.plan_snapshot_json = self._plan_snapshot(plan)
         session.commit()
         try:
-            rows_fetched, rows_saved, rows_rejected, summary_message = self._run_dataset_action_plan(
+            rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = self._run_dataset_action_plan(
                 session,
                 task_run,
                 action_request,
@@ -89,7 +90,9 @@ class TaskRunDispatcher:
                 rows_fetched=rows_fetched,
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
+                rejected_reason_counts=rejected_reason_counts,
             )
+            task_run.rejected_reason_counts_json = dict(rejected_reason_counts)
             task_run.unit_done = task_run.unit_total
             task_run.unit_failed = 0
             task_run.progress_percent = 100
@@ -99,6 +102,7 @@ class TaskRunDispatcher:
                 rows_fetched=rows_fetched,
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
+                rejected_reason_counts=rejected_reason_counts,
                 summary_message=summary_message,
             )
         except IngestionCanceledError as exc:
@@ -156,6 +160,7 @@ class TaskRunDispatcher:
         total_fetched = 0
         total_saved = 0
         total_rejected = 0
+        total_rejected_reason_counts: dict[str, int] = {}
         completed = 0
         failed = 0
         last_issue_id: int | None = None
@@ -191,23 +196,31 @@ class TaskRunDispatcher:
                     step_run = self._step_task_run(task_run, step_action_key, step_resource_key, params)
                     request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_run))
                     plan = DatasetActionResolver(session).build_plan(request)
-                    rows_fetched, rows_saved, rows_rejected, message = self._run_dataset_action_plan(session, step_run, request, plan)
+                    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, message = self._run_dataset_action_plan(
+                        session,
+                        step_run,
+                        request,
+                        plan,
+                    )
                 else:
                     action = get_maintenance_action(workflow_step.action_key)
                     if action is None:
                         raise ValueError(f"工作流步骤维护动作不存在：{workflow_step.action_key}")
                     rows_fetched, rows_saved, message = self._run_maintenance_action(session, action, params)
                     rows_rejected = max(rows_fetched - rows_saved, 0)
+                    rejected_reason_counts = {}
                 self._finish_node(
                     node,
                     status="success",
                     rows_fetched=rows_fetched,
                     rows_saved=rows_saved,
                     rows_rejected=rows_rejected,
+                    rejected_reason_counts=rejected_reason_counts,
                 )
                 total_fetched += rows_fetched
                 total_saved += rows_saved
                 total_rejected += rows_rejected
+                self._merge_reason_counts(total_rejected_reason_counts, rejected_reason_counts)
                 completed += 1
                 last_message = message
                 session.commit()
@@ -246,6 +259,7 @@ class TaskRunDispatcher:
             rows_fetched=total_fetched,
             rows_saved=total_saved,
             rows_rejected=total_rejected,
+            rejected_reason_counts=total_rejected_reason_counts,
             summary_message=last_message or workflow.display_name,
             issue_id=last_issue_id,
             status_reason_code="workflow_step_failed" if failed else None,
@@ -308,7 +322,7 @@ class TaskRunDispatcher:
         task_run: TaskRun,
         action_request: DatasetActionRequest,
         plan,
-    ) -> tuple[int, int, int, str | None]:  # type: ignore[no-untyped-def]
+    ) -> tuple[int, int, int, dict[str, int], str | None]:  # type: ignore[no-untyped-def]
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
@@ -325,7 +339,7 @@ class TaskRunDispatcher:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
             if not time_input.month and self._is_closed_trade_date(session, parsed_trade_date):
                 definition = get_dataset_definition(plan.dataset_key)
-                return 0, 0, 0, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
+                return 0, 0, 0, {}, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
             action_request = DatasetActionRequest(
                 dataset_key=action_request.dataset_key,
                 action=action_request.action,
@@ -346,7 +360,8 @@ class TaskRunDispatcher:
 
         rows_fetched = int(result.rows_fetched or 0)
         rows_saved = int(result.rows_written or 0)
-        rows_rejected = max(rows_fetched - rows_saved, 0)
+        rows_rejected = int(result.rows_rejected or 0)
+        rejected_reason_counts = self._normalize_reason_counts(result.rejected_reason_counts)
         light_note = self._refresh_serving_light_if_needed(
             session,
             task_run_id=task_run.id,
@@ -360,7 +375,7 @@ class TaskRunDispatcher:
         summary_message = str(result.message or "").strip() or f"units={plan.planning.unit_count}"
         if light_note:
             summary_message = f"{summary_message}；{light_note}"
-        return rows_fetched, rows_saved, rows_rejected, summary_message
+        return rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message
 
     def _build_dataset_action_request(self, task_run: TaskRun) -> DatasetActionRequest:
         time_payload = dict(task_run.time_input_json or {})
@@ -676,6 +691,7 @@ class TaskRunDispatcher:
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rejected_reason_counts: dict[str, int] | None = None,
     ) -> None:
         ended_at = datetime.now(timezone.utc)
         started_at = TaskRunDispatcher._as_aware_utc(node.started_at) if node.started_at else ended_at
@@ -686,8 +702,33 @@ class TaskRunDispatcher:
             node.rows_saved = rows_saved
         if rows_rejected is not None:
             node.rows_rejected = rows_rejected
+        if rejected_reason_counts is not None:
+            node.rejected_reason_counts_json = TaskRunDispatcher._normalize_reason_counts(rejected_reason_counts)
         node.ended_at = ended_at
         node.duration_ms = max(int((ended_at - started_at).total_seconds() * 1000), 0)
+
+    @staticmethod
+    def _normalize_reason_counts(reason_counts: dict[str, int] | None) -> dict[str, int]:
+        if not isinstance(reason_counts, dict):
+            return {}
+        normalized: dict[str, int] = {}
+        for raw_key, raw_count in reason_counts.items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            try:
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            normalized[key] = normalized.get(key, 0) + count
+        return normalized
+
+    @staticmethod
+    def _merge_reason_counts(target: dict[str, int], source: dict[str, int] | None) -> None:
+        for key, count in TaskRunDispatcher._normalize_reason_counts(source).items():
+            target[key] = target.get(key, 0) + count
 
     def _record_issue(
         self,

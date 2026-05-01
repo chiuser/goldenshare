@@ -44,6 +44,7 @@ class TaskRun(TimestampMixin, Base):
     rows_fetched: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_saved: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
     rows_rejected: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    rejected_reason_counts_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     primary_issue_id: Mapped[int | None] = mapped_column(BigInteger)
 

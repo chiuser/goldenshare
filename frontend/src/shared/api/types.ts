@@ -328,6 +328,15 @@ export interface TaskRunDisplayObject {
   }>;
 }
 
+export interface TaskRunRejectionReasonItem {
+  reason_key: string;
+  reason_code: string;
+  field: string | null;
+  count: number;
+  label: string | null;
+  suggested_action: string | null;
+}
+
 export interface TaskRunViewResponse {
   run: {
     id: number;
@@ -361,6 +370,8 @@ export interface TaskRunViewResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
+    rejected_reason_counts: Record<string, number>;
+    rejected_reasons: TaskRunRejectionReasonItem[];
     current_object: TaskRunDisplayObject | null;
   };
   primary_issue: {
@@ -388,6 +399,8 @@ export interface TaskRunViewResponse {
     rows_fetched: number;
     rows_saved: number;
     rows_rejected: number;
+    rejected_reason_counts: Record<string, number>;
+    rejected_reasons: TaskRunRejectionReasonItem[];
     issue_id: number | null;
     started_at: string | null;
     ended_at: string | null;

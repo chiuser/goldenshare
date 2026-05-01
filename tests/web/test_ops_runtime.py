@@ -243,6 +243,7 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
         rows_fetched=10514,
         rows_saved=10514,
         rows_rejected=0,
+        rejected_reason_counts={},
         current_object={"entity": {"kind": "date", "name": "2026-04-24"}, "time": {}, "attributes": {}},
     )
 
@@ -253,6 +254,36 @@ def test_task_run_progress_updates_current_running_node_rows(db_session, task_ru
     assert node.rows_fetched == 10514
     assert node.rows_saved == 10514
     assert node.rows_rejected == 0
+
+
+def test_task_run_progress_updates_rejected_reason_counts(db_session, task_run_factory, task_run_node_factory) -> None:
+    task_run = task_run_factory(status="running", resource_key="dc_hot", title="东方财富热榜")
+    node = task_run_node_factory(
+        task_run_id=task_run.id,
+        node_key="dc_hot:maintain",
+        title="维护 东方财富热榜",
+        status="running",
+    )
+    task_run.current_node_id = node.id
+    db_session.commit()
+
+    TaskRunIngestionContext(db_session).update_progress(
+        run_id=task_run.id,
+        current=3,
+        total=5,
+        message="unused structured progress",
+        rows_fetched=1530,
+        rows_saved=1527,
+        rows_rejected=3,
+        rejected_reason_counts={"write.duplicate_conflict_key_in_batch:ts_code": 3},
+        current_object={"entity": {"kind": "date", "name": "2026-04-24"}, "time": {}, "attributes": {}},
+    )
+
+    db_session.refresh(task_run)
+    db_session.refresh(node)
+    assert task_run.rows_rejected == 3
+    assert task_run.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}
+    assert node.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}
 
 
 def test_finish_node_preserves_observed_rows_when_final_rows_not_provided(db_session, task_run_factory, task_run_node_factory) -> None:
@@ -336,7 +367,7 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
         run_id=task_run.id,
     )
 
-    rows_fetched, rows_saved, rows_rejected, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
+    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
         db_session,
         task_run,
         action_request,
@@ -344,4 +375,5 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
     )
 
     assert (rows_fetched, rows_saved, rows_rejected) == (0, 0, 0)
+    assert rejected_reason_counts == {}
     assert summary_message == "股票日线：2026-04-25 非交易日，已跳过维护。"

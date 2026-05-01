@@ -120,6 +120,15 @@ class TaskRunDisplayObject(BaseModel):
     fields: list[TaskRunDisplayField] = Field(default_factory=list)
 
 
+class TaskRunRejectionReasonItem(BaseModel):
+    reason_key: str
+    reason_code: str
+    field: str | None = None
+    count: int
+    label: str | None = None
+    suggested_action: str | None = None
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -128,6 +137,8 @@ class TaskRunProgress(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
+    rejected_reason_counts: dict[str, int] = Field(default_factory=dict)
+    rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     current_object: TaskRunDisplayObject | None = None
 
 
@@ -157,6 +168,8 @@ class TaskRunNodeItem(BaseModel):
     rows_fetched: int
     rows_saved: int
     rows_rejected: int
+    rejected_reason_counts: dict[str, int] = Field(default_factory=dict)
+    rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     issue_id: int | None = None
     started_at: datetime | None = None
     ended_at: datetime | None = None

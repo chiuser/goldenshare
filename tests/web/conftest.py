@@ -204,6 +204,7 @@ def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
         rows_fetched: int = 0,
         rows_saved: int = 0,
         rows_rejected: int = 0,
+        rejected_reason_counts_json: dict | None = None,
         unit_done: int = 0,
         unit_total: int = 0,
         unit_failed: int = 0,
@@ -236,6 +237,7 @@ def task_run_factory(db_session: Session) -> Callable[..., TaskRun]:
             rows_fetched=rows_fetched,
             rows_saved=rows_saved,
             rows_rejected=rows_rejected,
+            rejected_reason_counts_json=rejected_reason_counts_json or {},
             unit_done=unit_done,
             unit_total=unit_total,
             unit_failed=unit_failed,
@@ -373,6 +375,7 @@ def task_run_node_factory(db_session: Session) -> Callable[..., TaskRunNode]:
         rows_fetched: int = 0,
         rows_saved: int = 0,
         rows_rejected: int = 0,
+        rejected_reason_counts_json: dict | None = None,
         started_at: datetime | None = None,
         ended_at: datetime | None = None,
     ) -> TaskRunNode:
@@ -391,6 +394,7 @@ def task_run_node_factory(db_session: Session) -> Callable[..., TaskRunNode]:
             rows_fetched=rows_fetched,
             rows_saved=rows_saved,
             rows_rejected=rows_rejected,
+            rejected_reason_counts_json=rejected_reason_counts_json or {},
             started_at=started_at,
             ended_at=ended_at,
         )

@@ -130,6 +130,10 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
         rows_fetched=100,
         rows_saved=90,
         rows_rejected=10,
+        rejected_reason_counts_json={
+            "normalize.required_field_missing:trade_date": 7,
+            "normalize.invalid_decimal": 3,
+        },
         current_object_json={
             "entity": {"kind": "security", "code": "000001.SZ", "name": "平安银行"},
             "time": {"start": "2026-04-20", "end": "2026-04-24"},
@@ -144,6 +148,7 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
         rows_fetched=100,
         rows_saved=90,
         rows_rejected=10,
+        rejected_reason_counts_json={"normalize.required_field_missing:trade_date": 7},
     )
     issue = task_run_issue_factory(
         task_run_id=task_run.id,
@@ -170,10 +175,15 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["run"]["title"] == "股票日线"
     assert payload["run"]["time_scope_label"] == "2026-04-20 ~ 2026-04-24"
     assert payload["progress"]["rows_saved"] == 90
+    assert payload["progress"]["rejected_reason_counts"]["normalize.required_field_missing:trade_date"] == 7
+    assert payload["progress"]["rejected_reasons"][0]["reason_code"] == "normalize.required_field_missing"
+    assert payload["progress"]["rejected_reasons"][0]["field"] == "trade_date"
+    assert payload["progress"]["rejected_reasons"][0]["label"] == "必填字段缺失"
     assert payload["progress"]["current_object"] is None
     assert payload["primary_issue"]["title"] == "任务处理失败"
     assert payload["primary_issue"]["object"]["title"] == "问题位置：平安银行（000001.SZ）"
     assert payload["nodes"][0]["title"] == "维护 股票日线"
+    assert payload["nodes"][0]["rejected_reasons"][0]["count"] == 7
 
 
 def test_ops_task_run_view_returns_display_current_object_for_running_task(

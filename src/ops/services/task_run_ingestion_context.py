@@ -33,6 +33,7 @@ class TaskRunIngestionContext(IngestionRunContext):
         rows_fetched: int | None = None,
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
+        rejected_reason_counts: dict[str, int] | None = None,
         current_object: dict[str, Any] | None = None,
     ) -> None:
         bind = self.session.get_bind()
@@ -49,6 +50,7 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run.rows_fetched = int(rows_fetched if rows_fetched is not None else task_run.rows_fetched or 0)
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)
+            task_run.rejected_reason_counts_json = self._sanitize_reason_counts(rejected_reason_counts)
             task_run.current_object_json = self._sanitize_current_object(current_object)
             self._update_current_running_node(progress_session, task_run)
             progress_session.commit()
@@ -67,6 +69,25 @@ class TaskRunIngestionContext(IngestionRunContext):
         node.rows_fetched = task_run.rows_fetched
         node.rows_saved = task_run.rows_saved
         node.rows_rejected = task_run.rows_rejected
+        node.rejected_reason_counts_json = dict(task_run.rejected_reason_counts_json or {})
+
+    @staticmethod
+    def _sanitize_reason_counts(value: dict[str, int] | None) -> dict[str, int]:
+        if not isinstance(value, dict):
+            return {}
+        normalized: dict[str, int] = {}
+        for raw_key, raw_count in value.items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            try:
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if count <= 0:
+                continue
+            normalized[key] = normalized.get(key, 0) + count
+        return normalized
 
     @staticmethod
     def _sanitize_current_object(value: dict[str, Any] | None) -> dict[str, Any]:
