@@ -63,7 +63,7 @@ def test_dataset_definition_projects_major_news_facts() -> None:
     assert definition.domain.domain_key == "news"
     assert definition.domain.domain_display_name == "新闻资讯"
     assert definition.source.api_name == "major_news"
-    assert definition.source.source_fields == ("title", "content", "pub_time", "src")
+    assert definition.source.source_fields == ("title", "content", "pub_time", "src", "url")
     assert definition.date_model.input_shape == "trade_date_or_start_end"
     assert definition.date_model.observed_field == "pub_time"
     assert definition.date_model.audit_applicable is False

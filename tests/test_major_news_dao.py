@@ -26,6 +26,7 @@ def test_raw_major_news_bulk_upsert_does_not_update_surrogate_id() -> None:
                 "pub_time": "2026-04-24 10:11:12+08:00",
                 "title": "新闻标题",
                 "content": "新闻内容",
+                "url": "https://example.com/news/1",
             }
         ],
         conflict_columns=["row_key_hash"],

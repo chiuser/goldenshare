@@ -105,7 +105,7 @@ DATASET_ROWS = (
                 'source_keys': ('tushare',),
                 'adapter_key': 'tushare',
                 'api_name': 'major_news',
-                'source_fields': ('title', 'content', 'pub_time', 'src'),
+                'source_fields': ('title', 'content', 'pub_time', 'src', 'url'),
                 'source_doc_id': 'tushare.major_news',
                 'request_builder_key': '_major_news_params',
                 'base_params': {}},

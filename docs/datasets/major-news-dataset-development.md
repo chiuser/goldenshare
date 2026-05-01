@@ -20,7 +20,7 @@
 - 接口说明：获取长篇通讯信息，覆盖主要新闻资讯源。
 - 权限说明：需要单独开权限。
 - 单次限制：单次最大 400 行；按 `limit=400`、`offset` 循环读取。
-- 字段注意：默认不输出 `content`，必须在请求中显式声明 `fields="title,content,pub_time,src"`。
+- 字段注意：默认不输出 `content` 和 `url`，必须通过 `source_fields` 显式请求 `title,content,pub_time,src,url`。
 
 ### 1.1 输入参数
 
@@ -54,6 +54,7 @@
 | `content` | string | 内容 | 是 | 去掉首尾空白，保留正文原文 |
 | `pub_time` | string | 发布时间 | 是 | 解析为 `pub_time` |
 | `src` | string | 来源 | 是 | 去掉首尾空白 |
+| `url` | string | 原文链接 | 是 | 去掉首尾空白，空值按 `NULL` 保存 |
 
 ## 2. 基本信息
 
@@ -104,7 +105,7 @@
     "source_keys": ("tushare",),
     "adapter_key": "tushare",
     "api_name": "major_news",
-    "source_fields": ("title", "content", "pub_time", "src"),
+    "source_fields": ("title", "content", "pub_time", "src", "url"),
     "source_doc_id": "tushare.major_news",
     "request_builder_key": "_major_news_params",
     "base_params": {},
@@ -113,7 +114,7 @@
 
 请求构造要求：
 
-1. 必须通过 `source_fields` 向 Tushare payload 顶层 `fields` 传 `title,content,pub_time,src`，否则 `content` 不会返回。
+1. 必须通过 `source_fields` 向 Tushare payload 顶层 `fields` 传 `title,content,pub_time,src,url`，否则 `content` 和 `url` 不会返回。
 2. `src` 不填时必须扇出真实来源枚举，不允许传 `__ALL__` 或模糊空值。
 3. 时间由自然日点/范围转成源站 `start_date`、`end_date`。
 
@@ -166,6 +167,7 @@
 | `pub_time` | timestamptz | not null | 发布时间 |
 | `title` | text | not null | 标题 |
 | `content` | text | nullable | 正文，源站定义为可空 |
+| `url` | text | nullable | 原文链接，源站定义为可空 |
 | `row_key_hash` | varchar(64) | unique not null | `src + pub_time + title + content` 的稳定哈希 |
 | `fetched_at` | timestamptz | not null default now() | 抓取时间 |
 | `raw_payload` | text | nullable | 原始行 JSON |

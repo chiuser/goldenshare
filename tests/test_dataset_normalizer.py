@@ -66,6 +66,7 @@ def test_major_news_normalizer_parses_pub_time_and_builds_row_hash() -> None:
                     "pub_time": "2026-04-24 10:11:12",
                     "title": "  长篇通讯标题  ",
                     "content": "  长篇通讯正文  ",
+                    "url": "  https://example.com/news/1  ",
                 }
             ],
         ),
@@ -77,6 +78,7 @@ def test_major_news_normalizer_parses_pub_time_and_builds_row_hash() -> None:
     assert normalized["pub_time"].isoformat() == "2026-04-24T10:11:12+08:00"
     assert normalized["title"] == "长篇通讯标题"
     assert normalized["content"] == "长篇通讯正文"
+    assert normalized["url"] == "https://example.com/news/1"
     assert isinstance(normalized["row_key_hash"], str)
     assert len(normalized["row_key_hash"]) == 64
 
@@ -102,6 +104,31 @@ def test_major_news_normalizer_records_structured_rejection_reason() -> None:
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
     assert batch.rejected_reasons == {"missing_content_field": 1}
+
+
+def test_major_news_normalizer_keeps_hash_stable_when_url_changes() -> None:
+    base_row = {
+        "src": "新浪财经",
+        "pub_time": "2026-04-24 10:11:12",
+        "title": "长篇通讯标题",
+        "content": "长篇通讯正文",
+    }
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("major_news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-major-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {**base_row, "url": "https://example.com/a"},
+                {**base_row, "url": "https://example.com/b"},
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["row_key_hash"] == batch.rows_normalized[1]["row_key_hash"]
 
 
 def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:

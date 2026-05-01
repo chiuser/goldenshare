@@ -137,6 +137,7 @@ def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     title = str(transformed.get("title") or "").strip()
     content_value = transformed.get("content")
     content = None if content_value is None else str(content_value).strip()
+    url = str(transformed.get("url") or "").strip() or None
     pub_time = _parse_news_datetime(transformed.get("pub_time"))
     if not src:
         raise RowTransformReject("missing_src", "新闻通讯来源为空")
@@ -147,6 +148,7 @@ def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed["src"] = src
     transformed["title"] = title
     transformed["content"] = content
+    transformed["url"] = url
     transformed["pub_time"] = pub_time
     content_text = content or ""
     pub_time_text = pub_time.isoformat() if pub_time is not None else ""

@@ -22,6 +22,7 @@ class RawMajorNews(Base):
     pub_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str | None] = mapped_column(Text)
+    url: Mapped[str | None] = mapped_column(Text)
     row_key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     api_name: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'major_news'"))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
