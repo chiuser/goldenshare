@@ -34,6 +34,27 @@ class LakeRiskItem(BaseModel):
     suggested_action: str | None = None
 
 
+class LakeLayerSummary(BaseModel):
+    layer: str
+    layer_name: str
+    purpose: str
+    source_layer: str | None = None
+    layout: str
+    path: str
+    partition_count: int
+    file_count: int
+    total_bytes: int
+    row_count: int | None = None
+    freqs: list[int] = []
+    earliest_trade_date: str | None = None
+    latest_trade_date: str | None = None
+    earliest_trade_month: str | None = None
+    latest_trade_month: str | None = None
+    latest_modified_at: datetime | None = None
+    recommended_usage: str
+    risks: list[LakeRiskItem] = []
+
+
 class LakeStatusResponse(BaseModel):
     path: LakePathInfo
     disk: DiskUsageInfo | None = None
@@ -43,14 +64,34 @@ class LakeStatusResponse(BaseModel):
 class LakeDatasetSummary(BaseModel):
     dataset_key: str
     display_name: str
+    source: str = "tushare"
+    category: str | None = None
+    group_key: str | None = None
+    group_label: str | None = None
+    group_order: int | None = None
+    description: str | None = None
+    dataset_role: str = "raw_dataset"
+    storage_root: str | None = None
     layers: list[str]
+    layer_summaries: list[LakeLayerSummary] = []
     freqs: list[int]
+    supported_freqs: list[int] = []
+    raw_freqs: list[int] = []
+    derived_freqs: list[int] = []
     partition_count: int
     file_count: int
     total_bytes: int
+    row_count: int | None = None
     earliest_trade_date: str | None = None
     latest_trade_date: str | None = None
+    earliest_trade_month: str | None = None
+    latest_trade_month: str | None = None
     latest_modified_at: datetime | None = None
+    primary_layout: str | None = None
+    available_layouts: list[str] = []
+    write_policy: str | None = None
+    update_mode: str | None = None
+    health_status: str = "empty"
     risks: list[LakeRiskItem] = []
 
 

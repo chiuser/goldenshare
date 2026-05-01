@@ -258,6 +258,10 @@ code {
   margin-bottom: 16px;
 }
 
+.two-column.wide-left {
+  grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 0.9fr);
+}
+
 .panel {
   padding: 18px;
 }
@@ -268,10 +272,12 @@ code {
   border-bottom: 1px solid var(--border-default);
 }
 
+.dataset-groups,
 .dataset-list,
 .capability-list,
 .risk-list,
-.partition-groups {
+.partition-groups,
+.command-list {
   display: grid;
   gap: 10px;
 }
@@ -282,6 +288,57 @@ code {
   border-radius: var(--r-md);
   padding: 14px;
   background: var(--neutral-0);
+}
+
+.dataset-card {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dataset-card.selected {
+  border-color: var(--brand-5);
+  background: var(--brand-0);
+}
+
+.dataset-card p {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.dataset-group {
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-0);
+}
+
+.dataset-group-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+}
+
+.dataset-group-header strong {
+  display: block;
+  color: var(--text-title);
+}
+
+.dataset-group-header span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.dataset-group-header em {
+  color: var(--text-hint);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .dataset-title,
@@ -298,7 +355,7 @@ code {
   color: var(--text-title);
 }
 
-.dataset-title span:not(.tag),
+.dataset-title span:not(.tag):not(.health-badge),
 .layer-card-title span {
   display: block;
   color: var(--text-muted);
@@ -320,14 +377,24 @@ code {
   gap: 12px;
 }
 
+.layer-grid.dynamic {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .layer-card p {
   margin-top: 8px;
   color: var(--text-muted);
   font-size: 13px;
 }
 
+.layer-card code {
+  display: block;
+  max-width: none;
+  margin-top: 10px;
+}
+
 .layer-card dl {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .dataset-card dt,
@@ -354,6 +421,108 @@ code {
 .capability-row p {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.dataset-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.dataset-detail-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dataset-detail-title strong {
+  display: block;
+  color: var(--text-title);
+  font-size: 17px;
+}
+
+.dataset-detail-title span:not(.health-badge) {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.dataset-detail > p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-item {
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  background: var(--neutral-0);
+}
+
+.detail-item.wide {
+  grid-column: 1 / -1;
+}
+
+.detail-item span {
+  display: block;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.detail-item strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-full);
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.health-badge.ok {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.health-badge.warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.health-badge.error {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.health-badge.empty {
+  color: var(--text-muted);
+  background: var(--bg-muted);
+}
+
+.command-list code {
+  display: block;
+  max-width: none;
+  color: var(--text-title);
+  background: var(--neutral-1);
+}
+
+.risk-list.compact {
+  gap: 8px;
 }
 
 .dot {

@@ -38,6 +38,31 @@ class TushareLakeClient:
         )
         return _frame_to_rows(frame)
 
+    def index_basic(
+        self,
+        *,
+        fields: Sequence[str],
+        ts_code: str | None = None,
+        name: str | None = None,
+        market: str | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        frame = self._request(
+            self._pro.index_basic,
+            ts_code=ts_code,
+            name=name,
+            market=market,
+            publisher=publisher,
+            category=category,
+            limit=limit,
+            offset=offset,
+            fields=",".join(fields),
+        )
+        return _frame_to_rows(frame)
+
     def stk_mins(
         self,
         *,

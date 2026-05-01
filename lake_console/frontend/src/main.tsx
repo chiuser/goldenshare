@@ -1,6 +1,13 @@
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+
+type RiskItem = {
+  severity: string;
+  code: string;
+  message: string;
+  path?: string | null;
+};
 
 type LakeStatus = {
   path: {
@@ -17,23 +24,63 @@ type LakeStatus = {
     free_bytes: number;
     usage_percent: number;
   } | null;
-  risks: Array<{ severity: string; code: string; message: string; path?: string | null }>;
+  risks: RiskItem[];
+};
+
+type LayerSummary = {
+  layer: string;
+  layer_name: string;
+  purpose: string;
+  layout: string;
+  path: string;
+  partition_count: number;
+  file_count: number;
+  total_bytes: number;
+  row_count: number | null;
+  freqs: number[];
+  earliest_trade_date: string | null;
+  latest_trade_date: string | null;
+  earliest_trade_month: string | null;
+  latest_trade_month: string | null;
+  recommended_usage: string;
+  risks: RiskItem[];
 };
 
 type DatasetSummary = {
   dataset_key: string;
   display_name: string;
+  source: string;
+  category: string | null;
+  group_key: string | null;
+  group_label: string | null;
+  group_order: number | null;
+  description: string | null;
+  dataset_role: string;
+  storage_root: string | null;
   layers: string[];
+  layer_summaries: LayerSummary[];
   freqs: number[];
+  supported_freqs: number[];
+  raw_freqs: number[];
+  derived_freqs: number[];
   partition_count: number;
   file_count: number;
   total_bytes: number;
+  row_count: number | null;
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
-  risks: Array<{ severity: string; code: string; message: string }>;
+  earliest_trade_month: string | null;
+  latest_trade_month: string | null;
+  primary_layout: string | null;
+  available_layouts: string[];
+  write_policy: string | null;
+  update_mode: string | null;
+  health_status: "ok" | "warning" | "error" | "empty" | string;
+  risks: RiskItem[];
 };
 
 type PartitionSummary = {
+  dataset_key: string;
   layer: string;
   layout: string;
   freq: number | null;
@@ -49,27 +96,29 @@ function App() {
   const [status, setStatus] = useState<LakeStatus | null>(null);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [partitions, setPartitions] = useState<PartitionSummary[]>([]);
+  const [selectedDatasetKey, setSelectedDatasetKey] = useState<string>("stk_mins");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const [statusResponse, datasetResponse, partitionResponse] = await Promise.all([
+        const [statusResponse, datasetResponse] = await Promise.all([
           fetch("/api/lake/status"),
           fetch("/api/datasets"),
-          fetch("/api/partitions?dataset_key=stk_mins"),
         ]);
-        if (!statusResponse.ok || !datasetResponse.ok || !partitionResponse.ok) {
+        if (!statusResponse.ok || !datasetResponse.ok) {
           throw new Error("Lake Console API 请求失败。");
         }
         const statusPayload = (await statusResponse.json()) as LakeStatus;
         const datasetPayload = (await datasetResponse.json()) as { items: DatasetSummary[] };
-        const partitionPayload = (await partitionResponse.json()) as { items: PartitionSummary[] };
         if (!cancelled) {
           setStatus(statusPayload);
           setDatasets(datasetPayload.items);
-          setPartitions(partitionPayload.items.slice(0, 16));
+          const preferred = datasetPayload.items.find((dataset) => dataset.dataset_key === selectedDatasetKey);
+          if (!preferred && datasetPayload.items[0]) {
+            setSelectedDatasetKey(datasetPayload.items[0].dataset_key);
+          }
         }
       } catch (caught) {
         if (!cancelled) {
@@ -83,9 +132,40 @@ function App() {
     };
   }, []);
 
-  const stkMins = datasets.find((dataset) => dataset.dataset_key === "stk_mins");
-  const stockBasic = datasets.find((dataset) => dataset.dataset_key === "stock_basic");
-  const layerSummaries = buildLayerSummaries(partitions);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPartitions() {
+      if (!selectedDatasetKey) {
+        setPartitions([]);
+        return;
+      }
+      try {
+        const partitionResponse = await fetch(`/api/partitions?dataset_key=${encodeURIComponent(selectedDatasetKey)}`);
+        if (!partitionResponse.ok) {
+          throw new Error("分区 API 请求失败。");
+        }
+        const partitionPayload = (await partitionResponse.json()) as { items: PartitionSummary[] };
+        if (!cancelled) {
+          setPartitions(partitionPayload.items.slice(0, 24));
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "未知错误");
+        }
+      }
+    }
+    void loadPartitions();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDatasetKey]);
+
+  const groupedDatasets = useMemo(() => groupDatasets(datasets), [datasets]);
+  const selectedDataset = datasets.find((dataset) => dataset.dataset_key === selectedDatasetKey) ?? datasets[0] ?? null;
+  const readyDatasets = datasets.filter((dataset) => dataset.file_count > 0).length;
+  const totalFiles = datasets.reduce((sum, dataset) => sum + dataset.file_count, 0);
+  const totalBytes = datasets.reduce((sum, dataset) => sum + dataset.total_bytes, 0);
+  const riskCount = datasets.reduce((sum, dataset) => sum + dataset.risks.length, 0) + (status?.risks.length ?? 0);
 
   return (
     <div className="app">
@@ -95,9 +175,9 @@ function App() {
           <span>Lake Console</span>
         </div>
         <div className="sidebar-section-label">本地数据湖</div>
-        <a className="sidebar-link active">总览</a>
-        <a className="sidebar-link">数据集</a>
-        <a className="sidebar-link">分区</a>
+        <a className="sidebar-link active">数据集总览</a>
+        <a className="sidebar-link">层级与分区</a>
+        <a className="sidebar-link">命令示例</a>
         <a className="sidebar-link">风险</a>
         <div className="sidebar-section-label">边界</div>
         <a className="sidebar-link">不接远程 DB</a>
@@ -107,7 +187,7 @@ function App() {
       <main className="main">
         <header className="topbar">
           <div>
-            <div className="breadcrumb">Goldenshare / Local Lake</div>
+            <div className="breadcrumb">Goldenshare / Local Lake / Dataset Catalog</div>
             <h1>本地 Tushare Parquet Lake 管理台</h1>
           </div>
           <span className={status?.path.initialized ? "status-badge success" : "status-badge warning"}>
@@ -118,8 +198,8 @@ function App() {
         <section className="content">
           <div className="page-intro">
             <div>
-              <h2>文件事实总览</h2>
-              <p>只读取移动盘上的 Parquet 与 manifest，不连接远程 goldenshare-db，不依赖生产 Ops 状态。</p>
+              <h2>数据集文件事实</h2>
+              <p>按 Lake Dataset Catalog 展示 raw、manifest、derived、research，不连接远程 goldenshare-db。</p>
             </div>
             <code>{status?.path.lake_root ?? "正在读取 Lake Root..."}</code>
           </div>
@@ -127,62 +207,46 @@ function App() {
           {error ? <div className="alert error">API 加载失败：{error}</div> : null}
 
           <section className="metric-grid">
-            <Metric label="磁盘剩余" value={status?.disk ? formatBytes(status.disk.free_bytes) : "-"} hint="移动盘可用空间" />
-            <Metric label="空间使用率" value={status?.disk ? `${status.disk.usage_percent}%` : "-"} hint="来自 Lake Root 所在卷" />
-            <Metric label="数据集数量" value={String(datasets.length)} hint="基于文件事实扫描" />
-            <Metric label="分区数量" value={String(partitions.length)} hint="当前展示 stk_mins 最近分区" />
+            <Metric label="Catalog 数据集" value={String(datasets.length)} hint={`${readyDatasets} 个已有文件落盘`} />
+            <Metric label="文件总数" value={String(totalFiles)} hint="所有层级合计 Parquet 文件" />
+            <Metric label="数据总量" value={formatBytes(totalBytes)} hint="列表页不默认读取 row count" />
+            <Metric label="风险提示" value={String(riskCount)} hint="Lake Root 与数据集风险合计" />
           </section>
 
-          <section className="two-column">
-            <Panel title="数据集清单" description="正式数据集与本地执行股票池分离展示，避免把 manifest 当研究表使用。">
+          <section className="two-column wide-left">
+            <Panel title="数据集目录" description="展示分组参考 Ops 默认目录；代码维护分包不作为用户可见分组。">
               {datasets.length ? (
-                <div className="dataset-list">
-                  {datasets.map((dataset) => (
-                    <DatasetCard dataset={dataset} key={dataset.dataset_key} />
+                <div className="dataset-groups">
+                  {groupedDatasets.map((group) => (
+                    <DatasetGroup
+                      group={group}
+                      key={group.groupKey}
+                      selectedDatasetKey={selectedDataset?.dataset_key ?? null}
+                      onSelect={setSelectedDatasetKey}
+                    />
                   ))}
                 </div>
               ) : (
-                <EmptyState title="暂无正式数据集" description="先执行 lake-console sync-stock-basic，再执行 stk_mins 小样本或全市场同步。" />
+                <EmptyState title="暂无 Catalog 数据集" description="请先确认 Lake Dataset Catalog 已加载。" />
               )}
             </Panel>
 
-            <Panel title="当前能力" description="第一阶段能力保持本地独立，不进入生产链路。">
-              <div className="capability-list">
-                <Capability name="stock_basic" status={stockBasic ? "ready" : "pending"} text="正式维表 + 执行股票池双落盘" />
-                <Capability name="stk_mins 单股票单日" status={stkMins ? "ready" : "pending"} text="写入 raw_tushare/stk_mins_by_date" />
-                <Capability name="stk_mins 全市场" status="ready" text="读取本地股票池，按 freq / trade_date 扇出" />
-                <Capability name="_tmp 清理" status="ready" text="clean-tmp dry-run 与按年龄清理" />
-              </div>
+            <Panel title="选中数据集" description="详情来自后端模型字段，前端不自行拼路径或猜层级用途。">
+              {selectedDataset ? <DatasetDetail dataset={selectedDataset} /> : <EmptyState title="未选择数据集" description="请选择左侧数据集。" />}
             </Panel>
           </section>
 
-          <Panel title="Lake 分层概览" description="三层数据服务不同查询场景，页面按文件事实展示当前覆盖情况。">
-            <div className="layer-grid">
-              <LayerCard
-                name="Raw 原始层"
-                layer="raw_tushare"
-                source="Tushare API 原始落盘"
-                usage="适合单日全市场排名、横截面统计、作为派生计算来源。"
-                summary={layerSummaries.raw_tushare}
-              />
-              <LayerCard
-                name="Derived 派生层"
-                layer="derived"
-                source="由 raw 本地计算生成"
-                usage="适合 90/120 分钟线等本地派生周期。"
-                summary={layerSummaries.derived}
-              />
-              <LayerCard
-                name="Research 研究层"
-                layer="research"
-                source="由 raw / derived 重排生成"
-                usage="适合单股多年回测、少数股票多月相似性分析。"
-                summary={layerSummaries.research}
-              />
-            </div>
+          <Panel title="层级概览" description="manifest 不隐藏；derived/research 作为数据集子层展示。">
+            {selectedDataset ? (
+              <div className="layer-grid dynamic">
+                {selectedDataset.layer_summaries.map((layer) => (
+                  <LayerCard layer={layer} key={`${selectedDataset.dataset_key}-${layer.layer}-${layer.layout}`} />
+                ))}
+              </div>
+            ) : null}
           </Panel>
 
-          <Panel title="最近 stk_mins 分区" description="按 layer 分组展示本地文件事实，避免混用原始层、派生层和研究层。">
+          <Panel title="最近分区 / 文件" description="这里只展示选中数据集的最近分区；row_count 留到详情或显式刷新。">
             {partitions.length ? (
               <div className="partition-groups">
                 {Object.entries(groupPartitionsByLayer(partitions)).map(([layer, items]) => (
@@ -217,12 +281,16 @@ function App() {
                 ))}
               </div>
             ) : (
-              <EmptyState title="暂无分钟线分区" description="执行 sync-stk-mins 后，这里会展示 by_date 分区。" />
+              <EmptyState title="暂无分区文件" description="该数据集还没有落盘，或当前层级是未写入状态。" />
             )}
           </Panel>
 
+          <Panel title="命令示例 / 操作提示" description="本页只展示命令，不触发写入；真实写入继续通过 CLI 执行。">
+            {selectedDataset ? <CommandHints dataset={selectedDataset} /> : null}
+          </Panel>
+
           {status?.risks.length ? (
-            <Panel title="风险提示" description="这里展示 Lake Root 与 _tmp 等本地文件风险。">
+            <Panel title="Lake Root 风险" description="这里展示 Lake Root 与 _tmp 等本地文件风险。">
               <div className="risk-list">
                 {status.risks.map((risk) => (
                   <div className="alert warning" key={risk.code}>
@@ -261,20 +329,53 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
   );
 }
 
-function DatasetCard({ dataset }: { dataset: DatasetSummary }) {
+function DatasetGroup({
+  group,
+  selectedDatasetKey,
+  onSelect,
+}: {
+  group: DatasetGroupView;
+  selectedDatasetKey: string | null;
+  onSelect: (datasetKey: string) => void;
+}) {
   return (
-    <article className="dataset-card">
+    <section className="dataset-group">
+      <div className="dataset-group-header">
+        <div>
+          <strong>{group.groupLabel}</strong>
+          <span>{group.groupKey}</span>
+        </div>
+        <em>{group.items.length} 个数据集</em>
+      </div>
+      <div className="dataset-list">
+        {group.items.map((dataset) => (
+          <DatasetCard
+            dataset={dataset}
+            isSelected={dataset.dataset_key === selectedDatasetKey}
+            key={dataset.dataset_key}
+            onSelect={() => onSelect(dataset.dataset_key)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DatasetCard({ dataset, isSelected, onSelect }: { dataset: DatasetSummary; isSelected: boolean; onSelect: () => void }) {
+  return (
+    <button className={isSelected ? "dataset-card selected" : "dataset-card"} onClick={onSelect} type="button">
       <div className="dataset-title">
         <div>
           <strong>{dataset.display_name}</strong>
           <span>{dataset.dataset_key}</span>
         </div>
-        <span className="tag">{dataset.layers.join(", ")}</span>
+        <HealthBadge status={dataset.health_status} />
       </div>
+      <p>{dataset.description ?? "本地 Lake 数据集"}</p>
       <dl>
         <div>
-          <dt>分区</dt>
-          <dd>{dataset.partition_count}</dd>
+          <dt>层级</dt>
+          <dd>{dataset.layers.length}</dd>
         </div>
         <div>
           <dt>文件</dt>
@@ -286,64 +387,107 @@ function DatasetCard({ dataset }: { dataset: DatasetSummary }) {
         </div>
         <div>
           <dt>日期</dt>
-          <dd>
-            {dataset.earliest_trade_date ?? "-"} ~ {dataset.latest_trade_date ?? "-"}
-          </dd>
+          <dd>{formatRange(dataset.earliest_trade_date, dataset.latest_trade_date)}</dd>
         </div>
       </dl>
-    </article>
+    </button>
   );
 }
 
-function LayerCard({
-  name,
-  layer,
-  source,
-  usage,
-  summary,
-}: {
-  name: string;
-  layer: string;
-  source: string;
-  usage: string;
-  summary: LayerSummary;
-}) {
+function DatasetDetail({ dataset }: { dataset: DatasetSummary }) {
+  return (
+    <div className="dataset-detail">
+      <div className="dataset-detail-title">
+        <div>
+          <strong>{dataset.display_name}</strong>
+          <span>{dataset.dataset_key}</span>
+        </div>
+        <HealthBadge status={dataset.health_status} />
+      </div>
+      <p>{dataset.description}</p>
+      <div className="detail-grid">
+        <DetailItem label="展示分组" value={dataset.group_label ?? "-"} />
+        <DetailItem label="数据来源" value={dataset.source} />
+        <DetailItem label="角色" value={dataset.dataset_role} />
+        <DetailItem label="主布局" value={dataset.primary_layout ?? "-"} />
+        <DetailItem label="写入策略" value={dataset.write_policy ?? "-"} />
+        <DetailItem label="更新方式" value={dataset.update_mode ?? "-"} />
+        <DetailItem label="存储根" value={dataset.storage_root ?? "-"} wide />
+        <DetailItem label="可用布局" value={dataset.available_layouts.join(", ") || "-"} wide />
+        <DetailItem label="频度" value={dataset.supported_freqs.join(", ") || "-"} wide />
+      </div>
+      {dataset.risks.length ? (
+        <div className="risk-list compact">
+          {dataset.risks.map((risk) => (
+            <div className="alert warning" key={risk.code}>
+              <strong>{risk.code}</strong>
+              <span>{risk.message}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={wide ? "detail-item wide" : "detail-item"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function LayerCard({ layer }: { layer: LayerSummary }) {
   return (
     <article className="layer-card">
       <div className="layer-card-title">
-        <strong>{name}</strong>
-        <span>{layer}</span>
+        <div>
+          <strong>{layer.layer_name}</strong>
+          <span>{layer.layer}</span>
+        </div>
+        <span className="tag">{layer.layout}</span>
       </div>
-      <p>{source}</p>
-      <p>{usage}</p>
+      <p>{layer.purpose}</p>
+      <p>{layer.recommended_usage}</p>
+      <code>{layer.path}</code>
       <dl>
         <div>
           <dt>分区</dt>
-          <dd>{summary.partitionCount}</dd>
+          <dd>{layer.partition_count}</dd>
         </div>
         <div>
           <dt>文件</dt>
-          <dd>{summary.fileCount}</dd>
+          <dd>{layer.file_count}</dd>
         </div>
         <div>
           <dt>大小</dt>
-          <dd>{formatBytes(summary.totalBytes)}</dd>
+          <dd>{formatBytes(layer.total_bytes)}</dd>
+        </div>
+        <div>
+          <dt>日期</dt>
+          <dd>{formatRange(layer.earliest_trade_date, layer.latest_trade_date)}</dd>
         </div>
       </dl>
     </article>
   );
 }
 
-function Capability({ name, status, text }: { name: string; status: "ready" | "pending"; text: string }) {
+function CommandHints({ dataset }: { dataset: DatasetSummary }) {
+  const commands = commandExamples(dataset);
   return (
-    <div className="capability-row">
-      <span className={status === "ready" ? "dot success" : "dot muted"} />
-      <div>
-        <strong>{name}</strong>
-        <p>{text}</p>
-      </div>
+    <div className="command-list">
+      {commands.map((command) => (
+        <code key={command}>{command}</code>
+      ))}
     </div>
   );
+}
+
+function HealthBadge({ status }: { status: string }) {
+  const label = status === "ok" ? "已落盘" : status === "warning" ? "有风险" : status === "error" ? "异常" : "未落盘";
+  return <span className={`health-badge ${status}`}>{label}</span>;
 }
 
 function EmptyState({ title, description }: { title: string; description: string }) {
@@ -369,26 +513,39 @@ function formatBytes(value: number): string {
   return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-type LayerSummary = {
-  partitionCount: number;
-  fileCount: number;
-  totalBytes: number;
+function formatRange(start: string | null, end: string | null): string {
+  if (!start && !end) {
+    return "-";
+  }
+  if (start === end) {
+    return start ?? "-";
+  }
+  return `${start ?? "-"} ~ ${end ?? "-"}`;
+}
+
+type DatasetGroupView = {
+  groupKey: string;
+  groupLabel: string;
+  groupOrder: number;
+  items: DatasetSummary[];
 };
 
-function buildLayerSummaries(partitions: PartitionSummary[]): Record<string, LayerSummary> {
-  const result: Record<string, LayerSummary> = {
-    raw_tushare: { partitionCount: 0, fileCount: 0, totalBytes: 0 },
-    derived: { partitionCount: 0, fileCount: 0, totalBytes: 0 },
-    research: { partitionCount: 0, fileCount: 0, totalBytes: 0 },
-  };
-  for (const partition of partitions) {
-    const summary = result[partition.layer] ?? { partitionCount: 0, fileCount: 0, totalBytes: 0 };
-    summary.partitionCount += 1;
-    summary.fileCount += partition.file_count;
-    summary.totalBytes += partition.total_bytes;
-    result[partition.layer] = summary;
+function groupDatasets(datasets: DatasetSummary[]): DatasetGroupView[] {
+  const grouped = new Map<string, DatasetGroupView>();
+  for (const dataset of datasets) {
+    const groupKey = dataset.group_key ?? "unknown";
+    const group = grouped.get(groupKey) ?? {
+      groupKey,
+      groupLabel: dataset.group_label ?? "未分组",
+      groupOrder: dataset.group_order ?? 999,
+      items: [],
+    };
+    group.items.push(dataset);
+    grouped.set(groupKey, group);
   }
-  return result;
+  return [...grouped.values()]
+    .map((group) => ({ ...group, items: group.items.sort((a, b) => a.dataset_key.localeCompare(b.dataset_key)) }))
+    .sort((a, b) => a.groupOrder - b.groupOrder || a.groupKey.localeCompare(b.groupKey));
 }
 
 function groupPartitionsByLayer(partitions: PartitionSummary[]): Record<string, PartitionSummary[]> {
@@ -400,15 +557,39 @@ function groupPartitionsByLayer(partitions: PartitionSummary[]): Record<string, 
 
 function layerDescription(layer: string): string {
   if (layer === "raw_tushare") {
-    return "原始接口落盘，适合单日全市场横截面。";
+    return "源站事实层。";
+  }
+  if (layer === "manifest") {
+    return "执行辅助清单层。";
   }
   if (layer === "derived") {
-    return "本地派生周期，适合 90/120 分钟线。";
+    return "本地派生层。";
   }
   if (layer === "research") {
-    return "研究重排，适合单股长周期查询。";
+    return "研究查询优化层。";
   }
   return "本地文件层。";
+}
+
+function commandExamples(dataset: DatasetSummary): string[] {
+  if (dataset.dataset_key === "stock_basic") {
+    return ["lake-console sync-stock-basic"];
+  }
+  if (dataset.dataset_key === "trade_cal") {
+    return ["lake-console sync-trade-cal --start-date 2020-01-01 --end-date 2026-12-31"];
+  }
+  if (dataset.dataset_key === "stk_mins") {
+    return [
+      "lake-console sync-stk-mins --ts-code 600000.SH --freq 30 --trade-date 2026-04-24",
+      "lake-console sync-stk-mins-range --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30",
+      "lake-console rebuild-stk-mins-derived --freq 90 --trade-date 2026-04-24",
+      "lake-console rebuild-stk-mins-research --freq 30 --trade-month 2026-04",
+    ];
+  }
+  return [
+    `lake-console plan-sync ${dataset.dataset_key} --help`,
+    `lake-console sync-dataset ${dataset.dataset_key} --help`,
+  ];
 }
 
 createRoot(document.getElementById("root")!).render(

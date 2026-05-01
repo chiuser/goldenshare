@@ -22,6 +22,7 @@ from lake_console.backend.app.services.tushare_stk_mins_sync_service import (
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
 from lake_console.backend.app.settings import load_settings
+from lake_console.backend.app.sync import LakeSyncEngine, LakeSyncPlanner
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,6 +50,26 @@ def _build_parser() -> argparse.ArgumentParser:
     dataset_parser = subparsers.add_parser("list-datasets", help="扫描本地 Lake 数据集")
     _add_lake_root_arg(dataset_parser)
     dataset_parser.set_defaults(handler=_handle_list_datasets)
+
+    plan_parser = subparsers.add_parser("plan-sync", help="预览数据集本地 Lake 同步计划，不发请求、不写文件")
+    _add_lake_root_arg(plan_parser)
+    plan_parser.add_argument("dataset_key", help="数据集 key，例如 daily、index_basic、moneyflow")
+    plan_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD")
+    plan_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    plan_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    plan_parser.add_argument("--ts-code", default=None, help="证券代码，可用于单标的调试或补数计划")
+    plan_parser.add_argument("--market", default=None, help="市场枚举，快照类数据集可用")
+    plan_parser.set_defaults(handler=_handle_plan_sync)
+
+    sync_dataset_parser = subparsers.add_parser("sync-dataset", help="按 Lake Dataset Catalog 同步单个数据集")
+    _add_lake_root_arg(sync_dataset_parser)
+    sync_dataset_parser.add_argument("dataset_key", help="数据集 key；当前只接入 index_basic")
+    sync_dataset_parser.add_argument("--ts-code", default=None, help="证券代码")
+    sync_dataset_parser.add_argument("--name", default=None, help="源站 name 过滤")
+    sync_dataset_parser.add_argument("--market", default=None, help="市场枚举；多个值用逗号分隔")
+    sync_dataset_parser.add_argument("--publisher", default=None, help="发布方过滤")
+    sync_dataset_parser.add_argument("--category", default=None, help="指数类别过滤")
+    sync_dataset_parser.set_defaults(handler=_handle_sync_dataset)
 
     clean_parser = subparsers.add_parser("clean-tmp", help="审计或清理 Lake Root 下的 _tmp run 目录")
     _add_lake_root_arg(clean_parser)
@@ -129,6 +150,41 @@ def _handle_list_datasets(args: argparse.Namespace) -> int:
     settings = _settings(args)
     items = FilesystemScanner(settings.lake_root).list_datasets()
     _print_json([item.model_dump(mode="json") for item in items])
+    return 0
+
+
+def _handle_plan_sync(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    plan = LakeSyncPlanner(lake_root=settings.lake_root).plan(
+        dataset_key=args.dataset_key,
+        trade_date=args.trade_date,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        ts_code=args.ts_code,
+        market=args.market,
+    )
+    _print_json(plan.to_dict())
+    return 0
+
+
+def _handle_sync_dataset(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    engine = LakeSyncEngine(
+        lake_root=settings.lake_root,
+        client=TushareLakeClient(
+            settings.tushare_token,
+            request_limit_per_minute=settings.tushare_request_limit_per_minute,
+        ),
+    )
+    summary = engine.sync_dataset(
+        dataset_key=args.dataset_key,
+        ts_code=args.ts_code,
+        name=args.name,
+        markets=_parse_optional_csv(args.market),
+        publisher=args.publisher,
+        category=args.category,
+    )
+    _print_json(summary)
     return 0
 
 
@@ -286,6 +342,13 @@ def _parse_int_csv(raw_value: str, *, allowed: set[int], label: str) -> list[int
     if invalid:
         raise SystemExit(f"不支持的 {label}={invalid}，允许值：{','.join(str(item) for item in sorted(allowed))}")
     return values
+
+
+def _parse_optional_csv(raw_value: str | None) -> list[str] | None:
+    if not raw_value:
+        return None
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    return values or None
 
 
 def _print_json(payload: Any) -> None:

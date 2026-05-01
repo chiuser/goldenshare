@@ -71,6 +71,9 @@ docs/
 - [指数筛选池同步机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
 - [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
 - [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
+- [指数基础信息 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/index-basic-lake-dataset-development.md)
+- [股票日线 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/daily-lake-dataset-development.md)
+- [个股资金流向 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/moneyflow-lake-dataset-development.md)
 
 说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
