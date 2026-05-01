@@ -123,7 +123,7 @@ def _parse_news_datetime(value: Any) -> datetime | None:
         try:
             parsed = datetime.fromisoformat(str(value).strip().replace("/", "-"))
         except ValueError as exc:
-            raise RowTransformReject("invalid_pub_time", f"新闻发布时间格式无效：{value}") from exc
+            raise RowTransformReject("normalize.invalid_date:pub_time", f"新闻发布时间格式无效：{value}") from exc
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
     return parsed
@@ -132,27 +132,29 @@ def _parse_news_datetime(value: Any) -> datetime | None:
 def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     if "content" not in transformed:
-        raise RowTransformReject("missing_content_field", "新闻通讯缺少 content 字段")
+        raise RowTransformReject("normalize.required_field_missing:content", "新闻通讯缺少 content 字段")
     src = str(transformed.get("src") or "").strip()
-    title = str(transformed.get("title") or "").strip()
+    title = str(transformed.get("title") or "").strip() or None
     content_value = transformed.get("content")
-    content = None if content_value is None else str(content_value).strip()
+    content = None if content_value is None else str(content_value).strip() or None
     url = str(transformed.get("url") or "").strip() or None
     pub_time = _parse_news_datetime(transformed.get("pub_time"))
     if not src:
-        raise RowTransformReject("missing_src", "新闻通讯来源为空")
+        raise RowTransformReject("normalize.required_field_missing:src", "新闻通讯来源为空")
     if pub_time is None:
-        raise RowTransformReject("invalid_pub_time", "新闻发布时间为空")
-    if not title:
-        raise RowTransformReject("missing_title", "新闻通讯标题为空")
+        raise RowTransformReject("normalize.required_field_missing:pub_time", "新闻发布时间为空")
+    if title is None and content is None:
+        raise RowTransformReject("normalize.empty_not_allowed:title_content", "新闻通讯标题与正文不能同时为空")
     transformed["src"] = src
     transformed["title"] = title
     transformed["content"] = content
     transformed["url"] = url
     transformed["pub_time"] = pub_time
     content_text = content or ""
+    title_text = title or ""
+    url_text = url or ""
     pub_time_text = pub_time.isoformat() if pub_time is not None else ""
-    hash_input = "\x1f".join((src, pub_time_text, title, content_text))
+    hash_input = "\x1f".join(("major_news", src, pub_time_text, title_text, content_text, url_text))
     transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
     return transformed
 

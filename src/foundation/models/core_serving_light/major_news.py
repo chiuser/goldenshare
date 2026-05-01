@@ -15,7 +15,7 @@ class MajorNewsLight(Base):
     row_key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     src: Mapped[str] = mapped_column(String(64), nullable=False)
     pub_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(32), nullable=False)

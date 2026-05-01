@@ -84,6 +84,9 @@ def test_dataset_definition_projects_major_news_facts() -> None:
     )
     assert definition.planning.pagination_policy == "offset_limit"
     assert definition.planning.page_limit == 400
+    assert definition.normalization.date_fields == ()
+    assert definition.normalization.required_fields == ("src", "pub_time", "row_key_hash")
+    assert definition.quality.required_fields == ("src", "pub_time", "row_key_hash")
 
 
 def test_dataset_definition_owns_dc_board_type_filter() -> None:

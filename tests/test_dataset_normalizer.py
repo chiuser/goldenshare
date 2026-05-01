@@ -103,10 +103,10 @@ def test_major_news_normalizer_records_structured_rejection_reason() -> None:
 
     assert batch.rows_normalized == []
     assert batch.rows_rejected == 1
-    assert batch.rejected_reasons == {"missing_content_field": 1}
+    assert batch.rejected_reasons == {"normalize.required_field_missing:content": 1}
 
 
-def test_major_news_normalizer_keeps_hash_stable_when_url_changes() -> None:
+def test_major_news_normalizer_uses_url_in_row_hash() -> None:
     base_row = {
         "src": "新浪财经",
         "pub_time": "2026-04-24 10:11:12",
@@ -128,7 +128,59 @@ def test_major_news_normalizer_keeps_hash_stable_when_url_changes() -> None:
     )
 
     assert batch.rows_rejected == 0
-    assert batch.rows_normalized[0]["row_key_hash"] == batch.rows_normalized[1]["row_key_hash"]
+    assert batch.rows_normalized[0]["row_key_hash"] != batch.rows_normalized[1]["row_key_hash"]
+
+
+def test_major_news_normalizer_allows_title_or_content_only() -> None:
+    base_row = {
+        "src": "新浪财经",
+        "pub_time": "2026-04-24 10:11:12",
+        "url": "https://example.com/news/1",
+    }
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("major_news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-major-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {**base_row, "title": "", "content": "只有正文"},
+                {**base_row, "title": "只有标题", "content": ""},
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["title"] is None
+    assert batch.rows_normalized[0]["content"] == "只有正文"
+    assert batch.rows_normalized[1]["title"] == "只有标题"
+    assert batch.rows_normalized[1]["content"] is None
+
+
+def test_major_news_normalizer_rejects_missing_title_and_content() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("major_news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-major-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "src": "新浪财经",
+                    "pub_time": "2026-04-24 10:11:12",
+                    "title": "",
+                    "content": "",
+                    "url": "https://example.com/news/1",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.empty_not_allowed:title_content": 1}
 
 
 def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
