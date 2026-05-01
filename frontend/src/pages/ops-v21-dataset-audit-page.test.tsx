@@ -44,6 +44,10 @@ function mockApi() {
               {
                 dataset_key: "moneyflow_ind_dc",
                 display_name: "板块资金流向(DC)",
+                group_key: "moneyflow",
+                group_label: "资金流向",
+                group_order: 8,
+                item_order: 60,
                 domain_key: "board",
                 domain_display_name: "板块",
                 target_table: "core_serving.board_moneyflow_dc",
@@ -65,6 +69,10 @@ function mockApi() {
               {
                 dataset_key: "stock_basic",
                 display_name: "股票主数据",
+                group_key: "reference_data",
+                group_label: "A股基础数据",
+                group_order: 1,
+                item_order: 10,
                 domain_key: "reference",
                 domain_display_name: "基础主数据",
                 target_table: "core_serving.security",

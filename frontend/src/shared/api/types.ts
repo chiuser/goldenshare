@@ -433,6 +433,10 @@ export interface OpsCatalogResponse {
     display_name: string;
     target_key: string;
     target_display_name: string;
+    group_key: string;
+    group_label: string;
+    group_order: number;
+    item_order: number;
     domain_key: string;
     domain_display_name: string;
     date_selection_rule?: string | null;
@@ -458,6 +462,9 @@ export interface OpsCatalogResponse {
     key: string;
     display_name: string;
     description: string;
+    group_key: string;
+    group_label: string;
+    group_order: number;
     domain_key: string;
     domain_display_name: string;
     parallel_policy: string;
@@ -694,14 +701,19 @@ export interface LayerSnapshotHistoryResponse {
 export interface DatasetCardListResponse {
   total: number;
   groups: Array<{
-    domain_key: string;
-    domain_display_name: string;
+    group_key: string;
+    group_label: string;
+    group_order: number;
     items: Array<{
       card_key: string;
       dataset_key: string;
       detail_dataset_key: string;
       resource_key: string;
       display_name: string;
+      group_key: string;
+      group_label: string;
+      group_order: number;
+      item_order: number;
       domain_key: string;
       domain_display_name: string;
       status: string;

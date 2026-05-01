@@ -20,8 +20,8 @@ const mockManualActions = {
   groups: [
     {
       group_key: "reference_data",
-      group_label: "基础主数据",
-      group_order: 10,
+      group_label: "A股基础数据",
+      group_order: 1,
       actions: [
         {
           action_key: "stock_basic.maintain",
@@ -64,8 +64,8 @@ const mockManualActions = {
     },
     {
       group_key: "equity_market",
-      group_label: "股票行情",
-      group_order: 20,
+      group_label: "A股行情",
+      group_order: 2,
       actions: [
         {
           action_key: "daily.maintain",
@@ -229,9 +229,9 @@ const mockManualActions = {
       ],
     },
     {
-      group_key: "event_stats",
-      group_label: "榜单 / 事件",
-      group_order: 60,
+      group_key: "leader_board",
+      group_label: "榜单",
+      group_order: 4,
       actions: [
         {
           action_key: "dc_hot.maintain",
@@ -437,7 +437,7 @@ function renderPageWithPersistedDraft() {
 }
 
 function renderPageWithMismatchedPersistedDomain() {
-  window.localStorage.setItem("goldenshare.frontend.ops.task-center.manual.domain", JSON.stringify("基础主数据"));
+  window.localStorage.setItem("goldenshare.frontend.ops.task-center.manual.domain", JSON.stringify("A股基础数据"));
   window.localStorage.setItem(
     "goldenshare.frontend.ops.task-center.manual.draft",
     JSON.stringify({
@@ -483,18 +483,18 @@ describe("手动任务页", () => {
     const domainInput = screen
       .getAllByLabelText("选择数据分组")
       .find((element) => element.tagName === "INPUT") as HTMLInputElement;
-    expect(domainInput.value).toBe("股票行情");
+    expect(domainInput.value).toBe("A股行情");
   });
 
   it("切换数据分组时会清空不匹配的维护对象，避免下拉被锁死", () => {
     const manualActions = [
       {
         action_key: "daily.maintain",
-        groupLabel: "股票行情",
+        groupLabel: "A股行情",
       },
       {
         action_key: "stock_basic.maintain",
-        groupLabel: "基础主数据",
+        groupLabel: "A股基础数据",
       },
     ] as never;
 
@@ -510,7 +510,7 @@ describe("手动任务页", () => {
         end_month: "",
         field_values: {},
       },
-      "基础主数据",
+      "A股基础数据",
       manualActions,
     );
 
@@ -519,7 +519,7 @@ describe("手动任务页", () => {
 
   it("仅在分组为空时自动对齐维护对象分组，避免覆盖用户选择", () => {
     expect(
-      shouldAutoAlignDomain("股票行情", {
+      shouldAutoAlignDomain("A股行情", {
         action_key: "daily.maintain",
       } as never),
     ).toBe(false);
@@ -692,8 +692,8 @@ describe("手动任务页", () => {
           groups: [
             {
               group_key: "equity_market",
-              group_label: "股票行情",
-              group_order: 20,
+              group_label: "A股行情",
+              group_order: 2,
             },
           ],
         } as unknown as Record<string, unknown>;

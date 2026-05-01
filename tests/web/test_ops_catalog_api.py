@@ -45,6 +45,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
+    assert {item["group_label"] for item in payload["workflows"]} == {"工作流"}
     assert [param["key"] for param in workflows["daily_market_close_maintenance"]["parameters"]] == [
         "trade_date",
         "start_date",
@@ -67,10 +68,16 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert daily["action_type"] == "dataset_action"
     assert daily["target_key"] == "daily"
     assert daily["target_display_name"] == "股票日线"
+    assert daily["group_key"] == "equity_market"
+    assert daily["group_label"] == "A股行情"
+    assert daily["domain_key"] == "equity_market"
+    assert daily["domain_display_name"] == "股票行情"
     assert daily["schedule_enabled"] is True
     assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
 
     dc_hot = actions["dc_hot.maintain"]
+    assert dc_hot["group_key"] == "leader_board"
+    assert dc_hot["group_label"] == "榜单"
     dc_hot_params = {param["key"]: param for param in dc_hot["parameters"]}
     assert dc_hot_params["market"]["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
     assert dc_hot_params["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]

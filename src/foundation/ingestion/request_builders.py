@@ -91,6 +91,21 @@ def _cctv_news_params(request, anchor_date: date | None, enum_values: dict[str, 
     return {"date": anchor_date.strftime("%Y%m%d")}
 
 
+def _major_news_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del request
+    if anchor_date is None:
+        raise ValueError("新闻通讯缺少日期")
+    src = str(enum_values.get("src") or "").strip()
+    if not src:
+        raise ValueError("新闻通讯缺少新闻来源")
+    date_text = anchor_date.isoformat()
+    return {
+        "src": src,
+        "start_date": f"{date_text} 00:00:00",
+        "end_date": f"{date_text} 23:59:59",
+    }
+
+
 def _adj_factor_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("缺少日期锚点")
@@ -851,6 +866,7 @@ __all__ = [
     "_daily_basic_params",
     "_daily_params",
     "_cctv_news_params",
+    "_major_news_params",
     "_adj_factor_params",
     "_fund_daily_params",
     "_fund_adj_params",

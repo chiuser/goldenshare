@@ -17,6 +17,7 @@ from src.foundation.dao.index_series_active_dao import IndexSeriesActiveDAO
 from src.foundation.dao.index_monthly_bar_dao import IndexMonthlyBarDAO
 from src.foundation.dao.index_weight_dao import IndexWeightDAO
 from src.foundation.dao.index_weekly_bar_dao import IndexWeeklyBarDAO
+from src.foundation.dao.major_news_dao import RawMajorNewsDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
 from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
@@ -93,6 +94,7 @@ from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_margin import RawMargin
+from src.foundation.models.raw.raw_major_news import RawMajorNews
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
@@ -233,6 +235,7 @@ class DAOFactory:
         self.raw_kpl_concept_cons = GenericDAO(session, RawKplConceptCons)
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
         self.raw_cctv_news = RawCctvNewsDAO(session)
+        self.raw_major_news = RawMajorNewsDAO(session)
         self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
         self.raw_limit_step = GenericDAO(session, RawLimitStep)
         self.raw_margin = GenericDAO(session, RawMargin)

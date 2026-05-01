@@ -54,6 +54,7 @@ docs/
 - [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 - [Ops TaskRun 执行观测模型重设计方案 v1（已上线）](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
+- [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v2（独立审计系统，待评审）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
@@ -92,6 +93,9 @@ docs/
 - [行业资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-ths-dataset-development.md)
 - [板块资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ind-dc-dataset-development.md)
 - [大盘资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-mkt-dc-dataset-development.md)
+- [新闻快讯](/Users/congming/github/goldenshare/docs/datasets/news-dataset-development.md)
+- [新闻联播文字稿](/Users/congming/github/goldenshare/docs/datasets/cctv-news-dataset-development.md)
+- [新闻通讯](/Users/congming/github/goldenshare/docs/datasets/major-news-dataset-development.md)
 - [券商每月荐股](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)
 - [每日筹码及胜率](/Users/congming/github/goldenshare/docs/datasets/cyq-perf-dataset-development.md)
 

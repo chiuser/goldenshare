@@ -10,6 +10,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.datasets.source_registry import get_source_display_name
+from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.layer_snapshot_source_scope import (
     matches_layer_snapshot_source_filter,
     normalize_layer_snapshot_source_key,
@@ -100,7 +101,7 @@ class DatasetCardQueryService:
             probe_counts=probe_counts,
             source_key=normalized_source,
         )
-        cards.sort(key=lambda item: (item.domain_display_name, item.display_name, item.card_key))
+        cards.sort(key=lambda item: (item.group_order, item.item_order, item.display_name, item.card_key))
         sliced = cards[:limit]
         return DatasetCardListResponse(total=len(cards), groups=self._group_cards(sliced))
 
@@ -180,6 +181,7 @@ class DatasetCardQueryService:
             status = "running" if has_active else self._card_status(members, member_freshness, layers, source_key=source_key)
             probe_total, probe_active = self._combined_probe_counts([item.dataset_key for item in members], probe_counts)
             delivery_mode = self._delivery_mode_for_card(members)
+            catalog_item = DatasetCatalogViewResolver().resolve_item(primary.dataset_key)
 
             cards.append(
                 DatasetCardItem(
@@ -188,6 +190,10 @@ class DatasetCardQueryService:
                     detail_dataset_key=primary.dataset_key,
                     resource_key=primary_freshness.resource_key if primary_freshness else primary.dataset_key,
                     display_name=primary.display_name,
+                    group_key=catalog_item.group_key,
+                    group_label=catalog_item.group_label,
+                    group_order=catalog_item.group_order,
+                    item_order=catalog_item.item_order,
                     domain_key=primary.domain_key,
                     domain_display_name=primary.domain_display_name,
                     status=status,
@@ -368,14 +374,13 @@ class DatasetCardQueryService:
             self._worse_raw_status([item.freshness_status for item in freshness_items])
         )
 
-    @staticmethod
-    def _group_cards(cards: list[DatasetCardItem]) -> list[DatasetCardGroup]:
-        grouped: dict[tuple[str, str], list[DatasetCardItem]] = {}
+    def _group_cards(self, cards: list[DatasetCardItem]) -> list[DatasetCardGroup]:
+        grouped: dict[tuple[int, str, str], list[DatasetCardItem]] = {}
         for item in cards:
-            grouped.setdefault((item.domain_key, item.domain_display_name), []).append(item)
+            grouped.setdefault((item.group_order, item.group_key, item.group_label), []).append(item)
         return [
-            DatasetCardGroup(domain_key=domain_key, domain_display_name=domain_display_name, items=items)
-            for (domain_key, domain_display_name), items in sorted(grouped.items(), key=lambda entry: entry[0][1])
+            DatasetCardGroup(group_key=group_key, group_label=group_label, group_order=group_order, items=items)
+            for (group_order, group_key, group_label), items in sorted(grouped.items(), key=lambda entry: (entry[0][0], entry[0][2]))
         ]
 
     @staticmethod

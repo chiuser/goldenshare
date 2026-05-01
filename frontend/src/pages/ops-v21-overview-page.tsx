@@ -116,7 +116,7 @@ export function OpsV21OverviewPage() {
       ) : null}
 
       {groups.map((group) => (
-        <SectionCard key={group.domain_key} title={group.domain_display_name} description={`共 ${group.items.length} 个数据集`}>
+        <SectionCard key={group.group_key} title={group.group_label} description={`共 ${group.items.length} 个数据集`}>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
             {group.items.map((item) => {
               const status = toCardStatus(item.status);

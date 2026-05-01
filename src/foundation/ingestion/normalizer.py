@@ -61,6 +61,9 @@ class DatasetNormalizer:
             try:
                 if row_transform is not None:
                     normalized = row_transform(normalized)
+            except RowTransformReject as exc:  # noqa: F405
+                self._increase_reason(rejected_reasons, exc.reason_code)
+                continue
             except Exception:
                 self._increase_reason(rejected_reasons, "normalize.row_transform_failed")
                 continue

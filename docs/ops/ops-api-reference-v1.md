@@ -114,8 +114,26 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ```json
 {
-  "actions": [{"key": "daily.maintain", "action_type": "dataset_action", "display_name": "维护股票日线", "target_key": "daily"}],
-  "workflows": [{"key": "daily_market_close_maintenance", "display_name": "每日收盘后维护"}]
+  "actions": [
+    {
+      "key": "daily.maintain",
+      "action_type": "dataset_action",
+      "display_name": "维护股票日线",
+      "target_key": "daily",
+      "group_key": "equity_market",
+      "group_label": "A股行情",
+      "domain_key": "equity_market",
+      "domain_display_name": "股票行情"
+    }
+  ],
+  "workflows": [
+    {
+      "key": "daily_market_close_maintenance",
+      "display_name": "每日收盘后维护",
+      "group_key": "workflow",
+      "group_label": "工作流"
+    }
+  ]
 }
 ```
 
@@ -143,8 +161,8 @@ curl -H "Authorization: Bearer <TOKEN>" \
   "groups": [
     {
       "group_key": "equity_market",
-      "group_label": "股票行情",
-      "group_order": 20,
+      "group_label": "A股行情",
+      "group_order": 2,
       "actions": [
         {
           "action_key": "daily.maintain",
@@ -209,13 +227,13 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
-- 静态事实来源：数据集身份、名称、领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；freshness、layer snapshot、probe 只作为运行观测输入。
+- 静态事实来源：数据集身份、名称、底层领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；freshness、layer snapshot、probe 只作为运行观测输入。
 - Query 参数：
   - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片。
   - `limit`：默认 2000，范围 `1..2000`。
 - 返回：`DatasetCardListResponse`
   - `total`
-  - `groups[]`（按领域分组）
+  - `groups[]`（按 Ops 默认展示目录分组）
   - `groups[].items[]`（`DatasetCardItem`）
 - 示例（字段节选）：
 
@@ -229,17 +247,22 @@ curl -H "Authorization: Bearer <TOKEN>" \
   "total": 56,
   "groups": [
     {
-      "domain_key": "market_equity",
-      "domain_display_name": "股票行情",
+      "group_key": "equity_market",
+      "group_label": "A股行情",
+      "group_order": 2,
       "items": [
         {
           "card_key": "daily",
           "dataset_key": "daily",
           "detail_dataset_key": "daily",
           "display_name": "股票日线",
+          "group_key": "equity_market",
+          "group_label": "A股行情",
+          "domain_key": "equity_market",
+          "domain_display_name": "股票行情",
           "status": "healthy",
           "freshness_status": "fresh",
-          "mode_label": "单源直出",
+          "delivery_mode_label": "单源服务",
           "raw_table_label": "raw_tushare.daily",
           "last_sync_date": "2026-04-24",
           "stage_statuses": [],
@@ -1290,13 +1313,13 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ### 12.1 目录与模式
 
 - `OpsCatalogResponse`：`actions, workflows`
-- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, domain_key, domain_display_name, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
-- `WorkflowCatalogItem`：`key, display_name, description, parallel_policy, default_schedule_policy, schedule_enabled, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
+- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
+- `WorkflowCatalogItem`：`key, display_name, description, group_key, group_label, group_order, domain_key, domain_display_name, parallel_policy, default_schedule_policy, schedule_enabled, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
 - `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value`
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
-- `DatasetCardGroup`：`domain_key, domain_display_name, items`
-- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, domain_key, domain_display_name, status, freshness_status, mode, mode_label, mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_execution_status, active_execution_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
+- `DatasetCardGroup`：`group_key, group_label, group_order, items`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
 - `DatasetCardStageStatus`：`stage, stage_label, table_name, source_key, status, rows_in, rows_out, error_count, lag_seconds, message, calculated_at, last_success_at, last_failure_at`
 - `DatasetCardSourceStatus`：`source_key, table_name, status, calculated_at`
 
@@ -1365,6 +1388,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ReviewEquityBoardMembershipItem`：`ts_code, equity_name, board_count, boards`
 - `ReviewEquitySuggestResponse`：`items`
 - `ReviewEquitySuggestItem`：`ts_code, name`
+- `DateCompletenessRuleListResponse`：`summary, groups`
+- `DateCompletenessRuleGroup`：`group_key, group_label, items`；这里的 `group_key` 表示审计能力分组（`supported/unsupported`）。
+- `DateCompletenessRuleItem`：`dataset_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, target_table, date_axis, bucket_rule, window_mode, input_shape, observed_field, audit_applicable, not_applicable_reason, rule_label`
 ---
 
 ## 13. 运营后台页面与接口映射（前端调用）

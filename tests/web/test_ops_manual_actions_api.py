@@ -40,11 +40,17 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     group_keys = [group["group_key"] for group in payload["groups"]]
     assert "equity_market" in group_keys
     assert "reference_data" in group_keys
+    assert "leader_board" in group_keys
     assert "workflow" in group_keys
+    equity_group = next(group for group in payload["groups"] if group["group_key"] == "equity_market")
+    assert equity_group["group_label"] == "A股行情"
+    leader_board_group = next(group for group in payload["groups"] if group["group_key"] == "leader_board")
+    assert leader_board_group["group_label"] == "榜单"
     workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
     assert workflow_group["group_label"] == "工作流"
 
     actions = _actions_by_key(payload)
+    assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["daily.maintain"]["time_form"]["control"] == "trade_date_or_range"

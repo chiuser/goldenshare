@@ -74,3 +74,63 @@ def test_dataset_action_resolver_builds_cctv_news_range_by_natural_day(mocker) -
     assert [unit.request_params["date"] for unit in plan.units] == ["20260424", "20260425", "20260426"]
     assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
     assert {unit.page_limit for unit in plan.units} == {400}
+
+
+def test_dataset_action_resolver_builds_major_news_range_by_day_and_source_defaults(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="major_news",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 4, 20),
+            end_date=date(2026, 4, 22),
+        ),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.dataset_key == "major_news"
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 27
+    assert {unit.request_params["src"] for unit in plan.units} == {
+        "新华网",
+        "凤凰财经",
+        "同花顺",
+        "新浪财经",
+        "华尔街见闻",
+        "中证网",
+        "财新网",
+        "第一财经",
+        "财联社",
+    }
+    assert {unit.request_params["start_date"] for unit in plan.units} == {
+        "2026-04-20 00:00:00",
+        "2026-04-21 00:00:00",
+        "2026-04-22 00:00:00",
+    }
+    assert {unit.request_params["end_date"] for unit in plan.units} == {
+        "2026-04-20 23:59:59",
+        "2026-04-21 23:59:59",
+        "2026-04-22 23:59:59",
+    }
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {400}
+
+
+def test_dataset_action_resolver_builds_major_news_with_selected_sources(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="major_news",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"src": ["新华网", "财联社"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 2
+    assert {unit.request_params["src"] for unit in plan.units} == {"新华网", "财联社"}
+    assert {unit.request_params["start_date"] for unit in plan.units} == {"2026-04-24 00:00:00"}
+    assert {unit.request_params["end_date"] for unit in plan.units} == {"2026-04-24 23:59:59"}

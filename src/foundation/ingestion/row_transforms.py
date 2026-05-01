@@ -6,6 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason
@@ -13,6 +14,13 @@ from src.foundation.services.transform.dividend_hash import build_dividend_event
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
 from src.utils import coerce_row
+
+
+class RowTransformReject(ValueError):
+    def __init__(self, reason_code: str, message: str) -> None:
+        super().__init__(message)
+        self.reason_code = reason_code
+
 
 def _moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
@@ -100,6 +108,49 @@ def _cctv_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     date_value = transformed.get("date")
     date_text = date_value.isoformat() if isinstance(date_value, date) else str(date_value or "").strip()
     hash_input = "\x1f".join((date_text, title, content))
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _parse_news_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime.combine(value, time.min)
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).strip().replace("/", "-"))
+        except ValueError as exc:
+            raise RowTransformReject("invalid_pub_time", f"新闻发布时间格式无效：{value}") from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+    return parsed
+
+
+def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    if "content" not in transformed:
+        raise RowTransformReject("missing_content_field", "新闻通讯缺少 content 字段")
+    src = str(transformed.get("src") or "").strip()
+    title = str(transformed.get("title") or "").strip()
+    content_value = transformed.get("content")
+    content = None if content_value is None else str(content_value).strip()
+    pub_time = _parse_news_datetime(transformed.get("pub_time"))
+    if not src:
+        raise RowTransformReject("missing_src", "新闻通讯来源为空")
+    if pub_time is None:
+        raise RowTransformReject("invalid_pub_time", "新闻发布时间为空")
+    if not title:
+        raise RowTransformReject("missing_title", "新闻通讯标题为空")
+    transformed["src"] = src
+    transformed["title"] = title
+    transformed["content"] = content
+    transformed["pub_time"] = pub_time
+    content_text = content or ""
+    pub_time_text = pub_time.isoformat() if pub_time is not None else ""
+    hash_input = "\x1f".join((src, pub_time_text, title, content_text))
     transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
     return transformed
 
@@ -367,6 +418,7 @@ def _biying_moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 
 __all__ = [
     "MONEYFLOW_VOLUME_FIELDS",
+    "RowTransformReject",
     "_moneyflow_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
@@ -377,6 +429,7 @@ __all__ = [
     "_top_list_row_transform",
     "_daily_row_transform",
     "_cctv_news_row_transform",
+    "_major_news_row_transform",
     "_fund_daily_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",

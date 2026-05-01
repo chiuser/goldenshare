@@ -5,15 +5,13 @@ from typing import Iterable
 
 from src.ops.action_catalog import (
     ActionParameter,
-    WORKFLOW_DOMAIN_KEY,
-    WORKFLOW_DOMAIN_DISPLAY_NAME,
-    WORKFLOW_GROUP_ORDER,
     WorkflowDefinition,
     dataset_field_default_value,
     list_workflow_definitions,
 )
 from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import list_dataset_definitions
+from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.schemas.catalog import ActionParameterResponse
 from src.ops.schemas.manual_action import (
     ManualActionDateModelResponse,
@@ -34,23 +32,6 @@ TIME_PARAM_KEYS = {
     "ann_date",
 }
 INTERNAL_PARAM_KEYS = {"offset", "limit"}
-
-GROUP_CONFIG = {
-    "reference_data": ("reference_data", "基础主数据", 10),
-    "equity_market": ("equity_market", "股票行情", 20),
-    "equity": ("equity_market", "股票行情", 20),
-    "moneyflow": ("moneyflow", "资金流向", 30),
-    "index_fund": ("index_fund", "指数 / ETF", 40),
-    "fund": ("index_fund", "指数 / ETF", 40),
-    "index": ("index_fund", "指数 / ETF", 40),
-    "board_theme": ("board_theme", "板块 / 题材", 50),
-    "board": ("board_theme", "板块 / 题材", 50),
-    "ranking": ("event_stats", "榜单 / 事件", 60),
-    "event": ("event_stats", "榜单 / 事件", 60),
-    "low_frequency": ("event_stats", "榜单 / 事件", 60),
-    WORKFLOW_DOMAIN_KEY: (WORKFLOW_DOMAIN_KEY, WORKFLOW_DOMAIN_DISPLAY_NAME, WORKFLOW_GROUP_ORDER),
-    "other": ("other", "其他", 90),
-}
 
 @dataclass(frozen=True, slots=True)
 class ManualActionRoute:
@@ -101,7 +82,7 @@ class ManualActionQueryService:
 
     def _build_resource_route(self, definition: DatasetDefinition) -> ManualActionRoute:
         date_model = definition.date_model
-        group_key, group_label, group_order = self._group_meta_for_definition(definition)
+        catalog_item = DatasetCatalogViewResolver().resolve_item(definition.dataset_key)
         action_key = definition.action_key("maintain")
         display_name = definition.action_display_name("maintain")
         filters = self._collect_dataset_filters(
@@ -118,10 +99,10 @@ class ManualActionQueryService:
         return ManualActionRoute(
             action_key=action_key,
             action_type="dataset_action",
-            group_key=group_key,
-            group_label=group_label,
-            group_order=group_order,
-            action_order=100,
+            group_key=catalog_item.group_key,
+            group_label=catalog_item.group_label,
+            group_order=catalog_item.group_order,
+            action_order=catalog_item.item_order,
             display_name=display_name,
             description=definition.identity.description,
             resource_key=definition.dataset_key,
@@ -263,10 +244,6 @@ class ManualActionQueryService:
     @staticmethod
     def _selection_rule(date_model: DatasetDateModel) -> str:
         return date_model.selection_rule()
-
-    @staticmethod
-    def _group_meta_for_definition(definition: DatasetDefinition) -> tuple[str, str, int]:
-        return GROUP_CONFIG.get(definition.domain.domain_key, GROUP_CONFIG["other"])
 
     @staticmethod
     def _field_to_action_parameter(

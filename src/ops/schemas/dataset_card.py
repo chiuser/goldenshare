@@ -36,6 +36,10 @@ class DatasetCardItem(BaseModel):
     detail_dataset_key: str
     resource_key: str
     display_name: str
+    group_key: str
+    group_label: str
+    group_order: int
+    item_order: int
     domain_key: str
     domain_display_name: str
     status: str
@@ -76,8 +80,9 @@ class DatasetCardItem(BaseModel):
 
 
 class DatasetCardGroup(BaseModel):
-    domain_key: str
-    domain_display_name: str
+    group_key: str
+    group_label: str
+    group_order: int
     items: list[DatasetCardItem]
 
 

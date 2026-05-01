@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.foundation.datasets.source_registry import list_source_selection_definitions
+from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.action_catalog import (
     MaintenanceActionDefinition,
     WorkflowDefinition,
@@ -58,6 +59,9 @@ class OpsCatalogQueryService:
                     key=workflow.key,
                     display_name=workflow.display_name,
                     description=workflow.description,
+                    group_key=workflow.domain_key,
+                    group_label=workflow.domain_display_name,
+                    group_order=workflow.group_order,
                     domain_key=workflow.domain_key,
                     domain_display_name=workflow.domain_display_name,
                     parallel_policy=workflow.parallel_policy,
@@ -110,6 +114,10 @@ class OpsCatalogQueryService:
             display_name=action.display_name,
             target_key=action.key,
             target_display_name=action.display_name,
+            group_key=action.domain_key,
+            group_label=action.domain_display_name,
+            group_order=70,
+            item_order=100,
             domain_key=action.domain_key,
             domain_display_name=action.domain_display_name,
             date_selection_rule=None,
@@ -142,12 +150,17 @@ class OpsCatalogQueryService:
     ) -> ActionCatalogItem:
         action = definition.capabilities.get_action("maintain")
         action_key = definition.action_key("maintain")
+        catalog_item = DatasetCatalogViewResolver().resolve_item(definition.dataset_key)
         return ActionCatalogItem(
             key=action_key,
             action_type="dataset_action",
             display_name=definition.action_display_name("maintain"),
             target_key=definition.dataset_key,
             target_display_name=definition.display_name,
+            group_key=catalog_item.group_key,
+            group_label=catalog_item.group_label,
+            group_order=catalog_item.group_order,
+            item_order=catalog_item.item_order,
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,
             date_selection_rule=definition.date_model.selection_rule(),

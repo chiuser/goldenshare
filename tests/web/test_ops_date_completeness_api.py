@@ -44,7 +44,7 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"] == {"total": 58, "supported": 49, "unsupported": 9}
+    assert payload["summary"] == {"total": 59, "supported": 49, "unsupported": 10}
 
     groups = _groups_by_key(payload)
     assert list(groups) == ["supported", "unsupported"]
@@ -55,6 +55,10 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     unsupported = _items_by_key(groups["unsupported"])
 
     assert supported["moneyflow_ind_dc"]["display_name"] == "板块资金流向(DC)"
+    assert supported["moneyflow_ind_dc"]["group_key"] == "moneyflow"
+    assert supported["moneyflow_ind_dc"]["group_label"] == "资金流向"
+    assert supported["moneyflow_ind_dc"]["domain_key"] == "moneyflow"
+    assert supported["moneyflow_ind_dc"]["domain_display_name"] == "资金流向"
     assert supported["moneyflow_ind_dc"]["target_table"] == "core_serving.board_moneyflow_dc"
     assert supported["moneyflow_ind_dc"]["date_axis"] == "trade_open_day"
     assert supported["moneyflow_ind_dc"]["bucket_rule"] == "every_open_day"
@@ -62,6 +66,8 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["rule_label"] == "每个开市交易日"
     assert supported["moneyflow_ind_dc"]["audit_applicable"] is True
     assert supported["cctv_news"]["display_name"] == "新闻联播文字稿"
+    assert supported["cctv_news"]["group_key"] == "news"
+    assert supported["cctv_news"]["group_label"] == "新闻资讯"
     assert supported["cctv_news"]["target_table"] == "core_serving_light.cctv_news"
     assert supported["cctv_news"]["date_axis"] == "natural_day"
     assert supported["cctv_news"]["bucket_rule"] == "every_natural_day"

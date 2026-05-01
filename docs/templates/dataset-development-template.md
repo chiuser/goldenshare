@@ -20,8 +20,8 @@
 
 ### 0.2 禁止项
 
-1. 不得新增或恢复 `sync_daily`、`backfill_*`、`sync_history` 作为用户可见或 API 主执行模型。
-2. 不得新增 `src.foundation.services.sync.*`、`src.foundation.services.sync_v2.*` 或旧 `operations/platform` 主实现。
+1. 不得新增或恢复旧三类同步命令作为用户可见或 API 主执行模型。
+2. 不得新增旧同步服务包或旧 `operations/platform` 主实现。
 3. 不得在 foundation 中依赖 ops、biz、app、platform、operations。
 4. 不得使用 `__ALL__` / `__all__` 这类业务占位值污染请求参数、落库行或 source key。需要全量枚举时，必须在 `enum_fanout_defaults` 中显式列出真实枚举值。
 5. 不得引入 checkpoint / acquire / 定点跳过语义；除非项目负责人明确提出该能力，并先完成专项方案评审。

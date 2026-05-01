@@ -37,6 +37,10 @@ function card(overrides: Partial<Record<string, unknown>>) {
     detail_dataset_key: "daily",
     resource_key: "daily",
     display_name: "股票日线",
+    group_key: "equity_market",
+    group_label: "A股行情",
+    group_order: 2,
+    item_order: 80,
     domain_key: "equity",
     domain_display_name: "股票",
     status: "healthy",
@@ -84,8 +88,9 @@ describe("V2.1 数据源详情页", () => {
           total: 3,
           groups: [
             {
-              domain_key: "equity",
-              domain_display_name: "股票",
+              group_key: "equity_market",
+              group_label: "A股行情",
+              group_order: 2,
               items: [
                 card({}),
                 card({
@@ -114,8 +119,9 @@ describe("V2.1 数据源详情页", () => {
               ],
             },
             {
-              domain_key: "market",
-              domain_display_name: "行情",
+              group_key: "limit_board",
+              group_label: "涨跌停榜",
+              group_order: 5,
               items: [
                 card({
                   card_key: "limit_list_ths",
@@ -123,6 +129,10 @@ describe("V2.1 数据源详情页", () => {
                   detail_dataset_key: "limit_list_ths",
                   resource_key: "limit_list_ths",
                   display_name: "涨跌停列表（同花顺）",
+                  group_key: "limit_board",
+                  group_label: "涨跌停榜",
+                  group_order: 5,
+                  item_order: 10,
                   domain_key: "market",
                   domain_display_name: "行情",
                   raw_table: "raw_tushare.limit_list_ths",

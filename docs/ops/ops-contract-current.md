@@ -86,6 +86,19 @@
 用途：从 DatasetDefinition 派生数据集来源、raw 表、目标表、stage 计划与维护入口等静态事实。
 约束：Ops 页面和查询层不得再依赖旧数据集模式落库表，也不得自行推断这些事实。
 
+### 3.1.1 Ops 数据集展示目录
+
+用途：统一数据源页、今日运行 / 数据状态总览、手动任务、自动任务和数据集审计页的用户可见数据集分组。
+
+当前口径：
+
+1. 默认展示目录为 `ops_dataset_default`。
+2. 配置事实位于 `src/ops/catalog/dataset_catalog_views.py`。
+3. 解析与缺配置校验位于 `src/ops/catalog/dataset_catalog_view_resolver.py`。
+4. API 面向前端的展示目录字段统一使用 `group_key/group_label/group_order/item_order`。
+5. `DatasetDefinition.domain` 仍是底层领域事实，可作为 item 补充字段返回，但不得再作为 UI 分组事实。
+6. 新增数据集必须补齐默认展示目录配置；缺配置不允许静默落入“其他”。
+
 ### 3.2 `ops.dataset_layer_snapshot_current`
 
 主键：`(dataset_key, source_key, stage)`  

@@ -8,6 +8,10 @@ from pydantic import BaseModel
 class DateCompletenessRuleItem(BaseModel):
     dataset_key: str
     display_name: str
+    group_key: str
+    group_label: str
+    group_order: int
+    item_order: int
     domain_key: str
     domain_display_name: str
     target_table: str

@@ -15,8 +15,6 @@ type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 interface SourceCardItem {
   datasetKey: string;
   displayName: string;
-  domainKey: string;
-  domainDisplayName: string;
   rawTableLabel: string;
   status: CardStatus;
   lastSyncText: string;
@@ -84,8 +82,8 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
   const error = cardQuery.error;
 
   const cards: SourceCardItem[] = (cardQuery.data?.groups || [])
-    .flatMap((group) => group.items.map((item) => ({ group, item })))
-    .map(({ group, item }) => {
+    .flatMap((group) => group.items)
+    .map((item) => {
       const activeTaskRunStatus = (item.active_task_run_status || "").toLowerCase();
       const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
       const status = toCardStatus(item.status);
@@ -101,8 +99,6 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
-        domainKey: group.domain_key,
-        domainDisplayName: group.domain_display_name,
         rawTableLabel: item.raw_table_label || "—",
         status,
         lastSyncText,
@@ -121,13 +117,11 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
-
-  const groupedCards = new Map<string, { domainDisplayName: string; items: SourceCardItem[] }>();
-  for (const card of cards) {
-    const group = groupedCards.get(card.domainKey) || { domainDisplayName: card.domainDisplayName, items: [] };
-    group.items.push(card);
-    groupedCards.set(card.domainKey, group);
-  }
+  const groupedCards = (cardQuery.data?.groups || []).map((group) => ({
+    groupKey: group.group_key,
+    groupLabel: group.group_label,
+    items: cards.filter((card) => group.items.some((item) => item.card_key === card.datasetKey)),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <Stack gap="lg">
@@ -149,10 +143,10 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         </Alert>
       ) : null}
 
-      {Array.from(groupedCards.entries()).map(([groupKey, group]) => {
-        const { domainDisplayName: groupDisplayName, items } = group;
+      {groupedCards.map((group) => {
+        const { groupKey, groupLabel, items } = group;
         return (
-          <SectionCard key={groupKey} title={groupDisplayName} description={`共 ${items.length} 个数据集`}>
+          <SectionCard key={groupKey} title={groupLabel} description={`共 ${items.length} 个数据集`}>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing="md" verticalSpacing="md">
               {items.map((item) => (
                 <Paper

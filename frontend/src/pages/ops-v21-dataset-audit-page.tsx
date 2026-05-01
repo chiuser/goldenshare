@@ -122,17 +122,17 @@ export function OpsV21DatasetAuditPage() {
 
   const supportedRules = byGroup(rulesQuery.data, "supported");
   const unsupportedRules = byGroup(rulesQuery.data, "unsupported");
-  const domainOptions = useMemo(() => {
-    const domains = new Map<string, string>();
+  const groupOptions = useMemo(() => {
+    const groups = new Map<string, string>();
     for (const item of [...supportedRules, ...unsupportedRules]) {
-      domains.set(item.domain_key, item.domain_display_name);
+      groups.set(item.group_key, item.group_label);
     }
-    return [...domains.entries()].map(([value, label]) => ({ value, label }));
+    return [...groups.entries()].map(([value, label]) => ({ value, label }));
   }, [supportedRules, unsupportedRules]);
 
   const visibleRules = useMemo(() => {
     const source = group === "supported" ? supportedRules : unsupportedRules;
-    return domain ? source.filter((item) => item.domain_key === domain) : source;
+    return domain ? source.filter((item) => item.group_key === domain) : source;
   }, [domain, group, supportedRules, unsupportedRules]);
 
   const failedRuns = runsQuery.data?.items.filter((item) => item.result_status === "failed").length ?? 0;
@@ -192,10 +192,10 @@ export function OpsV21DatasetAuditPage() {
                 </FilterBarItem>
                 <FilterBarItem span={{ base: 12, md: 4 }}>
                   <Select
-                    label="领域"
+                    label="目录分组"
                     placeholder="全选"
                     value={domain}
-                    data={domainOptions}
+                    data={groupOptions}
                     clearable
                     leftSection={<IconSearch size={14} />}
                     onChange={setDomain}
@@ -213,7 +213,7 @@ export function OpsV21DatasetAuditPage() {
                   <Table.Thead>
                     <Table.Tr>
                       <OpsTableHeaderCell>数据集</OpsTableHeaderCell>
-                      <OpsTableHeaderCell>领域</OpsTableHeaderCell>
+                      <OpsTableHeaderCell>目录分组</OpsTableHeaderCell>
                       <OpsTableHeaderCell>日期规则</OpsTableHeaderCell>
                       <OpsTableHeaderCell>目标表</OpsTableHeaderCell>
                       <OpsTableHeaderCell>操作</OpsTableHeaderCell>
@@ -225,10 +225,9 @@ export function OpsV21DatasetAuditPage() {
                         <OpsTableCell>
                           <Stack gap={2}>
                             <Text fw={600}>{item.display_name}</Text>
-                            <Text size="xs" c="dimmed">{item.dataset_key}</Text>
                           </Stack>
                         </OpsTableCell>
-                        <OpsTableCell>{item.domain_display_name}</OpsTableCell>
+                        <OpsTableCell>{item.group_label}</OpsTableCell>
                         <OpsTableCell>
                           <Badge variant="light" color={item.audit_applicable ? "brand" : "gray"}>
                             {item.rule_label}
@@ -291,7 +290,6 @@ export function OpsV21DatasetAuditPage() {
                       <OpsTableCell>
                         <Stack gap={2}>
                           <Text fw={600}>{item.display_name}</Text>
-                          <Text size="xs" c="dimmed">{item.dataset_key}</Text>
                         </Stack>
                       </OpsTableCell>
                       <OpsTableCell>{formatDateLabel(item.start_date)} 至 {formatDateLabel(item.end_date)}</OpsTableCell>

@@ -1,6 +1,10 @@
 export interface DateCompletenessRuleItem {
   dataset_key: string;
   display_name: string;
+  group_key: string;
+  group_label: string;
+  group_order: number;
+  item_order: number;
   domain_key: string;
   domain_display_name: string;
   target_table: string;

@@ -108,7 +108,7 @@ export function OpsV21DatasetAuditSchedulesPanel({ supportedRules }: { supported
   const [form, setForm] = useState<ScheduleFormState>(DEFAULT_FORM);
 
   const datasetOptions = useMemo(
-    () => supportedRules.map((item) => ({ value: item.dataset_key, label: `${item.display_name} · ${item.dataset_key}` })),
+    () => supportedRules.map((item) => ({ value: item.dataset_key, label: item.display_name })),
     [supportedRules],
   );
 
@@ -234,7 +234,6 @@ export function OpsV21DatasetAuditSchedulesPanel({ supportedRules }: { supported
                     <OpsTableCell>
                       <Stack gap={2}>
                         <Text fw={600}>{item.display_name}</Text>
-                        <Text size="xs" c="dimmed">{item.dataset_key}</Text>
                       </Stack>
                     </OpsTableCell>
                     <OpsTableCell>{windowLabel(item)}</OpsTableCell>

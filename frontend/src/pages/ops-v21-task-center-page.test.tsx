@@ -30,6 +30,12 @@ beforeEach(() => {
             description: "维护股票日线。",
             target_key: "daily",
             target_display_name: "股票日线",
+            group_key: "equity_market",
+            group_label: "A股行情",
+            group_order: 2,
+            item_order: 80,
+            domain_key: "equity_market",
+            domain_display_name: "股票行情",
             target_tables: ["core.equity_daily_bar"],
             manual_enabled: true,
             schedule_enabled: true,
@@ -66,8 +72,8 @@ beforeEach(() => {
         groups: [
           {
             group_key: "equity_market",
-            group_label: "股票行情",
-            group_order: 20,
+            group_label: "A股行情",
+            group_order: 2,
             actions: [
               {
                 action_key: "daily.maintain",
@@ -337,6 +343,6 @@ describe("任务中心页", () => {
     const domainInput = screen
       .getAllByLabelText("选择数据分组")
       .find((element) => element.tagName === "INPUT") as HTMLInputElement;
-    expect(domainInput.value).toBe("股票行情");
+    expect(domainInput.value).toBe("A股行情");
   });
 });

@@ -47,8 +47,9 @@ function datasetCardsPayload() {
     total: 1,
     groups: [
       {
-        domain_key: "equity",
-        domain_display_name: "股票",
+        group_key: "equity_market",
+        group_label: "A股行情",
+        group_order: 2,
         items: [
           {
             card_key: "daily",
@@ -56,6 +57,10 @@ function datasetCardsPayload() {
             detail_dataset_key: "daily",
             resource_key: "daily",
             display_name: "股票日线",
+            group_key: "equity_market",
+            group_label: "A股行情",
+            group_order: 2,
+            item_order: 80,
             primary_action_key: "daily.maintain",
             stage_statuses: [
               {

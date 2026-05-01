@@ -22,6 +22,10 @@ class ActionCatalogItem(BaseModel):
     display_name: str
     target_key: str
     target_display_name: str
+    group_key: str
+    group_label: str
+    group_order: int
+    item_order: int
     domain_key: str
     domain_display_name: str
     date_selection_rule: str | None = None
@@ -48,6 +52,9 @@ class WorkflowCatalogItem(BaseModel):
     key: str
     display_name: str
     description: str
+    group_key: str
+    group_label: str
+    group_order: int
     domain_key: str
     domain_display_name: str
     parallel_policy: str

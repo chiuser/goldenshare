@@ -80,6 +80,10 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     }
     card = cards["limit_list_ths"]
     assert card["display_name"] == "同花顺涨停名单"
+    assert card["group_key"] == "limit_board"
+    assert card["group_label"] == "涨跌停榜"
+    assert card["domain_key"] == "equity_market"
+    assert card["domain_display_name"] == "股票行情"
     assert card["delivery_mode"] == "single_source_serving"
     assert card["cadence_display_name"] == "每日"
     assert card["raw_table_label"] == "raw_tushare.limit_list_ths"
@@ -116,8 +120,12 @@ def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_c
     }
     assert cards["biying_moneyflow"]["dataset_key"] == "moneyflow"
     assert cards["biying_moneyflow"]["card_key"] == "moneyflow"
+    assert cards["biying_moneyflow"]["group_key"] == "moneyflow"
+    assert cards["biying_moneyflow"]["group_label"] == "资金流向"
     assert cards["biying_equity_daily"]["dataset_key"] == "biying_equity_daily"
     assert cards["biying_equity_daily"]["card_key"] == "biying_equity_daily"
+    assert cards["biying_equity_daily"]["group_key"] == "equity_market"
+    assert cards["biying_equity_daily"]["group_label"] == "A股行情"
 
 
 def test_ops_dataset_cards_uses_combined_scope_raw_snapshot_source_key(app_client, user_factory, db_session) -> None:

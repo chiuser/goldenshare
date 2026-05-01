@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
+from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
 from src.ops.schemas.date_completeness import (
     DateCompletenessRuleGroup,
     DateCompletenessRuleItem,
@@ -17,7 +18,17 @@ class DateCompletenessRuleQueryService:
     def list_rules(self) -> DateCompletenessRuleListResponse:
         supported: list[DateCompletenessRuleItem] = []
         unsupported: list[DateCompletenessRuleItem] = []
-        for definition in sorted(list_dataset_definitions(), key=lambda item: (item.domain.domain_key, item.display_name, item.dataset_key)):
+        resolver = DatasetCatalogViewResolver()
+        sorted_definitions = sorted(
+            list_dataset_definitions(),
+            key=lambda item: (
+                resolver.resolve_item(item.dataset_key).group_order,
+                resolver.resolve_item(item.dataset_key).item_order,
+                item.display_name,
+                item.dataset_key,
+            ),
+        )
+        for definition in sorted_definitions:
             item = self._to_rule_item(definition)
             if item.audit_applicable:
                 supported.append(item)
@@ -38,9 +49,14 @@ class DateCompletenessRuleQueryService:
     @classmethod
     def _to_rule_item(cls, definition: DatasetDefinition) -> DateCompletenessRuleItem:
         date_model = definition.date_model
+        catalog_item = DatasetCatalogViewResolver().resolve_item(definition.dataset_key)
         return DateCompletenessRuleItem(
             dataset_key=definition.dataset_key,
             display_name=definition.display_name,
+            group_key=catalog_item.group_key,
+            group_label=catalog_item.group_label,
+            group_order=catalog_item.group_order,
+            item_order=catalog_item.item_order,
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,
             target_table=definition.storage.target_table,
