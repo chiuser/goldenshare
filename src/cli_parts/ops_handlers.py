@@ -362,6 +362,32 @@ def run_ops_date_completeness_scheduler_tick(
         echo_fn(f"ops-date-completeness-scheduler-tick: scheduled={len(runs)}")
 
 
+def run_ops_date_completeness_worker_serve(
+    *,
+    session_local,
+    worker_cls,
+    limit: int,
+    sleep_seconds: float,
+    max_cycles: int | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    cycles = 0
+    while True:
+        with session_local() as session:
+            worker = worker_cls()
+            processed = 0
+            for _ in range(limit):
+                run = worker.run_next(session)
+                if run is None:
+                    break
+                processed += 1
+            echo_fn(f"ops-date-completeness-worker-serve: 本轮审计={processed}")
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        time.sleep(sleep_seconds)
+
+
 def run_ops_scheduler_serve(
     *,
     session_local,

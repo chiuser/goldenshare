@@ -13,6 +13,7 @@ SYSTEMCTL_BIN="${SYSTEMCTL_BIN:-/usr/bin/systemctl}"
 WEB_SERVICE="${WEB_SERVICE:-goldenshare-web.service}"
 WORKER_SERVICE="${WORKER_SERVICE:-goldenshare-ops-worker.service}"
 SCHEDULER_SERVICE="${SCHEDULER_SERVICE:-goldenshare-ops-scheduler.service}"
+DATE_COMPLETENESS_WORKER_SERVICE="${DATE_COMPLETENESS_WORKER_SERVICE:-goldenshare-date-completeness-worker.service}"
 
 DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
 DEPLOY_OPS="${DEPLOY_OPS:-1}"
@@ -30,6 +31,7 @@ SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
 WEB_UNIT_SRC="${WEB_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-web.service}"
 WORKER_UNIT_SRC="${WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-worker.service}"
 SCHEDULER_UNIT_SRC="${SCHEDULER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-scheduler.service}"
+DATE_COMPLETENESS_WORKER_UNIT_SRC="${DATE_COMPLETENESS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-date-completeness-worker.service}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -85,6 +87,7 @@ sync_units_if_needed() {
   local web_dst="${SYSTEMD_UNIT_DIR}/${WEB_SERVICE}"
   local worker_dst="${SYSTEMD_UNIT_DIR}/${WORKER_SERVICE}"
   local scheduler_dst="${SYSTEMD_UNIT_DIR}/${SCHEDULER_SERVICE}"
+  local date_completeness_worker_dst="${SYSTEMD_UNIT_DIR}/${DATE_COMPLETENESS_WORKER_SERVICE}"
 
   if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
     changed=1
@@ -93,6 +96,9 @@ sync_units_if_needed() {
     changed=1
   fi
   if sync_systemd_unit "${SCHEDULER_UNIT_SRC}" "${scheduler_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${DATE_COMPLETENESS_WORKER_UNIT_SRC}" "${date_completeness_worker_dst}"; then
     changed=1
   fi
 
@@ -137,6 +143,7 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-web.service
   - systemctl restart/status goldenshare-ops-worker.service
   - systemctl restart/status goldenshare-ops-scheduler.service
+  - systemctl restart/status goldenshare-date-completeness-worker.service
 EOF
     exit 1
   fi
@@ -159,6 +166,8 @@ restart_layer_services() {
     ops)
       log "重启 Ops 调度层（scheduler）"
       sudo_systemctl restart "${SCHEDULER_SERVICE}"
+      log "重启 Ops 审计执行层（date completeness worker）"
+      sudo_systemctl restart "${DATE_COMPLETENESS_WORKER_SERVICE}"
       ;;
     platform)
       log "重启 Platform 接口层（web）"
@@ -332,6 +341,7 @@ main() {
   print_service_status "${WEB_SERVICE}"
   print_service_status "${WORKER_SERVICE}"
   print_service_status "${SCHEDULER_SERVICE}"
+  print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
 
   log "分层发版完成"
 }

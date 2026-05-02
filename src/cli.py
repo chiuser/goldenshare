@@ -22,6 +22,7 @@ from src.cli_parts.ingestion_handlers import (
 from src.cli_parts.ops_handlers import (
     run_ops_date_completeness_scheduler_tick as _run_ops_date_completeness_scheduler_tick_impl,
     run_ops_date_completeness_worker_run as _run_ops_date_completeness_worker_run_impl,
+    run_ops_date_completeness_worker_serve as _run_ops_date_completeness_worker_serve_impl,
     run_ops_daily_health_report as _run_ops_daily_health_report_impl,
     run_ops_rebuild_dataset_status as _run_ops_rebuild_dataset_status_impl,
     run_ops_reconcile_task_runs as _run_ops_reconcile_task_runs_impl,
@@ -444,6 +445,22 @@ def ops_date_completeness_scheduler_tick(
         session_local=SessionLocal,
         schedule_service_cls=DateCompletenessScheduleCommandService,
         limit=limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-date-completeness-worker-serve")
+def ops_date_completeness_worker_serve(
+    limit: int = typer.Option(5, min=1, max=1000, help="Maximum queued date completeness audit runs to consume per cycle."),
+    sleep_seconds: float = typer.Option(10.0, min=1.0, help="Seconds to sleep between worker cycles."),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_ops_date_completeness_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_cls=DateCompletenessAuditWorker,
+        limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
         echo_fn=typer.echo,
     )
 

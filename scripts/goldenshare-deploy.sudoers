@@ -6,9 +6,12 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl restart goldenshare-web.service, \
   /usr/bin/systemctl restart goldenshare-ops-worker.service, \
   /usr/bin/systemctl restart goldenshare-ops-scheduler.service, \
+  /usr/bin/systemctl restart goldenshare-date-completeness-worker.service, \
   /usr/bin/systemctl status goldenshare-web.service, \
   /usr/bin/systemctl status goldenshare-ops-worker.service, \
   /usr/bin/systemctl status goldenshare-ops-scheduler.service, \
+  /usr/bin/systemctl status goldenshare-date-completeness-worker.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-web.service /etc/systemd/system/goldenshare-web.service, \
   /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-worker.service /etc/systemd/system/goldenshare-ops-worker.service, \
-  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-scheduler.service /etc/systemd/system/goldenshare-ops-scheduler.service
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-ops-scheduler.service /etc/systemd/system/goldenshare-ops-scheduler.service, \
+  /usr/bin/install -m 644 /opt/goldenshare/goldenshare/scripts/goldenshare-date-completeness-worker.service /etc/systemd/system/goldenshare-date-completeness-worker.service

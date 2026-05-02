@@ -40,6 +40,7 @@
 2. 调度与执行：
    - `goldenshare ops-scheduler-serve`
    - `goldenshare ops-worker-serve`
+   - `goldenshare ops-date-completeness-worker-serve`
 3. 数据运营任务（同步、回补、修复、健康度任务）。
 
 要求：
@@ -49,6 +50,7 @@
    - `goldenshare-web.service`
    - `goldenshare-ops-worker.service`
    - `goldenshare-ops-scheduler.service`
+   - `goldenshare-date-completeness-worker.service`
 3. 仅当 `scripts/goldenshare-*.service` 发生改动时，才同步 unit 文件到 `/etc/systemd/system`。
 
 ## 3. 发布前预检脚本说明
@@ -66,4 +68,4 @@
 1. 本地执行 `bash scripts/local-build-and-run.sh`，完成编译并启动 UI 验证。
 2. 本地执行 `bash scripts/release-preflight.sh`。
 3. 远程执行 `bash scripts/deploy-systemd.sh dev-interface`。
-4. 检查三项 systemd 服务状态。
+4. 检查 systemd 服务状态。

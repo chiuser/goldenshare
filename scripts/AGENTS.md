@@ -21,6 +21,7 @@
 1. `scripts/goldenshare-web.service`
 2. `scripts/goldenshare-ops-worker.service`
 3. `scripts/goldenshare-ops-scheduler.service`
+4. `scripts/goldenshare-date-completeness-worker.service`
 
 当以上任一文件改动时，**必须**同步到服务器 `/etc/systemd/system` 并执行 `systemctl daemon-reload`，否则部署可能成功但服务启动失败（常见于 `ExecStart` 漂移）。
 
@@ -39,8 +40,8 @@
 
 若使用 `goldenshare` 用户部署，应在 sudoers 中仅放行：
 
-1. `systemctl daemon-reload/restart/status`（三服务）
-2. 三个 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
+1. `systemctl daemon-reload/restart/status`（受部署脚本管理的服务）
+2. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
 
 不要给无边界的 root 命令白名单。
 
