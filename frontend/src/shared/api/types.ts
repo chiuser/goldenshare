@@ -535,7 +535,7 @@ export interface OpsManualActionsResponse {
         control: "trade_date_or_range" | "calendar_date_or_range" | "month_or_range" | "month_window_range" | "none";
         default_mode: "point" | "range" | "none";
         allowed_modes: Array<"point" | "range" | "none">;
-        selection_rule: "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "month_key" | "month_window" | "none";
+        selection_rule: "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "week_friday" | "month_end" | "month_key" | "month_window" | "none";
         point_label: string;
         range_label: string;
       };

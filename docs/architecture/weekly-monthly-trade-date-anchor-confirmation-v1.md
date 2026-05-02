@@ -1,5 +1,8 @@
 # 周/月锚点交易日口径确认 v1
 
+> 状态：历史口径，已被 [股票周/月线自然锚点日期模型修正方案 v1](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md) 修正。
+> 当前结论：股票 `stk_weekly_monthly` / `stk_week_month_adj` 周线使用自然周周五，月线使用自然月最后一天；指数周/月线仍按当前接口实现使用最后一个开市交易日。
+
 ## 1. 背景
 
 当前系统中，周线、月线相关资源的 `trade_date` 锚点语义存在历史分叉：
@@ -16,7 +19,7 @@
 
 本口径适用于所有以“周 / 月”为时间粒度、且通过 `trade_date` 表示执行锚点的同步、回补、调度与前端输入链路。
 
-当前明确包括：
+该历史口径曾覆盖：
 
 - 股票周线：`stk_period_bar_week`
 - 股票月线：`stk_period_bar_month`
@@ -27,12 +30,14 @@
 
 ---
 
-## 3. 已确认口径
+## 3. 历史口径
 
 ### 3.1 `trade_date` 的业务语义
 
 - 周线相关资源的 `trade_date`：表示“该周最后一个交易日”。
 - 月线相关资源的 `trade_date`：表示“该月最后一个交易日”。
+
+该结论对股票周/月线已不再成立，不能再作为新开发依据。
 
 它们都 **不是**：
 

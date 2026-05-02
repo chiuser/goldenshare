@@ -156,7 +156,7 @@
 ```
 
 - `date_axis`：`trade_open_day` / `natural_day` / `month_key` / `month_window` / `none`
-- `bucket_rule`：`every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `every_natural_month` / `month_window_has_data` / `not_applicable`
+- `bucket_rule`：`every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `week_friday` / `month_last_calendar_day` / `every_natural_month` / `month_window_has_data` / `not_applicable`
 - `window_mode`：`point` / `range` / `point_or_range` / `none`
 - `input_shape`：按现有代码枚举选择，例如 `trade_date_or_start_end`、`month_or_range`、`start_end_month_window`、`ann_date_or_start_end`、`none`
 - `observed_field`：用于 freshness 和日期审计观测的目标表字段；没有业务日期时填 `None`
@@ -164,7 +164,9 @@
 - `not_applicable_reason`：
 
 说明：
-- 周线/月线必须使用 `week_last_open_day` / `month_last_open_day`，语义是每周/每月最后一个交易日。
+- 周线/月线不能按名称猜口径，必须以源接口文档为准。
+- 如果源接口要求每周/每月最后一个交易日，使用 `week_last_open_day` / `month_last_open_day`。
+- 如果源接口要求自然周周五或自然月最后一天，使用 `week_friday` / `month_last_calendar_day`；即使字段名叫 `trade_date`，也不能误建模成交易日。
 - 快照/主数据通常使用 `date_axis="none"`、`bucket_rule="not_applicable"`，并给出 `not_applicable_reason`。
 - 前端日期控件、审计能力、freshness 口径都从 `date_model` 派生，不允许另建第二套日期规则。
 

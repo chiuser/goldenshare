@@ -40,6 +40,28 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
 
 
+def test_stk_period_bar_definitions_use_calendar_source_anchors() -> None:
+    weekly = get_dataset_definition("stk_period_bar_week")
+    monthly = get_dataset_definition("stk_period_bar_month")
+    adj_weekly = get_dataset_definition("stk_period_bar_adj_week")
+    adj_monthly = get_dataset_definition("stk_period_bar_adj_month")
+    index_weekly = get_dataset_definition("index_weekly")
+    index_monthly = get_dataset_definition("index_monthly")
+
+    assert weekly.date_model.date_axis == "natural_day"
+    assert weekly.date_model.bucket_rule == "week_friday"
+    assert weekly.date_model.selection_rule() == "week_friday"
+    assert adj_weekly.date_model.date_axis == "natural_day"
+    assert adj_weekly.date_model.bucket_rule == "week_friday"
+    assert monthly.date_model.date_axis == "natural_day"
+    assert monthly.date_model.bucket_rule == "month_last_calendar_day"
+    assert monthly.date_model.selection_rule() == "month_end"
+    assert adj_monthly.date_model.date_axis == "natural_day"
+    assert adj_monthly.date_model.bucket_rule == "month_last_calendar_day"
+    assert index_weekly.date_model.bucket_rule == "week_last_open_day"
+    assert index_monthly.date_model.bucket_rule == "month_last_open_day"
+
+
 def test_dataset_definition_projects_cctv_news_facts() -> None:
     definition = get_dataset_definition("cctv_news")
 

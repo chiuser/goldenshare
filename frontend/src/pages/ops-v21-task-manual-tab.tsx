@@ -32,7 +32,7 @@ import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
-import { TradeDateField } from "../shared/ui/trade-date-field";
+import { TradeDateField, type TradeDateSelectionRule } from "../shared/ui/trade-date-field";
 
 type ManualActionGroup = OpsManualActionsResponse["groups"][number];
 type ManualActionApiItem = ManualActionGroup["actions"][number];
@@ -200,7 +200,20 @@ function isSinglePoint(action: ManualAction, draft: ManualDraft) {
   return supportsPoint(action);
 }
 
-function inferSinglePointDateRule(action: ManualAction | null): DateSelectionRule {
+function inferCalendarDateRule(action: ManualAction | null): DateSelectionRule {
+  if (!action) {
+    return "any";
+  }
+  if (action.time_form.selection_rule === "week_friday") {
+    return "week_friday";
+  }
+  if (action.time_form.selection_rule === "month_end") {
+    return "month_end";
+  }
+  return "any";
+}
+
+function inferTradeDateRule(action: ManualAction | null): TradeDateSelectionRule {
   if (!action) {
     return "any";
   }
@@ -214,7 +227,9 @@ function inferSinglePointDateRule(action: ManualAction | null): DateSelectionRul
 }
 
 function isCalendarDateAction(action: ManualAction) {
-  return action.time_form.control === "calendar_date_or_range";
+  return action.time_form.control === "calendar_date_or_range"
+    || action.time_form.selection_rule === "week_friday"
+    || action.time_form.selection_rule === "month_end";
 }
 
 function isMonthAction(action: ManualAction) {
@@ -529,7 +544,8 @@ export function OpsManualTaskTab() {
     () => selectedAction ? mergeDefaultFieldValues(selectedAction, draft.field_values) : draft.field_values,
     [draft.field_values, selectedAction],
   );
-  const selectedActionDateRule = useMemo(() => inferSinglePointDateRule(selectedAction), [selectedAction]);
+  const selectedCalendarDateRule = useMemo(() => inferCalendarDateRule(selectedAction), [selectedAction]);
+  const selectedTradeDateRule = useMemo(() => inferTradeDateRule(selectedAction), [selectedAction]);
   const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
@@ -806,6 +822,7 @@ export function OpsManualTaskTab() {
                             label="选择日期"
                             placeholder="请选择日期"
                             value={draft.selected_date}
+                            selectionRule={selectedCalendarDateRule}
                             onChange={(value) =>
                               setDraft((current) => ({
                                 ...current,
@@ -822,7 +839,7 @@ export function OpsManualTaskTab() {
                             label="选择日期"
                             placeholder="请选择日期"
                             value={draft.selected_date}
-                            selectionRule={selectedActionDateRule}
+                            selectionRule={selectedTradeDateRule}
                             onChange={(value) =>
                               setDraft((current) => ({
                                 ...current,

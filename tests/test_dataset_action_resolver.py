@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
+from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 
 
@@ -92,6 +95,64 @@ def test_dataset_action_resolver_builds_index_basic_explicit_filters(mocker) -> 
         "category": "规模指数",
         "market": "CSI",
     }
+
+
+def test_dataset_action_resolver_builds_stk_period_week_range_by_calendar_friday(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_period_bar_week",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 4, 20),
+            end_date=date(2026, 5, 8),
+        ),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 3
+    assert [unit.trade_date for unit in plan.units] == [
+        date(2026, 4, 24),
+        date(2026, 5, 1),
+        date(2026, 5, 8),
+    ]
+    assert [unit.request_params["trade_date"] for unit in plan.units] == ["20260424", "20260501", "20260508"]
+    assert {unit.request_params["freq"] for unit in plan.units} == {"week"}
+
+
+def test_dataset_action_resolver_builds_stk_period_month_range_by_calendar_month_end(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_period_bar_month",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 4, 20),
+            end_date=date(2026, 5, 31),
+        ),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 2
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 30), date(2026, 5, 31)]
+    assert [unit.request_params["trade_date"] for unit in plan.units] == ["20260430", "20260531"]
+    assert {unit.request_params["freq"] for unit in plan.units} == {"month"}
+
+
+def test_dataset_action_resolver_rejects_invalid_stk_period_calendar_anchor(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_period_bar_week",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 23)),
+    )
+
+    with pytest.raises(IngestionValidationError, match="当前数据集要求选择自然周周五"):
+        resolver.build_plan(request)
 
 
 def test_dataset_action_resolver_builds_cctv_news_range_by_natural_day(mocker) -> None:

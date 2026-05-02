@@ -53,7 +53,7 @@ import { OpsTableCellText } from "../shared/ui/ops-table";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
-import { TradeDateField } from "../shared/ui/trade-date-field";
+import { TradeDateField, type TradeDateSelectionRule } from "../shared/ui/trade-date-field";
 
 type DateMode = "single_day" | "date_range";
 type CatalogAction = OpsCatalogResponse["actions"][number];
@@ -334,14 +334,28 @@ function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sour
   return source?.display_name || "来源配置异常";
 }
 
-function toDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
-  if (rule === "week_last_trading_day") {
-    return "week_last_trading_day";
+function toCalendarDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
+  if (rule === "week_friday") {
+    return "week_friday";
   }
-  if (rule === "month_last_trading_day" || rule === "month_end") {
+  if (rule === "month_end") {
     return "month_end";
   }
   return "any";
+}
+
+function toTradeDateSelectionRule(rule: string | null | undefined): TradeDateSelectionRule {
+  if (rule === "week_last_trading_day") {
+    return "week_last_trading_day";
+  }
+  if (rule === "month_last_trading_day") {
+    return "month_end";
+  }
+  return "any";
+}
+
+function usesCalendarDateControl(rule: string | null | undefined): boolean {
+  return rule === "week_friday" || rule === "month_end";
 }
 
 function findCatalogAction(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogAction | null {
@@ -513,12 +527,22 @@ export function OpsAutomationPage() {
       ),
     [catalogQuery.data, detailQuery.data?.target_key, detailQuery.data?.target_type],
   );
-  const selectedActionDateRule = useMemo<DateSelectionRule>(() => {
+  const selectedCalendarDateRule = useMemo<DateSelectionRule>(() => {
     if (!selectedAction) {
       return "any";
     }
-    return toDateSelectionRule(selectedAction.date_selection_rule);
+    return toCalendarDateSelectionRule(selectedAction.date_selection_rule);
   }, [selectedAction]);
+  const selectedTradeDateRule = useMemo<TradeDateSelectionRule>(() => {
+    if (!selectedAction) {
+      return "any";
+    }
+    return toTradeDateSelectionRule(selectedAction.date_selection_rule);
+  }, [selectedAction]);
+  const selectedActionUsesCalendarDate = useMemo(
+    () => usesCalendarDateControl(selectedAction?.date_selection_rule),
+    [selectedAction?.date_selection_rule],
+  );
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -1560,44 +1584,79 @@ export function OpsAutomationPage() {
                         </Group>
                       ) : null}
                       {(supportsSingleDay && (!supportsDateRange || form.date_mode === "single_day")) ? (
-                        <TradeDateField
-                          {...singleTradeCalendar.calendarProps}
-                          isTradingDay={singleTradeCalendar.isTradingDay}
-                          label="维护日期（可留空）"
-                          placeholder="留空表示按系统自动判断业务日期"
-                          value={form.selected_date}
-                          selectionRule={selectedActionDateRule}
-                          onChange={(value) =>
-                            setForm((current) => ({
-                              ...current,
-                              selected_date: value,
-                              start_date: value,
-                              end_date: value,
-                            }))
-                          }
-                        />
+                        selectedActionUsesCalendarDate ? (
+                          <DateField
+                            label="维护日期（可留空）"
+                            placeholder="留空表示按系统自动判断业务日期"
+                            value={form.selected_date}
+                            selectionRule={selectedCalendarDateRule}
+                            onChange={(value) =>
+                              setForm((current) => ({
+                                ...current,
+                                selected_date: value,
+                                start_date: value,
+                                end_date: value,
+                              }))
+                            }
+                          />
+                        ) : (
+                          <TradeDateField
+                            {...singleTradeCalendar.calendarProps}
+                            isTradingDay={singleTradeCalendar.isTradingDay}
+                            label="维护日期（可留空）"
+                            placeholder="留空表示按系统自动判断业务日期"
+                            value={form.selected_date}
+                            selectionRule={selectedTradeDateRule}
+                            onChange={(value) =>
+                              setForm((current) => ({
+                                ...current,
+                                selected_date: value,
+                                start_date: value,
+                                end_date: value,
+                              }))
+                            }
+                          />
+                        )
                       ) : null}
                       {(supportsDateRange && (!supportsSingleDay || form.date_mode === "date_range")) ? (
                         <Grid>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
-                            <TradeDateField
-                              {...rangeStartTradeCalendar.calendarProps}
-                              isTradingDay={rangeStartTradeCalendar.isTradingDay}
-                              label="开始日期（可留空）"
-                              placeholder="留空表示按系统自动判断业务日期"
-                              value={form.start_date}
-                              onChange={(value) => setForm((current) => ({ ...current, start_date: value }))}
-                            />
+                            {selectedActionUsesCalendarDate ? (
+                              <DateField
+                                label="开始日期（可留空）"
+                                placeholder="留空表示按系统自动判断业务日期"
+                                value={form.start_date}
+                                onChange={(value) => setForm((current) => ({ ...current, start_date: value }))}
+                              />
+                            ) : (
+                              <TradeDateField
+                                {...rangeStartTradeCalendar.calendarProps}
+                                isTradingDay={rangeStartTradeCalendar.isTradingDay}
+                                label="开始日期（可留空）"
+                                placeholder="留空表示按系统自动判断业务日期"
+                                value={form.start_date}
+                                onChange={(value) => setForm((current) => ({ ...current, start_date: value }))}
+                              />
+                            )}
                           </Grid.Col>
                           <Grid.Col span={{ base: 12, sm: 6 }}>
-                            <TradeDateField
-                              {...rangeEndTradeCalendar.calendarProps}
-                              isTradingDay={rangeEndTradeCalendar.isTradingDay}
-                              label="结束日期（可留空）"
-                              placeholder="留空表示按系统自动判断业务日期"
-                              value={form.end_date}
-                              onChange={(value) => setForm((current) => ({ ...current, end_date: value }))}
-                            />
+                            {selectedActionUsesCalendarDate ? (
+                              <DateField
+                                label="结束日期（可留空）"
+                                placeholder="留空表示按系统自动判断业务日期"
+                                value={form.end_date}
+                                onChange={(value) => setForm((current) => ({ ...current, end_date: value }))}
+                              />
+                            ) : (
+                              <TradeDateField
+                                {...rangeEndTradeCalendar.calendarProps}
+                                isTradingDay={rangeEndTradeCalendar.isTradingDay}
+                                label="结束日期（可留空）"
+                                placeholder="留空表示按系统自动判断业务日期"
+                                value={form.end_date}
+                                onChange={(value) => setForm((current) => ({ ...current, end_date: value }))}
+                              />
+                            )}
                           </Grid.Col>
                         </Grid>
                       ) : null}

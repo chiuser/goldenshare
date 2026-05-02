@@ -1,14 +1,15 @@
 import { DatePickerInput } from "@mantine/dates";
 import type { ComponentPropsWithoutRef } from "react";
 
-import { DateField, type DateSelectionRule } from "./date-field";
+import { DateField } from "./date-field";
 
 type ExcludeDateInput = Parameters<NonNullable<ComponentPropsWithoutRef<typeof DatePickerInput>["excludeDate"]>>[0];
+export type TradeDateSelectionRule = "any" | "week_last_trading_day" | "month_end";
 
 interface TradeDateFieldProps extends Omit<ComponentPropsWithoutRef<typeof DateField>, "selectionRule"> {
   holidayDates?: string[];
   isTradingDay?: (date: string) => boolean | undefined;
-  selectionRule?: DateSelectionRule;
+  selectionRule?: TradeDateSelectionRule;
 }
 
 function parseTradeDate(value: string): Date | null {
@@ -82,7 +83,7 @@ function isKnownTradingDay(
 
 function hasFutureTradingDayInSameCycle(
   parsed: Date,
-  selectionRule: DateSelectionRule,
+  selectionRule: TradeDateSelectionRule,
   holidayDates: string[],
   isTradingDay?: (date: string) => boolean | undefined,
 ): boolean {
@@ -108,7 +109,7 @@ export function isTradeDateExcluded(
   value: ExcludeDateInput,
   holidayDates: string[] = [],
   isTradingDay?: (date: string) => boolean | undefined,
-  selectionRule: DateSelectionRule = "any",
+  selectionRule: TradeDateSelectionRule = "any",
 ) {
   const normalized = normalizeTradeDateInput(value);
   const parsed = parseTradeDate(normalized);

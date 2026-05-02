@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date
 from uuid import uuid4
 
@@ -147,12 +148,21 @@ class DatasetRequestValidator:
                 params["ann_date"] = trade_date
             else:
                 params["trade_date"] = trade_date
+            self._validate_point_bucket_anchor(date_model=date_model, trade_date=trade_date)
             return trade_date, start_date, end_date
 
         if date_model.date_axis == "none":
             return trade_date, start_date, end_date
 
         raise self._error("invalid_anchor_type", f"不支持的日期输入模型：{date_model.input_shape}")
+
+    def _validate_point_bucket_anchor(self, *, date_model: DatasetDateModel, trade_date: date) -> None:
+        if date_model.bucket_rule == "week_friday" and trade_date.weekday() != 4:
+            raise self._error("invalid_anchor_date", "当前数据集要求选择自然周周五")
+        if date_model.bucket_rule == "month_last_calendar_day":
+            month_last_day = monthrange(trade_date.year, trade_date.month)[1]
+            if trade_date.day != month_last_day:
+                raise self._error("invalid_anchor_date", "当前数据集要求选择自然月最后一天")
 
     def _validate_range_rebuild_anchor(
         self,

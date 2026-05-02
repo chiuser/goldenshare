@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -352,6 +352,8 @@ class OpsFreshnessQueryService:
             "every_open_day": 2,
             "week_last_open_day": 14,
             "month_last_open_day": 31,
+            "week_friday": 14,
+            "month_last_calendar_day": 31,
             "every_natural_month": 31,
             "month_window_has_data": 31,
             "every_natural_day": 2,
@@ -389,6 +391,10 @@ class OpsFreshnessQueryService:
                 return self._latest_due_month_bucket(reference_date=reference_date, open_trade_dates=open_trade_dates)
             return latest_open_date
         if date_model.date_axis == "natural_day":
+            if date_model.bucket_rule == "week_friday":
+                return self._latest_due_calendar_week_friday(reference_date=reference_date)
+            if date_model.bucket_rule == "month_last_calendar_day":
+                return self._latest_due_calendar_month_end(reference_date=reference_date)
             return reference_date
         if date_model.date_axis in {"month_key", "month_window"}:
             return date(reference_date.year, reference_date.month, 1)
@@ -822,16 +828,47 @@ class OpsFreshnessQueryService:
         return previous_month_candidates[-1] if previous_month_candidates else None
 
     @staticmethod
+    def _latest_due_calendar_week_friday(*, reference_date: date) -> date:
+        days_since_friday = (reference_date.weekday() - 4) % 7
+        return reference_date - timedelta(days=days_since_friday)
+
+    @staticmethod
+    def _latest_due_calendar_month_end(*, reference_date: date) -> date:
+        current_month_end = date(
+            reference_date.year,
+            reference_date.month,
+            monthrange(reference_date.year, reference_date.month)[1],
+        )
+        if reference_date >= current_month_end:
+            return current_month_end
+        previous_month = date(
+            reference_date.year - (1 if reference_date.month == 1 else 0),
+            12 if reference_date.month == 1 else reference_date.month - 1,
+            1,
+        )
+        return date(
+            previous_month.year,
+            previous_month.month,
+            monthrange(previous_month.year, previous_month.month)[1],
+        )
+
+    @staticmethod
     def _actual_bucket_dates_for_observation(
         date_model: DatasetDateModel | None,
         open_trade_dates: list[date],
     ) -> list[date] | None:
-        if date_model is None or date_model.date_axis != "trade_open_day":
+        if date_model is None:
             return None
-        if date_model.bucket_rule == "week_last_open_day":
-            return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="week")
-        if date_model.bucket_rule == "month_last_open_day":
-            return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="month")
+        if date_model.date_axis == "trade_open_day":
+            if date_model.bucket_rule == "week_last_open_day":
+                return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="week")
+            if date_model.bucket_rule == "month_last_open_day":
+                return OpsFreshnessQueryService._last_open_day_by_bucket(open_trade_dates, bucket="month")
+        if date_model.date_axis == "natural_day":
+            if date_model.bucket_rule == "week_friday":
+                return OpsFreshnessQueryService._calendar_week_fridays_from_bounds(open_trade_dates)
+            if date_model.bucket_rule == "month_last_calendar_day":
+                return OpsFreshnessQueryService._calendar_month_ends_from_bounds(open_trade_dates)
         return None
 
     @staticmethod
@@ -848,6 +885,47 @@ class OpsFreshnessQueryService:
     def _iso_week_key(value: date) -> tuple[int, int]:
         iso = value.isocalendar()
         return (iso.year, iso.week)
+
+    @staticmethod
+    def _calendar_week_fridays_from_bounds(bound_dates: list[date]) -> list[date]:
+        if not bound_dates:
+            return []
+        start_date = min(bound_dates)
+        end_date = max(bound_dates)
+        days_until_friday = (4 - start_date.weekday()) % 7
+        current = start_date + timedelta(days=days_until_friday)
+        dates: list[date] = []
+        while current <= end_date:
+            dates.append(current)
+            current += timedelta(days=7)
+        return dates
+
+    @staticmethod
+    def _calendar_month_ends_from_bounds(bound_dates: list[date]) -> list[date]:
+        if not bound_dates:
+            return []
+        start_date = min(bound_dates)
+        end_date = max(bound_dates)
+        current = date(
+            start_date.year,
+            start_date.month,
+            monthrange(start_date.year, start_date.month)[1],
+        )
+        dates: list[date] = []
+        while current <= end_date:
+            if current >= start_date:
+                dates.append(current)
+            next_month = date(
+                current.year + (1 if current.month == 12 else 0),
+                1 if current.month == 12 else current.month + 1,
+                1,
+            )
+            current = date(
+                next_month.year,
+                next_month.month,
+                monthrange(next_month.year, next_month.month)[1],
+            )
+        return dates
 
     @staticmethod
     def _visible_failure_snapshot(

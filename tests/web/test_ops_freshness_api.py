@@ -339,6 +339,53 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
     assert item.freshness_note == "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
 
 
+def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> None:
+    service = OpsFreshnessQueryService()
+    weekly_projection = DatasetFreshnessProjection(
+        dataset_key="stk_period_bar_week",
+        resource_key="stk_period_bar_week",
+        display_name="股票周线行情",
+        domain_key="equity_market",
+        domain_display_name="A股行情",
+        target_table="core_serving.stk_period_bar",
+        cadence="daily",
+        raw_table="raw_tushare.stk_period_bar",
+        observed_date_column="trade_date",
+        primary_action_key="stk_period_bar_week.maintain",
+    )
+    monthly_projection = DatasetFreshnessProjection(
+        dataset_key="stk_period_bar_month",
+        resource_key="stk_period_bar_month",
+        display_name="股票月线行情",
+        domain_key="equity_market",
+        domain_display_name="A股行情",
+        target_table="core_serving.stk_period_bar",
+        cadence="daily",
+        raw_table="raw_tushare.stk_period_bar",
+        observed_date_column="trade_date",
+        primary_action_key="stk_period_bar_month.maintain",
+    )
+
+    assert service._expected_business_date_for_projection(
+        weekly_projection,
+        reference_date=date(2026, 5, 2),
+        latest_open_date=date(2026, 4, 30),
+        open_trade_dates=[],
+    ) == date(2026, 5, 1)
+    assert service._expected_business_date_for_projection(
+        monthly_projection,
+        reference_date=date(2026, 4, 29),
+        latest_open_date=date(2026, 4, 29),
+        open_trade_dates=[],
+    ) == date(2026, 3, 31)
+    assert service._expected_business_date_for_projection(
+        monthly_projection,
+        reference_date=date(2026, 4, 30),
+        latest_open_date=date(2026, 4, 30),
+        open_trade_dates=[],
+    ) == date(2026, 4, 30)
+
+
 def test_ops_freshness_does_not_read_legacy_quality_warning_logs(
     app_client,
     user_factory,

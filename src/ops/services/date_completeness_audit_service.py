@@ -56,6 +56,16 @@ class ExpectedBucketPlanner:
                 DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
                 for value in self._natural_days(start_date, end_date)
             ]
+        if date_axis == "natural_day" and bucket_rule == "week_friday":
+            return [
+                DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
+                for value in self._calendar_week_fridays(start_date, end_date)
+            ]
+        if date_axis == "natural_day" and bucket_rule == "month_last_calendar_day":
+            return [
+                DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
+                for value in self._calendar_month_ends(start_date, end_date)
+            ]
         if date_axis == "month_key" and bucket_rule == "every_natural_month":
             return [
                 DateCompletenessBucket(bucket_kind="month_key", value=value, label=value.strftime("%Y%m"))
@@ -109,6 +119,39 @@ class ExpectedBucketPlanner:
             next_month_day = monthrange(current.year, current.month)[1] + 1
             current = (current + timedelta(days=next_month_day)).replace(day=1)
         return months
+
+    @staticmethod
+    def _calendar_week_fridays(start_date: date, end_date: date) -> list[date]:
+        days_until_friday = (4 - start_date.weekday()) % 7
+        current = start_date + timedelta(days=days_until_friday)
+        dates: list[date] = []
+        while current <= end_date:
+            dates.append(current)
+            current += timedelta(days=7)
+        return dates
+
+    @staticmethod
+    def _calendar_month_ends(start_date: date, end_date: date) -> list[date]:
+        current = date(
+            start_date.year,
+            start_date.month,
+            monthrange(start_date.year, start_date.month)[1],
+        )
+        dates: list[date] = []
+        while current <= end_date:
+            if current >= start_date:
+                dates.append(current)
+            next_month = date(
+                current.year + (1 if current.month == 12 else 0),
+                1 if current.month == 12 else current.month + 1,
+                1,
+            )
+            current = date(
+                next_month.year,
+                next_month.month,
+                monthrange(next_month.year, next_month.month)[1],
+            )
+        return dates
 
     @staticmethod
     def _last_open_day_by_bucket(open_trade_dates: list[date], *, bucket: str) -> list[date]:

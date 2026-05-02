@@ -93,6 +93,31 @@ def test_expected_bucket_planner_builds_natural_day_and_month_buckets() -> None:
     assert [bucket.bucket_kind for bucket in month_windows] == ["month_window", "month_window", "month_window"]
 
 
+def test_expected_bucket_planner_builds_calendar_friday_and_month_end_buckets() -> None:
+    planner = ExpectedBucketPlanner()
+
+    weekly = planner.plan(
+        date_axis="natural_day",
+        bucket_rule="week_friday",
+        start_date=date(2026, 4, 20),
+        end_date=date(2026, 5, 8),
+    )
+    monthly = planner.plan(
+        date_axis="natural_day",
+        bucket_rule="month_last_calendar_day",
+        start_date=date(2026, 4, 20),
+        end_date=date(2026, 5, 31),
+    )
+
+    assert [bucket.value for bucket in weekly] == [
+        date(2026, 4, 24),
+        date(2026, 5, 1),
+        date(2026, 5, 8),
+    ]
+    assert [bucket.value for bucket in monthly] == [date(2026, 4, 30), date(2026, 5, 31)]
+    assert {bucket.bucket_kind for bucket in weekly + monthly} == {"natural_date"}
+
+
 def test_gap_detector_compresses_missing_adjacent_expected_buckets() -> None:
     buckets = ExpectedBucketPlanner().plan(
         date_axis="trade_open_day",

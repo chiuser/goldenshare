@@ -90,7 +90,7 @@ class DatasetDateModel:
 | 字段 | 含义 | 典型值 | 消费方 |
 |---|---|---|---|
 | `date_axis` | 数据集日期基轴，即日期集合从哪里来 | `trade_open_day` / `natural_day` / `month_key` / `month_window` / `none` | planner、审计、展示 |
-| `bucket_rule` | 在日期基轴上，哪些日期桶必须有数据 | `every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `every_natural_month` / `month_window_has_data` / `not_applicable` | 审计、planner |
+| `bucket_rule` | 在日期基轴上，哪些日期桶必须有数据 | `every_open_day` / `week_last_open_day` / `month_last_open_day` / `every_natural_day` / `week_friday` / `month_last_calendar_day` / `every_natural_month` / `month_window_has_data` / `not_applicable` | 审计、planner |
 | `window_mode` | 请求窗口语义 | `point` / `range` / `point_or_range` / `none` | validator、planner、手动任务参数设计 |
 | `input_shape` | 对外输入形态 | `trade_date_or_start_end` / `month_or_range` / `start_end_month_window` / `ann_date_or_start_end` / `none` | API、CLI、手动任务表单 |
 | `observed_field` | 目标表中用于 freshness / 状态观测的字段 | `trade_date` / `ann_date` / `month` / `None` | ops freshness、审计 |
@@ -136,8 +136,6 @@ audit_applicable=True
 典型数据集：
 
 1. `index_weekly`
-2. `stk_period_bar_week`
-3. `stk_period_bar_adj_week`
 
 语义：不是自然周五，而是该周最后一个开市交易日。
 
@@ -155,12 +153,48 @@ audit_applicable=True
 典型数据集：
 
 1. `index_monthly`
-2. `stk_period_bar_month`
-3. `stk_period_bar_adj_month`
 
 语义：不是自然月最后一天，而是该月最后一个开市交易日。
 
-### 5.4 按自然日公告日期组织数据
+### 5.4 股票周/月线源接口自然日期锚点
+
+周线：
+
+```text
+date_axis=natural_day
+bucket_rule=week_friday
+window_mode=point_or_range
+input_shape=trade_date_or_start_end
+observed_field=trade_date
+audit_applicable=True
+```
+
+典型数据集：
+
+1. `stk_period_bar_week`
+2. `stk_period_bar_adj_week`
+
+语义：源接口字段名仍叫 `trade_date`，但含义是自然周周五，不是最后一个交易日。
+
+月线：
+
+```text
+date_axis=natural_day
+bucket_rule=month_last_calendar_day
+window_mode=point_or_range
+input_shape=trade_date_or_start_end
+observed_field=trade_date
+audit_applicable=True
+```
+
+典型数据集：
+
+1. `stk_period_bar_month`
+2. `stk_period_bar_adj_month`
+
+语义：源接口字段名仍叫 `trade_date`，但含义是自然月最后一天，不是最后一个交易日。
+
+### 5.5 按自然日公告日期组织数据
 
 ```text
 date_axis=natural_day
@@ -422,8 +456,8 @@ pytest -q tests/test_ops_action_catalog.py tests/test_ops_freshness_snapshot_que
 3. 禁止在策略层覆盖 DatasetDefinition 日期模型。
 4. 禁止把执行计划投影结果当作新的事实源。
 5. 禁止把快照/主数据强行纳入日期连续性审计。
-6. 禁止把 `week_last_open_day` 简化成自然周五。
-7. 禁止把 `month_last_open_day` 简化成自然月末。
+6. 禁止把 `week_last_open_day` 简化成自然周五；源接口确实要求自然周五时，必须显式使用 `week_friday`。
+7. 禁止把 `month_last_open_day` 简化成自然月末；源接口确实要求自然月末时，必须显式使用 `month_last_calendar_day`。
 
 ---
 

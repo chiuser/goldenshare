@@ -77,6 +77,8 @@ class DateCompletenessRuleQueryService:
             ("trade_open_day", "week_last_open_day"): "每周最后一个开市交易日",
             ("trade_open_day", "month_last_open_day"): "每月最后一个开市交易日",
             ("natural_day", "every_natural_day"): "每个自然日",
+            ("natural_day", "week_friday"): "每个自然周周五",
+            ("natural_day", "month_last_calendar_day"): "每个自然月最后一天",
             ("month_key", "every_natural_month"): "每个自然月",
             ("month_window", "month_window_has_data"): "每个自然月窗口至少有数据",
             ("none", "not_applicable"): "不适用日期完整性审计",

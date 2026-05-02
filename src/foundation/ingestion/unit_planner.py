@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from datetime import date, timedelta
 from typing import Any, Callable
 
@@ -15,7 +16,6 @@ from src.foundation.ingestion.errors import IngestionPlanningError, StructuredEr
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion import request_builders
 from src.foundation.ingestion.plan_helpers import build_plan_units, build_unit_id, resolve_enum_combinations, split_multi_values
-from src.foundation.ingestion.sentinel_guard import find_forbidden_business_sentinel
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
@@ -105,7 +105,13 @@ class DatasetUnitPlanner:
                     retryable=False,
                 )
             )
-        if date_model.date_axis in {"none", "natural_day", "month_window"}:
+        if date_model.date_axis == "natural_day":
+            if date_model.bucket_rule == "week_friday":
+                return self._expand_calendar_week_fridays(request.start_date, request.end_date)
+            if date_model.bucket_rule == "month_last_calendar_day":
+                return self._expand_calendar_month_ends(request.start_date, request.end_date)
+            return [None]
+        if date_model.date_axis in {"none", "month_window"}:
             return [None]
         open_dates = self.dao.trade_calendar.get_open_dates(
             str(request.params.get("exchange") or self.settings.default_exchange),
@@ -134,6 +140,39 @@ class DatasetUnitPlanner:
         for item in open_dates:
             latest_by_month[(item.year, item.month)] = item
         return [latest_by_month[key] for key in sorted(latest_by_month)]
+
+    @staticmethod
+    def _expand_calendar_week_fridays(start_date: date, end_date: date) -> list[date]:
+        days_until_friday = (4 - start_date.weekday()) % 7
+        current = start_date + timedelta(days=days_until_friday)
+        anchors: list[date] = []
+        while current <= end_date:
+            anchors.append(current)
+            current += timedelta(days=7)
+        return anchors
+
+    @staticmethod
+    def _expand_calendar_month_ends(start_date: date, end_date: date) -> list[date]:
+        current = date(
+            start_date.year,
+            start_date.month,
+            monthrange(start_date.year, start_date.month)[1],
+        )
+        anchors: list[date] = []
+        while current <= end_date:
+            if current >= start_date:
+                anchors.append(current)
+            next_month = date(
+                current.year + (1 if current.month == 12 else 0),
+                1 if current.month == 12 else current.month + 1,
+                1,
+            )
+            current = date(
+                next_month.year,
+                next_month.month,
+                monthrange(next_month.year, next_month.month)[1],
+            )
+        return anchors
 
     def _resolve_universe_values(
         self,

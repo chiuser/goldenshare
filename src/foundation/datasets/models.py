@@ -15,6 +15,10 @@ class DatasetDateModel:
     not_applicable_reason: str | None = None
 
     def selection_rule(self) -> str:
+        if self.bucket_rule == "week_friday":
+            return "week_friday"
+        if self.bucket_rule == "month_last_calendar_day":
+            return "month_end"
         if self.bucket_rule == "week_last_open_day":
             return "week_last_trading_day"
         if self.bucket_rule == "month_last_open_day":

@@ -121,6 +121,8 @@ flowchart LR
 | `trade_open_day` | `week_last_open_day` | 范围内每周最后一个开市交易日 |
 | `trade_open_day` | `month_last_open_day` | 范围内每月最后一个开市交易日 |
 | `natural_day` | `every_natural_day` | 范围内每个自然日 |
+| `natural_day` | `week_friday` | 范围内每个自然周周五 |
+| `natural_day` | `month_last_calendar_day` | 范围内每个自然月最后一天 |
 | `month_key` | `every_natural_month` | 范围内每个自然月键 `YYYYMM` |
 | `month_window` | `month_window_has_data` | 范围内每个自然月窗口至少存在一条数据 |
 | `none` | `not_applicable` | 不生成期望桶 |
@@ -432,17 +434,23 @@ Tab：
 
 1. 本表来自当前 `DatasetDefinition`，用于评审，不是第二套规则源。
 2. 代码实现必须运行时读取 Definition，不得复制本表。
-3. 当前共 57 个数据集，48 个可审计，9 个不可审计。
+3. 当前共 59 个数据集，49 个可审计，10 个不可审计。
 
 | 组合 | 数量 |
 |---|---:|
 | `trade_open_day + every_open_day + trade_date` | 37 |
-| `trade_open_day + week_last_open_day + trade_date` | 3 |
-| `trade_open_day + month_last_open_day + trade_date` | 3 |
+| `trade_open_day + week_last_open_day + trade_date` | 1 |
+| `trade_open_day + month_last_open_day + trade_date` | 1 |
 | `natural_day + every_natural_day + ann_date` | 2 |
+| `natural_day + every_natural_day + date` | 1 |
 | `natural_day + every_natural_day + trade_date` | 1 |
+| `natural_day + week_friday + trade_date` | 2 |
+| `natural_day + month_last_calendar_day + trade_date` | 2 |
 | `month_key + every_natural_month + month` | 1 |
 | `month_window + month_window_has_data + trade_date` | 1 |
+| `trade_open_day + every_open_day + trade_time` | 1 |
+| `natural_day + not_applicable + pub_time` | 1 |
+| `none + not_applicable + -` | 8 |
 | `trade_open_day + every_open_day + trade_time`，不可审计 | 1 |
 | `none + not_applicable` | 8 |
 
@@ -470,8 +478,10 @@ Tab：
 2. `trade_open_day + week_last_open_day`：按 ISO 周分组，取该周最后一个开市交易日。
 3. `trade_open_day + month_last_open_day`：按自然月分组，取该月最后一个开市交易日。
 4. `natural_day + every_natural_day`：生成自然日序列。
-5. `month_key + every_natural_month`：生成连续月份键。
-6. `month_window + month_window_has_data`：每个自然月窗口一个桶，判断窗口内是否至少存在数据。
+5. `natural_day + week_friday`：生成范围内所有自然周周五。
+6. `natural_day + month_last_calendar_day`：生成范围内所有自然月最后一天。
+7. `month_key + every_natural_month`：生成连续月份键。
+8. `month_window + month_window_has_data`：每个自然月窗口一个桶，判断窗口内是否至少存在数据。
 
 ### 10.2 实际桶读取
 

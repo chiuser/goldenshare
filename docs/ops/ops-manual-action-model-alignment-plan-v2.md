@@ -159,9 +159,11 @@ POST /api/v1/ops/manual-actions/{action_key}/task-runs
 2. `week_last_open_day` -> `selection_rule=week_last_trading_day`
 3. `month_last_open_day` -> `selection_rule=month_last_trading_day`
 4. `every_natural_day` -> `selection_rule=calendar_day`
-5. `every_natural_month` -> `selection_rule=month_key`
-6. `month_window_has_data` -> `selection_rule=month_window`
-7. `not_applicable` -> `selection_rule=none`
+5. `week_friday` -> `selection_rule=week_friday`
+6. `month_last_calendar_day` -> `selection_rule=month_end`
+7. `every_natural_month` -> `selection_rule=month_key`
+8. `month_window_has_data` -> `selection_rule=month_window`
+9. `not_applicable` -> `selection_rule=none`
 
 ---
 
