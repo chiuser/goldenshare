@@ -339,10 +339,13 @@
 1. `tests/web/test_ops_manual_actions_api.py`
    - 四个股票周/月线 action 返回新的 selection rule。
    - 指数周/月线 action 仍返回最后交易日 selection rule。
-2. `tests/test_date_completeness_audit_service.py`
+2. `tests/web/test_ops_runtime.py`
+   - `trade_open_day` 数据集在非交易日单点任务中允许跳过。
+   - `natural_day + week_friday/month_last_calendar_day` 数据集即使锚点是非交易日，也必须继续进入源接口请求链路，不能被交易日历提前跳过。
+3. `tests/test_date_completeness_audit_service.py`
    - `natural_day + week_friday` 生成正确 buckets。
    - `natural_day + month_last_calendar_day` 生成正确 buckets。
-3. `tests/web/test_ops_freshness_api.py`
+4. `tests/web/test_ops_freshness_api.py`
    - 周五前 expected 是上一周五。
    - 周五当天 expected 是本周五。
    - 月末前 expected 是上月月末。
@@ -443,6 +446,16 @@ trade_date=20260529  # 如果 2026-05-31 非交易日，也不能提前到最后
 | `stk_period_bar_week` | `2026-04-23` 周四 | 拒绝 |
 | `stk_period_bar_month` | `2026-04-30` 月末 | 通过 |
 | `stk_period_bar_month` | `2026-04-29` 非月末 | 拒绝 |
+
+### 6.4 TaskRun 单点执行门禁
+
+TaskRun dispatcher 只能对 `date_model.date_axis=trade_open_day` 的数据集应用“非交易日跳过维护”。
+
+股票周/月线已明确为 `date_axis=natural_day`：
+
+1. `stk_period_bar_week` 在 `2026-05-01` 这类自然周五、但交易日历休市的日期上，必须继续调用源接口。
+2. `stk_period_bar_month` 在自然月最后一天休市时，同样必须继续调用源接口。
+3. 禁止按数据集 key 特判；判断依据只能来自 `DatasetDefinition.date_model`。
 
 ---
 

@@ -377,3 +377,52 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
     assert (rows_fetched, rows_saved, rows_rejected) == (0, 0, 0)
     assert rejected_reason_counts == {}
     assert summary_message == "股票日线：2026-04-25 非交易日，已跳过维护。"
+
+
+def test_task_run_dispatcher_does_not_skip_natural_day_point_on_closed_trade_date(
+    db_session,
+    task_run_factory,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    calls: list[DatasetActionRequest] = []
+
+    class StubDatasetMaintainService:
+        def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+        def maintain(self, *, _action_request, **kwargs):  # type: ignore[no-untyped-def]
+            calls.append(_action_request)
+            return SimpleNamespace(
+                rows_fetched=5507,
+                rows_written=5507,
+                rows_rejected=0,
+                rejected_reason_counts={},
+                message="units=1",
+            )
+
+    monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetMaintainService", StubDatasetMaintainService)
+    task_run = task_run_factory(status="running", resource_key="stk_period_bar_week", title="股票周线行情")
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 1), is_open=False)
+    plan = SimpleNamespace(dataset_key="stk_period_bar_week", run_profile="point_incremental")
+    action_request = DatasetActionRequest(
+        dataset_key="stk_period_bar_week",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 5, 1)),
+        filters={},
+        trigger_source="manual",
+        run_id=task_run.id,
+    )
+
+    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
+        db_session,
+        task_run,
+        action_request,
+        plan,
+    )
+
+    assert (rows_fetched, rows_saved, rows_rejected) == (5507, 5507, 0)
+    assert rejected_reason_counts == {}
+    assert summary_message == "units=1"
+    assert len(calls) == 1
+    assert calls[0].time_input.trade_date == date(2026, 5, 1)

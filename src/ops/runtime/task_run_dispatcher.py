@@ -337,8 +337,12 @@ class TaskRunDispatcher:
             parsed_trade_date = time_input.trade_date or self._resolve_default_trade_date(session)
             if parsed_trade_date is None:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
-            if not time_input.month and self._is_closed_trade_date(session, parsed_trade_date):
-                definition = get_dataset_definition(plan.dataset_key)
+            definition = get_dataset_definition(plan.dataset_key)
+            if (
+                not time_input.month
+                and definition.date_model.date_axis == "trade_open_day"
+                and self._is_closed_trade_date(session, parsed_trade_date)
+            ):
                 return 0, 0, 0, {}, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
             action_request = DatasetActionRequest(
                 dataset_key=action_request.dataset_key,
