@@ -229,3 +229,9 @@ __marimo__/
 
 #demo
 example
+
+#capture
+capture/*
+!capture/tushare_leaf_doc_scraper_v45.py
+!capture/tushare_doc_validator_v45.py
+!capture/tushare_publish_manifest_v45.json

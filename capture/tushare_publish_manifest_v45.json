@@ -1,0 +1,572 @@
+{
+  "schema_version": 1,
+  "generated_from": "docs/sources/tushare",
+  "generated_at": "2026-05-02 23:02:02",
+  "usage_note": "发布时以 doc_id 为键应用本清单，不再从 docs/sources/tushare 运行时反向抽取补丁。staging 文档会先按抓取结果落盘，再依据本清单补齐输入参数表、特殊表格行、正文块和固定说明后发布到正式目录。",
+  "field_notes": {
+    "limit_offset_input_rows": "按 doc_id 补齐“输入参数”表中的 limit/offset 行。",
+    "table_row_patches": "按 doc_id 和 section heading 覆盖或插入指定表格行。",
+    "block_patches": "按 doc_id 插入或替换正文块，用于保留人工确认过的说明块。",
+    "line_insertions": "按 doc_id 在指定正文行前插入单行文本，适合补回缺失的 section 标题。",
+    "fixed_line_prefix_replacements": "按 doc_id 用固定前缀匹配整行替换，适合描述/权限等单行口径修订。",
+    "exact_line_removals": "按 doc_id 删除指定整行，适合移除不再保留的旧提示语。"
+  },
+  "limit_offset_input_rows": {
+    "25": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "26": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "27": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "28": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "32": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "47": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "48": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "49": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "58": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "59": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "61": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "62": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "94": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "95": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "96": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "100": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "103": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "106": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "107": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "110": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "111": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "112": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "123": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "124": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "127": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "128": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "144": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "145": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "160": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "161": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "164": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "165": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "166": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "170": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "171": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "172": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "175": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "181": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "183": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "188": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "191": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "193": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "194": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "196": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "197": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "199": {
+      "offset": "| offset | str | N | 开始行数 |",
+      "limit": "| limit | str | N | 最大行数 |"
+    },
+    "208": {
+      "offset": "| offset | intint | N | 开始行数 |",
+      "limit": "| limit | int | N | 每页行数 |"
+    },
+    "211": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "214": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "215": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "252": {
+      "offset": "| offset | str | N | 开始行数 | 1：第一行 |",
+      "limit": "| limit | str | N | 每页最大行数 | 500：每页500行 |"
+    },
+    "255": {
+      "offset": "| offset | str | N | 开始行数 |",
+      "limit": "| limit | str | N | 最大行数 |"
+    },
+    "259": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "260": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "261": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "262": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "267": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "268": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "274": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "275": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "292": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "293": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "294": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "295": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "298": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "308": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "311": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "312": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "320": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "321": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "326": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "327": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "328": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "329": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "335": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "336": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "338": {
+      "offset": "| offset | int | N | 开始行数 |",
+      "limit": "| limit | int | N | 每页行数行数 |"
+    },
+    "343": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "344": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "345": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "347": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "348": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "349": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "351": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "353": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "354": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "355": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "356": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "357": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "358": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "362": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "363": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "364": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "365": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "369": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "370": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "371": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "372": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "373": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "374": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "375": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "376": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "377": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "378": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "382": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "385": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "386": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "397": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "398": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "399": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "403": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "417": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "419": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "420": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "421": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "422": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "423": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "451": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "452": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "453": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "457": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    }
+  },
+  "table_row_patches": {
+    "94": {
+      "输入参数": {
+        "ts_code": "| ts_code | str | N | TS指数代码 |",
+        "symbol": "| symbol | str | N | 指数代码，支持多值输入，如000300,000001 |"
+      }
+    },
+    "143": {
+      "输出参数": {
+        "score": "| score | str | N | 分值 |"
+      }
+    },
+    "195": {
+      "输出参数": {
+        "url": "| url | str | N | 原文链接 |"
+      }
+    }
+  },
+  "block_patches": {
+    "94": [
+      {
+        "marker": "**指数列表**",
+        "before_heading": "## 接口用法",
+        "lines": [
+          "**指数列表**",
+          "",
+          "- 主题指数",
+          "- 规模指数",
+          "- 策略指数",
+          "- 风格指数",
+          "- 综合指数",
+          "- 成长指数",
+          "- 价值指数",
+          "- 有色指数",
+          "- 化工指数",
+          "- 能源指数",
+          "- 其他指数",
+          "- 外汇指数",
+          "- 基金指数",
+          "- 商品指数",
+          "- 债券指数",
+          "- 行业指数",
+          "- 贵金属指数",
+          "- 农副产品指数",
+          "- 软商品指数",
+          "- 油脂油料指数",
+          "- 非金属建材指数",
+          "- 煤焦钢矿指数",
+          "- 谷物指数"
+        ]
+      }
+    ]
+  },
+  "line_insertions": {
+    "365": [
+      {
+        "line": "## 输出参数",
+        "before_line": "| 名称 | 类型 | 默认显示 | 描述 |"
+      }
+    ]
+  },
+  "fixed_line_prefix_replacements": {
+    "95": {
+      "- 描述：": "- 描述：获取指数每日行情，还可以通过bar接口获取。由于服务器压力，目前规则是单次调取最多取8000行记录，可以设置start和end日期补全。指数行情也可以通过[**通用行情接口**](https://tushare.pro/document/2?doc_id=109)获取数据．",
+      "- 权限：": "- 权限：用户累积2000积分可调取，5000积分以上频次相对较高。本接口不包括申万行情数据，申万等行业指数行情需5000积分以上，具体请参阅[积分获取办法](https://tushare.pro/document/1?doc_id=13)"
+    }
+  },
+  "exact_line_removals": {
+    "95": [
+      "> 注意：深证成指（399001.SZ）被普遍看作反映深证A股整体表现的大盘，而实际上该指数只包含500只成分股。而各类行情软件上展示的成交量、成交金额是深市所有A股的股票成交情况，如果需要获得与行情软件上一样的成交数据，可以调取深证A指（399107.SZ）。"
+    ]
+  }
+}
