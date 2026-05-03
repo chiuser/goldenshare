@@ -1,7 +1,7 @@
 # Local Lake CLI / Planner / Engine 架构收口方案 v1
 
 - 版本：v1
-- 状态：待评审
+- 状态：已实施
 - 更新时间：2026-05-03
 - 适用范围：`lake_console/backend/app`
 - 目标：在继续接入 `moneyflow` 和更多 Lake 数据集前，先收口 CLI、Planner、Engine、Strategy 的职责边界。
@@ -412,8 +412,7 @@ docs/templates/lake-dataset-development-template.md
 
 ## 9. 对 moneyflow 的影响
 
-`moneyflow` 暂不在本轮实现。  
-本轮完成后，`moneyflow` 应按新结构接入：
+`moneyflow` 已按新结构接入：
 
 ```text
 catalog/datasets/moneyflow.py
@@ -422,7 +421,7 @@ sync/strategies/moneyflow.py
 docs/datasets/moneyflow-lake-dataset-development.md
 ```
 
-`moneyflow` 应成为普通交易日分页数据集的样板：
+`moneyflow` 是普通交易日分页数据集的第一版样板：
 
 1. 使用本地 `trade_cal` 展开区间。
 2. 按 `trade_date` 请求。

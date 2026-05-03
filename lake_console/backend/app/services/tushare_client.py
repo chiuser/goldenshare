@@ -111,6 +111,26 @@ class TushareLakeClient:
         )
         return _frame_to_rows(frame)
 
+    def moneyflow(
+        self,
+        *,
+        fields: Sequence[str],
+        trade_date: str,
+        ts_code: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        frame = self._request(
+            self._pro.moneyflow,
+            api_name="moneyflow",
+            trade_date=trade_date,
+            ts_code=ts_code,
+            limit=limit,
+            offset=offset,
+            fields=",".join(fields),
+        )
+        return _frame_to_rows(frame)
+
     def stk_mins(
         self,
         *,

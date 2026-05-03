@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-import lake_console.backend.app.sync.planner as planner_module
+import lake_console.backend.app.sync.helpers.dates as date_helper
+import lake_console.backend.app.sync.planners.stk_mins as stk_mins_planner
 from lake_console.backend.app.sync.planner import LakeSyncPlanner
 
 
 def test_daily_plan_uses_local_open_trade_calendar_for_range(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        planner_module,
+        date_helper,
         "read_parquet_rows",
         lambda path: [
             {"cal_date": "20260424", "is_open": True},
@@ -46,7 +47,8 @@ def test_stk_mins_plan_sync_estimates_current_and_target_requests_for_full_year_
             return rows
         return [{"ts_code": f"{index:06d}.SZ", "list_status": "L"} for index in range(5511)]
 
-    monkeypatch.setattr(planner_module, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(date_helper, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(stk_mins_planner, "read_parquet_rows", fake_read)
     (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
     (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake", encoding="utf-8")
     (tmp_path / "manifest" / "security_universe").mkdir(parents=True)
@@ -84,7 +86,7 @@ def test_stk_mins_plan_sync_estimates_current_and_target_requests_for_full_year_
 
 def test_stk_mins_plan_sync_single_symbol_range_does_not_require_local_stock_universe(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        planner_module,
+        date_helper,
         "read_parquet_rows",
         lambda path: [
             {"cal_date": "20260401", "is_open": True},

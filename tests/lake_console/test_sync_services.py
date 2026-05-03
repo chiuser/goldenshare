@@ -5,11 +5,15 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 import lake_console.backend.app.services.tushare_stk_mins_sync_service as mins_module
 import lake_console.backend.app.services.tushare_daily_sync_service as daily_module
+import lake_console.backend.app.services.tushare_moneyflow_sync_service as moneyflow_module
 import lake_console.backend.app.services.tushare_stock_basic_sync_service as stock_module
 import lake_console.backend.app.services.tushare_trade_cal_sync_service as trade_cal_module
 from lake_console.backend.app.services.tushare_daily_sync_service import TushareDailySyncService
+from lake_console.backend.app.services.tushare_moneyflow_sync_service import TushareMoneyflowSyncService
 from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
@@ -89,6 +93,43 @@ class FakeClient:
                 "pct_chg": 2.0,
                 "vol": 1000.5,
                 "amount": 10200.0,
+            }
+        ]
+
+    def moneyflow(
+        self,
+        *,
+        fields: list[str] | tuple[str, ...],
+        trade_date: str,
+        ts_code: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        del fields, ts_code, limit
+        if offset:
+            return []
+        return [
+            {
+                "ts_code": "000001.SZ",
+                "trade_date": trade_date,
+                "buy_sm_vol": 1,
+                "buy_sm_amount": 10.0,
+                "sell_sm_vol": 2,
+                "sell_sm_amount": 20.0,
+                "buy_md_vol": 3,
+                "buy_md_amount": 30.0,
+                "sell_md_vol": 4,
+                "sell_md_amount": 40.0,
+                "buy_lg_vol": 5,
+                "buy_lg_amount": 50.0,
+                "sell_lg_vol": 6,
+                "sell_lg_amount": 60.0,
+                "buy_elg_vol": 7,
+                "buy_elg_amount": 70.0,
+                "sell_elg_vol": 8,
+                "sell_elg_amount": 80.0,
+                "net_mf_vol": 9,
+                "net_mf_amount": 90.0,
             }
         ]
 
@@ -433,6 +474,121 @@ def test_daily_sync_rejects_missing_required_fields_and_wrong_trade_date(tmp_pat
     assert summary["rejected_rows"] == 2
     rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "daily" / "trade_date=2026-04-24" / "part-000.parquet")]
     assert [row["ts_code"] for row in rows] == ["000001.SZ"]
+
+
+def test_lake_moneyflow_replace_partition_and_int64_volume_fields(tmp_path, monkeypatch):
+    written: dict[str, Any] = {}
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written[str(output_path)] = rows
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(moneyflow_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(moneyflow_module, "read_parquet_row_count", lambda path: 1)
+
+    summary = TushareMoneyflowSyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda message: None).sync(
+        trade_date=date(2026, 4, 24),
+    )
+
+    assert summary["written_rows"] == 1
+    assert summary["rejected_rows"] == 0
+    assert (tmp_path / "raw_tushare" / "moneyflow" / "trade_date=2026-04-24" / "part-000.parquet").exists()
+    rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "moneyflow" / "trade_date=2026-04-24" / "part-000.parquet")]
+    assert rows[0]["trade_date"] == "2026-04-24"
+    assert rows[0]["buy_sm_vol"] == 1
+    assert isinstance(rows[0]["buy_sm_vol"], int)
+    assert "source" not in rows[0]
+
+
+def test_lake_moneyflow_paginates_until_short_page(tmp_path, monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    class PagedMoneyflowClient(FakeClient):
+        def moneyflow(
+            self,
+            *,
+            fields: list[str] | tuple[str, ...],
+            trade_date: str,
+            ts_code: str | None = None,
+            limit: int,
+            offset: int,
+        ) -> list[dict[str, Any]]:
+            calls.append(
+                {
+                    "fields": fields,
+                    "trade_date": trade_date,
+                    "ts_code": ts_code,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+            if offset == 0:
+                return FakeClient().moneyflow(
+                    fields=fields,
+                    trade_date=trade_date,
+                    ts_code=ts_code,
+                    limit=limit,
+                    offset=offset,
+                )
+            return []
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(moneyflow_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(moneyflow_module, "read_parquet_row_count", lambda path: 1)
+    monkeypatch.setattr(moneyflow_module, "MONEYFLOW_PAGE_LIMIT", 1)
+
+    summary = TushareMoneyflowSyncService(lake_root=tmp_path, client=PagedMoneyflowClient(), progress=lambda message: None).sync(
+        trade_date=date(2026, 4, 24),
+        ts_code="600000.sh",
+    )
+
+    assert summary["written_rows"] == 1
+    assert calls == [
+        {
+            "fields": moneyflow_module.MONEYFLOW_FIELDS,
+            "trade_date": "20260424",
+            "ts_code": "600000.SH",
+            "limit": 1,
+            "offset": 0,
+        },
+        {
+            "fields": moneyflow_module.MONEYFLOW_FIELDS,
+            "trade_date": "20260424",
+            "ts_code": "600000.SH",
+            "limit": 1,
+            "offset": 1,
+        },
+    ]
+
+
+def test_lake_moneyflow_fails_partition_on_non_integer_volume_fields(tmp_path, monkeypatch):
+    class DirtyMoneyflowClient(FakeClient):
+        def moneyflow(
+            self,
+            *,
+            fields: list[str] | tuple[str, ...],
+            trade_date: str,
+            ts_code: str | None = None,
+            limit: int,
+            offset: int,
+        ) -> list[dict[str, Any]]:
+            rows = super().moneyflow(fields=fields, trade_date=trade_date, ts_code=ts_code, limit=limit, offset=offset)
+            if rows:
+                rows[0]["buy_sm_vol"] = "1.5"
+            return rows
+
+    with pytest.raises(RuntimeError, match="buy_sm_vol"):
+        TushareMoneyflowSyncService(lake_root=tmp_path, client=DirtyMoneyflowClient(), progress=lambda message: None).sync(
+            trade_date=date(2026, 4, 24),
+        )
+
+    assert not (tmp_path / "raw_tushare" / "moneyflow").exists()
 
 
 def test_stk_mins_sync_writes_single_symbol_day_partition(tmp_path, monkeypatch):

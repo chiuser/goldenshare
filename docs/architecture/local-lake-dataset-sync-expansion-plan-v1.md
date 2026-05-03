@@ -1,8 +1,8 @@
 # Local Lake 数据集同步扩展方案 v1
 
 - 版本：v1
-- 状态：待评审
-- 更新时间：2026-05-01
+- 状态：已部分落地，CLI / Planner / Engine 收口已实施，`moneyflow` 已按新结构接入
+- 更新时间：2026-05-03
 - 适用范围：`lake_console` 本地移动盘 Tushare Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -30,6 +30,8 @@
 5. `_tmp -> 校验 -> 替换正式文件/分区`。
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
+8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
+9. `daily`、`index_basic`、`moneyflow` 已接入 `sync-dataset` strategy 分发。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
 
@@ -667,6 +669,8 @@ lake-console sync-stk-mins-range \
 ### 8.4 命令示例 / 操作提示页面
 
 Lake Console 前端应新增一个只读的“命令示例 / 操作提示”页面。
+
+详细技术方案见 [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)。
 
 该页面不触发写入，不启动后台任务，只根据 Lake Dataset Catalog 展示命令模板。
 

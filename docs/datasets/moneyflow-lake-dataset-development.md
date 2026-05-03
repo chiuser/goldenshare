@@ -1,7 +1,7 @@
 # 个股资金流向 Lake 数据集接入说明
 
 - 版本：v1
-- 状态：待评审
+- 状态：已接入
 - 更新时间：2026-05-03
 - 数据集 key：`moneyflow`
 - 数据源：Tushare
@@ -161,6 +161,29 @@
 | `page_limit` | `6000` | 分页上限 |
 | `request_strategy_key` | `moneyflow` | 独立策略 |
 | `supported_commands` | `plan-sync`, `sync-dataset` | 通用命令 |
+
+### 3.3 新架构代码落点
+
+本数据集按 `Local Lake CLI / Planner / Engine 架构收口方案 v1` 接入，不再把数据集逻辑写入 CLI、Planner 门面或 Engine 门面。
+
+| 接入点 | 文件 | 当前状态 | 说明 |
+|---|---|---|---|
+| Catalog | `lake_console/backend/app/catalog/datasets/moneyflow.py` | 已接入 | 定义字段、分组、层级与写入策略 |
+| Planner | `lake_console/backend/app/sync/planners/trade_date.py` | 已复用 | `moneyflow` 使用交易日类 planner |
+| Engine | `lake_console/backend/app/sync/engine.py` | 已接入 | 只通过 strategy registry 分发 |
+| Strategy | `lake_console/backend/app/sync/strategies/moneyflow.py` | 已接入 | 调用 `TushareMoneyflowSyncService` |
+| Service | `lake_console/backend/app/services/tushare_moneyflow_sync_service.py` | 已接入 | 实现请求、分页、校验、写入 |
+| Client | `lake_console/backend/app/services/tushare_client.py` | 已接入 | 新增 `moneyflow(...)` 方法 |
+| CLI | `lake_console/backend/app/cli/commands/sync_dataset.py` | 已复用 | 不新增专用命令，使用 `sync-dataset moneyflow` |
+| Guardrail | `tests/lake_console/test_sync_architecture_guardrails.py` | 已覆盖 | 防止逻辑回流到大 CLI / 大 Planner / 大 Engine |
+
+新增或修改本数据集时，必须继续遵守：
+
+1. CLI 只负责参数和输出。
+2. Planner 只负责计划预览。
+3. Engine 只负责 strategy 分发。
+4. `moneyflow` 的具体请求、分页、校验、写入只允许留在 `TushareMoneyflowSyncService` 与 `MoneyflowStrategy` 链路内。
+5. 不允许为了省事把特殊逻辑写回 `lake_console/backend/app/cli/commands/sync_dataset.py`、`sync/planner.py` 或 `sync/engine.py`。
 
 ---
 
@@ -375,20 +398,19 @@ lake-console sync-dataset moneyflow --ts-code 600000.SH --start-date 2026-04-01 
 python3 scripts/check_docs_integrity.py
 ```
 
-### 9.2 单元测试建议
+### 9.2 单元测试
 
 | 测试 | 目的 |
 |---|---|
-| `test_lake_catalog_moneyflow` | catalog 字段、分组、命令示例完整 |
-| `test_lake_plan_moneyflow_trade_date` | 单日请求计划 |
-| `test_lake_plan_moneyflow_range_uses_local_trade_cal` | 区间模式使用本地交易日历 |
-| `test_lake_moneyflow_replace_partition` | 按日分区原子替换 |
-| `test_lake_moneyflow_paginates_until_short_page` | `limit=6000`、`offset` 递增直到短页 |
-| `test_lake_moneyflow_rejects_missing_required_fields` | 缺少 `trade_date/ts_code` 的行不写入 |
-| `test_lake_moneyflow_int64_volume_fields` | `*_vol` 字段使用 int64 |
-| `test_lake_moneyflow_fails_partition_on_non_integer_volume_fields` | `*_vol` 非整数格式时本交易日分区失败 |
-| `test_lake_moneyflow_does_not_write_serving_fields` | 不写 std/serving/source 等非源站字段 |
-| `test_lake_moneyflow_isolation_guardrail` | 不 import 生产 Ops/App/Frontend，不访问远程 DB |
+| 测试 | 当前状态 | 目的 |
+|---|---|---|
+| `test_lake_moneyflow_replace_partition_and_int64_volume_fields` | 已实现 | 按日分区写入、`*_vol` 使用整数 |
+| `test_lake_moneyflow_paginates_until_short_page` | 已实现 | `limit=6000`、`offset` 递增直到短页 |
+| `test_lake_moneyflow_fails_partition_on_non_integer_volume_fields` | 已实现 | `*_vol` 非整数格式时本交易日分区失败 |
+| `test_lake_planner_dispatches_to_planner_modules` | 已实现 | `moneyflow` 通过 trade_date planner 门面分发 |
+| `test_lake_sync_engine_uses_strategy_registry` | 已实现 | engine 只通过 strategy registry 分发 |
+| `test_lake_sync_strategy_registry_is_explicit` | 已实现 | strategy 显式注册，避免 catalog 与 engine 脱节 |
+| `test_lake_console_does_not_import_production_runtime_code` | 已实现 | 不 import 生产 Ops/App/Frontend，不访问远程 DB |
 
 ### 9.3 真实同步冒烟
 
@@ -441,13 +463,13 @@ duckdb -c "select count(*) from read_parquet('<LAKE_ROOT>/raw_tushare/moneyflow/
 
 编码后：
 
-- [ ] `plan-sync moneyflow` 可用。
-- [ ] `sync-dataset moneyflow` 可用。
-- [ ] 命令有进度输出。
-- [ ] 写入使用 `_tmp -> validate -> replace`。
+- [x] `plan-sync moneyflow` 可用。
+- [x] `sync-dataset moneyflow` 可用。
+- [x] 命令有进度输出。
+- [x] 写入使用 `_tmp -> validate -> replace`。
 - [ ] DuckDB 可读取。
 - [ ] 列表页不默认计算 `row_count`。
 - [ ] 详情页可展示层级与分区。
 - [ ] 命令示例页面可展示命令。
-- [ ] 没有 import 生产 Ops / App / Frontend。
-- [ ] 文档校验通过。
+- [x] 没有 import 生产 Ops / App / Frontend。
+- [x] 文档校验通过。

@@ -5,14 +5,13 @@ from datetime import date
 from typing import Any
 
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
-from lake_console.backend.app.services.tushare_daily_sync_service import TushareDailySyncService
-from lake_console.backend.app.services.tushare_index_basic_sync_service import TushareIndexBasicSyncService
+from lake_console.backend.app.sync.context import LakeSyncContext
+from lake_console.backend.app.sync.strategies import STRATEGY_CLASSES
 
 
 class LakeSyncEngine:
     def __init__(self, *, lake_root: Path, client: TushareLakeClient) -> None:
-        self.lake_root = lake_root
-        self.client = client
+        self.context = LakeSyncContext(lake_root=lake_root, client=client)
 
     def sync_dataset(
         self,
@@ -27,16 +26,15 @@ class LakeSyncEngine:
         publisher: str | None = None,
         category: str | None = None,
     ) -> dict[str, Any]:
-        if dataset_key == "daily":
-            return TushareDailySyncService(lake_root=self.lake_root, client=self.client).sync(
-                trade_date=trade_date,
-                start_date=start_date,
-                end_date=end_date,
-                ts_code=ts_code,
-            )
-        if dataset_key != "index_basic":
-            raise ValueError("sync-dataset 当前只接入 index_basic/daily；其他数据集需先完成对应策略文件。")
-        return TushareIndexBasicSyncService(lake_root=self.lake_root, client=self.client).sync(
+        strategy_class = STRATEGY_CLASSES.get(dataset_key)
+        if strategy_class is None:
+            available = "/".join(sorted(STRATEGY_CLASSES))
+            raise ValueError(f"sync-dataset 当前只接入 {available}；其他数据集需先完成对应策略文件。")
+        return strategy_class().sync(
+            context=self.context,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
             ts_code=ts_code,
             name=name,
             markets=markets,

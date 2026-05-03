@@ -135,6 +135,19 @@ docs/ops/ops-dataset-catalog-view-plan-v1.md
 | `request_strategy_key` |  | 请求策略 |
 | `supported_commands` |  | 支持命令 |
 
+### 4.3 Sync 架构接入点
+
+新增数据集必须明确以下代码落点。不得把数据集逻辑写回 CLI、Planner 门面或 Engine 门面。
+
+| 接入点 | 文件 | 是否需要新增/修改 | 说明 |
+|---|---|---:|---|
+| Catalog | `lake_console/backend/app/catalog/datasets/<group>.py` |  | 定义展示、层级、路径、写入策略 |
+| Planner | `lake_console/backend/app/sync/planners/<type>.py` |  | 选择 snapshot / trade_date / stk_mins 或新增明确类型 |
+| Strategy | `lake_console/backend/app/sync/strategies/<dataset_key>.py` |  | 单数据集请求、分页、校验、写入 |
+| Strategy registry | `lake_console/backend/app/sync/strategies/__init__.py` |  | 显式注册已实现数据集 |
+| CLI | `lake_console/backend/app/cli/commands/sync_dataset.py` |  | 普通数据集默认不新增专用命令，只复用 `sync-dataset` |
+| Tests | `tests/lake_console/*` |  | 计划、策略、隔离和必要 smoke |
+
 ---
 
 ## 5. 请求策略设计
@@ -459,4 +472,3 @@ DuckDB 验证：
 - [ ] 命令示例页面可展示该数据集命令
 - [ ] 没有 import 生产 Ops / App / Frontend
 - [ ] 文档校验通过
-
