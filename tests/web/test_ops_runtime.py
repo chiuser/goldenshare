@@ -125,6 +125,45 @@ def test_scheduler_monthly_last_day_policy_uses_due_schedule_month_for_task_run(
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 5, 31, 11, 0, tzinfo=timezone.utc)
 
 
+def test_scheduler_monthly_window_policy_uses_due_schedule_month_for_task_run(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="index_weight.maintain",
+        display_name="指数成分权重自动维护",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="monthly_window_current_month",
+        params_json={"time_input": {"mode": "range"}, "filters": {"index_code": "000300.SH"}},
+        next_run_at=datetime(2026, 4, 30, 11, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.resource_key == "index_weight"
+    assert task_run.time_input_json == {
+        "mode": "range",
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-30",
+    }
+    assert task_run.filters_json == {"index_code": "000300.SH"}
+    assert task_run.request_payload_json["time_input"] == {
+        "mode": "range",
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-30",
+    }
+    assert task_run.request_payload_json["filters"] == {"index_code": "000300.SH"}
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 5, 31, 11, 0, tzinfo=timezone.utc)
+
+
 def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_time_params(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="workflow",

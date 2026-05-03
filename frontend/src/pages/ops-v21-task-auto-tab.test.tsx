@@ -16,8 +16,12 @@ describe("自动任务日期策略", () => {
     action_type: "dataset_action",
     date_selection_rule: "month_last_trading_day",
   };
+  const monthlyWindowAction = {
+    action_type: "dataset_action",
+    date_selection_rule: "month_window",
+  };
 
-  it("only recommends monthly_last_day for natural calendar month-end dataset actions", () => {
+  it("recommends monthly calendar policies from dataset date selection rules", () => {
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
@@ -32,6 +36,13 @@ describe("自动任务日期策略", () => {
         selectedAction: monthlyTradingAction as never,
       }),
     ).toBe("");
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "monthly",
+        selectedAction: monthlyWindowAction as never,
+      }),
+    ).toBe("monthly_window_current_month");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "once",
@@ -49,5 +60,17 @@ describe("自动任务日期策略", () => {
       repeatMonthDay: "1",
     });
     expect(formatScheduleRule("cron", "0 19 * * *", null, "monthly_last_day")).toBe("每月最后一天 19:00");
+  });
+
+  it("uses cron only as execution time carrier for monthly_window_current_month", () => {
+    expect(buildCronExpression("monthly", "19:00", [], "1", "monthly_window_current_month")).toBe("0 19 * * *");
+    expect(parseCronExpression("0 19 * * *", "monthly_window_current_month")).toMatchObject({
+      repeatMode: "monthly",
+      repeatTime: "19:00",
+      repeatMonthDay: "1",
+    });
+    expect(formatScheduleRule("cron", "0 19 * * *", null, "monthly_window_current_month")).toBe(
+      "每月最后一天 19:00，维护当月自然月窗口",
+    );
   });
 });

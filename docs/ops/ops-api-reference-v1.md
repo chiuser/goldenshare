@@ -320,7 +320,9 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
 - 功能：创建调度。
 - Body：`CreateScheduleRequest`
   - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json`
-  - `calendar_policy` 当前支持：`monthly_last_day`。该策略只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
+  - `calendar_policy` 当前支持：
+    - `monthly_last_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
+    - `monthly_window_current_month`：只允许用于 `month_window + month_window_has_data + start_end_month_window` 的数据集维护动作。运行时按计划触发时间所属月份生成 `start_date/end_date` 自然月窗口，不能与固定维护日期或固定窗口混用。
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -358,6 +360,24 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     "timezone":"Asia/Shanghai",
     "calendar_policy":"monthly_last_day",
     "params_json":{"time_input":{"mode":"point"}}
+  }'
+```
+
+自然月窗口自动任务示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/schedules" \
+  -d '{
+    "target_type":"dataset_action",
+    "target_key":"index_weight.maintain",
+    "display_name":"指数成分权重自动维护",
+    "schedule_type":"cron",
+    "trigger_mode":"schedule",
+    "cron_expr":"0 19 * * *",
+    "timezone":"Asia/Shanghai",
+    "calendar_policy":"monthly_window_current_month",
+    "params_json":{"time_input":{"mode":"range"},"filters":{"index_code":"000300.SH"}}
   }'
 ```
 
@@ -464,6 +484,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - 功能：预览调度触发时间。
 - Body：`SchedulePreviewRequest`
   - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
+  - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口在调度到点创建 TaskRun 时按计划触发时间生成。
 - 返回：`SchedulePreviewResponse`
 - 示例：
 
@@ -483,6 +504,14 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
   "http://127.0.0.1:8000/api/v1/ops/schedules/preview" \
   -d '{"schedule_type":"cron","cron_expr":"0 19 * * *","timezone":"Asia/Shanghai","calendar_policy":"monthly_last_day","count":5}'
+```
+
+自然月窗口预览示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/schedules/preview" \
+  -d '{"schedule_type":"cron","cron_expr":"0 19 * * *","timezone":"Asia/Shanghai","calendar_policy":"monthly_window_current_month","count":5}'
 ```
 
 ---

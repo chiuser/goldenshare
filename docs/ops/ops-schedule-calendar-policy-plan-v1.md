@@ -70,6 +70,7 @@
 | 策略 | 状态 | 含义 | 适配日期模型 |
 | --- | --- | --- | --- |
 | `monthly_last_day` | 第一期实现 | 每个自然月最后一天，在指定时间触发 | `natural_day + month_last_calendar_day` |
+| `monthly_window_current_month` | 第二期已落地 | 每个自然月最后一天触发，维护本次计划触发时间所属自然月窗口 | `month_window + month_window_has_data` |
 | `monthly_last_trading_day` | 后续待做 | 每月最后一个开市交易日触发 | `trade_open_day + month_last_open_day` |
 | `fixed_day_of_month` | 后续待做 | 每月固定日号触发 | 普通固定日号自动任务 |
 | `weekly_friday` | 后续待做 | 每周自然周五触发 | `natural_day + week_friday` |
@@ -78,8 +79,9 @@
 说明：
 
 1. 第一期只实现 `monthly_last_day`。
-2. 后续新增策略必须继续沿 `calendar_policy` 扩展。
-3. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
+2. 第二期已实现 `monthly_window_current_month`，用于 `index_weight` 这类自然月窗口数据集。
+3. 后续新增策略必须继续沿 `calendar_policy` 扩展。
+4. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
 
 ### 4.3 与 DatasetDefinition 的关系
 
@@ -92,7 +94,7 @@
 | `natural_day + month_last_calendar_day` | `monthly_last_day` | 自然月最后一天 |
 | `trade_open_day + month_last_open_day` | `monthly_last_trading_day` | 每月最后一个开市交易日 |
 | `month_key + every_natural_month` | 待单独设计 | 应生成月份键，不应直接传 `trade_date` |
-| `month_window + month_window_has_data` | 待单独设计 | 应生成月份窗口，不应直接传单点日期 |
+| `month_window + month_window_has_data` | `monthly_window_current_month` | 应生成自然月首尾窗口，不应传单点日期 |
 
 ---
 
@@ -106,7 +108,7 @@
 | `stk_period_bar_adj_month` | 股票月线行情（复权） | `natural_day + month_last_calendar_day` | 第一期直接支持 |
 | `index_monthly` | 指数月线 | `trade_open_day + month_last_open_day` | 第一期不改，后续用 `monthly_last_trading_day` |
 | `broker_recommend` | 券商月度金股推荐 | `month_key + every_natural_month` | 第一期不改，后续设计月份键策略 |
-| `index_weight` | 指数成分权重 | `month_window + month_window_has_data` | 第一期不改，后续设计月份窗口策略 |
+| `index_weight` | 指数成分权重 | `month_window + month_window_has_data` | 第二期直接支持 |
 
 第一期只允许自动推荐 `monthly_last_day` 给 `bucket_rule=month_last_calendar_day` 的数据集。
 
@@ -358,7 +360,229 @@ DatasetDefinition.date_model.bucket_rule = month_last_calendar_day
 
 ---
 
-## 11. 推进里程碑
+## 11. 第二期：`calendar_policy=monthly_window_current_month`
+
+### 11.1 第二期目标
+
+第二期补齐 `index_weight` 的自动任务窗口生成能力。
+
+`index_weight` 的源接口不是“按某一天维护”，而是建议按自然月首尾区间请求：
+
+```json
+{
+  "index_code": "000300.SH",
+  "start_date": "20260401",
+  "end_date": "20260430"
+}
+```
+
+因此第二期不能复用 `monthly_last_day`。`monthly_last_day` 生成的是单点 `trade_date`，而 `index_weight` 需要生成自然月窗口。
+
+第二期新增策略：
+
+```text
+calendar_policy = monthly_window_current_month
+```
+
+只自动推荐给：
+
+```text
+DatasetDefinition.date_model.date_axis = month_window
+DatasetDefinition.date_model.bucket_rule = month_window_has_data
+DatasetDefinition.date_model.input_shape = start_end_month_window
+```
+
+当前直接覆盖：
+
+1. `index_weight`
+
+### 11.2 第二期不做
+
+1. 不改变 `index_weight` 手动任务链路。手动链路已经符合接口文档，用户选择 `start_month/end_month`，后端转换为自然月首尾 `start_date/end_date`。
+2. 不改变 `DatasetDefinition` 结构。
+3. 不改变业务数据表。
+4. 不新增 Alembic 字段；继续复用已存在的 `calendar_policy` 字段。
+5. 不实现“次月第 N 天维护上月窗口”。
+6. 不实现 `monthly_last_trading_day`。
+7. 不实现 `month_key` 数据集策略。
+
+### 11.3 API 契约
+
+创建或更新自动任务时允许：
+
+```json
+{
+  "schedule_type": "cron",
+  "cron_expr": "0 19 * * *",
+  "timezone": "Asia/Shanghai",
+  "calendar_policy": "monthly_window_current_month",
+  "params_json": {
+    "time_input": {
+      "mode": "range"
+    },
+    "filters": {
+      "index_code": "000300.SH"
+    }
+  }
+}
+```
+
+语义：
+
+1. `cron_expr` 中只取执行时分。
+2. preview 和 scheduler 的触发日期落在自然月最后一天。
+3. 自动创建 TaskRun 时，后端根据本次计划触发时间所属自然月生成窗口。
+4. 如果用户没有填写 `index_code`，保持 `index_weight` 当前执行计划语义：后端按指数池生成 units。
+5. 如果用户填写 `index_code`，只维护该指数的自然月窗口。
+
+示例：
+
+如果本次计划触发时间是：
+
+```text
+2026-04-30 19:00 Asia/Shanghai
+```
+
+TaskRun 应生成：
+
+```json
+{
+  "time_input": {
+    "mode": "range",
+    "start_date": "2026-04-01",
+    "end_date": "2026-04-30"
+  },
+  "filters": {
+    "index_code": "000300.SH"
+  }
+}
+```
+
+关键约束：
+
+如果 scheduler 晚跑，例如实际到 `2026-05-01` 才处理 `2026-04-30 19:00` 的 due schedule，也必须根据原计划触发时间生成 `2026-04-01 ~ 2026-04-30`，不能根据实际执行时间误生成 `2026-05-01 ~ 2026-05-31`。
+
+### 11.4 前端交互
+
+当用户选择 `month_window + month_window_has_data + start_end_month_window` 的数据集，并选择“按周期执行 / 每月”时：
+
+1. 默认选择“每月最后一天执行，维护当月自然月窗口”。
+2. 不展示“每月几号 1~28”输入。
+3. 不展示单点日期选择。
+4. 保存时提交 `calendar_policy=monthly_window_current_month`。
+5. 预览区域展示未来若干次自然月末触发时间。
+6. 参数区仍允许填写业务筛选条件，例如 `index_code`。
+
+页面主文案建议：
+
+```text
+每月最后一天执行，维护当月自然月窗口
+```
+
+页面不应该让用户理解 `month_window_current_month`，也不应该让用户手填自然月首尾日期。
+
+### 11.5 后端计算规则
+
+`monthly_window_current_month` 的 `next_run_at` 计算与 `monthly_last_day` 一致：
+
+1. 使用 schedule 的 `timezone` 计算本地时间。
+2. 从 `after` 之后寻找第一个自然月最后一天。
+3. 使用 `cron_expr` 中的小时和分钟作为执行时间。
+4. 若本月自然月最后一天的执行时间已经过去，则使用下个月自然月最后一天。
+5. 返回 UTC 时间入库。
+
+TaskRun 日期生成规则不同：
+
+1. 读取本次 due schedule 的原计划触发时间。
+2. 转到 schedule 的本地时区。
+3. 取该本地时间所属自然月。
+4. 生成该月第一天和最后一天。
+5. 写入 TaskRun：
+
+```json
+{
+  "mode": "range",
+  "start_date": "<本次计划触发时间所属自然月第一天>",
+  "end_date": "<本次计划触发时间所属自然月最后一天>"
+}
+```
+
+### 11.6 混用拒绝规则
+
+`monthly_window_current_month` 不能与用户显式固定日期或窗口混用。
+
+后端保存 schedule 时必须拒绝以下参数：
+
+1. `trade_date`
+2. `start_date`
+3. `end_date`
+4. `start_month`
+5. `end_month`
+6. `time_input.trade_date`
+7. `time_input.start_date`
+8. `time_input.end_date`
+9. `time_input.start_month`
+10. `time_input.end_month`
+
+允许保留：
+
+1. `time_input.mode = "range"`
+2. `filters.index_code`
+3. 其他非时间筛选条件
+
+### 11.7 第二期建议改动点
+
+后端：
+
+1. `src/ops/services/schedule_planner.py`
+   - 将 `monthly_window_current_month` 纳入支持策略。
+   - 复用自然月末触发时间计算逻辑。
+2. `src/ops/services/operations_schedule_service.py`
+   - 校验 `monthly_window_current_month` 只用于 `month_window + month_window_has_data + start_end_month_window`。
+   - 拒绝与显式固定日期或窗口混用。
+   - 创建、更新、恢复、续算全部传入该策略。
+3. `src/ops/services/task_run_service.py`
+   - 自动任务创建 TaskRun 时根据 due schedule 的原计划触发时间生成自然月窗口。
+   - 输出 `time_input.mode=range`、`start_date`、`end_date`。
+4. 测试
+   - planner preview/next_run_at 测试。
+   - schedule API 创建与拒绝测试。
+   - scheduler 晚跑但仍生成计划月份窗口的测试。
+   - `index_weight` TaskRun time_input 与 filters 测试。
+
+前端：
+
+1. `frontend/src/pages/ops-v21-task-auto-tab.tsx`
+   - 对 `date_selection_rule=month_window` 的数据集默认带出第二期策略。
+   - 每月周期显示“每月最后一天执行，维护当月自然月窗口”。
+   - 保存与预览提交 `calendar_policy=monthly_window_current_month`。
+2. 测试
+   - 自动任务表单默认策略。
+   - 保存 payload。
+   - 策略显示文案。
+
+文档：
+
+1. 更新 `docs/ops/ops-api-reference-v1.md` 中 schedule preview 和 schema 字段说明。
+2. 当前文档状态已更新为“第二期已落地”。
+
+### 11.8 第二期验收标准
+
+第二期完成后，必须满足：
+
+1. 为 `index_weight` 新建自动任务时，页面默认推荐“每月最后一天执行，维护当月自然月窗口”。
+2. 保存后的 schedule 有 `calendar_policy=monthly_window_current_month`。
+3. preview 返回自然月最后一天的未来运行时间。
+4. scheduler 到点触发后创建的 TaskRun 包含自然月窗口 `start_date/end_date`。
+5. scheduler 晚跑时仍按原计划触发时间所属月份生成窗口。
+6. `index_weight` 不再需要用户在自动任务里手动填写月份窗口。
+7. `stk_period_bar_month`、`stk_period_bar_adj_month` 继续使用 `monthly_last_day`，不被误改。
+8. `index_monthly` 不被错误套用该策略。
+9. 普通 cron 自动任务不受影响。
+
+---
+
+## 12. 推进里程碑
 
 | 里程碑 | 范围 | 完成标准 |
 | --- | --- | --- |
@@ -369,17 +593,23 @@ DatasetDefinition.date_model.bucket_rule = month_last_calendar_day
 | M4 | 前端表单 | 已对 `month_last_calendar_day` 数据集默认推荐“每月最后一天” |
 | M5 | 测试与 API 文档 | 已补后端/前端最小测试，API 文档已更新 |
 | M6 | 远程小范围验证 | 新建 `stk_period_bar_month` 自动任务并确认 preview / TaskRun 日期正确 |
+| M7 | 第二期文档评审 | 已确认 `monthly_window_current_month` 语义、非目标、混用拒绝规则 |
+| M8 | 第二期后端 | 已支持 `index_weight` preview / next_run_at / TaskRun 自然月窗口生成 |
+| M9 | 第二期前端 | 自动任务页已对 `month_window` 数据集默认推荐自然月窗口策略 |
+| M10 | 第二期测试与 API 文档 | 已补后端/前端定向测试，API 文档已更新 |
+| M11 | 第二期远程小范围验证 | 新建 `index_weight` 自动任务并确认 preview / TaskRun 窗口正确 |
 
 ---
 
-## 12. 后续扩展
+## 13. 后续扩展
 
-第一期完成后，按实际需求再评审：
+第一期和第二期完成后，按实际需求再评审：
 
 1. `monthly_last_trading_day`：用于 `index_monthly`。
 2. `fixed_day_of_month`：替代当前自由输入的“每月几号”。
 3. `weekly_friday`：用于自然周五锚点数据集。
 4. `weekly_last_trading_day`：用于最后交易日周频数据集。
-5. `month_key` / `month_window` 数据集自动任务策略：分别解决月份键和月份窗口。
+5. `month_key` 数据集自动任务策略：解决月份键生成，例如 `broker_recommend`。
+6. 如业务确认需要“次月维护上月窗口”，另起策略评审，不复用 `monthly_window_current_month` 偷换语义。
 
 后续扩展必须复用本方案的 `calendar_policy` 主线，不再新增页面私有日期策略。

@@ -9,7 +9,7 @@ from src.app.exceptions import WebAppError
 
 
 SUPPORTED_SCHEDULE_TYPES = {"once", "cron"}
-SUPPORTED_CALENDAR_POLICIES = {"monthly_last_day"}
+SUPPORTED_CALENDAR_POLICIES = {"monthly_last_day", "monthly_window_current_month"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +79,7 @@ def compute_next_run_at(
         if not cron_expr:
             raise WebAppError(status_code=422, code="validation_error", message="周期排程必须填写周期表达式")
         zone = ensure_timezone(timezone_name)
-        if calendar_policy == "monthly_last_day":
+        if calendar_policy in {"monthly_last_day", "monthly_window_current_month"}:
             return _next_monthly_last_day_occurrence(cron_expr, after=after, zone=zone)
         return _next_cron_occurrence(cron_expr, after=after, zone=zone)
     raise WebAppError(status_code=422, code="validation_error", message=f"不支持的排程类型：{schedule_type}")

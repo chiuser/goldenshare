@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
+from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.ops.action_catalog import (
     WorkflowDefinition,
@@ -23,6 +24,7 @@ from src.ops.models.ops.task_run import TaskRun
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
+MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,7 +258,7 @@ class TaskRunCommandService:
     def _resolve_dataset_action_schedule_time_input(
         cls,
         *,
-        definition,
+        definition: DatasetDefinition,
         target_key: str,
         params_json: dict[str, Any],
         calendar_policy: str | None,
@@ -271,19 +273,33 @@ class TaskRunCommandService:
         normalized_policy = str(calendar_policy or "").strip() or None
         if normalized_policy is None:
             return time_input
-        if normalized_policy != MONTHLY_LAST_DAY_POLICY:
+        if normalized_policy not in {MONTHLY_LAST_DAY_POLICY, MONTHLY_WINDOW_CURRENT_MONTH_POLICY}:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
-        if definition.date_model.bucket_rule != "month_last_calendar_day":
-            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")
-        if cls._has_fixed_trade_date(params_json):
-            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略不能与固定维护日期混用")
+        if normalized_policy == MONTHLY_LAST_DAY_POLICY:
+            if definition.date_model.bucket_rule != "month_last_calendar_day":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")
+            if cls._has_fixed_trade_date(params_json):
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略不能与固定维护日期混用")
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略缺少计划触发时间")
+            trade_date = cls._month_last_day_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+            return {
+                **dict(time_input or {}),
+                "mode": "point",
+                "trade_date": trade_date.isoformat(),
+            }
+        if not cls._supports_month_window_policy(definition):
+            raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
+        if cls._has_explicit_time_boundary(params_json):
+            raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略不能与固定维护日期或窗口混用")
         if scheduled_at is None:
-            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略缺少计划触发时间")
-        trade_date = cls._month_last_day_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+            raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略缺少计划触发时间")
+        start_date, end_date = cls._month_window_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
         return {
             **dict(time_input or {}),
-            "mode": "point",
-            "trade_date": trade_date.isoformat(),
+            "mode": "range",
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
         }
 
     @staticmethod
@@ -392,7 +408,41 @@ class TaskRunCommandService:
         return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
 
     @staticmethod
+    def _has_explicit_time_boundary(params_json: dict[str, Any]) -> bool:
+        time_keys = {"trade_date", "start_date", "end_date", "start_month", "end_month"}
+        if any(params_json.get(key) not in (None, "") for key in time_keys):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and any(time_input.get(key) not in (None, "") for key in time_keys)
+
+    @staticmethod
+    def _supports_month_window_policy(definition: DatasetDefinition) -> bool:
+        date_model = definition.date_model
+        return (
+            date_model.date_axis == "month_window"
+            and date_model.bucket_rule == "month_window_has_data"
+            and date_model.input_shape == "start_end_month_window"
+        )
+
+    @staticmethod
     def _month_last_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
+        local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        last_day = monthrange(local_scheduled_at.year, local_scheduled_at.month)[1]
+        return date(local_scheduled_at.year, local_scheduled_at.month, last_day)
+
+    @staticmethod
+    def _month_window_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> tuple[date, date]:
+        local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        start_date = date(local_scheduled_at.year, local_scheduled_at.month, 1)
+        end_date = date(
+            local_scheduled_at.year,
+            local_scheduled_at.month,
+            monthrange(local_scheduled_at.year, local_scheduled_at.month)[1],
+        )
+        return start_date, end_date
+
+    @staticmethod
+    def _local_scheduled_at(*, scheduled_at: datetime, timezone_name: str | None) -> datetime:
         if scheduled_at.tzinfo is None:
             scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
         zone_name = str(timezone_name or "Asia/Shanghai").strip() or "Asia/Shanghai"
@@ -400,9 +450,7 @@ class TaskRunCommandService:
             zone = ZoneInfo(zone_name)
         except ZoneInfoNotFoundError as exc:
             raise WebAppError(status_code=422, code="validation_error", message="排程时区无效") from exc
-        local_scheduled_at = scheduled_at.astimezone(zone)
-        last_day = monthrange(local_scheduled_at.year, local_scheduled_at.month)[1]
-        return date(local_scheduled_at.year, local_scheduled_at.month, last_day)
+        return scheduled_at.astimezone(zone)
 
     @staticmethod
     def _default_workflow_time_input(workflow: WorkflowDefinition) -> dict[str, Any]:

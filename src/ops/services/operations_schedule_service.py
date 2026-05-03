@@ -23,6 +23,8 @@ from src.foundation.datasets.registry import get_dataset_definition_by_action_ke
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
+MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
+SUPPORTED_CALENDAR_POLICIES = {MONTHLY_LAST_DAY_POLICY, MONTHLY_WINDOW_CURRENT_MONTH_POLICY}
 
 
 class OperationsScheduleService:
@@ -467,7 +469,7 @@ class OperationsScheduleService:
         normalized = str(value or "").strip() or None
         if normalized is None:
             return None
-        if normalized != MONTHLY_LAST_DAY_POLICY:
+        if normalized not in SUPPORTED_CALENDAR_POLICIES:
             raise WebAppError(
                 status_code=422,
                 code="validation_error",
@@ -506,6 +508,33 @@ class OperationsScheduleService:
                     status_code=422,
                     code="validation_error",
                     message="每月最后一天策略不能与固定维护日期混用",
+            )
+            return
+        if calendar_policy == MONTHLY_WINDOW_CURRENT_MONTH_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持周期执行")
+            if target_type != "dataset_action":
+                raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持数据集维护任务")
+            try:
+                definition, _action = get_dataset_definition_by_action_key(target_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+            date_model = definition.date_model
+            if not (
+                date_model.date_axis == "month_window"
+                and date_model.bucket_rule == "month_window_has_data"
+                and date_model.input_shape == "start_end_month_window"
+            ):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="自然月窗口策略只支持月窗口数据集",
+                )
+            if OperationsScheduleService._has_explicit_time_boundary(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="自然月窗口策略不能与固定维护日期或窗口混用",
                 )
             return
         raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
@@ -516,3 +545,11 @@ class OperationsScheduleService:
             return True
         time_input = params_json.get("time_input")
         return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
+
+    @staticmethod
+    def _has_explicit_time_boundary(params_json: dict) -> bool:
+        time_keys = {"trade_date", "start_date", "end_date", "start_month", "end_month"}
+        if any(params_json.get(key) not in (None, "") for key in time_keys):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and any(time_input.get(key) not in (None, "") for key in time_keys)

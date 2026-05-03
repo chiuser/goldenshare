@@ -390,6 +390,33 @@ def test_ops_schedule_preview_supports_monthly_last_day_policy(app_client, user_
         assert local_dt.day == monthrange(local_dt.year, local_dt.month)[1]
 
 
+def test_ops_schedule_preview_supports_monthly_window_current_month_policy(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules/preview",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_window_current_month",
+            "count": 3,
+        },
+    )
+
+    assert response.status_code == 200
+    preview_times = response.json()["preview_times"]
+    assert len(preview_times) == 3
+    for item in preview_times:
+        local_dt = datetime.fromisoformat(item).astimezone(ZoneInfo("Asia/Shanghai"))
+        assert local_dt.hour == 19
+        assert local_dt.minute == 0
+        assert local_dt.day == monthrange(local_dt.year, local_dt.month)[1]
+
+
 def test_ops_schedule_create_supports_monthly_last_day_for_calendar_month_dataset(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -416,6 +443,32 @@ def test_ops_schedule_create_supports_monthly_last_day_for_calendar_month_datase
     assert payload["calendar_policy"] == "monthly_last_day"
 
 
+def test_ops_schedule_create_supports_monthly_window_for_index_weight_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_weight.maintain",
+            "display_name": "指数成分权重自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_window_current_month",
+            "params_json": {"time_input": {"mode": "range"}, "filters": {"index_code": "000300.SH"}},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_key"] == "index_weight.maintain"
+    assert payload["calendar_policy"] == "monthly_window_current_month"
+
+
 def test_ops_schedule_create_rejects_monthly_last_day_for_trading_month_dataset(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -440,6 +493,30 @@ def test_ops_schedule_create_rejects_monthly_last_day_for_trading_month_dataset(
     assert response.json()["message"] == "每月最后一天策略只支持自然月末数据集"
 
 
+def test_ops_schedule_create_rejects_monthly_window_for_non_window_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "stk_period_bar_month.maintain",
+            "display_name": "股票月线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_window_current_month",
+            "params_json": {"time_input": {"mode": "range"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "自然月窗口策略只支持月窗口数据集"
+
+
 def test_ops_schedule_create_rejects_monthly_last_day_with_fixed_trade_date(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -462,6 +539,37 @@ def test_ops_schedule_create_rejects_monthly_last_day_with_fixed_trade_date(app_
 
     assert response.status_code == 422
     assert response.json()["message"] == "每月最后一天策略不能与固定维护日期混用"
+
+
+def test_ops_schedule_create_rejects_monthly_window_with_fixed_window(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_weight.maintain",
+            "display_name": "指数成分权重自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_window_current_month",
+            "params_json": {
+                "time_input": {
+                    "mode": "range",
+                    "start_date": "2026-04-01",
+                    "end_date": "2026-04-30",
+                },
+                "filters": {"index_code": "000300.SH"},
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "自然月窗口策略不能与固定维护日期或窗口混用"
 
 
 def test_ops_schedule_preview_returns_once_next_run(app_client, user_factory) -> None:

@@ -67,7 +67,7 @@ type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
-type CalendarPolicy = "" | "monthly_last_day";
+type CalendarPolicy = "" | "monthly_last_day" | "monthly_window_current_month";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
@@ -148,7 +148,7 @@ export function parseCronExpression(cronExpr: string | null | undefined, calenda
     return null;
   }
   const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  if (calendarPolicy === "monthly_last_day") {
+  if (calendarPolicy === "monthly_last_day" || calendarPolicy === "monthly_window_current_month") {
     return { repeatMode: "monthly" as RepeatMode, repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: "1" };
   }
   if (dayOfMonth === "*" && dayOfWeek === "*") {
@@ -190,7 +190,7 @@ export function buildCronExpression(
     }
     return `${minute} ${hour} * * ${weekdays.join(",")}`;
   }
-  if (calendarPolicy === "monthly_last_day") {
+  if (calendarPolicy === "monthly_last_day" || calendarPolicy === "monthly_window_current_month") {
     return `${minute} ${hour} * * *`;
   }
   const day = Number(repeatMonthDay);
@@ -234,6 +234,9 @@ export function formatScheduleRule(
   }
   if (calendarPolicy === "monthly_last_day") {
     return `每月最后一天 ${parsed.repeatTime}`;
+  }
+  if (calendarPolicy === "monthly_window_current_month") {
+    return `每月最后一天 ${parsed.repeatTime}，维护当月自然月窗口`;
   }
   if (parsed.repeatMode === "daily") {
     return `每天 ${parsed.repeatTime}`;
@@ -383,6 +386,10 @@ export function actionSupportsMonthlyLastDayPolicy(action: CatalogAction | null 
   return action?.action_type === "dataset_action" && action.date_selection_rule === "month_end";
 }
 
+export function actionSupportsMonthlyWindowPolicy(action: CatalogAction | null | undefined): boolean {
+  return action?.action_type === "dataset_action" && action.date_selection_rule === "month_window";
+}
+
 export function resolveEffectiveCalendarPolicy(args: {
   scheduleType: string;
   repeatMode: RepeatMode;
@@ -394,6 +401,13 @@ export function resolveEffectiveCalendarPolicy(args: {
     && actionSupportsMonthlyLastDayPolicy(args.selectedAction)
   ) {
     return "monthly_last_day";
+  }
+  if (
+    args.scheduleType === "cron"
+    && args.repeatMode === "monthly"
+    && actionSupportsMonthlyWindowPolicy(args.selectedAction)
+  ) {
+    return "monthly_window_current_month";
   }
   return "";
 }
@@ -587,6 +601,10 @@ export function OpsAutomationPage() {
     () => actionSupportsMonthlyLastDayPolicy(selectedAction),
     [selectedAction],
   );
+  const selectedActionUsesMonthlyWindowPolicy = useMemo(
+    () => actionSupportsMonthlyWindowPolicy(selectedAction),
+    [selectedAction],
+  );
   const effectiveCalendarPolicy = useMemo(
     () =>
       resolveEffectiveCalendarPolicy({
@@ -676,7 +694,7 @@ export function OpsAutomationPage() {
       params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
     }
 
-    if (supportsSingleDay && supportsDateRange) {
+    if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsSingleDay && supportsDateRange) {
       if (form.date_mode === "single_day") {
         if (form.selected_date) {
           params.trade_date = form.selected_date;
@@ -685,11 +703,11 @@ export function OpsAutomationPage() {
         params.start_date = form.start_date;
         params.end_date = form.end_date;
       }
-    } else if (supportsSingleDay) {
+    } else if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsSingleDay) {
       if (form.selected_date) {
         params.trade_date = form.selected_date;
       }
-    } else if (supportsDateRange && form.start_date && form.end_date) {
+    } else if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsDateRange && form.start_date && form.end_date) {
       params.start_date = form.start_date;
       params.end_date = form.end_date;
     }
@@ -715,6 +733,8 @@ export function OpsAutomationPage() {
         timeInput.mode = "range";
         timeInput.start_month = params.start_month;
         timeInput.end_month = params.end_month;
+      } else if (effectiveCalendarPolicy === "monthly_window_current_month") {
+        timeInput.mode = "range";
       } else if (supportsSingleDay) {
         timeInput.mode = "point";
       } else {
@@ -732,6 +752,7 @@ export function OpsAutomationPage() {
   }, [
     form.date_mode,
     form.end_date,
+    effectiveCalendarPolicy,
     form.field_values,
     form.selected_date,
     form.action_type,
@@ -761,11 +782,13 @@ export function OpsAutomationPage() {
       const detail =
         form.repeat_mode === "daily"
           ? `每天 ${form.repeat_time}`
-          : form.repeat_mode === "weekly"
-            ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}`
-            : effectiveCalendarPolicy === "monthly_last_day"
-              ? `每月最后一天 ${form.repeat_time}`
-              : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
+            : form.repeat_mode === "weekly"
+              ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}`
+              : effectiveCalendarPolicy === "monthly_last_day"
+                ? `每月最后一天 ${form.repeat_time}`
+                : effectiveCalendarPolicy === "monthly_window_current_month"
+                  ? `每月最后一天 ${form.repeat_time}，维护当月自然月窗口`
+                : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
       return {
         title: "重复执行",
         detail,
@@ -1535,6 +1558,14 @@ export function OpsAutomationPage() {
                     value="monthly_last_day"
                     readOnly
                   />
+                ) : selectedActionUsesMonthlyWindowPolicy ? (
+                  <Select
+                    label="每月执行日期"
+                    description="该维护对象按自然月窗口维护，系统会自动生成当月第一天到最后一天。"
+                    data={[{ value: "monthly_window_current_month", label: "每月最后一天执行，维护当月自然月窗口" }]}
+                    value="monthly_window_current_month"
+                    readOnly
+                  />
                 ) : (
                   <TextInput
                     label="每月几号"
@@ -1644,7 +1675,7 @@ export function OpsAutomationPage() {
               <Accordion.Control>维护参数</Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
-                  {(supportsSingleDay || supportsDateRange) ? (
+                  {(effectiveCalendarPolicy !== "monthly_window_current_month" && (supportsSingleDay || supportsDateRange)) ? (
                     <Stack gap="xs">
                       <Text fw={700} size="sm">可选：固定维护日期</Text>
                       {(supportsSingleDay && supportsDateRange) ? (
