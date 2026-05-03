@@ -129,6 +129,7 @@ class SchedulePreviewRequest(BaseModel):
     schedule_type: str
     cron_expr: str | None = None
     timezone: str = "Asia/Shanghai"
+    calendar_policy: str | None = None
     next_run_at: datetime | None = None
     count: int = 5
 

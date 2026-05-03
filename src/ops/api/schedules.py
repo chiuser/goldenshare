@@ -209,6 +209,7 @@ def preview_ops_schedule(
         cron_expr=body.cron_expr,
         timezone_name=body.timezone,
         next_run_at=body.next_run_at,
+        calendar_policy=body.calendar_policy,
         count=body.count,
     )
     return SchedulePreviewResponse(

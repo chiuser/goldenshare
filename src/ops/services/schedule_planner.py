@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -8,6 +9,7 @@ from src.app.exceptions import WebAppError
 
 
 SUPPORTED_SCHEDULE_TYPES = {"once", "cron"}
+SUPPORTED_CALENDAR_POLICIES = {"monthly_last_day"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,16 +65,22 @@ def compute_next_run_at(
     timezone_name: str,
     after: datetime,
     cron_expr: str | None = None,
+    calendar_policy: str | None = None,
 ) -> datetime | None:
     ensure_schedule_type(schedule_type)
+    calendar_policy = _normalize_calendar_policy(calendar_policy)
     if after.tzinfo is None:
         raise WebAppError(status_code=422, code="validation_error", message="排程计算时间必须包含时区信息")
     if schedule_type == "once":
+        if calendar_policy is not None:
+            raise WebAppError(status_code=422, code="validation_error", message="单次排程不支持日期策略")
         return None
     if schedule_type == "cron":
         if not cron_expr:
             raise WebAppError(status_code=422, code="validation_error", message="周期排程必须填写周期表达式")
         zone = ensure_timezone(timezone_name)
+        if calendar_policy == "monthly_last_day":
+            return _next_monthly_last_day_occurrence(cron_expr, after=after, zone=zone)
         return _next_cron_occurrence(cron_expr, after=after, zone=zone)
     raise WebAppError(status_code=422, code="validation_error", message=f"不支持的排程类型：{schedule_type}")
 
@@ -85,14 +93,18 @@ def preview_schedule_runs(
     after: datetime | None = None,
     cron_expr: str | None = None,
     next_run_at: datetime | None = None,
+    calendar_policy: str | None = None,
 ) -> list[datetime]:
     ensure_schedule_type(schedule_type)
+    calendar_policy = _normalize_calendar_policy(calendar_policy)
     count = max(1, min(count, 10))
     now = after or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise WebAppError(status_code=422, code="validation_error", message="排程预览时间必须包含时区信息")
 
     if schedule_type == "once":
+        if calendar_policy is not None:
+            raise WebAppError(status_code=422, code="validation_error", message="单次排程不支持日期策略")
         resolved_next_run = normalize_schedule_datetime(next_run_at, field_name="next_run_at")
         if resolved_next_run is None:
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
@@ -106,6 +118,7 @@ def preview_schedule_runs(
             timezone_name=timezone_name,
             cron_expr=cron_expr,
             after=cursor,
+            calendar_policy=calendar_policy,
         )
         if next_occurrence is None:
             break
@@ -132,6 +145,54 @@ def _next_cron_occurrence(cron_expr: str, *, after: datetime, zone: ZoneInfo) ->
         code="validation_error",
         message="无法在未来 366 天内计算出下一次运行时间",
     )
+
+
+def _next_monthly_last_day_occurrence(cron_expr: str, *, after: datetime, zone: ZoneInfo) -> datetime:
+    cron = _parse_cron_expr(cron_expr)
+    hour, minute = _single_time_from_cron(cron)
+    local_after = after.astimezone(zone)
+    year = local_after.year
+    month = local_after.month
+
+    for _ in range(120):
+        last_day = monthrange(year, month)[1]
+        candidate = datetime(year, month, last_day, hour, minute, tzinfo=zone)
+        if candidate > local_after:
+            return candidate.astimezone(timezone.utc)
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+
+    raise WebAppError(
+        status_code=422,
+        code="validation_error",
+        message="无法在未来 120 个月内计算出下一次月末运行时间",
+    )
+
+
+def _single_time_from_cron(cron: CronExpression) -> tuple[int, int]:
+    if len(cron.hours) != 1 or len(cron.minutes) != 1:
+        raise WebAppError(
+            status_code=422,
+            code="validation_error",
+            message="每月最后一天策略必须使用单一执行时间",
+        )
+    return next(iter(cron.hours)), next(iter(cron.minutes))
+
+
+def _normalize_calendar_policy(calendar_policy: str | None) -> str | None:
+    normalized = str(calendar_policy or "").strip() or None
+    if normalized is None:
+        return None
+    if normalized not in SUPPORTED_CALENDAR_POLICIES:
+        raise WebAppError(
+            status_code=422,
+            code="validation_error",
+            message=f"不支持的日期策略：{normalized}",
+        )
+    return normalized
 
 
 def _parse_cron_expr(cron_expr: str) -> CronExpression:

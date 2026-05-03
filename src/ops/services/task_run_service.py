@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +20,9 @@ from src.ops.action_catalog import (
 )
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
+
+
+MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +76,9 @@ class TaskRunCommandService:
         trigger_source: str,
         requested_by_user_id: int | None,
         schedule_id: int | None = None,
+        calendar_policy: str | None = None,
+        scheduled_at: datetime | None = None,
+        timezone_name: str | None = None,
     ) -> TaskRun:
         params = dict(params_json or {})
         context = self._context_from_schedule_target(
@@ -80,6 +88,9 @@ class TaskRunCommandService:
             trigger_source=trigger_source,
             requested_by_user_id=requested_by_user_id,
             schedule_id=schedule_id,
+            calendar_policy=calendar_policy,
+            scheduled_at=scheduled_at,
+            timezone_name=timezone_name,
         )
         return self.create_task_run(session, context=context)
 
@@ -177,6 +188,9 @@ class TaskRunCommandService:
         trigger_source: str,
         requested_by_user_id: int | None,
         schedule_id: int | None,
+        calendar_policy: str | None = None,
+        scheduled_at: datetime | None = None,
+        timezone_name: str | None = None,
     ) -> TaskRunCreateContext:
         if target_type == "dataset_action":
             try:
@@ -187,10 +201,13 @@ class TaskRunCommandService:
                 task_type="dataset_action",
                 resource_key=definition.dataset_key,
                 action=action,
-                time_input=self._resolve_schedule_time_input(
-                    target_type=target_type,
+                time_input=self._resolve_dataset_action_schedule_time_input(
+                    definition=definition,
                     target_key=target_key,
                     params_json=params_json,
+                    calendar_policy=calendar_policy,
+                    scheduled_at=scheduled_at,
+                    timezone_name=timezone_name,
                 ),
                 filters=self._extract_filters(params_json),
                 request_payload=self._dataset_action_request_payload(params_json),
@@ -234,6 +251,40 @@ class TaskRunCommandService:
                 schedule_id=schedule_id,
             )
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
+
+    @classmethod
+    def _resolve_dataset_action_schedule_time_input(
+        cls,
+        *,
+        definition,
+        target_key: str,
+        params_json: dict[str, Any],
+        calendar_policy: str | None,
+        scheduled_at: datetime | None,
+        timezone_name: str | None,
+    ) -> dict[str, Any]:
+        time_input = cls._resolve_schedule_time_input(
+            target_type="dataset_action",
+            target_key=target_key,
+            params_json=params_json,
+        )
+        normalized_policy = str(calendar_policy or "").strip() or None
+        if normalized_policy is None:
+            return time_input
+        if normalized_policy != MONTHLY_LAST_DAY_POLICY:
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
+        if definition.date_model.bucket_rule != "month_last_calendar_day":
+            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")
+        if cls._has_fixed_trade_date(params_json):
+            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略不能与固定维护日期混用")
+        if scheduled_at is None:
+            raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略缺少计划触发时间")
+        trade_date = cls._month_last_day_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        return {
+            **dict(time_input or {}),
+            "mode": "point",
+            "trade_date": trade_date.isoformat(),
+        }
 
     @staticmethod
     def _validate_context(context: TaskRunCreateContext) -> None:
@@ -332,6 +383,26 @@ class TaskRunCommandService:
             params_json.get(key) not in (None, "")
             for key in ("trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month")
         )
+
+    @staticmethod
+    def _has_fixed_trade_date(params_json: dict[str, Any]) -> bool:
+        if params_json.get("trade_date") not in (None, ""):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
+
+    @staticmethod
+    def _month_last_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
+        if scheduled_at.tzinfo is None:
+            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+        zone_name = str(timezone_name or "Asia/Shanghai").strip() or "Asia/Shanghai"
+        try:
+            zone = ZoneInfo(zone_name)
+        except ZoneInfoNotFoundError as exc:
+            raise WebAppError(status_code=422, code="validation_error", message="排程时区无效") from exc
+        local_scheduled_at = scheduled_at.astimezone(zone)
+        last_day = monthrange(local_scheduled_at.year, local_scheduled_at.month)[1]
+        return date(local_scheduled_at.year, local_scheduled_at.month, last_day)
 
     @staticmethod
     def _default_workflow_time_input(workflow: WorkflowDefinition) -> dict[str, Any]:

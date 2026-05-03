@@ -22,6 +22,9 @@ from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 
 
+MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
+
+
 class OperationsScheduleService:
     def __init__(self) -> None:
         self.task_run_service = TaskRunCommandService()
@@ -48,19 +51,28 @@ class OperationsScheduleService:
     ) -> OpsSchedule:
         self._validate_target(target_type, target_key)
         normalized_params = dict(params_json or {})
+        ensure_schedule_type(schedule_type)
+        ensure_timezone(timezone_name)
+        normalized_calendar_policy = self._normalize_calendar_policy(calendar_policy)
+        self._validate_calendar_policy(
+            target_type=target_type,
+            target_key=target_key,
+            schedule_type=schedule_type,
+            calendar_policy=normalized_calendar_policy,
+            params_json=normalized_params,
+        )
         self.task_run_service.validate_schedule_target(
             target_type=target_type,
             target_key=target_key,
             params_json=normalized_params,
         )
-        ensure_schedule_type(schedule_type)
-        ensure_timezone(timezone_name)
         trigger_mode = self._normalize_trigger_mode(trigger_mode)
         normalized_next_run_at = self._resolve_next_run_at(
             schedule_type=schedule_type,
             cron_expr=cron_expr,
             timezone_name=timezone_name,
             next_run_at=next_run_at,
+            calendar_policy=normalized_calendar_policy,
         )
 
         schedule = OpsSchedule(
@@ -72,7 +84,7 @@ class OperationsScheduleService:
             trigger_mode=trigger_mode,
             cron_expr=cron_expr,
             timezone=timezone_name,
-            calendar_policy=calendar_policy,
+            calendar_policy=normalized_calendar_policy,
             probe_config_json=dict(probe_config_json or {}),
             params_json=normalized_params,
             retry_policy_json=dict(retry_policy_json or {}),
@@ -137,7 +149,7 @@ class OperationsScheduleService:
             ensure_timezone(changes["timezone"])
             schedule.timezone = changes["timezone"]
         if "calendar_policy" in changed_fields:
-            schedule.calendar_policy = changes["calendar_policy"]
+            schedule.calendar_policy = self._normalize_calendar_policy(changes["calendar_policy"])
         if "probe_config" in changed_fields:
             schedule.probe_config_json = dict(changes["probe_config"] or {})
         if "params_json" in changed_fields:
@@ -155,19 +167,29 @@ class OperationsScheduleService:
                     timezone_name=schedule.timezone,
                     cron_expr=schedule.cron_expr,
                     after=datetime.now(timezone.utc),
+                    calendar_policy=schedule.calendar_policy,
                 )
             schedule.next_run_at = explicit_next_run
-        elif {"schedule_type", "cron_expr", "timezone"} & changed_fields and schedule.status == "active":
+        elif {"schedule_type", "cron_expr", "timezone", "calendar_policy"} & changed_fields and schedule.status == "active":
             schedule.next_run_at = self._resolve_next_run_at(
                 schedule_type=schedule.schedule_type,
                 cron_expr=schedule.cron_expr,
                 timezone_name=schedule.timezone,
                 next_run_at=None if schedule.schedule_type == "cron" else schedule.next_run_at,
+                calendar_policy=schedule.calendar_policy,
             )
 
         if schedule.schedule_type == "once" and schedule.status == "active" and schedule.next_run_at is None:
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
 
+        schedule.calendar_policy = self._normalize_calendar_policy(schedule.calendar_policy)
+        self._validate_calendar_policy(
+            target_type=schedule.target_type,
+            target_key=schedule.target_key,
+            schedule_type=schedule.schedule_type,
+            calendar_policy=schedule.calendar_policy,
+            params_json=dict(schedule.params_json or {}),
+        )
         self.task_run_service.validate_schedule_target(
             target_type=schedule.target_type,
             target_key=schedule.target_key,
@@ -240,6 +262,7 @@ class OperationsScheduleService:
                 cron_expr=schedule.cron_expr,
                 timezone_name=schedule.timezone,
                 next_run_at=self._stored_datetime(schedule.next_run_at),
+                calendar_policy=schedule.calendar_policy,
             )
         schedule.status = "active"
         schedule.updated_by_user_id = updated_by_user_id
@@ -301,6 +324,7 @@ class OperationsScheduleService:
         schedules = list(session.scalars(stmt))
         task_runs: list[TaskRun] = []
         for schedule in schedules:
+            scheduled_at = self._stored_datetime(schedule.next_run_at) or current_time
             task_run = self.task_run_service.create_from_schedule_target(
                 session,
                 target_type=schedule.target_type,
@@ -309,6 +333,9 @@ class OperationsScheduleService:
                 trigger_source="scheduled",
                 requested_by_user_id=None,
                 schedule_id=schedule.id,
+                calendar_policy=schedule.calendar_policy,
+                scheduled_at=scheduled_at,
+                timezone_name=schedule.timezone,
             )
             schedule.last_triggered_at = current_time
             if schedule.schedule_type == "once":
@@ -320,6 +347,7 @@ class OperationsScheduleService:
                     timezone_name=schedule.timezone,
                     cron_expr=schedule.cron_expr,
                     after=current_time,
+                    calendar_policy=schedule.calendar_policy,
                 )
             session.commit()
             task_runs.append(task_run)
@@ -404,6 +432,7 @@ class OperationsScheduleService:
         cron_expr: str | None,
         timezone_name: str,
         next_run_at: datetime | None,
+        calendar_policy: str | None,
     ) -> datetime | None:
         normalized = normalize_schedule_datetime(next_run_at, field_name="next_run_at")
         if normalized is not None:
@@ -415,6 +444,7 @@ class OperationsScheduleService:
             timezone_name=timezone_name,
             cron_expr=cron_expr,
             after=datetime.now(timezone.utc),
+            calendar_policy=calendar_policy,
         )
 
     @staticmethod
@@ -431,3 +461,58 @@ class OperationsScheduleService:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value
+
+    @staticmethod
+    def _normalize_calendar_policy(value: str | None) -> str | None:
+        normalized = str(value or "").strip() or None
+        if normalized is None:
+            return None
+        if normalized != MONTHLY_LAST_DAY_POLICY:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"不支持的日期策略：{normalized}",
+            )
+        return normalized
+
+    @staticmethod
+    def _validate_calendar_policy(
+        *,
+        target_type: str,
+        target_key: str,
+        schedule_type: str,
+        calendar_policy: str | None,
+        params_json: dict,
+    ) -> None:
+        if calendar_policy is None:
+            return
+        if calendar_policy == MONTHLY_LAST_DAY_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持周期执行")
+            if target_type != "dataset_action":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持数据集维护任务")
+            try:
+                definition, _action = get_dataset_definition_by_action_key(target_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+            if definition.date_model.bucket_rule != "month_last_calendar_day":
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="每月最后一天策略只支持自然月末数据集",
+                )
+            if OperationsScheduleService._has_fixed_trade_date(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="每月最后一天策略不能与固定维护日期混用",
+                )
+            return
+        raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
+
+    @staticmethod
+    def _has_fixed_trade_date(params_json: dict) -> bool:
+        if params_json.get("trade_date") not in (None, ""):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")

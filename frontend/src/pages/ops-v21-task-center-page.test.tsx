@@ -169,6 +169,7 @@ beforeEach(() => {
             trigger_mode: "schedule",
             cron_expr: "0 19 * * 1,2,3,4,5",
             timezone: "Asia/Shanghai",
+            calendar_policy: null,
             next_run_at: "2026-04-20T19:00:00+08:00",
             updated_at: "2026-04-20T10:00:00+08:00",
           },

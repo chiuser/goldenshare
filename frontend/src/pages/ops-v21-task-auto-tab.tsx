@@ -67,6 +67,7 @@ type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
+type CalendarPolicy = "" | "monthly_last_day";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
@@ -129,7 +130,7 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
   );
 }
 
-function parseCronExpression(cronExpr: string | null | undefined) {
+export function parseCronExpression(cronExpr: string | null | undefined, calendarPolicy?: string | null) {
   const raw = String(cronExpr || "").trim();
   const match = raw.match(/^(\d{1,2})\s+(\d{1,2})\s+(.+)\s+(.+)\s+(.+)$/);
   if (!match) {
@@ -147,6 +148,9 @@ function parseCronExpression(cronExpr: string | null | undefined) {
     return null;
   }
   const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  if (calendarPolicy === "monthly_last_day") {
+    return { repeatMode: "monthly" as RepeatMode, repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: "1" };
+  }
   if (dayOfMonth === "*" && dayOfWeek === "*") {
     return { repeatMode: "daily" as RepeatMode, repeatTime: time, repeatWeekdays: ["1", "2", "3", "4", "5"], repeatMonthDay: "1" };
   }
@@ -163,7 +167,13 @@ function parseCronExpression(cronExpr: string | null | undefined) {
   return null;
 }
 
-function buildCronExpression(repeatMode: RepeatMode, repeatTime: string, repeatWeekdays: string[], repeatMonthDay: string) {
+export function buildCronExpression(
+  repeatMode: RepeatMode,
+  repeatTime: string,
+  repeatWeekdays: string[],
+  repeatMonthDay: string,
+  calendarPolicy: CalendarPolicy = "",
+) {
   const [hourRaw, minuteRaw] = repeatTime.split(":");
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw);
@@ -179,6 +189,9 @@ function buildCronExpression(repeatMode: RepeatMode, repeatTime: string, repeatW
       throw new Error("每周执行至少选择一天。");
     }
     return `${minute} ${hour} * * ${weekdays.join(",")}`;
+  }
+  if (calendarPolicy === "monthly_last_day") {
+    return `${minute} ${hour} * * *`;
   }
   const day = Number(repeatMonthDay);
   if (!Number.isFinite(day) || day < 1 || day > 28) {
@@ -197,7 +210,12 @@ function buildOnceRunAt(onceDate: string, onceTime: string) {
   return `${onceDate}T${onceTime}:00+08:00`;
 }
 
-function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextRunAt: string | null) {
+export function formatScheduleRule(
+  scheduleType: string,
+  cronExpr: string | null,
+  nextRunAt: string | null,
+  calendarPolicy?: string | null,
+) {
   const weekdayLabel: Record<string, string> = {
     "1": "周一",
     "2": "周二",
@@ -210,9 +228,12 @@ function formatScheduleRule(scheduleType: string, cronExpr: string | null, nextR
   if (scheduleType === "once") {
     return nextRunAt ? `单次执行：${nextRunAt.replace("T", " ").slice(0, 16)}` : "单次执行";
   }
-  const parsed = parseCronExpression(cronExpr);
+  const parsed = parseCronExpression(cronExpr, calendarPolicy);
   if (!parsed) {
     return cronExpr || "未设置";
+  }
+  if (calendarPolicy === "monthly_last_day") {
+    return `每月最后一天 ${parsed.repeatTime}`;
   }
   if (parsed.repeatMode === "daily") {
     return `每天 ${parsed.repeatTime}`;
@@ -356,6 +377,25 @@ function toTradeDateSelectionRule(rule: string | null | undefined): TradeDateSel
 
 function usesCalendarDateControl(rule: string | null | undefined): boolean {
   return rule === "week_friday" || rule === "month_end";
+}
+
+export function actionSupportsMonthlyLastDayPolicy(action: CatalogAction | null | undefined): boolean {
+  return action?.action_type === "dataset_action" && action.date_selection_rule === "month_end";
+}
+
+export function resolveEffectiveCalendarPolicy(args: {
+  scheduleType: string;
+  repeatMode: RepeatMode;
+  selectedAction: CatalogAction | null | undefined;
+}): CalendarPolicy {
+  if (
+    args.scheduleType === "cron"
+    && args.repeatMode === "monthly"
+    && actionSupportsMonthlyLastDayPolicy(args.selectedAction)
+  ) {
+    return "monthly_last_day";
+  }
+  return "";
 }
 
 function findCatalogAction(catalog: OpsCatalogResponse | undefined, actionType: string, actionKey: string): CatalogAction | null {
@@ -543,6 +583,19 @@ export function OpsAutomationPage() {
     () => usesCalendarDateControl(selectedAction?.date_selection_rule),
     [selectedAction?.date_selection_rule],
   );
+  const selectedActionUsesMonthlyLastDayPolicy = useMemo(
+    () => actionSupportsMonthlyLastDayPolicy(selectedAction),
+    [selectedAction],
+  );
+  const effectiveCalendarPolicy = useMemo(
+    () =>
+      resolveEffectiveCalendarPolicy({
+        scheduleType: form.schedule_type,
+        repeatMode: form.repeat_mode,
+        selectedAction,
+      }),
+    [form.repeat_mode, form.schedule_type, selectedAction],
+  );
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -698,13 +751,21 @@ export function OpsAutomationPage() {
       };
     }
     try {
-      const cronExpr = buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day);
+      const cronExpr = buildCronExpression(
+        form.repeat_mode,
+        form.repeat_time,
+        form.repeat_weekdays,
+        form.repeat_month_day,
+        effectiveCalendarPolicy,
+      );
       const detail =
         form.repeat_mode === "daily"
           ? `每天 ${form.repeat_time}`
           : form.repeat_mode === "weekly"
             ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}`
-            : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
+            : effectiveCalendarPolicy === "monthly_last_day"
+              ? `每月最后一天 ${form.repeat_time}`
+              : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
       return {
         title: "重复执行",
         detail,
@@ -717,7 +778,7 @@ export function OpsAutomationPage() {
         cronExpr: null as string | null,
       };
     }
-  }, [form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+  }, [effectiveCalendarPolicy, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
 
   const resolvedParameterRows = useMemo(() => {
     const labelMap = new Map(selectedActionParameters.map((param) => [param.key, param.display_name]));
@@ -783,13 +844,14 @@ export function OpsAutomationPage() {
     try {
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
-        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
+        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day, effectiveCalendarPolicy)
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       return {
         schedule_type: scheduleType,
         cron_expr: cronExpr,
         timezone: form.timezone,
+        calendar_policy: effectiveCalendarPolicy || null,
         next_run_at: nextRunAt,
         count: 5,
       };
@@ -799,6 +861,7 @@ export function OpsAutomationPage() {
   }, [
     form.once_date,
     form.once_time,
+    effectiveCalendarPolicy,
     form.repeat_mode,
     form.repeat_month_day,
     form.repeat_time,
@@ -816,6 +879,7 @@ export function OpsAutomationPage() {
       cron_expr: previewPayload.cron_expr,
       next_run_at: previewPayload.next_run_at,
       timezone: previewPayload.timezone,
+      calendar_policy: previewPayload.calendar_policy,
     });
   }, [previewPayload]);
 
@@ -828,6 +892,7 @@ export function OpsAutomationPage() {
           schedule_type: string;
           cron_expr: string | null;
           timezone: string;
+          calendar_policy: string | null;
           next_run_at: string | null;
           count: number;
         },
@@ -847,7 +912,7 @@ export function OpsAutomationPage() {
       }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
-        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day)
+        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day, effectiveCalendarPolicy)
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
@@ -858,7 +923,7 @@ export function OpsAutomationPage() {
         trigger_mode: form.trigger_mode,
         cron_expr: cronExpr,
         timezone: form.timezone,
-        calendar_policy: form.calendar_policy || null,
+        calendar_policy: effectiveCalendarPolicy || null,
         next_run_at: nextRunAt,
         probe_config:
           form.trigger_mode === "schedule"
@@ -974,7 +1039,7 @@ export function OpsAutomationPage() {
   const openEdit = () => {
     const detail = detailQuery.data;
     if (!detail) return;
-    const parsedCron = parseCronExpression(detail.cron_expr);
+    const parsedCron = parseCronExpression(detail.cron_expr, detail.calendar_policy);
     const nextRunAt = detail.next_run_at ? String(detail.next_run_at) : "";
     const paramsJson = detail.params_json || {};
     const tradeDate = typeof paramsJson.trade_date === "string" ? paramsJson.trade_date : "";
@@ -1146,7 +1211,12 @@ export function OpsAutomationPage() {
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <DetailInfoPanel label="调度策略">
                         <Text size="sm">
-                          {formatScheduleRule(detailQuery.data.schedule_type, detailQuery.data.cron_expr, detailQuery.data.next_run_at)}
+                          {formatScheduleRule(
+                            detailQuery.data.schedule_type,
+                            detailQuery.data.cron_expr,
+                            detailQuery.data.next_run_at,
+                            detailQuery.data.calendar_policy,
+                          )}
                         </Text>
                       </DetailInfoPanel>
                     </Grid.Col>
@@ -1457,12 +1527,22 @@ export function OpsAutomationPage() {
                 />
               ) : null}
               {form.repeat_mode === "monthly" ? (
-                <TextInput
-                  label="每月几号"
-                  placeholder="1-28"
-                  value={form.repeat_month_day}
-                  onChange={(event) => setForm((current) => ({ ...current, repeat_month_day: event.currentTarget.value }))}
-                />
+                selectedActionUsesMonthlyLastDayPolicy ? (
+                  <Select
+                    label="每月执行日期"
+                    description="该维护对象按自然月最后一天作为业务日期。"
+                    data={[{ value: "monthly_last_day", label: "每月最后一天" }]}
+                    value="monthly_last_day"
+                    readOnly
+                  />
+                ) : (
+                  <TextInput
+                    label="每月几号"
+                    placeholder="1-28"
+                    value={form.repeat_month_day}
+                    onChange={(event) => setForm((current) => ({ ...current, repeat_month_day: event.currentTarget.value }))}
+                  />
+                )
               ) : null}
               <TextInput
                 label="执行时间"

@@ -209,6 +209,7 @@ export interface ScheduleListResponse {
     trigger_mode: string;
     cron_expr: string | null;
     timezone: string;
+    calendar_policy: string | null;
     next_run_at: string | null;
     updated_at: string;
   }>;

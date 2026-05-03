@@ -319,7 +319,8 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
 
 - 功能：创建调度。
 - Body：`CreateScheduleRequest`
-  - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, probe_config, params_json`
+  - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json`
+  - `calendar_policy` 当前支持：`monthly_last_day`。该策略只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -340,6 +341,24 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ```json
 {"id": 201, "display_name": "股票日线自动更新", "status": "active"}
+```
+
+自然月末自动任务示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/schedules" \
+  -d '{
+    "target_type":"dataset_action",
+    "target_key":"stk_period_bar_month.maintain",
+    "display_name":"股票月线自动维护",
+    "schedule_type":"cron",
+    "trigger_mode":"schedule",
+    "cron_expr":"0 19 * * *",
+    "timezone":"Asia/Shanghai",
+    "calendar_policy":"monthly_last_day",
+    "params_json":{"time_input":{"mode":"point"}}
+  }'
 ```
 
 ### 3.4 GET /api/v1/ops/schedules/{schedule_id}
@@ -444,6 +463,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 - 功能：预览调度触发时间。
 - Body：`SchedulePreviewRequest`
+  - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
 - 返回：`SchedulePreviewResponse`
 - 示例：
 
@@ -455,6 +475,14 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ```json
 {"schedule_type":"cron","timezone":"Asia/Shanghai","preview_times":["2026-04-23T18:00:00+08:00"]}
+```
+
+自然月末预览示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/schedules/preview" \
+  -d '{"schedule_type":"cron","cron_expr":"0 19 * * *","timezone":"Asia/Shanghai","calendar_policy":"monthly_last_day","count":5}'
 ```
 
 ---
@@ -1281,7 +1309,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ManualActionTimeInput`：`mode, trade_date, start_date, end_date, month, start_month, end_month, ann_date, date_field`
 - `CreateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `UpdateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
-- `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, next_run_at, count`
+- `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, calendar_policy, next_run_at, count`
 - `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, min_rows_in, workflow_dataset_keys`
 
 ### 11.2 Probe

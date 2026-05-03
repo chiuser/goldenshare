@@ -78,6 +78,7 @@ class OpsScheduleCommandService:
         cron_expr: str | None,
         timezone_name: str,
         next_run_at: datetime | None,
+        calendar_policy: str | None,
         count: int,
     ) -> list[datetime]:
         return preview_schedule_runs(
@@ -85,5 +86,6 @@ class OpsScheduleCommandService:
             cron_expr=cron_expr,
             timezone_name=timezone_name,
             next_run_at=next_run_at,
+            calendar_policy=calendar_policy,
             count=count,
         )
