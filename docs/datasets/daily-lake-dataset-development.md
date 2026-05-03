@@ -1,8 +1,8 @@
 # 股票日线 Lake 数据集接入说明
 
 - 版本：v1
-- 状态：待评审
-- 更新时间：2026-05-01
+- 状态：首版已实现
+- 更新时间：2026-05-03
 - 数据集 key：`daily`
 - 数据源：Tushare
 - 源站文档：`docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md`
@@ -56,6 +56,29 @@
 | `planning.page_limit` | `6000` |
 | `storage.raw_table` | `raw_tushare.daily` |
 
+### 1.1 生产实现参考审计
+
+接入 Lake 前已对照生产 `daily` 链路做只读审计。生产实现只作为避坑参考，Lake 不直接依赖生产运行代码。
+
+| 生产链路位置 | 当前事实 | Lake 是否借鉴 | Lake 处理口径 |
+|---|---|---:|---|
+| `DatasetDefinition.source_fields` | 生产字段为 `ts_code/trade_date/open/high/low/close/pre_close/change/pct_chg/vol/amount` | 是 | Lake raw 层使用同一组源站输出字段，不新增 serving 字段 |
+| `DatasetDefinition.date_model` | `trade_open_day` + `every_open_day` + `point_or_range` | 是 | `trade_date` 单点；`start_date/end_date` 先用本地交易日历展开交易日 |
+| `DatasetDefinition.planning` | `offset_limit`，`page_limit=6000` | 是 | 固定 `limit=6000`，`offset` 递增分页 |
+| `_daily_params` request builder | 实际只传 `trade_date`，可选 `ts_code` | 是 | Lake 请求参数只包含 `trade_date`、可选 `ts_code`、分页参数 |
+| `input_model.filters.exchange` | 生产定义里有 `exchange`，但 `_daily_params` 不使用 | 否 | Lake 不暴露、不传递 `exchange`，避免复制无效参数 |
+| `_daily_row_transform` | 生产写 serving 时把 `change` 映射为 `change_amount`，并补 `source=tushare` | 否 | Lake raw 层保留源站字段 `change`，不写 `change_amount/source` |
+| `DatasetNormalizer.required_fields` | `trade_date`、`ts_code` 必须存在 | 是 | 缺少 `trade_date` 或 `ts_code` 的行拒绝写入，并计入 rejected |
+| `IngestionExecutor` | 每个执行 unit 独立 fetch/normalize/write/commit，并上报 fetched/written/rejected | 是 | Lake 以单个 `trade_date` 为最小替换单元，进度输出同样包含 fetched/written/rejected |
+| 生产 writer | `raw_core_upsert` 写远程 Postgres 与 serving 表 | 否 | Lake 只写本地 Parquet，不访问远程数据库 |
+
+由此确定本数据集的实现原则：
+
+1. 只复制源站事实、时间语义、分页口径、必填字段校验和进度统计口径。
+2. 不复制生产 DB 写入、Ops 状态、TaskRun、serving 字段转换和无效 filter。
+3. `exchange` 不进入 Lake `daily` 的命令参数、请求参数或 catalog 字段。
+4. `change` 保持源站字段名；如后续研究层需要别名，应在 research layout 单独设计，不污染 raw 层。
+
 ---
 
 ## 2. 源站接口分析
@@ -70,6 +93,8 @@
 | `end_date` | str | 否 | 结束日期 | 时间 | 否 | 是 | 空 | 区间由本地交易日历展开 |
 | `limit` | int | 否 | 单次返回数据长度 | 分页 | 否 | 否 | `6000` | Lake 固定 |
 | `offset` | int | 否 | 请求数据开始位移量 | 分页 | 否 | 否 | `0` 起 | Lake 递增 |
+
+不支持也不暴露 `exchange`。生产定义中虽然残留该 filter，但生产 `_daily_params` 实际不使用，且 Tushare `daily` 接口当前请求不需要该参数。
 
 ### 2.2 输出字段
 
@@ -100,6 +125,7 @@
 - 是否支持枚举参数：否。
 - 上游空行风险：非交易日或停牌股票可能无数据；按交易日全市场返回空时需告警，不应静默覆盖。
 - 字段类型风险：`vol` 文档为 float，不应转 int。
+- 字段命名风险：生产 serving 层存在 `change_amount`，Lake raw 层不得使用该别名，必须保留源站 `change`。
 
 ---
 
@@ -161,14 +187,27 @@
 1. 用户传 `trade_date`：请求 `daily(trade_date=YYYYMMDD, limit=6000, offset=...)`。
 2. 用户传 `start_date/end_date` 且未传 `ts_code`：读取本地交易日历，逐个交易日请求。
 3. 用户传 `ts_code + start_date/end_date`：允许作为单股区间调试模式，但写入仍按返回行的 `trade_date` 分区。
+4. 无论哪种模式，都不传 `exchange`。
 
 ### 4.3 分页策略
 
 - `limit`：`6000`。
 - `offset` 起点：`0`。
 - 结束条件：返回行数 `< 6000`。
-- 每页是否立即写入：第一版可按日聚合后写入；如实测超过内存阈值，再改为 page buffer 写入。
+- 每页是否立即写入：单个 `trade_date` 内按页拉取并累计到本日 buffer；本日请求流结束后一次性写入本日临时分区并替换正式分区。
 - 每页是否输出进度：是。
+
+进度输出至少包含：
+
+```text
+dataset=daily trade_date=YYYY-MM-DD page=N offset=N fetched_page=N fetched_total=N
+```
+
+本日完成时输出：
+
+```text
+dataset=daily trade_date=YYYY-MM-DD fetched=N written=N rejected=N output=...
+```
 
 ### 4.4 本地依赖
 
@@ -215,6 +254,25 @@
 | `replace_partition` | 是 | 替换单个交易日分区 |
 | `rebuild_month` | 否 |  |
 | `append_only` | 否 |  |
+
+写入边界：
+
+1. 最小替换范围是单个 `trade_date` 分区。
+2. 单个交易日所有分页请求完成后，写入 `_tmp/{run_id}/raw_tushare/daily/trade_date=YYYY-MM-DD/part-000.parquet`。
+3. 校验临时 Parquet 可读、字段完整、有效行数大于 0 后，替换正式分区。
+4. 如果本日全市场有效行数为 0，不覆盖已有正式分区。
+5. 区间同步中某一天失败，只影响该日期分区，不回滚已完成日期。
+
+### 5.6 行级校验与归一化
+
+| 项 | 规则 |
+|---|---|
+| 日期归一化 | `trade_date` 从源站 `YYYYMMDD` 归一化为 `YYYY-MM-DD` 字符串 |
+| 必填字段 | `trade_date`、`ts_code` |
+| 拒绝条件 | 缺少 `trade_date` 或 `ts_code`；`trade_date` 无法解析；返回行所属日期与当前分区日期不一致 |
+| 数值字段 | `open/high/low/close/pre_close/change/pct_chg/vol/amount` 写为 double，可空 |
+| 拒绝统计 | 输出 `rejected` 总数；如实现成本可控，同时输出 reason count |
+| raw 字段约束 | 不新增 `change_amount`、`source`、`raw_payload` 等非源站字段 |
 
 ---
 
@@ -305,6 +363,10 @@ python3 scripts/check_docs_integrity.py
 | `test_lake_plan_daily_trade_date` | 单日请求计划 |
 | `test_lake_plan_daily_range_uses_local_trade_cal` | 区间模式使用本地交易日历 |
 | `test_lake_sync_daily_replace_partition` | 按日分区原子替换 |
+| `test_lake_sync_daily_paginates_until_short_page` | `limit=6000`、`offset` 递增直到短页 |
+| `test_lake_sync_daily_does_not_send_exchange` | 确认请求参数不包含 `exchange` |
+| `test_lake_sync_daily_rejects_missing_required_fields` | 缺少 `trade_date/ts_code` 的行不写入 |
+| `test_lake_sync_daily_preserves_source_change_field` | 写入字段保留 `change`，不生成 `change_amount` |
 
 ### 9.3 真实同步冒烟
 

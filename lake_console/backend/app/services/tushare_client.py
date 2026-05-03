@@ -91,6 +91,26 @@ class TushareLakeClient:
         )
         return _frame_to_rows(frame)
 
+    def daily(
+        self,
+        *,
+        fields: Sequence[str],
+        trade_date: str,
+        ts_code: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        frame = self._request(
+            self._pro.daily,
+            api_name="daily",
+            trade_date=trade_date,
+            ts_code=ts_code,
+            limit=limit,
+            offset=offset,
+            fields=",".join(fields),
+        )
+        return _frame_to_rows(frame)
+
     def stk_mins(
         self,
         *,

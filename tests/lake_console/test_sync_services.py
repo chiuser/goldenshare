@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any
 
 import lake_console.backend.app.services.tushare_stk_mins_sync_service as mins_module
+import lake_console.backend.app.services.tushare_daily_sync_service as daily_module
 import lake_console.backend.app.services.tushare_stock_basic_sync_service as stock_module
 import lake_console.backend.app.services.tushare_trade_cal_sync_service as trade_cal_module
+from lake_console.backend.app.services.tushare_daily_sync_service import TushareDailySyncService
 from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
@@ -58,6 +60,34 @@ class FakeClient:
                 "high": 10.3,
                 "low": 10.0,
                 "vol": 1000,
+                "amount": 10200.0,
+            }
+        ]
+
+    def daily(
+        self,
+        *,
+        fields: list[str] | tuple[str, ...],
+        trade_date: str,
+        ts_code: str | None = None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        del fields, ts_code, limit
+        if offset:
+            return []
+        return [
+            {
+                "ts_code": "000001.SZ",
+                "trade_date": trade_date,
+                "open": 10.1,
+                "high": 10.3,
+                "low": 10.0,
+                "close": 10.2,
+                "pre_close": 10.0,
+                "change": 0.2,
+                "pct_chg": 2.0,
+                "vol": 1000.5,
                 "amount": 10200.0,
             }
         ]
@@ -214,6 +244,195 @@ def test_trade_cal_sync_treats_nan_pretrade_date_as_null(tmp_path, monkeypatch):
     assert summary["written_rows"] == 1
     raw_rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "trade_cal" / "current" / "part-000.parquet")]
     assert raw_rows[0]["pretrade_date"] is None
+
+
+def test_daily_sync_writes_trade_date_partition_without_serving_fields(tmp_path, monkeypatch):
+    written: dict[str, Any] = {}
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written[str(output_path)] = rows
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(daily_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(daily_module, "read_parquet_row_count", lambda path: 1)
+
+    summary = TushareDailySyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda message: None).sync(
+        trade_date=date(2026, 4, 24),
+    )
+
+    assert summary["written_rows"] == 1
+    assert summary["rejected_rows"] == 0
+    assert (tmp_path / "raw_tushare" / "daily" / "trade_date=2026-04-24" / "part-000.parquet").exists()
+    rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "daily" / "trade_date=2026-04-24" / "part-000.parquet")]
+    assert rows[0]["trade_date"] == "2026-04-24"
+    assert rows[0]["change"] == 0.2
+    assert "change_amount" not in rows[0]
+    assert "source" not in rows[0]
+
+
+def test_daily_sync_paginates_until_short_page_and_does_not_send_exchange(tmp_path, monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    class PagedDailyClient(FakeClient):
+        def daily(
+            self,
+            *,
+            fields: list[str] | tuple[str, ...],
+            trade_date: str,
+            ts_code: str | None = None,
+            limit: int,
+            offset: int,
+        ) -> list[dict[str, Any]]:
+            calls.append(
+                {
+                    "fields": fields,
+                    "trade_date": trade_date,
+                    "ts_code": ts_code,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+            if offset == 0:
+                return [
+                    {
+                        "ts_code": "000001.SZ",
+                        "trade_date": trade_date,
+                        "open": 10.1,
+                        "high": 10.3,
+                        "low": 10.0,
+                        "close": 10.2,
+                        "pre_close": 10.0,
+                        "change": 0.2,
+                        "pct_chg": 2.0,
+                        "vol": 1000.5,
+                        "amount": 10200.0,
+                    }
+                ]
+            return []
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(daily_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(daily_module, "read_parquet_row_count", lambda path: 1)
+    monkeypatch.setattr(daily_module, "DAILY_PAGE_LIMIT", 1)
+
+    summary = TushareDailySyncService(lake_root=tmp_path, client=PagedDailyClient(), progress=lambda message: None).sync(
+        trade_date=date(2026, 4, 24),
+        ts_code="600000.sh",
+    )
+
+    assert summary["written_rows"] == 1
+    assert calls == [
+        {
+            "fields": daily_module.DAILY_FIELDS,
+            "trade_date": "20260424",
+            "ts_code": "600000.SH",
+            "limit": 1,
+            "offset": 0,
+        },
+        {
+            "fields": daily_module.DAILY_FIELDS,
+            "trade_date": "20260424",
+            "ts_code": "600000.SH",
+            "limit": 1,
+            "offset": 1,
+        },
+    ]
+    assert all("exchange" not in call for call in calls)
+
+
+def test_daily_range_uses_local_open_trade_calendar(tmp_path, monkeypatch):
+    synced_dates: list[date] = []
+
+    monkeypatch.setattr(
+        daily_module,
+        "read_parquet_rows",
+        lambda path: [
+            {"cal_date": "20260424", "is_open": True},
+            {"cal_date": "20260425", "is_open": False},
+            {"cal_date": "20260427", "is_open": True},
+        ],
+    )
+    calendar = tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet"
+    calendar.parent.mkdir(parents=True)
+    calendar.write_text("fake parquet", encoding="utf-8")
+
+    def fake_sync_trade_date(
+        self: TushareDailySyncService,
+        *,
+        run_id: str,
+        trade_date: date,
+        ts_code: str | None,
+        unit_index: int,
+        unit_total: int,
+    ) -> dict[str, Any]:
+        del self, run_id, ts_code, unit_index, unit_total
+        synced_dates.append(trade_date)
+        return {
+            "trade_date": trade_date.isoformat(),
+            "fetched_rows": 1,
+            "written_rows": 1,
+            "rejected_rows": 0,
+            "output": "fake",
+        }
+
+    monkeypatch.setattr(TushareDailySyncService, "_sync_trade_date", fake_sync_trade_date)
+
+    summary = TushareDailySyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda message: None).sync(
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 27),
+    )
+
+    assert synced_dates == [date(2026, 4, 24), date(2026, 4, 27)]
+    assert summary["trade_date_count"] == 2
+    assert summary["written_rows"] == 2
+
+
+def test_daily_sync_rejects_missing_required_fields_and_wrong_trade_date(tmp_path, monkeypatch):
+    written: dict[str, Any] = {}
+
+    class DirtyDailyClient(FakeClient):
+        def daily(
+            self,
+            *,
+            fields: list[str] | tuple[str, ...],
+            trade_date: str,
+            ts_code: str | None = None,
+            limit: int,
+            offset: int,
+        ) -> list[dict[str, Any]]:
+            del fields, ts_code, limit
+            if offset:
+                return []
+            return [
+                {"ts_code": "", "trade_date": trade_date, "change": 1.0},
+                {"ts_code": "000002.SZ", "trade_date": "20260423", "change": 1.0},
+                {"ts_code": "000001.SZ", "trade_date": trade_date, "change": 0.2},
+            ]
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written[str(output_path)] = rows
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(daily_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(daily_module, "read_parquet_row_count", lambda path: 1)
+
+    summary = TushareDailySyncService(lake_root=tmp_path, client=DirtyDailyClient(), progress=lambda message: None).sync(
+        trade_date=date(2026, 4, 24),
+    )
+
+    assert summary["fetched_rows"] == 3
+    assert summary["written_rows"] == 1
+    assert summary["rejected_rows"] == 2
+    rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "daily" / "trade_date=2026-04-24" / "part-000.parquet")]
+    assert [row["ts_code"] for row in rows] == ["000001.SZ"]
 
 
 def test_stk_mins_sync_writes_single_symbol_day_partition(tmp_path, monkeypatch):

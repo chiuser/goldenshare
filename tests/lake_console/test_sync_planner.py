@@ -7,6 +7,34 @@ import lake_console.backend.app.sync.planner as planner_module
 from lake_console.backend.app.sync.planner import LakeSyncPlanner
 
 
+def test_daily_plan_uses_local_open_trade_calendar_for_range(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        planner_module,
+        "read_parquet_rows",
+        lambda path: [
+            {"cal_date": "20260424", "is_open": True},
+            {"cal_date": "20260425", "is_open": False},
+            {"cal_date": "20260427", "is_open": True},
+        ],
+    )
+    (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
+    (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake", encoding="utf-8")
+
+    plan = LakeSyncPlanner(lake_root=tmp_path).plan(
+        dataset_key="daily",
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 27),
+    )
+
+    assert plan.request_count == 2
+    assert plan.partition_count == 2
+    assert plan.write_paths == (
+        "raw_tushare/daily/trade_date=2026-04-24",
+        "raw_tushare/daily/trade_date=2026-04-27",
+    )
+    assert "manifest/trading_calendar/tushare_trade_cal.parquet" in plan.required_manifests
+
+
 def test_stk_mins_plan_sync_estimates_current_and_target_requests_for_full_year_all_market(tmp_path, monkeypatch):
     def fake_read(path: Path) -> list[dict[str, object]]:
         if "trading_calendar" in str(path):

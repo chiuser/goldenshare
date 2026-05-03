@@ -3,6 +3,21 @@ from __future__ import annotations
 from lake_console.backend.app.catalog.models import LakeDatasetDefinition, LakeLayerDefinition
 
 
+DAILY_FIELDS: tuple[str, ...] = (
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change",
+    "pct_chg",
+    "vol",
+    "amount",
+)
+
+
 MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
     LakeDatasetDefinition(
         dataset_key="daily",

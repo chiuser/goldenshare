@@ -67,7 +67,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sync_dataset_parser = subparsers.add_parser("sync-dataset", help="按 Lake Dataset Catalog 同步单个数据集")
     _add_lake_root_arg(sync_dataset_parser)
-    sync_dataset_parser.add_argument("dataset_key", help="数据集 key；当前只接入 index_basic")
+    sync_dataset_parser.add_argument("dataset_key", help="数据集 key；当前接入 index_basic、daily")
+    sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；daily 可用")
+    sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；daily 可用")
+    sync_dataset_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD；daily 可用")
     sync_dataset_parser.add_argument("--ts-code", default=None, help="证券代码")
     sync_dataset_parser.add_argument("--name", default=None, help="源站 name 过滤")
     sync_dataset_parser.add_argument("--market", default=None, help="市场枚举；多个值用逗号分隔")
@@ -189,6 +192,9 @@ def _handle_sync_dataset(args: argparse.Namespace) -> int:
     )
     summary = engine.sync_dataset(
         dataset_key=args.dataset_key,
+        trade_date=args.trade_date,
+        start_date=args.start_date,
+        end_date=args.end_date,
         ts_code=args.ts_code,
         name=args.name,
         markets=_parse_optional_csv(args.market),
