@@ -94,6 +94,7 @@ python3 scripts/check_docs_integrity.py
 1. `docs/*.md` 绝对路径死链
 2. `docs/**/.DS_Store` 噪音文件
 3. `docs/sources/tushare/docs_index.csv` 与 `local_path` 一致性
+4. `docs/sources/tushare/docs_index.csv` 的 `doc_id` 与 Markdown 文件名前缀编号一致性
 
 任何一项失败，不允许提交 docs 改动。
 

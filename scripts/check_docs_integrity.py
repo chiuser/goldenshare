@@ -5,6 +5,7 @@ Checks:
 1. No dead absolute markdown links in docs/*.md.
 2. No .DS_Store noise files in docs/.
 3. docs/sources/tushare/docs_index.csv local_path entries point to real files.
+4. docs/sources/tushare/docs_index.csv doc_id entries match markdown filename prefixes.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
 TUSHARE_INDEX = DOCS_DIR / "sources" / "tushare" / "docs_index.csv"
 ABS_LINK_RE = re.compile(r"\]\((/Users/congming/github/goldenshare/[^)#]+)\)")
+TUSHARE_DOC_PREFIX_RE = re.compile(r"^(?P<prefix>\d{4})_")
 
 
 @dataclass
@@ -70,6 +72,9 @@ def check_tushare_index_consistency() -> CheckResult:
         for line_no, row in enumerate(reader, start=2):
             doc_id = (row.get("doc_id") or "").strip()
             local_path = (row.get("local_path") or "").strip()
+            if not doc_id:
+                issues.append(f"{TUSHARE_INDEX}:{line_no}: empty doc_id")
+                continue
             if not local_path:
                 issues.append(f"{TUSHARE_INDEX}:{line_no}: empty local_path (doc_id={doc_id})")
                 continue
@@ -84,6 +89,29 @@ def check_tushare_index_consistency() -> CheckResult:
                 issues.append(
                     f"{TUSHARE_INDEX}:{line_no}: local_path is not a markdown file: {local_path}"
                 )
+            else:
+                try:
+                    expected_prefix = f"{int(doc_id):04d}"
+                except ValueError:
+                    issues.append(
+                        f"{TUSHARE_INDEX}:{line_no}: doc_id is not an integer: {doc_id!r}"
+                    )
+                    continue
+
+                match = TUSHARE_DOC_PREFIX_RE.match(target.name)
+                if not match:
+                    issues.append(
+                        f"{TUSHARE_INDEX}:{line_no}: markdown filename missing 4-digit prefix: {local_path}"
+                    )
+                    continue
+
+                actual_prefix = match.group("prefix")
+                if actual_prefix != expected_prefix:
+                    issues.append(
+                        f"{TUSHARE_INDEX}:{line_no}: doc_id/local_path prefix mismatch: "
+                        f"doc_id={doc_id} expected_prefix={expected_prefix} actual_prefix={actual_prefix} "
+                        f"local_path={local_path}"
+                    )
 
     for local_path, count in sorted(seen_local_paths.items()):
         if count > 1:
