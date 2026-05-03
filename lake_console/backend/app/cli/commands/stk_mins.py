@@ -7,6 +7,7 @@ from lake_console.backend.app.cli.commands.common import add_lake_root_arg, pars
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
+from lake_console.backend.app.services.stk_mins_schema_migration_service import StkMinsSchemaMigrationService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
 from lake_console.backend.app.services.tushare_stk_mins_sync_service import DEFAULT_PART_ROWS, TushareStkMinsSyncService
 
@@ -45,6 +46,15 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     research_parser.add_argument("--trade-month", required=True, help="月份，格式 YYYY-MM")
     research_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
     research_parser.set_defaults(handler=_handle_rebuild_stk_mins_research)
+
+    migrate_parser = subparsers.add_parser("migrate-stk-mins-schema", help="迁移本地 stk_mins raw Parquet schema，不请求 Tushare")
+    add_lake_root_arg(migrate_parser)
+    mode = migrate_parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--dry-run", action="store_true", help="只扫描并报告待迁移文件，不写入")
+    mode.add_argument("--apply", action="store_true", help="执行逐文件 schema 迁移")
+    migrate_parser.add_argument("--freq", default=None, type=int, choices=(1, 5, 15, 30, 60), help="只处理指定分钟周期")
+    migrate_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="只处理指定交易日，格式 YYYY-MM-DD")
+    migrate_parser.set_defaults(handler=_handle_migrate_stk_mins_schema)
 
 
 def _handle_sync_stk_mins(args: argparse.Namespace) -> int:
@@ -125,6 +135,18 @@ def _handle_rebuild_stk_mins_research(args: argparse.Namespace) -> int:
     summary = StkMinsResearchService(lake_root=settings.lake_root, bucket_count=bucket_count).rebuild_month(
         freq=args.freq,
         trade_month=args.trade_month,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_migrate_stk_mins_schema(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = StkMinsSchemaMigrationService(lake_root=settings.lake_root).migrate(
+        dry_run=args.dry_run,
+        apply=args.apply,
+        freq=args.freq,
+        trade_date=args.trade_date,
     )
     print_json(summary)
     return 0

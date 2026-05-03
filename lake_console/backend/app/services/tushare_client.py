@@ -134,6 +134,7 @@ class TushareLakeClient:
     def stk_mins(
         self,
         *,
+        fields: tuple[str, ...],
         ts_code: str,
         freq: int,
         start_date: str,
@@ -150,6 +151,7 @@ class TushareLakeClient:
             end_date=end_date,
             limit=limit,
             offset=offset,
+            fields=",".join(fields),
         )
         return _frame_to_rows(frame)
 

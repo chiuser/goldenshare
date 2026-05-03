@@ -73,11 +73,47 @@
 | `low` | `float` | float32 或 float64，第一版建议 float64，稳定后可评估 float32 |
 | `vol` | `int` | int64，避免大成交量溢出 |
 | `amount` | `float` | float64 |
+| `freq` | `str` | int16，存储为 `1/5/15/30/60`，不保留源站字符串 |
+| `exchange` | `str` | string |
+| `vwap` | `float` | float64 |
 
 说明：
 
 1. `vol` 不能使用 int32。现有 Postgres 路径已遇到过 `integer out of range`，Parquet Lake 也必须直接使用 int64。
 2. 价格是否压缩为 float32 可以后置评估。第一版优先保证数值稳定、实现简单和 DuckDB 读取可靠。
+3. `freq/exchange/vwap` 在源站文档中默认不显示，必须通过 `fields` 显式指定。Lake 写入时 `freq` 仍按既定瘦身口径保存为整数，`exchange/vwap` 保存源站返回值。
+4. 早期已下载的 raw 文件如果缺少 `exchange/vwap`，不得通过重新请求 Tushare 盲目补齐；应在后续本地 schema 迁移中统一处理缺失列，并与 `trade_time` timestamp 迁移一起评审。
+
+### 2.1.1 已下载 raw 文件 schema 迁移口径
+
+当前本地 Lake 已存在早期下载的 `raw_tushare/stk_mins_by_date` 文件。为避免重新请求 Tushare，已下载文件采用本地逐文件迁移：
+
+```bash
+lake-console migrate-stk-mins-schema --dry-run
+lake-console migrate-stk-mins-schema --apply
+```
+
+迁移范围只包含：
+
+```text
+raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet
+```
+
+迁移目标：
+
+1. `trade_time` 从字符串转为 Parquet timestamp。
+2. `freq` 统一为整数 `1/5/15/30/60`。
+3. `vol` 统一为 int64。
+4. 补齐 `exchange` 和 `vwap` 列；早期文件缺失时填空值，不伪造、不反推。
+5. 列顺序统一为 `STK_MINS_FIELDS`。
+
+执行规则：
+
+1. 先执行 `--dry-run`，确认待迁移文件数量和原因。
+2. 可用 `--freq`、`--trade-date` 缩小范围做小样本验证。
+3. `--apply` 逐个 Parquet 文件读取、转换、写入 `_tmp`、校验、原子替换。
+4. 如果某个文件无法解析 `trade_time`、行数不一致、字段不满足目标 schema，则该文件不替换。
+5. 该迁移不请求 Tushare，不访问远程数据库，不处理 `derived/research`。
 
 ---
 
@@ -254,6 +290,8 @@ raw_tushare/stk_mins_by_date/
 | `close` | double | 收盘价 |
 | `vol` | int64 | 成交量 |
 | `amount` | double | 成交金额 |
+| `exchange` | string | 交易所，来自源站显式输出字段 |
+| `vwap` | double | 平均价，来自源站显式输出字段 |
 
 排序建议：
 
@@ -284,7 +322,7 @@ derived/stk_mins_by_date/
 字段与 `raw_tushare/stk_mins_by_date` 保持一致：
 
 ```text
-ts_code, freq, trade_time, open, high, low, close, vol, amount
+ts_code, freq, trade_time, open, high, low, close, vol, amount, exchange, vwap
 ```
 
 差异：
@@ -364,7 +402,7 @@ bucket = stable_hash(ts_code) % 32
 与 by_date 层一致：
 
 ```text
-ts_code, freq, trade_time, open, high, low, close, vol, amount
+ts_code, freq, trade_time, open, high, low, close, vol, amount, exchange, vwap
 ```
 
 排序建议：

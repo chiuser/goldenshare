@@ -27,7 +27,7 @@ TRADE_CAL_FIELDS = (
     "pretrade_date",
 )
 
-STK_MINS_FIELDS = (
+STK_MINS_SOURCE_FIELDS = (
     "ts_code",
     "trade_time",
     "open",
@@ -36,6 +36,23 @@ STK_MINS_FIELDS = (
     "low",
     "vol",
     "amount",
+    "freq",
+    "exchange",
+    "vwap",
+)
+
+STK_MINS_FIELDS = (
+    "ts_code",
+    "freq",
+    "trade_time",
+    "open",
+    "close",
+    "high",
+    "low",
+    "vol",
+    "amount",
+    "exchange",
+    "vwap",
 )
 
 STK_MINS_ALLOWED_FREQS = {1, 5, 15, 30, 60}

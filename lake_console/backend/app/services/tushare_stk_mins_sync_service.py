@@ -9,7 +9,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from lake_console.backend.app.catalog.tushare_stk_mins import STK_MINS_ALLOWED_FREQS, STK_MINS_FIELDS
+from lake_console.backend.app.catalog.tushare_stk_mins import (
+    STK_MINS_ALLOWED_FREQS,
+    STK_MINS_FIELDS,
+    STK_MINS_SOURCE_FIELDS,
+)
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -98,6 +102,7 @@ class TushareStkMinsSyncService:
         page = 1
         while True:
             rows = self.client.stk_mins(
+                fields=STK_MINS_SOURCE_FIELDS,
                 ts_code=ts_code,
                 freq=freq,
                 start_date=start_date,
@@ -665,6 +670,7 @@ class TushareStkMinsSyncService:
         page = 1
         while True:
             page_rows = self.client.stk_mins(
+                fields=STK_MINS_SOURCE_FIELDS,
                 ts_code=ts_code,
                 freq=freq,
                 start_date=start_date,
@@ -701,6 +707,7 @@ class TushareStkMinsSyncService:
         page = 1
         while True:
             page_rows = self.client.stk_mins(
+                fields=STK_MINS_SOURCE_FIELDS,
                 ts_code=ts_code,
                 freq=freq,
                 start_date=start_date,
@@ -769,13 +776,16 @@ class TushareStkMinsSyncService:
 def _normalize_stk_mins_row(row: dict[str, Any], *, freq: int, trade_date: date | None) -> dict[str, Any]:
     normalized: dict[str, Any] = {field: None for field in STK_MINS_FIELDS}
     for field in STK_MINS_FIELDS:
+        if field == "freq":
+            continue
         normalized[field] = None if _is_nan(row.get(field)) else row.get(field)
     normalized["freq"] = freq
+    normalized["exchange"] = _normalize_optional_text(normalized.get("exchange"))
     normalized["trade_time"] = _normalize_trade_time(normalized.get("trade_time"), trade_date=trade_date)
     return normalized
 
 
-def _normalize_trade_time(value: Any, *, trade_date: date | None) -> str:
+def _normalize_trade_time(value: Any, *, trade_date: date | None) -> datetime:
     if isinstance(value, datetime):
         trade_time = value
     elif value is None:
@@ -784,7 +794,16 @@ def _normalize_trade_time(value: Any, *, trade_date: date | None) -> str:
         trade_time = datetime.fromisoformat(str(value))
     if trade_date is not None and trade_time.date() != trade_date:
         raise ValueError(f"stk_mins 返回 trade_time={trade_time} 与请求 trade_date={trade_date} 不一致。")
-    return trade_time.strftime("%Y-%m-%d %H:%M:%S")
+    return trade_time
+
+
+def _normalize_optional_text(value: Any) -> str | None:
+    if value is None or _is_nan(value):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "none", "null"}:
+        return None
+    return text
 
 
 def _parse_date(value: Any) -> date:
