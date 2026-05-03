@@ -54,6 +54,7 @@ docs/
 - [Local Lake Console 数据集模型 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
 - [Local Lake 数据集同步扩展方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
 - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
+- [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
 
 ## 4. Ops 运营（S2）
 
