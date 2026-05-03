@@ -177,6 +177,45 @@ def test_trade_cal_sync_without_dates_fetches_full_snapshot_with_pagination(tmp_
     assert [row["cal_date"] for row in raw_rows] == ["2026-04-24", "2026-04-25"]
 
 
+def test_trade_cal_sync_treats_nan_pretrade_date_as_null(tmp_path, monkeypatch):
+    written: dict[str, Any] = {}
+
+    class NaNTradeCalClient(FakeClient):
+        def trade_cal(
+            self,
+            *,
+            exchange: str,
+            start_date: str | None,
+            end_date: str | None,
+            fields: list[str] | tuple[str, ...],
+            limit: int | None = None,
+            offset: int | None = None,
+        ) -> list[dict[str, Any]]:
+            del start_date, end_date, fields, limit, offset
+            return [
+                {"exchange": exchange, "cal_date": "20260424", "is_open": "1", "pretrade_date": "nan"},
+            ]
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written[str(output_path)] = rows
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(trade_cal_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(trade_cal_module, "read_parquet_row_count", lambda path: 1)
+
+    summary = TushareTradeCalSyncService(
+        lake_root=tmp_path,
+        client=NaNTradeCalClient(),
+        progress=lambda message: None,
+    ).sync()
+
+    assert summary["written_rows"] == 1
+    raw_rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "trade_cal" / "current" / "part-000.parquet")]
+    assert raw_rows[0]["pretrade_date"] is None
+
+
 def test_stk_mins_sync_writes_single_symbol_day_partition(tmp_path, monkeypatch):
     written: dict[str, Any] = {}
 

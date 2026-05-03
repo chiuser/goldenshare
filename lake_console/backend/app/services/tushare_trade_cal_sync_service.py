@@ -144,6 +144,8 @@ def _normalize_date_text(value: Any) -> str | None:
     raw_value = str(value).strip()
     if not raw_value:
         return None
+    if raw_value.lower() in {"nan", "nat", "none", "null"}:
+        return None
     if len(raw_value) == 8 and raw_value.isdigit():
         return f"{raw_value[:4]}-{raw_value[4:6]}-{raw_value[6:]}"
     return date.fromisoformat(raw_value).isoformat()
