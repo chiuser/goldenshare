@@ -20,6 +20,7 @@ from lake_console.backend.app.services.tushare_client import TushareLakeClient
 
 
 DEFAULT_EXCHANGE = "SSE"
+TRADE_CAL_PAGE_LIMIT = 6000
 
 
 class TushareTradeCalSyncService:
@@ -34,24 +35,28 @@ class TushareTradeCalSyncService:
         self.client = client
         self.progress = progress or print
 
-    def sync(self, *, start_date: date, end_date: date, exchange: str = DEFAULT_EXCHANGE) -> dict[str, Any]:
-        if end_date < start_date:
+    def sync(self, *, start_date: date | None = None, end_date: date | None = None, exchange: str = DEFAULT_EXCHANGE) -> dict[str, Any]:
+        if (start_date is None) != (end_date is None):
+            raise ValueError("sync-trade-cal 的 start-date 和 end-date 必须同时传入，或同时省略。")
+        if start_date is not None and end_date is not None and end_date < start_date:
             raise ValueError("sync-trade-cal 的 end-date 不能早于 start-date。")
+
+        mode = "full_snapshot" if start_date is None else "date_range"
 
         started_at = datetime.now(timezone.utc)
         started = time.monotonic()
         run_id = _run_id("trade-cal")
         LakeRootService(self.lake_root).require_ready_for_write()
         self.progress(
-            f"[trade_cal] start run_id={run_id} exchange={exchange} "
-            f"start_date={start_date.isoformat()} end_date={end_date.isoformat()}"
+            f"[trade_cal] start run_id={run_id} exchange={exchange} mode={mode} "
+            f"start_date={start_date.isoformat() if start_date is not None else '-'} "
+            f"end_date={end_date.isoformat() if end_date is not None else '-'}"
         )
 
-        rows = self.client.trade_cal(
+        rows = self._fetch_rows(
             exchange=exchange,
-            start_date=_format_tushare_date(start_date),
-            end_date=_format_tushare_date(end_date),
-            fields=TRADE_CAL_FIELDS,
+            start_date=start_date,
+            end_date=end_date,
         )
         output_rows = sorted((_normalize_trade_cal_row(row, fallback_exchange=exchange) for row in rows), key=lambda row: str(row["cal_date"]))
         if not output_rows:
@@ -77,9 +82,10 @@ class TushareTradeCalSyncService:
             "run_id": run_id,
             "started_at": started_at.isoformat(),
             "finished_at": datetime.now(timezone.utc).isoformat(),
+            "mode": mode,
             "exchange": exchange,
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
+            "start_date": start_date.isoformat() if start_date is not None else None,
+            "end_date": end_date.isoformat() if end_date is not None else None,
             "fetched_rows": len(rows),
             "written_rows": raw_written,
             "raw_output": str(raw_final),
@@ -94,6 +100,29 @@ class TushareTradeCalSyncService:
             f"raw_output={raw_final} calendar_output={calendar_final} elapsed={math.ceil(elapsed)}s"
         )
         return summary
+
+    def _fetch_rows(self, *, exchange: str, start_date: date | None, end_date: date | None) -> list[dict[str, Any]]:
+        all_rows: list[dict[str, Any]] = []
+        offset = 0
+        page = 1
+        while True:
+            page_rows = self.client.trade_cal(
+                exchange=exchange,
+                start_date=_format_tushare_date(start_date) if start_date is not None else None,
+                end_date=_format_tushare_date(end_date) if end_date is not None else None,
+                fields=TRADE_CAL_FIELDS,
+                limit=TRADE_CAL_PAGE_LIMIT,
+                offset=offset,
+            )
+            all_rows.extend(page_rows)
+            self.progress(
+                f"[trade_cal] page={page} offset={offset} fetched={len(page_rows)} total_fetched={len(all_rows)}"
+            )
+            if len(page_rows) < TRADE_CAL_PAGE_LIMIT:
+                break
+            offset += TRADE_CAL_PAGE_LIMIT
+            page += 1
+        return all_rows
 
 
 def _normalize_trade_cal_row(row: dict[str, Any], *, fallback_exchange: str) -> dict[str, Any]:

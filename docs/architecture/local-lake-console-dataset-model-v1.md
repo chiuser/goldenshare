@@ -538,6 +538,9 @@ stk_mins
 1. `raw_tushare/trade_cal/current/part-000.parquet` 是正式交易日历维表。
 2. `manifest/trading_calendar/tushare_trade_cal.parquet` 是区间分钟线同步的执行日历。
 3. 区间分钟线同步只能读取本地交易日历，不允许访问远程数据库。
+4. `sync-trade-cal` 支持两种刷新模式：
+   - 不传 `start_date/end_date`：按单交易所全量分页拉取，并全量替换 current + manifest。
+   - 同时传 `start_date/end_date`：按显式区间分页拉取，再全量替换 current + manifest。
 
 ### 11.4 `stk_mins`
 

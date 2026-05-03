@@ -18,13 +18,14 @@ from lake_console.backend.app.services.parquet_writer import (
     replace_directory_atomically,
     write_rows_to_parquet,
 )
+from lake_console.backend.app.services.stk_mins_windowing import (
+    STK_MINS_PAGE_LIMIT,
+    StkMinsRequestWindow,
+    build_target_request_windows,
+)
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
-from lake_console.backend.app.services.tushare_client import TushareLakeClient
-
-
-STK_MINS_PAGE_LIMIT = 8000
+from lake_console.backend.app.services.tushare_client import TushareLakeClient, TushareQuotaExceededError
 DEFAULT_PART_ROWS = 500_000
-DEFAULT_REQUEST_WINDOW_DAYS = 31
 
 
 @dataclass(frozen=True)
@@ -42,14 +43,26 @@ class StkMinsProgressEvent:
     offset: int | None = None
 
 
-ProgressCallback = Callable[[str | StkMinsProgressEvent], None]
-
-
 @dataclass(frozen=True)
-class StkMinsRequestWindow:
-    start_date: date
-    end_date: date
-    trade_dates: tuple[date, ...]
+class StkMinsQuotaExhausted(RuntimeError):
+    run_id: str
+    ts_code: str
+    freq: int
+    window_start: date
+    window_end: date
+    completed_units: int
+    units_total: int
+    checkpoint_file: str
+    tmp_run_root: str
+    api_name: str
+    error_message: str
+
+    @property
+    def remaining_units(self) -> int:
+        return max(0, self.units_total - self.completed_units)
+
+
+ProgressCallback = Callable[[str | StkMinsProgressEvent], None]
 
 
 class TushareStkMinsSyncService:
@@ -313,12 +326,9 @@ class TushareStkMinsSyncService:
         ts_code: str | None = None,
         freq: int | None = None,
         part_rows: int = DEFAULT_PART_ROWS,
-        request_window_days: int = DEFAULT_REQUEST_WINDOW_DAYS,
     ) -> dict[str, Any]:
         if end_date < start_date:
             raise ValueError("sync-stk-mins-range 的 end-date 不能早于 start-date。")
-        if request_window_days <= 0:
-            raise ValueError("request_window_days 必须大于 0。")
         trade_dates = self._load_open_trade_dates(start_date=start_date, end_date=end_date)
         if not trade_dates:
             raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
@@ -345,22 +355,70 @@ class TushareStkMinsSyncService:
                 raise ValueError("part_rows 必须大于 0。")
             LakeRootService(self.lake_root).require_ready_for_write()
             ts_codes = self._load_stock_universe_codes()
-            windows = _build_request_windows(trade_dates=trade_dates, max_window_days=request_window_days)
-            units_per_window = len(freqs) * len(ts_codes)
-            units_total = len(windows) * units_per_window
-            for window_index, window in enumerate(windows, start=1):
-                window_summary = self._sync_market_window_partitions(
-                    run_id=run_id,
-                    freqs=freqs,
-                    window=window,
-                    ts_codes=ts_codes,
-                    part_rows=part_rows,
-                    unit_base=(window_index - 1) * units_per_window,
-                    units_total=units_total,
+            windows_by_freq = {current_freq: build_target_request_windows(trade_dates=trade_dates, freq=current_freq) for current_freq in freqs}
+            units_total = len(ts_codes) * sum(len(current_windows) for current_windows in windows_by_freq.values())
+            unit_base = 0
+            try:
+                for current_freq in freqs:
+                    current_windows = windows_by_freq[current_freq]
+                    for window in current_windows:
+                        window_summary = self._sync_market_window_partitions(
+                            run_id=run_id,
+                            freq=current_freq,
+                            window=window,
+                            ts_codes=ts_codes,
+                            part_rows=part_rows,
+                            unit_base=unit_base,
+                            units_total=units_total,
+                        )
+                        summaries.append(window_summary)
+                        total_fetched += int(window_summary.get("fetched_rows") or 0)
+                        total_written += int(window_summary.get("written_rows") or 0)
+                        unit_base += len(ts_codes)
+            except StkMinsQuotaExhausted as exc:
+                elapsed = time.monotonic() - started
+                summary = {
+                    "dataset_key": "stk_mins",
+                    "api_name": "stk_mins",
+                    "run_id": run_id,
+                    "started_at": started_at.isoformat(),
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                    "mode": "range_all_market",
+                    "status": "quota_exhausted",
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "trade_dates": [item.isoformat() for item in trade_dates],
+                    "trade_date_count": len(trade_dates),
+                    "freqs": freqs,
+                    "fetched_rows": total_fetched,
+                    "written_rows": total_written,
+                    "day_runs": summaries,
+                    "completed_units": exc.completed_units,
+                    "units_total": exc.units_total,
+                    "remaining_units": exc.remaining_units,
+                    "stopped_at": {
+                        "ts_code": exc.ts_code,
+                        "freq": exc.freq,
+                        "window_start": exc.window_start.isoformat(),
+                        "window_end": exc.window_end.isoformat(),
+                    },
+                    "checkpoint_file": exc.checkpoint_file,
+                    "tmp_run_root": exc.tmp_run_root,
+                    "resume_hint": "次日可直接重跑相同命令；当前实现尚未自动从 checkpoint 恢复，checkpoint 用于定位停点。",
+                    "error": {
+                        "api_name": exc.api_name,
+                        "message": exc.error_message,
+                    },
+                    "elapsed_seconds": round(elapsed, 3),
+                }
+                ManifestService(self.lake_root).append_sync_run(summary)
+                self.progress(
+                    f"[stk_mins_range] quota_exhausted completed_units={exc.completed_units}/{exc.units_total} "
+                    f"remaining_units={exc.remaining_units} ts_code={exc.ts_code} freq={exc.freq} "
+                    f"window={exc.window_start.isoformat()}~{exc.window_end.isoformat()} "
+                    f"checkpoint={exc.checkpoint_file}"
                 )
-                summaries.append(window_summary)
-                total_fetched += int(window_summary.get("fetched_rows") or 0)
-                total_written += int(window_summary.get("written_rows") or 0)
+                return summary
         else:
             for date_index, trade_date in enumerate(trade_dates, start=1):
                 self.progress(f"[stk_mins_range] trade_date={trade_date.isoformat()} dates_done={date_index}/{len(trade_dates)}")
@@ -403,7 +461,7 @@ class TushareStkMinsSyncService:
         self,
         *,
         run_id: str,
-        freqs: list[int],
+        freq: int,
         window: StkMinsRequestWindow,
         ts_codes: list[str],
         part_rows: int,
@@ -411,70 +469,95 @@ class TushareStkMinsSyncService:
         units_total: int,
     ) -> dict[str, Any]:
         trade_date_set = set(window.trade_dates)
-        part_buffers: dict[tuple[int, date], list[dict[str, Any]]] = {}
-        part_indexes: dict[tuple[int, date], int] = {}
-        touched_partitions: set[tuple[int, date]] = set()
+        part_buffers: dict[date, list[dict[str, Any]]] = {}
+        part_indexes: dict[date, int] = {}
+        touched_partitions: set[date] = set()
         total_fetched = 0
         total_written = 0
-        units_done = unit_base
-        for freq in freqs:
-            for ts_code in ts_codes:
+        for symbol_index, ts_code in enumerate(ts_codes, start=1):
+            try:
                 rows = self._fetch_symbol_window(
                     ts_code=ts_code,
                     freq=freq,
                     window_start=window.start_date,
                     window_end=window.end_date,
-                    units_done=units_done,
+                    units_done=unit_base + symbol_index - 1,
                     units_total=units_total,
                 )
-                total_fetched += len(rows)
-                units_done += 1
-                for row in rows:
-                    trade_time = datetime.fromisoformat(str(row["trade_time"]))
-                    trade_date = trade_time.date()
-                    if trade_date not in trade_date_set:
-                        continue
-                    key = (freq, trade_date)
-                    part_buffers.setdefault(key, []).append(row)
-                    touched_partitions.add(key)
-                    if len(part_buffers[key]) >= part_rows:
-                        written = self._flush_window_part(
-                            run_id=run_id,
-                            freq=freq,
-                            trade_date=trade_date,
-                            rows=part_buffers[key],
-                            part_index=part_indexes.get(key, 0),
-                        )
-                        part_indexes[key] = part_indexes.get(key, 0) + 1
-                        total_written += written
-                        part_buffers[key] = []
-                self._append_checkpoint(
+            except TushareQuotaExceededError as exc:
+                completed_units = unit_base + symbol_index - 1
+                payload = {
+                    "dataset_key": "stk_mins",
+                    "ts_code": ts_code,
+                    "freq": freq,
+                    "window_start": window.start_date.isoformat(),
+                    "window_end": window.end_date.isoformat(),
+                    "status": "quota_exhausted",
+                    "error_message": exc.message,
+                    "completed_units": completed_units,
+                    "units_total": units_total,
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                }
+                self._append_checkpoint(run_id=run_id, payload=payload)
+                raise StkMinsQuotaExhausted(
                     run_id=run_id,
-                    payload={
-                        "dataset_key": "stk_mins",
-                        "ts_code": ts_code,
-                        "freq": freq,
-                        "window_start": window.start_date.isoformat(),
-                        "window_end": window.end_date.isoformat(),
-                        "status": "success",
-                        "fetched_rows": len(rows),
-                        "finished_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-                self.progress(
-                    StkMinsProgressEvent(
-                        units_done=units_done,
-                        units_total=units_total,
-                        ts_code=ts_code,
-                        trade_date=None,
+                    ts_code=ts_code,
+                    freq=freq,
+                    window_start=window.start_date,
+                    window_end=window.end_date,
+                    completed_units=completed_units,
+                    units_total=units_total,
+                    checkpoint_file=str(self._checkpoint_file(run_id=run_id)),
+                    tmp_run_root=str(self.lake_root / "_tmp" / run_id),
+                    api_name=exc.api_name,
+                    error_message=exc.message,
+                ) from exc
+            total_fetched += len(rows)
+            for row in rows:
+                trade_time = datetime.fromisoformat(str(row["trade_time"]))
+                trade_date = trade_time.date()
+                if trade_date not in trade_date_set:
+                    continue
+                part_buffers.setdefault(trade_date, []).append(row)
+                touched_partitions.add(trade_date)
+                if len(part_buffers[trade_date]) >= part_rows:
+                    written = self._flush_window_part(
+                        run_id=run_id,
                         freq=freq,
-                        fetched_rows=len(rows),
-                        written_rows=total_written,
-                        window_start=window.start_date,
-                        window_end=window.end_date,
+                        trade_date=trade_date,
+                        rows=part_buffers[trade_date],
+                        part_index=part_indexes.get(trade_date, 0),
                     )
+                    part_indexes[trade_date] = part_indexes.get(trade_date, 0) + 1
+                    total_written += written
+                    part_buffers[trade_date] = []
+            self._append_checkpoint(
+                run_id=run_id,
+                payload={
+                    "dataset_key": "stk_mins",
+                    "ts_code": ts_code,
+                    "freq": freq,
+                    "window_start": window.start_date.isoformat(),
+                    "window_end": window.end_date.isoformat(),
+                    "status": "success",
+                    "fetched_rows": len(rows),
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            self.progress(
+                StkMinsProgressEvent(
+                    units_done=unit_base + symbol_index,
+                    units_total=units_total,
+                    ts_code=ts_code,
+                    trade_date=None,
+                    freq=freq,
+                    fetched_rows=len(rows),
+                    written_rows=total_written,
+                    window_start=window.start_date,
+                    window_end=window.end_date,
                 )
-        for (freq, trade_date), rows in list(part_buffers.items()):
+            )
+        for trade_date, rows in list(part_buffers.items()):
             if not rows:
                 continue
             written = self._flush_window_part(
@@ -482,12 +565,12 @@ class TushareStkMinsSyncService:
                 freq=freq,
                 trade_date=trade_date,
                 rows=rows,
-                part_index=part_indexes.get((freq, trade_date), 0),
+                part_index=part_indexes.get(trade_date, 0),
             )
-            part_indexes[(freq, trade_date)] = part_indexes.get((freq, trade_date), 0) + 1
+            part_indexes[trade_date] = part_indexes.get(trade_date, 0) + 1
             total_written += written
 
-        for freq, trade_date in sorted(touched_partitions):
+        for trade_date in sorted(touched_partitions):
             tmp_partition = self._tmp_partition(run_id=run_id, freq=freq, trade_date=trade_date)
             if not tmp_partition.exists():
                 continue
@@ -500,7 +583,7 @@ class TushareStkMinsSyncService:
             "window_start": window.start_date.isoformat(),
             "window_end": window.end_date.isoformat(),
             "trade_dates": [item.isoformat() for item in window.trade_dates],
-            "freqs": freqs,
+            "freq": freq,
             "symbols_total": len(ts_codes),
             "fetched_rows": total_fetched,
             "written_rows": total_written,
@@ -674,10 +757,13 @@ class TushareStkMinsSyncService:
         return self.lake_root / "raw_tushare" / "stk_mins_by_date" / f"freq={freq}" / f"trade_date={trade_date.isoformat()}"
 
     def _append_checkpoint(self, *, run_id: str, payload: dict[str, Any]) -> None:
-        checkpoint_file = self.lake_root / "manifest" / "sync_checkpoints" / "stk_mins_range" / f"run_id={run_id}" / "checkpoint.jsonl"
+        checkpoint_file = self._checkpoint_file(run_id=run_id)
         checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
         with checkpoint_file.open("a", encoding="utf-8") as file:
             file.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+
+    def _checkpoint_file(self, *, run_id: str) -> Path:
+        return self.lake_root / "manifest" / "sync_checkpoints" / "stk_mins_range" / f"run_id={run_id}" / "checkpoint.jsonl"
 
 
 def _normalize_stk_mins_row(row: dict[str, Any], *, freq: int, trade_date: date | None) -> dict[str, Any]:
@@ -699,28 +785,6 @@ def _normalize_trade_time(value: Any, *, trade_date: date | None) -> str:
     if trade_date is not None and trade_time.date() != trade_date:
         raise ValueError(f"stk_mins 返回 trade_time={trade_time} 与请求 trade_date={trade_date} 不一致。")
     return trade_time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _build_request_windows(*, trade_dates: list[date], max_window_days: int) -> list[StkMinsRequestWindow]:
-    if not trade_dates:
-        return []
-    windows: list[StkMinsRequestWindow] = []
-    current: list[date] = []
-    for trade_date in sorted(trade_dates):
-        if not current:
-            current = [trade_date]
-            continue
-        first = current[0]
-        crosses_month = trade_date.year != first.year or trade_date.month != first.month
-        exceeds_days = (trade_date - first).days + 1 > max_window_days
-        if crosses_month or exceeds_days:
-            windows.append(StkMinsRequestWindow(start_date=current[0], end_date=current[-1], trade_dates=tuple(current)))
-            current = [trade_date]
-        else:
-            current.append(trade_date)
-    if current:
-        windows.append(StkMinsRequestWindow(start_date=current[0], end_date=current[-1], trade_dates=tuple(current)))
-    return windows
 
 
 def _parse_date(value: Any) -> date:

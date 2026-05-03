@@ -59,6 +59,10 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--ts-code", default=None, help="证券代码，可用于单标的调试或补数计划")
     plan_parser.add_argument("--market", default=None, help="市场枚举，快照类数据集可用")
+    plan_parser.add_argument("--all-market", action="store_true", help="用于 stk_mins 计划预估：读取本地股票池估算全市场请求量")
+    plan_parser.add_argument("--freq", default=None, type=int, choices=(1, 5, 15, 30, 60), help="单个分钟周期，stk_mins 可用")
+    plan_parser.add_argument("--freqs", default=None, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60；stk_mins 可用")
+    plan_parser.add_argument("--daily-quota-limit", default=250000, type=int, help="用于 stk_mins 计划预估的单日配额上限，默认 250000")
     plan_parser.set_defaults(handler=_handle_plan_sync)
 
     sync_dataset_parser = subparsers.add_parser("sync-dataset", help="按 Lake Dataset Catalog 同步单个数据集")
@@ -83,8 +87,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     trade_cal_parser = subparsers.add_parser("sync-trade-cal", help="从 Tushare 拉取交易日历并写入本地交易日历")
     _add_lake_root_arg(trade_cal_parser)
-    trade_cal_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
-    trade_cal_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    trade_cal_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；与 --end-date 同时传入时走区间模式")
+    trade_cal_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD；与 --start-date 同时传入时走区间模式")
     trade_cal_parser.add_argument("--exchange", default="SSE", help="交易所，默认 SSE")
     trade_cal_parser.set_defaults(handler=_handle_sync_trade_cal)
 
@@ -155,13 +159,20 @@ def _handle_list_datasets(args: argparse.Namespace) -> int:
 
 def _handle_plan_sync(args: argparse.Namespace) -> int:
     settings = _settings(args)
-    plan = LakeSyncPlanner(lake_root=settings.lake_root).plan(
+    plan = LakeSyncPlanner(
+        lake_root=settings.lake_root,
+        stk_mins_request_window_days=settings.stk_mins_request_window_days,
+    ).plan(
         dataset_key=args.dataset_key,
         trade_date=args.trade_date,
         start_date=args.start_date,
         end_date=args.end_date,
         ts_code=args.ts_code,
         market=args.market,
+        all_market=args.all_market,
+        freq=args.freq,
+        freqs=_parse_freqs(args.freqs, fallback=args.freq) if args.dataset_key == "stk_mins" else None,
+        daily_quota_limit=args.daily_quota_limit,
     )
     _print_json(plan.to_dict())
     return 0
@@ -225,6 +236,8 @@ def _handle_sync_stock_basic(args: argparse.Namespace) -> int:
 
 def _handle_sync_trade_cal(args: argparse.Namespace) -> int:
     settings = _settings(args)
+    if (args.start_date is None) != (args.end_date is None):
+        raise SystemExit("sync-trade-cal 的 --start-date 和 --end-date 必须同时传入，或同时省略。")
     service = TushareTradeCalSyncService(
         lake_root=settings.lake_root,
         client=TushareLakeClient(
@@ -279,7 +292,6 @@ def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
                 freqs=freqs,
                 all_market=True,
                 part_rows=args.part_rows,
-                request_window_days=settings.stk_mins_request_window_days,
             )
         else:
             if not args.ts_code:
@@ -294,7 +306,6 @@ def _handle_sync_stk_mins_range(args: argparse.Namespace) -> int:
                 ts_code=args.ts_code,
                 freq=args.freq,
                 part_rows=args.part_rows,
-                request_window_days=settings.stk_mins_request_window_days,
             )
     finally:
         if progress:

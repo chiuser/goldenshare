@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ import lake_console.backend.app.services.tushare_trade_cal_sync_service as trade
 from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
+from lake_console.backend.app.services.tushare_client import TushareQuotaExceededError
 
 
 class FakeClient:
@@ -18,7 +20,18 @@ class FakeClient:
             return [{"ts_code": "000001.SZ", "name": "平安银行", "list_status": "L"}]
         return []
 
-    def trade_cal(self, *, exchange: str, start_date: str, end_date: str, fields: list[str] | tuple[str, ...]) -> list[dict[str, Any]]:
+    def trade_cal(
+        self,
+        *,
+        exchange: str,
+        start_date: str | None,
+        end_date: str | None,
+        fields: list[str] | tuple[str, ...],
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[dict[str, Any]]:
+        del limit
+        del offset
         return [
             {"exchange": exchange, "cal_date": "20260424", "is_open": "1", "pretrade_date": "20260423"},
             {"exchange": exchange, "cal_date": "20260425", "is_open": "0", "pretrade_date": "20260424"},
@@ -94,6 +107,74 @@ def test_trade_cal_sync_writes_raw_and_local_calendar(tmp_path, monkeypatch):
     raw_rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "trade_cal" / "current" / "part-000.parquet")]
     assert raw_rows[0]["cal_date"] == "2026-04-24"
     assert raw_rows[0]["is_open"] is True
+    assert summary["mode"] == "date_range"
+
+
+def test_trade_cal_sync_without_dates_fetches_full_snapshot_with_pagination(tmp_path, monkeypatch):
+    written: dict[str, Any] = {}
+    calls: list[dict[str, Any]] = []
+
+    class PagedTradeCalClient(FakeClient):
+        def trade_cal(
+            self,
+            *,
+            exchange: str,
+            start_date: str | None,
+            end_date: str | None,
+            fields: list[str] | tuple[str, ...],
+            limit: int | None = None,
+            offset: int | None = None,
+        ) -> list[dict[str, Any]]:
+            calls.append(
+                {
+                    "exchange": exchange,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+            if offset == 0:
+                return [
+                    {"exchange": exchange, "cal_date": "20260424", "is_open": "1", "pretrade_date": "20260423"},
+                    {"exchange": exchange, "cal_date": "20260425", "is_open": "0", "pretrade_date": "20260424"},
+                ]
+            return []
+
+    def fake_write(rows: list[dict[str, Any]], output_path: Path) -> int:
+        written[str(output_path)] = rows
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("fake parquet", encoding="utf-8")
+        return len(rows)
+
+    monkeypatch.setattr(trade_cal_module, "write_rows_to_parquet", fake_write)
+    monkeypatch.setattr(trade_cal_module, "read_parquet_row_count", lambda path: 2)
+    monkeypatch.setattr(trade_cal_module, "TRADE_CAL_PAGE_LIMIT", 2)
+
+    summary = TushareTradeCalSyncService(lake_root=tmp_path, client=PagedTradeCalClient(), progress=lambda message: None).sync()
+
+    assert summary["mode"] == "full_snapshot"
+    assert summary["start_date"] is None
+    assert summary["end_date"] is None
+    assert summary["written_rows"] == 2
+    assert calls == [
+        {
+            "exchange": "SSE",
+            "start_date": None,
+            "end_date": None,
+            "limit": 2,
+            "offset": 0,
+        },
+        {
+            "exchange": "SSE",
+            "start_date": None,
+            "end_date": None,
+            "limit": 2,
+            "offset": 2,
+        },
+    ]
+    raw_rows = written[str(tmp_path / "_tmp" / summary["run_id"] / "raw_tushare" / "trade_cal" / "current" / "part-000.parquet")]
+    assert [row["cal_date"] for row in raw_rows] == ["2026-04-24", "2026-04-25"]
 
 
 def test_stk_mins_sync_writes_single_symbol_day_partition(tmp_path, monkeypatch):
@@ -328,3 +409,135 @@ def test_stk_mins_range_all_market_requests_window_and_splits_daily_partitions(t
     assert summary["written_rows"] == 2
     assert any("trade_date=2026-04-24" in path for path in written_paths)
     assert any("trade_date=2026-04-27" in path for path in written_paths)
+
+
+def test_stk_mins_range_all_market_uses_per_freq_trade_day_windows(tmp_path, monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    month_open_days = [21, 20, 21, 21, 20, 20, 21, 21, 20, 20, 20, 20]
+
+    def fake_read(path: Path) -> list[dict[str, Any]]:
+        if "trading_calendar" in str(path):
+            rows: list[dict[str, Any]] = []
+            for month, open_days in enumerate(month_open_days, start=1):
+                for day in range(1, open_days + 1):
+                    rows.append({"cal_date": f"2025{month:02d}{day:02d}", "is_open": True})
+            return rows
+        return [{"ts_code": "000001.SZ", "list_status": "L"}]
+
+    def fake_fetch(
+        self: TushareStkMinsSyncService,
+        *,
+        ts_code: str,
+        freq: int,
+        window_start: date,
+        window_end: date,
+        units_done: int,
+        units_total: int,
+    ) -> list[dict[str, Any]]:
+        calls.append(
+            {
+                "ts_code": ts_code,
+                "freq": freq,
+                "window_start": window_start,
+                "window_end": window_end,
+                "units_done": units_done,
+                "units_total": units_total,
+            }
+        )
+        return []
+
+    monkeypatch.setattr(mins_module, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(TushareStkMinsSyncService, "_fetch_symbol_window", fake_fetch)
+    (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
+    (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake parquet", encoding="utf-8")
+    (tmp_path / "manifest" / "security_universe").mkdir(parents=True)
+    (tmp_path / "manifest" / "security_universe" / "tushare_stock_basic.parquet").write_text("fake parquet", encoding="utf-8")
+
+    summary = TushareStkMinsSyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda payload: None).sync_range(
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31),
+        freqs=[1, 5, 15, 30, 60],
+        all_market=True,
+        part_rows=100,
+    )
+
+    assert len(calls) == 13
+    assert summary["written_rows"] == 0
+    per_freq_counts = {freq: sum(1 for item in calls if item["freq"] == freq) for freq in [1, 5, 15, 30, 60]}
+    assert per_freq_counts == {1: 8, 5: 2, 15: 1, 30: 1, 60: 1}
+    assert all(item["units_total"] == 13 for item in calls)
+
+
+def test_stk_mins_range_all_market_returns_quota_exhausted_summary_and_checkpoint(tmp_path, monkeypatch):
+    def fake_read(path: Path) -> list[dict[str, Any]]:
+        if "trading_calendar" in str(path):
+            return [{"cal_date": "2026-04-24", "is_open": True}]
+        return [
+            {"ts_code": "000001.SZ", "list_status": "L"},
+            {"ts_code": "000002.SZ", "list_status": "L"},
+        ]
+
+    def quota_fetch(
+        self: TushareStkMinsSyncService,
+        *,
+        ts_code: str,
+        freq: int,
+        window_start: date,
+        window_end: date,
+        units_done: int,
+        units_total: int,
+    ) -> list[dict[str, Any]]:
+        raise TushareQuotaExceededError(
+            api_name="stk_mins",
+            message="抱歉，您访问接口(stk_mins)频率超限(250000次/天)",
+        )
+
+    monkeypatch.setattr(mins_module, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(TushareStkMinsSyncService, "_fetch_symbol_window", quota_fetch)
+    (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
+    (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake parquet", encoding="utf-8")
+    (tmp_path / "manifest" / "security_universe").mkdir(parents=True)
+    (tmp_path / "manifest" / "security_universe" / "tushare_stock_basic.parquet").write_text("fake parquet", encoding="utf-8")
+
+    summary = TushareStkMinsSyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda payload: None).sync_range(
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 24),
+        freqs=[30],
+        all_market=True,
+        part_rows=100,
+    )
+
+    assert summary["status"] == "quota_exhausted"
+    assert summary["completed_units"] == 0
+    assert summary["units_total"] == 2
+    assert summary["remaining_units"] == 2
+    assert summary["stopped_at"] == {
+        "ts_code": "000001.SZ",
+        "freq": 30,
+        "window_start": "2026-04-24",
+        "window_end": "2026-04-24",
+    }
+    assert summary["error"]["api_name"] == "stk_mins"
+    assert "250000次/天" in summary["error"]["message"]
+    checkpoint_file = Path(summary["checkpoint_file"])
+    assert checkpoint_file.exists()
+    checkpoint_rows = [
+        json.loads(line)
+        for line in checkpoint_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert checkpoint_rows == [
+        {
+            "completed_units": 0,
+            "dataset_key": "stk_mins",
+            "error_message": "抱歉，您访问接口(stk_mins)频率超限(250000次/天)",
+            "finished_at": checkpoint_rows[0]["finished_at"],
+            "freq": 30,
+            "status": "quota_exhausted",
+            "ts_code": "000001.SZ",
+            "units_total": 2,
+            "window_end": "2026-04-24",
+            "window_start": "2026-04-24",
+        }
+    ]

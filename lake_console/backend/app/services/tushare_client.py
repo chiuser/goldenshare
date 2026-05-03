@@ -8,6 +8,13 @@ from typing import Any
 DEFAULT_TUSHARE_REQUEST_LIMIT_PER_MINUTE = 500
 
 
+class TushareQuotaExceededError(RuntimeError):
+    def __init__(self, *, api_name: str, message: str) -> None:
+        super().__init__(message)
+        self.api_name = api_name
+        self.message = message
+
+
 class TushareLakeClient:
     def __init__(self, token: str | None, *, request_limit_per_minute: int = DEFAULT_TUSHARE_REQUEST_LIMIT_PER_MINUTE) -> None:
         if not token:
@@ -22,19 +29,39 @@ class TushareLakeClient:
     def stock_basic(self, *, list_status: str, fields: Sequence[str]) -> list[dict[str, Any]]:
         frame = self._request(
             self._pro.stock_basic,
+            api_name="stock_basic",
             exchange="",
             list_status=list_status,
             fields=",".join(fields),
         )
         return _frame_to_rows(frame)
 
-    def trade_cal(self, *, exchange: str, start_date: str, end_date: str, fields: Sequence[str]) -> list[dict[str, Any]]:
+    def trade_cal(
+        self,
+        *,
+        exchange: str,
+        start_date: str | None,
+        end_date: str | None,
+        fields: Sequence[str],
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "exchange": exchange,
+            "fields": ",".join(fields),
+        }
+        if start_date is not None:
+            params["start_date"] = start_date
+        if end_date is not None:
+            params["end_date"] = end_date
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
         frame = self._request(
             self._pro.trade_cal,
-            exchange=exchange,
-            start_date=start_date,
-            end_date=end_date,
-            fields=",".join(fields),
+            api_name="trade_cal",
+            **params,
         )
         return _frame_to_rows(frame)
 
@@ -52,6 +79,7 @@ class TushareLakeClient:
     ) -> list[dict[str, Any]]:
         frame = self._request(
             self._pro.index_basic,
+            api_name="index_basic",
             ts_code=ts_code,
             name=name,
             market=market,
@@ -75,6 +103,7 @@ class TushareLakeClient:
     ) -> list[dict[str, Any]]:
         frame = self._request(
             self._pro.stk_mins,
+            api_name="stk_mins",
             ts_code=ts_code,
             freq=f"{freq}min",
             start_date=start_date,
@@ -84,9 +113,15 @@ class TushareLakeClient:
         )
         return _frame_to_rows(frame)
 
-    def _request(self, method, **kwargs):  # type: ignore[no-untyped-def]
+    def _request(self, method, *, api_name: str, **kwargs):  # type: ignore[no-untyped-def]
         self._rate_limiter.wait()
-        return method(**kwargs)
+        try:
+            return method(**kwargs)
+        except Exception as exc:  # noqa: BLE001
+            message = str(exc)
+            if _is_quota_exceeded_message(message):
+                raise TushareQuotaExceededError(api_name=api_name, message=message) from exc
+            raise
 
 
 class TushareRateLimiter:
@@ -122,3 +157,8 @@ def _frame_to_rows(frame: Any) -> list[dict[str, Any]]:
         return [dict(row) for row in frame.to_dict(orient="records")]
     except AttributeError as exc:
         raise RuntimeError("Tushare 返回值不是可转换的 DataFrame。") from exc
+
+
+def _is_quota_exceeded_message(message: str) -> bool:
+    normalized = message.strip()
+    return "频率超限" in normalized and "次/天" in normalized

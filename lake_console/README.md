@@ -76,6 +76,12 @@ lake-console sync-stock-basic
 Run trade calendar sync:
 
 ```bash
+lake-console sync-trade-cal
+```
+
+Run trade calendar sync for an explicit range:
+
+```bash
 lake-console sync-trade-cal \
   --start-date 2026-04-01 \
   --end-date 2026-04-30
