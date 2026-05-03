@@ -308,6 +308,24 @@ sync/strategies/index_basic.py
 
 ## 8. 迁移步骤
 
+本方案按 5 个 milestone 推进。每个 milestone 都必须保持行为可验证，不允许夹带新数据集接入。
+
+| Milestone | 目标 | 主要产物 | 是否接入新数据集 |
+|---|---|---|---:|
+| M1 | CLI 薄入口化 | `cli/` 包与分组命令 | 否 |
+| M2 | Planner 分层 | `plans.py` 与 `planners/*` | 否 |
+| M3 | Engine / Strategy 收口 | `context.py`、`results.py`、`strategies/*` | 否 |
+| M4 | Guardrail 与模板更新 | 架构护栏测试、模板更新 | 否 |
+| M5 | `moneyflow` 按新结构接入 | `strategies/moneyflow.py`、同步测试 | 是 |
+
+执行顺序固定为：
+
+```text
+M1 -> M2 -> M3 -> M4 -> M5
+```
+
+不得把 `moneyflow` 提前插入 M1 到 M4；否则会把新数据集实现建立在尚未收口的 CLI / Planner / Engine 上。
+
 ### S1：CLI 拆分，行为不变
 
 任务：
@@ -492,4 +510,3 @@ tests/lake_console/*
 ```
 
 5. 不需要再把大量逻辑塞进 CLI、Planner 或 Engine。
-
