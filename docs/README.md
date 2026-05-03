@@ -16,6 +16,7 @@
 - [前端当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/frontend/frontend-current-standards.md)
 - [数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
 - [Local Lake 数据集接入说明模板](/Users/congming/github/goldenshare/docs/templates/lake-dataset-development-template.md)
+- [Local Lake prod-raw-db 导出接入规则与 Checklist](/Users/congming/github/goldenshare/docs/templates/lake-prod-raw-db-export-template.md)
 - [工作流开发说明模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)
 
 ## 2. 目录结构（当前）

@@ -13,7 +13,7 @@
 ### 0.1 当前必须遵守的主线
 
 1. `lake_console` 是本地独立工程，不是生产 `src/ops`、`src/app`、`frontend` 的一部分。
-2. `lake_console` 不允许读取或写入远程 `goldenshare-db`。
+2. `lake_console` 默认不允许读取或写入远程 `goldenshare-db`；若本数据集明确走 `prod-raw-db` 只读导出路线，必须改用 [Local Lake prod-raw-db 导出接入规则与 Checklist](/Users/congming/github/goldenshare/docs/templates/lake-prod-raw-db-export-template.md)。
 3. `lake_console` 不允许 import `src/ops/**`、生产 `src/app/**`、生产 `frontend/src/**`。
 4. Lake 数据集事实可以参考生产 `DatasetDefinition` 和源站文档，但不得直接复用生产同步运行时。
 5. 所有写入必须使用 `_tmp -> 校验 -> 替换正式文件/分区`。
@@ -22,7 +22,7 @@
 
 ### 0.2 禁止项
 
-1. 禁止为了省事读取远程数据库补股票池、指数池、交易日历或状态。
+1. 禁止为了省事读取远程数据库补股票池、指数池、交易日历或状态；`prod-raw-db` 只允许从生产 `raw_tushare` 白名单表只读导出源站字段到本地 Parquet。
 2. 禁止让 Lake 页面依赖生产 Ops API。
 3. 禁止直接覆盖正式 Parquet 文件或分区。
 4. 禁止新增没有 `plan-sync` 或命令示例的数据集。
