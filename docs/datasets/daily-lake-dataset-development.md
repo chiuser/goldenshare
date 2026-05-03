@@ -362,11 +362,11 @@ python3 scripts/check_docs_integrity.py
 | `test_lake_catalog_daily` | catalog 字段、分组、命令示例完整 |
 | `test_lake_plan_daily_trade_date` | 单日请求计划 |
 | `test_lake_plan_daily_range_uses_local_trade_cal` | 区间模式使用本地交易日历 |
-| `test_lake_sync_daily_replace_partition` | 按日分区原子替换 |
-| `test_lake_sync_daily_paginates_until_short_page` | `limit=6000`、`offset` 递增直到短页 |
-| `test_lake_sync_daily_does_not_send_exchange` | 确认请求参数不包含 `exchange` |
-| `test_lake_sync_daily_rejects_missing_required_fields` | 缺少 `trade_date/ts_code` 的行不写入 |
-| `test_lake_sync_daily_preserves_source_change_field` | 写入字段保留 `change`，不生成 `change_amount` |
+| `test_lake_daily_replace_partition` | 按日分区原子替换 |
+| `test_lake_daily_paginates_until_short_page` | `limit=6000`、`offset` 递增直到短页 |
+| `test_lake_daily_does_not_send_exchange` | 确认请求参数不包含 `exchange` |
+| `test_lake_daily_rejects_missing_required_fields` | 缺少 `trade_date/ts_code` 的行不写入 |
+| `test_lake_daily_preserves_source_change_field` | 写入字段保留 `change`，不生成 `change_amount` |
 
 ### 9.3 真实同步冒烟
 

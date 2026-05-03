@@ -346,7 +346,7 @@ Lake 数据集同步研发必须额外遵守：
 每轮结束前：
 
 1. 跑本轮最小测试。
-2. 若改文档，跑 `python3 scripts/check_docs_integrity.py`。
+2. 若新增或修改任何文档，必须跑 `python3 scripts/check_docs_integrity.py` 并通过。
 3. 确认没有生产代码 import `lake_console`。
 4. 说明是否影响生产部署，答案通常必须是“不影响”。
 

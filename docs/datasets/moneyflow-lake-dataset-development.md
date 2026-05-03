@@ -2,7 +2,7 @@
 
 - 版本：v1
 - 状态：待评审
-- 更新时间：2026-05-01
+- 更新时间：2026-05-03
 - 数据集 key：`moneyflow`
 - 数据源：Tushare
 - 源站文档：`docs/sources/tushare/股票数据/资金流向数据/0170_个股资金流向.md`
@@ -55,6 +55,28 @@
 | `planning.pagination_policy` | `offset_limit` |
 | `planning.page_limit` | `6000` |
 | `storage.raw_table` | `raw_tushare.moneyflow` |
+
+### 1.1 生产实现参考审计
+
+接入 Lake 前已对照生产 `moneyflow` 链路做只读审计。生产实现只作为避坑参考，Lake 不直接依赖生产运行代码。
+
+| 生产链路位置 | 当前事实 | Lake 是否借鉴 | Lake 处理口径 |
+|---|---|---:|---|
+| `DatasetDefinition.source_fields` | 生产字段与 Tushare 源站输出字段一致 | 是 | Lake raw 层使用同一组源站输出字段，不新增 std/serving 字段 |
+| `DatasetDefinition.date_model` | `trade_open_day` + `every_open_day` + `point_or_range` | 是 | `trade_date` 单点；`start_date/end_date` 先用本地交易日历展开交易日 |
+| `DatasetDefinition.planning` | `offset_limit`，`page_limit=6000` | 是 | 固定 `limit=6000`，`offset` 递增分页 |
+| `_moneyflow_params` request builder | 实际只传 `trade_date`，可选 `ts_code` | 是 | Lake 请求参数只包含 `trade_date`、可选 `ts_code`、分页参数 |
+| `_moneyflow_row_transform` | 强制 `*_vol` 字段必须是整数格式，并转为 `int` | 是 | Lake 写入前同样校验 `*_vol` 为整数；出现非整数时本交易日分区失败，不写入、不替换旧分区 |
+| `DatasetNormalizer.required_fields` | `trade_date`、`ts_code` 必须存在 | 是 | 缺少 `trade_date` 或 `ts_code` 的行拒绝写入，并计入 rejected |
+| 生产 writer | `raw_tushare -> core_multi.moneyflow_std -> core_serving.equity_moneyflow` | 否 | Lake 只写本地 `raw_tushare` Parquet，不写 std/serving，不做多源融合 |
+| 生产多源逻辑 | 历史上存在 Tushare/BIYING 多源发布链路 | 否 | Lake 本数据集只保存 Tushare `moneyflow` 源事实，不引入 BIYING 或 source resolution |
+
+由此确定本数据集的实现原则：
+
+1. 只复制源站事实、时间语义、分页口径、必填字段校验、`*_vol` 整数校验和进度统计口径。
+2. 不复制生产 DB 写入、Ops 状态、TaskRun、std/serving 转换、多源融合和 BIYING 逻辑。
+3. Lake raw 层字段必须保持 Tushare 源站输出字段，不新增 `source`、`source_priority`、`std_*`、`serving_*`、`raw_payload` 等字段。
+4. 如果后续需要面向研究的单股多年资金流查询优化，应新增 research layout，不污染 raw 层。
 
 ---
 
@@ -109,6 +131,7 @@
 - 是否支持枚举参数：否。
 - 上游空行风险：单日全市场返回空时应告警，不得覆盖已有分区。
 - 字段类型风险：`*_vol` 文档为 int，Lake 使用 int64，避免成交量极端值溢出。
+- 字段命名风险：生产存在 std/serving 统一模型，Lake raw 层不得引入 std/serving 字段别名。
 
 ---
 
@@ -170,14 +193,27 @@
 1. 用户传 `trade_date`：请求 `moneyflow(trade_date=YYYYMMDD, limit=6000, offset=...)`。
 2. 用户传 `start_date/end_date` 且未传 `ts_code`：读取本地交易日历，逐个交易日请求。
 3. 用户传 `ts_code + start_date/end_date`：允许作为单股区间调试模式，但写入仍按返回行的 `trade_date` 分区。
+4. 不做股票池扇出，不做枚举扇出，不访问远程数据库。
 
 ### 4.3 分页策略
 
 - `limit`：`6000`。
 - `offset` 起点：`0`。
 - 结束条件：返回行数 `< 6000`。
-- 每页是否立即写入：第一版可按日聚合后写入；如果实测单日接近或超过上限，则保留多页聚合后写单分区。
+- 每页是否立即写入：单个 `trade_date` 内按页拉取并累计到本日 buffer；本日请求流结束后一次性写入本日临时分区并替换正式分区。
 - 每页是否输出进度：是。
+
+进度输出至少包含：
+
+```text
+dataset=moneyflow trade_date=YYYY-MM-DD page=N offset=N fetched_page=N fetched_total=N
+```
+
+本日完成时输出：
+
+```text
+dataset=moneyflow trade_date=YYYY-MM-DD fetched=N written=N rejected=N output=...
+```
 
 ### 4.4 本地依赖
 
@@ -225,6 +261,27 @@
 | `rebuild_month` | 否 |  |
 | `append_only` | 否 |  |
 
+写入边界：
+
+1. 最小替换范围是单个 `trade_date` 分区。
+2. 单个交易日所有分页请求完成后，写入 `_tmp/{run_id}/raw_tushare/moneyflow/trade_date=YYYY-MM-DD/part-000.parquet`。
+3. 校验临时 Parquet 可读、字段完整、有效行数大于 0 后，替换正式分区。
+4. 如果本日全市场有效行数为 0，不覆盖已有正式分区。
+5. 区间同步中某一天失败，只影响该日期分区，不回滚已完成日期。
+
+### 5.6 行级校验与归一化
+
+| 项 | 规则 |
+|---|---|
+| 日期归一化 | `trade_date` 从源站 `YYYYMMDD` 归一化为 `YYYY-MM-DD` 字符串 |
+| 必填字段 | `trade_date`、`ts_code` |
+| 拒绝条件 | 缺少 `trade_date` 或 `ts_code`；`trade_date` 无法解析；返回行所属日期与当前分区日期不一致 |
+| 分区失败条件 | 任意 `*_vol` 不是整数格式时，本交易日分区失败，不写入临时 Parquet，不替换正式分区 |
+| 整数字段 | `buy_sm_vol/sell_sm_vol/buy_md_vol/sell_md_vol/buy_lg_vol/sell_lg_vol/buy_elg_vol/sell_elg_vol/net_mf_vol` 写为 int64，可空 |
+| 数值字段 | `buy_sm_amount/sell_sm_amount/buy_md_amount/sell_md_amount/buy_lg_amount/sell_lg_amount/buy_elg_amount/sell_elg_amount/net_mf_amount` 写为 double，可空 |
+| 拒绝统计 | 输出 `rejected` 总数；如实现成本可控，同时输出 reason count |
+| raw 字段约束 | 不新增 std/serving/source/raw_payload 等非源站字段 |
+
 ---
 
 ## 6. 数据量与文件数评估
@@ -239,11 +296,20 @@
 | 10 年文件数 | 约 2440 |
 | 单文件大小 | 字段较多，预计数 MB 级，需首次同步实测 |
 
-小文件风险：
+小文件风险判断：
+
+| 风险项 | warning | error | 本数据集判断 |
+|---|---:|---:|---|
+| 单文件平均大小 | `< 8MB` | `< 1MB` | 单日文件可能偏小，首次同步后以实际 `total_bytes/file_count` 校准 |
+| 单分区文件数 | `> 20` | `> 100` | 第一版固定单分区 1 文件，风险低 |
+| 单数据集文件数 | `> 10000` | `> 50000` | 10 年约 2440 文件，风险可控 |
+
+说明：
 
 1. `moneyflow` 单日一文件天然偏小，但按日分区利于补数和按日研究。
 2. 该数据集字段多于 `daily`，单文件大小会比 `daily` 更大。
 3. 不建议第一版做 research 重排，除非后续确认常用查询是“单股多年资金流回测”。
+4. 如果后续常用查询转为“单股多年资金流回测”，再评审 `moneyflow_by_symbol_month` research layout，不改变 raw by_date。
 
 ---
 
@@ -268,6 +334,8 @@ lake-console sync-dataset moneyflow --ts-code 600000.SH --start-date 2026-04-01 
 是否需要专用命令：否。
 
 ### 7.3 命令示例页
+
+命令示例必须来自后端 Lake catalog，不由前端硬编码。
 
 | 标题 | 说明 | 命令 |
 |---|---|---|
@@ -295,6 +363,7 @@ lake-console sync-dataset moneyflow --ts-code 600000.SH --start-date 2026-04-01 
 2. 每个分区文件大小和修改时间。
 3. 显式计算 `row_count`。
 4. 命令示例。
+5. 风险提示：空分区、临时目录残留、小文件风险。
 
 ---
 
@@ -313,8 +382,13 @@ python3 scripts/check_docs_integrity.py
 | `test_lake_catalog_moneyflow` | catalog 字段、分组、命令示例完整 |
 | `test_lake_plan_moneyflow_trade_date` | 单日请求计划 |
 | `test_lake_plan_moneyflow_range_uses_local_trade_cal` | 区间模式使用本地交易日历 |
-| `test_lake_sync_moneyflow_replace_partition` | 按日分区原子替换 |
+| `test_lake_moneyflow_replace_partition` | 按日分区原子替换 |
+| `test_lake_moneyflow_paginates_until_short_page` | `limit=6000`、`offset` 递增直到短页 |
+| `test_lake_moneyflow_rejects_missing_required_fields` | 缺少 `trade_date/ts_code` 的行不写入 |
 | `test_lake_moneyflow_int64_volume_fields` | `*_vol` 字段使用 int64 |
+| `test_lake_moneyflow_fails_partition_on_non_integer_volume_fields` | `*_vol` 非整数格式时本交易日分区失败 |
+| `test_lake_moneyflow_does_not_write_serving_fields` | 不写 std/serving/source 等非源站字段 |
+| `test_lake_moneyflow_isolation_guardrail` | 不 import 生产 Ops/App/Frontend，不访问远程 DB |
 
 ### 9.3 真实同步冒烟
 
@@ -325,8 +399,8 @@ lake-console sync-dataset moneyflow --trade-date 2026-04-24
 
 DuckDB 验证：
 
-```sql
-select count(*) from read_parquet('<LAKE_ROOT>/raw_tushare/moneyflow/trade_date=2026-04-24/*.parquet');
+```bash
+duckdb -c "select count(*) from read_parquet('<LAKE_ROOT>/raw_tushare/moneyflow/trade_date=2026-04-24/*.parquet');"
 ```
 
 ---
@@ -338,6 +412,8 @@ select count(*) from read_parquet('<LAKE_ROOT>/raw_tushare/moneyflow/trade_date=
 | 单日返回达到分页上限 | 数据不完整 | 必须 offset 分页直到 `< limit` | 重跑分区 |
 | 空结果覆盖旧数据 | 数据丢失 | 空结果拒绝覆盖已有分区 | 保留旧分区 |
 | `*_vol` 类型过小 | 溢出 | 使用 int64 | 修正 schema 后重跑 |
+| `*_vol` 返回小数 | 污染整数口径 | 本交易日分区失败，不替换旧分区 | 排查源站返回后重跑 |
+| 误复制生产多源融合 | Lake raw 被生产 std/serving 语义污染 | 方案明确只写源站字段 | 删除错误分区后按 raw 口径重跑 |
 | 区间过大 | 请求耗时长 | `plan-sync` 展示交易日数量 | 缩小区间 |
 
 ---
@@ -346,19 +422,32 @@ select count(*) from read_parquet('<LAKE_ROOT>/raw_tushare/moneyflow/trade_date=
 
 编码前：
 
+- [ ] 已阅读 `AGENTS.md`。
+- [ ] 已阅读 `lake_console/AGENTS.md`。
+- [ ] 已确认不访问远程 DB。
 - [ ] 已确认源站文档。
 - [ ] 已确认生产 DatasetDefinition。
+- [ ] 已确认生产 request builder、row transform、writer 中可借鉴和不可复制的部分。
 - [ ] 已确认本地交易日历依赖。
 - [ ] 已确认按日分区。
 - [ ] 已确认 `*_vol` 使用 int64。
+- [ ] 已确认 `*_vol` 非整数格式会导致本交易日分区失败。
+- [ ] 已确认展示分组来自 Ops 第 10 节目标分组表。
+- [ ] 已完成数据量、文件数、文件大小估算。
+- [ ] 已确认不需要 manifest 双落盘。
+- [ ] 已确认不需要 derived/research。
+- [ ] 已确认写入策略。
 - [ ] 已确认命令示例。
 
 编码后：
 
 - [ ] `plan-sync moneyflow` 可用。
 - [ ] `sync-dataset moneyflow` 可用。
+- [ ] 命令有进度输出。
 - [ ] 写入使用 `_tmp -> validate -> replace`。
 - [ ] DuckDB 可读取。
 - [ ] 列表页不默认计算 `row_count`。
+- [ ] 详情页可展示层级与分区。
 - [ ] 命令示例页面可展示命令。
-
+- [ ] 没有 import 生产 Ops / App / Frontend。
+- [ ] 文档校验通过。
