@@ -19,6 +19,13 @@ def _actions_by_key(payload: dict) -> dict[str, dict]:
     }
 
 
+def _time_modes(action: dict) -> dict[str, dict]:
+    return {
+        item["mode"]: item
+        for item in action["time_form"]["modes"]
+    }
+
+
 def test_ops_manual_actions_rejects_non_admin(app_client, user_factory) -> None:
     user_factory(username="user", password="secret", is_admin=False)
     login = app_client.post("/api/v1/auth/login", json={"username": "user", "password": "secret"})
@@ -53,23 +60,36 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
-    assert actions["daily.maintain"]["time_form"]["control"] == "trade_date_or_range"
-    assert actions["daily.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["daily.maintain"]["time_form"]["selection_rule"] == "trading_day_only"
+    assert actions["daily.maintain"]["time_form"]["default_mode"] == "point"
+    assert [item["mode"] for item in actions["daily.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    daily_modes = _time_modes(actions["daily.maintain"])
+    assert daily_modes["point"]["control"] == "trade_date"
+    assert daily_modes["point"]["selection_rule"] == "trading_day_only"
+    assert daily_modes["range"]["control"] == "trade_date_range"
+    assert daily_modes["range"]["selection_rule"] == "trading_day_only"
     assert actions["daily.maintain"]["action_type"] == "dataset_action"
 
-    assert actions["stk_period_bar_week.maintain"]["time_form"]["control"] == "calendar_date_or_range"
-    assert actions["stk_period_bar_week.maintain"]["time_form"]["selection_rule"] == "week_friday"
-    assert actions["stk_period_bar_month.maintain"]["time_form"]["control"] == "calendar_date_or_range"
-    assert actions["stk_period_bar_month.maintain"]["time_form"]["selection_rule"] == "month_end"
-    assert actions["dividend.maintain"]["time_form"]["control"] == "calendar_date_or_range"
-    assert actions["dividend.maintain"]["time_form"]["allowed_modes"] == ["range"]
-    assert actions["broker_recommend.maintain"]["time_form"]["control"] == "month_or_range"
-    assert actions["broker_recommend.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["index_weight.maintain"]["time_form"]["control"] == "month_window_range"
-    assert actions["index_weight.maintain"]["time_form"]["allowed_modes"] == ["range"]
-    assert actions["stock_basic.maintain"]["time_form"]["control"] == "none"
-    assert actions["stock_basic.maintain"]["time_form"]["allowed_modes"] == ["none"]
+    assert _time_modes(actions["stk_period_bar_week.maintain"])["point"]["control"] == "calendar_date"
+    assert _time_modes(actions["stk_period_bar_week.maintain"])["point"]["selection_rule"] == "week_friday"
+    assert _time_modes(actions["stk_period_bar_month.maintain"])["point"]["control"] == "calendar_date"
+    assert _time_modes(actions["stk_period_bar_month.maintain"])["point"]["selection_rule"] == "month_end"
+    assert [item["mode"] for item in actions["dividend.maintain"]["time_form"]["modes"]] == ["range"]
+    assert _time_modes(actions["dividend.maintain"])["range"]["control"] == "calendar_date_range"
+    assert [item["mode"] for item in actions["broker_recommend.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["broker_recommend.maintain"])["point"]["control"] == "month"
+    assert _time_modes(actions["broker_recommend.maintain"])["range"]["control"] == "month_range"
+    assert [item["mode"] for item in actions["index_weight.maintain"]["time_form"]["modes"]] == ["range"]
+    assert _time_modes(actions["index_weight.maintain"])["range"]["control"] == "month_window_range"
+    assert [item["mode"] for item in actions["stock_basic.maintain"]["time_form"]["modes"]] == ["none"]
+    assert _time_modes(actions["stock_basic.maintain"])["none"]["control"] == "none"
+    assert actions["trade_cal.maintain"]["time_form"]["default_mode"] == "none"
+    assert [item["mode"] for item in actions["trade_cal.maintain"]["time_form"]["modes"]] == ["none", "point", "range"]
+    trade_cal_modes = _time_modes(actions["trade_cal.maintain"])
+    assert trade_cal_modes["none"]["control"] == "none"
+    assert trade_cal_modes["point"]["control"] == "calendar_date"
+    assert trade_cal_modes["point"]["selection_rule"] == "calendar_day"
+    assert trade_cal_modes["range"]["control"] == "calendar_date_range"
+    assert trade_cal_modes["range"]["selection_rule"] == "calendar_day"
 
     dc_hot_filter_keys = [item["key"] for item in actions["dc_hot.maintain"]["filters"]]
     dc_hot_filters = {item["key"]: item for item in actions["dc_hot.maintain"]["filters"]}
@@ -80,8 +100,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert dc_hot_filters["hot_type"]["default_value"] == ["人气榜", "飙升榜"]
     assert dc_hot_filters["is_new"]["default_value"] == "Y"
 
-    assert actions["stk_mins.maintain"]["time_form"]["control"] == "trade_date_or_range"
-    assert actions["stk_mins.maintain"]["time_form"]["allowed_modes"] == ["point", "range"]
+    assert [item["mode"] for item in actions["stk_mins.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["stk_mins.maintain"])["point"]["control"] == "trade_date"
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins.maintain"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
 
@@ -95,10 +115,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert dc_member_filters["idx_type"]["multi_value"] is True
     assert dc_member_filters["idx_type"]["options"] == ["行业板块", "概念板块", "地域板块"]
 
-    assert actions["workflow:daily_market_close_maintenance"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["workflow:daily_market_close_maintenance"]["time_form"]["control"] == "trade_date_or_range"
-    assert actions["workflow:daily_moneyflow_maintenance"]["time_form"]["allowed_modes"] == ["point", "range"]
-    assert actions["workflow:index_extension_maintenance"]["time_form"]["allowed_modes"] == ["range"]
+    assert [item["mode"] for item in actions["workflow:daily_market_close_maintenance"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["workflow:daily_market_close_maintenance"])["point"]["control"] == "trade_date"
+    assert [item["mode"] for item in actions["workflow:daily_moneyflow_maintenance"]["time_form"]["modes"]] == ["point", "range"]
+    assert [item["mode"] for item in actions["workflow:index_extension_maintenance"]["time_form"]["modes"]] == ["range"]
+    assert "交易日历（按完整日历刷新）" in actions["workflow:reference_data_refresh"]["description"]
 
 
 def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, db_session) -> None:
@@ -127,6 +148,22 @@ def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, 
         "time_input": {"mode": "point", "trade_date": "2026-04-24"},
         "filters": {},
     }
+
+
+def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/trade_cal.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "trade_cal"
+    assert payload["run"]["time_input"] == {"mode": "none"}
+    assert payload["run"]["filters"] == {}
 
 
 def test_ops_manual_action_task_run_returns_readable_not_found_message(app_client, user_factory) -> None:
@@ -264,7 +301,12 @@ def test_ops_manual_action_task_run_routes_natural_day_range_to_dataset_action(a
     assert response.status_code == 200
     payload = response.json()
     assert payload["run"]["resource_key"] == "dividend"
-    assert payload["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-04-24"}
+    assert payload["run"]["time_input"] == {
+        "mode": "range",
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-24",
+        "date_field": "ann_date",
+    }
     assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
 
 
@@ -302,7 +344,7 @@ def test_ops_manual_action_task_run_supports_month_and_month_window(app_client, 
 
     assert month_window.status_code == 200
     assert month_window.json()["run"]["resource_key"] == "index_weight"
-    assert month_window.json()["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-01", "end_date": "2026-06-30"}
+    assert month_window.json()["run"]["time_input"] == {"mode": "range", "start_month": "202604", "end_month": "202606"}
     assert month_window.json()["run"]["filters"] == {"index_code": "000300.SH"}
 
 

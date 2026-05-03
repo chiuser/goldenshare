@@ -533,12 +533,32 @@ export interface OpsManualActionsResponse {
         not_applicable_reason: string | null;
       } | null;
       time_form: {
-        control: "trade_date_or_range" | "calendar_date_or_range" | "month_or_range" | "month_window_range" | "none";
         default_mode: "point" | "range" | "none";
-        allowed_modes: Array<"point" | "range" | "none">;
-        selection_rule: "trading_day_only" | "week_last_trading_day" | "month_last_trading_day" | "calendar_day" | "week_friday" | "month_end" | "month_key" | "month_window" | "none";
-        point_label: string;
-        range_label: string;
+        modes: Array<{
+          mode: "point" | "range" | "none";
+          label: string;
+          description: string;
+          control:
+            | "trade_date"
+            | "trade_date_range"
+            | "calendar_date"
+            | "calendar_date_range"
+            | "month"
+            | "month_range"
+            | "month_window_range"
+            | "none";
+          selection_rule:
+            | "trading_day_only"
+            | "week_last_trading_day"
+            | "month_last_trading_day"
+            | "calendar_day"
+            | "week_friday"
+            | "month_end"
+            | "month_key"
+            | "month_window"
+            | "none";
+          date_field?: string | null;
+        }>;
       };
       filters: Array<{
         key: string;

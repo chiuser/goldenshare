@@ -398,7 +398,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'etf_basic', 'display_name': 'ETF å
                                 'manual_enabled': True,
                                 'schedule_enabled': True,
                                 'retry_enabled': True,
-                                'supported_time_modes': ('point', 'range')},)},
+                                'supported_time_modes': ('none', 'point', 'range')},)},
   'observability': {'progress_label': 'trade_cal', 'observed_field': 'trade_date', 'audit_applicable': True},
   'quality': {'reject_policy': 'record_rejections', 'required_fields': ('exchange', 'cal_date', 'is_open')},
   'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}},

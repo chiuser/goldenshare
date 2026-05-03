@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -11,7 +10,11 @@ from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
 from src.ops.action_catalog import ActionParameter
 from src.ops.queries.manual_action_query_service import ManualActionQueryService, ManualActionRoute
-from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest, ManualActionTimeInput
+from src.ops.schemas.manual_action import (
+    ManualActionTaskRunCreateRequest,
+    ManualActionTimeInput,
+    ManualActionTimeModeResponse,
+)
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
@@ -81,18 +84,19 @@ class ManualActionTaskRunResolver:
         filters = self._apply_default_filters(filters)
         time_input = body.time_input
         mode = (time_input.mode or "none").strip()
-        if mode not in self.route.time_form.allowed_modes:
+        mode_config = self.route.time_form.find_mode(mode)
+        if mode_config is None:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode}")
 
         if self.route.action_type == "dataset_action":
-            time_params = self._resolve_dataset_action_time(mode=mode, time_input=time_input)
+            time_params = self._resolve_dataset_action_time(mode_config=mode_config, time_input=time_input)
             if self.route.resource_key is None:
                 raise WebAppError(status_code=422, code="validation_error", message="手动任务资源路由未配置")
             return ResolvedManualTaskRun(
                 task_type="dataset_action",
                 resource_key=self.route.resource_key,
                 action="maintain",
-                time_input=self._dataset_time_input_payload(mode=mode, time_params=time_params),
+                time_input=self._dataset_time_input_payload(mode_config=mode_config, time_params=time_params),
                 filters=filters,
                 request_payload={},
             )
@@ -101,7 +105,7 @@ class ManualActionTaskRunResolver:
             workflow = self.route.workflow
             if workflow is None:
                 raise WebAppError(status_code=422, code="validation_error", message="手动任务工作流路由未配置")
-            time_params = self._resolve_workflow_time(mode=mode, time_input=time_input)
+            time_params = self._resolve_workflow_time(mode_config=mode_config, time_input=time_input)
             return ResolvedManualTaskRun(
                 task_type="workflow",
                 resource_key=None,
@@ -115,55 +119,69 @@ class ManualActionTaskRunResolver:
         raise WebAppError(status_code=422, code="validation_error", message="不支持的手动任务类型")
 
     @staticmethod
-    def _dataset_time_input_payload(*, mode: str, time_params: dict[str, Any]) -> dict[str, Any]:
-        payload = {"mode": mode, **time_params}
+    def _dataset_time_input_payload(
+        *,
+        mode_config: ManualActionTimeModeResponse,
+        time_params: dict[str, Any],
+    ) -> dict[str, Any]:
+        payload = {"mode": mode_config.mode, **time_params}
         if "ann_date" in time_params:
             payload["trade_date"] = time_params["ann_date"]
             payload["date_field"] = "ann_date"
+        elif mode_config.mode == "range" and mode_config.date_field == "ann_date":
+            payload["date_field"] = "ann_date"
         return payload
 
-    def _resolve_dataset_action_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
-        if mode == "none":
+    def _resolve_dataset_action_time(
+        self,
+        *,
+        mode_config: ManualActionTimeModeResponse,
+        time_input: ManualActionTimeInput,
+    ) -> dict[str, Any]:
+        if mode_config.mode == "none":
             return {}
-        input_shape = self._input_shape()
-        if mode == "point":
-            if input_shape == "month_or_range":
-                return {"month": self._require_month(time_input.month, "month")}
-            param_key = "ann_date" if input_shape == "ann_date_or_start_end" else "trade_date"
-            return {param_key: self._require_date_text(getattr(time_input, param_key), param_key)}
-        if mode == "range":
-            if input_shape == "month_or_range":
-                start_month = self._require_month(time_input.start_month, "start_month")
-                end_month = self._require_month(time_input.end_month, "end_month")
-                self._validate_month_order(start_month, end_month)
-                return {"start_month": start_month, "end_month": end_month}
-            if input_shape == "start_end_month_window":
-                start_month = self._require_month(time_input.start_month, "start_month")
-                end_month = self._require_month(time_input.end_month, "end_month")
-                self._validate_month_order(start_month, end_month)
-                return {
-                    "start_date": self._month_start_date(start_month),
-                    "end_date": self._month_end_date(end_month),
-                }
+        if mode_config.control == "month":
+            return {"month": self._require_month(time_input.month, "month")}
+        if mode_config.control == "month_range":
+            start_month = self._require_month(time_input.start_month, "start_month")
+            end_month = self._require_month(time_input.end_month, "end_month")
+            self._validate_month_order(start_month, end_month)
+            return {"start_month": start_month, "end_month": end_month}
+        if mode_config.control == "month_window_range":
+            start_month = self._require_month(time_input.start_month, "start_month")
+            end_month = self._require_month(time_input.end_month, "end_month")
+            self._validate_month_order(start_month, end_month)
+            return {"start_month": start_month, "end_month": end_month}
+        if mode_config.mode == "point":
+            field_name = "ann_date" if mode_config.date_field == "ann_date" else "trade_date"
+            return {field_name: self._require_date_text(getattr(time_input, field_name), field_name)}
+        if mode_config.mode == "range":
+            if mode_config.control in {"month", "month_range", "month_window_range"}:
+                raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode_config.mode}")
             start_date = self._require_date_text(time_input.start_date, "start_date")
             end_date = self._require_date_text(time_input.end_date, "end_date")
             self._validate_date_order(start_date, end_date)
             return {"start_date": start_date, "end_date": end_date}
-        raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode}")
+        raise WebAppError(status_code=422, code="validation_error", message=f"不支持的时间模式：{mode_config.mode}")
 
-    def _resolve_workflow_time(self, *, mode: str, time_input: ManualActionTimeInput) -> dict[str, Any]:
-        if mode == "none":
+    def _resolve_workflow_time(
+        self,
+        *,
+        mode_config: ManualActionTimeModeResponse,
+        time_input: ManualActionTimeInput,
+    ) -> dict[str, Any]:
+        if mode_config.mode == "none":
             return {}
-        if mode == "point":
-            if self.route.time_form.control == "month_or_range":
-                return {"month": self._require_month(time_input.month, "month")}
+        if mode_config.control == "month":
+            return {"month": self._require_month(time_input.month, "month")}
+        if mode_config.control == "month_range":
+            start_month = self._require_month(time_input.start_month, "start_month")
+            end_month = self._require_month(time_input.end_month, "end_month")
+            self._validate_month_order(start_month, end_month)
+            return {"start_month": start_month, "end_month": end_month}
+        if mode_config.mode == "point":
             return {"trade_date": self._require_date_text(time_input.trade_date, "trade_date")}
-        if mode == "range":
-            if self.route.time_form.control == "month_or_range":
-                start_month = self._require_month(time_input.start_month, "start_month")
-                end_month = self._require_month(time_input.end_month, "end_month")
-                self._validate_month_order(start_month, end_month)
-                return {"start_month": start_month, "end_month": end_month}
+        if mode_config.mode == "range":
             start_date = self._require_date_text(time_input.start_date, "start_date")
             end_date = self._require_date_text(time_input.end_date, "end_date")
             self._validate_date_order(start_date, end_date)
@@ -225,11 +243,6 @@ class ManualActionTaskRunResolver:
         if invalid:
             raise WebAppError(status_code=422, code="validation_error", message=f"{ManualActionTaskRunResolver._param_label(param)}不支持选项：{invalid[0]}")
 
-    def _input_shape(self) -> str:
-        if self.route.date_model is None:
-            return self.route.time_form.control
-        return self.route.date_model.input_shape
-
     @staticmethod
     def _require_date_text(value: str | None, field: str) -> str:
         if not value:
@@ -282,18 +295,6 @@ class ManualActionTaskRunResolver:
             "ann_date": "公告日期",
         }
         return labels.get(field, field)
-
-    @staticmethod
-    def _month_start_date(month: str) -> str:
-        year = int(month[:4])
-        month_value = int(month[4:6])
-        return date(year, month_value, 1).isoformat()
-
-    @staticmethod
-    def _month_end_date(month: str) -> str:
-        year = int(month[:4])
-        month_value = int(month[4:6])
-        return date(year, month_value, monthrange(year, month_value)[1]).isoformat()
 
     @staticmethod
     def _is_empty(value: Any) -> bool:

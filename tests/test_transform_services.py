@@ -9,6 +9,13 @@ def test_parse_tushare_date() -> None:
     assert parse_tushare_date("20260324").isoformat() == "2026-03-24"
 
 
+def test_parse_tushare_date_treats_pseudo_null_text_as_none() -> None:
+    assert parse_tushare_date("nan") is None
+    assert parse_tushare_date("NaT") is None
+    assert parse_tushare_date(" null ") is None
+    assert parse_tushare_date("none") is None
+
+
 def test_calculate_qfq_price() -> None:
     service = BuildAdjustedBarService()
     result = service.calculate_qfq_price(Decimal("10"), Decimal("2"), Decimal("4"))

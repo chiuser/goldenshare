@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,13 +17,45 @@ class ManualActionDateModelResponse(BaseModel):
     not_applicable_reason: str | None = None
 
 
+ManualActionTimeMode = Literal["none", "point", "range"]
+ManualActionTimeControl = Literal[
+    "none",
+    "trade_date",
+    "trade_date_range",
+    "calendar_date",
+    "calendar_date_range",
+    "month",
+    "month_range",
+    "month_window_range",
+]
+ManualActionSelectionRule = Literal[
+    "none",
+    "trading_day_only",
+    "week_last_trading_day",
+    "month_last_trading_day",
+    "calendar_day",
+    "week_friday",
+    "month_end",
+    "month_key",
+    "month_window",
+]
+
+
+class ManualActionTimeModeResponse(BaseModel):
+    mode: ManualActionTimeMode
+    label: str
+    description: str
+    control: ManualActionTimeControl
+    selection_rule: ManualActionSelectionRule
+    date_field: str | None = None
+
+
 class ManualActionTimeFormResponse(BaseModel):
-    control: str
-    default_mode: str
-    allowed_modes: list[str]
-    selection_rule: str
-    point_label: str
-    range_label: str
+    default_mode: ManualActionTimeMode
+    modes: list[ManualActionTimeModeResponse]
+
+    def find_mode(self, mode: str) -> ManualActionTimeModeResponse | None:
+        return next((item for item in self.modes if item.mode == mode), None)
 
 
 class ManualActionItemResponse(BaseModel):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from src.foundation.config.settings import get_settings
@@ -33,13 +33,7 @@ def _trade_cal_params(request, anchor_date: date | None, enum_values: dict[str, 
             "start_date": request.start_date.strftime("%Y%m%d"),
             "end_date": request.end_date.strftime("%Y%m%d"),
         }
-    end = date.today()
-    start = end - timedelta(days=30)
-    return {
-        "exchange": exchange,
-        "start_date": start.strftime("%Y%m%d"),
-        "end_date": end.strftime("%Y%m%d"),
-    }
+    return {"exchange": exchange}
 
 
 def _stk_limit_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]

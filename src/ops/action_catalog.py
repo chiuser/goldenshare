@@ -176,7 +176,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "reference_data_refresh": WorkflowDefinition(
         key="reference_data_refresh",
         display_name="基础主数据刷新",
-        description="刷新股票、交易日历、ETF 与指数基础信息。",
+        description="刷新股票、交易日历（按完整日历刷新）、ETF 与指数基础信息。",
         steps=(
             _dataset_workflow_step("stock_basic", "stock_basic"),
             _dataset_workflow_step("trade_cal", "trade_cal"),

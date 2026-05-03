@@ -147,7 +147,10 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `actions[].date_model` 来自 `DatasetDefinition.date_model`
   - `actions[].time_form` 用于前端选择日期 / 月份控件
   - `actions[].filters` 为页面可展示的非时间、非内部参数
-  - `actions[].route_keys` 仅用于从任务记录 / 自动任务返回手动页时匹配上下文，不用于前端决定执行路径
+- 关键口径：
+  - `time_form` 当前已升级为 `default_mode + modes[]`
+  - 每个 `mode item` 必须显式声明 `mode/label/description/control/selection_rule/date_field`
+  - `trade_cal.maintain` 正式支持 `none + point + range`；`mode=none` 表示不传日期，按分页拉完整交易日历
 - 鉴权：管理员。
 - 示例：
 
@@ -169,13 +172,27 @@ curl -H "Authorization: Bearer <TOKEN>" \
           "action_type": "dataset_action",
           "display_name": "维护股票日线",
           "time_form": {
-            "control": "trade_date_or_range",
             "default_mode": "point",
-            "allowed_modes": ["point", "range"],
-            "selection_rule": "trading_day_only"
+            "modes": [
+              {
+                "mode": "point",
+                "label": "只处理一天",
+                "description": "指定单个交易日。",
+                "control": "trade_date",
+                "selection_rule": "trading_day_only",
+                "date_field": "trade_date"
+              },
+              {
+                "mode": "range",
+                "label": "处理一个时间区间",
+                "description": "指定开始和结束交易日。",
+                "control": "trade_date_range",
+                "selection_rule": "trading_day_only",
+                "date_field": "trade_date"
+              }
+            ]
           },
-          "filters": [],
-          "route_keys": ["daily.maintain"]
+          "filters": []
         }
       ]
     }
@@ -197,7 +214,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ```bash
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/manual-actions/daily/task-runs" \
+  "http://127.0.0.1:8000/api/v1/ops/manual-actions/daily.maintain/task-runs" \
   -d '{
     "time_input": {"mode": "point", "trade_date": "2026-04-24"},
     "filters": {}
@@ -322,7 +339,7 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
   - 关键字段：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json`
   - `calendar_policy` 当前支持：
     - `monthly_last_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
-    - `monthly_window_current_month`：只允许用于 `month_window + month_window_has_data + start_end_month_window` 的数据集维护动作。运行时按计划触发时间所属月份生成 `start_date/end_date` 自然月窗口，不能与固定维护日期或固定窗口混用。
+    - `monthly_window_current_month`：只允许用于 `month_window + month_window_has_data + start_end_month_window` 的数据集维护动作。运行时按计划触发时间所属月份生成 `start_month/end_month` 自然月窗口意图，`DatasetActionResolver` 再展开为自然月首尾日期；不能与固定维护日期或固定窗口混用。
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -484,7 +501,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - 功能：预览调度触发时间。
 - Body：`SchedulePreviewRequest`
   - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
-  - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口在调度到点创建 TaskRun 时按计划触发时间生成。
+  - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口意图在调度到点创建 TaskRun 时按计划触发时间生成，日期展开由 `DatasetActionResolver` 完成。
 - 返回：`SchedulePreviewResponse`
 - 示例：
 

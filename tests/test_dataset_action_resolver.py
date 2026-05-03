@@ -42,6 +42,50 @@ def test_dataset_action_resolver_builds_month_point_plan(mocker) -> None:
     assert plan.units[0].request_params == {"month": "202604"}
 
 
+def test_dataset_action_resolver_rejects_month_window_plan_from_dates(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 4, 30),
+        ),
+        filters={"index_code": "000300.SH"},
+    )
+
+    with pytest.raises(ValueError, match="自然月窗口必须使用 start_month/end_month"):
+        resolver.build_plan(request)
+
+
+def test_dataset_action_resolver_builds_month_window_plan_from_month_keys(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(
+            mode="range",
+            start_month="2026-04",
+            end_month="2026-06",
+        ),
+        filters={"index_code": "000300.SH"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.time_scope.mode == "range"
+    assert plan.time_scope.start == "202604"
+    assert plan.time_scope.end == "202606"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "index_code": "000300.SH",
+        "start_date": "20260401",
+        "end_date": "20260630",
+    }
+
+
 def test_dataset_action_resolver_builds_no_time_plan(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
@@ -71,6 +115,24 @@ def test_dataset_action_resolver_builds_index_basic_full_snapshot_with_paginatio
     assert plan.time_scope.mode == "none"
     assert plan.planning.unit_count == 1
     assert plan.units[0].request_params == {}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 6000
+
+
+def test_dataset_action_resolver_builds_trade_cal_full_snapshot_without_hidden_date_window(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="trade_cal",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"exchange": "SSE"}
     assert plan.units[0].pagination_policy == "offset_limit"
     assert plan.units[0].page_limit == 6000
 

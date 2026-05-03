@@ -6,6 +6,9 @@ from decimal import Decimal
 from typing import Any
 
 
+PSEUDO_NULL_TEXTS = {"nan", "nat", "none", "null"}
+
+
 def chunked(items: list[dict[str, Any]], size: int) -> Iterator[list[dict[str, Any]]]:
     for index in range(0, len(items), size):
         yield items[index : index + size]
@@ -18,7 +21,9 @@ def parse_tushare_date(value: Any) -> date | None:
         return value
     if isinstance(value, datetime):
         return value.date()
-    text = str(value)
+    text = str(value).strip()
+    if not text or text.lower() in PSEUDO_NULL_TEXTS:
+        return None
     if len(text) == 8 and text.isdigit():
         return datetime.strptime(text, "%Y%m%d").date()
     return datetime.fromisoformat(text).date()

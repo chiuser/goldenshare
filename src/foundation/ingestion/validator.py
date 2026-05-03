@@ -41,11 +41,11 @@ class DatasetRequestValidator:
                 error_code="run_profile_unsupported",
                 message=f"{definition.display_name} 不支持按日期区间维护",
             )
-        if run_profile == "snapshot_refresh" and "none" not in action.supported_time_modes and action.supported_time_modes:
-            # Snapshot datasets often model point mode in UI, but the execution profile
-            # is still a no-time refresh. We only reject when the action advertises a
-            # constrained set that explicitly excludes snapshot usage.
-            pass
+        if run_profile == "snapshot_refresh" and "none" not in action.supported_time_modes:
+            raise self._error(
+                error_code="run_profile_unsupported",
+                message=f"{definition.display_name} 不支持按默认策略维护",
+            )
 
         normalized_params = self._normalize_input_params(request.filters, definition, strict=strict)
         time_input = request.time_input

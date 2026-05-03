@@ -19,6 +19,7 @@ from src.ops.schemas.manual_action import (
     ManualActionItemResponse,
     ManualActionListResponse,
     ManualActionTimeFormResponse,
+    ManualActionTimeModeResponse,
 )
 
 
@@ -90,12 +91,8 @@ class ManualActionQueryService:
             enum_fanout_defaults=definition.planning.enum_fanout_defaults,
         )
         action = definition.capabilities.get_action("maintain")
-        supported_modes = set(action.supported_time_modes if action else ())
-        time_form = self._time_form_from_date_model(
-            date_model,
-            supports_point_route="point" in supported_modes,
-            supports_range_route="range" in supported_modes,
-        )
+        supported_modes = tuple(action.supported_time_modes if action else ())
+        time_form = self._time_form_from_date_model(date_model, supported_time_modes=supported_modes)
         return ManualActionRoute(
             action_key=action_key,
             action_type="dataset_action",
@@ -158,88 +155,171 @@ class ManualActionQueryService:
         return tuple(filters.values())
 
     @staticmethod
-    def _time_form_from_params(params: Iterable[ActionParameter]) -> ManualActionTimeFormResponse:
-        keys = {param.key for param in params}
-        allowed_modes: list[str] = []
-        control = "none"
-        selection_rule = "none"
-        if "trade_date" in keys:
-            control = "trade_date_or_range"
-            selection_rule = "trading_day_only"
-            allowed_modes.append("point")
-        if {"start_date", "end_date"}.issubset(keys):
-            control = "trade_date_or_range"
-            selection_rule = "trading_day_only"
-            allowed_modes.append("range")
-        if "month" in keys:
-            control = "month_or_range"
-            selection_rule = "month_key"
-            allowed_modes.append("point")
-        if {"start_month", "end_month"}.issubset(keys):
-            control = "month_or_range"
-            selection_rule = "month_key"
-            allowed_modes.append("range")
-        if not allowed_modes:
-            allowed_modes = ["none"]
-        return ManualActionTimeFormResponse(
+    def _mode_response(
+        *,
+        mode: str,
+        label: str,
+        description: str,
+        control: str,
+        selection_rule: str,
+        date_field: str | None = None,
+    ) -> ManualActionTimeModeResponse:
+        return ManualActionTimeModeResponse(
+            mode=mode,
+            label=label,
+            description=description,
             control=control,
-            default_mode=allowed_modes[0],
-            allowed_modes=allowed_modes,
             selection_rule=selection_rule,
-            point_label="只处理一天" if control != "month_or_range" else "只处理一个月",
-            range_label="处理一个时间区间" if control != "month_or_range" else "处理一个月份区间",
+            date_field=date_field,
+        )
+
+    @classmethod
+    def _none_mode_response(cls, *, description: str) -> ManualActionTimeModeResponse:
+        return cls._mode_response(
+            mode="none",
+            label="按默认策略处理",
+            description=description,
+            control="none",
+            selection_rule="none",
         )
 
     @staticmethod
+    def _time_form(modes: list[ManualActionTimeModeResponse]) -> ManualActionTimeFormResponse:
+        return ManualActionTimeFormResponse(
+            default_mode=modes[0].mode,
+            modes=modes,
+        )
+
+    @classmethod
+    def _time_form_from_params(cls, params: Iterable[ActionParameter]) -> ManualActionTimeFormResponse:
+        keys = {param.key for param in params}
+        modes: list[ManualActionTimeModeResponse] = []
+        if "trade_date" in keys:
+            modes.append(
+                cls._mode_response(
+                    mode="point",
+                    label="只处理一天",
+                    description="指定单个交易日。",
+                    control="trade_date",
+                    selection_rule="trading_day_only",
+                    date_field="trade_date",
+                )
+            )
+        if {"start_date", "end_date"}.issubset(keys):
+            modes.append(
+                cls._mode_response(
+                    mode="range",
+                    label="处理一个时间区间",
+                    description="指定开始和结束交易日。",
+                    control="trade_date_range",
+                    selection_rule="trading_day_only",
+                    date_field="trade_date",
+                )
+            )
+        if "month" in keys:
+            modes.append(
+                cls._mode_response(
+                    mode="point",
+                    label="只处理一个月",
+                    description="指定单个月份。",
+                    control="month",
+                    selection_rule="month_key",
+                )
+            )
+        if {"start_month", "end_month"}.issubset(keys):
+            modes.append(
+                cls._mode_response(
+                    mode="range",
+                    label="处理一个月份区间",
+                    description="指定开始月份和结束月份。",
+                    control="month_range",
+                    selection_rule="month_key",
+                )
+            )
+        if not modes:
+            modes = [cls._none_mode_response(description="不填写时间条件，按该工作流默认策略执行。")]
+        return cls._time_form(modes)
+
+    @classmethod
     def _time_form_from_date_model(
+        cls,
         date_model: DatasetDateModel,
         *,
-        supports_point_route: bool,
-        supports_range_route: bool,
+        supported_time_modes: tuple[str, ...],
     ) -> ManualActionTimeFormResponse:
         if date_model.input_shape == "none" or date_model.window_mode == "none":
-            return ManualActionTimeFormResponse(
-                control="none",
-                default_mode="none",
-                allowed_modes=["none"],
-                selection_rule="none",
-                point_label="",
-                range_label="",
+            return cls._time_form([cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")])
+
+        modes = [
+            mode_item
+            for mode in supported_time_modes
+            if (mode_item := cls._dataset_mode_from_date_model(date_model, mode)) is not None
+        ]
+        if not modes:
+            return cls._time_form([cls._none_mode_response(description="不填写时间条件，按该维护对象默认策略执行。")])
+        return cls._time_form(modes)
+
+    @classmethod
+    def _dataset_mode_from_date_model(
+        cls,
+        date_model: DatasetDateModel,
+        mode: str,
+    ) -> ManualActionTimeModeResponse | None:
+        if mode == "none":
+            return cls._none_mode_response(description="不填写日期，按该维护对象的默认 no-time 语义执行。")
+
+        selection_rule = cls._selection_rule(date_model)
+        natural_day_mode = date_model.date_axis == "natural_day" or date_model.input_shape == "ann_date_or_start_end"
+        point_date_field = "ann_date" if date_model.input_shape == "ann_date_or_start_end" else "trade_date"
+
+        if mode == "point":
+            if date_model.input_shape == "month_or_range":
+                return cls._mode_response(
+                    mode="point",
+                    label="只处理一个月",
+                    description="指定单个月份。",
+                    control="month",
+                    selection_rule=selection_rule,
+                )
+            if date_model.window_mode not in {"point", "point_or_range"}:
+                return None
+            return cls._mode_response(
+                mode="point",
+                label="只处理一天",
+                description="指定单个日期。",
+                control="calendar_date" if natural_day_mode else "trade_date",
+                selection_rule=selection_rule,
+                date_field=point_date_field,
             )
 
-        if date_model.input_shape == "month_or_range":
-            control = "month_or_range"
-            point_label = "只处理一个月"
-            range_label = "处理一个月份区间"
-        elif date_model.input_shape == "start_end_month_window":
-            control = "month_window_range"
-            point_label = ""
-            range_label = "处理一个自然月窗口"
-        elif date_model.date_axis == "natural_day" or date_model.input_shape == "ann_date_or_start_end":
-            control = "calendar_date_or_range"
-            point_label = "只处理一天"
-            range_label = "处理一个时间区间"
-        else:
-            control = "trade_date_or_range"
-            point_label = "只处理一天"
-            range_label = "处理一个时间区间"
-
-        allowed_modes: list[str] = []
-        if date_model.window_mode in {"point", "point_or_range"} and supports_point_route:
-            allowed_modes.append("point")
-        if date_model.window_mode in {"range", "point_or_range"} and supports_range_route:
-            allowed_modes.append("range")
-        if not allowed_modes:
-            allowed_modes = ["none"]
-
-        return ManualActionTimeFormResponse(
-            control=control,
-            default_mode=allowed_modes[0],
-            allowed_modes=allowed_modes,
-            selection_rule=ManualActionQueryService._selection_rule(date_model),
-            point_label=point_label,
-            range_label=range_label,
-        )
+        if mode == "range":
+            if date_model.input_shape == "month_or_range":
+                return cls._mode_response(
+                    mode="range",
+                    label="处理一个月份区间",
+                    description="指定开始月份和结束月份。",
+                    control="month_range",
+                    selection_rule=selection_rule,
+                )
+            if date_model.input_shape == "start_end_month_window":
+                return cls._mode_response(
+                    mode="range",
+                    label="处理一个自然月窗口",
+                    description="指定开始月份和结束月份，系统会自动换算为自然月日期区间。",
+                    control="month_window_range",
+                    selection_rule=selection_rule,
+                )
+            if date_model.window_mode not in {"range", "point_or_range"}:
+                return None
+            return cls._mode_response(
+                mode="range",
+                label="处理一个时间区间",
+                description="指定开始日期和结束日期。",
+                control="calendar_date_range" if natural_day_mode else "trade_date_range",
+                selection_rule=selection_rule,
+                date_field=point_date_field,
+            )
+        return None
 
     @staticmethod
     def _selection_rule(date_model: DatasetDateModel) -> str:

@@ -52,6 +52,33 @@ def test_cctv_news_normalizer_keeps_source_date_and_builds_row_hash() -> None:
     assert len(normalized["row_key_hash"]) == 64
 
 
+def test_trade_cal_normalizer_treats_nan_pretrade_date_as_null() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("trade_cal"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-trade-cal",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "exchange": "SSE",
+                    "cal_date": "20260424",
+                    "is_open": "1",
+                    "pretrade_date": "nan",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["cal_date"] == date(2026, 4, 24)
+    assert normalized["trade_date"] == date(2026, 4, 24)
+    assert normalized["pretrade_date"] is None
+    assert normalized["is_open"] is True
+
+
 def test_major_news_normalizer_parses_pub_time_and_builds_row_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("major_news"),

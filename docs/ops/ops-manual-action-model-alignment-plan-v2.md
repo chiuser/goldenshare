@@ -1,8 +1,15 @@
 # 手动维护动作模型收敛方案 v2
 
-更新时间：2026-04-24  
+更新时间：2026-05-03  
 状态：当前执行口径  
 适用范围：`src/ops/api/*`、`src/ops/queries/*`、`src/ops/schemas/*`、`src/ops/services/*`、`frontend/src/pages/ops-v21-task-manual-tab.tsx`
+
+时间模式升级现状：
+
+1. 本文描述的是当前已上线执行口径。
+2. `time_form` 已升级为 `default_mode + modes[]` 结构。
+3. `trade_cal` 已正式支持 `none + point + range`，`mode=none` 不再代表最近 30 天，而是“不传日期，分页拉完整交易日历”。
+4. 设计与实施过程见 [Ops 手动维护时间模式升级方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-time-mode-upgrade-plan-v1.md)。
 
 ---
 
@@ -84,17 +91,29 @@ GET /api/v1/ops/manual-actions
             "not_applicable_reason": null
           },
           "time_form": {
-            "control": "trade_date_or_range",
             "default_mode": "point",
-            "allowed_modes": ["point", "range"],
-            "selection_rule": "trading_day_only",
-            "point_label": "只处理一天",
-            "range_label": "处理一个时间区间"
+            "modes": [
+              {
+                "mode": "point",
+                "label": "只处理一天",
+                "description": "指定单个交易日。",
+                "control": "trade_date",
+                "selection_rule": "trading_day_only",
+                "date_field": "trade_date"
+              },
+              {
+                "mode": "range",
+                "label": "处理一个时间区间",
+                "description": "指定开始和结束交易日。",
+                "control": "trade_date_range",
+                "selection_rule": "trading_day_only",
+                "date_field": "trade_date"
+              }
+            ]
           },
           "filters": [],
           "search_keywords": ["daily", "股票日线", "日线"],
-          "action_order": 100,
-          "route_keys": ["daily.maintain"]
+          "action_order": 100
         }
       ]
     }
@@ -104,9 +123,9 @@ GET /api/v1/ops/manual-actions
 
 说明：
 
-1. `route_keys` 只用于“从任务记录 / 自动任务配置返回手动页时”的上下文匹配。
-2. 前端不得用 `route_keys` 自行决定执行路径；提交时仍必须调用 `POST /ops/manual-actions/{action_key}/task-runs`。
-3. `route_keys` 只表达“哪些后端返回的 action/workflow key 可以回填到这个用户动作”，不表达执行路径。
+1. `time_form` 当前是按 `mode` 明细化的正式结构，不再使用旧 `control + allowed_modes + point_label/range_label` 扁平模型。
+2. 前端不得自行反推执行路径；提交时仍必须调用 `POST /ops/manual-actions/{action_key}/task-runs`。
+3. `trade_cal` 的 `mode=none` 口径已经收口为“完整交易日历刷新”，不能再按旧的最近 30 天窗口理解。
 
 ### 4.2 按 action 发起 TaskRun
 
@@ -151,7 +170,7 @@ POST /api/v1/ops/manual-actions/{action_key}/task-runs
 
 1. `ann_date_or_start_end` 当前用于 `dividend` / `stk_holdernumber`，前端展示为自然日区间。
 2. 低频事件的自然日区间提交后，后端保留自然日 `start_date/end_date`，由 DatasetExecutionPlan 执行自然日 unit 规划。
-3. `start_end_month_window` 当前用于 `index_weight`，前端提交 `start_month/end_month`，后端转换为自然月首日到末日的 `start_date/end_date`，再由 DatasetExecutionPlan 生成指数权重维护 unit。
+3. `start_end_month_window` 当前用于 `index_weight`，前端和 Ops 提交 `start_month/end_month` 表达自然月窗口意图；自然月首日到末日的 `start_date/end_date` 只能由 `DatasetActionResolver` 在生成 DatasetExecutionPlan 时展开。
 
 `bucket_rule` 映射：
 

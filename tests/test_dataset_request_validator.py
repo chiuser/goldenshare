@@ -35,6 +35,17 @@ def test_snapshot_refresh_rejects_time_anchor() -> None:
     assert exc_info.value.structured_error.error_code == "time_anchor_not_allowed"
 
 
+def test_snapshot_refresh_rejects_dataset_without_declared_none_mode() -> None:
+    with pytest.raises(IngestionValidationError) as exc_info:
+        _validate(
+            dataset_key="daily",
+            run_profile="snapshot_refresh",
+            time_input=DatasetTimeInput(mode="none"),
+        )
+
+    assert exc_info.value.structured_error.error_code == "run_profile_unsupported"
+
+
 def test_validator_rejects_forbidden_sentinel_input() -> None:
     with pytest.raises(IngestionValidationError) as exc_info:
         _validate(

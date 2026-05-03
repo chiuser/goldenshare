@@ -37,11 +37,12 @@ import { TradeDateField, type TradeDateSelectionRule } from "../shared/ui/trade-
 type ManualActionGroup = OpsManualActionsResponse["groups"][number];
 type ManualActionApiItem = ManualActionGroup["actions"][number];
 type ManualActionFilter = ManualActionApiItem["filters"][number];
+type ManualActionTimeMode = ManualActionApiItem["time_form"]["default_mode"];
+type ManualActionTimeModeConfig = ManualActionApiItem["time_form"]["modes"][number];
 type ManualAction = ManualActionApiItem & {
   groupKey: string;
   groupLabel: string;
 };
-type ManualDateMode = "single_point" | "time_range";
 
 type ActionGuidance = {
   title: string;
@@ -61,7 +62,7 @@ const MANUAL_RECENT_ACTIONS_STORAGE_KEY = "goldenshare.frontend.ops.task-center.
 function buildEmptyDraft() {
   return {
     action_id: "",
-    date_mode: "single_point" as ManualDateMode,
+    time_mode: "none" as ManualActionTimeMode,
     selected_date: "",
     start_date: "",
     end_date: "",
@@ -153,6 +154,17 @@ function findManualAction(actions: ManualAction[], actionId: string) {
   return actions.find((action) => action.action_key === actionId) || null;
 }
 
+function findTimeModeConfig(action: ManualAction, mode: string | null | undefined): ManualActionTimeModeConfig | null {
+  const modes = Array.isArray(action.time_form.modes) ? action.time_form.modes : [];
+  if (mode) {
+    const matched = modes.find((item) => item.mode === mode);
+    if (matched) {
+      return matched;
+    }
+  }
+  return modes[0] || null;
+}
+
 function matchesActionKey(action: ManualAction, actionType: string | null, actionKey: string | null) {
   if (!actionKey) {
     return false;
@@ -181,59 +193,49 @@ export function resolveDraftOnDomainChange(current: ManualDraft, nextDomain: str
   return buildEmptyDraft();
 }
 
-function hasTimeInput(action: ManualAction) {
-  return action.time_form.control !== "none" && !action.time_form.allowed_modes.includes("none");
+function shouldRenderTimeSection(action: ManualAction) {
+  const modes = Array.isArray(action.time_form.modes) ? action.time_form.modes : [];
+  return !(modes.length === 1 && modes[0]?.control === "none");
 }
 
-function supportsPoint(action: ManualAction) {
-  return action.time_form.allowed_modes.includes("point");
+function isCalendarDateMode(modeConfig: ManualActionTimeModeConfig | null) {
+  return modeConfig?.control === "calendar_date" || modeConfig?.control === "calendar_date_range";
 }
 
-function supportsRange(action: ManualAction) {
-  return action.time_form.allowed_modes.includes("range");
+function isMonthMode(modeConfig: ManualActionTimeModeConfig | null) {
+  return modeConfig?.control === "month"
+    || modeConfig?.control === "month_range"
+    || modeConfig?.control === "month_window_range";
 }
 
-function isSinglePoint(action: ManualAction, draft: ManualDraft) {
-  if (supportsPoint(action) && supportsRange(action)) {
-    return draft.date_mode === "single_point";
-  }
-  return supportsPoint(action);
+function isPointMode(modeConfig: ManualActionTimeModeConfig | null) {
+  return modeConfig?.mode === "point";
 }
 
-function inferCalendarDateRule(action: ManualAction | null): DateSelectionRule {
-  if (!action) {
+function inferCalendarDateRule(modeConfig: ManualActionTimeModeConfig | null): DateSelectionRule {
+  if (!modeConfig) {
     return "any";
   }
-  if (action.time_form.selection_rule === "week_friday") {
+  if (modeConfig.selection_rule === "week_friday") {
     return "week_friday";
   }
-  if (action.time_form.selection_rule === "month_end") {
+  if (modeConfig.selection_rule === "month_end") {
     return "month_end";
   }
   return "any";
 }
 
-function inferTradeDateRule(action: ManualAction | null): TradeDateSelectionRule {
-  if (!action) {
+function inferTradeDateRule(modeConfig: ManualActionTimeModeConfig | null): TradeDateSelectionRule {
+  if (!modeConfig) {
     return "any";
   }
-  if (action.time_form.selection_rule === "week_last_trading_day") {
+  if (modeConfig.selection_rule === "week_last_trading_day") {
     return "week_last_trading_day";
   }
-  if (action.time_form.selection_rule === "month_last_trading_day") {
+  if (modeConfig.selection_rule === "month_last_trading_day") {
     return "month_end";
   }
   return "any";
-}
-
-function isCalendarDateAction(action: ManualAction) {
-  return action.time_form.control === "calendar_date_or_range"
-    || action.time_form.selection_rule === "week_friday"
-    || action.time_form.selection_rule === "month_end";
-}
-
-function isMonthAction(action: ManualAction) {
-  return action.time_form.control === "month_or_range" || action.time_form.control === "month_window_range";
 }
 
 function buildFieldValues(paramsJson: unknown) {
@@ -264,15 +266,23 @@ function buildDraftFromParams(
   const month = typeof params.month === "string" ? params.month : "";
   const startMonth = typeof params.start_month === "string" ? params.start_month : "";
   const endMonth = typeof params.end_month === "string" ? params.end_month : "";
-  const dateMode: ManualDateMode = (tradeDate || annDate || month) ? "single_point" : "time_range";
+  const explicitMode = typeof params.mode === "string" ? params.mode : "";
+  const timeMode: ManualActionTimeMode =
+    explicitMode === "point" || explicitMode === "range" || explicitMode === "none"
+      ? explicitMode
+      : (tradeDate || annDate || month)
+        ? "point"
+        : (startDate || endDate || startMonth || endMonth)
+          ? "range"
+          : "none";
   return {
     ...current,
     action_id: action.action_key,
-    date_mode: dateMode,
-    selected_date: tradeDate || annDate || startDate || current.selected_date,
+    time_mode: timeMode,
+    selected_date: tradeDate || annDate || current.selected_date,
     start_date: startDate,
     end_date: endDate,
-    selected_month: month || startMonth || current.selected_month,
+    selected_month: month || current.selected_month,
     start_month: startMonth,
     end_month: endMonth,
     field_values: mergeDefaultFieldValues(action, fieldValues),
@@ -328,16 +338,13 @@ async function recoverCreatedTaskRunId(input: CreateRecoveryState): Promise<numb
   return null;
 }
 
-function buildDraftForActionSelection(action: ManualAction | string): ManualDraft {
-  const actionId = typeof action === "string" ? action : action.action_key;
-  const defaultMode = typeof action === "string" ? "point" : action.time_form.default_mode;
+function buildDraftForActionSelection(action: ManualAction): ManualDraft {
   const draft = buildEmptyDraft();
-  const dateMode: ManualDateMode = defaultMode === "range" ? "time_range" : "single_point";
   return {
     ...draft,
-    action_id: actionId,
-    date_mode: dateMode,
-    field_values: typeof action === "string" ? {} : buildDefaultFieldValues(action),
+    action_id: action.action_key,
+    time_mode: action.time_form.default_mode,
+    field_values: buildDefaultFieldValues(action),
   };
 }
 
@@ -406,33 +413,35 @@ function buildManualActionRequest(action: ManualAction, draft: ManualDraft): Ops
     }
   }
 
-  if (!hasTimeInput(action)) {
+  const modeConfig = findTimeModeConfig(action, draft.time_mode);
+  if (!modeConfig || modeConfig.mode === "none") {
     return { time_input: { mode: "none" }, filters };
   }
 
-  if (isSinglePoint(action, draft)) {
-    if (isMonthAction(action)) {
-      if (!draft.selected_month) {
-        throw new Error("请选择要处理的月份。");
-      }
-      return { time_input: { mode: "point", month: draft.selected_month }, filters };
+  if (modeConfig.control === "month") {
+    if (!draft.selected_month) {
+      throw new Error("请选择要处理的月份。");
     }
-    if (!draft.selected_date) {
-      throw new Error("请选择要处理的日期。");
-    }
-    if (action.date_model?.input_shape === "ann_date_or_start_end") {
-      return { time_input: { mode: "point", ann_date: draft.selected_date }, filters };
-    }
-    return { time_input: { mode: "point", trade_date: draft.selected_date }, filters };
+    return { time_input: { mode: "point", month: draft.selected_month }, filters };
   }
 
-  if (isMonthAction(action)) {
+  if (modeConfig.control === "month_range" || modeConfig.control === "month_window_range") {
     const startMonth = draft.start_month || draft.selected_month;
     const endMonth = draft.end_month || draft.selected_month;
     if (!startMonth || !endMonth) {
       throw new Error("请选择开始月份和结束月份。");
     }
     return { time_input: { mode: "range", start_month: startMonth, end_month: endMonth }, filters };
+  }
+
+  if (modeConfig.mode === "point") {
+    if (!draft.selected_date) {
+      throw new Error("请选择要处理的日期。");
+    }
+    if (modeConfig.date_field === "ann_date") {
+      return { time_input: { mode: "point", ann_date: draft.selected_date }, filters };
+    }
+    return { time_input: { mode: "point", trade_date: draft.selected_date }, filters };
   }
 
   const startDate = draft.start_date || draft.selected_date;
@@ -445,18 +454,10 @@ function buildManualActionRequest(action: ManualAction, draft: ManualDraft): Ops
       mode: "range",
       start_date: startDate,
       end_date: endDate,
-      date_field: action.date_model?.input_shape === "ann_date_or_start_end" ? "ann_date" : undefined,
+      date_field: modeConfig.date_field === "ann_date" ? "ann_date" : undefined,
     },
     filters,
   };
-}
-
-function getPointLabel(action: ManualAction) {
-  return action.time_form.point_label || "只处理一天";
-}
-
-function getRangeLabel(action: ManualAction) {
-  return action.time_form.range_label || "处理一个时间区间";
 }
 
 function readSearchString(search: Record<string, unknown>, key: string): string | null {
@@ -540,12 +541,17 @@ export function OpsManualTaskTab() {
     () => findManualAction(manualActions, draft.action_id),
     [draft.action_id, manualActions],
   );
+  const selectedTimeMode = useMemo(
+    () => selectedAction ? findTimeModeConfig(selectedAction, draft.time_mode) : null,
+    [draft.time_mode, selectedAction],
+  );
   const effectiveFieldValues = useMemo(
     () => selectedAction ? mergeDefaultFieldValues(selectedAction, draft.field_values) : draft.field_values,
     [draft.field_values, selectedAction],
   );
-  const selectedCalendarDateRule = useMemo(() => inferCalendarDateRule(selectedAction), [selectedAction]);
-  const selectedTradeDateRule = useMemo(() => inferTradeDateRule(selectedAction), [selectedAction]);
+  const selectedCalendarDateRule = useMemo(() => inferCalendarDateRule(selectedTimeMode), [selectedTimeMode]);
+  const selectedTradeDateRule = useMemo(() => inferTradeDateRule(selectedTimeMode), [selectedTimeMode]);
+  const showTimeSection = useMemo(() => selectedAction ? shouldRenderTimeSection(selectedAction) : false, [selectedAction]);
   const singleTradeCalendar = useTradeCalendarField({ value: draft.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: draft.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: draft.end_date });
@@ -583,7 +589,7 @@ export function OpsManualTaskTab() {
         }
         return {
           ...base,
-          date_mode: "single_point",
+          time_mode: "point",
           selected_date: prefillTradeDate,
           start_date: prefillTradeDate,
           end_date: prefillTradeDate,
@@ -781,29 +787,26 @@ export function OpsManualTaskTab() {
                     </AlertBar>
                   ) : null}
 
-                  {hasTimeInput(selectedAction) ? (
+                  {showTimeSection ? (
                     <Stack gap="xs">
                       <Text fw={700}>第二步：选择时间范围</Text>
 
-                      {(supportsPoint(selectedAction) && supportsRange(selectedAction)) ? (
+                      {selectedAction.time_form.modes.length > 1 ? (
                         <SimpleGrid cols={{ base: 1, md: 2 }}>
-                          <Button
-                            variant={draft.date_mode === "single_point" ? "filled" : "light"}
-                            onClick={() => setDraft((current) => ({ ...current, date_mode: "single_point" }))}
-                          >
-                            {getPointLabel(selectedAction)}
-                          </Button>
-                          <Button
-                            variant={draft.date_mode === "time_range" ? "filled" : "light"}
-                            onClick={() => setDraft((current) => ({ ...current, date_mode: "time_range" }))}
-                          >
-                            {getRangeLabel(selectedAction)}
-                          </Button>
+                          {selectedAction.time_form.modes.map((mode) => (
+                            <Button
+                              key={mode.mode}
+                              variant={selectedTimeMode?.mode === mode.mode ? "filled" : "light"}
+                              onClick={() => setDraft((current) => ({ ...current, time_mode: mode.mode }))}
+                            >
+                              {mode.label}
+                            </Button>
+                          ))}
                         </SimpleGrid>
                       ) : null}
 
-                      {isSinglePoint(selectedAction, draft) ? (
-                        isMonthAction(selectedAction) ? (
+                      {!selectedTimeMode || selectedTimeMode.control === "none" ? null : isPointMode(selectedTimeMode) ? (
+                        isMonthMode(selectedTimeMode) ? (
                           <MonthField
                             label="选择月份"
                             placeholder="请选择月份"
@@ -817,7 +820,7 @@ export function OpsManualTaskTab() {
                               }))
                             }
                           />
-                        ) : isCalendarDateAction(selectedAction) ? (
+                        ) : isCalendarDateMode(selectedTimeMode) ? (
                           <DateField
                             label="选择日期"
                             placeholder="请选择日期"
@@ -852,7 +855,7 @@ export function OpsManualTaskTab() {
                         )
                       ) : (
                         <SimpleGrid cols={{ base: 1, md: 2 }}>
-                          {isMonthAction(selectedAction) ? (
+                          {isMonthMode(selectedTimeMode) ? (
                             <>
                               <MonthField
                                 label="开始月份"
@@ -877,7 +880,7 @@ export function OpsManualTaskTab() {
                                 }
                               />
                             </>
-                          ) : isCalendarDateAction(selectedAction) ? (
+                          ) : isCalendarDateMode(selectedTimeMode) ? (
                             <>
                               <DateField
                                 label="开始日期"
@@ -939,7 +942,7 @@ export function OpsManualTaskTab() {
 
                   {selectedAction.filters.length ? (
                     <Stack gap="xs">
-                      <Text fw={700}>{hasTimeInput(selectedAction) ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
+                      <Text fw={700}>{showTimeSection ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
                       <Grid>
                         {selectedAction.filters.map((param) => (
                           <Grid.Col key={param.key} span={{ base: 12, md: 6 }}>
