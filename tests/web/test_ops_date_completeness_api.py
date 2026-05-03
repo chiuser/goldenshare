@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy import text
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 
@@ -352,3 +353,62 @@ def test_date_completeness_worker_executes_queued_run_and_records_gaps(app_clien
             "created_at": gaps_response.json()["items"][0]["created_at"],
         }
     ]
+
+
+def test_date_completeness_worker_filters_actual_buckets_for_shared_period_table(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.execute(
+        text(
+            """
+            create table core_serving.stk_period_bar (
+                trade_date date not null,
+                freq text not null,
+                ts_code text not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core_serving.stk_period_bar (trade_date, freq, ts_code)
+            values
+              ('2026-01-23', 'week', '000001.SZ'),
+              ('2026-01-30', 'month', '000001.SZ')
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "stk_period_bar_week",
+            "start_date": "2026-01-23",
+            "end_date": "2026-01-30",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "stk_period_bar_week"
+    assert run.row_identity_filters_json == {"freq": "week"}
+    assert run.expected_bucket_count == 2
+    assert run.actual_bucket_count == 1
+    assert run.missing_bucket_count == 1
+    assert run.result_status == "failed"
+
+    stored_run = db_session.get(DatasetDateCompletenessRun, run.id)
+    assert stored_run is not None
+    assert stored_run.row_identity_filters_json == {"freq": "week"}
+
+    gaps_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}/gaps", headers=headers)
+    assert gaps_response.status_code == 200
+    assert gaps_response.json()["items"][0]["range_start"] == "2026-01-30"

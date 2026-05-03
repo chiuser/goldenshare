@@ -112,6 +112,22 @@ flowchart LR
 2. `audit_applicable=false` 时必须有 `not_applicable_reason`。
 3. `DatasetDefinition.observability.observed_field` 与 `date_model.observed_field` 若不一致，视为 Definition 配置错误，审计模块不得兜底。
 4. `dividend` / `stk_holdernumber` 等低频事件型数据，也以 Definition 的 date model 为准；如果业务口径要变，必须先改 Definition。
+5. 多个逻辑数据集共用同一目标表与同一观测字段时，必须由 `DatasetDefinition.storage.row_identity_filters` 显式声明行级归属条件；审计 SQL 不得按 `dataset_key` 硬编码。
+
+`row_identity_filters` 是存储事实，不是审计专用规则。第一版只允许简单等值过滤，例如股票周/月线共用 `core_serving.stk_period_bar` 时：
+
+| 数据集 | 目标表 | 观测字段 | 实际桶过滤 |
+|---|---|---|---|
+| `stk_period_bar_week` | `core_serving.stk_period_bar` | `trade_date` | `freq=week` |
+| `stk_period_bar_month` | `core_serving.stk_period_bar` | `trade_date` | `freq=month` |
+| `stk_period_bar_adj_week` | `core_serving.stk_period_bar_adj` | `trade_date` | `freq=week` |
+| `stk_period_bar_adj_month` | `core_serving.stk_period_bar_adj` | `trade_date` | `freq=month` |
+
+约束：
+
+1. 过滤字段必须是合法列名。
+2. 过滤值只允许字符串、整数、布尔值。
+3. 过滤条件必须通过 SQL 参数绑定消费，不允许拼接 raw SQL。
 
 ### 3.2 日期桶规则
 
@@ -153,6 +169,7 @@ flowchart LR
 | `window_mode` | varchar(32) | `date_model.window_mode` 快照 |
 | `input_shape` | varchar(32) | `date_model.input_shape` 快照 |
 | `observed_field` | varchar(64) | 实际桶观测字段快照 |
+| `row_identity_filters_json` | json | 目标表行级归属过滤条件快照 |
 | `expected_bucket_count` | int | 期望桶数量 |
 | `actual_bucket_count` | int | 实际桶数量 |
 | `missing_bucket_count` | int | 缺失桶数量 |

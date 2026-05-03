@@ -64,13 +64,17 @@ def test_stk_period_bar_definitions_use_calendar_source_anchors() -> None:
     assert weekly.date_model.date_axis == "natural_day"
     assert weekly.date_model.bucket_rule == "week_friday"
     assert weekly.date_model.selection_rule() == "week_friday"
+    assert weekly.storage.row_identity_filters == {"freq": "week"}
     assert adj_weekly.date_model.date_axis == "natural_day"
     assert adj_weekly.date_model.bucket_rule == "week_friday"
+    assert adj_weekly.storage.row_identity_filters == {"freq": "week"}
     assert monthly.date_model.date_axis == "natural_day"
     assert monthly.date_model.bucket_rule == "month_last_calendar_day"
     assert monthly.date_model.selection_rule() == "month_end"
+    assert monthly.storage.row_identity_filters == {"freq": "month"}
     assert adj_monthly.date_model.date_axis == "natural_day"
     assert adj_monthly.date_model.bucket_rule == "month_last_calendar_day"
+    assert adj_monthly.storage.row_identity_filters == {"freq": "month"}
     assert index_weekly.date_model.bucket_rule == "week_last_open_day"
     assert index_monthly.date_model.bucket_rule == "month_last_open_day"
 

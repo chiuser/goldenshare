@@ -215,9 +215,11 @@ class ActualBucketReader:
         date_axis: str,
         start_date: date,
         end_date: date,
+        row_identity_filters: dict | None = None,
     ) -> set[date]:
         table_sql = self._sql_table_identifier(target_table)
         field_sql = self._sql_column_identifier(observed_field)
+        filter_sql, filter_params = self._row_identity_filter_clause(row_identity_filters or {})
         if date_axis == "month_key":
             rows = session.execute(
                 text(
@@ -225,9 +227,14 @@ class ActualBucketReader:
                     select distinct {field_sql} as bucket_value
                     from {table_sql}
                     where {field_sql} between :start_month and :end_month
+                    {filter_sql}
                     """
                 ),
-                {"start_month": start_date.strftime("%Y%m"), "end_month": end_date.strftime("%Y%m")},
+                {
+                    "start_month": start_date.strftime("%Y%m"),
+                    "end_month": end_date.strftime("%Y%m"),
+                    **filter_params,
+                },
             ).all()
             return {self._month_key_to_date(row.bucket_value) for row in rows if row.bucket_value is not None}
 
@@ -237,14 +244,30 @@ class ActualBucketReader:
                 select distinct {field_sql} as bucket_value
                 from {table_sql}
                 where {field_sql} between :start_date and :end_date
+                {filter_sql}
                 """
             ),
-            {"start_date": start_date, "end_date": end_date},
+            {"start_date": start_date, "end_date": end_date, **filter_params},
         ).all()
         values = {self._value_to_date(row.bucket_value) for row in rows if row.bucket_value is not None}
         if date_axis == "month_window":
             return {date(value.year, value.month, 1) for value in values}
         return values
+
+    def _row_identity_filter_clause(self, filters: dict) -> tuple[str, dict[str, object]]:
+        clauses: list[str] = []
+        params: dict[str, object] = {}
+        for index, key in enumerate(sorted(filters)):
+            column_sql = self._sql_column_identifier(str(key))
+            value = filters[key]
+            if not isinstance(value, (str, int, bool)):
+                raise ValueError(f"审计实际桶过滤值无效：{key}={value!r}")
+            param_key = f"row_identity_filter_{index}"
+            clauses.append(f"and {column_sql} = :{param_key}")
+            params[param_key] = value
+        if not clauses:
+            return "", {}
+        return "\n                    " + "\n                    ".join(clauses), params
 
     @classmethod
     def _sql_table_identifier(cls, value: str) -> str:
@@ -305,6 +328,7 @@ class DateCompletenessAuditExecutor:
                 date_axis=run.date_axis,
                 start_date=run.start_date,
                 end_date=run.end_date,
+                row_identity_filters=run.row_identity_filters_json,
             )
             gaps = GapDetector().detect(expected_buckets=expected, actual_bucket_values=actual)
             self._mark_succeeded(session, run, expected=expected, actual=actual, gaps=gaps)

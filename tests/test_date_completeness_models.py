@@ -41,6 +41,7 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
             window_mode="point_or_range",
             input_shape="trade_date_or_start_end",
             observed_field="trade_date",
+            row_identity_filters_json={"content_type": "行业板块"},
             expected_bucket_count=17,
             actual_bucket_count=16,
             missing_bucket_count=1,
@@ -79,6 +80,7 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
 
         assert stored_run is not None
         assert stored_run.result_status == "failed"
+        assert stored_run.row_identity_filters_json == {"content_type": "行业板块"}
         assert stored_gap is not None
         assert stored_gap.sample_values_json == ["2026-04-17"]
         assert stored_schedule is not None

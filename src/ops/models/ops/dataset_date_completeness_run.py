@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, Date, DateTime, Index, Integer, String, Text
+from sqlalchemy import BigInteger, CheckConstraint, Date, DateTime, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -55,6 +55,7 @@ class DatasetDateCompletenessRun(TimestampMixin, Base):
     window_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     input_shape: Mapped[str] = mapped_column(String(32), nullable=False)
     observed_field: Mapped[str] = mapped_column(String(64), nullable=False)
+    row_identity_filters_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
 
     expected_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     actual_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

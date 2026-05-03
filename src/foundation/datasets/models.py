@@ -127,6 +127,7 @@ class DatasetStorageDefinition:
     raw_table: str
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
+    row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
