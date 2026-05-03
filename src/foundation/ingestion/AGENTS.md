@@ -19,9 +19,11 @@ This directory owns long-term ingestion concepts: action requests, execution pla
 4. Do not add checkpoint/acquire/replay semantics unless explicitly planned.
 5. Do not put Ops TaskRun persistence, scheduling, or UI display decisions in this layer.
 6. Do not move date-model expansion into Ops, UI, or request builders. Request builders may format normalized plan values for source APIs, but must not decide business date semantics.
+7. When adding or changing structured `error_code` / `reason_code` values, update `src/foundation/ingestion/codebook.py` in the same change. Missing codebook entries are not allowed.
 
 ## Minimum Gates
 
 1. Plan resolver tests must cover point, range, month, and no-time datasets.
 2. Architecture dependency tests must remain green.
 3. Run `pytest -q tests/test_dataset_action_resolver.py` for resolver changes.
+4. Run `pytest -q tests/architecture/test_dataset_codebook_guardrails.py` when structured error or reason codes change.
