@@ -37,6 +37,7 @@ type LayerSummary = {
   file_count: number;
   total_bytes: number;
   row_count: number | null;
+  latest_modified_at: string | null;
   freqs: number[];
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
@@ -67,6 +68,7 @@ type DatasetSummary = {
   file_count: number;
   total_bytes: number;
   row_count: number | null;
+  latest_modified_at: string | null;
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
   earliest_trade_month: string | null;
@@ -118,12 +120,15 @@ type CommandExampleGroup = {
   items: CommandExampleItem[];
 };
 
+type ActivePage = "datasets" | "datasetDetail" | "commands" | "risks";
+
 function App() {
   const [status, setStatus] = useState<LakeStatus | null>(null);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [partitions, setPartitions] = useState<PartitionSummary[]>([]);
   const [commandGroups, setCommandGroups] = useState<CommandExampleGroup[]>([]);
   const [selectedDatasetKey, setSelectedDatasetKey] = useState<string>("stk_mins");
+  const [activePage, setActivePage] = useState<ActivePage>("datasets");
   const [selectedCommandGroupKey, setSelectedCommandGroupKey] = useState<string>("");
   const [selectedCommandItemKey, setSelectedCommandItemKey] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +143,7 @@ function App() {
           fetch("/api/datasets"),
         ]);
         if (!statusResponse.ok || !datasetResponse.ok) {
-          throw new Error("Lake Console API 请求失败。");
+          throw new Error("数据湖控制台 API 请求失败。");
         }
         const statusPayload = (await statusResponse.json()) as LakeStatus;
         const datasetPayload = (await datasetResponse.json()) as { items: DatasetSummary[] };
@@ -239,131 +244,80 @@ function App() {
   const totalFiles = datasets.reduce((sum, dataset) => sum + dataset.file_count, 0);
   const totalBytes = datasets.reduce((sum, dataset) => sum + dataset.total_bytes, 0);
   const riskCount = datasets.reduce((sum, dataset) => sum + dataset.risks.length, 0) + (status?.risks.length ?? 0);
+  const allDatasetRisks = datasets.flatMap((dataset) =>
+    dataset.risks.map((risk) => ({ ...risk, datasetKey: dataset.dataset_key, datasetName: dataset.display_name })),
+  );
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-logo">
-          <span className="sidebar-logo-mark">L</span>
-          <span>Lake Console</span>
-        </div>
-        <div className="sidebar-section-label">本地数据湖</div>
-        <a className="sidebar-link active">数据集总览</a>
-        <a className="sidebar-link">层级与分区</a>
-        <a className="sidebar-link">命令示例</a>
-        <a className="sidebar-link">风险</a>
-        <div className="sidebar-section-label">边界</div>
-        <a className="sidebar-link">不接远程 DB</a>
-        <a className="sidebar-link">不进生产部署</a>
-      </aside>
-
-      <main className="main">
-        <header className="topbar">
+      <header className="app-header">
+        <div className="app-brand">
+          <LogoMark />
           <div>
-            <div className="breadcrumb">Goldenshare / Local Lake / Dataset Catalog</div>
-            <h1>本地 Tushare Parquet Lake 管理台</h1>
+            <strong>数据湖控制台</strong>
+            <span>本地 Tushare Parquet 数据湖</span>
           </div>
-          <span className={status?.path.initialized ? "status-badge success" : "status-badge warning"}>
-            {status?.path.initialized ? "Lake 已初始化" : "等待初始化"}
-          </span>
-        </header>
+        </div>
+        <span className={status?.path.initialized ? "status-badge success" : "status-badge warning"}>
+          {status?.path.initialized ? "数据湖已初始化" : "等待初始化"}
+        </span>
+      </header>
 
-        <section className="content">
-          <div className="page-intro">
-            <div>
-              <h2>数据集文件事实</h2>
-              <p>按 Lake Dataset Catalog 展示 raw、manifest、derived、research，不连接远程 goldenshare-db。</p>
-            </div>
-            <code>{status?.path.lake_root ?? "正在读取 Lake Root..."}</code>
-          </div>
+      <div className="app-body">
+        <aside className="sidebar">
+          <div className="sidebar-section-label">本地数据湖</div>
+          <button className={activePage === "datasets" || activePage === "datasetDetail" ? "sidebar-link active" : "sidebar-link"} onClick={() => setActivePage("datasets")} type="button">
+            数据集总览
+          </button>
+          <button className={activePage === "commands" ? "sidebar-link active" : "sidebar-link"} onClick={() => setActivePage("commands")} type="button">
+            命令示例
+          </button>
+          <button className={activePage === "risks" ? "sidebar-link active" : "sidebar-link"} onClick={() => setActivePage("risks")} type="button">
+            风险
+          </button>
+          <div className="sidebar-section-label">边界</div>
+          <span className="sidebar-link static">不接远程 DB</span>
+          <span className="sidebar-link static">不进生产部署</span>
+        </aside>
 
+        <main className="main">
+          <section className="content">
           {error ? <div className="alert error">API 加载失败：{error}</div> : null}
 
-          <section className="metric-grid">
-            <Metric label="Catalog 数据集" value={String(datasets.length)} hint={`${readyDatasets} 个已有文件落盘`} />
-            <Metric label="文件总数" value={String(totalFiles)} hint="所有层级合计 Parquet 文件" />
-            <Metric label="数据总量" value={formatBytes(totalBytes)} hint="列表页不默认读取 row count" />
-            <Metric label="风险提示" value={String(riskCount)} hint="Lake Root 与数据集风险合计" />
-          </section>
+          {activePage === "datasets" ? (
+            <DatasetOverviewPage
+              datasets={datasets}
+              groupedDatasets={groupedDatasets}
+              readyDatasets={readyDatasets}
+              riskCount={riskCount}
+              status={status}
+              totalBytes={totalBytes}
+              totalFiles={totalFiles}
+              onOpenDetail={(datasetKey) => {
+                setSelectedDatasetKey(datasetKey);
+                setActivePage("datasetDetail");
+              }}
+            />
+          ) : null}
 
-          <section className="two-column wide-left">
-            <Panel title="数据集目录" description="展示分组参考 Ops 默认目录；代码维护分包不作为用户可见分组。">
-              {datasets.length ? (
-                <div className="dataset-groups">
-                  {groupedDatasets.map((group) => (
-                    <DatasetGroup
-                      group={group}
-                      key={group.groupKey}
-                      selectedDatasetKey={selectedDataset?.dataset_key ?? null}
-                      onSelect={setSelectedDatasetKey}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState title="暂无 Catalog 数据集" description="请先确认 Lake Dataset Catalog 已加载。" />
-              )}
-            </Panel>
-
-            <Panel title="选中数据集" description="详情来自后端模型字段，前端不自行拼路径或猜层级用途。">
-              {selectedDataset ? <DatasetDetail dataset={selectedDataset} /> : <EmptyState title="未选择数据集" description="请选择左侧数据集。" />}
-            </Panel>
-          </section>
-
-          <Panel title="层级概览" description="manifest 不隐藏；derived/research 作为数据集子层展示。">
-            {selectedDataset ? (
-              <div className="layer-grid dynamic">
-                {selectedDataset.layer_summaries.map((layer) => (
-                  <LayerCard layer={layer} key={`${selectedDataset.dataset_key}-${layer.layer}-${layer.layout}`} />
-                ))}
-              </div>
-            ) : null}
-          </Panel>
-
-          <Panel title="最近分区 / 文件" description="这里只展示选中数据集的最近分区；row_count 留到详情或显式刷新。">
-            {partitions.length ? (
-              <div className="partition-groups">
-                {Object.entries(groupPartitionsByLayer(partitions)).map(([layer, items]) => (
-                  <div className="partition-group" key={layer}>
-                    <div className="partition-group-title">
-                      <strong>{layer}</strong>
-                      <span>{layerDescription(layer)}</span>
-                    </div>
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Layout</th>
-                          <th>Freq</th>
-                          <th>日期/月</th>
-                          <th className="num-cell">文件</th>
-                          <th className="num-cell">大小</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.map((partition) => (
-                          <tr key={partition.path}>
-                            <td>{partition.layout}</td>
-                            <td>{partition.freq ?? "-"}</td>
-                            <td>{partition.trade_date ?? partition.trade_month ?? "-"}</td>
-                            <td className="num-cell">{partition.file_count}</td>
-                            <td className="num-cell">{formatBytes(partition.total_bytes)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
+          {activePage === "datasetDetail" ? (
+            selectedDataset ? (
+              <DatasetDetailPage
+                dataset={selectedDataset}
+                partitions={partitions}
+                onBack={() => setActivePage("datasets")}
+              />
             ) : (
-              <EmptyState title="暂无分区文件" description="该数据集还没有落盘，或当前层级是未写入状态。" />
-            )}
-          </Panel>
+              <EmptyState title="未选择数据集" description="请先返回数据集总览选择数据集。" />
+            )
+          ) : null}
 
-          <Panel title="命令示例 / 操作提示" description="本页只展示命令，不触发写入；真实写入继续通过 CLI 执行。">
-            <CommandExamplesPanel
-              error={commandError}
-              groups={commandGroups}
-              selectedGroupKey={selectedCommandGroupKey}
-              selectedItemKey={selectedCommandItemKey}
+          {activePage === "commands" ? (
+            <CommandExamplesPage
+              commandError={commandError}
+              commandGroups={commandGroups}
+              selectedCommandGroupKey={selectedCommandGroupKey}
+              selectedCommandItemKey={selectedCommandItemKey}
               onSelectGroup={(groupKey) => {
                 setSelectedCommandGroupKey(groupKey);
                 const group = commandGroups.find((item) => item.group_key === groupKey);
@@ -371,32 +325,285 @@ function App() {
               }}
               onSelectItem={setSelectedCommandItemKey}
             />
-          </Panel>
-
-          {status?.risks.length ? (
-            <Panel title="Lake Root 风险" description="这里展示 Lake Root 与 _tmp 等本地文件风险。">
-              <div className="risk-list">
-                {status.risks.map((risk) => (
-                  <div className="alert warning" key={risk.code}>
-                    <strong>{risk.code}</strong>
-                    <span>{risk.message}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
           ) : null}
-        </section>
-      </main>
+
+          {activePage === "risks" ? (
+            <RiskPage datasetRisks={allDatasetRisks} status={status} />
+          ) : null}
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
 
-function Panel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function LogoMark() {
+  const [logoAvailable, setLogoAvailable] = useState(true);
+  if (logoAvailable) {
+    return (
+      <span className="logo-mark">
+        <img alt="数据湖控制台" onError={() => setLogoAvailable(false)} src="/lake-console-logo.png" />
+      </span>
+    );
+  }
+  return <span className="logo-mark fallback">湖</span>;
+}
+
+function DatasetOverviewPage({
+  datasets,
+  groupedDatasets,
+  readyDatasets,
+  riskCount,
+  status,
+  totalBytes,
+  totalFiles,
+  onOpenDetail,
+}: {
+  datasets: DatasetSummary[];
+  groupedDatasets: DatasetGroupView[];
+  readyDatasets: number;
+  riskCount: number;
+  status: LakeStatus | null;
+  totalBytes: number;
+  totalFiles: number;
+  onOpenDetail: (datasetKey: string) => void;
+}) {
+  return (
+    <>
+      <div className="page-intro">
+        <div>
+          <h2>
+            数据集文件概览
+            <span
+              className="help-mark"
+              title="按 Lake Dataset Catalog 展示 raw、manifest、derived、research，不连接远程 goldenshare-db。"
+              aria-label="页面说明"
+            >
+              ?
+            </span>
+          </h2>
+        </div>
+        <code>{status?.path.lake_root ?? "正在读取数据湖根目录..."}</code>
+      </div>
+
+      <section className="metric-grid">
+        <Metric label="数据集数量" value={String(datasets.length)} hint={`${readyDatasets} 个已有文件落盘`} />
+        <Metric label="文件总数" value={String(totalFiles)} hint="所有层级合计 Parquet 文件" />
+        <Metric label="数据总量" value={formatBytes(totalBytes)} hint="按本地文件大小汇总" />
+        <Metric label="风险提示" value={String(riskCount)} hint="数据湖根目录与数据集风险合计" />
+      </section>
+
+      <Panel title="数据集目录">
+        {datasets.length ? (
+          <div className="dataset-groups">
+            {groupedDatasets.map((group) => (
+              <DatasetGroup
+                group={group}
+                key={group.groupKey}
+                onOpenDetail={onOpenDetail}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="暂无数据集" description="请先确认本地数据集目录已加载。" />
+        )}
+      </Panel>
+    </>
+  );
+}
+
+function DatasetDetailPage({
+  dataset,
+  partitions,
+  onBack,
+}: {
+  dataset: DatasetSummary;
+  partitions: PartitionSummary[];
+  onBack: () => void;
+}) {
+  const latestPartition = latestPartitionLabel(dataset);
+  const earliestPartition = earliestPartitionLabel(dataset);
+  const averageFileSize = dataset.file_count > 0 ? Math.round(dataset.total_bytes / dataset.file_count) : 0;
+  const layerRisks = dataset.layer_summaries.flatMap((layer) => layer.risks);
+  const riskTotal = dataset.risks.length + layerRisks.length;
+  const latestFile = partitions[0] ?? null;
+
+  return (
+    <div className="detail-page">
+      <button className="back-button" onClick={onBack} type="button">
+        ← 返回数据集总览
+      </button>
+
+      <section className="detail-hero">
+        <div>
+          <div className="detail-hero-title">
+            <h2>{dataset.display_name}</h2>
+            <HealthBadge status={dataset.health_status} />
+          </div>
+          <code>{dataset.dataset_key}</code>
+          <p>{dataset.description ?? "本地数据湖数据集。"}</p>
+        </div>
+      </section>
+
+      <section className="detail-section">
+        <h3>核心概览</h3>
+        <div className="metric-grid detail-metrics">
+          <Metric label="文件数" value={String(dataset.file_count)} hint="全部层级合计" />
+          <Metric label="总大小" value={formatBytes(dataset.total_bytes)} hint="按本地文件大小汇总" />
+          <Metric label="层级数" value={String(dataset.layers.length)} hint={dataset.layers.join(", ") || "-"} />
+          <Metric label="分区数" value={String(dataset.partition_count)} hint="全部层级合计" />
+          <Metric label="行数" value={formatRowCount(dataset.row_count)} hint="详情页字段，未计算时不展示估值" />
+          <Metric label="日期范围" value={formatDateOrMonthRange(dataset)} hint="按文件分区事实汇总" />
+          <Metric label="最近更新" value={formatDateTime(dataset.latest_modified_at)} hint="本地文件修改时间" />
+          <Metric label="风险" value={riskTotal ? String(riskTotal) : "无"} hint="数据集与层级风险合计" />
+        </div>
+      </section>
+
+      <section className="detail-section">
+        <h3>基础信息</h3>
+        <div className="detail-grid">
+          <DetailItem label="数据源" value={dataset.source} />
+          <DetailItem label="数据集 key" value={dataset.dataset_key} />
+          <DetailItem label="分组" value={dataset.group_label ?? "-"} />
+          <DetailItem label="角色" value={dataset.dataset_role} />
+          <DetailItem label="存储根" value={dataset.storage_root ?? "-"} wide />
+          <DetailItem label="主布局" value={dataset.primary_layout ?? "-"} />
+          <DetailItem label="写入策略" value={dataset.write_policy ?? "-"} />
+          <DetailItem label="更新方式" value={dataset.update_mode ?? "-"} />
+          <DetailItem label="可用布局" value={dataset.available_layouts.join(", ") || "-"} wide />
+          <DetailItem label="支持频度" value={dataset.supported_freqs.join(", ") || "-"} wide />
+        </div>
+      </section>
+
+      <section className="detail-section">
+        <h3>数据层级</h3>
+        <div className="layer-stack">
+          {dataset.layer_summaries.map((layer) => (
+            <LayerRow layer={layer} key={`${dataset.dataset_key}-${layer.layer}-${layer.layout}`} />
+          ))}
+        </div>
+      </section>
+
+      <section className="detail-section">
+        <h3>分区概况</h3>
+        <div className="partition-summary-grid">
+          <DetailItem label="最新分区" value={latestPartition} />
+          <DetailItem label="最早分区" value={earliestPartition} />
+          <DetailItem label="分区数量" value={String(dataset.partition_count)} />
+          <DetailItem label="平均文件大小" value={dataset.file_count ? formatBytes(averageFileSize) : "-"} />
+          <DetailItem label="最近文件样本" value={latestFile?.path ?? "暂无文件"} wide />
+          <DetailItem label="风险提示" value={riskTotal ? `${riskTotal} 项风险` : "无"} wide />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CommandExamplesPage({
+  commandError,
+  commandGroups,
+  selectedCommandGroupKey,
+  selectedCommandItemKey,
+  onSelectGroup,
+  onSelectItem,
+}: {
+  commandError: string | null;
+  commandGroups: CommandExampleGroup[];
+  selectedCommandGroupKey: string;
+  selectedCommandItemKey: string;
+  onSelectGroup: (groupKey: string) => void;
+  onSelectItem: (itemKey: string) => void;
+}) {
+  return (
+    <>
+      <div className="page-intro">
+        <div>
+          <h2>命令示例 / 操作提示</h2>
+          <p>本页只展示命令，不触发写入；真实写入继续通过 CLI 执行。</p>
+        </div>
+      </div>
+      <Panel title="命令示例" description="命令来自后端 Lake catalog，前端不自行拼接。">
+        <CommandExamplesPanel
+          error={commandError}
+          groups={commandGroups}
+          selectedGroupKey={selectedCommandGroupKey}
+          selectedItemKey={selectedCommandItemKey}
+          onSelectGroup={onSelectGroup}
+          onSelectItem={onSelectItem}
+        />
+      </Panel>
+    </>
+  );
+}
+
+function RiskPage({
+  datasetRisks,
+  status,
+}: {
+  datasetRisks: Array<RiskItem & { datasetKey: string; datasetName: string }>;
+  status: LakeStatus | null;
+}) {
+  return (
+    <>
+      <div className="page-intro">
+        <div>
+          <h2>风险</h2>
+          <p>只展示数据湖根目录与数据集文件风险，不接入生产 Ops 状态。</p>
+        </div>
+      </div>
+
+      <section className="two-column">
+        <Panel title="数据湖根目录风险" description="移动盘路径、初始化状态、读写权限等本地风险。">
+          {status?.risks.length ? (
+            <div className="risk-list">
+              {status.risks.map((risk) => (
+                <RiskCard risk={risk} key={`${risk.code}-${risk.path ?? ""}`} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="暂无数据湖根目录风险" description="当前未发现路径或权限风险。" />
+          )}
+        </Panel>
+
+        <Panel title="数据集风险" description="来自本地文件扫描和 Lake Dataset Catalog 的风险。">
+          {datasetRisks.length ? (
+            <div className="risk-list">
+              {datasetRisks.map((risk) => (
+                <RiskCard
+                  context={`${risk.datasetName} / ${risk.datasetKey}`}
+                  risk={risk}
+                  key={`${risk.datasetKey}-${risk.code}-${risk.path ?? ""}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="暂无数据集风险" description="当前数据集没有暴露文件风险。" />
+          )}
+        </Panel>
+      </section>
+    </>
+  );
+}
+
+function RiskCard({ risk, context }: { risk: RiskItem; context?: string }) {
+  return (
+    <div className="alert warning">
+      <div>
+        <strong>{risk.code}</strong>
+        {context ? <em>{context}</em> : null}
+        <span>{risk.message}</span>
+        {risk.path ? <code>{risk.path}</code> : null}
+      </div>
+    </div>
+  );
+}
+
+function Panel({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="panel">
       <div className="panel-header">
         <h2>{title}</h2>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       {children}
     </section>
@@ -415,19 +622,16 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
 
 function DatasetGroup({
   group,
-  selectedDatasetKey,
-  onSelect,
+  onOpenDetail,
 }: {
   group: DatasetGroupView;
-  selectedDatasetKey: string | null;
-  onSelect: (datasetKey: string) => void;
+  onOpenDetail: (datasetKey: string) => void;
 }) {
   return (
     <section className="dataset-group">
       <div className="dataset-group-header">
         <div>
           <strong>{group.groupLabel}</strong>
-          <span>{group.groupKey}</span>
         </div>
         <em>{group.items.length} 个数据集</em>
       </div>
@@ -435,9 +639,8 @@ function DatasetGroup({
         {group.items.map((dataset) => (
           <DatasetCard
             dataset={dataset}
-            isSelected={dataset.dataset_key === selectedDatasetKey}
             key={dataset.dataset_key}
-            onSelect={() => onSelect(dataset.dataset_key)}
+            onOpenDetail={() => onOpenDetail(dataset.dataset_key)}
           />
         ))}
       </div>
@@ -445,9 +648,9 @@ function DatasetGroup({
   );
 }
 
-function DatasetCard({ dataset, isSelected, onSelect }: { dataset: DatasetSummary; isSelected: boolean; onSelect: () => void }) {
+function DatasetCard({ dataset, onOpenDetail }: { dataset: DatasetSummary; onOpenDetail: () => void }) {
   return (
-    <button className={isSelected ? "dataset-card selected" : "dataset-card"} onClick={onSelect} type="button">
+    <article className="dataset-card">
       <div className="dataset-title">
         <div>
           <strong>{dataset.display_name}</strong>
@@ -455,7 +658,7 @@ function DatasetCard({ dataset, isSelected, onSelect }: { dataset: DatasetSummar
         </div>
         <HealthBadge status={dataset.health_status} />
       </div>
-      <p>{dataset.description ?? "本地 Lake 数据集"}</p>
+      <p>{dataset.description ?? "本地数据湖数据集"}</p>
       <dl>
         <div>
           <dt>层级</dt>
@@ -471,46 +674,13 @@ function DatasetCard({ dataset, isSelected, onSelect }: { dataset: DatasetSummar
         </div>
         <div>
           <dt>日期</dt>
-          <dd>{formatRange(dataset.earliest_trade_date, dataset.latest_trade_date)}</dd>
+          <dd>{formatDateOrMonthRange(dataset)}</dd>
         </div>
       </dl>
-    </button>
-  );
-}
-
-function DatasetDetail({ dataset }: { dataset: DatasetSummary }) {
-  return (
-    <div className="dataset-detail">
-      <div className="dataset-detail-title">
-        <div>
-          <strong>{dataset.display_name}</strong>
-          <span>{dataset.dataset_key}</span>
-        </div>
-        <HealthBadge status={dataset.health_status} />
+      <div className="dataset-card-actions">
+        <button onClick={onOpenDetail} type="button">查看详情</button>
       </div>
-      <p>{dataset.description}</p>
-      <div className="detail-grid">
-        <DetailItem label="展示分组" value={dataset.group_label ?? "-"} />
-        <DetailItem label="数据来源" value={dataset.source} />
-        <DetailItem label="角色" value={dataset.dataset_role} />
-        <DetailItem label="主布局" value={dataset.primary_layout ?? "-"} />
-        <DetailItem label="写入策略" value={dataset.write_policy ?? "-"} />
-        <DetailItem label="更新方式" value={dataset.update_mode ?? "-"} />
-        <DetailItem label="存储根" value={dataset.storage_root ?? "-"} wide />
-        <DetailItem label="可用布局" value={dataset.available_layouts.join(", ") || "-"} wide />
-        <DetailItem label="频度" value={dataset.supported_freqs.join(", ") || "-"} wide />
-      </div>
-      {dataset.risks.length ? (
-        <div className="risk-list compact">
-          {dataset.risks.map((risk) => (
-            <div className="alert warning" key={risk.code}>
-              <strong>{risk.code}</strong>
-              <span>{risk.message}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    </article>
   );
 }
 
@@ -523,18 +693,18 @@ function DetailItem({ label, value, wide = false }: { label: string; value: stri
   );
 }
 
-function LayerCard({ layer }: { layer: LayerSummary }) {
+function LayerRow({ layer }: { layer: LayerSummary }) {
   return (
-    <article className="layer-card">
-      <div className="layer-card-title">
+    <article className="layer-row">
+      <div className="layer-row-main">
         <div>
-          <strong>{layer.layer_name}</strong>
+          <strong>{layerDisplayName(layer)}</strong>
           <span>{layer.layer}</span>
         </div>
         <span className="tag">{layer.layout}</span>
       </div>
-      <p>{layer.purpose}</p>
-      <p>{layer.recommended_usage}</p>
+      <p>{humanizeLayerPurpose(layer)}</p>
+      <p>{humanizeLayerUsage(layer)}</p>
       <code>{layer.path}</code>
       <dl>
         <div>
@@ -550,8 +720,16 @@ function LayerCard({ layer }: { layer: LayerSummary }) {
           <dd>{formatBytes(layer.total_bytes)}</dd>
         </div>
         <div>
-          <dt>日期</dt>
-          <dd>{formatRange(layer.earliest_trade_date, layer.latest_trade_date)}</dd>
+          <dt>行数</dt>
+          <dd>{formatRowCount(layer.row_count)}</dd>
+        </div>
+        <div>
+          <dt>日期/月</dt>
+          <dd>{formatLayerDateOrMonthRange(layer)}</dd>
+        </div>
+        <div>
+          <dt>最近更新</dt>
+          <dd>{formatDateTime(layer.latest_modified_at)}</dd>
         </div>
       </dl>
     </article>
@@ -712,6 +890,91 @@ function formatRange(start: string | null, end: string | null): string {
   return `${start ?? "-"} ~ ${end ?? "-"}`;
 }
 
+function formatDateOrMonthRange(dataset: DatasetSummary): string {
+  const dateRange = formatRange(dataset.earliest_trade_date, dataset.latest_trade_date);
+  if (dateRange !== "-") {
+    return dateRange;
+  }
+  return formatRange(dataset.earliest_trade_month, dataset.latest_trade_month);
+}
+
+function formatLayerDateOrMonthRange(layer: LayerSummary): string {
+  const dateRange = formatRange(layer.earliest_trade_date, layer.latest_trade_date);
+  if (dateRange !== "-") {
+    return dateRange;
+  }
+  return formatRange(layer.earliest_trade_month, layer.latest_trade_month);
+}
+
+function latestPartitionLabel(dataset: DatasetSummary): string {
+  return dataset.latest_trade_date ?? dataset.latest_trade_month ?? "-";
+}
+
+function earliestPartitionLabel(dataset: DatasetSummary): string {
+  return dataset.earliest_trade_date ?? dataset.earliest_trade_month ?? "-";
+}
+
+function formatRowCount(value: number | null): string {
+  return value === null ? "未计算" : value.toLocaleString("zh-CN");
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function layerDisplayName(layer: LayerSummary): string {
+  const labels: Record<string, string> = {
+    raw_tushare: "原始数据",
+    manifest: "同步用清单",
+    derived: "本地计算结果",
+    research: "查询优化数据",
+  };
+  return labels[layer.layer] ?? layer.layer_name;
+}
+
+function humanizeLayerPurpose(layer: LayerSummary): string {
+  const descriptions: Record<string, string> = {
+    raw_tushare: "从 Tushare 拉取后直接保存的数据。",
+    manifest: "给同步任务使用的本地清单，例如股票池、指数池或交易日历。",
+    derived: "由本地已有数据计算出来的结果。",
+    research: "为了让本地研究和回测查询更快而重新整理的数据。",
+  };
+  return descriptions[layer.layer] ?? cleanTechnicalCopy(layer.purpose);
+}
+
+function humanizeLayerUsage(layer: LayerSummary): string {
+  if (layer.layer === "raw_tushare") {
+    return "适合查看原始落盘范围，也可以作为后续计算的数据来源。";
+  }
+  if (layer.layer === "manifest") {
+    return "适合确认同步任务会使用哪些标的、日期或基础清单。";
+  }
+  if (layer.layer === "derived") {
+    return "适合查看本地派生周期或计算结果是否已经生成。";
+  }
+  if (layer.layer === "research") {
+    return "适合单标的长周期查询、回测和相似性分析。";
+  }
+  return cleanTechnicalCopy(layer.recommended_usage);
+}
+
+function cleanTechnicalCopy(value: string): string {
+  return value
+    .replaceAll("源站事实层", "原始数据")
+    .replaceAll("源站事实", "原始数据")
+    .replaceAll("执行辅助清单层", "同步用清单")
+    .replaceAll("本地派生层", "本地计算结果")
+    .replaceAll("研究查询优化层", "查询优化数据")
+    .replaceAll("原始落盘层", "直接保存的数据");
+}
+
 type DatasetGroupView = {
   groupKey: string;
   groupLabel: string;
@@ -735,29 +998,6 @@ function groupDatasets(datasets: DatasetSummary[]): DatasetGroupView[] {
   return [...grouped.values()]
     .map((group) => ({ ...group, items: group.items.sort((a, b) => a.dataset_key.localeCompare(b.dataset_key)) }))
     .sort((a, b) => a.groupOrder - b.groupOrder || a.groupKey.localeCompare(b.groupKey));
-}
-
-function groupPartitionsByLayer(partitions: PartitionSummary[]): Record<string, PartitionSummary[]> {
-  return partitions.reduce<Record<string, PartitionSummary[]>>((result, partition) => {
-    result[partition.layer] = [...(result[partition.layer] ?? []), partition];
-    return result;
-  }, {});
-}
-
-function layerDescription(layer: string): string {
-  if (layer === "raw_tushare") {
-    return "源站事实层。";
-  }
-  if (layer === "manifest") {
-    return "执行辅助清单层。";
-  }
-  if (layer === "derived") {
-    return "本地派生层。";
-  }
-  if (layer === "research") {
-    return "研究查询优化层。";
-  }
-  return "本地文件层。";
 }
 
 function scenarioLabel(scenario: string): string {
