@@ -16,15 +16,19 @@
 
 ---
 
-## 2. 当前待收口项
+## 2. E1/E2 收口状态（已完成）
 
-### E1：`index_weight` 的对象池扇出没有写进 `universe_policy`
+### E1：`index_weight` 对象池语义收口（已完成）
 
-| 数据集 | 当前 Definition 字段 | 实际运行行为 | 问题 | 建议 |
+| 数据集 | 改造前问题 | 当前 Definition 字段 | 当前运行行为 | 状态 |
 | --- | --- | --- | --- | --- |
-| `index_weight` | `planning.universe_policy=none`；`planning.unit_builder_key=build_index_weight_units`；筛选字段为 `index_code` | 未传 `filters.index_code` 时，`build_index_weight_units` 会先查 `ops.index_series_active(resource='index_weight')`；为空时再查 `core_serving.index_basic` 中 `exp_date is null or exp_date >= today` 的未终止指数；然后按每个指数生成 unit | Definition 表面表达“不使用对象池”，真实行为却使用指数对象池；对象池来源优先级藏在 custom builder 中 | 已确定收口方向：`universe_policy` 目标有效值为 `no_pool/pool`；`none` 只表示未定义或历史未迁移；具体对象池规则沉到 `planning.universe` |
+| `index_weight` | Definition 里写成 `universe_policy=none`，对象池来源和优先级隐藏在 custom builder 中 | `planning.universe_policy=pool`；`planning.universe.request_field=index_code`；`planning.universe.override_fields=(index_code,)`；`planning.universe.sources=(ops_index_series_active[index_weight], core_index_basic_active)` | 未传 `filters.index_code` 时，按 `sources` 顺序查对象池；传了 `index_code` 时直接按显式输入执行 | 已完成；对象池语义已回收到 Definition，不再靠隐藏逻辑表达 |
 
-### E2：`date_model.input_shape=none` 的时间字段已清零
+验证：
+1. `tests/test_dataset_definition_registry.py::test_index_weight_declares_minimal_universe_pool`
+2. `tests/test_dataset_action_resolver.py` 中 `index_weight` 对象池四个场景测试（显式输入优先、active 池优先、fallback、空池拒绝）
+
+### E2：`date_model.input_shape=none` 时间字段清零（已完成）
 
 当前已确认：所有 `date_model.input_shape=none` 的数据集，`input_model.time_fields` 均为空，且 `capabilities.supported_time_modes` 不再暴露虚假的单日/区间维护入口。
 
@@ -382,7 +386,8 @@
 
 | 值 | 含义 | 使用数据集 |
 | --- | --- | --- |
-| `none` | 当前历史未收口值；目标语义只能表示未定义或未迁移，不能表示“没有对象池展开” | 56 个数据集，包括 `index_weight` |
+| `none` | 当前历史未收口值；目标语义只能表示未定义或未迁移，不能表示“没有对象池展开” | 55 个数据集（已不含 `index_weight`） |
+| `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | `index_weight` |
 | `index_active_codes` | 指数 code 池展开；优先 `ops.index_series_active`，为空则用 `index_basic` 未终止指数 | `index_daily` |
 | `dc_index_board_codes` | 从东财板块代码池展开 | `dc_member` |
 | `ths_index_board_codes` | 从同花顺板块代码池展开 | `ths_member` |

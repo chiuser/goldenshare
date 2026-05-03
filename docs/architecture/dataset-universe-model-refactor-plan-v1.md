@@ -1,6 +1,6 @@
 # index_weight 对象池最小收口方案 v1
 
-- 状态：待评审
+- 状态：已完成（2026-05-03，代码已落地）
 - 本轮范围：只处理 `index_weight`
 - 不在本轮处理：`index_daily`、`dc_member`、`ths_member`、`stk_mins`、`biying_*` 等其他对象池链路
 - 关联代码：
@@ -9,9 +9,9 @@
 
 ---
 
-## 1. 问题
+## 1. 改造前问题（已收口）
 
-`index_weight` 当前 Definition 写的是：
+`index_weight` 改造前 Definition 写的是：
 
 ```python
 "planning": {
@@ -34,6 +34,23 @@
 
 1. 看 Definition 会误以为 `index_weight` 不使用对象池。
 2. 真实对象池来源和优先级藏在 custom builder 里，后续审计和维护都容易漏。
+
+当前代码已收口为：
+
+```python
+"planning": {
+    "universe_policy": "pool",
+    "universe": {
+        "request_field": "index_code",
+        "override_fields": ("index_code",),
+        "sources": (
+            {"type": "ops_index_series_active", "resource": "index_weight"},
+            {"type": "core_index_basic_active"},
+        ),
+    },
+    "unit_builder_key": "build_index_weight_units",
+}
+```
 
 ---
 
