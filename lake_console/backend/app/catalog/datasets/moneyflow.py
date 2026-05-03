@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
 
 MONEYFLOW_FIELDS: tuple[str, ...] = (
     "ts_code",
@@ -61,6 +61,50 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 layout="by_date",
                 path="raw_tushare/moneyflow",
                 recommended_usage="资金流向研究、单日全市场资金分布分析。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="moneyflow_plan_trade_date",
+                title="预览单日同步",
+                scenario="plan",
+                description="不请求 Tushare，只看一个 trade_date 分区替换范围。",
+                argv=("lake-console", "plan-sync", "moneyflow", "--trade-date", "2026-04-24"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="moneyflow_sync_trade_date",
+                title="同步单日全市场资金流",
+                scenario="sync_point",
+                description="写入一个 trade_date 分区。",
+                argv=("lake-console", "sync-dataset", "moneyflow", "--trade-date", "2026-04-24"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
+            ),
+            LakeCommandExample(
+                example_key="moneyflow_sync_range",
+                title="同步区间全市场资金流",
+                scenario="sync_range",
+                description="读取本地交易日历，只请求开市交易日。",
+                argv=("lake-console", "sync-dataset", "moneyflow", "--start-date", "2026-04-01", "--end-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。"),
+            ),
+            LakeCommandExample(
+                example_key="moneyflow_sync_ts_code_range",
+                title="同步单股区间资金流",
+                scenario="sync_range",
+                description="适合调试或单股研究。",
+                argv=(
+                    "lake-console",
+                    "sync-dataset",
+                    "moneyflow",
+                    "--ts-code",
+                    "600000.SH",
+                    "--start-date",
+                    "2026-04-01",
+                    "--end-date",
+                    "2026-04-30",
+                ),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。"),
             ),
         ),
     ),

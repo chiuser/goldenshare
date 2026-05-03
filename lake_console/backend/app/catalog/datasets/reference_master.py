@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
 
 
 REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
@@ -36,6 +36,24 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 recommended_usage="为 stk_mins 全市场同步提供本地 ts_code 清单。",
             ),
         ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="stock_basic_plan",
+                title="预览刷新计划",
+                scenario="plan",
+                description="不请求 Tushare，不写文件，只看 current 文件替换范围。",
+                argv=("lake-console", "plan-sync", "stock_basic"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="stock_basic_sync",
+                title="刷新股票池",
+                scenario="sync_snapshot",
+                description="拉取 Tushare stock_basic，双落盘到 raw current 与 security universe manifest。",
+                argv=("lake-console", "sync-stock-basic"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
+            ),
+        ),
     ),
     LakeDatasetDefinition(
         dataset_key="trade_cal",
@@ -69,6 +87,24 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 recommended_usage="区间同步展开交易日，不访问远程数据库。",
             ),
         ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="trade_cal_plan_range",
+                title="预览区间刷新计划",
+                scenario="plan",
+                description="检查交易日历 raw current 与 trading calendar manifest 替换范围。",
+                argv=("lake-console", "plan-sync", "trade_cal", "--start-date", "2026-01-01", "--end-date", "2026-12-31"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="trade_cal_sync_range",
+                title="刷新区间交易日历",
+                scenario="sync_snapshot",
+                description="拉取指定区间交易日历，供区间同步展开交易日。",
+                argv=("lake-console", "sync-trade-cal", "--start-date", "2026-01-01", "--end-date", "2026-12-31"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
+            ),
+        ),
     ),
     LakeDatasetDefinition(
         dataset_key="index_basic",
@@ -100,6 +136,40 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 layout="manifest_file",
                 path="manifest/index_universe/tushare_index_basic.parquet",
                 recommended_usage="为 index_daily/index_weekly/index_monthly/index_weight 提供本地指数清单。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="index_basic_plan",
+                title="预览全量刷新",
+                scenario="plan",
+                description="不请求 Tushare，只看 current 文件替换范围。",
+                argv=("lake-console", "plan-sync", "index_basic"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="index_basic_sync_all",
+                title="全量刷新指数基础信息",
+                scenario="sync_snapshot",
+                description="拉取全部指数基础信息，双落盘到 raw current 与 index universe manifest。",
+                argv=("lake-console", "sync-dataset", "index_basic"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
+            ),
+            LakeCommandExample(
+                example_key="index_basic_sync_market",
+                title="按市场刷新",
+                scenario="sync_snapshot",
+                description="只拉取指定市场，适合调试或局部刷新。",
+                argv=("lake-console", "sync-dataset", "index_basic", "--market", "CSI"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
+            ),
+            LakeCommandExample(
+                example_key="index_basic_plan_markets",
+                title="预览多市场请求",
+                scenario="plan",
+                description="检查多 market 扇出请求数量。",
+                argv=("lake-console", "plan-sync", "index_basic", "--market", "CSI,SSE,SZSE"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
             ),
         ),
     ),

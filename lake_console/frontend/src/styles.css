@@ -521,6 +521,126 @@ code {
   background: var(--neutral-1);
 }
 
+.command-examples,
+.command-item-detail,
+.command-card-list,
+.command-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.command-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  background: var(--brand-0);
+}
+
+.command-notice strong {
+  color: var(--brand-6);
+  white-space: nowrap;
+}
+
+.command-notice span,
+.command-item-detail > p,
+.command-card-header span,
+.command-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.command-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.command-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.command-toolbar label span {
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.command-toolbar select {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  color: var(--text-title);
+  background: var(--bg-surface);
+  font: inherit;
+}
+
+.command-item-title,
+.command-card-header,
+.command-code-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.command-item-title {
+  align-items: flex-start;
+}
+
+.command-item-title strong,
+.command-card-header strong {
+  display: block;
+  color: var(--text-title);
+}
+
+.command-item-title span:not(.tag) {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.command-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-0);
+}
+
+.command-card-header {
+  align-items: flex-start;
+}
+
+.command-code-row {
+  align-items: stretch;
+}
+
+.command-code-row code {
+  flex: 1;
+  max-width: none;
+  color: var(--text-title);
+  background: var(--neutral-1);
+}
+
+.command-code-row button {
+  border: 1px solid var(--brand-5);
+  border-radius: var(--r-sm);
+  padding: 0 12px;
+  color: var(--brand-6);
+  background: var(--brand-0);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.command-meta {
+  gap: 4px;
+}
+
 .risk-list.compact {
   gap: 8px;
 }

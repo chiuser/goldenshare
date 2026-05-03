@@ -1,7 +1,7 @@
 # Local Lake 命令示例页面技术方案 v1
 
 - 版本：v1
-- 状态：待评审
+- 状态：第一版已实施
 - 更新时间：2026-05-03
 - 适用范围：`lake_console/backend`、`lake_console/frontend`
 - 目标：为 Lake Console 增加一个只读的“命令示例 / 操作提示”页面，解决本地 Lake 命令越来越多、用户难以记忆和选择的问题。

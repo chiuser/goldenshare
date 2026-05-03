@@ -92,12 +92,42 @@ type PartitionSummary = {
   total_bytes: number;
 };
 
+type CommandExample = {
+  example_key: string;
+  title: string;
+  scenario: string;
+  description: string;
+  command: string;
+  argv: string[];
+  prerequisites: string[];
+  notes: string[];
+};
+
+type CommandExampleItem = {
+  item_key: string;
+  item_type: "dataset" | "command_set" | string;
+  display_name: string;
+  description: string | null;
+  examples: CommandExample[];
+};
+
+type CommandExampleGroup = {
+  group_key: string;
+  group_label: string;
+  group_order: number;
+  items: CommandExampleItem[];
+};
+
 function App() {
   const [status, setStatus] = useState<LakeStatus | null>(null);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [partitions, setPartitions] = useState<PartitionSummary[]>([]);
+  const [commandGroups, setCommandGroups] = useState<CommandExampleGroup[]>([]);
   const [selectedDatasetKey, setSelectedDatasetKey] = useState<string>("stk_mins");
+  const [selectedCommandGroupKey, setSelectedCommandGroupKey] = useState<string>("");
+  const [selectedCommandItemKey, setSelectedCommandItemKey] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [commandError, setCommandError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +161,49 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCommandExamples() {
+      try {
+        const response = await fetch("/api/lake/command-examples");
+        if (!response.ok) {
+          throw new Error("命令示例 API 请求失败。");
+        }
+        const payload = (await response.json()) as { groups: CommandExampleGroup[] };
+        if (!cancelled) {
+          const groups = payload.groups;
+          const firstGroup = groups[0] ?? null;
+          setCommandGroups(groups);
+          setSelectedCommandGroupKey((current) => (groups.some((group) => group.group_key === current) ? current : firstGroup?.group_key ?? ""));
+          setSelectedCommandItemKey((current) => {
+            const allItems = groups.flatMap((group) => group.items);
+            if (allItems.some((item) => item.item_key === current)) {
+              return current;
+            }
+            return allItems.find((item) => item.item_key === selectedDatasetKey)?.item_key ?? firstGroup?.items[0]?.item_key ?? "";
+          });
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setCommandError(caught instanceof Error ? caught.message : "未知错误");
+        }
+      }
+    }
+    void loadCommandExamples();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const matchedGroup = commandGroups.find((group) => group.items.some((item) => item.item_key === selectedDatasetKey));
+    if (!matchedGroup) {
+      return;
+    }
+    setSelectedCommandGroupKey(matchedGroup.group_key);
+    setSelectedCommandItemKey(selectedDatasetKey);
+  }, [commandGroups, selectedDatasetKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,7 +359,18 @@ function App() {
           </Panel>
 
           <Panel title="命令示例 / 操作提示" description="本页只展示命令，不触发写入；真实写入继续通过 CLI 执行。">
-            {selectedDataset ? <CommandHints dataset={selectedDataset} /> : null}
+            <CommandExamplesPanel
+              error={commandError}
+              groups={commandGroups}
+              selectedGroupKey={selectedCommandGroupKey}
+              selectedItemKey={selectedCommandItemKey}
+              onSelectGroup={(groupKey) => {
+                setSelectedCommandGroupKey(groupKey);
+                const group = commandGroups.find((item) => item.group_key === groupKey);
+                setSelectedCommandItemKey(group?.items[0]?.item_key ?? "");
+              }}
+              onSelectItem={setSelectedCommandItemKey}
+            />
           </Panel>
 
           {status?.risks.length ? (
@@ -474,14 +558,119 @@ function LayerCard({ layer }: { layer: LayerSummary }) {
   );
 }
 
-function CommandHints({ dataset }: { dataset: DatasetSummary }) {
-  const commands = commandExamples(dataset);
+function CommandExamplesPanel({
+  groups,
+  selectedGroupKey,
+  selectedItemKey,
+  error,
+  onSelectGroup,
+  onSelectItem,
+}: {
+  groups: CommandExampleGroup[];
+  selectedGroupKey: string;
+  selectedItemKey: string;
+  error: string | null;
+  onSelectGroup: (groupKey: string) => void;
+  onSelectItem: (itemKey: string) => void;
+}) {
+  if (error) {
+    return <div className="alert error">命令示例加载失败：{error}</div>;
+  }
+  if (!groups.length) {
+    return <EmptyState title="正在加载命令示例" description="命令来自后端 Lake catalog，前端不会自行拼接。" />;
+  }
+
+  const selectedGroup = groups.find((group) => group.group_key === selectedGroupKey) ?? groups[0];
+  const selectedItem = selectedGroup.items.find((item) => item.item_key === selectedItemKey) ?? selectedGroup.items[0] ?? null;
+
   return (
-    <div className="command-list">
-      {commands.map((command) => (
-        <code key={command}>{command}</code>
-      ))}
+    <div className="command-examples">
+      <div className="command-notice">
+        <strong>只读提示</strong>
+        <span>本页只展示命令，不会执行写入。请在本地终端确认参数后执行。</span>
+      </div>
+      <div className="command-toolbar">
+        <label>
+          <span>展示分组</span>
+          <select value={selectedGroup.group_key} onChange={(event) => onSelectGroup(event.target.value)}>
+            {groups.map((group) => (
+              <option key={group.group_key} value={group.group_key}>
+                {group.group_label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>数据集 / 命令集合</span>
+          <select value={selectedItem?.item_key ?? ""} onChange={(event) => onSelectItem(event.target.value)}>
+            {selectedGroup.items.map((item) => (
+              <option key={item.item_key} value={item.item_key}>
+                {item.display_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {selectedItem ? <CommandExampleItemDetail item={selectedItem} /> : <EmptyState title="暂无命令示例" description="当前分组没有可展示命令。" />}
     </div>
+  );
+}
+
+function CommandExampleItemDetail({ item }: { item: CommandExampleItem }) {
+  return (
+    <div className="command-item-detail">
+      <div className="command-item-title">
+        <div>
+          <strong>{item.display_name}</strong>
+          <span>{item.item_key}</span>
+        </div>
+        <span className="tag">{item.item_type === "dataset" ? "数据集" : "命令集合"}</span>
+      </div>
+      {item.description ? <p>{item.description}</p> : null}
+      <div className="command-card-list">
+        {item.examples.map((example) => (
+          <CommandExampleCard example={example} key={example.example_key} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CommandExampleCard({ example }: { example: CommandExample }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyCommand() {
+    try {
+      await navigator.clipboard.writeText(example.command);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <article className="command-card">
+      <div className="command-card-header">
+        <div>
+          <strong>{example.title}</strong>
+          <span>{example.description}</span>
+        </div>
+        <span className="tag">{scenarioLabel(example.scenario)}</span>
+      </div>
+      <div className="command-code-row">
+        <code>{example.command}</code>
+        <button type="button" onClick={copyCommand}>
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      {example.prerequisites.length || example.notes.length ? (
+        <div className="command-meta">
+          {example.prerequisites.length ? <span>前置：{example.prerequisites.join("；")}</span> : null}
+          {example.notes.length ? <span>备注：{example.notes.join("；")}</span> : null}
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -571,25 +760,20 @@ function layerDescription(layer: string): string {
   return "本地文件层。";
 }
 
-function commandExamples(dataset: DatasetSummary): string[] {
-  if (dataset.dataset_key === "stock_basic") {
-    return ["lake-console sync-stock-basic"];
-  }
-  if (dataset.dataset_key === "trade_cal") {
-    return ["lake-console sync-trade-cal --start-date 2020-01-01 --end-date 2026-12-31"];
-  }
-  if (dataset.dataset_key === "stk_mins") {
-    return [
-      "lake-console sync-stk-mins --ts-code 600000.SH --freq 30 --trade-date 2026-04-24",
-      "lake-console sync-stk-mins-range --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30",
-      "lake-console rebuild-stk-mins-derived --freq 90 --trade-date 2026-04-24",
-      "lake-console rebuild-stk-mins-research --freq 30 --trade-month 2026-04",
-    ];
-  }
-  return [
-    `lake-console plan-sync ${dataset.dataset_key} --help`,
-    `lake-console sync-dataset ${dataset.dataset_key} --help`,
-  ];
+function scenarioLabel(scenario: string): string {
+  const labels: Record<string, string> = {
+    init: "初始化",
+    status: "状态",
+    plan: "预览",
+    sync_point: "单点同步",
+    sync_range: "区间同步",
+    sync_snapshot: "快照刷新",
+    derive: "派生",
+    research: "Research",
+    maintenance: "维护",
+    diagnostic: "诊断",
+  };
+  return labels[scenario] ?? scenario;
 }
 
 createRoot(document.getElementById("root")!).render(

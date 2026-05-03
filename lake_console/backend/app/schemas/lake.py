@@ -99,6 +99,36 @@ class LakeDatasetListResponse(BaseModel):
     items: list[LakeDatasetSummary]
 
 
+class LakeCommandExampleResponse(BaseModel):
+    example_key: str
+    title: str
+    scenario: str
+    description: str
+    command: str
+    argv: list[str]
+    prerequisites: list[str] = []
+    notes: list[str] = []
+
+
+class LakeCommandExampleItemResponse(BaseModel):
+    item_key: str
+    item_type: str
+    display_name: str
+    description: str | None = None
+    examples: list[LakeCommandExampleResponse]
+
+
+class LakeCommandExampleGroupResponse(BaseModel):
+    group_key: str
+    group_label: str
+    group_order: int
+    items: list[LakeCommandExampleItemResponse]
+
+
+class LakeCommandExamplesResponse(BaseModel):
+    groups: list[LakeCommandExampleGroupResponse]
+
+
 class LakePartitionSummary(BaseModel):
     dataset_key: str
     layer: str

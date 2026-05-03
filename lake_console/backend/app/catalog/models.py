@@ -21,6 +21,21 @@ class LakeLayerDefinition:
 
 
 @dataclass(frozen=True)
+class LakeCommandExample:
+    example_key: str
+    title: str
+    scenario: str
+    description: str
+    argv: tuple[str, ...]
+    prerequisites: tuple[str, ...] = ()
+    notes: tuple[str, ...] = ()
+
+    @property
+    def command(self) -> str:
+        return " ".join(self.argv)
+
+
+@dataclass(frozen=True)
 class LakeDatasetDefinition:
     dataset_key: str
     display_name: str
@@ -39,3 +54,13 @@ class LakeDatasetDefinition:
     raw_freqs: tuple[int, ...] = ()
     derived_freqs: tuple[int, ...] = ()
     layers: tuple[LakeLayerDefinition, ...] = ()
+    command_examples: tuple[LakeCommandExample, ...] = ()
+
+
+@dataclass(frozen=True)
+class LakeCommandSetDefinition:
+    command_set_key: str
+    display_name: str
+    group_key: str
+    description: str
+    command_examples: tuple[LakeCommandExample, ...]

@@ -1,6 +1,10 @@
 from lake_console.backend.app.schemas.lake import (
     DiskUsageInfo,
     HealthResponse,
+    LakeCommandExampleGroupResponse,
+    LakeCommandExampleItemResponse,
+    LakeCommandExampleResponse,
+    LakeCommandExamplesResponse,
     LakeDatasetListResponse,
     LakeDatasetSummary,
     LakeLayerSummary,
@@ -14,6 +18,10 @@ from lake_console.backend.app.schemas.lake import (
 __all__ = [
     "DiskUsageInfo",
     "HealthResponse",
+    "LakeCommandExampleGroupResponse",
+    "LakeCommandExampleItemResponse",
+    "LakeCommandExampleResponse",
+    "LakeCommandExamplesResponse",
     "LakeDatasetListResponse",
     "LakeDatasetSummary",
     "LakeLayerSummary",

@@ -17,6 +17,7 @@ VIEW_GROUPS: tuple[LakeViewGroup, ...] = (
     LakeViewGroup(group_key="hk_reference_data", group_label="港股基础数据", group_order=11),
     LakeViewGroup(group_key="us_reference_data", group_label="美股基础数据", group_order=12),
     LakeViewGroup(group_key="technical_indicators", group_label="技术指标", group_order=13),
+    LakeViewGroup(group_key="maintenance", group_label="维护命令", group_order=99),
 )
 
 _VIEW_GROUP_BY_KEY = {group.group_key: group for group in VIEW_GROUPS}

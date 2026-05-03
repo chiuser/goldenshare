@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from lake_console.backend.app.api import datasets, health, lake_status, partitions
+from lake_console.backend.app.api import command_examples, datasets, health, lake_status, partitions
 
 
 def create_app() -> FastAPI:
@@ -10,6 +10,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(lake_status.router)
     app.include_router(datasets.router)
+    app.include_router(command_examples.router)
     app.include_router(partitions.router)
     return app
 
