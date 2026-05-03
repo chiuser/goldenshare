@@ -513,6 +513,13 @@
       "输出参数": {
         "url": "| url | str | N | 原文链接 |"
       }
+    },
+    "370": {
+      "输出参数": {
+        "freq": "| freq | str | N | 频率 |",
+        "exchange": "| exchange | str | N | 交易所 |",
+        "vwap": "| vwap | float | N | 平均价 |"
+      }
     }
   },
   "block_patches": {

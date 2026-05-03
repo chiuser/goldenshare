@@ -89,6 +89,9 @@ MANIFEST_TABLE_ROW_SPECS: dict[int, dict[str, list[str]]] = {
     195: {
         "输出参数": ["url"],
     },
+    370: {
+        "输出参数": ["freq", "exchange", "vwap"],
+    },
 }
 
 MANIFEST_BLOCK_SPECS: dict[int, list[dict[str, str]]] = {
