@@ -256,27 +256,99 @@ LakeDatasetDefinition(
 )
 ```
 
-维护类命令不属于某个 Tushare 数据集，例如 `clean-tmp`，建议定义虚拟分组：
+维护类命令不属于某个 Tushare 数据集，例如 `clean-tmp`。它们不应该伪装成真实数据集，也不能进入同步数据集列表。
+
+第一版建议定义一个只用于页面展示的命令集合：
 
 ```text
 group_key = "maintenance"
-dataset_key = "__lake_maintenance__"
+command_set_key = "lake_maintenance"
 display_name = "Lake 维护命令"
 ```
 
-这样前端仍然可以使用统一的“分组 -> 数据集 -> 命令”模型。
+说明：
+
+1. `lake_maintenance` 不是数据集。
+2. 它只是命令示例页面里的一个展示分组，用来放 `init`、`status`、`list-datasets`、`clean-tmp` 这类维护命令。
+3. 前端展示时可以把它放在“维护命令”分组下，但不能把它当作可同步数据集。
+4. 后端 API 返回时应明确区分 `dataset` 与 `command_set`。
 
 ### 5.4 当前第一批需要补齐的命令示例
 
 | 数据集 / 分组 | 必须包含的命令示例 |
 |---|---|
-| `stock_basic` | `sync-stock-basic` |
-| `trade_cal` | `sync-trade-cal --start-date ... --end-date ...` |
+| `stock_basic` | `plan-sync stock_basic`、`sync-stock-basic` |
+| `trade_cal` | `plan-sync trade_cal --start-date ... --end-date ...`、`sync-trade-cal --start-date ... --end-date ...` |
 | `index_basic` | `plan-sync index_basic`、`sync-dataset index_basic`、按 `market` 示例 |
-| `daily` | 单日、区间、单股区间 |
-| `moneyflow` | 单日、区间、单股区间 |
-| `stk_mins` | 单股票单日、全市场区间、派生、research |
-| `__lake_maintenance__` | `clean-tmp --dry-run`、`clean-tmp --older-than-hours 24` |
+| `daily` | `plan-sync daily`、单日、区间、单股区间 |
+| `moneyflow` | `plan-sync moneyflow`、单日、区间、单股区间 |
+| `stk_mins` | `plan-sync stk_mins`、单股票单日、全市场区间、派生、research |
+| `lake_maintenance` | `init`、`status`、`list-datasets`、`clean-tmp --dry-run`、`clean-tmp --older-than-hours 24` |
+
+### 5.5 第一批命令示例完整清单
+
+本节是实现 M1 时必须落入后端 catalog 的初始清单。实现时可以用结构化对象保存，但命令含义不得遗漏。
+
+#### 5.5.1 `stock_basic`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览刷新计划 | 不请求 Tushare，不写文件，只看 current 文件替换范围 | `lake-console plan-sync stock_basic` |
+| 刷新股票池 | 拉取 Tushare `stock_basic`，双落盘到 raw current 与 security universe manifest | `lake-console sync-stock-basic` |
+
+#### 5.5.2 `trade_cal`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览区间刷新计划 | 检查交易日历 raw current 与 trading calendar manifest 替换范围 | `lake-console plan-sync trade_cal --start-date 2026-01-01 --end-date 2026-12-31` |
+| 刷新区间交易日历 | 拉取指定区间交易日历，供区间同步展开交易日 | `lake-console sync-trade-cal --start-date 2026-01-01 --end-date 2026-12-31` |
+
+#### 5.5.3 `index_basic`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览全量刷新 | 不请求 Tushare，只看 current 文件替换范围 | `lake-console plan-sync index_basic` |
+| 全量刷新指数基础信息 | 拉取全部指数基础信息，双落盘到 raw current 与 index universe manifest | `lake-console sync-dataset index_basic` |
+| 按市场刷新 | 只拉取指定市场，适合调试或局部刷新 | `lake-console sync-dataset index_basic --market CSI` |
+| 预览多市场请求 | 检查多 market 扇出请求数量 | `lake-console plan-sync index_basic --market CSI,SSE,SZSE` |
+
+#### 5.5.4 `daily`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览单日同步 | 不请求 Tushare，只看一个 `trade_date` 分区替换范围 | `lake-console plan-sync daily --trade-date 2026-04-24` |
+| 同步单日全市场日线 | 写入一个 `trade_date` 分区 | `lake-console sync-dataset daily --trade-date 2026-04-24` |
+| 同步区间全市场日线 | 读取本地交易日历，只请求开市交易日 | `lake-console sync-dataset daily --start-date 2026-04-01 --end-date 2026-04-30` |
+| 同步单股区间日线 | 适合调试或补单股 | `lake-console sync-dataset daily --ts-code 600000.SH --start-date 2026-04-01 --end-date 2026-04-30` |
+
+#### 5.5.5 `moneyflow`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览单日同步 | 不请求 Tushare，只看一个 `trade_date` 分区替换范围 | `lake-console plan-sync moneyflow --trade-date 2026-04-24` |
+| 同步单日全市场资金流 | 写入一个 `trade_date` 分区 | `lake-console sync-dataset moneyflow --trade-date 2026-04-24` |
+| 同步区间全市场资金流 | 读取本地交易日历，只请求开市交易日 | `lake-console sync-dataset moneyflow --start-date 2026-04-01 --end-date 2026-04-30` |
+| 同步单股区间资金流 | 适合调试或单股研究 | `lake-console sync-dataset moneyflow --ts-code 600000.SH --start-date 2026-04-01 --end-date 2026-04-30` |
+
+#### 5.5.6 `stk_mins`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 预览全市场区间分钟线 | 不请求 Tushare，只预估股票数、freq、交易日窗口和请求量 | `lake-console plan-sync stk_mins --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30` |
+| 同步单股票单日分钟线 | 适合小范围验证或补单只股票 | `lake-console sync-stk-mins --ts-code 600000.SH --freq 30 --trade-date 2026-04-24` |
+| 同步全市场区间分钟线 | 按本地交易日历展开交易日，写入 `stk_mins_by_date` | `lake-console sync-stk-mins-range --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30` |
+| 派生 90/120 分钟线 | 从 30/60 分钟线生成本地派生层 | `lake-console derive-stk-mins --trade-date 2026-04-24 --targets 90,120` |
+| 重建 research 月分区 | 把 by_date 数据重排为 by_symbol_month，适合单股长周期回测 | `lake-console rebuild-stk-mins-research --freq 30 --trade-month 2026-04` |
+
+#### 5.5.7 `lake_maintenance`
+
+| 场景 | 说明 | 命令 |
+|---|---|---|
+| 初始化 Lake Root | 创建本地 Lake Root 基础目录结构 | `lake-console init` |
+| 查看 Lake Root 状态 | 检查路径、容量、配置等基础状态 | `lake-console status` |
+| 列出本地数据集 | 扫描当前 Lake Root 下已经落盘的数据集 | `lake-console list-datasets` |
+| 预览临时目录清理 | 只列出可清理 `_tmp` run 目录，不删除 | `lake-console clean-tmp --dry-run` |
+| 清理旧临时目录 | 清理超过指定小时数的 `_tmp` run 目录 | `lake-console clean-tmp --older-than-hours 24` |
 
 ---
 
@@ -523,7 +595,7 @@ npm run build
 | 命令示例与真实 CLI 漂移 | 用户复制后执行失败 | 用 `argv` 结构化保存，并测试命令名 |
 | 前端重新硬编码命令 | 后续继续漂移 | 增加 guardrail，禁止 `commandExamples(dataset)` 类映射 |
 | 页面被误解为执行入口 | 用户以为点按钮会同步 | 页面文案明确“只展示，不执行” |
-| 维护命令没有数据集归属 | 页面展示断层 | 使用 `__lake_maintenance__` 虚拟数据集 |
+| 维护命令没有数据集归属 | 页面展示断层 | 使用 `lake_maintenance` 命令集合，并明确它不是数据集 |
 | 新增数据集忘记补命令示例 | 页面缺项 | dataset catalog 测试强制每个数据集有示例 |
 
 ---
