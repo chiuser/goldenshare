@@ -19,6 +19,8 @@ from src.foundation.datasets.models import (
     DatasetSourceDefinition,
     DatasetStorageDefinition,
     DatasetTransactionDefinition,
+    DatasetUniverseDefinition,
+    DatasetUniverseSourceDefinition,
 )
 
 
@@ -51,6 +53,14 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     transaction_row = dict(row["transaction"])
     if "commit_policy" not in transaction_row:
         raise ValueError(f"数据集定义 {identity.dataset_key} 缺少事务提交策略")
+    planning_row = dict(row["planning"])
+    universe_row = planning_row.get("universe")
+    if universe_row is not None:
+        planning_row["universe"] = DatasetUniverseDefinition(
+            request_field=str(universe_row["request_field"]).strip(),
+            override_fields=tuple(str(item).strip() for item in universe_row.get("override_fields", ()) if str(item).strip()),
+            sources=tuple(DatasetUniverseSourceDefinition(**source) for source in universe_row.get("sources", ())),
+        )
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
@@ -64,7 +74,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
             dependencies=tuple(tuple(item) for item in row["input_model"].get("dependencies", ())),
         ),
         storage=DatasetStorageDefinition(**storage_row),
-        planning=DatasetPlanningDefinition(**row["planning"]),
+        planning=DatasetPlanningDefinition(**planning_row),
         normalization=DatasetNormalizationDefinition(**row["normalization"]),
         capabilities=DatasetCapabilities(
             actions=tuple(DatasetActionCapability(**action) for action in row["capabilities"]["actions"]),

@@ -130,8 +130,22 @@ class DatasetStorageDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class DatasetUniverseSourceDefinition:
+    type: str
+    resource: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetUniverseDefinition:
+    request_field: str
+    override_fields: tuple[str, ...] = ()
+    sources: tuple[DatasetUniverseSourceDefinition, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetPlanningDefinition:
     universe_policy: str = "none"
+    universe: DatasetUniverseDefinition | None = None
     enum_fanout_fields: tuple[str, ...] = ()
     enum_fanout_defaults: dict[str, tuple[str, ...]] = field(default_factory=dict)
     pagination_policy: str = "none"

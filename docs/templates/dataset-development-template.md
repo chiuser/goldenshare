@@ -263,7 +263,7 @@
 
 ```python
 "planning": {
-    "universe_policy": "none",
+    "universe_policy": "no_pool",
     "enum_fanout_fields": (),
     "enum_fanout_defaults": {},
     "pagination_policy": "none",
@@ -274,7 +274,7 @@
 }
 ```
 
-- `universe_policy`：是否按股票池、指数池、板块池等展开。
+- `universe_policy`：`no_pool` 表示明确不按对象池展开；`pool` 表示按 `planning.universe` 声明的对象池展开；`none` 只表示未定义，不得用于新数据集。
 - `enum_fanout_fields`：哪些枚举字段参与 unit 扇出。
 - `enum_fanout_defaults`：用户未填写枚举时默认展开的真实枚举值集合。
 - `pagination_policy`：`none` / `offset_limit` / 其他现有策略。

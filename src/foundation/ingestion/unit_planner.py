@@ -344,6 +344,40 @@ def _resolve_index_codes(request: ValidatedDatasetActionRequest, dao) -> list[st
     return normalized
 
 
+def _normalize_universe_codes(codes: list[Any]) -> list[str]:
+    return sorted({str(code).strip().upper() for code in codes if str(code).strip()})
+
+
+def _resolve_index_weight_universe_values(request: ValidatedDatasetActionRequest, definition: DatasetDefinition, dao) -> list[dict[str, str]]:  # type: ignore[no-untyped-def]
+    if definition.planning.universe_policy != "pool" or definition.planning.universe is None:
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "指数权重缺少对象池规划配置")
+
+    universe = definition.planning.universe
+    request_field = str(universe.request_field or "").strip()
+    if not request_field:
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "指数权重对象池缺少请求字段")
+
+    for override_field in universe.override_fields:
+        explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get(override_field)))
+        if explicit_codes:
+            return [{request_field: code} for code in explicit_codes]
+
+    for source in universe.sources:
+        if source.type == "ops_index_series_active":
+            resource = str(source.resource or "").strip()
+            if not resource:
+                raise DatasetUnitPlanner._planning_error("invalid_universe_config", "指数权重 active 池缺少 resource")
+            codes = _normalize_universe_codes(dao.index_series_active.list_active_codes(resource))
+        elif source.type == "core_index_basic_active":
+            codes = _normalize_universe_codes([item.ts_code for item in dao.index_basic.get_active_indexes() if item.ts_code])
+        else:
+            raise DatasetUnitPlanner._planning_error("invalid_universe_source", f"指数权重不支持的对象池来源：{source.type}")
+        if codes:
+            return [{request_field: code} for code in codes]
+
+    raise DatasetUnitPlanner._planning_error("universe_empty", "指数权重未找到可维护的指数代码")
+
+
 def _expand_natural_dates(start_date: date, end_date: date) -> list[date]:
     current = start_date
     dates: list[date] = []
@@ -477,7 +511,7 @@ def _build_index_daily_units(planner: DatasetUnitPlanner, request: ValidatedData
 
 def _build_index_weight_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
-    universe_values = [{"index_code": code} for code in split_multi_values(request.params.get("index_code")) or _resolve_index_codes(request, planner.dao)]
+    universe_values = _resolve_index_weight_universe_values(request, definition, planner.dao)
     return build_plan_units(
         request=request,
         definition=definition,

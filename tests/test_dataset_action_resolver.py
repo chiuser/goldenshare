@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 
+from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 
@@ -139,6 +141,93 @@ def test_dataset_action_resolver_builds_month_window_plan_from_month_keys(mocker
         "start_date": "20260401",
         "end_date": "20260630",
     }
+
+
+def test_index_weight_explicit_index_code_does_not_query_universe(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock()),
+        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock()),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_month="2026-04", end_month="2026-04"),
+        filters={"index_code": "000905.SH,000300.SH"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.universe_policy == "pool"
+    assert [unit.request_params["index_code"] for unit in plan.units] == ["000300.SH", "000905.SH"]
+    fake_dao.index_series_active.list_active_codes.assert_not_called()
+    fake_dao.index_basic.get_active_indexes.assert_not_called()
+
+
+def test_index_weight_uses_active_pool_before_index_basic(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000905.SH", "000300.SH"])),
+        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock()),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_month="2026-04", end_month="2026-04"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert [unit.request_params["index_code"] for unit in plan.units] == ["000300.SH", "000905.SH"]
+    fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_weight")
+    fake_dao.index_basic.get_active_indexes.assert_not_called()
+
+
+def test_index_weight_falls_back_to_active_index_basic(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=[])),
+        index_basic=SimpleNamespace(
+            get_active_indexes=mocker.Mock(
+                return_value=[
+                    SimpleNamespace(ts_code="399001.SZ"),
+                    SimpleNamespace(ts_code="000300.SH"),
+                    SimpleNamespace(ts_code=None),
+                ]
+            )
+        ),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_month="2026-04", end_month="2026-04"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert [unit.request_params["index_code"] for unit in plan.units] == ["000300.SH", "399001.SZ"]
+    fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_weight")
+    fake_dao.index_basic.get_active_indexes.assert_called_once_with()
+
+
+def test_index_weight_rejects_empty_universe(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=[])),
+        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock(return_value=[])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_weight",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_month="2026-04", end_month="2026-04"),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="指数权重未找到可维护的指数代码"):
+        resolver.build_plan(request)
 
 
 def test_dataset_action_resolver_builds_no_time_plan(mocker) -> None:

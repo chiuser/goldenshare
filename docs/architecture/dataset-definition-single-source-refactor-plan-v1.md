@@ -292,7 +292,7 @@ DatasetDefinition(
     ),
     planning=DatasetPlanningDefinition(
         anchor_policy="trade_date",
-        universe_policy="none",
+        universe_policy="no_pool",
         enum_fanout_fields=("market", "hot_type", "is_new"),
         enum_fanout_defaults={
             "market": ("A股市场", "ETF基金", "港股市场", "美股市场"),
@@ -410,7 +410,7 @@ Ops 展示投影只回答：
 | 历史数据集执行契约 | 历史模型已退场；事实迁入 `DatasetDefinition`，运行投影迁入 `DatasetExecutionPlan` |
 | `DatasetDateModel` | 保留语义，上移为 `DatasetDefinition.date_model` |
 | `InputSchema/InputField` | 合入 `DatasetInputModel`，并派生 API/前端参数展示 |
-| `PlanningSpec` | 保留为执行计划输入，但从 definition 派生 |
+| `PlanningSpec` | 保留为执行计划输入，但从 definition 派生；对象池语义后续收口到 `universe_policy=no_pool|pool` 与 `planning.universe`，`none` 只表示未定义或历史未迁移 |
 | `SourceSpec/WriteSpec/ObserveSpec` | 合入 definition 的 source/storage/observability |
 | `DatasetFreshnessProjection` | 从 definition 生成的 ops 投影，不得作为独立事实源维护 |
 | 旧任务规格 | 已退出用户/调度主模型；动作目录改由 `DatasetDefinition` 与 `src/ops/action_catalog.py` 派生 |

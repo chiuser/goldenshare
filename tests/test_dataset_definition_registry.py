@@ -40,6 +40,19 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
 
 
+def test_index_weight_declares_minimal_universe_pool() -> None:
+    definition = get_dataset_definition("index_weight")
+
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "index_code"
+    assert definition.planning.universe.override_fields == ("index_code",)
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("ops_index_series_active", "index_weight"),
+        ("core_index_basic_active", None),
+    ]
+
+
 def test_stk_period_bar_definitions_use_calendar_source_anchors() -> None:
     weekly = get_dataset_definition("stk_period_bar_week")
     monthly = get_dataset_definition("stk_period_bar_month")
@@ -60,6 +73,33 @@ def test_stk_period_bar_definitions_use_calendar_source_anchors() -> None:
     assert adj_monthly.date_model.bucket_rule == "month_last_calendar_day"
     assert index_weekly.date_model.bucket_rule == "week_last_open_day"
     assert index_monthly.date_model.bucket_rule == "month_last_open_day"
+
+
+def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
+    no_time_definitions = [
+        definition
+        for definition in list_dataset_definitions()
+        if definition.date_model.input_shape == "none"
+    ]
+
+    assert {definition.dataset_key for definition in no_time_definitions} == {
+        "etf_basic",
+        "etf_index",
+        "hk_basic",
+        "index_basic",
+        "stock_basic",
+        "ths_index",
+        "ths_member",
+        "us_basic",
+    }
+    for definition in no_time_definitions:
+        action = definition.capabilities.get_action("maintain")
+
+        assert definition.date_model.date_axis == "none"
+        assert definition.date_model.window_mode == "none"
+        assert definition.input_model.time_fields == ()
+        assert action is not None
+        assert action.supported_time_modes == ("none",)
 
 
 def test_dataset_definition_projects_cctv_news_facts() -> None:

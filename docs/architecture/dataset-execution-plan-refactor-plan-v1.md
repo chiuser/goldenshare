@@ -348,13 +348,20 @@ request_builder:
 
 | 现有字段 | 新位置 | 说明 |
 |---|---|---|
-| `universe_policy` | `plan.planning.universe_policy` | 定义 unit 是否需要从股票池、指数池、交易日历等业务集合展开。例如 `index_daily` 从激活指数池展开 `ts_code`。 |
+| `universe_policy` | `plan.planning.universe_policy` | 目标有效值为 `no_pool/pool`：`no_pool` 表示明确不从维护对象池展开，`pool` 表示需要从维护对象池展开。`none` 只表示未定义或历史未迁移值，不允许作为业务语义。 |
+| `universe` | `plan.planning.universe` | 当 `universe_policy=pool` 时，显式声明维护对象类型、绑定字段、显式覆盖字段、日期依赖范围和对象池来源优先级。 |
 | `enum_fanout_fields` | `plan.planning.enum_fanout` | 定义哪些枚举字段会参与扇出。每组枚举组合都会生成独立 unit，例如 `dc_hot` 的 `market + hot_type + is_new`。 |
 | `enum_fanout_defaults` | `plan.planning.enum_defaults` | 当用户未显式传某个枚举字段时，planner 使用的默认枚举集合。它不是 UI 默认值，而是执行计划默认展开规则；例如 `dc_hot` 默认展开全部市场、热点类型和最新标记。 |
 | `pagination_policy` | `plan.planning.pagination_policy` | 定义源接口内部如何分页拉取。分页只影响单 unit 内部取数方式，不作为事务提交粒度。 |
 | `chunk_size` | `plan.planning.chunk_size` | 定义规划或写入过程的内部分块规模，用于控制内存和批量 SQL 大小，不等于事务边界。 |
 
 这样 `dc_hot` 的默认 `hot_type/is_new/market`、指数池扇出、板块代码扇出，都成为 definition 派生的 plan 行为，而不是散落在手动任务或旧区间执行服务中。
+
+补充说明：
+
+1. 当前代码里仍存在 `index_active_codes`、`dc_index_board_codes`、`ths_index_board_codes` 这类历史 selector。
+2. 长期目标不是继续扩充这些字符串，而是收口到 `universe_policy=no_pool|pool`；对象池来源收口到 `planning.universe.sources`。
+3. 详细方案见 [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)。
 
 ---
 

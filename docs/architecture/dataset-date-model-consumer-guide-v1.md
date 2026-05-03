@@ -277,7 +277,7 @@ audit_applicable=True
 ```text
 date_axis=none
 bucket_rule=not_applicable
-window_mode=point / point_or_range / none
+window_mode=none
 input_shape=none
 observed_field=None
 audit_applicable=False
@@ -291,6 +291,9 @@ not_applicable_reason=snapshot/master dataset
 3. `us_basic`
 4. `index_basic`
 5. `ths_member`
+6. `etf_basic`
+7. `etf_index`
+8. `ths_index`
 
 语义：这类数据集不按日期连续性组织，不适合日期完整性审计。
 

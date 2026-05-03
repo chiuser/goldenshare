@@ -83,6 +83,18 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert _time_modes(actions["index_weight.maintain"])["range"]["control"] == "month_window_range"
     assert [item["mode"] for item in actions["stock_basic.maintain"]["time_form"]["modes"]] == ["none"]
     assert _time_modes(actions["stock_basic.maintain"])["none"]["control"] == "none"
+    for action_key in (
+        "etf_basic.maintain",
+        "etf_index.maintain",
+        "hk_basic.maintain",
+        "ths_index.maintain",
+        "ths_member.maintain",
+        "us_basic.maintain",
+    ):
+        assert actions[action_key]["date_model"]["input_shape"] == "none"
+        assert actions[action_key]["date_model"]["window_mode"] == "none"
+        assert [item["mode"] for item in actions[action_key]["time_form"]["modes"]] == ["none"]
+        assert _time_modes(actions[action_key])["none"]["control"] == "none"
     assert actions["trade_cal.maintain"]["time_form"]["default_mode"] == "none"
     assert [item["mode"] for item in actions["trade_cal.maintain"]["time_form"]["modes"]] == ["none", "point", "range"]
     trade_cal_modes = _time_modes(actions["trade_cal.maintain"])
