@@ -1,8 +1,8 @@
 # 数据集日期完整性审计设计 v2（独立审计系统）
 
 - 版本：v2
-- 状态：M7 已完成本地验证（手动审计、独立 worker、自动审计配置与 tick 已接入；M8 远程验证待做）
-- 更新时间：2026-04-30
+- 状态：M7 已完成本地验证（手动审计、独立 worker、自动审计配置与 tick 已接入；股票周/月线长假规则排除已接入；M8 远程验证待做）
+- 更新时间：2026-05-03
 - 适用范围：`src/ops` 审查中心的数据日期完整性审计能力
 - 前置事实源：`src/foundation/datasets/**` 的 `DatasetDefinition.date_model`
 - 替代文档：[数据集日期完整性审计设计 v1（历史稿）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
@@ -23,6 +23,7 @@
 5. 审计不刷新 freshness，不写 dataset status snapshot，不影响同步任务状态。
 6. 审计规则只来自 `DatasetDefinition.date_model`，不得在 ops、API、前端复制第二套规则。
 7. 同步任务正在运行时同时触发审计的并发一致性问题，本期不处理；后续通过统一运维协调机制解决。
+8. 股票周/月线这类自然锚点数据集，候选桶是否应纳入检查必须由 `DatasetDefinition` 的日期桶可产出规则决定；不得用节假日白名单或审计 SQL 特判隐藏缺口。
 
 ---
 
@@ -105,6 +106,8 @@ flowchart LR
 | `observed_field` | 决定业务目标表实际桶读取字段 |
 | `audit_applicable` | 决定是否允许审计 |
 | `not_applicable_reason` | 不适用时展示原因 |
+| `bucket_window_rule` | 决定自然锚点对应的业务窗口 |
+| `bucket_applicability_rule` | 决定候选桶是否应纳入 expected bucket |
 
 硬规则：
 
@@ -113,6 +116,7 @@ flowchart LR
 3. `DatasetDefinition.observability.observed_field` 与 `date_model.observed_field` 若不一致，视为 Definition 配置错误，审计模块不得兜底。
 4. `dividend` / `stk_holdernumber` 等低频事件型数据，也以 Definition 的 date model 为准；如果业务口径要变，必须先改 Definition。
 5. 多个逻辑数据集共用同一目标表与同一观测字段时，必须由 `DatasetDefinition.storage.row_identity_filters` 显式声明行级归属条件；审计 SQL 不得按 `dataset_key` 硬编码。
+6. 候选桶是否因为业务窗口内无开市日而排除，必须由 `DatasetDefinition` 的日期桶可产出规则表达；审计模块只消费规则，不维护节假日列表。
 
 `row_identity_filters` 是存储事实，不是审计专用规则。第一版只允许简单等值过滤，例如股票周/月线共用 `core_serving.stk_period_bar` 时：
 
@@ -128,6 +132,38 @@ flowchart LR
 1. 过滤字段必须是合法列名。
 2. 过滤值只允许字符串、整数、布尔值。
 3. 过滤条件必须通过 SQL 参数绑定消费，不允许拼接 raw SQL。
+
+### 3.1.1 规则排除桶
+
+股票周/月线当前使用自然锚点：
+
+| 数据集 | 候选桶规则 | 行归属过滤 | 可产出规则 |
+|---|---|---|---|
+| `stk_period_bar_week` | `natural_day + week_friday` | `freq=week` | ISO 周内至少有 1 个开市交易日 |
+| `stk_period_bar_adj_week` | `natural_day + week_friday` | `freq=week` | ISO 周内至少有 1 个开市交易日 |
+| `stk_period_bar_month` | `natural_day + month_last_calendar_day` | `freq=month` | 自然月内至少有 1 个开市交易日 |
+| `stk_period_bar_adj_month` | `natural_day + month_last_calendar_day` | `freq=month` | 自然月内至少有 1 个开市交易日 |
+
+审计计算必须拆成三类：
+
+| 类型 | 含义 | 是否算缺失 |
+|---|---|---|
+| 候选桶 | `bucket_rule` 生成的自然周五/自然月末 | 不直接进入结果 |
+| 应检查桶 | 候选桶通过 `bucket_applicability_rule` 后得到的 expected bucket | 参与缺失判断 |
+| 规则排除桶 | 候选桶对应窗口内没有开市日 | 不算缺失，需要在详情中展示排除原因 |
+
+展示建议：
+
+```text
+应检查 835 / 已覆盖 835 / 缺失 0 / 规则排除 17
+```
+
+约束：
+
+1. 排除原因必须是结构化原因，例如 `bucket_has_no_open_trade_day`。
+2. 不允许把春节、国庆日期写成白名单。
+3. 不允许在 `ActualBucketReader` 或 SQL 中按数据集 key 特判。
+4. 第一版只作用在四个股票周/月线数据集上。
 
 ### 3.2 日期桶规则
 
@@ -169,10 +205,13 @@ flowchart LR
 | `window_mode` | varchar(32) | `date_model.window_mode` 快照 |
 | `input_shape` | varchar(32) | `date_model.input_shape` 快照 |
 | `observed_field` | varchar(64) | 实际桶观测字段快照 |
+| `bucket_window_rule` | varchar(32) | 日期桶窗口规则快照 |
+| `bucket_applicability_rule` | varchar(64) | 日期桶可产出规则快照 |
 | `row_identity_filters_json` | json | 目标表行级归属过滤条件快照 |
 | `expected_bucket_count` | int | 期望桶数量 |
 | `actual_bucket_count` | int | 实际桶数量 |
 | `missing_bucket_count` | int | 缺失桶数量 |
+| `excluded_bucket_count` | int | 规则排除桶数量 |
 | `gap_range_count` | int | 压缩后的缺口区间数量 |
 | `current_stage` | varchar(64) | 当前阶段，如 `planning`、`reading_actual`、`detecting_gap`、`persisting` |
 | `operator_message` | text | 给运营看的短消息 |
@@ -206,6 +245,23 @@ flowchart LR
 | `range_end` | date | 缺口终点 |
 | `missing_count` | int | 区间内缺失桶数量 |
 | `sample_values_json` | jsonb | 可选样本，如月份键列表 |
+| `created_at` | timestamptz | 创建时间 |
+
+### 4.2.1 表：`ops.dataset_date_completeness_exclusion`
+
+记录因为规则明确不可产出而被排除的候选桶。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `id` | bigint PK | 排除明细 ID |
+| `run_id` | bigint FK | 关联 `dataset_date_completeness_run.id` |
+| `dataset_key` | varchar(96) | 数据集键，便于检索 |
+| `bucket_kind` | varchar(32) | `trade_date` / `natural_date` / `month_key` / `month_window` |
+| `bucket_value` | date | 被排除的候选桶日期 |
+| `window_start` | date | 候选桶对应业务窗口起点 |
+| `window_end` | date | 候选桶对应业务窗口终点 |
+| `reason_code` | varchar(64) | 结构化排除原因，例如 `bucket_has_no_open_trade_day` |
+| `reason_message` | text | 给运营看的排除原因说明 |
 | `created_at` | timestamptz | 创建时间 |
 
 ### 4.3 表：`ops.dataset_date_completeness_schedule`
@@ -271,6 +327,7 @@ sequenceDiagram
   Worker->>DB: run_status=running, current_stage=planning
   Worker->>Def: 读取规则快照
   Worker->>Worker: 生成 expected buckets
+  Worker->>Worker: 记录规则排除 buckets
   Worker->>DB: current_stage=reading_actual
   Worker->>Biz: 范围查询 actual buckets
   Worker->>Worker: diff expected - actual
@@ -389,6 +446,10 @@ sequenceDiagram
 
 查询单次审计缺口区间。
 
+### 7.5.1 `GET /runs/{run_id}/exclusions`
+
+查询单次审计的规则排除明细。
+
 ### 7.6 自动审计 API
 
 第一版包含自动审计，新增：
@@ -432,6 +493,7 @@ Tab：
 | 创建审计 | `POST /runs` |
 | 运行状态轮询 | `GET /runs/{run_id}` |
 | 缺口明细 | `GET /runs/{run_id}/gaps` |
+| 规则排除明细 | `GET /runs/{run_id}/exclusions` |
 | 历史记录 | `GET /runs` |
 | 自动审计配置 | `/schedules*`，若启用 |
 
@@ -439,9 +501,10 @@ Tab：
 
 1. 页面只表达日期完整性，不混入 freshness。
 2. 结果用“通过 / 不通过 / 执行错误”；不适用只在规则列表展示，不进入审计记录。
-3. 重点展示审计范围、期望日期数、实际日期数、缺失日期数、缺失区间。
+3. 重点展示审计范围、应检查日期数、实际日期数、缺失日期数、缺失区间。
 4. 不展示 TaskRun 信息，不跳转任务详情页。
 5. 不适用数据集展示原因，不展示创建按钮。
+6. 若存在规则排除桶，应弱化展示“规则排除 N 个”，详情说明例如“该自然周内无开市日，不应产出周线数据”。
 
 ---
 
@@ -451,7 +514,7 @@ Tab：
 
 1. 本表来自当前 `DatasetDefinition`，用于评审，不是第二套规则源。
 2. 代码实现必须运行时读取 Definition，不得复制本表。
-3. 当前共 59 个数据集，49 个可审计，10 个不可审计。
+3. 当前共 60 个数据集，49 个可审计，11 个不可审计。
 
 | 组合 | 数量 |
 |---|---:|
@@ -495,8 +558,8 @@ Tab：
 2. `trade_open_day + week_last_open_day`：按 ISO 周分组，取该周最后一个开市交易日。
 3. `trade_open_day + month_last_open_day`：按自然月分组，取该月最后一个开市交易日。
 4. `natural_day + every_natural_day`：生成自然日序列。
-5. `natural_day + week_friday`：生成范围内所有自然周周五。
-6. `natural_day + month_last_calendar_day`：生成范围内所有自然月最后一天。
+5. `natural_day + week_friday`：生成范围内所有自然周周五；若配置可产出规则，还要排除 ISO 周内没有开市日的候选桶。
+6. `natural_day + month_last_calendar_day`：生成范围内所有自然月最后一天；若配置可产出规则，还要排除自然月内没有开市日的候选桶。
 7. `month_key + every_natural_month`：生成连续月份键。
 8. `month_window + month_window_has_data`：每个自然月窗口一个桶，判断窗口内是否至少存在数据。
 
@@ -569,6 +632,7 @@ Tab：
 4. 前端不允许复制规则常量。
 5. 审计执行不写 TaskRun、freshness、snapshot 表。
 6. 文档和 AGENTS 不得描述“日期完整性审计接入 TaskRun”。
+7. 股票周/月线长假排除必须有测试证明“整周无开市日”的自然周五不进入缺失桶，而进入规则排除桶。
 
 ---
 

@@ -56,6 +56,8 @@ function mockApi() {
                 window_mode: "range",
                 input_shape: "trade_date_or_start_end",
                 observed_field: "trade_date",
+                bucket_window_rule: null,
+                bucket_applicability_rule: "always",
                 audit_applicable: true,
                 not_applicable_reason: null,
                 rule_label: "每个开市交易日",
@@ -81,6 +83,8 @@ function mockApi() {
                 window_mode: "none",
                 input_shape: "none",
                 observed_field: null,
+                bucket_window_rule: null,
+                bucket_applicability_rule: "always",
                 audit_applicable: false,
                 not_applicable_reason: "snapshot/master dataset",
                 rule_label: "不适用日期完整性审计",
@@ -96,25 +100,28 @@ function mockApi() {
         items: [
           {
             id: 7,
-            dataset_key: "moneyflow_ind_dc",
-            display_name: "板块资金流向(DC)",
-            target_table: "core_serving.board_moneyflow_dc",
+            dataset_key: "stk_period_bar_week",
+            display_name: "股票周线行情",
+            target_table: "core_serving.stk_period_bar",
             run_mode: "manual",
             run_status: "succeeded",
             result_status: "passed",
-            start_date: "2026-04-20",
-            end_date: "2026-04-24",
-            date_axis: "trade_open_day",
-            bucket_rule: "every_open_day",
+            start_date: "2026-01-23",
+            end_date: "2026-02-06",
+            date_axis: "natural_day",
+            bucket_rule: "week_friday",
             window_mode: "range",
             input_shape: "trade_date_or_start_end",
             observed_field: "trade_date",
-            expected_bucket_count: 5,
-            actual_bucket_count: 5,
+            bucket_window_rule: "iso_week",
+            bucket_applicability_rule: "requires_open_trade_day_in_bucket",
+            expected_bucket_count: 2,
+            actual_bucket_count: 2,
             missing_bucket_count: 0,
+            excluded_bucket_count: 1,
             gap_range_count: 0,
             current_stage: "finished",
-            operator_message: "审计通过，未发现日期缺口。",
+            operator_message: "审计通过，已按规则排除 1 个不可产出日期桶。",
             technical_message: null,
             requested_by_user_id: 1,
             schedule_id: null,
@@ -140,6 +147,25 @@ function mockApi() {
     }
     if (path === "/api/v1/ops/review/date-completeness/runs/7/gaps") {
       return { total: 0, items: [] };
+    }
+    if (path === "/api/v1/ops/review/date-completeness/runs/7/exclusions") {
+      return {
+        total: 1,
+        items: [
+          {
+            id: 11,
+            run_id: 7,
+            dataset_key: "stk_period_bar_week",
+            bucket_kind: "natural_date",
+            bucket_value: "2026-01-30",
+            window_start: "2026-01-26",
+            window_end: "2026-02-01",
+            reason_code: "bucket_has_no_open_trade_day",
+            reason_message: "该自然周内没有开市交易日，不应产出周线数据。",
+            created_at: "2026-04-30T10:02:00+08:00",
+          },
+        ],
+      };
     }
     if (path === "/api/v1/ops/review/date-completeness/schedules?limit=50&offset=0") {
       return { total: 0, items: [] };
@@ -233,5 +259,20 @@ describe("数据集审计页", () => {
       });
     });
     expect(apiRequest.mock.calls.some(([path]) => String(path).includes("/api/v1/ops/task-runs"))).toBe(false);
+  });
+
+  it("展示规则排除桶明细，不把长假周误报成缺失", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /审计记录/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "查看详情" }));
+
+    expect((await screen.findAllByText("规则排除")).length).toBeGreaterThanOrEqual(2);
+    expect(await screen.findByText("2026/01/30")).toBeInTheDocument();
+    expect(await screen.findByText("2026/01/26 至 2026/02/01")).toBeInTheDocument();
+    expect(await screen.findByText("该自然周内没有开市交易日，不应产出周线数据。")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/runs/7/exclusions");
+    });
   });
 });

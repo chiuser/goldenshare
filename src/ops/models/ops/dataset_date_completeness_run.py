@@ -24,6 +24,7 @@ class DatasetDateCompletenessRun(TimestampMixin, Base):
         CheckConstraint("expected_bucket_count >= 0", name="dataset_date_completeness_expected_non_negative"),
         CheckConstraint("actual_bucket_count >= 0", name="dataset_date_completeness_actual_non_negative"),
         CheckConstraint("missing_bucket_count >= 0", name="dataset_date_completeness_missing_non_negative"),
+        CheckConstraint("excluded_bucket_count >= 0", name="dataset_date_completeness_excluded_non_negative"),
         CheckConstraint("gap_range_count >= 0", name="dataset_date_completeness_gap_range_non_negative"),
         CheckConstraint(
             "(result_status <> 'passed') OR (missing_bucket_count = 0)",
@@ -55,11 +56,14 @@ class DatasetDateCompletenessRun(TimestampMixin, Base):
     window_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     input_shape: Mapped[str] = mapped_column(String(32), nullable=False)
     observed_field: Mapped[str] = mapped_column(String(64), nullable=False)
+    bucket_window_rule: Mapped[str] = mapped_column(String(32), nullable=False, default="none", server_default="none")
+    bucket_applicability_rule: Mapped[str] = mapped_column(String(64), nullable=False, default="always", server_default="always")
     row_identity_filters_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
 
     expected_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     actual_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     missing_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    excluded_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     gap_range_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     current_stage: Mapped[str | None] = mapped_column(String(64))

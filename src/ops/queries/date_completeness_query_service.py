@@ -65,6 +65,8 @@ class DateCompletenessRuleQueryService:
             window_mode=date_model.window_mode,
             input_shape=date_model.input_shape,
             observed_field=date_model.observed_field,
+            bucket_window_rule=date_model.bucket_window_rule,
+            bucket_applicability_rule=date_model.bucket_applicability_rule,
             audit_applicable=date_model.audit_applicable,
             not_applicable_reason=date_model.not_applicable_reason,
             rule_label=cls._rule_label(date_axis=date_model.date_axis, bucket_rule=date_model.bucket_rule),

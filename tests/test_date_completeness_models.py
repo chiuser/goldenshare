@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
@@ -22,6 +23,7 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
         connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS ops")
         DatasetDateCompletenessRun.__table__.create(connection)
         DatasetDateCompletenessGap.__table__.create(connection)
+        DatasetDateCompletenessExclusion.__table__.create(connection)
         DatasetDateCompletenessSchedule.__table__.create(connection)
 
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -41,10 +43,13 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
             window_mode="point_or_range",
             input_shape="trade_date_or_start_end",
             observed_field="trade_date",
+            bucket_window_rule="none",
+            bucket_applicability_rule="always",
             row_identity_filters_json={"content_type": "行业板块"},
             expected_bucket_count=17,
             actual_bucket_count=16,
             missing_bucket_count=1,
+            excluded_bucket_count=1,
             gap_range_count=1,
             requested_at=datetime(2026, 4, 30, 10, 0, tzinfo=timezone.utc),
         )
@@ -62,6 +67,18 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
             )
         )
         session.add(
+            DatasetDateCompletenessExclusion(
+                run_id=run.id,
+                dataset_key=run.dataset_key,
+                bucket_kind="natural_date",
+                bucket_value=date(2026, 4, 10),
+                window_start=date(2026, 4, 6),
+                window_end=date(2026, 4, 12),
+                reason_code="bucket_has_no_open_trade_day",
+                reason_message="该自然周内没有开市交易日，不应产出周线数据。",
+            )
+        )
+        session.add(
             DatasetDateCompletenessSchedule(
                 dataset_key="moneyflow_ind_dc",
                 display_name="每日资金流向日期完整性审计",
@@ -76,13 +93,17 @@ def test_date_completeness_models_can_persist_independent_run_gap_and_schedule()
 
         stored_run = session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "moneyflow_ind_dc"))
         stored_gap = session.scalar(select(DatasetDateCompletenessGap).where(DatasetDateCompletenessGap.run_id == run.id))
+        stored_exclusion = session.scalar(select(DatasetDateCompletenessExclusion).where(DatasetDateCompletenessExclusion.run_id == run.id))
         stored_schedule = session.scalar(select(DatasetDateCompletenessSchedule).where(DatasetDateCompletenessSchedule.dataset_key == "moneyflow_ind_dc"))
 
         assert stored_run is not None
         assert stored_run.result_status == "failed"
         assert stored_run.row_identity_filters_json == {"content_type": "行业板块"}
+        assert stored_run.excluded_bucket_count == 1
         assert stored_gap is not None
         assert stored_gap.sample_values_json == ["2026-04-17"]
+        assert stored_exclusion is not None
+        assert stored_exclusion.reason_code == "bucket_has_no_open_trade_day"
         assert stored_schedule is not None
         assert stored_schedule.calendar_scope == "default_cn_market"
         assert stored_schedule.timezone == "Asia/Shanghai"

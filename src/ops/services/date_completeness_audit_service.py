@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 
@@ -30,6 +31,16 @@ class DateCompletenessGap:
     sample_values: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class DateCompletenessExcludedBucket:
+    bucket_kind: str
+    bucket_value: date
+    window_start: date
+    window_end: date
+    reason_code: str
+    reason_message: str
+
+
 class ExpectedBucketPlanner:
     def plan(
         self,
@@ -39,44 +50,75 @@ class ExpectedBucketPlanner:
         start_date: date,
         end_date: date,
         open_trade_dates: list[date] | None = None,
+        bucket_window_rule: str | None = None,
+        bucket_applicability_rule: str = "always",
     ) -> list[DateCompletenessBucket]:
+        expected, _excluded = self.plan_with_exclusions(
+            date_axis=date_axis,
+            bucket_rule=bucket_rule,
+            start_date=start_date,
+            end_date=end_date,
+            open_trade_dates=open_trade_dates,
+            bucket_window_rule=bucket_window_rule,
+            bucket_applicability_rule=bucket_applicability_rule,
+        )
+        return expected
+
+    def plan_with_exclusions(
+        self,
+        *,
+        date_axis: str,
+        bucket_rule: str,
+        start_date: date,
+        end_date: date,
+        open_trade_dates: list[date] | None = None,
+        bucket_window_rule: str | None = None,
+        bucket_applicability_rule: str = "always",
+    ) -> tuple[list[DateCompletenessBucket], list[DateCompletenessExcludedBucket]]:
         if start_date > end_date:
             raise ValueError("审计开始日期不能晚于结束日期")
         if bucket_rule == "not_applicable" or date_axis == "none":
-            return []
+            return [], []
         if date_axis == "trade_open_day":
-            return self._trade_open_day_buckets(
+            buckets = self._trade_open_day_buckets(
                 bucket_rule=bucket_rule,
                 start_date=start_date,
                 end_date=end_date,
                 open_trade_dates=open_trade_dates or [],
             )
-        if date_axis == "natural_day" and bucket_rule == "every_natural_day":
-            return [
+        elif date_axis == "natural_day" and bucket_rule == "every_natural_day":
+            buckets = [
                 DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
                 for value in self._natural_days(start_date, end_date)
             ]
-        if date_axis == "natural_day" and bucket_rule == "week_friday":
-            return [
+        elif date_axis == "natural_day" and bucket_rule == "week_friday":
+            buckets = [
                 DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
                 for value in self._calendar_week_fridays(start_date, end_date)
             ]
-        if date_axis == "natural_day" and bucket_rule == "month_last_calendar_day":
-            return [
+        elif date_axis == "natural_day" and bucket_rule == "month_last_calendar_day":
+            buckets = [
                 DateCompletenessBucket(bucket_kind="natural_date", value=value, label=value.isoformat())
                 for value in self._calendar_month_ends(start_date, end_date)
             ]
-        if date_axis == "month_key" and bucket_rule == "every_natural_month":
-            return [
+        elif date_axis == "month_key" and bucket_rule == "every_natural_month":
+            buckets = [
                 DateCompletenessBucket(bucket_kind="month_key", value=value, label=value.strftime("%Y%m"))
                 for value in self._month_starts(start_date, end_date)
             ]
-        if date_axis == "month_window" and bucket_rule == "month_window_has_data":
-            return [
+        elif date_axis == "month_window" and bucket_rule == "month_window_has_data":
+            buckets = [
                 DateCompletenessBucket(bucket_kind="month_window", value=value, label=value.strftime("%Y-%m"))
                 for value in self._month_starts(start_date, end_date)
             ]
-        raise ValueError(f"不支持的日期完整性规则：{date_axis}/{bucket_rule}")
+        else:
+            raise ValueError(f"不支持的日期完整性规则：{date_axis}/{bucket_rule}")
+        return self._apply_bucket_applicability(
+            buckets=buckets,
+            open_trade_dates=open_trade_dates or [],
+            bucket_window_rule=bucket_window_rule,
+            bucket_applicability_rule=bucket_applicability_rule,
+        )
 
     def _trade_open_day_buckets(
         self,
@@ -162,6 +204,57 @@ class ExpectedBucketPlanner:
             if current is None or value > current:
                 grouped[key] = value
         return sorted(grouped.values())
+
+    def _apply_bucket_applicability(
+        self,
+        *,
+        buckets: list[DateCompletenessBucket],
+        open_trade_dates: list[date],
+        bucket_window_rule: str | None,
+        bucket_applicability_rule: str,
+    ) -> tuple[list[DateCompletenessBucket], list[DateCompletenessExcludedBucket]]:
+        if bucket_applicability_rule == "always":
+            return buckets, []
+        if bucket_applicability_rule != "requires_open_trade_day_in_bucket":
+            raise ValueError(f"不支持的日期桶可产出规则：{bucket_applicability_rule}")
+
+        open_date_set = set(open_trade_dates)
+        expected: list[DateCompletenessBucket] = []
+        excluded: list[DateCompletenessExcludedBucket] = []
+        for bucket in buckets:
+            window_start, window_end = self._bucket_window(bucket.value, bucket_window_rule)
+            if any(window_start <= open_date <= window_end for open_date in open_date_set):
+                expected.append(bucket)
+                continue
+            excluded.append(
+                DateCompletenessExcludedBucket(
+                    bucket_kind=bucket.bucket_kind,
+                    bucket_value=bucket.value,
+                    window_start=window_start,
+                    window_end=window_end,
+                    reason_code="bucket_has_no_open_trade_day",
+                    reason_message=self._exclusion_reason_message(bucket_window_rule),
+                )
+            )
+        return expected, excluded
+
+    @staticmethod
+    def _bucket_window(bucket_value: date, bucket_window_rule: str | None) -> tuple[date, date]:
+        if bucket_window_rule == "iso_week":
+            window_start = bucket_value - timedelta(days=bucket_value.weekday())
+            return window_start, window_start + timedelta(days=6)
+        if bucket_window_rule == "natural_month":
+            window_start = date(bucket_value.year, bucket_value.month, 1)
+            return window_start, date(bucket_value.year, bucket_value.month, monthrange(bucket_value.year, bucket_value.month)[1])
+        raise ValueError(f"不支持的日期桶窗口规则：{bucket_window_rule}")
+
+    @staticmethod
+    def _exclusion_reason_message(bucket_window_rule: str | None) -> str:
+        if bucket_window_rule == "iso_week":
+            return "该自然周内没有开市交易日，不应产出周线数据。"
+        if bucket_window_rule == "natural_month":
+            return "该自然月内没有开市交易日，不应产出月线数据。"
+        return "该日期桶对应窗口内没有开市交易日，不应产出数据。"
 
 
 class GapDetector:
@@ -311,12 +404,14 @@ class DateCompletenessAuditExecutor:
         try:
             self._mark_running(session, run)
             open_trade_dates = self._load_open_trade_dates(session, run=run)
-            expected = ExpectedBucketPlanner().plan(
+            expected, excluded = ExpectedBucketPlanner().plan_with_exclusions(
                 date_axis=run.date_axis,
                 bucket_rule=run.bucket_rule,
                 start_date=run.start_date,
                 end_date=run.end_date,
                 open_trade_dates=open_trade_dates,
+                bucket_window_rule=run.bucket_window_rule,
+                bucket_applicability_rule=run.bucket_applicability_rule,
             )
             run.current_stage = "reading_actual"
             session.commit()
@@ -331,7 +426,7 @@ class DateCompletenessAuditExecutor:
                 row_identity_filters=run.row_identity_filters_json,
             )
             gaps = GapDetector().detect(expected_buckets=expected, actual_bucket_values=actual)
-            self._mark_succeeded(session, run, expected=expected, actual=actual, gaps=gaps)
+            self._mark_succeeded(session, run, expected=expected, actual=actual, gaps=gaps, excluded=excluded)
             return run
         except Exception as exc:
             session.rollback()
@@ -364,19 +459,33 @@ class DateCompletenessAuditExecutor:
 
     @staticmethod
     def _load_open_trade_dates(session: Session, *, run: DatasetDateCompletenessRun) -> list[date] | None:
-        if run.date_axis != "trade_open_day":
+        needs_open_dates = run.date_axis == "trade_open_day" or run.bucket_applicability_rule == "requires_open_trade_day_in_bucket"
+        if not needs_open_dates:
             return None
         exchange = get_settings().default_exchange
+        start_date, end_date = DateCompletenessAuditExecutor._trade_calendar_range(run)
         return list(
             session.scalars(
                 select(TradeCalendar.trade_date)
                 .where(TradeCalendar.exchange == exchange)
-                .where(TradeCalendar.trade_date >= run.start_date)
-                .where(TradeCalendar.trade_date <= run.end_date)
+                .where(TradeCalendar.trade_date >= start_date)
+                .where(TradeCalendar.trade_date <= end_date)
                 .where(TradeCalendar.is_open.is_(True))
                 .order_by(TradeCalendar.trade_date.asc())
             )
         )
+
+    @staticmethod
+    def _trade_calendar_range(run: DatasetDateCompletenessRun) -> tuple[date, date]:
+        if run.bucket_window_rule == "iso_week":
+            start_date = run.start_date - timedelta(days=run.start_date.weekday())
+            end_date = run.end_date + timedelta(days=6 - run.end_date.weekday())
+            return start_date, end_date
+        if run.bucket_window_rule == "natural_month":
+            start_date = date(run.start_date.year, run.start_date.month, 1)
+            end_date = date(run.end_date.year, run.end_date.month, monthrange(run.end_date.year, run.end_date.month)[1])
+            return start_date, end_date
+        return run.start_date, run.end_date
 
     @staticmethod
     def _mark_succeeded(
@@ -386,8 +495,10 @@ class DateCompletenessAuditExecutor:
         expected: list[DateCompletenessBucket],
         actual: set[date],
         gaps: list[DateCompletenessGap],
+        excluded: list[DateCompletenessExcludedBucket],
     ) -> None:
         session.execute(delete(DatasetDateCompletenessGap).where(DatasetDateCompletenessGap.run_id == run.id))
+        session.execute(delete(DatasetDateCompletenessExclusion).where(DatasetDateCompletenessExclusion.run_id == run.id))
         for gap in gaps:
             session.add(
                 DatasetDateCompletenessGap(
@@ -400,6 +511,19 @@ class DateCompletenessAuditExecutor:
                     sample_values_json=list(gap.sample_values),
                 )
             )
+        for item in excluded:
+            session.add(
+                DatasetDateCompletenessExclusion(
+                    run_id=run.id,
+                    dataset_key=run.dataset_key,
+                    bucket_kind=item.bucket_kind,
+                    bucket_value=item.bucket_value,
+                    window_start=item.window_start,
+                    window_end=item.window_end,
+                    reason_code=item.reason_code,
+                    reason_message=item.reason_message,
+                )
+            )
 
         run.run_status = "succeeded"
         run.result_status = "failed" if gaps else "passed"
@@ -407,8 +531,14 @@ class DateCompletenessAuditExecutor:
         run.expected_bucket_count = len(expected)
         run.actual_bucket_count = len(actual)
         run.missing_bucket_count = sum(gap.missing_count for gap in gaps)
+        run.excluded_bucket_count = len(excluded)
         run.gap_range_count = len(gaps)
-        run.operator_message = "审计发现日期缺口。" if gaps else "审计通过，未发现日期缺口。"
+        if gaps:
+            run.operator_message = "审计发现日期缺口。"
+        elif excluded:
+            run.operator_message = f"审计通过，已按规则排除 {len(excluded)} 个不可产出日期桶。"
+        else:
+            run.operator_message = "审计通过，未发现日期缺口。"
         run.technical_message = None
         run.finished_at = _utcnow()
         session.commit()

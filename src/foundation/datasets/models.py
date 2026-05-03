@@ -13,6 +13,8 @@ class DatasetDateModel:
     observed_field: str | None
     audit_applicable: bool
     not_applicable_reason: str | None = None
+    bucket_window_rule: str | None = None
+    bucket_applicability_rule: str = "always"
 
     def selection_rule(self) -> str:
         if self.bucket_rule == "week_friday":

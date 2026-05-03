@@ -13,6 +13,8 @@ export interface DateCompletenessRuleItem {
   window_mode: string;
   input_shape: string;
   observed_field: string | null;
+  bucket_window_rule: string | null;
+  bucket_applicability_rule: string;
   audit_applicable: boolean;
   not_applicable_reason: string | null;
   rule_label: string;
@@ -48,9 +50,12 @@ export interface DateCompletenessRunItem {
   window_mode: string;
   input_shape: string;
   observed_field: string;
+  bucket_window_rule: string;
+  bucket_applicability_rule: string;
   expected_bucket_count: number;
   actual_bucket_count: number;
   missing_bucket_count: number;
+  excluded_bucket_count: number;
   gap_range_count: number;
   current_stage: string | null;
   operator_message: string | null;
@@ -94,6 +99,24 @@ export interface DateCompletenessGapItem {
 export interface DateCompletenessGapListResponse {
   total: number;
   items: DateCompletenessGapItem[];
+}
+
+export interface DateCompletenessExclusionItem {
+  id: number;
+  run_id: number;
+  dataset_key: string;
+  bucket_kind: string;
+  bucket_value: string;
+  window_start: string;
+  window_end: string;
+  reason_code: string;
+  reason_message: string;
+  created_at: string;
+}
+
+export interface DateCompletenessExclusionListResponse {
+  total: number;
+  items: DateCompletenessExclusionItem[];
 }
 
 export interface DateCompletenessScheduleItem {

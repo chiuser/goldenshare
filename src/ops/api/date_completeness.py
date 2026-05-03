@@ -10,6 +10,7 @@ from src.ops.queries.date_completeness_query_service import DateCompletenessRule
 from src.ops.queries.date_completeness_run_query_service import DateCompletenessRunQueryService
 from src.ops.queries.date_completeness_schedule_query_service import DateCompletenessScheduleQueryService
 from src.ops.schemas.date_completeness import (
+    DateCompletenessExclusionListResponse,
     DateCompletenessGapListResponse,
     DateCompletenessRunCreateRequest,
     DateCompletenessRunCreateResponse,
@@ -93,6 +94,17 @@ def list_date_completeness_run_gaps(
     offset: int = Query(0, ge=0),
 ) -> DateCompletenessGapListResponse:
     return DateCompletenessRunQueryService().list_gaps(session, run_id, limit=limit, offset=offset)
+
+
+@router.get("/runs/{run_id}/exclusions", response_model=DateCompletenessExclusionListResponse)
+def list_date_completeness_run_exclusions(
+    run_id: int,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> DateCompletenessExclusionListResponse:
+    return DateCompletenessRunQueryService().list_exclusions(session, run_id, limit=limit, offset=offset)
 
 
 @router.get("/schedules", response_model=DateCompletenessScheduleListResponse)

@@ -2,8 +2,9 @@
 
 - 状态：当前事实参考
 - 事实来源：`src/foundation/datasets/models.py` 与 `src/foundation/datasets/definitions/**`
-- 生成口径：截至 2026-05-03，当前 registry 共 59 个 `DatasetDefinition`
+- 生成口径：截至 2026-05-03，当前 registry 共 60 个 `DatasetDefinition`
 - 目标：统一说明 `DatasetDefinition` 内所有枚举/准枚举字段的实际取值、含义与使用数据集，避免重复定义、语义交叉或隐藏特例。
+- 相关主文档：[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 
 ---
 
@@ -13,6 +14,34 @@
 2. 如果新增枚举值，必须同步更新本文、相关测试和消费方审计。
 3. 不允许把同一语义拆成两个名字，也不允许把两个不同语义塞进同一个名字。
 4. 如果实际行为与 Definition 字段不一致，必须视为待收口问题，不能让隐藏逻辑长期存在。
+5. 本文可以记录“已确认待落地”的新增枚举语义，但必须明确标注状态；未落地字段不得被消费方当成当前代码事实。
+
+---
+
+## 1.1 日期桶可产出规则枚举（已落地）
+
+本节记录股票周/月线的日期桶可产出语义：自然锚点仍由 `date_model.bucket_rule` 表达，同时由 `bucket_window_rule` 与 `bucket_applicability_rule` 表达候选桶对应的业务窗口是否应该产出数据。该能力必须从 `DatasetDefinition` 显式声明，不允许在审计 SQL、Ops 查询或前端按数据集 key 特判。
+
+### `bucket_window_rule`
+
+| 值 | 含义 | 第一版使用数据集 |
+|---|---|---|
+| `iso_week` | 锚点所属 ISO 自然周窗口 | `stk_period_bar_week`、`stk_period_bar_adj_week` |
+| `natural_month` | 锚点所属自然月窗口 | `stk_period_bar_month`、`stk_period_bar_adj_month` |
+
+### `bucket_applicability_rule`
+
+| 值 | 含义 | 第一版使用数据集 |
+|---|---|---|
+| `always` | 候选桶默认应检查。未显式配置时的普通语义 | 除显式声明特殊规则外的日期桶数据集 |
+| `requires_open_trade_day_in_bucket` | 候选桶对应窗口内至少存在 1 个开市交易日，才应纳入 expected bucket；否则作为“规则排除”展示 | `stk_period_bar_week`、`stk_period_bar_adj_week`、`stk_period_bar_month`、`stk_period_bar_adj_month` |
+
+约束：
+
+1. 这不是节假日白名单。
+2. 交易日历是判断业务窗口是否可产出的事实来源。
+3. 第一版只允许四个股票周/月线数据集显式启用；不得默认扩散到其他数据集。
+4. 后续新增使用范围时，必须同步更新 `DatasetDateModel`、Definition、resolver/freshness/audit 消费方和测试。
 
 ---
 
@@ -106,7 +135,7 @@
 
 #### E3.3 `source.request_builder_key`
 
-当前 59 个数据集均有各自的 `request_builder_key`，完整清单见第 3.6 节。新增数据集时，必须优先复用已有 request builder；确实需要新增时，必须同步新增实现、注册表、测试和本文条目。
+当前 60 个数据集均有各自的 `request_builder_key`，完整清单见第 3.6 节。新增数据集时，必须优先复用已有 request builder；确实需要新增时，必须同步新增实现、注册表、测试和本文条目。
 
 ---
 
@@ -505,7 +534,7 @@
 
 | 值 | 含义 | 使用数据集 |
 | --- | --- | --- |
-| `maintain` | 数据维护动作 | 当前全部 59 个数据集 |
+| `maintain` | 数据维护动作 | 当前全部 60 个数据集 |
 
 ### 9.2 `capabilities.supported_time_modes`
 
@@ -532,13 +561,13 @@
 
 | 值 | 含义 | 使用数据集 |
 | --- | --- | --- |
-| `record_rejections` | 记录拒绝行，不静默吞掉质量问题 | 当前全部 59 个数据集 |
+| `record_rejections` | 记录拒绝行，不静默吞掉质量问题 | 当前全部 60 个数据集 |
 
 ### 10.2 `transaction.commit_policy`
 
 | 值 | 含义 | 使用数据集 |
 | --- | --- | --- |
-| `unit` | 每个 planned unit 独立提交业务数据事务 | 当前全部 59 个数据集 |
+| `unit` | 每个 planned unit 独立提交业务数据事务 | 当前全部 60 个数据集 |
 
 ### 10.3 `transaction.idempotent_write_required`
 

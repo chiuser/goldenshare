@@ -15,6 +15,7 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.app.models.auth_role_permission",
     "src.app.models.auth_user_role",
     "src.ops.models.ops.config_revision",
+    "src.ops.models.ops.dataset_date_completeness_exclusion",
     "src.ops.models.ops.dataset_date_completeness_gap",
     "src.ops.models.ops.dataset_date_completeness_run",
     "src.ops.models.ops.dataset_date_completeness_schedule",

@@ -155,6 +155,8 @@
     "observed_field": None,
     "audit_applicable": False,
     "not_applicable_reason": None,
+    "bucket_window_rule": None,
+    "bucket_applicability_rule": "always",
 }
 ```
 
@@ -165,11 +167,14 @@
 - `observed_field`：用于 freshness 和日期审计观测的目标表字段；没有业务日期时填 `None`
 - `audit_applicable`：
 - `not_applicable_reason`：
+- `bucket_window_rule`：候选锚点对应的业务窗口；默认 `None`，仅在候选桶需要按窗口判断是否可产出时填写，例如 `iso_week` / `natural_month`
+- `bucket_applicability_rule`：候选桶是否应纳入 expected bucket；默认 `always`，股票周/月线长假排除使用 `requires_open_trade_day_in_bucket`
 
 说明：
 - 周线/月线不能按名称猜口径，必须以源接口文档为准。
 - 如果源接口要求每周/每月最后一个交易日，使用 `week_last_open_day` / `month_last_open_day`。
 - 如果源接口要求自然周周五或自然月最后一天，使用 `week_friday` / `month_last_calendar_day`；即使字段名叫 `trade_date`，也不能误建模成交易日。
+- 如果自然锚点对应的业务窗口没有开市日就不应产出数据，必须显式填写 `bucket_window_rule` 与 `bucket_applicability_rule`，不得在审计 SQL 或前端用节假日白名单兜底。
 - 快照/主数据通常使用 `date_axis="none"`、`bucket_rule="not_applicable"`，并给出 `not_applicable_reason`。
 - 前端日期控件、审计能力、freshness 口径都从 `date_model` 派生，不允许另建第二套日期规则。
 

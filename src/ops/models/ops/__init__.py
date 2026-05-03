@@ -1,6 +1,7 @@
 """Ops schema models."""
 
 from src.ops.models.ops.config_revision import ConfigRevision
+from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
@@ -21,6 +22,7 @@ from src.ops.models.ops.task_run_node import TaskRunNode
 
 __all__ = [
     "ConfigRevision",
+    "DatasetDateCompletenessExclusion",
     "DatasetDateCompletenessGap",
     "DatasetDateCompletenessRun",
     "DatasetDateCompletenessSchedule",

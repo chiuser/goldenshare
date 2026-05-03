@@ -20,6 +20,8 @@ class DateCompletenessRuleItem(BaseModel):
     window_mode: str
     input_shape: str
     observed_field: str | None = None
+    bucket_window_rule: str | None = None
+    bucket_applicability_rule: str
     audit_applicable: bool
     not_applicable_reason: str | None = None
     rule_label: str
@@ -63,9 +65,12 @@ class DateCompletenessRunItem(BaseModel):
     window_mode: str
     input_shape: str
     observed_field: str
+    bucket_window_rule: str
+    bucket_applicability_rule: str
     expected_bucket_count: int
     actual_bucket_count: int
     missing_bucket_count: int
+    excluded_bucket_count: int
     gap_range_count: int
     current_stage: str | None = None
     operator_message: str | None = None
@@ -109,6 +114,24 @@ class DateCompletenessGapItem(BaseModel):
 class DateCompletenessGapListResponse(BaseModel):
     total: int
     items: list[DateCompletenessGapItem]
+
+
+class DateCompletenessExclusionItem(BaseModel):
+    id: int
+    run_id: int
+    dataset_key: str
+    bucket_kind: str
+    bucket_value: date
+    window_start: date
+    window_end: date
+    reason_code: str
+    reason_message: str
+    created_at: datetime
+
+
+class DateCompletenessExclusionListResponse(BaseModel):
+    total: int
+    items: list[DateCompletenessExclusionItem]
 
 
 class DateCompletenessScheduleCreateRequest(BaseModel):

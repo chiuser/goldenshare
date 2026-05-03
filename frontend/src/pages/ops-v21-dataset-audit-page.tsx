@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
 import type {
+  DateCompletenessExclusionListResponse,
   DateCompletenessGapListResponse,
   DateCompletenessRuleItem,
   DateCompletenessRuleListResponse,
@@ -93,6 +94,12 @@ export function OpsV21DatasetAuditPage() {
     queryKey: ["ops", "date-completeness", "run-gaps", selectedRun?.id],
     queryFn: () => apiRequest<DateCompletenessGapListResponse>(`/api/v1/ops/review/date-completeness/runs/${selectedRun?.id}/gaps`),
     enabled: Boolean(selectedRun),
+  });
+
+  const exclusionsQuery = useQuery({
+    queryKey: ["ops", "date-completeness", "run-exclusions", selectedRun?.id],
+    queryFn: () => apiRequest<DateCompletenessExclusionListResponse>(`/api/v1/ops/review/date-completeness/runs/${selectedRun?.id}/exclusions`),
+    enabled: Boolean(selectedRun && selectedRun.excluded_bucket_count > 0),
   });
 
   const createRunMutation = useMutation({
@@ -279,7 +286,7 @@ export function OpsV21DatasetAuditPage() {
                     <OpsTableHeaderCell>范围</OpsTableHeaderCell>
                     <OpsTableHeaderCell>运行状态</OpsTableHeaderCell>
                     <OpsTableHeaderCell>结论</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>期望 / 实际 / 缺失</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>应检查 / 实际 / 缺失 / 规则排除</OpsTableHeaderCell>
                     <OpsTableHeaderCell>发起方式</OpsTableHeaderCell>
                     <OpsTableHeaderCell>操作</OpsTableHeaderCell>
                   </Table.Tr>
@@ -295,7 +302,9 @@ export function OpsV21DatasetAuditPage() {
                       <OpsTableCell>{formatDateLabel(item.start_date)} 至 {formatDateLabel(item.end_date)}</OpsTableCell>
                       <OpsTableCell><StatusBadge value={item.run_status} /></OpsTableCell>
                       <OpsTableCell><StatusBadge value={resultBadgeValue(item.result_status)} label={resultLabel(item.result_status)} /></OpsTableCell>
-                      <OpsTableCell>{item.expected_bucket_count} / {item.actual_bucket_count} / {item.missing_bucket_count}</OpsTableCell>
+                      <OpsTableCell>
+                        {item.expected_bucket_count} / {item.actual_bucket_count} / {item.missing_bucket_count} / {item.excluded_bucket_count}
+                      </OpsTableCell>
                       <OpsTableCell>{runModeLabel(item.run_mode)}</OpsTableCell>
                       <OpsTableCell>
                         <Button size="xs" variant="light" onClick={() => setSelectedRun(item)}>查看详情</Button>
@@ -353,15 +362,19 @@ export function OpsV21DatasetAuditPage() {
       >
         {selectedRun ? (
           <Stack gap="md">
-            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <SimpleGrid cols={{ base: 1, sm: 4 }}>
               <StatCard label="结论" value={resultLabel(selectedRun.result_status)} />
               <StatCard label="缺失桶" value={selectedRun.missing_bucket_count} />
               <StatCard label="缺口区间" value={selectedRun.gap_range_count} />
+              <StatCard label="规则排除" value={selectedRun.excluded_bucket_count} />
             </SimpleGrid>
             <SectionCard title="规则快照">
               <Stack gap={4}>
                 <Text size="sm">范围：{formatDateLabel(selectedRun.start_date)} 至 {formatDateLabel(selectedRun.end_date)}</Text>
                 <Text size="sm">规则：{selectedRun.date_axis} / {selectedRun.bucket_rule}</Text>
+                {selectedRun.bucket_applicability_rule !== "always" ? (
+                  <Text size="sm">可产出规则：{selectedRun.bucket_window_rule} / {selectedRun.bucket_applicability_rule}</Text>
+                ) : null}
                 <Text size="sm">观测字段：{selectedRun.observed_field}</Text>
                 <Text size="sm">创建时间：{formatDateTimeLabel(selectedRun.requested_at)}</Text>
                 {selectedRun.operator_message ? <Text size="sm">说明：{selectedRun.operator_message}</Text> : null}
@@ -401,6 +414,35 @@ export function OpsV21DatasetAuditPage() {
                 </OpsTable>
               </TableShell>
             </SectionCard>
+            {selectedRun.excluded_bucket_count > 0 ? (
+              <SectionCard title="规则排除">
+                <TableShell
+                  loading={exclusionsQuery.isLoading}
+                  hasData={(exclusionsQuery.data?.items || []).length > 0}
+                  emptyState={<EmptyState title="暂无排除明细" description="当前审计记录没有可展示的规则排除桶。" />}
+                  minWidth={720}
+                >
+                  <OpsTable>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <OpsTableHeaderCell>候选日期</OpsTableHeaderCell>
+                        <OpsTableHeaderCell>窗口</OpsTableHeaderCell>
+                        <OpsTableHeaderCell>排除原因</OpsTableHeaderCell>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {(exclusionsQuery.data?.items || []).map((item) => (
+                        <Table.Tr key={item.id}>
+                          <OpsTableCell>{formatDateLabel(item.bucket_value)}</OpsTableCell>
+                          <OpsTableCell>{formatDateLabel(item.window_start)} 至 {formatDateLabel(item.window_end)}</OpsTableCell>
+                          <OpsTableCell>{item.reason_message}</OpsTableCell>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </OpsTable>
+                </TableShell>
+              </SectionCard>
+            ) : null}
           </Stack>
         ) : null}
       </Drawer>

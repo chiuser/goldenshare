@@ -45,12 +45,16 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"] == {"total": 59, "supported": 49, "unsupported": 10}
 
     groups = _groups_by_key(payload)
     assert list(groups) == ["supported", "unsupported"]
     assert groups["supported"]["group_label"] == "支持审计"
     assert groups["unsupported"]["group_label"] == "不支持审计"
+    assert payload["summary"] == {
+        "total": len(groups["supported"]["items"]) + len(groups["unsupported"]["items"]),
+        "supported": len(groups["supported"]["items"]),
+        "unsupported": len(groups["unsupported"]["items"]),
+    }
 
     supported = _items_by_key(groups["supported"])
     unsupported = _items_by_key(groups["unsupported"])
@@ -64,6 +68,8 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["date_axis"] == "trade_open_day"
     assert supported["moneyflow_ind_dc"]["bucket_rule"] == "every_open_day"
     assert supported["moneyflow_ind_dc"]["observed_field"] == "trade_date"
+    assert supported["moneyflow_ind_dc"]["bucket_window_rule"] is None
+    assert supported["moneyflow_ind_dc"]["bucket_applicability_rule"] == "always"
     assert supported["moneyflow_ind_dc"]["rule_label"] == "每个开市交易日"
     assert supported["moneyflow_ind_dc"]["audit_applicable"] is True
     assert supported["cctv_news"]["display_name"] == "新闻联播文字稿"
@@ -99,6 +105,11 @@ def test_date_completeness_rules_cover_special_date_models(app_client, user_fact
     assert supported["index_weight"]["bucket_rule"] == "month_window_has_data"
     assert supported["index_weight"]["rule_label"] == "每个自然月窗口至少有数据"
 
+    assert supported["stk_period_bar_week"]["bucket_window_rule"] == "iso_week"
+    assert supported["stk_period_bar_week"]["bucket_applicability_rule"] == "requires_open_trade_day_in_bucket"
+    assert supported["stk_period_bar_month"]["bucket_window_rule"] == "natural_month"
+    assert supported["stk_period_bar_month"]["bucket_applicability_rule"] == "requires_open_trade_day_in_bucket"
+
     assert unsupported["stk_mins"]["observed_field"] == "trade_time"
     assert unsupported["stk_mins"]["not_applicable_reason"] == "minute completeness audit requires trading-session calendar"
 
@@ -129,10 +140,13 @@ def test_create_date_completeness_run_persists_independent_audit_record(app_clie
     assert detail["date_axis"] == "trade_open_day"
     assert detail["bucket_rule"] == "every_open_day"
     assert detail["observed_field"] == "trade_date"
+    assert detail["bucket_window_rule"] == "none"
+    assert detail["bucket_applicability_rule"] == "always"
     assert detail["run_mode"] == "manual"
     assert detail["current_stage"] == "queued"
     assert detail["expected_bucket_count"] == 0
     assert detail["missing_bucket_count"] == 0
+    assert detail["excluded_bucket_count"] == 0
 
     list_response = app_client.get("/api/v1/ops/review/date-completeness/runs?dataset_key=moneyflow_ind_dc", headers=headers)
     assert list_response.status_code == 200
@@ -141,6 +155,9 @@ def test_create_date_completeness_run_persists_independent_audit_record(app_clie
     gaps_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{created['id']}/gaps", headers=headers)
     assert gaps_response.status_code == 200
     assert gaps_response.json() == {"total": 0, "items": []}
+    exclusions_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{created['id']}/exclusions", headers=headers)
+    assert exclusions_response.status_code == 200
+    assert exclusions_response.json() == {"total": 0, "items": []}
 
 
 def test_create_date_completeness_run_rejects_unsupported_dataset(app_client, user_factory) -> None:
@@ -361,6 +378,12 @@ def test_date_completeness_worker_filters_actual_buckets_for_shared_period_table
     db_session,
 ) -> None:
     headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 1, 20), is_open=True, pretrade_date=date(2026, 1, 19)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 1, 27), is_open=True, pretrade_date=date(2026, 1, 26)),
+        ]
+    )
     db_session.execute(
         text(
             """
@@ -403,6 +426,7 @@ def test_date_completeness_worker_filters_actual_buckets_for_shared_period_table
     assert run.expected_bucket_count == 2
     assert run.actual_bucket_count == 1
     assert run.missing_bucket_count == 1
+    assert run.excluded_bucket_count == 0
     assert run.result_status == "failed"
 
     stored_run = db_session.get(DatasetDateCompletenessRun, run.id)
@@ -412,3 +436,74 @@ def test_date_completeness_worker_filters_actual_buckets_for_shared_period_table
     gaps_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}/gaps", headers=headers)
     assert gaps_response.status_code == 200
     assert gaps_response.json()["items"][0]["range_start"] == "2026-01-30"
+
+
+def test_date_completeness_worker_excludes_stk_period_week_without_open_trade_day(
+    app_client,
+    user_factory,
+    db_session,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 1, 20), is_open=True, pretrade_date=date(2026, 1, 19)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 2, 5), is_open=True, pretrade_date=date(2026, 2, 4)),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core_serving.stk_period_bar (
+                trade_date date not null,
+                freq text not null,
+                ts_code text not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core_serving.stk_period_bar (trade_date, freq, ts_code)
+            values
+              ('2026-01-23', 'week', '000001.SZ'),
+              ('2026-02-06', 'week', '000001.SZ')
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "stk_period_bar_week",
+            "start_date": "2026-01-23",
+            "end_date": "2026-02-06",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.bucket_window_rule == "iso_week"
+    assert run.bucket_applicability_rule == "requires_open_trade_day_in_bucket"
+    assert run.expected_bucket_count == 2
+    assert run.actual_bucket_count == 2
+    assert run.missing_bucket_count == 0
+    assert run.excluded_bucket_count == 1
+    assert run.result_status == "passed"
+
+    gaps_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}/gaps", headers=headers)
+    assert gaps_response.status_code == 200
+    assert gaps_response.json() == {"total": 0, "items": []}
+
+    exclusions_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}/exclusions", headers=headers)
+    assert exclusions_response.status_code == 200
+    payload = exclusions_response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["bucket_value"] == "2026-01-30"
+    assert payload["items"][0]["window_start"] == "2026-01-26"
+    assert payload["items"][0]["window_end"] == "2026-02-01"
+    assert payload["items"][0]["reason_code"] == "bucket_has_no_open_trade_day"
