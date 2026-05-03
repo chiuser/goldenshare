@@ -112,7 +112,7 @@ def _cctv_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
-def _parse_news_datetime(value: Any) -> datetime | None:
+def _parse_news_datetime(value: Any, *, field_name: str = "pub_time", display_name: str = "新闻发布时间") -> datetime | None:
     if value in (None, ""):
         return None
     if isinstance(value, datetime):
@@ -123,7 +123,7 @@ def _parse_news_datetime(value: Any) -> datetime | None:
         try:
             parsed = datetime.fromisoformat(str(value).strip().replace("/", "-"))
         except ValueError as exc:
-            raise RowTransformReject("normalize.invalid_date:pub_time", f"新闻发布时间格式无效：{value}") from exc
+            raise RowTransformReject(f"normalize.invalid_date:{field_name}", f"{display_name}格式无效：{value}") from exc
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
     return parsed
@@ -155,6 +155,46 @@ def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     url_text = url or ""
     pub_time_text = pub_time.isoformat() if pub_time is not None else ""
     hash_input = "\x1f".join(("major_news", src, pub_time_text, title_text, content_text, url_text))
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    src = str(transformed.get("src") or "").strip()
+    title = str(transformed.get("title") or "").strip() or None
+    content_value = transformed.get("content")
+    content = None if content_value is None else str(content_value).strip() or None
+    channels = str(transformed.get("channels") or "").strip() or None
+    score = str(transformed.get("score") or "").strip() or None
+    news_time = _parse_news_datetime(
+        transformed.get("datetime"),
+        field_name="news_time",
+        display_name="新闻时间",
+    )
+    if not src:
+        raise RowTransformReject("normalize.required_field_missing:src", "新闻快讯来源为空")
+    if news_time is None:
+        raise RowTransformReject("normalize.required_field_missing:news_time", "新闻时间为空")
+    if title is None and content is None:
+        raise RowTransformReject("normalize.empty_not_allowed:title_content", "新闻快讯标题与正文不能同时为空")
+    transformed["src"] = src
+    transformed["news_time"] = news_time
+    transformed["title"] = title
+    transformed["content"] = content
+    transformed["channels"] = channels
+    transformed["score"] = score
+    hash_input = "\x1f".join(
+        (
+            "news",
+            src,
+            news_time.isoformat(),
+            title or "",
+            content or "",
+            channels or "",
+            score or "",
+        )
+    )
     transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
     return transformed
 
@@ -434,6 +474,7 @@ __all__ = [
     "_daily_row_transform",
     "_cctv_news_row_transform",
     "_major_news_row_transform",
+    "_news_row_transform",
     "_fund_daily_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",

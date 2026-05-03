@@ -25,7 +25,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 59
+    assert len(definition_keys) == 60
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -151,6 +151,40 @@ def test_dataset_definition_projects_major_news_facts() -> None:
     assert definition.quality.required_fields == ("src", "pub_time", "row_key_hash")
 
 
+def test_dataset_definition_projects_news_facts() -> None:
+    definition = get_dataset_definition("news")
+
+    assert definition.identity.display_name == "新闻快讯"
+    assert definition.domain.domain_key == "news"
+    assert definition.domain.domain_display_name == "新闻资讯"
+    assert definition.source.api_name == "news"
+    assert definition.source.source_fields == ("datetime", "content", "title", "channels", "score")
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.observed_field == "news_time"
+    assert definition.date_model.audit_applicable is False
+    assert definition.storage.raw_table == "raw_tushare.news"
+    assert definition.storage.target_table == "core_serving_light.news"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.universe_policy == "no_pool"
+    assert definition.planning.enum_fanout_fields == ("src",)
+    assert definition.planning.enum_fanout_defaults["src"] == (
+        "sina",
+        "wallstreetcn",
+        "10jqka",
+        "eastmoney",
+        "yuncaijing",
+        "fenghuang",
+        "jinrongjie",
+        "cls",
+        "yicai",
+    )
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 1500
+    assert definition.normalization.date_fields == ()
+    assert definition.normalization.required_fields == ("src", "news_time", "row_key_hash")
+    assert definition.quality.required_fields == ("src", "news_time", "row_key_hash")
+
+
 def test_dataset_definition_owns_dc_board_type_filter() -> None:
     definition = get_dataset_definition("dc_member")
     idx_type = next(field for field in definition.input_model.filters if field.name == "idx_type")
@@ -250,6 +284,7 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     stk_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stk_mins"))
     cctv_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("cctv_news"))
     major_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("major_news"))
+    news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("news"))
 
     assert daily.stage_keys == ("raw", "serving")
     assert daily.all_stage_keys == ("raw", "std", "resolution", "serving")
@@ -263,6 +298,8 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     assert cctv_news.stage("light").display_name == "轻量服务层"
     assert major_news.stage_keys == ("raw", "light")
     assert major_news.stage("light").display_name == "轻量服务层"
+    assert news.stage_keys == ("raw", "light")
+    assert news.stage("light").display_name == "轻量服务层"
 
 
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:

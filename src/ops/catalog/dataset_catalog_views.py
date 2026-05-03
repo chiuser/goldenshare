@@ -101,6 +101,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("broker_recommend", "broker_recommendation", 10),
         DatasetCatalogItem("cctv_news", "news", 10),
         DatasetCatalogItem("major_news", "news", 20),
+        DatasetCatalogItem("news", "news", 30),
         DatasetCatalogItem("hk_basic", "hk_reference_data", 10),
         DatasetCatalogItem("us_basic", "us_reference_data", 10),
         DatasetCatalogItem("cyq_perf", "technical_indicators", 10),

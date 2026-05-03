@@ -159,6 +159,11 @@ class DatasetSourceClient:
             for row in rows:
                 if query_limit_type:
                     row["query_limit_type"] = query_limit_type
+        if "src" in required_fields and "src" not in definition.source.source_fields:
+            query_src = str(params.get("src") or "").strip()
+            for row in rows:
+                if query_src and row.get("src") in (None, ""):
+                    row["src"] = query_src
         if dataset_key == "stk_mins":
             query_freq = str(params.get("freq") or "").strip()
             for row in rows:

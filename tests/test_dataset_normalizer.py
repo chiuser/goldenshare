@@ -239,6 +239,89 @@ def test_major_news_normalizer_rejects_missing_title_and_content() -> None:
     assert batch.rejected_reasons == {"normalize.empty_not_allowed:title_content": 1}
 
 
+def test_news_normalizer_parses_news_time_and_builds_row_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "src": " sina ",
+                    "datetime": "2026-04-24 10:11:12",
+                    "title": "  快讯标题  ",
+                    "content": "  快讯正文  ",
+                    "channels": "  财经  ",
+                    "score": "  1  ",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["src"] == "sina"
+    assert normalized["news_time"].isoformat() == "2026-04-24T10:11:12+08:00"
+    assert normalized["title"] == "快讯标题"
+    assert normalized["content"] == "快讯正文"
+    assert normalized["channels"] == "财经"
+    assert normalized["score"] == "1"
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
+def test_news_normalizer_allows_title_or_content_only() -> None:
+    base_row = {
+        "src": "sina",
+        "datetime": "2026-04-24 10:11:12",
+    }
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {**base_row, "title": "", "content": "只有正文"},
+                {**base_row, "title": "只有标题", "content": ""},
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["title"] is None
+    assert batch.rows_normalized[0]["content"] == "只有正文"
+    assert batch.rows_normalized[1]["title"] == "只有标题"
+    assert batch.rows_normalized[1]["content"] is None
+
+
+def test_news_normalizer_rejects_missing_title_and_content() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("news"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-news",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "src": "sina",
+                    "datetime": "2026-04-24 10:11:12",
+                    "title": "",
+                    "content": "",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.empty_not_allowed:title_content": 1}
+
+
 def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("stk_mins"),

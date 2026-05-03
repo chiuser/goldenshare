@@ -1,6 +1,7 @@
 # 数据集开发说明模板（DatasetDefinition 主线）
 
 > 使用说明：
+> - 写数据集开发文档之前，必须先阅读仓库根目录 `AGENTS.md`，确认当前硬约束和禁止项。
 > - 每新增一个数据集，先复制本模板生成独立文档，放在 `docs/datasets/` 目录。
 > - 文档命名建议：`<dataset-key>-dataset-development.md`。
 > - 未完成本文档，不得进入编码、发版或远程同步。

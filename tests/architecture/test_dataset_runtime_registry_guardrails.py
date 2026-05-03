@@ -91,7 +91,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     },
     "reference_master": {"trade_cal", "stock_basic", "hk_basic", "us_basic", "etf_basic"},
     "low_frequency": {"dividend", "stk_holdernumber"},
-    "news": {"cctv_news", "major_news"},
+    "news": {"cctv_news", "major_news", "news"},
 }
 
 LEGACY_ROUTE_TOGGLE_TOKENS = (

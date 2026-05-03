@@ -151,6 +151,7 @@
 
 | doc_id | Tushare 文档 | api_name | 内部数据集 | 目标表 | 备注 |
 | ---: | --- | --- | --- | --- | --- |
+| 143 | 新闻快讯 | `news` | `news` 新闻快讯 | `core_serving_light.news` |  |
 | 154 | 新闻联播 | `cctv_news` | `cctv_news` 新闻联播文字稿 | `core_serving_light.cctv_news` |  |
 | 195 | 新闻通讯 | `major_news` | `major_news` 新闻通讯 | `core_serving_light.major_news` |  |
 
@@ -337,7 +338,6 @@
 
 | doc_id | Tushare 文档 | api_name | 备注 |
 | ---: | --- | --- | --- |
-| 143 | 新闻快讯 | `news` |  |
 | 176 | 上市公司全量公告 | `anns_d` |  |
 | 366 | 上证E互动 | `irm_qa_sh` |  |
 | 367 | 深证互动易 | `irm_qa_sz` |  |

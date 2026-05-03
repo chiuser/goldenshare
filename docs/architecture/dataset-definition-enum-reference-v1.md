@@ -62,6 +62,15 @@
 | `stk_mins` | `build_stk_mins_units` | 分钟行情按股票、频率、时间窗口 unit 生成 |
 | `stock_basic` | `build_stock_basic_units` | 股票基础信息按来源 unit 生成 |
 
+阶段结论（2026-05-03）：
+
+1. 当前保持 10 个非 `generic` builder 的拆分，不做强行合并。原因是这些 builder 承载了不同维度的 unit 语义（如对象池、来源扇出、多来源、窗口切分、参数模型差异），直接合并会提高耦合和回归风险。
+2. 当前风险评估为“中低风险、可控”。主要运行风险来自未来新增 builder 时的维护复杂度，而不是现有逻辑互相污染。
+3. 后续治理方向不是“先合并函数”，而是“先控增量”：
+   - 新增 `unit_builder_key` 必须先证明 `generic` 与现有 helper 无法表达；
+   - 必须同步补充对应的 resolver/planner 测试与文档条目；
+   - 若只是重复控制流，应优先抽取共享 helper，不新增新的业务 key。
+
 #### E3.2 `normalization.row_transform_name != None`
 
 | 数据集 | 当前 `row_transform_name` |

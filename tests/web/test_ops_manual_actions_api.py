@@ -140,6 +140,25 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert dc_member_filters["idx_type"]["multi_value"] is True
     assert dc_member_filters["idx_type"]["options"] == ["行业板块", "概念板块", "地域板块"]
 
+    assert actions["news.maintain"]["display_name"] == "维护新闻快讯"
+    assert actions["news.maintain"]["date_model"]["observed_field"] == "news_time"
+    assert [item["mode"] for item in actions["news.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["news.maintain"])["point"]["control"] == "calendar_date"
+    news_filters = {item["key"]: item for item in actions["news.maintain"]["filters"]}
+    assert news_filters["src"]["param_type"] == "enum"
+    assert news_filters["src"]["multi_value"] is True
+    assert news_filters["src"]["options"] == [
+        "sina",
+        "wallstreetcn",
+        "10jqka",
+        "eastmoney",
+        "yuncaijing",
+        "fenghuang",
+        "jinrongjie",
+        "cls",
+        "yicai",
+    ]
+
     assert [item["mode"] for item in actions["workflow:daily_market_close_maintenance"]["time_form"]["modes"]] == ["point", "range"]
     assert _time_modes(actions["workflow:daily_market_close_maintenance"])["point"]["control"] == "trade_date"
     assert [item["mode"] for item in actions["workflow:daily_moneyflow_maintenance"]["time_form"]["modes"]] == ["point", "range"]
