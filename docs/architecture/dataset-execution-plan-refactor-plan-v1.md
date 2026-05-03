@@ -177,6 +177,23 @@ P2：风险可控但统一语义：
 
 ## 3. 目标执行模型
 
+### 3.0 分层职责原则
+
+当前执行模型必须遵守“意图、执行计划、源接口参数三层分离”：
+
+| 层级 | 模型 | 职责 |
+|---|---|---|
+| 用户 / 前端 / Ops API / TaskRun / Schedule | `DatasetActionRequest.time_input` 的原始意图 | 表达维护对象、时间意图和筛选条件 |
+| Foundation resolver / planner | `DatasetExecutionPlan` | 根据 `DatasetDefinition.date_model` 归一化日期、月份、窗口、unit、事务和观测计划 |
+| Source request builder | 源接口请求参数 | 把计划值格式化为源端字段和值 |
+
+硬约束：
+
+1. Ops 和 TaskRun 不得保存已经面向源接口加工过的参数作为主事实。
+2. 日期、月份、自然月窗口、公告日等输入形态的归一化只能放在 resolver。
+3. request builder 只能做字段映射和格式化，不承担业务日期语义判断。
+4. 新增 `calendar_policy` 时，只能生成调度意图，不能绕过 resolver 直接生成源接口参数。
+
 ### 3.1 总流程
 
 ```mermaid
@@ -295,6 +312,30 @@ Resolver 只做一件事：把 `DatasetActionRequest + DatasetDefinition` 变成
 | `month_or_range` | `month` 或 `start_month/end_month` | 月份键点或范围 |
 | `start_end_month_window` | `start_month/end_month` | 自然月窗口范围 |
 | `none` | 无 | 无时间维度 |
+
+`start_end_month_window` 的展开规则：
+
+1. 上层意图应使用 `start_month/end_month` 表达自然月窗口。
+2. resolver 根据月份键生成该月第一天和最后一天，并写入标准化执行计划。
+3. request builder 使用标准化后的 `start_date/end_date` 生成源接口参数。
+4. 不允许 Ops 手动任务、自动任务或前端提前生成源接口形态的 `start_date/end_date` 作为主输入。
+
+示例：
+
+```text
+TaskRun.time_input_json:
+  mode=range
+  start_month=202604
+  end_month=202604
+
+DatasetActionResolver:
+  start_date=2026-04-01
+  end_date=2026-04-30
+
+request_builder:
+  start_date=20260401
+  end_date=20260430
+```
 
 周/月最后交易日必须继续遵守：
 
@@ -664,6 +705,8 @@ PlanTransactionPolicy(
 3. 幂等重试测试：同一 unit 重跑不会重复写入业务数据。
 4. 旧分裂状态写入从主链消失；point/range/none 成功只产生一次资源状态写入。
 5. 取消任务测试：当前 unit 边界安全结束，不破坏已提交数据。
+6. 任何变更 `time_input`、`input_shape`、`calendar_policy` 的任务，必须覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`，只验证 TaskRun 创建不算完成。
+7. 每个特殊日期模型至少有一条 resolver 测试覆盖：`month_or_range`、`start_end_month_window`、`ann_date_or_start_end`、自然周/月锚点。
 
 ### 6.10 立即止血 guard
 
@@ -1125,4 +1168,5 @@ rg "旧执行路由关键字" src/ops src/foundation src/app tests frontend
 7. 进度展示中文化，API 保留结构化 progress snapshot。
 8. 大数据集按 unit 安全提交，ops 状态失败不回滚业务数据。
 9. unit 级提交和幂等写入能力通过测试覆盖。
-10. `pytest`、ingestion definition lint、ops API、frontend smoke 全部通过。
+10. 意图、执行计划、源接口参数三层分离：Ops/TaskRun 不提前展开日期模型，resolver 统一归一化，request builder 只格式化源接口参数。
+11. `pytest`、ingestion definition lint、ops API、frontend smoke 全部通过。

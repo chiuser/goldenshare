@@ -17,6 +17,7 @@
 3. 执行计划由 `DatasetActionResolver` 根据 `DatasetDefinition` 生成，执行器只消费 `DatasetExecutionPlan` 和 plan units。
 4. Ops 手动任务、自动任务、任务详情、数据状态、数据源卡片均消费由 `DatasetDefinition` 派生的事实，不在前端或 Ops 查询层重新拼装数据集事实。
 5. 任务运行与问题诊断只走 TaskRun 主链：`ops.task_run`、`ops.task_run_node`、`ops.task_run_issue`。
+6. 必须遵守三层分离：Ops / TaskRun 只保存用户或调度意图，`DatasetActionResolver` 负责归一化为执行计划，request builder 只负责源接口字段映射和格式化。
 
 ### 0.2 禁止项
 
@@ -27,6 +28,7 @@
 5. 不得引入 checkpoint / acquire / 定点跳过语义；除非项目负责人明确提出该能力，并先完成专项方案评审。
 6. 不得把状态写入失败设计成回滚业务数据；Ops/TaskRun/freshness/snapshot/schedule 等状态写入只能影响观测状态。
 7. 不得写“临时方案”。如果事实或能力还没准备好，应标为“不支持 / 暂不接入”，不要把临时路径做进主链。
+8. 不得在 Ops、前端、自动任务服务中提前展开日期模型，例如把自然月窗口提前转成源接口 `start_date/end_date`。这类展开必须由 resolver 根据 `DatasetDefinition.date_model` 完成。
 
 ---
 
@@ -169,6 +171,36 @@
 - 如果源接口要求自然周周五或自然月最后一天，使用 `week_friday` / `month_last_calendar_day`；即使字段名叫 `trade_date`，也不能误建模成交易日。
 - 快照/主数据通常使用 `date_axis="none"`、`bucket_rule="not_applicable"`，并给出 `not_applicable_reason`。
 - 前端日期控件、审计能力、freshness 口径都从 `date_model` 派生，不允许另建第二套日期规则。
+
+### 4.4.1 时间意图归一化设计
+
+必须明确本数据集的时间输入在三层中的形态：
+
+| 层级 | 本数据集应保存或生成什么 | 示例 |
+| --- | --- | --- |
+| Ops / TaskRun / Schedule | 用户或调度意图 | `trade_date`、`start_date/end_date`、`month`、`start_month/end_month` |
+| `DatasetActionResolver` | 标准化执行计划时间范围和 units | 自然月窗口展开为月初/月末，公告日区间扇开为自然日 units |
+| request builder | 源接口参数字段和值 | `date` 格式化为 `YYYYMMDD`，字段名映射为源端要求 |
+
+填写项：
+
+- Ops/TaskRun 保存的 `time_input` 形态：
+- resolver 需要做的归一化：
+- request builder 需要做的源接口格式化：
+- 是否存在 `calendar_policy`：是 / 否；如有，只能生成调度意图，不能绕过 resolver 生成源接口参数。
+
+常见口径：
+
+- `month_or_range`：上层传 `month` 或 `start_month/end_month`，resolver 归一化月份键和日期范围。
+- `start_end_month_window`：上层传 `start_month/end_month` 表达自然月窗口，resolver 展开为 `start_date/end_date`，request builder 再格式化为源接口日期。
+- `ann_date_or_start_end`：上层传公告日或日期区间，resolver/planner 决定公告日锚点，request builder 映射为源端 `ann_date`。
+- `trade_date_or_start_end`：上层传交易日或日期区间，resolver/planner 根据 `date_axis/bucket_rule` 生成执行锚点。
+
+反例：
+
+- 因为源接口最终需要 `start_date/end_date`，就在手动任务或自动任务服务中提前展开自然月窗口。
+- 因为源接口字段叫 `trade_date`，就把自然周五或自然月末误当成交易日。
+- 在前端根据 `dataset_key` 手写日期转换逻辑。
 
 ### 4.5 `input_model`
 
@@ -381,6 +413,8 @@
 - 输入来自 `DatasetActionRequest.time_input` / `filters` / `base_params`：
 - 是否需要源端字段名转换：
 - 是否需要默认参数：
+- 是否只做源接口格式化，不承担业务日期语义判断：
+- 如果需要日期、月份或窗口转换，请说明为何不应放在 resolver：
 
 ### 6.2 Unit 规划
 
@@ -438,12 +472,15 @@
 - 名称是否来自 `DatasetDefinition.display_name`：
 - 时间控件是否由 `date_model` 正确派生：
 - filter 控件是否由 `input_model.filters` 正确派生：
+- 提交的 `time_input` 是否仍是用户意图，而不是源接口参数：
 - 提交接口：`POST /api/v1/ops/manual-actions/<dataset_key>.maintain/task-runs`
 
 ### 7.2 自动任务
 
 - 是否允许 `schedule_enabled=True`：
 - 自动任务是否只选择数据集动作，不暴露底层执行路径：
+- 如果有 `calendar_policy`，它生成的是哪种调度意图：
+- 是否确认自动任务没有提前展开日期模型或生成源接口参数：
 - 是否需要放入 workflow：如需要，使用 `docs/templates/workflow-development-template.md` 另写方案。
 
 ### 7.3 TaskRun 观测
@@ -544,6 +581,9 @@ cd frontend && npm run typecheck
 - [ ] ORM、DAO、迁移一致
 - [ ] `target_table` 能被 table model registry 发现
 - [ ] 日期模型能驱动手动任务、freshness 和审计
+- [ ] Ops/TaskRun 保存的是用户或调度意图，没有提前展开为源接口参数
+- [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
+- [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
 - [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
 - [ ] request builder、unit planner、normalizer、writer 均有测试
 - [ ] TaskRun 详情展示可读，无重复错误信息

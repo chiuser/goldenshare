@@ -351,6 +351,8 @@ sequenceDiagram
 2. 不创建 event。
 3. 不写旧内部运行日志。
 4. `request_payload_json` 保留提交入参；页面优先展示整理后的 `time_input_json` 与 `filters_json`。
+5. `time_input_json` 保存用户或调度意图，不保存源接口参数；日期模型归一化必须在 `DatasetActionResolver` 中完成。
+6. 例如自然月窗口任务应保存 `start_month/end_month`，由 resolver 展开为 `start_date/end_date`，request builder 再格式化为源接口参数。
 
 ### 5.2 规划执行计划
 

@@ -59,7 +59,33 @@ plan = DatasetActionResolver(session).build_plan(request)
 2. 新模块应优先读取结构化字段：`date_axis/bucket_rule/window_mode/input_shape/observed_field/audit_applicable`。
 3. 不要把 plan 中的派生结果再落成一份长期配置。
 
-### 3.3 前端或外部系统
+### 3.3 意图、执行计划、源接口参数三层分离
+
+日期模型消费必须分清三层，不允许把某一层的职责提前或下放到另一层：
+
+| 层级 | 负责什么 | 不负责什么 |
+|---|---|---|
+| Ops / TaskRun / API / UI | 保存用户或调度意图，例如处理哪个数据集、哪个月份、哪个日期范围、哪些筛选条件 | 不提前展开为某个源接口需要的参数 |
+| `DatasetActionResolver` | 读取 `DatasetDefinition.date_model`，把意图归一化为 `DatasetExecutionPlan`、标准时间范围和 plan units | 不处理 TaskRun 持久化、页面展示或源接口字符串格式 |
+| request builder | 把已经归一化的计划值格式化为源接口请求参数，例如 `date -> YYYYMMDD` | 不决定业务日期语义，不从 `dataset_key` 猜时间规则 |
+
+例子：
+
+`index_weight` 是 `start_end_month_window`。Ops 层应表达“维护 `202604` 自然月窗口”，resolver 再展开为 `2026-04-01 ~ 2026-04-30`，request builder 最后格式化为 Tushare 的 `start_date=20260401&end_date=20260430`。
+
+错误做法：
+
+1. Ops 自动任务看到源接口需要 `start_date/end_date`，就提前把 `start_month/end_month` 展开成源接口日期。
+2. request builder 根据 `dataset_key=index_weight` 自行决定自然月首尾。
+3. 前端把日期模型规则写成页面常量，再提交已经“加工过”的源接口参数。
+
+正确做法：
+
+1. 上层提交的是业务意图字段。
+2. resolver 是日期模型归一化唯一入口。
+3. request builder 只做字段映射和格式化。
+
+### 3.4 前端或外部系统
 
 前端和仓库外系统不要直接复制本文件中的规则表。
 
@@ -357,6 +383,14 @@ observed_date_column = get_dataset_definition(resource_key).date_model.observed_
 | `ann_date_or_start_end` | 公告自然日或自然日区间 |
 | `none` | 不展示日期输入 |
 
+参数提交原则：
+
+1. 手动任务和自动任务只提交用户或调度意图，不提交源接口参数。
+2. `month_or_range` 应提交 `month` 或 `start_month/end_month`。
+3. `start_end_month_window` 应提交 `start_month/end_month` 表达自然月窗口；自然月首尾日期由 `DatasetActionResolver` 统一展开。
+4. `calendar_policy` 只能生成调度意图，例如某次计划触发时间对应的月份键，不能直接生成源接口参数。
+5. 如果某个 UI/API 需要展示最终请求参数，必须读取执行计划或调试视图，不得在页面自行计算。
+
 ### 6.5 前端展示
 
 前端不应自己维护日期模型。若页面需要展示“按交易日更新”“按月更新”“不可审计”等信息，应由后端 API 返回由 `date_model` 派生后的展示字段。
@@ -410,7 +444,25 @@ observed_field=month
 
 其中 `month` 是 `YYYYMM` 字符串。用于 freshness 归一化时，应按该月第一天解释。
 
-### 7.3 `ths_member`
+### 7.3 `index_weight`
+
+`index_weight` 使用自然月窗口：
+
+```text
+date_axis=month_window
+bucket_rule=month_window_has_data
+input_shape=start_end_month_window
+```
+
+正确职责划分：
+
+1. Ops / TaskRun 保存自然月窗口意图：`start_month/end_month`。
+2. resolver 根据 `start_end_month_window` 展开自然月首尾：`start_date/end_date`。
+3. request builder 把日期格式化为 Tushare 源接口参数：`YYYYMMDD`。
+
+不要在手动任务服务、自动任务服务或前端提前展开自然月首尾。否则同一个日期语义会散落在多个入口，后续会出现 TaskRun、resolver、request builder 口径不一致。
+
+### 7.4 `ths_member`
 
 `ths_member` 当前没有日期输入参数，按快照/主数据处理：
 
@@ -432,6 +484,8 @@ not_applicable_reason=snapshot/master dataset
 2. 确认 `DatasetDefinition.input_model`、`planning`、`transaction` 与日期模型一致。
 3. 运行 ingestion definition lint。
 4. 补充或更新必要测试。
+5. 如果变更 `time_input`、`input_shape`、`calendar_policy` 或自动任务日期策略，必须覆盖完整链路：API/UI payload -> TaskRun.time_input_json -> `DatasetActionResolver.build_plan()` -> `PlanUnit.request_params`。
+6. 只验证 TaskRun 创建成功不算完成；必须证明 resolver 生成的执行计划和源接口参数正确。
 
 最小门禁：
 
@@ -458,6 +512,8 @@ pytest -q tests/test_ops_action_catalog.py tests/test_ops_freshness_snapshot_que
 5. 禁止把快照/主数据强行纳入日期连续性审计。
 6. 禁止把 `week_last_open_day` 简化成自然周五；源接口确实要求自然周五时，必须显式使用 `week_friday`。
 7. 禁止把 `month_last_open_day` 简化成自然月末；源接口确实要求自然月末时，必须显式使用 `month_last_calendar_day`。
+8. 禁止在 Ops、前端、自动任务服务中提前展开日期模型；展开必须发生在 resolver。
+9. 禁止在 request builder 中决定业务日期语义；request builder 只能格式化已经归一化的计划值。
 
 ---
 

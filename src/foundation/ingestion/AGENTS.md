@@ -9,6 +9,7 @@ This directory owns long-term ingestion concepts: action requests, execution pla
 1. `DatasetActionRequest` describes the requested dataset action.
 2. `DatasetExecutionPlan` is the canonical execution-plan projection.
 3. Resolver output is what Ops TaskRun execution should consume; callers should not infer execution branches themselves.
+4. Resolver is the single place that normalizes user or schedule intent into execution dates, month windows, and plan units.
 
 ## Constraints
 
@@ -17,6 +18,7 @@ This directory owns long-term ingestion concepts: action requests, execution pla
 3. Resolver code must read `DatasetDefinition` facts and output `DatasetExecutionPlan`; it must not project legacy execution contracts.
 4. Do not add checkpoint/acquire/replay semantics unless explicitly planned.
 5. Do not put Ops TaskRun persistence, scheduling, or UI display decisions in this layer.
+6. Do not move date-model expansion into Ops, UI, or request builders. Request builders may format normalized plan values for source APIs, but must not decide business date semantics.
 
 ## Minimum Gates
 

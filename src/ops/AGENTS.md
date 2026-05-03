@@ -46,6 +46,7 @@
 4. 不得恢复旧 execution API 或旧执行观测表作为页面事实源。
 5. 不得让前端或 API 调用方理解底层 spec 分支才能发起维护任务。
 6. Ops 状态写入不得影响业务数据表读写与提交；TaskRun、issue、node、freshness、snapshot、schedule 等写入失败，只能让对应状态进入失败/待对账，不得回滚或阻断业务数据事务。
+7. Ops 只表达任务意图与调度意图，不得把日期模型提前展开成源接口参数；日期归一化必须交给 `src/foundation/ingestion`。
 
 ---
 

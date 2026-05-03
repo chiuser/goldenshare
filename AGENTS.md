@@ -52,6 +52,7 @@ src/
 13. 改契约时，必须做全量消费者审计，旧口径必须清零；不允许页面、查询层或其他调用方自行拼装事实字段。
 14. 新增 Alembic 迁移前必须先检查当前迁移 head，`down_revision` 只能接真实 head，不得按文件名、日期或印象猜。
 15. 任何技术方案的变更，如果之前有对应的方案设计文档，必须同步落回原方案设计文档，禁止让现实代码、执行口径与既有设计文档脱节。
+16. Ops/TaskRun 只保存用户或调度意图，`DatasetActionResolver` 才负责按 `DatasetDefinition.date_model` 归一化为执行计划，源接口参数只能在 ingestion request builder 中生成。
 ---
 
 ## 目录职责速记

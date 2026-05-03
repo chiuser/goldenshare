@@ -294,12 +294,12 @@ class TaskRunCommandService:
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略不能与固定维护日期或窗口混用")
         if scheduled_at is None:
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略缺少计划触发时间")
-        start_date, end_date = cls._month_window_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        month_key = cls._month_key_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
         return {
             **dict(time_input or {}),
             "mode": "range",
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
+            "start_month": month_key,
+            "end_month": month_key,
         }
 
     @staticmethod
@@ -431,15 +431,9 @@ class TaskRunCommandService:
         return date(local_scheduled_at.year, local_scheduled_at.month, last_day)
 
     @staticmethod
-    def _month_window_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> tuple[date, date]:
+    def _month_key_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> str:
         local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
-        start_date = date(local_scheduled_at.year, local_scheduled_at.month, 1)
-        end_date = date(
-            local_scheduled_at.year,
-            local_scheduled_at.month,
-            monthrange(local_scheduled_at.year, local_scheduled_at.month)[1],
-        )
-        return start_date, end_date
+        return f"{local_scheduled_at.year}{local_scheduled_at.month:02d}"
 
     @staticmethod
     def _local_scheduled_at(*, scheduled_at: datetime, timezone_name: str | None) -> datetime:

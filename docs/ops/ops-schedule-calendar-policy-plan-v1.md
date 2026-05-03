@@ -398,7 +398,7 @@ DatasetDefinition.date_model.input_shape = start_end_month_window
 
 ### 11.2 第二期不做
 
-1. 不改变 `index_weight` 手动任务链路。手动链路已经符合接口文档，用户选择 `start_month/end_month`，后端转换为自然月首尾 `start_date/end_date`。
+1. 不改变 `index_weight` 手动任务的用户交互。用户选择 `start_month/end_month` 表达自然月窗口，展开为自然月首尾 `start_date/end_date` 的动作必须由 `DatasetActionResolver` 完成。
 2. 不改变 `DatasetDefinition` 结构。
 3. 不改变业务数据表。
 4. 不新增 Alembic 字段；继续复用已存在的 `calendar_policy` 字段。
@@ -431,7 +431,7 @@ DatasetDefinition.date_model.input_shape = start_end_month_window
 
 1. `cron_expr` 中只取执行时分。
 2. preview 和 scheduler 的触发日期落在自然月最后一天。
-3. 自动创建 TaskRun 时，后端根据本次计划触发时间所属自然月生成窗口。
+3. 自动创建 TaskRun 时，后端根据本次计划触发时间所属自然月生成月份窗口意图。
 4. 如果用户没有填写 `index_code`，保持 `index_weight` 当前执行计划语义：后端按指数池生成 units。
 5. 如果用户填写 `index_code`，只维护该指数的自然月窗口。
 
@@ -443,14 +443,14 @@ DatasetDefinition.date_model.input_shape = start_end_month_window
 2026-04-30 19:00 Asia/Shanghai
 ```
 
-TaskRun 应生成：
+TaskRun 应保存：
 
 ```json
 {
   "time_input": {
     "mode": "range",
-    "start_date": "2026-04-01",
-    "end_date": "2026-04-30"
+    "start_month": "202604",
+    "end_month": "202604"
   },
   "filters": {
     "index_code": "000300.SH"
@@ -458,9 +458,11 @@ TaskRun 应生成：
 }
 ```
 
+随后 `DatasetActionResolver` 根据 `start_end_month_window` 展开为 `2026-04-01 ~ 2026-04-30`，request builder 再格式化为源接口 `start_date=20260401`、`end_date=20260430`。
+
 关键约束：
 
-如果 scheduler 晚跑，例如实际到 `2026-05-01` 才处理 `2026-04-30 19:00` 的 due schedule，也必须根据原计划触发时间生成 `2026-04-01 ~ 2026-04-30`，不能根据实际执行时间误生成 `2026-05-01 ~ 2026-05-31`。
+如果 scheduler 晚跑，例如实际到 `2026-05-01` 才处理 `2026-04-30 19:00` 的 due schedule，也必须根据原计划触发时间生成 `start_month=end_month=202604`，不能根据实际执行时间误生成 `202605`。
 
 ### 11.4 前端交互
 
@@ -496,16 +498,22 @@ TaskRun 日期生成规则不同：
 1. 读取本次 due schedule 的原计划触发时间。
 2. 转到 schedule 的本地时区。
 3. 取该本地时间所属自然月。
-4. 生成该月第一天和最后一天。
+4. 生成该月月份键。
 5. 写入 TaskRun：
 
 ```json
 {
   "mode": "range",
-  "start_date": "<本次计划触发时间所属自然月第一天>",
-  "end_date": "<本次计划触发时间所属自然月最后一天>"
+  "start_month": "<本次计划触发时间所属自然月 YYYYMM>",
+  "end_month": "<本次计划触发时间所属自然月 YYYYMM>"
 }
 ```
+
+展开规则：
+
+1. TaskRun 只保存调度意图。
+2. `DatasetActionResolver` 是自然月窗口展开的唯一入口。
+3. request builder 只把 resolver 已归一化的 `start_date/end_date` 格式化为源接口参数。
 
 ### 11.6 混用拒绝规则
 
@@ -542,13 +550,13 @@ TaskRun 日期生成规则不同：
    - 拒绝与显式固定日期或窗口混用。
    - 创建、更新、恢复、续算全部传入该策略。
 3. `src/ops/services/task_run_service.py`
-   - 自动任务创建 TaskRun 时根据 due schedule 的原计划触发时间生成自然月窗口。
-   - 输出 `time_input.mode=range`、`start_date`、`end_date`。
+   - 自动任务创建 TaskRun 时根据 due schedule 的原计划触发时间生成自然月窗口意图。
+   - 输出 `time_input.mode=range`、`start_month`、`end_month`。
 4. 测试
    - planner preview/next_run_at 测试。
    - schedule API 创建与拒绝测试。
    - scheduler 晚跑但仍生成计划月份窗口的测试。
-   - `index_weight` TaskRun time_input 与 filters 测试。
+   - `index_weight` TaskRun time_input、resolver 展开结果、PlanUnit request params 与 filters 测试。
 
 前端：
 
@@ -573,12 +581,13 @@ TaskRun 日期生成规则不同：
 1. 为 `index_weight` 新建自动任务时，页面默认推荐“每月最后一天执行，维护当月自然月窗口”。
 2. 保存后的 schedule 有 `calendar_policy=monthly_window_current_month`。
 3. preview 返回自然月最后一天的未来运行时间。
-4. scheduler 到点触发后创建的 TaskRun 包含自然月窗口 `start_date/end_date`。
+4. scheduler 到点触发后创建的 TaskRun 包含自然月窗口意图 `start_month/end_month`。
 5. scheduler 晚跑时仍按原计划触发时间所属月份生成窗口。
-6. `index_weight` 不再需要用户在自动任务里手动填写月份窗口。
-7. `stk_period_bar_month`、`stk_period_bar_adj_month` 继续使用 `monthly_last_day`，不被误改。
-8. `index_monthly` 不被错误套用该策略。
-9. 普通 cron 自动任务不受影响。
+6. `DatasetActionResolver` 能把该月份窗口展开为正确的自然月首尾 `start_date/end_date`，PlanUnit 请求参数正确。
+7. `index_weight` 不再需要用户在自动任务里手动填写月份窗口。
+8. `stk_period_bar_month`、`stk_period_bar_adj_month` 继续使用 `monthly_last_day`，不被误改。
+9. `index_monthly` 不被错误套用该策略。
+10. 普通 cron 自动任务不受影响。
 
 ---
 

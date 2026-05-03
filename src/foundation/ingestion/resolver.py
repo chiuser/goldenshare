@@ -117,7 +117,19 @@ class DatasetActionResolver:
         if mode == "point" and input_shape == "month_or_range":
             month = cls._normalize_month(normalized.month)
             return replace(normalized, month=month, trade_date=cls._month_end_date(month))
-        if mode == "range" and input_shape in {"month_or_range", "start_end_month_window"}:
+        if mode == "range" and input_shape == "month_or_range":
+            start_month = cls._normalize_month(normalized.start_month)
+            end_month = cls._normalize_month(normalized.end_month)
+            return replace(
+                normalized,
+                start_month=start_month,
+                end_month=end_month,
+                start_date=cls._month_start_date(start_month),
+                end_date=cls._month_end_date(end_month),
+            )
+        if mode == "range" and input_shape == "start_end_month_window":
+            if normalized.start_month in (None, "") or normalized.end_month in (None, ""):
+                raise ValueError("自然月窗口必须使用 start_month/end_month")
             start_month = cls._normalize_month(normalized.start_month)
             end_month = cls._normalize_month(normalized.end_month)
             return replace(

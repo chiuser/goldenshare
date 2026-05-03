@@ -149,14 +149,14 @@ def test_scheduler_monthly_window_policy_uses_due_schedule_month_for_task_run(db
     assert task_run.resource_key == "index_weight"
     assert task_run.time_input_json == {
         "mode": "range",
-        "start_date": "2026-04-01",
-        "end_date": "2026-04-30",
+        "start_month": "202604",
+        "end_month": "202604",
     }
     assert task_run.filters_json == {"index_code": "000300.SH"}
     assert task_run.request_payload_json["time_input"] == {
         "mode": "range",
-        "start_date": "2026-04-01",
-        "end_date": "2026-04-30",
+        "start_month": "202604",
+        "end_month": "202604",
     }
     assert task_run.request_payload_json["filters"] == {"index_code": "000300.SH"}
     refreshed = db_session.get(type(schedule), schedule.id)
