@@ -78,9 +78,11 @@
 | `date_axis` | `bucket_rule` | 期望桶生成方式 | 典型数据集 |
 |---|---|---|---|
 | `trade_open_day` | `every_open_day` | 范围内每个开市交易日 | `daily`、`moneyflow`、`margin`、`stk_factor_pro` |
-| `trade_open_day` | `week_last_open_day` | 每周最后一个开市交易日 | `index_weekly`、`stk_period_bar_week` |
-| `trade_open_day` | `month_last_open_day` | 每月最后一个开市交易日 | `index_monthly`、`stk_period_bar_month` |
+| `trade_open_day` | `week_last_open_day` | 每周最后一个开市交易日 | `index_weekly` |
+| `trade_open_day` | `month_last_open_day` | 每月最后一个开市交易日 | `index_monthly` |
 | `natural_day` | `every_natural_day` | 范围内每个自然日 | `dividend`、`stk_holdernumber`、`trade_cal` |
+| `natural_day` | `week_friday` | 范围内每个自然周周五 | `stk_period_bar_week`、`stk_period_bar_adj_week` |
+| `natural_day` | `month_last_calendar_day` | 范围内每个自然月最后一天 | `stk_period_bar_month`、`stk_period_bar_adj_month` |
 | `month_key` | `every_natural_month` | 范围内每个自然月键 `YYYYMM` | `broker_recommend` |
 | `month_window` | `month_window_has_data` | 每个自然月窗口至少有 1 个实际桶 | `index_weight` |
 | `none` | `not_applicable` | 不生成期望桶 | 快照/主数据、分钟线第一期 |
@@ -450,10 +452,10 @@ Tab：
 | `stk_limit` | 每日涨跌停价格 | `core_serving.equity_stk_limit` | `trade_open_day` | `every_open_day` | `trade_date` | yes | 范围内每个开市交易日均有数据 |
 | `stk_mins` | 股票历史分钟行情 | `raw_tushare.stk_mins` | `trade_open_day` | `every_open_day` | `trade_date` | no | 不适用：minute completeness audit requires trading-session calendar |
 | `stk_nineturn` | 神奇九转指标 | `core_serving.equity_nineturn` | `trade_open_day` | `every_open_day` | `trade_date` | yes | 范围内每个开市交易日均有数据 |
-| `stk_period_bar_adj_month` | 股票复权月线 | `core_serving.stk_period_bar_adj` | `trade_open_day` | `month_last_open_day` | `trade_date` | yes | 范围内每月最后一个开市交易日均有数据 |
-| `stk_period_bar_adj_week` | 股票复权周线 | `core_serving.stk_period_bar_adj` | `trade_open_day` | `week_last_open_day` | `trade_date` | yes | 范围内每周最后一个开市交易日均有数据 |
-| `stk_period_bar_month` | 股票月线 | `core_serving.stk_period_bar` | `trade_open_day` | `month_last_open_day` | `trade_date` | yes | 范围内每月最后一个开市交易日均有数据 |
-| `stk_period_bar_week` | 股票周线 | `core_serving.stk_period_bar` | `trade_open_day` | `week_last_open_day` | `trade_date` | yes | 范围内每周最后一个开市交易日均有数据 |
+| `stk_period_bar_adj_month` | 股票复权月线 | `core_serving.stk_period_bar_adj` | `natural_day` | `month_last_calendar_day` | `trade_date` | yes | 范围内每个自然月最后一天均有数据 |
+| `stk_period_bar_adj_week` | 股票复权周线 | `core_serving.stk_period_bar_adj` | `natural_day` | `week_friday` | `trade_date` | yes | 范围内每个自然周周五均有数据 |
+| `stk_period_bar_month` | 股票月线 | `core_serving.stk_period_bar` | `natural_day` | `month_last_calendar_day` | `trade_date` | yes | 范围内每个自然月最后一天均有数据 |
+| `stk_period_bar_week` | 股票周线 | `core_serving.stk_period_bar` | `natural_day` | `week_friday` | `trade_date` | yes | 范围内每个自然周周五均有数据 |
 | `stock_basic` | 股票主数据 | `core_serving.security_serving` | `none` | `not_applicable` | `-` | no | 不适用：snapshot/master dataset |
 | `stock_st` | ST股票列表 | `core_serving.equity_stock_st` | `trade_open_day` | `every_open_day` | `trade_date` | yes | 范围内每个开市交易日均有数据 |
 | `suspend_d` | 每日停复牌信息 | `core_serving.equity_suspend_d` | `trade_open_day` | `every_open_day` | `trade_date` | yes | 范围内每个开市交易日均有数据 |
@@ -479,11 +481,15 @@ Tab：
    - 开市日按月分组，取该月最后一个开市日。
 4. `natural_day + every_natural_day`
    - 生成自然日连续序列。
-5. `month_key + every_natural_month`
+5. `natural_day + week_friday`
+   - 生成范围内每个自然周周五，不读取交易日历。
+6. `natural_day + month_last_calendar_day`
+   - 生成范围内每个自然月最后一天，不读取交易日历。
+7. `month_key + every_natural_month`
    - 生成 `YYYYMM` 连续月份序列。
-6. `month_window + month_window_has_data`
+8. `month_window + month_window_has_data`
    - 生成自然月窗口，每月一个桶。
-7. `none + not_applicable`
+9. `none + not_applicable`
    - 不生成期望桶。
 
 ### 8.2 实际桶读取
@@ -618,9 +624,11 @@ Tab：
 2. `trade_open_day + week_last_open_day`
 3. `trade_open_day + month_last_open_day`
 4. `natural_day + every_natural_day`
-5. `month_key + every_natural_month`
-6. `month_window + month_window_has_data`
-7. `none + not_applicable`
+5. `natural_day + week_friday`
+6. `natural_day + month_last_calendar_day`
+7. `month_key + every_natural_month`
+8. `month_window + month_window_has_data`
+9. `none + not_applicable`
 
 边界：
 
