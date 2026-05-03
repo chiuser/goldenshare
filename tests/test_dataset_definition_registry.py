@@ -121,6 +121,22 @@ def test_dataset_definition_owns_dc_board_type_filter() -> None:
     assert idx_type.enum_values == ("行业板块", "概念板块", "地域板块")
 
 
+def test_dataset_definition_removes_dead_exchange_filter_from_target_daily_datasets() -> None:
+    target_keys = (
+        "daily",
+        "adj_factor",
+        "cyq_perf",
+        "fund_daily",
+        "index_daily",
+        "index_daily_basic",
+    )
+
+    for dataset_key in target_keys:
+        definition = get_dataset_definition(dataset_key)
+        filter_names = [field.name for field in definition.input_model.filters]
+        assert filter_names == ["ts_code"]
+
+
 def test_dataset_definition_identity_does_not_keep_legacy_job_aliases() -> None:
     legacy_prefixes = ("sync_", "back" + "fill_")
     for definition in list_dataset_definitions():

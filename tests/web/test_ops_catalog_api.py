@@ -74,6 +74,21 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert daily["domain_display_name"] == "股票行情"
     assert daily["schedule_enabled"] is True
     assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
+    assert [param["key"] for param in daily["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
+    for action_key in (
+        "adj_factor.maintain",
+        "cyq_perf.maintain",
+        "fund_daily.maintain",
+        "index_daily.maintain",
+        "index_daily_basic.maintain",
+    ):
+        assert [param["key"] for param in actions[action_key]["parameters"]] == [
+            "trade_date",
+            "start_date",
+            "end_date",
+            "ts_code",
+        ]
 
     dc_hot = actions["dc_hot.maintain"]
     assert dc_hot["group_key"] == "leader_board"

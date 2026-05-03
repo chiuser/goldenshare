@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
 from src.ops.models.ops.task_run import TaskRun
@@ -90,6 +91,18 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert trade_cal_modes["point"]["selection_rule"] == "calendar_day"
     assert trade_cal_modes["range"]["control"] == "calendar_date_range"
     assert trade_cal_modes["range"]["selection_rule"] == "calendar_day"
+
+    single_code_actions = (
+        "daily.maintain",
+        "adj_factor.maintain",
+        "cyq_perf.maintain",
+        "fund_daily.maintain",
+        "index_daily.maintain",
+        "index_daily_basic.maintain",
+    )
+    for action_key in single_code_actions:
+        filter_keys = [item["key"] for item in actions[action_key]["filters"]]
+        assert filter_keys == ["ts_code"]
 
     dc_hot_filter_keys = [item["key"] for item in actions["dc_hot.maintain"]["filters"]]
     dc_hot_filters = {item["key"]: item for item in actions["dc_hot.maintain"]["filters"]}
@@ -213,6 +226,37 @@ def test_ops_manual_action_task_run_returns_readable_time_validation_message(app
 
     assert response.status_code == 422
     assert response.json()["message"] == "开始日期不能晚于结束日期"
+
+
+@pytest.mark.parametrize(
+    "action_key",
+    (
+        "daily.maintain",
+        "adj_factor.maintain",
+        "cyq_perf.maintain",
+        "fund_daily.maintain",
+        "index_daily.maintain",
+        "index_daily_basic.maintain",
+    ),
+)
+def test_ops_manual_action_task_run_rejects_removed_exchange_filter(
+    app_client,
+    user_factory,
+    action_key: str,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    filters = {"exchange": "SSE"}
+    if action_key == "index_daily.maintain":
+        filters["ts_code"] = "000300.SH"
+
+    response = app_client.post(
+        f"/api/v1/ops/manual-actions/{action_key}/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": filters},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "不支持的筛选项：exchange"
 
 
 def test_ops_manual_action_task_run_uses_workflow_catalog_title(app_client, user_factory) -> None:

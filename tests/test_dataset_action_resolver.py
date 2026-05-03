@@ -26,6 +26,61 @@ def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocke
     assert {unit.request_params["is_new"] for unit in plan.units} == {"Y"}
 
 
+@pytest.mark.parametrize(
+    ("dataset_key", "filters", "expected_request_params"),
+    (
+        ("daily", {}, {"trade_date": "20260424"}),
+        ("adj_factor", {}, {"trade_date": "20260424"}),
+        ("cyq_perf", {}, {"trade_date": "20260424"}),
+        ("fund_daily", {}, {"trade_date": "20260424"}),
+        ("index_daily", {"ts_code": "000300.SH"}, {"ts_code": "000300.SH", "trade_date": "20260424"}),
+        ("index_daily_basic", {}, {"trade_date": "20260424"}),
+    ),
+)
+def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
+    mocker,
+    dataset_key: str,
+    filters: dict[str, str],
+    expected_request_params: dict[str, str],
+) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key=dataset_key,
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters=filters,
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert "exchange" not in plan.filters
+    if "ts_code" in filters:
+        assert plan.filters["ts_code"] == filters["ts_code"]
+    assert plan.filters["trade_date"] == date(2026, 4, 24)
+    assert plan.units[0].request_params == expected_request_params
+    assert "exchange" not in plan.units[0].request_params
+
+
+@pytest.mark.parametrize(
+    "dataset_key",
+    ("daily", "adj_factor", "cyq_perf", "fund_daily", "index_daily", "index_daily_basic"),
+)
+def test_dataset_action_resolver_rejects_removed_exchange_filter(mocker, dataset_key: str) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    filters = {"exchange": "SSE"}
+    if dataset_key == "index_daily":
+        filters["ts_code"] = "000300.SH"
+    request = DatasetActionRequest(
+        dataset_key=dataset_key,
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters=filters,
+    )
+
+    with pytest.raises(IngestionValidationError, match="存在未定义参数：exchange"):
+        resolver.build_plan(request)
+
+
 def test_dataset_action_resolver_builds_month_point_plan(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
