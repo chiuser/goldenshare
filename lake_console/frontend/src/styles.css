@@ -1,5 +1,7 @@
 @import "./styles/base.css";
+@import "./styles/command.css";
 
+/* App shell */
 .app {
   min-height: 100vh;
   background: var(--bg-page);
@@ -137,6 +139,7 @@ h1 {
   padding: 24px 28px 40px;
 }
 
+/* Shared page primitives */
 .panel-header h2 {
   color: var(--text-title);
   font-size: 18px;
@@ -305,6 +308,7 @@ code {
   border-bottom: 1px solid var(--border-default);
 }
 
+/* Dataset overview */
 .dataset-groups,
 .dataset-list,
 .risk-list {
@@ -511,20 +515,20 @@ code {
 
 .dataset-card-actions button:hover,
 .back-button:hover,
-.command-code-row button:hover {
+.copy-button:hover {
   border-color: var(--brand-6);
   background: var(--brand-hover-bg);
 }
 
 .dataset-card-actions button:active,
 .back-button:active,
-.command-code-row button:active {
+.copy-button:active {
   transform: translateY(1px);
 }
 
 .dataset-card-actions button:focus-visible,
 .back-button:focus-visible,
-.command-code-row button:focus-visible,
+.copy-button:focus-visible,
 .sidebar-link:focus-visible,
 .command-toolbar select:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -535,6 +539,7 @@ code {
   padding: 7px 12px;
 }
 
+/* Dataset detail */
 .detail-page,
 .layer-stack {
   display: grid;
@@ -743,186 +748,7 @@ code {
   white-space: nowrap;
 }
 
-.command-examples,
-.command-item-detail,
-.command-card-list,
-.command-meta {
-  display: grid;
-  gap: 12px;
-}
-
-.command-notice {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 12px 14px;
-  background: var(--bg-brand-soft);
-}
-
-.command-notice strong {
-  display: block;
-  color: var(--brand-6);
-  white-space: nowrap;
-}
-
-.command-notice-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.command-notice-tags span {
-  border: 1px solid var(--border-brand-subtle);
-  border-radius: var(--r-sm);
-  padding: 3px 7px;
-  color: var(--brand-6);
-  background: var(--bg-translucent);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.command-notice span,
-.command-item-detail > p,
-.command-card-header span,
-.command-meta,
-.command-meta-block p {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.command-toolbar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 12px;
-  background: var(--neutral-0);
-}
-
-.command-select-field {
-  display: grid;
-  gap: 6px;
-}
-
-.command-select-field > span {
-  color: var(--text-hint);
-  font-size: 12px;
-}
-
-.command-toolbar select {
-  width: 100%;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  padding: 8px 10px;
-  color: var(--text-title);
-  background: var(--bg-surface);
-  font: inherit;
-}
-
-.command-item-title,
-.command-card-header,
-.command-code-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.command-item-title {
-  align-items: flex-start;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 12px;
-  background: var(--neutral-0);
-}
-
-.command-item-title strong,
-.command-card-header strong {
-  display: block;
-  color: var(--text-title);
-}
-
-.command-item-title span:not(.badge) {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.command-item-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.command-card {
-  display: grid;
-  gap: 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 14px;
-  background: var(--neutral-0);
-  box-shadow: var(--shadow-card);
-}
-
-.command-card-header {
-  align-items: flex-start;
-}
-
-.command-code-row {
-  align-items: stretch;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  background: var(--neutral-1);
-}
-
-.command-code-row code {
-  flex: 1;
-  border: 0;
-  border-radius: 0;
-  max-width: none;
-  color: var(--text-title);
-  background: var(--neutral-1);
-}
-
-.command-code-row button {
-  border: 0;
-  border-left: 1px solid var(--border-default);
-  border-radius: 0;
-  padding: 0 12px;
-  color: var(--brand-6);
-  background: var(--brand-0);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.command-meta {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.command-meta-block {
-  border-radius: var(--r-sm);
-  padding: 9px 10px;
-  background: var(--neutral-1);
-}
-
-.command-meta-block span {
-  display: block;
-  color: var(--text-hint);
-  font-size: 12px;
-}
-
-.command-meta-block p {
-  margin-top: 3px;
-}
-
+/* Risk review */
 .risk-header-summary {
   display: grid;
   justify-items: end;
@@ -1019,6 +845,7 @@ code {
   background: var(--neutral-1);
 }
 
+/* Feedback states */
 .alert {
   display: flex;
   gap: 10px;
@@ -1069,6 +896,37 @@ code {
   font-size: 13px;
 }
 
+.loading-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--r-md);
+  padding: 20px;
+  background: var(--bg-muted);
+}
+
+.loading-block > span {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border: 4px solid var(--brand-0);
+  border-radius: var(--r-full);
+  background: var(--brand-5);
+}
+
+.loading-block strong {
+  color: var(--text-title);
+}
+
+.loading-block p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Responsive layout */
 @media (max-width: 1280px) {
   .dataset-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1109,9 +967,7 @@ code {
   .partition-summary-grid,
   .layer-row,
   .layer-row dl,
-  .layer-stats,
-  .command-toolbar,
-  .command-meta {
+  .layer-stats {
     grid-template-columns: 1fr;
   }
 
@@ -1124,20 +980,4 @@ code {
     justify-content: flex-start;
   }
 
-  .command-notice,
-  .command-item-title,
-  .command-code-row {
-    display: grid;
-  }
-
-  .command-notice-tags,
-  .command-item-badges {
-    justify-content: flex-start;
-  }
-
-  .command-code-row button {
-    min-height: 34px;
-    border-left: 0;
-    border-top: 1px solid var(--border-default);
-  }
 }

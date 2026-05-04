@@ -1,6 +1,7 @@
 import { CommandExampleItemDetail } from "./CommandExampleItemDetail";
 import { CommandSelector } from "./CommandSelector";
 import { EmptyState } from "./EmptyState";
+import { LoadingBlock } from "./LoadingBlock";
 import type { CommandExampleGroup } from "../types";
 
 type CommandExamplesPanelProps = {
@@ -24,7 +25,7 @@ export function CommandExamplesPanel({
     return <div className="alert error">命令示例加载失败：{error}</div>;
   }
   if (!groups.length) {
-    return <EmptyState title="正在加载命令示例" description="命令来自后端 Lake catalog，前端不会自行拼接。" />;
+    return <LoadingBlock title="正在加载命令示例" description="命令来自后端 Lake catalog，前端不会自行拼接。" />;
   }
 
   const selectedGroup = groups.find((group) => group.group_key === selectedGroupKey) ?? groups[0];

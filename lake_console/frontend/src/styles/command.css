@@ -1,0 +1,203 @@
+.command-examples,
+.command-item-detail,
+.command-card-list,
+.command-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.command-notice {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  background: var(--bg-brand-soft);
+}
+
+.command-notice strong {
+  display: block;
+  color: var(--brand-6);
+  white-space: nowrap;
+}
+
+.command-notice-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.command-notice-tags span {
+  border: 1px solid var(--border-brand-subtle);
+  border-radius: var(--r-sm);
+  padding: 3px 7px;
+  color: var(--brand-6);
+  background: var(--bg-translucent);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.command-notice span,
+.command-item-detail > p,
+.command-card-header span,
+.command-meta,
+.command-meta-block p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.command-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-0);
+}
+
+.command-select-field {
+  display: grid;
+  gap: 6px;
+}
+
+.command-select-field > span {
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.command-toolbar select {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  color: var(--text-title);
+  background: var(--bg-surface);
+  font: inherit;
+}
+
+.command-item-title,
+.command-card-header,
+.command-code-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.command-item-title {
+  align-items: flex-start;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-0);
+}
+
+.command-item-title strong,
+.command-card-header strong {
+  display: block;
+  color: var(--text-title);
+}
+
+.command-item-title span:not(.badge) {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.command-item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.command-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 14px;
+  background: var(--neutral-0);
+  box-shadow: var(--shadow-card);
+}
+
+.command-card-header {
+  align-items: flex-start;
+}
+
+.command-code-row {
+  align-items: stretch;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--neutral-1);
+}
+
+.command-code-row code {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  max-width: none;
+  color: var(--text-title);
+  background: var(--neutral-1);
+}
+
+.copy-button {
+  border: 0;
+  border-left: 1px solid var(--border-default);
+  border-radius: 0;
+  padding: 0 12px;
+  color: var(--brand-6);
+  background: var(--brand-0);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.command-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.command-meta-block {
+  border-radius: var(--r-sm);
+  padding: 9px 10px;
+  background: var(--neutral-1);
+}
+
+.command-meta-block span {
+  display: block;
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.command-meta-block p {
+  margin-top: 3px;
+}
+
+@media (max-width: 960px) {
+  .command-toolbar,
+  .command-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .command-notice,
+  .command-item-title,
+  .command-code-row {
+    display: grid;
+  }
+
+  .command-notice-tags,
+  .command-item-badges {
+    justify-content: flex-start;
+  }
+
+  .copy-button {
+    min-height: 34px;
+    border-left: 0;
+    border-top: 1px solid var(--border-default);
+  }
+}

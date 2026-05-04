@@ -1,10 +1,12 @@
+import { DetailItem } from "../components/DetailItem";
 import { EmptyState } from "../components/EmptyState";
 import { HealthBadge } from "../components/HealthBadge";
+import { LayerRow } from "../components/LayerRow";
 import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
 import { SectionCard } from "../components/SectionCard";
-import type { DatasetSummary, LayerSummary, PartitionSummary } from "../types";
-import { formatBytes, formatDateOrMonthRange, formatDateTime, formatLayerDateOrMonthRange, formatRowCount } from "../utils/format";
+import type { DatasetSummary, PartitionSummary } from "../types";
+import { formatBytes, formatDateOrMonthRange, formatDateTime, formatRowCount } from "../utils/format";
 
 type DatasetDetailPageProps = {
   dataset: DatasetSummary;
@@ -97,115 +99,10 @@ export function DatasetDetailPage({ dataset, partitions, onBack }: DatasetDetail
   );
 }
 
-function DetailItem({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={wide ? "detail-item wide" : "detail-item"}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function LayerRow({ layer }: { layer: LayerSummary }) {
-  return (
-    <article className="layer-row">
-      <div className="layer-row-header">
-        <div className="layer-mark" aria-hidden="true">
-          {layerInitial(layer)}
-        </div>
-        <div>
-          <strong>{layerDisplayName(layer)}</strong>
-          <span>{layer.layer} · {layer.layout}</span>
-        </div>
-      </div>
-      <div className="layer-row-body">
-        <div>
-          <p>{humanizeLayerPurpose(layer)}</p>
-          <p>{humanizeLayerUsage(layer)}</p>
-        </div>
-        <code>{layer.path}</code>
-      </div>
-      <dl className="layer-stats">
-        <LayerStat label="分区" value={String(layer.partition_count)} />
-        <LayerStat label="文件" value={String(layer.file_count)} />
-        <LayerStat label="大小" value={formatBytes(layer.total_bytes)} />
-        {layer.row_count !== null ? <LayerStat label="行数" value={formatRowCount(layer.row_count)} /> : null}
-        <LayerStat label="日期/月" value={formatLayerDateOrMonthRange(layer)} />
-        <LayerStat label="最近更新" value={formatDateTime(layer.latest_modified_at)} />
-      </dl>
-    </article>
-  );
-}
-
-function LayerStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
 function latestPartitionLabel(dataset: DatasetSummary): string {
   return dataset.latest_trade_date ?? dataset.latest_trade_month ?? "-";
 }
 
 function earliestPartitionLabel(dataset: DatasetSummary): string {
   return dataset.earliest_trade_date ?? dataset.earliest_trade_month ?? "-";
-}
-
-function layerDisplayName(layer: LayerSummary): string {
-  const labels: Record<string, string> = {
-    raw_tushare: "原始数据",
-    manifest: "同步用清单",
-    derived: "本地计算结果",
-    research: "查询优化数据",
-  };
-  return labels[layer.layer] ?? layer.layer_name;
-}
-
-function layerInitial(layer: LayerSummary): string {
-  const labels: Record<string, string> = {
-    raw_tushare: "R",
-    manifest: "M",
-    derived: "D",
-    research: "Q",
-  };
-  return labels[layer.layer] ?? layer.layer.slice(0, 1).toUpperCase();
-}
-
-function humanizeLayerPurpose(layer: LayerSummary): string {
-  const descriptions: Record<string, string> = {
-    raw_tushare: "从 Tushare 拉取后直接保存的数据。",
-    manifest: "给同步任务使用的本地清单，例如股票池、指数池或交易日历。",
-    derived: "由本地已有数据计算出来的结果。",
-    research: "为了让本地研究和回测查询更快而重新整理的数据。",
-  };
-  return descriptions[layer.layer] ?? cleanTechnicalCopy(layer.purpose);
-}
-
-function humanizeLayerUsage(layer: LayerSummary): string {
-  if (layer.layer === "raw_tushare") {
-    return "适合查看原始落盘范围，也可以作为后续计算的数据来源。";
-  }
-  if (layer.layer === "manifest") {
-    return "适合确认同步任务会使用哪些标的、日期或基础清单。";
-  }
-  if (layer.layer === "derived") {
-    return "适合查看本地派生周期或计算结果是否已经生成。";
-  }
-  if (layer.layer === "research") {
-    return "适合单标的长周期查询、回测和相似性分析。";
-  }
-  return cleanTechnicalCopy(layer.recommended_usage);
-}
-
-function cleanTechnicalCopy(value: string): string {
-  return value
-    .replaceAll("源站事实层", "原始数据")
-    .replaceAll("源站事实", "原始数据")
-    .replaceAll("执行辅助清单层", "同步用清单")
-    .replaceAll("本地派生层", "本地计算结果")
-    .replaceAll("研究查询优化层", "查询优化数据")
-    .replaceAll("原始落盘层", "直接保存的数据");
 }

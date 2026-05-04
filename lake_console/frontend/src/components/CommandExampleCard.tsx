@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Badge } from "./Badge";
+import { CopyButton } from "./CopyButton";
 import type { CommandExample } from "../types";
 
 type CommandExampleCardProps = {
@@ -7,18 +7,6 @@ type CommandExampleCardProps = {
 };
 
 export function CommandExampleCard({ example }: CommandExampleCardProps) {
-  const [copied, setCopied] = useState(false);
-
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(example.command);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   return (
     <article className="command-card">
       <div className="command-card-header">
@@ -30,9 +18,7 @@ export function CommandExampleCard({ example }: CommandExampleCardProps) {
       </div>
       <div className="command-code-row">
         <code>{example.command}</code>
-        <button type="button" onClick={copyCommand}>
-          {copied ? "已复制" : "复制"}
-        </button>
+        <CopyButton value={example.command} />
       </div>
       {example.prerequisites.length || example.notes.length ? (
         <div className="command-meta">

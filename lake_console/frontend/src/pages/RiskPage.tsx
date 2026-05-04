@@ -1,14 +1,10 @@
 import { EmptyState } from "../components/EmptyState";
+import { LoadingBlock } from "../components/LoadingBlock";
 import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
 import { RiskCard } from "../components/RiskCard";
 import { SectionCard } from "../components/SectionCard";
-import type { LakeStatus, RiskItem } from "../types";
-
-type DatasetRiskItem = RiskItem & {
-  datasetKey: string;
-  datasetName: string;
-};
+import type { DatasetRiskItem, LakeStatus } from "../types";
 
 type RiskPageProps = {
   datasetRisks: DatasetRiskItem[];
@@ -16,6 +12,7 @@ type RiskPageProps = {
 };
 
 export function RiskPage({ datasetRisks, status }: RiskPageProps) {
+  const isLoading = status === null;
   const rootRiskCount = status?.risks.length ?? 0;
   const datasetRiskCount = datasetRisks.length;
   const totalRiskCount = rootRiskCount + datasetRiskCount;
@@ -29,25 +26,27 @@ export function RiskPage({ datasetRisks, status }: RiskPageProps) {
         helpTitle="这里展示的是本地文件事实和 Lake Root 检查结果，不读取远程 goldenshare-db。"
         right={(
           <div className="risk-header-summary">
-            <strong>{totalRiskCount}</strong>
-            <span>当前风险</span>
+            <strong>{isLoading ? "..." : totalRiskCount}</strong>
+            <span>{isLoading ? "正在读取" : "当前风险"}</span>
           </div>
         )}
       />
 
       <section className="risk-summary-grid">
-        <Metric label="总风险" value={String(totalRiskCount)} hint="根目录与数据集风险合计" />
-        <Metric label="根目录风险" value={String(rootRiskCount)} hint="路径、初始化、读写权限" />
-        <Metric label="数据集风险" value={String(datasetRiskCount)} hint="来自文件扫描和 catalog" />
+        <Metric label="总风险" value={isLoading ? "读取中" : String(totalRiskCount)} hint="根目录与数据集风险合计" />
+        <Metric label="根目录风险" value={isLoading ? "读取中" : String(rootRiskCount)} hint="路径、初始化、读写权限" />
+        <Metric label="数据集风险" value={isLoading ? "读取中" : String(datasetRiskCount)} hint="来自文件扫描和 catalog" />
       </section>
 
       <section className="risk-page-grid">
         <SectionCard
           description="移动盘路径、初始化状态、读写权限等本地风险。"
-          side={<span>{rootRiskCount} 项</span>}
+          side={<span>{isLoading ? "读取中" : `${rootRiskCount} 项`}</span>}
           title="数据湖根目录风险"
         >
-          {status?.risks.length ? (
+          {isLoading ? (
+            <LoadingBlock title="正在读取数据湖根目录风险" description="正在从本地 Lake Console API 获取路径、权限和初始化状态。" />
+          ) : status?.risks.length ? (
             <div className="risk-list">
               {status.risks.map((risk) => (
                 <RiskCard risk={risk} key={`${risk.code}-${risk.path ?? ""}`} />
@@ -60,10 +59,12 @@ export function RiskPage({ datasetRisks, status }: RiskPageProps) {
 
         <SectionCard
           description="来自本地文件扫描和 Lake Dataset Catalog 的风险。"
-          side={<span>{datasetRiskCount} 项</span>}
+          side={<span>{isLoading ? "读取中" : `${datasetRiskCount} 项`}</span>}
           title="数据集风险"
         >
-          {datasetRisks.length ? (
+          {isLoading ? (
+            <LoadingBlock title="正在读取数据集风险" description="正在扫描本地数据集文件事实和 catalog 风险。" />
+          ) : datasetRisks.length ? (
             <div className="risk-list">
               {datasetRisks.map((risk) => (
                 <RiskCard

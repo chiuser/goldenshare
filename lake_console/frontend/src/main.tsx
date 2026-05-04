@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { EmptyState } from "./components/EmptyState";
 import { useDatasetPartitions, useLakeConsoleData } from "./hooks/useLakeConsoleData";
 import { useLakeConsoleSelection } from "./hooks/useLakeConsoleSelection";
+import { useLakeConsoleViewModel } from "./hooks/useLakeConsoleViewModel";
 import { CommandExamplesPage } from "./pages/CommandExamplesPage";
 import { DatasetDetailPage } from "./pages/DatasetDetailPage";
 import { DatasetOverviewPage } from "./pages/DatasetOverviewPage";
@@ -19,15 +20,11 @@ function App() {
   const { commandError, commandGroups, datasets, error, status } = initialData;
   const { partitionError, partitions } = useDatasetPartitions(selection.selectedDatasetKey);
   const pageError = error ?? partitionError;
-
-  const selectedDataset = datasets.find((dataset) => dataset.dataset_key === selection.selectedDatasetKey) ?? datasets[0] ?? null;
-  const readyDatasets = datasets.filter((dataset) => dataset.file_count > 0).length;
-  const totalFiles = datasets.reduce((sum, dataset) => sum + dataset.file_count, 0);
-  const totalBytes = datasets.reduce((sum, dataset) => sum + dataset.total_bytes, 0);
-  const riskCount = datasets.reduce((sum, dataset) => sum + dataset.risks.length, 0) + (status?.risks.length ?? 0);
-  const allDatasetRisks = datasets.flatMap((dataset) =>
-    dataset.risks.map((risk) => ({ ...risk, datasetKey: dataset.dataset_key, datasetName: dataset.display_name })),
-  );
+  const viewModel = useLakeConsoleViewModel({
+    datasets,
+    selectedDatasetKey: selection.selectedDatasetKey,
+    status,
+  });
 
   return (
     <AppShell activePage={selection.activePage} initialized={Boolean(status?.path.initialized)} onNavigate={selection.setActivePage}>
@@ -36,19 +33,19 @@ function App() {
       {selection.activePage === "datasets" ? (
         <DatasetOverviewPage
           datasets={datasets}
-          readyDatasets={readyDatasets}
-          riskCount={riskCount}
+          readyDatasets={viewModel.readyDatasets}
+          riskCount={viewModel.riskCount}
           status={status}
-          totalBytes={totalBytes}
-          totalFiles={totalFiles}
+          totalBytes={viewModel.totalBytes}
+          totalFiles={viewModel.totalFiles}
           onOpenDetail={selection.openDatasetDetail}
         />
       ) : null}
 
       {selection.activePage === "datasetDetail" ? (
-        selectedDataset ? (
+        viewModel.selectedDataset ? (
           <DatasetDetailPage
-            dataset={selectedDataset}
+            dataset={viewModel.selectedDataset}
             partitions={partitions}
             onBack={() => selection.setActivePage("datasets")}
           />
@@ -69,7 +66,7 @@ function App() {
       ) : null}
 
       {selection.activePage === "risks" ? (
-        <RiskPage datasetRisks={allDatasetRisks} status={status} />
+        <RiskPage datasetRisks={viewModel.allDatasetRisks} status={status} />
       ) : null}
     </AppShell>
   );

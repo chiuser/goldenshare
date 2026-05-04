@@ -5,6 +5,11 @@ export type RiskItem = {
   path?: string | null;
 };
 
+export type DatasetRiskItem = RiskItem & {
+  datasetKey: string;
+  datasetName: string;
+};
+
 export type LakeStatus = {
   path: {
     lake_root: string;
