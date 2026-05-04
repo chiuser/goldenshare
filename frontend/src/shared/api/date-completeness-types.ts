@@ -18,6 +18,14 @@ export interface DateCompletenessRuleItem {
   audit_applicable: boolean;
   not_applicable_reason: string | null;
   rule_label: string;
+  data_range: {
+    range_type: "business_date" | "observed_time" | "sync_date" | "none";
+    start_date: string | null;
+    end_date: string | null;
+    start_at: string | null;
+    end_at: string | null;
+    label: string;
+  };
 }
 
 export interface DateCompletenessRuleGroup {

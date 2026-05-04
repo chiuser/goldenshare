@@ -34,8 +34,9 @@ router = APIRouter(prefix="/ops/review/date-completeness", tags=["ops"])
 @router.get("/rules", response_model=DateCompletenessRuleListResponse)
 def list_date_completeness_rules(
     _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
 ) -> DateCompletenessRuleListResponse:
-    return DateCompletenessRuleQueryService().list_rules()
+    return DateCompletenessRuleQueryService().list_rules(session)
 
 
 @router.post("/runs", response_model=DateCompletenessRunCreateResponse)

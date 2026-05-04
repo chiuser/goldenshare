@@ -61,6 +61,14 @@ function mockApi() {
                 audit_applicable: true,
                 not_applicable_reason: null,
                 rule_label: "每个开市交易日",
+                data_range: {
+                  range_type: "business_date",
+                  start_date: "2026-04-01",
+                  end_date: "2026-04-24",
+                  start_at: null,
+                  end_at: null,
+                  label: "2026/04/01 至 2026/04/24",
+                },
               },
             ],
           },
@@ -88,6 +96,14 @@ function mockApi() {
                 audit_applicable: false,
                 not_applicable_reason: "snapshot/master dataset",
                 rule_label: "不适用日期完整性审计",
+                data_range: {
+                  range_type: "none",
+                  start_date: null,
+                  end_date: null,
+                  start_at: null,
+                  end_at: null,
+                  label: "—",
+                },
               },
             ],
           },
@@ -212,6 +228,8 @@ describe("数据集审计页", () => {
     expect(await screen.findByText("数据集审计")).toBeInTheDocument();
     expect((await screen.findAllByText("板块资金流向(DC)")).length).toBeGreaterThan(0);
     expect(await screen.findByText("每个开市交易日")).toBeInTheDocument();
+    expect(await screen.findByText("数据时间范围")).toBeInTheDocument();
+    expect(await screen.findByText("2026/04/01 至 2026/04/24")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "创建审计" }));
     await screen.findByText("审计说明");

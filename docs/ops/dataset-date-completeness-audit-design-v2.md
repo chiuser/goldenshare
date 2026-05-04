@@ -383,7 +383,7 @@ sequenceDiagram
 
 ### 7.1 `GET /rules`
 
-返回全量数据集审计能力。数据来自 `DatasetDefinition`。
+返回全量数据集审计能力。审计规则来自 `DatasetDefinition`；数据时间范围来自 `ops.dataset_status_snapshot` 的当前状态快照，由服务端组装为 `data_range` 后返回，前端不得自行拼接 freshness 字段。
 
 返回重点字段：
 
@@ -398,6 +398,23 @@ sequenceDiagram
 9. `observed_field`
 10. `audit_applicable`
 11. `not_applicable_reason`
+12. `data_range`
+
+`data_range` 结构：
+
+| 字段 | 含义 |
+|---|---|
+| `range_type` | `business_date` / `observed_time` / `sync_date` / `none` |
+| `start_date` / `end_date` | 业务日期范围或最近同步日期 |
+| `start_at` / `end_at` | 无业务日期时的观测时间范围 |
+| `label` | 给页面直接展示的时间范围文案 |
+
+取值顺序：
+
+1. 优先展示 `earliest_business_date ~ latest_business_date`。
+2. 没有业务日期时，展示 `earliest_observed_at ~ latest_observed_at`。
+3. 只有 `last_sync_date` 时，展示最近同步日期。
+4. 都没有则展示 `—`。
 
 ### 7.2 `POST /runs`
 
@@ -489,7 +506,7 @@ Tab：
 
 | 区域 | 数据源 |
 |---|---|
-| 数据集选择与可审计说明 | `GET /rules` |
+| 数据集选择、可审计说明与数据时间范围 | `GET /rules` |
 | 创建审计 | `POST /runs` |
 | 运行状态轮询 | `GET /runs/{run_id}` |
 | 缺口明细 | `GET /runs/{run_id}/gaps` |
@@ -505,6 +522,7 @@ Tab：
 4. 不展示 TaskRun 信息，不跳转任务详情页。
 5. 不适用数据集展示原因，不展示创建按钮。
 6. 若存在规则排除桶，应弱化展示“规则排除 N 个”，详情说明例如“该自然周内无开市日，不应产出周线数据”。
+7. 审计数据集列表展示“数据时间范围”列，直接消费 `GET /rules` 的 `data_range.label`。
 
 ---
 

@@ -214,7 +214,7 @@ export function OpsV21DatasetAuditPage() {
                 loading={rulesQuery.isLoading}
                 hasData={visibleRules.length > 0}
                 emptyState={<EmptyState title="暂无数据集" description="请调整筛选条件后重试。" />}
-                minWidth={980}
+                minWidth={1120}
               >
                 <OpsTable>
                   <Table.Thead>
@@ -222,6 +222,7 @@ export function OpsV21DatasetAuditPage() {
                       <OpsTableHeaderCell>数据集</OpsTableHeaderCell>
                       <OpsTableHeaderCell>目录分组</OpsTableHeaderCell>
                       <OpsTableHeaderCell>日期规则</OpsTableHeaderCell>
+                      <OpsTableHeaderCell>数据时间范围</OpsTableHeaderCell>
                       <OpsTableHeaderCell>目标表</OpsTableHeaderCell>
                       <OpsTableHeaderCell>操作</OpsTableHeaderCell>
                     </Table.Tr>
@@ -242,6 +243,9 @@ export function OpsV21DatasetAuditPage() {
                           {!item.audit_applicable ? (
                             <Text size="xs" c="dimmed" mt={4}>{item.not_applicable_reason || "未配置可审计规则"}</Text>
                           ) : null}
+                        </OpsTableCell>
+                        <OpsTableCell>
+                          <Text size="sm">{item.data_range.label}</Text>
                         </OpsTableCell>
                         <OpsTableCell>
                           <Text size="sm" c="dimmed">{item.target_table}</Text>

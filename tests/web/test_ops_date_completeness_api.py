@@ -8,6 +8,7 @@ from sqlalchemy import text
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 
 
@@ -38,8 +39,35 @@ def test_date_completeness_rules_rejects_non_admin(app_client, user_factory) -> 
     assert response.json()["code"] == "forbidden"
 
 
-def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_factory) -> None:
+def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
+    db_session.add(
+        DatasetStatusSnapshot(
+            dataset_key="moneyflow_ind_dc",
+            resource_key="moneyflow_ind_dc",
+            display_name="板块资金流向(DC)",
+            domain_key="moneyflow",
+            domain_display_name="资金流向",
+            target_table="core_serving.board_moneyflow_dc",
+            cadence="daily",
+            earliest_business_date=date(2026, 4, 1),
+            observed_business_date=date(2026, 4, 24),
+            latest_business_date=date(2026, 4, 24),
+            freshness_note=None,
+            latest_success_at=None,
+            last_sync_date=date(2026, 4, 24),
+            expected_business_date=date(2026, 4, 24),
+            lag_days=0,
+            freshness_status="fresh",
+            recent_failure_message=None,
+            recent_failure_summary=None,
+            recent_failure_at=None,
+            primary_action_key="moneyflow_ind_dc.maintain",
+            snapshot_date=date(2026, 4, 24),
+            last_calculated_at=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
 
     response = app_client.get("/api/v1/ops/review/date-completeness/rules", headers=headers)
 
@@ -71,6 +99,14 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["bucket_window_rule"] is None
     assert supported["moneyflow_ind_dc"]["bucket_applicability_rule"] == "always"
     assert supported["moneyflow_ind_dc"]["rule_label"] == "每个开市交易日"
+    assert supported["moneyflow_ind_dc"]["data_range"] == {
+        "range_type": "business_date",
+        "start_date": "2026-04-01",
+        "end_date": "2026-04-24",
+        "start_at": None,
+        "end_at": None,
+        "label": "2026/04/01 至 2026/04/24",
+    }
     assert supported["moneyflow_ind_dc"]["audit_applicable"] is True
     assert supported["cctv_news"]["display_name"] == "新闻联播文字稿"
     assert supported["cctv_news"]["group_key"] == "news"
@@ -83,6 +119,7 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
 
     assert unsupported["stock_basic"]["audit_applicable"] is False
     assert unsupported["stock_basic"]["not_applicable_reason"] == "snapshot/master dataset"
+    assert unsupported["stock_basic"]["data_range"]["label"] == "—"
     assert "stock_basic" not in supported
 
 

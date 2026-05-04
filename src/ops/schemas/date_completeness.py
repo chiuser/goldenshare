@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
+
+
+class DateCompletenessRuleDataRange(BaseModel):
+    range_type: Literal["business_date", "observed_time", "sync_date", "none"]
+    start_date: date | None = None
+    end_date: date | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    label: str
 
 
 class DateCompletenessRuleItem(BaseModel):
@@ -25,6 +35,7 @@ class DateCompletenessRuleItem(BaseModel):
     audit_applicable: bool
     not_applicable_reason: str | None = None
     rule_label: str
+    data_range: DateCompletenessRuleDataRange
 
 
 class DateCompletenessRuleGroup(BaseModel):

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
 from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.schemas.date_completeness import (
+    DateCompletenessRuleDataRange,
     DateCompletenessRuleGroup,
     DateCompletenessRuleItem,
     DateCompletenessRuleListResponse,
@@ -15,10 +22,11 @@ class DateCompletenessRuleQueryService:
     GROUP_SUPPORTED = "supported"
     GROUP_UNSUPPORTED = "unsupported"
 
-    def list_rules(self) -> DateCompletenessRuleListResponse:
+    def list_rules(self, session: Session) -> DateCompletenessRuleListResponse:
         supported: list[DateCompletenessRuleItem] = []
         unsupported: list[DateCompletenessRuleItem] = []
         resolver = DatasetCatalogViewResolver()
+        snapshots_by_key = self._snapshots_by_dataset_key(session)
         sorted_definitions = sorted(
             list_dataset_definitions(),
             key=lambda item: (
@@ -29,7 +37,7 @@ class DateCompletenessRuleQueryService:
             ),
         )
         for definition in sorted_definitions:
-            item = self._to_rule_item(definition)
+            item = self._to_rule_item(definition, snapshot=snapshots_by_key.get(definition.dataset_key))
             if item.audit_applicable:
                 supported.append(item)
             else:
@@ -47,7 +55,7 @@ class DateCompletenessRuleQueryService:
         )
 
     @classmethod
-    def _to_rule_item(cls, definition: DatasetDefinition) -> DateCompletenessRuleItem:
+    def _to_rule_item(cls, definition: DatasetDefinition, *, snapshot: DatasetStatusSnapshot | None) -> DateCompletenessRuleItem:
         date_model = definition.date_model
         catalog_item = DatasetCatalogViewResolver().resolve_item(definition.dataset_key)
         return DateCompletenessRuleItem(
@@ -70,7 +78,61 @@ class DateCompletenessRuleQueryService:
             audit_applicable=date_model.audit_applicable,
             not_applicable_reason=date_model.not_applicable_reason,
             rule_label=cls._rule_label(date_axis=date_model.date_axis, bucket_rule=date_model.bucket_rule),
+            data_range=cls._data_range(snapshot),
         )
+
+    @staticmethod
+    def _snapshots_by_dataset_key(session: Session) -> dict[str, DatasetStatusSnapshot]:
+        return {row.dataset_key: row for row in session.scalars(select(DatasetStatusSnapshot)).all()}
+
+    @classmethod
+    def _data_range(cls, snapshot: DatasetStatusSnapshot | None) -> DateCompletenessRuleDataRange:
+        if snapshot is None:
+            return DateCompletenessRuleDataRange(range_type="none", label="—")
+        if snapshot.latest_business_date is not None:
+            start_date = snapshot.earliest_business_date or snapshot.latest_business_date
+            return DateCompletenessRuleDataRange(
+                range_type="business_date",
+                start_date=start_date,
+                end_date=snapshot.latest_business_date,
+                label=cls._date_range_label(start_date, snapshot.latest_business_date),
+            )
+        if snapshot.latest_observed_at is not None:
+            start_at = snapshot.earliest_observed_at or snapshot.latest_observed_at
+            return DateCompletenessRuleDataRange(
+                range_type="observed_time",
+                start_at=start_at,
+                end_at=snapshot.latest_observed_at,
+                label=cls._datetime_range_label(start_at, snapshot.latest_observed_at),
+            )
+        if snapshot.last_sync_date is not None:
+            return DateCompletenessRuleDataRange(
+                range_type="sync_date",
+                start_date=snapshot.last_sync_date,
+                end_date=snapshot.last_sync_date,
+                label=f"最近同步：{cls._format_date(snapshot.last_sync_date)}",
+            )
+        return DateCompletenessRuleDataRange(range_type="none", label="—")
+
+    @classmethod
+    def _date_range_label(cls, start_date: date, end_date: date) -> str:
+        if start_date == end_date:
+            return f"最新业务日：{cls._format_date(end_date)}"
+        return f"{cls._format_date(start_date)} 至 {cls._format_date(end_date)}"
+
+    @classmethod
+    def _datetime_range_label(cls, start_at: datetime, end_at: datetime) -> str:
+        if start_at == end_at:
+            return f"最新时间：{cls._format_datetime(end_at)}"
+        return f"{cls._format_datetime(start_at)} 至 {cls._format_datetime(end_at)}"
+
+    @staticmethod
+    def _format_date(value: date) -> str:
+        return value.strftime("%Y/%m/%d")
+
+    @staticmethod
+    def _format_datetime(value: datetime) -> str:
+        return value.strftime("%Y/%m/%d %H:%M:%S")
 
     @staticmethod
     def _rule_label(*, date_axis: str, bucket_rule: str) -> str:
