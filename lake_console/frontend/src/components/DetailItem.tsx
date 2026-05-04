@@ -5,8 +5,9 @@ type DetailItemProps = {
 };
 
 export function DetailItem({ label, value, wide = false }: DetailItemProps) {
+  const classes = ["detail-item", "surface-card", wide ? "wide" : ""].filter(Boolean).join(" ");
   return (
-    <div className={wide ? "detail-item wide" : "detail-item"}>
+    <div className={classes}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>

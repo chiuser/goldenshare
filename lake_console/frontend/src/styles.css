@@ -1,5 +1,7 @@
 @import "./styles/base.css";
+@import "./styles/dataset.css";
 @import "./styles/command.css";
+@import "./styles/risk.css";
 
 /* App shell */
 .app {
@@ -302,269 +304,44 @@ code {
   padding: 16px;
 }
 
-.panel-header {
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border-default);
-}
-
-/* Dataset overview */
-.dataset-groups,
-.dataset-list,
-.risk-list {
-  display: grid;
-  gap: 12px;
-}
-
-.dataset-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.dataset-card {
-  display: flex;
-  min-height: 236px;
-  width: 100%;
-  flex-direction: column;
+.surface-card {
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
-  padding: 12px;
-  color: inherit;
   background: var(--neutral-0);
-  font: inherit;
-  text-align: left;
+}
+
+.surface-card-interactive {
   box-shadow: var(--shadow-card);
   transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
-.dataset-card:hover {
+.surface-card-interactive:hover {
   border-color: var(--border-hover);
   background: var(--neutral-1);
   box-shadow: var(--shadow-popover);
   transform: translateY(-1px);
 }
 
-.dataset-card p {
-  display: -webkit-box;
-  min-height: 38px;
-  margin-top: 8px;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 12px;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.dataset-group {
-  border-top: 1px solid var(--border-default);
-  padding-top: 14px;
-}
-
-.dataset-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 30px;
+.panel-header {
+  padding-bottom: 12px;
   margin-bottom: 12px;
-  padding: 0 2px;
+  border-bottom: 1px solid var(--border-default);
 }
 
-.dataset-group-header strong {
-  display: block;
-  color: var(--text-title);
-}
-
-.dataset-group-header em {
-  color: var(--text-hint);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.dataset-title,
-.dataset-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-.dataset-title > div,
-.dataset-card-top > div {
-  min-width: 0;
-}
-
-.dataset-title strong,
-.dataset-card-top strong {
-  display: block;
-  color: var(--text-title);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dataset-source {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--text-hint);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.dataset-title span:not(.badge):not(.health-badge) {
-  display: block;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dataset-card > code {
-  display: block;
-  max-width: none;
-  margin-top: 8px;
-  color: var(--text-body);
-  background: var(--neutral-1);
-}
-
-.dataset-primary-fact {
-  margin-top: 12px;
-  border-top: 1px solid var(--border-default);
-  padding-top: 12px;
-}
-
-.dataset-primary-fact span {
-  display: block;
-  color: var(--text-hint);
-  font-size: 11px;
-}
-
-.dataset-primary-fact strong {
-  display: block;
-  margin-top: 3px;
-  color: var(--text-title);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
-.dataset-card dl {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 10px;
-  margin-top: 10px;
-}
-
-.dataset-card .dataset-facts {
-  margin-top: 12px;
-}
-
-.dataset-card dl > div {
-  min-width: 0;
-  border-radius: var(--r-sm);
-  padding: 7px 8px;
-  background: var(--neutral-1);
-}
-
-.dataset-card dt {
-  color: var(--text-hint);
-  font-size: 12px;
-}
-
-.dataset-card dd {
-  color: var(--text-body);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.dataset-card dd {
-  overflow: hidden;
-  font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dataset-card-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding-top: 12px;
-}
-
-.dataset-card-actions button,
-.back-button {
-  border: 1px solid var(--brand-5);
-  border-radius: var(--r-sm);
-  color: var(--brand-6);
-  background: var(--brand-0);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.dataset-card-actions button {
-  min-height: 30px;
-  padding: 5px 12px;
-  font-size: 12px;
-}
-
-.dataset-card-actions button:hover,
-.back-button:hover,
 .copy-button:hover {
   border-color: var(--brand-6);
   background: var(--brand-hover-bg);
 }
 
-.dataset-card-actions button:active,
-.back-button:active,
 .copy-button:active {
   transform: translateY(1px);
 }
 
-.dataset-card-actions button:focus-visible,
-.back-button:focus-visible,
 .copy-button:focus-visible,
 .sidebar-link:focus-visible,
 .command-toolbar select:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-.back-button {
-  padding: 7px 12px;
-}
-
-/* Dataset detail */
-.detail-page,
-.layer-stack {
-  display: grid;
-  gap: 14px;
-}
-
-.detail-page {
-  gap: 16px;
-}
-
-.detail-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-.detail-header-side {
-  display: grid;
-  justify-items: end;
-  gap: 8px;
-}
-
-.detail-header-side code {
-  max-width: 360px;
-  background: var(--neutral-0);
 }
 
 .section-card {
@@ -607,242 +384,9 @@ code {
   white-space: nowrap;
 }
 
-.detail-metrics {
-  margin: 0;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.partition-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.detail-item {
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  padding: 10px;
-  background: var(--neutral-0);
-}
-
-.detail-item.wide {
-  grid-column: 1 / -1;
-}
-
-.detail-item span {
-  display: block;
-  color: var(--text-hint);
-  font-size: 12px;
-}
-
-.detail-item strong {
-  display: block;
-  margin-top: 3px;
-  color: var(--text-body);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.layer-row {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.62fr) minmax(260px, 1fr) minmax(340px, 1.25fr);
-  gap: 14px;
-  align-items: stretch;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 14px;
-  background: var(--neutral-0);
-}
-
-.layer-row-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-}
-
-.layer-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  color: var(--brand-6);
-  background: var(--brand-0);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.layer-row-header strong {
-  display: block;
-  color: var(--text-title);
-}
-
-.layer-row-header span {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.layer-row-body {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.layer-row p {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.layer-row code {
-  display: block;
-  max-width: none;
-  width: 100%;
-}
-
-.layer-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-
-.layer-stats > div {
-  min-width: 0;
-  border-radius: var(--r-sm);
-  padding: 8px;
-  background: var(--neutral-1);
-}
-
-.layer-row dt,
-.layer-stats dt {
-  color: var(--text-hint);
-  font-size: 12px;
-}
-
-.layer-row dd,
-.layer-stats dd {
-  color: var(--text-body);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.layer-stats dd {
-  margin-top: 2px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
 .health-badge {
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-/* Risk review */
-.risk-header-summary {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  min-width: 108px;
-}
-
-.risk-header-summary strong {
-  color: var(--text-title);
-  font-family: var(--font-mono);
-  font-size: 28px;
-  line-height: 1;
-}
-
-.risk-header-summary span {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.risk-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.risk-page-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 16px;
-}
-
-.risk-card {
-  display: grid;
-  gap: 9px;
-  border: 1px solid var(--border-default);
-  border-left-width: 3px;
-  border-radius: var(--r-md);
-  padding: 12px;
-  background: var(--neutral-0);
-}
-
-.risk-card.warning {
-  border-left-color: var(--warning);
-}
-
-.risk-card.error,
-.risk-card.critical {
-  border-left-color: var(--error);
-}
-
-.risk-card.info {
-  border-left-color: var(--brand-5);
-}
-
-.risk-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.risk-card-header strong {
-  display: block;
-  color: var(--text-title);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.risk-card-header em {
-  display: block;
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.risk-card-header > .badge {
-  border-radius: var(--r-sm);
-  padding: 3px 7px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.risk-card p {
-  color: var(--text-body);
-  font-size: 13px;
-}
-
-.risk-card code {
-  display: block;
-  max-width: none;
-  color: var(--text-body);
-  background: var(--neutral-1);
 }
 
 /* Feedback states */
@@ -927,12 +471,6 @@ code {
 }
 
 /* Responsive layout */
-@media (max-width: 1280px) {
-  .dataset-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 960px) {
   .app {
     display: block;
@@ -957,17 +495,7 @@ code {
     border-bottom: 1px solid var(--border-default);
   }
 
-  .metric-grid,
-  .risk-summary-grid,
-  .risk-page-grid,
-  .dataset-list,
-  .dataset-card dl,
-  .detail-grid,
-  .detail-metrics,
-  .partition-summary-grid,
-  .layer-row,
-  .layer-row dl,
-  .layer-stats {
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 

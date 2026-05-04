@@ -8,7 +8,7 @@ type CommandExampleCardProps = {
 
 export function CommandExampleCard({ example }: CommandExampleCardProps) {
   return (
-    <article className="command-card">
+    <article className="command-card surface-card">
       <div className="command-card-header">
         <div>
           <strong>{example.title}</strong>

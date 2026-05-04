@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { DatasetGroup, type DatasetGroupView } from "../components/DatasetGroup";
+import { DatasetGroup } from "../components/DatasetGroup";
 import { EmptyState } from "../components/EmptyState";
 import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import type { DatasetSummary, LakeStatus } from "../types";
 import { formatBytes } from "../utils/format";
+import { groupDatasets } from "../utils/datasetGrouping";
 
 type DatasetOverviewPageProps = {
   datasets: DatasetSummary[];
@@ -61,22 +62,4 @@ export function DatasetOverviewPage({
       </Panel>
     </>
   );
-}
-
-function groupDatasets(datasets: DatasetSummary[]): DatasetGroupView[] {
-  const grouped = new Map<string, DatasetGroupView>();
-  for (const dataset of datasets) {
-    const groupKey = dataset.group_key ?? "unknown";
-    const group = grouped.get(groupKey) ?? {
-      groupKey,
-      groupLabel: dataset.group_label ?? "未分组",
-      groupOrder: dataset.group_order ?? 999,
-      items: [],
-    };
-    group.items.push(dataset);
-    grouped.set(groupKey, group);
-  }
-  return [...grouped.values()]
-    .map((group) => ({ ...group, items: group.items.sort((a, b) => a.dataset_key.localeCompare(b.dataset_key)) }))
-    .sort((a, b) => a.groupOrder - b.groupOrder || a.groupKey.localeCompare(b.groupKey));
 }

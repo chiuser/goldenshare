@@ -8,7 +8,7 @@ type LayerRowProps = {
 
 export function LayerRow({ layer }: LayerRowProps) {
   return (
-    <article className="layer-row">
+    <article className="layer-row surface-card">
       <div className="layer-row-header">
         <div className="layer-mark" aria-hidden="true">
           {layerInitial(layer)}

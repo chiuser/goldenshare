@@ -9,7 +9,7 @@ type RiskCardProps = {
 export function RiskCard({ risk, context }: RiskCardProps) {
   const severityClass = risk.severity.toLowerCase();
   return (
-    <article className={`risk-card ${severityClass}`}>
+    <article className={`risk-card surface-card ${severityClass}`}>
       <div className="risk-card-header">
         <div>
           <strong>{risk.code}</strong>

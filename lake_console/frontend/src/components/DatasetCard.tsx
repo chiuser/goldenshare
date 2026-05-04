@@ -9,7 +9,7 @@ type DatasetCardProps = {
 
 export function DatasetCard({ dataset, onOpenDetail }: DatasetCardProps) {
   return (
-    <article className="dataset-card">
+    <article className="dataset-card surface-card surface-card-interactive">
       <div className="dataset-card-top">
         <div>
           <span className="dataset-source">{dataset.source}</span>

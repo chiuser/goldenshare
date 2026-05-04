@@ -117,10 +117,7 @@
 .command-card {
   display: grid;
   gap: 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
   padding: 14px;
-  background: var(--neutral-0);
   box-shadow: var(--shadow-card);
 }
 

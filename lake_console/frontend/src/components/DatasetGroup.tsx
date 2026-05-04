@@ -1,12 +1,5 @@
 import { DatasetCard } from "./DatasetCard";
-import type { DatasetSummary } from "../types";
-
-export type DatasetGroupView = {
-  groupKey: string;
-  groupLabel: string;
-  groupOrder: number;
-  items: DatasetSummary[];
-};
+import type { DatasetGroupView } from "../utils/datasetGrouping";
 
 type DatasetGroupProps = {
   group: DatasetGroupView;
