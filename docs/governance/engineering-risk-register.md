@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-04-26  
+更新时间：2026-05-04
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -29,8 +29,8 @@
 
 | ID | 等级 | 风险 | 影响范围 | 状态 | 依据 |
 |---|---|---|---|---|---|
-| RISK-2026-04-25-001 | P0 | 数据维护执行层若采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
-| RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Open | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-25-001 | P0 | 数据维护执行层若采用任务级最终提交，状态写入失败可导致已执行写入整体回滚 | `stk_mins`、`stk_factor_pro`、`dc_member`、`index_daily`、`index_weight` 等 P0/P1 数据集 | Closed | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
+| RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Closed | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
 
@@ -63,6 +63,17 @@
 4. point/range/none 成功只写一次资源状态，且不得丢失业务日期。
 5. 任务详情只把已提交数据展示为最终处理结果。
 6. 测试必须模拟 Ops 状态写入失败，并证明业务数据表写入已提交、可读取、未被回滚。
+
+处理记录（2026-05-04）：
+
+1. 数据维护执行主链已按 unit 提交业务数据；第 N 个 unit 失败时只回滚当前未提交事务，已提交 unit 不再被后续状态写入回滚。
+2. Ops 进度、TaskRun、snapshot/freshness 等状态写入与业务数据事务隔离；状态写入失败只影响观测状态，不影响业务提交。
+3. 旧同步状态表、旧运行日志表、旧执行观测表不再作为主链事实源；远程库只保留 TaskRun 三表作为任务观测主线。
+4. 已补回归测试 `test_ops_progress_failure_does_not_rollback_committed_business_rows`，模拟 Ops progress 写入失败，验证业务行已提交、未 rollback。
+5. 本地验证：
+   - `pytest -q tests/test_dataset_progress.py`
+   - `pytest -q tests/web/test_ops_runtime.py tests/web/test_ops_task_run_api.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py tests/architecture/test_subsystem_dependency_matrix.py`
+   - `GOLDENSHARE_ENV_FILE=.env.web.local python3 -m src.cli ingestion-lint-definitions`
 
 ---
 
@@ -105,6 +116,15 @@
 | `limit_list_ths` | `core_serving.limit_list_ths` | 5485 | 同上 |
 | `ths_hot` | `raw_tushare.ths_hot` | 2664 | 2026-04-10, 2026-04-17 |
 | `ths_hot` | `core_serving.ths_hot` | 2664 | 同上 |
+
+关闭记录（2026-05-04）：
+
+1. 活跃代码中不再存在业务哨兵 `__ALL__`；唯一命中是 `tests/test_dataset_request_validator.py` 中的拒绝输入测试。
+2. `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 的缺省筛选均通过 `enum_fanout_defaults` 展开为真实业务枚举值。
+3. planner、plan unit request params、normalizer、writer 均有禁用哨兵拦截。
+4. 远程库复查 `raw_tushare` 与 `core_serving` 中相关 `query_* / tag` 字段，精确 `__ALL__` 与模糊 `%ALL%` 命中数均为 0。
+5. 本地验证：
+   - `pytest -q tests/test_dataset_action_resolver.py tests/test_dataset_request_validator.py tests/test_dataset_definition_registry.py tests/architecture/test_dataset_runtime_registry_guardrails.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py`
 
 ---
 

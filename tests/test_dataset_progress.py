@@ -121,6 +121,105 @@ def test_maintain_progress_reports_only_committed_rows_as_saved() -> None:
     assert captured[0]["rows_saved"] == 0
 
 
+def test_ops_progress_failure_does_not_rollback_committed_business_rows() -> None:
+    class StubSession:
+        def __init__(self) -> None:
+            self.pending_business_rows = 0
+            self.committed_business_rows = 0
+            self.rollback_count = 0
+
+        def commit(self) -> None:
+            self.committed_business_rows += self.pending_business_rows
+            self.pending_business_rows = 0
+
+        def rollback(self) -> None:
+            self.pending_business_rows = 0
+            self.rollback_count += 1
+
+    class FailingProgressRunContext:
+        def __init__(self) -> None:
+            self.update_attempts = 0
+
+        def is_cancel_requested(self, *, run_id: int) -> bool:
+            return False
+
+        def update_progress(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            self.update_attempts += 1
+            raise RuntimeError("ops state update failed")
+
+    class StubSourceClient:
+        def fetch(self, *, definition, unit):  # type: ignore[no-untyped-def]
+            return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}])
+
+    class StubNormalizer:
+        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+            return NormalizedBatch(
+                unit_id=fetch_result.unit_id,
+                rows_normalized=[{"trade_date": "2026-04-24", "ts_code": "000001.SZ"}],
+                rows_rejected=0,
+                rejected_reasons={},
+            )
+
+        def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]
+            return None
+
+    class StubWriter:
+        def __init__(self, session: StubSession) -> None:
+            self.session = session
+
+        def write(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.session.pending_business_rows += 1
+            return WriteResult(
+                unit_id="u-1",
+                rows_written=1,
+                rows_upserted=1,
+                rows_skipped=0,
+                target_table="raw_tushare.daily",
+                conflict_strategy="upsert",
+            )
+
+    session = StubSession()
+    run_context = FailingProgressRunContext()
+    service = DatasetMaintainService(session, dataset_key="daily", run_context=run_context)
+    service.executor.source_client = StubSourceClient()  # type: ignore[assignment]
+    service.executor.normalizer = StubNormalizer()  # type: ignore[assignment]
+    service.executor.writer = StubWriter(session)  # type: ignore[assignment]
+    unit = PlanUnitSnapshot(
+        unit_id="u-1",
+        dataset_key="daily",
+        source_key="tushare",
+        trade_date=None,
+        request_params={},
+        progress_context={},
+    )
+    request = ValidatedDatasetActionRequest(
+        request_id="r-1",
+        dataset_key="daily",
+        action="maintain",
+        run_profile="point_incremental",
+        trigger_source="test",
+        params={},
+        source_key=None,
+        trade_date=None,
+        start_date=None,
+        end_date=None,
+        run_id=123,
+    )
+
+    summary = service.executor.run(
+        request=request,
+        definition=get_dataset_definition("daily"),
+        units=(unit,),
+        progress_reporter=service._progress_reporter,
+    )
+
+    assert summary.rows_committed == 1
+    assert session.committed_business_rows == 1
+    assert session.pending_business_rows == 0
+    assert session.rollback_count == 0
+    assert run_context.update_attempts == 1
+
+
 def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
     captured: list[tuple[ProgressSnapshot, str]] = []
 
