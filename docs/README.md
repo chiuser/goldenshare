@@ -84,6 +84,10 @@ docs/
 - [股票日线 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/daily-lake-dataset-development.md)
 - [股票日线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/daily-prod-raw-db-lake-export-plan.md)
 - [个股资金流向 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/moneyflow-lake-dataset-development.md)
+- [ETF 基础信息 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/etf-basic-prod-raw-db-lake-export-plan.md)
+- [ETF 跟踪指数 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/etf-index-prod-raw-db-lake-export-plan.md)
+- [同花顺板块列表 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-index-prod-raw-db-lake-export-plan.md)
+- [同花顺板块成分 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-member-prod-raw-db-lake-export-plan.md)
 
 说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
