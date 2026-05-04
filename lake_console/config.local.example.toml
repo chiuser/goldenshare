@@ -4,6 +4,10 @@
 lake_root = "/Volumes/YourDisk/goldenshare-tushare-lake"
 tushare_token = "fill-your-tushare-token-here"
 
+# Optional. Only used by explicit prod-raw-db export commands.
+# Must point to a read-only user with access limited to raw_tushare whitelist tables.
+prod_raw_db_url = ""
+
 # Optional local server settings.
 host = "127.0.0.1"
 port = 8010

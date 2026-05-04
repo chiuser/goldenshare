@@ -4,14 +4,15 @@ from pathlib import Path
 from datetime import date
 from typing import Any
 
+from lake_console.backend.app.settings import LakeConsoleSettings
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
 from lake_console.backend.app.sync.context import LakeSyncContext
 from lake_console.backend.app.sync.strategies import STRATEGY_CLASSES
 
 
 class LakeSyncEngine:
-    def __init__(self, *, lake_root: Path, client: TushareLakeClient) -> None:
-        self.context = LakeSyncContext(lake_root=lake_root, client=client)
+    def __init__(self, *, lake_root: Path, client: TushareLakeClient, settings: LakeConsoleSettings) -> None:
+        self.context = LakeSyncContext(lake_root=lake_root, client=client, settings=settings)
 
     def sync_dataset(
         self,
@@ -25,6 +26,7 @@ class LakeSyncEngine:
         markets: list[str] | None = None,
         publisher: str | None = None,
         category: str | None = None,
+        source: str = "tushare",
     ) -> dict[str, Any]:
         strategy_class = STRATEGY_CLASSES.get(dataset_key)
         if strategy_class is None:
@@ -40,4 +42,5 @@ class LakeSyncEngine:
             markets=markets,
             publisher=publisher,
             category=category,
+            source=source,
         )

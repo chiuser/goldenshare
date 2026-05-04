@@ -22,5 +22,6 @@ class LakeDatasetStrategy(Protocol):
         markets: list[str] | None = None,
         publisher: str | None = None,
         category: str | None = None,
+        source: str = "tushare",
     ) -> LakeSyncResult:
         ...

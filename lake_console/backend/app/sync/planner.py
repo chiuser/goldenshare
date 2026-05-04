@@ -22,6 +22,7 @@ class LakeSyncPlanner:
         self,
         *,
         dataset_key: str,
+        source: str = "tushare",
         trade_date: date | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
@@ -33,12 +34,15 @@ class LakeSyncPlanner:
         daily_quota_limit: int = STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
     ) -> LakeSyncPlan:
         definition = get_dataset_definition(dataset_key)
+        if source != "tushare" and dataset_key != "daily":
+            raise ValueError(f"{dataset_key} 当前只支持 --from tushare。")
         if dataset_key in {"stock_basic", "trade_cal", "index_basic"}:
             return build_snapshot_plan(definition, start_date=start_date, end_date=end_date, market=market)
         if dataset_key in {"daily", "moneyflow"}:
             return build_trade_date_plan(
                 definition,
                 lake_root=self.lake_root,
+                source=source,
                 trade_date=trade_date,
                 start_date=start_date,
                 end_date=end_date,
@@ -59,4 +63,3 @@ class LakeSyncPlanner:
                 daily_quota_limit=daily_quota_limit,
             )
         raise ValueError(f"plan-sync 暂不支持数据集：{dataset_key}")
-

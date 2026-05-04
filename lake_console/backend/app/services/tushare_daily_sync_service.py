@@ -195,11 +195,11 @@ class TushareDailySyncService:
 
 
 def _normalize_daily_row(row: dict[str, Any], *, expected_trade_date: date) -> dict[str, Any] | None:
-    trade_date = _normalize_date_text(row.get("trade_date"))
+    trade_date = _normalize_date(row.get("trade_date"))
     ts_code = _normalize_ts_code(row.get("ts_code"))
     if trade_date is None or ts_code is None:
         return None
-    if trade_date != expected_trade_date.isoformat():
+    if trade_date != expected_trade_date:
         return None
     normalized: dict[str, Any] = {"ts_code": ts_code, "trade_date": trade_date}
     for field in DAILY_FIELDS:
@@ -219,22 +219,24 @@ def _normalize_ts_code(value: Any) -> str | None:
     return text
 
 
-def _normalize_date_text(value: Any) -> str | None:
+def _normalize_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
     if value is None:
         return None
     raw_value = str(value).strip()
     if not raw_value or raw_value.lower() in {"nan", "nat", "none", "null"}:
         return None
     if len(raw_value) == 8 and raw_value.isdigit():
-        return f"{raw_value[:4]}-{raw_value[4:6]}-{raw_value[6:]}"
-    return date.fromisoformat(raw_value).isoformat()
+        return date.fromisoformat(f"{raw_value[:4]}-{raw_value[4:6]}-{raw_value[6:]}")
+    return date.fromisoformat(raw_value)
 
 
 def _parse_date(value: Any) -> date:
-    normalized = _normalize_date_text(value)
+    normalized = _normalize_date(value)
     if normalized is None:
         raise ValueError(f"无法解析日期：{value!r}")
-    return date.fromisoformat(normalized)
+    return normalized
 
 
 def _is_open(value: Any) -> bool:

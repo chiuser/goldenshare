@@ -22,7 +22,10 @@ class MoneyflowStrategy:
         markets: list[str] | None = None,
         publisher: str | None = None,
         category: str | None = None,
+        source: str = "tushare",
     ) -> LakeSyncResult:
+        if source != "tushare":
+            raise ValueError("moneyflow 当前只支持 --from tushare。")
         return TushareMoneyflowSyncService(lake_root=context.lake_root, client=context.client).sync(
             trade_date=trade_date,
             start_date=start_date,

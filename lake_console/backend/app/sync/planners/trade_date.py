@@ -12,6 +12,7 @@ def build_trade_date_plan(
     definition: LakeDatasetDefinition,
     *,
     lake_root: Path,
+    source: str,
     trade_date: date | None,
     start_date: date | None,
     end_date: date | None,
@@ -30,16 +31,24 @@ def build_trade_date_plan(
         if not dates:
             raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
     write_paths = tuple(f"{layer.path}/trade_date={item.isoformat()}" for item in dates for layer in definition.layers)
+    if source == "prod-raw-db" and definition.dataset_key != "daily":
+        raise ValueError(f"{definition.dataset_key} 当前不支持 --from prod-raw-db。")
     notes = ["单日计划直接使用指定 trade_date。"] if trade_date else ["区间计划读取本地交易日历，只请求开市交易日。"]
+    request_strategy_key = definition.dataset_key
+    plan_source = definition.source
+    if source == "prod-raw-db":
+        plan_source = source
+        request_strategy_key = f"{definition.dataset_key}:prod-raw-db"
+        notes.append("从生产库 raw_tushare.daily 只读导出，按字段白名单投影，不请求 Tushare。")
     if ts_code:
         notes.append("传入 ts_code 时作为单标的调试或补数计划，写入仍按返回行 trade_date 分区。")
     return LakeSyncPlan(
         dataset_key=definition.dataset_key,
         display_name=definition.display_name,
-        source=definition.source,
+        source=plan_source,
         api_name=definition.api_name,
         mode="point_incremental" if trade_date else "range_rebuild",
-        request_strategy_key=definition.dataset_key,
+        request_strategy_key=request_strategy_key,
         request_count=len(dates),
         partition_count=len(dates),
         write_policy=definition.write_policy,

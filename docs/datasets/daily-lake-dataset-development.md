@@ -1,8 +1,8 @@
 # 股票日线 Lake 数据集接入说明
 
 - 版本：v1
-- 状态：首版已实现
-- 更新时间：2026-05-03
+- 状态：首版已实现；`trade_date` Parquet date 类型已收口；已支持 `prod-raw-db` 只读导出
+- 更新时间：2026-05-04
 - 数据集 key：`daily`
 - 数据源：Tushare
 - 源站文档：`docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md`
@@ -21,6 +21,22 @@
 3. 写入必须按 `trade_date` 分区，使用 `_tmp -> 校验 -> 替换正式分区`。
 4. 大区间必须逐交易日处理，不允许把多年数据一次性写入单个大事务或单个内存集合。
 5. 前端展示分组参考 Ops 默认展示目录。
+
+### 0.1 `trade_date` 类型收口决策
+
+从 2026-05-04 起，`daily` 在 Lake 中的日期口径统一为：
+
+```text
+目录分区：trade_date=YYYY-MM-DD
+Parquet 字段：trade_date: date
+```
+
+说明：
+
+1. 目录分区继续使用 `YYYY-MM-DD`，用于按日扫描、按日替换和人工识别。
+2. Parquet 内部 `trade_date` 字段统一使用 date 类型，方便 DuckDB / PyArrow 做日期过滤、日期函数和区间查询。
+3. Tushare API 同步与 prod-raw-db 导出必须使用同一字段类型，禁止同一 `daily` 数据集中一部分分区写 string、一部分分区写 date。
+4. 已存在的旧 `daily` Parquet 如仍为 string，应通过重跑覆盖或单独 schema migration 收口，不在 prod-raw-db 导出链路中混合兼容。
 
 ---
 
@@ -101,7 +117,7 @@
 | 字段名 | 类型 | 含义 | 是否写入 Parquet | Lake 字段类型 | 是否可空 | 备注 |
 |---|---|---|---:|---|---:|---|
 | `ts_code` | str | 股票代码 | 是 | string | 否 |  |
-| `trade_date` | str | 交易日期 | 是 | string | 否 | 分区字段也来自该值 |
+| `trade_date` | str | 交易日期 | 是 | date | 否 | Parquet 内部字段写为 date；目录分区值仍使用 `YYYY-MM-DD` |
 | `open` | float | 开盘价 | 是 | double | 是 |  |
 | `high` | float | 最高价 | 是 | double | 是 |  |
 | `low` | float | 最低价 | 是 | double | 是 |  |
@@ -238,7 +254,7 @@ dataset=daily trade_date=YYYY-MM-DD fetched=N written=N rejected=N output=...
 
 | 分区字段 | 类型 | 说明 |
 |---|---|---|
-| `trade_date` | date string | 交易日，目录格式 `YYYY-MM-DD` |
+| `trade_date` | date | Parquet 内部字段为 date；目录分区格式为 `trade_date=YYYY-MM-DD` |
 
 ### 5.4 文件命名
 
@@ -267,7 +283,7 @@ dataset=daily trade_date=YYYY-MM-DD fetched=N written=N rejected=N output=...
 
 | 项 | 规则 |
 |---|---|
-| 日期归一化 | `trade_date` 从源站 `YYYYMMDD` 归一化为 `YYYY-MM-DD` 字符串 |
+| 日期归一化 | `trade_date` 从源站 `YYYYMMDD` 归一化为 Parquet date；目录分区仍使用 `YYYY-MM-DD` |
 | 必填字段 | `trade_date`、`ts_code` |
 | 拒绝条件 | 缺少 `trade_date` 或 `ts_code`；`trade_date` 无法解析；返回行所属日期与当前分区日期不一致 |
 | 数值字段 | `open/high/low/close/pre_close/change/pct_chg/vol/amount` 写为 double，可空 |
@@ -304,6 +320,7 @@ dataset=daily trade_date=YYYY-MM-DD fetched=N written=N rejected=N output=...
 lake-console plan-sync daily --trade-date 2026-04-24
 lake-console plan-sync daily --start-date 2026-04-01 --end-date 2026-04-30
 lake-console plan-sync daily --ts-code 600000.SH --start-date 2026-04-01 --end-date 2026-04-30
+lake-console plan-sync daily --from prod-raw-db --trade-date 2026-04-24
 ```
 
 ### 7.2 同步命令
@@ -312,9 +329,13 @@ lake-console plan-sync daily --ts-code 600000.SH --start-date 2026-04-01 --end-d
 lake-console sync-dataset daily --trade-date 2026-04-24
 lake-console sync-dataset daily --start-date 2026-04-01 --end-date 2026-04-30
 lake-console sync-dataset daily --ts-code 600000.SH --start-date 2026-04-01 --end-date 2026-04-30
+lake-console sync-dataset daily --from prod-raw-db --trade-date 2026-04-24
+lake-console sync-dataset daily --from prod-raw-db --start-date 2026-04-01 --end-date 2026-04-30
 ```
 
 是否需要专用命令：否。
+
+`--from prod-raw-db` 只用于显式从生产只读 `raw_tushare.daily` 导出，不请求 Tushare；第一版只支持全市场按日期导出，不支持 `--ts-code`。
 
 ### 7.3 命令示例页
 
@@ -323,6 +344,8 @@ lake-console sync-dataset daily --ts-code 600000.SH --start-date 2026-04-01 --en
 | 同步单日全市场日线 | 写入一个 `trade_date` 分区 | `lake-console sync-dataset daily --trade-date 2026-04-24` |
 | 同步区间全市场日线 | 用本地交易日历展开交易日 | `lake-console sync-dataset daily --start-date 2026-04-01 --end-date 2026-04-30` |
 | 同步单股区间日线 | 适合调试或补单股 | `lake-console sync-dataset daily --ts-code 600000.SH --start-date 2026-04-01 --end-date 2026-04-30` |
+| 从生产 raw 导出单日日线 | 只读 `raw_tushare.daily` 字段白名单 | `lake-console sync-dataset daily --from prod-raw-db --trade-date 2026-04-24` |
+| 从生产 raw 导出区间日线 | 按本地交易日历逐日只读导出 | `lake-console sync-dataset daily --from prod-raw-db --start-date 2026-04-01 --end-date 2026-04-30` |
 
 ---
 

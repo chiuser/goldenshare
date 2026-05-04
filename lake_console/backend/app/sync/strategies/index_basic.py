@@ -22,7 +22,10 @@ class IndexBasicStrategy:
         markets: list[str] | None = None,
         publisher: str | None = None,
         category: str | None = None,
+        source: str = "tushare",
     ) -> LakeSyncResult:
+        if source != "tushare":
+            raise ValueError("index_basic 当前只支持 --from tushare。")
         return TushareIndexBasicSyncService(lake_root=context.lake_root, client=context.client).sync(
             ts_code=ts_code,
             name=name,

@@ -4,7 +4,10 @@
 
 It is intentionally isolated from the production Goldenshare app:
 
-- It does not read or write the remote `goldenshare-db`.
+- It does not write the remote `goldenshare-db`.
+- It only reads the remote `goldenshare-db` for explicit `prod-raw-db`
+  commands, and those commands are limited to whitelisted `raw_tushare`
+  tables and field projections.
 - It does not use production Ops TaskRun, scheduler, worker, or status snapshots.
 - It does not mount routes into `src/app/web`.
 - It does not import production frontend code.
@@ -26,11 +29,18 @@ tushare_token = "..."
 
 `lake_console/config.local.toml` is ignored by git and must not be committed.
 
+Optional prod raw export commands require a read-only database URL:
+
+```toml
+prod_raw_db_url = "postgresql://readonly-user:...@host:5432/goldenshare"
+```
+
 Environment variables are still supported and override `config.local.toml`:
 
 ```bash
 export GOLDENSHARE_LAKE_ROOT=/Volumes/TushareData/goldenshare-tushare-lake
 export TUSHARE_TOKEN=...
+export GOLDENSHARE_PROD_RAW_DB_URL=postgresql://readonly-user:...@host:5432/goldenshare
 ```
 
 The local Tushare client is rate-limited globally. The default is 500 requests per minute:
@@ -119,6 +129,22 @@ This command downloads by `ts_code + freq + date window`, paginates each Tushare
 request, then writes the returned rows into `freq=*/trade_date=*` Parquet
 partitions. The terminal progress bar shows the current window, symbol, freq,
 page and offset without printing one line per request.
+
+Preview and export `daily` from the production raw table instead of Tushare:
+
+```bash
+lake-console plan-sync daily --from prod-raw-db --trade-date 2026-04-24
+lake-console sync-dataset daily --from prod-raw-db --trade-date 2026-04-24
+```
+
+Range export uses the local trading calendar and exports one open day at a time:
+
+```bash
+lake-console sync-dataset daily \
+  --from prod-raw-db \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30
+```
 
 Generate local 90/120 minute derived bars from existing 30/60 minute by-date partitions:
 

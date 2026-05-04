@@ -20,6 +20,13 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
     plan_parser = subparsers.add_parser("plan-sync", help="预览数据集本地 Lake 同步计划，不发请求、不写文件")
     add_lake_root_arg(plan_parser)
     plan_parser.add_argument("dataset_key", help="数据集 key，例如 daily、index_basic、moneyflow")
+    plan_parser.add_argument(
+        "--from",
+        dest="source",
+        default="tushare",
+        choices=("tushare", "prod-raw-db"),
+        help="同步来源，默认 tushare；daily 可显式选择 prod-raw-db",
+    )
     plan_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
@@ -34,6 +41,13 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
     sync_dataset_parser = subparsers.add_parser("sync-dataset", help="按 Lake Dataset Catalog 同步单个数据集")
     add_lake_root_arg(sync_dataset_parser)
     sync_dataset_parser.add_argument("dataset_key", help="数据集 key；当前接入 index_basic、daily、moneyflow")
+    sync_dataset_parser.add_argument(
+        "--from",
+        dest="source",
+        default="tushare",
+        choices=("tushare", "prod-raw-db"),
+        help="同步来源，默认 tushare；daily 可显式选择 prod-raw-db",
+    )
     sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
     sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
     sync_dataset_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
@@ -63,6 +77,7 @@ def _handle_plan_sync(args: argparse.Namespace) -> int:
         stk_mins_request_window_days=settings.stk_mins_request_window_days,
     ).plan(
         dataset_key=args.dataset_key,
+        source=args.source,
         trade_date=args.trade_date,
         start_date=args.start_date,
         end_date=args.end_date,
@@ -85,9 +100,11 @@ def _handle_sync_dataset(args: argparse.Namespace) -> int:
             settings.tushare_token,
             request_limit_per_minute=settings.tushare_request_limit_per_minute,
         ),
+        settings=settings,
     )
     summary = engine.sync_dataset(
         dataset_key=args.dataset_key,
+        source=args.source,
         trade_date=args.trade_date,
         start_date=args.start_date,
         end_date=args.end_date,
