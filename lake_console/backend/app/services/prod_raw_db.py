@@ -6,14 +6,34 @@ from datetime import date
 from typing import Any
 
 from lake_console.backend.app.catalog.datasets.market_equity import DAILY_FIELDS
+from lake_console.backend.app.catalog.tushare_reference_master import (
+    ETF_BASIC_FIELDS,
+    ETF_INDEX_FIELDS,
+    THS_INDEX_FIELDS,
+    THS_MEMBER_FIELDS,
+)
 
 
 PROD_RAW_DB_SOURCE = "prod-raw-db"
 PROD_RAW_DB_ALLOWED_TABLES = {
     "daily": "raw_tushare.daily",
+    "etf_basic": "raw_tushare.etf_basic",
+    "etf_index": "raw_tushare.etf_index",
+    "ths_index": "raw_tushare.ths_index",
+    "ths_member": "raw_tushare.ths_member",
 }
 PROD_RAW_DB_FIELDS = {
     "daily": DAILY_FIELDS,
+    "etf_basic": ETF_BASIC_FIELDS,
+    "etf_index": ETF_INDEX_FIELDS,
+    "ths_index": THS_INDEX_FIELDS,
+    "ths_member": THS_MEMBER_FIELDS,
+}
+PROD_RAW_DB_ORDER_BY = {
+    "etf_basic": ("ts_code",),
+    "etf_index": ("ts_code",),
+    "ths_index": ("ts_code",),
+    "ths_member": ("ts_code", "con_code"),
 }
 PROD_RAW_DB_SYSTEM_FIELDS = {"api_name", "fetched_at", "raw_payload"}
 
@@ -68,6 +88,28 @@ def build_daily_prod_raw_range_query(*, start_date: date, end_date: date) -> Pro
     )
 
 
+def build_prod_raw_current_query(*, dataset_key: str) -> ProdRawQuery:
+    table_name = _require_allowed_table(dataset_key)
+    fields = _require_allowed_fields(dataset_key)
+    projection = ", ".join(fields)
+    if "*" in projection:
+        raise ValueError("prod-raw-db 查询禁止 select *。")
+    order_fields = PROD_RAW_DB_ORDER_BY.get(dataset_key)
+    if not order_fields:
+        raise ValueError(f"prod-raw-db 缺少排序字段定义：{dataset_key}")
+    order_by = ", ".join(order_fields)
+    return ProdRawQuery(
+        sql=(
+            f"select {projection} "
+            f"from {table_name} "
+            f"order by {order_by}"
+        ),
+        params=(),
+        table_name=table_name,
+        fields=fields,
+    )
+
+
 def fetch_prod_raw_rows(*, database_url: str | None, query: ProdRawQuery) -> list[dict[str, Any]]:
     if not database_url:
         raise ProdRawDbConfigError(
@@ -93,6 +135,7 @@ def iter_prod_raw_rows(
     database_url: str | None,
     query: ProdRawQuery,
     batch_size: int = 20000,
+    cursor_name: str = "lake_prod_raw_cursor",
 ) -> Iterator[list[dict[str, Any]]]:
     if not database_url:
         raise ProdRawDbConfigError(
@@ -110,7 +153,7 @@ def iter_prod_raw_rows(
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
         with connection.transaction():
             connection.execute("set transaction read only")
-            with connection.cursor(name="lake_daily_prod_raw_cursor") as cursor:
+            with connection.cursor(name=cursor_name) as cursor:
                 cursor.itersize = batch_size
                 cursor.execute(query.sql, query.params)
                 while True:

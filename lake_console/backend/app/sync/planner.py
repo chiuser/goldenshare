@@ -4,8 +4,10 @@ from datetime import date
 from pathlib import Path
 
 from lake_console.backend.app.catalog.datasets import get_dataset_definition
+from lake_console.backend.app.services.prod_raw_db import PROD_RAW_DB_SOURCE
 from lake_console.backend.app.sync.planners import (
     STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
+    build_prod_raw_snapshot_plan,
     build_snapshot_plan,
     build_stk_mins_plan,
     build_trade_date_plan,
@@ -34,6 +36,18 @@ class LakeSyncPlanner:
         daily_quota_limit: int = STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
     ) -> LakeSyncPlan:
         definition = get_dataset_definition(dataset_key)
+        if source == PROD_RAW_DB_SOURCE and dataset_key in {"etf_basic", "etf_index", "ths_index", "ths_member"}:
+            return build_prod_raw_snapshot_plan(
+                definition,
+                trade_date=trade_date,
+                start_date=start_date,
+                end_date=end_date,
+                ts_code=ts_code,
+                market=market,
+                name=None,
+                publisher=None,
+                category=None,
+            )
         if source != "tushare" and dataset_key != "daily":
             raise ValueError(f"{dataset_key} 当前只支持 --from tushare。")
         if dataset_key in {"stock_basic", "trade_cal", "index_basic"}:

@@ -25,7 +25,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         dest="source",
         default="tushare",
         choices=("tushare", "prod-raw-db"),
-        help="同步来源，默认 tushare；daily 可显式选择 prod-raw-db",
+        help="同步来源，默认 tushare；daily、etf_basic、etf_index、ths_index、ths_member 可显式选择 prod-raw-db",
     )
     plan_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
@@ -46,7 +46,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         dest="source",
         default="tushare",
         choices=("tushare", "prod-raw-db"),
-        help="同步来源，默认 tushare；daily 可显式选择 prod-raw-db",
+        help="同步来源，默认 tushare；daily、etf_basic、etf_index、ths_index、ths_member 可显式选择 prod-raw-db",
     )
     sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
     sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
