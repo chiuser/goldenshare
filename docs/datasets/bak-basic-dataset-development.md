@@ -82,7 +82,7 @@
 - 源站 API 名称：`bak_basic`
 - 是否对外服务：是
 - 是否多源融合：否
-- 是否纳入自动任务：是，建议后续接入按交易日维护工作流
+- 是否纳入自动任务：是，已接入 `daily_market_close_maintenance`
 - 是否纳入日期完整性审计：是
 - Ops 展示分组 key：`reference_data`
 - Ops 展示分组名称：`A股基础数据`

@@ -216,12 +216,13 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "daily_market_close_maintenance": WorkflowDefinition(
         key="daily_market_close_maintenance",
         display_name="每日收盘后维护",
-        description="覆盖日线、日指标、资金流、榜单与基金/指数日线的每日维护工作流。",
+        description="覆盖日线、历史基础列表、日指标、资金流、榜单与基金/指数日线的每日维护工作流。",
         parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("daily", "daily"),
             _dataset_workflow_step("adj_factor", "adj_factor"),
             _dataset_workflow_step("daily_basic", "daily_basic"),
+            _dataset_workflow_step("bak_basic", "bak_basic"),
             _dataset_workflow_step("cyq_perf", "cyq_perf"),
             _dataset_workflow_step("stk_factor_pro", "stk_factor_pro"),
             _dataset_workflow_step("margin", "margin"),

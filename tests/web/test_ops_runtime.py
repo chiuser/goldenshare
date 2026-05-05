@@ -3,9 +3,12 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
+from sqlalchemy import select
+
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
@@ -244,6 +247,52 @@ def test_scheduler_defaults_reference_data_natural_day_workflow_to_local_calenda
     assert task_run.request_payload_json["target_key"] == "reference_data_natural_day_maintenance"
     assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-03-31"}
     assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-03-31"}
+
+
+def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step(
+    db_session,
+    task_run_factory,
+    monkeypatch,
+) -> None:
+    dispatched_dataset_keys: list[str] = []
+
+    def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(dataset_key=request.dataset_key, run_profile="point_incremental")
+
+    def fake_run_dataset_action_plan(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
+        dispatched_dataset_keys.append(action_request.dataset_key)
+        return 1, 1, 0, {}, f"{action_request.dataset_key}:ok"
+
+    monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan", fake_build_plan)
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", fake_run_dataset_action_plan)
+
+    task_run = task_run_factory(
+        task_type="workflow",
+        resource_key=None,
+        title="每日收盘后维护",
+        status="running",
+        time_input_json={"mode": "point", "trade_date": "2026-04-24"},
+        request_payload_json={
+            "target_type": "workflow",
+            "target_key": "daily_market_close_maintenance",
+            "time_input": {"mode": "point", "trade_date": "2026-04-24"},
+            "filters": {},
+        },
+    )
+
+    outcome = TaskRunDispatcher().dispatch(db_session, task_run)
+    nodes = db_session.scalars(
+        select(TaskRunNode).where(TaskRunNode.task_run_id == task_run.id).order_by(TaskRunNode.sequence_no)
+    ).all()
+
+    assert outcome.status == "success"
+    assert "bak_basic" in dispatched_dataset_keys
+    assert dispatched_dataset_keys[3] == "bak_basic"
+    assert len(dispatched_dataset_keys) == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
+    assert [node.node_key for node in nodes][:4] == ["daily", "adj_factor", "daily_basic", "bak_basic"]
+    assert task_run.unit_total == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
+    assert task_run.unit_done == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
+    assert task_run.progress_percent == 100
 
 
 def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_factory) -> None:

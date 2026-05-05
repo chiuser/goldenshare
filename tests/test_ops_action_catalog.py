@@ -86,6 +86,35 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
 
     assert [param.key for param in daily_market_close.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_market_close.workflow_profile == "point_incremental"
+    assert [step.dataset_key for step in daily_market_close.steps] == [
+        "daily",
+        "adj_factor",
+        "daily_basic",
+        "bak_basic",
+        "cyq_perf",
+        "stk_factor_pro",
+        "margin",
+        "stk_limit",
+        "stock_st",
+        "limit_list_d",
+        "suspend_d",
+        "top_list",
+        "block_trade",
+        "fund_daily",
+        "fund_adj",
+        "index_daily",
+        "ths_daily",
+        "dc_index",
+        "dc_member",
+        "dc_daily",
+        "ths_hot",
+        "dc_hot",
+        "kpl_list",
+        "limit_list_ths",
+        "limit_step",
+        "limit_cpt_list",
+        "kpl_concept_cons",
+    ]
 
     assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_moneyflow.workflow_profile == "point_incremental"
