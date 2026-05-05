@@ -195,18 +195,18 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
     assert by_stage["serving"].status == "fresh"
 
 
-def test_refresh_resources_uses_runtime_health_for_not_applicable_dataset(db_session: Session) -> None:
+def test_refresh_resources_uses_runtime_health_for_natural_day_not_applicable_dataset(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
-            assert resource_keys == ["namechange"]
+            assert resource_keys == ["st"]
             return [
                 DatasetFreshnessItem(
-                    dataset_key="namechange",
-                    resource_key="namechange",
-                    display_name="股票曾用名",
+                    dataset_key="st",
+                    resource_key="st",
+                    display_name="ST 风险警示事件",
                     domain_key="reference_data",
                     domain_display_name="基础主数据",
-                    target_table="core_serving_light.namechange",
+                    target_table="core_serving_light.st",
                     cadence="daily",
                     latest_business_date=date(2026, 4, 30),
                     freshness_status="unknown",
@@ -217,12 +217,12 @@ def test_refresh_resources_uses_runtime_health_for_not_applicable_dataset(db_ses
 
     service = DatasetStatusSnapshotService(query_service=_FakeQueryService())
 
-    refreshed = service.refresh_resources(db_session, ["namechange"], today=date(2026, 5, 5))
+    refreshed = service.refresh_resources(db_session, ["st"], today=date(2026, 5, 5))
 
     assert refreshed == 1
     rows = list(
         db_session.scalars(
-            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "namechange")
+            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "st")
         )
     )
     by_stage = {row.stage: row for row in rows}
