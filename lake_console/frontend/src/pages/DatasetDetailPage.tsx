@@ -6,7 +6,7 @@ import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
 import { SectionCard } from "../components/SectionCard";
 import type { DatasetSummary, PartitionSummary } from "../types";
-import { formatBytes, formatDateOrMonthRange, formatDateTime, formatRowCount } from "../utils/format";
+import { buildDatasetDetailViewModel } from "../utils/datasetDetailViewModel";
 
 type DatasetDetailPageProps = {
   dataset: DatasetSummary;
@@ -15,22 +15,7 @@ type DatasetDetailPageProps = {
 };
 
 export function DatasetDetailPage({ dataset, partitions, onBack }: DatasetDetailPageProps) {
-  const latestPartition = latestPartitionLabel(dataset);
-  const earliestPartition = earliestPartitionLabel(dataset);
-  const averageFileSize = dataset.file_count > 0 ? Math.round(dataset.total_bytes / dataset.file_count) : 0;
-  const layerRisks = dataset.layer_summaries.flatMap((layer) => layer.risks);
-  const riskTotal = dataset.risks.length + layerRisks.length;
-  const latestFile = partitions[0] ?? null;
-  const overviewMetrics = [
-    <Metric label="文件数" value={String(dataset.file_count)} hint="全部层级合计" key="files" />,
-    <Metric label="总大小" value={formatBytes(dataset.total_bytes)} hint="按本地文件大小汇总" key="bytes" />,
-    <Metric label="层级数" value={String(dataset.layers.length)} hint={dataset.layers.join(", ") || "-"} key="layers" />,
-    <Metric label="分区数" value={String(dataset.partition_count)} hint="全部层级合计" key="partitions" />,
-    dataset.row_count !== null ? <Metric label="行数" value={formatRowCount(dataset.row_count)} hint="来自 Parquet metadata 或显式统计" key="rows" /> : null,
-    <Metric label="日期范围" value={formatDateOrMonthRange(dataset)} hint="按文件分区事实汇总" key="range" />,
-    <Metric label="最近更新" value={formatDateTime(dataset.latest_modified_at)} hint="本地文件修改时间" key="updated" />,
-    <Metric label="风险" value={riskTotal ? String(riskTotal) : "无"} hint="数据集与层级风险合计" key="risks" />,
-  ].filter(Boolean);
+  const detailView = buildDatasetDetailViewModel(dataset, partitions);
 
   return (
     <div className="detail-page">
@@ -54,7 +39,9 @@ export function DatasetDetailPage({ dataset, partitions, onBack }: DatasetDetail
 
       <SectionCard title="核心概览">
         <div className="metric-grid detail-metrics">
-          {overviewMetrics}
+          {detailView.overviewMetrics.map((metric) => (
+            <Metric label={metric.label} value={metric.value} hint={metric.hint} key={metric.key} />
+          ))}
         </div>
       </SectionCard>
 
@@ -87,22 +74,14 @@ export function DatasetDetailPage({ dataset, partitions, onBack }: DatasetDetail
 
       <SectionCard title="分区概况">
         <div className="partition-summary-grid">
-          <DetailItem label="最新分区" value={latestPartition} />
-          <DetailItem label="最早分区" value={earliestPartition} />
+          <DetailItem label="最新分区" value={detailView.latestPartition} />
+          <DetailItem label="最早分区" value={detailView.earliestPartition} />
           <DetailItem label="分区数量" value={String(dataset.partition_count)} />
-          <DetailItem label="平均文件大小" value={dataset.file_count ? formatBytes(averageFileSize) : "-"} />
-          <DetailItem label="最近文件样本" value={latestFile?.path ?? "暂无文件"} wide />
-          <DetailItem label="风险提示" value={riskTotal ? `${riskTotal} 项风险` : "无"} wide />
+          <DetailItem label="平均文件大小" value={detailView.averageFileSize} />
+          <DetailItem label="最近文件样本" value={detailView.latestFilePath} wide />
+          <DetailItem label="风险提示" value={detailView.riskTotal ? `${detailView.riskTotal} 项风险` : "无"} wide />
         </div>
       </SectionCard>
     </div>
   );
-}
-
-function latestPartitionLabel(dataset: DatasetSummary): string {
-  return dataset.latest_trade_date ?? dataset.latest_trade_month ?? "-";
-}
-
-function earliestPartitionLabel(dataset: DatasetSummary): string {
-  return dataset.earliest_trade_date ?? dataset.earliest_trade_month ?? "-";
 }

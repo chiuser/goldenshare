@@ -5,11 +5,19 @@ type HealthBadgeProps = {
 };
 
 export function HealthBadge({ status }: HealthBadgeProps) {
-  const label = status === "ok" ? "已落盘" : status === "warning" ? "有风险" : status === "error" ? "异常" : "未落盘";
-  const tone = status === "ok" ? "success" : status === "warning" ? "warning" : status === "error" ? "error" : "muted";
+  const normalized = normalizeHealthStatus(status);
+  const label = normalized === "ok" ? "已落盘" : normalized === "warning" ? "有风险" : normalized === "error" ? "异常" : "未落盘";
+  const tone = normalized === "ok" ? "success" : normalized === "warning" ? "warning" : normalized === "error" ? "error" : "muted";
   return (
-    <Badge className={`health-badge ${status}`} tone={tone}>
+    <Badge className={`health-badge ${normalized}`} tone={tone}>
       {label}
     </Badge>
   );
+}
+
+function normalizeHealthStatus(status: string): "ok" | "warning" | "error" | "empty" {
+  if (status === "ok" || status === "warning" || status === "error") {
+    return status;
+  }
+  return "empty";
 }

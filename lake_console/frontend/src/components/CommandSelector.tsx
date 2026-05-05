@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Badge } from "./Badge";
 import type { CommandExampleGroup, CommandExampleItem } from "../types";
 
 type CommandSelectorProps = {
@@ -24,9 +25,9 @@ export function CommandSelector({
           <span>本页只展示命令，不会执行写入。请在本地终端确认参数后执行。</span>
         </div>
         <div className="command-notice-tags">
-          <span>不执行命令</span>
-          <span>后端 Catalog</span>
-          <span>需人工确认参数</span>
+          <Badge tone="brand">不执行命令</Badge>
+          <Badge tone="brand">后端 Catalog</Badge>
+          <Badge tone="muted">需人工确认参数</Badge>
         </div>
       </div>
       <div className="command-toolbar">

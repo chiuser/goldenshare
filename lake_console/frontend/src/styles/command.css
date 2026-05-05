@@ -30,16 +30,6 @@
   justify-content: flex-end;
 }
 
-.command-notice-tags span {
-  border: 1px solid var(--border-brand-subtle);
-  border-radius: var(--r-sm);
-  padding: 3px 7px;
-  color: var(--brand-6);
-  background: var(--bg-translucent);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .command-notice span,
 .command-item-detail > p,
 .command-card-header span,
