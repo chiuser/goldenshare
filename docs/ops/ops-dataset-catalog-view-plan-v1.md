@@ -433,11 +433,11 @@ V1 测试中应增加约束：同一个 `group_key` 必须对应唯一 `group_la
 | `index_monthly` | 指数月线 | `tushare` | `index_fund` | 指数 / ETF | index_fund / 指数 / ETF | `index_market_data` | A股指数行情 | 6 |  |
 | `index_daily_basic` | 指数每日指标 | `tushare` | `index_fund` | 指数 / ETF | index_fund / 指数 / ETF | `index_market_data` | A股指数行情 | 6 |  |
 | `dividend` | 分红送股 | `tushare` | `low_frequency` | 低频数据 | event_stats / 榜单 / 事件 | `reference_data` | A股基础数据 | 1 |  |
-| `bak_basic` | 股票历史基础列表 | `tushare` | `equity_market` | 股票行情 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
-| `bse_mapping` | 北交所新旧代码对照 | `tushare` | `reference_data` | 基础主数据 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
-| `namechange` | 股票曾用名 | `tushare` | `low_frequency` | 低频数据 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
-| `st` | ST 风险警示事件 | `tushare` | `low_frequency` | 低频数据 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
-| `stock_company` | 上市公司基本信息 | `tushare` | `reference_data` | 基础主数据 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
+| `bak_basic` | 股票历史基础列表 | `tushare` | `reference_data` | 基础主数据 | 未接入 | `reference_data` | A股基础数据 | 1 | 新增拟接入 |
+| `bse_mapping` | 北交所新旧代码对照 | `tushare` | `reference_data` | 基础主数据 | reference_data / 基础主数据 | `reference_data` | A股基础数据 | 1 | 已接入 |
+| `namechange` | 股票曾用名 | `tushare` | `reference_data` | 基础主数据 | reference_data / 基础主数据 | `reference_data` | A股基础数据 | 1 | 已接入 |
+| `st` | ST 风险警示事件 | `tushare` | `reference_data` | 基础主数据 | reference_data / 基础主数据 | `reference_data` | A股基础数据 | 1 | 已接入 |
+| `stock_company` | 上市公司基本信息 | `tushare` | `reference_data` | 基础主数据 | reference_data / 基础主数据 | `reference_data` | A股基础数据 | 1 | 已接入 |
 | `stk_holdernumber` | 股东户数 | `tushare` | `low_frequency` | 低频数据 | event_stats / 榜单 / 事件 | `reference_data` | A股基础数据 | 1 |  |
 | `moneyflow` | 个股资金流向 | `tushare` | `moneyflow` | 资金流向 | moneyflow / 资金流向 | `moneyflow` | 资金流向 | 8 |  |
 | `moneyflow_dc` | 个股资金流向(DC) | `tushare` | `moneyflow` | 资金流向 | moneyflow / 资金流向 | `moneyflow` | 资金流向 | 8 |  |

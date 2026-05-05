@@ -265,6 +265,76 @@ def _stock_basic_params(request, anchor_date: date | None, enum_values: dict[str
     return params
 
 
+def _bse_mapping_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    del enum_values
+    params: dict[str, Any] = {}
+    for key in ("o_code", "n_code"):
+        value = request.params.get(key)
+        if value not in (None, ""):
+            params[key] = str(value).strip().upper()
+    return params
+
+
+def _namechange_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del enum_values
+    params: dict[str, Any] = {}
+    target_date = anchor_date or request.trade_date
+    if request.run_profile == "point_incremental":
+        if target_date is None:
+            raise ValueError("股票曾用名单日维护缺少公告日期")
+        date_text = target_date.strftime("%Y%m%d")
+        params["start_date"] = date_text
+        params["end_date"] = date_text
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("股票曾用名区间维护必须同时填写开始日期和结束日期")
+        params["start_date"] = request.start_date.strftime("%Y%m%d")
+        params["end_date"] = request.end_date.strftime("%Y%m%d")
+    else:
+        raise ValueError(f"股票曾用名不支持该运行模式：{request.run_profile}")
+
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _stock_company_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
+    params: dict[str, Any] = {}
+    ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+        return params
+
+    exchange = enum_values.get("exchange")
+    if exchange in (None, ""):
+        request_exchange = request.params.get("exchange")
+        if isinstance(request_exchange, (list, tuple, set)) and len(request_exchange) == 1:
+            exchange = next(iter(request_exchange))
+        elif request_exchange not in (None, "") and not isinstance(request_exchange, (list, tuple, set)):
+            exchange = request_exchange
+    if exchange not in (None, ""):
+        params["exchange"] = str(exchange).strip().upper()
+    return params
+
+
+def _st_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del enum_values
+    target_date = anchor_date or request.trade_date
+    if target_date is None:
+        raise ValueError("ST 风险警示事件维护缺少发布日期")
+    params: dict[str, Any] = {"pub_date": target_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    imp_date = request.params.get("imp_date")
+    if imp_date not in (None, ""):
+        params["imp_date"] = _format_yyyymmdd(imp_date)
+    return params
+
+
 def _ths_index_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     ts_code = request.params.get("ts_code")
@@ -891,6 +961,10 @@ __all__ = [
     "_normalize_us_classify",
     "_us_basic_params",
     "_stock_basic_params",
+    "_bse_mapping_params",
+    "_namechange_params",
+    "_stock_company_params",
+    "_st_params",
     "_ths_index_params",
     "_kpl_list_params",
     "_kpl_concept_cons_params",

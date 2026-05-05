@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
+from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -84,9 +85,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert [item["mode"] for item in actions["stock_basic.maintain"]["time_form"]["modes"]] == ["none"]
     assert _time_modes(actions["stock_basic.maintain"])["none"]["control"] == "none"
     for action_key in (
+        "bse_mapping.maintain",
         "etf_basic.maintain",
         "etf_index.maintain",
         "hk_basic.maintain",
+        "stock_company.maintain",
         "ths_index.maintain",
         "ths_member.maintain",
         "us_basic.maintain",
@@ -103,6 +106,20 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert trade_cal_modes["point"]["selection_rule"] == "calendar_day"
     assert trade_cal_modes["range"]["control"] == "calendar_date_range"
     assert trade_cal_modes["range"]["selection_rule"] == "calendar_day"
+    assert actions["namechange.maintain"]["date_model"]["input_shape"] == "ann_date_or_start_end"
+    assert [item["mode"] for item in actions["namechange.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    namechange_modes = _time_modes(actions["namechange.maintain"])
+    assert namechange_modes["point"]["control"] == "calendar_date"
+    assert namechange_modes["point"]["selection_rule"] == "calendar_day"
+    assert namechange_modes["range"]["control"] == "calendar_date_range"
+    assert namechange_modes["range"]["selection_rule"] == "calendar_day"
+    assert actions["st.maintain"]["date_model"]["input_shape"] == "ann_date_or_start_end"
+    assert [item["mode"] for item in actions["st.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    st_modes = _time_modes(actions["st.maintain"])
+    assert st_modes["point"]["control"] == "calendar_date"
+    assert st_modes["point"]["selection_rule"] == "calendar_day"
+    assert st_modes["range"]["control"] == "calendar_date_range"
+    assert st_modes["range"]["selection_rule"] == "calendar_day"
 
     single_code_actions = (
         "daily.maintain",
@@ -115,6 +132,18 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     for action_key in single_code_actions:
         filter_keys = [item["key"] for item in actions[action_key]["filters"]]
         assert filter_keys == ["ts_code"]
+
+    assert [item["key"] for item in actions["bse_mapping.maintain"]["filters"]] == ["o_code", "n_code"]
+    assert [item["key"] for item in actions["namechange.maintain"]["filters"]] == ["ts_code"]
+    st_filters = {item["key"]: item for item in actions["st.maintain"]["filters"]}
+    assert list(st_filters) == ["ts_code", "imp_date"]
+    assert st_filters["imp_date"]["param_type"] == "date"
+    stock_company_filters = {item["key"]: item for item in actions["stock_company.maintain"]["filters"]}
+    assert list(stock_company_filters) == ["ts_code", "exchange"]
+    assert stock_company_filters["exchange"]["param_type"] == "enum"
+    assert stock_company_filters["exchange"]["multi_value"] is True
+    assert stock_company_filters["exchange"]["options"] == ["SSE", "SZSE", "BSE"]
+    assert stock_company_filters["exchange"]["default_value"] == ["SSE", "SZSE", "BSE"]
 
     dc_hot_filter_keys = [item["key"] for item in actions["dc_hot.maintain"]["filters"]]
     dc_hot_filters = {item["key"]: item for item in actions["dc_hot.maintain"]["filters"]}
@@ -162,8 +191,39 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert [item["mode"] for item in actions["workflow:daily_market_close_maintenance"]["time_form"]["modes"]] == ["point", "range"]
     assert _time_modes(actions["workflow:daily_market_close_maintenance"])["point"]["control"] == "trade_date"
     assert [item["mode"] for item in actions["workflow:daily_moneyflow_maintenance"]["time_form"]["modes"]] == ["point", "range"]
+    assert [item["mode"] for item in actions["workflow:reference_data_natural_day_maintenance"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["workflow:reference_data_natural_day_maintenance"])["point"]["control"] == "calendar_date"
+    assert _time_modes(actions["workflow:reference_data_natural_day_maintenance"])["range"]["control"] == "calendar_date_range"
     assert [item["mode"] for item in actions["workflow:index_extension_maintenance"]["time_form"]["modes"]] == ["range"]
     assert "交易日历（按完整日历刷新）" in actions["workflow:reference_data_refresh"]["description"]
+
+
+def test_ops_manual_actions_renders_natural_day_workflow_with_calendar_date_controls(app_client, user_factory, monkeypatch) -> None:
+    workflow = WorkflowDefinition(
+        key="test_reference_data_natural_day_workflow",
+        display_name="基础数据自然日测试流程",
+        description="按自然日维护测试流程。",
+        parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
+        steps=(),
+        schedule_enabled=True,
+        manual_enabled=True,
+        time_regime="natural_day",
+    )
+    monkeypatch.setitem(WORKFLOW_DEFINITION_REGISTRY, workflow.key, workflow)
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.get("/api/v1/ops/manual-actions", headers=headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    actions = _actions_by_key(payload)
+    action = actions["workflow:test_reference_data_natural_day_workflow"]
+    modes = _time_modes(action)
+    assert [item["mode"] for item in action["time_form"]["modes"]] == ["point", "range"]
+    assert modes["point"]["control"] == "calendar_date"
+    assert modes["point"]["selection_rule"] == "calendar_day"
+    assert modes["range"]["control"] == "calendar_date_range"
+    assert modes["range"]["selection_rule"] == "calendar_day"
 
 
 def test_ops_manual_action_task_run_creates_point_job(app_client, user_factory, db_session) -> None:
@@ -208,6 +268,83 @@ def test_ops_manual_action_task_run_supports_trade_cal_default_none_mode(app_cli
     assert payload["run"]["resource_key"] == "trade_cal"
     assert payload["run"]["time_input"] == {"mode": "none"}
     assert payload["run"]["filters"] == {}
+
+
+def test_ops_manual_action_task_run_supports_bse_mapping_snapshot_filters(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/bse_mapping.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {"o_code": "838163.BJ"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "bse_mapping"
+    assert payload["run"]["time_input"] == {"mode": "none"}
+    assert payload["run"]["filters"] == {"o_code": "838163.BJ"}
+
+
+def test_ops_manual_action_task_run_applies_stock_company_exchange_defaults(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/stock_company.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "none"}, "filters": {}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "stock_company"
+    assert payload["run"]["time_input"] == {"mode": "none"}
+    assert payload["run"]["filters"] == {"exchange": ["SSE", "SZSE", "BSE"]}
+
+
+def test_ops_manual_action_task_run_routes_namechange_to_ann_date_mode(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/namechange.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "ann_date": "2026-04-24"}, "filters": {"ts_code": "000001.SZ"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "namechange"
+    assert payload["run"]["time_input"] == {
+        "mode": "point",
+        "ann_date": "2026-04-24",
+        "trade_date": "2026-04-24",
+        "date_field": "ann_date",
+    }
+    assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
+
+
+def test_ops_manual_action_task_run_routes_st_range_to_ann_date_mode(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/st.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"},
+            "filters": {"imp_date": "2026-04-25"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "st"
+    assert payload["run"]["time_input"] == {
+        "mode": "range",
+        "start_date": "2026-04-23",
+        "end_date": "2026-04-24",
+        "date_field": "ann_date",
+    }
+    assert payload["run"]["filters"] == {"imp_date": "2026-04-25"}
 
 
 def test_ops_manual_action_task_run_returns_readable_not_found_message(app_client, user_factory) -> None:
@@ -303,6 +440,22 @@ def test_ops_manual_action_task_run_uses_workflow_catalog_title(app_client, user
     payload = response.json()
     assert payload["run"]["task_type"] == "workflow"
     assert payload["run"]["title"] == "每日收盘后维护"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
+
+
+def test_ops_manual_action_task_run_supports_natural_day_workflow(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/workflow:reference_data_natural_day_maintenance/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": {}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["task_type"] == "workflow"
+    assert payload["run"]["title"] == "基础数据自然日维护"
     assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
 
 

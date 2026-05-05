@@ -58,7 +58,7 @@
 - 源站 API：`bse_mapping`
 - 是否对外服务：是
 - 是否多源融合：否
-- 是否纳入自动任务：是，建议后续并入 `reference_data_refresh`
+- 是否纳入自动任务：是，已并入 `reference_data_refresh`
 - 是否纳入日期完整性审计：否
 - Ops 展示分组 key：`reference_data`
 - Ops 展示分组名称：`A股基础数据`

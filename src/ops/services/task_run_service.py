@@ -230,6 +230,8 @@ class TaskRunCommandService:
                     target_key=target_key,
                     params_json=params_json,
                     workflow=workflow,
+                    scheduled_at=scheduled_at,
+                    timezone_name=timezone_name,
                 ),
                 filters=self._extract_filters(params_json),
                 request_payload={**params_json, "target_type": target_type, "target_key": target_key},
@@ -381,6 +383,8 @@ class TaskRunCommandService:
         target_key: str,
         params_json: dict[str, Any],
         workflow: WorkflowDefinition | None = None,
+        scheduled_at: datetime | None = None,
+        timezone_name: str | None = None,
     ) -> dict[str, Any]:
         if cls._has_explicit_time_input(params_json):
             return cls._extract_time_input(params_json)
@@ -388,7 +392,11 @@ class TaskRunCommandService:
             resolved_workflow = workflow or get_workflow_definition(target_key)
             if resolved_workflow is None:
                 raise WebAppError(status_code=404, code="not_found", message="自动流程不存在")
-            return cls._default_workflow_time_input(resolved_workflow)
+            return cls._default_workflow_time_input(
+                resolved_workflow,
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
         return {"mode": "none"}
 
     @staticmethod
@@ -436,6 +444,11 @@ class TaskRunCommandService:
         return f"{local_scheduled_at.year}{local_scheduled_at.month:02d}"
 
     @staticmethod
+    def _natural_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:
+        local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        return local_scheduled_at.date()
+
+    @staticmethod
     def _local_scheduled_at(*, scheduled_at: datetime, timezone_name: str | None) -> datetime:
         if scheduled_at.tzinfo is None:
             scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
@@ -447,11 +460,24 @@ class TaskRunCommandService:
         return scheduled_at.astimezone(zone)
 
     @staticmethod
-    def _default_workflow_time_input(workflow: WorkflowDefinition) -> dict[str, Any]:
+    def _default_workflow_time_input(
+        workflow: WorkflowDefinition,
+        *,
+        scheduled_at: datetime | None = None,
+        timezone_name: str | None = None,
+    ) -> dict[str, Any]:
         keys = {param.key for param in workflow.parameters}
         if not keys:
             return {"mode": "none"}
         if workflow.workflow_profile == "point_incremental" and "trade_date" in keys:
+            if workflow.time_regime == "natural_day" and scheduled_at is not None:
+                return {
+                    "mode": "point",
+                    "trade_date": TaskRunCommandService._natural_day_for_schedule(
+                        scheduled_at=scheduled_at,
+                        timezone_name=timezone_name,
+                    ).isoformat(),
+                }
             return {"mode": "point"}
         raise WebAppError(
             status_code=422,

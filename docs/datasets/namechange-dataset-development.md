@@ -1,4 +1,4 @@
-# 股票曾用名（`namechange`）数据集开发说明（待评审）
+# 股票曾用名（`namechange`）数据集开发说明（M4 已完成）
 
 ## 0. 架构基线与目标
 
@@ -46,8 +46,8 @@
 ### 1.3 源端行为判断
 
 1. 本接口原生支持 `start_date/end_date`，所以区间维护不应再按自然日逐日 fan-out 到 source；否则请求数过多且没有必要。
-2. `namechange` 是低频事件数据，单只股票不会频繁改名，正常区间直接查整段再分页通常就足够，不需要人为切自然月窗口。
-3. 源站文档没有给出单页最大返回条数，编码前必须实测。
+2. `namechange` 是事件历史数据，单只股票不会频繁改名，正常区间直接查整段再分页通常就足够，不需要人为切自然月窗口。
+3. 源站文档没有给出单页最大返回条数，当前实现先按保守值 `page_limit=1000` 分页拉取。
 
 ---
 
@@ -55,9 +55,9 @@
 
 - 数据集 key：`namechange`
 - 中文显示名：`股票曾用名`
-- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/low_frequency.py`
-- 所属域：`low_frequency`
-- 所属域中文名：`低频数据`
+- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/reference_master.py`
+- 所属域：`reference_data`
+- 所属域中文名：`基础主数据`
 - 数据源：`tushare`
 - 源站 API：`namechange`
 - 是否对外服务：是
@@ -87,9 +87,9 @@
 
 ```python
 "domain": {
-    "domain_key": "low_frequency",
-    "domain_display_name": "低频数据",
-    "cadence": "low_frequency",
+    "domain_key": "reference_data",
+    "domain_display_name": "基础主数据",
+    "cadence": "daily",
 }
 ```
 
@@ -113,10 +113,10 @@
 ```python
 "date_model": {
     "date_axis": "natural_day",
-    "bucket_rule": "not_applicable",
+    "bucket_rule": "every_natural_day",
     "window_mode": "point_or_range",
     "input_shape": "ann_date_or_start_end",
-    "observed_field": None,
+    "observed_field": "ann_date",
     "audit_applicable": False,
     "not_applicable_reason": "名称变更属于事件型公告数据，不要求每个自然日都有记录。",
 }
@@ -128,7 +128,7 @@
 
 | 字段 | 类型 | 是否必填 | 默认值 | 是否多选 | 中文名 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ann_date` | date | 否 | 无 | 否 | 公告日期 | 单日维护 |
+| `trade_date` | date | 否 | 无 | 否 | 公告日期 | DatasetDefinition 统一时间槽位；manual-actions point 模式会映射为 `ann_date` |
 | `start_date` | date | 否 | 无 | 否 | 开始日期 | 区间维护开始 |
 | `end_date` | date | 否 | 无 | 否 | 结束日期 | 区间维护结束 |
 | `ts_code` | string | 否 | 无 | 否 | 股票代码 | 可选过滤 |
@@ -160,7 +160,7 @@
     "enum_fanout_fields": (),
     "enum_fanout_defaults": {},
     "pagination_policy": "offset_limit",
-    "page_limit": 3000,
+    "page_limit": 1000,
     "chunk_size": None,
     "max_units_per_execution": None,
     "unit_builder_key": "generic",
@@ -169,8 +169,8 @@
 
 说明：
 
-1. `page_limit=3000` 只是文档阶段的保守建议值。
-2. 因源站文档未给出单页上限，编码前必须用 WebClient / 数据工具实测，并以实测结果替换。
+1. 当前实现先按保守值 `page_limit=1000` 分页拉取。
+2. 源站文档仍未给出单页上限，后续若有实测结论，可再单独上调。
 3. 不需要自定义 unit builder；单日维护 1 个 unit，区间维护也只保留 1 个区间 unit，内部靠分页拉完整段结果。
 
 ### 3.8 `normalization`
@@ -212,7 +212,7 @@
 ```python
 "observability": {
     "progress_label": "namechange",
-    "observed_field": None,
+    "observed_field": "ann_date",
     "audit_applicable": False,
 },
 "quality": {
@@ -222,7 +222,7 @@
 "transaction": {
     "commit_policy": "unit",
     "idempotent_write_required": True,
-    "write_volume_assessment": "namechange 为低频事件数据，正常区间维护直接按用户给定公告日期区间抓取并分页；单个事务覆盖该区间结果，预期写入量可控。",
+    "write_volume_assessment": "namechange 为事件历史数据，正常区间维护直接按用户给定公告日期区间抓取并分页；单个事务覆盖该区间结果，预期写入量可控。",
 }
 ```
 

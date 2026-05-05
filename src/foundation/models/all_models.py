@@ -62,11 +62,20 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
+from src.foundation.models.core_serving_light.bse_mapping import BseMappingLight
+from src.foundation.models.core_serving_light.cctv_news import CctvNewsLight
+from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
+from src.foundation.models.core_serving_light.major_news import MajorNewsLight
+from src.foundation.models.core_serving_light.namechange import NamechangeLight
+from src.foundation.models.core_serving_light.news import NewsLight
+from src.foundation.models.core_serving_light.st import StLight
+from src.foundation.models.core_serving_light.stock_company import StockCompanyLight
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
+from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
@@ -92,6 +101,7 @@ from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_margin import RawMargin
+from src.foundation.models.raw.raw_namechange import RawNamechange
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
@@ -103,6 +113,8 @@ from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
+from src.foundation.models.raw.raw_stock_company import RawStockCompany
+from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
@@ -233,10 +245,22 @@ __all__ = [
     "UsSecurity",
     "MoneyflowStd",
     "SecurityStd",
+    "BseMappingLight",
+    "CctvNewsLight",
+    "EquityDailyBarLight",
+    "MajorNewsLight",
+    "NamechangeLight",
+    "NewsLight",
+    "StLight",
+    "StockCompanyLight",
     "SourceRegistry",
     "DatasetResolutionPolicy",
     "DatasetSourceStatus",
     "RawBiyingEquityDailyBar",
     "RawBiyingMoneyflow",
     "RawBiyingStockBasic",
+    "RawBseMapping",
+    "RawNamechange",
+    "RawSt",
+    "RawStockCompany",
 ]

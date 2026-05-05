@@ -79,3 +79,29 @@ def test_validator_accepts_normalized_month_key_for_month_window_dataset() -> No
     )
 
     assert validated.params["month"] == "202604"
+
+
+def test_validator_maps_ann_date_point_mode_for_namechange() -> None:
+    validated = _validate(
+        dataset_key="namechange",
+        run_profile="point_incremental",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.SZ"},
+    )
+
+    assert validated.trade_date == date(2026, 4, 24)
+    assert validated.params["ann_date"] == date(2026, 4, 24)
+    assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_parses_st_imp_date_filter() -> None:
+    validated = _validate(
+        dataset_key="st",
+        run_profile="point_incremental",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"imp_date": "2026-04-25"},
+    )
+
+    assert validated.trade_date == date(2026, 4, 24)
+    assert validated.params["ann_date"] == date(2026, 4, 24)
+    assert validated.params["imp_date"] == date(2026, 4, 25)

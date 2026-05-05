@@ -48,6 +48,7 @@ docs/
 - [DatasetExecutionPlan 执行计划模型重构方案 v1（现行主案）](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)
 - [Dataset Maintain 重构 M-1 到 M8 执行索引 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-maintenance-refactor-m-1-to-m8-execution-index-v1.md)
 - [数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
+- [Workflow 时间形状与时间制度分析 v1（M2 已落地）](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
 - [股票周/月线自然锚点日期模型修正方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
 - [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)
@@ -66,6 +67,7 @@ docs/
 - [Ops 自动任务日期策略方案 v1（第一期已落地）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
 - [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
+- [基础数据自然日维护工作流方案 v1（待实施，M2 基础框架已落地）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v2（独立审计系统，待评审）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
 - [Ops 新鲜度按 Date Model 收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
@@ -163,6 +165,8 @@ docs/
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
+- [基础数据工作流与数据集三线推进索引 v1（执行中）](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)
+- [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md)
 
 ## 9. 产品原始材料
 

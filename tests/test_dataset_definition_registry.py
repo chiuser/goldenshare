@@ -25,7 +25,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 60
+    assert len(definition_keys) == 64
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -97,11 +97,13 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
     ]
 
     assert {definition.dataset_key for definition in no_time_definitions} == {
+        "bse_mapping",
         "etf_basic",
         "etf_index",
         "hk_basic",
         "index_basic",
         "stock_basic",
+        "stock_company",
         "ths_index",
         "ths_member",
         "us_basic",
@@ -197,6 +199,73 @@ def test_dataset_definition_projects_news_facts() -> None:
     assert definition.normalization.date_fields == ()
     assert definition.normalization.required_fields == ("src", "news_time", "row_key_hash")
     assert definition.quality.required_fields == ("src", "news_time", "row_key_hash")
+
+
+def test_dataset_definition_projects_bse_mapping_facts() -> None:
+    definition = get_dataset_definition("bse_mapping")
+
+    assert definition.identity.display_name == "北交所新旧代码对照"
+    assert definition.domain.domain_key == "reference_data"
+    assert definition.source.api_name == "bse_mapping"
+    assert definition.date_model.input_shape == "none"
+    assert definition.storage.raw_table == "raw_tushare.bse_mapping"
+    assert definition.storage.target_table == "core_serving_light.bse_mapping"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.page_limit == 1000
+    assert definition.normalization.date_fields == ("list_date",)
+    assert definition.normalization.required_fields == ("o_code", "n_code")
+
+
+def test_dataset_definition_projects_stock_company_facts() -> None:
+    definition = get_dataset_definition("stock_company")
+
+    assert definition.identity.display_name == "上市公司基本信息"
+    assert definition.domain.domain_key == "reference_data"
+    assert definition.source.api_name == "stock_company"
+    assert definition.date_model.input_shape == "none"
+    assert definition.storage.raw_table == "raw_tushare.stock_company"
+    assert definition.storage.target_table == "core_serving_light.stock_company"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.page_limit == 4500
+    assert definition.planning.enum_fanout_defaults["exchange"] == ("SSE", "SZSE", "BSE")
+    assert definition.normalization.date_fields == ("setup_date", "ann_date")
+    assert definition.normalization.required_fields == ("ts_code", "exchange")
+
+
+def test_dataset_definition_projects_namechange_facts() -> None:
+    definition = get_dataset_definition("namechange")
+
+    assert definition.identity.display_name == "股票曾用名"
+    assert definition.domain.domain_key == "reference_data"
+    assert definition.domain.cadence == "daily"
+    assert definition.source.api_name == "namechange"
+    assert definition.date_model.input_shape == "ann_date_or_start_end"
+    assert definition.date_model.observed_field == "ann_date"
+    assert definition.storage.raw_table == "raw_tushare.namechange"
+    assert definition.storage.target_table == "core_serving_light.namechange"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.page_limit == 1000
+    assert definition.planning.unit_builder_key == "generic"
+    assert definition.normalization.date_fields == ("start_date", "end_date", "ann_date")
+    assert definition.normalization.required_fields == ("ts_code", "name", "start_date", "row_key_hash")
+
+
+def test_dataset_definition_projects_st_facts() -> None:
+    definition = get_dataset_definition("st")
+
+    assert definition.identity.display_name == "ST 风险警示事件"
+    assert definition.domain.domain_key == "reference_data"
+    assert definition.domain.cadence == "daily"
+    assert definition.source.api_name == "st"
+    assert definition.date_model.input_shape == "ann_date_or_start_end"
+    assert definition.date_model.observed_field == "pub_date"
+    assert definition.storage.raw_table == "raw_tushare.st"
+    assert definition.storage.target_table == "core_serving_light.st"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.page_limit == 1000
+    assert definition.planning.unit_builder_key == "build_st_units"
+    assert definition.normalization.date_fields == ("pub_date", "imp_date")
+    assert definition.normalization.required_fields == ("ts_code", "pub_date", "st_tpye", "row_key_hash")
 
 
 def test_dataset_definition_owns_dc_board_type_filter() -> None:

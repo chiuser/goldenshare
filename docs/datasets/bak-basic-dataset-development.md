@@ -75,9 +75,9 @@
 
 - 数据集 key：`bak_basic`
 - 中文显示名：`股票历史基础列表`
-- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/market_equity.py`
-- 所属域：`market_equity`
-- 所属域中文名：`股票行情`
+- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/reference_master.py`
+- 所属域：`reference_data`
+- 所属域中文名：`基础主数据`
 - 数据源：`tushare`
 - 源站 API 名称：`bak_basic`
 - 是否对外服务：是
@@ -107,8 +107,8 @@
 
 ```python
 "domain": {
-    "domain_key": "equity_market",
-    "domain_display_name": "股票行情",
+    "domain_key": "reference_data",
+    "domain_display_name": "基础主数据",
     "cadence": "daily",
 }
 ```

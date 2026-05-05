@@ -122,7 +122,7 @@ class ManualActionQueryService:
             resource_key=None,
             resource_display_name=None,
             date_model=None,
-            time_form=self._time_form_from_params(workflow.parameters),
+            time_form=self._time_form_from_workflow(workflow),
             filters=self._collect_filters((workflow.parameters,)),
             workflow=workflow,
         )
@@ -191,17 +191,18 @@ class ManualActionQueryService:
         )
 
     @classmethod
-    def _time_form_from_params(cls, params: Iterable[ActionParameter]) -> ManualActionTimeFormResponse:
-        keys = {param.key for param in params}
+    def _time_form_from_workflow(cls, workflow: WorkflowDefinition) -> ManualActionTimeFormResponse:
+        keys = {param.key for param in workflow.parameters}
         modes: list[ManualActionTimeModeResponse] = []
+        natural_day_mode = workflow.time_regime == "natural_day"
         if "trade_date" in keys:
             modes.append(
                 cls._mode_response(
                     mode="point",
                     label="只处理一天",
-                    description="指定单个交易日。",
-                    control="trade_date",
-                    selection_rule="trading_day_only",
+                    description="指定单个自然日。" if natural_day_mode else "指定单个交易日。",
+                    control="calendar_date" if natural_day_mode else "trade_date",
+                    selection_rule="calendar_day" if natural_day_mode else "trading_day_only",
                     date_field="trade_date",
                 )
             )
@@ -210,9 +211,9 @@ class ManualActionQueryService:
                 cls._mode_response(
                     mode="range",
                     label="处理一个时间区间",
-                    description="指定开始和结束交易日。",
-                    control="trade_date_range",
-                    selection_rule="trading_day_only",
+                    description="指定开始和结束自然日。" if natural_day_mode else "指定开始和结束交易日。",
+                    control="calendar_date_range" if natural_day_mode else "trade_date_range",
+                    selection_rule="calendar_day" if natural_day_mode else "trading_day_only",
                     date_field="trade_date",
                 )
             )

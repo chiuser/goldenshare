@@ -60,6 +60,82 @@ def _stock_basic_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _bse_mapping_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    for key in ("o_code", "n_code"):
+        value = transformed.get(key)
+        if value not in (None, ""):
+            transformed[key] = str(value).strip().upper()
+    return transformed
+
+
+def _stock_company_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    exchange = str(transformed.get("exchange") or "").strip().upper()
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    if exchange:
+        transformed["exchange"] = exchange
+    return transformed
+
+
+def _namechange_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    name = str(transformed.get("name") or "").strip()
+    change_reason = str(transformed.get("change_reason") or "").strip() or None
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    if name:
+        transformed["name"] = name
+    transformed["change_reason"] = change_reason
+    hash_input = "\x1f".join(
+        (
+            "namechange",
+            transformed.get("ts_code") or "",
+            transformed.get("name") or "",
+            transformed["start_date"].isoformat() if transformed.get("start_date") is not None else "",
+            transformed["end_date"].isoformat() if transformed.get("end_date") is not None else "",
+            transformed["ann_date"].isoformat() if transformed.get("ann_date") is not None else "",
+            change_reason or "",
+        )
+    )
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _st_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    name_value = transformed.get("name")
+    name = None if name_value is None else str(name_value).strip() or None
+    st_tpye = str(transformed.get("st_tpye") or "").strip()
+    st_reason = str(transformed.get("st_reason") or "").strip() or None
+    st_explain = str(transformed.get("st_explain") or "").strip() or None
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    transformed["name"] = name
+    if st_tpye:
+        transformed["st_tpye"] = st_tpye
+    transformed["st_reason"] = st_reason
+    transformed["st_explain"] = st_explain
+    hash_input = "\x1f".join(
+        (
+            "st",
+            transformed.get("ts_code") or "",
+            transformed["pub_date"].isoformat() if transformed.get("pub_date") is not None else "",
+            transformed["imp_date"].isoformat() if transformed.get("imp_date") is not None else "",
+            transformed.get("st_tpye") or "",
+            st_reason or "",
+            st_explain or "",
+            name or "",
+        )
+    )
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
 def _hk_security_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["source"] = "tushare"
@@ -466,6 +542,10 @@ __all__ = [
     "_moneyflow_row_transform",
     "_trade_cal_row_transform",
     "_stock_basic_row_transform",
+    "_bse_mapping_row_transform",
+    "_stock_company_row_transform",
+    "_namechange_row_transform",
+    "_st_row_transform",
     "_hk_security_row_transform",
     "_us_security_row_transform",
     "_kpl_concept_cons_row_transform",

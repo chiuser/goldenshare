@@ -79,6 +79,74 @@ def test_trade_cal_normalizer_treats_nan_pretrade_date_as_null() -> None:
     assert normalized["is_open"] is True
 
 
+def test_namechange_normalizer_builds_row_hash_and_trims_fields() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("namechange"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-namechange",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.sz",
+                    "name": " 平安银行 ",
+                    "start_date": "20200101",
+                    "end_date": "",
+                    "ann_date": "20200424",
+                    "change_reason": " 证券简称变更 ",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["ts_code"] == "000001.SZ"
+    assert normalized["name"] == "平安银行"
+    assert normalized["start_date"] == date(2020, 1, 1)
+    assert normalized["end_date"] is None
+    assert normalized["ann_date"] == date(2020, 4, 24)
+    assert normalized["change_reason"] == "证券简称变更"
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
+def test_st_normalizer_preserves_source_field_name_and_builds_row_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("st"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-st",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.sz",
+                    "name": " 平安银行 ",
+                    "pub_date": "20260424",
+                    "imp_date": "20260425",
+                    "st_tpye": " 风险警示 ",
+                    "st_reason": " 触发条件 ",
+                    "st_explain": " 说明内容 ",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["ts_code"] == "000001.SZ"
+    assert normalized["name"] == "平安银行"
+    assert normalized["pub_date"] == date(2026, 4, 24)
+    assert normalized["imp_date"] == date(2026, 4, 25)
+    assert normalized["st_tpye"] == "风险警示"
+    assert normalized["st_reason"] == "触发条件"
+    assert normalized["st_explain"] == "说明内容"
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
 def test_major_news_normalizer_parses_pub_time_and_builds_row_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("major_news"),

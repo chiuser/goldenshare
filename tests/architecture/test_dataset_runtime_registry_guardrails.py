@@ -89,7 +89,17 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "moneyflow_ind_dc",
         "moneyflow_mkt_dc",
     },
-    "reference_master": {"trade_cal", "stock_basic", "hk_basic", "us_basic", "etf_basic"},
+    "reference_master": {
+        "trade_cal",
+        "stock_basic",
+        "hk_basic",
+        "us_basic",
+        "etf_basic",
+        "bse_mapping",
+        "namechange",
+        "st",
+        "stock_company",
+    },
     "low_frequency": {"dividend", "stk_holdernumber"},
     "news": {"cctv_news", "major_news", "news"},
 }

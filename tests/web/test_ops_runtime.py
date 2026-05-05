@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
+from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
@@ -186,6 +187,65 @@ def test_scheduler_defaults_daily_workflow_to_point_mode_when_schedule_has_no_ti
     assert task_run.request_payload_json["time_input"] == {"mode": "point"}
 
 
+def test_scheduler_defaults_natural_day_workflow_to_local_calendar_date(db_session, ops_schedule_factory, monkeypatch) -> None:
+    workflow = WorkflowDefinition(
+        key="test_reference_data_natural_day_workflow",
+        display_name="基础数据自然日测试流程",
+        description="按自然日维护测试流程。",
+        parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
+        steps=(),
+        schedule_enabled=True,
+        manual_enabled=True,
+        time_regime="natural_day",
+    )
+    monkeypatch.setitem(WORKFLOW_DEFINITION_REGISTRY, workflow.key, workflow)
+    schedule = ops_schedule_factory(
+        target_type="workflow",
+        target_key=workflow.key,
+        schedule_type="once",
+        timezone_name="Asia/Shanghai",
+        params_json={},
+        next_run_at=datetime(2026, 3, 30, 16, 30, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 16, 30, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.task_type == "workflow"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-03-31"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-03-31"}
+
+
+def test_scheduler_defaults_reference_data_natural_day_workflow_to_local_calendar_date(db_session, ops_schedule_factory) -> None:
+    schedule = ops_schedule_factory(
+        target_type="workflow",
+        target_key="reference_data_natural_day_maintenance",
+        schedule_type="once",
+        timezone_name="Asia/Shanghai",
+        params_json={},
+        next_run_at=datetime(2026, 3, 30, 16, 30, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 3, 30, 16, 30, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.task_type == "workflow"
+    assert task_run.resource_key is None
+    assert task_run.request_payload_json["target_key"] == "reference_data_natural_day_maintenance"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-03-31"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-03-31"}
+
+
 def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_factory) -> None:
     task_run = task_run_factory(status="queued", resource_key="daily", title="股票日线")
     dispatcher = StubDispatcher(TaskRunDispatchOutcome(status="success", rows_fetched=10, rows_saved=8, rows_rejected=2))
@@ -210,7 +270,7 @@ def test_worker_refreshes_snapshot_after_workflow_success(db_session, task_run_f
             return 7
 
     monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
-    task_run = task_run_factory(
+    task_run_factory(
         task_type="workflow",
         resource_key=None,
         title="每日资金流向维护",
@@ -238,7 +298,7 @@ def test_worker_skips_snapshot_refresh_for_maintenance_action(db_session, task_r
             return 1
 
     monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
-    task_run = task_run_factory(
+    task_run_factory(
         task_type="maintenance_action",
         resource_key=None,
         title="刷新数据集市快照",
@@ -280,7 +340,7 @@ def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factor
         def dispatch(self, session, task_run):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
 
-    task_run = task_run_factory(status="queued", resource_key="daily", title="股票日线")
+    task_run_factory(status="queued", resource_key="daily", title="股票日线")
 
     result = OperationsWorker(dispatcher=RaisingDispatcher()).run_next(db_session)  # type: ignore[arg-type]
 

@@ -42,6 +42,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_maintenance" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
+    assert "reference_data_natural_day_maintenance" in workflow_keys
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
@@ -52,6 +53,11 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "end_date",
     ]
     assert [param["key"] for param in workflows["daily_moneyflow_maintenance"]["parameters"]] == [
+        "trade_date",
+        "start_date",
+        "end_date",
+    ]
+    assert [param["key"] for param in workflows["reference_data_natural_day_maintenance"]["parameters"]] == [
         "trade_date",
         "start_date",
         "end_date",
@@ -75,6 +81,30 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert daily["schedule_enabled"] is True
     assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
     assert [param["key"] for param in daily["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
+    bse_mapping = actions["bse_mapping.maintain"]
+    assert bse_mapping["group_key"] == "reference_data"
+    assert bse_mapping["group_label"] == "A股基础数据"
+    assert [param["key"] for param in bse_mapping["parameters"]] == ["o_code", "n_code"]
+
+    namechange = actions["namechange.maintain"]
+    assert namechange["group_key"] == "reference_data"
+    assert namechange["group_label"] == "A股基础数据"
+    assert [param["key"] for param in namechange["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
+    st = actions["st.maintain"]
+    assert st["group_key"] == "reference_data"
+    assert st["group_label"] == "A股基础数据"
+    assert [param["key"] for param in st["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code", "imp_date"]
+
+    stock_company = actions["stock_company.maintain"]
+    assert stock_company["group_key"] == "reference_data"
+    assert stock_company["group_label"] == "A股基础数据"
+    stock_company_params = {param["key"]: param for param in stock_company["parameters"]}
+    assert list(stock_company_params) == ["ts_code", "exchange"]
+    assert stock_company_params["exchange"]["options"] == ["SSE", "SZSE", "BSE"]
+    assert stock_company_params["exchange"]["default_value"] == ["SSE", "SZSE", "BSE"]
+    assert stock_company_params["exchange"]["multi_value"] is True
 
     for action_key in (
         "adj_factor.maintain",

@@ -284,6 +284,166 @@ def test_dataset_action_resolver_builds_index_basic_full_snapshot_with_paginatio
     assert plan.units[0].page_limit == 6000
 
 
+def test_dataset_action_resolver_builds_bse_mapping_full_snapshot_with_optional_filters(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="bse_mapping",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+        filters={"o_code": "838163.BJ"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"o_code": "838163.BJ"}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 1000
+
+
+def test_dataset_action_resolver_builds_stock_company_default_exchange_fanout(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stock_company",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
+    assert plan.planning.unit_count == 3
+    assert [unit.request_params for unit in plan.units] == [
+        {"exchange": "SSE"},
+        {"exchange": "SZSE"},
+        {"exchange": "BSE"},
+    ]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {4500}
+
+
+def test_dataset_action_resolver_builds_stock_company_for_explicit_ts_code_without_exchange_fanout(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stock_company",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+        filters={"ts_code": "000001.SZ", "exchange": ["SZSE", "SSE"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"ts_code": "000001.SZ"}
+
+
+def test_dataset_action_resolver_builds_namechange_point_plan(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="namechange",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.sz"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.time_scope.mode == "point"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "start_date": "20260424",
+        "end_date": "20260424",
+        "ts_code": "000001.SZ",
+    }
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 1000
+
+
+def test_dataset_action_resolver_builds_namechange_range_plan_without_day_fanout(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="namechange",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 1), end_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.time_scope.mode == "range"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"start_date": "20260401", "end_date": "20260424"}
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 1000
+
+
+def test_dataset_action_resolver_builds_st_point_plan(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="st",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.sz", "imp_date": "2026-04-25"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.time_scope.mode == "point"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "pub_date": "20260424",
+        "ts_code": "000001.SZ",
+        "imp_date": "20260425",
+    }
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 1000
+
+
+def test_dataset_action_resolver_builds_st_range_plan_with_daily_fanout(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="st",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 23), end_date=date(2026, 4, 24)),
+        filters={"imp_date": "2026-04-25"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.time_scope.mode == "range"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"pub_date": "20260423", "imp_date": "20260425"},
+        {"pub_date": "20260424", "imp_date": "20260425"},
+    ]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {1000}
+
+
+def test_dataset_action_resolver_builds_stock_company_for_selected_exchanges(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stock_company",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="none"),
+        filters={"exchange": ["BSE", "SSE"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"exchange": "SSE"},
+        {"exchange": "BSE"},
+    ]
+
+
 def test_dataset_action_resolver_builds_trade_cal_full_snapshot_without_hidden_date_window(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-04
+更新时间：2026-05-05
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -33,6 +33,7 @@
 | RISK-2026-04-25-002 | P0 | 数据维护请求链存在 `__ALL__` 哨兵值，可能进入请求参数、query 上下文或落库字段，造成主键碰撞和数据污染 | `dc_hot`、`ths_hot`、`kpl_list`、`limit_list_ths` 及所有使用 enum fanout / query context 的数据集 | Closed | [DatasetExecutionPlan 执行计划模型重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md) |
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
+| RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
 
 ---
 
@@ -190,3 +191,29 @@
    - `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
    - `GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ingestion-lint-definitions`
    - `cd frontend && npm test -- --run src/pages/ops-v21-source-page.test.tsx src/pages/ops-v21-dataset-detail-page.test.tsx`
+
+---
+
+## 8. RISK-2026-05-05-005 处理要求
+
+风险说明：
+
+1. `cadence` 对用户价值很低，但当前仍以字段形式进入后端投影、snapshot、API 和前端页面。
+2. freshness/status 链路仍保留部分基于 `cadence` 的兜底逻辑，导致 `date_model` 尚未成为唯一时间事实源。
+3. 如果继续放任 `cadence` 存在，后续新数据集接入或前端展示容易继续误用这类“抽象节奏标签”。
+
+处理要求：
+
+1. 先完成当前 5 个新数据集接入，再单独推进 `cadence` 退场。
+2. 退场方案必须以 [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) 为唯一执行依据。
+3. 退场时不得新增新的节奏镜像字段、影子表或兼容层。
+4. freshness、expected business date、lag 判断必须最终完全收口到 `date_model`。
+5. 前端用户界面必须移除 `cadence` 可见展示。
+
+关闭门禁：
+
+1. 前端页面不再显示 `cadence / cadence_display_name`。
+2. freshness / snapshot / dataset card API 不再返回 `cadence`。
+3. `ops.dataset_status_snapshot` 不再保存 `cadence`。
+4. `DatasetDefinition.domain` 不再包含 `cadence`。
+5. `rg "\\bcadence\\b" src frontend docs tests` 只允许命中历史归档文档或本专项退场文档。

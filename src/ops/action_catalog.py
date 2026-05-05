@@ -13,6 +13,7 @@ from src.foundation.datasets.registry import (
 
 ParameterType = Literal["string", "date", "month", "integer", "boolean", "enum"]
 ActionType = Literal["dataset_action", "maintenance_action", "workflow"]
+WorkflowTimeRegime = Literal["trade_open_day", "natural_day", "none"]
 WORKFLOW_DOMAIN_KEY = "workflow"
 WORKFLOW_DOMAIN_DISPLAY_NAME = "工作流"
 WORKFLOW_GROUP_ORDER = 80
@@ -100,6 +101,7 @@ class WorkflowDefinition:
     schedule_enabled: bool = False
     manual_enabled: bool = True
     workflow_profile: str = "point_incremental"
+    time_regime: WorkflowTimeRegime = "trade_open_day"
     failure_policy_default: str = "fail_fast"
     probe_trigger_enabled: bool = False
     resume_supported: bool = True
@@ -122,6 +124,12 @@ TRADE_DATE_PARAM = ActionParameter(
     display_name="处理日期",
     param_type="date",
     description="只处理一个交易日。",
+)
+NATURAL_DAY_PARAM = ActionParameter(
+    key="trade_date",
+    display_name="处理日期",
+    param_type="date",
+    description="只处理一个自然日。",
 )
 
 
@@ -176,9 +184,11 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "reference_data_refresh": WorkflowDefinition(
         key="reference_data_refresh",
         display_name="基础主数据刷新",
-        description="刷新股票、交易日历（按完整日历刷新）、ETF 与指数基础信息。",
+        description="刷新股票、北交所代码映射、上市公司、交易日历（按完整日历刷新）、ETF 与指数基础信息。",
         steps=(
             _dataset_workflow_step("stock_basic", "stock_basic"),
+            _dataset_workflow_step("bse_mapping", "bse_mapping"),
+            _dataset_workflow_step("stock_company", "stock_company"),
             _dataset_workflow_step("trade_cal", "trade_cal"),
             _dataset_workflow_step("etf_basic", "etf_basic"),
             _dataset_workflow_step("etf_index", "etf_index"),
@@ -187,6 +197,21 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         ),
         schedule_enabled=True,
         manual_enabled=True,
+    ),
+    "reference_data_natural_day_maintenance": WorkflowDefinition(
+        key="reference_data_natural_day_maintenance",
+        display_name="基础数据自然日维护",
+        description="按自然日维护股票曾用名与 ST 风险警示事件等 A 股基础数据。",
+        parameters=(NATURAL_DAY_PARAM, START_DATE_PARAM, END_DATE_PARAM),
+        steps=(
+            _dataset_workflow_step("namechange", "namechange"),
+            _dataset_workflow_step("st", "st"),
+        ),
+        workflow_profile="point_incremental",
+        default_schedule_policy="natural_day_daily",
+        schedule_enabled=True,
+        manual_enabled=True,
+        time_regime="natural_day",
     ),
     "daily_market_close_maintenance": WorkflowDefinition(
         key="daily_market_close_maintenance",

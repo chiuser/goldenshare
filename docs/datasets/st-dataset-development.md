@@ -1,4 +1,4 @@
-# ST 风险警示事件（`st`）数据集开发说明（待评审）
+# ST 风险警示事件（`st`）数据集开发说明（M4 已完成）
 
 ## 0. 架构基线与目标
 
@@ -57,9 +57,9 @@
 
 - 数据集 key：`st`
 - 中文显示名：`ST 风险警示事件`
-- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/low_frequency.py`
-- 所属域：`low_frequency`
-- 所属域中文名：`低频数据`
+- 所属定义文件：建议新增到 `src/foundation/datasets/definitions/reference_master.py`
+- 所属域：`reference_data`
+- 所属域中文名：`基础主数据`
 - 数据源：`tushare`
 - 源站 API：`st`
 - 是否对外服务：是
@@ -89,9 +89,9 @@
 
 ```python
 "domain": {
-    "domain_key": "low_frequency",
-    "domain_display_name": "低频数据",
-    "cadence": "low_frequency",
+    "domain_key": "reference_data",
+    "domain_display_name": "基础主数据",
+    "cadence": "daily",
 }
 ```
 
@@ -115,10 +115,10 @@
 ```python
 "date_model": {
     "date_axis": "natural_day",
-    "bucket_rule": "not_applicable",
+    "bucket_rule": "every_natural_day",
     "window_mode": "point_or_range",
-    "input_shape": "trade_date_or_start_end",
-    "observed_field": None,
+    "input_shape": "ann_date_or_start_end",
+    "observed_field": "pub_date",
     "audit_applicable": False,
     "not_applicable_reason": "ST 风险警示事件不是每日必有数据的公告类事件，不按日完整性判断。",
 }
@@ -128,13 +128,13 @@
 
 1. V1 选 `pub_date` 作为主时间轴。
 2. `imp_date` 保留为 filter，不另建第二套时间意图。
-3. 为避免新增新的 `input_shape` 枚举，沿用当前 point/range 通用时间槽位，界面显示文案必须明确写成“发布日期 / 开始日期 / 结束日期”。
+3. point 模式沿用 `ann_date_or_start_end` 这条既有链路进入 manual-actions / validator，再在 request builder 中映射到源接口参数 `pub_date`。
 
 ### 3.5 `input_model`
 
 | 字段 | 类型 | 是否必填 | 默认值 | 是否多选 | 中文名 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `trade_date` | date | 否 | 无 | 否 | 发布日期 | 单日维护的主时间轴 |
+| `trade_date` | date | 否 | 无 | 否 | 发布日期 | DatasetDefinition 统一时间槽位；manual-actions point 模式会映射为 `ann_date`，最终由 request builder 生成为 `pub_date` |
 | `start_date` | date | 否 | 无 | 否 | 开始日期 | 区间维护开始日期，对应 `pub_date` |
 | `end_date` | date | 否 | 无 | 否 | 结束日期 | 区间维护结束日期，对应 `pub_date` |
 | `ts_code` | string | 否 | 无 | 否 | 股票代码 | 可选过滤 |
@@ -212,7 +212,7 @@
 ```python
 "observability": {
     "progress_label": "st",
-    "observed_field": None,
+    "observed_field": "pub_date",
     "audit_applicable": False,
 },
 "quality": {

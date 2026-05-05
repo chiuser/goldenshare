@@ -70,6 +70,7 @@ from src.foundation.models.core.limit_step import LimitStep
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
+from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
@@ -96,6 +97,7 @@ from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_margin import RawMargin
 from src.foundation.models.raw.raw_major_news import RawMajorNews
+from src.foundation.models.raw.raw_namechange import RawNamechange
 from src.foundation.models.raw.raw_news import RawNews
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
@@ -108,6 +110,8 @@ from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
+from src.foundation.models.raw.raw_stock_company import RawStockCompany
+from src.foundation.models.raw.raw_st import RawSt
 from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
@@ -236,8 +240,10 @@ class DAOFactory:
         self.raw_kpl_list = GenericDAO(session, RawKplList)
         self.raw_kpl_concept_cons = GenericDAO(session, RawKplConceptCons)
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
+        self.raw_bse_mapping = GenericDAO(session, RawBseMapping)
         self.raw_cctv_news = RawCctvNewsDAO(session)
         self.raw_major_news = RawMajorNewsDAO(session)
+        self.raw_namechange = GenericDAO(session, RawNamechange)
         self.raw_news = RawNewsDAO(session)
         self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
         self.raw_limit_step = GenericDAO(session, RawLimitStep)
@@ -246,6 +252,8 @@ class DAOFactory:
         self.raw_holder_number = RawHolderNumberDAO(session)
         self.raw_limit_list = GenericDAO(session, RawLimitList)
         self.raw_stk_limit = GenericDAO(session, RawStkLimit)
+        self.raw_stock_company = GenericDAO(session, RawStockCompany)
+        self.raw_st = GenericDAO(session, RawSt)
         self.raw_stock_st = GenericDAO(session, RawStockSt)
         self.raw_suspend_d = GenericDAO(session, RawSuspendD)
         self.raw_stk_factor_pro = GenericDAO(session, RawStkFactorPro)
