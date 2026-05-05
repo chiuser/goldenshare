@@ -234,7 +234,7 @@ class DatasetWriter:
                 rows=filtered_rows,
                 dataset_key=definition.dataset_key,
             )
-            if run_profile == "point_incremental" and plan_unit is not None and not explicit_ts_code:
+            if full_date_refresh and plan_unit is not None and not explicit_ts_code:
                 trade_date = plan_unit.trade_date
                 if isinstance(trade_date, date):
                     existing_codes = {
@@ -263,7 +263,7 @@ class DatasetWriter:
                     keep_api=False,
                 )
             conflict_strategy = "index_period_upsert"
-        elif run_profile == "point_incremental" and plan_unit is not None:
+        elif plan_unit is not None and (run_profile == "point_incremental" or full_date_refresh):
             if explicit_ts_code:
                 derived_rows = self._build_index_period_derived_rows(
                     definition=definition,
@@ -421,10 +421,10 @@ class DatasetWriter:
                 case when a.pre_close is null or a.close is null then null else a.close - a.pre_close end as change_amount,
                 case
                     when a.pre_close is null or a.pre_close = 0 or a.close is null then null
-                    else round(((a.close / a.pre_close) - 1) * 100, 4)
+                    else round(((a.close / a.pre_close) - 1), 4)
                 end as pct_chg,
-                a.vol as vol,
-                a.amount as amount,
+                a.vol * 100 as vol,
+                a.amount * 1000 as amount,
                 'derived_daily' as source
             from agg a
             """
