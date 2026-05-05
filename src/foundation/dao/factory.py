@@ -25,8 +25,6 @@ from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
-from src.foundation.models.core.equity_dividend import EquityDividend
-from src.foundation.models.core.equity_holder_number import EquityHolderNumber
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
@@ -41,7 +39,6 @@ from src.foundation.models.core.concept_moneyflow_ths import ConceptMoneyflowThs
 from src.foundation.models.core.industry_moneyflow_ths import IndustryMoneyflowThs
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.market_moneyflow_dc import MarketMoneyflowDc
-from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.etf_index import EtfIndex
 from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -50,14 +47,9 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
-from src.foundation.models.core.index_basic import IndexBasic
-from src.foundation.models.core.index_daily_basic import IndexDailyBasic
 from src.foundation.models.core.index_daily_bar import IndexDailyBar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
-from src.foundation.models.core.index_monthly_bar import IndexMonthlyBar
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
-from src.foundation.models.core.index_weight import IndexWeight
-from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
@@ -69,18 +61,17 @@ from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
-from src.foundation.models.raw.raw_dividend import RawDividend
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
-from src.foundation.models.raw.raw_holdernumber import RawHolderNumber
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_dc_hot import RawDcHot
 from src.foundation.models.raw.raw_dc_index import RawDcIndex
@@ -96,9 +87,7 @@ from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
 from src.foundation.models.raw.raw_limit_list_ths import RawLimitListThs
 from src.foundation.models.raw.raw_limit_step import RawLimitStep
 from src.foundation.models.raw.raw_margin import RawMargin
-from src.foundation.models.raw.raw_major_news import RawMajorNews
 from src.foundation.models.raw.raw_namechange import RawNamechange
-from src.foundation.models.raw.raw_news import RawNews
 from src.foundation.models.raw.raw_moneyflow import RawMoneyflow
 from src.foundation.models.raw.raw_moneyflow_ths import RawMoneyflowThs
 from src.foundation.models.raw.raw_moneyflow_dc import RawMoneyflowDc
@@ -126,8 +115,6 @@ from src.foundation.models.raw.raw_us_basic import RawUsBasic
 from src.foundation.models.raw_multi.raw_biying_equity_daily_bar import RawBiyingEquityDailyBar
 from src.foundation.models.raw_multi.raw_biying_moneyflow import RawBiyingMoneyflow
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
-from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
-from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_hot import ThsHot
 from src.foundation.models.core.ths_index import ThsIndex
@@ -204,6 +191,7 @@ class DAOFactory:
         self.raw_trade_cal = GenericDAO(session, RawTradeCal)
         self.raw_daily = GenericDAO(session, RawDaily)
         self.raw_adj_factor = GenericDAO(session, RawAdjFactor)
+        self.raw_bak_basic = GenericDAO(session, RawBakBasic)
         self.raw_daily_basic = GenericDAO(session, RawDailyBasic)
         self.raw_cyq_perf = GenericDAO(session, RawCyqPerf)
         self.raw_moneyflow = GenericDAO(session, RawMoneyflow)

@@ -1,4 +1,4 @@
-# 股票历史基础列表（`bak_basic`）数据集开发说明（待评审）
+# 股票历史基础列表（`bak_basic`）数据集开发说明（已实现）
 
 ## 0. 架构基线与目标
 
@@ -298,8 +298,8 @@
 
 ### 4.1 Raw 表：`raw_tushare.bak_basic`
 
-- ORM：建议新增 `src/foundation/models/raw/raw_bak_basic.py`
-- DAO：建议在 `DAOFactory` 新增 `raw_bak_basic`
+- ORM：`src/foundation/models/raw/raw_bak_basic.py`
+- DAO：`DAOFactory.raw_bak_basic`
 - 主键：`(trade_date, ts_code)`
 - 审计字段：`api_name`、`fetched_at`、`raw_payload`
 
@@ -332,19 +332,14 @@
 | `npr` | double precision | 是 |  |
 | `holder_num` | integer | 是 |  |
 
-索引建议：
+索引设计：
 
-```sql
-create unique index uq_raw_tushare_bak_basic_trade_date_ts_code
-on raw_tushare.bak_basic(trade_date, ts_code);
-
-create index idx_raw_tushare_bak_basic_ts_code_trade_date
-on raw_tushare.bak_basic(ts_code, trade_date);
-```
+1. 主键 `(trade_date, ts_code)` 直接承担唯一索引职责。
+2. 额外补 `idx_raw_tushare_bak_basic_ts_code_trade_date(ts_code, trade_date)`，覆盖按股票代码回看历史列表的常见查询。
 
 ### 4.2 Target View：`core_serving_light.bak_basic`
 
-- ORM：建议新增 `src/foundation/models/core_serving_light/bak_basic.py`
+- ORM：`src/foundation/models/core_serving_light/bak_basic.py`
 - 作用：给 Ops / Biz 提供稳定查询出口，同时让 `trade_date` 可被 freshness / audit 正常消费。
 
 建议口径：
@@ -370,7 +365,9 @@ on raw_tushare.bak_basic(ts_code, trade_date);
 
 - `unit_builder_key`：`generic`
 - unit 维度：交易日
-- `unit_id`：`bak_basic:<trade_date>:<ordinal>`
+- `unit_id`：
+  - 无 `ts_code` 过滤时：`bak_basic:<trade_date>:<ordinal>`
+  - 带 `ts_code` 过滤时：`bak_basic:<trade_date>:ts_code=<TS_CODE>:<ordinal>`
 - `progress_context`：`trade_date`、可选 `ts_code`
 
 ### 5.3 Source Client 与分页

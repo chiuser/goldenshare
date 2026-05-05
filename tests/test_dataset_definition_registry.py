@@ -25,7 +25,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 64
+    assert len(definition_keys) == 65
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -214,6 +214,24 @@ def test_dataset_definition_projects_bse_mapping_facts() -> None:
     assert definition.planning.page_limit == 1000
     assert definition.normalization.date_fields == ("list_date",)
     assert definition.normalization.required_fields == ("o_code", "n_code")
+
+
+def test_dataset_definition_projects_bak_basic_facts() -> None:
+    definition = get_dataset_definition("bak_basic")
+
+    assert definition.identity.display_name == "股票历史基础列表"
+    assert definition.domain.domain_key == "reference_data"
+    assert definition.domain.cadence == "daily"
+    assert definition.source.api_name == "bak_basic"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.storage.raw_table == "raw_tushare.bak_basic"
+    assert definition.storage.target_table == "core_serving_light.bak_basic"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.page_limit == 7000
+    assert definition.planning.unit_builder_key == "generic"
+    assert definition.normalization.date_fields == ("trade_date", "list_date")
+    assert definition.normalization.required_fields == ("trade_date", "ts_code")
 
 
 def test_dataset_definition_projects_stock_company_facts() -> None:

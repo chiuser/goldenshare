@@ -79,6 +79,41 @@ def test_trade_cal_normalizer_treats_nan_pretrade_date_as_null() -> None:
     assert normalized["is_open"] is True
 
 
+def test_bak_basic_normalizer_trims_text_and_parses_dates() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("bak_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-bak-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260424",
+                    "ts_code": "000001.sz",
+                    "name": " 平安银行 ",
+                    "industry": " 银行 ",
+                    "area": " 深圳 ",
+                    "pe": "5.25",
+                    "list_date": "19910403",
+                    "holder_num": 321456,
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["trade_date"] == date(2026, 4, 24)
+    assert normalized["ts_code"] == "000001.SZ"
+    assert normalized["name"] == "平安银行"
+    assert normalized["industry"] == "银行"
+    assert normalized["area"] == "深圳"
+    assert normalized["list_date"] == date(1991, 4, 3)
+    assert str(normalized["pe"]) == "5.25"
+    assert normalized["holder_num"] == 321456
+
+
 def test_namechange_normalizer_builds_row_hash_and_trims_fields() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("namechange"),

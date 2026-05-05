@@ -48,6 +48,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
     ),
     items=(
         DatasetCatalogItem("stock_basic", "reference_data", 10),
+        DatasetCatalogItem("bak_basic", "reference_data", 14),
         DatasetCatalogItem("bse_mapping", "reference_data", 15),
         DatasetCatalogItem("namechange", "reference_data", 16),
         DatasetCatalogItem("st", "reference_data", 17),

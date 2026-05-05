@@ -106,6 +106,13 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert trade_cal_modes["point"]["selection_rule"] == "calendar_day"
     assert trade_cal_modes["range"]["control"] == "calendar_date_range"
     assert trade_cal_modes["range"]["selection_rule"] == "calendar_day"
+    assert actions["bak_basic.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert [item["mode"] for item in actions["bak_basic.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    bak_basic_modes = _time_modes(actions["bak_basic.maintain"])
+    assert bak_basic_modes["point"]["control"] == "trade_date"
+    assert bak_basic_modes["point"]["selection_rule"] == "trading_day_only"
+    assert bak_basic_modes["range"]["control"] == "trade_date_range"
+    assert bak_basic_modes["range"]["selection_rule"] == "trading_day_only"
     assert actions["namechange.maintain"]["date_model"]["input_shape"] == "ann_date_or_start_end"
     assert [item["mode"] for item in actions["namechange.maintain"]["time_form"]["modes"]] == ["point", "range"]
     namechange_modes = _time_modes(actions["namechange.maintain"])
@@ -134,6 +141,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         assert filter_keys == ["ts_code"]
 
     assert [item["key"] for item in actions["bse_mapping.maintain"]["filters"]] == ["o_code", "n_code"]
+    assert [item["key"] for item in actions["bak_basic.maintain"]["filters"]] == ["ts_code"]
     assert [item["key"] for item in actions["namechange.maintain"]["filters"]] == ["ts_code"]
     st_filters = {item["key"]: item for item in actions["st.maintain"]["filters"]}
     assert list(st_filters) == ["ts_code", "imp_date"]
@@ -284,6 +292,22 @@ def test_ops_manual_action_task_run_supports_bse_mapping_snapshot_filters(app_cl
     assert payload["run"]["resource_key"] == "bse_mapping"
     assert payload["run"]["time_input"] == {"mode": "none"}
     assert payload["run"]["filters"] == {"o_code": "838163.BJ"}
+
+
+def test_ops_manual_action_task_run_supports_bak_basic_point_filters(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/bak_basic.maintain/task-runs",
+        headers=headers,
+        json={"time_input": {"mode": "point", "trade_date": "2026-04-24"}, "filters": {"ts_code": "000001.SZ"}},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "bak_basic"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
+    assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
 
 
 def test_ops_manual_action_task_run_applies_stock_company_exchange_defaults(app_client, user_factory) -> None:

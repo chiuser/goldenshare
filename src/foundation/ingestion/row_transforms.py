@@ -13,7 +13,6 @@ from src.foundation.services.transform.top_list_reason import hash_top_list_reas
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
-from src.utils import coerce_row
 
 
 class RowTransformReject(ValueError):
@@ -77,6 +76,20 @@ def _stock_company_row_transform(row: dict[str, Any]) -> dict[str, Any]:
         transformed["ts_code"] = ts_code
     if exchange:
         transformed["exchange"] = exchange
+    return transformed
+
+
+def _bak_basic_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ts_code = str(transformed.get("ts_code") or "").strip().upper()
+    if ts_code:
+        transformed["ts_code"] = ts_code
+    for key in ("name", "industry", "area"):
+        value = transformed.get(key)
+        if value is None:
+            continue
+        normalized = str(value).strip()
+        transformed[key] = normalized or None
     return transformed
 
 
@@ -544,6 +557,7 @@ __all__ = [
     "_stock_basic_row_transform",
     "_bse_mapping_row_transform",
     "_stock_company_row_transform",
+    "_bak_basic_row_transform",
     "_namechange_row_transform",
     "_st_row_transform",
     "_hk_security_row_transform",

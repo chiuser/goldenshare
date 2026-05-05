@@ -62,6 +62,7 @@ from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
+from src.foundation.models.core_serving_light.bak_basic import BakBasicLight
 from src.foundation.models.core_serving_light.bse_mapping import BseMappingLight
 from src.foundation.models.core_serving_light.cctv_news import CctvNewsLight
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
@@ -74,6 +75,7 @@ from src.foundation.models.meta.dataset_resolution_policy import DatasetResoluti
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
@@ -182,6 +184,7 @@ __all__ = [
     "LimitListThs",
     "LimitStep",
     "RawAdjFactor",
+    "RawBakBasic",
     "RawBlockTrade",
     "RawDaily",
     "RawDailyBasic",
@@ -245,6 +248,7 @@ __all__ = [
     "UsSecurity",
     "MoneyflowStd",
     "SecurityStd",
+    "BakBasicLight",
     "BseMappingLight",
     "CctvNewsLight",
     "EquityDailyBarLight",

@@ -87,6 +87,11 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert bse_mapping["group_label"] == "A股基础数据"
     assert [param["key"] for param in bse_mapping["parameters"]] == ["o_code", "n_code"]
 
+    bak_basic = actions["bak_basic.maintain"]
+    assert bak_basic["group_key"] == "reference_data"
+    assert bak_basic["group_label"] == "A股基础数据"
+    assert [param["key"] for param in bak_basic["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
     namechange = actions["namechange.maintain"]
     assert namechange["group_key"] == "reference_data"
     assert namechange["group_label"] == "A股基础数据"

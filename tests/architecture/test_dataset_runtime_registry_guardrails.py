@@ -92,6 +92,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
     "reference_master": {
         "trade_cal",
         "stock_basic",
+        "bak_basic",
         "hk_basic",
         "us_basic",
         "etf_basic",
