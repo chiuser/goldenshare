@@ -54,6 +54,14 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     research_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
     research_parser.set_defaults(handler=_handle_rebuild_stk_mins_research)
 
+    research_range_parser = subparsers.add_parser("rebuild-stk-mins-research-range", help="批量重建多个 freq 和月份的 research 层")
+    add_lake_root_arg(research_range_parser)
+    research_range_parser.add_argument("--start-month", required=True, help="开始月份，格式 YYYY-MM")
+    research_range_parser.add_argument("--end-month", required=True, help="结束月份，格式 YYYY-MM")
+    research_range_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60,90,120")
+    research_range_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
+    research_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_research_range)
+
     migrate_parser = subparsers.add_parser("migrate-stk-mins-schema", help="迁移本地 stk_mins raw Parquet schema，不请求 Tushare")
     add_lake_root_arg(migrate_parser)
     mode = migrate_parser.add_mutually_exclusive_group(required=True)
@@ -154,6 +162,19 @@ def _handle_rebuild_stk_mins_research(args: argparse.Namespace) -> int:
     summary = StkMinsResearchService(lake_root=settings.lake_root, bucket_count=bucket_count).rebuild_month(
         freq=args.freq,
         trade_month=args.trade_month,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_stk_mins_research_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    bucket_count = args.bucket_count or settings.bucket_count
+    freqs = parse_int_csv(args.freqs, allowed={1, 5, 15, 30, 60, 90, 120}, label="freqs")
+    summary = StkMinsResearchService(lake_root=settings.lake_root, bucket_count=bucket_count).rebuild_range(
+        freqs=freqs,
+        start_month=args.start_month,
+        end_month=args.end_month,
     )
     print_json(summary)
     return 0

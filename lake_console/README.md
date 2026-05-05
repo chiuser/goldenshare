@@ -172,6 +172,15 @@ lake-console rebuild-stk-mins-research \
   --trade-month 2026-04
 ```
 
+Rebuild the research layout for a historical month range and multiple freqs:
+
+```bash
+lake-console rebuild-stk-mins-research-range \
+  --start-month 2024-01 \
+  --end-month 2026-04 \
+  --freqs 1,5,15,30,60,90,120
+```
+
 Start the local backend and frontend together:
 
 ```bash

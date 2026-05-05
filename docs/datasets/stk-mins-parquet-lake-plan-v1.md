@@ -411,6 +411,34 @@ ts_code, freq, trade_time, open, high, low, close, vol, amount, exchange, vwap
 ts_code ASC, trade_time ASC
 ```
 
+### 6.4 research 重排执行入口
+
+单月单频命令只作为调试和补单月使用：
+
+```bash
+lake-console rebuild-stk-mins-research \
+  --freq 30 \
+  --trade-month 2026-04
+```
+
+正常重建历史 research 层必须使用批量命令：
+
+```bash
+lake-console rebuild-stk-mins-research-range \
+  --start-month 2024-01 \
+  --end-month 2026-04 \
+  --freqs 1,5,15,30,60,90,120
+```
+
+批量命令规则：
+
+1. 内部展开 `start_month ~ end_month` 的所有自然月。
+2. 内部展开 `freqs` 的所有分钟周期。
+3. 开始写入前先预检查所有 `freq + trade_month` 的源 by_date 文件是否存在。
+4. 缺任一源月份时，命令必须失败并列出缺失路径，不允许先写一半。
+5. 每个 `freq + trade_month` 仍调用单月重排逻辑，保持写入粒度和替换范围稳定。
+6. 输出总进度和最终汇总，避免用户靠 shell 循环猜测执行状态。
+
 ---
 
 ## 7. 写入策略

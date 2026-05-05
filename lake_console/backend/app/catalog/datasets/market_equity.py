@@ -244,6 +244,23 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 argv=("lake-console", "rebuild-stk-mins-research", "--freq", "30", "--trade-month", "2026-04"),
                 prerequisites=("指定月份已有对应 freq 的 by_date 数据。",),
             ),
+            LakeCommandExample(
+                example_key="stk_mins_rebuild_research_range",
+                title="批量重建 research 历史分区",
+                scenario="research",
+                description="按月份和 freq 展开，批量重建几年历史的 by_symbol_month 研究层。",
+                argv=(
+                    "lake-console",
+                    "rebuild-stk-mins-research-range",
+                    "--start-month",
+                    "2024-01",
+                    "--end-month",
+                    "2026-04",
+                    "--freqs",
+                    "1,5,15,30,60,90,120",
+                ),
+                prerequisites=("指定月份范围内已有对应 freq 的 by_date 数据。",),
+            ),
         ),
     ),
 )
