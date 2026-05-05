@@ -10,6 +10,8 @@ def test_parse_tushare_date() -> None:
 
 
 def test_parse_tushare_date_treats_pseudo_null_text_as_none() -> None:
+    assert parse_tushare_date(0) is None
+    assert parse_tushare_date("0") is None
     assert parse_tushare_date("nan") is None
     assert parse_tushare_date("NaT") is None
     assert parse_tushare_date(" null ") is None

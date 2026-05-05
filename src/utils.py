@@ -7,7 +7,7 @@ from decimal import InvalidOperation
 from typing import Any
 
 
-PSEUDO_NULL_TEXTS = {"nan", "nat", "none", "null"}
+PSEUDO_NULL_TEXTS = {"0", "nan", "nat", "none", "null"}
 
 
 class CoerceRowError(ValueError):

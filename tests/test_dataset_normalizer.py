@@ -114,6 +114,52 @@ def test_bak_basic_normalizer_trims_text_and_parses_dates() -> None:
     assert normalized["holder_num"] == 321456
 
 
+def test_bak_basic_normalizer_treats_zero_list_date_as_null() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("bak_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-bak-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260424",
+                    "ts_code": "000001.SZ",
+                    "name": "平安银行",
+                    "list_date": 0,
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["list_date"] is None
+
+
+def test_bak_basic_normalizer_rejects_zero_required_trade_date() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("bak_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-bak-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": 0,
+                    "ts_code": "000001.SZ",
+                    "name": "平安银行",
+                    "list_date": 0,
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:trade_date": 1}
+
+
 def test_namechange_normalizer_builds_row_hash_and_trims_fields() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("namechange"),
