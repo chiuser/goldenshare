@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AppShell } from "./components/AppShell";
 import { EmptyState } from "./components/EmptyState";
+import { ErrorStateBlock } from "./components/ErrorStateBlock";
 import { useDatasetPartitions, useLakeConsoleData } from "./hooks/useLakeConsoleData";
 import { useLakeConsoleSelection } from "./hooks/useLakeConsoleSelection";
 import { useLakeConsoleViewModel } from "./hooks/useLakeConsoleViewModel";
@@ -28,7 +29,7 @@ function App() {
 
   return (
     <AppShell activePage={selection.activePage} initialized={Boolean(status?.path.initialized)} onNavigate={selection.setActivePage}>
-      {pageError ? <div className="alert error">API 加载失败：{pageError}</div> : null}
+      {pageError ? <ErrorStateBlock title="API 加载失败" description={pageError} /> : null}
 
       {selection.activePage === "datasets" ? (
         <DatasetOverviewPage

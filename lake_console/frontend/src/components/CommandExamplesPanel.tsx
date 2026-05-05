@@ -1,6 +1,7 @@
 import { CommandExampleItemDetail } from "./CommandExampleItemDetail";
 import { CommandSelector } from "./CommandSelector";
 import { EmptyState } from "./EmptyState";
+import { ErrorStateBlock } from "./ErrorStateBlock";
 import { LoadingBlock } from "./LoadingBlock";
 import type { CommandExampleGroup } from "../types";
 
@@ -22,7 +23,7 @@ export function CommandExamplesPanel({
   onSelectItem,
 }: CommandExamplesPanelProps) {
   if (error) {
-    return <div className="alert error">命令示例加载失败：{error}</div>;
+    return <ErrorStateBlock title="命令示例加载失败" description={error} />;
   }
   if (!groups.length) {
     return <LoadingBlock title="正在加载命令示例" description="命令来自后端 Lake catalog，前端不会自行拼接。" />;

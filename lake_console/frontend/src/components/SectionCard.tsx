@@ -6,10 +6,11 @@ type SectionCardProps = {
   description?: string;
   side?: ReactNode;
   title: string;
+  variant?: "default" | "subtle" | "elevated" | "accent" | "warning";
 };
 
-export function SectionCard({ children, className = "", description, side, title }: SectionCardProps) {
-  const classes = ["section-card", className].filter(Boolean).join(" ");
+export function SectionCard({ children, className = "", description, side, title, variant = "default" }: SectionCardProps) {
+  const classes = ["section-card", `section-card-${variant}`, className].filter(Boolean).join(" ");
   return (
     <section className={classes}>
       <div className="section-card-header">

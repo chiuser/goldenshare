@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge } from "./Badge";
+import { DenseToolbar } from "./DenseToolbar";
 import type { CommandExampleGroup, CommandExampleItem } from "../types";
 
 type CommandSelectorProps = {
@@ -30,7 +31,7 @@ export function CommandSelector({
           <Badge tone="muted">需人工确认参数</Badge>
         </div>
       </div>
-      <div className="command-toolbar">
+      <DenseToolbar className="command-toolbar">
         <CommandSelectField label="展示分组">
           <select value={selectedGroup.group_key} onChange={(event) => onSelectGroup(event.target.value)}>
             {groups.map((group) => (
@@ -49,7 +50,7 @@ export function CommandSelector({
             ))}
           </select>
         </CommandSelectField>
-      </div>
+      </DenseToolbar>
     </>
   );
 }

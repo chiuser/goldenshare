@@ -1,4 +1,5 @@
 import { Badge } from "./Badge";
+import type { BadgeTone } from "./Badge";
 
 type HealthBadgeProps = {
   status: string;
@@ -7,7 +8,7 @@ type HealthBadgeProps = {
 export function HealthBadge({ status }: HealthBadgeProps) {
   const normalized = normalizeHealthStatus(status);
   const label = normalized === "ok" ? "已落盘" : normalized === "warning" ? "有风险" : normalized === "error" ? "异常" : "未落盘";
-  const tone = normalized === "ok" ? "success" : normalized === "warning" ? "warning" : normalized === "error" ? "error" : "muted";
+  const tone: BadgeTone = normalized === "ok" ? "success" : normalized === "warning" ? "warning" : normalized === "error" ? "error" : "neutral";
   return (
     <Badge className={`health-badge ${normalized}`} tone={tone}>
       {label}

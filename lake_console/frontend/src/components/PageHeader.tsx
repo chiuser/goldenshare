@@ -6,11 +6,12 @@ type PageHeaderProps = {
   description?: string;
   helpTitle?: string;
   right?: ReactNode;
+  variant?: "default" | "subtle" | "accent" | "warning";
 };
 
-export function PageHeader({ eyebrow, title, description, helpTitle, right }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, helpTitle, right, variant = "default" }: PageHeaderProps) {
   return (
-    <div className="page-header">
+    <div className={`page-header page-header-${variant}`}>
       <div>
         {eyebrow ? <span className="page-eyebrow">{eyebrow}</span> : null}
         <h2>

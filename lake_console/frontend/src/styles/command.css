@@ -43,10 +43,6 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: 12px;
-  background: var(--neutral-0);
 }
 
 .command-select-field {

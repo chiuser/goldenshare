@@ -17,11 +17,108 @@
   font-size: 12px;
 }
 
-.risk-summary-grid {
+.risk-posture-panel {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  background: var(--bg-surface);
+}
+
+.risk-posture-main {
+  display: grid;
+  align-content: center;
+  min-height: 120px;
+  border-radius: var(--r-md);
+  padding: 16px;
+  background: var(--neutral-1);
+  box-shadow: inset 3px 0 0 var(--brand-5);
+}
+
+.risk-posture-main span {
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.risk-posture-main strong {
+  margin-top: 4px;
+  color: var(--text-title);
+  font-family: var(--font-mono);
+  font-size: 36px;
+  line-height: 1;
+}
+
+.risk-posture-main p {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.risk-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.risk-summary-grid .metric-card-warning {
+  background: var(--bg-surface);
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.risk-summary-grid .metric-card-success {
+  background: var(--bg-surface);
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+.risk-summary-grid .metric-card-subtle {
+  background: var(--bg-surface);
+}
+
+.risk-page-grid .data-table-card {
+  background: var(--neutral-0);
+}
+
+.risk-page-grid .data-table-card th {
+  background: var(--neutral-1);
+}
+
+.risk-page-grid .data-table-card tr.row-warning td,
+.risk-page-grid .data-table-card tr.row-error td {
+  background: transparent;
+}
+
+.risk-page-grid .data-table-card th,
+.risk-page-grid .data-table-card td {
+  padding: 9px 10px;
+}
+
+.risk-page-grid .data-table-card code {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.risk-col-severity {
+  width: 86px;
+}
+
+.risk-col-code {
+  width: 156px;
+}
+
+.risk-col-dataset {
+  width: 190px;
+}
+
+.risk-col-path {
+  width: 34%;
+}
+
+.risk-col-message {
+  min-width: 260px;
 }
 
 .risk-page-grid {
@@ -96,7 +193,24 @@
   background: var(--neutral-1);
 }
 
+.risk-dataset-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.risk-dataset-cell strong {
+  color: var(--text-title);
+  font-size: 13px;
+}
+
+.risk-dataset-cell span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
 @media (max-width: 960px) {
+  .risk-posture-panel,
   .risk-summary-grid,
   .risk-page-grid {
     grid-template-columns: 1fr;
