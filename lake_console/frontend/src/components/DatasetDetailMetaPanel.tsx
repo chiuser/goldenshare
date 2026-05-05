@@ -17,12 +17,17 @@ export function DatasetDetailMetaPanel({ dataset, detailView }: DatasetDetailMet
       title="数据集画像"
     >
       <div className="detail-meta-stack">
-        <DetailGroup title="基础信息">
+        <DetailGroup title="身份">
           <div className="detail-grid">
             <DetailItem label="数据源" value={dataset.source} />
             <DetailItem label="数据集 key" value={dataset.dataset_key} />
             <DetailItem label="分组" value={dataset.group_label ?? "-"} />
             <DetailItem label="角色" value={dataset.dataset_role} />
+          </div>
+        </DetailGroup>
+
+        <DetailGroup title="存储与写入">
+          <div className="detail-grid">
             <DetailItem label="存储根" value={dataset.storage_root ?? "-"} wide />
             <DetailItem label="主布局" value={dataset.primary_layout ?? "-"} />
             <DetailItem label="写入策略" value={dataset.write_policy ?? "-"} />
