@@ -77,66 +77,23 @@
   background: var(--bg-surface);
 }
 
-.risk-page-grid .data-table-card {
-  background: var(--neutral-0);
-}
-
-.risk-page-grid .data-table-card th {
-  background: var(--neutral-1);
-}
-
-.risk-page-grid .data-table-card tr.row-warning td,
-.risk-page-grid .data-table-card tr.row-error td {
-  background: transparent;
-}
-
-.risk-page-grid .data-table-card th,
-.risk-page-grid .data-table-card td {
-  padding: 9px 10px;
-}
-
-.risk-page-grid .data-table-card code {
-  display: inline-block;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
-.risk-col-severity {
-  width: 86px;
-}
-
-.risk-col-code {
-  width: 156px;
-}
-
-.risk-col-dataset {
-  width: 190px;
-}
-
-.risk-col-path {
-  width: 34%;
-}
-
-.risk-col-message {
-  min-width: 260px;
-}
-
 .risk-page-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
 .risk-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .risk-card {
   display: grid;
-  gap: 9px;
+  gap: 8px;
   border-left-width: 3px;
-  padding: 12px;
+  padding: 11px 12px;
+  background: var(--neutral-0);
 }
 
 .risk-card.warning {
@@ -159,8 +116,31 @@
   gap: 12px;
 }
 
+.risk-card-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.risk-card-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.risk-card-code-row > .badge {
+  flex: 0 0 auto;
+  border-radius: var(--r-sm);
+  padding: 3px 7px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .risk-card-header strong {
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-title);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -174,45 +154,37 @@
   font-style: normal;
 }
 
-.risk-card-header > .badge {
-  border-radius: var(--r-sm);
-  padding: 3px 7px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .risk-card p {
   color: var(--text-body);
   font-size: 13px;
+  line-height: 1.5;
 }
 
-.risk-card code {
-  display: block;
-  max-width: none;
-  color: var(--text-body);
+.risk-card-path {
+  display: grid;
+  gap: 5px;
+  border-radius: var(--r-sm);
+  padding: 8px 9px;
   background: var(--neutral-1);
 }
 
-.risk-dataset-cell {
-  display: grid;
-  gap: 2px;
+.risk-card-path span {
+  color: var(--text-hint);
+  font-size: 11px;
 }
 
-.risk-dataset-cell strong {
-  color: var(--text-title);
-  font-size: 13px;
-}
-
-.risk-dataset-cell span {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+.risk-card-path code {
+  display: block;
+  max-width: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  color: var(--text-body);
+  background: transparent;
 }
 
 @media (max-width: 960px) {
   .risk-posture-panel,
-  .risk-summary-grid,
-  .risk-page-grid {
+  .risk-summary-grid {
     grid-template-columns: 1fr;
   }
 }

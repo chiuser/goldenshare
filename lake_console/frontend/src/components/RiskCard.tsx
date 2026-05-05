@@ -1,4 +1,5 @@
 import { Badge } from "./Badge";
+import type { BadgeTone } from "./Badge";
 import type { RiskItem } from "../types";
 
 type RiskCardProps = {
@@ -11,14 +12,21 @@ export function RiskCard({ risk, context }: RiskCardProps) {
   return (
     <article className={`risk-card surface-card ${severityClass}`}>
       <div className="risk-card-header">
-        <div>
-          <strong>{risk.code}</strong>
+        <div className="risk-card-title">
+          <div className="risk-card-code-row">
+            <Badge tone={riskSeverityTone(risk.severity)}>{riskSeverityLabel(risk.severity)}</Badge>
+            <strong>{risk.code}</strong>
+          </div>
           {context ? <em>{context}</em> : null}
         </div>
-        <Badge tone={riskSeverityTone(risk.severity)}>{riskSeverityLabel(risk.severity)}</Badge>
       </div>
       <p>{risk.message}</p>
-      {risk.path ? <code>{risk.path}</code> : null}
+      {risk.path ? (
+        <div className="risk-card-path">
+          <span>路径</span>
+          <code>{risk.path}</code>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -33,13 +41,16 @@ function riskSeverityLabel(severity: string): string {
   return labels[severity.toLowerCase()] ?? severity;
 }
 
-function riskSeverityTone(severity: string): "success" | "warning" | "error" | "muted" | "brand" {
+function riskSeverityTone(severity: string): BadgeTone {
   const normalized = severity.toLowerCase();
   if (normalized === "critical" || normalized === "error") {
     return "error";
   }
   if (normalized === "warning") {
     return "warning";
+  }
+  if (normalized === "info") {
+    return "info";
   }
   return "muted";
 }

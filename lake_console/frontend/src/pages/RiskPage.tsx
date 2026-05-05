@@ -1,12 +1,10 @@
-import { Badge } from "../components/Badge";
-import { DataTableCard } from "../components/DataTableCard";
-import type { DataTableColumn } from "../components/DataTableCard";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingBlock } from "../components/LoadingBlock";
 import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
+import { RiskCard } from "../components/RiskCard";
 import { SectionCard } from "../components/SectionCard";
-import type { DatasetRiskItem, LakeStatus, RiskItem } from "../types";
+import type { DatasetRiskItem, LakeStatus } from "../types";
 
 type RiskPageProps = {
   datasetRisks: DatasetRiskItem[];
@@ -56,14 +54,11 @@ export function RiskPage({ datasetRisks, status }: RiskPageProps) {
           {isLoading ? (
             <LoadingBlock title="正在读取数据湖根目录风险" description="正在从本地 Lake Console API 获取路径、权限和初始化状态。" />
           ) : status?.risks.length ? (
-            <DataTableCard
-              columns={rootRiskColumns}
-              empty={<EmptyState title="暂无数据湖根目录风险" description="当前未发现路径或权限风险。" />}
-              getRowKey={(risk) => `${risk.code}-${risk.path ?? ""}`}
-              label="数据湖根目录风险"
-              rows={status.risks}
-              rowTone={riskRowTone}
-            />
+            <div className="risk-list">
+              {status.risks.map((risk) => (
+                <RiskCard key={`${risk.code}-${risk.path ?? ""}`} risk={risk} />
+              ))}
+            </div>
           ) : (
             <EmptyState title="数据湖根目录检查通过" description="当前未发现路径、初始化状态或读写权限风险。" tone="info" />
           )}
@@ -78,14 +73,15 @@ export function RiskPage({ datasetRisks, status }: RiskPageProps) {
           {isLoading ? (
             <LoadingBlock title="正在读取数据集风险" description="正在扫描本地数据集文件事实和 catalog 风险。" />
           ) : datasetRisks.length ? (
-            <DataTableCard
-              columns={datasetRiskColumns}
-              empty={<EmptyState title="暂无数据集风险" description="当前数据集没有暴露文件风险。" />}
-              getRowKey={(risk) => `${risk.datasetKey}-${risk.code}-${risk.path ?? ""}`}
-              label="数据集风险"
-              rows={datasetRisks}
-              rowTone={riskRowTone}
-            />
+            <div className="risk-list">
+              {datasetRisks.map((risk) => (
+                <RiskCard
+                  context={`${risk.datasetName} / ${risk.datasetKey}`}
+                  key={`${risk.datasetKey}-${risk.code}-${risk.path ?? ""}`}
+                  risk={risk}
+                />
+              ))}
+            </div>
           ) : (
             <EmptyState title="数据集检查通过" description="当前数据集文件扫描和 catalog 检查没有暴露风险。" tone="info" />
           )}
@@ -93,102 +89,4 @@ export function RiskPage({ datasetRisks, status }: RiskPageProps) {
       </section>
     </>
   );
-}
-
-const rootRiskColumns: DataTableColumn<RiskItem>[] = [
-  {
-    header: "级别",
-    key: "severity",
-    className: "risk-col-severity",
-    render: (risk) => <RiskSeverityBadge severity={risk.severity} />,
-  },
-  {
-    header: "原因码",
-    key: "code",
-    className: "risk-col-code",
-    render: (risk) => <code>{risk.code}</code>,
-  },
-  {
-    header: "说明",
-    key: "message",
-    className: "risk-col-message",
-    render: (risk) => risk.message,
-  },
-  {
-    header: "路径",
-    key: "path",
-    className: "risk-col-path",
-    render: (risk) => risk.path ? <code>{risk.path}</code> : "-",
-  },
-];
-
-const datasetRiskColumns: DataTableColumn<DatasetRiskItem>[] = [
-  {
-    header: "数据集",
-    key: "dataset",
-    className: "risk-col-dataset",
-    render: (risk) => (
-      <div className="risk-dataset-cell">
-        <strong>{risk.datasetName}</strong>
-        <span>{risk.datasetKey}</span>
-      </div>
-    ),
-  },
-  {
-    header: "级别",
-    key: "severity",
-    className: "risk-col-severity",
-    render: (risk) => <RiskSeverityBadge severity={risk.severity} />,
-  },
-  {
-    header: "原因码",
-    key: "code",
-    className: "risk-col-code",
-    render: (risk) => <code>{risk.code}</code>,
-  },
-  {
-    header: "说明",
-    key: "message",
-    className: "risk-col-message",
-    render: (risk) => risk.message,
-  },
-];
-
-function RiskSeverityBadge({ severity }: { severity: string }) {
-  return <Badge tone={riskSeverityTone(severity)}>{riskSeverityLabel(severity)}</Badge>;
-}
-
-function riskRowTone(risk: RiskItem): "warning" | "error" | "default" {
-  const normalized = risk.severity.toLowerCase();
-  if (normalized === "critical" || normalized === "error") {
-    return "error";
-  }
-  if (normalized === "warning") {
-    return "warning";
-  }
-  return "default";
-}
-
-function riskSeverityLabel(severity: string): string {
-  const labels: Record<string, string> = {
-    critical: "严重",
-    error: "错误",
-    warning: "警告",
-    info: "提示",
-  };
-  return labels[severity.toLowerCase()] ?? severity;
-}
-
-function riskSeverityTone(severity: string): "info" | "warning" | "error" | "neutral" {
-  const normalized = severity.toLowerCase();
-  if (normalized === "critical" || normalized === "error") {
-    return "error";
-  }
-  if (normalized === "warning") {
-    return "warning";
-  }
-  if (normalized === "info") {
-    return "info";
-  }
-  return "neutral";
 }
