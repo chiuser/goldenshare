@@ -17,6 +17,7 @@ class ProgressSnapshot:
     rows_rejected: int = 0
     current_object: dict[str, Any] = field(default_factory=dict)
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
+    rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
 
 class IngestionObserver:
@@ -38,6 +39,7 @@ class IngestionObserver:
         rows_rejected: int = 0,
         current_object: dict[str, Any] | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
+        rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
         if self.progress_reporter is None:
             return
@@ -53,5 +55,6 @@ class IngestionObserver:
             rows_rejected=rows_rejected,
             current_object=dict(current_object or {}),
             rejected_reason_counts=dict(rejected_reason_counts or {}),
+            rejected_reason_samples=dict(rejected_reason_samples or {}),
         )
         self.progress_reporter(snapshot, message)

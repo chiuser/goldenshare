@@ -4,10 +4,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 import hashlib
-import json
 import re
 from typing import Any
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
@@ -37,6 +35,7 @@ class TaskRunDispatchOutcome:
     rows_saved: int = 0
     rows_rejected: int = 0
     rejected_reason_counts: dict[str, int] | None = None
+    rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None
     summary_message: str | None = None
     issue_id: int | None = None
     status_reason_code: str | None = None
@@ -78,7 +77,14 @@ class TaskRunDispatcher:
         task_run.plan_snapshot_json = self._plan_snapshot(plan)
         session.commit()
         try:
-            rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = self._run_dataset_action_plan(
+            (
+                rows_fetched,
+                rows_saved,
+                rows_rejected,
+                rejected_reason_counts,
+                rejected_reason_samples,
+                summary_message,
+            ) = self._run_dataset_action_plan(
                 session,
                 task_run,
                 action_request,
@@ -91,8 +97,10 @@ class TaskRunDispatcher:
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
                 rejected_reason_counts=rejected_reason_counts,
+                rejected_reason_samples=rejected_reason_samples,
             )
             task_run.rejected_reason_counts_json = dict(rejected_reason_counts)
+            task_run.rejected_reason_samples_json = dict(rejected_reason_samples)
             task_run.unit_done = task_run.unit_total
             task_run.unit_failed = 0
             task_run.progress_percent = 100
@@ -103,6 +111,7 @@ class TaskRunDispatcher:
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
                 rejected_reason_counts=rejected_reason_counts,
+                rejected_reason_samples=rejected_reason_samples,
                 summary_message=summary_message,
             )
         except IngestionCanceledError as exc:
@@ -161,6 +170,7 @@ class TaskRunDispatcher:
         total_saved = 0
         total_rejected = 0
         total_rejected_reason_counts: dict[str, int] = {}
+        total_rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
         completed = 0
         failed = 0
         last_issue_id: int | None = None
@@ -196,7 +206,14 @@ class TaskRunDispatcher:
                     step_run = self._step_task_run(task_run, step_action_key, step_resource_key, params)
                     request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_run))
                     plan = DatasetActionResolver(session).build_plan(request)
-                    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, message = self._run_dataset_action_plan(
+                    (
+                        rows_fetched,
+                        rows_saved,
+                        rows_rejected,
+                        rejected_reason_counts,
+                        rejected_reason_samples,
+                        message,
+                    ) = self._run_dataset_action_plan(
                         session,
                         step_run,
                         request,
@@ -209,6 +226,7 @@ class TaskRunDispatcher:
                     rows_fetched, rows_saved, message = self._run_maintenance_action(session, action, params)
                     rows_rejected = max(rows_fetched - rows_saved, 0)
                     rejected_reason_counts = {}
+                    rejected_reason_samples = {}
                 self._finish_node(
                     node,
                     status="success",
@@ -216,11 +234,13 @@ class TaskRunDispatcher:
                     rows_saved=rows_saved,
                     rows_rejected=rows_rejected,
                     rejected_reason_counts=rejected_reason_counts,
+                    rejected_reason_samples=rejected_reason_samples,
                 )
                 total_fetched += rows_fetched
                 total_saved += rows_saved
                 total_rejected += rows_rejected
                 self._merge_reason_counts(total_rejected_reason_counts, rejected_reason_counts)
+                self._merge_reason_samples(total_rejected_reason_samples, rejected_reason_samples)
                 completed += 1
                 last_message = message
                 session.commit()
@@ -260,6 +280,7 @@ class TaskRunDispatcher:
             rows_saved=total_saved,
             rows_rejected=total_rejected,
             rejected_reason_counts=total_rejected_reason_counts,
+            rejected_reason_samples=total_rejected_reason_samples,
             summary_message=last_message or workflow.display_name,
             issue_id=last_issue_id,
             status_reason_code="workflow_step_failed" if failed else None,
@@ -322,7 +343,7 @@ class TaskRunDispatcher:
         task_run: TaskRun,
         action_request: DatasetActionRequest,
         plan,
-    ) -> tuple[int, int, int, dict[str, int], str | None]:  # type: ignore[no-untyped-def]
+    ) -> tuple[int, int, int, dict[str, int], dict[str, list[dict[str, Any]]], str | None]:  # type: ignore[no-untyped-def]
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
@@ -343,7 +364,7 @@ class TaskRunDispatcher:
                 and definition.date_model.date_axis == "trade_open_day"
                 and self._is_closed_trade_date(session, parsed_trade_date)
             ):
-                return 0, 0, 0, {}, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
+                return 0, 0, 0, {}, {}, f"{definition.display_name}：{parsed_trade_date.isoformat()} 非交易日，已跳过维护。"
             action_request = DatasetActionRequest(
                 dataset_key=action_request.dataset_key,
                 action=action_request.action,
@@ -366,6 +387,7 @@ class TaskRunDispatcher:
         rows_saved = int(result.rows_written or 0)
         rows_rejected = int(result.rows_rejected or 0)
         rejected_reason_counts = self._normalize_reason_counts(result.rejected_reason_counts)
+        rejected_reason_samples = self._normalize_reason_samples(getattr(result, "rejected_reason_samples", {}))
         light_note = self._refresh_serving_light_if_needed(
             session,
             task_run_id=task_run.id,
@@ -379,7 +401,7 @@ class TaskRunDispatcher:
         summary_message = str(result.message or "").strip() or f"units={plan.planning.unit_count}"
         if light_note:
             summary_message = f"{summary_message}；{light_note}"
-        return rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message
+        return rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reason_samples, summary_message
 
     def _build_dataset_action_request(self, task_run: TaskRun) -> DatasetActionRequest:
         time_payload = dict(task_run.time_input_json or {})
@@ -696,6 +718,7 @@ class TaskRunDispatcher:
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
+        rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
         ended_at = datetime.now(timezone.utc)
         started_at = TaskRunDispatcher._as_aware_utc(node.started_at) if node.started_at else ended_at
@@ -708,6 +731,8 @@ class TaskRunDispatcher:
             node.rows_rejected = rows_rejected
         if rejected_reason_counts is not None:
             node.rejected_reason_counts_json = TaskRunDispatcher._normalize_reason_counts(rejected_reason_counts)
+        if rejected_reason_samples is not None:
+            node.rejected_reason_samples_json = TaskRunDispatcher._normalize_reason_samples(rejected_reason_samples)
         node.ended_at = ended_at
         node.duration_ms = max(int((ended_at - started_at).total_seconds() * 1000), 0)
 
@@ -733,6 +758,37 @@ class TaskRunDispatcher:
     def _merge_reason_counts(target: dict[str, int], source: dict[str, int] | None) -> None:
         for key, count in TaskRunDispatcher._normalize_reason_counts(source).items():
             target[key] = target.get(key, 0) + count
+
+    @staticmethod
+    def _normalize_reason_samples(value: dict[str, list[dict[str, Any]]] | None) -> dict[str, list[dict[str, Any]]]:
+        if not isinstance(value, dict):
+            return {}
+        normalized: dict[str, list[dict[str, Any]]] = {}
+        for raw_key, raw_samples in value.items():
+            key = str(raw_key or "").strip()
+            if not key or not isinstance(raw_samples, list):
+                continue
+            bucket: list[dict[str, Any]] = []
+            for sample in raw_samples:
+                if len(bucket) >= 3:
+                    break
+                if isinstance(sample, dict):
+                    bucket.append(dict(sample))
+            if bucket:
+                normalized[key] = bucket
+        return normalized
+
+    @staticmethod
+    def _merge_reason_samples(
+        target: dict[str, list[dict[str, Any]]],
+        source: dict[str, list[dict[str, Any]]] | None,
+    ) -> None:
+        for key, samples in TaskRunDispatcher._normalize_reason_samples(source).items():
+            bucket = target.setdefault(key, [])
+            for sample in samples:
+                if len(bucket) >= 3:
+                    break
+                bucket.append(dict(sample))
 
     def _record_issue(
         self,

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionError, StructuredError
+from src.foundation.ingestion.errors import IngestionError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.normalizer import DatasetNormalizer
@@ -27,6 +28,7 @@ class IngestionRunSummary:
         rows_committed: int,
         rows_rejected: int,
         rejected_reason_counts: dict[str, int],
+        rejected_reason_samples: dict[str, list[dict[str, Any]]],
         result_date: date | None,
         message: str | None,
         error_counts: dict[str, int],
@@ -41,6 +43,7 @@ class IngestionRunSummary:
         self.rows_committed = rows_committed
         self.rows_rejected = rows_rejected
         self.rejected_reason_counts = rejected_reason_counts
+        self.rejected_reason_samples = rejected_reason_samples
         self.result_date = result_date
         self.message = message
         self.error_counts = error_counts
@@ -72,6 +75,7 @@ class IngestionExecutor:
         rows_committed = 0
         rows_rejected = 0
         rejected_reason_counts: dict[str, int] = {}
+        rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
         unit_done = 0
         unit_failed = 0
         error_counts: dict[str, int] = {}
@@ -100,6 +104,7 @@ class IngestionExecutor:
                 rows_rejected += unit_rows_rejected
                 for reason_code, count in normalized.rejected_reasons.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+                self._merge_reason_samples(rejected_reason_samples, normalized.rejected_samples)
                 for reason_code, count in written.rejected_reason_counts.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
                 self.session.commit()
@@ -129,6 +134,7 @@ class IngestionExecutor:
                     rows_committed=rows_committed,
                     rows_rejected=rows_rejected,
                     rejected_reason_counts=rejected_reason_counts,
+                    rejected_reason_samples=rejected_reason_samples,
                     current_object=self._build_current_object(unit),
                     message=self._build_progress_message(
                         progress_label=definition.observability.progress_label,
@@ -158,10 +164,31 @@ class IngestionExecutor:
             rows_committed=rows_committed,
             rows_rejected=rows_rejected,
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
             result_date=self._resolve_result_date(request),
             message=f"共 {total_units} 个单元，成功 {unit_done} 个，失败 {unit_failed} 个",
             error_counts=error_counts,
         )
+
+    @staticmethod
+    def _merge_reason_samples(
+        target: dict[str, list[dict[str, Any]]],
+        source: dict[str, list[dict[str, Any]]] | None,
+        *,
+        max_samples_per_reason: int = 3,
+    ) -> None:
+        if not isinstance(source, dict):
+            return
+        for raw_key, raw_samples in source.items():
+            key = str(raw_key or "").strip()
+            if not key or not isinstance(raw_samples, list):
+                continue
+            bucket = target.setdefault(key, [])
+            for sample in raw_samples:
+                if len(bucket) >= max_samples_per_reason:
+                    break
+                if isinstance(sample, dict):
+                    bucket.append(dict(sample))
 
     @staticmethod
     def _resolve_result_date(request: ValidatedDatasetActionRequest) -> date | None:

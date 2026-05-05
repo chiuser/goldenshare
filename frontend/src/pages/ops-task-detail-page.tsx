@@ -15,7 +15,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { apiRequest } from "../shared/api/client";
-import type { TaskRunCreateResponse, TaskRunIssueDetailResponse, TaskRunViewResponse } from "../shared/api/types";
+import type {
+  TaskRunCreateResponse,
+  TaskRunIssueDetailResponse,
+  TaskRunRejectionSampleItem,
+  TaskRunViewResponse,
+} from "../shared/api/types";
 import { formatDateTimeLabel } from "../shared/date-format";
 import { buildDatasetCardPageHref, buildManualTaskHref } from "../shared/ops-links";
 import { formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
@@ -66,6 +71,26 @@ function buildActionSuggestion(view: TaskRunViewResponse) {
     return "继续观察当前进度；如果任务明显卡住，再考虑停止处理。";
   }
   return "任务已经结束，可返回任务记录或复制参数发起新的任务。";
+}
+
+function formatSampleValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "空值";
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function buildSampleSummary(sample: TaskRunRejectionSampleItem) {
+  const row = sample.row && typeof sample.row === "object" ? sample.row : {};
+  const pairs = Object.entries(row).map(([key, value]) => `${key}=${formatSampleValue(value)}`);
+  return pairs.join("，") || "没有记录行字段。";
 }
 
 function formatDuration(ms: number | null) {
@@ -448,6 +473,26 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                         </Group>
                         {reason.suggested_action ? (
                           <Text size="sm" c="dimmed">{`建议：${reason.suggested_action}`}</Text>
+                        ) : null}
+                        {reason.samples.length > 0 ? (
+                          <Stack gap={6}>
+                            <Text size="sm" fw={700}>
+                              拒绝样本
+                            </Text>
+                            {reason.samples.map((sample, index) => (
+                              <Stack key={`${reason.reason_key}-${index}`} gap={4} p="xs" style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8 }}>
+                                <Group gap="xs">
+                                  <Badge variant="light">{`样本 ${index + 1}`}</Badge>
+                                  {sample.field ? <Badge variant="light">{sample.field}</Badge> : null}
+                                  {sample.unit_id ? <Text size="xs" c="dimmed">{`单元：${sample.unit_id}`}</Text> : null}
+                                </Group>
+                                {sample.field ? (
+                                  <Text size="xs" c="dimmed">{`字段原值：${formatSampleValue(sample.value)}`}</Text>
+                                ) : null}
+                                <Text size="xs">{buildSampleSummary(sample)}</Text>
+                              </Stack>
+                            ))}
+                          </Stack>
                         ) : null}
                       </Stack>
                     </SectionCard>

@@ -261,7 +261,7 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
 
     def fake_run_dataset_action_plan(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
         dispatched_dataset_keys.append(action_request.dataset_key)
-        return 1, 1, 0, {}, f"{action_request.dataset_key}:ok"
+        return 1, 1, 0, {}, {}, f"{action_request.dataset_key}:ok"
 
     monkeypatch.setattr("src.ops.runtime.task_run_dispatcher.DatasetActionResolver.build_plan", fake_build_plan)
     monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", fake_run_dataset_action_plan)
@@ -453,6 +453,11 @@ def test_task_run_progress_updates_rejected_reason_counts(db_session, task_run_f
         rows_saved=1527,
         rows_rejected=3,
         rejected_reason_counts={"write.duplicate_conflict_key_in_batch:ts_code": 3},
+        rejected_reason_samples={
+            "write.duplicate_conflict_key_in_batch:ts_code": [
+                {"unit_id": "u-dc-hot", "field": "ts_code", "value": "000001.SZ", "row": {"ts_code": "000001.SZ"}}
+            ]
+        },
         current_object={"entity": {"kind": "date", "name": "2026-04-24"}, "time": {}, "attributes": {}},
     )
 
@@ -460,7 +465,9 @@ def test_task_run_progress_updates_rejected_reason_counts(db_session, task_run_f
     db_session.refresh(node)
     assert task_run.rows_rejected == 3
     assert task_run.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}
+    assert task_run.rejected_reason_samples_json["write.duplicate_conflict_key_in_batch:ts_code"][0]["value"] == "000001.SZ"
     assert node.rejected_reason_counts_json == {"write.duplicate_conflict_key_in_batch:ts_code": 3}
+    assert node.rejected_reason_samples_json == task_run.rejected_reason_samples_json
 
 
 def test_finish_node_preserves_observed_rows_when_final_rows_not_provided(db_session, task_run_factory, task_run_node_factory) -> None:
@@ -544,7 +551,7 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
         run_id=task_run.id,
     )
 
-    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
+    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reason_samples, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
         db_session,
         task_run,
         action_request,
@@ -553,6 +560,7 @@ def test_task_run_dispatcher_returns_readable_closed_trade_date_skip_message(
 
     assert (rows_fetched, rows_saved, rows_rejected) == (0, 0, 0)
     assert rejected_reason_counts == {}
+    assert rejected_reason_samples == {}
     assert summary_message == "股票日线：2026-04-25 非交易日，已跳过维护。"
 
 
@@ -591,7 +599,7 @@ def test_task_run_dispatcher_does_not_skip_natural_day_point_on_closed_trade_dat
         run_id=task_run.id,
     )
 
-    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
+    rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reason_samples, summary_message = TaskRunDispatcher()._run_dataset_action_plan(
         db_session,
         task_run,
         action_request,
@@ -600,6 +608,7 @@ def test_task_run_dispatcher_does_not_skip_natural_day_point_on_closed_trade_dat
 
     assert (rows_fetched, rows_saved, rows_rejected) == (5507, 5507, 0)
     assert rejected_reason_counts == {}
+    assert rejected_reason_samples == {}
     assert summary_message == "units=1"
     assert len(calls) == 1
     assert calls[0].time_input.trade_date == date(2026, 5, 1)

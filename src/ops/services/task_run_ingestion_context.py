@@ -34,6 +34,7 @@ class TaskRunIngestionContext(IngestionRunContext):
         rows_saved: int | None = None,
         rows_rejected: int | None = None,
         rejected_reason_counts: dict[str, int] | None = None,
+        rejected_reason_samples: dict[str, list[dict[str, Any]]] | None = None,
         current_object: dict[str, Any] | None = None,
     ) -> None:
         bind = self.session.get_bind()
@@ -51,6 +52,7 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)
             task_run.rows_rejected = int(rows_rejected if rows_rejected is not None else task_run.rows_rejected or 0)
             task_run.rejected_reason_counts_json = self._sanitize_reason_counts(rejected_reason_counts)
+            task_run.rejected_reason_samples_json = self._sanitize_reason_samples(rejected_reason_samples)
             task_run.current_object_json = self._sanitize_current_object(current_object)
             self._update_current_running_node(progress_session, task_run)
             progress_session.commit()
@@ -70,6 +72,7 @@ class TaskRunIngestionContext(IngestionRunContext):
         node.rows_saved = task_run.rows_saved
         node.rows_rejected = task_run.rows_rejected
         node.rejected_reason_counts_json = dict(task_run.rejected_reason_counts_json or {})
+        node.rejected_reason_samples_json = dict(task_run.rejected_reason_samples_json or {})
 
     @staticmethod
     def _sanitize_reason_counts(value: dict[str, int] | None) -> dict[str, int]:
@@ -87,6 +90,25 @@ class TaskRunIngestionContext(IngestionRunContext):
             if count <= 0:
                 continue
             normalized[key] = normalized.get(key, 0) + count
+        return normalized
+
+    @staticmethod
+    def _sanitize_reason_samples(value: dict[str, list[dict[str, Any]]] | None) -> dict[str, list[dict[str, Any]]]:
+        if not isinstance(value, dict):
+            return {}
+        normalized: dict[str, list[dict[str, Any]]] = {}
+        for raw_key, raw_samples in value.items():
+            key = str(raw_key or "").strip()
+            if not key or not isinstance(raw_samples, list):
+                continue
+            bucket: list[dict[str, Any]] = []
+            for sample in raw_samples:
+                if len(bucket) >= 3:
+                    break
+                if isinstance(sample, dict):
+                    bucket.append(dict(sample))
+            if bucket:
+                normalized[key] = bucket
         return normalized
 
     @staticmethod

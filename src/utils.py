@@ -3,10 +3,19 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from datetime import date, datetime
 from decimal import Decimal
+from decimal import InvalidOperation
 from typing import Any
 
 
 PSEUDO_NULL_TEXTS = {"nan", "nat", "none", "null"}
+
+
+class CoerceRowError(ValueError):
+    def __init__(self, *, reason_code: str, field: str, value: Any, message: str) -> None:
+        super().__init__(message)
+        self.reason_code = reason_code
+        self.field = field
+        self.value = value
 
 
 def chunked(items: list[dict[str, Any]], size: int) -> Iterator[list[dict[str, Any]]]:
@@ -39,10 +48,28 @@ def coerce_row(row: dict[str, Any], date_fields: Iterable[str], decimal_fields: 
     normalized = dict(row)
     for key in date_fields:
         if key in normalized:
-            normalized[key] = parse_tushare_date(normalized.get(key))
+            value = normalized.get(key)
+            try:
+                normalized[key] = parse_tushare_date(value)
+            except (TypeError, ValueError) as exc:
+                raise CoerceRowError(
+                    reason_code="normalize.invalid_date",
+                    field=key,
+                    value=value,
+                    message=f"invalid date field `{key}`: {value}",
+                ) from exc
     for key in decimal_fields:
         if key in normalized:
-            normalized[key] = to_decimal(normalized.get(key))
+            value = normalized.get(key)
+            try:
+                normalized[key] = to_decimal(value)
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise CoerceRowError(
+                    reason_code="normalize.invalid_decimal",
+                    field=key,
+                    value=value,
+                    message=f"invalid decimal field `{key}`: {value}",
+                ) from exc
     return normalized
 
 

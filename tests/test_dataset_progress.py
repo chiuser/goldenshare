@@ -241,6 +241,11 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
                 rows_normalized=[{"row_key_hash": "a"}, {"row_key_hash": "b"}],
                 rows_rejected=1,
                 rejected_reasons={"normalize.required_field_missing:trade_date": 1},
+                rejected_samples={
+                    "normalize.required_field_missing:trade_date": [
+                        {"unit_id": "u-1", "field": "trade_date", "value": None, "row": {"row_key_hash": "missing-date"}}
+                    ]
+                },
             )
 
         def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]
@@ -297,4 +302,6 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
         "normalize.required_field_missing:trade_date": 1,
         "write.duplicate_conflict_key_in_batch:row_key_hash": 1,
     }
+    assert summary.rejected_reason_samples["normalize.required_field_missing:trade_date"][0]["row"]["row_key_hash"] == "missing-date"
     assert captured[0][0].rejected_reason_counts == summary.rejected_reason_counts
+    assert captured[0][0].rejected_reason_samples == summary.rejected_reason_samples

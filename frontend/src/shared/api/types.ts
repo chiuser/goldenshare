@@ -329,6 +329,14 @@ export interface TaskRunDisplayObject {
   }>;
 }
 
+export interface TaskRunRejectionSampleItem {
+  unit_id: string | null;
+  field: string | null;
+  value: unknown;
+  message: string | null;
+  row: Record<string, unknown>;
+}
+
 export interface TaskRunRejectionReasonItem {
   reason_key: string;
   reason_code: string;
@@ -336,6 +344,7 @@ export interface TaskRunRejectionReasonItem {
   count: number;
   label: string | null;
   suggested_action: string | null;
+  samples: TaskRunRejectionSampleItem[];
 }
 
 export interface TaskRunPeriodSourceSummary {

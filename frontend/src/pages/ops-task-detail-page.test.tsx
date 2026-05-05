@@ -71,6 +71,18 @@ function createTaskRunView(status = "failed") {
           count: 1,
           label: "必填字段缺失",
           suggested_action: "检查字段映射和空值处理",
+          samples: [
+            {
+              unit_id: "u-daily",
+              field: "trade_date",
+              value: null,
+              message: null,
+              row: {
+                ts_code: "000001.SZ",
+                trade_date: "",
+              },
+            },
+          ],
         },
       ],
       period_source_summary: null as null | {
@@ -143,6 +155,18 @@ function createTaskRunView(status = "failed") {
             count: 1,
             label: "必填字段缺失",
             suggested_action: "检查字段映射和空值处理",
+            samples: [
+              {
+                unit_id: "u-daily",
+                field: "trade_date",
+                value: null,
+                message: null,
+                row: {
+                  ts_code: "000001.SZ",
+                  trade_date: "",
+                },
+              },
+            ],
           },
         ],
         issue_id: hasIssue ? 99 : null,
@@ -250,8 +274,11 @@ describe("任务详情页", () => {
 
     expect(await screen.findByText("拒绝原因详情")).toBeInTheDocument();
     expect(await screen.findByText("必填字段缺失")).toBeInTheDocument();
-    expect(await screen.findByText("trade_date")).toBeInTheDocument();
+    expect((await screen.findAllByText("trade_date")).length).toBeGreaterThan(0);
     expect(await screen.findByText(/检查字段映射和空值处理/)).toBeInTheDocument();
+    expect(await screen.findByText("拒绝样本")).toBeInTheDocument();
+    expect(await screen.findByText("字段原值：空值")).toBeInTheDocument();
+    expect(await screen.findByText(/ts_code=000001\.SZ/)).toBeInTheDocument();
 
     await user.click(await screen.findByRole("button", { name: "查看技术诊断" }));
 

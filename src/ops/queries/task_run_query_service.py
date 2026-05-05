@@ -29,6 +29,7 @@ from src.ops.schemas.task_run import (
     TaskRunPeriodSourceSummary,
     TaskRunProgress,
     TaskRunRejectionReasonItem,
+    TaskRunRejectionSampleItem,
     TaskRunSummaryResponse,
     TaskRunTimeScope,
     TaskRunViewResponse,
@@ -139,6 +140,7 @@ class TaskRunQueryService:
         )
         time_scope = self._time_scope(dict(task_run.time_input_json or {}))
         rejected_reason_counts = self._normalize_reason_counts(task_run.rejected_reason_counts_json)
+        rejected_reason_samples = self._normalize_reason_samples(task_run.rejected_reason_samples_json)
         period_source_summary = self._period_source_summary(session, task_run=task_run, time_scope=time_scope)
         return TaskRunViewResponse(
             run=TaskRunInfo(
@@ -174,7 +176,7 @@ class TaskRunQueryService:
                 rows_saved=task_run.rows_saved,
                 rows_rejected=task_run.rows_rejected,
                 rejected_reason_counts=rejected_reason_counts,
-                rejected_reasons=self._rejection_reason_items(rejected_reason_counts),
+                rejected_reasons=self._rejection_reason_items(rejected_reason_counts, rejected_reason_samples),
                 current_object=self._display_current_object(
                     dict(task_run.current_object_json or {}),
                     status=task_run.status,
@@ -481,6 +483,7 @@ class TaskRunQueryService:
     @classmethod
     def _node_item(cls, node: TaskRunNode) -> TaskRunNodeItem:
         rejected_reason_counts = cls._normalize_reason_counts(node.rejected_reason_counts_json)
+        rejected_reason_samples = cls._normalize_reason_samples(node.rejected_reason_samples_json)
         return TaskRunNodeItem(
             id=node.id,
             parent_node_id=node.parent_node_id,
@@ -496,7 +499,7 @@ class TaskRunQueryService:
             rows_saved=node.rows_saved,
             rows_rejected=node.rows_rejected,
             rejected_reason_counts=rejected_reason_counts,
-            rejected_reasons=cls._rejection_reason_items(rejected_reason_counts),
+            rejected_reasons=cls._rejection_reason_items(rejected_reason_counts, rejected_reason_samples),
             issue_id=node.issue_id,
             started_at=node.started_at,
             ended_at=node.ended_at,
@@ -504,9 +507,14 @@ class TaskRunQueryService:
         )
 
     @classmethod
-    def _rejection_reason_items(cls, reason_counts: dict[str, int]) -> list[TaskRunRejectionReasonItem]:
+    def _rejection_reason_items(
+        cls,
+        reason_counts: dict[str, int],
+        reason_samples: dict[str, list[TaskRunRejectionSampleItem]] | None = None,
+    ) -> list[TaskRunRejectionReasonItem]:
         codebook = {entry.code: entry for entry in INGESTION_REASON_CODEBOOK}
         items: list[TaskRunRejectionReasonItem] = []
+        normalized_samples = reason_samples or {}
         for reason_key, count in sorted(reason_counts.items(), key=lambda item: (-item[1], item[0])):
             reason_code, field = cls._split_reason_key(reason_key)
             entry = codebook.get(reason_code)
@@ -518,6 +526,7 @@ class TaskRunQueryService:
                     count=count,
                     label=entry.label if entry else None,
                     suggested_action=entry.suggested_action if entry else None,
+                    samples=list(normalized_samples.get(reason_key, [])),
                 )
             )
         return items
@@ -546,6 +555,35 @@ class TaskRunQueryService:
             if count <= 0:
                 continue
             normalized[key] = normalized.get(key, 0) + count
+        return normalized
+
+    @staticmethod
+    def _normalize_reason_samples(reason_samples: object) -> dict[str, list[TaskRunRejectionSampleItem]]:
+        if not isinstance(reason_samples, dict):
+            return {}
+        normalized: dict[str, list[TaskRunRejectionSampleItem]] = {}
+        for raw_key, raw_samples in reason_samples.items():
+            key = str(raw_key or "").strip()
+            if not key or not isinstance(raw_samples, list):
+                continue
+            bucket: list[TaskRunRejectionSampleItem] = []
+            for sample in raw_samples:
+                if len(bucket) >= 3:
+                    break
+                if not isinstance(sample, dict):
+                    continue
+                row = sample.get("row") if isinstance(sample.get("row"), dict) else {}
+                bucket.append(
+                    TaskRunRejectionSampleItem(
+                        unit_id=TaskRunQueryService._text(sample.get("unit_id")),
+                        field=TaskRunQueryService._text(sample.get("field")),
+                        value=sample.get("value"),
+                        message=TaskRunQueryService._text(sample.get("message")),
+                        row=dict(row),
+                    )
+                )
+            if bucket:
+                normalized[key] = bucket
         return normalized
 
     @staticmethod

@@ -120,6 +120,14 @@ class TaskRunDisplayObject(BaseModel):
     fields: list[TaskRunDisplayField] = Field(default_factory=list)
 
 
+class TaskRunRejectionSampleItem(BaseModel):
+    unit_id: str | None = None
+    field: str | None = None
+    value: Any | None = None
+    message: str | None = None
+    row: dict[str, Any] = Field(default_factory=dict)
+
+
 class TaskRunRejectionReasonItem(BaseModel):
     reason_key: str
     reason_code: str
@@ -127,6 +135,8 @@ class TaskRunRejectionReasonItem(BaseModel):
     count: int
     label: str | None = None
     suggested_action: str | None = None
+    samples: list[TaskRunRejectionSampleItem] = Field(default_factory=list)
+
 
 
 class TaskRunPeriodSourceSummary(BaseModel):

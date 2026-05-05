@@ -135,6 +135,11 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
             "normalize.required_field_missing:trade_date": 7,
             "normalize.invalid_decimal": 3,
         },
+        rejected_reason_samples_json={
+            "normalize.required_field_missing:trade_date": [
+                {"unit_id": "u-daily", "field": "trade_date", "value": None, "row": {"ts_code": "000001.SZ"}}
+            ]
+        },
         current_object_json={
             "entity": {"kind": "security", "code": "000001.SZ", "name": "平安银行"},
             "time": {"start": "2026-04-20", "end": "2026-04-24"},
@@ -150,6 +155,11 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
         rows_saved=90,
         rows_rejected=10,
         rejected_reason_counts_json={"normalize.required_field_missing:trade_date": 7},
+        rejected_reason_samples_json={
+            "normalize.required_field_missing:trade_date": [
+                {"unit_id": "u-daily", "field": "trade_date", "value": None, "row": {"ts_code": "000001.SZ"}}
+            ]
+        },
     )
     issue = task_run_issue_factory(
         task_run_id=task_run.id,
@@ -180,11 +190,13 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["progress"]["rejected_reasons"][0]["reason_code"] == "normalize.required_field_missing"
     assert payload["progress"]["rejected_reasons"][0]["field"] == "trade_date"
     assert payload["progress"]["rejected_reasons"][0]["label"] == "必填字段缺失"
+    assert payload["progress"]["rejected_reasons"][0]["samples"][0]["row"]["ts_code"] == "000001.SZ"
     assert payload["progress"]["current_object"] is None
     assert payload["primary_issue"]["title"] == "任务处理失败"
     assert payload["primary_issue"]["object"]["title"] == "问题位置：平安银行（000001.SZ）"
     assert payload["nodes"][0]["title"] == "维护 股票日线"
     assert payload["nodes"][0]["rejected_reasons"][0]["count"] == 7
+    assert payload["nodes"][0]["rejected_reasons"][0]["samples"][0]["field"] == "trade_date"
 
 
 def test_ops_task_run_view_returns_index_period_source_summary(

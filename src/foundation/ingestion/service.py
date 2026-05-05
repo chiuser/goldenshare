@@ -24,6 +24,7 @@ class DatasetMaintainResult:
     rows_written: int = 0
     rows_rejected: int = 0
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
+    rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     trade_date: date | None = None
     message: str | None = None
 
@@ -132,6 +133,7 @@ class DatasetMaintainService:
                 rows_written=committed_rows,
                 rows_rejected=summary.rows_rejected,
                 rejected_reason_counts=dict(summary.rejected_reason_counts or {}),
+                rejected_reason_samples=dict(summary.rejected_reason_samples or {}),
                 trade_date=summary.result_date,
                 message=summary.message,
             )
@@ -276,6 +278,7 @@ class DatasetMaintainService:
                     rows_saved=rows_saved,
                     rows_rejected=progress_snapshot.rows_rejected,
                     rejected_reason_counts=getattr(progress_snapshot, "rejected_reason_counts", {}),
+                    rejected_reason_samples=getattr(progress_snapshot, "rejected_reason_samples", {}),
                     current_object=progress_snapshot.current_object,
                 )
         except Exception:

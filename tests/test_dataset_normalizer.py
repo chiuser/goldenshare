@@ -261,6 +261,33 @@ def test_major_news_normalizer_uses_url_in_row_hash() -> None:
     assert batch.rows_normalized[0]["row_key_hash"] != batch.rows_normalized[1]["row_key_hash"]
 
 
+def test_bak_basic_invalid_date_rejection_keeps_field_sample() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("bak_basic"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-bak-basic",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260424",
+                    "ts_code": "000001.SZ",
+                    "name": "平安银行",
+                    "list_date": "20260231",
+                }
+            ],
+        ),
+    )
+
+    reason_key = "normalize.invalid_date:list_date"
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {reason_key: 1}
+    assert batch.rejected_samples[reason_key][0]["field"] == "list_date"
+    assert batch.rejected_samples[reason_key][0]["value"] == "20260231"
+    assert batch.rejected_samples[reason_key][0]["row"]["ts_code"] == "000001.SZ"
+
+
 def test_index_basic_normalizer_keeps_source_date_strings_for_raw_layer() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("index_basic"),
