@@ -31,20 +31,66 @@
 7. 不得写“临时方案”。如果事实或能力还没准备好，应标为“不支持 / 暂不接入”，不要把临时路径做进主链。
 8. 不得在 Ops、前端、自动任务服务中提前展开日期模型，例如把自然月窗口提前转成源接口 `start_date/end_date`。这类展开必须由 resolver 根据 `DatasetDefinition.date_model` 完成。
 
+### 0.3 开发前置硬检查
+
+下面两张表未填写完成前，不得进入编码。
+
+#### 0.3.1 三层语义拆分表
+
+这张表是本模板新增的硬门禁，用来防止把“支持按日期输入”误写成“要求每天都有数据”。
+
+| 语义层 | 必须回答的问题 | 本数据集答案 | 是否已从代码/源文档核验 |
+| --- | --- | --- | --- |
+| 时间输入语义 | 用户或调度到底在提交什么意图？是单日、区间、月份、自然月窗口，还是无时间？字段名虽然叫 `trade_date`，真实业务含义是什么？ |  | 是 / 否 |
+| 执行 / unit 语义 | resolver 会如何展开执行计划？是保留单个区间 unit、逐日 fan-out、按月份 fan-out、按证券池 fan-out，还是按枚举组合 fan-out？单个事务边界在哪里？ |  | 是 / 否 |
+| freshness / audit 语义 | 平台是否要求连续日期桶？如果要求，是按交易日、自然日、周五、月末还是月份键？如果不要求，为什么不要求？ |  | 是 / 否 |
+
+强约束：
+
+1. 这三层答案必须分别填写，禁止用一句模糊描述混过去。
+2. 如果第三行答案是“不要求连续日期桶”，必须明确写出是否仍支持自然日/交易日输入。
+3. 若 `bucket_rule=not_applicable`，必须额外说明：这是“仅退出 freshness/audit”，还是“连时间输入也不支持”。
+
+#### 0.3.2 DatasetDefinition 消费者审计表
+
+修改 `DatasetDefinition` 事实源前，必须按下面清单逐项审计真实代码消费方。任何一项未确认，都不能动手改定义。
+
+| 消费方 | 读取了哪些 Definition 事实 | 本次是否受影响 | 需要怎么改 | 已核验代码位置 |
+| --- | --- | --- | --- | --- |
+| manual actions | `date_model`、`input_model`、`capabilities` |  |  |  |
+| catalog | `date_model.selection_rule()`、展示分组、参数 |  |  |  |
+| workflow | step 时间模式、默认参数、日期制度 |  |  |  |
+| resolver / unit planner | `date_model`、`planning`、`input_shape` |  |  |  |
+| request builder | 源接口字段映射、日期格式化 |  |  |  |
+| freshness | `observed_field`、`date_axis`、`bucket_rule` |  |  |  |
+| dataset cards | 卡片状态、最近同步、原始层状态 |  |  |  |
+| snapshot rebuild | `dataset_status_snapshot` / `dataset_layer_snapshot_current` 投影 |  |  |  |
+| date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` |  |  |  |
+| 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 |  |  |  |
+| 前端时间控件 | point/range/none/month 控件与选择规则 |  |  |  |
+| 测试与文档 | 现有单测、方案文档、开发文档 |  |  |  |
+
+停手条件：
+
+1. 有任何一行“已核验代码位置”填不出来，先去看代码，不要猜。
+2. 如果 manual actions、freshness、dataset cards 三行还没核验完，禁止修改 `date_model`。
+3. 如果文档口径和当前代码实现不一致，先记录差异，再决定改文档还是改代码；禁止两边继续脱节。
+
 ---
 
 ## 1. 标准交付流程
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
-2. 新增或更新 `docs/sources/**` 源站文档；Tushare 文档必须同步 `docs/sources/tushare/docs_index.csv`。
-3. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
-4. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
-5. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
-6. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
-7. 确认 Ops 派生能力：manual actions、catalog、freshness、dataset cards、TaskRun 详情。
-8. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁。
-9. 本地执行门禁并记录命令。
-10. 发版前在开发库跑最小真实同步，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
+2. 填完“0.3 三层语义拆分表”和“0.3 DatasetDefinition 消费者审计表”。
+3. 新增或更新 `docs/sources/**` 源站文档；Tushare 文档必须同步 `docs/sources/tushare/docs_index.csv`。
+4. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
+5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
+6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
+7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
+8. 确认 Ops 派生能力：manual actions、catalog、workflow、freshness、dataset cards、TaskRun 详情。
+9. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁。
+10. 本地执行门禁并记录命令。
+11. 发版前在开发库跑最小真实同步，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
 
 ---
 
@@ -180,6 +226,7 @@
 - 如果源接口要求自然周周五或自然月最后一天，使用 `week_friday` / `month_last_calendar_day`；即使字段名叫 `trade_date`，也不能误建模成交易日。
 - 如果自然锚点对应的业务窗口没有开市日就不应产出数据，必须显式填写 `bucket_window_rule` 与 `bucket_applicability_rule`，不得在审计 SQL 或前端用节假日白名单兜底。
 - 快照/主数据通常使用 `date_axis="none"`、`bucket_rule="not_applicable"`，并给出 `not_applicable_reason`。
+- 事件型数据如果“支持自然日输入，但不要求每天都有数据”，也应使用 `bucket_rule="not_applicable"`，同时在 0.3 三层语义拆分表中明确写出：输入仍是自然日，只有 freshness / audit 退出连续日期桶判断。
 - 前端日期控件、审计能力、freshness 口径都从 `date_model` 派生，不允许另建第二套日期规则。
 
 ### 4.4.1 时间意图归一化设计

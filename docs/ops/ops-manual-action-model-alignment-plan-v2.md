@@ -182,7 +182,9 @@ POST /api/v1/ops/manual-actions/{action_key}/task-runs
 6. `month_last_calendar_day` -> `selection_rule=month_end`
 7. `every_natural_month` -> `selection_rule=month_key`
 8. `month_window_has_data` -> `selection_rule=month_window`
-9. `not_applicable` -> `selection_rule=none`
+9. `not_applicable` 且 `input_shape=none` -> `selection_rule=none`
+10. `not_applicable` 且 `input_shape=ann_date_or_start_end` -> `selection_rule=calendar_day`
+11. `not_applicable` 且 `input_shape=trade_date_or_start_end` -> 按 `date_axis` 派生 `calendar_day` 或 `trading_day_only`
 
 ---
 

@@ -330,16 +330,21 @@
 
 ### 4.8 `DatasetDateModel.selection_rule()` 派生值
 
-| `bucket_rule` | 派生 `selection_rule` | 含义 |
+| 条件 | 派生 `selection_rule` | 含义 |
 | --- | --- | --- |
-| `week_friday` | `week_friday` | 自然周五 |
-| `month_last_calendar_day` | `month_end` | 自然月最后一天 |
-| `week_last_open_day` | `week_last_trading_day` | 每周最后一个交易日 |
-| `month_last_open_day` | `month_last_trading_day` | 每月最后一个交易日 |
-| `every_natural_day` | `calendar_day` | 自然日 |
-| `every_natural_month` | `month_key` | 月份键 |
-| `month_window_has_data` | `month_window` | 自然月窗口 |
-| `not_applicable` | `none` | 无日期选择 |
+| `bucket_rule=week_friday` | `week_friday` | 自然周五 |
+| `bucket_rule=month_last_calendar_day` | `month_end` | 自然月最后一天 |
+| `bucket_rule=week_last_open_day` | `week_last_trading_day` | 每周最后一个交易日 |
+| `bucket_rule=month_last_open_day` | `month_last_trading_day` | 每月最后一个交易日 |
+| `bucket_rule=every_natural_day` | `calendar_day` | 自然日 |
+| `bucket_rule=every_natural_month` | `month_key` | 月份键 |
+| `bucket_rule=month_window_has_data` | `month_window` | 自然月窗口 |
+| `bucket_rule=not_applicable` 且 `input_shape=ann_date_or_start_end` | `calendar_day` | 事件型公告日期输入，仍按自然日选择 |
+| `bucket_rule=not_applicable` 且 `input_shape=trade_date_or_start_end` 且 `date_axis=natural_day` | `calendar_day` | 非连续自然日数据，但仍支持自然日输入 |
+| `bucket_rule=not_applicable` 且 `input_shape=trade_date_or_start_end` 且 `date_axis=trade_open_day` | `trading_day_only` | 非连续交易日数据，但仍支持交易日输入 |
+| `bucket_rule=not_applicable` 且 `input_shape=month_or_range` | `month_key` | 不做 freshness 桶判断，但仍支持月份输入 |
+| `bucket_rule=not_applicable` 且 `input_shape=start_end_month_window` | `month_window` | 不做 freshness 桶判断，但仍支持自然月窗口输入 |
+| `bucket_rule=not_applicable` 且 `input_shape=none` | `none` | 无日期选择 |
 | 其他值 | `trading_day_only` | 默认交易日 |
 
 ---

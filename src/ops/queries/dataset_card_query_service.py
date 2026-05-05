@@ -473,8 +473,10 @@ class DatasetCardQueryService:
         key = (status or "").lower()
         if key in {"running", "queued", "canceling"}:
             return "running"
-        if key in {"failed", "stale"}:
+        if key == "failed":
             return "failed"
+        if key == "stale":
+            return "stale"
         if key in {"warning", "lagging"}:
             return "warning"
         if key in {"healthy", "fresh", "success"}:

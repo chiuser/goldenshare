@@ -115,7 +115,7 @@
 ```python
 "date_model": {
     "date_axis": "natural_day",
-    "bucket_rule": "every_natural_day",
+    "bucket_rule": "not_applicable",
     "window_mode": "point_or_range",
     "input_shape": "ann_date_or_start_end",
     "observed_field": "pub_date",
@@ -129,6 +129,7 @@
 1. V1 选 `pub_date` 作为主时间轴。
 2. `imp_date` 保留为 filter，不另建第二套时间意图。
 3. point 模式沿用 `ann_date_or_start_end` 这条既有链路进入 manual-actions / validator，再在 request builder 中映射到源接口参数 `pub_date`。
+4. 手动任务日期控件仍按自然日选择；`not_applicable` 只表示 freshness / 完整性不按连续自然日做红绿灯判断。
 
 ### 3.5 `input_model`
 

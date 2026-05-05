@@ -17,6 +17,16 @@ class DatasetDateModel:
     bucket_applicability_rule: str = "always"
 
     def selection_rule(self) -> str:
+        if self.bucket_rule == "not_applicable":
+            if self.input_shape == "ann_date_or_start_end":
+                return "calendar_day"
+            if self.input_shape == "trade_date_or_start_end":
+                return "calendar_day" if self.date_axis == "natural_day" else "trading_day_only"
+            if self.input_shape == "month_or_range":
+                return "month_key"
+            if self.input_shape == "start_end_month_window":
+                return "month_window"
+            return "none"
         if self.bucket_rule == "week_friday":
             return "week_friday"
         if self.bucket_rule == "month_last_calendar_day":
@@ -31,8 +41,6 @@ class DatasetDateModel:
             return "month_key"
         if self.bucket_rule == "month_window_has_data":
             return "month_window"
-        if self.bucket_rule == "not_applicable":
-            return "none"
         return "trading_day_only"
 
 

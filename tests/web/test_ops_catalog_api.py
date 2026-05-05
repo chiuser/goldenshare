@@ -95,11 +95,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     namechange = actions["namechange.maintain"]
     assert namechange["group_key"] == "reference_data"
     assert namechange["group_label"] == "A股基础数据"
+    assert namechange["date_selection_rule"] == "calendar_day"
     assert [param["key"] for param in namechange["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
     st = actions["st.maintain"]
     assert st["group_key"] == "reference_data"
     assert st["group_label"] == "A股基础数据"
+    assert st["date_selection_rule"] == "calendar_day"
     assert [param["key"] for param in st["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code", "imp_date"]
 
     stock_company = actions["stock_company.maintain"]

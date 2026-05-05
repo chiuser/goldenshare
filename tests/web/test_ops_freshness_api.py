@@ -339,6 +339,40 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
     assert item.freshness_note == "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
 
 
+def test_build_item_prefers_runtime_trace_note_for_not_applicable_dataset_with_observed_date() -> None:
+    service = OpsFreshnessQueryService()
+    projection = DatasetFreshnessProjection(
+        dataset_key="namechange",
+        resource_key="namechange",
+        display_name="股票曾用名",
+        domain_key="reference_data",
+        domain_display_name="基础主数据",
+        target_table="core_serving_light.namechange",
+        cadence="daily",
+        raw_table="raw_tushare.namechange",
+        observed_date_column="ann_date",
+        primary_action_key="namechange.maintain",
+    )
+
+    item = service._build_item(
+        projection=projection,
+        latest_success_at=datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc),
+        latest_open_date=date(2026, 5, 5),
+        reference_date=date(2026, 5, 5),
+        expected_business_date=None,
+        recent_failure=None,
+        quality_note=None,
+        observed_business_range=(date(2010, 6, 23), date(2026, 4, 30)),
+        observed_sync_date=date(2026, 4, 30),
+        observed_at_range=None,
+    )
+
+    assert item.last_sync_date == date(2026, 5, 5)
+    assert item.latest_business_date == date(2026, 4, 30)
+    assert item.freshness_status == "unknown"
+    assert item.freshness_note == "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
+
+
 def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> None:
     service = OpsFreshnessQueryService()
     weekly_projection = DatasetFreshnessProjection(

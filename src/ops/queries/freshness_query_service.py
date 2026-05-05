@@ -300,12 +300,14 @@ class OpsFreshnessQueryService:
         last_sync_date: date | None,
         date_model: DatasetDateModel | None,
     ) -> str | None:
+        if date_model is not None and date_model.bucket_rule == "not_applicable":
+            if last_sync_date is not None:
+                return "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
+            return "该数据集当前不按业务日期判断新鲜度。"
         if latest_observed_at is not None:
             return "最新时间当前来自真实目标表观测值。"
         if observed_business_date is not None:
             return "最新业务日当前来自真实目标表观测值。"
-        if date_model is not None and date_model.bucket_rule == "not_applicable" and last_sync_date is not None:
-            return "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
         return None
 
     @staticmethod

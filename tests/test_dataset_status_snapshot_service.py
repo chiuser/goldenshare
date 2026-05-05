@@ -195,6 +195,41 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
     assert by_stage["serving"].status == "fresh"
 
 
+def test_refresh_resources_uses_runtime_health_for_natural_day_not_applicable_dataset(db_session: Session) -> None:
+    class _FakeQueryService:
+        def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
+            assert resource_keys == ["namechange"]
+            return [
+                DatasetFreshnessItem(
+                    dataset_key="namechange",
+                    resource_key="namechange",
+                    display_name="股票曾用名",
+                    domain_key="reference_data",
+                    domain_display_name="基础主数据",
+                    target_table="core_serving_light.namechange",
+                    cadence="daily",
+                    latest_business_date=date(2026, 4, 30),
+                    freshness_status="unknown",
+                    last_sync_date=date(2026, 5, 5),
+                    latest_success_at=datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc),
+                )
+            ]
+
+    service = DatasetStatusSnapshotService(query_service=_FakeQueryService())
+
+    refreshed = service.refresh_resources(db_session, ["namechange"], today=date(2026, 5, 5))
+
+    assert refreshed == 1
+    rows = list(
+        db_session.scalars(
+            select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == "namechange")
+        )
+    )
+    by_stage = {row.stage: row for row in rows}
+    assert by_stage["raw"].status == "healthy"
+    assert by_stage["light"].status == "healthy"
+
+
 def test_refresh_resources_keeps_combined_scope_current_rows(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:

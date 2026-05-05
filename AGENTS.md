@@ -54,6 +54,9 @@ src/
 15. 任何技术方案的变更，如果之前有对应的方案设计文档，必须同步落回原方案设计文档，禁止让现实代码、执行口径与既有设计文档脱节。
 16. Ops/TaskRun 只保存用户或调度意图，`DatasetActionResolver` 才负责按 `DatasetDefinition.date_model` 归一化为执行计划，源接口参数只能在 ingestion request builder 中生成。
 17. 开发、迁移、测试脚本中禁止擅自删除、清空或重建任何业务数据表、配置表、对象池表；确需清理必须有用户明确指令、备份方案和逐表清单。
+18. 任何新增数据集或修改 `DatasetDefinition.date_model/input_shape/observed_field` 前，必须把“时间输入语义、执行/unit 语义、freshness/audit 语义”三层拆开逐项确认；严禁把“支持按日期输入”误写成“要求每天都有数据”。
+19. 任何修改 `DatasetDefinition` 事实源的变更，必须先做全量消费者审计，至少覆盖：manual actions、catalog、workflow、resolver/unit planner、request builder、freshness、dataset cards、snapshot rebuild、date completeness audit、自动任务日期策略、前端时间控件、相关测试与文档。
+20. 若 `date_model.bucket_rule=not_applicable`，必须额外说明：它只是“不按连续业务日期做 freshness/audit 判断”，还是连时间输入都不支持；禁止默认把 `not_applicable` 简化理解成“无日期输入”。
 ---
 
 ## 目录职责速记

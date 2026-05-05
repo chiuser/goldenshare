@@ -113,7 +113,7 @@
 ```python
 "date_model": {
     "date_axis": "natural_day",
-    "bucket_rule": "every_natural_day",
+    "bucket_rule": "not_applicable",
     "window_mode": "point_or_range",
     "input_shape": "ann_date_or_start_end",
     "observed_field": "ann_date",
@@ -122,7 +122,7 @@
 }
 ```
 
-说明：用户时间意图是“按公告日期查一个点或一个区间”，但 freshness / completeness 不按每日有无数据判定。
+说明：用户时间意图是“按公告日期查一个点或一个区间”，所以手动任务日期控件仍按自然日选择；但 freshness / completeness 不按“每个自然日都必须有新公告”判定。
 
 ### 3.5 `input_model`
 

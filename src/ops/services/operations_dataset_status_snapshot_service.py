@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.models import DatasetDateModel
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
 from src.ops.dataset_definition_projection import (
@@ -17,7 +18,7 @@ from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapsh
 from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse
+from src.ops.schemas.freshness import DatasetFreshnessItem, OpsFreshnessResponse
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.action_catalog import get_workflow_definition
 from src.ops.layer_snapshot_source_scope import normalize_layer_snapshot_source_key
@@ -225,8 +226,13 @@ class DatasetStatusSnapshotService:
                 row.run_profile = None
 
             stage_statuses: dict[str, str] = {}
+            date_model = definition.date_model
             for stage_projection in projection.stages:
-                status = DatasetStatusSnapshotService._resolve_stage_status(stage_projection, item)
+                status = DatasetStatusSnapshotService._resolve_stage_status(
+                    stage_projection,
+                    item,
+                    date_model=date_model,
+                )
                 message = item.freshness_note if stage_projection.stage == "serving" and stage_projection.enabled else stage_projection.message
                 upsert_stage(stage_projection, status, message)
                 stage_statuses[stage_projection.stage] = status
@@ -295,14 +301,37 @@ class DatasetStatusSnapshotService:
             session.delete(row)
 
     @staticmethod
-    def _resolve_stage_status(stage_projection: DatasetLayerStageProjection, item: DatasetFreshnessItem) -> str:
+    def _resolve_stage_status(
+        stage_projection: DatasetLayerStageProjection,
+        item: DatasetFreshnessItem,
+        *,
+        date_model: DatasetDateModel,
+    ) -> str:
         if not stage_projection.enabled:
             return "skipped"
         if stage_projection.status_source == "freshness":
+            if DatasetStatusSnapshotService._uses_runtime_health_for_stage(date_model):
+                return DatasetStatusSnapshotService._runtime_health_status(item)
             return item.freshness_status
         if stage_projection.status_source in {"unobserved", "skipped"}:
             return stage_projection.status_source
         raise ValueError(f"不支持的层状态来源：{stage_projection.status_source}")
+
+    @staticmethod
+    def _uses_runtime_health_for_stage(date_model: DatasetDateModel) -> bool:
+        return (
+            date_model.bucket_rule == "not_applicable"
+            and date_model.date_axis == "natural_day"
+            and date_model.input_shape in {"ann_date_or_start_end", "trade_date_or_start_end"}
+        )
+
+    @staticmethod
+    def _runtime_health_status(item: DatasetFreshnessItem) -> str:
+        if item.recent_failure_summary:
+            return "failed"
+        if item.latest_success_at is not None:
+            return "healthy"
+        return "unknown"
 
     @staticmethod
     def _status_reason_code(status: str | None) -> str | None:

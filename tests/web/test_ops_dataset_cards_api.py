@@ -101,6 +101,59 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert raw_source["source_display_name"] == "Tushare"
 
 
+def test_ops_dataset_cards_preserve_stale_status_instead_of_collapsing_to_failed(app_client, user_factory, db_session) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    now = datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc)
+    db_session.add_all(
+        [
+            DatasetStatusSnapshot(
+                dataset_key="namechange",
+                resource_key="namechange",
+                display_name="股票曾用名",
+                domain_key="reference_data",
+                domain_display_name="基础主数据",
+                target_table="core_serving_light.namechange",
+                cadence="daily",
+                latest_business_date=date(2026, 4, 30),
+                last_sync_date=date(2026, 5, 5),
+                latest_success_at=now,
+                freshness_status="stale",
+                primary_action_key="namechange.maintain",
+                snapshot_date=date(2026, 5, 5),
+                last_calculated_at=now,
+            ),
+            DatasetLayerSnapshotCurrent(
+                dataset_key="namechange",
+                source_key="tushare",
+                stage="raw",
+                status="stale",
+                rows_in=None,
+                rows_out=None,
+                error_count=0,
+                last_success_at=None,
+                calculated_at=now,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/ops/dataset-cards?source_key=tushare",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    cards = {
+        item["detail_dataset_key"]: item
+        for group in response.json()["groups"]
+        for item in group["items"]
+    }
+    assert cards["namechange"]["status"] == "stale"
+
+
 def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
