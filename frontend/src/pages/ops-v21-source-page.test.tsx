@@ -178,4 +178,58 @@ describe("V2.1 数据源详情页", () => {
     expect(datasetCard).not.toBeNull();
     expect(datasetCard?.className).not.toContain("glass-card");
   });
+
+  it("将 stale 显示为严重滞后，而不是失败", async () => {
+    apiRequest.mockImplementation(async (url: string) => {
+      if (url === "/api/v1/ops/dataset-cards?source_key=tushare") {
+        return {
+          total: 1,
+          groups: [
+            {
+              group_key: "reference_data",
+              group_label: "A股基础数据",
+              group_order: 1,
+              items: [
+                card({
+                  card_key: "namechange",
+                  dataset_key: "namechange",
+                  detail_dataset_key: "namechange",
+                  resource_key: "namechange",
+                  display_name: "股票曾用名",
+                  group_key: "reference_data",
+                  group_label: "A股基础数据",
+                  group_order: 1,
+                  item_order: 20,
+                  status: "stale",
+                  freshness_status: "stale",
+                  raw_table: "raw_tushare.namechange",
+                  raw_table_label: "raw_tushare.namechange",
+                  latest_business_date: "2026-04-30",
+                  earliest_business_date: "1991-04-03",
+                  last_sync_date: "2026-05-05",
+                  latest_success_at: "2026-05-05T22:14:27+08:00",
+                  expected_business_date: "2026-05-05",
+                  lag_days: 5,
+                  primary_action_key: "namechange.maintain",
+                  auto_schedule_status: "active",
+                  auto_schedule_total: 1,
+                  auto_schedule_active: 1,
+                  auto_schedule_next_run_at: "2026-05-06T00:10:00+08:00",
+                  probe_total: 0,
+                  probe_active: 0,
+                }),
+              ],
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("股票曾用名")).toBeInTheDocument();
+    expect(await screen.findByText("严重滞后")).toBeInTheDocument();
+    expect(screen.queryByText("失败")).not.toBeInTheDocument();
+  });
 });

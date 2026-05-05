@@ -9,14 +9,15 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
-type CardStatus = "healthy" | "warning" | "failed" | "running" | "unknown";
+type CardStatus = "healthy" | "warning" | "stale" | "failed" | "running" | "unknown";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 type DatasetCardStage = DatasetCard["stage_statuses"][number];
 
 function toCardStatus(rawStatus: string | null | undefined): CardStatus {
   const key = (rawStatus || "").toLowerCase();
   if (key === "running" || key === "queued" || key === "canceling") return "running";
-  if (key === "failed" || key === "stale") return "failed";
+  if (key === "failed") return "failed";
+  if (key === "stale") return "stale";
   if (key === "warning" || key === "lagging") return "warning";
   if (key === "healthy" || key === "fresh" || key === "success") return "healthy";
   return "unknown";
@@ -25,6 +26,7 @@ function toCardStatus(rawStatus: string | null | undefined): CardStatus {
 function statusDotColor(status: CardStatus) {
   if (status === "running") return "var(--mantine-color-info-5)";
   if (status === "healthy") return "var(--mantine-color-success-5)";
+  if (status === "stale") return "var(--mantine-color-error-5)";
   if (status === "failed") return "var(--mantine-color-error-5)";
   if (status === "warning") return "var(--mantine-color-warning-5)";
   return "var(--mantine-color-neutral-5)";
