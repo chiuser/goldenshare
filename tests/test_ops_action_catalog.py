@@ -69,6 +69,7 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
 
     assert [step.dataset_key for step in reference_data.steps] == [
         "stock_basic",
+        "namechange",
         "bse_mapping",
         "stock_company",
         "trade_cal",
@@ -78,7 +79,7 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "hk_basic",
     ]
     assert reference_data.workflow_profile == "point_incremental"
-    assert [step.dataset_key for step in reference_data_natural_day.steps] == ["namechange", "st"]
+    assert [step.dataset_key for step in reference_data_natural_day.steps] == ["st"]
     assert reference_data_natural_day.workflow_profile == "point_incremental"
     assert reference_data_natural_day.time_regime == "natural_day"
     assert reference_data_natural_day.default_schedule_policy == "natural_day_daily"

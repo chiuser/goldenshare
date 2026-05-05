@@ -390,43 +390,39 @@ def test_dataset_action_resolver_builds_stock_company_for_explicit_ts_code_witho
     assert plan.units[0].request_params == {"ts_code": "000001.SZ"}
 
 
-def test_dataset_action_resolver_builds_namechange_point_plan(mocker) -> None:
+def test_dataset_action_resolver_builds_namechange_snapshot_plan_without_date_params(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="namechange",
         action="maintain",
-        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        time_input=DatasetTimeInput(mode="none"),
         filters={"ts_code": "000001.sz"},
     )
 
     plan = resolver.build_plan(request)
 
-    assert plan.run_profile == "point_incremental"
-    assert plan.time_scope.mode == "point"
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
     assert plan.planning.unit_count == 1
-    assert plan.units[0].request_params == {
-        "start_date": "20260424",
-        "end_date": "20260424",
-        "ts_code": "000001.SZ",
-    }
+    assert plan.units[0].request_params == {"ts_code": "000001.SZ"}
     assert plan.units[0].pagination_policy == "offset_limit"
     assert plan.units[0].page_limit == 1000
 
 
-def test_dataset_action_resolver_builds_namechange_range_plan_without_day_fanout(mocker) -> None:
+def test_dataset_action_resolver_builds_namechange_full_snapshot_plan_without_params(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key="namechange",
         action="maintain",
-        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 1), end_date=date(2026, 4, 24)),
+        time_input=DatasetTimeInput(mode="none"),
     )
 
     plan = resolver.build_plan(request)
 
-    assert plan.run_profile == "range_rebuild"
-    assert plan.time_scope.mode == "range"
+    assert plan.run_profile == "snapshot_refresh"
+    assert plan.time_scope.mode == "none"
     assert plan.planning.unit_count == 1
-    assert plan.units[0].request_params == {"start_date": "20260401", "end_date": "20260424"}
+    assert plan.units[0].request_params == {}
     assert plan.units[0].pagination_policy == "offset_limit"
     assert plan.units[0].page_limit == 1000
 

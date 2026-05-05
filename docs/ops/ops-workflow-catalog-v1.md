@@ -84,17 +84,18 @@
 | 序号 | step_key | 显示名 | action_key |
 |---:|---|---|---|
 | 1 | `stock_basic` | 股票主数据 | `stock_basic.maintain` |
-| 2 | `bse_mapping` | 北交所新旧代码对照 | `bse_mapping.maintain` |
-| 3 | `stock_company` | 上市公司基本信息 | `stock_company.maintain` |
-| 4 | `trade_cal` | 交易日历 | `trade_cal.maintain` |
-| 5 | `etf_basic` | ETF 基本信息 | `etf_basic.maintain` |
-| 6 | `etf_index` | ETF 基准指数列表 | `etf_index.maintain` |
-| 7 | `index_basic` | 指数基本信息 | `index_basic.maintain` |
-| 8 | `hk_basic` | 港股列表 | `hk_basic.maintain` |
+| 2 | `namechange` | 股票曾用名 | `namechange.maintain` |
+| 3 | `bse_mapping` | 北交所新旧代码对照 | `bse_mapping.maintain` |
+| 4 | `stock_company` | 上市公司基本信息 | `stock_company.maintain` |
+| 5 | `trade_cal` | 交易日历 | `trade_cal.maintain` |
+| 6 | `etf_basic` | ETF 基本信息 | `etf_basic.maintain` |
+| 7 | `etf_index` | ETF 基准指数列表 | `etf_index.maintain` |
+| 8 | `index_basic` | 指数基本信息 | `index_basic.maintain` |
+| 9 | `hk_basic` | 港股列表 | `hk_basic.maintain` |
 
 ## 3.2 `reference_data_natural_day_maintenance`（基础数据自然日维护）
 
-- 描述：按自然日维护股票曾用名与 ST 风险警示事件等 A 股基础数据。
+- 描述：按自然日维护 ST 风险警示事件等 A 股基础数据。
 - 支持自动调度：是
 - 支持手动执行：是
 - 默认调度策略：`natural_day_daily`
@@ -105,8 +106,7 @@
 
 | 序号 | step_key | 显示名 | action_key |
 |---:|---|---|---|
-| 1 | `namechange` | 股票曾用名 | `namechange.maintain` |
-| 2 | `st` | ST 风险警示事件 | `st.maintain` |
+| 1 | `st` | ST 风险警示事件 | `st.maintain` |
 
 ## 3.3 `daily_market_close_maintenance`（每日收盘后维护）
 

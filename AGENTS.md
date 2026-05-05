@@ -57,6 +57,9 @@ src/
 18. 任何新增数据集或修改 `DatasetDefinition.date_model/input_shape/observed_field` 前，必须把“时间输入语义、执行/unit 语义、freshness/audit 语义”三层拆开逐项确认；严禁把“支持按日期输入”误写成“要求每天都有数据”。
 19. 任何修改 `DatasetDefinition` 事实源的变更，必须先做全量消费者审计，至少覆盖：manual actions、catalog、workflow、resolver/unit planner、request builder、freshness、dataset cards、snapshot rebuild、date completeness audit、自动任务日期策略、前端时间控件、相关测试与文档。
 20. 若 `date_model.bucket_rule=not_applicable`，必须额外说明：它只是“不按连续业务日期做 freshness/audit 判断”，还是连时间输入都不支持；禁止默认把 `not_applicable` 简化理解成“无日期输入”。
+21. 新增数据集前必须做源接口真实行为验证，至少覆盖：不传业务参数、只传对象过滤、传时间点、传时间区间、分页拉取。源接口有可选日期参数，不等于该数据集应按日期驱动；若不传日期可拉全集且日期过滤会漏历史数据，主模型必须是 no-time snapshot。
+22. 可选源接口参数不得自动暴露为运营输入字段。只有当该参数对应明确用户意图、不会造成数据缺失、并已通过真实请求和样本行数证明时，才允许进入 `DatasetDefinition.input_model`。
+23. 新数据集完成前必须用真实样本或最小真实同步证明“源端行数、归一化行数、写入行数、拒绝原因、目标表行数”一致；任何 reject 都必须解释到 reason code 和样本，禁止把大批 reject 当作正常现象跳过。
 ---
 
 ## 目录职责速记

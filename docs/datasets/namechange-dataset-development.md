@@ -6,7 +6,7 @@
 
 1. Raw 表必须精准复刻源字段名；对语义明确、格式稳定的日期字符串字段允许直接落 `date`。
 2. 维护动作统一为 `namechange.maintain`。
-3. 本数据集不做“无边界全历史一次性事务”，但正常区间维护不额外切自然月窗口，直接按用户给定区间请求并分页。
+3. 本数据集不是按日期扇出的数据集。正确维护方式是默认不传时间参数，按源接口分页拉取全集。
 4. 不额外复制 serving 物理表，采用 `raw -> core_serving_light view`。
 
 参考模板：[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)
@@ -27,8 +27,8 @@
 | 参数名 | 类型 | 必填 | 源站含义 | 类别 | 运营侧是否填写 | 接入设计 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ts_code` | string | 否 | 股票代码 | 代码 | 是 | 可选过滤 |
-| `start_date` | string | 否 | 公告开始日期 | 时间 | 不直接暴露源字段名 | 区间维护映射 |
-| `end_date` | string | 否 | 公告结束日期 | 时间 | 不直接暴露源字段名 | 区间维护映射 |
+| `start_date` | string | 否 | 公告开始日期 | 源接口过滤 | 否 | V1 不作为运营时间模型；默认不传 |
+| `end_date` | string | 否 | 公告结束日期 | 源接口过滤 | 否 | V1 不作为运营时间模型；默认不传 |
 | `limit` | integer | 否 | 单页行数 | 分页 | 否 | 系统固定传，具体上限待实测 |
 | `offset` | integer | 否 | 分页偏移量 | 分页 | 否 | 自动递增 |
 
@@ -45,9 +45,11 @@
 
 ### 1.3 源端行为判断
 
-1. 本接口原生支持 `start_date/end_date`，所以区间维护不应再按自然日逐日 fan-out 到 source；否则请求数过多且没有必要。
-2. `namechange` 是事件历史数据，单只股票不会频繁改名，正常区间直接查整段再分页通常就足够，不需要人为切自然月窗口。
-3. 源站文档没有给出单页最大返回条数，当前实现先按保守值 `page_limit=1000` 分页拉取。
+1. 本接口支持不传任何业务过滤条件；此时源站返回历史名称变更全集，需要通过 `limit/offset` 分页拉完。
+2. 源站返回的老历史记录可能没有 `ann_date`。如果用公告日期 `start_date/end_date` 过滤，会漏掉这类历史区间事实。
+3. `namechange` 的核心事实是股票名称历史区间，不是“每天一个桶”的日频事实；不应按自然日、公告日或日期区间做 fan-out。
+4. 源站可能返回重复业务行，写入侧通过 `row_key_hash` 保证幂等。重复源行会被识别为批内重复，不代表有效业务行丢失。
+5. 源站文档没有给出单页最大返回条数，当前实现先按保守值 `page_limit=1000` 分页拉取。
 
 ---
 
@@ -62,7 +64,7 @@
 - 源站 API：`namechange`
 - 是否对外服务：是
 - 是否多源融合：否
-- 是否纳入自动任务：是，建议按公告日增量维护
+- 是否纳入自动任务：是，按默认全集分页刷新；不按公告日增量维护
 - 是否纳入日期完整性审计：否
 - Ops 展示分组 key：`reference_data`
 - Ops 展示分组名称：`A股基础数据`
@@ -112,26 +114,25 @@
 
 ```python
 "date_model": {
-    "date_axis": "natural_day",
+    "date_axis": "none",
     "bucket_rule": "not_applicable",
-    "window_mode": "point_or_range",
-    "input_shape": "ann_date_or_start_end",
-    "observed_field": "ann_date",
+    "window_mode": "none",
+    "input_shape": "none",
+    "observed_field": None,
     "audit_applicable": False,
-    "not_applicable_reason": "名称变更属于事件型公告数据，不要求每个自然日都有记录。",
+    "not_applicable_reason": "股票曾用名是历史区间事实，维护时按源接口默认全集分页刷新，不按公告日或自然日扇出。",
 }
 ```
 
-说明：用户时间意图是“按公告日期查一个点或一个区间”，所以手动任务日期控件仍按自然日选择；但 freshness / completeness 不按“每个自然日都必须有新公告”判定。
+说明：`namechange` 的事实主轴是名称生效区间。源接口虽然提供公告日期过滤参数，但 V1 运营维护主链不使用它们作为时间模型，避免漏掉 `ann_date` 为空的历史记录。
 
 ### 3.5 `input_model`
 
 | 字段 | 类型 | 是否必填 | 默认值 | 是否多选 | 中文名 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `trade_date` | date | 否 | 无 | 否 | 公告日期 | DatasetDefinition 统一时间槽位；manual-actions point 模式会映射为 `ann_date` |
-| `start_date` | date | 否 | 无 | 否 | 开始日期 | 区间维护开始 |
-| `end_date` | date | 否 | 无 | 否 | 结束日期 | 区间维护结束 |
 | `ts_code` | string | 否 | 无 | 否 | 股票代码 | 可选过滤 |
+
+说明：本数据集没有运营时间输入项。手动任务默认展示“按默认策略处理”，即不传日期参数并分页拉取。
 
 ### 3.6 `storage`
 
@@ -171,7 +172,7 @@
 
 1. 当前实现先按保守值 `page_limit=1000` 分页拉取。
 2. 源站文档仍未给出单页上限，后续若有实测结论，可再单独上调。
-3. 不需要自定义 unit builder；单日维护 1 个 unit，区间维护也只保留 1 个区间 unit，内部靠分页拉完整段结果。
+3. 不需要自定义 unit builder；每次维护只生成 1 个 snapshot unit，内部靠分页拉完整结果。
 
 ### 3.8 `normalization`
 
@@ -201,7 +202,7 @@
             "manual_enabled": True,
             "schedule_enabled": True,
             "retry_enabled": True,
-            "supported_time_modes": ("point", "range"),
+            "supported_time_modes": ("none",),
         },
     ),
 }
@@ -212,7 +213,7 @@
 ```python
 "observability": {
     "progress_label": "namechange",
-    "observed_field": "ann_date",
+    "observed_field": None,
     "audit_applicable": False,
 },
 "quality": {
@@ -222,7 +223,7 @@
 "transaction": {
     "commit_policy": "unit",
     "idempotent_write_required": True,
-    "write_volume_assessment": "namechange 为事件历史数据，正常区间维护直接按用户给定公告日期区间抓取并分页；单个事务覆盖该区间结果，预期写入量可控。",
+    "write_volume_assessment": "股票曾用名按源接口默认全集分页拉取；一个执行计划只生成一个 snapshot unit，分页拉完整后按 unit 提交。",
 }
 ```
 
@@ -274,16 +275,17 @@ on raw_tushare.namechange(ann_date);
 ### 5.1 请求构造
 
 - `request_builder_key`：`_namechange_params`
-- `point`：把 `ann_date` 映射为源站 `start_date=end_date`
-- `range`：传窗口级别 `start_date/end_date`
-- 如果填写 `ts_code`，一并透传
+- `snapshot_refresh`：不传 `start_date/end_date`
+- 默认请求参数：`{}`
+- 如果填写 `ts_code`，仅透传 `ts_code`
+- 不支持 `point/range`，不能把公告日期当作执行 fan-out 维度
 
 ### 5.2 Unit 规划
 
 - `unit_builder_key`：`generic`
-- `point`：1 个 unit，请求参数映射为 `start_date=end_date=ann_date`
-- `range`：1 个区间 unit，直接使用用户给定的 `start_date/end_date`
-- `progress_context`：`ts_code`、`start_date`、`end_date`
+- `none`：1 个 snapshot unit
+- `request_params`：默认 `{}`，填写股票代码时为 `{"ts_code": "000001.SZ"}`
+- `progress_context`：最多展示 `ts_code`
 
 ### 5.3 分页
 
@@ -300,26 +302,28 @@ on raw_tushare.namechange(ann_date);
 
 ## 6. Ops 派生
 
-1. 手动任务时间控件应显示“公告日期 / 开始日期 / 结束日期”。
+1. 手动任务时间控件只显示“按默认策略处理”，不展示公告日期或区间选择。
 2. `ts_code` 是可选过滤项。
-3. 自动任务允许按公告日做日常增量，但本文档不定义具体 workflow。
+3. 自动任务允许按默认全集分页刷新。
 4. 数据源页、手动任务页、自动任务页统一展示到 `reference_data / A股基础数据`。
 5. 数据状态只展示最近一次成功任务迹象，不以“业务日新鲜度”做红绿灯。
+6. `reference_data_refresh` 工作流包含 `namechange`；`reference_data_natural_day_maintenance` 不再包含 `namechange`。
 
 ---
 
 ## 7. 测试与验收清单
 
 1. `DatasetDefinition` 注册
-2. `request_builder`：`ann_date -> start_date=end_date`
-3. `unit_planner`：区间不切窗，不按天扇出，保持 1 个区间 unit
+2. `request_builder`：`none` 模式不传日期参数，只保留可选 `ts_code`
+3. `unit_planner`：不切窗，不按天扇出，保持 1 个 snapshot unit
 4. `normalizer`：`row_key_hash` 生成与空值处理
 5. `writer`：`row_key_hash` 幂等 upsert
-6. `manual-actions`：显示公告日期语义和 `ts_code` 过滤项
+6. `manual-actions`：只展示默认策略和 `ts_code` 过滤项
+7. `workflow`：基础主数据刷新包含 `namechange`；自然日维护工作流不包含 `namechange`
 
 ---
 
 ## 8. 当前未决点
 
-1. 源站文档未给出单页最大返回量，`page_limit` 必须在编码前实测确认。
-2. 是否要额外支持“仅 `ts_code`、无时间窗口”的全历史模式，本文档暂不纳入；如要支持，需要单独评估源站真实返回语义和 UI 语义。
+1. 源站文档未给出单页最大返回量，当前保守使用 `page_limit=1000`；后续如要上调，必须实测。
+2. 源站重复行目前仍会按批内重复写入拒绝计数展示，后续如要改成“去重提示”而不是“拒绝”，需要单独评估 writer 口径，不能只对页面改文案。

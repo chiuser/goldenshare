@@ -195,7 +195,7 @@ def test_refresh_resources_marks_enabled_layers_as_unobserved(db_session: Sessio
     assert by_stage["serving"].status == "fresh"
 
 
-def test_refresh_resources_uses_runtime_health_for_natural_day_not_applicable_dataset(db_session: Session) -> None:
+def test_refresh_resources_uses_runtime_health_for_not_applicable_dataset(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
             assert resource_keys == ["namechange"]

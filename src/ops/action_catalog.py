@@ -184,9 +184,10 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "reference_data_refresh": WorkflowDefinition(
         key="reference_data_refresh",
         display_name="基础主数据刷新",
-        description="刷新股票、北交所代码映射、上市公司、交易日历（按完整日历刷新）、ETF 与指数基础信息。",
+        description="刷新股票、股票曾用名、北交所代码映射、上市公司、交易日历（按完整日历刷新）、ETF 与指数基础信息。",
         steps=(
             _dataset_workflow_step("stock_basic", "stock_basic"),
+            _dataset_workflow_step("namechange", "namechange"),
             _dataset_workflow_step("bse_mapping", "bse_mapping"),
             _dataset_workflow_step("stock_company", "stock_company"),
             _dataset_workflow_step("trade_cal", "trade_cal"),
@@ -201,10 +202,9 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "reference_data_natural_day_maintenance": WorkflowDefinition(
         key="reference_data_natural_day_maintenance",
         display_name="基础数据自然日维护",
-        description="按自然日维护股票曾用名与 ST 风险警示事件等 A 股基础数据。",
+        description="按自然日维护 ST 风险警示事件等 A 股基础数据。",
         parameters=(NATURAL_DAY_PARAM, START_DATE_PARAM, END_DATE_PARAM),
         steps=(
-            _dataset_workflow_step("namechange", "namechange"),
             _dataset_workflow_step("st", "st"),
         ),
         workflow_profile="point_incremental",

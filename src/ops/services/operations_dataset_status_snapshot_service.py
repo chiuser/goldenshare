@@ -319,11 +319,7 @@ class DatasetStatusSnapshotService:
 
     @staticmethod
     def _uses_runtime_health_for_stage(date_model: DatasetDateModel) -> bool:
-        return (
-            date_model.bucket_rule == "not_applicable"
-            and date_model.date_axis == "natural_day"
-            and date_model.input_shape in {"ann_date_or_start_end", "trade_date_or_start_end"}
-        )
+        return date_model.bucket_rule == "not_applicable"
 
     @staticmethod
     def _runtime_health_status(item: DatasetFreshnessItem) -> str:
@@ -331,7 +327,7 @@ class DatasetStatusSnapshotService:
             return "failed"
         if item.latest_success_at is not None:
             return "healthy"
-        return "unknown"
+        return item.freshness_status
 
     @staticmethod
     def _status_reason_code(status: str | None) -> str | None:

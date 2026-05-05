@@ -1,6 +1,6 @@
 # 基础数据自然日维护工作流方案 v1
 
-状态：已完成（M4.1 已落地 workflow 本体与对接）  
+状态：已完成（M4.1 已落地 workflow 本体与对接；2026-05-05 已移出 `namechange`）  
 最后更新：2026-05-05  
 适用范围：`src/ops/action_catalog.py`、`docs/ops/ops-workflow-catalog-v1.md`
 
@@ -24,7 +24,7 @@
 
 1. M2 负责把 workflow 时间制度切口收出来
 2. M4.1 已基于这条切口落地真实 workflow
-3. 前置条件 `namechange`、`st` 已在 M4 完成接入并可独立执行
+3. 前置条件 `st` 已完成接入并可独立执行
 
 ---
 
@@ -35,7 +35,6 @@
 - 负责人：待实现时补充
 - 关联需求/任务：为 A 股基础数据中按自然日维护的数据集提供独立工作流
 - 本轮目标数据集：
-  - `namechange`
   - `st`
 
 命名说明：
@@ -90,7 +89,9 @@ natural_day + point/range
 
 这一类数据的日常维护 workflow。
 
-`namechange` 与 `st` 当前不适合塞进现有 workflow，不是因为它们叫“公告/事件”，而是因为它们的时间制度是自然日，不是交易日，也不是无时间快照。
+`st` 当前不适合塞进现有交易日 workflow，不是因为它叫“公告/事件”，而是因为它的时间制度是自然日，不是交易日。
+
+`namechange` 已重新判定为 no-time snapshot 型历史区间事实：正确维护方式是不传日期参数，按源接口分页拉全集。因此它不属于本自然日 workflow，已移入 `reference_data_refresh`。
 
 ---
 
@@ -124,16 +125,15 @@ natural_day + point/range
 
 本方案不是去重写 `point / range / none`，而是为这个具体 workflow 落一个最小的“自然日默认时间制度”切口。
 
-### 3.2 `namechange` 与 `st` 的时间归一化能力
+### 3.2 `st` 的时间归一化能力
 
-当前主链已经具备这两个数据集所需的时间归一化能力：
+当前主链已经具备 `st` 所需的时间归一化能力：
 
 1. workflow 层仍可统一使用公共时间槽位：
    - `trade_date`
    - `start_date`
    - `end_date`
 2. `DatasetActionResolver + DatasetRequestValidator` 会按各自 `date_model.input_shape` 再归一化：
-   - `namechange`：`trade_date -> ann_date`
    - `st`：继续使用 `trade_date/start_date/end_date` 这组槽位表达 `pub_date`
 
 因此，本 workflow 不需要额外发明：
@@ -204,20 +204,13 @@ NATURAL_DAY_PARAM = ActionParameter(
 
 | 序号 | step_key | 显示名 | action_key | depends_on | default_params |
 |---:|---|---|---|---|---|
-| 1 | `namechange` | 股票曾用名 | `namechange.maintain` | 无 | `{}` |
-| 2 | `st` | ST 风险警示事件 | `st.maintain` | 无 | `{}` |
+| 1 | `st` | ST 风险警示事件 | `st.maintain` | 无 | `{}` |
 
 补充说明：
 
 1. 当前 runtime 仍按顺序执行 workflow step。
-2. 这两个步骤之间没有业务依赖，不需要引入额外参数覆盖。
-3. 顺序固定即可，本轮不做并行化设计。
-
-为什么先 `namechange` 后 `st`：
-
-1. 两者都属于 A 股基础数据自然日维护
-2. 先放历史名称，再放风险警示，符合“基础资料 -> 状态事件”的阅读顺序
-3. 该顺序不影响执行正确性，只保证目录稳定与详情页阅读稳定
+2. 本 workflow 当前只包含 `st`，不需要引入额外参数覆盖。
+3. 后续如新增真正 natural_day + point/range 数据集，可按相同口径加入。
 
 ---
 
@@ -350,7 +343,6 @@ default_schedule_policy = natural_day_daily
    - 自动任务创建后，workflow 的默认时间策略为自然日本地日期
 2. `tests/web/test_ops_runtime.py`
    - workflow 单日触发时，不再回落到最近交易日
-   - `namechange` step 能正确走到 `ann_date`
    - `st` step 能正确保留自然日 point/range 语义
 
 ### 8.3 回归测试
@@ -370,7 +362,7 @@ default_schedule_policy = natural_day_daily
 1. 新 workflow 目录出现在 `/api/v1/ops/catalog`
 2. 手动触发单日模式时，`TaskRun.time_input.trade_date` 为用户指定自然日
 3. 自动触发时，`TaskRun.time_input.trade_date` 为调度本地自然日，不是最近交易日
-4. `namechange` 与 `st` 两个 step 都能成功创建计划并执行
+4. `st` step 能成功创建计划并执行
 
 ### 9.2 回滚方式
 
@@ -397,8 +389,7 @@ default_schedule_policy = natural_day_daily
 
 1. 新增一个独立 workflow：
    - `reference_data_natural_day_maintenance`
-2. 首批只纳入两个数据集：
-   - `namechange`
+2. 首批只纳入一个数据集：
    - `st`
 3. 通过最小新增的 `natural_day_daily` 默认时间策略，解决自动任务把自然日误补成最近交易日的问题
 

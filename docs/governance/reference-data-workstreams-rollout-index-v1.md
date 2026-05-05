@@ -63,7 +63,7 @@
 3. `bak_basic`
    - 进入 `daily_market_close_maintenance`
 4. `namechange`
-   - 进入 `reference_data_natural_day_maintenance`
+   - 进入 `reference_data_refresh`
 5. `st`
    - 进入 `reference_data_natural_day_maintenance`
 
@@ -79,8 +79,7 @@
 
 如果不先收口这一层：
 
-1. `namechange`
-2. `st`
+1. `st`
 
 即使接进了新 workflow，也会继续吃错的默认时间制度。
 
@@ -162,18 +161,19 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 1. `bse_mapping`
 2. `stock_company`
+3. `namechange`
 
 原因：
 
-1. 这两个数据集的时间制度是 `none`
+1. 这些数据集的时间制度是 `none`
 2. 它们不需要等待 natural_day workflow
-3. 接入完成后立刻并入现有快照型 workflow，能形成第一批完整闭环
+3. 接入完成后立刻并入现有快照型 workflow，能形成完整闭环
 
 门禁：
 
 1. `reference_data_refresh` 步骤清单更新完成
 2. 手动任务与自动任务都能创建该 workflow 的 TaskRun
-3. workflow step 能真实执行这两个数据集
+3. workflow step 能真实执行 `st`
 4. `ops-workflow-catalog-v1.md` 与相关 API 文档同步完成
 
 状态：已完成
@@ -182,12 +182,11 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 对象：
 
-1. `namechange`
-2. `st`
+1. `st`
 
 原因：
 
-1. 它们依赖前面的 natural_day workflow 架构切口
+1. 它依赖前面的 natural_day workflow 架构切口
 2. 先把数据集本体接入完成，才能做自然日 workflow 的真实步骤对接和验收
 
 状态：已完成
@@ -196,8 +195,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 对象：
 
-1. `namechange`
-2. `st`
+1. `st`
 
 原因：
 
@@ -208,7 +206,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 门禁：
 
 1. 新 workflow 定义、目录、文档与测试全部落地
-2. `namechange` / `st` 可通过手动任务与自动任务进入该 workflow
+2. `st` 可通过手动任务与自动任务进入该 workflow
 3. 默认时间制度保持自然日，不回落到“截至今天的最近开市日”
 4. workflow 详情、catalog 与 schedule 口径一致
 
@@ -237,7 +235,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 原因：
 
 1. 它是这批 5 个数据集中唯一明确归属交易日维护 workflow 的对象
-2. 与 `namechange` / `st` 的自然日 workflow 没有耦合
+2. 与 `st` 的自然日 workflow 没有耦合
 3. 接入完成后应立即闭环，不应拖到最后和其他 workflow 一起混改
 
 状态：已完成
@@ -290,7 +288,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 1. 先做 M3：接入 `bse_mapping`、`stock_company`
 2. 立刻做 M3.1：把这两个对象并入 `reference_data_refresh`
-3. 再做 M4：接入 `namechange`、`st`
+3. 再做 M4：接入 `namechange`、`st`，其中 `namechange` 按 no-time snapshot 归入 `reference_data_refresh`
 4. 立刻做 M4.1：新增并对接 `reference_data_natural_day_maintenance`
 5. 最后做 M5：接入 `bak_basic`
 6. 立刻做 M5.1：把 `bak_basic` 并入 `daily_market_close_maintenance`

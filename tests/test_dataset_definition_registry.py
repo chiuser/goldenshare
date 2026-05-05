@@ -102,6 +102,7 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
         "etf_index",
         "hk_basic",
         "index_basic",
+        "namechange",
         "stock_basic",
         "stock_company",
         "ths_index",
@@ -258,9 +259,10 @@ def test_dataset_definition_projects_namechange_facts() -> None:
     assert definition.domain.cadence == "daily"
     assert definition.source.api_name == "namechange"
     assert definition.date_model.bucket_rule == "not_applicable"
-    assert definition.date_model.selection_rule() == "calendar_day"
-    assert definition.date_model.input_shape == "ann_date_or_start_end"
-    assert definition.date_model.observed_field == "ann_date"
+    assert definition.date_model.selection_rule() == "none"
+    assert definition.date_model.input_shape == "none"
+    assert definition.date_model.window_mode == "none"
+    assert definition.date_model.observed_field is None
     assert definition.storage.raw_table == "raw_tushare.namechange"
     assert definition.storage.target_table == "core_serving_light.namechange"
     assert definition.storage.delivery_mode == "raw_with_serving_light_view"
@@ -268,6 +270,9 @@ def test_dataset_definition_projects_namechange_facts() -> None:
     assert definition.planning.unit_builder_key == "generic"
     assert definition.normalization.date_fields == ("start_date", "end_date", "ann_date")
     assert definition.normalization.required_fields == ("ts_code", "name", "start_date", "row_key_hash")
+    action = definition.capabilities.get_action("maintain")
+    assert action is not None
+    assert action.supported_time_modes == ("none",)
 
 
 def test_dataset_definition_projects_st_facts() -> None:

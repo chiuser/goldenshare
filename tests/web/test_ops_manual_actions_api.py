@@ -113,13 +113,11 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert bak_basic_modes["point"]["selection_rule"] == "trading_day_only"
     assert bak_basic_modes["range"]["control"] == "trade_date_range"
     assert bak_basic_modes["range"]["selection_rule"] == "trading_day_only"
-    assert actions["namechange.maintain"]["date_model"]["input_shape"] == "ann_date_or_start_end"
-    assert [item["mode"] for item in actions["namechange.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert actions["namechange.maintain"]["date_model"]["input_shape"] == "none"
+    assert [item["mode"] for item in actions["namechange.maintain"]["time_form"]["modes"]] == ["none"]
     namechange_modes = _time_modes(actions["namechange.maintain"])
-    assert namechange_modes["point"]["control"] == "calendar_date"
-    assert namechange_modes["point"]["selection_rule"] == "calendar_day"
-    assert namechange_modes["range"]["control"] == "calendar_date_range"
-    assert namechange_modes["range"]["selection_rule"] == "calendar_day"
+    assert namechange_modes["none"]["control"] == "none"
+    assert namechange_modes["none"]["selection_rule"] == "none"
     assert actions["st.maintain"]["date_model"]["input_shape"] == "ann_date_or_start_end"
     assert [item["mode"] for item in actions["st.maintain"]["time_form"]["modes"]] == ["point", "range"]
     st_modes = _time_modes(actions["st.maintain"])
@@ -326,24 +324,19 @@ def test_ops_manual_action_task_run_applies_stock_company_exchange_defaults(app_
     assert payload["run"]["filters"] == {"exchange": ["SSE", "SZSE", "BSE"]}
 
 
-def test_ops_manual_action_task_run_routes_namechange_to_ann_date_mode(app_client, user_factory) -> None:
+def test_ops_manual_action_task_run_routes_namechange_to_snapshot_mode(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
         "/api/v1/ops/manual-actions/namechange.maintain/task-runs",
         headers=headers,
-        json={"time_input": {"mode": "point", "ann_date": "2026-04-24"}, "filters": {"ts_code": "000001.SZ"}},
+        json={"time_input": {"mode": "none"}, "filters": {"ts_code": "000001.SZ"}},
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["run"]["resource_key"] == "namechange"
-    assert payload["run"]["time_input"] == {
-        "mode": "point",
-        "ann_date": "2026-04-24",
-        "trade_date": "2026-04-24",
-        "date_field": "ann_date",
-    }
+    assert payload["run"]["time_input"] == {"mode": "none"}
     assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
 
 

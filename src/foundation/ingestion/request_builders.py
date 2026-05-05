@@ -287,23 +287,11 @@ def _bse_mapping_params(request, anchor_date: date | None, enum_values: dict[str
 
 
 def _namechange_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
     del enum_values
+    if request.run_profile != "snapshot_refresh":
+        raise ValueError("股票曾用名只支持不填写日期的全集分页维护")
     params: dict[str, Any] = {}
-    target_date = anchor_date or request.trade_date
-    if request.run_profile == "point_incremental":
-        if target_date is None:
-            raise ValueError("股票曾用名单日维护缺少公告日期")
-        date_text = target_date.strftime("%Y%m%d")
-        params["start_date"] = date_text
-        params["end_date"] = date_text
-    elif request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
-            raise ValueError("股票曾用名区间维护必须同时填写开始日期和结束日期")
-        params["start_date"] = request.start_date.strftime("%Y%m%d")
-        params["end_date"] = request.end_date.strftime("%Y%m%d")
-    else:
-        raise ValueError(f"股票曾用名不支持该运行模式：{request.run_profile}")
-
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
