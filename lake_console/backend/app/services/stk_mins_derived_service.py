@@ -17,6 +17,7 @@ from lake_console.backend.app.services.parquet_writer import (
     write_rows_to_parquet,
 )
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
+from lake_console.backend.app.sync.helpers.dates import load_open_trade_dates
 
 
 DERIVED_FREQ_MAP = {
@@ -48,13 +49,7 @@ class StkMinsDerivedService:
         outputs: list[str] = []
         for target_freq in targets:
             source_freq, group_size = DERIVED_FREQ_MAP[target_freq]
-            source_partition = (
-                self.lake_root
-                / "raw_tushare"
-                / "stk_mins_by_date"
-                / f"freq={source_freq}"
-                / f"trade_date={trade_date.isoformat()}"
-            )
+            source_partition = _source_partition(lake_root=self.lake_root, source_freq=source_freq, trade_date=trade_date)
             source_files = sorted(source_partition.glob("*.parquet"))
             if not source_files:
                 raise RuntimeError(f"缺少源分区：{source_partition}")
@@ -121,6 +116,72 @@ class StkMinsDerivedService:
         )
         return summary
 
+    def derive_range(self, *, start_date: date, end_date: date, targets: list[int]) -> dict[str, Any]:
+        if end_date < start_date:
+            raise ValueError("derive-stk-mins-range 的 end-date 不能早于 start-date。")
+        if not targets:
+            raise ValueError("derive-stk-mins-range 必须至少指定一个 target freq。")
+        invalid = sorted(set(targets) - set(DERIVED_FREQ_MAP))
+        if invalid:
+            raise ValueError(f"不支持的派生 freq={invalid}，当前仅支持 90 和 120。")
+
+        LakeRootService(self.lake_root).require_ready_for_write()
+        trade_dates = load_open_trade_dates(lake_root=self.lake_root, start_date=start_date, end_date=end_date)
+        if not trade_dates:
+            raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
+        missing_sources = _missing_source_partitions(lake_root=self.lake_root, trade_dates=trade_dates, targets=targets)
+        if missing_sources:
+            preview = "\n".join(str(item) for item in missing_sources[:10])
+            suffix = "" if len(missing_sources) <= 10 else f"\n... 另有 {len(missing_sources) - 10} 个缺失源分区"
+            raise RuntimeError(f"derive-stk-mins-range 缺少源分区，未执行任何写入：\n{preview}{suffix}")
+
+        started_at = datetime.now(timezone.utc)
+        started = time_module.monotonic()
+        run_id = _run_id("derive-stk-mins-range")
+        self.progress(
+            f"[derive_stk_mins_range] start run_id={run_id} start_date={start_date.isoformat()} "
+            f"end_date={end_date.isoformat()} trade_dates={len(trade_dates)} targets={targets}"
+        )
+
+        total_source_rows = 0
+        total_written_rows = 0
+        day_summaries: list[dict[str, Any]] = []
+        for index, current_trade_date in enumerate(trade_dates, start=1):
+            self.progress(
+                f"[derive_stk_mins_range] day={index}/{len(trade_dates)} "
+                f"trade_date={current_trade_date.isoformat()} targets={targets}"
+            )
+            day_summary = self.derive_day(trade_date=current_trade_date, targets=targets)
+            day_summaries.append(day_summary)
+            total_source_rows += int(day_summary.get("source_rows") or 0)
+            total_written_rows += int(day_summary.get("written_rows") or 0)
+
+        elapsed = time_module.monotonic() - started
+        summary = {
+            "dataset_key": "stk_mins",
+            "operation": "derive_stk_mins_range",
+            "run_id": run_id,
+            "started_at": started_at.isoformat(),
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "trade_dates": [item.isoformat() for item in trade_dates],
+            "trade_date_count": len(trade_dates),
+            "targets": targets,
+            "source_rows": total_source_rows,
+            "written_rows": total_written_rows,
+            "day_summaries": day_summaries,
+            "elapsed_seconds": round(elapsed, 3),
+        }
+        ManifestService(self.lake_root).append_sync_run(summary)
+        TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
+        self.progress(
+            f"[derive_stk_mins_range] done start_date={start_date.isoformat()} end_date={end_date.isoformat()} "
+            f"trade_dates={len(trade_dates)} targets={targets} source_rows={total_source_rows} "
+            f"written={total_written_rows} elapsed={math.ceil(elapsed)}s"
+        )
+        return summary
+
 
 def derive_rows(source_rows: list[dict[str, Any]], *, target_freq: int, group_size: int) -> list[dict[str, Any]]:
     rows_by_code_day: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -141,6 +202,21 @@ def derive_rows(source_rows: list[dict[str, Any]], *, target_freq: int, group_si
                 continue
             result.append(_aggregate_chunk(ts_code=ts_code, target_freq=target_freq, chunk=chunk))
     return result
+
+
+def _missing_source_partitions(*, lake_root: Path, trade_dates: list[date], targets: list[int]) -> list[Path]:
+    missing: list[Path] = []
+    for current_trade_date in trade_dates:
+        for target_freq in targets:
+            source_freq, _group_size = DERIVED_FREQ_MAP[target_freq]
+            source_partition = _source_partition(lake_root=lake_root, source_freq=source_freq, trade_date=current_trade_date)
+            if not sorted(source_partition.glob("*.parquet")):
+                missing.append(source_partition)
+    return missing
+
+
+def _source_partition(*, lake_root: Path, source_freq: int, trade_date: date) -> Path:
+    return lake_root / "raw_tushare" / "stk_mins_by_date" / f"freq={source_freq}" / f"trade_date={trade_date.isoformat()}"
 
 
 def _aggregate_chunk(*, ts_code: str, target_freq: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:

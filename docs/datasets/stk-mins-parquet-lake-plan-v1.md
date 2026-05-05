@@ -756,6 +756,35 @@ research/stk_mins_by_symbol_month/freq=120/
 raw_tushare/stk_mins_by_date/
 ```
 
+### 8.1.1 用户执行入口
+
+用户侧必须支持区间派生，不要求人工按日期逐个执行。
+
+单日派生用于小范围补数或验证：
+
+```bash
+lake-console derive-stk-mins \
+  --trade-date 2026-04-24 \
+  --targets 90,120
+```
+
+区间派生用于正常使用：
+
+```bash
+lake-console derive-stk-mins-range \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30 \
+  --targets 90,120
+```
+
+区间派生规则：
+
+1. 命令读取本地交易日历 `manifest/trading_calendar/tushare_trade_cal.parquet`。
+2. 只对 `is_open=true` 的交易日执行派生。
+3. 每个交易日分别读取对应 raw 分区，并写入对应 derived 分区。
+4. 如果某个交易日缺少源分区，命令必须失败并指出缺失日期和路径，不允许静默跳过。
+5. 这只是用户入口的批量化；物理写入仍然按 `freq + trade_date` 分区替换。
+
 ### 8.2 输出字段
 
 字段与原始分钟线一致：

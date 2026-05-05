@@ -40,6 +40,13 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     derive_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
     derive_parser.set_defaults(handler=_handle_derive_stk_mins)
 
+    derive_range_parser = subparsers.add_parser("derive-stk-mins-range", help="按本地交易日历批量派生 90/120 分钟线")
+    add_lake_root_arg(derive_range_parser)
+    derive_range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    derive_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    derive_range_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
+    derive_range_parser.set_defaults(handler=_handle_derive_stk_mins_range)
+
     research_parser = subparsers.add_parser("rebuild-stk-mins-research", help="把 by_date 分区重排为 by_symbol_month research 层")
     add_lake_root_arg(research_parser)
     research_parser.add_argument("--freq", required=True, type=int, choices=(1, 5, 15, 30, 60, 90, 120), help="分钟周期")
@@ -125,6 +132,18 @@ def _handle_derive_stk_mins(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
     targets = parse_int_csv(args.targets, allowed={90, 120}, label="targets")
     summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_day(trade_date=args.trade_date, targets=targets)
+    print_json(summary)
+    return 0
+
+
+def _handle_derive_stk_mins_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    targets = parse_int_csv(args.targets, allowed={90, 120}, label="targets")
+    summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        targets=targets,
+    )
     print_json(summary)
     return 0
 

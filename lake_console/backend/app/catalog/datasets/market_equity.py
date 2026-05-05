@@ -220,6 +220,23 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                 prerequisites=("指定交易日已有 30/60 分钟线 raw 数据。",),
             ),
             LakeCommandExample(
+                example_key="stk_mins_derive_range",
+                title="区间派生 90/120 分钟线",
+                scenario="derive",
+                description="读取本地交易日历，只对开市日批量生成本地派生层。",
+                argv=(
+                    "lake-console",
+                    "derive-stk-mins-range",
+                    "--start-date",
+                    "2026-04-01",
+                    "--end-date",
+                    "2026-04-30",
+                    "--targets",
+                    "90,120",
+                ),
+                prerequisites=("已同步本地交易日历。", "区间内交易日已有 30/60 分钟线 raw 数据。"),
+            ),
+            LakeCommandExample(
                 example_key="stk_mins_rebuild_research_month",
                 title="重建 research 月分区",
                 scenario="research",

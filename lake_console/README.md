@@ -154,6 +154,16 @@ lake-console derive-stk-mins \
   --targets 90,120
 ```
 
+Generate local 90/120 minute derived bars for a date range. The command reads the
+local trading calendar and derives open trading days only:
+
+```bash
+lake-console derive-stk-mins-range \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30 \
+  --targets 90,120
+```
+
 Rebuild the research layout for long single-symbol or small-basket queries:
 
 ```bash
