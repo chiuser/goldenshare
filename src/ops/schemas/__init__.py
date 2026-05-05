@@ -52,8 +52,13 @@ from src.ops.schemas.resolution_release import (
     UpsertResolutionReleaseStageStatusRequest,
 )
 from src.ops.schemas.review_center import (
+    CreateReviewActiveIndexRequest,
+    ReviewActiveIndexCandidateItem,
+    ReviewActiveIndexCandidateResponse,
     ReviewActiveIndexItem,
     ReviewActiveIndexListResponse,
+    ReviewActiveIndexMutationResponse,
+    ReviewActiveIndexSummaryResponse,
     ReviewBoardMemberItem,
     ReviewDcBoardItem,
     ReviewDcBoardListResponse,
@@ -105,6 +110,7 @@ from src.ops.schemas.task_run import (
 
 __all__ = [
     "CreateProbeRuleRequest",
+    "CreateReviewActiveIndexRequest",
     "CreateResolutionReleaseRequest",
     "CreateScheduleRequest",
     "CreateStdCleansingRuleRequest",
@@ -143,8 +149,12 @@ __all__ = [
     "ProbeRuleListResponse",
     "ProbeRunLogItem",
     "ProbeRunLogListResponse",
+    "ReviewActiveIndexCandidateItem",
+    "ReviewActiveIndexCandidateResponse",
     "ReviewActiveIndexItem",
     "ReviewActiveIndexListResponse",
+    "ReviewActiveIndexMutationResponse",
+    "ReviewActiveIndexSummaryResponse",
     "ReviewBoardMemberItem",
     "ReviewDcBoardItem",
     "ReviewDcBoardListResponse",

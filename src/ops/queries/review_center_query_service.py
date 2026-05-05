@@ -10,11 +10,17 @@ from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
+from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.security_serving import Security
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.schemas.review_center import (
+    ReviewActiveIndexCandidateItem,
+    ReviewActiveIndexCandidateResponse,
     ReviewActiveIndexItem,
     ReviewActiveIndexListResponse,
+    ReviewActiveIndexSummaryResponse,
     ReviewBoardMemberItem,
     ReviewDcBoardItem,
     ReviewDcBoardListResponse,
@@ -35,12 +41,15 @@ class ReviewCenterQueryService:
         *,
         resource: str = "index_daily",
         keyword: str | None = None,
+        data_status: str | None = None,
         page: int = 1,
         page_size: int = 50,
     ) -> ReviewActiveIndexListResponse:
         page_size = max(1, min(page_size, 500))
         page = max(1, page)
         offset = (page - 1) * page_size
+        daily_subq, weekly_subq, monthly_subq = self._index_latest_date_subqueries()
+        status_expr = self._index_data_status_expr(daily_subq, weekly_subq, monthly_subq)
 
         stmt = (
             select(
@@ -50,14 +59,29 @@ class ReviewCenterQueryService:
                 IndexSeriesActive.last_seen_date.label("last_seen_date"),
                 IndexSeriesActive.last_checked_at.label("last_checked_at"),
                 IndexBasic.name.label("index_name"),
+                IndexBasic.market.label("market"),
+                IndexBasic.publisher.label("publisher"),
+                daily_subq.c.latest_daily_date.label("latest_daily_date"),
+                weekly_subq.c.latest_weekly_date.label("latest_weekly_date"),
+                monthly_subq.c.latest_monthly_date.label("latest_monthly_date"),
+                status_expr.label("data_status"),
             )
             .select_from(IndexSeriesActive)
             .outerjoin(IndexBasic, IndexBasic.ts_code == IndexSeriesActive.ts_code)
+            .outerjoin(daily_subq, daily_subq.c.ts_code == IndexSeriesActive.ts_code)
+            .outerjoin(weekly_subq, weekly_subq.c.ts_code == IndexSeriesActive.ts_code)
+            .outerjoin(monthly_subq, monthly_subq.c.ts_code == IndexSeriesActive.ts_code)
             .where(IndexSeriesActive.resource == resource)
         )
         if keyword:
             pattern = f"%{keyword.strip()}%"
             stmt = stmt.where(or_(IndexSeriesActive.ts_code.ilike(pattern), IndexBasic.name.ilike(pattern)))
+        if data_status:
+            normalized_status = data_status.strip().lower()
+            if normalized_status == "pending":
+                stmt = stmt.where(status_expr != "complete")
+            elif normalized_status:
+                stmt = stmt.where(status_expr == normalized_status)
 
         total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
         rows = session.execute(
@@ -70,12 +94,108 @@ class ReviewCenterQueryService:
                     resource=row.resource,
                     ts_code=row.ts_code,
                     index_name=row.index_name,
+                    market=row.market,
+                    publisher=row.publisher,
+                    data_status=row.data_status,
+                    missing_layers=self._missing_index_layers(
+                        daily_date=row.latest_daily_date,
+                        weekly_date=row.latest_weekly_date,
+                        monthly_date=row.latest_monthly_date,
+                    ),
+                    latest_daily_date=row.latest_daily_date,
+                    latest_weekly_date=row.latest_weekly_date,
+                    latest_monthly_date=row.latest_monthly_date,
                     first_seen_date=row.first_seen_date,
                     last_seen_date=row.last_seen_date,
                     last_checked_at=row.last_checked_at,
                 )
                 for row in rows
             ],
+        )
+
+    def get_active_index_summary(
+        self,
+        session: Session,
+        *,
+        resource: str = "index_daily",
+    ) -> ReviewActiveIndexSummaryResponse:
+        daily_subq, weekly_subq, monthly_subq = self._index_latest_date_subqueries()
+        row = session.execute(
+            select(
+                func.count(IndexSeriesActive.ts_code).label("active_count"),
+                func.count(daily_subq.c.latest_daily_date).label("daily_available_count"),
+                func.count(weekly_subq.c.latest_weekly_date).label("weekly_available_count"),
+                func.count(monthly_subq.c.latest_monthly_date).label("monthly_available_count"),
+                func.sum(
+                    case(
+                        (
+                            or_(
+                                daily_subq.c.latest_daily_date.is_(None),
+                                weekly_subq.c.latest_weekly_date.is_(None),
+                                monthly_subq.c.latest_monthly_date.is_(None),
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("pending_count"),
+            )
+            .select_from(IndexSeriesActive)
+            .outerjoin(daily_subq, daily_subq.c.ts_code == IndexSeriesActive.ts_code)
+            .outerjoin(weekly_subq, weekly_subq.c.ts_code == IndexSeriesActive.ts_code)
+            .outerjoin(monthly_subq, monthly_subq.c.ts_code == IndexSeriesActive.ts_code)
+            .where(IndexSeriesActive.resource == resource)
+        ).one()
+        return ReviewActiveIndexSummaryResponse(
+            active_count=int(row.active_count or 0),
+            daily_available_count=int(row.daily_available_count or 0),
+            weekly_available_count=int(row.weekly_available_count or 0),
+            monthly_available_count=int(row.monthly_available_count or 0),
+            pending_count=int(row.pending_count or 0),
+        )
+
+    def suggest_active_index_candidates(
+        self,
+        session: Session,
+        *,
+        resource: str = "index_daily",
+        keyword: str,
+        limit: int = 20,
+    ) -> ReviewActiveIndexCandidateResponse:
+        normalized_keyword = keyword.strip()
+        if not normalized_keyword:
+            return ReviewActiveIndexCandidateResponse(items=[])
+        pattern = f"%{normalized_keyword}%"
+        active_subq = (
+            select(IndexSeriesActive.ts_code)
+            .where(IndexSeriesActive.resource == resource)
+            .subquery("active_index_candidate_subq")
+        )
+        rows = session.execute(
+            select(
+                IndexBasic.ts_code,
+                IndexBasic.name,
+                IndexBasic.market,
+                IndexBasic.publisher,
+                IndexBasic.exp_date,
+            )
+            .outerjoin(active_subq, active_subq.c.ts_code == IndexBasic.ts_code)
+            .where(active_subq.c.ts_code.is_(None))
+            .where(or_(IndexBasic.ts_code.ilike(pattern), IndexBasic.name.ilike(pattern)))
+            .order_by(IndexBasic.ts_code.asc())
+            .limit(max(1, min(limit, 50)))
+        ).all()
+        return ReviewActiveIndexCandidateResponse(
+            items=[
+                ReviewActiveIndexCandidateItem(
+                    ts_code=row.ts_code,
+                    index_name=row.name,
+                    market=row.market,
+                    publisher=row.publisher,
+                    exp_date=row.exp_date,
+                )
+                for row in rows
+            ]
         )
 
     def list_ths_boards(
@@ -448,3 +568,64 @@ class ReviewCenterQueryService:
                 for row in summary_rows
             ],
         )
+
+    @staticmethod
+    def _index_latest_date_subqueries():  # type: ignore[no-untyped-def]
+        daily_subq = (
+            select(
+                IndexDailyServing.ts_code.label("ts_code"),
+                func.max(IndexDailyServing.trade_date).label("latest_daily_date"),
+            )
+            .group_by(IndexDailyServing.ts_code)
+            .subquery("index_daily_latest_subq")
+        )
+        weekly_subq = (
+            select(
+                IndexWeeklyServing.ts_code.label("ts_code"),
+                func.max(IndexWeeklyServing.trade_date).label("latest_weekly_date"),
+            )
+            .group_by(IndexWeeklyServing.ts_code)
+            .subquery("index_weekly_latest_subq")
+        )
+        monthly_subq = (
+            select(
+                IndexMonthlyServing.ts_code.label("ts_code"),
+                func.max(IndexMonthlyServing.trade_date).label("latest_monthly_date"),
+            )
+            .group_by(IndexMonthlyServing.ts_code)
+            .subquery("index_monthly_latest_subq")
+        )
+        return daily_subq, weekly_subq, monthly_subq
+
+    @staticmethod
+    def _index_data_status_expr(daily_subq, weekly_subq, monthly_subq):  # type: ignore[no-untyped-def]
+        return case(
+            (
+                and_(
+                    daily_subq.c.latest_daily_date.is_(None),
+                    weekly_subq.c.latest_weekly_date.is_(None),
+                    monthly_subq.c.latest_monthly_date.is_(None),
+                ),
+                "unsynced",
+            ),
+            (daily_subq.c.latest_daily_date.is_(None), "missing_daily"),
+            (weekly_subq.c.latest_weekly_date.is_(None), "missing_weekly"),
+            (monthly_subq.c.latest_monthly_date.is_(None), "missing_monthly"),
+            else_="complete",
+        )
+
+    @staticmethod
+    def _missing_index_layers(
+        *,
+        daily_date: date | None,
+        weekly_date: date | None,
+        monthly_date: date | None,
+    ) -> list[str]:
+        missing: list[str] = []
+        if daily_date is None:
+            missing.append("daily")
+        if weekly_date is None:
+            missing.append("weekly")
+        if monthly_date is None:
+            missing.append("monthly")
+        return missing

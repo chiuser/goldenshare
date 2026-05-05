@@ -826,10 +826,40 @@ export interface OpsReviewActiveIndexResponse {
     resource: string;
     ts_code: string;
     index_name: string | null;
+    market: string | null;
+    publisher: string | null;
+    data_status: string;
+    missing_layers: string[];
+    latest_daily_date: string | null;
+    latest_weekly_date: string | null;
+    latest_monthly_date: string | null;
     first_seen_date: string;
     last_seen_date: string;
     last_checked_at: string;
   }>;
+}
+
+export interface OpsReviewActiveIndexSummaryResponse {
+  active_count: number;
+  daily_available_count: number;
+  weekly_available_count: number;
+  monthly_available_count: number;
+  pending_count: number;
+}
+
+export interface OpsReviewActiveIndexCandidateResponse {
+  items: Array<{
+    ts_code: string;
+    index_name: string | null;
+    market: string | null;
+    publisher: string | null;
+    exp_date: string | null;
+  }>;
+}
+
+export interface OpsReviewActiveIndexMutationResponse {
+  resource: string;
+  ts_code: string;
 }
 
 export interface OpsReviewThsBoardsResponse {

@@ -7,12 +7,17 @@ from sqlalchemy.orm import Session
 
 from src.ops.queries.review_center_query_service import ReviewCenterQueryService
 from src.ops.schemas.review_center import (
+    CreateReviewActiveIndexRequest,
     ReviewActiveIndexListResponse,
+    ReviewActiveIndexCandidateResponse,
+    ReviewActiveIndexMutationResponse,
+    ReviewActiveIndexSummaryResponse,
     ReviewDcBoardListResponse,
     ReviewEquityBoardMembershipListResponse,
     ReviewEquitySuggestResponse,
     ReviewThsBoardListResponse,
 )
+from src.ops.services.review_center_service import ReviewCenterCommandService
 from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
 from src.app.dependencies import get_db_session
@@ -27,6 +32,7 @@ def list_active_indexes(
     session: Session = Depends(get_db_session),
     resource: str = Query("index_daily"),
     keyword: str | None = Query(default=None),
+    data_status: str | None = Query(default=None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
 ) -> ReviewActiveIndexListResponse:
@@ -34,9 +40,64 @@ def list_active_indexes(
         session,
         resource=resource,
         keyword=keyword,
+        data_status=data_status,
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/ops/review/index/active/summary", response_model=ReviewActiveIndexSummaryResponse)
+def get_active_index_summary(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    resource: str = Query("index_daily"),
+) -> ReviewActiveIndexSummaryResponse:
+    return ReviewCenterQueryService().get_active_index_summary(session, resource=resource)
+
+
+@router.get("/ops/review/index/active/candidates", response_model=ReviewActiveIndexCandidateResponse)
+def suggest_active_index_candidates(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    resource: str = Query("index_daily"),
+    keyword: str = Query(min_length=1),
+    limit: int = Query(20, ge=1, le=50),
+) -> ReviewActiveIndexCandidateResponse:
+    return ReviewCenterQueryService().suggest_active_index_candidates(
+        session,
+        resource=resource,
+        keyword=keyword,
+        limit=limit,
+    )
+
+
+@router.post("/ops/review/index/active", response_model=ReviewActiveIndexMutationResponse)
+def add_active_index(
+    body: CreateReviewActiveIndexRequest,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+) -> ReviewActiveIndexMutationResponse:
+    resource, ts_code = ReviewCenterCommandService().add_active_index(
+        session,
+        resource=body.resource,
+        ts_code=body.ts_code,
+    )
+    return ReviewActiveIndexMutationResponse(resource=resource, ts_code=ts_code)
+
+
+@router.delete("/ops/review/index/active/{ts_code}", response_model=ReviewActiveIndexMutationResponse)
+def remove_active_index(
+    ts_code: str,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    resource: str = Query("index_daily"),
+) -> ReviewActiveIndexMutationResponse:
+    resource, normalized_ts_code = ReviewCenterCommandService().remove_active_index(
+        session,
+        resource=resource,
+        ts_code=ts_code,
+    )
+    return ReviewActiveIndexMutationResponse(resource=resource, ts_code=normalized_ts_code)
 
 
 @router.get("/ops/review/board/ths", response_model=ReviewThsBoardListResponse)

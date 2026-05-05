@@ -9,6 +9,13 @@ class ReviewActiveIndexItem(BaseModel):
     resource: str
     ts_code: str
     index_name: str | None = None
+    market: str | None = None
+    publisher: str | None = None
+    data_status: str
+    missing_layers: list[str]
+    latest_daily_date: date | None = None
+    latest_weekly_date: date | None = None
+    latest_monthly_date: date | None = None
     first_seen_date: date
     last_seen_date: date
     last_checked_at: datetime
@@ -17,6 +24,36 @@ class ReviewActiveIndexItem(BaseModel):
 class ReviewActiveIndexListResponse(BaseModel):
     total: int
     items: list[ReviewActiveIndexItem]
+
+
+class ReviewActiveIndexSummaryResponse(BaseModel):
+    active_count: int
+    daily_available_count: int
+    weekly_available_count: int
+    monthly_available_count: int
+    pending_count: int
+
+
+class ReviewActiveIndexCandidateItem(BaseModel):
+    ts_code: str
+    index_name: str | None = None
+    market: str | None = None
+    publisher: str | None = None
+    exp_date: date | None = None
+
+
+class ReviewActiveIndexCandidateResponse(BaseModel):
+    items: list[ReviewActiveIndexCandidateItem]
+
+
+class CreateReviewActiveIndexRequest(BaseModel):
+    ts_code: str
+    resource: str = "index_daily"
+
+
+class ReviewActiveIndexMutationResponse(BaseModel):
+    resource: str
+    ts_code: str
 
 
 class ReviewBoardMemberItem(BaseModel):
