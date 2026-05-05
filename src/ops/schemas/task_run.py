@@ -129,6 +129,15 @@ class TaskRunRejectionReasonItem(BaseModel):
     suggested_action: str | None = None
 
 
+class TaskRunPeriodSourceSummary(BaseModel):
+    total_rows: int
+    api_rows: int
+    derived_daily_rows: int
+    other_rows: int
+    start_date: str | None = None
+    end_date: str | None = None
+
+
 class TaskRunProgress(BaseModel):
     unit_total: int
     unit_done: int
@@ -140,6 +149,7 @@ class TaskRunProgress(BaseModel):
     rejected_reason_counts: dict[str, int] = Field(default_factory=dict)
     rejected_reasons: list[TaskRunRejectionReasonItem] = Field(default_factory=list)
     current_object: TaskRunDisplayObject | None = None
+    period_source_summary: TaskRunPeriodSourceSummary | None = None
 
 
 class TaskRunIssueSummary(BaseModel):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
@@ -7,6 +9,8 @@ from src.app.exceptions import WebAppError
 from src.app.models.app_user import AppUser
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.codebook import INGESTION_REASON_CODEBOOK
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -22,6 +26,7 @@ from src.ops.schemas.task_run import (
     TaskRunListItem,
     TaskRunListResponse,
     TaskRunNodeItem,
+    TaskRunPeriodSourceSummary,
     TaskRunProgress,
     TaskRunRejectionReasonItem,
     TaskRunSummaryResponse,
@@ -134,6 +139,7 @@ class TaskRunQueryService:
         )
         time_scope = self._time_scope(dict(task_run.time_input_json or {}))
         rejected_reason_counts = self._normalize_reason_counts(task_run.rejected_reason_counts_json)
+        period_source_summary = self._period_source_summary(session, task_run=task_run, time_scope=time_scope)
         return TaskRunViewResponse(
             run=TaskRunInfo(
                 id=task_run.id,
@@ -173,6 +179,7 @@ class TaskRunQueryService:
                     dict(task_run.current_object_json or {}),
                     status=task_run.status,
                 ),
+                period_source_summary=period_source_summary,
             ),
             primary_issue=self._issue_summary(primary_issue),
             nodes=[self._node_item(node) for node in nodes],
@@ -243,6 +250,74 @@ class TaskRunQueryService:
             rows_rejected=task_run.rows_rejected,
             primary_issue_id=task_run.primary_issue_id,
             primary_issue_title=issue_title,
+        )
+
+    @staticmethod
+    def _period_source_summary(
+        session: Session,
+        *,
+        task_run: TaskRun,
+        time_scope: TaskRunTimeScope | None,
+    ) -> TaskRunPeriodSourceSummary | None:
+        model_by_resource = {
+            "index_weekly": IndexWeeklyServing,
+            "index_monthly": IndexMonthlyServing,
+        }
+        model = model_by_resource.get(str(task_run.resource_key or ""))
+        if model is None:
+            return None
+        start_date = TaskRunQueryService._parse_date_or_none(time_scope.start if time_scope else None)
+        end_date = TaskRunQueryService._parse_date_or_none(time_scope.end if time_scope else None)
+        if start_date is None and end_date is None:
+            return None
+        if start_date is None:
+            start_date = end_date
+        if end_date is None:
+            end_date = start_date
+        if start_date is None or end_date is None:
+            return None
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+
+        stmt = (
+            select(
+                model.source,
+                func.count(),
+                func.min(model.trade_date),
+                func.max(model.trade_date),
+            )
+            .where(model.trade_date >= start_date)
+            .where(model.trade_date <= end_date)
+            .group_by(model.source)
+        )
+        rows = session.execute(stmt).all()
+        if not rows:
+            return None
+
+        counts: dict[str, int] = {}
+        observed_dates: list[date] = []
+        for source, count, min_date, max_date in rows:
+            source_key = str(source or "").strip().lower() or "unknown"
+            counts[source_key] = counts.get(source_key, 0) + int(count or 0)
+            if isinstance(min_date, date):
+                observed_dates.append(min_date)
+            if isinstance(max_date, date):
+                observed_dates.append(max_date)
+
+        api_rows = counts.get("api", 0)
+        derived_daily_rows = counts.get("derived_daily", 0)
+        total_rows = sum(counts.values())
+        other_rows = max(total_rows - api_rows - derived_daily_rows, 0)
+
+        # 这里刻意从最终 serving 表反查来源，不把派生统计塞进 writer/executor。
+        # 这样即使观测统计失败，也不会影响业务数据写入与提交。
+        return TaskRunPeriodSourceSummary(
+            total_rows=total_rows,
+            api_rows=api_rows,
+            derived_daily_rows=derived_daily_rows,
+            other_rows=other_rows,
+            start_date=min(observed_dates).isoformat() if observed_dates else None,
+            end_date=max(observed_dates).isoformat() if observed_dates else None,
         )
 
     @staticmethod
@@ -510,6 +585,15 @@ class TaskRunQueryService:
             return None
         text = str(value).strip()
         return text or None
+
+    @staticmethod
+    def _parse_date_or_none(value: str | None) -> date | None:
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
 
     @staticmethod
     def _build_filters(

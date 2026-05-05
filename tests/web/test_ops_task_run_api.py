@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.ops.models.ops.task_run import TaskRun
 
 
@@ -184,6 +185,65 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["primary_issue"]["object"]["title"] == "问题位置：平安银行（000001.SZ）"
     assert payload["nodes"][0]["title"] == "维护 股票日线"
     assert payload["nodes"][0]["rejected_reasons"][0]["count"] == 7
+
+
+def test_ops_task_run_view_returns_index_period_source_summary(
+    app_client,
+    db_session,
+    user_factory,
+    task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    task_run = task_run_factory(
+        requested_by_user_id=admin.id,
+        resource_key="index_weekly",
+        title="指数周线",
+        status="success",
+        time_input_json={"mode": "point", "trade_date": "2026-04-17"},
+        rows_saved=3,
+    )
+    db_session.add_all(
+        [
+            IndexWeeklyServing(
+                ts_code="000001.SH",
+                period_start_date=date(2026, 4, 13),
+                trade_date=date(2026, 4, 17),
+                source="api",
+            ),
+            IndexWeeklyServing(
+                ts_code="399001.SZ",
+                period_start_date=date(2026, 4, 13),
+                trade_date=date(2026, 4, 17),
+                source="derived_daily",
+            ),
+            IndexWeeklyServing(
+                ts_code="399006.SZ",
+                period_start_date=date(2026, 4, 13),
+                trade_date=date(2026, 4, 17),
+                source="derived_daily",
+            ),
+            IndexWeeklyServing(
+                ts_code="000016.SH",
+                period_start_date=date(2026, 4, 20),
+                trade_date=date(2026, 4, 24),
+                source="api",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get(f"/api/v1/ops/task-runs/{task_run.id}/view", headers=auth_headers(app_client))
+
+    assert response.status_code == 200
+    summary = response.json()["progress"]["period_source_summary"]
+    assert summary == {
+        "total_rows": 3,
+        "api_rows": 1,
+        "derived_daily_rows": 2,
+        "other_rows": 0,
+        "start_date": "2026-04-17",
+        "end_date": "2026-04-17",
+    }
 
 
 def test_ops_task_run_view_returns_display_current_object_for_running_task(

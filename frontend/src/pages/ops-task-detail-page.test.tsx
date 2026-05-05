@@ -73,6 +73,14 @@ function createTaskRunView(status = "failed") {
           suggested_action: "检查字段映射和空值处理",
         },
       ],
+      period_source_summary: null as null | {
+        total_rows: number;
+        api_rows: number;
+        derived_daily_rows: number;
+        other_rows: number;
+        start_date: string | null;
+        end_date: string | null;
+      },
       current_object:
         status === "running"
           ? {
@@ -272,5 +280,35 @@ describe("任务详情页", () => {
     );
     expect(screen.queryByText("失败原因")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "查看技术诊断" })).not.toBeInTheDocument();
+  });
+
+  it("展示指数周线和月线的接口与日线派生结果来源", async () => {
+    const view = createTaskRunView("success");
+    view.run.resource_key = "index_weekly";
+    view.run.title = "指数周线";
+    view.progress.period_source_summary = {
+      total_rows: 1130,
+      api_rows: 560,
+      derived_daily_rows: 570,
+      other_rows: 0,
+      start_date: "2026-04-17",
+      end_date: "2026-04-17",
+    };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/task-runs/1/view") {
+        return view;
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("周线结果来源")).toBeInTheDocument();
+    expect(await screen.findByText("2026-04-17")).toBeInTheDocument();
+    expect(await screen.findByText("API 返回")).toBeInTheDocument();
+    expect(await screen.findByText("日线派生")).toBeInTheDocument();
+    expect(await screen.findByText("560")).toBeInTheDocument();
+    expect(await screen.findByText("570")).toBeInTheDocument();
+    expect(await screen.findByText(/哪些来自接口、哪些由日线补齐/)).toBeInTheDocument();
   });
 });

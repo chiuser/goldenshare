@@ -84,6 +84,36 @@ function formatDuration(ms: number | null) {
   return remainSeconds ? `${minutes}m ${remainSeconds}s` : `${minutes}m`;
 }
 
+function formatPercentLabel(value: number, total: number) {
+  if (total <= 0) {
+    return "0%";
+  }
+  return `${Math.round((value / total) * 100)}%`;
+}
+
+function formatPeriodSourceTitle(resourceKey: string | null) {
+  if (resourceKey === "index_monthly") {
+    return "月线结果来源";
+  }
+  if (resourceKey === "index_weekly") {
+    return "周线结果来源";
+  }
+  return "周期结果来源";
+}
+
+function formatPeriodSourceRange(startDate: string | null, endDate: string | null) {
+  if (startDate && endDate) {
+    return startDate === endDate ? startDate : `${startDate} ~ ${endDate}`;
+  }
+  if (startDate) {
+    return `从 ${startDate} 开始`;
+  }
+  if (endDate) {
+    return `截至 ${endDate}`;
+  }
+  return "本次处理范围";
+}
+
 export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -137,6 +167,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
   const view = viewQuery.data;
   const headline = view ? buildStatusHeadline(view) : null;
   const successReturnHref = buildDatasetCardPageHref(view?.run.source_key);
+  const periodSourceSummary = view?.progress.period_source_summary ?? null;
   const nodeColumns: DataTableColumn<TaskRunViewResponse["nodes"][number]>[] = [
     {
       key: "sequence",
@@ -324,6 +355,44 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                       </Stack>
                     </MetricPanel>
                   </SimpleGrid>
+                  {periodSourceSummary ? (
+                    <Stack gap="sm">
+                      <Group justify="space-between" align="flex-start">
+                        <Stack gap={2}>
+                          <Text fw={700}>{formatPeriodSourceTitle(view.run.resource_key)}</Text>
+                          <Text size="sm" c="dimmed">
+                            {formatPeriodSourceRange(periodSourceSummary.start_date, periodSourceSummary.end_date)}
+                          </Text>
+                        </Stack>
+                        <Badge variant="light">{`${periodSourceSummary.total_rows.toLocaleString()} 条`}</Badge>
+                      </Group>
+                      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                        <MetricPanel label="API 返回">
+                          <Stack gap={2}>
+                            <Text fw={700}>{periodSourceSummary.api_rows.toLocaleString()}</Text>
+                            <Text size="xs" c="dimmed">
+                              {formatPercentLabel(periodSourceSummary.api_rows, periodSourceSummary.total_rows)}
+                            </Text>
+                          </Stack>
+                        </MetricPanel>
+                        <MetricPanel label="日线派生">
+                          <Stack gap={2}>
+                            <Text fw={700}>{periodSourceSummary.derived_daily_rows.toLocaleString()}</Text>
+                            <Text size="xs" c="dimmed">
+                              {formatPercentLabel(periodSourceSummary.derived_daily_rows, periodSourceSummary.total_rows)}
+                            </Text>
+                          </Stack>
+                        </MetricPanel>
+                        <MetricPanel label="其他来源">
+                          <Text fw={700}>{periodSourceSummary.other_rows.toLocaleString()}</Text>
+                        </MetricPanel>
+                      </SimpleGrid>
+                      {/* 这个区块只展示最终 serving 表里的来源构成，不参与任务执行和数据提交。 */}
+                      <Text size="xs" c="dimmed">
+                        来源统计来自最终保存结果，用来确认周线/月线里哪些来自接口、哪些由日线补齐。
+                      </Text>
+                    </Stack>
+                  ) : null}
                 </Stack>
               </SectionCard>
             </Grid.Col>

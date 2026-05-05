@@ -338,6 +338,15 @@ export interface TaskRunRejectionReasonItem {
   suggested_action: string | null;
 }
 
+export interface TaskRunPeriodSourceSummary {
+  total_rows: number;
+  api_rows: number;
+  derived_daily_rows: number;
+  other_rows: number;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 export interface TaskRunViewResponse {
   run: {
     id: number;
@@ -374,6 +383,7 @@ export interface TaskRunViewResponse {
     rejected_reason_counts: Record<string, number>;
     rejected_reasons: TaskRunRejectionReasonItem[];
     current_object: TaskRunDisplayObject | null;
+    period_source_summary: TaskRunPeriodSourceSummary | null;
   };
   primary_issue: {
     id: number;
