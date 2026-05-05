@@ -39,6 +39,9 @@ from src.cli_parts.ops_handlers import (
 from src.cli_parts.maintenance_handlers import (
     run_refresh_serving_light as _run_refresh_serving_light_impl,
 )
+from src.cli_parts.stock_st_missing_date_repair_handlers import (
+    run_repair_stock_st_missing_dates as _run_repair_stock_st_missing_dates_impl,
+)
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.config.logging import configure_logging
 from src.foundation.config.settings import get_settings
@@ -46,6 +49,7 @@ from src.db import SessionLocal
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
 from src.foundation.services.migration import RawTushareBootstrapService
+from src.foundation.services.migration import StockStMissingDateRepairService
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker
@@ -227,6 +231,26 @@ def refresh_serving_light(
         start_date=start_date,
         end_date=end_date,
         ts_code=ts_code,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("repair-stock-st-missing-dates")
+def repair_stock_st_missing_dates(
+    dates: list[str] = typer.Option([], "--date", help="缺失交易日，格式 YYYY-MM-DD；可重复传入。"),
+    date_file: Path | None = typer.Option(None, "--date-file", help="缺失日期文件，一行一个 YYYY-MM-DD。"),
+    output_dir: Path | None = typer.Option(None, "--output-dir", help="预览 CSV 输出目录。"),
+    apply: bool = typer.Option(False, "--apply", help="执行落库；默认仅 preview。"),
+    fail_on_review_items: bool = typer.Option(False, "--fail-on-review-items", help="若存在人工审查项或验证冲突则拒绝 apply。"),
+) -> None:
+    _run_repair_stock_st_missing_dates_impl(
+        session_local=SessionLocal,
+        service_cls=StockStMissingDateRepairService,
+        dates=dates,
+        date_file=date_file,
+        output_dir=output_dir,
+        apply=apply,
+        fail_on_review_items=fail_on_review_items,
         echo_fn=typer.echo,
     )
 
