@@ -11,11 +11,13 @@
 当前指数日线、周线、月线已经收敛为一套明确机制：
 
 1. `ops.index_series_active` 是指数行情维护对象池。
-2. 当前业务口径使用 `resource='index_daily'` 作为指数日线、周线、月线共同的 active 池。
+2. 当前业务口径使用 `resource='index_daily'` 作为指数日线、周线、月线共同的 `core_serving` 入库门禁。
 3. active 池不是 TaskRun 观测表，不允许随任务观测表清空。
-4. 当前 ingestion 主链会读取 active 池；不会在同步日线后自动写回 active 池。
-5. 周线、月线的派生发生在同步 `index_weekly`、`index_monthly` 时，不发生在同步 `index_daily` 时。
-6. 周线、月线最终 serving 表通过 `source` 字段区分来源：
+4. 当前 ingestion 主链不会用 active 池裁剪源站请求结果或 raw 写入。
+5. raw 层对齐 Tushare 源站事实；`core_serving` 层只写 active 池命中的指数代码。
+6. 显式 `ts_code` 只是源站请求参数，不是写入 `core_serving` 的特权；非 active 代码只能写 raw，不能写穿 `core_serving`。
+7. 周线、月线的派生发生在同步 `index_weekly`、`index_monthly` 时，不发生在同步 `index_daily` 时。
+8. 周线、月线最终 serving 表通过 `source` 字段区分来源：
    - `api`：来自 Tushare 周线/月线接口。
    - `derived_daily`：由指数日线派生补齐。
 
@@ -59,15 +61,17 @@ active 池表：`ops.index_series_active`
 
 当前行为：
 
-1. 如果用户显式传入 `ts_code`，只维护该代码。
-2. 如果未传 `ts_code`，planner 优先读取 `ops.index_series_active` 中 `resource='index_daily'` 的代码。
-3. 如果 active 池为空，planner 会回退到 `index_basic` 未终止指数列表。
-4. 日线任务只写日线相关表，不派生周线或月线。
-5. 当前主链不会因为日线同步成功而自动更新 `ops.index_series_active`。
+1. 默认维护不按 active 池拆 `ts_code` 请求；请求参数只带 `trade_date` 或 `start_date/end_date`。
+2. 如果用户显式传入 `ts_code`，它只限定源站请求范围。
+3. raw 表写入源站返回的完整行。
+4. `core_serving.index_daily_serving` 写入前必须经过 active 池过滤，只保留 `resource='index_daily'` 命中的代码。
+5. 显式传入非 active `ts_code` 时，raw 可以写入，`core_serving` 不得写入。
+6. 日线任务只写日线相关表，不派生周线或月线。
+7. 当前主链不会因为日线同步成功而自动更新 `ops.index_series_active`。
 
 说明：
 
-- active 池当前是运维审阅后的维护对象集合，不是日线同步过程中的自动产物。
+- active 池当前是运维审阅后的 serving 门禁集合，不是日线同步过程中的自动产物。
 - 如果要调整 active 池，应走单独的指数对象池审阅/重建流程，不应依赖“跑一次日线任务”隐式改变对象池。
 
 ### 3.2 `index_weekly`
@@ -75,10 +79,12 @@ active 池表：`ops.index_series_active`
 当前行为：
 
 1. 周线任务按周锚点执行。
-2. 写入逻辑读取 `resource='index_daily'` active 池作为目标代码集合。
-3. 先写入 Tushare 周线接口返回的数据，来源标记为 `source='api'`。
-4. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
-5. 派生补齐发生在周线任务内。
+2. raw 表写入 Tushare 周线接口返回的完整行，不按 active 池过滤。
+3. `core_serving.index_weekly_serving` 写入前读取 `resource='index_daily'` active 池作为门禁。
+4. active 池命中的 API 行写入 serving，来源标记为 `source='api'`。
+5. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
+6. 显式传入非 active `ts_code` 时，raw 可以写入，serving 不得写入，也不得触发日线派生写入 serving。
+7. 派生补齐发生在周线任务内。
 
 ### 3.3 `index_monthly`
 
@@ -86,9 +92,12 @@ active 池表：`ops.index_series_active`
 
 1. 月线任务按月锚点执行。
 2. 写入逻辑与周线一致，只是目标表和周期粒度不同。
-3. 先写入 Tushare 月线接口返回的数据，来源标记为 `source='api'`。
-4. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
-5. 派生补齐发生在月线任务内。
+3. raw 表写入 Tushare 月线接口返回的完整行，不按 active 池过滤。
+4. `core_serving.index_monthly_serving` 写入前读取 `resource='index_daily'` active 池作为门禁。
+5. active 池命中的 API 行写入 serving，来源标记为 `source='api'`。
+6. 对 active 池中接口未返回的代码，使用已存在的 `core_serving.index_daily_serving` 日线数据派生补齐，来源标记为 `source='derived_daily'`。
+7. 显式传入非 active `ts_code` 时，raw 可以写入，serving 不得写入，也不得触发日线派生写入 serving。
+8. 派生补齐发生在月线任务内。
 
 ---
 
@@ -195,7 +204,8 @@ union all select 'monthly_only_vs_daily', count(*) from (select ts_code from m e
 2. 不允许在前端或 Ops 层重新实现周线/月线派生规则。
 3. 不允许在同步日线时顺手派生周线/月线。
 4. 不允许让 TaskRun 观测统计影响业务表写入或事务提交。
-5. 如果要调整 active 池来源，必须同步更新：
+5. 不允许把 active 池门禁前移到源站请求或 raw 写入前；active 池只能约束 `core_serving` 入库。
+6. 如果要调整 active 池来源，必须同步更新：
    - 本文档。
    - DatasetDefinition / planning 相关说明。
    - 对应 planner/writer 测试。

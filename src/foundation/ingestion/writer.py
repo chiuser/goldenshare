@@ -96,6 +96,13 @@ class DatasetWriter:
                     plan_unit=plan_unit,
                     run_profile=run_profile,
                 )
+            if definition.storage.write_path == "raw_index_daily_serving_upsert":
+                return self._write_index_daily_serving(
+                    definition=definition,
+                    batch=batch,
+                    raw_dao=raw_dao,
+                    core_dao=core_dao,
+                )
             if not batch.rows_normalized:
                 return WriteResult(
                     unit_id=batch.unit_id,
@@ -176,6 +183,60 @@ class DatasetWriter:
             rejected_reason_counts=rejected_reason_counts,
         )
 
+    def _write_index_daily_serving(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        raw_dao,
+        core_dao,
+    ) -> WriteResult:
+        if not batch.rows_normalized:
+            return WriteResult(
+                unit_id=batch.unit_id,
+                rows_written=0,
+                rows_upserted=0,
+                rows_skipped=batch.rows_rejected,
+                target_table=definition.storage.target_table,
+                conflict_strategy="index_daily_active_gate",
+            )
+
+        raw_rows = self._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
+        if definition.storage.conflict_columns:
+            raw_dao.bulk_upsert(raw_rows, conflict_columns=list(definition.storage.conflict_columns))
+        else:
+            raw_dao.bulk_upsert(raw_rows)
+
+        active_rows = self._filter_index_rows_by_active_pool(
+            rows=batch.rows_normalized,
+            active_codes=self._resolve_active_index_codes(),
+        )
+        rows_written = 0
+        rejected_reason_counts = self._duplicate_reason_counts(
+            rows=active_rows,
+            conflict_columns=self._resolve_conflict_columns(
+                core_dao,
+                definition.storage.conflict_columns,
+            ),
+        )
+        if active_rows:
+            core_rows = self._coerce_rows_for_dao(active_rows, core_dao)
+            if definition.storage.conflict_columns:
+                rows_written = core_dao.bulk_upsert(core_rows, conflict_columns=list(definition.storage.conflict_columns))
+            else:
+                rows_written = core_dao.bulk_upsert(core_rows)
+
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_written,
+            rows_upserted=rows_written,
+            rows_skipped=batch.rows_rejected,
+            target_table=definition.storage.target_table,
+            conflict_strategy="index_daily_active_gate",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
+        )
+
     def _write_index_period_serving(
         self,
         *,
@@ -195,41 +256,26 @@ class DatasetWriter:
         )
         full_date_refresh = (not explicit_ts_code) and run_profile in {"point_incremental", "range_rebuild"}
         if batch.rows_normalized:
+            if full_date_refresh:
+                self._purge_index_period_raw_rows_by_trade_dates(raw_dao=raw_dao, rows=batch.rows_normalized)
+            if definition.storage.conflict_columns:
+                raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(definition.storage.conflict_columns))
+            else:
+                raw_dao.bulk_upsert(batch.rows_normalized)
             filtered_rows = self._filter_index_rows_by_active_pool(
                 rows=batch.rows_normalized,
                 active_codes=active_codes,
             )
-            rejected_reason_counts = self._reason_count(
-                "write.filtered_by_business_rule:ts_code",
-                len(batch.rows_normalized) - len(filtered_rows),
-            )
-            if not filtered_rows:
-                return WriteResult(
-                    unit_id=batch.unit_id,
-                    rows_written=0,
-                    rows_upserted=0,
-                    rows_skipped=batch.rows_rejected,
-                    target_table=definition.storage.target_table,
-                    conflict_strategy="index_period_filtered_empty",
-                    rows_rejected=sum(rejected_reason_counts.values()),
-                    rejected_reason_counts=rejected_reason_counts,
-                )
             self._merge_reason_counts(
                 rejected_reason_counts,
                 self._duplicate_reason_counts(
-                    rows=filtered_rows,
+                    rows=batch.rows_normalized,
                     conflict_columns=self._resolve_conflict_columns(
                         raw_dao,
                         definition.storage.conflict_columns,
                     ),
                 ),
             )
-            if full_date_refresh:
-                self._purge_index_period_raw_rows_by_trade_dates(raw_dao=raw_dao, rows=filtered_rows)
-            if definition.storage.conflict_columns:
-                raw_dao.bulk_upsert(filtered_rows, conflict_columns=list(definition.storage.conflict_columns))
-            else:
-                raw_dao.bulk_upsert(filtered_rows)
             serving_rows = self._build_index_period_serving_rows(
                 rows=filtered_rows,
                 dataset_key=definition.dataset_key,
@@ -251,7 +297,9 @@ class DatasetWriter:
                                 ts_codes=missing_codes,
                             )
                         )
-            if full_date_refresh:
+            if not serving_rows:
+                rows_written = 0
+            elif full_date_refresh:
                 rows_written = self._replace_index_period_serving_rows_by_trade_dates(
                     core_dao=core_dao,
                     rows=serving_rows,
@@ -265,9 +313,14 @@ class DatasetWriter:
             conflict_strategy = "index_period_upsert"
         elif plan_unit is not None and (run_profile == "point_incremental" or full_date_refresh):
             if explicit_ts_code:
-                derived_rows = self._build_index_period_derived_rows(
-                    definition=definition,
-                    plan_unit=plan_unit,
+                ts_code = str(plan_unit.request_params.get("ts_code") or "").strip().upper()
+                derived_rows = (
+                    self._build_index_period_derived_rows(
+                        definition=definition,
+                        plan_unit=plan_unit,
+                    )
+                    if ts_code in active_codes
+                    else []
                 )
             else:
                 trade_date = plan_unit.trade_date

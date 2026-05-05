@@ -45,7 +45,7 @@
 | D4 | 市场枚举未建模 | DatasetDefinition 未声明 `market` 可选枚举 | 用户无法合法按市场筛选，测试也不能约束可选值 |
 | D5 | 日期模型不够干净 | `date_model.input_shape=none`，但 `input_model.time_fields` 仍有 `trade_date`，action 支持 `point` | 用户语义上容易误解为需要日期；快照类主数据不应暴露日期锚点 |
 | D6 | raw 层日期字段被转成 Date | 源文档类型为 str，raw/core 均使用 Date | raw 层不完全保留源站原始形态；异常日期格式可能导致整行拒绝 |
-| D7 | active 指数池未排除终止指数 | DAO `get_active_indexes()` 直接返回全部行 | 后续行情类任务可能请求已终止指数，增加空请求和失败噪音 |
+| D7 | active 指数池 fallback 未排除终止指数 | DAO `get_active_indexes()` 直接返回全部行 | 当 `ops.index_series_active` 为空并触发 fallback 时，指数 serving 门禁可能包含已终止指数，增加空结果和噪音 |
 
 ---
 

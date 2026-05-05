@@ -63,6 +63,27 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     assert "exchange" not in plan.units[0].request_params
 
 
+def test_index_daily_default_request_does_not_expand_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(),
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(side_effect=AssertionError("active pool must not be queried"))),
+        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock(side_effect=AssertionError("index_basic fallback must not be queried"))),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"trade_date": "20260424"}
+    assert "ts_code" not in plan.units[0].request_params
+
+
 @pytest.mark.parametrize(
     "dataset_key",
     ("daily", "adj_factor", "cyq_perf", "fund_daily", "index_daily", "index_daily_basic"),

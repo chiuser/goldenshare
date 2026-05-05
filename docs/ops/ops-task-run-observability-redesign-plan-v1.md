@@ -4,7 +4,7 @@
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
 
-> 2026-05-05 修正记录：本方案的停机清表范围曾错误包含 `ops.index_series_active`。该表不是旧任务观测表，也不是可随 TaskRun 重建一起清空的派生噪声表；它会影响指数类数据集的对象池规划。后续任何清表、重建、迁移方案不得清空该表，除非同一方案内先定义新的权威来源、重建 SQL、验收查询和回归测试。
+> 2026-05-05 修正记录：本方案的停机清表范围曾错误包含 `ops.index_series_active`。该表不是旧任务观测表，也不是可随 TaskRun 重建一起清空的派生噪声表；它会影响指数行情 `core_serving` 入库门禁。后续任何清表、重建、迁移方案不得清空该表，除非同一方案内先定义新的权威来源、重建 SQL、验收查询和回归测试。
 
 ---
 
@@ -899,7 +899,7 @@ POST /api/v1/ops/task-runs/364/retry
 | 旧数据集模式配置表 | 57 | 已下线；由 DatasetDefinition 派生投影替代，不再 seed |
 | `ops.std_cleansing_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
 | `ops.std_mapping_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
-| `ops.index_series_active` | 历史曾为 1142；当前 `index_daily` 池为 1130 | 禁止随 TaskRun 重建清空；该表参与指数类对象池规划。若确需重建，必须先单独评审指数对象池方案，并提供权威来源、重建 SQL、回填验证和回归测试 |
+| `ops.index_series_active` | 历史曾为 1142；当前 `index_daily` 池为 1130 | 禁止随 TaskRun 重建清空；该表参与指数行情 `core_serving` 入库门禁。若确需重建，必须先单独评审指数对象池方案，并提供权威来源、重建 SQL、回填验证和回归测试 |
 | `ops.probe_rule` | 0 | 可 drop 或保留空表，取决于探测中心是否保留 |
 | `ops.resolution_release` | 0 | 可 drop 或保留空表，取决于融合发布中心是否保留 |
 | `ops.resolution_release_stage_status` | 0 | 可 drop 或保留空表，取决于融合发布中心是否保留 |
@@ -911,7 +911,7 @@ POST /api/v1/ops/task-runs/364/retry
 1. migration `20260426_000074_task_run_observability_redesign.py` 的 `RESET_TABLES` 错误包含 `index_series_active`，执行时会对 `ops.index_series_active` 做 `TRUNCATE`。
 2. 该表一度被误清空；后续已按审阅后的 2026-04-15 指数日线 code 集合重建 `resource='index_daily'`，当前为 1130 个代码。
 3. 该表不是 TaskRun 观测主链的一部分，不应随任务详情重建设计一起清空。
-4. 当前代码仍会读取该表参与指数类对象池规划；表为空时部分链路会回退到 `index_basic`，但这不是稳定运维口径。
+4. 当前代码仍会读取该表作为指数行情 `core_serving` 入库门禁；表为空时会回退到 `index_basic`，但这不是稳定运维口径。
 5. 当前稳定口径见 [指数行情 active 池与周/月线派生机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。
 
 修正后的硬约束：
@@ -1040,7 +1040,7 @@ flowchart TD
 3. scheduler / worker / web 已恢复。
 4. 新 TaskRun 链路已通过小窗口任务验证。
 5. `ops.job_schedule` 当前为空，自动任务默认配置需要后续单独设计 seed / rebuild 机制后再恢复。
-6. `ops.index_series_active` 已从 TaskRun 重建范围中剥离；当前 `resource='index_daily'` 作为指数日/周/月共同 active 池使用，不能继续把它视为 TaskRun 重建的一部分。
+6. `ops.index_series_active` 已从 TaskRun 重建范围中剥离；当前 `resource='index_daily'` 作为指数日/周/月共同 `core_serving` 入库门禁使用，不能继续把它视为 TaskRun 重建的一部分。
 
 ---
 

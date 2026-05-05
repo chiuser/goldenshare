@@ -177,9 +177,10 @@
 - 接口：`index_daily`
 - 源文档：`docs/sources/tushare/指数专题/0095_指数日线行情.md`
 - 分页：`limit=8000`（文档单次上限），`offset` 递增分页。
-- 默认请求：固定走 active 指数池（你定制口径），在指数池内逐 `trade_date` 请求。
-- 用户传参规则：用户若显式传 `ts_code`，就原样透传；可组合；未传不补。
+- 默认请求：不按 active 池拆 `ts_code`；单日传 `trade_date`，区间传 `start_date/end_date`，raw 写入源站完整返回。
+- 用户传参规则：用户若显式传 `ts_code`，只作为源站局部请求参数；可组合；未传不补。
 - 时间执行：以交易日为基准；区间任务先筛交易日，再逐日请求。
+- 写入门禁：`core_serving.index_daily_serving` 写入前按 `resource='index_daily'` active 池过滤；非 active 代码只允许写 raw，不允许写穿 serving。
 
 ### `index_daily_basic`（指数日指标）
 
@@ -195,20 +196,20 @@
 - 接口：`index_monthly`
 - 源文档：`docs/sources/tushare/指数专题/0172_指数月线行情.md`
 - 分页：`limit=1000`（文档单次上限），`offset` 递增分页。
-- 默认请求：固定走 active 指数池（你定制口径），按月末交易日锚点逐点请求。
-- 用户传参规则：用户若显式传 `ts_code`，就原样透传；可组合；未传不补。
+- 默认请求：不按 active 池拆 `ts_code`，按月末交易日锚点逐点请求，raw 写入源站完整返回。
+- 用户传参规则：用户若显式传 `ts_code`，只作为源站局部请求参数；可组合；未传不补。
 - 时间执行：仅在月末交易日执行。
-- 写入补齐：月线任务写入接口返回结果后，会对 active 池中接口缺失的代码使用已同步日线派生补齐；最终 serving 表用 `source='api' / 'derived_daily'` 区分来源。
+- 写入补齐：`core_serving.index_monthly_serving` 写入前按 `resource='index_daily'` active 池过滤；active 池中接口缺失的代码使用已同步日线派生补齐；最终 serving 表用 `source='api' / 'derived_daily'` 区分来源。非 active 代码只允许写 raw，不允许写穿 serving。
 
 ### `index_weekly`（指数周线）
 
 - 接口：`index_weekly`
 - 源文档：`docs/sources/tushare/指数专题/0171_指数周线行情.md`
 - 分页：`limit=1000`（文档单次上限），`offset` 递增分页。
-- 默认请求：固定走 active 指数池（你定制口径），按周末交易日锚点逐点请求。
-- 用户传参规则：用户若显式传 `ts_code`，就原样透传；可组合；未传不补。
+- 默认请求：不按 active 池拆 `ts_code`，按周末交易日锚点逐点请求，raw 写入源站完整返回。
+- 用户传参规则：用户若显式传 `ts_code`，只作为源站局部请求参数；可组合；未传不补。
 - 时间执行：仅在周末交易日执行。
-- 写入补齐：周线任务写入接口返回结果后，会对 active 池中接口缺失的代码使用已同步日线派生补齐；最终 serving 表用 `source='api' / 'derived_daily'` 区分来源。
+- 写入补齐：`core_serving.index_weekly_serving` 写入前按 `resource='index_daily'` active 池过滤；active 池中接口缺失的代码使用已同步日线派生补齐；最终 serving 表用 `source='api' / 'derived_daily'` 区分来源。非 active 代码只允许写 raw，不允许写穿 serving。
 
 ### `index_weight`（指数成分权重）
 

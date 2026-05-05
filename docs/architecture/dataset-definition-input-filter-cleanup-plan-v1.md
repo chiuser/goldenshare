@@ -145,7 +145,7 @@ python3 scripts/check_docs_integrity.py
 
 1. 这是一个有意为之的硬收口，不做兼容。任何仍按旧口径给这 6 个数据集传 `exchange` 的调用方，部署后都会收到校验错误。
 2. 本轮最大风险不是业务数据错误，而是误删本来合法的 `exchange` 参数。所以实施前后都必须对“保留对象”再做一遍引用核验。
-3. `index_daily` 当前本来就依赖 `ts_code` 或激活指数池生成执行单元，本轮不能碰它的 universe 规划逻辑。
+3. 历史实施时未触碰 `index_daily` universe 规划逻辑；当前 `index_daily` 已在后续指数 raw/serving 分层收口中改为默认不按 active 池拆请求。
 4. `fund_daily`、`daily`、`adj_factor`、`cyq_perf` 的真实源请求继续保持“按交易日 + 可选单证券”模式，不能借这轮顺手扩展全量市场分片策略。
 
 ## 9. 完成门禁

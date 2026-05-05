@@ -424,9 +424,10 @@
 
 | 值 | 含义 | 使用数据集 |
 | --- | --- | --- |
-| `none` | 当前历史未收口值；目标语义只能表示未定义或未迁移，不能表示“没有对象池展开” | 55 个数据集（已不含 `index_weight`） |
+| `none` | 当前历史未收口值；目标语义只能表示未定义或未迁移，不能表示“没有对象池展开” | 历史未迁移数据集 |
+| `no_pool` | 明确不按对象池展开源站请求；如需过滤，只能在 writer 的目标层门禁中执行 | `index_daily`, `news` |
 | `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | `index_weight` |
-| `index_active_codes` | 指数 code 池展开；优先 `ops.index_series_active`，为空则用 `index_basic` 未终止指数 | `index_daily` |
+| `index_active_codes` | 历史指数 code 池展开 selector；当前不再用于 `index_daily` 默认请求 | 当前未使用 |
 | `dc_index_board_codes` | 从东财板块代码池展开 | `dc_member` |
 | `ths_index_board_codes` | 从同花顺板块代码池展开 | `ths_member` |
 

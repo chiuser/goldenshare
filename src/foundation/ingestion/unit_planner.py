@@ -524,7 +524,12 @@ def _build_news_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActi
 def _build_index_daily_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     anchors = [request.trade_date] if request.run_profile == "point_incremental" else [None]
-    universe_values = [{"ts_code": code} for code in _resolve_index_codes(request, planner.dao)]
+    explicit_codes = split_multi_values(request.params.get("ts_code"))
+    universe_values = (
+        [{"ts_code": str(code).strip().upper()} for code in explicit_codes if str(code).strip()]
+        if explicit_codes
+        else [{}]
+    )
     return build_plan_units(
         request=request,
         definition=definition,
