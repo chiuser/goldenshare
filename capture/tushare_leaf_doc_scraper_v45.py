@@ -83,6 +83,9 @@ MANIFEST_TABLE_ROW_SPECS: dict[int, dict[str, list[str]]] = {
     94: {
         "输入参数": ["ts_code", "symbol"],
     },
+    112: {
+        "输出参数": ["ann_date"],
+    },
     143: {
         "输出参数": ["score"],
     },
