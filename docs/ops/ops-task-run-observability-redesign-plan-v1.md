@@ -4,6 +4,8 @@
 日期：2026-04-26  
 适用范围：Ops 任务中心、任务详情页、任务执行运行时、Dataset Maintain 执行观测链路
 
+> 2026-05-05 修正记录：本方案的停机清表范围曾错误包含 `ops.index_series_active`。该表不是旧任务观测表，也不是可随 TaskRun 重建一起清空的派生噪声表；它会影响指数类数据集的对象池规划。后续任何清表、重建、迁移方案不得清空该表，除非同一方案内先定义新的权威来源、重建 SQL、验收查询和回归测试。
+
 ---
 
 ## 0. 当前上线状态
@@ -394,7 +396,7 @@ sequenceDiagram
     Engine->>DBBiz: fetch/normalize/write business rows
     Engine->>DBBiz: commit business transaction
     Worker->>DBNode: update node status=success, rows_*
-    Worker->>DBRun: update unit_done, rows_*, current_context
+    Worker->>DBRun: update unit_done, rows_*, current_object_json
 ```
 
 写入规则：
@@ -636,11 +638,16 @@ GET /api/v1/ops/task-runs/364/view
     "rows_fetched": 128560821,
     "rows_saved": 128560821,
     "rows_rejected": 0,
-    "current_context": {
-      "ts_code": "TS0018.SH",
-      "security_name": "上港集箱(退)",
-      "freq": "60min"
-    }
+    "current_object": {
+      "title": "正在处理：上港集箱(退)（TS0018.SH）",
+      "description": "频率：60min",
+      "fields": [
+        {"label": "证券代码", "value": "TS0018.SH"},
+        {"label": "证券名称", "value": "上港集箱(退)"},
+        {"label": "频率", "value": "60min"}
+      ]
+    },
+    "period_source_summary": null
   },
   "primary_issue": {
     "id": 88,
@@ -683,6 +690,30 @@ GET /api/v1/ops/task-runs/364/view
 | 失败原因卡 | 失败时展示 | `primary_issue` |
 | 执行过程 | 进入详情页、轮询刷新 | `nodes` |
 | 操作按钮 | 每次 view 返回后刷新 | `actions` |
+
+补充说明：
+
+1. `progress.current_object` 是由 `task_run.current_object_json` 转换后的用户可读展示对象，只在运行中/停止中任务展示当前处理对象。
+2. `progress.period_source_summary` 是周期指数任务的只读来源统计，仅 `index_weekly` / `index_monthly` 返回非空。
+3. `period_source_summary` 从最终 serving 表按 `source` 聚合，区分 `api` 与 `derived_daily`，不参与 writer、executor 或业务事务。
+
+示例：
+
+```json
+{
+  "progress": {
+    "rows_saved": 1130,
+    "period_source_summary": {
+      "total_rows": 1130,
+      "api_rows": 560,
+      "derived_daily_rows": 570,
+      "other_rows": 0,
+      "start_date": "2026-04-17",
+      "end_date": "2026-04-17"
+    }
+  }
+}
+```
 
 ### 7.4 技术诊断详情
 
@@ -821,6 +852,7 @@ POST /api/v1/ops/task-runs/364/retry
 3. 不做旧执行数据备份。
 4. 涉及旧架构数据的运营表允许清空，并通过新模型重新 seed 或重新计算。
 5. 清理前必须停掉 scheduler / worker，避免旧任务继续写旧表。
+6. 非任务观测表不得因为 TaskRun 重建被顺手清空；尤其是指数对象池、业务规则、人工配置等会参与后续执行规划的数据。
 
 ### 9.1 必须 drop：旧执行观测主链
 
@@ -859,7 +891,7 @@ POST /api/v1/ops/task-runs/364/retry
 
 ### 9.4 可选重置：运营配置与规则表
 
-这些表不属于任务详情旧观测主链，但如果本次要把任务中心和自动任务配置一起重新收敛，可以清空后用 seed 重建。
+这些表不属于任务详情旧观测主链。TaskRun 重建不应默认清空这些表；只有在对应专题方案已经定义新事实源、重建命令和验收查询后，才允许处理。
 
 | 表 | 清理前行数 | 建议 |
 | --- | ---: | --- |
@@ -867,10 +899,27 @@ POST /api/v1/ops/task-runs/364/retry
 | 旧数据集模式配置表 | 57 | 已下线；由 DatasetDefinition 派生投影替代，不再 seed |
 | `ops.std_cleansing_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
 | `ops.std_mapping_rule` | 56 | 若标准化规则本轮不重做，先保留；若重做规则中心，再清空 |
-| `ops.index_series_active` | 1142 | 谨慎清空；清空会影响指数类同步，必须有明确重建命令 |
+| `ops.index_series_active` | 历史曾为 1142；当前 `index_daily` 池为 1130 | 禁止随 TaskRun 重建清空；该表参与指数类对象池规划。若确需重建，必须先单独评审指数对象池方案，并提供权威来源、重建 SQL、回填验证和回归测试 |
 | `ops.probe_rule` | 0 | 可 drop 或保留空表，取决于探测中心是否保留 |
 | `ops.resolution_release` | 0 | 可 drop 或保留空表，取决于融合发布中心是否保留 |
 | `ops.resolution_release_stage_status` | 0 | 可 drop 或保留空表，取决于融合发布中心是否保留 |
+
+### 9.4.1 指数对象池误清空事故记录
+
+2026-05-05 核验结果：
+
+1. migration `20260426_000074_task_run_observability_redesign.py` 的 `RESET_TABLES` 错误包含 `index_series_active`，执行时会对 `ops.index_series_active` 做 `TRUNCATE`。
+2. 该表一度被误清空；后续已按审阅后的 2026-04-15 指数日线 code 集合重建 `resource='index_daily'`，当前为 1130 个代码。
+3. 该表不是 TaskRun 观测主链的一部分，不应随任务详情重建设计一起清空。
+4. 当前代码仍会读取该表参与指数类对象池规划；表为空时部分链路会回退到 `index_basic`，但这不是稳定运维口径。
+5. 当前稳定口径见 [指数行情 active 池与周/月线派生机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。
+
+修正后的硬约束：
+
+1. TaskRun 观测清表只允许处理任务观测表、旧内部运行日志、旧状态快照和明确可重算的派生表。
+2. 任何会影响 DatasetExecutionPlan 对象池、业务规则、调度配置、人工维护配置的表，必须有独立方案。
+3. 清表方案必须逐表写明“是否参与执行规划”；参与执行规划的表默认禁止清空。
+4. 如果清空已经发生，恢复方案必须说明能否原样恢复；不能原样恢复时，必须明确“重建口径”和“与原数据的差异”。
 
 ### 9.5 清理顺序
 
@@ -880,10 +929,11 @@ flowchart TD
     B --> C["drop 旧备份表"]
     C --> D["drop 旧执行观测主链与旧内部运行日志"]
     D --> E["truncate 旧状态与快照派生数据"]
-    E --> F["按新模型 seed schedule / pipeline / resource state"]
-    F --> G["重算 dataset status snapshot"]
-    G --> H["启动 scheduler / worker"]
-    H --> I["创建一条手动任务验证新详情页"]
+    E --> F["保留非观测配置与对象池表"]
+    F --> G["按新模型 seed schedule / pipeline / resource state"]
+    G --> H["重算 dataset status snapshot"]
+    H --> I["启动 scheduler / worker"]
+    I --> J["创建一条手动任务验证新详情页"]
 ```
 
 清理门禁：
@@ -893,6 +943,7 @@ flowchart TD
 3. 新手动任务可以创建、运行、失败、重试、取消。
 4. 新任务详情页只调用 `/api/v1/ops/task-runs/{id}/view` 和按需 issue detail。
 5. 新状态重算任务可以恢复任务统计和数据状态页所需快照。
+6. 清表前确认 `ops.index_series_active` 等对象池表不在清理列表中。
 
 ---
 
@@ -977,7 +1028,8 @@ flowchart TD
 2. drop 旧备份表。
 3. drop 旧任务观测表与旧内部运行日志表。
 4. truncate 旧同步状态表、数据集状态快照、层级快照、探测日志和配置变更历史。
-5. 按 M0 决策处理可选重置表；`ops.job_schedule` 已重置为空，待后续单独重建默认自动任务配置。
+5. `ops.job_schedule` 已重置为空，待后续单独重建默认自动任务配置。
+6. 事故修正：本轮 migration 曾误清空 `ops.index_series_active`。该行为不符合修正后的清表边界；当前 `resource='index_daily'` 已按审阅后的 1130 个指数代码重建。
 
 ### M8：重建 seed 与恢复服务
 
@@ -988,6 +1040,7 @@ flowchart TD
 3. scheduler / worker / web 已恢复。
 4. 新 TaskRun 链路已通过小窗口任务验证。
 5. `ops.job_schedule` 当前为空，自动任务默认配置需要后续单独设计 seed / rebuild 机制后再恢复。
+6. `ops.index_series_active` 已从 TaskRun 重建范围中剥离；当前 `resource='index_daily'` 作为指数日/周/月共同 active 池使用，不能继续把它视为 TaskRun 重建的一部分。
 
 ---
 

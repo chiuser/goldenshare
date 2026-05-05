@@ -76,7 +76,6 @@ docs/
 
 ## 5. 数据集研发（S3）
 
-- [指数筛选池同步机制说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
 - [指数基础信息源站对齐修复方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
 - [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
 - [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
@@ -108,6 +107,7 @@ docs/
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [ST 股票列表](/Users/congming/github/goldenshare/docs/datasets/stock-st-dataset-development.md)
+- [ST 股票列表历史缺失日期重建方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)
 - [个股资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-ths-dataset-development.md)
 - [个股资金流向（DC）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-dc-dataset-development.md)
 - [概念板块资金流向（THS）](/Users/congming/github/goldenshare/docs/datasets/moneyflow-cnt-ths-dataset-development.md)
@@ -119,6 +119,11 @@ docs/
 - [新闻通讯](/Users/congming/github/goldenshare/docs/datasets/major-news-dataset-development.md)
 - [券商每月荐股](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)
 - [每日筹码及胜率](/Users/congming/github/goldenshare/docs/datasets/cyq-perf-dataset-development.md)
+- [股票历史基础列表](/Users/congming/github/goldenshare/docs/datasets/bak-basic-dataset-development.md)
+- [北交所新旧代码对照](/Users/congming/github/goldenshare/docs/datasets/bse-mapping-dataset-development.md)
+- [股票曾用名](/Users/congming/github/goldenshare/docs/datasets/namechange-dataset-development.md)
+- [ST 风险警示事件](/Users/congming/github/goldenshare/docs/datasets/st-dataset-development.md)
+- [上市公司基本信息](/Users/congming/github/goldenshare/docs/datasets/stock-company-dataset-development.md)
 
 ## 6. 前端、业务与发布（S4）
 

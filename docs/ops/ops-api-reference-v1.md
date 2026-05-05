@@ -231,7 +231,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     "title": "股票日线",
     "status": "queued"
   },
-  "progress": {"unit_total": 0, "unit_done": 0, "unit_failed": 0, "progress_percent": 0, "rows_fetched": 0, "rows_saved": 0, "rows_rejected": 0, "current_context": {}},
+  "progress": {"unit_total": 0, "unit_done": 0, "unit_failed": 0, "progress_percent": 0, "rows_fetched": 0, "rows_saved": 0, "rows_rejected": 0, "current_object": null, "period_source_summary": null},
   "primary_issue": null,
   "nodes": [],
   "node_total": 0,
@@ -629,7 +629,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 ```json
 {
   "run": {"id": 285, "title": "股票日线", "resource_key": "daily", "status": "success", "trigger_source": "manual"},
-  "progress": {"unit_total": 3, "unit_done": 3, "unit_failed": 0, "progress_percent": 100, "rows_fetched": 5496, "rows_saved": 5496, "rows_rejected": 0, "current_context": {}},
+  "progress": {"unit_total": 3, "unit_done": 3, "unit_failed": 0, "progress_percent": 100, "rows_fetched": 5496, "rows_saved": 5496, "rows_rejected": 0, "current_object": null, "period_source_summary": null},
   "primary_issue": null,
   "nodes": [],
   "node_total": 0,
@@ -1405,10 +1405,11 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `TaskRunSummaryResponse`：`total, queued, running, success, failed, canceled`
 - `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
 - `TaskRunInfo`：`id, task_type, resource_key, action, title, trigger_source, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
-- `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, current_context`
-- `TaskRunNodeItem`：`id, parent_node_id, node_key, node_type, sequence_no, title, resource_key, status, time_input, context, rows_fetched, rows_saved, rows_rejected, issue_id, started_at, ended_at, duration_ms`
-- `TaskRunIssueSummary`：`id, severity, code, title, operator_message, suggested_action, has_technical_detail, occurred_at`
-- `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, technical_message, technical_payload, source_phase, occurred_at`
+- `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reasons, current_object, period_source_summary`
+- `TaskRunPeriodSourceSummary`：`total_rows, api_rows, derived_daily_rows, other_rows, start_date, end_date`；仅 `index_weekly/index_monthly` 这类周期指数任务按最终 serving 表来源返回。
+- `TaskRunNodeItem`：`id, parent_node_id, node_key, node_type, sequence_no, title, resource_key, status, time_input, context, rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reasons, issue_id, started_at, ended_at, duration_ms`
+- `TaskRunIssueSummary`：`id, severity, code, title, operator_message, suggested_action, object, has_technical_detail, occurred_at`
+- `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, object, technical_message, technical_payload, source_phase, occurred_at`
 - `TaskRunActions`：`can_retry, can_cancel, can_copy_params`
 
 ### 12.3 调度

@@ -120,3 +120,10 @@
 - 上游单日返回量可能触发分页，必须严格分页直到拉完，避免截断。
 - `type/type_name` 口径属于业务语义字段，必须原样落库，不做值映射。
 - 若区间很大，按交易日扇出会产生较多请求，应复用现有取消信号与进度上报机制，保证可中断、可观测。
+
+## 9. 历史缺失日期补数专题
+
+`stock_st` 已确认存在“源站日快照为空，导致历史交易日整日缺失”的专题问题。  
+该问题不通过常规 `stock_st.maintain` 主链修复，而通过单独的历史重建方案处理，详见：
+
+- [ST 股票列表历史缺失日期重建方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)

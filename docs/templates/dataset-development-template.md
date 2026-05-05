@@ -54,6 +54,7 @@
 - 中文显示名：
 - 所属定义文件：`src/foundation/datasets/definitions/<domain>.py`
 - 所属域：`reference_master` / `market_equity` / `market_fund` / `index_series` / `board_hotspot` / `moneyflow` / `low_frequency` / 其他（新增域需先评审）
+  - 说明：这里是 `DatasetDefinition.domain` 的底层领域事实，不等于前端或 Ops 的用户可见展示分组。
 - 数据源：`tushare` / `biying` / 其他
 - 源站 API 名称：
 - 源站文档链接：
@@ -63,6 +64,9 @@
 - 是否多源融合：是 / 否
 - 是否纳入自动任务：是 / 否
 - 是否纳入日期完整性审计：是 / 否
+- Ops 展示分组 key：
+- Ops 展示分组名称：
+- Ops 展示分组顺序：
 
 ---
 
@@ -395,10 +399,11 @@
 ### 5.2 工程硬约束
 
 1. 数值类型默认使用 `DOUBLE PRECISION`；若使用 `NUMERIC`，必须逐字段说明理由。
-2. 有 `trade_date` 且数据量较大的表，必须评估分区；默认年分区，超大表可月分区。
-3. 有 `ts_code + trade_date` 语义时，默认主键为 `(ts_code, trade_date)`，并评估 `trade_date` 方向索引。
-4. 新 ORM 模型必须能被 `src.foundation.models.table_model_registry.table_model_registry()` 发现；freshness 观测依赖该 registry。
-5. 新表必须有 Alembic 迁移，迁移和 ORM 模型字段必须一致。
+2. 对于源站中语义明确、格式稳定的日期字符串（例如 `YYYYMMDD`），raw 层允许直接落 PostgreSQL `date`；字段名保持不变，不额外保留第二份字符串镜像。
+3. 有 `trade_date` 且数据量较大的表，必须评估分区；默认年分区，超大表可月分区。
+4. 有 `ts_code + trade_date` 语义时，默认主键为 `(ts_code, trade_date)`，并评估 `trade_date` 方向索引。
+5. 新 ORM 模型必须能被 `src.foundation.models.table_model_registry.table_model_registry()` 发现；freshness 观测依赖该 registry。
+6. 新表必须有 Alembic 迁移，迁移和 ORM 模型字段必须一致。
 
 ### 5.3 DAO
 
@@ -587,6 +592,7 @@ cd frontend && npm run typecheck
 - [ ] ORM、DAO、迁移一致
 - [ ] `target_table` 能被 table model registry 发现
 - [ ] 日期模型能驱动手动任务、freshness 和审计
+- [ ] Ops 展示目录配置已确认，数据源页 / 手动任务 / 自动任务的展示分组一致
 - [ ] Ops/TaskRun 保存的是用户或调度意图，没有提前展开为源接口参数
 - [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
 - [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
