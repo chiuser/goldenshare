@@ -32,6 +32,26 @@
       "limit": "| limit | int | N | 单次返回数据长度 |",
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
     },
+    "33": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "36": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "44": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "45": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "46": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
     "47": {
       "limit": "| limit | int | N | 单次返回数据长度 |",
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
@@ -57,6 +77,18 @@
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
     },
     "62": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "79": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "80": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "81": {
       "limit": "| limit | int | N | 单次返回数据长度 |",
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
     },
@@ -129,6 +161,10 @@
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
     },
     "161": {
+      "limit": "| limit | int | N | 单次返回数据长度 |",
+      "offset": "| offset | int | N | 请求数据的开始位移量 |"
+    },
+    "162": {
       "limit": "| limit | int | N | 单次返回数据长度 |",
       "offset": "| offset | int | N | 请求数据的开始位移量 |"
     },
