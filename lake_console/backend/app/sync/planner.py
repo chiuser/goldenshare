@@ -53,11 +53,47 @@ class LakeSyncPlanner:
             raise ValueError(f"不支持的来源：{source}")
         if dataset_key in {"stock_basic", "trade_cal", "index_basic"}:
             return build_snapshot_plan(definition, start_date=start_date, end_date=end_date, market=market)
-        if dataset_key in {"adj_factor", "daily_basic", "index_daily_basic"} and source != PROD_RAW_DB_SOURCE:
+        if dataset_key in {
+            "adj_factor",
+            "daily_basic",
+            "fund_adj",
+            "fund_daily",
+            "index_daily_basic",
+            "margin",
+            "moneyflow",
+            "moneyflow_ths",
+            "moneyflow_dc",
+            "moneyflow_cnt_ths",
+            "moneyflow_ind_ths",
+            "moneyflow_ind_dc",
+            "moneyflow_mkt_dc",
+            "stk_limit",
+            "stock_st",
+            "suspend_d",
+        } and source != PROD_RAW_DB_SOURCE:
             raise ValueError(f"{dataset_key} 当前只支持 --from prod-raw-db。")
         if dataset_key == "index_daily" and source != PROD_CORE_DB_SOURCE:
             raise ValueError("index_daily 当前只支持 --from prod-core-db。")
-        if dataset_key in {"daily", "moneyflow", "adj_factor", "daily_basic", "index_daily", "index_daily_basic"}:
+        if dataset_key in {
+            "daily",
+            "moneyflow",
+            "moneyflow_ths",
+            "moneyflow_dc",
+            "moneyflow_cnt_ths",
+            "moneyflow_ind_ths",
+            "moneyflow_ind_dc",
+            "moneyflow_mkt_dc",
+            "adj_factor",
+            "daily_basic",
+            "fund_adj",
+            "fund_daily",
+            "index_daily",
+            "index_daily_basic",
+            "margin",
+            "stk_limit",
+            "stock_st",
+            "suspend_d",
+        }:
             return build_trade_date_plan(
                 definition,
                 lake_root=self.lake_root,

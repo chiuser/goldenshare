@@ -258,15 +258,15 @@ class LakeDatasetStrategy(Protocol):
 
 ### 6.4 数据集 strategy 文件规则
 
-每个普通数据集一个文件：
+普通数据集默认按执行模型分组文件；当多个数据集共用同一套执行语义时，允许共享一个 strategy 模块：
 
 ```text
 sync/strategies/daily.py
-sync/strategies/moneyflow.py
+sync/strategies/prod_db_trade_date.py
 sync/strategies/index_basic.py
 ```
 
-文件内只允许处理该数据集：
+模块内只允许处理同一执行模型下的数据集：
 
 1. 生成请求参数。
 2. 调用 Tushare client。
@@ -282,7 +282,7 @@ sync/strategies/index_basic.py
 1. 读取远程 DB。
 2. 调用生产 Ops。
 3. 引入生产 TaskRun。
-4. 处理其他数据集的特殊逻辑。
+4. 处理与该执行模型无关的数据集特殊逻辑。
 
 ---
 
@@ -412,12 +412,12 @@ docs/templates/lake-dataset-development-template.md
 
 ## 9. 对 moneyflow 的影响
 
-`moneyflow` 已按新结构接入：
+`moneyflow` 当前已按新结构收敛到 `prod-raw-db` 主线：
 
 ```text
 catalog/datasets/moneyflow.py
 sync/planners/trade_date.py
-sync/strategies/moneyflow.py
+sync/strategies/prod_db_trade_date.py
 docs/datasets/moneyflow-lake-dataset-development.md
 ```
 

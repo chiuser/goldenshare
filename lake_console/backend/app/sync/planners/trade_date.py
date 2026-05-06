@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from lake_console.backend.app.catalog.datasets.moneyflow import MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET
 from lake_console.backend.app.catalog.models import LakeDatasetDefinition
 from lake_console.backend.app.services.prod_core_db import PROD_CORE_DB_SOURCE
 from lake_console.backend.app.sync.helpers.dates import load_open_trade_dates
@@ -33,7 +34,25 @@ def build_trade_date_plan(
             raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
     write_paths = tuple(f"{layer.path}/trade_date={item.isoformat()}" for item in dates for layer in definition.layers)
     if source == "prod-raw-db":
-        if definition.dataset_key not in {"daily", "adj_factor", "daily_basic", "index_daily_basic"}:
+        if definition.dataset_key not in {
+            "daily",
+            "adj_factor",
+            "daily_basic",
+            "fund_daily",
+            "fund_adj",
+            "index_daily_basic",
+            "margin",
+            "moneyflow",
+            "moneyflow_ths",
+            "moneyflow_dc",
+            "moneyflow_cnt_ths",
+            "moneyflow_ind_ths",
+            "moneyflow_ind_dc",
+            "moneyflow_mkt_dc",
+            "stk_limit",
+            "stock_st",
+            "suspend_d",
+        }:
             raise ValueError(f"{definition.dataset_key} 当前不支持 --from prod-raw-db。")
     elif source == PROD_CORE_DB_SOURCE:
         if definition.dataset_key != "index_daily":
@@ -52,7 +71,13 @@ def build_trade_date_plan(
         request_strategy_key = f"{definition.dataset_key}:prod-core-db"
         notes.append("从生产库 core_serving.index_daily_serving 只读导出，显式映射回 Tushare index_daily 字段口径。")
     if ts_code:
-        notes.append("传入 ts_code 时作为单标的调试或补数计划，写入仍按返回行 trade_date 分区。")
+        notes.append("当前 prod-db 日频导出不支持 ts_code 局部筛选，传入后实际执行会拒绝。")
+    known_gap_dates = MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET.get(definition.dataset_key, ())
+    if known_gap_dates:
+        covered_gap_dates = [item for item in dates if item in known_gap_dates]
+        if covered_gap_dates:
+            joined = ", ".join(item.isoformat() for item in covered_gap_dates)
+            notes.append(f"命中已知源站缺口日期：{joined}；执行时会跳过分区替换并标记 skip_reason=source_gap。")
     return LakeSyncPlan(
         dataset_key=definition.dataset_key,
         display_name=definition.display_name,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from datetime import date
+
 from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+
 
 MONEYFLOW_FIELDS: tuple[str, ...] = (
     "ts_code",
@@ -25,17 +28,170 @@ MONEYFLOW_FIELDS: tuple[str, ...] = (
     "net_mf_amount",
 )
 
-MONEYFLOW_VOLUME_FIELDS: tuple[str, ...] = (
-    "buy_sm_vol",
-    "sell_sm_vol",
-    "buy_md_vol",
-    "sell_md_vol",
-    "buy_lg_vol",
-    "sell_lg_vol",
-    "buy_elg_vol",
-    "sell_elg_vol",
-    "net_mf_vol",
+MONEYFLOW_THS_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "ts_code",
+    "name",
+    "pct_change",
+    "latest",
+    "net_amount",
+    "net_d5_amount",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate",
 )
+
+MONEYFLOW_DC_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "ts_code",
+    "name",
+    "pct_change",
+    "close",
+    "net_amount",
+    "net_amount_rate",
+    "buy_elg_amount",
+    "buy_elg_amount_rate",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate",
+)
+
+MONEYFLOW_CNT_THS_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "ts_code",
+    "name",
+    "lead_stock",
+    "close_price",
+    "pct_change",
+    "industry_index",
+    "company_num",
+    "pct_change_stock",
+    "net_buy_amount",
+    "net_sell_amount",
+    "net_amount",
+)
+
+MONEYFLOW_IND_THS_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "ts_code",
+    "industry",
+    "lead_stock",
+    "close",
+    "pct_change",
+    "company_num",
+    "pct_change_stock",
+    "close_price",
+    "net_buy_amount",
+    "net_sell_amount",
+    "net_amount",
+)
+
+MONEYFLOW_IND_DC_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "content_type",
+    "name",
+    "ts_code",
+    "pct_change",
+    "close",
+    "net_amount",
+    "net_amount_rate",
+    "buy_elg_amount",
+    "buy_elg_amount_rate",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate",
+    "buy_sm_amount_stock",
+    "rank",
+)
+
+MONEYFLOW_MKT_DC_FIELDS: tuple[str, ...] = (
+    "trade_date",
+    "close_sh",
+    "pct_change_sh",
+    "close_sz",
+    "pct_change_sz",
+    "net_amount",
+    "net_amount_rate",
+    "buy_elg_amount",
+    "buy_elg_amount_rate",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate",
+)
+
+MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET: dict[str, tuple[date, ...]] = {
+    "moneyflow_dc": (date(2023, 11, 22),),
+    "moneyflow_cnt_ths": (date(2024, 11, 4), date(2025, 1, 20)),
+    "moneyflow_ind_ths": (date(2024, 11, 4), date(2025, 1, 20)),
+}
+
+
+def _moneyflow_layers(*, dataset_key: str, purpose: str, recommended_usage: str) -> tuple[LakeLayerDefinition, ...]:
+    return (
+        LakeLayerDefinition(
+            layer="raw_tushare",
+            layer_name="源站事实",
+            purpose=purpose,
+            layout="by_date",
+            path=f"raw_tushare/{dataset_key}",
+            recommended_usage=recommended_usage,
+        ),
+    )
+
+
+def _moneyflow_command_examples(
+    *,
+    dataset_key: str,
+    display_name: str,
+) -> tuple[LakeCommandExample, ...]:
+    return (
+        LakeCommandExample(
+            example_key=f"{dataset_key}_prod_raw_plan_trade_date",
+            title=f"预览{display_name}单日导出",
+            scenario="plan",
+            description="不请求源站，只预览一个 trade_date 分区替换范围。",
+            argv=("lake-console", "plan-sync", dataset_key, "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+            prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+        ),
+        LakeCommandExample(
+            example_key=f"{dataset_key}_prod_raw_sync_trade_date",
+            title=f"从生产 raw 导出单日{display_name}",
+            scenario="sync_point",
+            description=f"使用字段白名单从 raw_tushare.{dataset_key} 只读导出，并替换本地 Lake 对应分区。",
+            argv=("lake-console", "sync-dataset", dataset_key, "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+            prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+        ),
+        LakeCommandExample(
+            example_key=f"{dataset_key}_prod_raw_sync_range",
+            title=f"从生产 raw 导出区间{display_name}",
+            scenario="sync_range",
+            description="读取本地交易日历展开开市日，再按 trade_date 写本地分区。",
+            argv=(
+                "lake-console",
+                "sync-dataset",
+                dataset_key,
+                "--from",
+                "prod-raw-db",
+                "--start-date",
+                "2026-04-01",
+                "--end-date",
+                "2026-04-30",
+            ),
+            prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+        ),
+    )
 
 
 MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
@@ -45,7 +201,7 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         source="tushare",
         api_name="moneyflow",
         source_doc_id="170",
-        description="Tushare 个股资金流向，按交易日分区落盘。",
+        description="个股资金流向，按交易日分区落盘。",
         dataset_role="raw_dataset",
         storage_root="raw_tushare/moneyflow",
         group_key="moneyflow",
@@ -53,59 +209,150 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
-                layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 个股资金流向原始落盘层。",
-                layout="by_date",
-                path="raw_tushare/moneyflow",
-                recommended_usage="资金流向研究、单日全市场资金分布分析。",
-            ),
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow",
+            purpose="Tushare 个股资金流向原始落盘层。",
+            recommended_usage="个股资金面研究、单日全市场资金分布分析。",
         ),
-        command_examples=(
-            LakeCommandExample(
-                example_key="moneyflow_plan_trade_date",
-                title="预览单日同步",
-                scenario="plan",
-                description="不请求 Tushare，只看一个 trade_date 分区替换范围。",
-                argv=("lake-console", "plan-sync", "moneyflow", "--trade-date", "2026-04-24"),
-                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
-            ),
-            LakeCommandExample(
-                example_key="moneyflow_sync_trade_date",
-                title="同步单日全市场资金流",
-                scenario="sync_point",
-                description="写入一个 trade_date 分区。",
-                argv=("lake-console", "sync-dataset", "moneyflow", "--trade-date", "2026-04-24"),
-                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。",),
-            ),
-            LakeCommandExample(
-                example_key="moneyflow_sync_range",
-                title="同步区间全市场资金流",
-                scenario="sync_range",
-                description="读取本地交易日历，只请求开市交易日。",
-                argv=("lake-console", "sync-dataset", "moneyflow", "--start-date", "2026-04-01", "--end-date", "2026-04-30"),
-                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。"),
-            ),
-            LakeCommandExample(
-                example_key="moneyflow_sync_ts_code_range",
-                title="同步单股区间资金流",
-                scenario="sync_range",
-                description="适合调试或单股研究。",
-                argv=(
-                    "lake-console",
-                    "sync-dataset",
-                    "moneyflow",
-                    "--ts-code",
-                    "600000.SH",
-                    "--start-date",
-                    "2026-04-01",
-                    "--end-date",
-                    "2026-04-30",
-                ),
-                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT 和 TUSHARE_TOKEN。"),
-            ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow", display_name="个股资金流向"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_ths",
+        display_name="个股资金流向（THS）",
+        source="tushare",
+        api_name="moneyflow_ths",
+        source_doc_id="348",
+        description="同花顺个股资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_ths",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_ths",
+            purpose="Tushare 同花顺个股资金流向原始落盘层。",
+            recommended_usage="个股资金面横截面分析与源站对比。",
         ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ths", display_name="个股资金流向（THS）"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_dc",
+        display_name="个股资金流向（DC）",
+        source="tushare",
+        api_name="moneyflow_dc",
+        source_doc_id="349",
+        description="东方财富个股资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_dc",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_dc",
+            purpose="Tushare 东方财富个股资金流向原始落盘层。",
+            recommended_usage="个股资金流向（DC）历史分析与日频研究。",
+        ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_dc", display_name="个股资金流向（DC）"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_cnt_ths",
+        display_name="概念板块资金流向（THS）",
+        source="tushare",
+        api_name="moneyflow_cnt_ths",
+        source_doc_id="371",
+        description="同花顺概念板块资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_cnt_ths",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_cnt_ths",
+            purpose="Tushare 概念板块资金流向原始落盘层。",
+            recommended_usage="概念板块资金流向与强弱轮动分析。",
+        ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_cnt_ths", display_name="概念板块资金流向（THS）"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_ind_ths",
+        display_name="行业资金流向（THS）",
+        source="tushare",
+        api_name="moneyflow_ind_ths",
+        source_doc_id="343",
+        description="同花顺行业资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_ind_ths",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_ind_ths",
+            purpose="Tushare 同花顺行业资金流向原始落盘层。",
+            recommended_usage="行业资金流向与板块轮动研究。",
+        ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ind_ths", display_name="行业资金流向（THS）"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_ind_dc",
+        display_name="板块资金流向（DC）",
+        source="tushare",
+        api_name="moneyflow_ind_dc",
+        source_doc_id="344",
+        description="东方财富板块资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_ind_dc",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_ind_dc",
+            purpose="Tushare 东方财富板块资金流向原始落盘层。",
+            recommended_usage="板块资金流向与榜单型横截面研究。",
+        ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ind_dc", display_name="板块资金流向（DC）"),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="moneyflow_mkt_dc",
+        display_name="大盘资金流向（DC）",
+        source="tushare",
+        api_name="moneyflow_mkt_dc",
+        source_doc_id="345",
+        description="东方财富大盘资金流向，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/moneyflow_mkt_dc",
+        group_key="moneyflow",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=_moneyflow_layers(
+            dataset_key="moneyflow_mkt_dc",
+            purpose="Tushare 大盘资金流向原始落盘层。",
+            recommended_usage="市场整体资金面日频研究。",
+        ),
+        command_examples=_moneyflow_command_examples(dataset_key="moneyflow_mkt_dc", display_name="大盘资金流向（DC）"),
     ),
 )
+
+
+__all__ = [
+    "MONEYFLOW_CNT_THS_FIELDS",
+    "MONEYFLOW_DATASETS",
+    "MONEYFLOW_DC_FIELDS",
+    "MONEYFLOW_FIELDS",
+    "MONEYFLOW_IND_DC_FIELDS",
+    "MONEYFLOW_IND_THS_FIELDS",
+    "MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET",
+    "MONEYFLOW_MKT_DC_FIELDS",
+    "MONEYFLOW_THS_FIELDS",
+]

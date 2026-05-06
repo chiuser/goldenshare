@@ -563,6 +563,25 @@ rebuild_month
   - `index_daily` 已作为 Lake 中首个正式 `prod-core-db` 模式走通
 - 均已完成 `2026-04-30` 单日真实同步验证与 Parquet schema 校验
 
+第二段（2026-05-06 已完成）：
+
+- `fund_daily`
+- `fund_adj`
+- `margin`
+- `stk_limit`
+- `stock_st`
+- `suspend_d`
+
+第二段共同约束：
+
+1. 继续统一走 `prod-raw-db`，不引入新的读取来源。
+2. 统一写入 `raw_tushare/<dataset_key>/trade_date=YYYY-MM-DD/part-000.parquet`。
+3. 第一阶段只支持 `--trade-date` 与 `--start-date/--end-date`。
+4. 第一阶段禁止 `ts_code`、`exchange_id`、`suspend_type` 等局部筛选参数直接覆盖正式分区。
+5. `suspend_d` 需要显式排除 `id`、`row_key_hash` 等 Goldenshare 自增字段，只保留源站输出字段白名单。
+6. `stock_st` 当前生产 raw 历史起点是 `2016-08-09`，Lake 首版按生产事实落盘，不额外伪造更早日期分区。
+7. 已完成 `2026-04-30` 单日真实同步验证；`trade_date` 均已验证写为 Parquet `date`，`suspend_d` 未带入 `id`、`row_key_hash` 等系统字段。
+
 ### 7.6 R3：榜单 / 板块 / 新闻日频批
 
 目标：把“源站请求复杂、但 raw 导出其实很直观”的那批数据集吃掉。
@@ -598,12 +617,20 @@ rebuild_month
 
 ### 7.7 R4：资金流全族
 
-目标：用 `moneyflow` 已验证过的 Lake 模板扩出整族。
+目标：把资金流家族统一收敛到 `prod-raw-db` 导出模式，并把当前 `moneyflow` 的 Tushare 直连实现迁移到同一条主线。
+
+当前状态（2026-05-06）：
+
+1. `moneyflow` 已迁移到 `prod-raw-db`。
+2. `moneyflow_ths / moneyflow_dc / moneyflow_cnt_ths / moneyflow_ind_ths / moneyflow_ind_dc / moneyflow_mkt_dc`
+   已全部接入 `trade_date` 分区导出。
+3. `moneyflow_dc / moneyflow_cnt_ths / moneyflow_ind_ths` 的已知源站缺口已纳入 `source_gap` 规则。
 
 候选数据集：
 
 | 数据集 | 原表 | Lake 布局 | 建议来源 |
 |---|---|---|---|
+| `moneyflow` | `raw_tushare.moneyflow` | `trade_date` 分区 | `prod-raw-db` |
 | `moneyflow_ths` | `raw_tushare.moneyflow_ths` | `trade_date` 分区 | `prod-raw-db` |
 | `moneyflow_dc` | `raw_tushare.moneyflow_dc` | `trade_date` 分区 | `prod-raw-db` |
 | `moneyflow_cnt_ths` | `raw_tushare.moneyflow_cnt_ths` | `trade_date` 分区 | `prod-raw-db` |
@@ -614,7 +641,12 @@ rebuild_month
 说明：
 
 1. 这一批同属资金流向目录，适合在 CLI、前端分组、模板和测试里一起补齐。
-2. 重点不是请求，而是字段口径与 Parquet 类型一致性。
+2. `moneyflow` 当前 Lake 已落地，但还是 Tushare 直连；本批要求把它迁到 `prod-raw-db`，不再单独维护两套主链。
+3. 重点不是请求，而是字段口径、Parquet 类型，以及已知源站缺口的处理规则。
+4. 当前已确认的源站缺口：
+   - `moneyflow_dc`：`2023-11-22`
+   - `moneyflow_cnt_ths`：`2024-11-04`、`2025-01-20`
+   - `moneyflow_ind_ths`：`2024-11-04`、`2025-01-20`
 
 ### 7.8 R5：低频 / 月份键 / 公告日批
 

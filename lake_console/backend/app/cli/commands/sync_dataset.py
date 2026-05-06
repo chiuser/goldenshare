@@ -13,13 +13,14 @@ from lake_console.backend.app.cli.commands.common import (
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
-from lake_console.backend.app.sync import LakeSyncEngine, LakeSyncPlanner
+from lake_console.backend.app.sync.engine import LakeSyncEngine
+from lake_console.backend.app.sync.planner import LakeSyncPlanner
 
 
 def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     plan_parser = subparsers.add_parser("plan-sync", help="预览数据集本地 Lake 同步计划，不发请求、不写文件")
     add_lake_root_arg(plan_parser)
-    plan_parser.add_argument("dataset_key", help="数据集 key，例如 daily、index_basic、moneyflow")
+    plan_parser.add_argument("dataset_key", help="数据集 key，例如 daily、index_basic、moneyflow、moneyflow_ths")
     plan_parser.add_argument(
         "--from",
         dest="source",
@@ -42,7 +43,12 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
     add_lake_root_arg(sync_dataset_parser)
     sync_dataset_parser.add_argument(
         "dataset_key",
-        help="数据集 key；当前接入 stock_basic、trade_cal、index_basic、daily、moneyflow、adj_factor、daily_basic、index_daily_basic、index_daily、etf_basic、etf_index、ths_index、ths_member",
+        help=(
+            "数据集 key；当前接入 stock_basic、trade_cal、index_basic、daily、moneyflow、moneyflow_ths、moneyflow_dc、"
+            "moneyflow_cnt_ths、moneyflow_ind_ths、moneyflow_ind_dc、moneyflow_mkt_dc、adj_factor、daily_basic、"
+            "fund_daily、fund_adj、index_daily_basic、index_daily、margin、stk_limit、stock_st、suspend_d、"
+            "etf_basic、etf_index、ths_index、ths_member"
+        ),
     )
     sync_dataset_parser.add_argument(
         "--from",
@@ -51,9 +57,9 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         choices=("tushare", "prod-raw-db", "prod-core-db"),
         help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前仅用于 index_daily",
     )
-    sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
-    sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
-    sync_dataset_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
+    sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；日频 / 分区类数据集可用")
+    sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；日频 / 分区类数据集可用")
+    sync_dataset_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD；日频 / 分区类数据集可用")
     sync_dataset_parser.add_argument("--ts-code", default=None, help="证券代码")
     sync_dataset_parser.add_argument("--name", default=None, help="源站 name 过滤")
     sync_dataset_parser.add_argument("--market", default=None, help="市场枚举；多个值用逗号分隔")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from lake_console.backend.app.catalog.datasets.moneyflow import MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET
 from lake_console.backend.app.services.db_trade_date_export_service import DbTradeDateExportService
 from lake_console.backend.app.services.prod_core_db import (
     PROD_CORE_DB_SOURCE,
@@ -40,17 +41,16 @@ class AdjFactorStrategy:
     ) -> LakeSyncResult:
         _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
         _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
-        return DbTradeDateExportService(
-            lake_root=context.lake_root,
+        return _export_prod_raw_trade_date(
+            context=context,
             dataset_key=self.dataset_key,
             api_name="adj_factor",
             source=source,
-            database_url=context.settings.prod_raw_db_url,
-            build_point_query=build_prod_raw_trade_date_query,
-            build_range_query=build_prod_raw_trade_date_range_query,
-            fetch_rows=fetch_prod_raw_rows,
-            iter_rows=iter_prod_raw_rows,
-        ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
 
 
 class DailyBasicStrategy:
@@ -72,17 +72,78 @@ class DailyBasicStrategy:
     ) -> LakeSyncResult:
         _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
         _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
-        return DbTradeDateExportService(
-            lake_root=context.lake_root,
+        return _export_prod_raw_trade_date(
+            context=context,
             dataset_key=self.dataset_key,
             api_name="daily_basic",
             source=source,
-            database_url=context.settings.prod_raw_db_url,
-            build_point_query=build_prod_raw_trade_date_query,
-            build_range_query=build_prod_raw_trade_date_range_query,
-            fetch_rows=fetch_prod_raw_rows,
-            iter_rows=iter_prod_raw_rows,
-        ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class FundDailyStrategy:
+    dataset_key = "fund_daily"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="fund_daily",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class FundAdjStrategy:
+    dataset_key = "fund_adj"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="fund_adj",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
 
 
 class IndexDailyBasicStrategy:
@@ -104,17 +165,16 @@ class IndexDailyBasicStrategy:
     ) -> LakeSyncResult:
         _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
         _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
-        return DbTradeDateExportService(
-            lake_root=context.lake_root,
+        return _export_prod_raw_trade_date(
+            context=context,
             dataset_key=self.dataset_key,
             api_name="index_dailybasic",
             source=source,
-            database_url=context.settings.prod_raw_db_url,
-            build_point_query=build_prod_raw_trade_date_query,
-            build_range_query=build_prod_raw_trade_date_range_query,
-            fetch_rows=fetch_prod_raw_rows,
-            iter_rows=iter_prod_raw_rows,
-        ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
 
 
 class IndexDailyStrategy:
@@ -147,6 +207,372 @@ class IndexDailyStrategy:
             fetch_rows=fetch_prod_core_rows,
             iter_rows=iter_prod_core_rows,
         ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+
+
+class MarginStrategy:
+    dataset_key = "margin"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="margin",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowStrategy:
+    dataset_key = "moneyflow"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowThsStrategy:
+    dataset_key = "moneyflow_ths"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_ths",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowDcStrategy:
+    dataset_key = "moneyflow_dc"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_dc",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowCntThsStrategy:
+    dataset_key = "moneyflow_cnt_ths"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_cnt_ths",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowIndThsStrategy:
+    dataset_key = "moneyflow_ind_ths"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_ind_ths",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowIndDcStrategy:
+    dataset_key = "moneyflow_ind_dc"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_ind_dc",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class MoneyflowMktDcStrategy:
+    dataset_key = "moneyflow_mkt_dc"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="moneyflow_mkt_dc",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkLimitStrategy:
+    dataset_key = "stk_limit"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_limit",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StockStStrategy:
+    dataset_key = "stock_st"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stock_st",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class SuspendDStrategy:
+    dataset_key = "suspend_d"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="suspend_d",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+def _export_prod_raw_trade_date(
+    *,
+    context: LakeSyncContext,
+    dataset_key: str,
+    api_name: str,
+    source: str,
+    trade_date: date | None,
+    start_date: date | None,
+    end_date: date | None,
+    ts_code: str | None,
+) -> LakeSyncResult:
+    return DbTradeDateExportService(
+        lake_root=context.lake_root,
+        dataset_key=dataset_key,
+        api_name=api_name,
+        source=source,
+        database_url=context.settings.prod_raw_db_url,
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=fetch_prod_raw_rows,
+        iter_rows=iter_prod_raw_rows,
+        known_source_gap_dates=MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET.get(dataset_key, ()),
+    ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
 
 
 def _require_source(dataset_key: str, actual: str, expected: str) -> None:

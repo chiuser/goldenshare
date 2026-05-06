@@ -1,12 +1,17 @@
-# 个股资金流向 Lake 数据集接入说明
+# 个股资金流向 Lake 数据集接入说明（历史 Tushare 直连版本）
 
 - 版本：v1
-- 状态：已接入
-- 更新时间：2026-05-03
+- 状态：历史归档（已退场）
+- 更新时间：2026-05-06
 - 数据集 key：`moneyflow`
 - 数据源：Tushare
 - 源站文档：`docs/sources/tushare/股票数据/资金流向数据/0170_个股资金流向.md`
 - 参考模板：`docs/templates/lake-dataset-development-template.md`
+
+> 说明：本文档归档描述 `moneyflow` 早期的 **Tushare 直连版本**。  
+> 自 `2026-05-06` 起，Lake 现行主线已经迁移为 **`prod-raw-db` 统一导出版本**；当前实现与门禁以：
+> [资金流 6+1 Lake prod-raw-db 统一导出方案](/Users/congming/github/goldenshare/docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md)
+> 为准。本文不再作为现行实现依据。
 
 ---
 
@@ -16,7 +21,7 @@
 
 必须遵守：
 
-1. 不访问远程 `goldenshare-db`。
+1. 当前已落地版本不访问远程 `goldenshare-db`。
 2. 区间同步只能读取本地交易日历展开交易日。
 3. 写入必须按 `trade_date` 分区，使用 `_tmp -> 校验 -> 替换正式分区`。
 4. 资金流 Lake 只保存 Tushare 源数据事实，不引入生产多源融合逻辑。
@@ -168,21 +173,20 @@
 
 | 接入点 | 文件 | 当前状态 | 说明 |
 |---|---|---|---|
-| Catalog | `lake_console/backend/app/catalog/datasets/moneyflow.py` | 已接入 | 定义字段、分组、层级与写入策略 |
-| Planner | `lake_console/backend/app/sync/planners/trade_date.py` | 已复用 | `moneyflow` 使用交易日类 planner |
-| Engine | `lake_console/backend/app/sync/engine.py` | 已接入 | 只通过 strategy registry 分发 |
-| Strategy | `lake_console/backend/app/sync/strategies/moneyflow.py` | 已接入 | 调用 `TushareMoneyflowSyncService` |
-| Service | `lake_console/backend/app/services/tushare_moneyflow_sync_service.py` | 已接入 | 实现请求、分页、校验、写入 |
-| Client | `lake_console/backend/app/services/tushare_client.py` | 已接入 | 新增 `moneyflow(...)` 方法 |
-| CLI | `lake_console/backend/app/cli/commands/sync_dataset.py` | 已复用 | 不新增专用命令，使用 `sync-dataset moneyflow` |
-| Guardrail | `tests/lake_console/test_sync_architecture_guardrails.py` | 已覆盖 | 防止逻辑回流到大 CLI / 大 Planner / 大 Engine |
+| Catalog | `lake_console/backend/app/catalog/datasets/moneyflow.py` | 历史版本 | 早期直连实现与当前字段定义都曾在这里收口 |
+| Planner | `lake_console/backend/app/sync/planners/trade_date.py` | 历史版本 | 交易日类 planner 仍在，但现行主线改为 prod-raw-db |
+| Engine | `lake_console/backend/app/sync/engine.py` | 历史版本 | 只通过 strategy registry 分发 |
+| Strategy | `lake_console/backend/app/sync/strategies/moneyflow.py` | 已退场 | 旧 Tushare 直连 strategy，现已删除 |
+| Service | `lake_console/backend/app/services/tushare_moneyflow_sync_service.py` | 已退场 | 旧 Tushare 直连 service，现已删除 |
+| CLI | `lake_console/backend/app/cli/commands/sync_dataset.py` | 现行复用 | 当前仍使用 `sync-dataset moneyflow`，但来源已切到 `prod-raw-db` |
+| Guardrail | `tests/lake_console/test_sync_architecture_guardrails.py` | 历史约束 | 继续防止逻辑回流到大 CLI / 大 Planner / 大 Engine |
 
 新增或修改本数据集时，必须继续遵守：
 
 1. CLI 只负责参数和输出。
 2. Planner 只负责计划预览。
 3. Engine 只负责 strategy 分发。
-4. `moneyflow` 的具体请求、分页、校验、写入只允许留在 `TushareMoneyflowSyncService` 与 `MoneyflowStrategy` 链路内。
+4. 当前 `moneyflow` 的具体导出、按日写入与缺口处理，统一留在 `prod_db_trade_date` 链路内。
 5. 不允许为了省事把特殊逻辑写回 `lake_console/backend/app/cli/commands/sync_dataset.py`、`sync/planner.py` 或 `sync/engine.py`。
 
 ---

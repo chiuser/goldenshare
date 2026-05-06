@@ -40,6 +40,7 @@ class DbTradeDateExportService:
         build_range_query: Callable[..., _QueryLike],
         fetch_rows: Callable[..., list[dict[str, Any]]],
         iter_rows: Callable[..., Iterator[list[dict[str, Any]]]],
+        known_source_gap_dates: tuple[date, ...] = (),
         progress: Callable[[str], None] | None = None,
     ) -> None:
         self.lake_root = lake_root
@@ -51,6 +52,7 @@ class DbTradeDateExportService:
         self.build_range_query = build_range_query
         self.fetch_rows = fetch_rows
         self.iter_rows = iter_rows
+        self.known_source_gap_dates = set(known_source_gap_dates)
         self.progress = progress or print
 
     def export(
@@ -100,6 +102,8 @@ class DbTradeDateExportService:
         fetched_total = sum(int(partition["fetched_rows"]) for partition in partitions)
         written_total = sum(int(partition["written_rows"]) for partition in partitions)
         skipped_total = sum(1 for partition in partitions if partition["skipped_replace"])
+        source_gap_total = sum(1 for partition in partitions if partition.get("skip_reason") == "source_gap")
+        no_data_total = sum(1 for partition in partitions if partition.get("skip_reason") == "no_data")
 
         elapsed = time.monotonic() - started
         summary = {
@@ -117,6 +121,8 @@ class DbTradeDateExportService:
             "fetched_rows": fetched_total,
             "written_rows": written_total,
             "skipped_partitions": skipped_total,
+            "source_gap_partitions": source_gap_total,
+            "no_data_partitions": no_data_total,
             "partitions": partitions,
             "elapsed_seconds": round(elapsed, 3),
         }
@@ -124,7 +130,8 @@ class DbTradeDateExportService:
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         self.progress(
             f"[{self.dataset_key}:{self.source}] done dates={len(expected_trade_dates)} fetched={fetched_total} "
-            f"written={written_total} skipped={skipped_total} elapsed={math.ceil(elapsed)}s"
+            f"written={written_total} skipped={skipped_total} source_gaps={source_gap_total} "
+            f"no_data={no_data_total} elapsed={math.ceil(elapsed)}s"
         )
         return summary
 
@@ -135,7 +142,7 @@ class DbTradeDateExportService:
         self.progress(
             f"[{self.dataset_key}:{self.source}] unit={unit_index}/{unit_total} trade_date={trade_date.isoformat()} fetched={len(rows)}"
         )
-        return self._write_partition(
+        summary = self._write_partition(
             run_id=run_id,
             trade_date=trade_date,
             rows=rows,
@@ -143,6 +150,12 @@ class DbTradeDateExportService:
             unit_index=unit_index,
             unit_total=unit_total,
         )
+        if summary["skipped_replace"]:
+            self.progress(
+                f"[{self.dataset_key}:{self.source}] unit={unit_index}/{unit_total} trade_date={trade_date.isoformat()} "
+                f"fetched=0 skipped_replace=true skip_reason={summary['skip_reason']}"
+            )
+        return summary
 
     def _export_trade_date_range(self, *, run_id: str, trade_dates: list[date]) -> list[dict[str, Any]]:
         expected_dates = set(trade_dates)
@@ -206,7 +219,8 @@ class DbTradeDateExportService:
                 summary = self._empty_partition_summary(trade_date=current_trade_date)
                 self.progress(
                     f"[{self.dataset_key}:{self.source}] unit={unit_index_by_date[current_trade_date]}/{len(trade_dates)} "
-                    f"trade_date={current_trade_date.isoformat()} fetched=0 skipped_replace=true"
+                    f"trade_date={current_trade_date.isoformat()} fetched=0 skipped_replace=true "
+                    f"skip_reason={summary['skip_reason']}"
                 )
             summaries.append(summary)
         return summaries
@@ -232,7 +246,6 @@ class DbTradeDateExportService:
         final_file = final_dir / "part-000.parquet"
         backup_root = self.lake_root / "_tmp" / run_id / "_backup" / self.dataset_key / f"trade_date={trade_date.isoformat()}"
 
-        rows.sort(key=lambda item: str(item.get("ts_code") or ""))
         written = _write_and_validate(rows=rows, tmp_file=tmp_file)
         replace_directory_atomically(tmp_dir=tmp_dir, final_dir=final_dir, backup_root=backup_root)
         self.progress(
@@ -266,25 +279,29 @@ class DbTradeDateExportService:
         return dates
 
     def _empty_partition_summary(self, *, trade_date: date) -> dict[str, Any]:
+        skip_reason = "source_gap" if trade_date in self.known_source_gap_dates else "no_data"
         return {
             "trade_date": trade_date.isoformat(),
             "fetched_rows": 0,
             "written_rows": 0,
             "skipped_replace": True,
+            "skip_reason": skip_reason,
             "output": None,
         }
 
     def _normalize_row(self, row: dict[str, Any], *, expected_trade_date: date, fields: tuple[str, ...]) -> dict[str, Any]:
         trade_date = parse_date(row.get("trade_date"))
-        ts_code = _normalize_ts_code(row.get("ts_code"))
         if trade_date != expected_trade_date:
             raise ValueError(
                 f"{self.dataset_key} 返回 trade_date={trade_date.isoformat()}，"
                 f"与请求日期 {expected_trade_date.isoformat()} 不一致。"
             )
-        if ts_code is None:
-            raise ValueError(f"{self.dataset_key} 返回行缺少 ts_code。")
-        normalized: dict[str, Any] = {"ts_code": ts_code, "trade_date": trade_date}
+        normalized: dict[str, Any] = {"trade_date": trade_date}
+        if "ts_code" in fields:
+            ts_code = _normalize_ts_code(row.get("ts_code"))
+            if ts_code is None:
+                raise ValueError(f"{self.dataset_key} 返回行缺少 ts_code。")
+            normalized["ts_code"] = ts_code
         for field in fields:
             if field in {"ts_code", "trade_date"}:
                 continue

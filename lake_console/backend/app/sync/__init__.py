@@ -1,7 +1,7 @@
-from __future__ import annotations
+"""Lake sync package.
 
-from lake_console.backend.app.sync.engine import LakeSyncEngine
-from lake_console.backend.app.sync.planner import LakeSyncPlanner
-from lake_console.backend.app.sync.plans import LakeSyncPlan
+Avoid importing heavy runtime objects here to keep helper imports free of
+engine/strategy circular dependencies.
+"""
 
-__all__ = ["LakeSyncEngine", "LakeSyncPlan", "LakeSyncPlanner"]
+__all__: list[str] = []

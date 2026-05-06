@@ -6,7 +6,24 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from lake_console.backend.app.catalog.datasets.market_equity import ADJ_FACTOR_FIELDS, DAILY_BASIC_FIELDS
+from lake_console.backend.app.catalog.datasets.market_equity import (
+    ADJ_FACTOR_FIELDS,
+    DAILY_BASIC_FIELDS,
+    MARGIN_FIELDS,
+    STK_LIMIT_FIELDS,
+    STOCK_ST_FIELDS,
+    SUSPEND_D_FIELDS,
+)
+from lake_console.backend.app.catalog.datasets.market_fund import FUND_ADJ_FIELDS, FUND_DAILY_FIELDS
+from lake_console.backend.app.catalog.datasets.moneyflow import (
+    MONEYFLOW_CNT_THS_FIELDS,
+    MONEYFLOW_DC_FIELDS,
+    MONEYFLOW_FIELDS,
+    MONEYFLOW_IND_DC_FIELDS,
+    MONEYFLOW_IND_THS_FIELDS,
+    MONEYFLOW_MKT_DC_FIELDS,
+    MONEYFLOW_THS_FIELDS,
+)
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS, INDEX_DAILY_FIELDS
 from lake_console.backend.app.services.db_trade_date_export_service import DbTradeDateExportService
 from lake_console.backend.app.services.prod_core_db import (
@@ -28,7 +45,20 @@ from lake_console.backend.app.sync.planner import LakeSyncPlanner
     [
         ("adj_factor", "raw_tushare.adj_factor", ADJ_FACTOR_FIELDS),
         ("daily_basic", "raw_tushare.daily_basic", DAILY_BASIC_FIELDS),
+        ("fund_adj", "raw_tushare.fund_adj", FUND_ADJ_FIELDS),
+        ("fund_daily", "raw_tushare.fund_daily", FUND_DAILY_FIELDS),
         ("index_daily_basic", "raw_tushare.index_daily_basic", INDEX_DAILY_BASIC_FIELDS),
+        ("margin", "raw_tushare.margin", MARGIN_FIELDS),
+        ("moneyflow", "raw_tushare.moneyflow", MONEYFLOW_FIELDS),
+        ("moneyflow_ths", "raw_tushare.moneyflow_ths", MONEYFLOW_THS_FIELDS),
+        ("moneyflow_dc", "raw_tushare.moneyflow_dc", MONEYFLOW_DC_FIELDS),
+        ("moneyflow_cnt_ths", "raw_tushare.moneyflow_cnt_ths", MONEYFLOW_CNT_THS_FIELDS),
+        ("moneyflow_ind_ths", "raw_tushare.moneyflow_ind_ths", MONEYFLOW_IND_THS_FIELDS),
+        ("moneyflow_ind_dc", "raw_tushare.moneyflow_ind_dc", MONEYFLOW_IND_DC_FIELDS),
+        ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc", MONEYFLOW_MKT_DC_FIELDS),
+        ("stk_limit", "raw_tushare.stk_limit", STK_LIMIT_FIELDS),
+        ("stock_st", "raw_tushare.stock_st", STOCK_ST_FIELDS),
+        ("suspend_d", "raw_tushare.suspend_d", SUSPEND_D_FIELDS),
     ],
 )
 def test_prod_raw_trade_date_query_uses_whitelist_projection(
@@ -52,7 +82,25 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
     assert range_query.table_name == expected_table
     assert range_query.fields == expected_fields
     assert "trade_date >= %s and trade_date <= %s" in range_query.sql
-    assert "order by trade_date, ts_code" in range_query.sql
+    expected_order = {
+        "adj_factor": "order by trade_date, ts_code",
+        "daily_basic": "order by trade_date, ts_code",
+        "fund_adj": "order by trade_date, ts_code",
+        "fund_daily": "order by trade_date, ts_code",
+        "index_daily_basic": "order by trade_date, ts_code",
+        "margin": "order by trade_date, exchange_id",
+        "moneyflow": "order by trade_date, ts_code",
+        "moneyflow_ths": "order by trade_date, ts_code",
+        "moneyflow_dc": "order by trade_date, ts_code",
+        "moneyflow_cnt_ths": "order by trade_date, ts_code",
+        "moneyflow_ind_ths": "order by trade_date, ts_code",
+        "moneyflow_ind_dc": "order by trade_date, content_type, ts_code",
+        "moneyflow_mkt_dc": "order by trade_date",
+        "stk_limit": "order by trade_date, ts_code",
+        "stock_st": "order by trade_date, ts_code, type",
+        "suspend_d": "order by trade_date, ts_code, suspend_type, suspend_timing",
+    }
+    assert expected_order[dataset_key] in range_query.sql
     assert range_query.params == (date(2026, 4, 1), date(2026, 4, 30))
 
 
@@ -78,8 +126,21 @@ def test_prod_core_trade_date_query_maps_change_field() -> None:
     [
         ("adj_factor", "prod-raw-db", "adj_factor:prod-raw-db"),
         ("daily_basic", "prod-raw-db", "daily_basic:prod-raw-db"),
+        ("fund_adj", "prod-raw-db", "fund_adj:prod-raw-db"),
+        ("fund_daily", "prod-raw-db", "fund_daily:prod-raw-db"),
         ("index_daily_basic", "prod-raw-db", "index_daily_basic:prod-raw-db"),
         ("index_daily", "prod-core-db", "index_daily:prod-core-db"),
+        ("margin", "prod-raw-db", "margin:prod-raw-db"),
+        ("moneyflow", "prod-raw-db", "moneyflow:prod-raw-db"),
+        ("moneyflow_ths", "prod-raw-db", "moneyflow_ths:prod-raw-db"),
+        ("moneyflow_dc", "prod-raw-db", "moneyflow_dc:prod-raw-db"),
+        ("moneyflow_cnt_ths", "prod-raw-db", "moneyflow_cnt_ths:prod-raw-db"),
+        ("moneyflow_ind_ths", "prod-raw-db", "moneyflow_ind_ths:prod-raw-db"),
+        ("moneyflow_ind_dc", "prod-raw-db", "moneyflow_ind_dc:prod-raw-db"),
+        ("moneyflow_mkt_dc", "prod-raw-db", "moneyflow_mkt_dc:prod-raw-db"),
+        ("stk_limit", "prod-raw-db", "stk_limit:prod-raw-db"),
+        ("stock_st", "prod-raw-db", "stock_st:prod-raw-db"),
+        ("suspend_d", "prod-raw-db", "suspend_d:prod-raw-db"),
     ],
 )
 def test_trade_date_plans_use_expected_source_and_strategy(
@@ -186,6 +247,105 @@ def test_index_daily_prod_core_export_maps_change_amount_to_change(monkeypatch, 
     assert "change" in schema.names
     assert "change_amount" not in schema.names
     assert pa.types.is_date(schema.field("trade_date").type)
+
+
+def test_margin_prod_raw_export_does_not_require_ts_code(tmp_path) -> None:
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    _write_trade_calendar(tmp_path, [date(2026, 4, 30)])
+
+    def fake_fetch_prod_raw_rows(*, database_url, query):
+        assert database_url == "postgresql://readonly@example/db"
+        assert query.table_name == "raw_tushare.margin"
+        return [
+            {
+                "trade_date": date(2026, 4, 30),
+                "exchange_id": "SSE",
+                "rzye": Decimal("1.1"),
+                "rzmre": Decimal("2.2"),
+                "rzche": Decimal("3.3"),
+                "rqye": Decimal("4.4"),
+                "rqmcl": Decimal("5.5"),
+                "rzrqye": Decimal("6.6"),
+                "rqyl": Decimal("7.7"),
+            }
+        ]
+
+    summary = DbTradeDateExportService(
+        lake_root=tmp_path,
+        dataset_key="margin",
+        api_name="margin",
+        source="prod-raw-db",
+        database_url="postgresql://readonly@example/db",
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=fake_fetch_prod_raw_rows,
+        iter_rows=lambda **_: iter(()),
+        progress=lambda _: None,
+    ).export(trade_date=date(2026, 4, 30))
+
+    parquet_file = tmp_path / "raw_tushare" / "margin" / "trade_date=2026-04-30" / "part-000.parquet"
+    schema = pq.read_schema(parquet_file)
+    table = pq.read_table(parquet_file)
+    assert summary["fetched_rows"] == 1
+    assert summary["written_rows"] == 1
+    assert "exchange_id" in schema.names
+    assert "ts_code" not in schema.names
+    assert pa.types.is_date(schema.field("trade_date").type)
+    assert table.to_pylist()[0]["exchange_id"] == "SSE"
+
+
+def test_moneyflow_dc_known_source_gap_marks_skip_reason(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+
+    _write_trade_calendar(tmp_path, [date(2023, 11, 22)])
+
+    summary = DbTradeDateExportService(
+        lake_root=tmp_path,
+        dataset_key="moneyflow_dc",
+        api_name="moneyflow_dc",
+        source="prod-raw-db",
+        database_url="postgresql://readonly@example/db",
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=lambda **_: [],
+        iter_rows=lambda **_: iter(()),
+        known_source_gap_dates=(date(2023, 11, 22),),
+        progress=lambda _: None,
+    ).export(trade_date=date(2023, 11, 22))
+
+    assert summary["fetched_rows"] == 0
+    assert summary["written_rows"] == 0
+    assert summary["skipped_partitions"] == 1
+    assert summary["source_gap_partitions"] == 1
+    assert summary["no_data_partitions"] == 0
+    assert summary["partitions"][0]["skip_reason"] == "source_gap"
+    assert not (tmp_path / "raw_tushare" / "moneyflow_dc" / "trade_date=2023-11-22").exists()
+
+
+def test_moneyflow_ths_missing_rows_without_known_gap_marks_no_data(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+
+    _write_trade_calendar(tmp_path, [date(2026, 4, 30)])
+
+    summary = DbTradeDateExportService(
+        lake_root=tmp_path,
+        dataset_key="moneyflow_ths",
+        api_name="moneyflow_ths",
+        source="prod-raw-db",
+        database_url="postgresql://readonly@example/db",
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=lambda **_: [],
+        iter_rows=lambda **_: iter(()),
+        progress=lambda _: None,
+    ).export(trade_date=date(2026, 4, 30))
+
+    assert summary["skipped_partitions"] == 1
+    assert summary["source_gap_partitions"] == 0
+    assert summary["no_data_partitions"] == 1
+    assert summary["partitions"][0]["skip_reason"] == "no_data"
 
 
 def _write_trade_calendar(root, trade_dates: list[date]) -> None:

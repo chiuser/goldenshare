@@ -5,7 +5,25 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from lake_console.backend.app.catalog.datasets.market_equity import ADJ_FACTOR_FIELDS, DAILY_BASIC_FIELDS, DAILY_FIELDS
+from lake_console.backend.app.catalog.datasets.market_equity import (
+    ADJ_FACTOR_FIELDS,
+    DAILY_BASIC_FIELDS,
+    DAILY_FIELDS,
+    MARGIN_FIELDS,
+    STK_LIMIT_FIELDS,
+    STOCK_ST_FIELDS,
+    SUSPEND_D_FIELDS,
+)
+from lake_console.backend.app.catalog.datasets.market_fund import FUND_ADJ_FIELDS, FUND_DAILY_FIELDS
+from lake_console.backend.app.catalog.datasets.moneyflow import (
+    MONEYFLOW_CNT_THS_FIELDS,
+    MONEYFLOW_DC_FIELDS,
+    MONEYFLOW_FIELDS,
+    MONEYFLOW_IND_DC_FIELDS,
+    MONEYFLOW_IND_THS_FIELDS,
+    MONEYFLOW_MKT_DC_FIELDS,
+    MONEYFLOW_THS_FIELDS,
+)
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
     ETF_BASIC_FIELDS,
@@ -22,7 +40,20 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "daily": "raw_tushare.daily",
     "etf_basic": "raw_tushare.etf_basic",
     "etf_index": "raw_tushare.etf_index",
+    "fund_adj": "raw_tushare.fund_adj",
+    "fund_daily": "raw_tushare.fund_daily",
     "index_daily_basic": "raw_tushare.index_daily_basic",
+    "margin": "raw_tushare.margin",
+    "moneyflow": "raw_tushare.moneyflow",
+    "moneyflow_cnt_ths": "raw_tushare.moneyflow_cnt_ths",
+    "moneyflow_dc": "raw_tushare.moneyflow_dc",
+    "moneyflow_ind_dc": "raw_tushare.moneyflow_ind_dc",
+    "moneyflow_ind_ths": "raw_tushare.moneyflow_ind_ths",
+    "moneyflow_mkt_dc": "raw_tushare.moneyflow_mkt_dc",
+    "moneyflow_ths": "raw_tushare.moneyflow_ths",
+    "stk_limit": "raw_tushare.stk_limit",
+    "stock_st": "raw_tushare.stock_st",
+    "suspend_d": "raw_tushare.suspend_d",
     "ths_index": "raw_tushare.ths_index",
     "ths_member": "raw_tushare.ths_member",
 }
@@ -32,13 +63,43 @@ PROD_RAW_DB_FIELDS = {
     "daily": DAILY_FIELDS,
     "etf_basic": ETF_BASIC_FIELDS,
     "etf_index": ETF_INDEX_FIELDS,
+    "fund_adj": FUND_ADJ_FIELDS,
+    "fund_daily": FUND_DAILY_FIELDS,
     "index_daily_basic": INDEX_DAILY_BASIC_FIELDS,
+    "margin": MARGIN_FIELDS,
+    "moneyflow": MONEYFLOW_FIELDS,
+    "moneyflow_cnt_ths": MONEYFLOW_CNT_THS_FIELDS,
+    "moneyflow_dc": MONEYFLOW_DC_FIELDS,
+    "moneyflow_ind_dc": MONEYFLOW_IND_DC_FIELDS,
+    "moneyflow_ind_ths": MONEYFLOW_IND_THS_FIELDS,
+    "moneyflow_mkt_dc": MONEYFLOW_MKT_DC_FIELDS,
+    "moneyflow_ths": MONEYFLOW_THS_FIELDS,
+    "stk_limit": STK_LIMIT_FIELDS,
+    "stock_st": STOCK_ST_FIELDS,
+    "suspend_d": SUSPEND_D_FIELDS,
     "ths_index": THS_INDEX_FIELDS,
     "ths_member": THS_MEMBER_FIELDS,
 }
 PROD_RAW_DB_ORDER_BY = {
+    "adj_factor": ("ts_code",),
+    "daily": ("ts_code",),
+    "daily_basic": ("ts_code",),
     "etf_basic": ("ts_code",),
     "etf_index": ("ts_code",),
+    "fund_adj": ("ts_code",),
+    "fund_daily": ("ts_code",),
+    "index_daily_basic": ("ts_code",),
+    "margin": ("exchange_id",),
+    "moneyflow": ("ts_code",),
+    "moneyflow_cnt_ths": ("ts_code",),
+    "moneyflow_dc": ("ts_code",),
+    "moneyflow_ind_dc": ("content_type", "ts_code"),
+    "moneyflow_ind_ths": ("ts_code",),
+    "moneyflow_mkt_dc": ("trade_date",),
+    "moneyflow_ths": ("ts_code",),
+    "stk_limit": ("ts_code",),
+    "stock_st": ("ts_code", "type"),
+    "suspend_d": ("ts_code", "suspend_type", "suspend_timing"),
     "ths_index": ("ts_code",),
     "ths_member": ("ts_code", "con_code"),
 }
@@ -71,12 +132,13 @@ def build_prod_raw_trade_date_query(*, dataset_key: str, trade_date: date) -> Pr
     projection = ", ".join(fields)
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
+    order_by = _build_order_by(dataset_key, include_trade_date=False)
     return ProdRawQuery(
         sql=(
             f"select {projection} "
             f"from {table_name} "
             "where trade_date = %s "
-            "order by ts_code"
+            f"order by {order_by}"
         ),
         params=(trade_date,),
         table_name=table_name,
@@ -90,12 +152,13 @@ def build_prod_raw_trade_date_range_query(*, dataset_key: str, start_date: date,
     projection = ", ".join(fields)
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
+    order_by = _build_order_by(dataset_key, include_trade_date=True)
     return ProdRawQuery(
         sql=(
             f"select {projection} "
             f"from {table_name} "
             "where trade_date >= %s and trade_date <= %s "
-            "order by trade_date, ts_code"
+            f"order by {order_by}"
         ),
         params=(start_date, end_date),
         table_name=table_name,
@@ -123,6 +186,16 @@ def build_prod_raw_current_query(*, dataset_key: str) -> ProdRawQuery:
         table_name=table_name,
         fields=fields,
     )
+
+
+def _build_order_by(dataset_key: str, *, include_trade_date: bool) -> str:
+    order_fields = PROD_RAW_DB_ORDER_BY.get(dataset_key)
+    if not order_fields:
+        raise ValueError(f"prod-raw-db 缺少排序字段定义：{dataset_key}")
+    fields = list(order_fields)
+    if include_trade_date and "trade_date" not in fields:
+        fields = ["trade_date", *fields]
+    return ", ".join(fields)
 
 
 def fetch_prod_raw_rows(*, database_url: str | None, query: ProdRawQuery) -> list[dict[str, Any]]:
