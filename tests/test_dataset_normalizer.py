@@ -599,6 +599,75 @@ def test_stk_mins_normalizer_rejects_outside_trading_session() -> None:
     assert batch.rejected_reasons == {"normalize.row_transform_failed": 1}
 
 
+def test_index_mins_normalizer_keeps_source_freq_string_and_vwap() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("index_mins"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-index-mins",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.sh",
+                    "trade_time": "2026-04-30 15:00:00",
+                    "close": "3279.0352",
+                    "open": "3278.7501",
+                    "high": "3280.1203",
+                    "low": "3277.9912",
+                    "vol": "7214808600.0",
+                    "amount": "83307859.3000",
+                    "freq": "30min",
+                    "exchange": "sse",
+                    "vwap": "3278.8888",
+                    "api_name": "idx_mins",
+                    "raw_payload": "{}",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized == [
+        {
+            "ts_code": "000001.SH",
+            "trade_time": datetime(2026, 4, 30, 15, 0),
+            "close": 3279.0352,
+            "open": 3278.7501,
+            "high": 3280.1203,
+            "low": 3277.9912,
+            "vol": 7214808600.0,
+            "amount": 83307859.3,
+            "freq": "30min",
+            "exchange": "SSE",
+            "vwap": 3278.8888,
+        }
+    ]
+
+
+def test_index_mins_normalizer_rejects_unknown_freq() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("index_mins"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-index-mins",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "000001.SH",
+                    "trade_time": "2026-04-30 15:00:00",
+                    "freq": "90min",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_normalized == []
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.row_transform_failed": 1}
+
+
 def test_reference_security_normalizers_resolve_hk_and_us_row_transforms() -> None:
     hk_batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("hk_basic"),

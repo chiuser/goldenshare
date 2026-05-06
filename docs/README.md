@@ -109,6 +109,7 @@ docs/
 - [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
 - [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
+- [指数历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
 - [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)

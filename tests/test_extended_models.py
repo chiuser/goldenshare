@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger
+from sqlalchemy import BigInteger, Float, String
 
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -28,6 +28,7 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
+from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 
 
@@ -158,3 +159,9 @@ def test_stk_factor_pro_serving_model_matches_expected_keys() -> None:
 
 def test_stk_mins_vol_uses_bigint() -> None:
     assert isinstance(RawStkMins.__table__.columns["vol"].type, BigInteger)
+
+
+def test_index_mins_keeps_freq_as_source_string_and_float_volume() -> None:
+    assert [column.name for column in RawIndexMins.__table__.primary_key.columns] == ["ts_code", "freq", "trade_time"]
+    assert isinstance(RawIndexMins.__table__.columns["freq"].type, String)
+    assert isinstance(RawIndexMins.__table__.columns["vol"].type, Float)

@@ -728,6 +728,96 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
     return units
 
 
+def _build_index_mins_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    allowed_freqs = ("1min", "5min", "15min", "30min", "60min")
+    raw_freqs = split_multi_values(request.params.get("freq"))
+    if not raw_freqs:
+        raw_freqs = list(allowed_freqs)
+    invalid = sorted({value for value in raw_freqs if value not in allowed_freqs})
+    if invalid:
+        raise DatasetUnitPlanner._planning_error("invalid_enum", f"指数历史分钟行情频率无效：{', '.join(invalid)}")
+    selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
+
+    targets = _resolve_index_mins_targets(planner=planner, request=request)
+
+    if request.trade_date is not None:
+        trade_date = request.trade_date
+        window_start = f"{trade_date.isoformat()} 09:00:00"
+        window_end = f"{trade_date.isoformat()} 19:00:00"
+        unit_trade_date = trade_date
+    elif request.start_date is not None and request.end_date is not None:
+        window_start = f"{request.start_date.isoformat()} 09:00:00"
+        window_end = f"{request.end_date.isoformat()} 19:00:00"
+        unit_trade_date = None
+    else:
+        raise DatasetUnitPlanner._planning_error("range_required", "指数历史分钟行情需要交易日期或起止日期")
+
+    units: list[PlanUnitSnapshot] = []
+    ordinal = 0
+    for ts_code, index_name in targets:
+        for freq in selected_freqs:
+            merged_values = {
+                "ts_code": ts_code,
+                "freq": freq,
+                "window_start": window_start,
+                "window_end": window_end,
+            }
+            progress_context = {
+                "unit": "index",
+                "ts_code": ts_code,
+                "freq": freq,
+                "start_date": window_start,
+                "end_date": window_end,
+            }
+            if index_name:
+                progress_context["index_name"] = index_name
+            units.append(
+                PlanUnitSnapshot(
+                    unit_id=f"index_mins:ts_code={ts_code}:freq={freq}:start={window_start.replace(' ', 'T')}:end={window_end.replace(' ', 'T')}:{ordinal}",
+                    dataset_key=request.dataset_key,
+                    source_key=request.source_key or definition.source.source_key_default,
+                    trade_date=unit_trade_date,
+                    request_params=request_builder(request, unit_trade_date, merged_values),
+                    progress_context=progress_context,
+                    pagination_policy="offset_limit",
+                    page_limit=definition.planning.page_limit,
+                )
+            )
+            ordinal += 1
+    return units
+
+
+def _resolve_index_mins_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+) -> list[tuple[str, str | None]]:
+    active_codes = _normalize_universe_codes(planner.dao.index_series_active.list_active_codes("index_mins"))
+    if not active_codes:
+        raise DatasetUnitPlanner._planning_error("universe_empty", "指数历史分钟行情需要先准备 index_mins 激活指数池")
+
+    active_set = set(active_codes)
+    explicit_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if explicit_codes:
+        invalid = sorted(code for code in explicit_codes if code not in active_set)
+        if invalid:
+            raise DatasetUnitPlanner._planning_error(
+                "invalid_enum",
+                f"指数历史分钟行情代码不在 index_mins 激活池：{', '.join(invalid)}",
+            )
+        selected_codes = explicit_codes
+    else:
+        selected_codes = active_codes
+
+    targets: list[tuple[str, str | None]] = []
+    get_by_ts_code = getattr(planner.dao.index_basic, "get_by_ts_code", None)
+    for code in selected_codes:
+        index = get_by_ts_code(code) if callable(get_by_ts_code) else None
+        targets.append((code, getattr(index, "name", None) or None))
+    return targets
+
+
 def _build_biying_equity_daily_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     return _build_biying_units(planner, request, definition, window_days=3000, include_adj_type=True)
 
@@ -824,6 +914,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_news_units": _build_news_units,
     "build_dividend_units": _build_dividend_units,
     "build_index_daily_units": _build_index_daily_units,
+    "build_index_mins_units": _build_index_mins_units,
     "build_index_weight_units": _build_index_weight_units,
     "build_stock_company_units": _build_stock_company_units,
     "build_stk_holdernumber_units": _build_holdernumber_units,

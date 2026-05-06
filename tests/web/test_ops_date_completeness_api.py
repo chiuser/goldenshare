@@ -149,6 +149,8 @@ def test_date_completeness_rules_cover_special_date_models(app_client, user_fact
 
     assert unsupported["stk_mins"]["observed_field"] == "trade_time"
     assert unsupported["stk_mins"]["not_applicable_reason"] == "minute completeness audit requires trading-session calendar"
+    assert unsupported["index_mins"]["observed_field"] == "trade_time"
+    assert unsupported["index_mins"]["not_applicable_reason"] == "minute completeness audit requires trading-session and frequency rules"
 
 
 def test_create_date_completeness_run_persists_independent_audit_record(app_client, user_factory) -> None:

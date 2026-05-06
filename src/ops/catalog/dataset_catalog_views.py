@@ -92,6 +92,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("index_daily", "index_market_data", 20),
         DatasetCatalogItem("index_monthly", "index_market_data", 30),
         DatasetCatalogItem("index_daily_basic", "index_market_data", 40),
+        DatasetCatalogItem("index_mins", "index_market_data", 50),
         DatasetCatalogItem("etf_index", "etf_fund", 10),
         DatasetCatalogItem("fund_adj", "etf_fund", 20),
         DatasetCatalogItem("fund_daily", "etf_fund", 30),

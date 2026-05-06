@@ -33,6 +33,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "daily.maintain" in actions
     assert "dc_hot.maintain" in actions
     assert "index_weight.maintain" in actions
+    assert "index_mins.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
     legacy_keys = [
         "sync" + "_daily.daily",
@@ -134,6 +135,15 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert dc_hot_params["is_new"]["options"] == ["Y"]
     assert dc_hot_params["is_new"]["multi_value"] is False
     assert dc_hot_params["is_new"]["default_value"] == "Y"
+
+    index_mins = actions["index_mins.maintain"]
+    assert index_mins["group_key"] == "index_market_data"
+    assert index_mins["group_label"] == "A股指数行情"
+    assert index_mins["schedule_enabled"] is True
+    index_mins_params = {param["key"]: param for param in index_mins["parameters"]}
+    assert list(index_mins_params) == ["trade_date", "start_date", "end_date", "ts_code", "freq"]
+    assert index_mins_params["freq"]["multi_value"] is True
+    assert index_mins_params["freq"]["default_value"] == ["1min", "5min", "15min", "30min", "60min"]
 
     assert actions["maintenance.rebuild_dm"]["action_type"] == "maintenance_action"
     assert actions["maintenance.rebuild_dm"]["display_name"] == "刷新数据集市快照"

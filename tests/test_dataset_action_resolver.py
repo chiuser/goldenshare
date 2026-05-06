@@ -251,6 +251,55 @@ def test_index_weight_rejects_empty_universe(mocker) -> None:
         resolver.build_plan(request)
 
 
+def test_index_mins_defaults_to_all_freqs_and_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["399001.SZ", "000001.SH"])),
+        index_basic=SimpleNamespace(
+            get_by_ts_code=mocker.Mock(
+                side_effect=lambda code: SimpleNamespace(name={"000001.SH": "上证指数", "399001.SZ": "深证成指"}.get(code))
+            )
+        ),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 30)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 10
+    assert plan.planning.pagination_policy == "offset_limit"
+    assert plan.filters["freq"] == ["1min", "5min", "15min", "30min", "60min"]
+    assert {unit.request_params["ts_code"] for unit in plan.units} == {"000001.SH", "399001.SZ"}
+    assert {unit.request_params["freq"] for unit in plan.units} == {"1min", "5min", "15min", "30min", "60min"}
+    assert all(unit.request_params["start_date"] == "2026-04-30 09:00:00" for unit in plan.units)
+    assert all(unit.request_params["end_date"] == "2026-04-30 19:00:00" for unit in plan.units)
+    assert any(unit.progress_context.get("index_name") == "上证指数" for unit in plan.units)
+    fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_mins")
+
+
+def test_index_mins_rejects_explicit_code_outside_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000001.SH"])),
+        index_basic=SimpleNamespace(get_by_ts_code=mocker.Mock()),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 30)),
+        filters={"ts_code": "399001.SZ", "freq": ["30min"]},
+    )
+
+    with pytest.raises(IngestionPlanningError, match="不在 index_mins 激活池"):
+        resolver.build_plan(request)
+
+
 def test_dataset_action_resolver_builds_no_time_plan(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

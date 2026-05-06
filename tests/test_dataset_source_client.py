@@ -91,3 +91,56 @@ def test_news_source_client_passes_fields_and_annotates_src(monkeypatch) -> None
             "fields": ("datetime", "content", "title", "channels", "score"),
         }
     ]
+
+
+def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RecordingConnector(rows=[{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00"}])
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("index_mins"),
+        unit=PlanUnitSnapshot(
+            unit_id="index-mins-u1",
+            dataset_key="index_mins",
+            source_key="tushare",
+            trade_date=None,
+            request_params={
+                "ts_code": "000001.SH",
+                "freq": "30min",
+                "start_date": "2026-04-30 09:00:00",
+                "end_date": "2026-04-30 19:00:00",
+            },
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=8000,
+        ),
+    )
+
+    assert result.request_count == 1
+    assert result.rows_raw == [{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00", "freq": "30min"}]
+    assert connector.calls == [
+        {
+            "api_name": "idx_mins",
+            "params": {
+                "ts_code": "000001.SH",
+                "freq": "30min",
+                "start_date": "2026-04-30 09:00:00",
+                "end_date": "2026-04-30 19:00:00",
+                "offset": 0,
+                "limit": 8000,
+            },
+            "fields": (
+                "ts_code",
+                "trade_time",
+                "close",
+                "open",
+                "high",
+                "low",
+                "vol",
+                "amount",
+                "freq",
+                "exchange",
+                "vwap",
+            ),
+        }
+    ]

@@ -79,6 +79,7 @@ from src.foundation.models.raw.raw_dc_member import RawDcMember
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
+from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.foundation.models.raw.raw_index_weight import RawIndexWeight
 from src.foundation.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
@@ -214,6 +215,7 @@ class DAOFactory:
         self.raw_stk_period_bar_adj = GenericDAO(session, RawStkPeriodBarAdj)
         self.raw_index_basic = GenericDAO(session, RawIndexBasic)
         self.raw_index_daily = GenericDAO(session, RawIndexDaily)
+        self.raw_index_mins = GenericDAO(session, RawIndexMins)
         self.raw_index_weekly_bar = GenericDAO(session, RawIndexWeeklyBar)
         self.raw_index_monthly_bar = GenericDAO(session, RawIndexMonthlyBar)
         self.raw_index_weight = GenericDAO(session, RawIndexWeight)

@@ -64,6 +64,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "index_monthly",
         "index_daily_basic",
         "index_basic",
+        "index_mins",
         "etf_index",
         "index_weight",
     },

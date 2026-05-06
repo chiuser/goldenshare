@@ -25,7 +25,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 65
+    assert len(definition_keys) == 66
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -400,12 +400,15 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     assert get_dataset_definition("daily").storage.serving_table == "core_serving.equity_daily_bar"
     assert get_dataset_definition("stk_mins").storage.layer_plan == "raw-only"
     assert get_dataset_definition("stk_mins").storage.serving_table is None
+    assert get_dataset_definition("index_mins").storage.layer_plan == "raw-only"
+    assert get_dataset_definition("index_mins").storage.serving_table is None
 
 
 def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     daily = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("daily"))
     stock_basic = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stock_basic"))
     stk_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stk_mins"))
+    index_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("index_mins"))
     cctv_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("cctv_news"))
     major_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("major_news"))
     news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("news"))
@@ -418,6 +421,8 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     assert stock_basic.stage("resolution").status_source == "unobserved"
     assert stk_mins.stage_keys == ("raw",)
     assert stk_mins.stage("serving").message == "当前模式不产出 serving"
+    assert index_mins.stage_keys == ("raw",)
+    assert index_mins.stage("serving").message == "当前模式不产出 serving"
     assert cctv_news.stage_keys == ("raw", "light")
     assert cctv_news.stage("light").display_name == "轻量服务层"
     assert major_news.stage_keys == ("raw", "light")

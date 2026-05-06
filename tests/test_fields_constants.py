@@ -80,6 +80,28 @@ def test_dataset_definition_source_fields_cover_extended_resources() -> None:
     assert stk_mins.quality.required_fields == ("ts_code", "freq", "trade_time")
     assert "trade_date" not in stk_mins.normalization.required_fields
     assert "session_tag" not in stk_mins.normalization.required_fields
+    index_mins = get_dataset_definition("index_mins")
+    assert tuple(_source_fields("index_mins")) == (
+        "ts_code",
+        "trade_time",
+        "close",
+        "open",
+        "high",
+        "low",
+        "vol",
+        "amount",
+        "freq",
+        "exchange",
+        "vwap",
+    )
+    assert index_mins.date_model.observed_field == "trade_time"
+    assert index_mins.observability.observed_field == "trade_time"
+    assert index_mins.normalization.required_fields == ("ts_code", "freq", "trade_time")
+    assert index_mins.quality.required_fields == ("ts_code", "freq", "trade_time")
+    freq_filter = next(field for field in index_mins.input_model.filters if field.name == "freq")
+    assert freq_filter.multi_value is True
+    assert freq_filter.required is False
+    assert freq_filter.default == ("1min", "5min", "15min", "30min", "60min")
     assert "open_qfq" in _source_fields("stk_period_bar_adj_week")
     assert "publisher" in _source_fields("index_basic")
     index_basic = get_dataset_definition("index_basic")

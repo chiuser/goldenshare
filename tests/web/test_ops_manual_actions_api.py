@@ -161,6 +161,14 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert _time_modes(actions["stk_mins.maintain"])["point"]["control"] == "trade_date"
     stk_mins_filter_keys = [item["key"] for item in actions["stk_mins.maintain"]["filters"]]
     assert stk_mins_filter_keys == ["ts_code", "freq"]
+    assert [item["mode"] for item in actions["index_mins.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert _time_modes(actions["index_mins.maintain"])["point"]["control"] == "trade_date"
+    index_mins_filters = {item["key"]: item for item in actions["index_mins.maintain"]["filters"]}
+    assert list(index_mins_filters) == ["ts_code", "freq"]
+    assert index_mins_filters["freq"]["multi_value"] is True
+    assert index_mins_filters["freq"]["required"] is False
+    assert index_mins_filters["freq"]["options"] == ["1min", "5min", "15min", "30min", "60min"]
+    assert index_mins_filters["freq"]["default_value"] == ["1min", "5min", "15min", "30min", "60min"]
 
     suspend_d_filters = {item["key"]: item for item in actions["suspend_d.maintain"]["filters"]}
     assert suspend_d_filters["suspend_type"]["param_type"] == "enum"
@@ -519,6 +527,25 @@ def test_ops_manual_action_task_run_routes_stk_mins_to_minute_history(app_client
     assert payload["run"]["resource_key"] == "stk_mins"
     assert payload["run"]["time_input"] == {"mode": "range", "start_date": "2026-04-23", "end_date": "2026-04-24"}
     assert payload["run"]["filters"] == {"freq": ["30min", "60min"]}
+
+
+def test_ops_manual_action_task_run_routes_index_mins_to_minute_history(app_client, user_factory) -> None:
+    headers = _admin_headers(app_client, user_factory)
+
+    response = app_client.post(
+        "/api/v1/ops/manual-actions/index_mins.maintain/task-runs",
+        headers=headers,
+        json={
+            "time_input": {"mode": "point", "trade_date": "2026-04-30"},
+            "filters": {"freq": ["30min"], "ts_code": "000001.SH"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["resource_key"] == "index_mins"
+    assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-30"}
+    assert payload["run"]["filters"] == {"freq": ["30min"], "ts_code": "000001.SH"}
 
 
 def test_ops_manual_action_task_run_routes_natural_day_range_to_dataset_action(app_client, user_factory) -> None:

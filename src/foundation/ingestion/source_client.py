@@ -168,3 +168,8 @@ class DatasetSourceClient:
             query_freq = str(params.get("freq") or "").strip()
             for row in rows:
                 row["freq"] = query_freq
+        if dataset_key == "index_mins":
+            query_freq = str(params.get("freq") or "").strip()
+            for row in rows:
+                if row.get("freq") in (None, ""):
+                    row["freq"] = query_freq
