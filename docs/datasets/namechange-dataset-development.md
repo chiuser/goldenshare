@@ -307,7 +307,7 @@ on raw_tushare.namechange(ann_date);
 3. 自动任务允许按默认全集分页刷新。
 4. 数据源页、手动任务页、自动任务页统一展示到 `reference_data / A股基础数据`。
 5. 数据状态只展示最近一次成功任务迹象，不以“业务日新鲜度”做红绿灯。
-6. `reference_data_refresh` 工作流包含 `namechange`；`reference_data_natural_day_maintenance` 不再包含 `namechange`。
+6. `reference_data_refresh` 工作流包含 `namechange`；不需要自然日 workflow。
 
 ---
 

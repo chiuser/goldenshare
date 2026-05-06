@@ -4,7 +4,6 @@ from src.foundation.datasets.registry import get_dataset_definition, get_dataset
 from src.ops.action_catalog import (
     END_DATE_PARAM,
     MAINTENANCE_ACTION_REGISTRY,
-    NATURAL_DAY_PARAM,
     START_DATE_PARAM,
     WORKFLOW_DEFINITION_REGISTRY,
     WORKFLOW_DOMAIN_DISPLAY_NAME,
@@ -61,7 +60,6 @@ def test_workflow_steps_reference_dataset_action_keys() -> None:
 
 def test_workflow_time_contracts_match_step_requirements() -> None:
     reference_data = WORKFLOW_DEFINITION_REGISTRY["reference_data_refresh"]
-    reference_data_natural_day = WORKFLOW_DEFINITION_REGISTRY["reference_data_natural_day_maintenance"]
     daily_market_close = WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"]
     daily_moneyflow = WORKFLOW_DEFINITION_REGISTRY["daily_moneyflow_maintenance"]
     index_extension = WORKFLOW_DEFINITION_REGISTRY["index_extension_maintenance"]
@@ -70,6 +68,7 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
     assert [step.dataset_key for step in reference_data.steps] == [
         "stock_basic",
         "namechange",
+        "st",
         "bse_mapping",
         "stock_company",
         "trade_cal",
@@ -79,11 +78,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "hk_basic",
     ]
     assert reference_data.workflow_profile == "point_incremental"
-    assert [step.dataset_key for step in reference_data_natural_day.steps] == ["st"]
-    assert reference_data_natural_day.workflow_profile == "point_incremental"
-    assert reference_data_natural_day.time_regime == "natural_day"
-    assert reference_data_natural_day.default_schedule_policy == "natural_day_daily"
-    assert reference_data_natural_day.parameters == (NATURAL_DAY_PARAM, START_DATE_PARAM, END_DATE_PARAM)
 
     assert [param.key for param in daily_market_close.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_market_close.workflow_profile == "point_incremental"

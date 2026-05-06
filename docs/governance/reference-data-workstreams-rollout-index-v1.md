@@ -1,7 +1,7 @@
 # 基础数据工作流与数据集三线推进索引 v1
 
-状态：执行中（M1、M2、M3、M3.1、M4、M4.1、M5、M5.1 已完成，后续里程碑已细化）  
-最后更新：2026-05-05  
+状态：已完成（`st` 已收口为 no-time snapshot，并入 `reference_data_refresh`；自然日 workflow 方案归档）
+最后更新：2026-05-06
 目标：把当前三组并行但不能混写的任务拆开，并给出推荐推进顺序。
 
 ---
@@ -21,12 +21,12 @@
 对应文档：
 
 1. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
-2. [基础数据自然日维护工作流方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
+2. [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
 
 说明：
 
 1. 上位架构分析负责讲清“时间形状 vs 时间制度”与 M2 允许改动面
-2. 具体 workflow 方案只定义 `reference_data_natural_day_maintenance` 这一个 workflow
+2. `reference_data_natural_day_maintenance` 已归档；当前 `st` 不再按自然日 point/range 维护
 
 ### B. 五个新数据集开发接入
 
@@ -65,7 +65,7 @@
 4. `namechange`
    - 进入 `reference_data_refresh`
 5. `st`
-   - 进入 `reference_data_natural_day_maintenance`
+   - 进入 `reference_data_refresh`
 
 ---
 
@@ -162,6 +162,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 1. `bse_mapping`
 2. `stock_company`
 3. `namechange`
+4. `st`
 
 原因：
 
@@ -178,7 +179,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 状态：已完成
 
-### M4：接入自然日基础数据
+### M4：接入 ST 风险警示事件数据集
 
 对象：
 
@@ -186,12 +187,12 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 原因：
 
-1. 它依赖前面的 natural_day workflow 架构切口
-2. 先把数据集本体接入完成，才能做自然日 workflow 的真实步骤对接和验收
+1. 它按源接口默认全集分页刷新，不按发布日期或实施日期扇出
+2. 数据集本体完成后，直接并入 `reference_data_refresh`
 
 状态：已完成
 
-### M4.1：新增并对接 `reference_data_natural_day_maintenance`
+### M4.1：归档 `reference_data_natural_day_maintenance`
 
 对象：
 
@@ -199,16 +200,14 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 原因：
 
-1. 该 workflow 的存在意义就是承接 `natural_day + point/range` 这批基础数据
-2. 不应在数据集尚未可执行时先做空壳对接
-3. 也不应把这批对接拖到所有数据集都完成之后再统一收口
+1. `st` 已确认不需要按自然日扇出
+2. 该 workflow 没有当前步骤来源，继续保留会误导自动任务配置
 
 门禁：
 
-1. 新 workflow 定义、目录、文档与测试全部落地
-2. `st` 可通过手动任务与自动任务进入该 workflow
-3. 默认时间制度保持自然日，不回落到“截至今天的最近开市日”
-4. workflow 详情、catalog 与 schedule 口径一致
+1. workflow registry 不再包含 `reference_data_natural_day_maintenance`
+2. `st` 已进入 `reference_data_refresh`
+3. workflow 目录、catalog、schedule 与测试口径一致
 
 状态：已完成
 
@@ -235,7 +234,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 原因：
 
 1. 它是这批 5 个数据集中唯一明确归属交易日维护 workflow 的对象
-2. 与 `st` 的自然日 workflow 没有耦合
+2. 与 `st` 的 no-time snapshot 主链没有耦合
 3. 接入完成后应立即闭环，不应拖到最后和其他 workflow 一起混改
 
 状态：已完成
@@ -288,8 +287,8 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 
 1. 先做 M3：接入 `bse_mapping`、`stock_company`
 2. 立刻做 M3.1：把这两个对象并入 `reference_data_refresh`
-3. 再做 M4：接入 `namechange`、`st`，其中 `namechange` 按 no-time snapshot 归入 `reference_data_refresh`
-4. 立刻做 M4.1：新增并对接 `reference_data_natural_day_maintenance`
+3. 再做 M4：接入 `namechange`、`st`，二者均按 no-time snapshot 归入 `reference_data_refresh`
+4. M4.1：归档 `reference_data_natural_day_maintenance`
 5. 最后做 M5：接入 `bak_basic`
 6. 立刻做 M5.1：把 `bak_basic` 并入 `daily_market_close_maintenance`
 
@@ -305,5 +304,5 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 ## 6. 关联文档
 
 1. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-2. [基础数据自然日维护工作流方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
+2. [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
 3. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)

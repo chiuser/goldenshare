@@ -224,10 +224,10 @@ def test_scheduler_defaults_natural_day_workflow_to_local_calendar_date(db_sessi
     assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-03-31"}
 
 
-def test_scheduler_defaults_reference_data_natural_day_workflow_to_local_calendar_date(db_session, ops_schedule_factory) -> None:
+def test_scheduler_defaults_reference_data_refresh_workflow_to_snapshot_mode(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="workflow",
-        target_key="reference_data_natural_day_maintenance",
+        target_key="reference_data_refresh",
         schedule_type="once",
         timezone_name="Asia/Shanghai",
         params_json={},
@@ -244,9 +244,9 @@ def test_scheduler_defaults_reference_data_natural_day_workflow_to_local_calenda
     assert task_run.schedule_id == schedule.id
     assert task_run.task_type == "workflow"
     assert task_run.resource_key is None
-    assert task_run.request_payload_json["target_key"] == "reference_data_natural_day_maintenance"
-    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-03-31"}
-    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-03-31"}
+    assert task_run.request_payload_json["target_key"] == "reference_data_refresh"
+    assert task_run.time_input_json == {"mode": "none"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "none"}
 
 
 def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step(

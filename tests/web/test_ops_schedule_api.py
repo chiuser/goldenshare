@@ -78,7 +78,7 @@ def test_ops_schedule_create_allows_daily_workflow_without_static_trade_date(app
     assert response.json()["params_json"] == {}
 
 
-def test_ops_schedule_create_allows_natural_day_workflow_without_static_trade_date(app_client, user_factory) -> None:
+def test_ops_schedule_create_allows_reference_data_refresh_without_static_date(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -88,8 +88,8 @@ def test_ops_schedule_create_allows_natural_day_workflow_without_static_trade_da
         headers={"Authorization": f"Bearer {token}"},
         json={
             "target_type": "workflow",
-            "target_key": "reference_data_natural_day_maintenance",
-            "display_name": "基础数据自然日维护",
+            "target_key": "reference_data_refresh",
+            "display_name": "基础主数据刷新",
             "schedule_type": "cron",
             "cron_expr": "0 19 * * *",
             "timezone": "Asia/Shanghai",
@@ -98,7 +98,7 @@ def test_ops_schedule_create_allows_natural_day_workflow_without_static_trade_da
     )
 
     assert response.status_code == 200
-    assert response.json()["target_key"] == "reference_data_natural_day_maintenance"
+    assert response.json()["target_key"] == "reference_data_refresh"
     assert response.json()["params_json"] == {}
 
 

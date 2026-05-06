@@ -1,10 +1,10 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-05-05  
+> 更新时间：2026-05-06
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
-## 1. 当前工作流总览（共 7 个）
+## 1. 当前工作流总览（共 6 个）
 
 | 工作流 Key | 名称 | 支持自动调度 | 支持手动执行 | 默认调度策略 |
 |---|---|---:|---:|---|
@@ -13,7 +13,6 @@
 | `daily_moneyflow_maintenance` | 每日资金流向维护 | 是 | 是 | 无 |
 | `index_extension_maintenance` | 指数扩展数据维护 | 否 | 是 | 无 |
 | `index_kline_maintenance_pipeline` | 指数K线全链路维护 | 否 | 是 | 无 |
-| `reference_data_natural_day_maintenance` | 基础数据自然日维护 | 是 | 是 | `natural_day_daily` |
 | `reference_data_refresh` | 基础主数据刷新 | 是 | 是 | 无 |
 
 来源：`WORKFLOW_DEFINITION_REGISTRY`（`list_workflow_definitions()` 按 key 排序输出）。
@@ -73,7 +72,7 @@
 
 ## 3.1 `reference_data_refresh`（基础主数据刷新）
 
-- 描述：刷新股票、北交所代码映射、上市公司、交易日历（按完整日历刷新）、ETF 与指数基础信息。
+- 描述：刷新股票、股票曾用名、ST 风险警示事件、北交所代码映射、上市公司、交易日历（按完整日历刷新）、ETF 与指数基础信息。
 - 支持自动调度：是
 - 支持手动执行：是
 - 支持参数：无
@@ -85,30 +84,16 @@
 |---:|---|---|---|
 | 1 | `stock_basic` | 股票主数据 | `stock_basic.maintain` |
 | 2 | `namechange` | 股票曾用名 | `namechange.maintain` |
-| 3 | `bse_mapping` | 北交所新旧代码对照 | `bse_mapping.maintain` |
-| 4 | `stock_company` | 上市公司基本信息 | `stock_company.maintain` |
-| 5 | `trade_cal` | 交易日历 | `trade_cal.maintain` |
-| 6 | `etf_basic` | ETF 基本信息 | `etf_basic.maintain` |
-| 7 | `etf_index` | ETF 基准指数列表 | `etf_index.maintain` |
-| 8 | `index_basic` | 指数基本信息 | `index_basic.maintain` |
-| 9 | `hk_basic` | 港股列表 | `hk_basic.maintain` |
+| 3 | `st` | ST 风险警示事件 | `st.maintain` |
+| 4 | `bse_mapping` | 北交所新旧代码对照 | `bse_mapping.maintain` |
+| 5 | `stock_company` | 上市公司基本信息 | `stock_company.maintain` |
+| 6 | `trade_cal` | 交易日历 | `trade_cal.maintain` |
+| 7 | `etf_basic` | ETF 基本信息 | `etf_basic.maintain` |
+| 8 | `etf_index` | ETF 基准指数列表 | `etf_index.maintain` |
+| 9 | `index_basic` | 指数基本信息 | `index_basic.maintain` |
+| 10 | `hk_basic` | 港股列表 | `hk_basic.maintain` |
 
-## 3.2 `reference_data_natural_day_maintenance`（基础数据自然日维护）
-
-- 描述：按自然日维护 ST 风险警示事件等 A 股基础数据。
-- 支持自动调度：是
-- 支持手动执行：是
-- 默认调度策略：`natural_day_daily`
-- 支持参数：`trade_date`、`start_date`、`end_date`
-- 适用场景：自然日基础资料的日常增量维护与区间补跑。
-
-步骤（顺序执行）：
-
-| 序号 | step_key | 显示名 | action_key |
-|---:|---|---|---|
-| 1 | `st` | ST 风险警示事件 | `st.maintain` |
-
-## 3.3 `daily_market_close_maintenance`（每日收盘后维护）
+## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
 - 描述：覆盖日线、历史基础列表、日指标、榜单与基金/指数日线的每日维护工作流。
 - 支持自动调度：是
@@ -149,7 +134,7 @@
 | 26 | `limit_cpt_list` | 最强板块统计 | `limit_cpt_list.maintain` |
 | 27 | `kpl_concept_cons` | 开盘啦题材成分 | `kpl_concept_cons.maintain` |
 
-## 3.4 `daily_moneyflow_maintenance`（每日资金流向维护）
+## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 
 - 描述：覆盖个股、概念、行业、板块和市场维度的资金流向每日维护工作流。
 - 支持自动调度：是
@@ -169,7 +154,7 @@
 | 6 | `moneyflow_ind_dc` | 板块资金流向（东方财富） | `moneyflow_ind_dc.maintain` |
 | 7 | `moneyflow_mkt_dc` | 市场资金流向（东方财富） | `moneyflow_mkt_dc.maintain` |
 
-## 3.5 `board_reference_refresh`（板块主数据刷新）
+## 3.4 `board_reference_refresh`（板块主数据刷新）
 
 - 描述：刷新同花顺板块主数据与同花顺板块成分。
 - 支持自动调度：是
@@ -184,7 +169,7 @@
 | 1 | `ths_index` | 同花顺概念和行业指数 | `ths_index.maintain` |
 | 2 | `ths_member` | 同花顺板块成分 | `ths_member.maintain` |
 
-## 3.6 `index_extension_maintenance`（指数扩展数据维护）
+## 3.5 `index_extension_maintenance`（指数扩展数据维护）
 
 - 描述：批量维护指数日线、周线、月线、日指标和成分权重。
 - 支持自动调度：否
@@ -202,7 +187,7 @@
 | 4 | `index_daily_basic` | 指数日指标 | `index_daily_basic.maintain` |
 | 5 | `index_weight` | 指数权重 | `index_weight.maintain` |
 
-## 3.7 `index_kline_maintenance_pipeline`（指数K线全链路维护）
+## 3.6 `index_kline_maintenance_pipeline`（指数K线全链路维护）
 
 - 描述：按日线→周线→月线→服务表补齐顺序执行。
 - 支持自动调度：否

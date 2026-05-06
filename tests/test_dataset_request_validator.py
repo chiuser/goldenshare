@@ -106,14 +106,26 @@ def test_validator_rejects_namechange_point_mode() -> None:
     assert exc_info.value.structured_error.error_code == "run_profile_unsupported"
 
 
-def test_validator_parses_st_imp_date_filter() -> None:
+def test_validator_accepts_st_snapshot_without_time_anchor() -> None:
     validated = _validate(
         dataset_key="st",
-        run_profile="point_incremental",
-        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
-        filters={"imp_date": "2026-04-25"},
+        run_profile="snapshot_refresh",
+        time_input=DatasetTimeInput(mode="none"),
+        filters={"ts_code": "000001.SZ"},
     )
 
-    assert validated.trade_date == date(2026, 4, 24)
-    assert validated.params["ann_date"] == date(2026, 4, 24)
-    assert validated.params["imp_date"] == date(2026, 4, 25)
+    assert validated.trade_date is None
+    assert validated.start_date is None
+    assert validated.end_date is None
+    assert validated.params["ts_code"] == "000001.SZ"
+
+
+def test_validator_rejects_st_point_mode() -> None:
+    with pytest.raises(IngestionValidationError) as exc_info:
+        _validate(
+            dataset_key="st",
+            run_profile="point_incremental",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        )
+
+    assert exc_info.value.structured_error.error_code == "run_profile_unsupported"

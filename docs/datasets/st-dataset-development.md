@@ -27,8 +27,8 @@
 | 参数名 | 类型 | 必填 | 源站含义 | 类别 | 运营侧是否填写 | 接入设计 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ts_code` | string | 否 | 股票代码 | 过滤 | 是 | 可选过滤 |
-| `pub_date` | string | 否 | 发布日期 | 时间 | 是 | 选为 V1 主时间轴 |
-| `imp_date` | string | 否 | 实施日期 | 过滤日期 | 是 | 保留为辅助过滤条件 |
+| `pub_date` | string | 否 | 发布日期 | 源端日期字段 | 否 | 不作为维护主轴；默认不传 |
+| `imp_date` | string | 否 | 实施日期 | 源端日期字段 | 否 | 不作为运营输入；默认不传 |
 | `limit` | integer | 否 | 单页行数 | 分页 | 否 | 固定传 `1000` |
 | `offset` | integer | 否 | 分页偏移量 | 分页 | 否 | 自动递增 |
 
@@ -46,9 +46,9 @@
 
 ### 1.3 源端行为判断
 
-1. 源接口没有 `start_date/end_date`，如果要做区间维护，只能按选定的主时间轴逐日 fan-out。
-2. `pub_date` 更接近“事件产生 / 公告发生”的主时间轴，适合做增量维护。
-3. `imp_date` 更适合作为辅助过滤条件，而不是第二套并行时间模型；否则会把一个数据集拆成两套时间主语。
+1. 源接口支持不传 `pub_date` / `imp_date`，按 `limit/offset` 分页返回全集。
+2. `pub_date` / `imp_date` 是源端结果字段，不作为本仓维护主轴。
+3. V1 只保留 `ts_code` 作为对象过滤；不暴露日期过滤，避免把事件全集错误拆成按日期 fan-out。
 4. 分页必须开启。
 
 ---
@@ -64,7 +64,7 @@
 - 源站 API：`st`
 - 是否对外服务：是
 - 是否多源融合：否
-- 是否纳入自动任务：是，建议按 `pub_date` 做日常增量
+- 是否纳入自动任务：是，纳入 `reference_data_refresh`，按默认全集分页刷新
 - 是否纳入日期完整性审计：否
 - Ops 展示分组 key：`reference_data`
 - Ops 展示分组名称：`A股基础数据`
@@ -114,32 +114,27 @@
 
 ```python
 "date_model": {
-    "date_axis": "natural_day",
+    "date_axis": "none",
     "bucket_rule": "not_applicable",
-    "window_mode": "point_or_range",
-    "input_shape": "ann_date_or_start_end",
-    "observed_field": "pub_date",
+    "window_mode": "none",
+    "input_shape": "none",
+    "observed_field": None,
     "audit_applicable": False,
-    "not_applicable_reason": "ST 风险警示事件不是每日必有数据的公告类事件，不按日完整性判断。",
+    "not_applicable_reason": "ST 风险警示事件按源接口默认全集分页刷新，不按发布日期或实施日期扇出。",
 }
 ```
 
 说明：
 
-1. V1 选 `pub_date` 作为主时间轴。
-2. `imp_date` 保留为 filter，不另建第二套时间意图。
-3. point 模式沿用 `ann_date_or_start_end` 这条既有链路进入 manual-actions / validator，再在 request builder 中映射到源接口参数 `pub_date`。
-4. 手动任务日期控件仍按自然日选择；`not_applicable` 只表示 freshness / 完整性不按连续自然日做红绿灯判断。
+1. `st` 不按业务日期维护；`pub_date` / `imp_date` 只作为源数据字段保存。
+2. 手动任务默认不填写时间条件。
+3. `not_applicable` 表示 freshness / 完整性不按连续日期做红绿灯判断。
 
 ### 3.5 `input_model`
 
 | 字段 | 类型 | 是否必填 | 默认值 | 是否多选 | 中文名 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `trade_date` | date | 否 | 无 | 否 | 发布日期 | DatasetDefinition 统一时间槽位；manual-actions point 模式会映射为 `ann_date`，最终由 request builder 生成为 `pub_date` |
-| `start_date` | date | 否 | 无 | 否 | 开始日期 | 区间维护开始日期，对应 `pub_date` |
-| `end_date` | date | 否 | 无 | 否 | 结束日期 | 区间维护结束日期，对应 `pub_date` |
 | `ts_code` | string | 否 | 无 | 否 | 股票代码 | 可选过滤 |
-| `imp_date` | date | 否 | 无 | 否 | 实施日期 | 辅助过滤 |
 
 ### 3.6 `storage`
 
@@ -169,15 +164,15 @@
     "page_limit": 1000,
     "chunk_size": None,
     "max_units_per_execution": None,
-    "unit_builder_key": "build_st_units",
+    "unit_builder_key": "generic",
 }
 ```
 
 说明：
 
-1. `point`：1 个 `pub_date` 对应 1 个 unit。
-2. `range`：按自然日逐日展开 `pub_date`。
-3. 如果用户填写 `imp_date`，只是附加到每个 unit 请求上的过滤条件，不改变 unit 维度。
+1. 默认生成 1 个 snapshot unit。
+2. unit 内通过 `limit/offset` 分页拉完整源端结果。
+3. 不按 `pub_date` 或 `imp_date` 拆 unit。
 
 ### 3.8 `normalization`
 
@@ -202,7 +197,7 @@
             "manual_enabled": True,
             "schedule_enabled": True,
             "retry_enabled": True,
-            "supported_time_modes": ("point", "range"),
+            "supported_time_modes": ("none",),
         },
     ),
 }
@@ -213,7 +208,7 @@
 ```python
 "observability": {
     "progress_label": "st",
-    "observed_field": "pub_date",
+    "observed_field": None,
     "audit_applicable": False,
 },
 "quality": {
@@ -223,7 +218,7 @@
 "transaction": {
     "commit_policy": "unit",
     "idempotent_write_required": True,
-    "write_volume_assessment": "单个事务只覆盖一个发布日的全部分页结果；区间维护按自然日拆 unit。",
+    "write_volume_assessment": "ST 风险警示事件按源接口默认全集分页拉取；一个执行计划只生成一个 snapshot unit，分页拉完整后按 unit 提交。",
 }
 ```
 
@@ -278,15 +273,14 @@ on raw_tushare.st(imp_date);
 ### 5.1 请求构造
 
 - `request_builder_key`：`_st_params`
-- `point`：`pub_date=YYYYMMDD`
-- `range`：unit builder 逐日展开，每个 unit 仍然只传一个 `pub_date`
-- 若填写 `ts_code` / `imp_date`，一并透传
+- 默认：不传 `pub_date` / `imp_date`
+- 可选：若填写 `ts_code`，透传为大写股票代码
 
 ### 5.2 Unit 规划
 
-- `unit_builder_key`：`build_st_units`
-- unit 维度：`pub_date`
-- `progress_context`：`pub_date`、可选 `ts_code`、可选 `imp_date`
+- `unit_builder_key`：`generic`
+- unit 维度：snapshot
+- `progress_context`：可选 `ts_code`
 
 ### 5.3 分页
 
@@ -304,8 +298,8 @@ on raw_tushare.st(imp_date);
 ## 6. Ops 派生
 
 1. 页面展示名必须是“ST 风险警示事件”，不能简写成 `st`。
-2. 手动任务时间控件显示“发布日期 / 开始日期 / 结束日期”。
-3. `imp_date` 作为筛选项，不作为第二主时间轴。
+2. 手动任务时间控件显示“不填写时间条件”。
+3. `pub_date` / `imp_date` 不作为运营输入项。
 4. 数据源页、手动任务页、自动任务页统一展示到 `reference_data / A股基础数据`。
 5. 数据状态只展示最近成功任务迹象，不按业务日新鲜度判断。
 
@@ -314,8 +308,8 @@ on raw_tushare.st(imp_date);
 ## 7. 测试与验收清单
 
 1. `DatasetDefinition` 注册
-2. `request_builder`：`trade_date -> pub_date`
-3. `unit_planner`：区间按自然日展开 `pub_date`
+2. `request_builder`：默认不传日期参数，可选 `ts_code`
+3. `unit_planner`：默认 1 个 snapshot unit
 4. `row_transform`：`row_key_hash` 生成且保留 `st_tpye`
 5. `manual-actions`：展示文案不与 `stock_st` 混淆
 
@@ -323,4 +317,4 @@ on raw_tushare.st(imp_date);
 
 ## 8. 当前未决点
 
-1. 是否允许后续追加“仅按 `imp_date` 驱动的独立动作”，本文档暂不纳入；V1 只认 `pub_date` 为主时间轴。
+1. 是否允许后续追加“仅按 `imp_date` 驱动的独立动作”，本文档暂不纳入；V1 不按日期驱动。

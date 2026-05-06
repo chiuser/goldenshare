@@ -1,8 +1,10 @@
-# 基础数据自然日维护工作流方案 v1
+# 基础数据自然日维护工作流方案 v1（历史归档）
 
-状态：已完成（M4.1 已落地 workflow 本体与对接；2026-05-05 已移出 `namechange`）  
-最后更新：2026-05-05  
+状态：历史归档，当前代码已不再保留 `reference_data_natural_day_maintenance`
+最后更新：2026-05-06
 适用范围：`src/ops/action_catalog.py`、`docs/ops/ops-workflow-catalog-v1.md`
+
+归档原因：`st` 已确认不应按自然日 point/range 扇开维护，而应作为 no-time snapshot 数据集，默认不传业务日期参数并按 `limit/offset` 分页拉全集。因此本 workflow 的唯一目标数据集已并入 `reference_data_refresh`，本方案仅保留为历史设计背景，不再代表当前执行口径。
 
 ---
 

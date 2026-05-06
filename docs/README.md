@@ -67,7 +67,7 @@ docs/
 - [Ops 自动任务日期策略方案 v1（第一期已落地）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
 - [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-- [基础数据自然日维护工作流方案 v1（待实施，M2 基础框架已落地）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
+- [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v2（独立审计系统，待评审）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
 - [Ops 新鲜度按 Date Model 收口方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
@@ -85,9 +85,13 @@ docs/
 - [指数基础信息 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/index-basic-lake-dataset-development.md)
 - [股票日线 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/daily-lake-dataset-development.md)
 - [股票日线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/daily-prod-raw-db-lake-export-plan.md)
+- [复权因子 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/adj-factor-prod-raw-db-lake-export-plan.md)
+- [每日指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/daily-basic-prod-raw-db-lake-export-plan.md)
 - [个股资金流向 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/moneyflow-lake-dataset-development.md)
 - [ETF 基础信息 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/etf-basic-prod-raw-db-lake-export-plan.md)
 - [ETF 跟踪指数 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/etf-index-prod-raw-db-lake-export-plan.md)
+- [指数日线 Lake prod-core-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-daily-prod-core-db-lake-export-plan.md)
+- [指数每日指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-daily-basic-prod-raw-db-lake-export-plan.md)
 - [同花顺板块列表 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-index-prod-raw-db-lake-export-plan.md)
 - [同花顺板块成分 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-member-prod-raw-db-lake-export-plan.md)
 
@@ -166,7 +170,7 @@ docs/
 - [文档信息架构与待整合清单 v1](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md)
 - [文档维护基线 v1](/Users/congming/github/goldenshare/docs/governance/docs-maintenance-baseline-v1.md)
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
-- [基础数据工作流与数据集三线推进索引 v1（执行中）](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)
+- [基础数据工作流与数据集三线推进索引 v1（已完成）](/Users/congming/github/goldenshare/docs/governance/reference-data-workstreams-rollout-index-v1.md)
 - [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md)
 
 ## 9. 产品原始材料

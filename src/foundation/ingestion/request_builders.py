@@ -319,17 +319,12 @@ def _stock_company_params(request, anchor_date: date | None, enum_values: dict[s
 
 
 def _st_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del anchor_date
     del enum_values
-    target_date = anchor_date or request.trade_date
-    if target_date is None:
-        raise ValueError("ST 风险警示事件维护缺少发布日期")
-    params: dict[str, Any] = {"pub_date": target_date.strftime("%Y%m%d")}
+    params: dict[str, Any] = {}
     ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
-    imp_date = request.params.get("imp_date")
-    if imp_date not in (None, ""):
-        params["imp_date"] = _format_yyyymmdd(imp_date)
     return params
 
 

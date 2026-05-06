@@ -42,7 +42,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_maintenance" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
-    assert "reference_data_natural_day_maintenance" in workflow_keys
+    assert "reference_data_natural_day_maintenance" not in workflow_keys
     assert "index_extension_maintenance" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
@@ -57,11 +57,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "start_date",
         "end_date",
     ]
-    assert [param["key"] for param in workflows["reference_data_natural_day_maintenance"]["parameters"]] == [
-        "trade_date",
-        "start_date",
-        "end_date",
-    ]
+    assert workflows["reference_data_refresh"]["parameters"] == []
     assert [param["key"] for param in workflows["index_extension_maintenance"]["parameters"]] == [
         "start_date",
         "end_date",
@@ -101,8 +97,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     st = actions["st.maintain"]
     assert st["group_key"] == "reference_data"
     assert st["group_label"] == "A股基础数据"
-    assert st["date_selection_rule"] == "calendar_day"
-    assert [param["key"] for param in st["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code", "imp_date"]
+    assert st["date_selection_rule"] == "none"
+    assert [param["key"] for param in st["parameters"]] == ["ts_code"]
 
     stock_company = actions["stock_company.maintain"]
     assert stock_company["group_key"] == "reference_data"

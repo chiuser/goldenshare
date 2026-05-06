@@ -103,6 +103,7 @@ def test_no_time_dataset_definitions_do_not_expose_time_inputs() -> None:
         "hk_basic",
         "index_basic",
         "namechange",
+        "st",
         "stock_basic",
         "stock_company",
         "ths_index",
@@ -283,16 +284,22 @@ def test_dataset_definition_projects_st_facts() -> None:
     assert definition.domain.cadence == "daily"
     assert definition.source.api_name == "st"
     assert definition.date_model.bucket_rule == "not_applicable"
-    assert definition.date_model.selection_rule() == "calendar_day"
-    assert definition.date_model.input_shape == "ann_date_or_start_end"
-    assert definition.date_model.observed_field == "pub_date"
+    assert definition.date_model.selection_rule() == "none"
+    assert definition.date_model.input_shape == "none"
+    assert definition.date_model.window_mode == "none"
+    assert definition.date_model.observed_field is None
+    assert definition.input_model.time_fields == ()
+    assert [field.name for field in definition.input_model.filters] == ["ts_code"]
     assert definition.storage.raw_table == "raw_tushare.st"
     assert definition.storage.target_table == "core_serving_light.st"
     assert definition.storage.delivery_mode == "raw_with_serving_light_view"
     assert definition.planning.page_limit == 1000
-    assert definition.planning.unit_builder_key == "build_st_units"
+    assert definition.planning.unit_builder_key == "generic"
     assert definition.normalization.date_fields == ("pub_date", "imp_date")
     assert definition.normalization.required_fields == ("ts_code", "pub_date", "st_tpye", "row_key_hash")
+    action = definition.capabilities.get_action("maintain")
+    assert action is not None
+    assert action.supported_time_modes == ("none",)
 
 
 def test_dataset_definition_owns_dc_board_type_filter() -> None:
