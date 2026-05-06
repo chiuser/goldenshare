@@ -25,6 +25,34 @@ def test_dc_daily_normalizer_keeps_required_fields() -> None:
     assert batch.rows_normalized[0]["ts_code"] == "BK001"
 
 
+def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("top_list"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-top-list",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20190719",
+                    "ts_code": "603256.SH",
+                    "reason": "当日无价格涨跌幅限制的A股，出现异常波动停牌的",
+                },
+                {
+                    "trade_date": "20190719",
+                    "ts_code": "603256.SH",
+                    "reason": "当日无价格涨跌幅限制的A股,出现异常波动停牌的",
+                },
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["reason"] != batch.rows_normalized[1]["reason"]
+    assert batch.rows_normalized[0]["reason_hash"] == batch.rows_normalized[1]["reason_hash"]
+
+
 def test_cctv_news_normalizer_keeps_source_date_and_builds_row_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("cctv_news"),

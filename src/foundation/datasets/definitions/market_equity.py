@@ -2531,7 +2531,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'adj_factor', 'display_name': 'Â§çÊ
               'std_table': None,
               'serving_table': 'core_serving.equity_top_list',
               'raw_table': 'raw_tushare.top_list',
-              'conflict_columns': None,
+              'conflict_columns': ('ts_code', 'trade_date', 'reason_hash'),
               'write_path': 'raw_core_upsert'},
   'planning': {'universe_policy': 'none',
                'enum_fanout_fields': (),

@@ -7,8 +7,10 @@ from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.normalizer import NormalizedBatch
 from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.models.core.equity_top_list import EquityTopList
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
+from src.foundation.models.raw.raw_top_list import RawTopList
 
 
 class _StubUpsertDao:
@@ -35,6 +37,16 @@ class _StubSecurityDao:
     def upsert_many(self, rows: list[dict]) -> int:
         self.upsert_calls.append(rows)
         return self.written if rows else 0
+
+
+class _StubConflictDao:
+    def __init__(self, model) -> None:  # type: ignore[no-untyped-def]
+        self.model = model
+        self.calls: list[tuple[list[dict], list[str] | None]] = []
+
+    def bulk_upsert(self, rows: list[dict], conflict_columns=None):  # type: ignore[no-untyped-def]
+        self.calls.append((rows, conflict_columns))
+        return len(rows)
 
 
 def test_writer_stock_basic_tushare_direct_publish(mocker) -> None:
@@ -165,3 +177,38 @@ def test_writer_coerces_rows_per_target_model_date_columns() -> None:
     assert core_rows[0]["base_date"] == date(2004, 12, 31)
     assert core_rows[0]["list_date"] == date(2005, 4, 8)
     assert core_rows[0]["exp_date"] is None
+
+
+def test_writer_top_list_uses_reason_hash_only_for_serving_upsert() -> None:
+    batch = NormalizedBatch(
+        unit_id="u-top-list",
+        rows_normalized=[
+            {
+                "ts_code": "603256.SH",
+                "trade_date": date(2019, 7, 19),
+                "reason": "当日无价格涨跌幅限制的A股，出现异常波动停牌的",
+                "reason_hash": "644a65b32e1965db7c889958fc4a47f114ed7b3762d3fe465cb67784249e4582",
+            },
+            {
+                "ts_code": "603256.SH",
+                "trade_date": date(2019, 7, 19),
+                "reason": "当日无价格涨跌幅限制的A股,出现异常波动停牌的",
+                "reason_hash": "644a65b32e1965db7c889958fc4a47f114ed7b3762d3fe465cb67784249e4582",
+            },
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    raw_dao = _StubConflictDao(RawTopList)
+    core_dao = _StubConflictDao(EquityTopList)
+
+    written = DatasetWriter._write_raw_and_core(
+        batch=batch,
+        raw_dao=raw_dao,
+        core_dao=core_dao,
+        conflict_columns=("ts_code", "trade_date", "reason_hash"),
+    )
+
+    assert written == 2
+    assert raw_dao.calls[0][1] == ["ts_code", "trade_date", "reason"]
+    assert core_dao.calls[0][1] == ["ts_code", "trade_date", "reason_hash"]

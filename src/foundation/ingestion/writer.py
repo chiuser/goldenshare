@@ -624,8 +624,15 @@ class DatasetWriter:
         raw_rows = cls._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
         core_rows = cls._coerce_rows_for_dao(batch.rows_normalized, core_dao)
         if conflict_columns:
-            raw_dao.bulk_upsert(raw_rows, conflict_columns=list(conflict_columns))
-            return core_dao.bulk_upsert(core_rows, conflict_columns=list(conflict_columns))
+            raw_conflict_columns = cls._materialize_conflict_columns(raw_dao, conflict_columns)
+            core_conflict_columns = cls._materialize_conflict_columns(core_dao, conflict_columns)
+            if raw_conflict_columns:
+                raw_dao.bulk_upsert(raw_rows, conflict_columns=list(raw_conflict_columns))
+            else:
+                raw_dao.bulk_upsert(raw_rows)
+            if core_conflict_columns:
+                return core_dao.bulk_upsert(core_rows, conflict_columns=list(core_conflict_columns))
+            return core_dao.bulk_upsert(core_rows)
         raw_dao.bulk_upsert(raw_rows)
         return core_dao.bulk_upsert(core_rows)
 
@@ -661,6 +668,23 @@ class DatasetWriter:
         if primary_key is None:
             return ()
         return tuple(column.name for column in primary_key.columns)
+
+    @classmethod
+    def _materialize_conflict_columns(
+        cls,
+        dao,
+        explicit_columns: tuple[str, ...] | None,
+    ) -> tuple[str, ...]:
+        if not explicit_columns:
+            return ()
+        model = getattr(dao, "model", None)
+        table = getattr(model, "__table__", None)
+        if table is None:
+            return tuple(explicit_columns)
+        table_columns = {column.name for column in table.columns}
+        if all(column in table_columns for column in explicit_columns):
+            return tuple(explicit_columns)
+        return cls._resolve_conflict_columns(dao, None)
 
     @classmethod
     def _duplicate_reason_counts(
