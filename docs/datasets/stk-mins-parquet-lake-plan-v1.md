@@ -483,14 +483,23 @@ manifest/security_universe/tushare_stock_basic.parquet
 | `delist_date` | 退市日期 |
 | `is_hs` | 是否沪深港通 |
 
-全市场 `stk_mins` 读取规则：
+全市场 `stk_mins` 目标读取规则：
 
 1. 读取 `manifest/security_universe/tushare_stock_basic.parquet` 的 `ts_code` 列。
 2. 默认包含 `L/P/D` 状态，避免历史回补漏掉退市或暂停上市证券。
-3. 若该文件不存在，`sync-stk-mins` 必须停止，并提示先运行 `sync-stock-basic`。
-4. 第一版不读取远程数据库，不从生产 `stock_basic` 表补股票池。
+3. 必须按本次请求区间与股票生命周期做相交过滤：
+   - `list_date <= request_end_date`
+   - `delist_date is null or delist_date >= request_start_date`
+4. 如果 `stock_basic` 中 `ts_code`、`list_status`、`list_date`、`delist_date` 的生命周期字段不满足质量规则，`stk_mins` 必须停止，不允许带着不可信股票池继续请求。
+5. `plan-sync stk_mins` 与真实 `sync-stk-mins-range` 必须共用同一套股票池 helper，避免计划请求数与真实执行不一致。
+6. 若该文件不存在，`sync-stk-mins` 必须停止，并提示先运行 `sync-stock-basic`。
+7. 第一版不读取远程数据库，不从生产 `stock_basic` 表补股票池。
 
-### 7.0 当前实现缺口与本轮改造目标
+生命周期过滤专项方案（已落地）：
+
+- [stk-mins-security-universe-filter-plan-v1.md](/Users/congming/github/goldenshare/docs/datasets/stk-mins-security-universe-filter-plan-v1.md)
+
+### 7.0 当前实现事实
 
 当前代码事实：
 
@@ -500,24 +509,17 @@ manifest/security_universe/tushare_stock_basic.parquet
 ts_code x freq x request window
 ```
 
-2. 当前 `request window` 的切法仍是：
-   - `stk_mins_request_window_days = 31`
-   - 并且强制按自然月断窗
-3. 在 `--all-market --freqs 1,5,15,30,60 --start-date 2025-01-01 --end-date 2025-12-31` 这种全年全市场任务里，若股票池约为 `5511` 只，则会被切成：
+2. `request window` 已从自然月窗口切到按 `freq` 定交易日窗。
+3. 全市场股票池已按 `list_date / delist_date` 与请求区间相交过滤。
+4. 当前实现不再只取 `list_status = L`；历史区间内已经退市但生命周期与请求区间相交的股票会被保留。
 
-```text
-12（月窗） x 5（freq） x 5511（股票） = 330660 个 unit
-```
-
-4. 真实试跑已经证明，这种月窗口径会在 `stk_mins` 的 `250000 次/天` 配额约束下高概率跑不完。
-
-因此，本轮待实施改造目标不是改落盘模型，而是只改“下载编排”：
+当前下载编排原则：
 
 1. 保持最终落盘仍为 `freq + trade_date` 分区。
 2. 保持分页逻辑存在，但降级为兜底，而不是常态。
-3. 去掉“按自然月强制断窗”。
-4. 改为“按 freq 定交易日窗”，让单次请求尽量接近 `8000` 行上限。
-5. 保持 checkpoint 粒度仍为 `ts_code + freq + request window`，但 request window 改为按 freq 计算出来的交易日窗。
+3. 保持按 `freq` 定交易日窗，让单次请求尽量接近 `8000` 行上限。
+4. 使用本地股票池生命周期过滤，减少无效 `ts_code` 请求。
+5. 保持 checkpoint 粒度仍为 `ts_code + freq + request window`。
 
 ### 7.1 从 Tushare 同步到 by_date
 

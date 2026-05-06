@@ -22,6 +22,10 @@ from lake_console.backend.app.services.parquet_writer import (
     replace_directory_atomically,
     write_rows_to_parquet,
 )
+from lake_console.backend.app.services.security_universe_filter import (
+    SecurityUniverseFilterResult,
+    load_security_universe_for_range,
+)
 from lake_console.backend.app.services.stk_mins_windowing import (
     STK_MINS_PAGE_LIMIT,
     StkMinsRequestWindow,
@@ -187,11 +191,17 @@ class TushareStkMinsSyncService:
         started = time.monotonic()
         run_id = _run_id("stk-mins-market")
         LakeRootService(self.lake_root).require_ready_for_write()
-        ts_codes = self._load_stock_universe_codes()
+        universe = load_security_universe_for_range(
+            lake_root=self.lake_root,
+            start_date=trade_date,
+            end_date=trade_date,
+        )
+        ts_codes = universe.ts_codes
         self.progress(
             f"[stk_mins] start all_market run_id={run_id} symbols_total={len(ts_codes)} "
             f"freqs={','.join(str(item) for item in freqs)} trade_date={trade_date.isoformat()}"
         )
+        self._progress_universe(universe)
 
         day_summary = self._sync_market_day_partitions(
             run_id=run_id,
@@ -215,6 +225,7 @@ class TushareStkMinsSyncService:
             "freqs": freqs,
             "trade_date": trade_date.isoformat(),
             "symbols_total": len(ts_codes),
+            "security_universe": universe.to_dict(),
             "fetched_rows": total_fetched,
             "written_rows": total_written,
             "elapsed_seconds": round(elapsed, 3),
@@ -359,7 +370,13 @@ class TushareStkMinsSyncService:
             if part_rows <= 0:
                 raise ValueError("part_rows 必须大于 0。")
             LakeRootService(self.lake_root).require_ready_for_write()
-            ts_codes = self._load_stock_universe_codes()
+            universe = load_security_universe_for_range(
+                lake_root=self.lake_root,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            ts_codes = universe.ts_codes
+            self._progress_universe(universe)
             windows_by_freq = {current_freq: build_target_request_windows(trade_dates=trade_dates, freq=current_freq) for current_freq in freqs}
             units_total = len(ts_codes) * sum(len(current_windows) for current_windows in windows_by_freq.values())
             unit_base = 0
@@ -395,6 +412,7 @@ class TushareStkMinsSyncService:
                     "trade_dates": [item.isoformat() for item in trade_dates],
                     "trade_date_count": len(trade_dates),
                     "freqs": freqs,
+                    "security_universe": universe.to_dict(),
                     "fetched_rows": total_fetched,
                     "written_rows": total_written,
                     "day_runs": summaries,
@@ -450,6 +468,7 @@ class TushareStkMinsSyncService:
             "trade_date_count": len(trade_dates),
             "freqs": freqs if all_market else ([freq] if freq is not None else []),
             "ts_code": ts_code,
+            "security_universe": universe.to_dict() if all_market else None,
             "fetched_rows": total_fetched,
             "written_rows": total_written,
             "day_runs": summaries,
@@ -622,21 +641,6 @@ class TushareStkMinsSyncService:
             "elapsed_seconds": elapsed_seconds,
         }
 
-    def _load_stock_universe_codes(self) -> list[str]:
-        universe_file = self.lake_root / "manifest" / "security_universe" / "tushare_stock_basic.parquet"
-        self._ensure_stock_universe_exists()
-        rows = read_parquet_rows(universe_file)
-        codes = sorted(
-            {
-                str(row.get("ts_code")).strip()
-                for row in rows
-                if row.get("ts_code") and str(row.get("list_status") or "L").strip() == "L"
-            }
-        )
-        if not codes:
-            raise RuntimeError("本地股票池中没有 list_status=L 的有效 ts_code。")
-        return codes
-
     def _load_open_trade_dates(self, *, start_date: date, end_date: date) -> list[date]:
         calendar_file = self.lake_root / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet"
         if not calendar_file.exists():
@@ -661,6 +665,16 @@ class TushareStkMinsSyncService:
                 "缺少本地股票池 manifest/security_universe/tushare_stock_basic.parquet。"
                 "请先执行 sync-stock-basic。"
             )
+
+    def _progress_universe(self, universe: SecurityUniverseFilterResult) -> None:
+        self.progress(
+            "[stk_mins] universe "
+            f"total={universe.total_symbols} selected={universe.selected_symbols} "
+            f"skipped_future={universe.skipped_listed_after_range} "
+            f"skipped_delisted_before={universe.skipped_delisted_before_range} "
+            f"selected_listed={universe.selected_listed_symbols} "
+            f"selected_delisted_or_paused={universe.selected_delisted_or_paused_symbols}"
+        )
 
     def _fetch_symbol_day(self, *, ts_code: str, freq: int, trade_date: date, verbose: bool = True) -> list[dict[str, Any]]:
         start_date = datetime.combine(trade_date, time_type(hour=9), tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")

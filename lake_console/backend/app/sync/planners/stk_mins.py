@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.catalog.models import LakeDatasetDefinition
-from lake_console.backend.app.services.parquet_writer import read_parquet_rows
+from lake_console.backend.app.services.security_universe_filter import load_security_universe_for_range
 from lake_console.backend.app.services.stk_mins_windowing import (
     STK_MINS_ROWS_PER_TRADE_DAY,
     build_current_month_windows,
@@ -42,9 +42,10 @@ def build_stk_mins_plan(
     if daily_quota_limit <= 0:
         raise ValueError("--daily-quota-limit 必须大于 0。")
 
-    symbol_count = _load_stock_universe_size(lake_root=lake_root) if all_market else 1
     if trade_date:
         trade_dates = [trade_date]
+        request_start_date = trade_date
+        request_end_date = trade_date
     else:
         if start_date is None or end_date is None:
             raise ValueError("stk_mins 计划预估必须传 --trade-date 或 --start-date/--end-date。")
@@ -53,6 +54,19 @@ def build_stk_mins_plan(
         trade_dates = load_open_trade_dates(lake_root=lake_root, start_date=start_date, end_date=end_date)
         if not trade_dates:
             raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
+        request_start_date = start_date
+        request_end_date = end_date
+
+    universe = (
+        load_security_universe_for_range(
+            lake_root=lake_root,
+            start_date=request_start_date,
+            end_date=request_end_date,
+        )
+        if all_market
+        else None
+    )
+    symbol_count = universe.selected_symbols if universe else 1
 
     current_windows = build_current_month_windows(
         trade_dates=trade_dates,
@@ -98,6 +112,7 @@ def build_stk_mins_plan(
         "symbol_scope": "all_market" if all_market else "single_symbol",
         "symbol_count": symbol_count,
         "trade_date_count": len(trade_dates),
+        "security_universe": universe.to_dict() if universe else None,
         "current_strategy": {
             "strategy_key": "historical_month_window_baseline",
             "request_window_days": stk_mins_request_window_days,
@@ -144,21 +159,3 @@ def _resolve_stk_mins_freqs(*, freq: int | None, freqs: list[int] | None) -> lis
         allowed = ", ".join(str(item) for item in sorted(STK_MINS_ROWS_PER_TRADE_DAY))
         raise ValueError(f"不支持的 freq={invalid}，允许值：{allowed}")
     return selected
-
-
-def _load_stock_universe_size(*, lake_root: Path) -> int:
-    universe_file = lake_root / "manifest" / "security_universe" / "tushare_stock_basic.parquet"
-    if not universe_file.exists():
-        raise RuntimeError(
-            "缺少本地股票池 manifest/security_universe/tushare_stock_basic.parquet。"
-            "请先执行 sync-stock-basic。"
-        )
-    rows = read_parquet_rows(universe_file)
-    codes = {
-        str(row.get("ts_code")).strip()
-        for row in rows
-        if row.get("ts_code") and str(row.get("list_status") or "L").strip() == "L"
-    }
-    if not codes:
-        raise RuntimeError("本地股票池中没有 list_status=L 的有效 ts_code。")
-    return len(codes)
