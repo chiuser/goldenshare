@@ -92,6 +92,7 @@
 5. 日期字段默认写为 Parquet `date`，时间戳默认写为 Parquet `timestamp`，不能因为目录分区是字符串就把内部字段写成字符串。
 6. Tushare `float` 默认用 Parquet `double` 承接；整数默认优先评估 `int64`，避免成交量、金额类字段溢出。
 7. 字段类型必须以 DuckDB `describe select * from read_parquet(...)` 可验证为准。
+8. Lake raw 层只允许保留源站输出字段白名单；`api_name`、`fetched_at`、`raw_payload` 等系统字段一律禁止带入。后续若走 `prod-core-db`，`source`、`created_at`、`updated_at` 等系统字段也一律禁止带入，且必须映射回源站字段名。
 
 ### 3.1 输入参数对齐
 

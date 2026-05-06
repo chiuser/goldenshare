@@ -138,7 +138,10 @@ goldenshare/
 3. `lake_console` 不允许 import `src/ops/**`。
 4. `lake_console` 不允许 import `src/app/**` 的生产运行入口。
 5. `lake_console` 不允许依赖 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
-6. `lake_console` 不允许对远程 `goldenshare-db` 做任何读写操作；不得通过远程数据库补充文件事实、任务状态或数据集状态。
+6. `lake_console` 默认不允许对远程 `goldenshare-db` 做任何读写操作；当前仅允许两种只读例外：
+   - `prod-raw-db`：从 `raw_tushare` 白名单表导出源站字段；
+   - `prod-core-db`：当前仅允许 `index_daily` 从 `core_serving.index_daily_serving` 读取，并映射回 Tushare 字段口径。
+   不得通过远程数据库补充文件事实、任务状态或数据集状态。
 7. `lake_console` 第一版不复用生产 TaskRun，不接生产 scheduler/worker。
 8. 生产部署脚本默认忽略 `lake_console`。
 9. CI/预检默认不跑 `lake_console`，除非显式执行本地 Lake Console 检查。

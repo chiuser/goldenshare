@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from lake_console.backend.app.catalog.datasets.market_equity import DAILY_FIELDS
+from lake_console.backend.app.catalog.datasets.market_equity import ADJ_FACTOR_FIELDS, DAILY_BASIC_FIELDS, DAILY_FIELDS
+from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
     ETF_BASIC_FIELDS,
     ETF_INDEX_FIELDS,
@@ -16,16 +17,22 @@ from lake_console.backend.app.catalog.tushare_reference_master import (
 
 PROD_RAW_DB_SOURCE = "prod-raw-db"
 PROD_RAW_DB_ALLOWED_TABLES = {
+    "adj_factor": "raw_tushare.adj_factor",
+    "daily_basic": "raw_tushare.daily_basic",
     "daily": "raw_tushare.daily",
     "etf_basic": "raw_tushare.etf_basic",
     "etf_index": "raw_tushare.etf_index",
+    "index_daily_basic": "raw_tushare.index_daily_basic",
     "ths_index": "raw_tushare.ths_index",
     "ths_member": "raw_tushare.ths_member",
 }
 PROD_RAW_DB_FIELDS = {
+    "adj_factor": ADJ_FACTOR_FIELDS,
+    "daily_basic": DAILY_BASIC_FIELDS,
     "daily": DAILY_FIELDS,
     "etf_basic": ETF_BASIC_FIELDS,
     "etf_index": ETF_INDEX_FIELDS,
+    "index_daily_basic": INDEX_DAILY_BASIC_FIELDS,
     "ths_index": THS_INDEX_FIELDS,
     "ths_member": THS_MEMBER_FIELDS,
 }
@@ -51,8 +58,16 @@ class ProdRawDbConfigError(RuntimeError):
 
 
 def build_daily_prod_raw_query(*, trade_date: date) -> ProdRawQuery:
-    table_name = _require_allowed_table("daily")
-    fields = _require_allowed_fields("daily")
+    return build_prod_raw_trade_date_query(dataset_key="daily", trade_date=trade_date)
+
+
+def build_daily_prod_raw_range_query(*, start_date: date, end_date: date) -> ProdRawQuery:
+    return build_prod_raw_trade_date_range_query(dataset_key="daily", start_date=start_date, end_date=end_date)
+
+
+def build_prod_raw_trade_date_query(*, dataset_key: str, trade_date: date) -> ProdRawQuery:
+    table_name = _require_allowed_table(dataset_key)
+    fields = _require_allowed_fields(dataset_key)
     projection = ", ".join(fields)
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
@@ -69,9 +84,9 @@ def build_daily_prod_raw_query(*, trade_date: date) -> ProdRawQuery:
     )
 
 
-def build_daily_prod_raw_range_query(*, start_date: date, end_date: date) -> ProdRawQuery:
-    table_name = _require_allowed_table("daily")
-    fields = _require_allowed_fields("daily")
+def build_prod_raw_trade_date_range_query(*, dataset_key: str, start_date: date, end_date: date) -> ProdRawQuery:
+    table_name = _require_allowed_table(dataset_key)
+    fields = _require_allowed_fields(dataset_key)
     projection = ", ".join(fields)
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")

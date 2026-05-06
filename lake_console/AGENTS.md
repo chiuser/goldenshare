@@ -51,14 +51,14 @@ sync-stk-mins 单股票单日 -> by_date Parquet
 
 1. 建立独立工程骨架。
 2. 读取并校验 `GOLDENSHARE_LAKE_ROOT`。
-3. 默认不碰远程 `goldenshare-db`；仅在开发 `prod-raw-db` 只读导出能力时允许按下方白名单规则访问。
+3. 默认不碰远程 `goldenshare-db`；仅在开发 `prod-raw-db` 或已明确批准的数据集专项 `prod-core-db` 只读导出能力时允许按下方白名单规则访问。
 4. 从 Tushare 拉取 `stock_basic`，写入本地股票池：
 
 ```text
 manifest/security_universe/tushare_stock_basic.parquet
 ```
 
-5. 后续 `stk_mins` 全市场同步默认只能读取本地股票池文件；除 `prod-raw-db` 只读导出能力外，不允许读远程数据库。
+5. 后续 `stk_mins` 全市场同步默认只能读取本地股票池文件；除 `prod-raw-db` 与 `index_daily` 专用 `prod-core-db` 只读导出能力外，不允许读远程数据库。
 
 ---
 
@@ -197,17 +197,20 @@ taste-skill 管审美和 redesign 方法
 4. 不允许挂入生产 `src/app/web`。
 5. 不允许挂入生产 `/api/v1/ops/**`。
 6. 默认不允许读取或写入远程 `goldenshare-db`。
-7. `prod-raw-db` 是唯一例外；仅限开发“从生产 `raw_tushare` 白名单表只读导出为本地 Parquet”的能力时使用。
-8. 使用 `prod-raw-db` 访问远程 `goldenshare-db` 时，只允许只读，不允许任何写入、DDL、锁表或状态更新。
+7. 远程数据库只读导出目前只允许两种模式：
+   - `prod-raw-db`：从生产 `raw_tushare` 白名单表只读导出为本地 Parquet；
+   - `prod-core-db`：当前仅允许 `index_daily` 从 `core_serving.index_daily_serving` 只读导出，并映射回 Tushare `index_daily` 字段口径。
+8. 使用 `prod-raw-db` 或 `prod-core-db` 访问远程 `goldenshare-db` 时，只允许只读，不允许任何写入、DDL、锁表或状态更新。
 9. 使用 `prod-raw-db` 访问远程 `goldenshare-db` 时，只允许访问 `raw_tushare` schema 下的白名单数据集表。
-10. 使用 `prod-raw-db` 访问远程 `goldenshare-db` 时，禁止访问 `ops`、`core`、`core_serving`、`core_serving_light`、`biz`、`app`、`platform` 等任何非 `raw_tushare` schema。
-11. 使用 `prod-raw-db` 导出数据时，禁止 `select *`；必须按数据集字段白名单显式投影，且不得导出 `api_name`、`fetched_at`、`raw_payload` 等 Goldenshare 自增系统字段。
-12. 除 `prod-raw-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。
-13. 不允许使用生产 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
-14. 不允许接入生产 scheduler/worker。
-15. 不允许修改生产部署脚本来启动 `lake_console`。
-16. 不允许默认把数据写入仓库目录、用户 home 或系统临时目录。
-17. 没有明确 `GOLDENSHARE_LAKE_ROOT` 时，禁止执行写入。
+10. 使用 `prod-core-db` 访问远程 `goldenshare-db` 时，当前只允许访问 `core_serving.index_daily_serving`，不得泛化到其他 `core` / `core_serving` 表。
+11. 使用 `prod-raw-db` 或 `prod-core-db` 导出数据时，禁止 `select *`；必须按数据集字段白名单显式投影。`prod-raw-db` 不得导出 `api_name`、`fetched_at`、`raw_payload`，`prod-core-db` 不得导出 `source`、`created_at`、`updated_at`。
+12. Lake raw 层只允许保留源站输出字段白名单；无论后续数据来自 `raw_tushare` 还是 `core/core_serving`，`api_name`、`fetched_at`、`raw_payload`、`source`、`created_at`、`updated_at` 等 Goldenshare 自增系统字段一律禁止带入，字段名若与源站文档不一致必须先映射回源站口径。
+13. 除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。
+14. 不允许使用生产 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
+15. 不允许接入生产 scheduler/worker。
+16. 不允许修改生产部署脚本来启动 `lake_console`。
+17. 不允许默认把数据写入仓库目录、用户 home 或系统临时目录。
+18. 没有明确 `GOLDENSHARE_LAKE_ROOT` 时，禁止执行写入。
 
 ---
 
@@ -449,7 +452,7 @@ lake_console/backend/
 
 1. 独立本地服务。
 2. 默认监听 `127.0.0.1`。
-3. 默认不连接远程数据库；仅开发 `prod-raw-db` 只读导出能力时，允许按“硬隔离规则”中的白名单约束访问远程 `goldenshare-db`。
+3. 默认不连接远程数据库；仅开发 `prod-raw-db` 或 `index_daily` 专用 `prod-core-db` 只读导出能力时，允许按“硬隔离规则”中的白名单约束访问远程 `goldenshare-db`。
 4. 不启动生产 worker/scheduler。
 5. 不复用生产 TaskRun。
 6. 写入前必须检查 `GOLDENSHARE_LAKE_ROOT`。
@@ -530,7 +533,7 @@ Lake 数据集同步研发必须额外遵守：
 1. 本轮目标。
 2. 改动文件。
 3. 是否触及生产 `src/**` 或 `frontend/**`。
-4. 是否读取/写入远程 `goldenshare-db`；默认必须是“否”，若为 `prod-raw-db` 开发轮次，必须说明只读、`raw_tushare` schema、白名单表、字段投影和禁止 `select *` 的执行结果。
+4. 是否读取/写入远程 `goldenshare-db`；默认必须是“否”，若为 `prod-raw-db` 或 `prod-core-db` 开发轮次，必须说明只读、允许访问的 schema/表、字段投影和禁止 `select *` 的执行结果。
 5. 验证结果。
 6. 下一步建议。
 

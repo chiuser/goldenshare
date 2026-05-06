@@ -35,6 +35,12 @@ Optional prod raw export commands require a read-only database URL:
 prod_raw_db_url = "postgresql://readonly-user:...@host:5432/goldenshare"
 ```
 
+`index_daily` 是当前唯一的 `prod-core-db` 例外项，需要额外配置一个只读 core URL。通常它与 `prod_raw_db_url` 指向同一库，但语义上单独命名，便于门禁和审查：
+
+```toml
+prod_core_db_url = "postgresql://readonly-user:...@host:5432/goldenshare"
+```
+
 Environment variables are still supported and override `config.local.toml`:
 
 ```bash
@@ -135,6 +141,15 @@ Preview and export `daily` from the production raw table instead of Tushare:
 ```bash
 lake-console plan-sync daily --from prod-raw-db --trade-date 2026-04-24
 lake-console sync-dataset daily --from prod-raw-db --trade-date 2026-04-24
+```
+
+R2 首批日频样例：
+
+```bash
+lake-console sync-dataset adj_factor --from prod-raw-db --trade-date 2026-04-30
+lake-console sync-dataset daily_basic --from prod-raw-db --trade-date 2026-04-30
+lake-console sync-dataset index_daily_basic --from prod-raw-db --trade-date 2026-04-30
+lake-console sync-dataset index_daily --from prod-core-db --trade-date 2026-04-30
 ```
 
 Range export uses the local trading calendar and exports one open day at a time:

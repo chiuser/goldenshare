@@ -16,6 +16,7 @@ class LakeConsoleSettings:
     lake_root: Path
     tushare_token: str | None
     prod_raw_db_url: str | None = None
+    prod_core_db_url: str | None = None
     host: str = "127.0.0.1"
     port: int = 8010
     bucket_count: int = 32
@@ -38,6 +39,7 @@ def load_settings(*, lake_root: str | None = None, require_lake_root: bool = Tru
         lake_root=root,
         tushare_token=os.getenv("TUSHARE_TOKEN") or _config_str(config_file, "tushare_token"),
         prod_raw_db_url=os.getenv("GOLDENSHARE_PROD_RAW_DB_URL") or _config_str(config_file, "prod_raw_db_url"),
+        prod_core_db_url=os.getenv("GOLDENSHARE_PROD_CORE_DB_URL") or _config_str(config_file, "prod_core_db_url"),
         host=os.getenv("LAKE_CONSOLE_HOST") or _config_str(config_file, "host") or "127.0.0.1",
         port=int(os.getenv("LAKE_CONSOLE_PORT") or _config_int(config_file, "port") or 8010),
         bucket_count=int(os.getenv("LAKE_STK_MINS_BUCKET_COUNT") or _config_int(config_file, "bucket_count") or 32),

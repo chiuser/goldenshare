@@ -17,8 +17,96 @@ DAILY_FIELDS: tuple[str, ...] = (
     "amount",
 )
 
+ADJ_FACTOR_FIELDS: tuple[str, ...] = (
+    "ts_code",
+    "trade_date",
+    "adj_factor",
+)
+
+DAILY_BASIC_FIELDS: tuple[str, ...] = (
+    "ts_code",
+    "trade_date",
+    "close",
+    "turnover_rate",
+    "turnover_rate_f",
+    "volume_ratio",
+    "pe",
+    "pe_ttm",
+    "pb",
+    "ps",
+    "ps_ttm",
+    "dv_ratio",
+    "dv_ttm",
+    "total_share",
+    "float_share",
+    "free_share",
+    "total_mv",
+    "circ_mv",
+)
+
 
 MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
+    LakeDatasetDefinition(
+        dataset_key="adj_factor",
+        display_name="复权因子",
+        source="tushare",
+        api_name="adj_factor",
+        source_doc_id="28",
+        description="股票复权因子，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/adj_factor",
+        group_key="technical_indicators",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=(
+            LakeLayerDefinition(
+                layer="raw_tushare",
+                layer_name="源站事实",
+                purpose="Tushare 复权因子原始落盘层。",
+                layout="by_date",
+                path="raw_tushare/adj_factor",
+                recommended_usage="复权价格恢复与日频研究输入。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="adj_factor_prod_raw_plan_trade_date",
+                title="预览复权因子单日导出",
+                scenario="plan",
+                description="不请求 Tushare，只预览一个 trade_date 分区替换范围。",
+                argv=("lake-console", "plan-sync", "adj_factor", "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="adj_factor_prod_raw_sync_trade_date",
+                title="从生产 raw 导出单日复权因子",
+                scenario="sync_point",
+                description="使用字段白名单从 raw_tushare.adj_factor 只读导出，并替换本地 Lake 对应分区。",
+                argv=("lake-console", "sync-dataset", "adj_factor", "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+            ),
+            LakeCommandExample(
+                example_key="adj_factor_prod_raw_sync_range",
+                title="从生产 raw 导出区间复权因子",
+                scenario="sync_range",
+                description="读取本地交易日历展开开市日，再按 trade_date 写本地分区。",
+                argv=(
+                    "lake-console",
+                    "sync-dataset",
+                    "adj_factor",
+                    "--from",
+                    "prod-raw-db",
+                    "--start-date",
+                    "2026-04-01",
+                    "--end-date",
+                    "2026-04-30",
+                ),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+            ),
+        ),
+    ),
     LakeDatasetDefinition(
         dataset_key="daily",
         display_name="股票日线",
@@ -111,6 +199,67 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
                     "lake-console",
                     "sync-dataset",
                     "daily",
+                    "--from",
+                    "prod-raw-db",
+                    "--start-date",
+                    "2026-04-01",
+                    "--end-date",
+                    "2026-04-30",
+                ),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+            ),
+        ),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="daily_basic",
+        display_name="每日指标",
+        source="tushare",
+        api_name="daily_basic",
+        source_doc_id="32",
+        description="股票每日指标，按交易日分区落盘。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/daily_basic",
+        group_key="equity_market",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=(
+            LakeLayerDefinition(
+                layer="raw_tushare",
+                layer_name="源站事实",
+                purpose="Tushare 每日指标原始落盘层。",
+                layout="by_date",
+                path="raw_tushare/daily_basic",
+                recommended_usage="估值、换手、流通盘等日频指标研究。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="daily_basic_prod_raw_plan_trade_date",
+                title="预览每日指标单日导出",
+                scenario="plan",
+                description="不请求 Tushare，只预览一个 trade_date 分区替换范围。",
+                argv=("lake-console", "plan-sync", "daily_basic", "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已配置 GOLDENSHARE_LAKE_ROOT。",),
+            ),
+            LakeCommandExample(
+                example_key="daily_basic_prod_raw_sync_trade_date",
+                title="从生产 raw 导出单日每日指标",
+                scenario="sync_point",
+                description="使用字段白名单从 raw_tushare.daily_basic 只读导出，并替换本地 Lake 对应分区。",
+                argv=("lake-console", "sync-dataset", "daily_basic", "--from", "prod-raw-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_raw_db_url。"),
+            ),
+            LakeCommandExample(
+                example_key="daily_basic_prod_raw_sync_range",
+                title="从生产 raw 导出区间每日指标",
+                scenario="sync_range",
+                description="读取本地交易日历展开开市日，再按 trade_date 写本地分区。",
+                argv=(
+                    "lake-console",
+                    "sync-dataset",
+                    "daily_basic",
                     "--from",
                     "prod-raw-db",
                     "--start-date",
@@ -264,3 +413,11 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         ),
     ),
 )
+
+
+__all__ = [
+    "ADJ_FACTOR_FIELDS",
+    "DAILY_BASIC_FIELDS",
+    "DAILY_FIELDS",
+    "MARKET_EQUITY_DATASETS",
+]

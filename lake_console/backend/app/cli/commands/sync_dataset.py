@@ -24,8 +24,8 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         "--from",
         dest="source",
         default="tushare",
-        choices=("tushare", "prod-raw-db"),
-        help="同步来源，默认 tushare；daily、etf_basic、etf_index、ths_index、ths_member 可显式选择 prod-raw-db",
+        choices=("tushare", "prod-raw-db", "prod-core-db"),
+        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前仅用于 index_daily",
     )
     plan_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
@@ -40,13 +40,16 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
 
     sync_dataset_parser = subparsers.add_parser("sync-dataset", help="按 Lake Dataset Catalog 同步单个数据集")
     add_lake_root_arg(sync_dataset_parser)
-    sync_dataset_parser.add_argument("dataset_key", help="数据集 key；当前接入 index_basic、daily、moneyflow")
+    sync_dataset_parser.add_argument(
+        "dataset_key",
+        help="数据集 key；当前接入 stock_basic、trade_cal、index_basic、daily、moneyflow、adj_factor、daily_basic、index_daily_basic、index_daily、etf_basic、etf_index、ths_index、ths_member",
+    )
     sync_dataset_parser.add_argument(
         "--from",
         dest="source",
         default="tushare",
-        choices=("tushare", "prod-raw-db"),
-        help="同步来源，默认 tushare；daily、etf_basic、etf_index、ths_index、ths_member 可显式选择 prod-raw-db",
+        choices=("tushare", "prod-raw-db", "prod-core-db"),
+        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前仅用于 index_daily",
     )
     sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；daily/moneyflow 可用")
     sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；daily/moneyflow 可用")

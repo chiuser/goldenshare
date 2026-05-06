@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from lake_console.backend.app.catalog.datasets.index_series import INDEX_SERIES_DATASETS
 from lake_console.backend.app.catalog.datasets.market_equity import MARKET_EQUITY_DATASETS
 from lake_console.backend.app.catalog.datasets.moneyflow import MONEYFLOW_DATASETS
 from lake_console.backend.app.catalog.datasets.reference_master import REFERENCE_MASTER_DATASETS
@@ -8,6 +9,7 @@ from lake_console.backend.app.catalog.models import LakeDatasetDefinition
 
 LAKE_DATASETS: tuple[LakeDatasetDefinition, ...] = (
     *REFERENCE_MASTER_DATASETS,
+    *INDEX_SERIES_DATASETS,
     *MARKET_EQUITY_DATASETS,
     *MONEYFLOW_DATASETS,
 )

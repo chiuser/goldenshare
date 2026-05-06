@@ -538,7 +538,7 @@ rebuild_month
 | `fund_daily` | `raw_tushare.fund_daily` | `trade_date` 分区 | `prod-raw-db` |
 | `fund_adj` | `raw_tushare.fund_adj` | `trade_date` 分区 | `prod-raw-db` |
 | `margin` | `raw_tushare.margin` | `trade_date` 分区 | `prod-raw-db` |
-| `index_daily` | `raw_tushare.index_daily` | `trade_date` 分区 | `prod-raw-db` |
+| `index_daily` | `core_serving.index_daily_serving` | `trade_date` 分区 | `prod-core-db` |
 | `index_daily_basic` | `raw_tushare.index_daily_basic` | `trade_date` 分区 | `prod-raw-db` |
 | `stk_limit` | `raw_tushare.stk_limit` | `trade_date` 分区 | `prod-raw-db` |
 | `stock_st` | `raw_tushare.stock_st` | `trade_date` 分区 | `prod-raw-db` |
@@ -549,6 +549,19 @@ rebuild_month
 1. `daily`、`moneyflow` 已完成，可分别作为“价格类”和“成交 / 资金类”模板。
 2. 这一批重点解决的是字段对齐、日期字段类型、区间流式导出和按日替换。
 3. 对 Lake 来说，这一批已经不需要再解决源站分页组合问题。
+4. `index_daily` 是唯一例外：按评审要求必须从 `core_serving.index_daily_serving` 读取，并映射回 Tushare 原始字段口径；不能继续按 `prod-raw-db` 处理。
+
+当前进展（2026-05-06）：
+
+- 已完成首批 4 个：
+  - `adj_factor`
+  - `daily_basic`
+  - `index_daily_basic`
+  - `index_daily`
+- 其中：
+  - `adj_factor`、`daily_basic`、`index_daily_basic` 已走通 `prod-raw-db`
+  - `index_daily` 已作为 Lake 中首个正式 `prod-core-db` 模式走通
+- 均已完成 `2026-04-30` 单日真实同步验证与 Parquet schema 校验
 
 ### 7.6 R3：榜单 / 板块 / 新闻日频批
 

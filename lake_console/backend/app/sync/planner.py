@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from lake_console.backend.app.catalog.datasets import get_dataset_definition
+from lake_console.backend.app.services.prod_core_db import PROD_CORE_DB_SOURCE
 from lake_console.backend.app.services.prod_raw_db import PROD_RAW_DB_SOURCE
 from lake_console.backend.app.sync.planners import (
     STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
@@ -48,11 +49,15 @@ class LakeSyncPlanner:
                 publisher=None,
                 category=None,
             )
-        if source != "tushare" and dataset_key != "daily":
-            raise ValueError(f"{dataset_key} 当前只支持 --from tushare。")
+        if source not in {"tushare", PROD_RAW_DB_SOURCE, PROD_CORE_DB_SOURCE}:
+            raise ValueError(f"不支持的来源：{source}")
         if dataset_key in {"stock_basic", "trade_cal", "index_basic"}:
             return build_snapshot_plan(definition, start_date=start_date, end_date=end_date, market=market)
-        if dataset_key in {"daily", "moneyflow"}:
+        if dataset_key in {"adj_factor", "daily_basic", "index_daily_basic"} and source != PROD_RAW_DB_SOURCE:
+            raise ValueError(f"{dataset_key} 当前只支持 --from prod-raw-db。")
+        if dataset_key == "index_daily" and source != PROD_CORE_DB_SOURCE:
+            raise ValueError("index_daily 当前只支持 --from prod-core-db。")
+        if dataset_key in {"daily", "moneyflow", "adj_factor", "daily_basic", "index_daily", "index_daily_basic"}:
             return build_trade_date_plan(
                 definition,
                 lake_root=self.lake_root,

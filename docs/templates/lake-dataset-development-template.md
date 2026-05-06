@@ -13,7 +13,7 @@
 ### 0.1 当前必须遵守的主线
 
 1. `lake_console` 是本地独立工程，不是生产 `src/ops`、`src/app`、`frontend` 的一部分。
-2. `lake_console` 默认不允许读取或写入远程 `goldenshare-db`；若本数据集明确走 `prod-raw-db` 只读导出路线，必须改用 [Local Lake prod-raw-db 导出接入规则与 Checklist](/Users/congming/github/goldenshare/docs/templates/lake-prod-raw-db-export-template.md)。
+2. `lake_console` 默认不允许读取或写入远程 `goldenshare-db`；若本数据集明确走 `prod-raw-db` 只读导出路线，必须改用 [Local Lake prod-raw-db 导出接入规则与 Checklist](/Users/congming/github/goldenshare/docs/templates/lake-prod-raw-db-export-template.md)；若走 `prod-core-db`，必须在方案中明确其为专项例外、读取表、字段映射和禁止带入的系统字段。
 3. `lake_console` 不允许 import `src/ops/**`、生产 `src/app/**`、生产 `frontend/src/**`。
 4. Lake 数据集事实可以参考生产 `DatasetDefinition` 和源站文档，但不得直接复用生产同步运行时。
 5. 所有写入必须使用 `_tmp -> 校验 -> 替换正式文件/分区`。
@@ -21,6 +21,7 @@
 7. 大表必须分页请求、分批写入，不能整任务攒在内存里最后一次写。
 8. 字段契约是强卡点：输入参数、输出字段、Lake Parquet 字段类型必须先与源站文档逐项对齐，未完成字段对齐不得编码。
 9. Parquet 类型必须对 DuckDB 友好，不能为了省事把日期、时间、布尔、整数全部写成字符串。
+10. Lake raw 层只允许保留源站输出字段白名单；`raw_tushare` 与 `core/core_serving` 上的 Goldenshare 自增系统字段一律禁止带入。
 
 ### 0.2 禁止项
 
@@ -97,7 +98,8 @@
 3. 源站文档有、Lake 不写的字段，必须说明“不写入原因”；不得无声遗漏。
 4. 源站文档没有、Lake 想新增的字段，默认禁止；如确需新增，只能进入 `derived` 或 `research`，不能污染 `raw_tushare`。
 5. `api_name`、`fetched_at`、`raw_payload` 等 Goldenshare 系统字段不得进入 Lake raw 层。
-6. 写入后必须用 DuckDB `describe select * from read_parquet(...)` 验证字段名与类型。
+6. 若数据来自 `core` / `core_serving`，`source`、`created_at`、`updated_at` 等系统字段同样不得进入 Lake；若字段名与源站文档不一致，必须先显式映射回源站字段名。
+7. 写入后必须用 DuckDB `describe select * from read_parquet(...)` 验证字段名与类型。
 
 ### 3.2.1 DuckDB 友好类型规则
 
@@ -142,6 +144,7 @@
 | Lake raw 字段未混入系统字段 |  |  | 是 / 否 |
 | Parquet 类型对 DuckDB 友好 |  |  | 是 / 否 |
 | 历史分区是否需要 schema migration |  |  | 是 / 否 |
+| core/core_serving 命名差异是否已映射回源站口径 |  |  | 是 / 否 |
 
 只要存在阻断项，必须先评审，不得进入编码。
 
