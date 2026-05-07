@@ -2,7 +2,7 @@
 
 - 版本：v1
 - 状态：已部分落地；主路线已切换为“`prod-raw-db` 只读导出优先，Tushare 直连补充”
-- 更新时间：2026-05-04
+- 更新时间：2026-05-07
 - 适用范围：`lake_console` 本地移动盘 Tushare Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -31,14 +31,14 @@
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
 8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
-9. `stock_basic`、`trade_cal`、`index_basic`、`daily`、`moneyflow`、`stk_mins` 已在 Lake 中落地。
+9. Lake 已从首批 6 个数据集扩展到 32 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块与榜单的多个批次。
 10. `daily` 已验证可以通过 `prod-raw-db` 只读导出，且速度明显优于重新请求 Tushare。
 
 当前生产侧共有 `60` 个 `DatasetDefinition`，其中：
 
 1. `58` 个落在 `raw_tushare.*`，理论上都可以评估接入本地 Tushare Lake。
 2. `2` 个是 `BIYING` 数据源（`biying_equity_daily`、`biying_moneyflow`），不纳入当前 Tushare Lake 主线。
-3. 当前 Lake 已落地 `6 / 58` 个 `raw_tushare` 数据集，剩余 `52` 个待规划。
+3. 当前 Lake 已落地 `32 / 58` 个 `raw_tushare` 数据集，剩余 `26` 个待规划。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
 
@@ -470,8 +470,8 @@ rebuild_month
 | 生产 `DatasetDefinition` 总数 | 60 | 含 BIYING |
 | `raw_tushare` 数据集 | 58 | 当前 Tushare Lake 主线目标 |
 | BIYING 数据集 | 2 | 暂不纳入本轮 |
-| Lake 已落地 | 6 | `stock_basic`、`trade_cal`、`index_basic`、`daily`、`moneyflow`、`stk_mins` |
-| Lake 待接入 | 52 | 以 `prod-raw-db` 导出优先 |
+| Lake 已落地 | 32 | 已覆盖参考数据、核心日频、资金流、ETF、板块与榜单多批次 |
+| Lake 待接入 | 26 | 继续以 `prod-raw-db` 导出优先 |
 
 ### 7.2 新主线原则
 
@@ -586,6 +586,26 @@ rebuild_month
 
 目标：把“源站请求复杂、但 raw 导出其实很直观”的那批数据集吃掉。
 
+当前状态（2026-05-07）：
+
+1. `R3-A` 首批 6 个数据集已完成后端接入与单日真实同步验证：
+   - `cyq_perf`
+   - `limit_list_d`
+   - `limit_list_ths`
+   - `limit_step`
+   - `limit_cpt_list`
+   - `top_list`
+2. `block_trade` 因当前生产 raw 存在精确重复问题，已按当前决策后置到最后一批，不纳入本轮方案。
+3. `top_list` 已在最新重同步后重新审计：
+   - 当前生产 raw 范围收敛为 `2016-01-04 ~ 2026-05-07`
+   - 在该范围内交易日覆盖 `2509 / 2509`
+   - 精确重复组为 `0`
+   - 但 Lake 首版仍按当前生产事实起点 `2016-01-04` 落盘，不伪造更早历史分区。
+4. `limit_list_ths` 已在最新重同步后重新审计：
+   - 当前生产 raw 范围更新为 `2023-11-01 ~ 2026-04-30`
+   - 在该范围内交易日覆盖 `605 / 605`
+   - Lake 首版历史起点同步更新为 `2023-11-01`
+
 候选数据集：
 
 | 数据集 | 原表 | Lake 布局 | 建议来源 |
@@ -614,6 +634,7 @@ rebuild_month
 1. 这批在生产同步时往往最烦，因为源站参数多、枚举多、分页复杂。
 2. 但一旦走 `prod-raw-db`，这些复杂度大部分已经被生产同步提前消化掉了。
 3. 这一批的难点主要变成字段审计和合理的分区写入，不再是 API 编排。
+4. `R3-A` 当前第一波只推进“榜单/涨停”这 6 个，不把 `block_trade` 混入。
 
 ### 7.7 R4：资金流全族
 

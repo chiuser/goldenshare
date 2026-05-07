@@ -2,11 +2,16 @@ from lake_console.backend.app.sync.strategies.daily import DailyStrategy
 from lake_console.backend.app.sync.strategies.index_basic import IndexBasicStrategy
 from lake_console.backend.app.sync.strategies.prod_db_trade_date import (
     AdjFactorStrategy,
+    CyqPerfStrategy,
     DailyBasicStrategy,
     FundAdjStrategy,
     FundDailyStrategy,
     IndexDailyBasicStrategy,
     IndexDailyStrategy,
+    LimitCptListStrategy,
+    LimitListDStrategy,
+    LimitListThsStrategy,
+    LimitStepStrategy,
     MarginStrategy,
     MoneyflowCntThsStrategy,
     MoneyflowDcStrategy,
@@ -18,6 +23,7 @@ from lake_console.backend.app.sync.strategies.prod_db_trade_date import (
     StkLimitStrategy,
     StockStStrategy,
     SuspendDStrategy,
+    TopListStrategy,
 )
 from lake_console.backend.app.sync.strategies.prod_raw_current_snapshots import (
     ETFBasicStrategy,
@@ -28,6 +34,7 @@ from lake_console.backend.app.sync.strategies.prod_raw_current_snapshots import 
 
 STRATEGY_CLASSES = {
     AdjFactorStrategy.dataset_key: AdjFactorStrategy,
+    CyqPerfStrategy.dataset_key: CyqPerfStrategy,
     DailyBasicStrategy.dataset_key: DailyBasicStrategy,
     DailyStrategy.dataset_key: DailyStrategy,
     ETFBasicStrategy.dataset_key: ETFBasicStrategy,
@@ -37,6 +44,10 @@ STRATEGY_CLASSES = {
     IndexBasicStrategy.dataset_key: IndexBasicStrategy,
     IndexDailyBasicStrategy.dataset_key: IndexDailyBasicStrategy,
     IndexDailyStrategy.dataset_key: IndexDailyStrategy,
+    LimitCptListStrategy.dataset_key: LimitCptListStrategy,
+    LimitListDStrategy.dataset_key: LimitListDStrategy,
+    LimitListThsStrategy.dataset_key: LimitListThsStrategy,
+    LimitStepStrategy.dataset_key: LimitStepStrategy,
     MarginStrategy.dataset_key: MarginStrategy,
     MoneyflowStrategy.dataset_key: MoneyflowStrategy,
     MoneyflowThsStrategy.dataset_key: MoneyflowThsStrategy,
@@ -48,6 +59,7 @@ STRATEGY_CLASSES = {
     StkLimitStrategy.dataset_key: StkLimitStrategy,
     StockStStrategy.dataset_key: StockStStrategy,
     SuspendDStrategy.dataset_key: SuspendDStrategy,
+    TopListStrategy.dataset_key: TopListStrategy,
     THSIndexStrategy.dataset_key: THSIndexStrategy,
     THSMemberStrategy.dataset_key: THSMemberStrategy,
 }
@@ -55,6 +67,7 @@ STRATEGY_CLASSES = {
 __all__ = [
     "STRATEGY_CLASSES",
     "AdjFactorStrategy",
+    "CyqPerfStrategy",
     "DailyBasicStrategy",
     "DailyStrategy",
     "ETFBasicStrategy",
@@ -64,6 +77,10 @@ __all__ = [
     "IndexBasicStrategy",
     "IndexDailyBasicStrategy",
     "IndexDailyStrategy",
+    "LimitCptListStrategy",
+    "LimitListDStrategy",
+    "LimitListThsStrategy",
+    "LimitStepStrategy",
     "MarginStrategy",
     "MoneyflowStrategy",
     "MoneyflowThsStrategy",
@@ -75,6 +92,7 @@ __all__ = [
     "StkLimitStrategy",
     "StockStStrategy",
     "SuspendDStrategy",
+    "TopListStrategy",
     "THSIndexStrategy",
     "THSMemberStrategy",
 ]

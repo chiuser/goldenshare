@@ -5,6 +5,13 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from lake_console.backend.app.catalog.datasets.leader_board import (
+    LIMIT_CPT_LIST_FIELDS,
+    LIMIT_LIST_D_FIELDS,
+    LIMIT_LIST_THS_FIELDS,
+    LIMIT_STEP_FIELDS,
+    TOP_LIST_FIELDS,
+)
 from lake_console.backend.app.catalog.datasets.market_equity import (
     ADJ_FACTOR_FIELDS,
     DAILY_BASIC_FIELDS,
@@ -24,6 +31,7 @@ from lake_console.backend.app.catalog.datasets.moneyflow import (
     MONEYFLOW_MKT_DC_FIELDS,
     MONEYFLOW_THS_FIELDS,
 )
+from lake_console.backend.app.catalog.datasets.technical_indicators import CYQ_PERF_FIELDS
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
     ETF_BASIC_FIELDS,
@@ -36,6 +44,7 @@ from lake_console.backend.app.catalog.tushare_reference_master import (
 PROD_RAW_DB_SOURCE = "prod-raw-db"
 PROD_RAW_DB_ALLOWED_TABLES = {
     "adj_factor": "raw_tushare.adj_factor",
+    "cyq_perf": "raw_tushare.cyq_perf",
     "daily_basic": "raw_tushare.daily_basic",
     "daily": "raw_tushare.daily",
     "etf_basic": "raw_tushare.etf_basic",
@@ -43,6 +52,10 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "fund_adj": "raw_tushare.fund_adj",
     "fund_daily": "raw_tushare.fund_daily",
     "index_daily_basic": "raw_tushare.index_daily_basic",
+    "limit_cpt_list": "raw_tushare.limit_cpt_list",
+    "limit_list_d": "raw_tushare.limit_list",
+    "limit_list_ths": "raw_tushare.limit_list_ths",
+    "limit_step": "raw_tushare.limit_step",
     "margin": "raw_tushare.margin",
     "moneyflow": "raw_tushare.moneyflow",
     "moneyflow_cnt_ths": "raw_tushare.moneyflow_cnt_ths",
@@ -56,9 +69,11 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "suspend_d": "raw_tushare.suspend_d",
     "ths_index": "raw_tushare.ths_index",
     "ths_member": "raw_tushare.ths_member",
+    "top_list": "raw_tushare.top_list",
 }
 PROD_RAW_DB_FIELDS = {
     "adj_factor": ADJ_FACTOR_FIELDS,
+    "cyq_perf": CYQ_PERF_FIELDS,
     "daily_basic": DAILY_BASIC_FIELDS,
     "daily": DAILY_FIELDS,
     "etf_basic": ETF_BASIC_FIELDS,
@@ -66,6 +81,10 @@ PROD_RAW_DB_FIELDS = {
     "fund_adj": FUND_ADJ_FIELDS,
     "fund_daily": FUND_DAILY_FIELDS,
     "index_daily_basic": INDEX_DAILY_BASIC_FIELDS,
+    "limit_cpt_list": LIMIT_CPT_LIST_FIELDS,
+    "limit_list_d": LIMIT_LIST_D_FIELDS,
+    "limit_list_ths": LIMIT_LIST_THS_FIELDS,
+    "limit_step": LIMIT_STEP_FIELDS,
     "margin": MARGIN_FIELDS,
     "moneyflow": MONEYFLOW_FIELDS,
     "moneyflow_cnt_ths": MONEYFLOW_CNT_THS_FIELDS,
@@ -79,9 +98,11 @@ PROD_RAW_DB_FIELDS = {
     "suspend_d": SUSPEND_D_FIELDS,
     "ths_index": THS_INDEX_FIELDS,
     "ths_member": THS_MEMBER_FIELDS,
+    "top_list": TOP_LIST_FIELDS,
 }
 PROD_RAW_DB_ORDER_BY = {
     "adj_factor": ("ts_code",),
+    "cyq_perf": ("ts_code",),
     "daily": ("ts_code",),
     "daily_basic": ("ts_code",),
     "etf_basic": ("ts_code",),
@@ -89,6 +110,10 @@ PROD_RAW_DB_ORDER_BY = {
     "fund_adj": ("ts_code",),
     "fund_daily": ("ts_code",),
     "index_daily_basic": ("ts_code",),
+    "limit_cpt_list": ("ts_code", "rank"),
+    "limit_list_d": ("ts_code", "limit"),
+    "limit_list_ths": ("ts_code", "limit_type"),
+    "limit_step": ("ts_code", "nums"),
     "margin": ("exchange_id",),
     "moneyflow": ("ts_code",),
     "moneyflow_cnt_ths": ("ts_code",),
@@ -102,6 +127,7 @@ PROD_RAW_DB_ORDER_BY = {
     "suspend_d": ("ts_code", "suspend_type", "suspend_timing"),
     "ths_index": ("ts_code",),
     "ths_member": ("ts_code", "con_code"),
+    "top_list": ("ts_code", "reason"),
 }
 PROD_RAW_DB_SYSTEM_FIELDS = {"api_name", "fetched_at", "raw_payload"}
 
@@ -129,7 +155,7 @@ def build_daily_prod_raw_range_query(*, start_date: date, end_date: date) -> Pro
 def build_prod_raw_trade_date_query(*, dataset_key: str, trade_date: date) -> ProdRawQuery:
     table_name = _require_allowed_table(dataset_key)
     fields = _require_allowed_fields(dataset_key)
-    projection = ", ".join(fields)
+    projection = ", ".join(_render_projection_fields(dataset_key, fields))
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
     order_by = _build_order_by(dataset_key, include_trade_date=False)
@@ -149,7 +175,7 @@ def build_prod_raw_trade_date_query(*, dataset_key: str, trade_date: date) -> Pr
 def build_prod_raw_trade_date_range_query(*, dataset_key: str, start_date: date, end_date: date) -> ProdRawQuery:
     table_name = _require_allowed_table(dataset_key)
     fields = _require_allowed_fields(dataset_key)
-    projection = ", ".join(fields)
+    projection = ", ".join(_render_projection_fields(dataset_key, fields))
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
     order_by = _build_order_by(dataset_key, include_trade_date=True)
@@ -169,7 +195,7 @@ def build_prod_raw_trade_date_range_query(*, dataset_key: str, start_date: date,
 def build_prod_raw_current_query(*, dataset_key: str) -> ProdRawQuery:
     table_name = _require_allowed_table(dataset_key)
     fields = _require_allowed_fields(dataset_key)
-    projection = ", ".join(fields)
+    projection = ", ".join(_render_projection_fields(dataset_key, fields))
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
     order_fields = PROD_RAW_DB_ORDER_BY.get(dataset_key)
@@ -195,7 +221,18 @@ def _build_order_by(dataset_key: str, *, include_trade_date: bool) -> str:
     fields = list(order_fields)
     if include_trade_date and "trade_date" not in fields:
         fields = ["trade_date", *fields]
-    return ", ".join(fields)
+    return ", ".join(_render_sql_identifier(field) for field in fields)
+
+
+def _render_projection_fields(dataset_key: str, fields: tuple[str, ...]) -> tuple[str, ...]:
+    del dataset_key
+    return tuple(_render_sql_identifier(field) for field in fields)
+
+
+def _render_sql_identifier(field: str) -> str:
+    if field == "limit":
+        return '"limit"'
+    return field
 
 
 def fetch_prod_raw_rows(*, database_url: str | None, query: ProdRawQuery) -> list[dict[str, Any]]:

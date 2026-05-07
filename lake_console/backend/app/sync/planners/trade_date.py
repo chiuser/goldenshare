@@ -35,12 +35,17 @@ def build_trade_date_plan(
     write_paths = tuple(f"{layer.path}/trade_date={item.isoformat()}" for item in dates for layer in definition.layers)
     if source == "prod-raw-db":
         if definition.dataset_key not in {
+            "cyq_perf",
             "daily",
             "adj_factor",
             "daily_basic",
             "fund_daily",
             "fund_adj",
             "index_daily_basic",
+            "limit_cpt_list",
+            "limit_list_d",
+            "limit_list_ths",
+            "limit_step",
             "margin",
             "moneyflow",
             "moneyflow_ths",
@@ -52,6 +57,7 @@ def build_trade_date_plan(
             "stk_limit",
             "stock_st",
             "suspend_d",
+            "top_list",
         }:
             raise ValueError(f"{definition.dataset_key} 当前不支持 --from prod-raw-db。")
     elif source == PROD_CORE_DB_SOURCE:

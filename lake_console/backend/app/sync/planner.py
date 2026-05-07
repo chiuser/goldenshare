@@ -55,10 +55,15 @@ class LakeSyncPlanner:
             return build_snapshot_plan(definition, start_date=start_date, end_date=end_date, market=market)
         if dataset_key in {
             "adj_factor",
+            "cyq_perf",
             "daily_basic",
             "fund_adj",
             "fund_daily",
             "index_daily_basic",
+            "limit_cpt_list",
+            "limit_list_d",
+            "limit_list_ths",
+            "limit_step",
             "margin",
             "moneyflow",
             "moneyflow_ths",
@@ -70,6 +75,7 @@ class LakeSyncPlanner:
             "stk_limit",
             "stock_st",
             "suspend_d",
+            "top_list",
         } and source != PROD_RAW_DB_SOURCE:
             raise ValueError(f"{dataset_key} 当前只支持 --from prod-raw-db。")
         if dataset_key == "index_daily" and source != PROD_CORE_DB_SOURCE:
@@ -84,15 +90,21 @@ class LakeSyncPlanner:
             "moneyflow_ind_dc",
             "moneyflow_mkt_dc",
             "adj_factor",
+            "cyq_perf",
             "daily_basic",
             "fund_adj",
             "fund_daily",
             "index_daily",
             "index_daily_basic",
+            "limit_cpt_list",
+            "limit_list_d",
+            "limit_list_ths",
+            "limit_step",
             "margin",
             "stk_limit",
             "stock_st",
             "suspend_d",
+            "top_list",
         }:
             return build_trade_date_plan(
                 definition,

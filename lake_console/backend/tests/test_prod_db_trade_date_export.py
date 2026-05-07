@@ -6,6 +6,13 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
+from lake_console.backend.app.catalog.datasets.leader_board import (
+    LIMIT_CPT_LIST_FIELDS,
+    LIMIT_LIST_D_FIELDS,
+    LIMIT_LIST_THS_FIELDS,
+    LIMIT_STEP_FIELDS,
+    TOP_LIST_FIELDS,
+)
 from lake_console.backend.app.catalog.datasets.market_equity import (
     ADJ_FACTOR_FIELDS,
     DAILY_BASIC_FIELDS,
@@ -24,6 +31,7 @@ from lake_console.backend.app.catalog.datasets.moneyflow import (
     MONEYFLOW_MKT_DC_FIELDS,
     MONEYFLOW_THS_FIELDS,
 )
+from lake_console.backend.app.catalog.datasets.technical_indicators import CYQ_PERF_FIELDS
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS, INDEX_DAILY_FIELDS
 from lake_console.backend.app.services.db_trade_date_export_service import DbTradeDateExportService
 from lake_console.backend.app.services.prod_core_db import (
@@ -44,10 +52,15 @@ from lake_console.backend.app.sync.planner import LakeSyncPlanner
     ("dataset_key", "expected_table", "expected_fields"),
     [
         ("adj_factor", "raw_tushare.adj_factor", ADJ_FACTOR_FIELDS),
+        ("cyq_perf", "raw_tushare.cyq_perf", CYQ_PERF_FIELDS),
         ("daily_basic", "raw_tushare.daily_basic", DAILY_BASIC_FIELDS),
         ("fund_adj", "raw_tushare.fund_adj", FUND_ADJ_FIELDS),
         ("fund_daily", "raw_tushare.fund_daily", FUND_DAILY_FIELDS),
         ("index_daily_basic", "raw_tushare.index_daily_basic", INDEX_DAILY_BASIC_FIELDS),
+        ("limit_cpt_list", "raw_tushare.limit_cpt_list", LIMIT_CPT_LIST_FIELDS),
+        ("limit_list_d", "raw_tushare.limit_list", LIMIT_LIST_D_FIELDS),
+        ("limit_list_ths", "raw_tushare.limit_list_ths", LIMIT_LIST_THS_FIELDS),
+        ("limit_step", "raw_tushare.limit_step", LIMIT_STEP_FIELDS),
         ("margin", "raw_tushare.margin", MARGIN_FIELDS),
         ("moneyflow", "raw_tushare.moneyflow", MONEYFLOW_FIELDS),
         ("moneyflow_ths", "raw_tushare.moneyflow_ths", MONEYFLOW_THS_FIELDS),
@@ -59,6 +72,7 @@ from lake_console.backend.app.sync.planner import LakeSyncPlanner
         ("stk_limit", "raw_tushare.stk_limit", STK_LIMIT_FIELDS),
         ("stock_st", "raw_tushare.stock_st", STOCK_ST_FIELDS),
         ("suspend_d", "raw_tushare.suspend_d", SUSPEND_D_FIELDS),
+        ("top_list", "raw_tushare.top_list", TOP_LIST_FIELDS),
     ],
 )
 def test_prod_raw_trade_date_query_uses_whitelist_projection(
@@ -84,10 +98,15 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
     assert "trade_date >= %s and trade_date <= %s" in range_query.sql
     expected_order = {
         "adj_factor": "order by trade_date, ts_code",
+        "cyq_perf": "order by trade_date, ts_code",
         "daily_basic": "order by trade_date, ts_code",
         "fund_adj": "order by trade_date, ts_code",
         "fund_daily": "order by trade_date, ts_code",
         "index_daily_basic": "order by trade_date, ts_code",
+        "limit_cpt_list": "order by trade_date, ts_code, rank",
+        "limit_list_d": 'order by trade_date, ts_code, "limit"',
+        "limit_list_ths": "order by trade_date, ts_code, limit_type",
+        "limit_step": "order by trade_date, ts_code, nums",
         "margin": "order by trade_date, exchange_id",
         "moneyflow": "order by trade_date, ts_code",
         "moneyflow_ths": "order by trade_date, ts_code",
@@ -99,9 +118,28 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
         "stk_limit": "order by trade_date, ts_code",
         "stock_st": "order by trade_date, ts_code, type",
         "suspend_d": "order by trade_date, ts_code, suspend_type, suspend_timing",
+        "top_list": "order by trade_date, ts_code, reason",
     }
     assert expected_order[dataset_key] in range_query.sql
     assert range_query.params == (date(2026, 4, 1), date(2026, 4, 30))
+
+
+def test_limit_list_d_prod_raw_query_quotes_limit_column() -> None:
+    point_query = build_prod_raw_trade_date_query(dataset_key="limit_list_d", trade_date=date(2026, 5, 7))
+    assert '"limit"' in point_query.sql
+    assert " limit," not in point_query.sql.lower()
+
+
+def test_limit_list_ths_prod_raw_query_excludes_query_context_fields() -> None:
+    point_query = build_prod_raw_trade_date_query(dataset_key="limit_list_ths", trade_date=date(2026, 4, 30))
+    assert "query_limit_type" not in point_query.sql
+    assert "query_market" not in point_query.sql
+
+
+def test_top_list_prod_raw_query_excludes_hash_fields() -> None:
+    point_query = build_prod_raw_trade_date_query(dataset_key="top_list", trade_date=date(2026, 5, 7))
+    assert "payload_hash" not in point_query.sql
+    assert "reason_hash" not in point_query.sql
 
 
 def test_prod_core_trade_date_query_maps_change_field() -> None:
@@ -125,11 +163,16 @@ def test_prod_core_trade_date_query_maps_change_field() -> None:
     ("dataset_key", "source", "expected_strategy_key"),
     [
         ("adj_factor", "prod-raw-db", "adj_factor:prod-raw-db"),
+        ("cyq_perf", "prod-raw-db", "cyq_perf:prod-raw-db"),
         ("daily_basic", "prod-raw-db", "daily_basic:prod-raw-db"),
         ("fund_adj", "prod-raw-db", "fund_adj:prod-raw-db"),
         ("fund_daily", "prod-raw-db", "fund_daily:prod-raw-db"),
         ("index_daily_basic", "prod-raw-db", "index_daily_basic:prod-raw-db"),
         ("index_daily", "prod-core-db", "index_daily:prod-core-db"),
+        ("limit_cpt_list", "prod-raw-db", "limit_cpt_list:prod-raw-db"),
+        ("limit_list_d", "prod-raw-db", "limit_list_d:prod-raw-db"),
+        ("limit_list_ths", "prod-raw-db", "limit_list_ths:prod-raw-db"),
+        ("limit_step", "prod-raw-db", "limit_step:prod-raw-db"),
         ("margin", "prod-raw-db", "margin:prod-raw-db"),
         ("moneyflow", "prod-raw-db", "moneyflow:prod-raw-db"),
         ("moneyflow_ths", "prod-raw-db", "moneyflow_ths:prod-raw-db"),
@@ -141,6 +184,7 @@ def test_prod_core_trade_date_query_maps_change_field() -> None:
         ("stk_limit", "prod-raw-db", "stk_limit:prod-raw-db"),
         ("stock_st", "prod-raw-db", "stock_st:prod-raw-db"),
         ("suspend_d", "prod-raw-db", "suspend_d:prod-raw-db"),
+        ("top_list", "prod-raw-db", "top_list:prod-raw-db"),
     ],
 )
 def test_trade_date_plans_use_expected_source_and_strategy(
@@ -196,7 +240,7 @@ def test_adj_factor_prod_raw_export_ignores_non_open_day_rows(monkeypatch, tmp_p
     schema = pq.read_schema(parquet_file)
     assert summary["fetched_rows"] == 1
     assert summary["written_rows"] == 1
-    assert pq.read_table(parquet_file).num_rows == 1
+    assert pq.ParquetFile(parquet_file).read().num_rows == 1
     assert "trade_date=2026-05-01" not in str(list((tmp_path / "raw_tushare" / "adj_factor").glob("*")))
     assert "adj_factor" in schema.names
 
@@ -287,7 +331,7 @@ def test_margin_prod_raw_export_does_not_require_ts_code(tmp_path) -> None:
 
     parquet_file = tmp_path / "raw_tushare" / "margin" / "trade_date=2026-04-30" / "part-000.parquet"
     schema = pq.read_schema(parquet_file)
-    table = pq.read_table(parquet_file)
+    table = pq.ParquetFile(parquet_file).read()
     assert summary["fetched_rows"] == 1
     assert summary["written_rows"] == 1
     assert "exchange_id" in schema.names
