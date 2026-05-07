@@ -4,6 +4,7 @@ from typing import Any
 
 import requests
 
+from src.foundation.clients.tushare_client import TushareRateLimitError
 from src.foundation.ingestion.errors import StructuredError
 
 
@@ -19,6 +20,16 @@ class IngestionErrorMapper:
                 message=message,
                 retryable=True,
                 unit_id=unit_id,
+            )
+        if isinstance(exc, TushareRateLimitError):
+            return StructuredError(
+                error_code="source_rate_limited",
+                error_type="source",
+                phase=phase,
+                message=message,
+                retryable=True,
+                unit_id=unit_id,
+                details={"api_name": exc.api_name},
             )
         if isinstance(exc, requests.HTTPError):
             status_code = self._extract_status_code(exc)

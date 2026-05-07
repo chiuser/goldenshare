@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import deque
 from collections.abc import Iterable
 import logging
 from threading import Lock
@@ -17,11 +16,24 @@ from src.foundation.config.settings import get_settings
 from src.foundation.schemas import TushareEnvelope
 
 
+class TushareApiError(RuntimeError):
+    def __init__(self, *, api_name: str, message: str, code: int | None = None) -> None:
+        super().__init__(f"Tushare API error: {message}")
+        self.api_name = api_name
+        self.message = message
+        self.code = code
+
+
+class TushareRateLimitError(TushareApiError):
+    pass
+
+
 class _RateLimiter:
     def __init__(self, max_calls_per_minute: int) -> None:
         self.max_calls = max_calls_per_minute
         self.window_seconds = 60.0
-        self.calls: deque[float] = deque()
+        self.min_interval_seconds = self.window_seconds / max_calls_per_minute if max_calls_per_minute > 0 else 0.0
+        self.next_allowed_at = 0.0
         self.lock = Lock()
 
     def acquire(self) -> None:
@@ -30,18 +42,16 @@ class _RateLimiter:
         while True:
             with self.lock:
                 now = time.monotonic()
-                while self.calls and now - self.calls[0] >= self.window_seconds:
-                    self.calls.popleft()
-                if len(self.calls) < self.max_calls:
-                    self.calls.append(now)
+                sleep_seconds = self.next_allowed_at - now
+                if sleep_seconds <= 0:
+                    self.next_allowed_at = max(now, self.next_allowed_at) + self.min_interval_seconds
                     return
-                sleep_seconds = self.window_seconds - (now - self.calls[0]) + 0.05
             time.sleep(max(sleep_seconds, 0.05))
 
 
 _API_RATE_LIMITS = {
     "stock_basic": 50,
-    "index_daily": 500,
+    "index_daily": 420,
     "idx_mins": 100,
     "stk_mins": 500,
 }
@@ -136,10 +146,16 @@ class TushareHttpClient:
                 retry_count,
             )
         if envelope.code != 0:
-            raise RuntimeError(f"Tushare API error: {envelope.msg}")
+            message = str(envelope.msg or "")
+            error_cls = TushareRateLimitError if self._is_rate_limit_message(message) else TushareApiError
+            raise error_cls(api_name=api_name, message=message, code=envelope.code)
         if envelope.data is None:
             return []
         return [dict(zip(envelope.data.fields, item, strict=False)) for item in envelope.data.items]
+
+    @staticmethod
+    def _is_rate_limit_message(message: str) -> bool:
+        return "频率超限" in message or "次/分钟" in message
 
 
 class TushareSdkClient:

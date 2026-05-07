@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.clients.tushare_client import TushareRateLimitError
 from src.foundation.ingestion import source_client as source_client_module
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.source_client import DatasetSourceClient
@@ -14,6 +15,20 @@ class RecordingConnector:
     def call(self, api_name: str, params=None, fields=None):  # type: ignore[no-untyped-def]
         self.calls.append({"api_name": api_name, "params": dict(params or {}), "fields": tuple(fields or ())})
         return [dict(row) for row in self.rows]
+
+
+class RateLimitedOnceConnector:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def call(self, api_name: str, params=None, fields=None):  # type: ignore[no-untyped-def]
+        self.calls += 1
+        if self.calls == 1:
+            raise TushareRateLimitError(
+                api_name=api_name,
+                message="抱歉，您访问接口(index_daily)频率超限(500次/分钟)",
+            )
+        return [{"ts_code": "000001.SH", "trade_date": "20260424"}]
 
 
 def test_major_news_source_client_passes_definition_source_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -144,3 +159,30 @@ def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypat
             ),
         }
     ]
+
+
+def test_source_client_waits_full_window_before_retrying_tushare_rate_limit(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RateLimitedOnceConnector()
+    sleeps: list[float] = []
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+    monkeypatch.setattr(source_client_module.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("index_daily"),
+        unit=PlanUnitSnapshot(
+            unit_id="index-daily-u1",
+            dataset_key="index_daily",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"ts_code": "000001.SH", "trade_date": "20260424"},
+            progress_context={},
+            pagination_policy="none",
+            page_limit=None,
+        ),
+    )
+
+    assert connector.calls == 2
+    assert result.request_count == 1
+    assert result.retry_count == 1
+    assert result.rows_raw == [{"ts_code": "000001.SH", "trade_date": "20260424"}]
+    assert sleeps == [65.0]

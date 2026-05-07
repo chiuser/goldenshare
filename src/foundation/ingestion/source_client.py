@@ -28,6 +28,8 @@ class SourceFetchResult:
 
 
 class DatasetSourceClient:
+    RATE_LIMIT_RETRY_SLEEP_SECONDS = 65.0
+
     def __init__(self, error_mapper: IngestionErrorMapper | None = None) -> None:
         self.error_mapper = error_mapper or IngestionErrorMapper()
 
@@ -132,8 +134,11 @@ class DatasetSourceClient:
                 if not structured.retryable or retries >= max_retries:
                     raise IngestionSourceError(structured) from exc
                 retries += 1
-                sleep_seconds = backoff * (2 ** (retries - 1))
-                time.sleep(min(max(sleep_seconds, 0.05), 5.0))
+                if structured.error_code == "source_rate_limited":
+                    sleep_seconds = self.RATE_LIMIT_RETRY_SLEEP_SECONDS
+                else:
+                    sleep_seconds = min(max(backoff * (2 ** (retries - 1)), 0.05), 5.0)
+                time.sleep(sleep_seconds)
 
     @staticmethod
     def _annotate_rows(*, definition: DatasetDefinition, rows: list[dict], params: dict) -> None:
