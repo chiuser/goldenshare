@@ -64,14 +64,12 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     assert "exchange" not in plan.units[0].request_params
 
 
-def test_index_daily_default_request_expands_index_basic_pool(mocker) -> None:
+def test_index_daily_default_request_expands_raw_active_pool(mocker) -> None:
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(),
-        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(side_effect=AssertionError("serving active pool must not drive requests"))),
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000300.SH", "000001.SH"])),
         index_basic=SimpleNamespace(
-            get_active_indexes=mocker.Mock(
-                return_value=[SimpleNamespace(ts_code="000300.SH"), SimpleNamespace(ts_code="000001.SH")]
-            )
+            get_active_indexes=mocker.Mock(side_effect=AssertionError("index basic must not drive index_daily requests"))
         ),
     )
     mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
@@ -89,8 +87,8 @@ def test_index_daily_default_request_expands_index_basic_pool(mocker) -> None:
         {"ts_code": "000001.SH", "trade_date": "20260424"},
         {"ts_code": "000300.SH", "trade_date": "20260424"},
     ]
-    fake_dao.index_basic.get_active_indexes.assert_called_once_with()
-    fake_dao.index_series_active.list_active_codes.assert_not_called()
+    fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_daily_raw")
+    fake_dao.index_basic.get_active_indexes.assert_not_called()
 
 
 def test_index_daily_request_builder_requires_ts_code() -> None:

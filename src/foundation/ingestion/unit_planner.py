@@ -335,8 +335,8 @@ def _resolve_index_codes(request: ValidatedDatasetActionRequest, dao) -> list[st
     explicit_codes = split_multi_values(request.params.get("ts_code"))
     if explicit_codes:
         return sorted({str(code).strip().upper() for code in explicit_codes if str(code).strip()})
-    index_basic_codes = [item.ts_code for item in dao.index_basic.get_active_indexes() if item.ts_code]
-    normalized = sorted({str(code).strip().upper() for code in index_basic_codes if str(code).strip()})
+    raw_pool_codes = dao.index_series_active.list_active_codes("index_daily_raw")
+    normalized = sorted({str(code).strip().upper() for code in raw_pool_codes if str(code).strip()})
     if not normalized:
         raise DatasetUnitPlanner._planning_error("universe_empty", "未找到可维护的指数代码")
     return normalized
