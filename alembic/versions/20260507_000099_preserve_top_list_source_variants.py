@@ -197,8 +197,13 @@ def _backfill_raw_hashes(bind) -> None:  # type: ignore[no-untyped-def]
             amount_rate,
             float_values
         FROM {RAW_SCHEMA}.top_list
-        WHERE reason_hash IS NULL OR payload_hash IS NULL
+        WHERE (reason_hash IS NULL OR payload_hash IS NULL)
+          AND (
+            :last_trade_date IS NULL
+            OR (trade_date, ts_code, reason) > (:last_trade_date, :last_ts_code, :last_reason)
+          )
         ORDER BY trade_date, ts_code, reason
+        LIMIT :batch_size
         """
     )
     update_sql = sa.text(
@@ -211,15 +216,25 @@ def _backfill_raw_hashes(bind) -> None:  # type: ignore[no-untyped-def]
           AND reason = :reason
         """
     )
-    result = bind.execution_options(stream_results=True).execute(select_sql)
+    last_trade_date = None
+    last_ts_code = None
+    last_reason = None
     while True:
-        rows = result.fetchmany(2000)
+        rows = bind.execute(
+            select_sql,
+            {
+                "last_trade_date": last_trade_date,
+                "last_ts_code": last_ts_code,
+                "last_reason": last_reason,
+                "batch_size": 2000,
+            },
+        ).fetchall()
         if not rows:
             break
+        params = []
         for row in rows:
             mapping = dict(row._mapping)
-            bind.execute(
-                update_sql,
+            params.append(
                 {
                     "ts_code": mapping["ts_code"],
                     "trade_date": mapping["trade_date"],
@@ -228,7 +243,11 @@ def _backfill_raw_hashes(bind) -> None:  # type: ignore[no-untyped-def]
                     "payload_hash": _build_payload_hash(mapping),
                 },
             )
-    result.close()
+        bind.execute(update_sql, params)
+        last = dict(rows[-1]._mapping)
+        last_trade_date = last["trade_date"]
+        last_ts_code = last["ts_code"]
+        last_reason = last["reason"]
 
 
 def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[no-untyped-def]
@@ -252,7 +271,12 @@ def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[
             amount_rate,
             float_values
         FROM {SERVING_SCHEMA}.equity_top_list
+        WHERE (
+            :last_trade_date IS NULL
+            OR (trade_date, ts_code, reason) > (:last_trade_date, :last_ts_code, :last_reason)
+        )
         ORDER BY trade_date, ts_code, reason
+        LIMIT :batch_size
         """
     )
     update_sql = sa.text(
@@ -266,15 +290,25 @@ def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[
           AND reason = :reason
         """
     )
-    result = bind.execution_options(stream_results=True).execute(select_sql)
+    last_trade_date = None
+    last_ts_code = None
+    last_reason = None
     while True:
-        rows = result.fetchmany(2000)
+        rows = bind.execute(
+            select_sql,
+            {
+                "last_trade_date": last_trade_date,
+                "last_ts_code": last_ts_code,
+                "last_reason": last_reason,
+                "batch_size": 2000,
+            },
+        ).fetchall()
         if not rows:
             break
+        params = []
         for row in rows:
             mapping = dict(row._mapping)
-            bind.execute(
-                update_sql,
+            params.append(
                 {
                     "ts_code": mapping["ts_code"],
                     "trade_date": mapping["trade_date"],
@@ -284,7 +318,11 @@ def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[
                     "resolution_policy_version": POLICY_VERSION,
                 },
             )
-    result.close()
+        bind.execute(update_sql, params)
+        last = dict(rows[-1]._mapping)
+        last_trade_date = last["trade_date"]
+        last_ts_code = last["ts_code"]
+        last_reason = last["reason"]
 
     op.execute("DROP TABLE IF EXISTS _tmp_top_list_variant_counts")
     op.execute(
