@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>财势乾坤｜市场总览 v1.1</title>
+  <style>
+    /*
+      财势乾坤｜市场总览 HTML Showcase v1.1
+      Path: 财势乾坤/showcase/market-overview-v1.1.html
+      API baseline: GET /api/market/home-overview, market-overview-api-v0.4.md
+      Review source: market-overview-html-review-v2.md + 市场总览 HTML Review v2｜总控解读与变更单
+
+      Hard constraints:
+      - 页面正式名称：市场总览
+      - 页面归属：财势乾坤 / 乾坤行情 / 市场总览
+      - Desktop: no fixed SideNav; use TopMarketBar + Breadcrumb + PageHeader + ShortcutBar + full-width content
+      - A 股：红涨绿跌，平盘白色/灰白色
+      - 市场总览只展示客观市场事实，不展示市场温度/情绪/资金面/风险指数分数或交易建议
+      - 本文件为单文件 HTML/CSS/JS，不依赖构建工具
+    */
+
+    :root {
+      color-scheme: dark;
+      --cs-color-bg-page: #070B12;
+      --cs-color-bg-topbar: #0A1020;
+      --cs-color-bg-panel: #101827;
+      --cs-color-bg-panel-soft: #0D1422;
+      --cs-color-bg-panel-hover: #162033;
+      --cs-color-bg-chip: #111C2E;
+      --cs-color-surface-card: #121B2C;
+      --cs-color-surface-card-hover: #182235;
+      --cs-color-border-subtle: rgba(148, 163, 184, 0.16);
+      --cs-color-border-strong: rgba(247, 199, 107, 0.56);
+      --cs-color-text-primary: #E5EEF9;
+      --cs-color-text-secondary: #9BA8BC;
+      --cs-color-text-muted: #64748B;
+      --cs-color-market-up: #FF4D5A;
+      --cs-color-market-up-weak: rgba(255, 77, 90, 0.12);
+      --cs-color-market-down: #15C784;
+      --cs-color-market-down-weak: rgba(21, 199, 132, 0.12);
+      --cs-color-market-flat: #CBD5E1;
+      --cs-color-brand: #F7C76B;
+      --cs-color-brand-weak: rgba(247, 199, 107, 0.10);
+      --cs-color-warning: #F59E0B;
+      --cs-color-danger-system: #FF6B6B;
+      --cs-color-info: #5AA7FF;
+      --cs-color-purple: #A78BFA;
+      --cs-color-chart-axis-line: rgba(148, 163, 184, 0.34);
+      --cs-color-chart-axis-label: #7B8AA0;
+      --cs-color-chart-grid-primary: rgba(148, 163, 184, 0.14);
+      --cs-color-chart-zero-line: rgba(241, 245, 249, 0.40);
+      --cs-color-chart-crosshair-line: rgba(247, 199, 107, 0.72);
+      --cs-color-chart-tooltip-bg: rgba(8, 13, 22, 0.98);
+      --cs-color-chart-tooltip-border: rgba(247, 199, 107, 0.30);
+      --cs-font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --cs-font-family-number: "DIN Alternate", "Roboto Mono", "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+      --cs-radius-panel: 12px;
+      --cs-radius-card: 10px;
+      --cs-space-8: 8px;
+      --cs-space-10: 10px;
+      --cs-space-12: 12px;
+      --cs-space-16: 16px;
+      --cs-space-20: 20px;
+      --cs-layout-top-market-bar-height: 56px;
+      --cs-layout-page-header-height: 56px;
+      --cs-layout-content-min-width: 1460px;
+      --cs-layout-content-max-width: 1840px;
+      --cs-layout-market-overview-sidebar-width: 0px;
+      --cs-shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.26);
+
+      /* Compatibility aliases for 04-component-guidelines naming. */
+      --csq-color-bg-page: var(--cs-color-bg-page);
+      --csq-color-bg-topbar: var(--cs-color-bg-topbar);
+      --csq-color-bg-panel: var(--cs-color-bg-panel);
+      --csq-color-bg-panel-hover: var(--cs-color-bg-panel-hover);
+      --csq-color-border-subtle: var(--cs-color-border-subtle);
+      --csq-color-border-strong: var(--cs-color-border-strong);
+      --csq-color-text-primary: var(--cs-color-text-primary);
+      --csq-color-text-secondary: var(--cs-color-text-secondary);
+      --csq-color-text-muted: var(--cs-color-text-muted);
+      --csq-color-rise: var(--cs-color-market-up);
+      --csq-color-rise-bg: var(--cs-color-market-up-weak);
+      --csq-color-fall: var(--cs-color-market-down);
+      --csq-color-fall-bg: var(--cs-color-market-down-weak);
+      --csq-color-flat: var(--cs-color-market-flat);
+      --csq-color-brand: var(--cs-color-brand);
+      --csq-color-warning: var(--cs-color-warning);
+      --csq-color-danger-system: var(--cs-color-danger-system);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--cs-color-bg-page); }
+    body {
+      margin: 0;
+      min-width: var(--cs-layout-content-min-width);
+      background:
+        radial-gradient(circle at 18% -12%, rgba(184, 135, 46, 0.16), transparent 28%),
+        radial-gradient(circle at 82% 0%, rgba(90, 167, 255, 0.10), transparent 24%),
+        linear-gradient(180deg, #070B12 0%, #080D16 55%, #060911 100%);
+      color: var(--cs-color-text-primary);
+      font-family: var(--cs-font-family-base);
+      font-size: 13px;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .num { font-family: var(--cs-font-family-number); font-variant-numeric: tabular-nums; }
+    .up { color: var(--cs-color-market-up) !important; }
+    .down { color: var(--cs-color-market-down) !important; }
+    .flat { color: var(--cs-color-market-flat) !important; }
+    .muted { color: var(--cs-color-text-muted); }
+    .secondary { color: var(--cs-color-text-secondary); }
+    .nowrap { white-space: nowrap; }
+
+    /* ===== TopMarketBar: no fixed SideNav, horizontal system entries only. ===== */
+    .top-market-bar {
+      height: var(--cs-layout-top-market-bar-height);
+      display: grid;
+      grid-template-columns: 156px 540px minmax(320px, 1fr) 340px;
+      align-items: center;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--cs-color-border-subtle);
+      background: rgba(10, 16, 32, 0.94);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      color: #F8E2A2;
+      white-space: nowrap;
+    }
+    .brand-mark {
+      width: 28px; height: 28px;
+      border-radius: 9px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, #7A1D24 0%, #B8872E 100%);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 6px 18px rgba(184,135,46,.24);
+      font-size: 12px;
+    }
+    .system-nav { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .system-nav button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--cs-color-text-secondary);
+      padding: 6px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: .16s ease;
+      flex: 0 0 auto;
+    }
+    .system-nav button:hover { color: var(--cs-color-text-primary); background: rgba(255,255,255,.04); }
+    .system-nav button:active { transform: translateY(1px); }
+    .system-nav button.active {
+      color: var(--cs-color-brand);
+      background: var(--cs-color-brand-weak);
+      border-color: rgba(247,199,107,.30);
+    }
+    .ticker-strip {
+      display: flex; gap: 8px; align-items: center; overflow: hidden;
+      border-left: 1px solid var(--cs-color-border-subtle);
+      padding-left: 10px;
+      min-width: 0;
+    }
+    .ticker-item {
+      display: inline-flex;
+      gap: 6px;
+      align-items: baseline;
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: .16s ease;
+      flex: 0 0 auto;
+    }
+    .ticker-item:hover { background: rgba(255,255,255,.045); }
+    .ticker-name { color: #C5D0E2; }
+    .ticker-meta { font-size: 12px; }
+    .top-meta { display: flex; justify-content: flex-end; align-items: center; gap: 10px; white-space: nowrap; }
+    .status-pill, .data-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--cs-color-border-subtle);
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: rgba(255,255,255,.025);
+      color: var(--cs-color-text-secondary);
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cs-color-market-flat); }
+    .status-dot.ready { background: var(--cs-color-market-up); box-shadow: 0 0 0 3px rgba(255,77,90,.12); }
+    .status-dot.delayed { background: var(--cs-color-warning); box-shadow: 0 0 0 3px rgba(245,158,11,.12); }
+    .data-badge.ready { color: #DDE8F7; border-color: rgba(255,77,90,.24); }
+    .data-badge.delayed { color: #FFE4A8; border-color: rgba(245,158,11,.32); }
+    .user-entry {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: #182235;
+      border: 1px solid rgba(247,199,107,.22);
+      color: var(--cs-color-brand);
+      font-weight: 700;
+    }
+
+    .page-shell { max-width: var(--cs-layout-content-max-width); margin: 0 auto; padding: 14px 18px 34px; }
+    .breadcrumb { display: flex; align-items: center; gap: 7px; height: 28px; color: var(--cs-color-text-muted); font-size: 12px; }
+    .breadcrumb a { color: var(--cs-color-text-secondary); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--cs-color-brand); }
+    .breadcrumb .current { color: var(--cs-color-text-primary); font-weight: 600; }
+    .page-header {
+      min-height: var(--cs-layout-page-header-height);
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .page-title-wrap { display: flex; align-items: center; gap: 12px; }
+    h1 { margin: 0; font-size: 24px; line-height: 1; letter-spacing: .5px; }
+    .scope-tag { color: var(--cs-color-brand); border: 1px solid rgba(247,199,107,.35); background: var(--cs-color-brand-weak); border-radius: 999px; padding: 4px 8px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; color: var(--cs-color-text-secondary); }
+    .refresh-btn {
+      border: 1px solid rgba(247,199,107,.35);
+      background: rgba(247,199,107,.09);
+      color: var(--cs-color-brand);
+      border-radius: 9px;
+      padding: 7px 11px;
+      cursor: pointer;
+      transition: .16s ease;
+    }
+    .refresh-btn:hover { background: rgba(247,199,107,.15); }
+    .refresh-btn:active { transform: translateY(1px); }
+    .refresh-btn.loading::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; border: 2px solid rgba(247,199,107,.28); border-top-color: var(--cs-color-brand); animation: spin .9s linear infinite; vertical-align: -1px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .shortcut-bar {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .shortcut-card {
+      background: linear-gradient(180deg, rgba(18,27,44,.96), rgba(14,21,35,.96));
+      border: 1px solid var(--cs-color-border-subtle);
+      border-radius: var(--cs-radius-card);
+      padding: 10px 11px;
+      min-height: 72px;
+      cursor: pointer;
+      transition: .16s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .shortcut-card::after { content:""; position:absolute; inset:auto 0 0 0; height:2px; background: transparent; }
+    .shortcut-card:hover { background: var(--cs-color-surface-card-hover); border-color: rgba(247,199,107,.26); transform: translateY(-1px); }
+    .shortcut-card:active { transform: translateY(0); }
+    .shortcut-card.active, .shortcut-card.selected { border-color: var(--cs-color-border-strong); background: linear-gradient(180deg, rgba(247,199,107,.10), rgba(18,27,44,.96)); }
+    .shortcut-card.selected::after { background: var(--cs-color-brand); }
+    .shortcut-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .shortcut-title { font-weight: 650; }
+    .shortcut-desc { color: var(--cs-color-text-muted); font-size: 12px; line-height: 1.35; }
+    .badge { min-width: 20px; height: 20px; border-radius: 999px; padding: 0 7px; display: inline-grid; place-items: center; background: rgba(255,77,90,.14); color: var(--cs-color-market-up); border: 1px solid rgba(255,77,90,.22); font-family: var(--cs-font-family-number); font-size: 12px; }
+    .badge.neutral { background: rgba(148,163,184,.08); color: var(--cs-color-text-secondary); border-color: rgba(148,163,184,.18); }
+
+    .content-grid { display: grid; gap: 12px; }
+    .summary-panel, .panel {
+      border: 1px solid var(--cs-color-border-subtle);
+      border-radius: var(--cs-radius-panel);
+      background: rgba(16,24,39,.92);
+      box-shadow: var(--cs-shadow-panel);
+    }
+    .summary-panel { padding: 14px 16px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .section-title { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+    .section-actions { display:flex; align-items:center; gap:8px; }
+    .help {
+      width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center;
+      border: 1px solid rgba(148,163,184,.24); color: #7B8AA0; font-size: 12px; cursor: help;
+      position: relative; flex: 0 0 auto; background: rgba(148,163,184,.05);
+    }
+    .help:hover, .help.active { color: var(--cs-color-brand); border-color: rgba(247,199,107,.38); background: rgba(247,199,107,.10); }
+    .help::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%; top: 24px;
+      transform: translateX(-50%) translateY(4px);
+      width: max-content; max-width: 310px;
+      white-space: normal;
+      background: var(--cs-color-chart-tooltip-bg);
+      border: 1px solid var(--cs-color-chart-tooltip-border);
+      color: #D7E0EC;
+      padding: 8px 10px;
+      border-radius: 9px;
+      line-height: 1.45;
+      box-shadow: 0 12px 26px rgba(0,0,0,.36);
+      opacity: 0; pointer-events: none;
+      transition: .14s ease;
+      z-index: 50;
+      font-weight: 400;
+      font-size: 12px;
+    }
+    .help:hover::after, .help.active::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .summary-body { display: grid; grid-template-columns: 1.25fr 2fr; gap: 14px; align-items: stretch; }
+    .summary-main {
+      border: 1px solid rgba(247,199,107,.18);
+      background: linear-gradient(135deg, rgba(247,199,107,.08), rgba(90,167,255,.04));
+      border-radius: var(--cs-radius-card);
+      padding: 12px 14px;
+      line-height: 1.75;
+    }
+    .summary-main strong { font-size: 16px; }
+    .summary-facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    .fact-card, .metric-card {
+      border: 1px solid var(--cs-color-border-subtle);
+      background: rgba(18,27,44,.84);
+      border-radius: var(--cs-radius-card);
+      padding: 10px 11px;
+      transition: .16s ease;
+    }
+    .fact-card:hover, .metric-card:hover { background: var(--cs-color-surface-card-hover); border-color: rgba(247,199,107,.20); }
+    .fact-label, .metric-label { color: var(--cs-color-text-muted); font-size: 12px; margin-bottom: 5px; }
+    .fact-value, .metric-value { font-family: var(--cs-font-family-number); font-size: 20px; line-height: 1.1; font-weight: 700; }
+    .fact-sub, .metric-sub { color: var(--cs-color-text-secondary); font-size: 12px; margin-top: 5px; }
+
+    .index-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 10px; }
+    .index-card {
+      border: 1px solid var(--cs-color-border-subtle);
+      border-radius: var(--cs-radius-card);
+      background: rgba(18,27,44,.90);
+      padding: 10px 11px;
+      cursor: pointer;
+      transition: .16s ease;
+      min-height: 86px;
+    }
+    .index-card:hover { transform: translateY(-1px); background: var(--cs-color-surface-card-hover); border-color: rgba(247,199,107,.30); }
+    .index-card.selected { border-color: rgba(247,199,107,.60); background: rgba(247,199,107,.08); }
+    .index-name { display:flex; justify-content:space-between; gap:6px; color: var(--cs-color-text-secondary); font-size: 12px; }
+    .index-point { font-size: 21px; font-weight: 800; margin-top: 8px; }
+    .index-change { display: flex; gap: 8px; margin-top: 6px; font-size: 12px; }
+
+    /* Review v2: 今日市场客观总结 + 主要指数恢复 50% / 50% 左右结构。 */
+    .summary-index-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:stretch; }
+    .summary-index-row .summary-panel, .summary-index-row .panel { min-height:252px; }
+    .summary-body-v2 { display:grid; grid-template-rows:auto 1fr; gap:10px; }
+    .summary-facts-v2 { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+    .summary-index-row .fact-card { min-height:76px; padding:9px 8px; }
+    .summary-index-row .fact-value { font-size:18px; }
+    .summary-text-card { border:1px solid rgba(247,199,107,.18); background:linear-gradient(135deg,rgba(247,199,107,.08),rgba(90,167,255,.04)); border-radius:var(--cs-radius-card); padding:11px 12px; line-height:1.65; color:#D7E3F2; }
+    .summary-text-card strong { color:var(--cs-color-text-primary); }
+    .summary-index-row .index-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+    .summary-index-row .index-card { min-height:78px; padding:8px 9px; }
+    .summary-index-row .index-point { font-size:18px; margin-top:6px; }
+    .summary-index-row .index-change { gap:6px; font-size:11px; }
+
+    .row-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .row-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .panel { padding: 12px; min-width: 0; }
+    .mini-metrics { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-bottom: 10px; }
+    .mini-metrics.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .mini-metrics.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .range-switch { display: inline-flex; padding: 2px; border-radius: 8px; background: #0B1220; border: 1px solid rgba(148,163,184,.18); }
+    .range-switch button { border: 0; border-radius: 6px; background: transparent; color: #8A97AA; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+    .range-switch button:hover { color: #E5EDF8; background: rgba(148,163,184,.10); }
+    .range-switch button.active { color: var(--cs-color-brand); background: rgba(247,199,107,.16); box-shadow: inset 0 0 0 1px rgba(247,199,107,.26); }
+
+    .chart-box {
+      position: relative;
+      height: 210px;
+      border: 1px solid rgba(148,163,184,.12);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(13,20,34,.92), rgba(9,14,24,.92));
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .chart-box.compact { height: 178px; }
+    .chart-box.tall { height: 230px; }
+    .chart-box canvas { width: 100%; height: 100%; display:block; }
+    .chart-tooltip {
+      position:absolute; z-index: 5; min-width: 134px; max-width: 260px;
+      padding: 8px 9px; border-radius: 9px;
+      border: 1px solid var(--cs-color-chart-tooltip-border);
+      background: var(--cs-color-chart-tooltip-bg);
+      color: #DCE7F5; box-shadow: 0 12px 24px rgba(0,0,0,.34);
+      pointer-events: none; opacity: 0; transform: translate(8px, 8px); transition: opacity .08s ease;
+      font-size: 12px; line-height: 1.45;
+    }
+    .chart-tooltip.visible { opacity: 1; }
+    .tooltip-title { color: #F2F6FC; font-weight: 650; margin-bottom: 5px; }
+    .tooltip-row { display:flex; justify-content:space-between; gap:14px; white-space:nowrap; }
+    .chart-note { color: var(--cs-color-text-muted); font-size: 11px; margin-top: 6px; }
+
+    .turnover-charts { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .sub-chart-title { display:flex; justify-content:space-between; align-items:center; color: var(--cs-color-text-secondary); font-size:12px; margin: 8px 2px 0; }
+
+    .fund-top { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+    .fund-card { border: 1px solid var(--cs-color-border-subtle); background: rgba(18,27,44,.86); border-radius: 10px; padding: 12px; }
+    .fund-card .amount { font-size: 24px; font-weight: 800; }
+
+    .leaderboard { min-height: 398px; }
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 8px; }
+    .tab-btn { border:1px solid var(--cs-color-border-subtle); background: rgba(17,28,46,.75); color: var(--cs-color-text-secondary); border-radius: 8px; padding: 5px 8px; cursor:pointer; }
+    .tab-btn:hover { color: var(--cs-color-text-primary); background: rgba(255,255,255,.05); }
+    .tab-btn.active { color: var(--cs-color-brand); border-color: rgba(247,199,107,.38); background: rgba(247,199,107,.10); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align:left; font-weight: 500; color: var(--cs-color-text-muted); height: 28px; border-bottom: 1px solid rgba(148,163,184,.12); font-size: 12px; }
+    td { height: 34px; border-bottom: 1px solid rgba(148,163,184,.07); }
+    tr { cursor: pointer; transition:.14s ease; }
+    tbody tr:hover { background: rgba(247,199,107,.08); }
+    tbody tr:active { background: rgba(247,199,107,.13); }
+
+    /* Review v2: 榜单 Top10 固定 8 列。 */
+    .leaderboard table { table-layout: fixed; }
+    .leaderboard th:nth-child(1), .leaderboard td:nth-child(1) { width:42px; }
+    .leaderboard th:nth-child(2), .leaderboard td:nth-child(2) { width:132px; }
+    .leaderboard th:nth-child(3), .leaderboard td:nth-child(3),
+    .leaderboard th:nth-child(4), .leaderboard td:nth-child(4),
+    .leaderboard th:nth-child(5), .leaderboard td:nth-child(5),
+    .leaderboard th:nth-child(6), .leaderboard td:nth-child(6) { width:76px; }
+    .leaderboard th:nth-child(7), .leaderboard td:nth-child(7),
+    .leaderboard th:nth-child(8), .leaderboard td:nth-child(8) { width:88px; }
+    .leaderboard td { height:32px; }
+    .stock-cell { line-height:1.18; }
+
+    /* Review v2: 涨跌停统计与分布 = 2×2。 */
+    .limit-v2-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:stretch; }
+    .limit-cell { border:1px solid rgba(148,163,184,.12); background:rgba(13,20,34,.76); border-radius:10px; padding:10px; min-height:244px; }
+    .limit-cell.chart-cell { padding:8px 10px 10px; }
+    .limit-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; height:100%; }
+    .limit-day-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .limit-day-title b { color:#DDE8F7; }
+    .day-tag { border:1px solid rgba(247,199,107,.24); background:rgba(247,199,107,.08); color:var(--cs-color-brand); border-radius:999px; padding:2px 8px; font-size:12px; }
+    .limit-day-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .distribution-graph { display:flex; flex-direction:column; gap:8px; }
+    .dist-row { display:grid; grid-template-columns:80px 1fr 44px; gap:8px; align-items:center; }
+    .dist-label { color:var(--cs-color-text-secondary); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .dist-bar { height:13px; border-radius:999px; background:rgba(148,163,184,.08); overflow:hidden; display:flex; }
+    .dist-fill { height:100%; border-radius:999px; }
+    .dist-fill.up { background:linear-gradient(90deg,rgba(255,77,90,.52),var(--cs-color-market-up)); }
+    .dist-fill.down { background:linear-gradient(90deg,rgba(21,199,132,.52),var(--cs-color-market-down)); }
+    .dist-fill.fail { background:linear-gradient(90deg,rgba(245,158,11,.40),var(--cs-color-warning)); }
+    .limit-map-title { font-weight:650; margin-bottom:8px; color:#DDE8F7; }
+
+    .ladder {
+      display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:10px; overflow-x:auto;
+    }
+    .ladder-level { min-width: 230px; border:1px solid rgba(148,163,184,.14); background:#0D1422; border-radius: 12px; overflow:hidden; }
+    .ladder-head { display:flex; align-items:center; justify-content:space-between; padding:9px 10px; background:rgba(247,199,107,.08); border-bottom:1px solid rgba(247,199,107,.18); }
+    .ladder-title { font-weight:700; color:#F2DB9A; }
+    .ladder-count { font-family:var(--cs-font-family-number); color:var(--cs-color-text-secondary); }
+    .stock-card { margin:8px; padding:9px; border:1px solid rgba(148,163,184,.14); border-radius:10px; background:#121B2C; cursor:pointer; transition:.16s ease; }
+    .stock-card:hover { background:#182235; border-color:rgba(247,199,107,.34); transform: translateY(-1px); }
+    .stock-name { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:650; }
+    .stock-meta { margin-top:5px; color:var(--cs-color-text-muted); font-size:12px; display:flex; justify-content:space-between; gap:6px; }
+    .stock-price { margin-top:6px; display:flex; justify-content:space-between; gap:8px; font-family:var(--cs-font-family-number); }
+
+    /* Review v2: 板块速览左 4×2 榜单矩阵 + 右 5×4 热力图跨两行。 */
+    .sector-v2-layout { display:grid; grid-template-columns:minmax(0,4fr) minmax(300px,1.15fr); gap:10px; align-items:stretch; }
+    .sector-matrix { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(0,1fr)); gap:10px; }
+    .sector-col { border:1px solid rgba(148,163,184,.12); background:rgba(13,20,34,.72); border-radius:10px; padding:10px; min-width:0; }
+    .sector-title { color:#DDE8F7; font-weight:650; margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
+    .rank-item { display:grid; grid-template-columns:20px 1fr auto; align-items:center; gap:8px; height:28px; border-radius:8px; padding:0 6px; cursor:pointer; }
+    .rank-item:hover { background:rgba(247,199,107,.08); }
+    .heatmap-panel { border:1px solid rgba(148,163,184,.12); background:rgba(13,20,34,.72); border-radius:10px; padding:10px; display:flex; flex-direction:column; min-height:100%; }
+    .heatmap-preview { display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(5,1fr); gap:6px; flex:1; min-height:382px; }
+    .heat-cell { border-radius:7px; padding:6px; font-size:11px; line-height:1.25; cursor:pointer; overflow:hidden; border:1px solid rgba(255,255,255,.06); display:flex; flex-direction:column; justify-content:space-between; }
+    .heat-cell:hover { box-shadow:0 0 0 1px rgba(247,199,107,.36); transform:translateY(-1px); }
+
+    .state-lab { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; }
+    .state-block { border:1px dashed rgba(148,163,184,.22); border-radius:10px; padding:10px; background: rgba(13,20,34,.52); min-height:70px; }
+    .skeleton { height:12px; border-radius:999px; margin:8px 0; background:linear-gradient(90deg, rgba(148,163,184,.08), rgba(148,163,184,.18), rgba(148,163,184,.08)); background-size:200% 100%; animation: pulse 1.2s infinite linear; }
+    @keyframes pulse { to { background-position:-200% 0; } }
+    .empty-box { color: var(--cs-color-text-muted); display:flex; align-items:center; gap:8px; }
+    .error-box { color:#FFD1D1; border-color:rgba(255,107,107,.32); }
+    .delayed-box { color:#FFE4A8; border-color:rgba(245,158,11,.34); }
+
+    @media (max-width: 1500px) {
+      body { min-width: 1420px; }
+      .top-market-bar { grid-template-columns: 148px 540px minmax(280px, 1fr) 330px; }
+      .system-nav button { padding: 6px 7px; }
+      .index-grid { grid-template-columns: repeat(5, minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <header class="top-market-bar" aria-label="TopMarketBar">
+    <div class="brand"><div class="brand-mark">财势</div><span>财势乾坤</span></div>
+    <nav class="system-nav" aria-label="一级系统入口">
+      <button class="active" data-route="/market/overview">乾坤行情</button>
+      <button data-route="/market/emotion">财势探查</button>
+      <button data-route="/positions">交易助手</button>
+      <button data-route="/training">交易训练</button>
+      <button data-route="/data-center">数据中心</button>
+      <button data-route="/settings">系统设置</button>
+    </nav>
+    <div class="ticker-strip" id="tickerStrip" aria-label="主要指数行情条"></div>
+    <div class="top-meta">
+      <span class="num" id="clock">15:05:18</span>
+      <span class="status-pill"><i class="status-dot ready"></i>已收盘</span>
+      <span class="data-badge delayed" title="部分盘中数据为延迟源，历史数据已就绪"><i class="status-dot delayed"></i>数据延迟 90s</span>
+      <div class="user-entry" title="用户入口">明</div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <div class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">财势乾坤</a><span>/</span><a href="/market">乾坤行情</a><span>/</span><span class="current">市场总览</span>
+    </div>
+
+    <section class="page-header" aria-label="PageHeader">
+      <div class="page-title-wrap">
+        <h1>市场总览</h1>
+        <span class="scope-tag">A 股</span>
+        <span class="status-pill"><i class="status-dot ready"></i>交易日 2026-04-28</span>
+      </div>
+      <div class="header-actions">
+        <span>数据更新时间：<span class="num">2026-04-28 15:05:00</span></span>
+        <button id="refreshBtn" class="refresh-btn" type="button">手动刷新</button>
+      </div>
+    </section>
+
+    <section class="shortcut-bar" aria-label="ShortcutBar / 页面内快捷入口">
+      <article class="shortcut-card selected" data-route="/market/emotion">
+        <div class="shortcut-top"><span class="shortcut-title">市场温度与情绪</span><span class="badge neutral">新</span></div>
+        <div class="shortcut-desc">进入分析页查看温度、情绪、资金与风险，不在本页展示分数。</div>
+      </article>
+      <article class="shortcut-card" data-route="/opportunity/radar">
+        <div class="shortcut-top"><span class="shortcut-title">机会雷达</span><span class="badge">3</span></div>
+        <div class="shortcut-desc">查看板块轮动、资金回流与机会线索。</div>
+      </article>
+      <article class="shortcut-card" data-route="/watchlist">
+        <div class="shortcut-top"><span class="shortcut-title">我的自选</span><span class="badge neutral">18</span></div>
+        <div class="shortcut-desc">查看自选股行情、分组与提醒状态。</div>
+      </article>
+      <article class="shortcut-card" data-route="/positions">
+        <div class="shortcut-top"><span class="shortcut-title">我的持仓</span><span class="badge neutral">5</span></div>
+        <div class="shortcut-desc">查看手工登记持仓和当日波动。</div>
+      </article>
+      <article class="shortcut-card" data-route="/alerts">
+        <div class="shortcut-top"><span class="shortcut-title">提醒中心</span><span class="badge">2</span></div>
+        <div class="shortcut-desc">管理价格、资金、技术和计划提醒。</div>
+      </article>
+      <article class="shortcut-card" data-route="/settings">
+        <div class="shortcut-top"><span class="shortcut-title">用户设置</span><span class="badge neutral">--</span></div>
+        <div class="shortcut-desc">管理账户、偏好和展示设置。</div>
+      </article>
+    </section>
+
+    <div class="content-grid">
+      <!-- Review v2: 今日市场客观总结与主要指数恢复左右结构，50% / 50%。 -->
+      <div class="summary-index-row" aria-label="今日市场客观总结与主要指数组合">
+        <section class="summary-panel" aria-label="今日市场客观总结">
+          <div class="section-header">
+            <div class="section-title">今日市场客观总结 <span class="help" data-tip="基于主要指数、涨跌家数、成交额、资金流、涨跌停事实生成；不包含买卖建议、仓位建议或明日预测。">?</span></div>
+            <span class="data-badge ready"><i class="status-dot ready"></i>事实聚合已就绪</span>
+          </div>
+          <div class="summary-body-v2">
+            <div class="summary-facts-v2">
+              <div class="fact-card"><div class="fact-label">主要指数</div><div class="fact-value up">8/10</div><div class="fact-sub">上涨数量</div></div>
+              <div class="fact-card"><div class="fact-label">上涨 / 下跌</div><div class="fact-value"><span class="up">3421</span><span class="secondary">/</span><span class="down">1488</span></div><div class="fact-sub">平盘 219</div></div>
+              <div class="fact-card"><div class="fact-label">成交总额</div><div class="fact-value up">10523亿</div><div class="fact-sub">较昨日 +7.15%</div></div>
+              <div class="fact-card"><div class="fact-label">大盘资金</div><div class="fact-value down">-52.8亿</div><div class="fact-sub">净流出</div></div>
+              <div class="fact-card"><div class="fact-label">涨停 / 跌停</div><div class="fact-value"><span class="up">59</span><span class="secondary">/</span><span class="down">8</span></div><div class="fact-sub">炸板 27</div></div>
+            </div>
+            <div class="summary-text-card">
+              <strong>截至收盘，A 股主要指数多数上涨。</strong>
+              全市场上涨家数多于下跌家数，成交额较上一交易日放大；涨停家数高于跌停家数。大盘资金今日为净流出，资金分布呈现分化。本卡片仅描述客观事实，不展示市场温度、情绪指数、资金面分数、风险指数，也不构成交易建议。
+            </div>
+          </div>
+        </section>
+        <section class="panel" aria-label="主要指数">
+          <div class="section-header">
+            <div class="section-title">主要指数 <span class="help" data-tip="展示 A 股核心指数的最新点位、涨跌额和涨跌幅；点位、涨跌额、涨跌幅均严格红涨绿跌。点击指数卡进入指数详情。">?</span></div>
+            <span class="secondary">2 行 × 5 个；点击进入指数详情</span>
+          </div>
+          <div class="index-grid" id="indexGrid"></div>
+        </section>
+      </div>
+
+      <!-- 第一行：涨跌分布 ｜ 市场风格 ｜ 成交额总览 -->
+      <div class="row-three">
+        <section class="panel" aria-label="涨跌分布">
+          <div class="section-header">
+            <div class="section-title">涨跌分布 <span class="help" data-tip="当前日展示上涨、下跌、平盘家数；历史趋势只展示上涨家数和下跌家数，不展示平盘趋势线。">?</span></div>
+            <div class="range-switch" data-chart="breadth"><button class="active" data-range="1m">1个月</button><button data-range="3m">3个月</button></div>
+          </div>
+          <div class="mini-metrics">
+            <div class="metric-card"><div class="metric-label">上涨家数</div><div class="metric-value up">3421</div><div class="metric-sub">红盘率 66.7%</div></div>
+            <div class="metric-card"><div class="metric-label">下跌家数</div><div class="metric-value down">1488</div><div class="metric-sub">绿盘率 29.0%</div></div>
+            <div class="metric-card"><div class="metric-label">平盘家数</div><div class="metric-value flat">219</div><div class="metric-sub">当前日统计</div></div>
+          </div>
+          <div class="chart-box compact"><canvas id="breadthChart"></canvas><div class="chart-tooltip" id="breadthTip"></div></div>
+          <div class="chart-note">横轴：交易日期；纵轴：家数。鼠标移动显示日期、上涨家数、下跌家数。</div>
+        </section>
+
+        <section class="panel" aria-label="市场风格">
+          <div class="section-header">
+            <div class="section-title">市场风格 <span class="help" data-tip="展示大盘、小盘和涨跌中位数的客观涨跌幅，不展示等权平均，也不输出风格判断建议。">?</span></div>
+            <div class="range-switch" data-chart="style"><button class="active" data-range="1m">1个月</button><button data-range="3m">3个月</button></div>
+          </div>
+          <div class="mini-metrics">
+            <div class="metric-card"><div class="metric-label">大盘股平均涨跌幅</div><div class="metric-value up">+0.72%</div><div class="metric-sub">沪深300口径</div></div>
+            <div class="metric-card"><div class="metric-label">小盘股平均涨跌幅</div><div class="metric-value up">+1.48%</div><div class="metric-sub">中证1000口径</div></div>
+            <div class="metric-card"><div class="metric-label">涨跌中位数</div><div class="metric-value up">+0.48%</div><div class="metric-sub">全市场样本</div></div>
+          </div>
+          <div class="chart-box compact"><canvas id="styleChart"></canvas><div class="chart-tooltip" id="styleTip"></div></div>
+          <div class="chart-note">三线：大盘数值、小盘数值、涨跌中位数；纵轴单位为百分比。</div>
+        </section>
+
+        <section class="panel" aria-label="成交额总览">
+          <div class="section-header">
+            <div class="section-title">成交额总览 <span class="help" data-tip="展示当日全市场成交总额、较上一交易日变化、上一交易日成交额，以及 5 日均值。下方分别展示日内累计成交额和历史成交额。">?</span></div>
+            <div class="range-switch" data-chart="turnoverHistory"><button class="active" data-range="1m">1个月</button><button data-range="3m">3个月</button></div>
+          </div>
+          <div class="mini-metrics cols-4">
+            <div class="metric-card"><div class="metric-label">今日成交总额</div><div class="metric-value up">10523亿</div><div class="metric-sub">截至 15:00</div></div>
+            <div class="metric-card"><div class="metric-label">较上一交易日</div><div class="metric-value up">+702亿</div><div class="metric-sub">+7.15%</div></div>
+            <div class="metric-card"><div class="metric-label">上一交易日成交</div><div class="metric-value flat">9821亿</div><div class="metric-sub">2026-04-27</div></div>
+            <div class="metric-card"><div class="metric-label">5日均值</div><div class="metric-value flat">10180亿</div><div class="metric-sub">20日均值 9360亿</div></div>
+          </div>
+          <div class="turnover-charts">
+            <div>
+              <div class="sub-chart-title"><span>当日累计成交额</span><span class="secondary">09:30 / 11:30 / 15:00</span></div>
+              <div class="chart-box compact"><canvas id="intradayTurnoverChart"></canvas><div class="chart-tooltip" id="intradayTurnoverTip"></div></div>
+            </div>
+            <div>
+              <div class="sub-chart-title"><span>历史成交额趋势</span><span class="secondary">支持 1个月 / 3个月</span></div>
+              <div class="chart-box compact"><canvas id="turnoverHistoryChart"></canvas><div class="chart-tooltip" id="turnoverHistoryTip"></div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 第二行：大盘资金流向 ｜ 榜单速览 -->
+      <div class="row-two">
+        <section class="panel" aria-label="大盘资金流向">
+          <div class="section-header">
+            <div class="section-title">大盘资金流向 <span class="help" data-tip="展示今日与昨日大盘资金净流入；历史趋势以 0 为中线，正值为净流入，负值为净流出。主趋势线使用白色，Tooltip 中正红负绿。">?</span></div>
+            <div class="range-switch" data-chart="moneyFlow"><button class="active" data-range="1m">1个月</button><button data-range="3m">3个月</button></div>
+          </div>
+          <div class="fund-top">
+            <div class="fund-card"><div class="metric-label">今日大盘资金净流入</div><div class="amount down num">-52.8亿</div><div class="metric-sub">净流出；数据源：moneyflow_mkt_dc</div></div>
+            <div class="fund-card"><div class="metric-label">昨日大盘资金净流入</div><div class="amount up num">+31.6亿</div><div class="metric-sub">2026-04-27</div></div>
+          </div>
+          <div class="chart-box tall"><canvas id="moneyFlowChart"></canvas><div class="chart-tooltip" id="moneyFlowTip"></div></div>
+          <div class="chart-note">纵轴单位：亿元；0 轴居中，净流入为正，净流出为负。</div>
+        </section>
+
+        <section class="panel leaderboard" aria-label="榜单速览">
+          <div class="section-header">
+            <div class="section-title">榜单速览 <span class="help" data-tip="展示个股涨幅、跌幅、成交额、换手、量比异动榜。行 hover 清晰，点击进入个股详情；红涨绿跌正确。">?</span></div>
+            <span class="data-badge ready"><i class="status-dot ready"></i>dc_hot + 行情派生</span>
+          </div>
+          <div class="tabs" id="leaderTabs"></div>
+          <table aria-label="个股榜单">
+            <thead><tr><th>排名</th><th>股票</th><th>最新价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交量</th><th>成交额</th></tr></thead>
+            <tbody id="leaderRows"></tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- 第三行：涨跌停统计与分布。Review v2：严格 2×2。 -->
+      <section class="panel" aria-label="涨跌停统计与分布">
+        <div class="section-header">
+          <div class="section-title">涨跌停统计与分布 <span class="help" data-tip="Review v2 调整为 2×2：左上统计卡、右上今日结构、左下历史组合柱、右下昨日结构。涨停红色、跌停绿色，今日/昨日分布结构表达统一。">?</span></div>
+          <div class="range-switch" data-chart="limitHistory"><button class="active" data-range="1m">1个月</button><button data-range="3m">3个月</button></div>
+        </div>
+        <div class="limit-v2-grid">
+          <div class="limit-cell" aria-label="涨跌停核心统计卡">
+            <div class="limit-day-title"><b>核心统计</b><span class="day-tag">今日</span></div>
+            <div class="limit-stats">
+              <div class="metric-card"><div class="metric-label">涨停家数</div><div class="metric-value up">59</div><div class="metric-sub">不含 ST</div></div><div class="metric-card"><div class="metric-label">跌停家数</div><div class="metric-value down">8</div><div class="metric-sub">不含 ST</div></div><div class="metric-card"><div class="metric-label">炸板家数</div><div class="metric-value flat">27</div><div class="metric-sub">触板 86</div></div><div class="metric-card"><div class="metric-label">封板率</div><div class="metric-value up">68.6%</div><div class="metric-sub">59 / 86</div></div><div class="metric-card"><div class="metric-label">连板家数</div><div class="metric-value up">22</div><div class="metric-sub">二板及以上</div></div><div class="metric-card"><div class="metric-label">最高连板</div><div class="metric-value up">6板</div><div class="metric-sub">五板及以上合并</div></div><div class="metric-card"><div class="metric-label">天地板</div><div class="metric-value down">1</div><div class="metric-sub">高风险结构</div></div><div class="metric-card"><div class="metric-label">地天板</div><div class="metric-value up">2</div><div class="metric-sub">反包结构</div></div>
+            </div>
+          </div>
+          <div class="limit-cell" aria-label="今日涨停板块分布与跌停炸板结构"><div class="limit-day-title"><b>涨停板块分布 + 跌停/炸板结构</b><span class="day-tag">今日 04-28</span></div><div class="limit-day-grid" id="todayLimitStructure"></div></div>
+          <div class="limit-cell chart-cell" aria-label="历史涨跌停组合柱状图"><div class="sub-chart-title"><span>历史涨跌停组合柱图</span><span class="secondary">横轴日期 / 纵轴数量</span></div><div class="chart-box compact"><canvas id="limitHistoryChart"></canvas><div class="chart-tooltip" id="limitHistoryTip"></div></div></div>
+          <div class="limit-cell" aria-label="昨天涨停板块分布与跌停炸板结构"><div class="limit-day-title"><b>涨停板块分布 + 跌停/炸板结构</b><span class="day-tag">昨天 04-27</span></div><div class="limit-day-grid" id="yesterdayLimitStructure"></div></div>
+        </div>
+      </section>
+
+      <!-- 第四行：连板天梯 -->
+      <section class="panel" aria-label="连板天梯">
+        <div class="section-header">
+          <div class="section-title">连板天梯 <span class="help" data-tip="独立模块，紧跟涨跌停统计之后；横向展示首板、二板、三板、四板、五板及以上，每层显示股票数量和股票卡片。">?</span></div>
+          <span class="secondary">点击股票卡片进入个股详情</span>
+        </div>
+        <div class="ladder" id="ladder"></div>
+      </section>
+
+      <!-- 第五行：板块速览。Review v2：左侧 4×2 榜单矩阵，右侧 5×4 热力图跨两行。 -->
+      <section class="panel" aria-label="板块速览">
+        <div class="section-header"><div class="section-title">板块速览 <span class="help" data-tip="Review v2 指定结构：左侧行业/概念/地域/资金流 4 列 × 2 行 Top5 榜单矩阵；右侧板块热力图 5 行 × 4 列并跨两行。点击板块进入板块与榜单行情页。">?</span></div><button class="refresh-btn" type="button" data-route="/market/sector-heatmap">进入板块热力图</button></div>
+        <div class="sector-v2-layout"><div class="sector-matrix"><div class="sector-col"><div class="sector-title"><span>行业涨幅前五</span><span class="up">涨幅</span></div><div id="industryUp"></div></div><div class="sector-col"><div class="sector-title"><span>概念涨幅前五</span><span class="up">涨幅</span></div><div id="conceptUp"></div></div><div class="sector-col"><div class="sector-title"><span>地域涨幅前五</span><span class="up">涨幅</span></div><div id="regionUp"></div></div><div class="sector-col"><div class="sector-title"><span>资金流入前五</span><span class="up">净流入</span></div><div id="fundIn"></div></div><div class="sector-col"><div class="sector-title"><span>行业跌幅前五</span><span class="down">跌幅</span></div><div id="industryDown"></div></div><div class="sector-col"><div class="sector-title"><span>概念跌幅前五</span><span class="down">跌幅</span></div><div id="conceptDown"></div></div><div class="sector-col"><div class="sector-title"><span>地域跌幅前五</span><span class="down">跌幅</span></div><div id="regionDown"></div></div><div class="sector-col"><div class="sector-title"><span>资金流出前五</span><span class="down">净流出</span></div><div id="fundOut"></div></div></div><div class="heatmap-panel"><div class="sector-title"><span>板块热力图</span><span class="secondary">5 × 4</span></div><div class="heatmap-preview" id="heatmapPreview"></div></div></div>
+      </section>
+
+      <section class="panel" aria-label="状态样式基线">
+        <div class="section-header">
+          <div class="section-title">状态样式基线 <span class="help" data-tip="供 Codex 和前端工程师落地时复用：loading、empty、error、hover、active、selected、data delayed。">?</span></div>
+          <span class="secondary">展示基础状态，不参与业务判断</span>
+        </div>
+        <div class="state-lab">
+          <div class="state-block"><strong>loading</strong><div class="skeleton" style="width:82%"></div><div class="skeleton" style="width:54%"></div></div>
+          <div class="state-block empty-box"><span>—</span><span>empty：当前筛选条件下暂无数据，可切换最近交易日。</span></div>
+          <div class="state-block error-box"><strong>error</strong><br><span>503001 数据源不可用，可点击重试。</span></div>
+          <div class="state-block delayed-box"><strong>data delayed</strong><br><span>盘中源延迟 90s，历史数据已就绪。</span></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // ===== Mock ViewModel: mapped to GET /api/market/home-overview v0.4 =====
+    const cs = getComputedStyle(document.documentElement);
+    const C = {
+      up: cs.getPropertyValue('--cs-color-market-up').trim(),
+      down: cs.getPropertyValue('--cs-color-market-down').trim(),
+      flat: cs.getPropertyValue('--cs-color-market-flat').trim(),
+      brand: cs.getPropertyValue('--cs-color-brand').trim(),
+      info: cs.getPropertyValue('--cs-color-info').trim(),
+      purple: cs.getPropertyValue('--cs-color-purple').trim(),
+      white: '#F1F5F9',
+      grid: cs.getPropertyValue('--cs-color-chart-grid-primary').trim(),
+      axis: cs.getPropertyValue('--cs-color-chart-axis-line').trim(),
+      label: cs.getPropertyValue('--cs-color-chart-axis-label').trim(),
+      crosshair: cs.getPropertyValue('--cs-color-chart-crosshair-line').trim(),
+      zero: cs.getPropertyValue('--cs-color-chart-zero-line').trim(),
+    };
+
+    const indices = [
+      { code:'000001.SH', name:'上证指数', point:3128.42, change:28.66, pct:0.92, direction:'UP' },
+      { code:'399001.SZ', name:'深证成指', point:9842.15, change:-34.21, pct:-0.35, direction:'DOWN' },
+      { code:'399006.SZ', name:'创业板指', point:1986.22, change:22.03, pct:1.12, direction:'UP' },
+      { code:'000688.SH', name:'科创50', point:921.56, change:-1.66, pct:-0.18, direction:'DOWN' },
+      { code:'000300.SH', name:'沪深300', point:3726.84, change:26.58, pct:0.72, direction:'UP' },
+      { code:'000905.SH', name:'中证500', point:5642.33, change:58.65, pct:1.05, direction:'UP' },
+      { code:'000852.SH', name:'中证1000', point:5948.17, change:86.70, pct:1.48, direction:'UP' },
+      { code:'899050.BJ', name:'北证50', point:1196.35, change:24.15, pct:2.06, direction:'UP' },
+      { code:'000510.SH', name:'中证A500', point:4683.91, change:38.56, pct:0.83, direction:'UP' },
+      { code:'000016.SH', name:'上证50', point:2542.08, change:10.66, pct:0.42, direction:'UP' },
+    ];
+
+    function fmtPct(v){ return (v > 0 ? '+' : '') + v.toFixed(2) + '%'; }
+    function fmtMoneyYi(v){ return (v > 0 ? '+' : '') + v.toFixed(1) + '亿'; }
+    function clsBy(v){ return v > 0 ? 'up' : v < 0 ? 'down' : 'flat'; }
+    function colorBy(v){ return v > 0 ? C.up : v < 0 ? C.down : C.flat; }
+    function directionClass(d){ return d === 'UP' ? 'up' : d === 'DOWN' ? 'down' : 'flat'; }
+
+    function genDates(n) {
+      const arr = [];
+      const start = new Date('2026-04-28T00:00:00+08:00');
+      let d = new Date(start);
+      while (arr.length < n) {
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) arr.unshift(d.toISOString().slice(5,10));
+        d.setDate(d.getDate() - 1);
+      }
+      return arr;
+    }
+    function makeSeries(n, base, amp, trend = 0, noise = 1) {
+      return Array.from({length:n}, (_,i) => {
+        const wave = Math.sin(i/3.1) * amp + Math.cos(i/6.7) * amp * .55;
+        const jitter = Math.sin(i*1.73) * amp * .18 * noise;
+        return base + wave + trend * i + jitter;
+      });
+    }
+    const dates1m = genDates(22);
+    const dates3m = genDates(62);
+    function rangeData(dates, make) { return dates.map((date, i) => ({ date, ...make(i, dates.length) })); }
+
+    const data = {
+      breadth: {
+        '1m': rangeData(dates1m, (i,n) => ({ up: Math.round(makeSeries(n,2600,680,10)[i]), down: Math.round(makeSeries(n,2100,620,-6)[i]) })),
+        '3m': rangeData(dates3m, (i,n) => ({ up: Math.round(makeSeries(n,2480,720,6)[i]), down: Math.round(makeSeries(n,2230,690,-3)[i]) }))
+      },
+      style: {
+        '1m': rangeData(dates1m, (i,n) => ({ large: +(makeSeries(n,.22,.74,.006)[i]).toFixed(2), small: +(makeSeries(n,.38,1.08,.010)[i]).toFixed(2), median: +(makeSeries(n,.08,.62,.006)[i]).toFixed(2) })),
+        '3m': rangeData(dates3m, (i,n) => ({ large: +(makeSeries(n,.12,.82,.004)[i]).toFixed(2), small: +(makeSeries(n,.24,1.20,.006)[i]).toFixed(2), median: +(makeSeries(n,-.02,.68,.004)[i]).toFixed(2) }))
+      },
+      turnoverIntraday: [
+        { time:'09:30', amount: 0 }, { time:'10:00', amount: 1680 }, { time:'10:30', amount: 3150 },
+        { time:'11:00', amount: 4520 }, { time:'11:30', amount: 5620 }, { time:'13:30', amount: 7100 },
+        { time:'14:00', amount: 8280 }, { time:'14:30', amount: 9440 }, { time:'15:00', amount: 10523 }
+      ],
+      turnoverHistory: {
+        '1m': rangeData(dates1m, (i,n) => ({ amount: Math.round(makeSeries(n, 9300, 980, 34)[i]) })),
+        '3m': rangeData(dates3m, (i,n) => ({ amount: Math.round(makeSeries(n, 8800, 1180, 24)[i]) }))
+      },
+      moneyFlow: {
+        today: -52.8,
+        yesterday: 31.6,
+        '1m': rangeData(dates1m, (i,n) => ({ net: +(makeSeries(n, -12, 52, .42)[i]).toFixed(1) })),
+        '3m': rangeData(dates3m, (i,n) => ({ net: +(makeSeries(n, -8, 62, .22)[i]).toFixed(1) }))
+      },
+      limitHistory: {
+        '1m': rangeData(dates1m, (i,n) => ({ up: Math.max(18, Math.round(makeSeries(n, 48, 18, .28)[i])), down: Math.max(1, Math.round(makeSeries(n, 12, 9, -.03)[i])) })),
+        '3m': rangeData(dates3m, (i,n) => ({ up: Math.max(12, Math.round(makeSeries(n, 44, 20, .10)[i])), down: Math.max(1, Math.round(makeSeries(n, 14, 10, -.02)[i])) }))
+      }
+    };
+    data.breadth['1m'][data.breadth['1m'].length-1] = { date:'04-28', up:3421, down:1488 };
+    data.breadth['3m'][data.breadth['3m'].length-1] = { date:'04-28', up:3421, down:1488 };
+    data.style['1m'][data.style['1m'].length-1] = { date:'04-28', large:.72, small:1.48, median:.48 };
+    data.style['3m'][data.style['3m'].length-1] = { date:'04-28', large:.72, small:1.48, median:.48 };
+    data.turnoverHistory['1m'][data.turnoverHistory['1m'].length-1] = { date:'04-28', amount:10523 };
+    data.turnoverHistory['3m'][data.turnoverHistory['3m'].length-1] = { date:'04-28', amount:10523 };
+    data.moneyFlow['1m'][data.moneyFlow['1m'].length-1] = { date:'04-28', net:-52.8 };
+    data.moneyFlow['3m'][data.moneyFlow['3m'].length-1] = { date:'04-28', net:-52.8 };
+    data.limitHistory['1m'][data.limitHistory['1m'].length-1] = { date:'04-28', up:59, down:8 };
+    data.limitHistory['3m'][data.limitHistory['3m'].length-1] = { date:'04-28', up:59, down:8 };
+
+    // Render TopMarketBar tickers and Index cards.
+    const tickerStrip = document.getElementById('tickerStrip');
+    tickerStrip.innerHTML = indices.slice(0, 7).map(i => `
+      <span class="ticker-item" data-code="${i.code}" title="点击进入 ${i.name} 指数详情">
+        <span class="ticker-name">${i.name}</span>
+        <span class="ticker-meta num ${directionClass(i.direction)}">${i.point.toFixed(2)}</span>
+        <span class="ticker-meta num ${directionClass(i.direction)}">${fmtPct(i.pct)}</span>
+      </span>`).join('');
+
+    document.getElementById('indexGrid').innerHTML = indices.map((i, idx) => `
+      <article class="index-card ${idx === 0 ? 'selected' : ''}" data-code="${i.code}" title="点击进入 ${i.name} 指数详情">
+        <div class="index-name"><span>${i.name}</span><span class="num muted">${i.code}</span></div>
+        <div class="index-point num ${directionClass(i.direction)}">${i.point.toFixed(2)}</div>
+        <div class="index-change num ${directionClass(i.direction)}"><span>${i.change > 0 ? '+' : ''}${i.change.toFixed(2)}</span><span>${fmtPct(i.pct)}</span></div>
+      </article>`).join('');
+
+    function setupCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, w: rect.width, h: rect.height };
+    }
+    function drawAxes(ctx, w, h, pad, yTicks, labels) {
+      ctx.strokeStyle = C.grid;
+      ctx.lineWidth = 1;
+      ctx.font = '11px ' + cs.getPropertyValue('--cs-font-family-number');
+      ctx.fillStyle = C.label;
+      ctx.textAlign = 'right';
+      yTicks.forEach(t => {
+        const y = t.y;
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+        ctx.fillText(t.label, pad.l - 7, y + 4);
+      });
+      ctx.strokeStyle = C.axis;
+      ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.lineTo(w - pad.r, h - pad.b); ctx.stroke();
+      ctx.textAlign = 'center';
+      labels.forEach(l => ctx.fillText(l.label, l.x, h - 8));
+    }
+    function niceRange(vals, forcedZero=false) {
+      let min = Math.min(...vals), max = Math.max(...vals);
+      if (forcedZero) { min = Math.min(min, 0); max = Math.max(max, 0); }
+      if (min === max) { min -= 1; max += 1; }
+      const padding = (max - min) * .12;
+      return { min: min - padding, max: max + padding };
+    }
+    function lineChart(cfg) {
+      const canvas = document.getElementById(cfg.id);
+      const tip = document.getElementById(cfg.tip);
+      const { ctx, w, h } = setupCanvas(canvas);
+      const pad = { l: 48, r: 16, t: 16, b: 32 };
+      const vals = cfg.series.flatMap(s => cfg.data.map(d => d[s.key]));
+      const range = cfg.range || niceRange(vals, cfg.zeroCenter);
+      const x = i => pad.l + (w - pad.l - pad.r) * (i / Math.max(1, cfg.data.length - 1));
+      const y = v => pad.t + (range.max - v) / (range.max - range.min) * (h - pad.t - pad.b);
+      ctx.clearRect(0,0,w,h);
+      if (cfg.zeroCenter) {
+        const abs = Math.max(Math.abs(Math.min(...vals)), Math.abs(Math.max(...vals))) * 1.18 || 1;
+        range.min = -abs; range.max = abs;
+      }
+      const yTicks = [0,.25,.5,.75,1].map(r => {
+        const val = range.max - (range.max - range.min) * r;
+        return { y: pad.t + (h - pad.t - pad.b) * r, label: cfg.yFmt ? cfg.yFmt(val) : Math.round(val) };
+      });
+      const xLabels = [0, Math.floor((cfg.data.length-1)/2), cfg.data.length-1].map(i => ({ x:x(i), label: cfg.data[i][cfg.xKey] }));
+      drawAxes(ctx, w, h, pad, yTicks, xLabels);
+      if (cfg.zeroCenter) {
+        ctx.strokeStyle = C.zero; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(pad.l, y(0)); ctx.lineTo(w-pad.r, y(0)); ctx.stroke();
+      }
+      cfg.series.forEach(s => {
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 2;
+        ctx.beginPath();
+        cfg.data.forEach((d,i) => { const px=x(i), py=y(d[s.key]); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
+        ctx.stroke();
+        if (s.dots) {
+          ctx.fillStyle = s.color;
+          cfg.data.forEach((d,i) => { if (i % Math.ceil(cfg.data.length/8) === 0 || i === cfg.data.length-1) { ctx.beginPath(); ctx.arc(x(i), y(d[s.key]), 2.2, 0, Math.PI*2); ctx.fill(); } });
+        }
+      });
+      function locate(e) {
+        const r = canvas.getBoundingClientRect();
+        const mx = e.clientX - r.left;
+        const raw = (mx - pad.l) / (w - pad.l - pad.r) * (cfg.data.length - 1);
+        return Math.max(0, Math.min(cfg.data.length-1, Math.round(raw)));
+      }
+      canvas.onmousemove = e => {
+        const i = locate(e);
+        renderAllCharts();
+        const { ctx, w, h } = setupCanvas(canvas);
+        lineChart.drawOnly(cfg, ctx, w, h, i);
+        const d = cfg.data[i];
+        tip.innerHTML = `<div class="tooltip-title">${d[cfg.xKey]}</div>` + cfg.series.map(s => `<div class="tooltip-row"><span style="color:${s.color}">${s.name}</span><span class="num ${cfg.colorValue ? clsBy(d[s.key]) : ''}">${cfg.valueFmt ? cfg.valueFmt(d[s.key], s.key) : d[s.key]}</span></div>`).join('');
+        tip.style.left = Math.min(w - 170, Math.max(8, x(i) + 8)) + 'px';
+        tip.style.top = '22px';
+        tip.classList.add('visible');
+      };
+      canvas.onmouseleave = () => { tip.classList.remove('visible'); renderAllCharts(); };
+    }
+    lineChart.drawOnly = function(cfg, ctx, w, h, focusIndex) {
+      const pad = { l: 48, r: 16, t: 16, b: 32 };
+      const vals = cfg.series.flatMap(s => cfg.data.map(d => d[s.key]));
+      const range = cfg.range || niceRange(vals, cfg.zeroCenter);
+      if (cfg.zeroCenter) { const abs = Math.max(Math.abs(Math.min(...vals)), Math.abs(Math.max(...vals))) * 1.18 || 1; range.min=-abs; range.max=abs; }
+      const x = i => pad.l + (w - pad.l - pad.r) * (i / Math.max(1, cfg.data.length - 1));
+      const y = v => pad.t + (range.max - v) / (range.max - range.min) * (h - pad.t - pad.b);
+      ctx.clearRect(0,0,w,h);
+      const yTicks = [0,.25,.5,.75,1].map(r => { const val = range.max - (range.max-range.min)*r; return { y: pad.t + (h-pad.t-pad.b)*r, label: cfg.yFmt ? cfg.yFmt(val) : Math.round(val) }; });
+      const xLabels = [0, Math.floor((cfg.data.length-1)/2), cfg.data.length-1].map(i => ({ x:x(i), label: cfg.data[i][cfg.xKey] }));
+      drawAxes(ctx,w,h,pad,yTicks,xLabels);
+      if (cfg.zeroCenter) { ctx.strokeStyle = C.zero; ctx.beginPath(); ctx.moveTo(pad.l,y(0)); ctx.lineTo(w-pad.r,y(0)); ctx.stroke(); }
+      cfg.series.forEach(s => {
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 2;
+        ctx.beginPath(); cfg.data.forEach((d,i) => { if(i===0) ctx.moveTo(x(i), y(d[s.key])); else ctx.lineTo(x(i), y(d[s.key])); }); ctx.stroke();
+      });
+      ctx.strokeStyle = C.crosshair; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(x(focusIndex), pad.t); ctx.lineTo(x(focusIndex), h-pad.b); ctx.stroke(); ctx.setLineDash([]);
+      cfg.series.forEach(s => { ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x(focusIndex), y(cfg.data[focusIndex][s.key]), 3, 0, Math.PI*2); ctx.fill(); });
+    }
+
+    function barComboChart(cfg) {
+      const canvas = document.getElementById(cfg.id);
+      const tip = document.getElementById(cfg.tip);
+      const { ctx, w, h } = setupCanvas(canvas);
+      const pad = { l: 48, r: 16, t: 18, b: 32 };
+      const max = Math.max(...cfg.data.flatMap(d => [d.up, d.down])) * 1.2;
+      const xStep = (w - pad.l - pad.r) / cfg.data.length;
+      const y = v => h - pad.b - (v / max) * (h - pad.t - pad.b);
+      ctx.clearRect(0,0,w,h);
+      const yTicks = [0,.25,.5,.75,1].map(r => ({ y: pad.t + (h-pad.t-pad.b)*r, label: Math.round(max*(1-r)) }));
+      const xLabels = [0, Math.floor((cfg.data.length-1)/2), cfg.data.length-1].map(i => ({ x: pad.l + xStep*i + xStep/2, label: cfg.data[i].date }));
+      drawAxes(ctx,w,h,pad,yTicks,xLabels);
+      cfg.data.forEach((d,i) => {
+        const gx = pad.l + xStep*i + xStep*.18;
+        const bw = Math.max(2, xStep*.24);
+        ctx.fillStyle = C.up; ctx.fillRect(gx, y(d.up), bw, h-pad.b-y(d.up));
+        ctx.fillStyle = C.down; ctx.fillRect(gx+bw+2, y(d.down), bw, h-pad.b-y(d.down));
+      });
+      function locate(e) {
+        const r = canvas.getBoundingClientRect();
+        const mx = e.clientX - r.left;
+        return Math.max(0, Math.min(cfg.data.length-1, Math.floor((mx-pad.l)/xStep)));
+      }
+      canvas.onmousemove = e => {
+        const i = locate(e), d = cfg.data[i];
+        renderAllCharts();
+        const { ctx, w, h } = setupCanvas(canvas);
+        barComboChart.drawOnly(cfg, ctx, w, h, i);
+        tip.innerHTML = `<div class="tooltip-title">${d.date}</div><div class="tooltip-row"><span style="color:${C.up}">涨停数</span><span class="num up">${d.up}</span></div><div class="tooltip-row"><span style="color:${C.down}">跌停数</span><span class="num down">${d.down}</span></div>`;
+        tip.style.left = Math.min(w - 170, Math.max(8, pad.l + xStep*i + xStep/2 + 8)) + 'px';
+        tip.style.top = '22px'; tip.classList.add('visible');
+      };
+      canvas.onmouseleave = () => { tip.classList.remove('visible'); renderAllCharts(); };
+    }
+    barComboChart.drawOnly = function(cfg, ctx, w, h, focusIndex) {
+      const pad = { l:48, r:16, t:18, b:32 };
+      const max = Math.max(...cfg.data.flatMap(d => [d.up, d.down])) * 1.2;
+      const xStep = (w - pad.l - pad.r) / cfg.data.length;
+      const y = v => h - pad.b - (v/max)*(h-pad.t-pad.b);
+      ctx.clearRect(0,0,w,h);
+      const yTicks = [0,.25,.5,.75,1].map(r => ({ y: pad.t+(h-pad.t-pad.b)*r, label: Math.round(max*(1-r)) }));
+      const xLabels = [0,Math.floor((cfg.data.length-1)/2),cfg.data.length-1].map(i=>({x:pad.l+xStep*i+xStep/2,label:cfg.data[i].date}));
+      drawAxes(ctx,w,h,pad,yTicks,xLabels);
+      cfg.data.forEach((d,i)=>{const gx=pad.l+xStep*i+xStep*.18; const bw=Math.max(2,xStep*.24); ctx.fillStyle=C.up; ctx.fillRect(gx,y(d.up),bw,h-pad.b-y(d.up)); ctx.fillStyle=C.down; ctx.fillRect(gx+bw+2,y(d.down),bw,h-pad.b-y(d.down));});
+      ctx.strokeStyle = C.crosshair; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(pad.l+xStep*focusIndex+xStep/2,pad.t); ctx.lineTo(pad.l+xStep*focusIndex+xStep/2,h-pad.b); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    const chartState = { breadth:'1m', style:'1m', turnoverHistory:'1m', moneyFlow:'1m', limitHistory:'1m' };
+    function renderAllCharts() {
+      lineChart({ id:'breadthChart', tip:'breadthTip', data:data.breadth[chartState.breadth], xKey:'date', series:[{key:'up', name:'上涨家数', color:C.up, dots:true},{key:'down', name:'下跌家数', color:C.down, dots:true}], yFmt:v=>Math.round(v), valueFmt:v=>Math.round(v)+' 家' });
+      lineChart({ id:'styleChart', tip:'styleTip', data:data.style[chartState.style], xKey:'date', series:[{key:'large', name:'大盘数值', color:C.info},{key:'small', name:'小盘数值', color:C.brand},{key:'median', name:'涨跌中位数', color:C.purple}], yFmt:v=>v.toFixed(1)+'%', valueFmt:v=>fmtPct(v), colorValue:true });
+      lineChart({ id:'intradayTurnoverChart', tip:'intradayTurnoverTip', data:data.turnoverIntraday, xKey:'time', series:[{key:'amount', name:'累计成交额', color:C.brand, width:2.5, dots:true}], yFmt:v=>Math.round(v)+'亿', valueFmt:v=>Math.round(v)+'亿' });
+      lineChart({ id:'turnoverHistoryChart', tip:'turnoverHistoryTip', data:data.turnoverHistory[chartState.turnoverHistory], xKey:'date', series:[{key:'amount', name:'成交额', color:C.info, width:2.3}], yFmt:v=>Math.round(v/1000)+'k亿', valueFmt:v=>Math.round(v)+'亿' });
+      lineChart({ id:'moneyFlowChart', tip:'moneyFlowTip', data:data.moneyFlow[chartState.moneyFlow], xKey:'date', series:[{key:'net', name:'净流入', color:C.white, width:2.4, dots:true}], zeroCenter:true, yFmt:v=>v.toFixed(0)+'亿', valueFmt:v=>fmtMoneyYi(v), colorValue:true });
+      barComboChart({ id:'limitHistoryChart', tip:'limitHistoryTip', data:data.limitHistory[chartState.limitHistory] });
+    }
+
+    document.querySelectorAll('.range-switch button').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const wrap = e.currentTarget.closest('.range-switch');
+        const chart = wrap.dataset.chart;
+        chartState[chart] = e.currentTarget.dataset.range;
+        wrap.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        renderAllCharts();
+      });
+    });
+
+    // Leaderboards. Review v2: Top10 + fixed columns.
+    const leaderSeed = {
+      gainers:['涨幅榜',[['万丰奥威','002085.SZ',18.62,10.02,18.4,3.2,'192.6万手','34.8亿'],['中际旭创','300308.SZ',156.80,8.72,7.9,2.6,'61.4万手','96.1亿'],['赛力斯','601127.SH',92.14,7.35,5.8,2.1,'83.2万手','76.5亿'],['北方华创','002371.SZ',345.60,6.18,3.6,1.9,'19.7万手','68.2亿'],['宁德时代','300750.SZ',213.44,5.22,2.9,1.7,'42.8万手','91.5亿'],['三花智控','002050.SZ',25.88,4.96,6.4,2.4,'146.5万手','37.9亿'],['工业富联','601138.SH',28.19,3.46,2.4,1.5,'270.1万手','76.1亿'],['东方财富','300059.SZ',15.26,2.91,4.8,1.8,'828.6万手','126.4亿'],['中航沈飞','600760.SH',42.38,2.26,1.6,1.4,'39.2万手','16.6亿'],['贵州茅台','600519.SH',1588.00,0.82,0.7,1.1,'6.2万手','98.2亿']]],
+      losers:['跌幅榜',[['*ST广田','002482.SZ',1.32,-5.26,8.6,2.9,'88.2万手','1.2亿'],['荣盛发展','002146.SZ',1.78,-4.81,6.1,2.2,'251.3万手','4.5亿'],['金龙羽','002882.SZ',15.12,-4.15,9.8,1.8,'36.4万手','5.5亿'],['海印股份','000861.SZ',0.96,-3.98,5.2,2.0,'142.6万手','1.4亿'],['桂林旅游','000978.SZ',6.83,-3.44,4.3,1.7,'22.5万手','1.6亿'],['保利发展','600048.SH',8.18,-2.76,1.4,1.5,'166.8万手','13.7亿'],['中国中免','601888.SH',72.40,-2.42,1.1,1.3,'21.9万手','15.8亿'],['中国神华','601088.SH',38.66,-1.88,0.6,1.0,'53.3万手','20.6亿'],['招商银行','600036.SH',33.92,-1.22,0.4,0.9,'78.5万手','26.6亿'],['中国平安','601318.SH',41.10,-0.95,0.5,0.8,'66.1万手','27.2亿']]],
+      amount:['成交额榜',[['东方财富','300059.SZ',15.26,2.91,4.8,1.8,'828.6万手','126.4亿'],['贵州茅台','600519.SH',1588.00,0.82,0.7,1.1,'6.2万手','98.2亿'],['宁德时代','300750.SZ',213.44,5.22,2.9,1.7,'42.8万手','91.5亿'],['中际旭创','300308.SZ',156.80,8.72,7.9,2.6,'61.4万手','96.1亿'],['工业富联','601138.SH',28.19,3.46,2.4,1.5,'270.1万手','76.1亿'],['赛力斯','601127.SH',92.14,7.35,5.8,2.1,'83.2万手','76.5亿'],['北方华创','002371.SZ',345.60,6.18,3.6,1.9,'19.7万手','68.2亿'],['比亚迪','002594.SZ',225.32,1.18,1.6,1.2,'22.4万手','50.5亿'],['长安汽车','000625.SZ',15.74,1.62,2.2,1.3,'302.0万手','47.5亿'],['浪潮信息','000977.SZ',41.26,2.18,4.2,1.6,'103.2万手','42.6亿']]],
+      turnover:['换手榜',[['C宏工','301662.SZ',52.80,12.34,71.8,4.2,'34.1万手','18.0亿'],['金禄电子','301282.SZ',31.65,6.72,42.6,3.5,'28.8万手','9.1亿'],['华丰科技','688629.SH',36.20,4.11,39.4,2.8,'24.5万手','8.9亿'],['通达海','301378.SZ',28.90,-1.86,34.1,2.1,'12.2万手','3.5亿'],['星源卓镁','301398.SZ',45.52,3.18,32.7,2.4,'11.8万手','5.4亿'],['瑞迪智驱','301596.SZ',48.31,20.01,31.8,4.8,'16.9万手','8.2亿'],['胜蓝股份','300843.SZ',31.55,20.00,30.6,4.5,'19.1万手','6.0亿'],['南京聚隆','300644.SZ',27.08,20.02,29.3,3.9,'13.7万手','3.7亿'],['豪恩汽电','301488.SZ',62.90,20.00,27.5,3.6,'9.6万手','6.0亿'],['星辰科技','300998.SZ',28.60,20.00,26.8,3.1,'18.2万手','5.2亿']]],
+      surge:['异动榜·量比',[['长盈精密','300115.SZ',13.54,6.42,9.2,5.8,'236.5万手','32.0亿'],['三花智控','002050.SZ',25.88,4.96,6.4,4.9,'146.5万手','37.9亿'],['天齐锂业','002466.SZ',38.26,3.12,4.3,4.4,'74.2万手','28.4亿'],['晶澳科技','002459.SZ',12.42,-2.32,3.6,4.0,'202.6万手','25.2亿'],['软通动力','301236.SZ',45.70,5.66,8.1,3.8,'51.1万手','23.4亿'],['华工科技','000988.SZ',43.18,4.20,5.2,3.7,'52.8万手','22.8亿'],['景嘉微','300474.SZ',69.88,3.44,4.9,3.6,'21.4万手','15.0亿'],['万马股份','002276.SZ',10.22,2.88,7.4,3.5,'119.2万手','12.2亿'],['蓝思科技','300433.SZ',17.68,2.16,4.1,3.2,'94.7万手','16.7亿'],['立讯精密','002475.SZ',32.46,1.52,2.8,3.0,'77.5万手','25.2亿']]]
+    };
+    function renderLeader(key='gainers') {
+      document.getElementById('leaderTabs').innerHTML = Object.entries(leaderSeed).map(([k,v]) => `<button class="tab-btn ${k===key?'active':''}" data-key="${k}">${v[0]}</button>`).join('');
+      document.getElementById('leaderRows').innerHTML = leaderSeed[key][1].map((r,i) => { const dir = r[3] > 0 ? 'up' : r[3] < 0 ? 'down' : 'flat'; return `<tr data-code="${r[1]}"><td class="num muted">${i+1}</td><td class="stock-cell"><strong>${r[0]}</strong><br><span class="muted num">${r[1]}</span></td><td class="num ${dir}">${r[2].toFixed(2)}</td><td class="num ${dir}">${fmtPct(r[3])}</td><td class="num secondary">${r[4].toFixed(1)}%</td><td class="num secondary">${r[5].toFixed(1)}</td><td class="num secondary">${r[6]}</td><td class="num secondary">${r[7]}</td></tr>`; }).join('');
+      document.querySelectorAll('#leaderTabs .tab-btn').forEach(b => b.addEventListener('click', () => renderLeader(b.dataset.key)));
+      document.querySelectorAll('#leaderRows tr').forEach(tr => tr.addEventListener('click', () => toast(`进入个股详情：${tr.dataset.code}`)));
+    }
+
+    // Limit-up/down distribution graph. Review v2: today + yesterday share the same structure style.
+    function distRows(rows, type) {
+      return `<div><div class="limit-map-title">${type === 'up' ? '涨停板块分布' : '跌停 / 炸板结构'}</div><div class="distribution-graph">${rows.map(r => `<div class="dist-row" title="${r.name}：${r.count} 只"><span class="dist-label">${r.name}</span><span class="dist-bar"><span class="dist-fill ${r.kind}" style="width:${Math.max(8, r.ratio)}%"></span></span><span class="num ${r.kind === 'up' ? 'up' : r.kind === 'down' ? 'down' : 'flat'}">${r.count}</span></div>`).join('')}</div></div>`;
+    }
+    function renderLimitDay(containerId, data) {
+      document.getElementById(containerId).innerHTML = distRows(data.up, 'up') + distRows(data.downBroken, 'down');
+    }
+    renderLimitDay('todayLimitStructure', {
+      up:[{name:'机器人', count:12, ratio:86, kind:'up'}, {name:'固态电池', count:9, ratio:64, kind:'up'}, {name:'低空经济', count:8, ratio:58, kind:'up'}, {name:'算力设备', count:7, ratio:50, kind:'up'}, {name:'军工电子', count:5, ratio:36, kind:'up'}],
+      downBroken:[{name:'地产链跌停', count:3, ratio:42, kind:'down'}, {name:'ST风险', count:2, ratio:28, kind:'down'}, {name:'炸板·机器人', count:8, ratio:74, kind:'fail'}, {name:'炸板·锂电', count:6, ratio:52, kind:'fail'}, {name:'炸板·消费', count:4, ratio:38, kind:'fail'}]
+    });
+    renderLimitDay('yesterdayLimitStructure', {
+      up:[{name:'低空经济', count:10, ratio:82, kind:'up'}, {name:'有色金属', count:8, ratio:66, kind:'up'}, {name:'机器人', count:6, ratio:50, kind:'up'}, {name:'电力设备', count:5, ratio:42, kind:'up'}, {name:'通信设备', count:4, ratio:34, kind:'up'}],
+      downBroken:[{name:'医药商业跌停', count:2, ratio:35, kind:'down'}, {name:'酒店旅游跌停', count:1, ratio:22, kind:'down'}, {name:'炸板·低空', count:7, ratio:68, kind:'fail'}, {name:'炸板·有色', count:5, ratio:48, kind:'fail'}, {name:'炸板·军工', count:3, ratio:31, kind:'fail'}]
+    });
+
+    const ladder = [
+      { level:'首板', count:37, stocks:[['万丰奥威','002085.SZ','低空经济','18.62','+10.02%','0'],['三花智控','002050.SZ','机器人','25.88','+10.00%','1'],['长盈精密','300115.SZ','消费电子','13.54','+20.02%','2']]},
+      { level:'二板', count:9, stocks:[['中衡设计','603017.SH','低空经济','12.74','+10.02%','0'],['瑞迪智驱','301596.SZ','机器人','48.31','+20.01%','1'],['胜蓝股份','300843.SZ','铜缆连接','31.55','+20.00%','3']]},
+      { level:'三板', count:4, stocks:[['南京聚隆','300644.SZ','低空经济','27.08','+20.02%','1'],['豪恩汽电','301488.SZ','智能驾驶','62.90','+20.00%','2']]},
+      { level:'四板', count:2, stocks:[['正丹股份','300641.SZ','化工材料','29.44','+20.02%','0'],['川宁生物','301301.SZ','合成生物','14.08','+20.01%','1']]},
+      { level:'五板及以上', count:1, stocks:[['同为股份','002835.SZ','AI安防','22.16','+10.02%','0']]}
+    ];
+    document.getElementById('ladder').innerHTML = ladder.map(l => `<div class="ladder-level"><div class="ladder-head"><span class="ladder-title">${l.level}</span><span class="ladder-count">${l.count} 只</span></div>${l.stocks.map(s => `<article class="stock-card" data-code="${s[1]}"><div class="stock-name"><span>${s[0]}</span><span class="up num">${s[4]}</span></div><div class="stock-meta"><span>${s[1]}</span><span>${s[2]}</span></div><div class="stock-price"><span>${s[3]}</span><span class="secondary">开板 ${s[5]} 次</span></div></article>`).join('')}</div>`).join('');
+
+    function renderRank(container, rows, dir) {
+      document.getElementById(container).innerHTML = rows.map((r,i) => `<div class="rank-item" data-code="${r.code || ''}" title="点击进入 ${r.name}"><span class="num muted">${i+1}</span><span>${r.name}</span><span class="num ${dir || clsBy(r.value)}">${r.text}</span></div>`).join('');
+    }
+    renderRank('industryUp', [{name:'通信设备',text:'+3.86%',value:3.86},{name:'半导体',text:'+3.12%',value:3.12},{name:'汽车零部件',text:'+2.74%',value:2.74},{name:'电力设备',text:'+2.31%',value:2.31},{name:'军工电子',text:'+2.06%',value:2.06}], 'up');
+    renderRank('conceptUp', [{name:'铜缆高速连接',text:'+5.42%',value:5.42},{name:'机器人执行器',text:'+4.91%',value:4.91},{name:'CPO概念',text:'+4.36%',value:4.36},{name:'固态电池',text:'+3.88%',value:3.88},{name:'低空经济',text:'+3.42%',value:3.42}], 'up');
+    renderRank('regionUp', [{name:'广东板块',text:'+2.48%',value:2.48},{name:'江苏板块',text:'+2.12%',value:2.12},{name:'浙江板块',text:'+1.96%',value:1.96},{name:'安徽板块',text:'+1.73%',value:1.73},{name:'四川板块',text:'+1.58%',value:1.58}], 'up');
+    renderRank('fundIn', [{name:'光模块',text:'+28.6亿',value:28.6},{name:'半导体设备',text:'+23.1亿',value:23.1},{name:'机器人',text:'+18.2亿',value:18.2},{name:'电力设备',text:'+14.8亿',value:14.8},{name:'AI手机',text:'+11.6亿',value:11.6}], 'up');
+    renderRank('industryDown', [{name:'房地产开发',text:'-2.42%',value:-2.42},{name:'酒店餐饮',text:'-1.86%',value:-1.86},{name:'煤炭开采',text:'-1.31%',value:-1.31},{name:'银行',text:'-0.72%',value:-0.72},{name:'保险',text:'-0.55%',value:-0.55}], 'down');
+    renderRank('conceptDown', [{name:'旅游出行',text:'-1.44%',value:-1.44},{name:'地产服务',text:'-2.18%',value:-2.18},{name:'预制菜',text:'-1.26%',value:-1.26},{name:'免税店',text:'-1.04%',value:-1.04},{name:'煤化工',text:'-0.92%',value:-0.92}], 'down');
+    renderRank('regionDown', [{name:'海南板块',text:'-1.36%',value:-1.36},{name:'山西板块',text:'-1.12%',value:-1.12},{name:'云南板块',text:'-0.86%',value:-0.86},{name:'黑龙江',text:'-0.72%',value:-0.72},{name:'内蒙古',text:'-0.64%',value:-0.64}], 'down');
+    renderRank('fundOut', [{name:'房地产开发',text:'-15.4亿',value:-15.4},{name:'煤炭开采',text:'-11.8亿',value:-11.8},{name:'银行',text:'-9.6亿',value:-9.6},{name:'白酒',text:'-7.4亿',value:-7.4},{name:'旅游酒店',text:'-5.2亿',value:-5.2}], 'down');
+    const heatCells = [['算力',3.8],['光模块',5.6],['AI手机',2.7],['机器人',4.8],['固态电池',3.5],['低空经济',3.1],['军工电子',2.1],['汽车零部件',1.9],['消费电子',2.8],['券商',1.1],['白酒',0.4],['医药',-0.3],['银行',-0.7],['煤炭',-1.3],['旅游',-1.7],['地产',-2.4],['保险',-0.5],['航运港口',-0.9],['贵金属',-1.1],['农业',0.6]];
+    document.getElementById('heatmapPreview').innerHTML = heatCells.map(([name,p]) => `<div class="heat-cell ${clsBy(p)}" title="${name}｜涨跌幅 ${fmtPct(p)}｜点击进入板块与榜单行情页" style="background:${p>=0 ? `rgba(255,77,90,${Math.min(.42,.08+p/18)})` : `rgba(21,199,132,${Math.min(.42,.08+Math.abs(p)/12)})`}"><strong>${name}</strong><span class="num ${clsBy(p)}">${fmtPct(p)}</span></div>`).join('');
+
+    function toast(msg) {
+      let t = document.getElementById('toast');
+      if (!t) { t = document.createElement('div'); t.id='toast'; t.style.cssText='position:fixed;right:18px;bottom:18px;z-index:100;background:rgba(8,13,22,.96);border:1px solid rgba(247,199,107,.30);border-radius:10px;padding:10px 12px;color:#E5EEF9;box-shadow:0 12px 26px rgba(0,0,0,.35)'; document.body.appendChild(t); }
+      t.textContent = msg; t.style.opacity = '1'; clearTimeout(window.__toastTimer); window.__toastTimer = setTimeout(()=>t.style.opacity='0', 1800);
+    }
+    document.querySelectorAll('[data-route]').forEach(el => el.addEventListener('click', () => toast(`跳转：${el.dataset.route}`)));
+    document.querySelectorAll('.index-card,.ticker-item,.stock-card,.rank-item,.heat-cell').forEach(el => el.addEventListener('click', () => toast(`进入详情：${el.dataset.code || el.textContent.trim().slice(0,12)}`)));
+    document.getElementById('refreshBtn').addEventListener('click', e => { e.currentTarget.classList.add('loading'); e.currentTarget.textContent='刷新中'; setTimeout(()=>{ e.currentTarget.classList.remove('loading'); e.currentTarget.textContent='手动刷新'; toast('市场总览已刷新：2026-04-28 15:05:18'); }, 900); });
+    document.querySelectorAll('.help').forEach(h => h.addEventListener('click', () => h.classList.toggle('active')));
+
+    renderLeader('gainers');
+    window.addEventListener('resize', renderAllCharts);
+    setTimeout(renderAllCharts, 0);
+  </script>
+</body>
+</html>

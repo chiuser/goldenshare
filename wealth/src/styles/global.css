@@ -1,0 +1,61 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: var(--cs-layout-content-min-width);
+  background:
+    radial-gradient(circle at 18% -12%, rgba(184, 135, 46, 0.16), transparent 28%),
+    radial-gradient(circle at 82% 0%, rgba(90, 167, 255, 0.1), transparent 24%),
+    linear-gradient(180deg, #070b12 0%, #080d16 55%, #060911 100%);
+  color: var(--cs-color-text-primary);
+  font-family: var(--cs-font-family-base);
+  font-size: 13px;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.wealth-app-shell {
+  min-height: 100vh;
+}
+
+.wealth-bootstrap-panel {
+  max-width: 760px;
+  padding: 24px;
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--cs-radius-panel);
+  background: var(--cs-color-surface-panel);
+}
+
+.wealth-bootstrap-panel h1 {
+  margin: 0 0 12px;
+  font-size: 28px;
+}
+
+.wealth-bootstrap-panel p {
+  margin: 0;
+  color: var(--cs-color-text-secondary);
+  line-height: 1.7;
+}
+
+.wealth-eyebrow {
+  margin-bottom: 8px !important;
+  color: var(--cs-color-brand-accent) !important;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}

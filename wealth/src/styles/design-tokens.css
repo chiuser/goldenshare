@@ -1,0 +1,59 @@
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --cs-color-bg-page: #070b12;
+  --cs-color-bg-topbar: #0a1020;
+  --cs-color-bg-panel: #101827;
+  --cs-color-bg-panel-soft: #0d1422;
+  --cs-color-bg-panel-hover: #162033;
+  --cs-color-bg-chip: #111c2e;
+  --cs-color-surface-panel: #101827;
+  --cs-color-surface-card: #121b2c;
+  --cs-color-surface-card-hover: #182235;
+  --cs-color-border-subtle: rgba(148, 163, 184, 0.16);
+  --cs-color-border-default: rgba(148, 163, 184, 0.22);
+  --cs-color-border-strong: rgba(247, 199, 107, 0.56);
+  --cs-color-text-primary: #e5eef9;
+  --cs-color-text-secondary: #9ba8bc;
+  --cs-color-text-muted: #64748b;
+  --cs-color-market-up: #ff4d5a;
+  --cs-color-market-up-weak: rgba(255, 77, 90, 0.12);
+  --cs-color-market-down: #15c784;
+  --cs-color-market-down-weak: rgba(21, 199, 132, 0.12);
+  --cs-color-market-flat: #cbd5e1;
+  --cs-color-brand: #f7c76b;
+  --cs-color-brand-weak: rgba(247, 199, 107, 0.1);
+  --cs-color-brand-accent: #f7c76b;
+  --cs-color-warning: #f59e0b;
+  --cs-color-danger-system: #ff6b6b;
+  --cs-color-info: #5aa7ff;
+  --cs-color-purple: #a78bfa;
+  --cs-color-chart-axis-line: rgba(148, 163, 184, 0.34);
+  --cs-color-chart-axis-label: #7b8aa0;
+  --cs-color-chart-grid-primary: rgba(148, 163, 184, 0.14);
+  --cs-color-chart-zero-line: rgba(241, 245, 249, 0.4);
+  --cs-color-chart-crosshair-line: rgba(247, 199, 107, 0.72);
+  --cs-color-chart-tooltip-bg: rgba(8, 13, 22, 0.98);
+  --cs-color-chart-tooltip-border: rgba(247, 199, 107, 0.3);
+
+  --cs-font-family-base: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --cs-font-family-number: "DIN Alternate", "Roboto Mono", "SF Mono",
+    "JetBrains Mono", ui-monospace, monospace;
+
+  --cs-layout-top-market-bar-height: 56px;
+  --cs-layout-page-header-height: 56px;
+  --cs-layout-content-min-width: 1460px;
+  --cs-layout-content-max-width: 1840px;
+
+  --cs-space-8: 8px;
+  --cs-space-10: 10px;
+  --cs-space-12: 12px;
+  --cs-space-16: 16px;
+  --cs-space-20: 20px;
+  --cs-space-24: 24px;
+  --cs-radius-panel: 12px;
+  --cs-radius-card: 10px;
+  --cs-shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.26);
+}
