@@ -216,19 +216,19 @@ def _backfill_raw_hashes(bind) -> None:  # type: ignore[no-untyped-def]
         rows = result.fetchmany(2000)
         if not rows:
             break
-        params = []
         for row in rows:
             mapping = dict(row._mapping)
-            params.append(
+            bind.execute(
+                update_sql,
                 {
                     "ts_code": mapping["ts_code"],
                     "trade_date": mapping["trade_date"],
                     "reason": mapping["reason"],
                     "reason_hash": _hash_reason(mapping.get("reason")),
                     "payload_hash": _build_payload_hash(mapping),
-                }
+                },
             )
-        bind.execute(update_sql, params)
+    result.close()
 
 
 def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[no-untyped-def]
@@ -271,10 +271,10 @@ def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[
         rows = result.fetchmany(2000)
         if not rows:
             break
-        params = []
         for row in rows:
             mapping = dict(row._mapping)
-            params.append(
+            bind.execute(
+                update_sql,
                 {
                     "ts_code": mapping["ts_code"],
                     "trade_date": mapping["trade_date"],
@@ -282,9 +282,9 @@ def _backfill_serving_reason_hash_and_provenance(bind) -> None:  # type: ignore[
                     "reason_hash": _hash_reason(mapping.get("reason")),
                     "selected_payload_hash": _build_payload_hash(mapping),
                     "resolution_policy_version": POLICY_VERSION,
-                }
+                },
             )
-        bind.execute(update_sql, params)
+    result.close()
 
     op.execute("DROP TABLE IF EXISTS _tmp_top_list_variant_counts")
     op.execute(
