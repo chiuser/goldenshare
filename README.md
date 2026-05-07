@@ -159,19 +159,27 @@ DatasetDefinition
 4. 新数据集必须接入任务中心手动任务、任务记录、任务详情和数据源卡片状态展示。
 5. smoke 验证优先通过 Web 任务中心创建小范围维护任务；命令行只保留薄入口，不能作为独立事实源。
 
-## top_list reason_hash 切换顺序
+## top_list 版本保留口径
 
-`core.equity_top_list` 当前处于分阶段切换中：
+`top_list` 现已按“业务身份 / 来源版本”两层事实收口：
 
-- `reason_hash` 已写入 `core`
-- 当前维护写入仍沿用旧主键语义做 upsert
-- 还没有切到 `(ts_code, trade_date, reason_hash)` 冲突键
+- `reason_hash` 表示同一个龙虎榜业务事件
+- `payload_hash` 表示该业务事件的某一个来源版本
+- `raw_tushare.top_list` 按 `(ts_code, trade_date, reason, payload_hash)` 保留来源版本
+- `core_serving.equity_top_list` 继续按 `(ts_code, trade_date, reason_hash)` 保留一条业务事实
+- serving 同时记录：
+  - `selected_payload_hash`
+  - `variant_count`
+  - `resolution_policy_version`
 
-后续正确切换顺序：
-1. 执行 `goldenshare init-db` 应用 migration
-2. 执行 `python3 -m src.scripts.repair_top_list_reason_hash` 补齐历史 `reason_hash`
-3. 运行冲突检查，确认不存在相同 `(ts_code, trade_date, reason_hash)` 的重复组
-4. 最后单独一轮把 `top_list` 的 upsert 冲突键切到 `(ts_code, trade_date, reason_hash)`
+当前 V1 版本选择规则只有一条硬规则：
+
+- 同一 `reason_hash` 下，若 `float_values` 一条为空、一条非空，优先保留非空值版本
+- 其它数值冲突先保守保持当前最后一条口径，同时通过 `variant_count + selected_payload_hash` 保证后续可追溯
+
+详细设计见：
+
+- [top-list-business-identity-and-source-version-plan-v1.md](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)
 
 ## 最小启动顺序示例
 

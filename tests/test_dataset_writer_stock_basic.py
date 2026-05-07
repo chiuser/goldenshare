@@ -188,12 +188,14 @@ def test_writer_top_list_uses_reason_hash_only_for_serving_upsert() -> None:
                 "trade_date": date(2019, 7, 19),
                 "reason": "当日无价格涨跌幅限制的A股，出现异常波动停牌的",
                 "reason_hash": "644a65b32e1965db7c889958fc4a47f114ed7b3762d3fe465cb67784249e4582",
+                "payload_hash": "payload-a",
             },
             {
                 "ts_code": "603256.SH",
                 "trade_date": date(2019, 7, 19),
                 "reason": "当日无价格涨跌幅限制的A股,出现异常波动停牌的",
                 "reason_hash": "644a65b32e1965db7c889958fc4a47f114ed7b3762d3fe465cb67784249e4582",
+                "payload_hash": "payload-b",
             },
         ],
         rows_rejected=0,
@@ -206,9 +208,81 @@ def test_writer_top_list_uses_reason_hash_only_for_serving_upsert() -> None:
         batch=batch,
         raw_dao=raw_dao,
         core_dao=core_dao,
+        raw_conflict_columns=("ts_code", "trade_date", "reason", "payload_hash"),
         conflict_columns=("ts_code", "trade_date", "reason_hash"),
+        serving_conflict_resolution_policy="top_list_variant_resolution_v1",
     )
 
-    assert written == 2
-    assert raw_dao.calls[0][1] == ["ts_code", "trade_date", "reason"]
+    assert written == 1
+    assert raw_dao.calls[0][1] == ["ts_code", "trade_date", "reason", "payload_hash"]
     assert core_dao.calls[0][1] == ["ts_code", "trade_date", "reason_hash"]
+    assert core_dao.calls[0][0][0]["selected_payload_hash"] == "payload-b"
+    assert core_dao.calls[0][0][0]["variant_count"] == 2
+    assert core_dao.calls[0][0][0]["resolution_policy_version"] == "top_list_variant_resolution_v1"
+
+
+def test_writer_top_list_prefers_non_null_float_values_for_serving_conflict() -> None:
+    batch = NormalizedBatch(
+        unit_id="u-top-list-float-values",
+        rows_normalized=[
+            {
+                "ts_code": "603517.SH",
+                "trade_date": date(2017, 3, 29),
+                "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                "reason_hash": "0370e845c74bc4b1f9eb4ead034413a8bf0d40df9fa25cadd95f1afafca1d274",
+                "payload_hash": "payload-1",
+                "float_values": "2482500000.0",
+            },
+            {
+                "ts_code": "603517.SH",
+                "trade_date": date(2017, 3, 29),
+                "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                "reason_hash": "0370e845c74bc4b1f9eb4ead034413a8bf0d40df9fa25cadd95f1afafca1d274",
+                "payload_hash": "payload-2",
+                "float_values": None,
+            },
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+    raw_dao = _StubConflictDao(RawTopList)
+    core_dao = _StubConflictDao(EquityTopList)
+
+    written = DatasetWriter._write_raw_and_core(
+        batch=batch,
+        raw_dao=raw_dao,
+        core_dao=core_dao,
+        raw_conflict_columns=("ts_code", "trade_date", "reason", "payload_hash"),
+        conflict_columns=("ts_code", "trade_date", "reason_hash"),
+        serving_conflict_resolution_policy="top_list_variant_resolution_v1",
+    )
+
+    assert written == 1
+    assert len(raw_dao.calls[0][0]) == 2
+    assert core_dao.calls[0][1] == ["ts_code", "trade_date", "reason_hash"]
+    assert len(core_dao.calls[0][0]) == 1
+    assert core_dao.calls[0][0][0]["float_values"] == "2482500000.0"
+    assert core_dao.calls[0][0][0]["selected_payload_hash"] == "payload-1"
+    assert core_dao.calls[0][0][0]["variant_count"] == 2
+
+
+def test_writer_top_list_counts_only_duplicate_raw_versions_as_rejections() -> None:
+    reason_counts = DatasetWriter._duplicate_reason_counts(
+        rows=[
+            {
+                "ts_code": "603517.SH",
+                "trade_date": date(2017, 3, 29),
+                "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                "payload_hash": "payload-1",
+            },
+            {
+                "ts_code": "603517.SH",
+                "trade_date": date(2017, 3, 29),
+                "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                "payload_hash": "payload-2",
+            },
+        ],
+        conflict_columns=("ts_code", "trade_date", "reason", "payload_hash"),
+    )
+
+    assert reason_counts == {}

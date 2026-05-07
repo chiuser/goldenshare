@@ -15,6 +15,8 @@ class RawTopList(Base):
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
     reason: Mapped[str] = mapped_column(Text, primary_key=True)
+    payload_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reason_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str | None] = mapped_column(String(64))
     close: Mapped[float | None] = mapped_column(Numeric(18, 4))
     pct_change: Mapped[float | None] = mapped_column(Numeric(10, 4))

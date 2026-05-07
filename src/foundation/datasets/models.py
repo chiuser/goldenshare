@@ -135,8 +135,10 @@ class DatasetStorageDefinition:
     std_table: str | None
     serving_table: str | None
     raw_table: str
+    raw_conflict_columns: tuple[str, ...] | None = None
     conflict_columns: tuple[str, ...] | None = None
     write_path: str = "raw_core_upsert"
+    serving_conflict_resolution_policy: str = "none"
     row_identity_filters: dict[str, str | int | bool] = field(default_factory=dict)
 
 

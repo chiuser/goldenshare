@@ -77,8 +77,10 @@ class PlanWriting:
     target_table: str
     raw_dao_name: str
     core_dao_name: str
+    raw_conflict_columns: tuple[str, ...] | None
     conflict_columns: tuple[str, ...] | None
     write_path: str
+    serving_conflict_resolution_policy: str = "none"
 
 
 @dataclass(frozen=True, slots=True)

@@ -84,8 +84,10 @@ class DatasetActionResolver:
                 target_table=definition.storage.target_table,
                 raw_dao_name=definition.storage.raw_dao_name,
                 core_dao_name=definition.storage.core_dao_name,
+                raw_conflict_columns=definition.storage.raw_conflict_columns,
                 conflict_columns=definition.storage.conflict_columns,
                 write_path=definition.storage.write_path,
+                serving_conflict_resolution_policy=definition.storage.serving_conflict_resolution_policy,
             ),
             transaction=PlanTransactionPolicy(
                 commit_policy=definition.transaction.commit_policy,

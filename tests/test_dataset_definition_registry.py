@@ -40,11 +40,13 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
 
 
-def test_top_list_definition_uses_reason_hash_as_serving_conflict_key() -> None:
+def test_top_list_definition_uses_split_raw_and_serving_conflict_keys() -> None:
     definition = get_dataset_definition("top_list")
 
     assert definition.storage.target_table == "core_serving.equity_top_list"
+    assert definition.storage.raw_conflict_columns == ("ts_code", "trade_date", "reason", "payload_hash")
     assert definition.storage.conflict_columns == ("ts_code", "trade_date", "reason_hash")
+    assert definition.storage.serving_conflict_resolution_policy == "top_list_variant_resolution_v1"
 
 
 def test_index_weight_declares_minimal_universe_pool() -> None:

@@ -5,11 +5,13 @@ from datetime import datetime, time
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
+import math
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from src.foundation.services.transform.suspend_hash import build_suspend_d_row_key_hash
 from src.foundation.services.transform.top_list_reason import hash_top_list_reason
+from src.foundation.services.transform.top_list_payload import build_top_list_payload_hash
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
@@ -19,6 +21,22 @@ class RowTransformReject(ValueError):
     def __init__(self, reason_code: str, message: str) -> None:
         super().__init__(message)
         self.reason_code = reason_code
+
+
+_TOP_LIST_PSEUDO_NULL_NUMBER_TEXTS = {"nan", "nat", "none", "null"}
+
+
+def _normalize_top_list_optional_number(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, Decimal):
+        return None if value.is_nan() else value
+    if isinstance(value, float):
+        return None if math.isnan(value) else value
+    text = str(value).strip()
+    if not text or text.lower() in _TOP_LIST_PSEUDO_NULL_NUMBER_TEXTS:
+        return None
+    return value
 
 
 def _moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
@@ -177,7 +195,9 @@ def _suspend_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 def _top_list_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["pct_chg"] = transformed.get("pct_change")
+    transformed["float_values"] = _normalize_top_list_optional_number(transformed.get("float_values"))
     transformed["reason_hash"] = hash_top_list_reason(transformed.get("reason"))
+    transformed["payload_hash"] = build_top_list_payload_hash(transformed)
     return transformed
 
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.source_client import SourceFetchResult
+from src.foundation.services.transform.top_list_payload import build_top_list_payload_hash
 
 
 def test_dc_daily_normalizer_keeps_required_fields() -> None:
@@ -51,6 +52,100 @@ def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -
     assert batch.rows_rejected == 0
     assert batch.rows_normalized[0]["reason"] != batch.rows_normalized[1]["reason"]
     assert batch.rows_normalized[0]["reason_hash"] == batch.rows_normalized[1]["reason_hash"]
+    assert batch.rows_normalized[0]["payload_hash"] != batch.rows_normalized[1]["payload_hash"]
+
+
+def test_top_list_normalizer_treats_nan_float_values_as_null() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("top_list"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-top-list-nan-float-values",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20170329",
+                    "ts_code": "603517.SH",
+                    "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                    "float_values": float("nan"),
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["float_values"] is None
+    assert isinstance(batch.rows_normalized[0]["payload_hash"], str)
+    assert len(batch.rows_normalized[0]["payload_hash"]) == 64
+
+
+def test_top_list_normalizer_normalizes_equivalent_null_float_values_to_same_payload_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("top_list"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-top-list-equivalent-null-payload",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20170329",
+                    "ts_code": "603517.SH",
+                    "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                    "float_values": float("nan"),
+                },
+                {
+                    "trade_date": "20170329",
+                    "ts_code": "603517.SH",
+                    "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+                    "float_values": None,
+                },
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["payload_hash"] == batch.rows_normalized[1]["payload_hash"]
+
+
+def test_top_list_payload_hash_matches_between_raw_and_serving_row_shapes() -> None:
+    raw_row = {
+        "ts_code": "603517.SH",
+        "trade_date": date(2017, 3, 29),
+        "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+        "name": "绝味食品",
+        "close": "51.69",
+        "pct_change": "10.0100",
+        "turnover_rate": "8.8200",
+        "amount": "2041.500000",
+        "l_sell": "61.501425",
+        "l_buy": "2041.495965",
+        "l_amount": "2102.997390",
+        "net_amount": "1979.994540",
+        "net_rate": "96.9900",
+        "amount_rate": "103.0100",
+        "float_values": "2482500000.0",
+    }
+    serving_row = {
+        "ts_code": "603517.SH",
+        "trade_date": date(2017, 3, 29),
+        "reason": "非ST、*ST和S证券连续三个交易日内收盘价格涨幅偏离值累计达到20%的证券",
+        "name": "绝味食品",
+        "close": "51.69",
+        "pct_chg": "10.0100",
+        "turnover_rate": "8.8200",
+        "amount": "2041.500000",
+        "l_sell": "61.501425",
+        "l_buy": "2041.495965",
+        "l_amount": "2102.997390",
+        "net_amount": "1979.994540",
+        "net_rate": "96.9900",
+        "amount_rate": "103.0100",
+        "float_values": "2482500000.0",
+    }
+
+    assert build_top_list_payload_hash(raw_row) == build_top_list_payload_hash(serving_row)
 
 
 def test_cctv_news_normalizer_keeps_source_date_and_builds_row_hash() -> None:

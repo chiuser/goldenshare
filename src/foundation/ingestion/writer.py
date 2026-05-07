@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from datetime import timedelta
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import Date as SqlDate
@@ -151,12 +152,15 @@ class DatasetWriter:
                 batch=batch,
                 raw_dao=raw_dao,
                 core_dao=core_dao,
+                raw_conflict_columns=definition.storage.raw_conflict_columns,
                 conflict_columns=definition.storage.conflict_columns,
+                serving_conflict_resolution_policy=definition.storage.serving_conflict_resolution_policy,
             )
             rejected_reason_counts = self._duplicate_reason_counts(
                 rows=batch.rows_normalized,
-                conflict_columns=self._resolve_conflict_columns(
-                    core_dao,
+                conflict_columns=self._resolve_effective_raw_conflict_columns(
+                    raw_dao,
+                    definition.storage.raw_conflict_columns,
                     definition.storage.conflict_columns,
                 ),
             )
@@ -619,13 +623,24 @@ class DatasetWriter:
         batch: NormalizedBatch,
         raw_dao,
         core_dao,
+        raw_conflict_columns: tuple[str, ...] | None,
         conflict_columns: tuple[str, ...] | None,
+        serving_conflict_resolution_policy: str = "none",
     ) -> int:
         raw_rows = cls._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
         core_rows = cls._coerce_rows_for_dao(batch.rows_normalized, core_dao)
         if conflict_columns:
-            raw_conflict_columns = cls._materialize_conflict_columns(raw_dao, conflict_columns)
+            raw_conflict_columns = cls._resolve_effective_raw_conflict_columns(
+                raw_dao,
+                raw_conflict_columns,
+                conflict_columns,
+            )
             core_conflict_columns = cls._materialize_conflict_columns(core_dao, conflict_columns)
+            core_rows = cls._apply_serving_conflict_resolution(
+                rows=core_rows,
+                conflict_columns=core_conflict_columns,
+                resolution_policy=serving_conflict_resolution_policy,
+            )
             if raw_conflict_columns:
                 raw_dao.bulk_upsert(raw_rows, conflict_columns=list(raw_conflict_columns))
             else:
@@ -635,6 +650,84 @@ class DatasetWriter:
             return core_dao.bulk_upsert(core_rows)
         raw_dao.bulk_upsert(raw_rows)
         return core_dao.bulk_upsert(core_rows)
+
+    @classmethod
+    def _apply_serving_conflict_resolution(
+        cls,
+        *,
+        rows: list[dict[str, Any]],
+        conflict_columns: tuple[str, ...],
+        resolution_policy: str,
+    ) -> list[dict[str, Any]]:
+        if resolution_policy == "none" or not rows or not conflict_columns:
+            return rows
+        if resolution_policy != "top_list_variant_resolution_v1":
+            return rows
+        grouped_payload_rows: dict[tuple[Any, ...], dict[str, dict[str, Any]]] = {}
+        ordered_groups: list[tuple[Any, ...]] = []
+        ordered_payload_hashes: dict[tuple[Any, ...], list[str]] = {}
+        passthrough_rows: list[dict[str, Any]] = []
+        for row in rows:
+            if any(column not in row or row[column] is None for column in conflict_columns):
+                passthrough_rows.append(cls._annotate_top_list_variant(row, variant_count=1))
+                continue
+            payload_hash = str(row.get("payload_hash") or "").strip()
+            if not payload_hash:
+                passthrough_rows.append(cls._annotate_top_list_variant(row, variant_count=1))
+                continue
+            key = tuple(row[column] for column in conflict_columns)
+            if key not in grouped_payload_rows:
+                grouped_payload_rows[key] = {}
+                ordered_payload_hashes[key] = []
+                ordered_groups.append(key)
+            if payload_hash not in grouped_payload_rows[key]:
+                ordered_payload_hashes[key].append(payload_hash)
+            grouped_payload_rows[key][payload_hash] = row
+
+        resolved_rows = list(passthrough_rows)
+        for key in ordered_groups:
+            payload_rows = grouped_payload_rows[key]
+            ordered_hashes = ordered_payload_hashes[key]
+            selected = payload_rows[ordered_hashes[0]]
+            for payload_hash in ordered_hashes[1:]:
+                selected = cls._prefer_non_null_float_values_row(selected, payload_rows[payload_hash])
+            resolved_rows.append(
+                cls._annotate_top_list_variant(
+                    selected,
+                    variant_count=len(ordered_hashes),
+                )
+            )
+        return resolved_rows
+
+    @staticmethod
+    def _annotate_top_list_variant(row: dict[str, Any], *, variant_count: int) -> dict[str, Any]:
+        annotated = dict(row)
+        payload_hash = str(annotated.get("payload_hash") or "").strip()
+        annotated["selected_payload_hash"] = payload_hash or None
+        annotated["variant_count"] = max(int(variant_count), 1)
+        annotated["resolution_policy_version"] = "top_list_variant_resolution_v1"
+        return annotated
+
+    @staticmethod
+    def _prefer_non_null_float_values_row(current: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+        current_is_null = DatasetWriter._is_effective_null_float_values(current.get("float_values"))
+        candidate_is_null = DatasetWriter._is_effective_null_float_values(candidate.get("float_values"))
+        if current_is_null and not candidate_is_null:
+            return candidate
+        if not current_is_null and candidate_is_null:
+            return current
+        return candidate
+
+    @staticmethod
+    def _is_effective_null_float_values(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, Decimal):
+            return value.is_nan()
+        if isinstance(value, float):
+            return value != value
+        text = str(value).strip().lower()
+        return text in {"", "nan", "nat", "none", "null"}
 
     @staticmethod
     def _coerce_rows_for_dao(rows: list[dict[str, Any]], dao) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
@@ -685,6 +778,17 @@ class DatasetWriter:
         if all(column in table_columns for column in explicit_columns):
             return tuple(explicit_columns)
         return cls._resolve_conflict_columns(dao, None)
+
+    @classmethod
+    def _resolve_effective_raw_conflict_columns(
+        cls,
+        raw_dao,
+        raw_conflict_columns: tuple[str, ...] | None,
+        serving_conflict_columns: tuple[str, ...] | None,
+    ) -> tuple[str, ...]:
+        if raw_conflict_columns:
+            return cls._materialize_conflict_columns(raw_dao, raw_conflict_columns)
+        return cls._materialize_conflict_columns(raw_dao, serving_conflict_columns)
 
     @classmethod
     def _duplicate_reason_counts(
