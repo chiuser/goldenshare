@@ -574,16 +574,11 @@ class DatasetWriter:
 
     def _resolve_active_index_codes(self) -> set[str]:
         active_codes = self.dao.index_series_active.list_active_codes("index_daily")
-        if not active_codes:
-            active_codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
-        normalized = {
+        return {
             str(code).strip().upper()
             for code in active_codes
             if str(code).strip()
         }
-        if not normalized:
-            raise ValueError("未找到可维护的指数代码")
-        return normalized
 
     @staticmethod
     def _purge_index_period_raw_rows_by_trade_dates(*, raw_dao, rows: list[dict[str, Any]]) -> None:

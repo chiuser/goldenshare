@@ -8,6 +8,7 @@ import pytest
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
+from src.foundation.ingestion.request_builders import _index_daily_params
 
 
 def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocker) -> None:
@@ -63,11 +64,15 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     assert "exchange" not in plan.units[0].request_params
 
 
-def test_index_daily_default_request_does_not_expand_active_pool(mocker) -> None:
+def test_index_daily_default_request_expands_index_basic_pool(mocker) -> None:
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(),
-        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(side_effect=AssertionError("active pool must not be queried"))),
-        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock(side_effect=AssertionError("index_basic fallback must not be queried"))),
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(side_effect=AssertionError("serving active pool must not drive requests"))),
+        index_basic=SimpleNamespace(
+            get_active_indexes=mocker.Mock(
+                return_value=[SimpleNamespace(ts_code="000300.SH"), SimpleNamespace(ts_code="000001.SH")]
+            )
+        ),
     )
     mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
     resolver = DatasetActionResolver(mocker.Mock())
@@ -79,9 +84,26 @@ def test_index_daily_default_request_does_not_expand_active_pool(mocker) -> None
 
     plan = resolver.build_plan(request)
 
-    assert plan.planning.unit_count == 1
-    assert plan.units[0].request_params == {"trade_date": "20260424"}
-    assert "ts_code" not in plan.units[0].request_params
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "000001.SH", "trade_date": "20260424"},
+        {"ts_code": "000300.SH", "trade_date": "20260424"},
+    ]
+    fake_dao.index_basic.get_active_indexes.assert_called_once_with()
+    fake_dao.index_series_active.list_active_codes.assert_not_called()
+
+
+def test_index_daily_request_builder_requires_ts_code() -> None:
+    request = SimpleNamespace(
+        run_profile="point_incremental",
+        trade_date=date(2026, 4, 24),
+        start_date=None,
+        end_date=None,
+        params={},
+    )
+
+    with pytest.raises(ValueError, match="指数日线缺少指数代码"):
+        _index_daily_params(request, date(2026, 4, 24), {})
 
 
 @pytest.mark.parametrize(

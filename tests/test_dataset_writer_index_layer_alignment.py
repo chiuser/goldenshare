@@ -116,6 +116,7 @@ def test_index_daily_writer_writes_raw_full_and_serving_active_only(mocker) -> N
     assert [[row["ts_code"] for row in call] for call in serving_dao.bulk_upsert_calls] == [["000001.SH"]]
     assert result.rows_written == 1
     assert result.rejected_reason_counts == {}
+    dao.index_basic.get_active_indexes.assert_not_called()
 
 
 def test_index_daily_explicit_non_active_ts_code_does_not_write_serving(mocker) -> None:
@@ -152,6 +153,42 @@ def test_index_daily_explicit_non_active_ts_code_does_not_write_serving(mocker) 
     assert serving_dao.bulk_upsert_calls == []
     assert result.rows_written == 0
     assert result.rejected_reason_counts == {}
+    dao.index_basic.get_active_indexes.assert_not_called()
+
+
+def test_index_daily_writer_does_not_fallback_to_index_basic_for_serving_pool(mocker) -> None:
+    raw_dao = _StubDao(model=RawIndexDaily)
+    serving_dao = _StubDao(model=IndexDailyServing)
+    dao = SimpleNamespace(
+        raw_index_daily=raw_dao,
+        index_daily_serving=serving_dao,
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=[])),
+        index_basic=SimpleNamespace(get_active_indexes=mocker.Mock(side_effect=AssertionError("index_basic must not drive serving gate"))),
+    )
+    _patch_writer_dao(mocker, dao)
+    writer = DatasetWriter(session=_StubSession())  # type: ignore[arg-type]
+    definition = get_dataset_definition("index_daily")
+    batch = NormalizedBatch(
+        unit_id="u-index-daily-empty-active",
+        rows_normalized=[
+            _index_row("000001.SH", date(2026, 4, 24)),
+            _index_row("999999.SH", date(2026, 4, 24)),
+        ],
+        rows_rejected=0,
+        rejected_reasons={},
+    )
+
+    result = writer.write(
+        definition=definition,
+        batch=batch,
+        plan_unit=_plan_unit(dataset_key="index_daily", trade_date=date(2026, 4, 24)),
+        run_profile="point_incremental",
+    )
+
+    assert [[row["ts_code"] for row in call] for call in raw_dao.bulk_upsert_calls] == [["000001.SH", "999999.SH"]]
+    assert serving_dao.bulk_upsert_calls == []
+    assert result.rows_written == 0
+    dao.index_basic.get_active_indexes.assert_not_called()
 
 
 @pytest.mark.parametrize(

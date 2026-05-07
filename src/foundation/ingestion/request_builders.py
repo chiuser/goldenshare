@@ -452,9 +452,9 @@ def _index_daily_basic_params(request, anchor_date: date | None, enum_values: di
 
 def _index_daily_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     ts_code = enum_values.get("ts_code") or request.params.get("ts_code")
-    params: dict[str, Any] = {}
-    if ts_code not in (None, ""):
-        params["ts_code"] = str(ts_code).strip().upper()
+    if ts_code in (None, ""):
+        raise ValueError("指数日线缺少指数代码")
+    params: dict[str, Any] = {"ts_code": str(ts_code).strip().upper()}
     if request.run_profile == "point_incremental":
         if request.trade_date is None:
             raise ValueError("指数日线单日维护缺少交易日期")

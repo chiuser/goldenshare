@@ -335,10 +335,8 @@ def _resolve_index_codes(request: ValidatedDatasetActionRequest, dao) -> list[st
     explicit_codes = split_multi_values(request.params.get("ts_code"))
     if explicit_codes:
         return sorted({str(code).strip().upper() for code in explicit_codes if str(code).strip()})
-    active_codes = dao.index_series_active.list_active_codes(request.dataset_key)
-    if not active_codes:
-        active_codes = [item.ts_code for item in dao.index_basic.get_active_indexes() if item.ts_code]
-    normalized = sorted({str(code).strip().upper() for code in active_codes if str(code).strip()})
+    index_basic_codes = [item.ts_code for item in dao.index_basic.get_active_indexes() if item.ts_code]
+    normalized = sorted({str(code).strip().upper() for code in index_basic_codes if str(code).strip()})
     if not normalized:
         raise DatasetUnitPlanner._planning_error("universe_empty", "未找到可维护的指数代码")
     return normalized
@@ -524,12 +522,7 @@ def _build_news_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActi
 def _build_index_daily_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     anchors = [request.trade_date] if request.run_profile == "point_incremental" else [None]
-    explicit_codes = split_multi_values(request.params.get("ts_code"))
-    universe_values = (
-        [{"ts_code": str(code).strip().upper()} for code in explicit_codes if str(code).strip()]
-        if explicit_codes
-        else [{}]
-    )
+    universe_values = [{"ts_code": code} for code in _resolve_index_codes(request, planner.dao)]
     return build_plan_units(
         request=request,
         definition=definition,
