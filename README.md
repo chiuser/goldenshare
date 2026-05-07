@@ -177,6 +177,11 @@ DatasetDefinition
 - 同一 `reason_hash` 下，若 `float_values` 一条为空、一条非空，优先保留非空值版本
 - 其它数值冲突先保守保持当前最后一条口径，同时通过 `variant_count + selected_payload_hash` 保证后续可追溯
 
+注意：
+
+- `20260507_000099` 这条 migration 会直接删除并重建 `top_list` 的 raw / serving 表
+- 历史 `top_list` 数据不会在 migration 中回填，升级后必须按需要重跑对应日期窗口
+
 详细设计见：
 
 - [top-list-business-identity-and-source-version-plan-v1.md](/Users/congming/github/goldenshare/docs/architecture/top-list-business-identity-and-source-version-plan-v1.md)

@@ -315,8 +315,14 @@ source row
 ### M4. 数据重建与验证
 
 1. 停机重建 `top_list` raw 与 serving
-2. 以真实日期窗口做抽样对账
-3. 核验：
+2. `20260507_000099` 迁移直接删除并重建：
+   - `raw_tushare.top_list`
+   - `core_serving.equity_top_list`
+   - legacy `raw.top_list`
+   - legacy `core.equity_top_list`
+3. 不做旧数据回填；迁移完成后必须按目标日期窗口重新同步 `top_list`
+4. 以真实日期窗口做抽样对账
+5. 核验：
    - raw 版本保留数
    - serving 最终行数
    - variant_count 分布
