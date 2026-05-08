@@ -1,6 +1,6 @@
 # 同花顺板块指数行情 Lake prod-raw-db 导出方案
 
-状态：已落地（2026-05-08，后端接入完成，最小真实验证通过）
+状态：已落地（2026-05-08，后端接入完成；估值字段 `pe_ttm`、`pb_mrq` 已纳入重建方案）
 
 本文定义 `ths_daily` 数据集从生产 `raw_tushare.ths_daily` 只读导出到本地 Lake Parquet 的方案。该方案只覆盖 `prod-raw-db` 导出模式，不改变现有生产同步链路。
 
@@ -50,6 +50,8 @@
 | `turnover_rate` | `float` | `numeric` | `double` |
 | `total_mv` | `float` | `numeric` | `double` |
 | `float_mv` | `float` | `numeric` | `double` |
+| `pe_ttm` | `float` | `numeric` | `double` |
+| `pb_mrq` | `float` | `numeric` | `double` |
 
 禁止导出：
 
@@ -74,8 +76,7 @@
 
 ### 4.2 字段对账
 
-源站输出字段与生产 raw 业务字段完全对齐。  
-但当前 raw 长期混入休市日记录，Lake 首版必须严格按本地交易日历开市日白名单写分区，不能把这些日期写成正式 Lake 分区。
+源站输出字段已扩展到 `pe_ttm`、`pb_mrq`，生产 raw 需要执行 `ths_daily` 估值字段重建迁移后才与源站字段完全对齐。当前 raw 长期混入休市日记录，Lake 必须严格按本地交易日历开市日白名单写分区，不能把这些日期写成正式 Lake 分区。
 
 ## 5. 输入参数与导出范围
 
@@ -128,7 +129,9 @@ select
   vol,
   turnover_rate,
   total_mv,
-  float_mv
+  float_mv,
+  pe_ttm,
+  pb_mrq
 from raw_tushare.ths_daily
 where trade_date >= :start_date
   and trade_date <= :end_date

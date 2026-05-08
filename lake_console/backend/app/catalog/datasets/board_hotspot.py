@@ -57,6 +57,8 @@ THS_DAILY_FIELDS: tuple[str, ...] = (
     "turnover_rate",
     "total_mv",
     "float_mv",
+    "pe_ttm",
+    "pb_mrq",
 )
 
 DC_HOT_FIELDS: tuple[str, ...] = (

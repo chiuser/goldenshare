@@ -534,6 +534,8 @@ def test_ths_daily_prod_raw_export_ignores_non_open_day_rows(tmp_path) -> None:
                 "turnover_rate": Decimal("5.6"),
                 "total_mv": Decimal("700.1"),
                 "float_mv": Decimal("500.2"),
+                "pe_ttm": Decimal("18.6"),
+                "pb_mrq": Decimal("2.3"),
             },
             {
                 "ts_code": "885001.TI",
@@ -550,6 +552,8 @@ def test_ths_daily_prod_raw_export_ignores_non_open_day_rows(tmp_path) -> None:
                 "turnover_rate": Decimal("5.5"),
                 "total_mv": Decimal("700.2"),
                 "float_mv": Decimal("500.3"),
+                "pe_ttm": Decimal("18.7"),
+                "pb_mrq": Decimal("2.4"),
             },
         ]
 
@@ -569,7 +573,10 @@ def test_ths_daily_prod_raw_export_ignores_non_open_day_rows(tmp_path) -> None:
     parquet_file = tmp_path / "raw_tushare" / "ths_daily" / "trade_date=2026-04-10" / "part-000.parquet"
     assert summary["fetched_rows"] == 1
     assert summary["written_rows"] == 1
-    assert pq.ParquetFile(parquet_file).read().num_rows == 1
+    table = pq.ParquetFile(parquet_file).read()
+    assert table.num_rows == 1
+    assert "pe_ttm" in table.schema.names
+    assert "pb_mrq" in table.schema.names
     assert not (tmp_path / "raw_tushare" / "ths_daily" / "trade_date=2026-04-11").exists()
 
 

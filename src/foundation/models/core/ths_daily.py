@@ -30,3 +30,5 @@ class ThsDaily(TimestampMixin, Base):
     turnover_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
     total_mv: Mapped[Decimal | None] = mapped_column(Numeric(30, 4))
     float_mv: Mapped[Decimal | None] = mapped_column(Numeric(30, 4))
+    pe_ttm: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))
+    pb_mrq: Mapped[Decimal | None] = mapped_column(Numeric(18, 6))

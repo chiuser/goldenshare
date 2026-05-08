@@ -41,6 +41,17 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
 
 
+def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
+    definition = get_dataset_definition("ths_daily")
+
+    assert {"pe_ttm", "pb_mrq"}.issubset(set(definition.source.source_fields))
+    assert {"pe_ttm", "pb_mrq"}.issubset(set(definition.normalization.decimal_fields))
+    assert definition.normalization.required_fields == ("trade_date", "ts_code")
+    assert definition.storage.conflict_columns is None
+    assert definition.storage.raw_table == "raw_tushare.ths_daily"
+    assert definition.storage.target_table == "core_serving.ths_daily"
+
+
 def test_us_hot_markets_are_disabled_by_default(tmp_path, monkeypatch) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text("", encoding="utf-8")

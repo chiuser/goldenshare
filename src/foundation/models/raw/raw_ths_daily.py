@@ -26,6 +26,8 @@ class RawThsDaily(Base):
     turnover_rate: Mapped[float | None] = mapped_column(Numeric(18, 6))
     total_mv: Mapped[float | None] = mapped_column(Numeric(30, 4))
     float_mv: Mapped[float | None] = mapped_column(Numeric(30, 4))
+    pe_ttm: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    pb_mrq: Mapped[float | None] = mapped_column(Numeric(18, 6))
     api_name: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'ths_daily'"))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     raw_payload: Mapped[str | None] = mapped_column(Text)

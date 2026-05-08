@@ -31,6 +31,7 @@ from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
+from src.foundation.models.raw.raw_ths_daily import RawThsDaily
 
 
 def test_security_includes_curr_type() -> None:
@@ -102,6 +103,10 @@ def test_board_dataset_models_match_expected_keys() -> None:
     assert [column.name for column in ThsIndex.__table__.primary_key.columns] == ["ts_code"]
     assert [column.name for column in ThsMember.__table__.primary_key.columns] == ["ts_code", "con_code"]
     assert [column.name for column in ThsDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert "pe_ttm" in RawThsDaily.__table__.columns
+    assert "pb_mrq" in RawThsDaily.__table__.columns
+    assert "pe_ttm" in ThsDaily.__table__.columns
+    assert "pb_mrq" in ThsDaily.__table__.columns
     assert [column.name for column in DcIndex.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in DcMember.__table__.primary_key.columns] == ["trade_date", "ts_code", "con_code"]
     assert [column.name for column in RawDcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date", "category"]

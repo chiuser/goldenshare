@@ -102,6 +102,7 @@ docs/
 - [每日停复牌信息 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/suspend-d-prod-raw-db-lake-export-plan.md)
 - [同花顺板块列表 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-index-prod-raw-db-lake-export-plan.md)
 - [同花顺板块成分 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/ths-member-prod-raw-db-lake-export-plan.md)
+- [同花顺板块日线估值字段扩表重建方案 v1（已确认）](/Users/congming/github/goldenshare/docs/datasets/ths-daily-valuation-fields-rebuild-plan-v1.md)
 
 说明：资金流 6 数据集的拍板结论已并入各自正式开发文档（不再维护独立拍板清单）。
 
