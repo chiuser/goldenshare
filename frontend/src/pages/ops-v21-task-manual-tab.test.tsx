@@ -342,8 +342,8 @@ const mockManualActions = {
               description: "东方财富热榜市场类型。",
               required: false,
               multi_value: true,
-              options: ["A股市场", "ETF基金", "港股市场", "美股市场"],
-              default_value: ["A股市场", "ETF基金", "港股市场", "美股市场"],
+              options: ["A股市场", "ETF基金", "港股市场"],
+              default_value: ["A股市场", "ETF基金", "港股市场"],
             },
             {
               key: "hot_type",
@@ -628,7 +628,7 @@ describe("手动任务页", () => {
     expect(screen.getByLabelText("A股市场")).toBeChecked();
     expect(screen.getByLabelText("ETF基金")).toBeChecked();
     expect(screen.getByLabelText("港股市场")).toBeChecked();
-    expect(screen.getByLabelText("美股市场")).toBeChecked();
+    expect(screen.queryByLabelText("美股市场")).not.toBeInTheDocument();
     expect(screen.getByLabelText("人气榜")).toBeChecked();
     expect(screen.getByLabelText("飙升榜")).toBeChecked();
     expect(screen.getByLabelText("Y")).toBeChecked();
@@ -671,7 +671,7 @@ describe("手动任务页", () => {
         body: {
           time_input: { mode: "point", trade_date: "2026-04-24" },
           filters: {
-            market: ["A股市场", "ETF基金", "港股市场", "美股市场"],
+            market: ["A股市场", "ETF基金", "港股市场"],
             hot_type: ["人气榜", "飙升榜"],
             is_new: "Y",
           },

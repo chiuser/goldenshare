@@ -365,7 +365,7 @@
 | 数据集 | 字段 | 类型 | 多选 | 默认值 | 枚举值 | 含义 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `dc_daily` | `idx_type` | `list` | 是 | - | `行业板块`, `概念板块`, `地域板块` | 东财板块类型 |
-| `dc_hot` | `market` | `list` | 是 | - | `A股市场`, `ETF基金`, `港股市场`, `美股市场` | 东财热榜市场 |
+| `dc_hot` | `market` | `list` | 是 | - | 默认：`A股市场`, `ETF基金`, `港股市场`；当 `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时追加 `美股市场` | 东财热榜市场 |
 | `dc_hot` | `hot_type` | `list` | 是 | - | `人气榜`, `飙升榜` | 东财热榜类型 |
 | `dc_hot` | `is_new` | `list` | 否 | - | `Y` | 日终/最新标记，当前默认扇出使用 `Y` |
 | `dc_index` | `idx_type` | `list` | 是 | - | `行业板块`, `概念板块`, `地域板块` | 东财板块类型 |
@@ -382,7 +382,7 @@
 | `stk_mins` | `freq` | `list` | 是 | - | `1min`, `5min`, `15min`, `30min`, `60min` | 分钟频度 |
 | `stock_basic` | `source_key` | `enum` | 否 | `tushare` | `tushare`, `biying`, `all` | 股票基础信息来源 |
 | `suspend_d` | `suspend_type` | `list` | 是 | - | `S`, `R` | 停牌/复牌 |
-| `ths_hot` | `market` | `list` | 是 | - | `热股`, `ETF`, `可转债`, `行业板块`, `概念板块`, `期货`, `港股`, `热基`, `美股` | 同花顺热榜市场 |
+| `ths_hot` | `market` | `list` | 是 | - | 默认：`热股`, `ETF`, `可转债`, `行业板块`, `概念板块`, `期货`, `港股`, `热基`；当 `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时追加 `美股` | 同花顺热榜市场 |
 | `ths_hot` | `is_new` | `list` | 否 | - | `Y` | 日终/最新标记，当前默认扇出使用 `Y` |
 
 ---
@@ -470,14 +470,14 @@
 
 | 数据集 | 默认值 | 含义 |
 | --- | --- | --- |
-| `dc_hot` | `market=A股市场/ETF基金/港股市场/美股市场`; `hot_type=人气榜/飙升榜`; `is_new=Y` | 默认按东财热榜维度完整扇出 |
+| `dc_hot` | 默认：`market=A股市场/ETF基金/港股市场`; `hot_type=人气榜/飙升榜`; `is_new=Y`；当 `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时追加 `美股市场` | 默认按东财热榜维度扇出，美股市场默认关闭 |
 | `kpl_list` | `tag=涨停/炸板/跌停/自然涨停/竞价` | 默认按开盘啦标签扇出 |
 | `limit_list_d` | `limit_type=U/D/Z`; `exchange=SH/SZ/BJ` | 默认按涨跌停类型和交易所扇出 |
 | `limit_list_ths` | `limit_type=涨停池/连板池/冲刺涨停/炸板池/跌停池`; `market=HS/GEM/STAR` | 默认按同花顺涨跌停市场维度扇出 |
 | `major_news` | `src=新华网/凤凰财经/同花顺/新浪财经/华尔街见闻/中证网/财新网/第一财经/财联社` | 默认按来源扇出 |
 | `margin` | `exchange_id=SSE/SZSE/BSE` | 默认按交易所扇出 |
 | `moneyflow_ind_dc` | `content_type=行业/概念/地域` | 默认按东财板块资金类型扇出 |
-| `ths_hot` | `market=热股/ETF/可转债/行业板块/概念板块/期货/港股/热基/美股`; `is_new=Y` | 默认按同花顺热榜市场扇出 |
+| `ths_hot` | 默认：`market=热股/ETF/可转债/行业板块/概念板块/期货/港股/热基`; `is_new=Y`；当 `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时追加 `美股` | 默认按同花顺热榜市场扇出，美股默认关闭 |
 | 其他 51 个数据集 | `{}` | 无枚举默认扇出 |
 
 ### 7.5 `planning.unit_builder_key`

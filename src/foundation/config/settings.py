@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     sync_batch_size: int = Field(default=1000, alias="SYNC_BATCH_SIZE")
     history_start_date: str = Field(default="2000-01-01", alias="HISTORY_START_DATE")
     tushare_max_calls_per_minute: int = Field(default=280, alias="TUSHARE_MAX_CALLS_PER_MINUTE")
+    tushare_enable_us_hot_markets: bool = Field(default=False, alias="TUSHARE_ENABLE_US_HOT_MARKETS")
     web_host: str = Field(default="127.0.0.1", alias="WEB_HOST")
     web_port: int = Field(default=8000, alias="WEB_PORT")
     web_debug: bool = Field(default=False, alias="WEB_DEBUG")

@@ -187,6 +187,8 @@ class DatasetDefinition:
 
 以下示例用 `dc_hot`，因为它同时包含交易日时间模型、筛选项、枚举扇出、默认值、写入目标和观测规则。字段名是目标结构草案，用于评审模型颗粒度，不代表最终代码已落地。
 
+当前口径：热榜美股市场默认关闭。仅当 env `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时，`dc_hot` 追加 `美股市场`，`ths_hot` 追加 `美股` 到可选枚举和默认扇出。
+
 ```python
 DatasetDefinition(
     identity=DatasetIdentity(
@@ -239,8 +241,8 @@ DatasetDefinition(
                 required=False,
                 multi_value=True,
                 display_name="市场类型",
-                enum_values=("A股市场", "ETF基金", "港股市场", "美股市场"),
-                default_values=("A股市场", "ETF基金", "港股市场", "美股市场"),
+                enum_values=("A股市场", "ETF基金", "港股市场"),
+                default_values=("A股市场", "ETF基金", "港股市场"),
             ),
             DatasetInputField(
                 name="hot_type",
@@ -295,7 +297,7 @@ DatasetDefinition(
         universe_policy="no_pool",
         enum_fanout_fields=("market", "hot_type", "is_new"),
         enum_fanout_defaults={
-            "market": ("A股市场", "ETF基金", "港股市场", "美股市场"),
+            "market": ("A股市场", "ETF基金", "港股市场"),
             "hot_type": ("人气榜", "飙升榜"),
             "is_new": ("Y",),
         },

@@ -24,7 +24,8 @@ def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocke
     assert plan.dataset_key == "dc_hot"
     assert plan.action == "maintain"
     assert plan.run_profile == "point_incremental"
-    assert plan.planning.unit_count == 8
+    assert plan.planning.unit_count == 6
+    assert {unit.request_params["market"] for unit in plan.units} == {"A股市场", "ETF基金", "港股市场"}
     assert {unit.request_params["hot_type"] for unit in plan.units} == {"人气榜", "飙升榜"}
     assert {unit.request_params["is_new"] for unit in plan.units} == {"Y"}
 

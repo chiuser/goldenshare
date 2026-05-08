@@ -153,7 +153,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert dc_hot_filter_keys == ["ts_code", "market", "hot_type", "is_new"]
     assert "offset" not in dc_hot_filter_keys
     assert "limit" not in dc_hot_filter_keys
-    assert dc_hot_filters["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
+    assert dc_hot_filters["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场"]
     assert dc_hot_filters["hot_type"]["default_value"] == ["人气榜", "飙升榜"]
     assert dc_hot_filters["is_new"]["default_value"] == "Y"
 
@@ -504,7 +504,7 @@ def test_ops_manual_action_task_run_applies_dc_hot_safe_defaults(app_client, use
     assert payload["run"]["resource_key"] == "dc_hot"
     assert payload["run"]["time_input"] == {"mode": "point", "trade_date": "2026-04-24"}
     assert payload["run"]["filters"] == {
-        "market": ["A股市场", "ETF基金", "港股市场", "美股市场"],
+        "market": ["A股市场", "ETF基金", "港股市场"],
         "hot_type": ["人气榜", "飙升榜"],
         "is_new": "Y",
     }

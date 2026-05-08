@@ -87,6 +87,7 @@
 - 源文档：`docs/sources/tushare/股票数据/打板专题数据/0321_东方财富热榜.md`
 - 分页：`limit=2000`（文档单次上限），`offset` 递增分页。
 - 默认请求：默认不传 `ts_code/market/hot_type/is_new`；按 `start_date/end_date` 过滤交易日，逐 `trade_date` 请求。
+- 美股开关：`TUSHARE_ENABLE_US_HOT_MARKETS` 缺省为 `false`；关闭时不支持 `market=美股市场`，默认扇出也不包含美股市场。仅当该开关为 `true` 时，`美股市场` 才进入可选枚举与默认扇出。
 - 用户传参规则：用户若显式传 `ts_code`、`market`、`hot_type`、`is_new`，单值直接透传；若 `market/hot_type/is_new` 任一传多值则按枚举扇出；若多字段同时多值则按笛卡尔组合请求；若某字段为全选则折叠为不传该字段后再计算组合；未传不补。
 - 组合示例：若 `trade_date` 已给，且 `market` 全选、`hot_type` 全选、`is_new` 未传，则请求参数折叠为仅 `trade_date`（再叠加分页 `limit/offset`）。
 - 时间执行：按单个 `trade_date` 请求；如需区间，由上层枚举交易日逐日调用。
@@ -469,6 +470,7 @@
 - 源文档：`docs/sources/tushare/股票数据/打板专题数据/0320_同花顺热榜.md`
 - 分页：`limit=2000`（文档单次上限），`offset` 递增分页。
 - 默认请求：默认不传 `ts_code/market/is_new`；按 `start_date/end_date` 过滤交易日，逐 `trade_date` 请求。
+- 美股开关：`TUSHARE_ENABLE_US_HOT_MARKETS` 缺省为 `false`；关闭时不支持 `market=美股`，默认扇出也不包含美股。仅当该开关为 `true` 时，`美股` 才进入可选枚举与默认扇出。
 - 用户传参规则：用户若显式传 `ts_code`、`market`、`is_new`，单值直接透传；若 `market/is_new` 任一传多值则按枚举扇出；若两者都多值则按笛卡尔组合请求；若某字段为全选则折叠为不传该字段后再计算组合；未传不补。
 - 时间执行：按单个 `trade_date` 请求；如需区间，由上层枚举交易日逐日调用。
 

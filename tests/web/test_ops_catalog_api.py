@@ -128,8 +128,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert dc_hot["group_key"] == "leader_board"
     assert dc_hot["group_label"] == "榜单"
     dc_hot_params = {param["key"]: param for param in dc_hot["parameters"]}
-    assert dc_hot_params["market"]["options"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
-    assert dc_hot_params["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场", "美股市场"]
+    assert dc_hot_params["market"]["options"] == ["A股市场", "ETF基金", "港股市场"]
+    assert dc_hot_params["market"]["default_value"] == ["A股市场", "ETF基金", "港股市场"]
     assert dc_hot_params["hot_type"]["options"] == ["人气榜", "飙升榜"]
     assert dc_hot_params["hot_type"]["default_value"] == ["人气榜", "飙升榜"]
     assert dc_hot_params["is_new"]["options"] == ["Y"]

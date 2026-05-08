@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from copy import deepcopy
 from typing import Any
 
+from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import (
     DatasetActionCapability,
     DatasetCapabilities,
@@ -24,7 +26,35 @@ from src.foundation.datasets.models import (
 )
 
 
+US_HOT_MARKET_VALUES_BY_DATASET = {
+    "dc_hot": "美股市场",
+    "ths_hot": "美股",
+}
+
+
+def _remove_value(values: tuple[str, ...], forbidden_value: str) -> tuple[str, ...]:
+    return tuple(value for value in values if value != forbidden_value)
+
+
+def _apply_hot_market_feature_flags(row: dict[str, Any]) -> dict[str, Any]:
+    dataset_key = str(row["identity"]["dataset_key"])
+    forbidden_market = US_HOT_MARKET_VALUES_BY_DATASET.get(dataset_key)
+    if forbidden_market is None or get_settings().tushare_enable_us_hot_markets:
+        return row
+
+    patched = deepcopy(row)
+    for field in patched["input_model"]["filters"]:
+        if field.get("name") == "market":
+            field["enum_values"] = _remove_value(tuple(field.get("enum_values", ())), forbidden_market)
+
+    enum_defaults = patched["planning"].get("enum_fanout_defaults", {})
+    if "market" in enum_defaults:
+        enum_defaults["market"] = _remove_value(tuple(enum_defaults["market"]), forbidden_market)
+    return patched
+
+
 def build_definition(row: dict[str, Any]) -> DatasetDefinition:
+    row = _apply_hot_market_feature_flags(row)
     identity = DatasetIdentity(**row["identity"])
     source_row = dict(row["source"])
     if "source_keys" not in source_row:

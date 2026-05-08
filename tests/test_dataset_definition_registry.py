@@ -7,6 +7,7 @@ from src.foundation.datasets.definitions import ALL_DATASET_ROWS
 import src.foundation.datasets.definitions._builder as definition_builder
 from src.foundation.datasets.models import DatasetSourceDefinition, DatasetStorageDefinition, DatasetTransactionDefinition
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
+from src.foundation.config.settings import get_settings
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY
 import src.ops.dataset_definition_projection as dataset_definition_projection
 
@@ -38,6 +39,48 @@ def test_dataset_definition_projects_core_dataset_facts() -> None:
     assert definition.storage.target_table == "core_serving.dc_hot"
     assert definition.capabilities.get_action("maintain") is not None
     assert definition.planning.enum_fanout_defaults["hot_type"] == ("人气榜", "飙升榜")
+
+
+def test_us_hot_markets_are_disabled_by_default(tmp_path, monkeypatch) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GOLDENSHARE_ENV_FILE", str(env_file))
+    get_settings.cache_clear()
+    list_dataset_definitions.cache_clear()
+    try:
+        dc_hot = get_dataset_definition("dc_hot")
+        ths_hot = get_dataset_definition("ths_hot")
+
+        dc_market = next(field for field in dc_hot.input_model.filters if field.name == "market")
+        ths_market = next(field for field in ths_hot.input_model.filters if field.name == "market")
+        assert "美股市场" not in dc_market.enum_values
+        assert "美股市场" not in dc_hot.planning.enum_fanout_defaults["market"]
+        assert "美股" not in ths_market.enum_values
+        assert "美股" not in ths_hot.planning.enum_fanout_defaults["market"]
+    finally:
+        get_settings.cache_clear()
+        list_dataset_definitions.cache_clear()
+
+
+def test_us_hot_markets_can_be_enabled_by_env(tmp_path, monkeypatch) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("TUSHARE_ENABLE_US_HOT_MARKETS=true\n", encoding="utf-8")
+    monkeypatch.setenv("GOLDENSHARE_ENV_FILE", str(env_file))
+    get_settings.cache_clear()
+    list_dataset_definitions.cache_clear()
+    try:
+        dc_hot = get_dataset_definition("dc_hot")
+        ths_hot = get_dataset_definition("ths_hot")
+
+        dc_market = next(field for field in dc_hot.input_model.filters if field.name == "market")
+        ths_market = next(field for field in ths_hot.input_model.filters if field.name == "market")
+        assert "美股市场" in dc_market.enum_values
+        assert "美股市场" in dc_hot.planning.enum_fanout_defaults["market"]
+        assert "美股" in ths_market.enum_values
+        assert "美股" in ths_hot.planning.enum_fanout_defaults["market"]
+    finally:
+        get_settings.cache_clear()
+        list_dataset_definitions.cache_clear()
 
 
 def test_top_list_definition_uses_split_raw_and_serving_conflict_keys() -> None:

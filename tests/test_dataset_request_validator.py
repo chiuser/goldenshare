@@ -58,6 +58,25 @@ def test_validator_rejects_forbidden_sentinel_input() -> None:
     assert exc_info.value.structured_error.error_code == "invalid_enum"
 
 
+@pytest.mark.parametrize(
+    ("dataset_key", "market"),
+    [
+        ("dc_hot", "美股市场"),
+        ("ths_hot", "美股"),
+    ],
+)
+def test_validator_rejects_us_hot_market_when_env_switch_is_disabled(dataset_key: str, market: str) -> None:
+    with pytest.raises(IngestionValidationError) as exc_info:
+        _validate(
+            dataset_key=dataset_key,
+            run_profile="point_incremental",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+            filters={"market": market},
+        )
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+
+
 def test_validator_accepts_dc_member_multi_select_filter() -> None:
     validated = _validate(
         dataset_key="dc_member",
