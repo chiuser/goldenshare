@@ -5,6 +5,16 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from lake_console.backend.app.catalog.datasets.board_hotspot import (
+    DC_DAILY_FIELDS,
+    DC_HOT_FIELDS,
+    DC_INDEX_FIELDS,
+    DC_MEMBER_FIELDS,
+    KPL_CONCEPT_CONS_FIELDS,
+    KPL_LIST_FIELDS,
+    THS_DAILY_FIELDS,
+    THS_HOT_FIELDS,
+)
 from lake_console.backend.app.catalog.datasets.leader_board import (
     LIMIT_CPT_LIST_FIELDS,
     LIMIT_LIST_D_FIELDS,
@@ -47,11 +57,17 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "cyq_perf": "raw_tushare.cyq_perf",
     "daily_basic": "raw_tushare.daily_basic",
     "daily": "raw_tushare.daily",
+    "dc_daily": "raw_tushare.dc_daily",
+    "dc_hot": "raw_tushare.dc_hot",
+    "dc_index": "raw_tushare.dc_index",
+    "dc_member": "raw_tushare.dc_member",
     "etf_basic": "raw_tushare.etf_basic",
     "etf_index": "raw_tushare.etf_index",
     "fund_adj": "raw_tushare.fund_adj",
     "fund_daily": "raw_tushare.fund_daily",
     "index_daily_basic": "raw_tushare.index_daily_basic",
+    "kpl_concept_cons": "raw_tushare.kpl_concept_cons",
+    "kpl_list": "raw_tushare.kpl_list",
     "limit_cpt_list": "raw_tushare.limit_cpt_list",
     "limit_list_d": "raw_tushare.limit_list",
     "limit_list_ths": "raw_tushare.limit_list_ths",
@@ -67,7 +83,9 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "stk_limit": "raw_tushare.stk_limit",
     "stock_st": "raw_tushare.stock_st",
     "suspend_d": "raw_tushare.suspend_d",
+    "ths_daily": "raw_tushare.ths_daily",
     "ths_index": "raw_tushare.ths_index",
+    "ths_hot": "raw_tushare.ths_hot",
     "ths_member": "raw_tushare.ths_member",
     "top_list": "raw_tushare.top_list",
 }
@@ -81,6 +99,12 @@ PROD_RAW_DB_FIELDS = {
     "fund_adj": FUND_ADJ_FIELDS,
     "fund_daily": FUND_DAILY_FIELDS,
     "index_daily_basic": INDEX_DAILY_BASIC_FIELDS,
+    "dc_daily": DC_DAILY_FIELDS,
+    "dc_hot": DC_HOT_FIELDS,
+    "dc_index": DC_INDEX_FIELDS,
+    "dc_member": DC_MEMBER_FIELDS,
+    "kpl_concept_cons": KPL_CONCEPT_CONS_FIELDS,
+    "kpl_list": KPL_LIST_FIELDS,
     "limit_cpt_list": LIMIT_CPT_LIST_FIELDS,
     "limit_list_d": LIMIT_LIST_D_FIELDS,
     "limit_list_ths": LIMIT_LIST_THS_FIELDS,
@@ -96,7 +120,9 @@ PROD_RAW_DB_FIELDS = {
     "stk_limit": STK_LIMIT_FIELDS,
     "stock_st": STOCK_ST_FIELDS,
     "suspend_d": SUSPEND_D_FIELDS,
+    "ths_daily": THS_DAILY_FIELDS,
     "ths_index": THS_INDEX_FIELDS,
+    "ths_hot": THS_HOT_FIELDS,
     "ths_member": THS_MEMBER_FIELDS,
     "top_list": TOP_LIST_FIELDS,
 }
@@ -105,11 +131,17 @@ PROD_RAW_DB_ORDER_BY = {
     "cyq_perf": ("ts_code",),
     "daily": ("ts_code",),
     "daily_basic": ("ts_code",),
+    "dc_daily": ("ts_code",),
+    "dc_hot": ("ts_code", "rank_time", "query_market", "query_hot_type", "query_is_new"),
+    "dc_index": ("ts_code",),
+    "dc_member": ("ts_code", "con_code"),
     "etf_basic": ("ts_code",),
     "etf_index": ("ts_code",),
     "fund_adj": ("ts_code",),
     "fund_daily": ("ts_code",),
     "index_daily_basic": ("ts_code",),
+    "kpl_concept_cons": ("ts_code", "con_code"),
+    "kpl_list": ("ts_code",),
     "limit_cpt_list": ("ts_code", "rank"),
     "limit_list_d": ("ts_code", "limit"),
     "limit_list_ths": ("ts_code", "limit_type"),
@@ -125,7 +157,9 @@ PROD_RAW_DB_ORDER_BY = {
     "stk_limit": ("ts_code",),
     "stock_st": ("ts_code", "type"),
     "suspend_d": ("ts_code", "suspend_type", "suspend_timing"),
+    "ths_daily": ("ts_code",),
     "ths_index": ("ts_code",),
+    "ths_hot": ("ts_code", "rank_time", "query_market", "query_is_new"),
     "ths_member": ("ts_code", "con_code"),
     "top_list": ("ts_code", "reason"),
 }
@@ -225,14 +259,39 @@ def _build_order_by(dataset_key: str, *, include_trade_date: bool) -> str:
 
 
 def _render_projection_fields(dataset_key: str, fields: tuple[str, ...]) -> tuple[str, ...]:
-    del dataset_key
+    if dataset_key == "dc_hot":
+        return tuple(_render_dc_hot_projection(field) for field in fields)
+    if dataset_key == "ths_hot":
+        return tuple(_render_ths_hot_projection(field) for field in fields)
     return tuple(_render_sql_identifier(field) for field in fields)
 
 
 def _render_sql_identifier(field: str) -> str:
     if field == "limit":
         return '"limit"'
+    if field == "desc":
+        return '"desc"'
+    if field == "leading":
+        return '"leading"'
     return field
+
+
+def _render_dc_hot_projection(field: str) -> str:
+    if field == "market":
+        return "query_market as market"
+    if field == "hot_type":
+        return "query_hot_type as hot_type"
+    if field == "is_new":
+        return "query_is_new as is_new"
+    return _render_sql_identifier(field)
+
+
+def _render_ths_hot_projection(field: str) -> str:
+    if field == "market":
+        return "query_market as market"
+    if field == "is_new":
+        return "query_is_new as is_new"
+    return _render_sql_identifier(field)
 
 
 def fetch_prod_raw_rows(*, database_url: str | None, query: ProdRawQuery) -> list[dict[str, Any]]:

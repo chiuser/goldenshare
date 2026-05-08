@@ -84,6 +84,130 @@ class DailyBasicStrategy:
         )
 
 
+class DcDailyStrategy:
+    dataset_key = "dc_daily"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="dc_daily",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class DcHotStrategy:
+    dataset_key = "dc_hot"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="dc_hot",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class DcIndexStrategy:
+    dataset_key = "dc_index"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="dc_index",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class DcMemberStrategy:
+    dataset_key = "dc_member"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="dc_member",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
 class CyqPerfStrategy:
     dataset_key = "cyq_perf"
 
@@ -200,6 +324,68 @@ class IndexDailyBasicStrategy:
             context=context,
             dataset_key=self.dataset_key,
             api_name="index_dailybasic",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class KplConceptConsStrategy:
+    dataset_key = "kpl_concept_cons"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="kpl_concept_cons",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class KplListStrategy:
+    dataset_key = "kpl_list"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="kpl_list",
             source=source,
             trade_date=trade_date,
             start_date=start_date,
@@ -728,6 +914,68 @@ class TopListStrategy:
             context=context,
             dataset_key=self.dataset_key,
             api_name="top_list",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class ThsDailyStrategy:
+    dataset_key = "ths_daily"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="ths_daily",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class ThsHotStrategy:
+    dataset_key = "ths_hot"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="ths_hot",
             source=source,
             trade_date=trade_date,
             start_date=start_date,

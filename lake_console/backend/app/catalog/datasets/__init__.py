@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from lake_console.backend.app.catalog.datasets.board_hotspot import BOARD_HOTSPOT_DATASETS
 from lake_console.backend.app.catalog.datasets.index_series import INDEX_SERIES_DATASETS
 from lake_console.backend.app.catalog.datasets.leader_board import LEADER_BOARD_DATASETS
 from lake_console.backend.app.catalog.datasets.market_equity import MARKET_EQUITY_DATASETS
@@ -17,6 +18,7 @@ LAKE_DATASETS: tuple[LakeDatasetDefinition, ...] = (
     *MARKET_FUND_DATASETS,
     *MONEYFLOW_DATASETS,
     *TECHNICAL_INDICATOR_DATASETS,
+    *BOARD_HOTSPOT_DATASETS,
     *LEADER_BOARD_DATASETS,
 )
 

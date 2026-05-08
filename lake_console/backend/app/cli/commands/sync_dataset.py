@@ -47,6 +47,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
             "数据集 key；当前接入 stock_basic、trade_cal、index_basic、daily、moneyflow、moneyflow_ths、moneyflow_dc、"
             "moneyflow_cnt_ths、moneyflow_ind_ths、moneyflow_ind_dc、moneyflow_mkt_dc、adj_factor、daily_basic、"
             "fund_daily、fund_adj、index_daily_basic、index_daily、margin、stk_limit、stock_st、suspend_d、"
+            "dc_daily、dc_member、dc_index、dc_hot、ths_daily、ths_hot、kpl_list、kpl_concept_cons、"
             "cyq_perf、limit_list_d、limit_list_ths、limit_step、limit_cpt_list、top_list、"
             "etf_basic、etf_index、ths_index、ths_member"
         ),

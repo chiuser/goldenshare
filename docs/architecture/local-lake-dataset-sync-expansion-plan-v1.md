@@ -586,7 +586,7 @@ rebuild_month
 
 目标：把“源站请求复杂、但 raw 导出其实很直观”的那批数据集吃掉。
 
-当前状态（2026-05-07）：
+当前状态（2026-05-08）：
 
 1. `R3-A` 首批 6 个数据集已完成后端接入与单日真实同步验证：
    - `cyq_perf`
@@ -605,6 +605,43 @@ rebuild_month
    - 当前生产 raw 范围更新为 `2023-11-01 ~ 2026-04-30`
    - 在该范围内交易日覆盖 `605 / 605`
    - Lake 首版历史起点同步更新为 `2023-11-01`
+5. `R3-B` 已完成重新审计，并拆成两波：
+   - 第一波可先直接推进方案：
+     - `dc_daily`
+     - `dc_member`
+     - `kpl_list`
+     - `kpl_concept_cons`
+   - 第二波需在方案中额外写明规则：
+     - `dc_index`
+     - `ths_daily`
+     - `dc_hot`
+     - `ths_hot`
+6. `R3-B` 第一波当前最新事实：
+   - `dc_daily`：`2026-01-05 ~ 2026-05-07`，开市日覆盖 `79 / 79`，无非交易日、无重复
+   - `dc_member`：`2024-12-20 ~ 2026-05-07`，开市日覆盖 `330 / 330`，无非交易日、无重复
+   - `kpl_list`：`2026-01-05 ~ 2026-05-07`，开市日覆盖 `79 / 79`，无非交易日、无重复
+   - `kpl_concept_cons`：`2026-01-05 ~ 2026-05-07`，开市日覆盖 `79 / 79`，无非交易日、无重复
+   - 以上四个数据集已于 `2026-05-08` 落地到 `lake_console`，并通过单日真实导出验证
+7. `R3-B` 第二波当前最新事实：
+   - `dc_index`：开市日覆盖完整，但混入 `2026-03-28`、`2026-03-29`、`2026-04-11`、`2026-04-12` 4 个非交易日
+   - `ths_daily`：开市日覆盖完整，但历史上混入 `102` 个非交易日
+   - `dc_hot`：开市日覆盖完整；若不保留 `market / hot_type / is_new`，会出现 `5` 组事实碰撞；升级后重复归零
+   - `ths_hot`：开市日覆盖完整；后续同样需要把 `market / is_new` 作为事实字段保留
+8. `R3-B` 第二波方案文档已落：
+   - `dc_index`：`docs/datasets/dc-index-prod-raw-db-lake-export-plan.md`
+   - `ths_daily`：`docs/datasets/ths-daily-prod-raw-db-lake-export-plan.md`
+   - `dc_hot`：`docs/datasets/dc-hot-prod-raw-db-lake-export-plan.md`
+   - `ths_hot`：`docs/datasets/ths-hot-prod-raw-db-lake-export-plan.md`
+9. `R3-B` 第二波已于 `2026-05-08` 落地到 `lake_console`，并通过最小真实验证：
+   - `dc_index`：跨 `2026-04-10 ~ 2026-04-12` 小区间导出成功，只生成 `2026-04-10` 开市日分区
+   - `ths_daily`：跨 `2026-02-20 ~ 2026-02-24` 小区间导出成功，验证非交易日不会落成正式分区
+   - `dc_hot`：`2026-05-07` 单日导出成功，Parquet 已保留 `market / hot_type / is_new`
+   - `ths_hot`：`2026-05-07` 单日导出成功，Parquet 已保留 `market / is_new`
+10. `R3-B` 第二波统一规则：
+   - 所有 `trade_open_day` 数据集只允许对本地交易日历开市日生成正式分区
+   - `dc_index / ths_daily` 的非交易日 raw 记录只允许留在源库，不得写成正式 Lake 分区
+   - `dc_hot` 必须把 `market / hot_type / is_new` 升格为事实字段
+   - `ths_hot` 必须把 `market / is_new` 升格为事实字段
 
 候选数据集：
 
@@ -635,6 +672,9 @@ rebuild_month
 2. 但一旦走 `prod-raw-db`，这些复杂度大部分已经被生产同步提前消化掉了。
 3. 这一批的难点主要变成字段审计和合理的分区写入，不再是 API 编排。
 4. `R3-A` 当前第一波只推进“榜单/涨停”这 6 个，不把 `block_trade` 混入。
+5. `R3-B` 全部 `trade_open_day` 数据集都必须统一遵守：
+   - 只对本地交易日历中的开市日生成正式分区
+   - 非交易日记录即使存在于 raw，也不能写成正式 Lake 分区
 
 ### 7.7 R4：资金流全族
 
