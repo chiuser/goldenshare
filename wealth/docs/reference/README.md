@@ -39,13 +39,7 @@ reference/
 | `财势乾坤/设计/03-design-tokens.md` | `design/03-design-tokens.md` | 视觉 token 与硬约束 |
 | `财势乾坤/设计/04-component-guidelines.md` | `design/04-component-guidelines.md` | 组件职责与交互规范 |
 | `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4.md` | `api/p0-data-dictionary-v0.4.md` | P0 数据字典 |
-| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4-old.md` | `api/p0-data-dictionary-v0.4-old.md` | P0 数据字典 v0.4 旧版 |
-| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.3.md` | `api/p0-data-dictionary-v0.3.md` | P0 数据字典历史版本 |
-| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.2.2.md` | `api/p0-data-dictionary-v0.2.2.md` | P0 数据字典历史版本 |
-| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.2.1.md` | `api/p0-data-dictionary-v0.2.1.md` | P0 数据字典历史版本 |
 | `财势乾坤/数据字典与API文档/market-overview-api-v0.4.md` | `api/market-overview-api-v0.4.md` | 市场总览 API 草案 |
-| `财势乾坤/数据字典与API文档/market-overview-api-v0.3.md` | `api/market-overview-api-v0.3.md` | 市场总览 API 历史版本 |
-| `财势乾坤/数据字典与API文档/market-overview-api-v0.2.1.md` | `api/market-overview-api-v0.2.1.md` | 市场总览 API 历史版本 |
 | `财势乾坤/Logo/*` | `brand/logo/*` | Logo 与品牌图片原始素材 |
 | `财势乾坤/codex/market-overview-codex-prompt-v1.md` | `codex/market-overview-codex-prompt-v1.md` | Codex 实现边界与验收 |
 | `财势乾坤/showcase/market-overview-v1.1.html` | `showcase/market-overview-v1.1.html` | homepage 高保真还原最高优先级 |
@@ -62,4 +56,4 @@ reference/
 3. `api/` 目录只作为首期 mock contract 的来源，本阶段不接真实 API。
 4. 任何与用户最新指令冲突的旧路径或旧命名，都必须先列为待拍板项，不得擅自沿用。
 5. 不允许为了“更好看”或“更工程化”偏离 Showcase 的布局、模块顺序、密度与交互。
-6. 历史版本只用于追溯，不得覆盖当前版本口径；当前实现默认以 v1.1 Showcase、v0.4 API/数据字典、v2 review 为准。
+6. 历史版本若无当前实现价值可从本地仓库移除；当前实现默认以 v1.1 Showcase、v0.4 API/数据字典、v2 review 为准。

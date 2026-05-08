@@ -41,11 +41,19 @@ wealth/
 4. `wealth/docs/system/engineering-architecture.md`
 5. `wealth/docs/system/design-system-baseline.md`
 6. `wealth/docs/system/component-guidelines-baseline.md`
-7. `wealth/docs/pages/market-overview/market-overview-baseline.md`
-8. `wealth/docs/pages/market-overview/api-contract-baseline.md`
-9. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
-10. `wealth/docs/pages/market-overview/implementation-architecture-v1.md`
-11. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+7. `wealth/docs/system/exception-code-registry.md`
+8. `wealth/docs/pages/market-overview/market-overview-baseline.md`
+9. `wealth/docs/pages/market-overview/api-contract-baseline.md`
+10. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
+11. `wealth/docs/pages/market-overview/implementation-architecture-v1.md`
+12. `wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
+13. `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
+14. `wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md`
+15. `wealth/docs/pages/market-overview/leaderboard-m2-coding-gate-v1.md`
+16. `wealth/docs/templates/benchmark-requirement-template.md`
+17. `wealth/docs/templates/implementation-design-template.md`
+18. `wealth/docs/templates/coding-gate-template.md`
+19. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
 实现市场总览 homepage 前，还必须额外读取：
 
@@ -155,6 +163,10 @@ wealth/
 4. 禁止为了兼容旧字段新增别名字段。
 5. API 未实现前，只允许 mock，不允许偷偷调用 ops 后台接口凑数据。
 6. 格式化必须集中到 formatter，不允许页面各处手写金额、百分比、涨跌色规则。
+7. 异常码必须在 `wealth/docs/system/exception-code-registry.md` 登记后才能进入契约和代码；禁止散落定义。
+8. 本期仅榜单模块启用结构化异常码；其他模块后续分期接入，不允许提前扩散到计划外范围。
+9. 后续接真实后端 API 时，`src/biz` 必须按模块目录组织（`api/queries/schemas/services` 四层都要按 `wealth/market/<module>` 分层），禁止扁平堆文件；规范见 `wealth/docs/system/engineering-architecture.md`。
+10. 模块接口只返回模块对象；整页聚合对象必须独立接口与独立 DTO 文件，不允许混在模块 schema 中。
 
 ---
 
@@ -172,6 +184,13 @@ wealth/
 8. 验证方式
 
 Bug 修复必须先说明原因与影响面。禁止临时补丁叠补丁。
+
+新增模块（或中等以上模块改造）必须执行“三件套”流程：
+
+1. 先产出 benchmark requirement（需求基线）
+2. 再产出 implementation design（实施设计）
+3. 再产出 coding gate（编码前门禁）
+4. 三件套评审通过后才允许编码
 
 ---
 
@@ -201,6 +220,7 @@ npm run build
 6. 禁止引入重型依赖作为首期页面捷径。
 7. 禁止超长文件和重复拼装。
 8. 禁止写兼容方案、临时方案、旧字段别名。
+9. 禁止在 `src/biz/api|queries|schemas|services` 下新增扁平 `wealth_*` 大文件来承接多个模块。
 
 ---
 

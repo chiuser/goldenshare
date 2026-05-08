@@ -10,6 +10,7 @@
 docs/
   reference/              # Drive 原始资料本地拷贝与索引
   system/                 # 系统级：工程、设计、组件、开发原则
+  templates/              # 模块开发模板（需求/实施/门禁）
   pages/                  # 页面级：页面需求、API contract、实现提示词
     market-overview/
 ```
@@ -39,13 +40,24 @@ docs/
 - [工程架构规范](./system/engineering-architecture.md)
 - [设计系统基线](./system/design-system-baseline.md)
 - [组件规范基线](./system/component-guidelines-baseline.md)
+- [异常码注册表（统一管理）](./system/exception-code-registry.md)
 
 ## 页面级文档
 
 - [市场总览页面基线](./pages/market-overview/market-overview-baseline.md)
 - [市场总览 API 契约基线](./pages/market-overview/api-contract-baseline.md)
+- [市场总览 API 与数据模型设计 v1](./pages/market-overview/market-overview-api-model-design-v1.md)
+- [榜单标杆需求（前后端贯通）v1](./pages/market-overview/leaderboard-benchmark-requirement-v1.md)
+- [榜单标杆技术实施方案 v1（仅方案）](./pages/market-overview/leaderboard-implementation-design-v1.md)
+- [榜单 M2 编码前门禁 v1](./pages/market-overview/leaderboard-m2-coding-gate-v1.md)
 - [市场总览 Codex 实现提示词基线](./pages/market-overview/implementation-prompt-baseline.md)
 - [市场总览 homepage 代码架构设计](./pages/market-overview/implementation-architecture-v1.md)
+
+## 模块开发模板
+
+- [标杆需求模板](./templates/benchmark-requirement-template.md)
+- [技术实施方案模板](./templates/implementation-design-template.md)
+- [编码前门禁模板](./templates/coding-gate-template.md)
 
 ## 维护规则
 
@@ -54,3 +66,4 @@ docs/
 3. 不要把系统级规则和页面级细节混在同一个文档。
 4. Drive 文档更新后，必须同步更新本地基线，不允许代码实现与本地文档脱节。
 5. 本目录文档只服务 `wealth` 工程，不替代仓库根 `docs/` 的数据基座与 ops 文档。
+6. 新模块开发必须先按 templates 产出三件套文档（benchmark requirement / implementation design / coding gate），评审通过后才能进入编码。

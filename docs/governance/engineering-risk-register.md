@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-05
+更新时间：2026-05-08
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -34,6 +34,7 @@
 | RISK-2026-04-26-003 | P1 | 主数据/快照类 `not_applicable` 数据集被伪装成业务日期 freshness，或为修正该问题新增重复状态表/字段，导致状态口径膨胀和一致性风险 | `stock_basic`、`index_basic`、`ths_member`、`ths_index`、`etf_basic`、`etf_index`、`hk_basic`、`us_basic` 等主数据/快照类，以及 Ops freshness/status 页面 | Open | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)、[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md) |
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
 | RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
+| RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
 
 ---
 
@@ -217,3 +218,43 @@
 3. `ops.dataset_status_snapshot` 不再保存 `cadence`。
 4. `DatasetDefinition.domain` 不再包含 `cadence`。
 5. `rg "\\bcadence\\b" src frontend docs tests` 只允许命中历史归档文档或本专项退场文档。
+
+---
+
+## 9. RISK-2026-05-08-006 处理要求
+
+风险说明：
+
+1. 历史上 `index_daily` 曾先落 `core.index_daily_bar`，后迁入 `core_serving.index_daily_serving`，迁移后旧表仍保留。
+2. 代码与文档层如果未显式收口“唯一事实表”，开发者容易把遗留表当现行表使用。
+3. 当页面、查询、巡检、对账跨模块取数时，一旦有人误连旧表，会出现“同一交易日数值不一致/更新时刻不一致/缺字段映射不一致”。
+4. 该风险不是立即数据损坏，但会持续制造认知混乱与口径漂移，属于高概率治理性故障源（P1）。
+
+立即止血（文档与认知层）：
+
+1. 全部实现文档明确：`index_daily` 现行事实表为 `core_serving.index_daily_serving`，`core.index_daily_bar` 为 legacy。
+2. Wealth/Biz/Ops 新增功能涉及指数日线时，评审清单必须显式写出“取数表名”。
+3. 禁止新增任何以 `core.index_daily_bar` 为源的页面查询或新 API。
+
+正式收口（代码与门禁层）：
+
+1. 全量审计当前仓库是否仍有 runtime 读取 `core.index_daily_bar`（非 Alembic 历史迁移脚本除外）。
+2. 若存在运行态消费者，逐项切换到 `core_serving.index_daily_serving` 并补回归。
+3. 清理 `DAOFactory` 等易误用入口中的 `index_daily_bar` 直接暴露（若仍未被运行态使用）。
+4. 增加架构门禁：
+   - 业务运行代码不得新增对 `src.foundation.models.core.index_daily_bar.IndexDailyBar` 的依赖；
+   - 允许清单仅保留 Alembic 历史迁移与历史归档文档。
+5. 完成后在方案文档中回写“旧表状态（保留/下线）与生效时间”。
+
+关闭门禁：
+
+1. `rg "index_daily_bar" src/biz src/ops src/app wealth/src` 仅允许 0 命中（或仅历史注释白名单命中）。
+2. 主要指数查询与市场总览统一由 `core_serving.index_daily_serving` 提供事实数据。
+3. 文档中不再把 `index_daily_bar` 作为现行数据源描述。
+4. 新增查询/接口评审模板包含“事实表唯一性确认”项。
+
+建议最小验收：
+
+1. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
+2. `pytest -q tests/web/test_health_api.py tests/web/test_ops_pages.py tests/web/test_platform_check_page.py`
+3. Wealth 侧契约与 mock smoke（如有）：`cd wealth && npm run typecheck && npm run test && npm run build`

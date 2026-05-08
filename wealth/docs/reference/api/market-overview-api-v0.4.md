@@ -90,20 +90,20 @@ subjectiveMarketConclusion
 
 | 场景 | 推荐接口 | 本轮是否修改 |
 |---|---|---|
-| 页面首屏加载 | `GET /api/market/home-overview` | 是，仅修订 v2 点名字段 |
-| 榜单速览局部刷新 | `GET /api/leaderboard/stock` | 是 |
-| 涨跌停统计与分布局部刷新 | `GET /api/limitup/summary` | 是 |
+| 页面首屏加载 | `GET /api/v1/wealth/market/overview` | 是，仅修订 v2 点名字段 |
+| 榜单速览局部刷新 | `GET /api/v1/wealth/market/leaderboards` | 是 |
+| 涨跌停统计与分布局部刷新 | `GET /api/v1/wealth/market/limit-up/summary` | 是 |
 | 板块速览局部刷新 | `GET /api/sector/top` | 是 |
 | 其它模块局部刷新 | 原 v0.4 模块接口 | 否 |
 
 ---
 
-## 3. GET /api/market/home-overview
+## 3. GET /api/v1/wealth/market/overview
 
 ### endpoint
 
 ```http
-GET /api/market/home-overview
+GET /api/v1/wealth/market/overview
 ```
 
 ### method
@@ -1454,7 +1454,7 @@ GET /api/market/home-overview
 
 ## 4. 模块接口同步说明
 
-### 4.1 GET /api/leaderboard/stock
+### 4.1 GET /api/v1/wealth/market/leaderboards
 
 | 项目 | 内容 |
 |---|---|
@@ -1468,7 +1468,7 @@ GET /api/market/home-overview
 #### endpoint
 
 ```http
-GET /api/leaderboard/stock
+GET /api/v1/wealth/market/leaderboards
 ```
 
 #### request params
@@ -1507,7 +1507,7 @@ GET /api/leaderboard/stock
 }
 ```
 
-### 4.2 GET /api/limitup/summary
+### 4.2 GET /api/v1/wealth/market/limit-up/summary
 
 | 项目 | 内容 |
 |---|---|
@@ -1521,7 +1521,7 @@ GET /api/leaderboard/stock
 #### endpoint
 
 ```http
-GET /api/limitup/summary
+GET /api/v1/wealth/market/limit-up/summary
 ```
 
 #### request params
@@ -1636,13 +1636,13 @@ GET /api/sector/top
 
 以下接口沿用 v0.4，不因 Review v2 主动修改：
 
-1. `GET /api/market/breadth`
-2. `GET /api/market/style`
-3. `GET /api/market/turnover`
-4. `GET /api/moneyflow/market`
-5. `GET /api/limitup/streak-ladder`
-6. `GET /api/index/summary`
-7. `GET /api/settings/quick-entry`
+1. `GET /api/v1/wealth/market/breadth`
+2. `GET /api/v1/wealth/market/style`
+3. `GET /api/v1/wealth/market/turnover`
+4. `GET /api/v1/wealth/market/moneyflow`
+5. `GET /api/v1/wealth/market/limit-up/streak-ladder`
+6. `GET /api/v1/wealth/market/index-summary`
+7. `GET /api/v1/wealth/market/quick-entries`
 
 ---
 

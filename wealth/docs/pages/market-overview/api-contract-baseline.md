@@ -1,31 +1,34 @@
-# 市场总览 API 契约基线
+# 市场总览 API 契约基线（当前生效）
 
 ## 来源
 
-本基线来自 Drive：
+本基线来自：
 
 ```text
-财势乾坤/数据字典与API文档/market-overview-api-v0.4.md
-财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4.md
+wealth/docs/reference/api/market-overview-api-v0.4.md
+wealth/docs/reference/api/p0-data-dictionary-v0.4.md
+wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md
+wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md
+wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
+
+字段级“来源表/来源列/转换规则”以
+`wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
+为唯一落地基线。
+
+榜单模块的前后端贯通规则（规则归属、股票池归属、异常语义）以
+`wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
+为专用基线。
 ```
 
 ## 当前阶段
 
 首期只实现 mock adapter，不接真实后端 API。
 
-真实后端 API 规划路径：
+真实后端 API 当前统一路径：
 
 ```http
 GET /api/v1/wealth/market/overview
 ```
-
-Drive 原 API 草案中的路径是：
-
-```http
-GET /api/market/home-overview
-```
-
-本工程采用 `/api/v1/wealth/market/overview` 作为本地规划路径，避免与既有运营后台 API 混淆。
 
 ## 请求参数
 
@@ -38,6 +41,7 @@ interface MarketOverviewParams {
   sectorTopLimit?: number; // default: 5
   heatMapRows?: number; // default: 5
   heatMapCols?: number; // default: 4
+  debug?: 0 | 1; // default: 0; 1=返回模块级调试状态
 }
 ```
 
@@ -57,27 +61,25 @@ interface WealthApiResponse<T> {
 
 首期 mock adapter 也按该结构模拟。
 
-## 聚合数据结构
+## 聚合数据结构（对象化，不拍扁）
 
 市场总览聚合数据至少包含：
 
 ```ts
 interface MarketOverview {
   tradingDay: TradingDay;
-  dataStatus: MarketDataStatus;
+  pageStatus: PageStatus;
   topMarketBar: TopMarketBarData;
   breadcrumb: BreadcrumbItem[];
   quickEntries: QuickEntry[];
   marketSummary: MarketSummary;
-  indices: MajorIndex[];
-  breadth: MarketBreadth;
-  style: MarketStyle;
-  turnover: TurnoverOverview;
-  moneyFlow: MarketMoneyFlow;
-  leaderboards: MarketLeaderboards;
-  limitUp: LimitUpOverview;
-  streakLadder: StreakLadder;
-  sectorOverview: SectorOverview;
+  majorIndices: MajorIndicesPanel;
+  moneyFlow: MoneyFlowPanel;
+  leaderboards: LeaderboardsPanel;
+  limitUp: LimitUpPanel;
+  streakLadder: StreakLadderPanel;
+  sectorOverview: SectorOverviewPanel;
+  debugInfo?: DebugModuleStatus; // 仅 debug=1 返回
 }
 ```
 
@@ -85,8 +87,9 @@ interface MarketOverview {
 
 1. TypeScript 与 API 字段统一 lowerCamelCase。
 2. 不新增旧字段别名。
-3. 不使用 `price` / `sectorId` 这类待淘汰命名。
-4. 推荐使用 `latestPrice` / `sectorCode`。
+3. 领域主体禁止使用歧义 `code`；使用 `subjectType + subjectCode + subjectName`。
+4. 对象保持对象化边界，不把 `tradingDay` 等对象拍扁。
+5. 异常码统一引用 `wealth/docs/system/exception-code-registry.md`，不得在模块文档和代码中重复发明。
 
 ## 方向枚举
 
@@ -117,15 +120,16 @@ tomorrowPrediction
 subjectiveMarketConclusion
 ```
 
-## 真实 API 待后续拍板
+## 真实 API 待后续实现（已拍板口径）
 
-以下内容首期不实现真实逻辑，只允许在 mock 中使用明确的静态样例：
+以下内容已确定口径，后续按该口径落地：
 
-1. 榜单来源：`dc_hot` 还是传统涨跌幅/成交额/换手率/量比榜。
-2. 板块热力图排序：涨跌幅、成交额、资金流，还是综合排序。
-3. 天地板 / 地天板规则。
-4. 涨停板块分布优先使用行业、概念还是混合口径。
-5. 后端是否返回 `displayText`，还是只返回结构化数值。
+1. 榜单速览：
+   - 涨幅/跌幅/成交额/换手/量比由 `equity_daily_bar` 主链路，换手与量比关联 `equity_daily_basic`。
+   - 人气榜/飙升榜来自 `dc_hot`。
+2. 连板天梯：基于 `limit_step`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
+3. 板块速览统一 DC 口径：`dc_index`/`dc_daily` + `board_moneyflow_dc`。
+4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
 
 ## 性能原则
 
