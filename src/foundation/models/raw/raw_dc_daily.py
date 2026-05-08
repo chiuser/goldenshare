@@ -14,6 +14,7 @@ class RawDcDaily(Base):
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    category: Mapped[str] = mapped_column(String(32), primary_key=True)
     close: Mapped[float | None] = mapped_column(Numeric(18, 4))
     open: Mapped[float | None] = mapped_column(Numeric(18, 4))
     high: Mapped[float | None] = mapped_column(Numeric(18, 4))

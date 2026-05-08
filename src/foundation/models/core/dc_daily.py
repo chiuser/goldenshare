@@ -13,11 +13,13 @@ class DcDaily(TimestampMixin, Base):
     __tablename__ = "dc_daily"
     __table_args__ = (
         Index("idx_dc_daily_trade_date", "trade_date"),
+        Index("idx_dc_daily_trade_date_category", "trade_date", "category"),
         {"schema": "core_serving"},
     )
 
     ts_code: Mapped[str] = mapped_column(String(16), primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    category: Mapped[str] = mapped_column(String(32), primary_key=True)
     close: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
     open: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))
     high: Mapped[Decimal | None] = mapped_column(Numeric(18, 4))

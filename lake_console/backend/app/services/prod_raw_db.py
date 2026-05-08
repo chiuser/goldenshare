@@ -131,7 +131,7 @@ PROD_RAW_DB_ORDER_BY = {
     "cyq_perf": ("ts_code",),
     "daily": ("ts_code",),
     "daily_basic": ("ts_code",),
-    "dc_daily": ("ts_code",),
+    "dc_daily": ("category", "ts_code"),
     "dc_hot": ("ts_code", "rank_time", "query_market", "query_hot_type", "query_is_new"),
     "dc_index": ("ts_code",),
     "dc_member": ("ts_code", "con_code"),

@@ -118,7 +118,7 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
         "adj_factor": "order by trade_date, ts_code",
         "cyq_perf": "order by trade_date, ts_code",
         "daily_basic": "order by trade_date, ts_code",
-        "dc_daily": "order by trade_date, ts_code",
+        "dc_daily": "order by trade_date, category, ts_code",
         "dc_hot": "order by trade_date, ts_code, rank_time, query_market, query_hot_type, query_is_new",
         "dc_index": "order by trade_date, ts_code",
         "dc_member": "order by trade_date, ts_code, con_code",

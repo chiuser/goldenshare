@@ -288,6 +288,15 @@ def test_dataset_definition_projects_bak_basic_facts() -> None:
     assert definition.normalization.required_fields == ("trade_date", "ts_code")
 
 
+def test_dataset_definition_projects_dc_daily_category_identity() -> None:
+    definition = get_dataset_definition("dc_daily")
+
+    assert "category" in definition.source.source_fields
+    assert definition.storage.conflict_columns == ("ts_code", "trade_date", "category")
+    assert definition.normalization.required_fields == ("trade_date", "ts_code", "category")
+    assert definition.quality.required_fields == ("trade_date", "ts_code", "category")
+
+
 def test_dataset_definition_projects_stock_company_facts() -> None:
     definition = get_dataset_definition("stock_company")
 

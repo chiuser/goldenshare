@@ -1,6 +1,6 @@
 # 东方财富板块日线行情 Lake prod-raw-db 导出方案
 
-状态：已落地（2026-05-08，后端接入完成，单日真实验证通过）
+状态：已落地（2026-05-08，后端接入完成；`category` 身份字段重建后需重新验证）
 
 本文定义 `dc_daily` 数据集从生产 `raw_tushare.dc_daily` 只读导出到本地 Lake Parquet 的方案。该方案只覆盖 `prod-raw-db` 导出模式，不改变现有生产同步链路。
 
@@ -47,6 +47,7 @@
 | `amount` | `float` | `numeric` | `double` |
 | `swing` | `float` | `numeric` | `double` |
 | `turnover_rate` | `float` | `numeric` | `double` |
+| `category` | `str` | `varchar` | `string` |
 
 禁止导出：
 
@@ -62,7 +63,7 @@
 | --- | --- | --- |
 | 表存在 | 是 | `raw_tushare.dc_daily` |
 | schema | `raw_tushare` | 符合边界 |
-| 行数 | `77596` | 到 2026-05-07 |
+| 行数 | 待重建后复核 | 旧表主键缺少 `category`，历史数据需重建 |
 | 日期范围 | `2026-01-05 ~ 2026-05-07` | 当前生产 raw 历史窗口较短 |
 | 开市日覆盖 | `79 / 79` | 当前范围内完整 |
 | 非交易日日期数 | `0` | 当前未发现周末/节假日混入 |
@@ -71,8 +72,8 @@
 
 ### 4.2 字段对账
 
-源站输出字段与生产 raw 业务字段完全对齐。  
-Lake 首版按当前生产事实落盘，不额外伪造 `2026-01-05` 之前的历史分区。
+源站输出字段与生产 raw 业务字段必须包含 `category`。  
+`category` 是 `dc_daily` 的业务身份字段之一，Lake 导出必须保留。
 
 ## 5. 输入参数与导出范围
 
@@ -125,11 +126,12 @@ select
   vol,
   amount,
   swing,
-  turnover_rate
+  turnover_rate,
+  category
 from raw_tushare.dc_daily
 where trade_date >= :start_date
   and trade_date <= :end_date
-order by trade_date, ts_code;
+order by trade_date, category, ts_code;
 ```
 
 ## 7. 分区与空结果策略

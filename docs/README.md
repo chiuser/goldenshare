@@ -80,6 +80,7 @@ docs/
 
 - [指数行情 raw / serving 分层语义对齐改造方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md)
 - [指数基础信息源站对齐修复方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
+- [东方财富板块日线 category 字段与主键修复方案 v1（已确认）](/Users/congming/github/goldenshare/docs/datasets/dc-daily-category-identity-fix-plan-v1.md)
 - [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
 - [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 - [指数基础信息 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/index-basic-lake-dataset-development.md)

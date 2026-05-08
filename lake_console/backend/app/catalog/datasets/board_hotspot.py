@@ -16,6 +16,7 @@ DC_DAILY_FIELDS: tuple[str, ...] = (
     "amount",
     "swing",
     "turnover_rate",
+    "category",
 )
 
 DC_MEMBER_FIELDS: tuple[str, ...] = (

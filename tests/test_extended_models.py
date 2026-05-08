@@ -27,6 +27,7 @@ from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
+from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
@@ -103,7 +104,10 @@ def test_board_dataset_models_match_expected_keys() -> None:
     assert [column.name for column in ThsDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in DcIndex.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert [column.name for column in DcMember.__table__.primary_key.columns] == ["trade_date", "ts_code", "con_code"]
-    assert [column.name for column in DcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in RawDcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date", "category"]
+    assert [column.name for column in DcDaily.__table__.primary_key.columns] == ["ts_code", "trade_date", "category"]
+    assert "category" in RawDcDaily.__table__.columns
+    assert "category" in DcDaily.__table__.columns
 
 
 def test_stk_limit_serving_model_matches_expected_keys() -> None:

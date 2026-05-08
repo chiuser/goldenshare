@@ -17,13 +17,31 @@ def test_dc_daily_normalizer_keeps_required_fields() -> None:
             request_count=1,
             retry_count=0,
             latency_ms=1,
-            rows_raw=[{"trade_date": "20260401", "ts_code": "BK001", "close": "1"}],
+            rows_raw=[{"trade_date": "20260401", "ts_code": "BK001", "category": "行业板块", "close": "1"}],
         ),
     )
 
     assert batch.rows_rejected == 0
     assert batch.rows_normalized[0]["trade_date"] == date(2026, 4, 1)
     assert batch.rows_normalized[0]["ts_code"] == "BK001"
+    assert batch.rows_normalized[0]["category"] == "行业板块"
+
+
+def test_dc_daily_normalizer_rejects_missing_category() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("dc_daily"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-dc-daily-missing-category",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[{"trade_date": "20260401", "ts_code": "BK001", "close": "1"}],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:category": 1}
+    assert batch.rows_normalized == []
 
 
 def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -> None:

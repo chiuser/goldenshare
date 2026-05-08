@@ -68,6 +68,7 @@ def test_dataset_definition_source_fields_cover_market_and_board_resources() -> 
     assert tuple(_source_fields("dc_member")) == ("trade_date", "ts_code", "con_code", "name")
     assert "idx_type" in _source_fields("dc_index")
     assert "swing" in _source_fields("dc_daily")
+    assert "category" in _source_fields("dc_daily")
 
 
 def test_dataset_definition_source_fields_cover_extended_resources() -> None:
