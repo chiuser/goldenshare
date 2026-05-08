@@ -1,0 +1,20 @@
+{
+  "moduleKey": "marketSummary",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-08T21:00:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "cardCount": 5,
+    "enabledCardKeys": [
+      "upDownCount",
+      "turnoverAmount",
+      "indexUpCount",
+      "limitStats",
+      "mainFlow"
+    ],
+    "intradayTemplateKey": "objective_intraday_v1",
+    "closeTemplateKey": "objective_close_v1"
+  }
+}
+

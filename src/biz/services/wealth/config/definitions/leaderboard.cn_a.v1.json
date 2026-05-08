@@ -1,0 +1,21 @@
+{
+  "moduleKey": "leaderboards",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-08T21:00:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "boardKeys": [
+      "gainers",
+      "losers",
+      "turnover",
+      "turnoverRate",
+      "volumeRatio",
+      "hotPopularity",
+      "hotSurge"
+    ],
+    "defaultLimit": 10,
+    "strictHotDate": true
+  }
+}
+
