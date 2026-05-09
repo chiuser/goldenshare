@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
@@ -34,6 +34,11 @@ class MarketStyleHistoryPoint:
 
 class MarketStyleQuery:
     """Load market style current snapshot and history points."""
+
+    @staticmethod
+    def _supports_percentile_disc(session: Session) -> bool:
+        bind = session.get_bind()
+        return bool(bind and bind.dialect.name == "postgresql")
 
     def load_recent_trade_dates(
         self,
@@ -72,15 +77,25 @@ class MarketStyleQuery:
             row.ts_code: (float(row.pct_chg) if row.pct_chg is not None else None) for row in index_rows
         }
 
-        median_series = session.execute(
-            select(EquityDailyBar.pct_chg)
-            .where(
-                EquityDailyBar.trade_date == trade_date,
-                EquityDailyBar.pct_chg.is_not(None),
-            )
-            .order_by(EquityDailyBar.pct_chg.asc())
-        ).scalars().all()
-        median_pct = self._discrete_median(median_series)
+        if self._supports_percentile_disc(session):
+            median_value = session.execute(
+                select(func.percentile_disc(0.5).within_group(EquityDailyBar.pct_chg))
+                .where(
+                    EquityDailyBar.trade_date == trade_date,
+                    EquityDailyBar.pct_chg.is_not(None),
+                ),
+            ).scalar_one_or_none()
+            median_pct = float(median_value) if median_value is not None else None
+        else:
+            median_series = session.execute(
+                select(EquityDailyBar.pct_chg)
+                .where(
+                    EquityDailyBar.trade_date == trade_date,
+                    EquityDailyBar.pct_chg.is_not(None),
+                )
+                .order_by(EquityDailyBar.pct_chg.asc())
+            ).scalars().all()
+            median_pct = self._discrete_median(median_series)
 
         return MarketStyleCurrentSnapshot(
             large_pct=index_map.get(large_index_code),
@@ -113,21 +128,36 @@ class MarketStyleQuery:
         for row in index_rows:
             index_by_date[row.trade_date][row.ts_code] = float(row.pct_chg) if row.pct_chg is not None else None
 
-        equity_rows = session.execute(
-            select(EquityDailyBar.trade_date, EquityDailyBar.pct_chg).where(
-                EquityDailyBar.trade_date.in_(tuple(trade_dates)),
-                EquityDailyBar.pct_chg.is_not(None),
-            )
-            .order_by(EquityDailyBar.trade_date.asc(), EquityDailyBar.pct_chg.asc())
-        ).all()
-        median_inputs: dict[date, list[Decimal]] = defaultdict(list)
-        for row in equity_rows:
-            if row.pct_chg is not None:
-                median_inputs[row.trade_date].append(row.pct_chg)
-        median_by_date = {
-            trade_date: self._discrete_median(values)
-            for trade_date, values in median_inputs.items()
-        }
+        if self._supports_percentile_disc(session):
+            median_rows = session.execute(
+                select(
+                    EquityDailyBar.trade_date,
+                    func.percentile_disc(0.5).within_group(EquityDailyBar.pct_chg).label("median_pct"),
+                ).where(
+                    EquityDailyBar.trade_date.in_(tuple(trade_dates)),
+                    EquityDailyBar.pct_chg.is_not(None),
+                ).group_by(EquityDailyBar.trade_date)
+            ).all()
+            median_by_date = {
+                row.trade_date: (float(row.median_pct) if row.median_pct is not None else None)
+                for row in median_rows
+            }
+        else:
+            equity_rows = session.execute(
+                select(EquityDailyBar.trade_date, EquityDailyBar.pct_chg).where(
+                    EquityDailyBar.trade_date.in_(tuple(trade_dates)),
+                    EquityDailyBar.pct_chg.is_not(None),
+                )
+                .order_by(EquityDailyBar.trade_date.asc(), EquityDailyBar.pct_chg.asc())
+            ).all()
+            median_inputs: dict[date, list[Decimal]] = defaultdict(list)
+            for row in equity_rows:
+                if row.pct_chg is not None:
+                    median_inputs[row.trade_date].append(row.pct_chg)
+            median_by_date = {
+                trade_date: self._discrete_median(values)
+                for trade_date, values in median_inputs.items()
+            }
 
         points: list[MarketStyleHistoryPoint] = []
         for trade_day in trade_dates:
