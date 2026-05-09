@@ -18,7 +18,7 @@ from lake_console.backend.app.services.parquet_writer import (
     write_rows_to_parquet,
 )
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
-from lake_console.backend.app.sync.helpers.dates import load_open_trade_dates
+from lake_console.backend.app.sync.helpers.dates import load_expected_partition_dates, resolve_expected_partition_date
 from lake_console.backend.app.sync.helpers.params import parse_date
 
 
@@ -268,14 +268,16 @@ class DbTradeDateExportService:
         end_date: date | None,
     ) -> list[date]:
         if trade_date is not None:
-            dates = load_open_trade_dates(lake_root=self.lake_root, start_date=trade_date, end_date=trade_date)
-            if not dates:
-                raise RuntimeError(f"本地交易日历中 {trade_date.isoformat()} 不是开市日。")
-            return dates
+            return [resolve_expected_partition_date(lake_root=self.lake_root, dataset_key=self.dataset_key, trade_date=trade_date)]
         assert start_date is not None and end_date is not None
-        dates = load_open_trade_dates(lake_root=self.lake_root, start_date=start_date, end_date=end_date)
+        dates = load_expected_partition_dates(
+            lake_root=self.lake_root,
+            dataset_key=self.dataset_key,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if not dates:
-            raise RuntimeError(f"本地交易日历中 {start_date.isoformat()} ~ {end_date.isoformat()} 没有开市日。")
+            raise RuntimeError(f"{self.dataset_key} 在 {start_date.isoformat()} ~ {end_date.isoformat()} 范围内没有可导出的锚点日期。")
         return dates
 
     def _empty_partition_summary(self, *, trade_date: date) -> dict[str, Any]:

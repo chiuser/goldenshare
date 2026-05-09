@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
-from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS, INDEX_DAILY_FIELDS
+from lake_console.backend.app.catalog.tushare_index_series import (
+    INDEX_DAILY_BASIC_FIELDS,
+    INDEX_DAILY_FIELDS,
+    INDEX_MONTHLY_FIELDS,
+    INDEX_WEEKLY_FIELDS,
+)
 
 
 INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
@@ -127,11 +132,135 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
             ),
         ),
     ),
+    LakeDatasetDefinition(
+        dataset_key="index_weekly",
+        display_name="指数周线行情",
+        source="tushare",
+        api_name="index_weekly",
+        source_doc_id="171",
+        description="指数周线，按周最后开市日锚点分区落盘，第一阶段只支持 prod-core-db 只读导出。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/index_weekly",
+        group_key="index_market_data",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=(
+            LakeLayerDefinition(
+                layer="raw_tushare",
+                layer_name="最佳事实",
+                purpose="指数周线修复事实层，字段口径保持 Tushare index_weekly。",
+                layout="by_date",
+                path="raw_tushare/index_weekly",
+                recommended_usage="指数周频走势、周收益和跨周期比较研究。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="index_weekly_prod_core_plan_trade_date",
+                title="预览指数周线单锚点导出",
+                scenario="plan",
+                description="不请求 Tushare，从生产 core 只读预览一个周最后开市日分区替换范围。",
+                argv=("lake-console", "plan-sync", "index_weekly", "--from", "prod-core-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。"),
+            ),
+            LakeCommandExample(
+                example_key="index_weekly_prod_core_sync_trade_date",
+                title="从生产 core 导出单锚点指数周线",
+                scenario="sync_point",
+                description="使用字段映射从 core_serving.index_weekly_serving 只读导出，并替换本地 Lake 对应分区。",
+                argv=("lake-console", "sync-dataset", "index_weekly", "--from", "prod-core-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_core_db_url。"),
+            ),
+            LakeCommandExample(
+                example_key="index_weekly_prod_core_sync_range",
+                title="从生产 core 导出区间指数周线",
+                scenario="sync_range",
+                description="读取本地交易日历展开每周最后开市日，再按 trade_date 写本地分区。",
+                argv=(
+                    "lake-console",
+                    "sync-dataset",
+                    "index_weekly",
+                    "--from",
+                    "prod-core-db",
+                    "--start-date",
+                    "2026-04-01",
+                    "--end-date",
+                    "2026-04-30",
+                ),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_core_db_url。"),
+            ),
+        ),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="index_monthly",
+        display_name="指数月线行情",
+        source="tushare",
+        api_name="index_monthly",
+        source_doc_id="172",
+        description="指数月线，按月最后开市日锚点分区落盘，第一阶段只支持 prod-core-db 只读导出。",
+        dataset_role="raw_dataset",
+        storage_root="raw_tushare/index_monthly",
+        group_key="index_market_data",
+        primary_layout="by_date",
+        available_layouts=("by_date",),
+        write_policy="replace_partition",
+        update_mode="manual_cli",
+        layers=(
+            LakeLayerDefinition(
+                layer="raw_tushare",
+                layer_name="最佳事实",
+                purpose="指数月线修复事实层，字段口径保持 Tushare index_monthly。",
+                layout="by_date",
+                path="raw_tushare/index_monthly",
+                recommended_usage="指数月频走势、长周期回顾和月度比较研究。",
+            ),
+        ),
+        command_examples=(
+            LakeCommandExample(
+                example_key="index_monthly_prod_core_plan_trade_date",
+                title="预览指数月线单锚点导出",
+                scenario="plan",
+                description="不请求 Tushare，从生产 core 只读预览一个月最后开市日分区替换范围。",
+                argv=("lake-console", "plan-sync", "index_monthly", "--from", "prod-core-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。"),
+            ),
+            LakeCommandExample(
+                example_key="index_monthly_prod_core_sync_trade_date",
+                title="从生产 core 导出单锚点指数月线",
+                scenario="sync_point",
+                description="使用字段映射从 core_serving.index_monthly_serving 只读导出，并替换本地 Lake 对应分区。",
+                argv=("lake-console", "sync-dataset", "index_monthly", "--from", "prod-core-db", "--trade-date", "2026-04-30"),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_core_db_url。"),
+            ),
+            LakeCommandExample(
+                example_key="index_monthly_prod_core_sync_range",
+                title="从生产 core 导出区间指数月线",
+                scenario="sync_range",
+                description="读取本地交易日历展开每月最后开市日，再按 trade_date 写本地分区。",
+                argv=(
+                    "lake-console",
+                    "sync-dataset",
+                    "index_monthly",
+                    "--from",
+                    "prod-core-db",
+                    "--start-date",
+                    "2026-01-01",
+                    "--end-date",
+                    "2026-04-30",
+                ),
+                prerequisites=("已同步本地交易日历。", "已配置 GOLDENSHARE_LAKE_ROOT。", "已配置只读 prod_core_db_url。"),
+            ),
+        ),
+    ),
 )
 
 
 __all__ = [
     "INDEX_DAILY_FIELDS",
     "INDEX_DAILY_BASIC_FIELDS",
+    "INDEX_MONTHLY_FIELDS",
     "INDEX_SERIES_DATASETS",
+    "INDEX_WEEKLY_FIELDS",
 ]

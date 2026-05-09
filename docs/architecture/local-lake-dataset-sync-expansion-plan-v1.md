@@ -1,13 +1,14 @@
 # Local Lake 数据集同步扩展方案 v1
 
 - 版本：v1
-- 状态：已部分落地；主路线已切换为“`prod-raw-db` 只读导出优先，Tushare 直连补充”
-- 更新时间：2026-05-07
+- 状态：已部分落地；主路线已切换为“`prod-raw-db` 只读导出优先，必要时按最佳事实源选择 `prod-core-db`”
+- 更新时间：2026-05-09
 - 适用范围：`lake_console` 本地移动盘 Tushare Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
   - [Local Lake Console 数据集模型 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
   - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
+  - [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 
@@ -31,14 +32,14 @@
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
 8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
-9. Lake 已从首批 6 个数据集扩展到 32 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块与榜单的多个批次。
+9. Lake 已从首批 6 个数据集扩展到 48 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线与特色指标多个批次。
 10. `daily` 已验证可以通过 `prod-raw-db` 只读导出，且速度明显优于重新请求 Tushare。
 
-当前生产侧共有 `60` 个 `DatasetDefinition`，其中：
+当前生产侧共有 `66` 个 `DatasetDefinition`，其中：
 
-1. `58` 个落在 `raw_tushare.*`，理论上都可以评估接入本地 Tushare Lake。
+1. `64` 个属于 Tushare 主线。
 2. `2` 个是 `BIYING` 数据源（`biying_equity_daily`、`biying_moneyflow`），不纳入当前 Tushare Lake 主线。
-3. 当前 Lake 已落地 `32 / 58` 个 `raw_tushare` 数据集，剩余 `26` 个待规划。
+3. 当前 Lake 已落地 `48 / 64` 个 Tushare 数据集，剩余 `16` 个待规划。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
 
@@ -91,6 +92,35 @@
 2. 很多原本在源站 API 侧很复杂的数据集，切到 prod-raw-db 导出后，复杂度会从“如何请求”降为“如何安全切分导出和写 Parquet”。
 3. 只读导出更适合全量回填、历史补湖和批量接入。
 4. `prod-raw-db` 已有严格边界：只读、只准 `raw_tushare`、只准白名单表、只准字段白名单投影、禁止 `select *`。
+
+### 2.4 事实源选择标准：优先最佳事实，不迷信 raw
+
+Lake 选择读取源时，不应机械套用“越接近源站越好”的简单规则，而应先回答：
+
+```text
+当前哪一层保存的是更完整、更可靠、更适合研究和恢复的事实。
+```
+
+默认情况下：
+
+1. 若 `raw_tushare.*` 已经完整、可信、无额外修复需求，则优先使用 `prod-raw-db`。
+2. 若 `core/core_serving.*` 明确承载了更高质量的修复结果，且这些修复正是 Lake 需要保留的业务事实，则允许选择 `prod-core-db`。
+
+已确认例子：
+
+1. `index_daily`：按用户拍板，从 `core_serving.index_daily_serving` 读取。
+2. `index_weekly` / `index_monthly`：当前 raw 仅覆盖约 `560` 个指数代码，serving 已补齐到 `1130` 个 active 指数，因此后续 Lake 应从 serving 读取。
+
+禁止做法：
+
+1. 因为“raw 更像源站”就无条件优先 raw。
+2. 因为“core 比较方便”就绕过审计直接读 serving。
+
+结论要求：
+
+1. 先做源层 / raw / serving 三方事实审计。
+2. 再决定 Lake 应导出哪一层。
+3. 选定后必须同步写回方案文档和接入 checklist。
 
 仍保留 Tushare 直连的场景：
 
@@ -467,11 +497,11 @@ rebuild_month
 
 | 项 | 数量 | 说明 |
 |---|---:|---|
-| 生产 `DatasetDefinition` 总数 | 60 | 含 BIYING |
-| `raw_tushare` 数据集 | 58 | 当前 Tushare Lake 主线目标 |
+| 生产 `DatasetDefinition` 总数 | 66 | 含 BIYING |
+| Tushare 数据集 | 64 | 当前 Tushare Lake 主线目标 |
 | BIYING 数据集 | 2 | 暂不纳入本轮 |
-| Lake 已落地 | 32 | 已覆盖参考数据、核心日频、资金流、ETF、板块与榜单多批次 |
-| Lake 待接入 | 26 | 继续以 `prod-raw-db` 导出优先 |
+| Lake 已落地 | 48 | 已覆盖参考数据、核心日频、资金流、ETF、板块、热点、榜单、股票周/月线、指数周期线与特色指标多批次 |
+| Lake 待接入 | 16 | 继续以 `prod-raw-db` 导出优先 |
 
 ### 7.2 新主线原则
 
@@ -727,27 +757,46 @@ rebuild_month
 1. 这批要重点审计分区字段，不要机械套 `trade_date`。
 2. `index_weight` 仍需单独确认最适合的 Lake 分区语义。
 
-### 7.9 R6：周月线 / 特殊宽表 / 专项批
+### 7.9 R6：指数周期线 / 特殊宽表 / 专项批
 
-目标：最后处理仍需专项评审的数据集。
+目标：处理仍需专项日期模型审计、serving 修复事实接入或宽表专项设计的数据集。
+
+当前状态（2026-05-09）：
+
+1. `index_weekly`、`index_monthly` 已按“最佳事实优先”口径落地为 `prod-core-db`：
+   - `index_weekly` -> `core_serving.index_weekly_serving`
+   - `index_monthly` -> `core_serving.index_monthly_serving`
+2. `stk_factor_pro`、`stk_nineturn` 已按 `prod-raw-db` 落地：
+   - `stk_factor_pro` -> `raw_tushare.stk_factor_pro`
+   - `stk_nineturn` -> `raw_tushare.stk_nineturn`
+3. 这 4 个数据集均已完成 `lake_console` catalog / planner / strategy / CLI 支持、自动化测试与文档收口。
+4. `index_weekly` / `index_monthly` 的 Lake 分区锚点分别按：
+   - 周最后开市日
+   - 月最后开市日
+5. `stk_factor_pro` 继续按宽表专项处理字段白名单与流式读取。
+6. `stk_nineturn` 按当前生产事实固定导出 `freq=daily`。
 
 候选数据集：
 
 | 数据集 | 原表 | 备注 |
 |---|---|---|
-| `index_weekly` | `raw_tushare.index_weekly_bar` | 周线分区语义需先定 |
-| `index_monthly` | `raw_tushare.index_monthly_bar` | 月线分区语义需先定 |
-| `stk_period_bar_week` | `raw_tushare.stk_period_bar` | 周线实体 |
-| `stk_period_bar_month` | `raw_tushare.stk_period_bar` | 月线实体 |
-| `stk_period_bar_adj_week` | `raw_tushare.stk_period_bar_adj` | 周线复权实体 |
-| `stk_period_bar_adj_month` | `raw_tushare.stk_period_bar_adj` | 月线复权实体 |
-| `stk_factor_pro` | `raw_tushare.stk_factor_pro` | 宽表，字段和文件大小要单独评审 |
-| `stk_nineturn` | `raw_tushare.stk_nineturn` | 需确认字段和分区是否直接按日即可 |
+| `index_weekly` | `core_serving.index_weekly_serving` | 已落地，走 `prod-core-db` |
+| `index_monthly` | `core_serving.index_monthly_serving` | 已落地，走 `prod-core-db` |
+| `stk_factor_pro` | `raw_tushare.stk_factor_pro` | 已落地，走 `prod-raw-db` |
+| `stk_nineturn` | `raw_tushare.stk_nineturn` | 已落地，走 `prod-raw-db` |
 
 说明：
 
-1. 这批不是不能做，而是应该在前几批模板稳定后再上。
-2. `stk_factor_pro`、周月线类都更适合在文件布局、DuckDB 查询和文件大小上做专项设计。
+1. 这一批已经从“待专项评审”收口为“已落地”，后续只需要按真实远程事实生成同步命令和抽样验证。
+2. `index_weekly`、`index_monthly` 当前生产 raw 只覆盖约 `560` 个指数代码，但 serving 已通过 `derived_daily` 补齐到 `1130` 个 active 指数，Lake 已按用户拍板优先使用 serving。
+3. `stk_factor_pro` 已按宽表专项落地 `prod-raw-db`，继续维持字段白名单和流式读取策略。
+4. `stk_nineturn` 已按 `freq=daily` 固定事实落地 `prod-raw-db`。
+5. `stk_period_bar_week`、`stk_period_bar_month`、`stk_period_bar_adj_week`、`stk_period_bar_adj_month` 已于 2026-05-08 完成 `lake_console` 接入、自动化测试与最小真实逻辑验证。
+6. 这 4 个股票周/月线不是指数周/月线，不走 active pool，当前生产实现按 `freq=week/month` 共用两张 raw 表：
+   - `raw_tushare.stk_period_bar`
+   - `raw_tushare.stk_period_bar_adj`
+7. 股票周线 Lake 方案按 `trade_date` 周五锚点分区。
+8. 股票月线 Lake 方案按 `trade_date` 月锚点分区，但对已确认异常月 `2020-02` 只保留 `2020-02-28`，忽略 `2020-02-29`。
 
 ### 7.10 R7：明确后置项
 

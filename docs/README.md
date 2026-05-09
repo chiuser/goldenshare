@@ -55,6 +55,7 @@ docs/
 - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
 - [Local Lake Console 数据集模型 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
 - [Local Lake 数据集同步扩展方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
+- [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
 - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
 - [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
 
@@ -78,10 +79,15 @@ docs/
 
 ## 5. 数据集研发（S3）
 
+- [A股市场温度/情绪与 Walk-forward 指标口径说明 v1](/Users/congming/github/goldenshare/docs/datasets/market-mood-metrics-and-walkforward-spec-v1.md)
 - [指数行情 raw / serving 分层语义对齐改造方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-raw-serving-layer-alignment-plan-v1.md)
 - [指数基础信息源站对齐修复方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
 - [东方财富板块日线 category 字段与主键修复方案 v1（已确认）](/Users/congming/github/goldenshare/docs/datasets/dc-daily-category-identity-fix-plan-v1.md)
 - [股票周/月线同步逻辑说明](/Users/congming/github/goldenshare/docs/datasets/equity-weekly-monthly-sync-logic.md)
+- [股票周线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-period-bar-week-prod-raw-db-lake-export-plan.md)
+- [股票月线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-period-bar-month-prod-raw-db-lake-export-plan.md)
+- [股票复权周线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-period-bar-adj-week-prod-raw-db-lake-export-plan.md)
+- [股票复权月线 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-period-bar-adj-month-prod-raw-db-lake-export-plan.md)
 - [资金流多源融合策略设计 v1](/Users/congming/github/goldenshare/docs/datasets/moneyflow-multi-source-fusion-strategy-v1.md)
 - [指数基础信息 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/index-basic-lake-dataset-development.md)
 - [股票日线 Lake 接入方案](/Users/congming/github/goldenshare/docs/datasets/daily-lake-dataset-development.md)
@@ -95,6 +101,8 @@ docs/
 - [基金日线行情 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/fund-daily-prod-raw-db-lake-export-plan.md)
 - [基金复权因子 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/fund-adj-prod-raw-db-lake-export-plan.md)
 - [指数日线 Lake prod-core-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-daily-prod-core-db-lake-export-plan.md)
+- [指数周线 Lake prod-core-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-weekly-prod-core-db-lake-export-plan.md)
+- [指数月线 Lake prod-core-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-monthly-prod-core-db-lake-export-plan.md)
 - [指数每日指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/index-daily-basic-prod-raw-db-lake-export-plan.md)
 - [融资融券交易汇总 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/margin-prod-raw-db-lake-export-plan.md)
 - [每日涨跌停价格 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-limit-prod-raw-db-lake-export-plan.md)
@@ -117,6 +125,7 @@ docs/
 - [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
+- [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
 - [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
 - [指数历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
@@ -124,6 +133,7 @@ docs/
 - [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
+- [股票技术面因子（专业版）Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-prod-raw-db-lake-export-plan.md)
 - [每日停复牌信息](/Users/congming/github/goldenshare/docs/datasets/suspend-d-dataset-development.md)
 - [ST 股票列表](/Users/congming/github/goldenshare/docs/datasets/stock-st-dataset-development.md)
 - [ST 股票列表历史缺失日期重建方案 v1（待评审）](/Users/congming/github/goldenshare/docs/datasets/stock-st-missing-date-reconstruction-plan-v1.md)

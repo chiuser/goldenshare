@@ -64,6 +64,8 @@ class LakeSyncPlanner:
             "fund_adj",
             "fund_daily",
             "index_daily_basic",
+            "stk_factor_pro",
+            "stk_nineturn",
             "kpl_concept_cons",
             "kpl_list",
             "limit_cpt_list",
@@ -78,6 +80,10 @@ class LakeSyncPlanner:
             "moneyflow_ind_ths",
             "moneyflow_ind_dc",
             "moneyflow_mkt_dc",
+            "stk_period_bar_week",
+            "stk_period_bar_month",
+            "stk_period_bar_adj_week",
+            "stk_period_bar_adj_month",
             "stk_limit",
             "stock_st",
             "suspend_d",
@@ -86,8 +92,8 @@ class LakeSyncPlanner:
             "top_list",
         } and source != PROD_RAW_DB_SOURCE:
             raise ValueError(f"{dataset_key} 当前只支持 --from prod-raw-db。")
-        if dataset_key == "index_daily" and source != PROD_CORE_DB_SOURCE:
-            raise ValueError("index_daily 当前只支持 --from prod-core-db。")
+        if dataset_key in {"index_daily", "index_weekly", "index_monthly"} and source != PROD_CORE_DB_SOURCE:
+            raise ValueError(f"{dataset_key} 当前只支持 --from prod-core-db。")
         if dataset_key in {
             "daily",
             "moneyflow",
@@ -107,6 +113,8 @@ class LakeSyncPlanner:
             "fund_adj",
             "fund_daily",
             "index_daily",
+            "index_weekly",
+            "index_monthly",
             "index_daily_basic",
             "kpl_concept_cons",
             "kpl_list",
@@ -115,6 +123,12 @@ class LakeSyncPlanner:
             "limit_list_ths",
             "limit_step",
             "margin",
+            "stk_period_bar_week",
+            "stk_period_bar_month",
+            "stk_period_bar_adj_week",
+            "stk_period_bar_adj_month",
+            "stk_factor_pro",
+            "stk_nineturn",
             "stk_limit",
             "stock_st",
             "suspend_d",

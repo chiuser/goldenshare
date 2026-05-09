@@ -28,6 +28,8 @@ from lake_console.backend.app.catalog.datasets.market_equity import (
     DAILY_FIELDS,
     MARGIN_FIELDS,
     STK_LIMIT_FIELDS,
+    STK_PERIOD_BAR_ADJ_FIELDS,
+    STK_PERIOD_BAR_FIELDS,
     STOCK_ST_FIELDS,
     SUSPEND_D_FIELDS,
 )
@@ -41,7 +43,11 @@ from lake_console.backend.app.catalog.datasets.moneyflow import (
     MONEYFLOW_MKT_DC_FIELDS,
     MONEYFLOW_THS_FIELDS,
 )
-from lake_console.backend.app.catalog.datasets.technical_indicators import CYQ_PERF_FIELDS
+from lake_console.backend.app.catalog.datasets.technical_indicators import (
+    CYQ_PERF_FIELDS,
+    STK_FACTOR_PRO_FIELDS,
+    STK_NINETURN_FIELDS,
+)
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
     ETF_BASIC_FIELDS,
@@ -80,6 +86,12 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "moneyflow_ind_ths": "raw_tushare.moneyflow_ind_ths",
     "moneyflow_mkt_dc": "raw_tushare.moneyflow_mkt_dc",
     "moneyflow_ths": "raw_tushare.moneyflow_ths",
+    "stk_factor_pro": "raw_tushare.stk_factor_pro",
+    "stk_nineturn": "raw_tushare.stk_nineturn",
+    "stk_period_bar_week": "raw_tushare.stk_period_bar",
+    "stk_period_bar_month": "raw_tushare.stk_period_bar",
+    "stk_period_bar_adj_week": "raw_tushare.stk_period_bar_adj",
+    "stk_period_bar_adj_month": "raw_tushare.stk_period_bar_adj",
     "stk_limit": "raw_tushare.stk_limit",
     "stock_st": "raw_tushare.stock_st",
     "suspend_d": "raw_tushare.suspend_d",
@@ -117,6 +129,12 @@ PROD_RAW_DB_FIELDS = {
     "moneyflow_ind_ths": MONEYFLOW_IND_THS_FIELDS,
     "moneyflow_mkt_dc": MONEYFLOW_MKT_DC_FIELDS,
     "moneyflow_ths": MONEYFLOW_THS_FIELDS,
+    "stk_factor_pro": STK_FACTOR_PRO_FIELDS,
+    "stk_nineturn": STK_NINETURN_FIELDS,
+    "stk_period_bar_week": STK_PERIOD_BAR_FIELDS,
+    "stk_period_bar_month": STK_PERIOD_BAR_FIELDS,
+    "stk_period_bar_adj_week": STK_PERIOD_BAR_ADJ_FIELDS,
+    "stk_period_bar_adj_month": STK_PERIOD_BAR_ADJ_FIELDS,
     "stk_limit": STK_LIMIT_FIELDS,
     "stock_st": STOCK_ST_FIELDS,
     "suspend_d": SUSPEND_D_FIELDS,
@@ -154,6 +172,12 @@ PROD_RAW_DB_ORDER_BY = {
     "moneyflow_ind_ths": ("ts_code",),
     "moneyflow_mkt_dc": ("trade_date",),
     "moneyflow_ths": ("ts_code",),
+    "stk_factor_pro": ("ts_code",),
+    "stk_nineturn": ("ts_code",),
+    "stk_period_bar_week": ("ts_code",),
+    "stk_period_bar_month": ("ts_code",),
+    "stk_period_bar_adj_week": ("ts_code",),
+    "stk_period_bar_adj_month": ("ts_code",),
     "stk_limit": ("ts_code",),
     "stock_st": ("ts_code", "type"),
     "suspend_d": ("ts_code", "suspend_type", "suspend_timing"),
@@ -164,6 +188,13 @@ PROD_RAW_DB_ORDER_BY = {
     "top_list": ("ts_code", "reason"),
 }
 PROD_RAW_DB_SYSTEM_FIELDS = {"api_name", "fetched_at", "raw_payload"}
+PROD_RAW_DB_STATIC_FILTERS: dict[str, tuple[tuple[str, Any], ...]] = {
+    "stk_period_bar_week": (("freq", "week"),),
+    "stk_period_bar_month": (("freq", "month"),),
+    "stk_period_bar_adj_week": (("freq", "week"),),
+    "stk_period_bar_adj_month": (("freq", "month"),),
+    "stk_nineturn": (("freq", "daily"),),
+}
 
 
 @dataclass(frozen=True)
@@ -193,14 +224,15 @@ def build_prod_raw_trade_date_query(*, dataset_key: str, trade_date: date) -> Pr
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
     order_by = _build_order_by(dataset_key, include_trade_date=False)
+    where_clause, params = _build_where_clause(dataset_key=dataset_key, trade_date=trade_date)
     return ProdRawQuery(
         sql=(
             f"select {projection} "
             f"from {table_name} "
-            "where trade_date = %s "
+            f"where {where_clause} "
             f"order by {order_by}"
         ),
-        params=(trade_date,),
+        params=params,
         table_name=table_name,
         fields=fields,
     )
@@ -213,14 +245,15 @@ def build_prod_raw_trade_date_range_query(*, dataset_key: str, start_date: date,
     if "*" in projection:
         raise ValueError("prod-raw-db 查询禁止 select *。")
     order_by = _build_order_by(dataset_key, include_trade_date=True)
+    where_clause, params = _build_where_clause(dataset_key=dataset_key, start_date=start_date, end_date=end_date)
     return ProdRawQuery(
         sql=(
             f"select {projection} "
             f"from {table_name} "
-            "where trade_date >= %s and trade_date <= %s "
+            f"where {where_clause} "
             f"order by {order_by}"
         ),
-        params=(start_date, end_date),
+        params=params,
         table_name=table_name,
         fields=fields,
     )
@@ -256,6 +289,29 @@ def _build_order_by(dataset_key: str, *, include_trade_date: bool) -> str:
     if include_trade_date and "trade_date" not in fields:
         fields = ["trade_date", *fields]
     return ", ".join(_render_sql_identifier(field) for field in fields)
+
+
+def _build_where_clause(
+    *,
+    dataset_key: str,
+    trade_date: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[str, tuple[Any, ...]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if trade_date is not None:
+        clauses.append("trade_date = %s")
+        params.append(trade_date)
+    else:
+        assert start_date is not None and end_date is not None
+        clauses.append("trade_date >= %s")
+        clauses.append("trade_date <= %s")
+        params.extend((start_date, end_date))
+    for field, value in PROD_RAW_DB_STATIC_FILTERS.get(dataset_key, ()):
+        clauses.append(f"{_render_sql_identifier(field)} = %s")
+        params.append(value)
+    return " and ".join(clauses), tuple(params)
 
 
 def _render_projection_fields(dataset_key: str, fields: tuple[str, ...]) -> tuple[str, ...]:

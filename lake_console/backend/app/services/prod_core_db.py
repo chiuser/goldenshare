@@ -5,18 +5,31 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_CORE_SELECT_FIELDS, INDEX_DAILY_FIELDS
+from lake_console.backend.app.catalog.tushare_index_series import (
+    INDEX_DAILY_CORE_SELECT_FIELDS,
+    INDEX_DAILY_FIELDS,
+    INDEX_MONTHLY_CORE_SELECT_FIELDS,
+    INDEX_MONTHLY_FIELDS,
+    INDEX_WEEKLY_CORE_SELECT_FIELDS,
+    INDEX_WEEKLY_FIELDS,
+)
 
 
 PROD_CORE_DB_SOURCE = "prod-core-db"
 PROD_CORE_DB_ALLOWED_TABLES = {
     "index_daily": "core_serving.index_daily_serving",
+    "index_weekly": "core_serving.index_weekly_serving",
+    "index_monthly": "core_serving.index_monthly_serving",
 }
 PROD_CORE_DB_FIELDS = {
     "index_daily": INDEX_DAILY_FIELDS,
+    "index_weekly": INDEX_WEEKLY_FIELDS,
+    "index_monthly": INDEX_MONTHLY_FIELDS,
 }
 PROD_CORE_DB_SELECT_FIELDS = {
     "index_daily": INDEX_DAILY_CORE_SELECT_FIELDS,
+    "index_weekly": INDEX_WEEKLY_CORE_SELECT_FIELDS,
+    "index_monthly": INDEX_MONTHLY_CORE_SELECT_FIELDS,
 }
 PROD_CORE_DB_SYSTEM_FIELDS = {"source", "created_at", "updated_at"}
 
@@ -159,10 +172,10 @@ def _assert_query_is_safe(query: ProdCoreQuery) -> None:
         raise ValueError("prod-core-db 查询禁止 select *。")
     if query.table_name not in PROD_CORE_DB_ALLOWED_TABLES.values():
         raise ValueError(f"prod-core-db 查询表不在白名单：{query.table_name}")
-    if query.table_name != "core_serving.index_daily_serving":
-        raise ValueError(f"prod-core-db 当前只允许访问 core_serving.index_daily_serving：{query.table_name}")
+    if not query.table_name.startswith("core_serving."):
+        raise ValueError(f"prod-core-db 当前只允许访问 core_serving 白名单表：{query.table_name}")
     if any(
         blocked in normalized_sql
         for blocked in (" ops.", " raw_tushare.", " core.", " core_serving_light.", " biz.", " app.", " platform.")
     ):
-        raise ValueError("prod-core-db 查询禁止访问 index_daily 例外之外的其他 schema。")
+        raise ValueError("prod-core-db 查询禁止访问 core_serving 白名单之外的其他 schema。")

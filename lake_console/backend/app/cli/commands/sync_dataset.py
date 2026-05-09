@@ -26,7 +26,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         dest="source",
         default="tushare",
         choices=("tushare", "prod-raw-db", "prod-core-db"),
-        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前仅用于 index_daily",
+        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前用于 index_daily/index_weekly/index_monthly",
     )
     plan_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD")
     plan_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
@@ -46,9 +46,10 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         help=(
             "数据集 key；当前接入 stock_basic、trade_cal、index_basic、daily、moneyflow、moneyflow_ths、moneyflow_dc、"
             "moneyflow_cnt_ths、moneyflow_ind_ths、moneyflow_ind_dc、moneyflow_mkt_dc、adj_factor、daily_basic、"
-            "fund_daily、fund_adj、index_daily_basic、index_daily、margin、stk_limit、stock_st、suspend_d、"
+            "fund_daily、fund_adj、index_daily_basic、index_daily、index_weekly、index_monthly、margin、stk_limit、stock_st、suspend_d、"
             "dc_daily、dc_member、dc_index、dc_hot、ths_daily、ths_hot、kpl_list、kpl_concept_cons、"
-            "cyq_perf、limit_list_d、limit_list_ths、limit_step、limit_cpt_list、top_list、"
+            "cyq_perf、stk_factor_pro、stk_nineturn、limit_list_d、limit_list_ths、limit_step、limit_cpt_list、top_list、"
+            "stk_period_bar_week、stk_period_bar_month、stk_period_bar_adj_week、stk_period_bar_adj_month、"
             "etf_basic、etf_index、ths_index、ths_member"
         ),
     )
@@ -57,7 +58,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
         dest="source",
         default="tushare",
         choices=("tushare", "prod-raw-db", "prod-core-db"),
-        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前仅用于 index_daily",
+        help="同步来源，默认 tushare；prod-raw-db 用于 raw_tushare 只读导出，prod-core-db 当前用于 index_daily/index_weekly/index_monthly",
     )
     sync_dataset_parser.add_argument("--trade-date", default=None, type=date.fromisoformat, help="单日日期，格式 YYYY-MM-DD；日频 / 分区类数据集可用")
     sync_dataset_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD；日频 / 分区类数据集可用")

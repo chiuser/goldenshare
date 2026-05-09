@@ -426,6 +426,70 @@ class IndexDailyStrategy:
         ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
 
 
+class IndexWeeklyStrategy:
+    dataset_key = "index_weekly"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_CORE_DB_SOURCE)
+        return DbTradeDateExportService(
+            lake_root=context.lake_root,
+            dataset_key=self.dataset_key,
+            api_name="index_weekly",
+            source=source,
+            database_url=context.settings.prod_core_db_url,
+            build_point_query=build_prod_core_trade_date_query,
+            build_range_query=build_prod_core_trade_date_range_query,
+            fetch_rows=fetch_prod_core_rows,
+            iter_rows=iter_prod_core_rows,
+        ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+
+
+class IndexMonthlyStrategy:
+    dataset_key = "index_monthly"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_CORE_DB_SOURCE)
+        return DbTradeDateExportService(
+            lake_root=context.lake_root,
+            dataset_key=self.dataset_key,
+            api_name="index_monthly",
+            source=source,
+            database_url=context.settings.prod_core_db_url,
+            build_point_query=build_prod_core_trade_date_query,
+            build_range_query=build_prod_core_trade_date_range_query,
+            fetch_rows=fetch_prod_core_rows,
+            iter_rows=iter_prod_core_rows,
+        ).export(trade_date=trade_date, start_date=start_date, end_date=end_date, ts_code=ts_code)
+
+
 class MarginStrategy:
     dataset_key = "margin"
 
@@ -829,6 +893,68 @@ class StkLimitStrategy:
         )
 
 
+class StkFactorProStrategy:
+    dataset_key = "stk_factor_pro"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_factor_pro",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkNineturnStrategy:
+    dataset_key = "stk_nineturn"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_nineturn",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
 class StockStStrategy:
     dataset_key = "stock_st"
 
@@ -883,6 +1009,130 @@ class SuspendDStrategy:
             context=context,
             dataset_key=self.dataset_key,
             api_name="suspend_d",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkPeriodBarWeekStrategy:
+    dataset_key = "stk_period_bar_week"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_weekly_monthly",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkPeriodBarMonthStrategy:
+    dataset_key = "stk_period_bar_month"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_weekly_monthly",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkPeriodBarAdjWeekStrategy:
+    dataset_key = "stk_period_bar_adj_week"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_week_month_adj",
+            source=source,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+        )
+
+
+class StkPeriodBarAdjMonthStrategy:
+    dataset_key = "stk_period_bar_adj_month"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _reject_unused_filters(self.dataset_key, name=name, markets=markets, publisher=publisher, category=category)
+        _require_source(self.dataset_key, source, PROD_RAW_DB_SOURCE)
+        return _export_prod_raw_trade_date(
+            context=context,
+            dataset_key=self.dataset_key,
+            api_name="stk_week_month_adj",
             source=source,
             trade_date=trade_date,
             start_date=start_date,

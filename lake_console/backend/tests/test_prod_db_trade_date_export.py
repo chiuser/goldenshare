@@ -28,6 +28,8 @@ from lake_console.backend.app.catalog.datasets.market_equity import (
     DAILY_BASIC_FIELDS,
     MARGIN_FIELDS,
     STK_LIMIT_FIELDS,
+    STK_PERIOD_BAR_ADJ_FIELDS,
+    STK_PERIOD_BAR_FIELDS,
     STOCK_ST_FIELDS,
     SUSPEND_D_FIELDS,
 )
@@ -41,8 +43,17 @@ from lake_console.backend.app.catalog.datasets.moneyflow import (
     MONEYFLOW_MKT_DC_FIELDS,
     MONEYFLOW_THS_FIELDS,
 )
-from lake_console.backend.app.catalog.datasets.technical_indicators import CYQ_PERF_FIELDS
-from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS, INDEX_DAILY_FIELDS
+from lake_console.backend.app.catalog.datasets.technical_indicators import (
+    CYQ_PERF_FIELDS,
+    STK_FACTOR_PRO_FIELDS,
+    STK_NINETURN_FIELDS,
+)
+from lake_console.backend.app.catalog.tushare_index_series import (
+    INDEX_DAILY_BASIC_FIELDS,
+    INDEX_DAILY_FIELDS,
+    INDEX_MONTHLY_FIELDS,
+    INDEX_WEEKLY_FIELDS,
+)
 from lake_console.backend.app.services.db_trade_date_export_service import DbTradeDateExportService
 from lake_console.backend.app.services.prod_core_db import (
     PROD_CORE_DB_ALLOWED_TABLES,
@@ -85,6 +96,12 @@ from lake_console.backend.app.sync.planner import LakeSyncPlanner
         ("moneyflow_ind_ths", "raw_tushare.moneyflow_ind_ths", MONEYFLOW_IND_THS_FIELDS),
         ("moneyflow_ind_dc", "raw_tushare.moneyflow_ind_dc", MONEYFLOW_IND_DC_FIELDS),
         ("moneyflow_mkt_dc", "raw_tushare.moneyflow_mkt_dc", MONEYFLOW_MKT_DC_FIELDS),
+        ("stk_factor_pro", "raw_tushare.stk_factor_pro", STK_FACTOR_PRO_FIELDS),
+        ("stk_nineturn", "raw_tushare.stk_nineturn", STK_NINETURN_FIELDS),
+        ("stk_period_bar_week", "raw_tushare.stk_period_bar", STK_PERIOD_BAR_FIELDS),
+        ("stk_period_bar_month", "raw_tushare.stk_period_bar", STK_PERIOD_BAR_FIELDS),
+        ("stk_period_bar_adj_week", "raw_tushare.stk_period_bar_adj", STK_PERIOD_BAR_ADJ_FIELDS),
+        ("stk_period_bar_adj_month", "raw_tushare.stk_period_bar_adj", STK_PERIOD_BAR_ADJ_FIELDS),
         ("stk_limit", "raw_tushare.stk_limit", STK_LIMIT_FIELDS),
         ("stock_st", "raw_tushare.stock_st", STOCK_ST_FIELDS),
         ("suspend_d", "raw_tushare.suspend_d", SUSPEND_D_FIELDS),
@@ -109,7 +126,14 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
     assert point_query.table_name == expected_table
     assert point_query.fields == expected_fields
     assert "select *" not in " ".join(point_query.sql.lower().split())
-    assert point_query.params == (date(2026, 4, 30),)
+    expected_point_params = {
+        "stk_period_bar_week": (date(2026, 4, 30), "week"),
+        "stk_period_bar_month": (date(2026, 4, 30), "month"),
+        "stk_period_bar_adj_week": (date(2026, 4, 30), "week"),
+        "stk_period_bar_adj_month": (date(2026, 4, 30), "month"),
+        "stk_nineturn": (date(2026, 4, 30), "daily"),
+    }.get(dataset_key, (date(2026, 4, 30),))
+    assert point_query.params == expected_point_params
 
     assert range_query.table_name == expected_table
     assert range_query.fields == expected_fields
@@ -139,6 +163,12 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
         "moneyflow_ind_ths": "order by trade_date, ts_code",
         "moneyflow_ind_dc": "order by trade_date, content_type, ts_code",
         "moneyflow_mkt_dc": "order by trade_date",
+        "stk_factor_pro": "order by trade_date, ts_code",
+        "stk_nineturn": "order by trade_date, ts_code",
+        "stk_period_bar_week": "order by trade_date, ts_code",
+        "stk_period_bar_month": "order by trade_date, ts_code",
+        "stk_period_bar_adj_week": "order by trade_date, ts_code",
+        "stk_period_bar_adj_month": "order by trade_date, ts_code",
         "stk_limit": "order by trade_date, ts_code",
         "stock_st": "order by trade_date, ts_code, type",
         "suspend_d": "order by trade_date, ts_code, suspend_type, suspend_timing",
@@ -147,7 +177,14 @@ def test_prod_raw_trade_date_query_uses_whitelist_projection(
         "top_list": "order by trade_date, ts_code, reason",
     }
     assert expected_order[dataset_key] in range_query.sql
-    assert range_query.params == (date(2026, 4, 1), date(2026, 4, 30))
+    expected_range_params = {
+        "stk_period_bar_week": (date(2026, 4, 1), date(2026, 4, 30), "week"),
+        "stk_period_bar_month": (date(2026, 4, 1), date(2026, 4, 30), "month"),
+        "stk_period_bar_adj_week": (date(2026, 4, 1), date(2026, 4, 30), "week"),
+        "stk_period_bar_adj_month": (date(2026, 4, 1), date(2026, 4, 30), "month"),
+        "stk_nineturn": (date(2026, 4, 1), date(2026, 4, 30), "daily"),
+    }.get(dataset_key, (date(2026, 4, 1), date(2026, 4, 30)))
+    assert range_query.params == expected_range_params
 
 
 def test_limit_list_d_prod_raw_query_quotes_limit_column() -> None:
@@ -166,6 +203,36 @@ def test_dc_index_prod_raw_query_quotes_leading_column() -> None:
     point_query = build_prod_raw_trade_date_query(dataset_key="dc_index", trade_date=date(2026, 5, 7))
     assert '"leading"' in point_query.sql
     assert "select ts_code, trade_date, name, leading," not in point_query.sql.lower()
+
+
+@pytest.mark.parametrize(
+    ("dataset_key", "expected_table", "expected_freq"),
+    [
+        ("stk_period_bar_week", "raw_tushare.stk_period_bar", "week"),
+        ("stk_period_bar_month", "raw_tushare.stk_period_bar", "month"),
+        ("stk_period_bar_adj_week", "raw_tushare.stk_period_bar_adj", "week"),
+        ("stk_period_bar_adj_month", "raw_tushare.stk_period_bar_adj", "month"),
+    ],
+)
+def test_stk_period_bar_prod_raw_query_applies_shared_table_freq_filter(
+    dataset_key: str,
+    expected_table: str,
+    expected_freq: str,
+) -> None:
+    point_query = build_prod_raw_trade_date_query(dataset_key=dataset_key, trade_date=date(2026, 4, 30))
+    range_query = build_prod_raw_trade_date_range_query(
+        dataset_key=dataset_key,
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 30),
+    )
+
+    assert point_query.table_name == expected_table
+    assert "freq = %s" in point_query.sql
+    assert point_query.params == (date(2026, 4, 30), expected_freq)
+
+    assert range_query.table_name == expected_table
+    assert "freq = %s" in range_query.sql
+    assert range_query.params == (date(2026, 4, 1), date(2026, 4, 30), expected_freq)
 
 
 def test_limit_list_ths_prod_raw_query_excludes_query_context_fields() -> None:
@@ -195,16 +262,29 @@ def test_top_list_prod_raw_query_excludes_hash_fields() -> None:
     assert "reason_hash" not in point_query.sql
 
 
-def test_prod_core_trade_date_query_maps_change_field() -> None:
-    point_query = build_prod_core_trade_date_query(dataset_key="index_daily", trade_date=date(2026, 4, 30))
+@pytest.mark.parametrize(
+    ("dataset_key", "expected_table", "expected_fields"),
+    [
+        ("index_daily", "core_serving.index_daily_serving", INDEX_DAILY_FIELDS),
+        ("index_weekly", "core_serving.index_weekly_serving", INDEX_WEEKLY_FIELDS),
+        ("index_monthly", "core_serving.index_monthly_serving", INDEX_MONTHLY_FIELDS),
+    ],
+)
+def test_prod_core_trade_date_query_maps_change_field(
+    dataset_key: str,
+    expected_table: str,
+    expected_fields: tuple[str, ...],
+) -> None:
+    point_query = build_prod_core_trade_date_query(dataset_key=dataset_key, trade_date=date(2026, 4, 30))
     range_query = build_prod_core_trade_date_range_query(
-        dataset_key="index_daily",
+        dataset_key=dataset_key,
         start_date=date(2026, 4, 1),
         end_date=date(2026, 4, 30),
     )
 
-    assert point_query.table_name == PROD_CORE_DB_ALLOWED_TABLES["index_daily"]
-    assert point_query.fields == INDEX_DAILY_FIELDS
+    assert point_query.table_name == PROD_CORE_DB_ALLOWED_TABLES[dataset_key]
+    assert point_query.table_name == expected_table
+    assert point_query.fields == expected_fields
     assert "change_amount as change" in point_query.sql.lower()
     assert "source" not in point_query.sql.lower()
     assert "created_at" not in point_query.sql.lower()
@@ -226,6 +306,8 @@ def test_prod_core_trade_date_query_maps_change_field() -> None:
         ("fund_daily", "prod-raw-db", "fund_daily:prod-raw-db"),
         ("index_daily_basic", "prod-raw-db", "index_daily_basic:prod-raw-db"),
         ("index_daily", "prod-core-db", "index_daily:prod-core-db"),
+        ("index_weekly", "prod-core-db", "index_weekly:prod-core-db"),
+        ("index_monthly", "prod-core-db", "index_monthly:prod-core-db"),
         ("kpl_concept_cons", "prod-raw-db", "kpl_concept_cons:prod-raw-db"),
         ("kpl_list", "prod-raw-db", "kpl_list:prod-raw-db"),
         ("limit_cpt_list", "prod-raw-db", "limit_cpt_list:prod-raw-db"),
@@ -240,6 +322,12 @@ def test_prod_core_trade_date_query_maps_change_field() -> None:
         ("moneyflow_ind_ths", "prod-raw-db", "moneyflow_ind_ths:prod-raw-db"),
         ("moneyflow_ind_dc", "prod-raw-db", "moneyflow_ind_dc:prod-raw-db"),
         ("moneyflow_mkt_dc", "prod-raw-db", "moneyflow_mkt_dc:prod-raw-db"),
+        ("stk_factor_pro", "prod-raw-db", "stk_factor_pro:prod-raw-db"),
+        ("stk_nineturn", "prod-raw-db", "stk_nineturn:prod-raw-db"),
+        ("stk_period_bar_week", "prod-raw-db", "stk_period_bar_week:prod-raw-db"),
+        ("stk_period_bar_month", "prod-raw-db", "stk_period_bar_month:prod-raw-db"),
+        ("stk_period_bar_adj_week", "prod-raw-db", "stk_period_bar_adj_week:prod-raw-db"),
+        ("stk_period_bar_adj_month", "prod-raw-db", "stk_period_bar_adj_month:prod-raw-db"),
         ("stk_limit", "prod-raw-db", "stk_limit:prod-raw-db"),
         ("stock_st", "prod-raw-db", "stock_st:prod-raw-db"),
         ("suspend_d", "prod-raw-db", "suspend_d:prod-raw-db"),
@@ -255,17 +343,128 @@ def test_trade_date_plans_use_expected_source_and_strategy(
     expected_strategy_key: str,
 ) -> None:
     pytest.importorskip("pyarrow")
-    _write_trade_calendar(tmp_path, [date(2026, 4, 30)])
+    sample_trade_date = {
+        "stk_period_bar_week": date(2026, 5, 1),
+        "stk_period_bar_adj_week": date(2026, 5, 1),
+    }.get(dataset_key, date(2026, 4, 30))
+    _write_trade_calendar(tmp_path, [sample_trade_date])
     plan = LakeSyncPlanner(lake_root=tmp_path).plan(
         dataset_key=dataset_key,
         source=source,
-        trade_date=date(2026, 4, 30),
+        trade_date=sample_trade_date,
     )
 
     assert plan.source == source
     assert plan.request_strategy_key == expected_strategy_key
     assert plan.partition_count == 1
+    assert plan.parameters["trade_date"] == sample_trade_date.isoformat()
+
+
+def test_stk_period_bar_week_plan_requires_friday_anchor(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    _write_trade_calendar(tmp_path, [date(2026, 4, 30)])
+
+    with pytest.raises(RuntimeError, match="自然周周五锚点"):
+        LakeSyncPlanner(lake_root=tmp_path).plan(
+            dataset_key="stk_period_bar_week",
+            source="prod-raw-db",
+            trade_date=date(2026, 4, 30),
+        )
+
+
+def test_stk_period_bar_month_plan_keeps_2020_02_28_and_rejects_2020_02_29(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    _write_trade_calendar(tmp_path, [date(2020, 2, 3), date(2020, 3, 2)])
+
+    plan = LakeSyncPlanner(lake_root=tmp_path).plan(
+        dataset_key="stk_period_bar_month",
+        source="prod-raw-db",
+        trade_date=date(2020, 2, 28),
+    )
+    assert plan.partition_count == 1
+    assert plan.parameters["trade_date"] == "2020-02-28"
+    assert plan.required_manifests == ("manifest/trading_calendar/tushare_trade_cal.parquet",)
+
+    with pytest.raises(RuntimeError, match="2020-02-28"):
+        LakeSyncPlanner(lake_root=tmp_path).plan(
+            dataset_key="stk_period_bar_month",
+            source="prod-raw-db",
+            trade_date=date(2020, 2, 29),
+        )
+
+
+def test_stk_period_bar_month_range_plan_normalizes_special_february_anchor(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    _write_trade_calendar(tmp_path, [date(2020, 2, 3), date(2020, 3, 2)])
+
+    plan = LakeSyncPlanner(lake_root=tmp_path).plan(
+        dataset_key="stk_period_bar_month",
+        source="prod-raw-db",
+        start_date=date(2020, 2, 1),
+        end_date=date(2020, 3, 31),
+    )
+
+    assert plan.partition_count == 2
+    assert plan.write_paths == (
+        "raw_tushare/stk_period_bar_month/trade_date=2020-02-28",
+        "raw_tushare/stk_period_bar_month/trade_date=2020-03-31",
+    )
+
+
+def test_index_weekly_plan_requires_last_open_day_anchor(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    _write_trade_calendar(
+        tmp_path,
+        [
+            date(2026, 4, 27),
+            date(2026, 4, 28),
+            date(2026, 4, 29),
+            date(2026, 4, 30),
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="周最后开市日锚点"):
+        LakeSyncPlanner(lake_root=tmp_path).plan(
+            dataset_key="index_weekly",
+            source="prod-core-db",
+            trade_date=date(2026, 4, 29),
+        )
+
+    plan = LakeSyncPlanner(lake_root=tmp_path).plan(
+        dataset_key="index_weekly",
+        source="prod-core-db",
+        trade_date=date(2026, 4, 30),
+    )
+    assert plan.partition_count == 1
     assert plan.parameters["trade_date"] == "2026-04-30"
+    assert plan.required_manifests == ("manifest/trading_calendar/tushare_trade_cal.parquet",)
+
+
+def test_index_monthly_range_plan_uses_last_open_day_anchors(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    _write_trade_calendar(
+        tmp_path,
+        [
+            date(2026, 1, 29),
+            date(2026, 1, 30),
+            date(2026, 2, 26),
+            date(2026, 2, 27),
+            date(2026, 3, 31),
+        ],
+    )
+
+    plan = LakeSyncPlanner(lake_root=tmp_path).plan(
+        dataset_key="index_monthly",
+        source="prod-core-db",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 28),
+    )
+
+    assert plan.partition_count == 2
+    assert plan.write_paths == (
+        "raw_tushare/index_monthly/trade_date=2026-01-30",
+        "raw_tushare/index_monthly/trade_date=2026-02-27",
+    )
 
 
 def test_adj_factor_prod_raw_export_ignores_non_open_day_rows(monkeypatch, tmp_path) -> None:
@@ -306,7 +505,102 @@ def test_adj_factor_prod_raw_export_ignores_non_open_day_rows(monkeypatch, tmp_p
     assert "adj_factor" in schema.names
 
 
-def test_index_daily_prod_core_export_maps_change_amount_to_change(monkeypatch, tmp_path) -> None:
+def test_stk_period_bar_month_prod_raw_export_ignores_2020_02_29_special_rows(tmp_path) -> None:
+    pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    _write_trade_calendar(tmp_path, [date(2020, 2, 3), date(2020, 3, 2)])
+
+    def fake_iter_prod_raw_rows(*, database_url, query, batch_size, cursor_name):
+        assert database_url == "postgresql://readonly@example/db"
+        assert query.table_name == "raw_tushare.stk_period_bar"
+        assert batch_size == 20000
+        assert cursor_name == "lake_stk_period_bar_month_prod_raw_db_cursor"
+        yield [
+            {
+                "ts_code": "600000.SH",
+                "trade_date": date(2020, 2, 28),
+                "end_date": date(2025, 9, 10),
+                "freq": "month",
+                "open": Decimal("10.1"),
+                "high": Decimal("10.5"),
+                "low": Decimal("9.8"),
+                "close": Decimal("10.3"),
+                "pre_close": Decimal("9.9"),
+                "vol": Decimal("1000"),
+                "amount": Decimal("2000"),
+                "change": Decimal("0.4"),
+                "pct_chg": Decimal("4.04"),
+            },
+            {
+                "ts_code": "600000.SH",
+                "trade_date": date(2020, 2, 29),
+                "end_date": date(2025, 12, 4),
+                "freq": "month",
+                "open": Decimal("10.1"),
+                "high": Decimal("10.5"),
+                "low": Decimal("9.8"),
+                "close": Decimal("10.3"),
+                "pre_close": Decimal("9.9"),
+                "vol": Decimal("1000"),
+                "amount": Decimal("2000"),
+                "change": Decimal("0.4"),
+                "pct_chg": Decimal("4.04"),
+            },
+            {
+                "ts_code": "600000.SH",
+                "trade_date": date(2020, 3, 31),
+                "end_date": date(2025, 12, 4),
+                "freq": "month",
+                "open": Decimal("10.4"),
+                "high": Decimal("10.8"),
+                "low": Decimal("10.0"),
+                "close": Decimal("10.6"),
+                "pre_close": Decimal("10.3"),
+                "vol": Decimal("1200"),
+                "amount": Decimal("2200"),
+                "change": Decimal("0.3"),
+                "pct_chg": Decimal("2.91"),
+            },
+        ]
+
+    summary = DbTradeDateExportService(
+        lake_root=tmp_path,
+        dataset_key="stk_period_bar_month",
+        api_name="stk_weekly_monthly",
+        source="prod-raw-db",
+        database_url="postgresql://readonly@example/db",
+        build_point_query=build_prod_raw_trade_date_query,
+        build_range_query=build_prod_raw_trade_date_range_query,
+        fetch_rows=lambda **_: [],
+        iter_rows=fake_iter_prod_raw_rows,
+        progress=lambda _: None,
+    ).export(start_date=date(2020, 2, 1), end_date=date(2020, 3, 31))
+
+    feb_file = tmp_path / "raw_tushare" / "stk_period_bar_month" / "trade_date=2020-02-28" / "part-000.parquet"
+    mar_file = tmp_path / "raw_tushare" / "stk_period_bar_month" / "trade_date=2020-03-31" / "part-000.parquet"
+    assert summary["fetched_rows"] == 2
+    assert summary["written_rows"] == 2
+    assert pq.ParquetFile(feb_file).read().num_rows == 1
+    assert pq.ParquetFile(mar_file).read().num_rows == 1
+    assert not (tmp_path / "raw_tushare" / "stk_period_bar_month" / "trade_date=2020-02-29").exists()
+
+
+@pytest.mark.parametrize(
+    ("dataset_key", "api_name", "table_name"),
+    [
+        ("index_daily", "index_daily", "core_serving.index_daily_serving"),
+        ("index_weekly", "index_weekly", "core_serving.index_weekly_serving"),
+        ("index_monthly", "index_monthly", "core_serving.index_monthly_serving"),
+    ],
+)
+def test_index_prod_core_export_maps_change_amount_to_change(
+    monkeypatch,
+    tmp_path,
+    dataset_key: str,
+    api_name: str,
+    table_name: str,
+) -> None:
     pa = pytest.importorskip("pyarrow")
     pq = pytest.importorskip("pyarrow.parquet")
 
@@ -314,7 +608,7 @@ def test_index_daily_prod_core_export_maps_change_amount_to_change(monkeypatch, 
 
     def fake_fetch_prod_core_rows(*, database_url, query):
         assert database_url == "postgresql://readonly@example/db"
-        assert query.table_name == "core_serving.index_daily_serving"
+        assert query.table_name == table_name
         return [
             {
                 "ts_code": "000300.SH",
@@ -333,8 +627,8 @@ def test_index_daily_prod_core_export_maps_change_amount_to_change(monkeypatch, 
 
     summary = DbTradeDateExportService(
         lake_root=tmp_path,
-        dataset_key="index_daily",
-        api_name="index_daily",
+        dataset_key=dataset_key,
+        api_name=api_name,
         source=PROD_CORE_DB_SOURCE,
         database_url="postgresql://readonly@example/db",
         build_point_query=build_prod_core_trade_date_query,
@@ -344,7 +638,7 @@ def test_index_daily_prod_core_export_maps_change_amount_to_change(monkeypatch, 
         progress=lambda _: None,
     ).export(trade_date=date(2026, 4, 30))
 
-    parquet_file = tmp_path / "raw_tushare" / "index_daily" / "trade_date=2026-04-30" / "part-000.parquet"
+    parquet_file = tmp_path / "raw_tushare" / dataset_key / "trade_date=2026-04-30" / "part-000.parquet"
     schema = pq.read_schema(parquet_file)
     assert summary["source"] == "prod-core-db"
     assert summary["fetched_rows"] == 1
