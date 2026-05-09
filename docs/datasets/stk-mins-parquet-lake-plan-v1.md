@@ -1174,6 +1174,56 @@ lake-console sync-stk-mins \
 4. 分区列表按 layer 分组展示，用户能区分原始落盘、派生周期和研究重排。
 3. 单股长周期回测优先读 research 层。
 
+### M6.1：已知 source gap 的 1 分钟修补
+
+目标：
+
+1. 对已审计确认的 `5/15` 分钟 source gap，不再继续向源端重试。
+2. 直接使用本地 `freq=1` 正式分区，按现有 `5/15` 分钟桶规则聚合生成缺口分区。
+3. 结果直接写回 `raw_tushare/stk_mins_by_date/freq=5|15/trade_date=*`，而不是写到 `derived`。
+
+第一版范围只允许以下 4 个已知缺口：
+
+1. `freq=5`
+   - `2010-09-02`
+2. `freq=15`
+   - `2009-05-05`
+   - `2009-06-05`
+   - `2009-12-04`
+
+规则：
+
+1. 只允许修补“已审计确认的 source gap 白名单日期”，不做任意日期通用派生。
+2. 默认不覆盖已存在的正式 `5/15` 分区；目标分区已存在时，repair 必须报错退出。
+3. `09:30` 首桶单独保留。
+4. 后续桶按 session 内连续分钟聚合：
+   - `5 分钟`
+     - `09:31~09:35 -> 09:35`
+     - `09:36~09:40 -> 09:40`
+     - `13:01~13:05 -> 13:05`
+   - `15 分钟`
+     - `09:31~09:45 -> 09:45`
+     - `09:46~10:00 -> 10:00`
+     - `13:01~13:15 -> 13:15`
+5. 输出字段仍然必须保持正式 `stk_mins` raw schema：
+   - `ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap`
+6. `vwap` 口径：
+   - 若桶内 `sum(amount) > 0 and sum(vol) > 0`，取 `round(sum(amount) / sum(vol), 3)`
+   - 若桶内 `sum(vol) == 0`，取桶内最后一条 `1 分钟` 的 `vwap`
+   - 若最后一条 `vwap` 为空，再退回最后一条 `close`
+7. provenance 只记录到 manifest summary：
+   - `operation = repair_stk_mins_from_1m`
+   - `source_freq = 1`
+   - `target_freq = 5/15`
+   - `repair_reason = source_gap`
+
+验收：
+
+1. 先选一日已有正常 `5 分钟` 数据，做 `1 -> 5` 对比，确认桶锚点、OHLC、`vol/amount`、`vwap` 一致。
+2. 先选一日已有正常 `15 分钟` 数据，做 `1 -> 15` 对比，确认桶锚点和字段一致。
+3. 再对 4 个缺口执行 repair，补齐正式 Lake 分区。
+4. repair 后这些缺口不再归类为 `lake_sync_failure`，而是已由本地 `1 分钟` 事实修补完成。
+
 ---
 
 ## 13. 风险与待评审点

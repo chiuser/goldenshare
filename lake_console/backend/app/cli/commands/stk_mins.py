@@ -6,6 +6,7 @@ from datetime import date
 from lake_console.backend.app.cli.commands.common import add_lake_root_arg, parse_freqs, parse_int_csv, print_json, settings_from_args
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
+from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
 from lake_console.backend.app.services.stk_mins_schema_migration_service import StkMinsSchemaMigrationService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
@@ -46,6 +47,12 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     derive_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
     derive_range_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
     derive_range_parser.set_defaults(handler=_handle_derive_stk_mins_range)
+
+    repair_parser = subparsers.add_parser("repair-stk-mins-from-1m", help="用本地 1 分钟线修补已审计的 5/15 分钟 source gap")
+    add_lake_root_arg(repair_parser)
+    repair_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="缺口交易日，格式 YYYY-MM-DD")
+    repair_parser.add_argument("--freq", required=True, type=int, choices=(5, 15), help="目标分钟周期，仅支持 5 或 15")
+    repair_parser.set_defaults(handler=_handle_repair_stk_mins_from_1m)
 
     research_parser = subparsers.add_parser("rebuild-stk-mins-research", help="把 by_date 分区重排为 by_symbol_month research 层")
     add_lake_root_arg(research_parser)
@@ -151,6 +158,16 @@ def _handle_derive_stk_mins_range(args: argparse.Namespace) -> int:
         start_date=args.start_date,
         end_date=args.end_date,
         targets=targets,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_repair_stk_mins_from_1m(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = StkMinsGapRepairService(lake_root=settings.lake_root).repair_day(
+        trade_date=args.trade_date,
+        freq=args.freq,
     )
     print_json(summary)
     return 0

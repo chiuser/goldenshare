@@ -542,6 +542,7 @@ research/stk_mins_by_symbol_month/       # 原始 + 派生分钟线，按月和�
 | `sync-stk-mins` | 同步单股票单日小窗口 |
 | `sync-trade-cal` | 同步本地交易日历；支持全量分页快照或显式区间刷新，供区间分钟线同步使用 |
 | `sync-stk-mins-range` | 基于本地交易日历按开市日循环同步分钟线 |
+| `repair-stk-mins-from-1m` | 用本地 `1 分钟` 正式分区修补已审计的 `5/15` 分钟 source gap |
 | `rebuild-stk-mins-research` | 重排 research 层 |
 | `derive-stk-mins` | 生成 90/120 |
 
@@ -556,6 +557,7 @@ research/stk_mins_by_symbol_month/       # 原始 + 派生分钟线，按月和�
 | `manifest_service.py` | 读取/写入 manifest |
 | `tushare_stock_basic_sync_service.py` | 从 Tushare 拉取 `stock_basic`，双写正式维表 `raw_tushare/stock_basic/current/part-000.parquet` 与执行股票池 `manifest/security_universe/tushare_stock_basic.parquet` |
 | `tushare_stk_mins_sync_service.py` | `stk_mins` 到 by_date 的最小同步 |
+| `stk_mins_gap_repair_service.py` | 用本地 `1 分钟` 正式分区修补已审计的 `5/15` 分钟 source gap |
 | `stk_mins_derived_service.py` | 90/120 派生 |
 
 ### 6.3 Settings
