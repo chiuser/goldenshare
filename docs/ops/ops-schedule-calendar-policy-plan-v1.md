@@ -71,17 +71,18 @@
 | --- | --- | --- | --- |
 | `monthly_last_day` | 第一期实现 | 每个自然月最后一天，在指定时间触发 | `natural_day + month_last_calendar_day` |
 | `monthly_window_current_month` | 第二期已落地 | 每个自然月最后一天触发，维护本次计划触发时间所属自然月窗口 | `month_window + month_window_has_data` |
-| `monthly_last_trading_day` | 后续待做 | 每月最后一个开市交易日触发 | `trade_open_day + month_last_open_day` |
+| `monthly_last_trading_day` | 第三期已落地 | 每月最后一个开市交易日触发 | `trade_open_day + month_last_open_day` |
 | `fixed_day_of_month` | 后续待做 | 每月固定日号触发 | 普通固定日号自动任务 |
 | `weekly_friday` | 后续待做 | 每周自然周五触发 | `natural_day + week_friday` |
 | `weekly_last_trading_day` | 后续待做 | 每周最后一个开市交易日触发 | `trade_open_day + week_last_open_day` |
 
 说明：
 
-1. 第一期只实现 `monthly_last_day`。
-2. 第二期已实现 `monthly_window_current_month`，用于 `index_weight` 这类自然月窗口数据集。
-3. 后续新增策略必须继续沿 `calendar_policy` 扩展。
-4. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
+1. 第一阶段已实现 `monthly_last_day`。
+2. 第二阶段已实现 `monthly_window_current_month`，用于 `index_weight` 这类自然月窗口数据集。
+3. 第三阶段已实现 `monthly_last_trading_day`，用于 `index_monthly` 这类交易日月末数据集。
+4. 后续新增策略必须继续沿 `calendar_policy` 扩展。
+5. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
 
 ### 4.3 与 DatasetDefinition 的关系
 
@@ -106,11 +107,15 @@
 | --- | --- | --- | --- |
 | `stk_period_bar_month` | 股票月线行情 | `natural_day + month_last_calendar_day` | 第一期直接支持 |
 | `stk_period_bar_adj_month` | 股票月线行情（复权） | `natural_day + month_last_calendar_day` | 第一期直接支持 |
-| `index_monthly` | 指数月线 | `trade_open_day + month_last_open_day` | 第一期不改，后续用 `monthly_last_trading_day` |
+| `index_monthly` | 指数月线 | `trade_open_day + month_last_open_day` | 第三期已支持 `monthly_last_trading_day` |
 | `broker_recommend` | 券商月度金股推荐 | `month_key + every_natural_month` | 第一期不改，后续设计月份键策略 |
 | `index_weight` | 指数成分权重 | `month_window + month_window_has_data` | 第二期直接支持 |
 
-第一期只允许自动推荐 `monthly_last_day` 给 `bucket_rule=month_last_calendar_day` 的数据集。
+当前自动推荐规则：
+
+1. `bucket_rule=month_last_calendar_day` 推荐 `monthly_last_day`。
+2. `bucket_rule=month_last_open_day` 推荐 `monthly_last_trading_day`。
+3. `month_window + month_window_has_data + start_end_month_window` 推荐 `monthly_window_current_month`。
 
 ---
 

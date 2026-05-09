@@ -35,7 +35,7 @@ describe("自动任务日期策略", () => {
         repeatMode: "monthly",
         selectedAction: monthlyTradingAction as never,
       }),
-    ).toBe("");
+    ).toBe("monthly_last_trading_day");
     expect(
       resolveEffectiveCalendarPolicy({
         scheduleType: "cron",
@@ -60,6 +60,16 @@ describe("自动任务日期策略", () => {
       repeatMonthDay: "1",
     });
     expect(formatScheduleRule("cron", "0 19 * * *", null, "monthly_last_day")).toBe("每月最后一天 19:00");
+  });
+
+  it("uses cron only as execution time carrier for monthly_last_trading_day", () => {
+    expect(buildCronExpression("monthly", "19:00", [], "1", "monthly_last_trading_day")).toBe("0 19 * * *");
+    expect(parseCronExpression("0 19 * * *", "monthly_last_trading_day")).toMatchObject({
+      repeatMode: "monthly",
+      repeatTime: "19:00",
+      repeatMonthDay: "1",
+    });
+    expect(formatScheduleRule("cron", "0 19 * * *", null, "monthly_last_trading_day")).toBe("每月最后一个交易日 19:00");
   });
 
   it("uses cron only as execution time carrier for monthly_window_current_month", () => {

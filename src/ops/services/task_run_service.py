@@ -6,13 +6,15 @@ from datetime import date, datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
+from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
+from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.action_catalog import (
     WorkflowDefinition,
     get_maintenance_action,
@@ -24,6 +26,7 @@ from src.ops.models.ops.task_run import TaskRun
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
+MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 
 
@@ -84,6 +87,7 @@ class TaskRunCommandService:
     ) -> TaskRun:
         params = dict(params_json or {})
         context = self._context_from_schedule_target(
+            session=session,
             target_type=target_type,
             target_key=target_key,
             params_json=params,
@@ -105,6 +109,7 @@ class TaskRunCommandService:
         trigger_source: str = "schedule",
     ) -> None:
         context = self._context_from_schedule_target(
+            session=None,
             target_type=target_type,
             target_key=target_key,
             params_json=dict(params_json or {}),
@@ -184,6 +189,7 @@ class TaskRunCommandService:
     def _context_from_schedule_target(
         self,
         *,
+        session: Session | None,
         target_type: str,
         target_key: str,
         params_json: dict[str, Any],
@@ -204,6 +210,7 @@ class TaskRunCommandService:
                 resource_key=definition.dataset_key,
                 action=action,
                 time_input=self._resolve_dataset_action_schedule_time_input(
+                    session=session,
                     definition=definition,
                     target_key=target_key,
                     params_json=params_json,
@@ -256,10 +263,10 @@ class TaskRunCommandService:
             )
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
-    @classmethod
     def _resolve_dataset_action_schedule_time_input(
-        cls,
+        self,
         *,
+        session: Session | None,
         definition: DatasetDefinition,
         target_key: str,
         params_json: dict[str, Any],
@@ -267,7 +274,7 @@ class TaskRunCommandService:
         scheduled_at: datetime | None,
         timezone_name: str | None,
     ) -> dict[str, Any]:
-        time_input = cls._resolve_schedule_time_input(
+        time_input = self._resolve_schedule_time_input(
             target_type="dataset_action",
             target_key=target_key,
             params_json=params_json,
@@ -275,28 +282,51 @@ class TaskRunCommandService:
         normalized_policy = str(calendar_policy or "").strip() or None
         if normalized_policy is None:
             return time_input
-        if normalized_policy not in {MONTHLY_LAST_DAY_POLICY, MONTHLY_WINDOW_CURRENT_MONTH_POLICY}:
+        if normalized_policy not in {
+            MONTHLY_LAST_DAY_POLICY,
+            MONTHLY_LAST_TRADING_DAY_POLICY,
+            MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
+        }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         if normalized_policy == MONTHLY_LAST_DAY_POLICY:
             if definition.date_model.bucket_rule != "month_last_calendar_day":
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")
-            if cls._has_fixed_trade_date(params_json):
+            if self._has_fixed_trade_date(params_json):
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略不能与固定维护日期混用")
             if scheduled_at is None:
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略缺少计划触发时间")
-            trade_date = cls._month_last_day_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+            trade_date = self._month_last_day_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
             return {
                 **dict(time_input or {}),
                 "mode": "point",
                 "trade_date": trade_date.isoformat(),
             }
-        if not cls._supports_month_window_policy(definition):
+        if normalized_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
+            if definition.date_model.bucket_rule != "month_last_open_day":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持交易日月末数据集")
+            if self._has_fixed_trade_date(params_json):
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略不能与固定维护日期混用")
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略缺少计划触发时间")
+            if session is None:
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略缺少数据库会话")
+            trade_date = self._month_last_open_day_for_schedule(
+                session=session,
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
+            return {
+                **dict(time_input or {}),
+                "mode": "point",
+                "trade_date": trade_date.isoformat(),
+            }
+        if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
-        if cls._has_explicit_time_boundary(params_json):
+        if self._has_explicit_time_boundary(params_json):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略不能与固定维护日期或窗口混用")
         if scheduled_at is None:
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略缺少计划触发时间")
-        month_key = cls._month_key_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        month_key = self._month_key_for_schedule(scheduled_at=scheduled_at, timezone_name=timezone_name)
         return {
             **dict(time_input or {}),
             "mode": "range",
@@ -437,6 +467,42 @@ class TaskRunCommandService:
         local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
         last_day = monthrange(local_scheduled_at.year, local_scheduled_at.month)[1]
         return date(local_scheduled_at.year, local_scheduled_at.month, last_day)
+
+    @staticmethod
+    def _month_last_open_day_for_schedule(
+        *,
+        session: Session,
+        scheduled_at: datetime,
+        timezone_name: str | None,
+    ) -> date:
+        local_scheduled_at = TaskRunCommandService._local_scheduled_at(scheduled_at=scheduled_at, timezone_name=timezone_name)
+        return TaskRunCommandService._resolve_month_last_open_day(
+            session=session,
+            year=local_scheduled_at.year,
+            month=local_scheduled_at.month,
+        )
+
+    @staticmethod
+    def _resolve_month_last_open_day(*, session: Session, year: int, month: int) -> date:
+        month_end_day = monthrange(year, month)[1]
+        month_start = date(year, month, 1)
+        month_end = date(year, month, month_end_day)
+        exchange = get_settings().default_exchange
+        stmt = (
+            select(TradeCalendar.trade_date)
+            .where(
+                TradeCalendar.exchange == exchange,
+                TradeCalendar.is_open.is_(True),
+                TradeCalendar.trade_date >= month_start,
+                TradeCalendar.trade_date <= month_end,
+            )
+            .order_by(desc(TradeCalendar.trade_date))
+            .limit(1)
+        )
+        resolved = session.scalar(stmt)
+        if resolved is None:
+            raise WebAppError(status_code=422, code="validation_error", message=f"{year}-{month:02d} 未找到开市交易日")
+        return resolved
 
     @staticmethod
     def _month_key_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> str:

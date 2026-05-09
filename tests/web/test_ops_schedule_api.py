@@ -467,6 +467,33 @@ def test_ops_schedule_create_supports_monthly_last_day_for_calendar_month_datase
     assert payload["calendar_policy"] == "monthly_last_day"
 
 
+def test_ops_schedule_create_supports_monthly_last_trading_day_for_trading_month_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_monthly.maintain",
+            "display_name": "指数月线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_last_trading_day",
+            "next_run_at": "2099-01-01T19:00:00+08:00",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["target_key"] == "index_monthly.maintain"
+    assert payload["calendar_policy"] == "monthly_last_trading_day"
+
+
 def test_ops_schedule_create_supports_monthly_window_for_index_weight_dataset(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -541,6 +568,30 @@ def test_ops_schedule_create_rejects_monthly_window_for_non_window_dataset(app_c
     assert response.json()["message"] == "自然月窗口策略只支持月窗口数据集"
 
 
+def test_ops_schedule_create_rejects_monthly_last_trading_day_for_calendar_month_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "stk_period_bar_month.maintain",
+            "display_name": "股票月线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_last_trading_day",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "每月最后交易日策略只支持交易日月末数据集"
+
+
 def test_ops_schedule_create_rejects_monthly_last_day_with_fixed_trade_date(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
@@ -563,6 +614,30 @@ def test_ops_schedule_create_rejects_monthly_last_day_with_fixed_trade_date(app_
 
     assert response.status_code == 422
     assert response.json()["message"] == "每月最后一天策略不能与固定维护日期混用"
+
+
+def test_ops_schedule_create_rejects_monthly_last_trading_day_with_fixed_trade_date(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_monthly.maintain",
+            "display_name": "指数月线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "monthly_last_trading_day",
+            "params_json": {"time_input": {"mode": "point", "trade_date": "2026-04-30"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "每月最后交易日策略不能与固定维护日期混用"
 
 
 def test_ops_schedule_create_rejects_monthly_window_with_fixed_window(app_client, user_factory) -> None:

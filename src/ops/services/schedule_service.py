@@ -5,7 +5,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from src.ops.services.operations_schedule_service import OperationsScheduleService
-from src.ops.services.schedule_planner import preview_schedule_runs
 from src.app.auth.domain import AuthenticatedUser
 
 
@@ -73,6 +72,7 @@ class OpsScheduleCommandService:
 
     def preview_schedule(
         self,
+        session: Session,
         *,
         schedule_type: str,
         cron_expr: str | None,
@@ -81,7 +81,8 @@ class OpsScheduleCommandService:
         calendar_policy: str | None,
         count: int,
     ) -> list[datetime]:
-        return preview_schedule_runs(
+        return self.schedule_service.preview_schedule(
+            session,
             schedule_type=schedule_type,
             cron_expr=cron_expr,
             timezone_name=timezone_name,

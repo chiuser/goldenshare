@@ -129,6 +129,44 @@ def test_scheduler_monthly_last_day_policy_uses_due_schedule_month_for_task_run(
     assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 5, 31, 11, 0, tzinfo=timezone.utc)
 
 
+def test_scheduler_monthly_last_trading_day_policy_uses_due_schedule_month_for_task_run(
+    db_session,
+    ops_schedule_factory,
+    trade_calendar_factory,
+) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 29), is_open=True, pretrade_date=date(2026, 4, 28))
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 4, 30), is_open=False, pretrade_date=date(2026, 4, 29))
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 28), is_open=True, pretrade_date=date(2026, 5, 27))
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 31), is_open=False, pretrade_date=date(2026, 5, 28))
+
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="index_monthly.maintain",
+        display_name="指数月线自动维护",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+        timezone_name="Asia/Shanghai",
+        calendar_policy="monthly_last_trading_day",
+        params_json={"time_input": {"mode": "point"}},
+        next_run_at=datetime(2026, 4, 30, 11, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(created) == 1
+    task_run = created[0]
+    assert task_run.schedule_id == schedule.id
+    assert task_run.resource_key == "index_monthly"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-04-29"}
+    assert task_run.request_payload_json["time_input"] == {"mode": "point", "trade_date": "2026-04-29"}
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) == datetime(2026, 5, 28, 11, 0, tzinfo=timezone.utc)
+
+
 def test_scheduler_monthly_window_policy_uses_due_schedule_month_for_task_run(db_session, ops_schedule_factory) -> None:
     schedule = ops_schedule_factory(
         target_type="dataset_action",

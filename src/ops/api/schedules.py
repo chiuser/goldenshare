@@ -203,8 +203,10 @@ def list_ops_schedule_revisions(
 def preview_ops_schedule(
     body: SchedulePreviewRequest,
     _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
 ) -> SchedulePreviewResponse:
     preview_times = OpsScheduleCommandService().preview_schedule(
+        session,
         schedule_type=body.schedule_type,
         cron_expr=body.cron_expr,
         timezone_name=body.timezone,

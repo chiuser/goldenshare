@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -10,7 +10,13 @@ from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
-from src.ops.services.schedule_planner import compute_next_run_at, ensure_schedule_type, ensure_timezone, normalize_schedule_datetime
+from src.ops.services.schedule_planner import (
+    compute_next_run_at,
+    ensure_schedule_type,
+    ensure_timezone,
+    normalize_schedule_datetime,
+    preview_schedule_runs,
+)
 from src.ops.services.task_run_service import TaskRunCommandService
 from src.ops.action_catalog import (
     action_is_schedulable,
@@ -23,8 +29,13 @@ from src.foundation.datasets.registry import get_dataset_definition_by_action_ke
 
 
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
+MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
-SUPPORTED_CALENDAR_POLICIES = {MONTHLY_LAST_DAY_POLICY, MONTHLY_WINDOW_CURRENT_MONTH_POLICY}
+SUPPORTED_CALENDAR_POLICIES = {
+    MONTHLY_LAST_DAY_POLICY,
+    MONTHLY_LAST_TRADING_DAY_POLICY,
+    MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
+}
 
 
 class OperationsScheduleService:
@@ -70,6 +81,7 @@ class OperationsScheduleService:
         )
         trigger_mode = self._normalize_trigger_mode(trigger_mode)
         normalized_next_run_at = self._resolve_next_run_at(
+            session=session,
             schedule_type=schedule_type,
             cron_expr=cron_expr,
             timezone_name=timezone_name,
@@ -164,16 +176,18 @@ class OperationsScheduleService:
         if "next_run_at" in changed_fields:
             explicit_next_run = normalize_schedule_datetime(changes["next_run_at"], field_name="next_run_at")
             if explicit_next_run is None and schedule.status == "active" and schedule.schedule_type != "once":
-                explicit_next_run = compute_next_run_at(
+                explicit_next_run = self._resolve_next_run_at(
+                    session=session,
                     schedule_type=schedule.schedule_type,
-                    timezone_name=schedule.timezone,
                     cron_expr=schedule.cron_expr,
-                    after=datetime.now(timezone.utc),
+                    timezone_name=schedule.timezone,
+                    next_run_at=None,
                     calendar_policy=schedule.calendar_policy,
                 )
             schedule.next_run_at = explicit_next_run
         elif {"schedule_type", "cron_expr", "timezone", "calendar_policy"} & changed_fields and schedule.status == "active":
             schedule.next_run_at = self._resolve_next_run_at(
+                session=session,
                 schedule_type=schedule.schedule_type,
                 cron_expr=schedule.cron_expr,
                 timezone_name=schedule.timezone,
@@ -260,6 +274,7 @@ class OperationsScheduleService:
                 )
         else:
             schedule.next_run_at = self._resolve_next_run_at(
+                session=session,
                 schedule_type=schedule.schedule_type,
                 cron_expr=schedule.cron_expr,
                 timezone_name=schedule.timezone,
@@ -344,16 +359,54 @@ class OperationsScheduleService:
                 schedule.status = "paused"
                 schedule.next_run_at = None
             else:
-                schedule.next_run_at = compute_next_run_at(
+                schedule.next_run_at = self._resolve_next_run_at(
+                    session=session,
                     schedule_type=schedule.schedule_type,
-                    timezone_name=schedule.timezone,
                     cron_expr=schedule.cron_expr,
-                    after=current_time,
+                    timezone_name=schedule.timezone,
+                    next_run_at=None,
                     calendar_policy=schedule.calendar_policy,
+                    after=current_time,
                 )
             session.commit()
             task_runs.append(task_run)
         return task_runs
+
+    def preview_schedule(
+        self,
+        session: Session,
+        *,
+        schedule_type: str,
+        cron_expr: str | None,
+        timezone_name: str,
+        next_run_at: datetime | None,
+        calendar_policy: str | None,
+        count: int,
+    ) -> list[datetime]:
+        normalized_policy = self._normalize_calendar_policy(calendar_policy)
+        if normalized_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持周期执行")
+            runs: list[datetime] = []
+            cursor = datetime.now(timezone.utc)
+            for _ in range(max(1, min(count, 10))):
+                next_occurrence = self._next_monthly_last_trading_day_occurrence(
+                    session=session,
+                    cron_expr=cron_expr,
+                    timezone_name=timezone_name,
+                    after=cursor,
+                )
+                runs.append(next_occurrence)
+                cursor = next_occurrence.replace(second=0, microsecond=0) + timedelta(minutes=1)
+            return runs
+        return preview_schedule_runs(
+            schedule_type=schedule_type,
+            cron_expr=cron_expr,
+            timezone_name=timezone_name,
+            next_run_at=next_run_at,
+            calendar_policy=calendar_policy,
+            count=count,
+        )
 
     @staticmethod
     def _snapshot(schedule: OpsSchedule) -> dict:
@@ -430,22 +483,32 @@ class OperationsScheduleService:
     def _resolve_next_run_at(
         self,
         *,
+        session: Session,
         schedule_type: str,
         cron_expr: str | None,
         timezone_name: str,
         next_run_at: datetime | None,
         calendar_policy: str | None,
+        after: datetime | None = None,
     ) -> datetime | None:
         normalized = normalize_schedule_datetime(next_run_at, field_name="next_run_at")
         if normalized is not None:
             return normalized
         if schedule_type == "once":
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
+        effective_after = after or datetime.now(timezone.utc)
+        if calendar_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
+            return self._next_monthly_last_trading_day_occurrence(
+                session=session,
+                cron_expr=cron_expr,
+                timezone_name=timezone_name,
+                after=effective_after,
+            )
         return compute_next_run_at(
             schedule_type=schedule_type,
             timezone_name=timezone_name,
             cron_expr=cron_expr,
-            after=datetime.now(timezone.utc),
+            after=effective_after,
             calendar_policy=calendar_policy,
         )
 
@@ -508,7 +571,29 @@ class OperationsScheduleService:
                     status_code=422,
                     code="validation_error",
                     message="每月最后一天策略不能与固定维护日期混用",
-            )
+                )
+            return
+        if calendar_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持周期执行")
+            if target_type != "dataset_action":
+                raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持数据集维护任务")
+            try:
+                definition, _action = get_dataset_definition_by_action_key(target_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+            if definition.date_model.bucket_rule != "month_last_open_day":
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="每月最后交易日策略只支持交易日月末数据集",
+                )
+            if OperationsScheduleService._has_fixed_trade_date(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="每月最后交易日策略不能与固定维护日期混用",
+                )
             return
         if calendar_policy == MONTHLY_WINDOW_CURRENT_MONTH_POLICY:
             if schedule_type != "cron":
@@ -538,6 +623,57 @@ class OperationsScheduleService:
                 )
             return
         raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
+
+    def _next_monthly_last_trading_day_occurrence(
+        self,
+        *,
+        session: Session,
+        cron_expr: str | None,
+        timezone_name: str,
+        after: datetime,
+    ) -> datetime:
+        if after.tzinfo is None:
+            raise WebAppError(status_code=422, code="validation_error", message="排程计算时间必须包含时区信息")
+        if not cron_expr:
+            raise WebAppError(status_code=422, code="validation_error", message="周期排程必须填写周期表达式")
+        zone = ensure_timezone(timezone_name)
+        local_after = after.astimezone(zone)
+        hour, minute = self._single_time_from_cron_expr(cron_expr)
+        year = local_after.year
+        month = local_after.month
+
+        for _ in range(120):
+            month_last_open_day = TaskRunCommandService._resolve_month_last_open_day(session=session, year=year, month=month)
+            candidate = datetime(
+                month_last_open_day.year,
+                month_last_open_day.month,
+                month_last_open_day.day,
+                hour,
+                minute,
+                tzinfo=zone,
+            )
+            if candidate > local_after:
+                return candidate.astimezone(timezone.utc)
+            if month == 12:
+                year += 1
+                month = 1
+            else:
+                month += 1
+        raise WebAppError(status_code=422, code="validation_error", message="无法在未来 120 个月内计算出下一次月末交易日运行时间")
+
+    @staticmethod
+    def _single_time_from_cron_expr(cron_expr: str) -> tuple[int, int]:
+        parts = cron_expr.split()
+        if len(parts) != 5:
+            raise WebAppError(status_code=422, code="validation_error", message="周期表达式必须包含 5 段")
+        minute_expr, hour_expr = parts[0], parts[1]
+        if (not minute_expr.isdigit()) or (not hour_expr.isdigit()):
+            raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略必须使用单一执行时间")
+        minute = int(minute_expr)
+        hour = int(hour_expr)
+        if minute < 0 or minute > 59 or hour < 0 or hour > 23:
+            raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略必须使用单一执行时间")
+        return hour, minute
 
     @staticmethod
     def _has_fixed_trade_date(params_json: dict) -> bool:
