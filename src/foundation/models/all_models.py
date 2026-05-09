@@ -45,6 +45,7 @@ from src.foundation.models.core_serving.index_monthly_serving import IndexMonthl
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core.index_weekly_bar import IndexWeeklyBar
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
 from src.foundation.models.core.kpl_list import KplList
 from src.foundation.models.core.broker_recommend import BrokerRecommend
@@ -178,6 +179,7 @@ __all__ = [
     "IndexWeight",
     "IndexWeeklyBar",
     "IndexWeeklyServing",
+    "WealthMarketTurnoverSnapshot",
     "KplConceptCons",
     "KplList",
     "BrokerRecommend",

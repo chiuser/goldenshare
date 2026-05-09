@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, select
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.raw.raw_stk_mins import RawStkMins
+from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 
 
 _INTRADAY_TIME_POINTS = ("09:30", "10:30", "11:30", "14:00", "15:00")
@@ -142,27 +142,41 @@ class TurnoverQuery:
         trade_date: date,
         freq: int = 30,
     ) -> TurnoverIntradayResult:
-        day_start = datetime.combine(trade_date, time.min)
-        day_end = day_start + timedelta(days=1)
-        rows = session.execute(
-            select(
-                RawStkMins.trade_time,
-                func.sum(RawStkMins.amount).label("amount"),
+        snapshot = session.scalar(
+            select(WealthMarketTurnoverSnapshot).where(
+                WealthMarketTurnoverSnapshot.type == "stock",
+                WealthMarketTurnoverSnapshot.market == "CN_A",
+                WealthMarketTurnoverSnapshot.trade_date == trade_date,
+                WealthMarketTurnoverSnapshot.freq == freq,
+                WealthMarketTurnoverSnapshot.build_status == "READY",
             )
-            .where(
-                RawStkMins.freq == freq,
-                RawStkMins.trade_time >= day_start,
-                RawStkMins.trade_time < day_end,
+        )
+        if snapshot is None:
+            return TurnoverIntradayResult(
+                points=[TurnoverIntradayPoint(time=time_label, cum_amount=None) for time_label in _INTRADAY_TIME_POINTS],
+                has_points=False,
             )
-            .group_by(RawStkMins.trade_time)
-            .order_by(RawStkMins.trade_time.asc())
-        ).all()
 
-        normalized_rows = [
-            (row.trade_time, float(row.amount) if row.amount is not None else 0.0)
-            for row in rows
-            if row.trade_time is not None
-        ]
+        raw_points = snapshot.points_json if isinstance(snapshot.points_json, list) else []
+        normalized_rows: list[tuple[datetime, float]] = []
+        for point in raw_points:
+            if not isinstance(point, dict):
+                continue
+            trade_time_ts = point.get("tradeTimeTs")
+            if not isinstance(trade_time_ts, str) or not trade_time_ts:
+                continue
+            try:
+                point_time = datetime.fromisoformat(trade_time_ts)
+            except ValueError:
+                continue
+            amount = point.get("amount")
+            try:
+                amount_value = float(amount) if amount is not None else 0.0
+            except (TypeError, ValueError):
+                amount_value = 0.0
+            normalized_rows.append((point_time, amount_value))
+
+        normalized_rows.sort(key=lambda item: item[0])
         has_points = bool(normalized_rows)
 
         cumulative = 0.0
@@ -173,7 +187,7 @@ class TurnoverQuery:
             while row_index < len(normalized_rows) and normalized_rows[row_index][0] <= point_time:
                 cumulative += normalized_rows[row_index][1]
                 row_index += 1
-            points.append(TurnoverIntradayPoint(time=point_label, cum_amount=cumulative))
+            points.append(TurnoverIntradayPoint(time=point_label, cum_amount=cumulative if has_points else None))
         return TurnoverIntradayResult(points=points, has_points=has_points)
 
     def load_amounts_by_trade_dates(self, session: Session, *, trade_dates: list[date]) -> dict[date, float]:
@@ -181,7 +195,9 @@ class TurnoverQuery:
             return {}
         rows = session.execute(
             select(EquityDailyBar.trade_date, func.sum(EquityDailyBar.amount).label("amount"))
-            .where(EquityDailyBar.trade_date.in_(tuple(trade_dates)))
+            .where(
+                EquityDailyBar.trade_date.in_(tuple(trade_dates))
+            )
             .group_by(EquityDailyBar.trade_date)
         ).all()
         return {

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.raw.raw_stk_mins import RawStkMins
+from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 
 
 _CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -88,10 +88,14 @@ class TurnoverStateQuery:
 
     def load_source_state(self, session: Session) -> TurnoverSourceState:
         daily_source_date = session.scalar(select(func.max(EquityDailyBar.trade_date)))
-        intraday_trade_time = session.scalar(
-            select(func.max(RawStkMins.trade_time)).where(RawStkMins.freq == 30)
+        intraday_source_date = session.scalar(
+            select(func.max(WealthMarketTurnoverSnapshot.trade_date)).where(
+                WealthMarketTurnoverSnapshot.type == "stock",
+                WealthMarketTurnoverSnapshot.market == "CN_A",
+                WealthMarketTurnoverSnapshot.freq == 30,
+                WealthMarketTurnoverSnapshot.build_status == "READY",
+            )
         )
-        intraday_source_date = intraday_trade_time.date() if intraday_trade_time is not None else None
         return TurnoverSourceState(
             daily_source_date=daily_source_date,
             intraday_source_date=intraday_source_date,

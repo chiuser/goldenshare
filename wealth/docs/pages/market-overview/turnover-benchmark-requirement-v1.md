@@ -41,7 +41,7 @@
 
 ### 2.3 与其他模块边界
 
-1. 上游依赖：`core_serving.equity_daily_bar`、`core_serving.trade_calendar`、`raw_tushare.stk_mins`（用于日内曲线）。
+1. 上游依赖：`core_serving.equity_daily_bar`、`core_serving.trade_calendar`、`core_serving.wealth_market_turnover_snapshot`（用于日内曲线）。
 2. 下游消费者：`TurnoverPanel`。
 3. 职责分割：
    - 本模块只负责成交额事实；
@@ -101,11 +101,11 @@
 | 上一交易日成交总额 | `core_serving.equity_daily_bar` | `amount` | 上一交易日全市场 `sum(amount)` | 源口径聚合 |
 | 5日均值/20日指标 | `core_serving.equity_daily_bar` | `amount` | 最近 5/20 交易日均值聚合 | 固定为均值 |
 | 历史趋势 | `core_serving.equity_daily_bar` | `amount` | 最近 22/62 交易日逐日 `sum(amount)` | 1个月/3个月 |
-| 当日累计成交额曲线 | `raw_tushare.stk_mins` | `amount,trade_time,freq` | 当日按 `freq=30`、`trade_time` 聚合后做累计（5点） | 固定启用 |
+| 当日累计成交额曲线 | `core_serving.wealth_market_turnover_snapshot` | `points_json,trade_date,freq,build_status` | 按交易日读取快照点序列并累计生成 5 点曲线 | 固定启用 |
 
 补充：
 
-1. 来源优先级：`equity_daily_bar` 为主源；`stk_mins` 仅用于日内曲线。
+1. 来源优先级：`equity_daily_bar` 为主源；`wealth_market_turnover_snapshot` 仅用于日内曲线。
 2. 回退策略：不跨日补值；若日内曲线缺失，模块状态可 `PARTIAL`。
 3. 数据时效语义：盘后快照语义（非实时流）。
 
@@ -159,7 +159,7 @@
 ## 10. 已确认清零项
 
 1. `avg20dAmount` 口径固定为 20 日均值。
-2. 日内累计曲线固定启用 `raw_tushare.stk_mins`。
+2. 日内累计曲线固定启用 `core_serving.wealth_market_turnover_snapshot`。
 3. 日内累计曲线固定使用 `freq=30`，输出 5 个坐标点。
 4. UI 样式与交互保持现状，不做任何变化。
 5. 本轮无未决拍板项。

@@ -16,6 +16,16 @@
 关联门禁：  
 [turnover-m2-coding-gate-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-m2-coding-gate-v1.md)
 
+补充长期方案：  
+[turnover-minute-snapshot-plan-v1.html](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html)
+
+补充长期方案门禁：  
+[turnover-minute-snapshot-m2-coding-gate-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md)
+
+> 说明：当前 v1 实现已验证，直接从 `raw_tushare.stk_mins` 在线探测最新分钟日期与聚合日内累计曲线会造成结构性慢查询。后续分钟曲线长期方案以 `turnover-minute-snapshot-plan-v1.html` 为准，避免继续扩散 raw 在线聚合。
+>
+> 本文与 `turnover-m2-coding-gate-v1.md` 约束的是“第一版 turnover 真实 API 接入”。若进入分钟线快照长期改造，必须额外以 `turnover-minute-snapshot-plan-v1.html` 与 `turnover-minute-snapshot-m2-coding-gate-v1.md` 为准。
+
 ---
 
 ## 2. 代码现状审计（必须基于真实代码）
@@ -113,13 +123,16 @@ src/biz/
 
 ## 5.4 日内累计曲线（固定启用）
 
-1. 来源：`raw_tushare.stk_mins`
+1. 来源：`core_serving.wealth_market_turnover_snapshot`
 2. 条件：
-   - `trade_time` 属于目标交易日
+   - `type='stock'`
+   - `market='CN_A'`
+   - `trade_date=目标交易日`
    - `freq=30`
-3. 聚合：
-   - 先按 `trade_time` 聚合 `sum(amount)`
-   - 再按时间排序生成累计值 `cumAmount`
+   - `build_status='READY'`
+3. 读取与计算：
+   - 读取快照单行 `points_json`
+   - 依 `tradeTimeTs` 升序累计 `amount`，生成页面所需 `cumAmount`
 4. 坐标点（固定 5 点）：
    - `09:30`
    - `10:30`
@@ -227,7 +240,9 @@ src/biz/
 
 1. 风险：`stk_mins` 缺失导致日内曲线为空。  
    缓解：模块进入 `PARTIAL`，并通过 `TO_INTRADAY_MISSING` 可观测。
-2. 风险：金额单位口径误解导致前端展示偏差。  
+2. 风险：快照构建未完成导致模块进入 `PARTIAL/DELAYED`。  
+   缓解：手动物化命令先构建 `1/5/15/30/60`，查询链路只读取 `build_status='READY'`。
+3. 风险：金额单位口径误解导致前端展示偏差。  
    缓解：响应字段附 `unit` 与格式化规则说明。
 
 ---

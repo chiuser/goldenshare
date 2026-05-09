@@ -16,6 +16,7 @@ from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
 from src.foundation.models.core_serving.ths_member import ThsMember
 from src.foundation.models.core_serving.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 
 __all__ = [
     "Security",
@@ -36,4 +37,5 @@ __all__ = [
     "IndexDailyServing",
     "IndexWeeklyServing",
     "IndexMonthlyServing",
+    "WealthMarketTurnoverSnapshot",
 ]

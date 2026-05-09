@@ -38,6 +38,7 @@ from src.cli_parts.ops_handlers import (
 )
 from src.cli_parts.maintenance_handlers import (
     run_refresh_serving_light as _run_refresh_serving_light_impl,
+    run_wealth_build_turnover_snapshot as _run_wealth_build_turnover_snapshot_impl,
 )
 from src.cli_parts.stock_st_missing_date_repair_handlers import (
     run_repair_stock_st_missing_dates as _run_repair_stock_st_missing_dates_impl,
@@ -64,6 +65,9 @@ from src.ops.services.operations_stock_basic_reconcile_service import StockBasic
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
 from src.biz.services.market_mood_walkforward_validation_service import MarketMoodWalkForwardValidationService
+from src.biz.services.wealth.market.turnover.turnover_snapshot_materialize_service import (
+    TurnoverSnapshotMaterializeService,
+)
 
 
 app = typer.Typer(help="goldenshare market data foundation CLI")
@@ -231,6 +235,24 @@ def refresh_serving_light(
         start_date=start_date,
         end_date=end_date,
         ts_code=ts_code,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("wealth-build-turnover-snapshot")
+def wealth_build_turnover_snapshot(
+    trade_date: str = typer.Option(..., "--trade-date", help="交易日，格式 YYYY-MM-DD"),
+    freq: list[int] = typer.Option(
+        [],
+        "--freq",
+        help="可重复指定分钟频率；不传默认构建 1/5/15/30/60。",
+    ),
+) -> None:
+    _run_wealth_build_turnover_snapshot_impl(
+        session_local=SessionLocal,
+        service_cls=TurnoverSnapshotMaterializeService,
+        trade_date=trade_date,
+        freqs=freq,
         echo_fn=typer.echo,
     )
 

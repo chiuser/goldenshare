@@ -4,6 +4,12 @@
 > 阶段：M2 开工前。  
 > 产物性质：执行门禁清单（不通过不允许编码）。
 
+> 说明：本文约束的是“turnover 模块真实 API 接入与稳定化版本（分钟曲线已切到 snapshot 读取）”。  
+> 若进入“分钟线快照长期改造”，必须额外遵守：
+> [turnover-minute-snapshot-plan-v1.html](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html)
+> 与
+> [turnover-minute-snapshot-m2-coding-gate-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md)。
+
 关联文档：
 
 1. [成交额总览标杆需求 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/turnover-benchmark-requirement-v1.md)
@@ -204,7 +210,8 @@ interface TurnoverResponseData {
 3. 历史趋势：
    - 22/62 交易日，逐日 `sum(amount)` 输出
 4. 日内累计曲线（固定启用）：
-   - `raw_tushare.stk_mins` 按 `freq=30`、`trade_time` 聚合 `sum(amount)` 并累加
+   - `core_serving.wealth_market_turnover_snapshot` 按 `(type='stock', market='CN_A', trade_date, freq=30, build_status='READY')` 读取 `points_json`
+   - 按 `tradeTimeTs` 升序累计 `amount` 生成曲线
    - 固定输出 5 个时间点：`09:30/10:30/11:30/14:00/15:00`
 5. 索引与排序说明：
    - 历史按 `tradeDate` 升序；

@@ -41,3 +41,54 @@ def run_refresh_serving_light(
         f"end_date={parsed_end} "
         f"touched_rows={result.touched_rows}"
     )
+
+
+def run_wealth_build_turnover_snapshot(
+    *,
+    session_local,
+    service_cls,
+    trade_date: str,
+    freqs: list[int],
+    echo_fn: Callable[[str], None],
+) -> None:
+    try:
+        parsed_trade_date = date.fromisoformat(trade_date)
+    except ValueError as exc:
+        raise typer.BadParameter("trade_date 必须为 YYYY-MM-DD 格式") from exc
+    with session_local() as session:
+        service = service_cls()
+        try:
+            results = service.materialize_trade_date(
+                session,
+                trade_date=parsed_trade_date,
+                freqs=freqs or None,
+            )
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from exc
+        session.commit()
+
+    ready = sum(1 for item in results if item.build_status == "READY")
+    failed = len(results) - ready
+    for item in results:
+        latest = item.latest_trade_time.strftime("%Y-%m-%d %H:%M:%S") if item.latest_trade_time else "-"
+        note = item.build_note or "-"
+        echo_fn(
+            "turnover-snapshot "
+            f"trade_date={item.trade_date.isoformat()} "
+            f"freq={item.freq} "
+            f"status={item.build_status} "
+            f"latest_trade_time={latest} "
+            f"security_count={item.security_count} "
+            f"source_row_count={item.source_row_count} "
+            f"points={item.points_count} "
+            f"total_amount={item.total_amount} "
+            f"total_vol={item.total_vol} "
+            f"note={note}"
+        )
+
+    echo_fn(
+        "wealth-build-turnover-snapshot done "
+        f"trade_date={parsed_trade_date.isoformat()} "
+        f"freq_count={len(results)} "
+        f"ready={ready} failed={failed}"
+    )
