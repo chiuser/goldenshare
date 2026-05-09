@@ -73,7 +73,7 @@ export const marketOverviewMock: MarketOverview = {
   breadthMetrics: [
     { label: "上涨家数", value: "3421", tone: "up", sub: "红盘率 66.7%" },
     { label: "下跌家数", value: "1488", tone: "down", sub: "绿盘率 29.0%" },
-    { label: "平盘家数", value: "219", tone: "flat", sub: "当前日统计" },
+    { label: "平盘家数", value: "219", tone: "flat", sub: "平盘率 4.3%" },
   ],
   styleMetrics: [
     { label: "大盘股平均涨跌幅", value: "+0.72%", tone: "up", sub: "沪深300口径" },

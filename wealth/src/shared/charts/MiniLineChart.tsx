@@ -17,6 +17,9 @@ interface MiniLineChartProps {
   valueClassBySign?: boolean;
   zeroCenter?: boolean;
   yFormatter?: (value: number) => string;
+  yMin?: number;
+  yMax?: number;
+  yTickValues?: number[];
 }
 
 interface CanvasMetrics {
@@ -27,7 +30,13 @@ interface CanvasMetrics {
   y: (value: number) => number;
 }
 
-function niceRange(values: number[], zeroCenter: boolean) {
+function niceRange(values: number[], zeroCenter: boolean, yMin?: number, yMax?: number) {
+  if (values.length === 0) {
+    const fallbackMin = yMin ?? 0;
+    const fallbackMax = yMax ?? fallbackMin + 1;
+    return { min: fallbackMin, max: fallbackMax <= fallbackMin ? fallbackMin + 1 : fallbackMax };
+  }
+
   if (zeroCenter) {
     const abs = Math.max(...values.map((value) => Math.abs(value)), 1) * 1.18;
     return { min: -abs, max: abs };
@@ -42,7 +51,19 @@ function niceRange(values: number[], zeroCenter: boolean) {
   }
 
   const padding = (max - min) * 0.12;
-  return { min: min - padding, max: max + padding };
+  let finalMin = min - padding;
+  let finalMax = max + padding;
+
+  if (typeof yMin === "number") {
+    finalMin = Math.max(yMin, finalMin);
+  }
+  if (typeof yMax === "number") {
+    finalMax = Math.max(yMax, finalMax);
+  }
+  if (finalMax <= finalMin) {
+    finalMax = finalMin + 1;
+  }
+  return { min: finalMin, max: finalMax };
 }
 
 function signedClass(value: number) {
@@ -112,12 +133,15 @@ export function MiniLineChart({
   valueClassBySign = false,
   yFormatter = defaultYFormatter,
   zeroCenter = false,
+  yMin,
+  yMax,
+  yTickValues,
 }: MiniLineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const hover = hoverIndex == null ? null : data[hoverIndex];
   const values = data.flatMap((item) => series.map((serie) => Number(item[serie.key])));
-  const range = niceRange(values, zeroCenter);
+  const range = niceRange(values, zeroCenter, yMin, yMax);
 
   function buildMetrics(width: number, canvasHeight: number): CanvasMetrics {
     const pad = { l: 48, r: 16, t: 16, b: 32 };
@@ -134,13 +158,19 @@ export function MiniLineChart({
     if (!setup) return;
     const { ctx, height: canvasHeight, width } = setup;
     const metrics = buildMetrics(width, canvasHeight);
-    const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-      const value = range.max - (range.max - range.min) * ratio;
-      return {
-        label: yFormatter(value),
-        y: metrics.pad.t + (metrics.height - metrics.pad.t - metrics.pad.b) * ratio,
-      };
-    });
+    const yTicks =
+      yTickValues && yTickValues.length > 0
+        ? [...yTickValues].map((value) => ({
+            label: yFormatter(value),
+            y: metrics.y(value),
+          }))
+        : [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const value = range.max - (range.max - range.min) * ratio;
+            return {
+              label: yFormatter(value),
+              y: metrics.pad.t + (metrics.height - metrics.pad.t - metrics.pad.b) * ratio,
+            };
+          });
     const xLabelIndices = [0, Math.floor((data.length - 1) / 2), data.length - 1];
     const xLabels = xLabelIndices.map((index) => ({ label: String(data[index]?.label ?? ""), x: metrics.x(index) }));
     const sampledDotStep = Math.ceil(data.length / 8);
@@ -206,7 +236,7 @@ export function MiniLineChart({
     const observer = new ResizeObserver(() => draw(hoverIndex));
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [data, hoverIndex, range.max, range.min, series, yFormatter, zeroCenter]);
+  }, [data, hoverIndex, range.max, range.min, series, yFormatter, zeroCenter, yTickValues]);
 
   function locateIndex(clientX: number) {
     const canvas = canvasRef.current;

@@ -11,6 +11,7 @@ const ranges = [
   { value: "1m", label: "1个月" },
   { value: "3m", label: "3个月" },
 ];
+const BREADTH_AXIS_TICKS = [0, 1500, 3000, 4500, 6000];
 
 function MetricGrid({ metrics }: { metrics: MetricItem[] }) {
   return (
@@ -69,6 +70,9 @@ export function MarketBreadthPanel({ viewState, metrics, chartsByRange, errorMes
           <MetricGrid metrics={metrics ?? []} />
           <MiniLineChart
             data={chartsByRange?.[range] ?? []}
+            yMin={0}
+            yMax={6000}
+            yTickValues={BREADTH_AXIS_TICKS}
             series={[
               { key: "up", name: "上涨家数", color: "var(--cs-color-market-up)", dots: true, valueFormatter: (v) => `${Math.round(v)} 家` },
               { key: "down", name: "下跌家数", color: "var(--cs-color-market-down)", dots: true, valueFormatter: (v) => `${Math.round(v)} 家` },

@@ -18,10 +18,11 @@ function buildMetrics(
 ): MetricItem[] {
   const total = upCount + downCount + flatCount;
   const greenRate = total > 0 ? (downCount / total) * 100 : 0;
+  const flatRate = total > 0 ? (flatCount / total) * 100 : 0;
   return [
     { label: "上涨家数", value: String(upCount), tone: "up", sub: `红盘率 ${redRate.toFixed(1)}%` },
     { label: "下跌家数", value: String(downCount), tone: "down", sub: `绿盘率 ${greenRate.toFixed(1)}%` },
-    { label: "平盘家数", value: String(flatCount), tone: "flat", sub: "当前日统计" },
+    { label: "平盘家数", value: String(flatCount), tone: "flat", sub: `平盘率 ${flatRate.toFixed(1)}%` },
   ];
 }
 
