@@ -10,6 +10,7 @@ from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import major_indices as wealth_market_major_indices
 from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
+from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.ops.api.router import router as ops_router
 
 
@@ -26,3 +27,4 @@ router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
 router.include_router(wealth_market_breadth.router)
 router.include_router(wealth_market_style.router)
+router.include_router(wealth_market_turnover.router)

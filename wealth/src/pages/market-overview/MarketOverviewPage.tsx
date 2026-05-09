@@ -36,6 +36,12 @@ import { MarketSummaryPanel } from "../../features/market-overview/summary/Marke
 import { buildSummaryViewModelFromApi, buildSummaryViewModelFromMock, type MarketSummaryViewModel } from "../../features/market-overview/summary/api/marketSummaryAdapter";
 import { fetchMarketSummary, type SummaryDebugInfo } from "../../features/market-overview/summary/api/marketSummaryApi";
 import { TurnoverOverviewPanel } from "../../features/market-overview/turnover/TurnoverOverviewPanel";
+import {
+  buildTurnoverViewModelFromApi,
+  buildTurnoverViewModelFromMock,
+  type MarketTurnoverViewModel,
+} from "../../features/market-overview/turnover/api/marketTurnoverAdapter";
+import { fetchMarketTurnover, type TurnoverDebugInfo } from "../../features/market-overview/turnover/api/marketTurnoverApi";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
 import "./market-overview-page.css";
 
@@ -43,6 +49,7 @@ const SUMMARY_FETCH_TIMEOUT_MS = 5000;
 const MAJOR_INDICES_FETCH_TIMEOUT_MS = 5000;
 const BREADTH_FETCH_TIMEOUT_MS = 5000;
 const STYLE_FETCH_TIMEOUT_MS = 5000;
+const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -70,6 +77,12 @@ export function MarketOverviewPage() {
   );
   const [styleErrorMessage, setStyleErrorMessage] = useState<string | null>(null);
   const [styleDebugInfo, setStyleDebugInfo] = useState<StyleDebugInfo | null>(null);
+  const [turnover, setTurnover] = useState<MarketTurnoverViewModel | null>(null);
+  const [turnoverViewState, setTurnoverViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.turnover === "real" ? "loading" : "ready",
+  );
+  const [turnoverErrorMessage, setTurnoverErrorMessage] = useState<string | null>(null);
+  const [turnoverDebugInfo, setTurnoverDebugInfo] = useState<TurnoverDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const pageDebugEnabled = useMemo(() => {
@@ -84,16 +97,18 @@ export function MarketOverviewPage() {
       ...(majorIndicesDebugInfo?.modules ?? []),
       ...(breadthDebugInfo?.modules ?? []),
       ...(styleDebugInfo?.modules ?? []),
+      ...(turnoverDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
       ...(majorIndicesDebugInfo?.exceptions ?? []),
       ...(breadthDebugInfo?.exceptions ?? []),
       ...(styleDebugInfo?.exceptions ?? []),
+      ...(turnoverDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
-  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo]);
+  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo, turnoverDebugInfo]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -129,6 +144,14 @@ export function MarketOverviewPage() {
         setStyle(null);
         setStyleViewState("loading");
         setStyleErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.turnover === "mock") {
+        setTurnover(buildTurnoverViewModelFromMock(response.data));
+        setTurnoverViewState("ready");
+      } else {
+        setTurnover(null);
+        setTurnoverViewState("loading");
+        setTurnoverErrorMessage(null);
       }
     });
   }, []);
@@ -317,6 +340,55 @@ export function MarketOverviewPage() {
     };
   }, [overview, pageDebugEnabled]);
 
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.turnover !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setTurnover(null);
+    setTurnoverViewState("loading");
+    setTurnoverErrorMessage(null);
+    setTurnoverDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), TURNOVER_FETCH_TIMEOUT_MS);
+
+    fetchMarketTurnover(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setTurnover(buildTurnoverViewModelFromApi(payload));
+          setTurnoverViewState("ready");
+          setTurnoverErrorMessage(null);
+          setTurnoverDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/turnover`
+            : error instanceof Error
+              ? error.message
+              : "成交额总览加载失败";
+          setTurnover(null);
+          setTurnoverViewState("error");
+          setTurnoverErrorMessage(message);
+          setTurnoverDebugInfo(null);
+          showToast(`成交额总览模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
   function showToast(message: string) {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
@@ -379,7 +451,11 @@ export function MarketOverviewPage() {
               chartsByRange={style?.chartsByRange}
               errorMessage={styleErrorMessage ?? undefined}
             />
-            <TurnoverOverviewPanel overview={overview} />
+            <TurnoverOverviewPanel
+              viewState={turnoverViewState}
+              turnover={turnover ?? undefined}
+              errorMessage={turnoverErrorMessage ?? undefined}
+            />
           </div>
           <div className="row-two">
             <MarketMoneyFlowPanel overview={overview} />

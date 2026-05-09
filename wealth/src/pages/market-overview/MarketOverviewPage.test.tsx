@@ -151,6 +151,47 @@ const stylePayload = {
   },
 };
 
+const turnoverPayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  turnover: {
+    tradeDate: "2026-04-28",
+    metrics: {
+      todayAmount: 1052300000,
+      prevAmount: 982100000,
+      amountDelta: 70200000,
+      amountDeltaPct: 7.15,
+      avg5dAmount: 1018000000,
+      avg20dAmount: 936000000,
+      unit: "thousand_yuan",
+    },
+    intradayCumulative: [
+      { time: "09:30", cumAmount: 0 },
+      { time: "10:30", cumAmount: 315000000 },
+      { time: "11:30", cumAmount: 562000000 },
+      { time: "14:00", cumAmount: 828000000 },
+      { time: "15:00", cumAmount: 1052300000 },
+    ],
+    historyByRange: {
+      oneMonth: [
+        { tradeDate: "2026-04-27", amount: 982100000 },
+        { tradeDate: "2026-04-28", amount: 1052300000 },
+      ],
+      threeMonth: [
+        { tradeDate: "2026-03-03", amount: 865000000 },
+        { tradeDate: "2026-04-28", amount: 1052300000 },
+      ],
+    },
+  },
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -169,6 +210,7 @@ function mockSuccessfulMarketFetch(
   majorPayload = majorIndicesPayload,
   breadthPayloadInput = breadthPayload,
   stylePayloadInput = stylePayload,
+  turnoverPayloadInput = turnoverPayload,
 ) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
@@ -183,6 +225,9 @@ function mockSuccessfulMarketFetch(
     }
     if (url.includes("/api/v1/wealth/market/style")) {
       return responseJson(stylePayloadInput);
+    }
+    if (url.includes("/api/v1/wealth/market/turnover")) {
+      return responseJson(turnoverPayloadInput);
     }
     throw new Error(`unexpected url: ${url}`);
   });
@@ -283,6 +328,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
       if (url.includes("/api/v1/wealth/market/summary")) {
         return new Promise<Response>((resolve) => {
           resolveSummaryFetch = resolve;
@@ -321,6 +369,9 @@ describe("MarketOverviewPage", () => {
       }
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
       }
       const signal = (init as RequestInit | undefined)?.signal;
       return new Promise<Response>((_, reject) => {
@@ -367,6 +418,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return new Promise<Response>((resolve) => {
           resolveMajorFetch = resolve;
@@ -405,6 +459,9 @@ describe("MarketOverviewPage", () => {
       }
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
       }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         const signal = (init as RequestInit | undefined)?.signal;
@@ -454,6 +511,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return new Promise<Response>((resolve) => {
           resolveBreadthFetch = resolve;
@@ -492,6 +552,9 @@ describe("MarketOverviewPage", () => {
       }
       if (url.includes("/api/v1/wealth/market/style")) {
         return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
       }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         const signal = (init as RequestInit | undefined)?.signal;
@@ -541,6 +604,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
       if (url.includes("/api/v1/wealth/market/style")) {
         return new Promise<Response>((resolve) => {
           resolveStyleFetch = resolve;
@@ -580,6 +646,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
       if (url.includes("/api/v1/wealth/market/style")) {
         const signal = (init as RequestInit | undefined)?.signal;
         return new Promise<Response>((_, reject) => {
@@ -613,7 +682,100 @@ describe("MarketOverviewPage", () => {
     expect(within(styleSection).getByText("error")).toBeInTheDocument();
   }, 15000);
 
-  it("uses page-level debug switch for summary, major-indices, breadth and style modules", async () => {
+  it("shows loading before real turnover is returned, without rendering mock turnover metrics", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveTurnoverFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return new Promise<Response>((resolve) => {
+          resolveTurnoverFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const turnoverSection = await screen.findByLabelText("成交额总览");
+    expect(within(turnoverSection).getByText("loading")).toBeInTheDocument();
+    expect(turnoverSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(0);
+
+    if (typeof resolveTurnoverFetch !== "function") {
+      throw new Error("turnover fetch resolver is missing");
+    }
+    resolveTurnoverFetch(responseJson(turnoverPayload));
+
+    await waitFor(() => {
+      expect(turnoverSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(4);
+    });
+  });
+
+  it("shows error state when turnover request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        const signal = (init as RequestInit | undefined)?.signal;
+        return new Promise<Response>((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const turnoverSection = rendered.container.querySelector<HTMLElement>('[aria-label="成交额总览"]');
+    expect(turnoverSection).not.toBeNull();
+    if (!turnoverSection) {
+      throw new Error("turnover section not found");
+    }
+    expect(within(turnoverSection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(turnoverSection).getByText("请求超时：/api/v1/wealth/market/turnover")).toBeInTheDocument();
+    expect(within(turnoverSection).getByText("error")).toBeInTheDocument();
+  }, 15000);
+
+  it("uses page-level debug switch for summary, major-indices, breadth, style and turnover modules", async () => {
     window.history.pushState({}, "", "/market/overview?debug=1");
     const requestUrls: string[] = [];
     const fetchMock = vi.spyOn(globalThis, "fetch");
@@ -693,6 +855,24 @@ describe("MarketOverviewPage", () => {
           },
         });
       }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return responseJson({
+          ...turnoverPayload,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "turnover",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
       throw new Error(`unexpected url: ${url}`);
     });
 
@@ -702,18 +882,22 @@ describe("MarketOverviewPage", () => {
     expect(screen.getByText("majorIndices")).toBeInTheDocument();
     expect(screen.getByText("breadth")).toBeInTheDocument();
     expect(screen.getByText("marketStyle")).toBeInTheDocument();
+    expect(screen.getByText("turnover")).toBeInTheDocument();
 
     const summaryRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/summary"));
     const majorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/major-indices"));
     const breadthRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/breadth"));
     const styleRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/style"));
+    const turnoverRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/turnover"));
     expect(summaryRequest).toBeDefined();
     expect(majorRequest).toBeDefined();
     expect(breadthRequest).toBeDefined();
     expect(styleRequest).toBeDefined();
+    expect(turnoverRequest).toBeDefined();
     expect(new URL(summaryRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(majorRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(breadthRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(styleRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(turnoverRequest as string).searchParams.get("debug")).toBe("1");
   });
 });
