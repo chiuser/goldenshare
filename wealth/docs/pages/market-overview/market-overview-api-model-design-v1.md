@@ -27,7 +27,7 @@
 | 股票日线指标 | `core_serving.equity_daily_basic` | 换手率、量比 |
 | 市场资金流（大盘） | `core_serving.market_moneyflow_dc` | 主力/超大/大/中/小净流入及占比 |
 | 热榜 | `core_serving.dc_hot` | 人气榜、飙升榜 |
-| 涨跌停 | `core_serving.equity_limit_list` | 涨停/跌停/炸板统计 |
+| 涨跌停 | `core_serving.limit_list_ths` | 涨停池/跌停池/炸板池统计（按 `ts_code` 去重） |
 | 连板 | `core_serving.limit_step` | 首板到高板分层（`nums`） |
 | 板块总览 | `core_serving.dc_index` | 板块涨跌、上涨下跌家数、龙头信息 |
 | 板块行情 | `core_serving.dc_daily` | 板块日线补充（涨跌幅/成交额等） |
@@ -129,24 +129,34 @@ interface MajorIndexRow {
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
 | `tradeDate` | `trade_calendar` | `trade_date` | 取请求日（或最近交易日） |
-| `subject.subjectCode` | 指数行情主表（实现阶段确认） | `ts_code` | 原样 |
+| `subject.subjectCode` | `index_daily_serving` | `ts_code` | 原样 |
 | `subject.subjectName` | `index_basic` | `name` | `ts_code` 关联，缺失可用配置兜底 |
-| `point` | 指数行情主表 | `close` | 数值原样 |
-| `change` | 指数行情主表 | `change_amount`/`change` | 统一为涨跌点 |
-| `changePct` | 指数行情主表 | `pct_chg` | 数值原样（%值） |
-| `amount` | 指数行情主表 | `amount` | 数值原样 |
+| `point` | `index_daily_serving` | `close` | 数值原样 |
+| `change` | `index_daily_serving` | `change_amount`/`change` | 统一为涨跌点 |
+| `changePct` | `index_daily_serving` | `pct_chg` | 数值原样（%值） |
+| `amount` | `index_daily_serving` | `amount` | 数值原样 |
 | `direction` | 派生 | - | `changePct >0 => UP, <0 => DOWN, =0 => FLAT` |
-
-> 注：指数行情当前仓库有 `index_daily_serving/index_daily_bar` 两个候选表。实现前以“线上最新、覆盖完整、性能更优”的单表口径拍板后固定。
 
 ---
 
 ## 3.5 `MarketSummary` + `MoneyFlowPanel`
 
+> `MarketSummary` 的治理规则（后端配置、5/6 卡片、文本卡策略）已单独收敛到：  
+> `wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md` 与  
+> `wealth/docs/pages/market-overview/market-summary-implementation-design-v1.md`。  
+> 本节仅保留对象模型与字段边界。
+
 ```ts
 interface MarketSummary {
+  definition: {
+    definitionKey: string;
+    version: string;
+    cardCount: 5 | 6;
+    textPosition: "BOTTOM_FIXED";
+    layoutVariant: "FIVE_SINGLE_ROW" | "SIX_TWO_ROWS";
+  };
   cards: MarketSummaryCard[];
-  textCard: { title: string; content: string };
+  textCard: { title: string; content: string; templateKey: string };
 }
 
 interface MarketSummaryCard {
@@ -172,6 +182,11 @@ interface MoneyFlowPanel {
 
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
+| `definition.definitionKey` | 后端配置 | `definition_key` | 后端配置主键 |
+| `definition.version` | 后端配置 | `version` | 配置版本号 |
+| `definition.cardCount` | 后端配置 | `card_count` | 仅允许 `5/6` |
+| `definition.textPosition` | 常量 | - | 固定 `BOTTOM_FIXED` |
+| `definition.layoutVariant` | 后端配置 | `layout_variant` | `FIVE_SINGLE_ROW` / `SIX_TWO_ROWS` |
 | `tradeDate` | `market_moneyflow_dc` | `trade_date` | 与请求日对齐 |
 | `netAmount` | `market_moneyflow_dc` | `net_amount` | 原样（元） |
 | `netAmountRate` | `market_moneyflow_dc` | `net_amount_rate` | 原样（%） |
@@ -183,6 +198,10 @@ interface MoneyFlowPanel {
 | `byOrderSize.md.rate` | `market_moneyflow_dc` | `buy_md_amount_rate` | 原样 |
 | `byOrderSize.sm.amount` | `market_moneyflow_dc` | `buy_sm_amount` | 原样 |
 | `byOrderSize.sm.rate` | `market_moneyflow_dc` | `buy_sm_amount_rate` | 原样 |
+
+> `marketSummary.cards` 的数量由后端配置决定（允许 5 或 6）；前端只按返回数组渲染，不参与规则判断。
+> `marketSummary.cards` 的 `cardKey -> 来源表/来源列` 明细，请以  
+> `market-summary-benchmark-requirement-v1.md` 第 5 章为准。
 
 ---
 
@@ -266,9 +285,9 @@ interface LimitUpPanel {
 
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
-| `limitUpCount` | `equity_limit_list` | `limit_type` | `count(*) where limit_type='U'` |
-| `limitDownCount` | `equity_limit_list` | `limit_type` | `count(*) where limit_type='D'` |
-| `brokenLimitCount` | `equity_limit_list` | `open_times` | 常见口径：`limit_type='U' and open_times>0` |
+| `limitUpCount` | `limit_list_ths` | `limit_type` | `count(distinct ts_code) where limit_type='涨停池'` |
+| `limitDownCount` | `limit_list_ths` | `limit_type` | `count(distinct ts_code) where limit_type='跌停池'` |
+| `brokenLimitCount` | `limit_list_ths` | `limit_type` | `count(distinct ts_code) where limit_type='炸板池'` |
 | `sealingRate` | 派生 | - | `limitUpCount / (limitUpCount + brokenLimitCount)` |
 
 ---

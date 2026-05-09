@@ -8,6 +8,8 @@
 wealth/docs/reference/api/market-overview-api-v0.4.md
 wealth/docs/reference/api/p0-data-dictionary-v0.4.md
 wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md
+wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md
+wealth/docs/pages/market-overview/market-summary-implementation-design-v1.md
 wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md
 wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
 
@@ -17,6 +19,10 @@ wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
 
 榜单模块的前后端贯通规则（规则归属、股票池归属、异常语义）以
 `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
+为专用基线。
+
+今日市场客观总结模块（卡片数量 5/6 配置化、文字卡后端配置驱动）以
+`wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md`
 为专用基线。
 ```
 
@@ -29,6 +35,14 @@ wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
 ```http
 GET /api/v1/wealth/market/overview
 ```
+
+模块化分拆（已进入设计但未实现）：
+
+```http
+GET /api/v1/wealth/market/summary
+```
+
+该模块接口用于“今日市场客观总结”单模块输出；整页聚合后续再由 overview 聚合接口统一编排。
 
 ## 请求参数
 

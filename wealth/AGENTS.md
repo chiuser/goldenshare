@@ -26,8 +26,7 @@ wealth/
 
 - `wealth` 负责财势乾坤行情系统前端。
 - 首期只落地“乾坤行情 / 市场总览”页面。
-- 首期只使用 mock adapter，不接真实后端 API。
-- 后端真实 API 后续单独设计，不在本阶段顺手实现。
+- 首期默认使用 mock adapter，并按“三件套 + 模块级渐进替换”逐模块接入真实后端 API。
 
 ---
 
@@ -39,21 +38,44 @@ wealth/
 2. `wealth/docs/reference/README.md`
 3. `wealth/docs/system/wealth-system-baseline.md`
 4. `wealth/docs/system/engineering-architecture.md`
-5. `wealth/docs/system/design-system-baseline.md`
-6. `wealth/docs/system/component-guidelines-baseline.md`
-7. `wealth/docs/system/exception-code-registry.md`
-8. `wealth/docs/pages/market-overview/market-overview-baseline.md`
-9. `wealth/docs/pages/market-overview/api-contract-baseline.md`
-10. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
-11. `wealth/docs/pages/market-overview/implementation-architecture-v1.md`
-12. `wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
-13. `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
-14. `wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md`
-15. `wealth/docs/pages/market-overview/leaderboard-m2-coding-gate-v1.md`
-16. `wealth/docs/templates/benchmark-requirement-template.md`
-17. `wealth/docs/templates/implementation-design-template.md`
-18. `wealth/docs/templates/coding-gate-template.md`
-19. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+5. `wealth/docs/system/module-incremental-delivery-spec-v1.md`
+6. `wealth/docs/system/module-delivery-checklist-v1.md`
+7. `wealth/docs/system/design-system-baseline.md`
+8. `wealth/docs/system/component-guidelines-baseline.md`
+9. `wealth/docs/system/exception-code-registry.md`
+10. `wealth/docs/system/strategy-config-center-v1.md`
+11. `wealth/docs/system/strategy-config-center-m1-coding-gate-v1.md`
+12. `wealth/docs/system/strategy-config-consumer-guide-v1.md`
+13. `wealth/docs/pages/market-overview/market-overview-baseline.md`
+14. `wealth/docs/pages/market-overview/api-contract-baseline.md`
+15. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
+16. `wealth/docs/pages/market-overview/implementation-architecture-v1.md`
+17. `wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
+18. `wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md`
+19. `wealth/docs/pages/market-overview/market-summary-implementation-design-v1.md`
+20. `wealth/docs/pages/market-overview/market-summary-m2-coding-gate-v1.md`
+21. `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`
+22. `wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md`
+23. `wealth/docs/pages/market-overview/leaderboard-m2-coding-gate-v1.md`
+24. `wealth/docs/pages/market-overview/major-indices-benchmark-requirement-v1.md`
+25. `wealth/docs/pages/market-overview/major-indices-implementation-design-v1.md`
+26. `wealth/docs/pages/market-overview/major-indices-m2-coding-gate-v1.md`
+27. `wealth/docs/pages/market-overview/breadth-benchmark-requirement-v1.md`
+28. `wealth/docs/pages/market-overview/breadth-implementation-design-v1.md`
+29. `wealth/docs/pages/market-overview/breadth-m2-coding-gate-v1.md`
+30. `wealth/docs/pages/market-overview/market-style-benchmark-requirement-v1.md`
+31. `wealth/docs/pages/market-overview/market-style-implementation-design-v1.md`
+32. `wealth/docs/pages/market-overview/market-style-m2-coding-gate-v1.md`
+33. `wealth/docs/pages/market-overview/turnover-benchmark-requirement-v1.md`
+34. `wealth/docs/pages/market-overview/turnover-implementation-design-v1.md`
+35. `wealth/docs/pages/market-overview/turnover-m2-coding-gate-v1.md`
+36. `wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md`
+37. `wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md`
+38. `wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md`
+39. `wealth/docs/templates/benchmark-requirement-template.md`
+40. `wealth/docs/templates/implementation-design-template.md`
+41. `wealth/docs/templates/coding-gate-template.md`
+42. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
 实现市场总览 homepage 前，还必须额外读取：
 
@@ -190,7 +212,8 @@ Bug 修复必须先说明原因与影响面。禁止临时补丁叠补丁。
 1. 先产出 benchmark requirement（需求基线）
 2. 再产出 implementation design（实施设计）
 3. 再产出 coding gate（编码前门禁）
-4. 三件套评审通过后才允许编码
+4. 用 `wealth/docs/system/module-delivery-checklist-v1.md` 做一次提交前通用检查
+5. 三件套评审通过后才允许编码
 
 ---
 
@@ -213,8 +236,8 @@ npm run build
 ## 禁止事项
 
 1. 禁止把运营后台 `frontend` 的页面、Shell、路由直接搬入 `wealth`。
-2. 禁止在本阶段修改后端 `src/**`。
-3. 禁止接真实 API。
+2. 禁止无计划修改后端 `src/**`；后端改动必须按模块三件套与门禁执行。
+3. 禁止整页一次性切真实 API；必须按模块级渐进替换规范逐个切换。
 4. 禁止把 ops 内部状态表或 TaskRun 观测模型暴露给行情前端。
 5. 禁止新增无计划功能。
 6. 禁止引入重型依赖作为首期页面捷径。

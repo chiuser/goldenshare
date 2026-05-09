@@ -160,6 +160,20 @@ src/biz/
           *_builder.py
 ```
 
+### 策略配置中心（统一基础能力）
+
+模块策略配置（如主要指数名单、榜单规则、summary 模板）必须统一接入：
+
+1. 规范文档：`wealth/docs/system/strategy-config-center-v1.md`
+2. 统一读取入口：`src/biz/services/wealth/config/strategy_config_service.py`
+3. 配置文件目录：`src/biz/services/wealth/config/definitions/*.json`
+
+硬约束：
+
+1. 模块代码禁止直接读取本地 JSON 文件。
+2. 配置校验失败必须严格失败，不允许静默回退。
+3. 配置变更默认重启生效，不做热更新。
+
 ### 命名与边界约束
 
 1. `<module>` 必须是页面可识别模块名（如 `leaderboards`、`sector_overview`、`limit_up`）。
@@ -194,6 +208,17 @@ src/biz/
 1. 三件套文档必须互相引用，形成可追溯链路。
 2. coding gate 未通过，不允许提交模块实现代码。
 3. 异常码必须先登记到 `wealth/docs/system/exception-code-registry.md`，再进入设计与代码。
+
+## 模块级渐进替换规范（执行层）
+
+模块从 mock 切到 real 时，必须额外遵守：
+
+1. 每轮只允许一个目标模块切换，其他模块保持 mock 且行为不变。
+2. 不允许静默回退（real 失败后偷偷切回 mock）。
+3. 页面装配层不得自行拼装目标模块事实字段。
+4. 回滚粒度必须是“单模块可回滚”。
+
+详细规则见：`wealth/docs/system/module-incremental-delivery-spec-v1.md`。
 
 ## 验证门禁
 

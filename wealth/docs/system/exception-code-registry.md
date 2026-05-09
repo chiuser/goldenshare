@@ -71,9 +71,9 @@
 
 ---
 
-## 6. 首期（Phase-1）已登记：仅榜单模块
+## 6. 首期（Phase-1）已登记模块
 
-> 本期只落地榜单异常码。其他模块后续分期纳入，不在本期范围内。
+> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -82,6 +82,33 @@
 | `LB_JOIN_METRIC_MISSING` | `leaderboards` | warn | false | true | 指标补列缺失 | daily_basic 等补列 join 失败 | 允许降级展示，缺列用 `--` | biz-api | Phase-1 | active |
 | `LB_SUBJECT_NAME_MISSING` | `leaderboards` | info | false | true | 主体名称缺失 | 名称映射不到 | 前端仅显示代码 | biz-api | Phase-1 | active |
 | `LB_QUERY_FAILED` | `leaderboards` | error | false | true | 榜单查询失败 | SQL/服务异常 | 模块 error，保留其它模块渲染 | biz-api | Phase-1 | active |
+| `MS_CONFIG_MISSING` | `marketSummary` | error | false | true | 总结模块配置缺失 | summary definition 未找到 | 模块 error，textCard 回退固定文案 | biz-api | Phase-1 | active |
+| `MS_CARD_COUNT_INVALID` | `marketSummary` | error | false | true | 卡片数量配置非法 | cardCount 不在 5/6 | 模块 error，拒绝按非法配置输出 | biz-api | Phase-1 | active |
+| `MS_SOURCE_DELAYED` | `marketSummary` | warn | false | true | 总结模块关键源日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `MS_SOURCE_EMPTY` | `marketSummary` | warn | false | true | 总结模块关键源无数据 | 关键来源查询无行 | 模块 empty，展示空态或降级文案 | biz-api | Phase-1 | active |
+| `MS_TEXT_RENDER_FAILED` | `marketSummary` | warn | false | true | 文案模板渲染失败 | 模板变量缺失/禁用词命中/渲染异常 | textCard 使用 fallback 固定文案，并保留模块渲染 | biz-api | Phase-1 | active |
+| `MI_CONFIG_MISSING` | `majorIndices` | error | false | true | 主要指数配置缺失 | majorIndices definition 未找到 | 模块 error，保留页面其他模块渲染 | biz-api | Phase-1 | active |
+| `MI_CONFIG_INVALID` | `majorIndices` | error | false | true | 主要指数配置非法 | indexCodes 数量不为 10 或存在重复 | 模块 error，拒绝按非法配置输出 | biz-api | Phase-1 | active |
+| `MI_SOURCE_DELAYED` | `majorIndices` | warn | false | true | 主要指数数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `MI_SOURCE_EMPTY` | `majorIndices` | warn | false | true | 主要指数关键源无数据 | 10 指数目标日都无可用行 | 模块 empty，保留 10 卡占位并展示空态 | biz-api | Phase-1 | active |
+| `MI_QUERY_FAILED` | `majorIndices` | error | false | true | 主要指数查询失败 | SQL/服务异常 | 模块 error，保留页面其他模块渲染 | biz-api | Phase-1 | active |
+| `ST_CONFIG_MISSING` | `style` | error | false | true | 市场风格配置缺失 | style definition 未找到 | 模块 error，保持页面其余模块渲染 | biz-api | Phase-1 | active |
+| `ST_CONFIG_INVALID` | `style` | error | false | true | 市场风格配置非法 | cardSources 结构错误/来源不合法 | 模块 error，拒绝按非法配置输出 | biz-api | Phase-1 | active |
+| `ST_SOURCE_DELAYED` | `style` | warn | false | true | 市场风格数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `ST_SOURCE_EMPTY` | `style` | warn | false | true | 市场风格关键源无数据 | 三卡当前值与历史点同时为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
+| `ST_QUERY_FAILED` | `style` | error | false | true | 市场风格查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `TO_SOURCE_DELAYED` | `turnover` | warn | false | true | 成交额模块数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `TO_SOURCE_EMPTY` | `turnover` | warn | false | true | 成交额模块关键源无数据 | 四卡与历史数据都为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
+| `TO_INTRADAY_MISSING` | `turnover` | warn | false | true | 日内累计曲线缺失 | `stk_mins` 在目标交易日无有效数据点 | 模块 partial，保留四卡与历史 | biz-api | Phase-1 | active |
+| `TO_QUERY_FAILED` | `turnover` | error | false | true | 成交额模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `MF_SOURCE_DELAYED` | `moneyFlow` | warn | false | true | 资金流模块数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `MF_SOURCE_EMPTY` | `moneyFlow` | warn | false | true | 资金流模块关键源无数据 | 双卡与历史数据都为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
+| `MF_HISTORY_INCOMPLETE` | `moneyFlow` | warn | false | true | 资金流历史样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |
+| `MF_QUERY_FAILED` | `moneyFlow` | error | false | true | 资金流模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `BR_SOURCE_EMPTY` | `breadth` | warn | false | true | 涨跌分布源数据为空 | 目标交易日无可用样本 | 模块 empty，显示空态并保留模块容器 | biz-api | Phase-1 | active |
+| `BR_SOURCE_DELAYED` | `breadth` | warn | false | true | 涨跌分布数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `BR_HISTORY_INCOMPLETE` | `breadth` | warn | false | true | 历史趋势样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |
+| `BR_QUERY_FAILED` | `breadth` | error | false | true | 涨跌分布查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
 
 ---
 
