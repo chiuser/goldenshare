@@ -1,0 +1,1 @@
+"""Market style query package."""

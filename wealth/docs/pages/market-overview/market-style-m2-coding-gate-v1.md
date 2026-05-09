@@ -29,7 +29,11 @@
 6. [ ] 状态归并样例冻结
 7. [ ] 异常覆盖矩阵冻结
 8. [ ] 性能预算冻结
-9. [ ] 签字完成
+9. [ ] 前端真实源加载态门禁冻结（loading/ready/error）
+10. [ ] 5 秒超时进入 error 且不展示 mock 回填的行为门禁冻结
+11. [ ] 本轮仅 marketStyle 切换到 real、其余模块 source 不变
+12. [ ] 说明文案门禁冻结（图下注释默认不常驻）
+13. [ ] 签字完成
 
 ---
 
@@ -238,9 +242,17 @@ interface MarketStyleResponseData {
 3. 冒烟测试：
    - 三卡展示语义不变
    - 三线图数据结构可渲染
+   - 真实源请求 pending 时显示 loading（不展示 mock style）
+   - 真实源请求超过 5 秒显示 error（不回填 mock style）
 4. debug 模式验证：
    - `debug=1` 返回模块级状态和异常；
    - 生产环境禁用 debug 输出。
+5. 渐进替换约束验证：
+   - 仅 `marketStyle` source 发生变化；
+   - 非目标模块 source 与行为不变。
+6. 图表说明文案验证：
+   - 默认不展示图下“横轴/纵轴解释”说明文案；
+   - 若后续需求新增，必须先更新 benchmark 再改实现。
 
 ---
 
@@ -271,3 +283,4 @@ interface MarketStyleResponseData {
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：建立市场风格模块编码门禁（三卡来源配置 + 离散中位） | Codex |
+| v1.1 | 2026-05-09 | 对齐通用 checklist：补充 loading/error 行为门禁、单模块切换纪律与说明文案门禁 | Codex |

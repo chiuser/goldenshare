@@ -85,6 +85,10 @@ src/biz/
 5. 状态归并：`style_status_resolver`
 6. 异常组装：`style_exception_builder`
 7. 响应输出：`schemas.wealth.market.style`
+8. 前端接入行为门禁（真实源）：
+   - 请求 pending：页面该模块显示 `loading`；
+   - 请求超过 5 秒：页面该模块显示 `error`；
+   - `loading/error` 两种状态都禁止回填 mock 数据。
 
 ---
 
@@ -223,9 +227,22 @@ src/biz/
 3. 冒烟验证：
    - 三卡值 + 三线图数据结构可直接消费
    - UI 不变
+   - 真实源请求 pending 时显示 loading（不展示 mock style）
+   - 真实源请求超过 5 秒显示 error（不回填 mock style）
 4. 失败回滚与观测：
    - 配置异常时模块 ERROR 且有结构化异常
    - 不影响其它模块响应
+5. 范围约束验证：
+   - 本轮只允许 `marketStyle` 模块 source 从 `mock` 切到 `real`；
+   - 其他模块 source 必须保持原值不变。
+
+---
+
+## 9.1 图表与说明文案约束（对齐 checklist）
+
+1. 市场风格趋势值为百分比，可正可负；本模块不适用“纵轴从 0 起”的非负约束。
+2. 若后续引入固定刻度，必须先在三件套文档写死刻度值，再落代码。
+3. 图下“横轴/纵轴解释”等说明文案默认不常驻展示；仅在 benchmark 明确要求时允许展示。
 
 ---
 
@@ -264,3 +281,4 @@ src/biz/
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结市场风格模块实施口径（策略配置 + 离散中位） | Codex |
+| v1.1 | 2026-05-09 | 对齐通用 checklist：补充真实源 loading/error 门禁、单模块切换约束与图表说明文案规则 | Codex |

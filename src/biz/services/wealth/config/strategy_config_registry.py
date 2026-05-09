@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .strategy_config_models import (
     LeaderboardStrategyPayload,
     MajorIndicesStrategyPayload,
+    MarketStyleStrategyPayload,
     MarketSummaryStrategyPayload,
     StrategyConfigRegistrationError,
 )
@@ -48,6 +49,12 @@ def get_default_strategy_config_registrations() -> tuple[StrategyConfigRegistrat
             definition_file="market_summary.cn_a.v1.json",
             payload_model=MarketSummaryStrategyPayload,
         ),
+        StrategyConfigRegistration(
+            module_key="marketStyle",
+            market="CN_A",
+            definition_file="market_style.cn_a.v1.json",
+            payload_model=MarketStyleStrategyPayload,
+        ),
     )
 
 
@@ -67,4 +74,3 @@ def build_strategy_config_registration_index(
             raise StrategyConfigRegistrationError(f"duplicate strategy config registration: {module_key}/{market}")
         index[key] = registration
     return index
-

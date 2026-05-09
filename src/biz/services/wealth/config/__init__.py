@@ -1,6 +1,7 @@
 from .strategy_config_models import (
     LeaderboardStrategyPayload,
     MajorIndicesStrategyPayload,
+    MarketStyleStrategyPayload,
     MarketSummaryStrategyPayload,
     StrategyConfigEnvelope,
     StrategyConfigError,
@@ -14,6 +15,7 @@ from .strategy_config_service import StrategyConfigRecord, StrategyConfigService
 __all__ = [
     "LeaderboardStrategyPayload",
     "MajorIndicesStrategyPayload",
+    "MarketStyleStrategyPayload",
     "MarketSummaryStrategyPayload",
     "StrategyConfigEnvelope",
     "StrategyConfigError",
@@ -25,4 +27,3 @@ __all__ = [
     "StrategyConfigValidationError",
     "get_default_strategy_config_registrations",
 ]
-

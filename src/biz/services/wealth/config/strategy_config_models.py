@@ -122,3 +122,74 @@ class MarketSummaryStrategyPayload(BaseModel):
             raise ValueError("enabledCardKeys length must equal cardCount")
         return self
 
+
+class MarketStyleRangeConfig(BaseModel):
+    """Range config for market style history windows."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    one_month_trading_days: int = Field(alias="oneMonthTradingDays", ge=1, le=250)
+    three_month_trading_days: int = Field(alias="threeMonthTradingDays", ge=1, le=250)
+
+    @model_validator(mode="after")
+    def _validate_range_order(self) -> "MarketStyleRangeConfig":
+        if self.three_month_trading_days < self.one_month_trading_days:
+            raise ValueError("threeMonthTradingDays must be greater than or equal to oneMonthTradingDays")
+        return self
+
+
+class MarketStyleIndexCardSource(BaseModel):
+    """Index card source config for style module."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    source_type: Literal["index"] = Field(alias="sourceType")
+    index_code: str = Field(alias="indexCode", min_length=1)
+    label: str = Field(min_length=1)
+    source_text: str = Field(alias="sourceText", min_length=1)
+
+    @field_validator("index_code", "label", "source_text")
+    @classmethod
+    def _strip_non_empty_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("must not be empty")
+        return text
+
+
+class MarketStyleMedianCardSource(BaseModel):
+    """Median card source config for style module."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    source_type: Literal["equity_median"] = Field(alias="sourceType")
+    universe: Literal["CN_A_ALL"]
+    label: str = Field(min_length=1)
+    source_text: str = Field(alias="sourceText", min_length=1)
+
+    @field_validator("label", "source_text")
+    @classmethod
+    def _strip_non_empty_text(cls, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise ValueError("must not be empty")
+        return text
+
+
+class MarketStyleCardSources(BaseModel):
+    """Three fixed card sources for style module."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    large_cap: MarketStyleIndexCardSource = Field(alias="largeCap")
+    small_cap: MarketStyleIndexCardSource = Field(alias="smallCap")
+    median: MarketStyleMedianCardSource
+
+
+class MarketStyleStrategyPayload(BaseModel):
+    """Config payload for market style module."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    ranges: MarketStyleRangeConfig
+    card_sources: MarketStyleCardSources = Field(alias="cardSources")

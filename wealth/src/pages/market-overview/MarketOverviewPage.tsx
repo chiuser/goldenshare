@@ -26,6 +26,12 @@ import { StreakLadderPanel } from "../../features/market-overview/limit-up/Strea
 import { MarketMoneyFlowPanel } from "../../features/market-overview/money-flow/MarketMoneyFlowPanel";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import { MarketStylePanel } from "../../features/market-overview/style/MarketStylePanel";
+import {
+  buildStyleViewModelFromApi,
+  buildStyleViewModelFromMock,
+  type MarketStyleViewModel,
+} from "../../features/market-overview/style/api/marketStyleAdapter";
+import { fetchMarketStyle, type StyleDebugInfo } from "../../features/market-overview/style/api/marketStyleApi";
 import { MarketSummaryPanel } from "../../features/market-overview/summary/MarketSummaryPanel";
 import { buildSummaryViewModelFromApi, buildSummaryViewModelFromMock, type MarketSummaryViewModel } from "../../features/market-overview/summary/api/marketSummaryAdapter";
 import { fetchMarketSummary, type SummaryDebugInfo } from "../../features/market-overview/summary/api/marketSummaryApi";
@@ -36,6 +42,7 @@ import "./market-overview-page.css";
 const SUMMARY_FETCH_TIMEOUT_MS = 5000;
 const MAJOR_INDICES_FETCH_TIMEOUT_MS = 5000;
 const BREADTH_FETCH_TIMEOUT_MS = 5000;
+const STYLE_FETCH_TIMEOUT_MS = 5000;
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -57,6 +64,12 @@ export function MarketOverviewPage() {
   );
   const [breadthErrorMessage, setBreadthErrorMessage] = useState<string | null>(null);
   const [breadthDebugInfo, setBreadthDebugInfo] = useState<BreadthDebugInfo | null>(null);
+  const [style, setStyle] = useState<MarketStyleViewModel | null>(null);
+  const [styleViewState, setStyleViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.style === "real" ? "loading" : "ready",
+  );
+  const [styleErrorMessage, setStyleErrorMessage] = useState<string | null>(null);
+  const [styleDebugInfo, setStyleDebugInfo] = useState<StyleDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const pageDebugEnabled = useMemo(() => {
@@ -70,15 +83,17 @@ export function MarketOverviewPage() {
       ...(summaryDebugInfo?.modules ?? []),
       ...(majorIndicesDebugInfo?.modules ?? []),
       ...(breadthDebugInfo?.modules ?? []),
+      ...(styleDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
       ...(majorIndicesDebugInfo?.exceptions ?? []),
       ...(breadthDebugInfo?.exceptions ?? []),
+      ...(styleDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
-  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo]);
+  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -106,6 +121,14 @@ export function MarketOverviewPage() {
         setBreadth(null);
         setBreadthViewState("loading");
         setBreadthErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.style === "mock") {
+        setStyle(buildStyleViewModelFromMock(response.data));
+        setStyleViewState("ready");
+      } else {
+        setStyle(null);
+        setStyleViewState("loading");
+        setStyleErrorMessage(null);
       }
     });
   }, []);
@@ -249,6 +272,51 @@ export function MarketOverviewPage() {
     };
   }, [overview, pageDebugEnabled]);
 
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.style !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setStyle(null);
+    setStyleViewState("loading");
+    setStyleErrorMessage(null);
+    setStyleDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), STYLE_FETCH_TIMEOUT_MS);
+
+    fetchMarketStyle(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setStyle(buildStyleViewModelFromApi(payload));
+          setStyleViewState("ready");
+          setStyleErrorMessage(null);
+          setStyleDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout ? `请求超时：/api/v1/wealth/market/style` : error instanceof Error ? error.message : "市场风格加载失败";
+          setStyle(null);
+          setStyleViewState("error");
+          setStyleErrorMessage(message);
+          setStyleDebugInfo(null);
+          showToast(`市场风格模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
   function showToast(message: string) {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
@@ -305,7 +373,12 @@ export function MarketOverviewPage() {
               chartsByRange={breadth?.chartsByRange}
               errorMessage={breadthErrorMessage ?? undefined}
             />
-            <MarketStylePanel overview={overview} />
+            <MarketStylePanel
+              viewState={styleViewState}
+              metrics={style?.metrics}
+              chartsByRange={style?.chartsByRange}
+              errorMessage={styleErrorMessage ?? undefined}
+            />
             <TurnoverOverviewPanel overview={overview} />
           </div>
           <div className="row-two">

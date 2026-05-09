@@ -117,6 +117,40 @@ const breadthPayload = {
   },
 };
 
+const stylePayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  style: {
+    definition: {
+      definitionKey: "CN_A_MARKET_STYLE_V1",
+      version: "1.0.0",
+      fixedCardCount: 3,
+    },
+    cards: [
+      { cardKey: "largeCap", label: "大盘股平均涨跌幅", valuePct: 0.72, sourceText: "沪深300口径", direction: "UP" },
+      { cardKey: "smallCap", label: "小盘股平均涨跌幅", valuePct: 1.48, sourceText: "中证1000口径", direction: "UP" },
+      { cardKey: "median", label: "涨跌中位数", valuePct: 0.48, sourceText: "全市场样本", direction: "UP" },
+    ],
+    historyByRange: {
+      oneMonth: [
+        { tradeDate: "2026-04-27", largePct: 0.52, smallPct: 1.21, medianPct: 0.31 },
+        { tradeDate: "2026-04-28", largePct: 0.72, smallPct: 1.48, medianPct: 0.48 },
+      ],
+      threeMonth: [
+        { tradeDate: "2026-03-03", largePct: -0.12, smallPct: 0.26, medianPct: 0.04 },
+        { tradeDate: "2026-04-28", largePct: 0.72, smallPct: 1.48, medianPct: 0.48 },
+      ],
+    },
+  },
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -134,6 +168,7 @@ function mockSuccessfulMarketFetch(
   summaryPayload = summaryFiveCards,
   majorPayload = majorIndicesPayload,
   breadthPayloadInput = breadthPayload,
+  stylePayloadInput = stylePayload,
 ) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
@@ -145,6 +180,9 @@ function mockSuccessfulMarketFetch(
     }
     if (url.includes("/api/v1/wealth/market/breadth")) {
       return responseJson(breadthPayloadInput);
+    }
+    if (url.includes("/api/v1/wealth/market/style")) {
+      return responseJson(stylePayloadInput);
     }
     throw new Error(`unexpected url: ${url}`);
   });
@@ -242,6 +280,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
       }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
       if (url.includes("/api/v1/wealth/market/summary")) {
         return new Promise<Response>((resolve) => {
           resolveSummaryFetch = resolve;
@@ -277,6 +318,9 @@ describe("MarketOverviewPage", () => {
       }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
       }
       const signal = (init as RequestInit | undefined)?.signal;
       return new Promise<Response>((_, reject) => {
@@ -320,6 +364,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
       }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return new Promise<Response>((resolve) => {
           resolveMajorFetch = resolve;
@@ -355,6 +402,9 @@ describe("MarketOverviewPage", () => {
       }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
       }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         const signal = (init as RequestInit | undefined)?.signal;
@@ -401,6 +451,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
       }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         return new Promise<Response>((resolve) => {
           resolveBreadthFetch = resolve;
@@ -437,6 +490,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
       }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
       if (url.includes("/api/v1/wealth/market/breadth")) {
         const signal = (init as RequestInit | undefined)?.signal;
         return new Promise<Response>((_, reject) => {
@@ -470,7 +526,94 @@ describe("MarketOverviewPage", () => {
     expect(within(breadthSection).getByText("error")).toBeInTheDocument();
   }, 15000);
 
-  it("uses page-level debug switch for summary, major-indices and breadth modules", async () => {
+  it("shows loading before real style is returned, without rendering mock style metrics", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveStyleFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return new Promise<Response>((resolve) => {
+          resolveStyleFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const styleSection = await screen.findByLabelText("市场风格");
+    expect(within(styleSection).getByText("loading")).toBeInTheDocument();
+    expect(styleSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(0);
+
+    if (typeof resolveStyleFetch !== "function") {
+      throw new Error("style fetch resolver is missing");
+    }
+    resolveStyleFetch(responseJson(stylePayload));
+
+    await waitFor(() => {
+      expect(styleSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(3);
+    });
+  });
+
+  it("shows error state when style request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        const signal = (init as RequestInit | undefined)?.signal;
+        return new Promise<Response>((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const styleSection = rendered.container.querySelector<HTMLElement>('[aria-label="市场风格"]');
+    expect(styleSection).not.toBeNull();
+    if (!styleSection) {
+      throw new Error("style section not found");
+    }
+    expect(within(styleSection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(styleSection).getByText("请求超时：/api/v1/wealth/market/style")).toBeInTheDocument();
+    expect(within(styleSection).getByText("error")).toBeInTheDocument();
+  }, 15000);
+
+  it("uses page-level debug switch for summary, major-indices, breadth and style modules", async () => {
     window.history.pushState({}, "", "/market/overview?debug=1");
     const requestUrls: string[] = [];
     const fetchMock = vi.spyOn(globalThis, "fetch");
@@ -532,6 +675,24 @@ describe("MarketOverviewPage", () => {
           },
         });
       }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return responseJson({
+          ...stylePayload,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "marketStyle",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
       throw new Error(`unexpected url: ${url}`);
     });
 
@@ -540,16 +701,19 @@ describe("MarketOverviewPage", () => {
     expect(screen.getByText("marketSummary")).toBeInTheDocument();
     expect(screen.getByText("majorIndices")).toBeInTheDocument();
     expect(screen.getByText("breadth")).toBeInTheDocument();
+    expect(screen.getByText("marketStyle")).toBeInTheDocument();
 
     const summaryRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/summary"));
     const majorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/major-indices"));
     const breadthRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/breadth"));
+    const styleRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/style"));
     expect(summaryRequest).toBeDefined();
     expect(majorRequest).toBeDefined();
     expect(breadthRequest).toBeDefined();
+    expect(styleRequest).toBeDefined();
     expect(new URL(summaryRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(majorRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(breadthRequest as string).searchParams.get("debug")).toBe("1");
-
+    expect(new URL(styleRequest as string).searchParams.get("debug")).toBe("1");
   });
 });

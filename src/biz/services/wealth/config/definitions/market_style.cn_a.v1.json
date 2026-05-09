@@ -1,0 +1,33 @@
+{
+  "moduleKey": "marketStyle",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-09T17:00:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "ranges": {
+      "oneMonthTradingDays": 22,
+      "threeMonthTradingDays": 62
+    },
+    "cardSources": {
+      "largeCap": {
+        "sourceType": "index",
+        "indexCode": "000300.SH",
+        "label": "大盘股平均涨跌幅",
+        "sourceText": "沪深300口径"
+      },
+      "smallCap": {
+        "sourceType": "index",
+        "indexCode": "000852.SH",
+        "label": "小盘股平均涨跌幅",
+        "sourceText": "中证1000口径"
+      },
+      "median": {
+        "sourceType": "equity_median",
+        "universe": "CN_A_ALL",
+        "label": "涨跌中位数",
+        "sourceText": "全市场样本"
+      }
+    }
+  }
+}
