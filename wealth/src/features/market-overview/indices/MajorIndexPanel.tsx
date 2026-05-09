@@ -18,7 +18,6 @@ export function MajorIndexPanel({ viewState, indices, errorMessage, onAction }: 
     <Panel
       title="主要指数"
       help="展示 A 股核心指数的最新点位、涨跌额和涨跌幅；点位、涨跌额、涨跌幅均严格红涨绿跌。点击指数卡进入指数详情。"
-      meta={<span className="secondary">2 行 × 5 个；点击进入指数详情</span>}
     >
       {viewState === "loading" ? (
         <div className="summary-state-wrap">
