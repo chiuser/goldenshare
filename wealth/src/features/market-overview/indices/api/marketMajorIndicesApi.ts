@@ -10,6 +10,24 @@ export interface MarketMajorIndicesFetchOptions {
   signal?: AbortSignal;
 }
 
+export interface MajorIndicesDebugInfo {
+  modules: Array<{
+    moduleKey: string;
+    expectedTradeDate: string;
+    observedTradeDate?: string | null;
+    lagDays?: number | null;
+    status: DataStatus;
+    note?: string | null;
+  }>;
+  exceptions: Array<{
+    module: string;
+    code: string;
+    severity: "info" | "warn" | "error";
+    message: string;
+    details?: Record<string, string | number | null> | null;
+  }>;
+}
+
 export interface MarketMajorIndicesResponse {
   tradingDay: {
     tradeDate: string;
@@ -43,23 +61,7 @@ export interface MarketMajorIndicesResponse {
       direction: MarketDirection;
     }>;
   };
-  debugInfo?: {
-    modules: Array<{
-      moduleKey: string;
-      expectedTradeDate: string;
-      observedTradeDate?: string | null;
-      lagDays?: number | null;
-      status: DataStatus;
-      note?: string | null;
-    }>;
-    exceptions: Array<{
-      module: string;
-      code: string;
-      severity: "info" | "warn" | "error";
-      message: string;
-      details?: Record<string, string | number | null> | null;
-    }>;
-  } | null;
+  debugInfo?: MajorIndicesDebugInfo | null;
 }
 
 export class MarketMajorIndicesApiError extends Error {

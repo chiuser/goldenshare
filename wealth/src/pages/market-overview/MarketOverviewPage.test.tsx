@@ -123,6 +123,7 @@ describe("MarketOverviewPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+    window.history.pushState({}, "", "/");
   });
 
   it("renders the V1.1 market overview structure", async () => {
@@ -340,4 +341,65 @@ describe("MarketOverviewPage", () => {
     expect(within(majorSection).getByText("请求超时：/api/v1/wealth/market/major-indices")).toBeInTheDocument();
     expect(within(majorSection).getByText("error")).toBeInTheDocument();
   }, 15000);
+
+  it("uses page-level debug switch for both summary and major-indices modules", async () => {
+    window.history.pushState({}, "", "/market/overview?debug=1");
+    const requestUrls: string[] = [];
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async (input) => {
+      const url = toUrlString(input);
+      requestUrls.push(url);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return responseJson({
+          ...summaryFiveCards,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "marketSummary",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return responseJson({
+          ...majorIndicesPayload,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "majorIndices",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    render(<MarketOverviewPage />);
+    expect(await screen.findByText("页面调试信息（本地 DEV）")).toBeInTheDocument();
+    expect(screen.getByText("marketSummary")).toBeInTheDocument();
+    expect(screen.getByText("majorIndices")).toBeInTheDocument();
+
+    const summaryRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/summary"));
+    const majorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/major-indices"));
+    expect(summaryRequest).toBeDefined();
+    expect(majorRequest).toBeDefined();
+    expect(new URL(summaryRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(majorRequest as string).searchParams.get("debug")).toBe("1");
+
+  });
 });

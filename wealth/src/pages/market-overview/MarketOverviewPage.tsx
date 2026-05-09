@@ -9,7 +9,7 @@ import {
   buildMajorIndicesViewModelFromMock,
   type MarketMajorIndicesViewModel,
 } from "../../features/market-overview/indices/api/marketMajorIndicesAdapter";
-import { fetchMarketMajorIndices } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
+import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
 import { Breadcrumb } from "../../features/market-overview/layout/Breadcrumb";
 import { PageHeader } from "../../features/market-overview/layout/PageHeader";
 import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
@@ -43,13 +43,27 @@ export function MarketOverviewPage() {
     marketOverviewModuleSources.majorIndices === "real" ? "loading" : "ready",
   );
   const [majorIndicesErrorMessage, setMajorIndicesErrorMessage] = useState<string | null>(null);
+  const [majorIndicesDebugInfo, setMajorIndicesDebugInfo] = useState<MajorIndicesDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const summaryDebugEnabled = useMemo(() => {
+  const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
     if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("summaryDebug") === "1";
+    return new URLSearchParams(window.location.search).get("debug") === "1";
   }, []);
+  const overviewDebugInfo = useMemo(() => {
+    if (!pageDebugEnabled) return null;
+    const moduleItems = [
+      ...(summaryDebugInfo?.modules ?? []),
+      ...(majorIndicesDebugInfo?.modules ?? []),
+    ];
+    const exceptionItems = [
+      ...(summaryDebugInfo?.exceptions ?? []),
+      ...(majorIndicesDebugInfo?.exceptions ?? []),
+    ];
+    if (!moduleItems.length && !exceptionItems.length) return null;
+    return { modules: moduleItems, exceptions: exceptionItems };
+  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -86,7 +100,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), SUMMARY_FETCH_TIMEOUT_MS);
 
     fetchMarketSummary(
-      { market: "CN_A", debug: summaryDebugEnabled ? 1 : 0 },
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -94,7 +108,7 @@ export function MarketOverviewPage() {
           setSummary(buildSummaryViewModelFromApi(payload));
           setSummaryViewState("ready");
           setSummaryErrorMessage(null);
-          setSummaryDebugInfo(summaryDebugEnabled ? payload.debugInfo ?? null : null);
+          setSummaryDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
         }
       })
       .catch((error) => {
@@ -116,7 +130,7 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, summaryDebugEnabled]);
+  }, [overview, pageDebugEnabled]);
 
   useEffect(() => {
     if (!overview) return;
@@ -127,10 +141,11 @@ export function MarketOverviewPage() {
     setMajorIndices(null);
     setMajorIndicesViewState("loading");
     setMajorIndicesErrorMessage(null);
+    setMajorIndicesDebugInfo(null);
     const timeoutId = window.setTimeout(() => abortController.abort(), MAJOR_INDICES_FETCH_TIMEOUT_MS);
 
     fetchMarketMajorIndices(
-      { market: "CN_A" },
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -138,6 +153,7 @@ export function MarketOverviewPage() {
           setMajorIndices(buildMajorIndicesViewModelFromApi(payload));
           setMajorIndicesViewState("ready");
           setMajorIndicesErrorMessage(null);
+          setMajorIndicesDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
         }
       })
       .catch((error) => {
@@ -151,6 +167,7 @@ export function MarketOverviewPage() {
           setMajorIndices(null);
           setMajorIndicesViewState("error");
           setMajorIndicesErrorMessage(message);
+          setMajorIndicesDebugInfo(null);
           showToast(`主要指数模块异常：${message}`);
         }
       })
@@ -162,7 +179,7 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview]);
+  }, [overview, pageDebugEnabled]);
 
   function showToast(message: string) {
     setToast(message);
@@ -212,7 +229,7 @@ export function MarketOverviewPage() {
               onAction={showToast}
             />
           </div>
-          {summaryDebugEnabled && summaryDebugInfo ? <SummaryDebugPanel debugInfo={summaryDebugInfo} /> : null}
+          {overviewDebugInfo ? <OverviewDebugPanel debugInfo={overviewDebugInfo} /> : null}
           <div className="row-three">
             <MarketBreadthPanel overview={overview} />
             <MarketStylePanel overview={overview} />
@@ -233,11 +250,28 @@ export function MarketOverviewPage() {
   );
 }
 
-function SummaryDebugPanel({ debugInfo }: { debugInfo: SummaryDebugInfo }) {
+interface OverviewDebugInfo {
+  modules: Array<{
+    moduleKey: string;
+    expectedTradeDate: string;
+    observedTradeDate?: string | null;
+    lagDays?: number | null;
+    status: string;
+    note?: string | null;
+  }>;
+  exceptions: Array<{
+    module: string;
+    code: string;
+    severity: "info" | "warn" | "error";
+    message: string;
+  }>;
+}
+
+function OverviewDebugPanel({ debugInfo }: { debugInfo: OverviewDebugInfo }) {
   return (
-    <section className="panel summary-debug-panel" aria-label="客观总结调试信息">
+    <section className="panel summary-debug-panel" aria-label="页面调试信息">
       <div className="section-header">
-        <div className="section-title">客观总结调试信息（本地 DEV）</div>
+        <div className="section-title">页面调试信息（本地 DEV）</div>
       </div>
       <div className="summary-debug-grid">
         {debugInfo.modules.map((module) => (
