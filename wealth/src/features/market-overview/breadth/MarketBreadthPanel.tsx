@@ -78,7 +78,6 @@ export function MarketBreadthPanel({ viewState, metrics, chartsByRange, errorMes
               { key: "down", name: "下跌家数", color: "var(--cs-color-market-down)", dots: true, valueFormatter: (v) => `${Math.round(v)} 家` },
             ]}
           />
-          <div className="chart-note">横轴：交易日期；纵轴：家数。鼠标移动显示日期、上涨家数、下跌家数。</div>
         </>
       ) : null}
     </Panel>
