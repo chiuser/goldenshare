@@ -3,6 +3,12 @@ import { marketOverviewModuleSources } from "../../features/market-overview/api/
 import { fetchMarketOverviewMock } from "../../features/market-overview/api/marketOverviewMockAdapter";
 import type { MarketOverview } from "../../features/market-overview/api/marketOverviewTypes";
 import { MarketBreadthPanel } from "../../features/market-overview/breadth/MarketBreadthPanel";
+import {
+  buildBreadthViewModelFromApi,
+  buildBreadthViewModelFromMock,
+  type MarketBreadthViewModel,
+} from "../../features/market-overview/breadth/api/marketBreadthAdapter";
+import { fetchMarketBreadth, type BreadthDebugInfo } from "../../features/market-overview/breadth/api/marketBreadthApi";
 import { MajorIndexPanel } from "../../features/market-overview/indices/MajorIndexPanel";
 import {
   buildMajorIndicesViewModelFromApi,
@@ -29,6 +35,7 @@ import "./market-overview-page.css";
 
 const SUMMARY_FETCH_TIMEOUT_MS = 5000;
 const MAJOR_INDICES_FETCH_TIMEOUT_MS = 5000;
+const BREADTH_FETCH_TIMEOUT_MS = 5000;
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -44,6 +51,12 @@ export function MarketOverviewPage() {
   );
   const [majorIndicesErrorMessage, setMajorIndicesErrorMessage] = useState<string | null>(null);
   const [majorIndicesDebugInfo, setMajorIndicesDebugInfo] = useState<MajorIndicesDebugInfo | null>(null);
+  const [breadth, setBreadth] = useState<MarketBreadthViewModel | null>(null);
+  const [breadthViewState, setBreadthViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.breadth === "real" ? "loading" : "ready",
+  );
+  const [breadthErrorMessage, setBreadthErrorMessage] = useState<string | null>(null);
+  const [breadthDebugInfo, setBreadthDebugInfo] = useState<BreadthDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const pageDebugEnabled = useMemo(() => {
@@ -56,14 +69,16 @@ export function MarketOverviewPage() {
     const moduleItems = [
       ...(summaryDebugInfo?.modules ?? []),
       ...(majorIndicesDebugInfo?.modules ?? []),
+      ...(breadthDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
       ...(majorIndicesDebugInfo?.exceptions ?? []),
+      ...(breadthDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
-  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo]);
+  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -83,6 +98,14 @@ export function MarketOverviewPage() {
         setMajorIndices(null);
         setMajorIndicesViewState("loading");
         setMajorIndicesErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.breadth === "mock") {
+        setBreadth(buildBreadthViewModelFromMock(response.data));
+        setBreadthViewState("ready");
+      } else {
+        setBreadth(null);
+        setBreadthViewState("loading");
+        setBreadthErrorMessage(null);
       }
     });
   }, []);
@@ -120,6 +143,51 @@ export function MarketOverviewPage() {
           setSummaryViewState("error");
           setSummaryErrorMessage(message);
           showToast(`客观总结模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.breadth !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setBreadth(null);
+    setBreadthViewState("loading");
+    setBreadthErrorMessage(null);
+    setBreadthDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), BREADTH_FETCH_TIMEOUT_MS);
+
+    fetchMarketBreadth(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setBreadth(buildBreadthViewModelFromApi(payload));
+          setBreadthViewState("ready");
+          setBreadthErrorMessage(null);
+          setBreadthDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout ? `请求超时：/api/v1/wealth/market/breadth` : error instanceof Error ? error.message : "涨跌分布加载失败";
+          setBreadth(null);
+          setBreadthViewState("error");
+          setBreadthErrorMessage(message);
+          setBreadthDebugInfo(null);
+          showToast(`涨跌分布模块异常：${message}`);
         }
       })
       .finally(() => {
@@ -231,7 +299,12 @@ export function MarketOverviewPage() {
           </div>
           {overviewDebugInfo ? <OverviewDebugPanel debugInfo={overviewDebugInfo} /> : null}
           <div className="row-three">
-            <MarketBreadthPanel overview={overview} />
+            <MarketBreadthPanel
+              viewState={breadthViewState}
+              metrics={breadth?.metrics}
+              chartsByRange={breadth?.chartsByRange}
+              errorMessage={breadthErrorMessage ?? undefined}
+            />
             <MarketStylePanel overview={overview} />
             <TurnoverOverviewPanel overview={overview} />
           </div>

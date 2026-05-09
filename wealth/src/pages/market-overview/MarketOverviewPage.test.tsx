@@ -86,6 +86,37 @@ const majorIndicesPayload = {
   },
 };
 
+const breadthPayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  breadth: {
+    tradeDate: "2026-04-28",
+    metrics: {
+      upCount: 3421,
+      downCount: 1488,
+      flatCount: 219,
+      redRate: 66.71,
+    },
+    historyByRange: {
+      "1m": [
+        { tradeDate: "2026-04-27", upCount: 3200, downCount: 1600 },
+        { tradeDate: "2026-04-28", upCount: 3421, downCount: 1488 },
+      ],
+      "3m": [
+        { tradeDate: "2026-03-03", upCount: 2500, downCount: 2100 },
+        { tradeDate: "2026-04-28", upCount: 3421, downCount: 1488 },
+      ],
+    },
+  },
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -102,6 +133,7 @@ function responseJson(payload: unknown): Response {
 function mockSuccessfulMarketFetch(
   summaryPayload = summaryFiveCards,
   majorPayload = majorIndicesPayload,
+  breadthPayloadInput = breadthPayload,
 ) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
@@ -110,6 +142,9 @@ function mockSuccessfulMarketFetch(
     }
     if (url.includes("/api/v1/wealth/market/major-indices")) {
       return responseJson(majorPayload);
+    }
+    if (url.includes("/api/v1/wealth/market/breadth")) {
+      return responseJson(breadthPayloadInput);
     }
     throw new Error(`unexpected url: ${url}`);
   });
@@ -204,6 +239,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
       }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
       if (url.includes("/api/v1/wealth/market/summary")) {
         return new Promise<Response>((resolve) => {
           resolveSummaryFetch = resolve;
@@ -236,6 +274,9 @@ describe("MarketOverviewPage", () => {
       const url = toUrlString(input);
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
       }
       const signal = (init as RequestInit | undefined)?.signal;
       return new Promise<Response>((_, reject) => {
@@ -276,6 +317,9 @@ describe("MarketOverviewPage", () => {
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return new Promise<Response>((resolve) => {
           resolveMajorFetch = resolve;
@@ -308,6 +352,9 @@ describe("MarketOverviewPage", () => {
       const url = toUrlString(input);
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
       }
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         const signal = (init as RequestInit | undefined)?.signal;
@@ -342,7 +389,88 @@ describe("MarketOverviewPage", () => {
     expect(within(majorSection).getByText("error")).toBeInTheDocument();
   }, 15000);
 
-  it("uses page-level debug switch for both summary and major-indices modules", async () => {
+  it("shows loading before real breadth is returned, without rendering mock breadth metrics", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveBreadthFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return new Promise<Response>((resolve) => {
+          resolveBreadthFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const breadthSection = await screen.findByLabelText("涨跌分布");
+    expect(within(breadthSection).getByText("loading")).toBeInTheDocument();
+    expect(breadthSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(0);
+
+    if (typeof resolveBreadthFetch !== "function") {
+      throw new Error("breadth fetch resolver is missing");
+    }
+    resolveBreadthFetch(responseJson(breadthPayload));
+
+    await waitFor(() => {
+      expect(breadthSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(3);
+    });
+  });
+
+  it("shows error state when breadth request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        const signal = (init as RequestInit | undefined)?.signal;
+        return new Promise<Response>((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const breadthSection = rendered.container.querySelector<HTMLElement>('[aria-label="涨跌分布"]');
+    expect(breadthSection).not.toBeNull();
+    if (!breadthSection) {
+      throw new Error("breadth section not found");
+    }
+    expect(within(breadthSection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(breadthSection).getByText("请求超时：/api/v1/wealth/market/breadth")).toBeInTheDocument();
+    expect(within(breadthSection).getByText("error")).toBeInTheDocument();
+  }, 15000);
+
+  it("uses page-level debug switch for summary, major-indices and breadth modules", async () => {
     window.history.pushState({}, "", "/market/overview?debug=1");
     const requestUrls: string[] = [];
     const fetchMock = vi.spyOn(globalThis, "fetch");
@@ -386,6 +514,24 @@ describe("MarketOverviewPage", () => {
           },
         });
       }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return responseJson({
+          ...breadthPayload,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "breadth",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
       throw new Error(`unexpected url: ${url}`);
     });
 
@@ -393,13 +539,17 @@ describe("MarketOverviewPage", () => {
     expect(await screen.findByText("页面调试信息（本地 DEV）")).toBeInTheDocument();
     expect(screen.getByText("marketSummary")).toBeInTheDocument();
     expect(screen.getByText("majorIndices")).toBeInTheDocument();
+    expect(screen.getByText("breadth")).toBeInTheDocument();
 
     const summaryRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/summary"));
     const majorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/major-indices"));
+    const breadthRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/breadth"));
     expect(summaryRequest).toBeDefined();
     expect(majorRequest).toBeDefined();
+    expect(breadthRequest).toBeDefined();
     expect(new URL(summaryRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(majorRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(breadthRequest as string).searchParams.get("debug")).toBe("1");
 
   });
 });

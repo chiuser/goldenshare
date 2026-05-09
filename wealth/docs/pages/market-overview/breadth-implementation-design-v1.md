@@ -81,6 +81,11 @@ src/biz/
 5. 状态归并：`breadth_status_resolver` 产出模块状态
 6. 异常组装：`breadth_exception_builder` 仅使用注册表异常码
 7. 响应输出：`schemas.wealth.market.breadth` DTO
+8. 前端渲染态（真实源）：
+   - 返回前：`loading`
+   - 返回成功：`ready`
+   - 请求失败或超过 5 秒：`error`
+   - 禁止 silent fallback 回填 mock。
 
 ---
 
@@ -154,9 +159,14 @@ src/biz/
    - 正常/延迟/空数据/异常场景。
 3. 冒烟验证：
    - 返回结构稳定；
-   - 面板切换 `1m/3m` 可正常渲染。
+   - 面板切换 `1m/3m` 可正常渲染；
+   - 真实源请求 pending 时显示 loading（不展示 mock breadth）；
+   - 真实源请求超过 5 秒显示 error。
 4. 失败回滚与观测：
    - 查询失败只影响本模块，不阻断整页响应。
+5. 范围约束验证：
+   - 本轮只允许 `breadth` 模块切到 `real`；
+   - 其他模块 source 保持原值不变。
 
 ---
 
@@ -186,7 +196,9 @@ src/biz/
 2. 仅支持 `1个月/3个月` 两档范围。
 3. UI 样式与交互保持现状，不做变更。
 4. 统计口径已拍板：`equity_daily_bar` 全量样本口径，`pct_chg` 为空不计入。
-5. 本轮无未决拍板项。
+5. 本模块接入真实 API 时，必须遵守 `loading -> ready`、`timeout(5s) -> error`，且 timeout/error 不允许回填 mock 数据。
+6. 本轮仅允许 `breadth` 模块 source 从 `mock` 切到 `real`，其余模块 source 必须保持原值不变。
+7. 本轮无未决拍板项。
 
 ---
 
@@ -195,3 +207,4 @@ src/biz/
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结涨跌分布模块实现边界与查询策略 | Codex |
+| v1.1 | 2026-05-09 | 对齐模块交付清单：补充真实源 loading/error 行为门禁、5 秒超时语义与单模块 source 切换约束 | Codex |

@@ -28,7 +28,10 @@
 5. [ ] 状态归并样例冻结
 6. [ ] 异常覆盖矩阵冻结
 7. [ ] 性能预算冻结
-8. [ ] 签字完成
+8. [ ] 前端真实源加载态门禁冻结（loading/ready/error）
+9. [ ] 5 秒超时进入 error 且不展示 mock 回填的行为门禁冻结
+10. [ ] 本轮仅 breadth 切换到 real、其余模块 source 不变
+11. [ ] 签字完成
 
 ---
 
@@ -232,9 +235,14 @@ interface BreadthResponseData {
 3. 冒烟测试：
    - 前端 `RangeSwitch` 可切 `1个月/3个月`
    - 双趋势线（上涨/下跌）可渲染
+   - 真实源请求 pending 时显示 loading（不展示 mock breadth）
+   - 真实源请求超过 5 秒显示 error
 4. debug 模式验证：
    - `debug=1` 返回明细；
    - 生产环境禁用 debug 输出。
+5. 渐进替换约束验证：
+   - 仅 `breadth` source 发生变化；
+   - 非目标模块 source 与行为不变。
 
 ---
 
@@ -265,3 +273,4 @@ interface BreadthResponseData {
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结涨跌分布模块编码门禁 | Codex |
+| v1.1 | 2026-05-09 | 对齐模块交付清单：新增真实源加载态/5 秒超时门禁与单模块 source 渐进替换门禁 | Codex |

@@ -15,7 +15,7 @@ export interface MarketOverviewModuleSources {
 export const marketOverviewModuleSources: MarketOverviewModuleSources = {
   summary: "real",
   majorIndices: "real",
-  breadth: "mock",
+  breadth: "real",
   style: "mock",
   turnover: "mock",
   moneyFlow: "mock",
