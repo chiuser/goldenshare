@@ -138,6 +138,7 @@ src/biz/
 
 1. 三卡来源可配置，但卡片数量和顺序不可配置。
 2. `median` 来源必须是 `equity_median`，禁止替换为插值中位。
+3. 生效口径：当前 `MarketStyleQueryService` 按请求创建实例并读取配置；修改 `market_style.cn_a.v1.json` 后，无需改代码，下一次接口请求即按新配置生效（前提：配置通过模型校验）。
 
 ## 5.2 主查询（当前日）
 
