@@ -1,8 +1,130 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketOverviewPage } from "./MarketOverviewPage";
 
+const summaryFiveCards = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  marketSummary: {
+    definition: {
+      definitionKey: "CN_A_SUMMARY_V1",
+      version: "1.0.0",
+      cardCount: 5,
+      textPosition: "BOTTOM_FIXED",
+      layoutVariant: "FIVE_SINGLE_ROW",
+    },
+    cards: [
+      { cardKey: "majorIndexUpCount", label: "主要指数涨跌比", value: "8:2", subText: "上涨数量:下跌数量", direction: "UP" },
+      { cardKey: "riseFallCount", label: "上涨 / 下跌", value: "3421 / 1488", subText: "平盘 219", direction: "UP" },
+      { cardKey: "turnoverTotal", label: "成交总额", value: "10523亿", subText: "较昨日 +7.15%", direction: "UP" },
+      { cardKey: "marketNetFlow", label: "大盘资金", value: "-52.8亿", subText: "净流出", direction: "DOWN" },
+      { cardKey: "limitUpDown", label: "涨停 / 跌停", value: "59 / 8", subText: "炸板 27", direction: "UP" },
+    ],
+    textCard: {
+      title: "截至收盘，A 股主要指数多数上涨。",
+      content: "全市场上涨家数多于下跌家数，成交额较上一交易日放大。",
+      templateKey: "objective_close_v1",
+    },
+  },
+};
+
+const summarySixCards = {
+  ...summaryFiveCards,
+  marketSummary: {
+    ...summaryFiveCards.marketSummary,
+    definition: {
+      ...summaryFiveCards.marketSummary.definition,
+      cardCount: 6,
+      layoutVariant: "SIX_TWO_ROWS",
+    },
+    cards: [
+      summaryFiveCards.marketSummary.cards[0],
+      summaryFiveCards.marketSummary.cards[1],
+      { cardKey: "flatCount", label: "平盘家数", value: "219", subText: "当前日统计", direction: "FLAT" },
+      summaryFiveCards.marketSummary.cards[2],
+      summaryFiveCards.marketSummary.cards[3],
+      summaryFiveCards.marketSummary.cards[4],
+    ],
+  },
+};
+
+const majorIndicesPayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  majorIndices: {
+    definition: {
+      definitionKey: "CN_A_MAJOR_INDICES_V1",
+      version: "1.0.0",
+      fixedCount: 10,
+    },
+    rows: [
+      { subject: { subjectType: "index", subjectCode: "000001.SH", subjectName: "上证指数" }, point: 3128.42, change: 28.66, changePct: 0.92, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "399001.SZ", subjectName: "深证成指" }, point: 9842.15, change: -34.21, changePct: -0.35, amount: 100, direction: "DOWN" },
+      { subject: { subjectType: "index", subjectCode: "399006.SZ", subjectName: "创业板指" }, point: 1986.22, change: 22.03, changePct: 1.12, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "000688.SH", subjectName: "科创50" }, point: 921.56, change: -1.66, changePct: -0.18, amount: 100, direction: "DOWN" },
+      { subject: { subjectType: "index", subjectCode: "000300.SH", subjectName: "沪深300" }, point: 3726.84, change: 26.58, changePct: 0.72, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "000905.SH", subjectName: "中证500" }, point: 5642.33, change: 58.65, changePct: 1.05, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "000852.SH", subjectName: "中证1000" }, point: 5948.17, change: 86.7, changePct: 1.48, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "899050.BJ", subjectName: "北证50" }, point: 1196.35, change: 24.15, changePct: 2.06, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "000510.SH", subjectName: "中证A500" }, point: 4683.91, change: 38.56, changePct: 0.83, amount: 100, direction: "UP" },
+      { subject: { subjectType: "index", subjectCode: "000016.SH", subjectName: "上证50" }, point: 2542.08, change: 10.66, changePct: 0.42, amount: 100, direction: "UP" },
+    ],
+  },
+};
+
+function toUrlString(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
+function responseJson(payload: unknown): Response {
+  return {
+    ok: true,
+    json: async () => payload,
+  } as Response;
+}
+
+function mockSuccessfulMarketFetch(
+  summaryPayload = summaryFiveCards,
+  majorPayload = majorIndicesPayload,
+) {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = toUrlString(input);
+    if (url.includes("/api/v1/wealth/market/summary")) {
+      return responseJson(summaryPayload);
+    }
+    if (url.includes("/api/v1/wealth/market/major-indices")) {
+      return responseJson(majorPayload);
+    }
+    throw new Error(`unexpected url: ${url}`);
+  });
+}
+
 describe("MarketOverviewPage", () => {
+  beforeEach(() => {
+    mockSuccessfulMarketFetch();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   it("renders the V1.1 market overview structure", async () => {
     render(<MarketOverviewPage />);
 
@@ -48,4 +170,174 @@ describe("MarketOverviewPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: /手动刷新/ }));
     expect(screen.getByRole("button", { name: "刷新中" })).toBeInTheDocument();
   });
+
+  it("summary module smoke supports both 5-card and 6-card layouts", async () => {
+    vi.restoreAllMocks();
+    mockSuccessfulMarketFetch(summaryFiveCards);
+
+    const first = render(<MarketOverviewPage />);
+    const summarySection = await screen.findByLabelText("今日市场客观总结");
+    await waitFor(() => {
+      expect(summarySection.querySelectorAll(".fact-card")).toHaveLength(5);
+    });
+    expect(summarySection.querySelector(".summary-facts-v2")?.classList.contains("six")).toBe(false);
+    first.unmount();
+
+    vi.restoreAllMocks();
+    mockSuccessfulMarketFetch(summarySixCards);
+    render(<MarketOverviewPage />);
+
+    const summarySectionSix = await screen.findByLabelText("今日市场客观总结");
+    await waitFor(() => {
+      expect(summarySectionSix.querySelectorAll(".fact-card")).toHaveLength(6);
+    });
+    expect(summarySectionSix.querySelector(".summary-facts-v2")?.classList.contains("six")).toBe(true);
+  });
+
+  it("shows loading before real summary is returned, without rendering mock summary facts", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveSummaryFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return new Promise<Response>((resolve) => {
+          resolveSummaryFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const summarySection = await screen.findByLabelText("今日市场客观总结");
+    expect(within(summarySection).getByText("loading")).toBeInTheDocument();
+    expect(summarySection.querySelectorAll(".fact-card")).toHaveLength(0);
+
+    if (typeof resolveSummaryFetch !== "function") {
+      throw new Error("summary fetch resolver is missing");
+    }
+    resolveSummaryFetch(responseJson(summaryFiveCards));
+
+    await waitFor(() => {
+      expect(summarySection.querySelectorAll(".fact-card")).toHaveLength(5);
+    });
+  });
+
+  it("shows error state when summary request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      const signal = (init as RequestInit | undefined)?.signal;
+      return new Promise<Response>((_, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("The operation was aborted.", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const summarySection = rendered.container.querySelector<HTMLElement>('[aria-label="今日市场客观总结"]');
+    expect(summarySection).not.toBeNull();
+    if (!summarySection) {
+      throw new Error("summary section not found");
+    }
+    expect(within(summarySection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(summarySection).getByText("请求超时：/api/v1/wealth/market/summary")).toBeInTheDocument();
+    expect(within(summarySection).getByText("error")).toBeInTheDocument();
+  }, 15000);
+
+  it("shows loading before real major indices are returned, without rendering mock index cards", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveMajorFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return new Promise<Response>((resolve) => {
+          resolveMajorFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const majorSection = await screen.findByLabelText("主要指数");
+    expect(within(majorSection).getByText("loading")).toBeInTheDocument();
+    expect(majorSection.querySelectorAll(".index-card")).toHaveLength(0);
+
+    if (typeof resolveMajorFetch !== "function") {
+      throw new Error("major indices fetch resolver is missing");
+    }
+    resolveMajorFetch(responseJson(majorIndicesPayload));
+
+    await waitFor(() => {
+      expect(majorSection.querySelectorAll(".index-card")).toHaveLength(10);
+    });
+  });
+
+  it("shows error state when major indices request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        const signal = (init as RequestInit | undefined)?.signal;
+        return new Promise<Response>((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const majorSection = rendered.container.querySelector<HTMLElement>('[aria-label="主要指数"]');
+    expect(majorSection).not.toBeNull();
+    if (!majorSection) {
+      throw new Error("major indices section not found");
+    }
+    expect(within(majorSection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(majorSection).getByText("请求超时：/api/v1/wealth/market/major-indices")).toBeInTheDocument();
+    expect(within(majorSection).getByText("error")).toBeInTheDocument();
+  }, 15000);
 });

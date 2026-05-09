@@ -1,0 +1,2 @@
+"""Major indices module services."""
+
