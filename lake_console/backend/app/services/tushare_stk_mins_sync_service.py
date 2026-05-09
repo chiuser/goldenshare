@@ -14,6 +14,7 @@ from lake_console.backend.app.catalog.tushare_stk_mins import (
     STK_MINS_FIELDS,
     STK_MINS_SOURCE_FIELDS,
 )
+from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -157,6 +158,13 @@ class TushareStkMinsSyncService:
             raise RuntimeError(f"stk_mins Parquet 校验失败：written={written} validated={validated}")
 
         replace_directory_atomically(tmp_dir=tmp_dir, final_dir=partition, backup_root=backup_root)
+        self._record_source_partition_replaced(
+            layer="raw_tushare",
+            freq=freq,
+            trade_date=trade_date,
+            run_id=run_id,
+            written_rows=written,
+        )
         elapsed = time.monotonic() - started
         summary = self._summary(
             run_id=run_id,
@@ -318,6 +326,13 @@ class TushareStkMinsSyncService:
                     tmp_dir=tmp_partition,
                     final_dir=final_partition,
                     backup_root=self.lake_root / "_tmp" / run_id / "_backup",
+                )
+                self._record_source_partition_replaced(
+                    layer="raw_tushare",
+                    freq=freq,
+                    trade_date=trade_date,
+                    run_id=run_id,
+                    written_rows=freq_written,
                 )
             if verbose:
                 self.progress(
@@ -495,6 +510,7 @@ class TushareStkMinsSyncService:
         trade_date_set = set(window.trade_dates)
         part_buffers: dict[date, list[dict[str, Any]]] = {}
         part_indexes: dict[date, int] = {}
+        partition_written_rows: dict[date, int] = {}
         touched_partitions: set[date] = set()
         total_fetched = 0
         total_written = 0
@@ -554,6 +570,7 @@ class TushareStkMinsSyncService:
                     )
                     part_indexes[trade_date] = part_indexes.get(trade_date, 0) + 1
                     total_written += written
+                    partition_written_rows[trade_date] = partition_written_rows.get(trade_date, 0) + written
                     part_buffers[trade_date] = []
             self._append_checkpoint(
                 run_id=run_id,
@@ -593,6 +610,7 @@ class TushareStkMinsSyncService:
             )
             part_indexes[trade_date] = part_indexes.get(trade_date, 0) + 1
             total_written += written
+            partition_written_rows[trade_date] = partition_written_rows.get(trade_date, 0) + written
 
         for trade_date in sorted(touched_partitions):
             tmp_partition = self._tmp_partition(run_id=run_id, freq=freq, trade_date=trade_date)
@@ -602,6 +620,13 @@ class TushareStkMinsSyncService:
                 tmp_dir=tmp_partition,
                 final_dir=self._final_partition(freq=freq, trade_date=trade_date),
                 backup_root=self.lake_root / "_tmp" / run_id / "_backup",
+            )
+            self._record_source_partition_replaced(
+                layer="raw_tushare",
+                freq=freq,
+                trade_date=trade_date,
+                run_id=run_id,
+                written_rows=partition_written_rows.get(trade_date, 0),
             )
         return {
             "window_start": window.start_date.isoformat(),
@@ -785,6 +810,23 @@ class TushareStkMinsSyncService:
 
     def _checkpoint_file(self, *, run_id: str) -> Path:
         return self.lake_root / "manifest" / "sync_checkpoints" / "stk_mins_range" / f"run_id={run_id}" / "checkpoint.jsonl"
+
+    def _record_source_partition_replaced(
+        self,
+        *,
+        layer: str,
+        freq: int,
+        trade_date: date,
+        run_id: str,
+        written_rows: int,
+    ) -> None:
+        IndicatorRecalcQueueService(lake_root=self.lake_root).record_source_partition_replaced(
+            layer=layer,
+            freq=freq,
+            trade_date=trade_date,
+            run_id=run_id,
+            written_rows=written_rows,
+        )
 
 
 def _normalize_stk_mins_row(row: dict[str, Any], *, freq: int, trade_date: date | None) -> dict[str, Any]:

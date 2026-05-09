@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timezone
 from pathlib import Path
 from typing import Any
 
+from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -91,6 +92,13 @@ class StkMinsGapRepairService:
             tmp_dir=tmp_partition,
             final_dir=final_partition,
             backup_root=self.lake_root / "_tmp" / run_id / "_backup",
+        )
+        IndicatorRecalcQueueService(lake_root=self.lake_root).record_source_partition_replaced(
+            layer="raw_tushare",
+            freq=freq,
+            trade_date=trade_date,
+            run_id=run_id,
+            written_rows=written,
         )
 
         elapsed = time_module.monotonic() - started

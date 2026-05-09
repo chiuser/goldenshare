@@ -1,8 +1,8 @@
 # 股票分钟线指标系统设计方案 v1
 
 - 版本：v1
-- 状态：待评审
-- 更新时间：2026-05-05
+- 状态：已评审，M6 已落地
+- 更新时间：2026-05-09
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
 - 后续指标：`MA`、`BOLL`、其他基于分钟线的本地派生指标
@@ -213,16 +213,16 @@ manifest/indicator_recalc_queue/
 | `ts_code` | string | 是 | 股票代码 |
 | `freq` | int16 | 是 | 分钟周期，取值 `1/5/15/30/60/90/120` |
 | `trade_time` | timestamp | 是 | 指标对应的分钟 bar 时间 |
-| `dif` | float32 | 是 | 快慢 EMA 差值 |
-| `dea` | float32 | 是 | DIF 的 EMA 平滑值 |
-| `macd_bar` | float32 | 是 | `2 * (dif - dea)` |
+| `dif` | double | 是 | 快慢 EMA 差值 |
+| `dea` | double | 是 | DIF 的 EMA 平滑值 |
+| `macd_bar` | double | 是 | `2 * (dif - dea)` |
 | `params_key` | string | 是 | 参数版本，例如 `12_26_9` |
 | `indicator_version` | int16 | 是 | 指标算法版本，第一版为 `1` |
 
 说明：
 
-1. 输出结果用 `float32`，是为了控制指标层长期存储体积。
-2. 递推状态用 `double`，是为了降低长期增量计算的累计误差。
+1. MACD 输出结果统一使用 `double`，避免指标结果层和状态层出现精度口径不一致。
+2. 递推状态也使用 `double`，降低长期增量计算的累计误差。
 3. 不写 `open/high/low/close`，避免指标层复制 K 线事实；需要价格时应 JOIN 或同时读取分钟线层。
 4. 不新增 `trade_date` 字段，分钟线主时间口径仍然是 `trade_time`，日期通过路径分区表达。
 
@@ -251,14 +251,24 @@ manifest/indicator_recalc_queue/
 | `queue_id` | string | 是 | 稳定唯一 ID |
 | `indicator_key` | string | 是 | `macd` |
 | `params_key` | string | 是 | `12_26_9` |
-| `freq` | int16 或 null | 否 | null 表示所有频度 |
-| `ts_code` | string 或 null | 否 | null 表示全市场 |
+| `freq_scope` | string | 是 | `all` / `single` |
+| `freq_value` | int16 | 否 | 仅 `freq_scope=single` 时有值 |
+| `security_scope` | string | 是 | `all` / `single` |
+| `ts_code` | string | 否 | 仅 `security_scope=single` 时有值 |
 | `invalid_from_time` | timestamp | 是 | 从哪个时间点开始需要重算 |
 | `reason` | string | 是 | `source_partition_replaced` / `indicator_params_changed` / `schema_migration` / `manual_request` |
 | `status` | string | 是 | `pending` / `running` / `done` / `failed` |
 | `created_at` | timestamp | 是 | 入队时间 |
 | `finished_at` | timestamp 或 null | 否 | 完成时间 |
 | `error_message` | string 或 null | 否 | 失败原因 |
+
+说明：
+
+1. 禁止用 `null` 表示“全部”。`null` 只能表示没有值，不能承载 `all` 语义。
+2. 表达“所有频度”必须写 `freq_scope=all`。
+3. 表达“全市场”必须写 `security_scope=all`。
+4. `freq_scope=single` 时必须有 `freq_value`。
+5. `security_scope=single` 时必须有 `ts_code`。
 
 ---
 
@@ -330,6 +340,33 @@ MACD(t0)     = 0
 ### 7.2 全市场全量
 
 全市场全量不能直接按日期扫十年，否则每只股票的 EMA 状态不好连续维护。
+
+人话解释：
+
+```text
+by_date 适合查某一天全市场。
+research 适合查某只股票跨很多月份。
+MACD 全量计算需要按每只股票自己的时间线连续递推。
+```
+
+如果直接从 `by_date` 计算全市场多年 MACD，程序需要从每天的文件里反复捞同一只股票，再拼成连续时间序列。这会让 IO 非常散，也更容易在状态初始化、跨月连续性和回测查询上出错。
+
+因此，全市场 full 计算必须先要求 source research 已存在：
+
+```text
+research/stk_mins_by_symbol_month/freq=*/trade_month=*/bucket=*
+```
+
+如果 source research 缺失，`compute-stk-mins-indicator --mode full --all-market` 应直接失败并提示用户先执行：
+
+```bash
+lake-console rebuild-stk-mins-research-range \
+  --start-month <源数据开始月份> \
+  --end-month <源数据结束月份> \
+  --freqs <需要计算的频度>
+```
+
+不要自动触发 source research 重建。重建本身可能很久、很占 IO，必须让用户明确知道自己在执行什么。
 
 推荐执行单位：
 
@@ -442,6 +479,30 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24
 derived/stk_mins_indicators_by_date/indicator=macd/params_key=12_26_9/freq=30/trade_date>=2026-04-24
 ```
 
+源数据是否被重写，不能靠猜，也不能只靠扫描文件 mtime。正确口径是：谁替换源分区，谁就负责留下分区替换事件。
+
+源写入服务在 replace 成功后写入事件：
+
+```text
+manifest/source_partition_events/stk_mins.jsonl
+```
+
+建议事件字段：
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `event_id` | string | 稳定唯一 ID |
+| `dataset_key` | string | 固定 `stk_mins` |
+| `layer` | string | `raw_tushare` / `derived` |
+| `freq` | int16 | 被替换的分钟周期 |
+| `trade_date` | date | 被替换的源分区日期 |
+| `event_type` | string | `partition_replaced` |
+| `run_id` | string | 触发替换的运行 ID |
+| `written_rows` | int64 | 替换后的行数 |
+| `recorded_at` | timestamp | 事件记录时间 |
+
+指标系统读取这些事件后，生成或更新 `indicator_recalc_queue`。
+
 处理方式：
 
 1. 记录 `indicator_recalc_queue`。
@@ -454,6 +515,65 @@ derived/stk_mins_indicators_by_date/indicator=macd/params_key=12_26_9/freq=30/tr
 1. 源数据修复后指标不会悄悄过期。
 2. 重算范围有依据，不用全库重来。
 3. 页面后续可以展示“指标待重算”的风险。
+
+### 8.4 重算队列执行策略
+
+`indicator_recalc_queue` 是“指标过期与重算范围”的事实记录，不等于自动执行系统。
+
+第一阶段只记录，不自动执行：
+
+1. 源数据重写后写入 queue。
+2. 用户通过 `lake-console list-indicator-recalc-queue` 查看。
+3. 用户手动执行建议的重算命令。
+4. 重算成功后把 queue 标记为 `done`。
+
+`list-indicator-recalc-queue` 必须直接给出建议命令，不能只输出状态字段。
+
+全市场示例：
+
+```text
+[1] macd / 12_26_9 / freq=30 / all-market
+reason: source_partition_replaced
+invalid_from: 2026-04-24 09:30:00
+status: pending
+
+suggested_command:
+lake-console compute-stk-mins-indicator \
+  --indicator macd \
+  --mode incremental \
+  --all-market \
+  --freq 30 \
+  --start-date 2026-04-24 \
+  --end-date <请填源数据最新交易日>
+
+mark_done_command:
+lake-console mark-indicator-recalc-done --queue-id <queue_id>
+```
+
+单股票示例：
+
+```text
+suggested_command:
+lake-console compute-stk-mins-indicator \
+  --indicator macd \
+  --mode incremental \
+  --ts-code 600000.SH \
+  --freq 30 \
+  --start-date 2026-04-24 \
+  --end-date <请填源数据最新交易日>
+```
+
+如果系统能低成本从 source layer 扫到最新 `trade_date`，可以把 `--end-date` 直接填成实际日期；如果扫不到或成本太高，就输出占位符，并明确提示用户填写。
+
+后续阶段再考虑半自动消费：
+
+```bash
+lake-console process-indicator-recalc-queue \
+  --indicator macd \
+  --limit 10
+```
+
+但第一版不要自动后台消费 queue，避免在移动盘上突然启动重 IO 任务。
 
 ---
 
@@ -532,6 +652,20 @@ lake-console rebuild-stk-mins-indicator-research \
   --trade-month 2026-04
 ```
 
+查看待重算队列：
+
+```bash
+lake-console list-indicator-recalc-queue \
+  --indicator macd
+```
+
+标记队列完成：
+
+```bash
+lake-console mark-indicator-recalc-done \
+  --queue-id <queue_id>
+```
+
 进度输出必须包含：
 
 | 字段 | 用途 |
@@ -576,7 +710,7 @@ lake_console/backend/app/services/indicators/
 | `indicator_by_date_writer.py` | 写指标 by_date 分区 |
 | `indicator_state_store.py` | 读写 `ema_state` |
 | `indicator_research_service.py` | 重建指标 research 层 |
-| `indicator_recalc_queue.py` | 管理重算队列 |
+| `indicator_recalc_queue.py` | 管理源分区替换事件与指标重算队列 |
 | `indicator_progress.py` | CLI 进度输出 |
 
 这样拆分能得到：
@@ -773,8 +907,29 @@ bucket = stable_hash(ts_code) % 32
 
 1. 新增 `indicator_recalc_queue`。
 2. 源 raw/derived 分区替换后可生成待重算记录。
-3. CLI 能列出和执行待重算任务。
-4. 不自动调度，先保障手动可控。
+3. 新增 `list-indicator-recalc-queue`，默认输出建议重算命令。
+4. 新增 `mark-indicator-recalc-done`，用于人工重算后关闭 queue。
+5. 第一版只记录和提示，不自动执行 queue。
+
+验收：
+
+1. 重写某个源分区后，能看到 pending queue。
+2. queue 中 `all` 语义必须用 `freq_scope/security_scope` 表达，不允许用 `null` 表示全部。
+3. `list-indicator-recalc-queue` 能输出可复制执行的建议命令。
+4. 标记 done 后，queue 状态可读。
+
+落地口径：
+
+1. 源分区替换事件写入 `manifest/source_partition_events/stk_mins.jsonl`。
+2. MACD 重算队列写入 `manifest/indicator_recalc_queue/stk_mins_macd.parquet`。
+3. 当前接入的源替换入口包括：
+   - `sync-stk-mins` 单股票单日 raw 分区替换。
+   - `sync-stk-mins` 全市场单日 raw 分区替换。
+   - `sync-stk-mins-range` 全市场区间 raw 分区替换。
+   - `derive-stk-mins` / `derive-stk-mins-range` derived 分区替换。
+   - `repair-stk-mins-from-1m` raw 修补分区写入。
+4. 第一版 queue 只记录 `pending` 并给出建议命令，不自动消费，不后台启动重 IO 任务。
+5. 手动重算完成后，通过 `mark-indicator-recalc-done` 关闭对应 queue。
 
 ### M7：MA / BOLL 扩展评审
 
@@ -799,12 +954,63 @@ bucket = stable_hash(ts_code) % 32
 
 ---
 
-## 17. 评审结论待确认
+## 17. 评审结论
 
-本方案建议先确认以下点，再进入代码：
+以下点已完成评审确认，并作为后续开发约束：
 
-1. MACD 输出字段是否采用 `float32`，state 采用 `double`。
-2. 指标路径是否采用统一目录 `stk_mins_indicators_by_date`，通过 `indicator=macd` 区分。
-3. 第一批 CLI 是否采用通用 `compute-stk-mins-indicator --indicator macd`，而不是单独 `compute-stk-mins-macd`。
-4. 全市场 full 是否先要求 source research 已存在，再计算指标，避免直接扫描大量 by_date。
-5. 源分区替换后，M6 之前是否先用文档/命令提示人工重算，M6 再补正式 queue。
+1. MACD 输出字段和 state 均采用 `double`。
+2. 指标路径采用统一目录 `stk_mins_indicators_by_date`，通过 `indicator=macd` 区分。
+3. 第一批 CLI 采用通用 `compute-stk-mins-indicator --indicator macd`，而不是单独 `compute-stk-mins-macd`。
+4. 全市场 full 先要求 source research 已存在，再计算指标，避免直接扫描大量 by_date。
+5. 源分区替换后，M6 之前先用文档/命令提示人工重算；M6 正式补 queue，且 queue 的 list 命令必须输出建议重算命令。
+
+已确认的开发节奏：
+
+1. 第一轮：M1 MACD 计算内核 + M2 指标 by_date 写入。
+2. 第二轮：M3 EMA state store。
+3. 第三轮：M4-A `compute-stk-mins-indicator` 单股票/单频度 CLI 闭环。
+4. 第四轮：M4-B `compute-stk-mins-indicator --all-market` 全市场闭环。
+5. 第五轮：M5 指标 research 重排。
+
+M4-A 只做：
+
+1. `--indicator macd`。
+2. `--mode full|incremental`。
+3. `--ts-code + --freq + --start-date + --end-date`。
+4. 从本地 `raw_tushare/derived` by_date 分区读取源分钟线。
+5. 写入指标 by_date 分区，并在结果写入成功后推进 state。
+
+M4-A 明确不做：
+
+1. 不做 `--all-market`。
+2. 不做 indicator research 重排。
+3. 不做 source partition event 与 recalc queue。
+4. 不做 MA/BOLL。
+
+M4-B 只做：
+
+1. `--all-market + --freq + --start-date + --end-date`。
+2. `mode=full` 时必须读取 source research，并在缺失时失败提示先执行 `rebuild-stk-mins-research-range`。
+3. `mode=incremental` 时读取 source by_date，并要求涉及股票已经存在 state。
+4. 全市场写入按分批 staging 后统一 replace 指标 by_date 分区，避免每个股票单独 replace 导致覆盖前序结果。
+
+M4-B 明确不做：
+
+1. 不自动重建 source research。
+2. 不做 indicator research 重排。
+3. 不做 source partition event 与 recalc queue。
+4. 不做 MA/BOLL。
+
+M5 只做：
+
+1. 新增 `rebuild-stk-mins-indicator-research`。
+2. 仅支持 `--indicator macd`。
+3. 从 `derived/stk_mins_indicators_by_date/indicator=macd/...` 读取指标 by_date 结果。
+4. 写入 `research/stk_mins_indicators_by_symbol_month/indicator=macd/...`。
+5. 复用 `stk_mins` research 的稳定 bucket 规则。
+
+M5 明确不做：
+
+1. 不自动触发指标计算。
+2. 不做源数据 recalc queue。
+3. 不做 MA/BOLL。

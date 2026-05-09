@@ -1,0 +1,330 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+import pytest
+
+from lake_console.backend.app.cli.main import main
+from lake_console.backend.app.services.indicators import MacdStateStore, StkMinsIndicatorComputeService
+from lake_console.backend.app.services.parquet_writer import read_parquet_rows, write_rows_to_parquet
+
+
+def test_compute_macd_full_writes_indicator_and_state(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[
+            _source_row("600000.SH", "2026-04-24 10:00:00", 10.0),
+            _source_row("600000.SH", "2026-04-24 10:30:00", 10.5),
+            _source_row("000001.SZ", "2026-04-24 10:00:00", 8.0),
+        ],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[_source_row("600000.SH", "2026-04-27 10:00:00", 10.8)],
+    )
+
+    summary = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+        mode="full",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 27).date(),
+    )
+
+    state = MacdStateStore(lake_root=tmp_path).get_state(ts_code="600000.SH", freq=30)
+    first_partition_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-24") / "part-000.parquet")
+    second_partition_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-27") / "part-000.parquet")
+    assert summary["status"] == "success"
+    assert summary["source_rows"] == 3
+    assert summary["written_rows"] == 3
+    assert summary["state_updates"] == 1
+    assert [row["ts_code"] for row in first_partition_rows] == ["600000.SH", "600000.SH"]
+    assert [row["ts_code"] for row in second_partition_rows] == ["600000.SH"]
+    assert state is not None
+    assert state.last_trade_time == datetime(2026, 4, 27, 10, 0)
+
+
+def test_compute_macd_incremental_uses_existing_state(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[
+            _source_row("600000.SH", "2026-04-24 10:00:00", 10.0),
+            _source_row("600000.SH", "2026-04-24 10:30:00", 10.5),
+        ],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[
+            _source_row("600000.SH", "2026-04-27 10:00:00", 10.8),
+            _source_row("600000.SH", "2026-04-27 10:30:00", 11.0),
+        ],
+    )
+    service = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None)
+    service.compute_macd(
+        mode="full",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 24).date(),
+    )
+
+    summary = service.compute_macd(
+        mode="incremental",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 27).date(),
+        end_date=datetime(2026, 4, 27).date(),
+    )
+
+    state = MacdStateStore(lake_root=tmp_path).get_state(ts_code="600000.SH", freq=30)
+    second_partition_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-27") / "part-000.parquet")
+    assert summary["source_rows"] == 2
+    assert summary["indicator_rows"] == 2
+    assert summary["written_rows"] == 2
+    assert second_partition_rows[0]["macd_bar"] != 0.0
+    assert state is not None
+    assert state.last_trade_time == datetime(2026, 4, 27, 10, 30)
+
+
+def test_compute_macd_incremental_requires_bootstrap(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+
+    with pytest.raises(RuntimeError, match="needs_bootstrap"):
+        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+            mode="incremental",
+            ts_code="600000.SH",
+            freq=30,
+            start_date=datetime(2026, 4, 24).date(),
+            end_date=datetime(2026, 4, 24).date(),
+        )
+
+
+def test_compute_macd_full_rejects_state_regression(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[_source_row("600000.SH", "2026-04-27 10:00:00", 10.5)],
+    )
+    service = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None)
+    service.compute_macd(
+        mode="full",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 27).date(),
+    )
+
+    with pytest.raises(RuntimeError, match="state_regression"):
+        service.compute_macd(
+            mode="full",
+            ts_code="600000.SH",
+            freq=30,
+            start_date=datetime(2026, 4, 24).date(),
+            end_date=datetime(2026, 4, 24).date(),
+        )
+
+
+def test_compute_stk_mins_indicator_cli_single_symbol(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+
+    exit_code = main(
+        [
+            "compute-stk-mins-indicator",
+            "--lake-root",
+            str(tmp_path),
+            "--indicator",
+            "macd",
+            "--mode",
+            "full",
+            "--ts-code",
+            "600000.SH",
+            "--freq",
+            "30",
+            "--start-date",
+            "2026-04-24",
+            "--end-date",
+            "2026-04-24",
+        ]
+    )
+
+    assert exit_code == 0
+    assert MacdStateStore(lake_root=tmp_path).get_state(ts_code="600000.SH", freq=30) is not None
+    assert (_indicator_partition(tmp_path, "2026-04-24") / "part-000.parquet").exists()
+
+
+def test_compute_macd_all_market_full_reads_source_research(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_research_rows(
+        tmp_path,
+        trade_month="2026-04",
+        bucket="00",
+        rows=[
+            _source_row("600000.SH", "2026-04-24 10:00:00", 10.0),
+            _source_row("600000.SH", "2026-04-24 10:30:00", 10.5),
+            _source_row("000001.SZ", "2026-04-24 10:00:00", 8.0),
+            _source_row("000001.SZ", "2026-04-27 10:00:00", 8.3),
+        ],
+    )
+
+    summary = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+        mode="full",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 27).date(),
+    )
+
+    states = MacdStateStore(lake_root=tmp_path).load_states()
+    first_partition_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-24") / "part-bucket-00.parquet")
+    second_partition_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-27") / "part-bucket-00.parquet")
+    assert summary["scope"] == "all_market"
+    assert summary["source_rows"] == 4
+    assert summary["written_rows"] == 4
+    assert summary["processed_symbols"] == 2
+    assert summary["state_updates"] == 2
+    assert set(states) == {("600000.SH", 30), ("000001.SZ", 30)}
+    assert sorted(row["ts_code"] for row in first_partition_rows) == ["000001.SZ", "600000.SH", "600000.SH"]
+    assert [row["ts_code"] for row in second_partition_rows] == ["000001.SZ"]
+
+
+def test_compute_macd_all_market_full_requires_source_research(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+
+    with pytest.raises(RuntimeError, match="rebuild-stk-mins-research-range"):
+        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+            mode="full",
+            all_market=True,
+            freq=30,
+            start_date=datetime(2026, 4, 24).date(),
+            end_date=datetime(2026, 4, 27).date(),
+        )
+
+
+def test_compute_macd_all_market_incremental_requires_existing_states(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+
+    with pytest.raises(RuntimeError, match="needs_bootstrap"):
+        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+            mode="incremental",
+            all_market=True,
+            freq=30,
+            start_date=datetime(2026, 4, 24).date(),
+            end_date=datetime(2026, 4, 24).date(),
+        )
+
+
+def test_compute_stk_mins_indicator_cli_all_market(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_research_rows(
+        tmp_path,
+        trade_month="2026-04",
+        bucket="00",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+
+    exit_code = main(
+        [
+            "compute-stk-mins-indicator",
+            "--lake-root",
+            str(tmp_path),
+            "--indicator",
+            "macd",
+            "--mode",
+            "full",
+            "--all-market",
+            "--freq",
+            "30",
+            "--start-date",
+            "2026-04-24",
+            "--end-date",
+            "2026-04-24",
+        ]
+    )
+
+    assert exit_code == 0
+    assert MacdStateStore(lake_root=tmp_path).get_state(ts_code="600000.SH", freq=30) is not None
+    assert (_indicator_partition(tmp_path, "2026-04-24") / "part-bucket-00.parquet").exists()
+
+
+def _source_row(ts_code: str, trade_time: str, close: float) -> dict[str, object]:
+    return {
+        "ts_code": ts_code,
+        "freq": 30,
+        "trade_time": datetime.fromisoformat(trade_time),
+        "open": close,
+        "close": close,
+        "high": close,
+        "low": close,
+        "vol": 100,
+        "amount": close * 100,
+        "exchange": None,
+        "vwap": close,
+    }
+
+
+def _write_source_rows(tmp_path, *, trade_date: str, rows: list[dict[str, object]]) -> None:
+    write_rows_to_parquet(
+        rows,
+        tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=30" / f"trade_date={trade_date}" / "part-000.parquet",
+    )
+
+
+def _write_research_rows(tmp_path, *, trade_month: str, bucket: str, rows: list[dict[str, object]]) -> None:
+    write_rows_to_parquet(
+        rows,
+        tmp_path
+        / "research"
+        / "stk_mins_by_symbol_month"
+        / "freq=30"
+        / f"trade_month={trade_month}"
+        / f"bucket={bucket}"
+        / "part-000.parquet",
+    )
+
+
+def _indicator_partition(tmp_path, trade_date: str):
+    return (
+        tmp_path
+        / "derived"
+        / "stk_mins_indicators_by_date"
+        / "indicator=macd"
+        / "params_key=12_26_9"
+        / "freq=30"
+        / f"trade_date={trade_date}"
+    )
