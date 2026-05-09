@@ -143,6 +143,19 @@ index_mins 已作为 Lake 第二个正式双模式数据集落地，
 但仍不自动混源，也不照搬生产当前只按 active pool、不看有效期的实现。
 ```
 
+补充口径：
+
+1. `prod-raw-db` 全量同步完成后，允许在 Lake 本地用正式 `1min` 分区补齐缺失的 `15/30/60min` 正式分区。
+2. 该补数链路仍然受同一套规则约束：
+   - `index_mins` active pool
+   - `index_basic.list_date / exp_date`
+3. 只有“有效期内本应存在、但目标低频整日分区缺失”的情况才允许进入本地 repair。
+4. `5min` 当前不在补数范围内；第一版 repair 只考虑：
+   - `15min`
+   - `30min`
+   - `60min`
+5. 该本地 repair 链路现已落地，采用单日、单频率原子修补，不覆盖已存在正式分区。
+
 仍保留 Tushare 直连的场景：
 
 1. 本地 `manifest` 初始化或更新，例如股票池、交易日历。

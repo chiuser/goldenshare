@@ -12,6 +12,7 @@ from lake_console.backend.app.cli.commands.common import (
     settings_from_args,
 )
 from lake_console.backend.app.services.index_mins_active_pool_sync_service import IndexMinsActivePoolSyncService
+from lake_console.backend.app.services.index_mins_gap_repair_service import IndexMinsGapRepairService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
@@ -80,6 +81,15 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
     )
     add_lake_root_arg(index_mins_pool_parser)
     index_mins_pool_parser.set_defaults(handler=_handle_sync_index_mins_active_pool)
+
+    index_mins_repair_parser = subparsers.add_parser(
+        "repair-index-mins-from-1m",
+        help="用本地 1 分钟线修补缺失的 15/30/60 分钟 index_mins 正式分区",
+    )
+    add_lake_root_arg(index_mins_repair_parser)
+    index_mins_repair_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="缺口交易日，格式 YYYY-MM-DD")
+    index_mins_repair_parser.add_argument("--freq", required=True, choices=("15min", "30min", "60min"), help="目标分钟周期，仅支持 15min/30min/60min")
+    index_mins_repair_parser.set_defaults(handler=_handle_repair_index_mins_from_1m)
 
     stock_parser = subparsers.add_parser("sync-stock-basic", help="从 Tushare 拉取 stock_basic 并写入本地股票池")
     add_lake_root_arg(stock_parser)
@@ -180,5 +190,15 @@ def _handle_sync_index_mins_active_pool(args: argparse.Namespace) -> int:
         lake_root=settings.lake_root,
         database_url=database_url,
     ).sync()
+    print_json(summary)
+    return 0
+
+
+def _handle_repair_index_mins_from_1m(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = IndexMinsGapRepairService(lake_root=settings.lake_root).repair_day(
+        trade_date=args.trade_date,
+        freq=args.freq,
+    )
     print_json(summary)
     return 0
