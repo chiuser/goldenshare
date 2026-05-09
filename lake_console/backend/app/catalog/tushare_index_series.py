@@ -19,6 +19,20 @@ INDEX_WEEKLY_FIELDS = INDEX_DAILY_FIELDS
 
 INDEX_MONTHLY_FIELDS = INDEX_DAILY_FIELDS
 
+INDEX_MINS_FIELDS = (
+    "ts_code",
+    "freq",
+    "trade_time",
+    "close",
+    "open",
+    "high",
+    "low",
+    "vol",
+    "amount",
+    "exchange",
+    "vwap",
+)
+
 INDEX_DAILY_BASIC_FIELDS = (
     "ts_code",
     "trade_date",

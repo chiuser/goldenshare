@@ -49,6 +49,7 @@ from lake_console.backend.app.catalog.datasets.technical_indicators import (
     STK_NINETURN_FIELDS,
 )
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
+from lake_console.backend.app.catalog.tushare_index_series import INDEX_MINS_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
     ETF_BASIC_FIELDS,
     ETF_INDEX_FIELDS,
@@ -72,6 +73,7 @@ PROD_RAW_DB_ALLOWED_TABLES = {
     "fund_adj": "raw_tushare.fund_adj",
     "fund_daily": "raw_tushare.fund_daily",
     "index_daily_basic": "raw_tushare.index_daily_basic",
+    "index_mins": "raw_tushare.index_mins",
     "kpl_concept_cons": "raw_tushare.kpl_concept_cons",
     "kpl_list": "raw_tushare.kpl_list",
     "limit_cpt_list": "raw_tushare.limit_cpt_list",
@@ -111,6 +113,7 @@ PROD_RAW_DB_FIELDS = {
     "fund_adj": FUND_ADJ_FIELDS,
     "fund_daily": FUND_DAILY_FIELDS,
     "index_daily_basic": INDEX_DAILY_BASIC_FIELDS,
+    "index_mins": INDEX_MINS_FIELDS,
     "dc_daily": DC_DAILY_FIELDS,
     "dc_hot": DC_HOT_FIELDS,
     "dc_index": DC_INDEX_FIELDS,
@@ -158,6 +161,7 @@ PROD_RAW_DB_ORDER_BY = {
     "fund_adj": ("ts_code",),
     "fund_daily": ("ts_code",),
     "index_daily_basic": ("ts_code",),
+    "index_mins": ("trade_time", "ts_code"),
     "kpl_concept_cons": ("ts_code", "con_code"),
     "kpl_list": ("ts_code",),
     "limit_cpt_list": ("ts_code", "rank"),
@@ -281,6 +285,39 @@ def build_prod_raw_current_query(*, dataset_key: str) -> ProdRawQuery:
     )
 
 
+def build_prod_raw_index_mins_range_query(
+    *,
+    start_date: date,
+    end_date: date,
+    freq: str,
+    ts_codes: list[str],
+) -> ProdRawQuery:
+    table_name = _require_allowed_table("index_mins")
+    fields = _require_allowed_fields("index_mins")
+    projection = ", ".join(_render_projection_fields("index_mins", fields))
+    if "*" in projection:
+        raise ValueError("prod-raw-db 查询禁止 select *。")
+    if end_date < start_date:
+        raise ValueError("index_mins prod-raw-db end_date 不能早于 start_date。")
+    if not ts_codes:
+        raise ValueError("index_mins prod-raw-db 查询至少需要一个 ts_code。")
+    order_by = _build_order_by("index_mins", include_trade_date=False)
+    return ProdRawQuery(
+        sql=(
+            f"select {projection} "
+            f"from {table_name} "
+            "where freq = %s "
+            "and trade_time >= %s "
+            "and trade_time < %s "
+            "and ts_code = any(%s) "
+            f"order by {order_by}"
+        ),
+        params=(freq, start_date, _next_day(end_date), ts_codes),
+        table_name=table_name,
+        fields=fields,
+    )
+
+
 def _build_order_by(dataset_key: str, *, include_trade_date: bool) -> str:
     order_fields = PROD_RAW_DB_ORDER_BY.get(dataset_key)
     if not order_fields:
@@ -330,6 +367,12 @@ def _render_sql_identifier(field: str) -> str:
     if field == "leading":
         return '"leading"'
     return field
+
+
+def _next_day(value: date) -> date:
+    from datetime import timedelta
+
+    return value + timedelta(days=1)
 
 
 def _render_dc_hot_projection(field: str) -> str:

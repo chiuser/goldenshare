@@ -155,6 +155,30 @@ class TushareLakeClient:
         )
         return _frame_to_rows(frame)
 
+    def index_mins(
+        self,
+        *,
+        fields: tuple[str, ...],
+        ts_code: str,
+        freq: str,
+        start_date: str,
+        end_date: str,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        frame = self._request(
+            self._pro.idx_mins,
+            api_name="idx_mins",
+            ts_code=ts_code,
+            freq=freq,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset,
+            fields=",".join(fields),
+        )
+        return _frame_to_rows(frame)
+
     def _request(self, method, *, api_name: str, **kwargs):  # type: ignore[no-untyped-def]
         self._rate_limiter.wait()
         try:

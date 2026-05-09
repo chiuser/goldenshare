@@ -1,5 +1,6 @@
 from lake_console.backend.app.sync.strategies.daily import DailyStrategy
 from lake_console.backend.app.sync.strategies.index_basic import IndexBasicStrategy
+from lake_console.backend.app.sync.strategies.index_mins import IndexMinsStrategy
 from lake_console.backend.app.sync.strategies.prod_db_trade_date import (
     AdjFactorStrategy,
     CyqPerfStrategy,
@@ -62,6 +63,7 @@ STRATEGY_CLASSES = {
     FundAdjStrategy.dataset_key: FundAdjStrategy,
     FundDailyStrategy.dataset_key: FundDailyStrategy,
     IndexBasicStrategy.dataset_key: IndexBasicStrategy,
+    IndexMinsStrategy.dataset_key: IndexMinsStrategy,
     IndexDailyBasicStrategy.dataset_key: IndexDailyBasicStrategy,
     IndexDailyStrategy.dataset_key: IndexDailyStrategy,
     IndexWeeklyStrategy.dataset_key: IndexWeeklyStrategy,
@@ -111,6 +113,7 @@ __all__ = [
     "FundAdjStrategy",
     "FundDailyStrategy",
     "IndexBasicStrategy",
+    "IndexMinsStrategy",
     "IndexDailyBasicStrategy",
     "IndexDailyStrategy",
     "IndexWeeklyStrategy",

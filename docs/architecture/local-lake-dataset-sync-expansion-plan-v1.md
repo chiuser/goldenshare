@@ -10,6 +10,7 @@
   - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
   - [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
+  - [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
 
 ---
@@ -32,14 +33,15 @@
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
 8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
-9. Lake 已从首批 6 个数据集扩展到 48 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线与特色指标多个批次。
+9. Lake 已从首批 6 个数据集扩展到 49 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线、指数分钟线与特色指标多个批次。
 10. `daily` 已验证可以通过 `prod-raw-db` 只读导出，且速度明显优于重新请求 Tushare。
 
 当前生产侧共有 `66` 个 `DatasetDefinition`，其中：
 
 1. `64` 个属于 Tushare 主线。
 2. `2` 个是 `BIYING` 数据源（`biying_equity_daily`、`biying_moneyflow`），不纳入当前 Tushare Lake 主线。
-3. 当前 Lake 已落地 `48 / 64` 个 Tushare 数据集，剩余 `16` 个待规划。
+3. 当前 Lake 已落地 `49 / 64` 个 Tushare 数据集，剩余 `15` 个待规划。
+4. `index_mins` 已按“双模式（tushare + prod-raw-db）+ 同池 active pool + index_basic 生命周期过滤”专项方案落地。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
 
@@ -122,6 +124,25 @@ Lake 选择读取源时，不应机械套用“越接近源站越好”的简单
 2. 再决定 Lake 应导出哪一层。
 3. 选定后必须同步写回方案文档和接入 checklist。
 
+### 2.5 `index_mins` 双模式专项
+
+`index_mins` 是当前剩余数据集中最明确的双模式专项。
+
+已确认事实：
+
+1. 生产 `raw_tushare.index_mins` 当前保存 `2025-01-02` 以来的分钟线历史。
+2. 更早历史不会长期保留在生产库，需要 Lake 直连 Tushare 自行补齐。
+3. 两种模式都必须使用同一个 `index_mins` active pool。
+4. active pool 只定义候选 universe，不等于每天静态应全覆盖。
+5. 是否“应有数据”，必须再结合 Lake 本地 `index_basic` 的 `list_date / exp_date` 过滤。
+
+结论：
+
+```text
+index_mins 已作为 Lake 第二个正式双模式数据集落地，
+但仍不自动混源，也不照搬生产当前只按 active pool、不看有效期的实现。
+```
+
 仍保留 Tushare 直连的场景：
 
 1. 本地 `manifest` 初始化或更新，例如股票池、交易日历。
@@ -145,7 +166,9 @@ Lake 选择读取源时，不应机械套用“越接近源站越好”的简单
 
 1. 不把 `lake_console` 接入生产 Ops。
 2. 不开发自动调度。
-3. 不接入生产 TaskRun / Ops / Scheduler；`prod-raw-db` 只读导出是唯一远程数据库例外。
+3. 不接入生产 TaskRun / Ops / Scheduler；远程数据库只允许两类窄口径例外：
+   - `prod-raw-db` / 已批准的 `prod-core-db` 只读事实导出
+   - `index_mins` active pool 本地快照同步
 4. 不把生产前端或生产后端代码搬进 `lake_console`。
 5. 不一次性迁移全部数据集。
 
@@ -500,8 +523,8 @@ rebuild_month
 | 生产 `DatasetDefinition` 总数 | 66 | 含 BIYING |
 | Tushare 数据集 | 64 | 当前 Tushare Lake 主线目标 |
 | BIYING 数据集 | 2 | 暂不纳入本轮 |
-| Lake 已落地 | 48 | 已覆盖参考数据、核心日频、资金流、ETF、板块、热点、榜单、股票周/月线、指数周期线与特色指标多批次 |
-| Lake 待接入 | 16 | 继续以 `prod-raw-db` 导出优先 |
+| Lake 已落地 | 49 | 已覆盖参考数据、核心日频、资金流、ETF、板块、热点、榜单、股票周/月线、指数周期线、指数分钟线与特色指标多批次 |
+| Lake 待接入 | 15 | 继续以 `prod-raw-db` 导出优先 |
 
 ### 7.2 新主线原则
 

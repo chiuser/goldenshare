@@ -42,14 +42,14 @@
 1. 生产侧总数据集：`66`
 2. 其中 Tushare：`64`
 3. 其中 BIYING：`2`
-4. Lake 当前已接入数据集：`48`
-5. Lake 已接入的 `48` 个全部落在 Tushare 主线
-6. 当前 Tushare 剩余未接入 Lake：`16`
+4. Lake 当前已接入数据集：`49`
+5. Lake 已接入的 `49` 个全部落在 Tushare 主线
+6. 当前 Tushare 剩余未接入 Lake：`15`
 
 当前覆盖率：
 
 ```text
-48 / 64 = 75%
+49 / 64 = 76.56%
 ```
 
 说明：
@@ -81,17 +81,25 @@
 
 ### 3.2 双模式：Tushare + prod-raw-db
 
-共 `1` 个：
+共 `2` 个：
 
 - `daily`
+- `index_mins`
 
 说明：
 
 1. `daily` 当前同时支持：
    - `--from tushare`
    - `--from prod-raw-db`
-2. 这是当前 Lake 唯一已经正式打通的双模式数据集。
-3. 双模式不是默认口径，后续不得随意复制到其他数据集。
+2. `index_mins` 当前同时支持：
+   - `--from tushare`
+   - `--from prod-raw-db`
+3. `index_mins` 的双模式不是简单复制 `daily`：
+   - 两种模式共享同一个 `index_mins` active pool
+   - 两种模式都必须叠加 Lake 本地 `index_basic.list_date / exp_date` 生命周期过滤
+   - 同步前必须先更新本地 active pool 快照：
+     - `lake-console sync-index-mins-active-pool`
+4. 双模式不是默认口径，后续不得随意复制到其他数据集。
 
 ---
 
@@ -185,7 +193,6 @@
 - `cctv_news`
 - `dividend`
 - `hk_basic`
-- `index_mins`
 - `index_weight`
 - `major_news`
 - `namechange`
@@ -204,10 +211,15 @@
    - `prod-core-db`
    - 或者保留后置专项
 
+补充说明：
+
+1. `index_mins` 已作为双模式数据集落地，不再属于“未接入”范围。
+2. `index_weight` 仍保持后置专项，不应和普通 `prod-raw-db` 数据集混看。
+
 禁止做法：
 
 ```text
-因为现在大多数走 prod-raw-db，就默认剩余 16 个也走 prod-raw-db。
+因为现在大多数走 prod-raw-db，就默认剩余 15 个也走 prod-raw-db。
 ```
 
 ---

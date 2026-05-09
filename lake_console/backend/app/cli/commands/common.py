@@ -33,6 +33,20 @@ def parse_freqs(raw_value: str | None, *, fallback: int | None) -> list[int]:
     return values
 
 
+def parse_index_mins_freqs(raw_value: str | None, *, fallback: str | None) -> list[str]:
+    if raw_value:
+        values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    elif fallback is not None:
+        values = [fallback.strip()]
+    else:
+        values = ["1min", "5min", "15min", "30min", "60min"]
+    allowed = {"1min", "5min", "15min", "30min", "60min"}
+    invalid = sorted(set(values) - allowed)
+    if invalid:
+        raise SystemExit(f"不支持的 index_mins freqs={invalid}，允许值：1min,5min,15min,30min,60min")
+    return list(dict.fromkeys(values))
+
+
 def parse_int_csv(raw_value: str, *, allowed: set[int], label: str) -> list[int]:
     values = [int(item.strip()) for item in raw_value.split(",") if item.strip()]
     invalid = sorted(set(values) - allowed)

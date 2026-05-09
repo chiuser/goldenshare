@@ -8,6 +8,7 @@ from lake_console.backend.app.services.prod_core_db import PROD_CORE_DB_SOURCE
 from lake_console.backend.app.services.prod_raw_db import PROD_RAW_DB_SOURCE
 from lake_console.backend.app.sync.planners import (
     STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
+    build_index_mins_plan,
     build_prod_raw_snapshot_plan,
     build_snapshot_plan,
     build_stk_mins_plan,
@@ -34,6 +35,7 @@ class LakeSyncPlanner:
         all_market: bool = False,
         freq: int | None = None,
         freqs: list[int] | None = None,
+        index_mins_freqs: list[str] | None = None,
         daily_quota_limit: int = STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
     ) -> LakeSyncPlan:
         definition = get_dataset_definition(dataset_key)
@@ -53,6 +55,17 @@ class LakeSyncPlanner:
             raise ValueError(f"不支持的来源：{source}")
         if dataset_key in {"stock_basic", "trade_cal", "index_basic"}:
             return build_snapshot_plan(definition, start_date=start_date, end_date=end_date, market=market)
+        if dataset_key == "index_mins":
+            return build_index_mins_plan(
+                definition,
+                lake_root=self.lake_root,
+                source=source,
+                trade_date=trade_date,
+                start_date=start_date,
+                end_date=end_date,
+                ts_code=ts_code,
+                freqs=index_mins_freqs,
+            )
         if dataset_key in {
             "adj_factor",
             "cyq_perf",

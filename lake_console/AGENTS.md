@@ -51,14 +51,14 @@ sync-stk-mins 单股票单日 -> by_date Parquet
 
 1. 建立独立工程骨架。
 2. 读取并校验 `GOLDENSHARE_LAKE_ROOT`。
-3. 默认不碰远程 `goldenshare-db`；仅在开发 `prod-raw-db` 或已明确批准、且已完成“最佳事实源”审计的数据集专项 `prod-core-db` 只读导出能力时允许按下方白名单规则访问。
+3. 默认不碰远程 `goldenshare-db`；仅在开发 `prod-raw-db`、已明确批准且已完成“最佳事实源”审计的数据集专项 `prod-core-db` 只读导出能力，或 `index_mins` active pool 本地快照同步时，允许按下方白名单规则访问。
 4. 从 Tushare 拉取 `stock_basic`，写入本地股票池：
 
 ```text
 manifest/security_universe/tushare_stock_basic.parquet
 ```
 
-5. 后续 `stk_mins` 全市场同步默认只能读取本地股票池文件；除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出能力外，不允许读远程数据库。
+5. 后续 `stk_mins` 全市场同步默认只能读取本地股票池文件；除 `prod-raw-db`、已批准的 `prod-core-db` 只读导出能力，以及 `index_mins` active pool 本地快照同步外，不允许读远程数据库。
 
 ---
 
@@ -211,7 +211,7 @@ taste-skill 管审美和 redesign 方法
     - `core_serving.index_monthly_serving`
 11. 使用 `prod-raw-db` 或 `prod-core-db` 导出数据时，禁止 `select *`；必须按数据集字段白名单显式投影。`prod-raw-db` 不得导出 `api_name`、`fetched_at`、`raw_payload`，`prod-core-db` 不得导出 `source`、`created_at`、`updated_at`。
 12. Lake raw 层默认保留源站输出字段白名单；若经审计确认某些请求派生维度或 serving 修复字段是当前最佳事实的一部分，可以在方案文档中升级为 Lake 正式事实字段。无论后续数据来自 `raw_tushare` 还是 `core/core_serving`，`api_name`、`fetched_at`、`raw_payload`、`source`、`created_at`、`updated_at` 等 Goldenshare 自增系统字段一律禁止带入；字段名若与对外 Lake 口径不一致，必须先映射回 Lake 约定字段名。
-13. 除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。
+13. 除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。唯一额外例外是 `index_mins` active pool 本地快照：只允许只读查询 `ops.index_series_active` 中 `resource='index_mins'` 的记录，并写入本地 manifest，不得泛化到其他 `ops.*` 表或其他 resource。
 14. 不允许使用生产 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
 15. 不允许接入生产 scheduler/worker。
 16. 不允许修改生产部署脚本来启动 `lake_console`。

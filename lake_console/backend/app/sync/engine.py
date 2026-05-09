@@ -27,11 +27,26 @@ class LakeSyncEngine:
         publisher: str | None = None,
         category: str | None = None,
         source: str = "tushare",
+        index_mins_freqs: list[str] | None = None,
     ) -> dict[str, Any]:
         strategy_class = STRATEGY_CLASSES.get(dataset_key)
         if strategy_class is None:
             available = "/".join(sorted(STRATEGY_CLASSES))
             raise ValueError(f"sync-dataset 当前只接入 {available}；其他数据集需先完成对应策略文件。")
+        if dataset_key == "index_mins":
+            return strategy_class().sync(
+                context=self.context,
+                trade_date=trade_date,
+                start_date=start_date,
+                end_date=end_date,
+                ts_code=ts_code,
+                name=name,
+                markets=markets,
+                publisher=publisher,
+                category=category,
+                source=source,
+                freqs=index_mins_freqs,
+            )
         return strategy_class().sync(
             context=self.context,
             trade_date=trade_date,
