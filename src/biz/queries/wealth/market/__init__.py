@@ -1,0 +1,2 @@
+"""Wealth market queries package."""
+

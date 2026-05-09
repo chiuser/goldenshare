@@ -7,14 +7,13 @@
   "payload": {
     "cardCount": 5,
     "enabledCardKeys": [
-      "upDownCount",
-      "turnoverAmount",
-      "indexUpCount",
-      "limitStats",
-      "mainFlow"
+      "majorIndexUpCount",
+      "riseFallCount",
+      "turnoverTotal",
+      "marketNetFlow",
+      "limitUpDown"
     ],
     "intradayTemplateKey": "objective_intraday_v1",
     "closeTemplateKey": "objective_close_v1"
   }
 }
-

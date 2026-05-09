@@ -1,12 +1,31 @@
 import { DataStatusBadge } from "../../../shared/ui/DataStatusBadge";
+import { SkeletonBlock } from "../../../shared/ui/SkeletonBlock";
 import type { FactItem } from "../api/marketOverviewTypes";
 
 interface MarketSummaryPanelProps {
-  facts: FactItem[];
-  text: string;
+  viewState: "loading" | "ready" | "error";
+  facts?: FactItem[];
+  textTitle?: string;
+  textContent?: string;
+  statusLabel?: string;
+  statusTone?: "ready" | "delayed";
+  layoutVariant?: "FIVE_SINGLE_ROW" | "SIX_TWO_ROWS";
+  errorMessage?: string;
 }
 
-export function MarketSummaryPanel({ facts, text }: MarketSummaryPanelProps) {
+export function MarketSummaryPanel({
+  viewState,
+  facts,
+  textTitle,
+  textContent,
+  statusLabel,
+  statusTone,
+  layoutVariant,
+  errorMessage,
+}: MarketSummaryPanelProps) {
+  const badgeLabel = viewState === "loading" ? "客观总结加载中" : viewState === "error" ? "客观总结加载失败" : statusLabel ?? "事实聚合已就绪";
+  const badgeTone = viewState === "ready" ? (statusTone ?? "ready") : "delayed";
+
   return (
     <section className="summary-panel" aria-label="今日市场客观总结">
       <div className="section-header">
@@ -20,44 +39,62 @@ export function MarketSummaryPanel({ facts, text }: MarketSummaryPanelProps) {
             ?
           </span>
         </div>
-        <DataStatusBadge label="事实聚合已就绪" />
+        <DataStatusBadge label={badgeLabel} tone={badgeTone} />
       </div>
-      <div className="summary-body-v2">
-        <div className="summary-facts-v2">
-          {facts.map((fact) => (
-            <div className="fact-card" key={fact.label}>
-              <div className="fact-label">{fact.label}</div>
-              <div className={fact.valueTone ? `fact-value ${fact.valueTone}` : "fact-value"}>{renderFactValue(fact.label, fact.value)}</div>
-              <div className="fact-sub">{fact.sub}</div>
-            </div>
-          ))}
+      {viewState === "loading" ? (
+        <div className="summary-state-wrap">
+          <SkeletonBlock />
         </div>
-        <div className="summary-text-card">
-          <strong>截至收盘，A 股主要指数多数上涨。</strong>
-          {text.replace("截至收盘，A 股主要指数多数上涨。", "")}
+      ) : null}
+      {viewState === "error" ? (
+        <div className="summary-state-wrap">
+          <div className="state-block error-box">
+            <strong>error</strong>
+            <br />
+            <span>{errorMessage ?? "请求超时，请稍后重试。"}</span>
+          </div>
         </div>
-      </div>
+      ) : null}
+      {viewState === "ready" ? (
+        <div className="summary-body-v2">
+          <div className={layoutVariant === "SIX_TWO_ROWS" ? "summary-facts-v2 six" : "summary-facts-v2"}>
+            {(facts ?? []).map((fact) => (
+              <div className="fact-card" key={fact.label}>
+                <div className="fact-label">{fact.label}</div>
+                <div className={fact.valueTone ? `fact-value ${fact.valueTone}` : "fact-value"}>{renderFactValue(fact.label, fact.value)}</div>
+                <div className="fact-sub">{fact.sub}</div>
+              </div>
+            ))}
+          </div>
+          <div className="summary-text-card">
+            <strong>{textTitle}</strong>
+            {textContent}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
 function renderFactValue(label: string, value: string) {
-  if (label === "上涨 / 下跌") {
+  if (label.includes("主要指数涨跌比") && value.includes(":")) {
+    const [left, right] = value.split(":").map((item) => item.trim());
     return (
       <>
-        <span className="up">3421</span>
-        <span className="secondary">/</span>
-        <span className="down">1488</span>
+        <span className="up">{left}</span>
+        <span className="secondary">:</span>
+        <span className="down">{right}</span>
       </>
     );
   }
 
-  if (label === "涨停 / 跌停") {
+  if (label.includes("/") && value.includes("/")) {
+    const [left, right] = value.split("/").map((item) => item.trim());
     return (
       <>
-        <span className="up">59</span>
+        <span className="up">{left}</span>
         <span className="secondary">/</span>
-        <span className="down">8</span>
+        <span className="down">{right}</span>
       </>
     );
   }

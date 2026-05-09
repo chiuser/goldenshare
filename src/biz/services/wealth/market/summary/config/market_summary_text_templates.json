@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "templates": [
+    {
+      "templateKey": "objective_intraday_v1",
+      "sessionStatuses": ["PRE_OPEN", "TRADING", "BREAK"],
+      "titleTemplate": "截至当前时点，A 股主要指数{majorIndexTone}。",
+      "contentTemplate": "当前上涨家数{upDownTone}下跌家数，成交活跃度较上一交易日同时段{turnoverTone}；涨停{limitUpDownTone}跌停。大盘资金当前为{fundFlowTone}。以下为客观事实快照，不构成交易建议。"
+    },
+    {
+      "templateKey": "objective_close_v1",
+      "sessionStatuses": ["CLOSED"],
+      "titleTemplate": "截至收盘，A 股主要指数{majorIndexTone}。",
+      "contentTemplate": "全市场上涨家数{upDownTone}下跌家数，成交额较上一交易日{turnoverTone}；涨停{limitUpDownTone}跌停。大盘资金今日为{fundFlowTone}，资金分布呈现{flowPatternTone}。本卡片仅描述客观事实，不构成交易建议。"
+    }
+  ],
+  "fallback": {
+    "title": "今日市场客观总结",
+    "content": "当前可用数据不足，暂仅展示已确认的客观事实。"
+  },
+  "policy": {
+    "forbiddenWords": ["买入", "卖出", "加仓", "减仓", "抄底", "止盈", "止损", "明日", "预测"],
+    "maxTitleChars": 36,
+    "maxContentChars": 220
+  }
+}
+
