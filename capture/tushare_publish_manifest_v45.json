@@ -559,11 +559,22 @@
         "url": "| url | str | N | 原文链接 |"
       }
     },
+    "260": {
+      "输出参数": {
+        "pe_ttm": "| pe_ttm | float | N | PE TTM |",
+        "pb_mrq": "| pb_mrq | float | N | PB MRQ |"
+      }
+    },
     "370": {
       "输出参数": {
         "freq": "| freq | str | N | 频率 |",
         "exchange": "| exchange | str | N | 交易所 |",
         "vwap": "| vwap | float | N | 平均价 |"
+      }
+    },
+    "382": {
+      "输出参数": {
+        "category": "| category | str | Y | 分类板块 |"
       }
     },
     "419": {

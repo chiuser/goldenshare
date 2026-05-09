@@ -92,8 +92,14 @@ MANIFEST_TABLE_ROW_SPECS: dict[int, dict[str, list[str]]] = {
     195: {
         "输出参数": ["url"],
     },
+    260: {
+        "输出参数": ["pe_ttm", "pb_mrq"],
+    },
     370: {
         "输出参数": ["freq", "exchange", "vwap"],
+    },
+    382: {
+        "输出参数": ["category"],
     },
     419: {
         "输出参数": ["freq", "exchange", "vwap"],
