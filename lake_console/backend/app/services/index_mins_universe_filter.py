@@ -72,8 +72,6 @@ def load_index_mins_universe_for_range(
         raise ValueError("index_mins universe 过滤区间的 end_date 不能早于 start_date。")
 
     active_pool_rows = _load_active_pool_rows(lake_root=lake_root)
-    index_basic_by_code = _load_index_basic_rows(lake_root=lake_root)
-
     active_codes = [row.ts_code for row in active_pool_rows]
     active_set = set(active_codes)
     explicit_ts_code = _normalize_ts_code(ts_code)
@@ -81,6 +79,10 @@ def load_index_mins_universe_for_range(
         raise IndexMinsUniverseError(f"index_mins 调试 ts_code 不在本地 active pool 中：{explicit_ts_code}")
 
     candidate_codes = [explicit_ts_code] if explicit_ts_code is not None else active_codes
+    index_basic_by_code = _load_index_basic_rows(
+        lake_root=lake_root,
+        required_codes=set(candidate_codes),
+    )
     selected_codes: list[str] = []
     effective_windows_by_code: dict[str, tuple[date, date]] = {}
     skipped_listed_after_range = 0
@@ -149,7 +151,7 @@ def _load_active_pool_rows(*, lake_root: Path) -> list[_IndexMinsActivePoolRow]:
     return rows
 
 
-def _load_index_basic_rows(*, lake_root: Path) -> dict[str, _IndexBasicRow]:
+def _load_index_basic_rows(*, lake_root: Path, required_codes: set[str]) -> dict[str, _IndexBasicRow]:
     index_basic_file = lake_root / INDEX_BASIC_MANIFEST_PATH
     if not index_basic_file.exists():
         raise IndexMinsUniverseError(
@@ -163,6 +165,8 @@ def _load_index_basic_rows(*, lake_root: Path) -> dict[str, _IndexBasicRow]:
     rows_by_code: dict[str, _IndexBasicRow] = {}
     for index, raw_row in enumerate(raw_rows, start=1):
         ts_code = _required_text(raw_row.get("ts_code"), field="ts_code", row_index=index).upper()
+        if ts_code not in required_codes:
+            continue
         if ts_code in rows_by_code:
             raise IndexMinsUniverseError(f"本地 index_basic manifest ts_code 重复：{ts_code}")
         list_date = _required_date(raw_row.get("list_date"), field="list_date", ts_code=ts_code)
@@ -171,8 +175,16 @@ def _load_index_basic_rows(*, lake_root: Path) -> dict[str, _IndexBasicRow]:
             raise IndexMinsUniverseError(
                 f"本地 index_basic manifest exp_date 早于 list_date：ts_code={ts_code} "
                 f"list_date={list_date.isoformat()} exp_date={exp_date.isoformat()}"
-            )
+        )
         rows_by_code[ts_code] = _IndexBasicRow(ts_code=ts_code, list_date=list_date, exp_date=exp_date)
+    missing_codes = sorted(required_codes - set(rows_by_code))
+    if missing_codes:
+        missing_preview = ",".join(missing_codes[:5])
+        suffix = "..." if len(missing_codes) > 5 else ""
+        raise IndexMinsUniverseError(
+            "index_mins active pool code 在本地 index_basic manifest 中不存在："
+            f"{missing_preview}{suffix}"
+        )
     return rows_by_code
 
 

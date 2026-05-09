@@ -66,6 +66,29 @@ def test_index_mins_universe_filter_rejects_ts_code_outside_active_pool(tmp_path
         )
 
 
+def test_index_mins_universe_filter_ignores_irrelevant_invalid_index_basic_rows(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+
+    _write_active_pool(tmp_path, [{"resource": "index_mins", "ts_code": "000001.SH"}])
+    _write_index_basic(
+        tmp_path,
+        [
+            _index_basic("000001.SH", "20000101", None),
+            _index_basic("000124.SH", float("nan"), None),
+        ],
+    )
+
+    result = load_index_mins_universe_for_range(
+        lake_root=tmp_path,
+        start_date=date(2026, 1, 5),
+        end_date=date(2026, 1, 5),
+    )
+
+    assert result.ts_codes == ["000001.SH"]
+    assert result.selected_candidates == 1
+
+
 def _index_basic(ts_code: str, list_date: str, exp_date: str | None) -> dict[str, object]:
     return {
         "ts_code": ts_code,
