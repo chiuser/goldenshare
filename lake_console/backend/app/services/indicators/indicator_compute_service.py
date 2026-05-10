@@ -275,6 +275,7 @@ class StkMinsIndicatorComputeService:
                 classification = classify_missing_macd_states(
                     lake_root=self.lake_root,
                     missing_ts_codes=missing_states,
+                    freq=freq,
                     window_start_date=start_date,
                     trade_date=batch.trade_date,
                 )

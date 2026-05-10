@@ -501,17 +501,59 @@ def test_compute_macd_all_market_incremental_rejects_bse_920_after_effective_dat
     _write_source_rows(
         tmp_path,
         trade_date="2022-07-18",
-        rows=[_source_row("920001.BJ", "2022-07-18 10:00:00", 10.4)],
+        rows=[_source_row("920001.BJ", "2022-07-18 10:00:00", 10.2)],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2022-07-19",
+        rows=[_source_row("920001.BJ", "2022-07-19 10:00:00", 10.4)],
     )
 
-    with pytest.raises(RuntimeError, match="必须从本地首次分钟线日期初始化"):
+    with pytest.raises(RuntimeError, match="必须从该股票本地首次分钟线日期初始化"):
         StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
             mode="incremental",
             all_market=True,
             freq=30,
-            start_date=datetime(2022, 7, 18).date(),
-            end_date=datetime(2022, 7, 18).date(),
+            start_date=datetime(2022, 7, 19).date(),
+            end_date=datetime(2022, 7, 19).date(),
         )
+
+
+def test_compute_macd_all_market_incremental_bootstraps_bse_920_on_later_first_source_date(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    progress_messages: list[str] = []
+    _write_universe(tmp_path, [_stock("920806.BJ", "L", "20240111", None)])
+    _write_bse_mapping(
+        tmp_path,
+        [{"name": "云星宇", "o_code": "873806.BJ", "n_code": "920806.BJ", "list_date": "2024-01-11"}],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2022-08-18",
+        rows=[
+            _source_row("920806.BJ", "2022-08-18 10:00:00", 10.0),
+            _source_row("920806.BJ", "2022-08-18 10:30:00", 10.2),
+        ],
+    )
+
+    summary = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=progress_messages.append).compute_macd(
+        mode="incremental",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2022, 8, 18).date(),
+        end_date=datetime(2022, 8, 18).date(),
+    )
+
+    state = MacdStateStore(lake_root=tmp_path).get_state(ts_code="920806.BJ", freq=30)
+    assert summary["status"] == "success"
+    assert summary["bootstrap_symbols"] == 1
+    assert state is not None
+    assert state.last_trade_time == datetime(2022, 8, 18, 10, 30)
+    assert any(
+        "new_security_bootstrap freq=30 date=2022-08-18 count=1 preview=920806.BJ" in message
+        for message in progress_messages
+    )
 
 
 def test_compute_macd_all_market_incremental_rejects_unmapped_bse_920_without_state(tmp_path) -> None:

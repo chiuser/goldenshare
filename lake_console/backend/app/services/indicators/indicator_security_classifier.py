@@ -6,11 +6,15 @@ from math import isnan
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 from lake_console.backend.app.services.parquet_writer import read_parquet_rows
 from lake_console.backend.app.services.security_universe_filter import load_security_universe_rows
 
 BSE_MAPPING_PATH = Path("manifest") / "security_reference" / "tushare_bse_mapping.parquet"
-BSE_920_STK_MINS_EFFECTIVE_LIST_DATE = date(2022, 7, 15)
+BSE_920_STK_MINS_MIN_SOURCE_DATE = date(2022, 7, 15)
+RAW_FREQS = {1, 5, 15, 30, 60}
+DERIVED_FREQS = {90, 120}
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,7 @@ def classify_missing_macd_states(
     *,
     lake_root: Path,
     missing_ts_codes: list[str],
+    freq: int,
     window_start_date: date,
     trade_date: date,
 ) -> MissingStateClassification:
@@ -42,10 +47,12 @@ def classify_missing_macd_states(
         raise ValueError("trade_date 不能早于 window_start_date。")
 
     rows_by_code = {row.ts_code: row for row in load_security_universe_rows(lake_root=lake_root)}
-    bse_reference = (
-        _load_bse_mapping_reference(lake_root=lake_root)
-        if any(_is_bse_920_code(item) for item in missing_ts_codes)
-        else None
+    bse_missing_codes = sorted({item for item in missing_ts_codes if _is_bse_920_code(item)})
+    bse_reference = _load_bse_mapping_reference(lake_root=lake_root) if bse_missing_codes else None
+    bse_first_source_dates = (
+        _find_bse_920_first_source_dates(lake_root=lake_root, ts_codes=bse_missing_codes, freq=freq, end_date=trade_date)
+        if bse_reference is not None and bse_reference.loaded
+        else {}
     )
     bootstrap_codes: set[str] = set()
     rejected_reasons: dict[str, str] = {}
@@ -71,17 +78,23 @@ def classify_missing_macd_states(
                     "北交所 920 新代码不在 bse_mapping.n_code 中，无法按分钟线代码切换口径初始化 MACD state"
                 )
                 continue
-            if trade_date < BSE_920_STK_MINS_EFFECTIVE_LIST_DATE:
+            first_source_date = bse_first_source_dates.get(ts_code)
+            if first_source_date is None:
                 rejected_reasons[ts_code] = (
-                    "北交所 920 新代码源分钟线日期早于本地约定的首次分钟线日期，"
-                    f"effective_list_date={BSE_920_STK_MINS_EFFECTIVE_LIST_DATE.isoformat()} "
-                    f"trade_date={trade_date.isoformat()}"
+                    "北交所 920 新代码缺少 MACD state，但未能在本地分钟线源文件中确认首次出现日期"
                 )
                 continue
-            if trade_date != BSE_920_STK_MINS_EFFECTIVE_LIST_DATE:
+            if first_source_date < BSE_920_STK_MINS_MIN_SOURCE_DATE:
                 rejected_reasons[ts_code] = (
-                    "北交所 920 新代码缺少 MACD state，必须从本地首次分钟线日期初始化，"
-                    f"effective_list_date={BSE_920_STK_MINS_EFFECTIVE_LIST_DATE.isoformat()} "
+                    "北交所 920 新代码源分钟线日期早于本地约定的首次分钟线日期，"
+                    f"min_source_date={BSE_920_STK_MINS_MIN_SOURCE_DATE.isoformat()} "
+                    f"first_source_date={first_source_date.isoformat()}"
+                )
+                continue
+            if trade_date != first_source_date:
+                rejected_reasons[ts_code] = (
+                    "北交所 920 新代码缺少 MACD state，必须从该股票本地首次分钟线日期初始化，"
+                    f"first_source_date={first_source_date.isoformat()} "
                     f"trade_date={trade_date.isoformat()}"
                 )
                 continue
@@ -118,6 +131,49 @@ def _load_bse_mapping_reference(*, lake_root: Path) -> _BseMappingReference:
         if n_code and _is_bse_920_code(n_code):
             new_codes.add(n_code)
     return _BseMappingReference(loaded=True, new_codes=frozenset(new_codes))
+
+
+def _find_bse_920_first_source_dates(*, lake_root: Path, ts_codes: list[str], freq: int, end_date: date) -> dict[str, date]:
+    if not ts_codes:
+        return {}
+    source_root = lake_root / _source_layer(freq) / "stk_mins_by_date" / f"freq={freq}"
+    source_files: list[Path] = []
+    for partition in sorted(source_root.glob("trade_date=*")):
+        partition_date = _parse_trade_date_partition(partition)
+        if partition_date is None:
+            continue
+        if BSE_920_STK_MINS_MIN_SOURCE_DATE <= partition_date <= end_date:
+            source_files.extend(sorted(partition.glob("*.parquet")))
+    if not source_files:
+        return {}
+
+    placeholders = ",".join("?" for _ in ts_codes)
+    sql = f"""
+        select ts_code, min(cast(trade_time as timestamp)) as first_trade_time
+        from read_parquet(?)
+        where ts_code in ({placeholders})
+        group by ts_code
+    """
+    rows = duckdb.connect(database=":memory:").execute(sql, [[str(path) for path in source_files], *ts_codes]).fetchall()
+    return {str(ts_code): first_trade_time.date() for ts_code, first_trade_time in rows if first_trade_time is not None}
+
+
+def _source_layer(freq: int) -> str:
+    if freq in RAW_FREQS:
+        return "raw_tushare"
+    if freq in DERIVED_FREQS:
+        return "derived"
+    raise ValueError("指标源读取仅支持 freq=1/5/15/30/60/90/120。")
+
+
+def _parse_trade_date_partition(partition: Path) -> date | None:
+    prefix = "trade_date="
+    if not partition.name.startswith(prefix):
+        return None
+    try:
+        return date.fromisoformat(partition.name[len(prefix) :])
+    except ValueError:
+        return None
 
 
 def _is_bse_920_code(ts_code: str) -> bool:

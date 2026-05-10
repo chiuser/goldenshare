@@ -467,7 +467,7 @@ scope=all_market 或 ts_code
 | 场景 | 处理 |
 |---|---|
 | 新上市股票，源数据从首根开始 | 从首根 K 线建立 state |
-| 北交所 `920xxx.BJ` 分钟线首次出现 | 若 `ts_code` 存在于本地 `bse_mapping.n_code`，且源数据日期为 `2022-07-15`，视为分钟线口径下刚上市，从首根 K 线建立 state |
+| 北交所 `920xxx.BJ` 分钟线首次出现 | 若 `ts_code` 存在于本地 `bse_mapping.n_code`，且当前日期是该股票在本地分钟线源文件中的首次出现日期，视为分钟线口径下刚上市，从首根 K 线建立 state |
 | 老股票缺 state，但已有多年历史 | 返回 `needs_bootstrap`，拒绝从中途初始化 |
 | 用户要求强制增量但 state 缺失 | 返回 `needs_bootstrap`，不假装成功 |
 
@@ -962,14 +962,15 @@ bucket = stable_hash(ts_code) % 32
 3. `list_date` 落在本次增量窗口内，且源数据日期不早于 `list_date`，可视为新上市股票首次出现，允许从第一根 bar 初始化。
 4. `list_date` 早于本次增量窗口的老股票缺 state，必须拒绝并输出 `needs_bootstrap`。
 5. `stock_basic` 缺少该股票、日期不可解析、源数据日期早于 `list_date`、源数据日期晚于 `delist_date`，都必须拒绝继续。
-6. 北交所 `920xxx.BJ` 代码切换场景只在分钟线指标 state 初始化中走专项口径：读取本地 `manifest/security_reference/tushare_bse_mapping.parquet`，若 `ts_code` 存在于 `n_code`，则把 `2022-07-15` 视为本地分钟线事实中的有效首次出现日期。
-7. `920xxx.BJ` 只能在 `trade_date=2022-07-15` 且缺 state 时初始化；如果从 `2022-07-18` 或更晚日期才发现缺 state，必须拒绝并提示从 `2022-07-15` 补起。
+6. 北交所 `920xxx.BJ` 代码切换场景只在分钟线指标 state 初始化中走专项口径：读取本地 `manifest/security_reference/tushare_bse_mapping.parquet`，确认 `ts_code` 存在于 `n_code`。
+7. 对已映射的 `920xxx.BJ`，`2022-07-15` 只是本地分钟线新代码的最早有效起点；真正允许初始化的日期必须是该股票在本地分钟线源文件中的首次出现日期。例如某只股票到 `2022-08-18` 才第一次出现，则只能在 `2022-08-18` 初始化。
+8. 如果 `920xxx.BJ` 晚于自身首次出现日期才缺 state，必须拒绝并提示从该股票本地首次分钟线日期补起。
 
 验收：
 
 1. 新上市股票在窗口内首次出现时，可以自然进入指标库并写入 state。
 2. 老股票缺 state 时拒绝继续，不能生成中途初始化的假 MACD。
-3. 北交所 `920xxx.BJ` 在 `2022-07-15` 首次出现时可以初始化，晚于该日期才缺 state 时必须拒绝。
+3. 北交所 `920xxx.BJ` 在自身本地分钟线首次出现日可以初始化，晚于首次出现日才缺 state 时必须拒绝。
 4. 报错必须包含样例股票和人能看懂的原因。
 
 ### M8：源数据修复与重算队列
@@ -1069,7 +1070,7 @@ M4-B/M6/M7 当前已落地口径：
 4. `mode=full` 的全市场计算按 source research 的 `trade_month + bucket` 流式读取，并按月提交指标 by_date 分区与 state。
 5. `mode=incremental` 的全市场计算按 `trade_date` 流式读取 by_date 源分区，并按交易日提交指标 by_date 分区与 state。
 6. `mode=incremental` 缺 state 时必须使用本地 `stock_basic` 判定新股/老股；新股可从首次出现初始化，老股票必须失败并输出 `needs_bootstrap`，不得从中间日期静默初始化。
-7. 北交所 `920xxx.BJ` 分钟线代码切换按 `bse_mapping.n_code + 2022-07-15` 判定有效首次出现日期；该口径只服务分钟线指标 state 初始化，不改写 `stock_basic` 全局事实。
+7. 北交所 `920xxx.BJ` 分钟线代码切换按 `bse_mapping.n_code + 本地源分钟线首次出现日期` 判定有效首次出现日期；`2022-07-15` 只是允许参与该专项口径的最早源数据起点。该口径只服务分钟线指标 state 初始化，不改写 `stock_basic` 全局事实。
 
 M4-B/M6/M7 明确不做：
 
