@@ -12,7 +12,9 @@ from lake_console.backend.app.cli.commands.common import (
     settings_from_args,
 )
 from lake_console.backend.app.services.index_mins_active_pool_sync_service import IndexMinsActivePoolSyncService
+from lake_console.backend.app.services.index_mins_derived_service import IndexMinsDerivedService
 from lake_console.backend.app.services.index_mins_gap_repair_service import IndexMinsGapRepairService
+from lake_console.backend.app.services.index_mins_research_service import IndexMinsResearchService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient
 from lake_console.backend.app.services.tushare_stock_basic_sync_service import TushareStockBasicSyncService
 from lake_console.backend.app.services.tushare_trade_cal_sync_service import TushareTradeCalSyncService
@@ -90,6 +92,44 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
     index_mins_repair_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="缺口交易日，格式 YYYY-MM-DD")
     index_mins_repair_parser.add_argument("--freq", required=True, choices=("15min", "30min", "60min"), help="目标分钟周期，仅支持 15min/30min/60min")
     index_mins_repair_parser.set_defaults(handler=_handle_repair_index_mins_from_1m)
+
+    index_mins_derived_parser = subparsers.add_parser(
+        "derive-index-mins",
+        help="从本地正式 30/60 分钟 index_mins 派生 90/120 分钟 derived 分区",
+    )
+    add_lake_root_arg(index_mins_derived_parser)
+    index_mins_derived_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="交易日，格式 YYYY-MM-DD")
+    index_mins_derived_parser.add_argument("--targets", required=True, help="目标频率，逗号分隔，仅支持 90min,120min")
+    index_mins_derived_parser.set_defaults(handler=_handle_derive_index_mins)
+
+    index_mins_derived_range_parser = subparsers.add_parser(
+        "derive-index-mins-range",
+        help="按本地交易日历批量生成 index_mins 的 90/120 分钟 derived 分区",
+    )
+    add_lake_root_arg(index_mins_derived_range_parser)
+    index_mins_derived_range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    index_mins_derived_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    index_mins_derived_range_parser.add_argument("--targets", required=True, help="目标频率，逗号分隔，仅支持 90min,120min")
+    index_mins_derived_range_parser.set_defaults(handler=_handle_derive_index_mins_range)
+
+    index_mins_research_parser = subparsers.add_parser(
+        "rebuild-index-mins-research",
+        help="把 index_mins 的 by_date 分区重排为 by_symbol_month research 层",
+    )
+    add_lake_root_arg(index_mins_research_parser)
+    index_mins_research_parser.add_argument("--freq", required=True, choices=("1min", "5min", "15min", "30min", "60min"), help="分钟周期")
+    index_mins_research_parser.add_argument("--trade-month", required=True, help="月份，格式 YYYY-MM")
+    index_mins_research_parser.set_defaults(handler=_handle_rebuild_index_mins_research)
+
+    index_mins_research_range_parser = subparsers.add_parser(
+        "rebuild-index-mins-research-range",
+        help="批量重建多个 freq 和月份的 index_mins research 层",
+    )
+    add_lake_root_arg(index_mins_research_range_parser)
+    index_mins_research_range_parser.add_argument("--start-month", required=True, help="开始月份，格式 YYYY-MM")
+    index_mins_research_range_parser.add_argument("--end-month", required=True, help="结束月份，格式 YYYY-MM")
+    index_mins_research_range_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 1min,5min,15min,30min,60min")
+    index_mins_research_range_parser.set_defaults(handler=_handle_rebuild_index_mins_research_range)
 
     stock_parser = subparsers.add_parser("sync-stock-basic", help="从 Tushare 拉取 stock_basic 并写入本地股票池")
     add_lake_root_arg(stock_parser)
@@ -202,3 +242,57 @@ def _handle_repair_index_mins_from_1m(args: argparse.Namespace) -> int:
     )
     print_json(summary)
     return 0
+
+
+def _handle_derive_index_mins(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = IndexMinsDerivedService(lake_root=settings.lake_root).derive_day(
+        trade_date=args.trade_date,
+        targets=_parse_index_mins_derived_targets(args.targets),
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_derive_index_mins_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = IndexMinsDerivedService(lake_root=settings.lake_root).derive_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        targets=_parse_index_mins_derived_targets(args.targets),
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_index_mins_research(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = IndexMinsResearchService(lake_root=settings.lake_root).rebuild_month(
+        freq=args.freq,
+        trade_month=args.trade_month,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_index_mins_research_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_index_mins_freqs(args.freqs, fallback=None)
+    summary = IndexMinsResearchService(lake_root=settings.lake_root).rebuild_range(
+        freqs=freqs,
+        start_month=args.start_month,
+        end_month=args.end_month,
+    )
+    print_json(summary)
+    return 0
+
+
+def _parse_index_mins_derived_targets(raw_value: str) -> list[str]:
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    allowed = {"90min", "120min"}
+    invalid = sorted(set(values) - allowed)
+    if invalid:
+        raise SystemExit(f"不支持的 index_mins derived targets={invalid}，允许值：90min,120min")
+    if not values:
+        raise SystemExit("derive-index-mins 必须至少指定一个 target。")
+    return list(dict.fromkeys(values))

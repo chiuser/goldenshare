@@ -155,6 +155,8 @@ index_mins 已作为 Lake 第二个正式双模式数据集落地，
    - `30min`
    - `60min`
 5. 该本地 repair 链路现已落地，采用单日、单频率原子修补，不覆盖已存在正式分区。
+6. `index_mins` 的 `research/index_mins_by_symbol_month` 已落地，用于单指数/少数指数长周期研究。
+7. `index_mins` 的 `90/120min` derived 层已落地，但当前仍未纳入 research。
 
 仍保留 Tushare 直连的场景：
 

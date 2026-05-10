@@ -1,7 +1,7 @@
 # 指数历史分钟行情 Lake 双模式接入方案 v1
 
 - 版本：v1
-- 状态：双模式已落地；本地 `1min -> 15/30/60min` 补数已落地（2026-05-10）
+- 状态：双模式已落地；本地 `1min -> 15/30/60min` 补数已落地；`90/120min` derived 层已落地；research 层已落地（2026-05-10）
 - 更新时间：2026-05-10
 - 数据集：`index_mins`
 - 对应生产数据集开发文档：[指数历史分钟行情（index_mins）数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
@@ -30,7 +30,7 @@
 
 1. 不自动在一次命令里混合两种来源。
 2. 不把 `index_mins` 接到 `prod-core-db`。
-3. 不在本方案中新增 `derived` / `research` 层。
+3. 当前不自动混入任何未批准的新分钟频率；`90/120min` 仅作为本方案明确批准的本地派生层设计。
 4. 不照搬生产环境当前 `_resolve_index_mins_targets()` 的实现缺陷。
 
 ---
@@ -348,7 +348,8 @@ Lake 不新增源接口不存在的业务参数。
 
 ## 6. Lake 存储布局
 
-第一版只做 raw 层，不做 derived / research。
+当前已落地的是 raw 层、derived 层与 research 层。  
+`derived` 层的 `90/120min` 设计与实现见第 10 节。
 
 目录：
 
@@ -365,7 +366,7 @@ raw_tushare/index_mins_by_date/
 
 设计理由：
 
-1. `index_mins` 是原始分钟线事实，第一版不需要额外派生层
+1. 当前已落地的正式事实层仍然是 `raw_tushare/index_mins_by_date`；`derived` 作为独立派生层单独设计与实现
 2. 按 `freq + trade_date` 分区，和 `stk_mins by_date` 一样便于：
    - 单日替换
    - 小窗口补数
@@ -723,9 +724,419 @@ repair_reason = source_gap
 
 ---
 
-## 10. 验收口径
+## 10. `derived / research` 层设计
 
-### 10.1 字段契约验收
+### 10.1 目标与边界
+
+这一步要补的是两层能力：
+
+1. `derived`：为 `index_mins` 新增本地派生频率
+   - `90min`
+   - `120min`
+2. `research`：继续把正式分钟线按 `ts_code + trade_month` 优化重排
+
+当前这两层的边界必须明确拆开：
+
+1. `derived` 负责**新增频率事实**
+2. `research` 负责**重排已有事实**
+
+当前设计结论：
+
+1. `15/30/60min` 的 source gap repair 仍然写回正式 `raw_tushare`，不进入 `derived`
+2. `90/120min` 才进入 `derived`
+3. 当前已落地的 `research` 仍然只消费正式 raw 的 `1/5/15/30/60min`
+4. `90/120min` 是否进入 `research`，仍待 derived 层真实验收后再单独评审，不在本轮范围内
+5. 两层都不重新读取远程数据库，也不重新请求 Tushare
+
+### 10.2 为什么 `index_mins` 现在可以新增 `90/120min`
+
+现在和之前不同，已经具备三个前提：
+
+1. 正式 raw 层已经完整承载：
+   - `1min`
+   - `5min`
+   - `15min`
+   - `30min`
+   - `60min`
+2. `2025-01-02 ~ 2026-05-08` 的 `1/5/15/30/60` 已经按 active pool + 生命周期口径补齐
+3. `15/30/60min` 的低频 source gap 已经通过本地 `1min` repair 回写正式 raw，不再需要把“补缺口”误塞进 derived
+
+因此，当前 `derived` 层的职责可以收得很纯：
+
+```text
+derived/index_mins_by_date 只负责 30min -> 90min、60min -> 120min 的本地派生。
+```
+
+### 10.3 derived 层的物理布局
+
+目录建议：
+
+```text
+derived/index_mins_by_date/
+  freq=90min/
+    trade_date=YYYY-MM-DD/
+      part-000.parquet
+  freq=120min/
+    trade_date=YYYY-MM-DD/
+      part-000.parquet
+```
+
+输出字段与正式 raw 契约保持一致：
+
+```text
+ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
+```
+
+差异只在：
+
+1. `freq = 90min | 120min`
+2. 数据来源是本地派生，不是源站原始接口
+
+### 10.4 `90min / 120min` 的派生规则
+
+`index_mins` 当前的 `30min` / `60min` 日内锚点，与 `stk_mins` 已批准规则一致，因此可以沿用同一套日内聚合语义。
+
+已确认的正式 raw 锚点：
+
+1. `30min`
+   - `09:30`
+   - `10:00`
+   - `10:30`
+   - `11:00`
+   - `11:30`
+   - `13:30`
+   - `14:00`
+   - `14:30`
+   - `15:00`
+2. `60min`
+   - `09:30`
+   - `10:30`
+   - `11:30`
+   - `14:00`
+   - `15:00`
+
+派生规则定义为：
+
+| 派生频率 | 输入 | 规则 |
+| --- | --- | --- |
+| `90min` | `30min` | 跳过 `09:30` 首根，按有效 30 分钟 bar 顺序每 3 根聚合；允许自然尾部不足 3 根保留 |
+| `120min` | `60min` | 按有效 60 分钟 bar 顺序每 2 根聚合；自然尾部不足 2 根直接丢弃 |
+
+必须写死的语义：
+
+1. `90min` 的 `09:30` bar 不参与聚合，因为它代表开盘集合竞价语义。
+2. `90min` 第一根由：
+   - `10:00`
+   - `10:30`
+   - `11:00`
+   聚合，锚点写 `11:00`
+3. `90min` 第二根由：
+   - `11:30`
+   - `13:30`
+   - `14:00`
+   聚合，允许跨午休，锚点写 `14:00`
+4. `90min` 第三根由：
+   - `14:30`
+   - `15:00`
+   聚合，虽然实际只有 60 分钟，仍作为 `freq=90min` 的自然尾部 bar 保留，锚点写 `15:00`
+5. `120min` 第一根由：
+   - `09:30`
+   - `10:30`
+   聚合，锚点写 `10:30`
+6. `120min` 第二根由：
+   - `11:30`
+   - `14:00`
+   聚合，允许跨午休，锚点写 `14:00`
+7. `120min` 的 `15:00` 尾部 `60min` bar 第一版不保留，因为不足 2 根
+
+由此得到每 code 每日的派生行数：
+
+| 目标频率 | 每 code 派生 bars |
+| --- | ---: |
+| `90min` | `3` |
+| `120min` | `2` |
+
+### 10.5 derived 的输入来源与强校验
+
+输入只读本地正式 raw 层：
+
+```text
+raw_tushare/index_mins_by_date/freq=30min/trade_date=YYYY-MM-DD/
+raw_tushare/index_mins_by_date/freq=60min/trade_date=YYYY-MM-DD/
+```
+
+运行前必须通过以下 gate：
+
+1. `90min` 要求 `30min` 正式分区存在，且该日行数等于：
+   - `effective_codes(trade_date) * 9`
+2. `120min` 要求 `60min` 正式分区存在，且该日行数等于：
+   - `effective_codes(trade_date) * 5`
+3. `effective_codes(trade_date)` 继续按：
+   - 本地 `index_mins` active pool
+   - 本地 `index_basic.list_date / exp_date`
+   计算
+4. 若任何有效指数缺少输入 bar，派生应失败，不允许静默跳过
+5. `90min` 写入后行数必须等于：
+   - `effective_codes * 3`
+6. `120min` 写入后行数必须等于：
+   - `effective_codes * 2`
+
+这意味着：
+
+1. 先补齐 raw
+2. 再做 derived
+3. 不能让 derived 成为“带缺口也先拼起来”的宽松层
+
+### 10.6 derived 的字段聚合口径
+
+字段聚合规则沿用现有 raw/repair 口径：
+
+1. `open`：桶内第一根输入 bar 的 `open`
+2. `close`：桶内最后一根输入 bar 的 `close`
+3. `high`：桶内 `high` 最大值
+4. `low`：桶内 `low` 最小值
+5. `vol`：桶内 `vol` 求和
+6. `amount`：桶内 `amount` 求和
+7. `exchange`：桶内第一条非空值
+8. `freq`：目标频率字符串：
+   - `90min`
+   - `120min`
+9. `trade_time`：桶结束时刻
+10. `vwap`：
+    - 若 `sum(vol) > 0`
+      - `vwap = round(sum(amount) / sum(vol), 3)`
+    - 若 `sum(vol) == 0`
+      - 先取桶内最后一根输入 bar 的 `vwap`
+      - 若仍为空，再退回最后一根 `close`
+
+### 10.7 derived 的命令面设计
+
+建议新增两条命令：
+
+```bash
+lake-console derive-index-mins --trade-date 2025-07-11 --targets 90min,120min
+```
+
+```bash
+lake-console derive-index-mins-range --start-date 2025-01-02 --end-date 2026-05-08 --targets 90min,120min
+```
+
+第一版规则：
+
+1. 只支持：
+   - `90min`
+   - `120min`
+2. 单日命令用于调试和补单日
+3. 区间命令内部先展开开市日，再逐日派生
+4. 区间命令开始写入前，应先检查目标范围内所有源分区都存在且满足 completeness gate；缺任一源日则整次失败
+5. derived 分区允许重建覆盖，因为它是纯本地可重复推导结果
+
+### 10.8 derived 的 provenance
+
+derived 的 provenance 仍然只写 manifest，不进 parquet 字段。
+
+建议 summary 字段至少包含：
+
+```text
+operation = derive_index_mins | derive_index_mins_range
+source_layer = raw_tushare
+targets = [90min, 120min]
+trade_date / trade_dates = ...
+source_rows = ...
+written_rows = ...
+```
+
+### 10.9 research 层的物理布局
+
+research 层建议采用和 `stk_mins` 相同的大方向：
+
+```text
+by_date         -> 同步/补数友好
+by_symbol_month -> 研究查询友好
+```
+
+但 `index_mins` 的 source 只来自正式 raw 层。
+
+目录建议：
+
+```text
+research/index_mins_by_symbol_month/
+  freq=1min/
+    trade_month=YYYY-MM/
+      bucket=00/
+        part-000.parquet
+  freq=5min/
+  freq=15min/
+  freq=30min/
+  freq=60min/
+```
+
+当前不进入 research 的频率：
+
+1. 当前尚未纳入 research 的本地派生频率：
+   - `90min`
+   - `120min`
+2. 任何尚未正式批准的新频率
+
+也就是说，当前 research 的现实边界仍然是：
+
+```text
+1min / 5min / 15min / 30min / 60min
+```
+
+本轮只落地 `derived`，不同步扩展 research 到 `90/120min`。
+
+### 10.10 bucket 策略
+
+`index_mins` 当前 active pool 是 `530` 个指数。  
+按稳定区间真实行数估算：
+
+1. `1min` 每日约 `127,730` 行
+2. 单月约 `2.5M ~ 3.0M` 行
+
+第一版建议使用：
+
+```text
+bucket_count = 16
+stable_bucket = hash(ts_code) % 16
+```
+
+理由：
+
+1. 对 `530` 个指数来说，`16` 个 bucket 已足够把单月 `1min` 分散到每桶约 `16~19` 万行量级。
+2. 相比 `32` 个 bucket，文件数量更少，研究层重排和后续月级读取更轻。
+3. 仍保留稳定 bucket 语义，方便单指数查询先定位 bucket，再读单月单桶文件。
+
+后续若 bucket_count 要改，必须提升 layout version，不允许在同一 research 目录里混用不同 bucket 规则。
+
+### 10.11 research 重排的输入来源
+
+research 重排只读本地正式 raw 层：
+
+```text
+raw_tushare/index_mins_by_date/freq=<freq>/trade_date=YYYY-MM-DD/part-000.parquet
+```
+
+也就是说：
+
+1. 先完成双模式同步。
+2. 若存在低频 source gap，先完成本地 `1min -> 15/30/60min` repair。
+3. 然后再把已经稳定的 raw 事实重排进 research。
+
+research 重排不做：
+
+1. 不重跑 active pool 同步
+2. 不重跑生命周期过滤后的远程拉取
+3. 不在重排阶段补事实缺口
+
+它只是：
+
+```text
+把已经稳定的 raw 分区，重新组织成更适合研究查询的 by_symbol_month。
+```
+
+### 10.12 completeness gate
+
+`index_mins` 的 research 层不应像一个“尽量重排已有文件”的宽松任务。  
+它应当先做 strict gate，再决定是否写入。
+
+重排某个 `freq + trade_month` 之前，必须先验证：
+
+1. 该月本地交易日历中的开市日集合已知。
+2. 该月每个开市日都存在对应 `raw_tushare/index_mins_by_date` 正式分区。
+3. 每个开市日的正式分区行数，等于：
+   - `effective_codes(trade_date) * per_code_bar_count(freq)`
+
+其中：
+
+| 频率 | 每 code bars |
+| --- | ---: |
+| `1min` | `241` |
+| `5min` | `49` |
+| `15min` | `17` |
+| `30min` | `9` |
+| `60min` | `5` |
+
+而 `effective_codes(trade_date)` 必须继续按：
+
+1. 本地 `index_mins` active pool
+2. 本地 `index_basic.list_date / exp_date`
+
+来计算。
+
+如果任何一天存在：
+
+1. 分区缺失
+2. 0 行分区
+3. 行数不满足期望值
+
+则该月该频率的 research 重排应直接失败，不允许产出“看起来可查、其实不完整”的月分区。
+
+### 10.13 命令面设计
+
+建议新增两条命令：
+
+```bash
+lake-console rebuild-index-mins-research --freq 1min --trade-month 2026-05
+```
+
+```bash
+lake-console rebuild-index-mins-research-range --start-month 2025-01 --end-month 2026-05 --freqs 1min,5min,15min,30min,60min
+```
+
+第一版只支持：
+
+1. `freq = 1min|5min|15min|30min|60min`
+2. `trade_month = YYYY-MM`
+3. 只从 raw 层重排
+
+第一版不支持：
+
+1. 直接从远程数据库重排
+2. 直接从 Tushare 重排
+3. 把缺失 raw 月份“尽量拼出来”
+4. 覆盖 layout 版本不同的旧 research 月目录
+
+### 10.14 manifest 与 provenance
+
+research 重排的 provenance 继续只写 manifest，不进 parquet 字段。
+
+建议 summary 字段至少包含：
+
+```text
+operation = research_index_mins
+source_layer = raw_tushare
+freq = 1min|5min|15min|30min|60min
+trade_month = YYYY-MM
+bucket_count = 16
+input_trade_dates = [...]
+source_rows = ...
+written_rows = ...
+```
+
+范围重排则对应：
+
+```text
+operation = research_index_mins_range
+```
+
+### 10.15 当前建议的落地顺序
+
+当前实现顺序已按下列路径收口：
+
+1. 先补齐 raw 层：
+   - 双模式同步
+   - 必要时 `repair-index-mins-from-1m`
+2. 再做单月 `rebuild-index-mins-research`
+3. 最后做月区间 `rebuild-index-mins-research-range`
+
+不要反过来先做 range。
+
+---
+
+## 11. 验收口径
+
+### 11.1 字段契约验收
 
 两种来源落到 Lake 后，字段必须完全一致：
 
@@ -735,7 +1146,7 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
 
 不得引入任何系统字段。
 
-### 10.2 双模式一致性验收
+### 11.2 双模式一致性验收
 
 对同一稳定交易日、同一频率、同一 active pool 范围，抽样对比：
 
@@ -748,7 +1159,7 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
 2. `ts_code + freq + trade_time` 粒度下可对齐
 3. 样本行值一致
 
-### 10.3 生命周期过滤验收
+### 11.3 生命周期过滤验收
 
 至少验证三类样本：
 
@@ -762,9 +1173,9 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
 
 ---
 
-## 11. 结论
+## 12. 结论
 
-`index_mins` 可以进入 Lake，而且应该按双模式设计：
+`index_mins` 已经进入 Lake，而且应该按双模式 + raw 修补设计继续向下演进：
 
 1. `tushare`
 2. `prod-raw-db`
@@ -776,8 +1187,17 @@ ts_code, freq, trade_time, close, open, high, low, vol, amount, exchange, vwap
 3. `prod-raw-db` 负责当前保留住的近历史
 4. `tushare` 负责更早历史
 5. 第一版不自动混源
-6. 第一版只做 raw 层
-7. 当远程低频分钟线出现整日 source gap 且本地 `1min` 已完整时，允许通过本地 `1min -> 15/30/60min` repair 写回正式 raw 分区
+6. 当前正式事实层仍以 raw 为准；低频 source gap 通过本地 `1min -> 15/30/60min` repair 写回正式 raw 分区
+7. `derived` 层已新增：
+   - `90min`
+   - `120min`
+   当前已可通过本地正式 `30/60min` 分区重建
+8. 当前已新增 `research/index_mins_by_symbol_month` 重排层，但现实边界仍然只覆盖：
+   - `1min`
+   - `5min`
+   - `15min`
+   - `30min`
+   - `60min`
 
 后续编码必须严格按本文执行，不得退回到：
 
