@@ -289,6 +289,7 @@ SELECT
   h.ts_code,
   COALESCE(h.ts_name, s.name, '') AS subject_name,
   h.rank,
+  h.rank_time,
   h.current_price AS latest_price,
   h.pct_change AS change_pct,
   h.trade_date
@@ -296,13 +297,21 @@ FROM core_serving.dc_hot h
 LEFT JOIN core_serving.security_serving s ON s.ts_code = h.ts_code
 WHERE h.trade_date = :resolved_trade_date
   AND h.query_hot_type = '人气榜'
-ORDER BY h.rank ASC
+  AND h.query_market = 'A股'
+  AND h.data_type = 'stock'
+  AND NOT (h.rank IS NULL AND h.rank_time IS NULL)
+ORDER BY
+  CASE WHEN h.rank IS NULL THEN 1 ELSE 0 END,
+  h.rank ASC NULLS LAST,
+  CASE WHEN h.rank_time IS NULL THEN 1 ELSE 0 END,
+  h.rank_time DESC NULLS LAST,
+  h.ts_code ASC
 LIMIT :limit;
 ```
 
 ### 6.7 `surge`
 
-`WHERE h.query_hot_type='飙升榜'`，其余同 `popularity`。
+`WHERE h.query_hot_type='飙升榜'`，其余过滤/剔除/排序规则同 `popularity`。
 
 ---
 
@@ -369,7 +378,11 @@ LIMIT :limit;
    - strict/fallback 分支。
 2. 集成测试：
    - 正常/延迟/空/错误四态；
-   - 7 榜单输出完整。
+   - 7 榜单输出完整；
+   - `dc_hot` 非 A 股样本不入榜；
+   - `dc_hot` rank 并列按 rank_time 新到旧；
+   - `dc_hot` rank 为空按 rank_time 新到旧；
+   - `dc_hot` rank/rank_time 同时无效样本被剔除。
 3. 冒烟测试：
    - 真实源请求 pending 时显示 loading（不展示 mock 榜单）；
    - 真实源请求超过 5 秒显示 error（不回填 mock 榜单）；
@@ -446,3 +459,4 @@ LIMIT :limit;
 | v1 | 2026-05-08 | 建立榜单 M2 编码前门禁清单 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新通用清单：补齐映射矩阵、模块例外白名单、loading/error 行为门禁与配置边界 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：切策略配置中心、收口 boardKeys 非对外、补配置版本门禁与股票池过滤规则 | Codex |
+| v1.3 | 2026-05-10 | 同步热榜门禁：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序、异常值剔除与对应测试项 | Codex |

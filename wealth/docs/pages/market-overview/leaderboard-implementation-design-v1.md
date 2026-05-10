@@ -89,7 +89,7 @@ src/biz/
 
 1. 主查询（主链路）：
    - 行情榜（5 类）：`equity_daily_bar` 主集 + `equity_daily_basic` 补列。
-   - 热榜（2 类）：`dc_hot` 主集。
+   - 热榜（2 类）：`dc_hot` 主集，强制 `query_market='A股'` + `data_type='stock'`。
    - 股票池边界：`security_type='stock'` + `list_status='L'` + 上市/退市日期边界 + ST 过滤。
 2. 辅助查询（补列/补名）：
    - `security_serving` 名称兜底。
@@ -97,7 +97,10 @@ src/biz/
    - 仅 `dc_hot` 使用 strict/fallback 规则。
 4. 去重、排序、截断：
    - 每榜按本榜排序字段排序，截断 `limit`。
-5. 空数据与异常处理：
+   - 热榜固定排序链路：`rank` 非空优先 -> `rank` 升序 -> `rank_time` 非空优先 -> `rank_time` 新到旧 -> `ts_code`。
+5. 异常剔除：
+   - 热榜中 `rank` 与 `rank_time` 同时无效（空值）的记录直接剔除，不进入响应 rows。
+6. 空数据与异常处理：
    - 空数据 -> `EMPTY/DELAYED`（视规则）。
    - 查询失败 -> `ERROR + LB_QUERY_FAILED`。
 
@@ -145,7 +148,11 @@ src/biz/
 2. 集成测试：
    - 7 榜单基础返回；
    - strict/fallback 两分支；
-   - 空数据/延迟/异常覆盖。
+   - 空数据/延迟/异常覆盖；
+   - `dc_hot` 非 A 股样本不入榜；
+   - `dc_hot` rank 并列按 rank_time 新到旧；
+   - `dc_hot` rank 为空按 rank_time 新到旧；
+   - `dc_hot` rank/rank_time 同时无效样本被剔除。
 3. 冒烟验证：
    - 调用 `/leaderboards` 返回结构完整；
    - debug=0/1 分支正确；
@@ -194,3 +201,4 @@ src/biz/
 | v1 | 2026-05-08 | 按模板重构实施方案结构，冻结模块实现落点 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补齐 loading/error/5秒超时行为、definition_registry 配置边界与测试约束 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：策略配置中心接管榜单定义、请求不再接收 boardKeys、补充股票池过滤与版本门禁 | Codex |
+| v1.3 | 2026-05-10 | 同步热榜实现口径：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序链路与异常值剔除及测试项 | Codex |

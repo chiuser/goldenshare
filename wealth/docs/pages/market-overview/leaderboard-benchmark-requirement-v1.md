@@ -89,6 +89,7 @@
 | 成交量 | `equity_daily_bar` | `vol` | 数值原样 | `amount/turnover` 补充列 |
 | 成交额 | `equity_daily_bar` | `amount` | 数值原样 | `amount` 榜核心 |
 | 热榜名次 | `dc_hot` | `rank` | 数值原样 | `popularity/surge` |
+| 热榜更新时间 | `dc_hot` | `rank_time` | 时间原样 | rank 并列/空值时排序兜底 |
 
 补充：
 
@@ -101,6 +102,10 @@
    - 必须满足 `list_date <= trade_date` 且 `(delist_date IS NULL OR delist_date > trade_date)`；
    - 必须过滤 ST（名称含 `ST` 或 `*ST`）；
    - 停牌标的不应入榜（当日无有效成交行情数据时自然排除）。
+5. `dc_hot` 过滤与排序边界（人气榜/飙升榜）：
+   - 过滤：`query_market='A股'` 且 `data_type='stock'`；
+   - 排序：`rank` 非空优先、`rank` 升序、`rank_time` 非空优先、`rank_time` 新到旧、`ts_code` 兜底；
+   - 异常剔除：`rank` 与 `rank_time` 同时无效（空值）直接剔除，不进入榜单 rows。
 
 ---
 
@@ -171,3 +176,4 @@
 | v1 | 2026-05-08 | 按模板重构文档结构，冻结榜单需求边界 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补充 loading/error/5秒超时行为、单模块切换纪律、debug 默认语义与配置边界 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：启用策略配置中心、冻结 CN_A 股票池过滤规则、移除 boardKeys 对外参数 | Codex |
+| v1.3 | 2026-05-10 | 补齐热榜硬约束：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序链路与异常值剔除规则 | Codex |

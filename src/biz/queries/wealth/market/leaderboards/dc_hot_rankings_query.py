@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.dc_hot import DcHot
@@ -87,6 +87,7 @@ class LeaderboardDcHotRankingsQuery:
         hot_type: str,
         limit: int,
     ) -> list[DcHotRankingRow]:
+        normalized_rank_time = func.nullif(func.trim(DcHot.rank_time), "")
         ranked_subquery = (
             select(
                 DcHot.ts_code.label("ts_code"),
@@ -94,10 +95,17 @@ class LeaderboardDcHotRankingsQuery:
                 DcHot.current_price.label("latest_price"),
                 DcHot.pct_change.label("change_pct"),
                 DcHot.rank.label("hot_rank"),
+                normalized_rank_time.label("hot_rank_time"),
                 func.row_number()
                 .over(
                     partition_by=DcHot.ts_code,
-                    order_by=(DcHot.rank.asc(), DcHot.rank_time.desc()),
+                    order_by=(
+                        DcHot.rank.is_(None),
+                        DcHot.rank.asc(),
+                        normalized_rank_time.is_(None),
+                        normalized_rank_time.desc(),
+                        DcHot.ts_code.asc(),
+                    ),
                 )
                 .label("rn"),
             )
@@ -105,6 +113,9 @@ class LeaderboardDcHotRankingsQuery:
             .where(
                 DcHot.trade_date == trade_date,
                 DcHot.query_hot_type == hot_type,
+                DcHot.query_market == "A股",
+                DcHot.data_type == "stock",
+                ~and_(DcHot.rank.is_(None), normalized_rank_time.is_(None)),
             )
             .subquery()
         )
@@ -115,11 +126,14 @@ class LeaderboardDcHotRankingsQuery:
                 ranked_subquery.c.latest_price,
                 ranked_subquery.c.change_pct,
                 ranked_subquery.c.hot_rank,
+                ranked_subquery.c.hot_rank_time,
             )
             .where(ranked_subquery.c.rn == 1)
             .order_by(
                 ranked_subquery.c.hot_rank.is_(None),
                 ranked_subquery.c.hot_rank.asc(),
+                ranked_subquery.c.hot_rank_time.is_(None),
+                ranked_subquery.c.hot_rank_time.desc(),
                 ranked_subquery.c.ts_code.asc(),
             )
             .limit(limit)
@@ -142,10 +156,13 @@ class LeaderboardDcHotRankingsQuery:
         hot_type: str,
         end_trade_date: date,
     ) -> date | None:
+        normalized_rank_time = func.nullif(func.trim(DcHot.rank_time), "")
         return session.scalar(
             select(func.max(DcHot.trade_date)).where(
                 DcHot.query_hot_type == hot_type,
                 DcHot.trade_date <= end_trade_date,
+                DcHot.query_market == "A股",
+                DcHot.data_type == "stock",
+                ~and_(DcHot.rank.is_(None), normalized_rank_time.is_(None)),
             )
         )
-

@@ -284,3 +284,204 @@ def test_market_leaderboards_rejects_board_keys_query_param(app_client) -> None:
     payload = response.json()
     assert payload["code"] == "400001"
 
+
+def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_session) -> None:
+    _ensure_leaderboards_tables(db_session)
+    trade_day = date(2026, 5, 8)
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=date(2026, 5, 7),
+                is_open=True,
+                pretrade_date=date(2026, 5, 6),
+            ),
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=trade_day,
+                is_open=True,
+                pretrade_date=date(2026, 5, 7),
+            ),
+        ]
+    )
+    _seed_security_rows(db_session)
+    _seed_equity_rows(db_session)
+    db_session.add_all(
+        [
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000001.SZ",
+                rank_time="15:00:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="平安银行",
+                rank=1,
+                pct_change=Decimal("5.0000"),
+                current_price=Decimal("10.5000"),
+                hot=Decimal("99.9000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000002.SZ",
+                rank_time="15:00:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="万 科Ａ",
+                rank=2,
+                pct_change=Decimal("-4.0000"),
+                current_price=Decimal("19.2000"),
+                hot=Decimal("88.8000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="900901.SH",
+                rank_time="15:00:00",
+                query_market="港股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="港股样本",
+                rank=0,
+                pct_change=Decimal("1.0000"),
+                current_price=Decimal("3.2100"),
+                hot=Decimal("77.7000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="index",
+                ts_code="000300.SH",
+                rank_time="15:00:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="沪深300",
+                rank=0,
+                pct_change=Decimal("0.5000"),
+                current_price=Decimal("3726.8400"),
+                hot=Decimal("66.6000"),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/leaderboards", params={"tradeDate": "2026-05-08"})
+    assert response.status_code == 200
+    payload = response.json()
+    boards_by_key = {board["boardKey"]: board for board in payload["boards"]}
+    popularity_codes = [row["subject"]["subjectCode"] for row in boards_by_key["popularity"]["rows"]]
+
+    assert popularity_codes == ["000001.SZ", "000002.SZ"]
+
+
+def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client, db_session) -> None:
+    _ensure_leaderboards_tables(db_session)
+    trade_day = date(2026, 5, 8)
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=date(2026, 5, 7),
+                is_open=True,
+                pretrade_date=date(2026, 5, 6),
+            ),
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=trade_day,
+                is_open=True,
+                pretrade_date=date(2026, 5, 7),
+            ),
+        ]
+    )
+    _seed_security_rows(db_session)
+    _seed_equity_rows(db_session)
+    db_session.add_all(
+        [
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000001.SZ",
+                rank_time="09:30:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="平安银行",
+                rank=1,
+                pct_change=Decimal("5.0000"),
+                current_price=Decimal("10.5000"),
+                hot=Decimal("99.9000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000002.SZ",
+                rank_time="15:00:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="万 科Ａ",
+                rank=1,
+                pct_change=Decimal("-4.0000"),
+                current_price=Decimal("19.2000"),
+                hot=Decimal("88.8000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000003.SZ",
+                rank_time="14:30:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="国农科技",
+                rank=None,
+                pct_change=Decimal("4.0000"),
+                current_price=Decimal("5.2000"),
+                hot=Decimal("77.7000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000005.SZ",
+                rank_time="10:30:00",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="世纪星源",
+                rank=None,
+                pct_change=Decimal("1.0000"),
+                current_price=Decimal("2.7000"),
+                hot=Decimal("55.5000"),
+            ),
+            DcHot(
+                trade_date=trade_day,
+                data_type="stock",
+                ts_code="000006.SZ",
+                rank_time="",
+                query_market="A股",
+                query_hot_type="人气榜",
+                query_is_new="N",
+                ts_name="深振业A",
+                rank=None,
+                pct_change=Decimal("0.5000"),
+                current_price=Decimal("7.1000"),
+                hot=Decimal("44.4000"),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/leaderboards", params={"tradeDate": "2026-05-08"})
+    assert response.status_code == 200
+    payload = response.json()
+    boards_by_key = {board["boardKey"]: board for board in payload["boards"]}
+    popularity_rows = boards_by_key["popularity"]["rows"]
+    popularity_codes = [row["subject"]["subjectCode"] for row in popularity_rows]
+    popularity_ranks = [row["rank"] for row in popularity_rows]
+
+    assert popularity_codes == ["000002.SZ", "000001.SZ", "000003.SZ", "000005.SZ"]
+    assert popularity_ranks == [1, 1, 3, 4]
+    assert "000006.SZ" not in popularity_codes
