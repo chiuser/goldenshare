@@ -54,16 +54,47 @@ export interface LeaderboardTab {
   rows: LeaderboardRow[];
 }
 
-export interface LimitStructureRow {
-  name: string;
-  count: number;
-  ratio: number;
-  kind: "up" | "down" | "fail";
+export interface MoneyFlowOrderSizeItem {
+  orderSize: "superLarge" | "large" | "medium" | "small";
+  orderSizeName: string;
+  netAmount: number;
+  netAmountRate: number;
+  absAmount: number;
+  direction: "inflow" | "outflow" | "flat";
 }
 
-export interface LimitStructure {
-  up: LimitStructureRow[];
-  downBroken: LimitStructureRow[];
+export interface MoneyFlowOrderSizeStructure {
+  netAmount: number;
+  netAmountRate: number;
+  items: MoneyFlowOrderSizeItem[];
+}
+
+export interface LimitSectorItem {
+  sectorCode: string;
+  sectorName: string;
+  sectorType: "CONCEPT" | "INDUSTRY" | "REGION" | "OTHER";
+  limitUpCount: number;
+  ratio: number;
+}
+
+export interface LimitLeaderPerformanceItem {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  rank: number;
+  streakLabel: string;
+  recentLimitText: string;
+  firstLimitTime: string;
+  openTimes: number;
+  sealedAmountDisplayText: string;
+}
+
+export interface LimitSectorLeaderStructure {
+  selectedSectorCode: string;
+  selectedStockCode: string;
+  sectors: LimitSectorItem[];
+  leaderStocks: Record<string, LimitLeaderPerformanceItem[]>;
 }
 
 export interface LadderLevel {
@@ -112,6 +143,7 @@ export interface MarketOverview {
   styleMetrics: MetricItem[];
   turnoverMetrics: MetricItem[];
   moneyFlowMetrics: MetricItem[];
+  moneyFlowOrderSizeStructure: MoneyFlowOrderSizeStructure;
   limitMetrics: MetricItem[];
   charts: {
     breadth: Record<string, MultiTrendPoint[]>;
@@ -123,8 +155,8 @@ export interface MarketOverview {
   };
   leaderboards: LeaderboardTab[];
   limitStructures: {
-    today: LimitStructure;
-    yesterday: LimitStructure;
+    today: LimitSectorLeaderStructure;
+    yesterday: LimitSectorLeaderStructure;
   };
   ladder: LadderLevel[];
   sectors: {

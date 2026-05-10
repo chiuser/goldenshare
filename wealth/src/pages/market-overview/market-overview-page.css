@@ -931,7 +931,7 @@ h1 {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .fund-card {
@@ -949,6 +949,92 @@ h1 {
 .fund-card .amount {
   font-size: 24px;
   font-weight: 800;
+}
+
+.moneyflow-v3-body {
+  align-items: stretch;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 38% minmax(0, 62%);
+  margin-top: 8px;
+}
+
+.order-pie-panel {
+  background: rgba(13, 20, 34, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 10px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 230px;
+  overflow: hidden;
+  padding: 10px 12px;
+}
+
+.pie-wrap {
+  display: block;
+  min-height: 184px;
+}
+
+.pie-graphic {
+  background: transparent !important;
+  border-radius: 0;
+  box-shadow: none;
+  height: 188px;
+  position: relative;
+  width: 100%;
+}
+
+.pie-graphic svg {
+  display: block;
+  height: 100%;
+  overflow: visible;
+  width: 100%;
+}
+
+.pie-slice {
+  cursor: pointer;
+  stroke: #0d1422;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transition: 0.14s ease;
+}
+
+.pie-slice:hover {
+  filter: brightness(1.12);
+}
+
+.pie-center-hole {
+  fill: #0d1422;
+  stroke: rgba(148, 163, 184, 0.2);
+  stroke-width: 1.2;
+}
+
+.pie-callout-line {
+  fill: none;
+  stroke: rgba(203, 213, 225, 0.62);
+  stroke-width: 1.15;
+}
+
+.pie-callout-text {
+  dominant-baseline: middle;
+  font-family: var(--cs-font-family-base);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.pie-slice-label {
+  fill: #fff;
+  font-family: var(--cs-font-family-number);
+  font-size: 11.5px;
+  font-weight: 850;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.46);
+  stroke-linejoin: round;
+  stroke-width: 2.2px;
+}
+
+.moneyflow-trend-panel {
+  min-width: 0;
 }
 
 .leaderboard {
@@ -1096,31 +1182,63 @@ tbody tr:active {
   padding: 2px 8px;
 }
 
-.limit-map-title {
-  font-weight: 650;
-  margin-bottom: 8px;
-}
-
-.limit-day-grid {
+.limit-sector-leader {
   display: grid;
   gap: 10px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.9fr minmax(0, 2.1fr);
+  height: 188px;
 }
 
-.distribution-graph {
+.limit-v3-col {
+  background: rgba(18, 27, 44, 0.56);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 9px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.limit-v3-title {
+  align-items: center;
+  color: #dde8f7;
+  display: flex;
+  font-weight: 650;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.limit-v3-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.dist-row {
+.sector-bar-row {
   align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 80px 1fr 44px;
+  gap: 7px;
+  grid-template-columns: 64px 1fr 28px;
+  min-height: 26px;
+  padding: 3px 5px;
+  transition: 0.14s ease;
 }
 
-.dist-label {
+.sector-bar-row:hover {
+  background: rgba(255, 77, 90, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 77, 90, 0.16);
+}
+
+.sector-bar-row.selected {
+  background: rgba(255, 77, 90, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 77, 90, 0.16);
+}
+
+.sector-bar-name {
   color: var(--cs-color-text-secondary);
   font-size: 12px;
   overflow: hidden;
@@ -1128,30 +1246,142 @@ tbody tr:active {
   white-space: nowrap;
 }
 
-.dist-bar {
+.sector-bar-track {
   background: rgba(148, 163, 184, 0.08);
   border-radius: 999px;
-  display: flex;
-  height: 13px;
+  display: block;
+  height: 10px;
   overflow: hidden;
+  position: relative;
 }
 
-.dist-fill {
+.sector-bar-fill {
+  background: linear-gradient(90deg, rgba(255, 77, 90, 0.42), var(--cs-color-market-up));
   border-radius: 999px;
   display: block;
   height: 100%;
 }
 
-.dist-fill.up {
-  background: linear-gradient(90deg, rgba(255, 77, 90, 0.52), var(--cs-color-market-up));
+.leader-performance-row {
+  align-items: center;
+  background: rgba(255, 77, 90, 0.045);
+  border: 1px solid rgba(255, 77, 90, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  column-gap: 10px;
+  gap: 0;
+  grid-template-columns: 22px minmax(90px, 1.12fr) minmax(70px, 0.78fr) minmax(112px, 0.96fr) minmax(88px, 0.84fr) minmax(66px, 0.62fr);
+  min-height: 43px;
+  overflow: hidden;
+  padding: 5px 8px;
+  transition: 0.14s ease;
 }
 
-.dist-fill.down {
-  background: linear-gradient(90deg, rgba(21, 199, 132, 0.52), var(--cs-color-market-down));
+.leader-performance-row:hover {
+  background: rgba(247, 199, 107, 0.09);
+  border-color: rgba(247, 199, 107, 0.4);
 }
 
-.dist-fill.fail {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.4), var(--cs-color-warning));
+.leader-performance-row.selected {
+  background: rgba(247, 199, 107, 0.09);
+  border-color: rgba(247, 199, 107, 0.4);
+}
+
+.leader-stock-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.leader-stock-main strong {
+  color: #e3ebf8;
+  font-size: 12px;
+  font-weight: 670;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-stock-main span {
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+}
+
+.leader-price {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.14;
+  min-width: 0;
+}
+
+.leader-price b {
+  font-size: 12px;
+}
+
+.leader-price small {
+  font-size: 11px;
+}
+
+.perf-inline {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.perf-tag {
+  background: rgba(255, 77, 90, 0.11);
+  border: 1px solid rgba(255, 77, 90, 0.24);
+  border-radius: 999px;
+  color: var(--cs-color-market-up);
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.seal-meta {
+  align-items: flex-start;
+  color: var(--cs-color-text-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  gap: 2px;
+  line-height: 1.25;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.seal-amount {
+  color: var(--cs-color-text-secondary);
+  font-family: var(--cs-font-family-number);
+  font-size: 13px;
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-row {
+  align-items: center;
+  border-radius: 7px;
+  color: var(--cs-color-brand);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  height: 24px;
+  justify-content: center;
+}
+
+.more-row:hover {
+  background: rgba(247, 199, 107, 0.08);
 }
 
 .ladder {
