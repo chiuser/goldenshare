@@ -103,9 +103,14 @@
    - 必须过滤 ST（名称含 `ST` 或 `*ST`）；
    - 停牌标的不应入榜（当日无有效成交行情数据时自然排除）。
 5. `dc_hot` 过滤与排序边界（人气榜/飙升榜）：
-   - 过滤：`query_market='A股'` 且 `data_type='stock'`；
+   - 过滤：`query_market='A股市场'`；
+   - 说明：`data_type` 在线上当前是市场标签（如 `A股市场/ETF基金/港股市场`），不是 `stock/index` 语义字段，本期不作为独立业务过滤条件；
    - 排序：`rank` 非空优先、`rank` 升序、`rank_time` 非空优先、`rank_time` 新到旧、`ts_code` 兜底；
    - 异常剔除：`rank` 与 `rank_time` 同时无效（空值）直接剔除，不进入榜单 rows。
+6. `dc_hot` 参数口径门禁（防止本地通过线上空榜）：
+   - 开发前必须先做源表枚举审计（`trade_date/query_hot_type/query_market/data_type`）；
+   - 测试 fixture 必须复用线上实值口径（`A股市场`），禁止写概念化别名（如 `A股`、`stock`）冒充真实值；
+   - 若源端枚举发生变化，先更新三件套，再改代码。
 
 ---
 
@@ -176,4 +181,5 @@
 | v1 | 2026-05-08 | 按模板重构文档结构，冻结榜单需求边界 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补充 loading/error/5秒超时行为、单模块切换纪律、debug 默认语义与配置边界 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：启用策略配置中心、冻结 CN_A 股票池过滤规则、移除 boardKeys 对外参数 | Codex |
-| v1.3 | 2026-05-10 | 补齐热榜硬约束：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序链路与异常值剔除规则 | Codex |
+| v1.3 | 2026-05-10 | 补齐热榜硬约束：补充 `dc_hot` 过滤、rank/rank_time 排序链路与异常值剔除规则 | Codex |
+| v1.4 | 2026-05-10 | 修正 `dc_hot` 真实口径：过滤改为 `query_market='A股市场'`，并新增“源表枚举审计 + fixture 实值对齐”硬门禁 | Codex |

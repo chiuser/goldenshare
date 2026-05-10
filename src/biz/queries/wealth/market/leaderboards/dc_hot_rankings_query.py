@@ -34,6 +34,8 @@ class DcHotRankingResult:
 class LeaderboardDcHotRankingsQuery:
     """Load popularity/surge rows from dc_hot with strict/fallback behavior."""
 
+    _A_STOCK_MARKET_VALUE = "A股市场"
+
     _HOT_TYPE_MAP: dict[HotBoardKey, str] = {
         "popularity": "人气榜",
         "surge": "飙升榜",
@@ -113,8 +115,7 @@ class LeaderboardDcHotRankingsQuery:
             .where(
                 DcHot.trade_date == trade_date,
                 DcHot.query_hot_type == hot_type,
-                DcHot.query_market == "A股",
-                DcHot.data_type == "stock",
+                DcHot.query_market == self._A_STOCK_MARKET_VALUE,
                 ~and_(DcHot.rank.is_(None), normalized_rank_time.is_(None)),
             )
             .subquery()
@@ -161,8 +162,7 @@ class LeaderboardDcHotRankingsQuery:
             select(func.max(DcHot.trade_date)).where(
                 DcHot.query_hot_type == hot_type,
                 DcHot.trade_date <= end_trade_date,
-                DcHot.query_market == "A股",
-                DcHot.data_type == "stock",
+                DcHot.query_market == LeaderboardDcHotRankingsQuery._A_STOCK_MARKET_VALUE,
                 ~and_(DcHot.rank.is_(None), normalized_rank_time.is_(None)),
             )
         )

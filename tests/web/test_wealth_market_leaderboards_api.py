@@ -130,10 +130,10 @@ def _seed_dc_hot_rows(db_session, *, trade_day: date) -> None:
         [
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000001.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="平安银行",
@@ -144,10 +144,10 @@ def _seed_dc_hot_rows(db_session, *, trade_day: date) -> None:
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000003.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="国农科技",
@@ -158,10 +158,10 @@ def _seed_dc_hot_rows(db_session, *, trade_day: date) -> None:
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000003.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="飙升榜",
                 query_is_new="N",
                 ts_name="国农科技",
@@ -172,10 +172,10 @@ def _seed_dc_hot_rows(db_session, *, trade_day: date) -> None:
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000001.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="飙升榜",
                 query_is_new="N",
                 ts_name="平安银行",
@@ -285,7 +285,7 @@ def test_market_leaderboards_rejects_board_keys_query_param(app_client) -> None:
     assert payload["code"] == "400001"
 
 
-def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_session) -> None:
+def test_market_leaderboards_dc_hot_filters_non_a_market_rows(app_client, db_session) -> None:
     _ensure_leaderboards_tables(db_session)
     trade_day = date(2026, 5, 8)
     db_session.add_all(
@@ -310,10 +310,10 @@ def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_sess
         [
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000001.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="平安银行",
@@ -324,10 +324,10 @@ def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_sess
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000002.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="万 科Ａ",
@@ -338,10 +338,10 @@ def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_sess
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="港股市场",
                 ts_code="900901.SH",
                 rank_time="15:00:00",
-                query_market="港股",
+                query_market="港股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="港股样本",
@@ -352,10 +352,10 @@ def test_market_leaderboards_dc_hot_filters_non_a_stock_rows(app_client, db_sess
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="index",
+                data_type="ETF基金",
                 ts_code="000300.SH",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="ETF基金",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="沪深300",
@@ -402,10 +402,10 @@ def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client
         [
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000001.SZ",
                 rank_time="09:30:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="平安银行",
@@ -416,10 +416,10 @@ def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000002.SZ",
                 rank_time="15:00:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="万 科Ａ",
@@ -430,10 +430,10 @@ def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000003.SZ",
                 rank_time="14:30:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="国农科技",
@@ -444,10 +444,10 @@ def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000005.SZ",
                 rank_time="10:30:00",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="世纪星源",
@@ -458,10 +458,10 @@ def test_market_leaderboards_dc_hot_rank_time_sort_and_invalid_pruned(app_client
             ),
             DcHot(
                 trade_date=trade_day,
-                data_type="stock",
+                data_type="A股市场",
                 ts_code="000006.SZ",
                 rank_time="",
-                query_market="A股",
+                query_market="A股市场",
                 query_hot_type="人气榜",
                 query_is_new="N",
                 ts_name="深振业A",

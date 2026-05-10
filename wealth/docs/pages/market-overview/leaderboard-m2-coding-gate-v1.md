@@ -37,6 +37,7 @@
 14. [ ] 通用清单映射矩阵冻结并评审通过
 15. [ ] 模块例外白名单冻结并评审通过
 16. [ ] 签字完成
+17. [ ] `dc_hot` 源枚举审计完成（`query_hot_type/query_market/data_type`），并在实现与测试中使用同一实值口径
 
 ---
 
@@ -297,8 +298,7 @@ FROM core_serving.dc_hot h
 LEFT JOIN core_serving.security_serving s ON s.ts_code = h.ts_code
 WHERE h.trade_date = :resolved_trade_date
   AND h.query_hot_type = '人气榜'
-  AND h.query_market = 'A股'
-  AND h.data_type = 'stock'
+  AND h.query_market = 'A股市场'
   AND NOT (h.rank IS NULL AND h.rank_time IS NULL)
 ORDER BY
   CASE WHEN h.rank IS NULL THEN 1 ELSE 0 END,
@@ -312,6 +312,28 @@ LIMIT :limit;
 ### 6.7 `surge`
 
 `WHERE h.query_hot_type='飙升榜'`，其余过滤/剔除/排序规则同 `popularity`。
+
+### 6.8 `dc_hot` 源枚举审计（编码前必做）
+
+```sql
+SELECT
+  trade_date,
+  query_hot_type,
+  query_market,
+  data_type,
+  count(*) AS cnt
+FROM core_serving.dc_hot
+WHERE trade_date = :trade_date
+  AND query_hot_type IN ('人气榜', '飙升榜')
+GROUP BY 1,2,3,4
+ORDER BY 2,3,4;
+```
+
+门禁要求：
+
+1. 过滤实现必须基于审计结果实值（本期为 `query_market='A股市场'`）。
+2. 测试 fixture 必须使用同一实值，禁止使用概念化别名（如 `A股`、`stock`）代替。
+3. 若审计结果变化，先更新三件套，再改实现与测试。
 
 ---
 
@@ -379,10 +401,11 @@ LIMIT :limit;
 2. 集成测试：
    - 正常/延迟/空/错误四态；
    - 7 榜单输出完整；
-   - `dc_hot` 非 A 股样本不入榜；
+   - `dc_hot` 非 A 股市场样本不入榜；
    - `dc_hot` rank 并列按 rank_time 新到旧；
    - `dc_hot` rank 为空按 rank_time 新到旧；
    - `dc_hot` rank/rank_time 同时无效样本被剔除。
+   - `dc_hot` 过滤口径使用线上实值（`query_market='A股市场'`），避免别名值导致空榜。
 3. 冒烟测试：
    - 真实源请求 pending 时显示 loading（不展示 mock 榜单）；
    - 真实源请求超过 5 秒显示 error（不回填 mock 榜单）；
@@ -459,4 +482,5 @@ LIMIT :limit;
 | v1 | 2026-05-08 | 建立榜单 M2 编码前门禁清单 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新通用清单：补齐映射矩阵、模块例外白名单、loading/error 行为门禁与配置边界 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：切策略配置中心、收口 boardKeys 非对外、补配置版本门禁与股票池过滤规则 | Codex |
-| v1.3 | 2026-05-10 | 同步热榜门禁：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序、异常值剔除与对应测试项 | Codex |
+| v1.3 | 2026-05-10 | 同步热榜门禁：补充 `dc_hot` 过滤、rank/rank_time 排序、异常值剔除与对应测试项 | Codex |
+| v1.4 | 2026-05-10 | 修正 `dc_hot` 真实口径为 `A股市场`，新增“源枚举审计 + fixture 实值对齐”编码前硬门禁 | Codex |

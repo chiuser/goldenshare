@@ -89,7 +89,8 @@ src/biz/
 
 1. 主查询（主链路）：
    - 行情榜（5 类）：`equity_daily_bar` 主集 + `equity_daily_basic` 补列。
-   - 热榜（2 类）：`dc_hot` 主集，强制 `query_market='A股'` + `data_type='stock'`。
+   - 热榜（2 类）：`dc_hot` 主集，强制 `query_market='A股市场'`。
+   - 口径说明：`data_type` 当前线上与 `query_market` 同域（如 `A股市场/ETF基金/港股市场`），不是 `stock/index` 分类字段，本期不作为独立过滤条件。
    - 股票池边界：`security_type='stock'` + `list_status='L'` + 上市/退市日期边界 + ST 过滤。
 2. 辅助查询（补列/补名）：
    - `security_serving` 名称兜底。
@@ -103,6 +104,10 @@ src/biz/
 6. 空数据与异常处理：
    - 空数据 -> `EMPTY/DELAYED`（视规则）。
    - 查询失败 -> `ERROR + LB_QUERY_FAILED`。
+7. 源参数口径防漂移门禁（实现前置）：
+   - 必须先做一条源表枚举 SQL 审计：按目标 `trade_date` 统计 `query_hot_type/query_market/data_type` 组合；
+   - 实现与测试使用同一套实值字面量（本期 `A股市场`）；
+   - 若枚举变化，先修三件套文档再改实现。
 
 ---
 
@@ -153,6 +158,7 @@ src/biz/
    - `dc_hot` rank 并列按 rank_time 新到旧；
    - `dc_hot` rank 为空按 rank_time 新到旧；
    - `dc_hot` rank/rank_time 同时无效样本被剔除。
+   - `dc_hot` 过滤口径使用线上实值（`query_market='A股市场'`），避免别名值导致空榜。
 3. 冒烟验证：
    - 调用 `/leaderboards` 返回结构完整；
    - debug=0/1 分支正确；
@@ -201,4 +207,5 @@ src/biz/
 | v1 | 2026-05-08 | 按模板重构实施方案结构，冻结模块实现落点 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补齐 loading/error/5秒超时行为、definition_registry 配置边界与测试约束 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：策略配置中心接管榜单定义、请求不再接收 boardKeys、补充股票池过滤与版本门禁 | Codex |
-| v1.3 | 2026-05-10 | 同步热榜实现口径：`dc_hot` 增加 A股+stock 过滤、rank/rank_time 排序链路与异常值剔除及测试项 | Codex |
+| v1.3 | 2026-05-10 | 同步热榜实现口径：补充 `dc_hot` 过滤、rank/rank_time 排序链路与异常值剔除及测试项 | Codex |
+| v1.4 | 2026-05-10 | 修正 `dc_hot` 真实过滤口径为 `A股市场`，补充“源枚举审计 + 测试实值对齐”门禁，移除错误的 `data_type='stock'` 语义 | Codex |
