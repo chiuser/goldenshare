@@ -556,9 +556,10 @@ def test_compute_macd_all_market_incremental_bootstraps_bse_920_on_later_first_s
     )
 
 
-def test_compute_macd_all_market_incremental_rejects_unmapped_bse_920_without_state(tmp_path) -> None:
+def test_compute_macd_all_market_incremental_bootstraps_unmapped_bse_920_on_first_source_date(tmp_path) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    progress_messages: list[str] = []
     _write_universe(tmp_path, [_stock("920001.BJ", "L", "20221227", None)])
     _write_bse_mapping(
         tmp_path,
@@ -570,14 +571,19 @@ def test_compute_macd_all_market_incremental_rejects_unmapped_bse_920_without_st
         rows=[_source_row("920001.BJ", "2022-07-15 10:00:00", 10.0)],
     )
 
-    with pytest.raises(RuntimeError, match="不在 bse_mapping.n_code"):
-        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
-            mode="incremental",
-            all_market=True,
-            freq=30,
-            start_date=datetime(2022, 7, 15).date(),
-            end_date=datetime(2022, 7, 15).date(),
-        )
+    summary = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=progress_messages.append).compute_macd(
+        mode="incremental",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2022, 7, 15).date(),
+        end_date=datetime(2022, 7, 15).date(),
+    )
+
+    state = MacdStateStore(lake_root=tmp_path).get_state(ts_code="920001.BJ", freq=30)
+    assert summary["status"] == "success"
+    assert summary["bootstrap_symbols"] == 1
+    assert state is not None
+    assert state.last_trade_time == datetime(2022, 7, 15, 10, 0)
 
 
 def test_compute_macd_all_market_incremental_rejects_old_security_without_state(tmp_path) -> None:

@@ -2,16 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from math import isnan
 from pathlib import Path
-from typing import Any
 
 import duckdb
 
-from lake_console.backend.app.services.parquet_writer import read_parquet_rows
 from lake_console.backend.app.services.security_universe_filter import load_security_universe_rows
 
-BSE_MAPPING_PATH = Path("manifest") / "security_reference" / "tushare_bse_mapping.parquet"
 BSE_920_STK_MINS_MIN_SOURCE_DATE = date(2022, 7, 15)
 RAW_FREQS = {1, 5, 15, 30, 60}
 DERIVED_FREQS = {90, 120}
@@ -25,12 +21,6 @@ class MissingStateClassification:
     @property
     def rejected(self) -> bool:
         return bool(self.rejected_reasons)
-
-
-@dataclass(frozen=True)
-class _BseMappingReference:
-    loaded: bool
-    new_codes: frozenset[str]
 
 
 def classify_missing_macd_states(
@@ -48,10 +38,9 @@ def classify_missing_macd_states(
 
     rows_by_code = {row.ts_code: row for row in load_security_universe_rows(lake_root=lake_root)}
     bse_missing_codes = sorted({item for item in missing_ts_codes if _is_bse_920_code(item)})
-    bse_reference = _load_bse_mapping_reference(lake_root=lake_root) if bse_missing_codes else None
     bse_first_source_dates = (
         _find_bse_920_first_source_dates(lake_root=lake_root, ts_codes=bse_missing_codes, freq=freq, end_date=trade_date)
-        if bse_reference is not None and bse_reference.loaded
+        if bse_missing_codes
         else {}
     )
     bootstrap_codes: set[str] = set()
@@ -68,16 +57,6 @@ def classify_missing_macd_states(
             )
             continue
         if _is_bse_920_code(ts_code):
-            if bse_reference is None or not bse_reference.loaded:
-                rejected_reasons[ts_code] = (
-                    "北交所 920 新代码缺少 bse_mapping manifest，无法按分钟线代码切换口径初始化 MACD state"
-                )
-                continue
-            if ts_code not in bse_reference.new_codes:
-                rejected_reasons[ts_code] = (
-                    "北交所 920 新代码不在 bse_mapping.n_code 中，无法按分钟线代码切换口径初始化 MACD state"
-                )
-                continue
             first_source_date = bse_first_source_dates.get(ts_code)
             if first_source_date is None:
                 rejected_reasons[ts_code] = (
@@ -118,19 +97,6 @@ def classify_missing_macd_states(
         bootstrap_ts_codes=frozenset(bootstrap_codes),
         rejected_reasons=rejected_reasons,
     )
-
-
-def _load_bse_mapping_reference(*, lake_root: Path) -> _BseMappingReference:
-    mapping_file = lake_root / BSE_MAPPING_PATH
-    if not mapping_file.exists():
-        return _BseMappingReference(loaded=False, new_codes=frozenset())
-
-    new_codes: set[str] = set()
-    for row in read_parquet_rows(mapping_file):
-        n_code = _text_or_none(row.get("n_code"))
-        if n_code and _is_bse_920_code(n_code):
-            new_codes.add(n_code)
-    return _BseMappingReference(loaded=True, new_codes=frozenset(new_codes))
 
 
 def _find_bse_920_first_source_dates(*, lake_root: Path, ts_codes: list[str], freq: int, end_date: date) -> dict[str, date]:
@@ -178,14 +144,3 @@ def _parse_trade_date_partition(partition: Path) -> date | None:
 
 def _is_bse_920_code(ts_code: str) -> bool:
     return ts_code.startswith("920") and ts_code.endswith(".BJ")
-
-
-def _text_or_none(value: Any) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, float) and isnan(value):
-        return None
-    text = str(value).strip()
-    if not text or text.lower() in {"nan", "nat", "none", "null"}:
-        return None
-    return text
