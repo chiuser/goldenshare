@@ -17,6 +17,7 @@ import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
+import { OpsV21BizTablePage } from "../pages/ops-v21-biz-table-page";
 import { OpsV21AccountPage } from "../pages/ops-v21-account-page";
 import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
 import { OpsV21DatasetAuditPage } from "../pages/ops-v21-dataset-audit-page";
@@ -382,6 +383,12 @@ const opsV21DatasetsBiyingRoute = createRoute({
   component: OpsV21BiyingPage,
 });
 
+const opsV21DatasetsBizRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/datasets/biz",
+  component: OpsV21BizTablePage,
+});
+
 const opsV21DatasetsTasksRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/datasets/tasks",
@@ -418,6 +425,7 @@ const routeTree = rootRoute.addChildren([
     opsV21ReviewDatasetAuditRoute,
     opsV21DatasetsTushareRoute,
     opsV21DatasetsBiyingRoute,
+    opsV21DatasetsBizRoute,
     opsV21DatasetsTasksRoute,
     opsV21DatasetDetailRoute,
     opsTaskRunsRoute,

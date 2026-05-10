@@ -67,6 +67,7 @@ docs/
 - [Ops 手动维护时间模式升级方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-time-mode-upgrade-plan-v1.md)
 - [Ops 自动任务日期策略方案 v1（第一期已落地）](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)
 - [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
+- [Ops Biz 表数据源展示方案 v1（已确认）](/Users/congming/github/goldenshare/docs/ops/ops-biz-table-source-display-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)

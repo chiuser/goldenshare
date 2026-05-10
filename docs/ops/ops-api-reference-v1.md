@@ -244,9 +244,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
-- 静态事实来源：数据集身份、名称、底层领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；freshness、layer snapshot、probe 只作为运行观测输入。
+- 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；freshness、layer snapshot、probe 只作为运行观测输入。`source_key=biz_tableset` 是 Biz 自建业务表只读展示分支，不进入 `DatasetDefinition`，不提供手动维护入口。
 - Query 参数：
-  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片。
+  - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时，返回 Biz 自建业务表只读卡片。
   - `limit`：默认 2000，范围 `1..2000`。
 - 返回：`DatasetCardListResponse`
   - `total`
@@ -257,6 +257,13 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
   "http://127.0.0.1:8000/api/v1/ops/dataset-cards?source_key=tushare&limit=2000"
+```
+
+Biz 数据集示例：
+
+```bash
+curl -H "Authorization: Bearer <TOKEN>" \
+  "http://127.0.0.1:8000/api/v1/ops/dataset-cards?source_key=biz_tableset&limit=2000"
 ```
 
 ```json
@@ -1421,9 +1428,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`group_key, group_label, group_order, items`
-- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
-- `DatasetCardStageStatus`：`stage, stage_label, table_name, source_key, status, rows_in, rows_out, error_count, lag_seconds, message, calculated_at, last_success_at, last_failure_at`
-- `DatasetCardSourceStatus`：`source_key, table_name, status, calculated_at`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
+- `DatasetCardStageStatus`：`stage, stage_label, table_name, source_key, source_display_name, status, rows_in, rows_out, error_count, lag_seconds, message, calculated_at, last_success_at, last_failure_at`
+- `DatasetCardSourceStatus`：`source_key, source_display_name, table_name, status, calculated_at`
 
 ### 12.2 任务运行
 
@@ -1526,22 +1533,25 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 4. `OpsV21BiyingPage`（`/ops/v21/datasets/biying`，复用 `OpsV21SourcePage`）
    - `GET /api/v1/ops/dataset-cards?source_key=biying&limit=2000`
    - 代码：[ops-v21-biying-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-biying-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
-5. `OpsV21TaskCenterPage`（`/ops/v21/datasets/tasks`，本体不直接请求 API，三 tab 分别请求）
+5. `OpsV21BizTablePage`（`/ops/v21/datasets/biz`，复用 `OpsV21SourcePage`）
+   - `GET /api/v1/ops/dataset-cards?source_key=biz_tableset&limit=2000`
+   - 代码：[ops-v21-biz-table-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-biz-table-page.tsx)、[ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
+6. `OpsV21TaskCenterPage`（`/ops/v21/datasets/tasks`，本体不直接请求 API，三 tab 分别请求）
    - 代码：[ops-v21-task-center-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-center-page.tsx)
-6. `OpsTasksPage`（任务记录 tab）
+7. `OpsTasksPage`（任务记录 tab）
    - `GET /api/v1/ops/catalog`
    - `GET /api/v1/ops/task-runs?...`
    - `GET /api/v1/ops/task-runs/summary?...`
    - `POST /api/v1/ops/task-runs/{task_run_id}/retry`
    - `POST /api/v1/ops/task-runs/{task_run_id}/cancel`
    - 代码：[ops-v21-task-records-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-records-tab.tsx)
-7. `OpsManualSyncPage`（手动同步 tab）
+8. `OpsManualSyncPage`（手动同步 tab）
    - `GET /api/v1/ops/manual-actions`
    - `GET /api/v1/ops/task-runs/{task_run_id}/view`（从任务记录预填时）
    - `GET /api/v1/ops/schedules/{schedule_id}`（预填时）
    - `POST /api/v1/ops/manual-actions/{action_key}/task-runs`
    - 代码：[ops-v21-task-manual-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx)
-8. `OpsAutomationPage`（自动运行 tab）
+9. `OpsAutomationPage`（自动运行 tab）
    - `GET /api/v1/ops/catalog`
    - `GET /api/v1/ops/schedules?limit=100`
    - `GET /api/v1/ops/schedules/stream?token=...`（SSE）
@@ -1556,7 +1566,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `POST /api/v1/ops/schedules/{schedule_id}/resume`
    - `DELETE /api/v1/ops/schedules/{schedule_id}`
    - 代码：[ops-v21-task-auto-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx)
-9. `OpsV21DatasetDetailPage`（`/ops/v21/datasets/detail/{datasetKey}`）
+10. `OpsV21DatasetDetailPage`（`/ops/v21/datasets/detail/{datasetKey}`）
    - `GET /api/v1/ops/dataset-cards?limit=2000`
    - `GET /api/v1/ops/layer-snapshots/history?dataset_key=...&limit=50`
    - `GET /api/v1/ops/task-runs?resource_key=...&limit=20`
@@ -1565,22 +1575,22 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `GET /api/v1/ops/std-rules/mapping?dataset_key=...&limit=100`
    - `GET /api/v1/ops/std-rules/cleansing?dataset_key=...&limit=100`
    - 代码：[ops-v21-dataset-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-dataset-detail-page.tsx)
-10. `OpsTaskDetailPage`（`/ops/tasks/{taskRunId}`）
+11. `OpsTaskDetailPage`（`/ops/tasks/{taskRunId}`）
     - `GET /api/v1/ops/task-runs/{task_run_id}/view`
     - `GET /api/v1/ops/task-runs/{task_run_id}/issues/{issue_id}`（点击“查看技术诊断”时）
     - `POST /api/v1/ops/task-runs/{task_run_id}/retry`
     - `POST /api/v1/ops/task-runs/{task_run_id}/cancel`
     - 代码：[ops-task-detail-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-task-detail-page.tsx)
-11. `OpsV21ReviewIndexPage`（`/ops/v21/review/index`）
+12. `OpsV21ReviewIndexPage`（`/ops/v21/review/index`）
     - `GET /api/v1/ops/review/index/active?...`
     - 代码：[ops-v21-review-index-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-index-page.tsx)
-12. `OpsV21ReviewBoardPage`（`/ops/v21/review/board`）
+13. `OpsV21ReviewBoardPage`（`/ops/v21/review/board`）
     - `GET /api/v1/ops/review/board/ths?...`
     - `GET /api/v1/ops/review/board/dc?...`
     - `GET /api/v1/ops/review/board/equity-membership?...`
     - `GET /api/v1/ops/review/board/equity-suggest?...`
     - 代码：[ops-v21-review-board-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-board-page.tsx)
-13. `OpsV21AccountPage`（`/ops/v21/account`，账户管理页）
+14. `OpsV21AccountPage`（`/ops/v21/account`，账户管理页）
     - 该页主要调用 `admin` 路由（不是 `/api/v1/ops/*`）：
     - `GET /api/v1/admin/users?...`
     - `POST /api/v1/admin/users`

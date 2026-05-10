@@ -36,6 +36,7 @@ const opsV21SourceLinks = [
   { to: "/ops/v21/overview", label: "数据状态总览", icon: IconActivityHeartbeat },
   { to: "/ops/v21/datasets/tushare", label: "Tushare", icon: IconTopologyRing3 },
   { to: "/ops/v21/datasets/biying", label: "Biying", icon: IconTopologyRing3 },
+  { to: "/ops/v21/datasets/biz", label: "Biz数据集", icon: IconTopologyRing3 },
 ];
 
 const opsV21ReviewLinks = [
@@ -56,6 +57,7 @@ export function OpsShell(_props: PropsWithChildren) {
     location.pathname === "/ops/v21/overview" ||
     location.pathname === "/ops/v21/datasets/tushare" ||
     location.pathname === "/ops/v21/datasets/biying" ||
+    location.pathname === "/ops/v21/datasets/biz" ||
     location.pathname.startsWith("/ops/v21/datasets/detail/");
   const isReviewSectionActive = location.pathname.startsWith("/ops/v21/review/");
 

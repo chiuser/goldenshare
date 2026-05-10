@@ -9,20 +9,24 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 type CardStatus = "running" | "healthy" | "warning" | "stale" | "failed" | "unknown";
-type SourceKey = "tushare" | "biying";
+type SourceKey = "tushare" | "biying" | "biz_tableset";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
+
+const RAW_SOURCE_DESCRIPTION = "仅展示数据源侧原始下载状态（raw）。这里不展示 std / serving。";
 
 interface SourceCardItem {
   datasetKey: string;
   displayName: string;
-  rawTableLabel: string;
+  tableLabel: string;
   status: CardStatus;
+  lastSyncLabel: string;
   lastSyncText: string;
   dateRangeText: string;
   cadenceText: string;
   primaryActionKey: string | null;
   autoEnabled: boolean;
   autoTooltip: string;
+  autoTooltipText: string;
   probeEnabled: boolean;
   probeTooltip: string;
 }
@@ -74,7 +78,31 @@ function buildDateRangeText(item: DatasetCard): string {
   return "—";
 }
 
-export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; title: string }) {
+function isBizTableCard(item: DatasetCard): boolean {
+  return item.delivery_mode === "biz_table_snapshot";
+}
+
+function buildLastSyncText(item: DatasetCard, hasActiveTaskRun: boolean): string {
+  if (hasActiveTaskRun) {
+    return item.active_task_run_started_at
+      ? `执行中（开始于 ${formatDateTimeLabel(item.active_task_run_started_at)}）`
+      : "执行中";
+  }
+  if (isBizTableCard(item)) {
+    return item.latest_success_at ? formatDateTimeLabel(item.latest_success_at) : "—";
+  }
+  return item.last_sync_date ? formatDateLabel(item.last_sync_date) : "—";
+}
+
+export function OpsV21SourcePage({
+  sourceKey,
+  title,
+  description,
+}: {
+  sourceKey: SourceKey;
+  title: string;
+  description?: string;
+}) {
   const cardQuery = useQuery({
     queryKey: ["ops", "dataset-cards", `v21-source-${sourceKey}`],
     queryFn: () => apiRequest<DatasetCardListResponse>(`/api/v1/ops/dataset-cards?source_key=${sourceKey}`),
@@ -90,21 +118,14 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
       const activeTaskRunStatus = (item.active_task_run_status || "").toLowerCase();
       const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
       const status = toCardStatus(item.status);
-      const lastSyncText = hasActiveTaskRun
-        ? (
-            item.active_task_run_started_at
-              ? `执行中（开始于 ${formatDateTimeLabel(item.active_task_run_started_at)}）`
-              : "执行中"
-          )
-        : item.last_sync_date
-          ? formatDateLabel(item.last_sync_date)
-          : "—";
+      const isBizTable = isBizTableCard(item);
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
-        rawTableLabel: item.raw_table_label || "—",
+        tableLabel: isBizTable ? item.target_table || "—" : item.raw_table_label || "—",
         status,
-        lastSyncText,
+        lastSyncLabel: isBizTable ? "最近构建" : "最近同步",
+        lastSyncText: buildLastSyncText(item, hasActiveTaskRun),
         dateRangeText: buildDateRangeText(item),
         cadenceText: item.cadence_display_name,
         primaryActionKey: item.primary_action_key || null,
@@ -117,6 +138,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
         probeTooltip: item.probe_total > 0
           ? `已配置自动探测规则 ${item.probe_active}/${item.probe_total} 条`
           : "未配置自动探测规则",
+        autoTooltipText: isBizTable ? "只读展示" : "未配置自动更新",
       };
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, "zh-CN"));
@@ -130,7 +152,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
     <Stack gap="lg">
       <SectionCard
         title={title}
-        description="仅展示数据源侧原始下载状态（raw）。这里不展示 std / serving。"
+        description={description || RAW_SOURCE_DESCRIPTION}
       >
         {isLoading ? <Loader size="sm" /> : null}
         {error ? (
@@ -142,7 +164,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
 
       {!isLoading && !error && cards.length === 0 ? (
         <Alert color="info" title={`暂无 ${title} 数据`}>
-          当前没有可展示的 raw 数据源状态。
+          {sourceKey === "biz_tableset" ? "当前没有可展示的 Biz 表状态。" : "当前没有可展示的 raw 数据源状态。"}
         </Alert>
       ) : null}
 
@@ -176,14 +198,14 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           </Text>
                         </Group>
                         <Text size="xs" c="dimmed" ml={17} lineClamp={1}>
-                          {item.rawTableLabel}
+                          {item.tableLabel}
                         </Text>
                       </Stack>
                     </Group>
 
                     <Stack gap={6}>
                       <Group gap={6} wrap="wrap">
-                        <Text size="sm">最近同步：{item.lastSyncText}</Text>
+                        <Text size="sm">{item.lastSyncLabel}：{item.lastSyncText}</Text>
                         <StatusBadge value={item.status} label={statusLabel(item.status)} size="xs" />
                       </Group>
                       <Text size="sm">更新频率：{item.cadenceText}</Text>
@@ -207,7 +229,7 @@ export function OpsV21SourcePage({ sourceKey, title }: { sourceKey: SourceKey; t
                           </Tooltip>
                         ) : null}
                         {!item.autoEnabled && !item.probeEnabled ? (
-                          <Text size="xs" c="dimmed">未配置自动更新</Text>
+                          <Text size="xs" c="dimmed">{item.autoTooltipText}</Text>
                         ) : null}
                       </Group>
                       {item.status !== "healthy" && item.primaryActionKey ? (

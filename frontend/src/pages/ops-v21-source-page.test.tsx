@@ -14,7 +14,13 @@ vi.mock("../shared/api/client", () => ({
   apiRequest,
 }));
 
-function renderPage() {
+function renderPage(
+  props: {
+    sourceKey?: "tushare" | "biying" | "biz_tableset";
+    title?: string;
+    description?: string;
+  } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -24,7 +30,11 @@ function renderPage() {
   return render(
     <MantineProvider theme={appTheme}>
       <QueryClientProvider client={queryClient}>
-        <OpsV21SourcePage sourceKey="tushare" title="数据集 · Tushare" />
+        <OpsV21SourcePage
+          sourceKey={props.sourceKey || "tushare"}
+          title={props.title || "数据集 · Tushare"}
+          description={props.description}
+        />
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -231,5 +241,74 @@ describe("V2.1 数据源详情页", () => {
     expect(await screen.findByText("股票曾用名")).toBeInTheDocument();
     expect(await screen.findByText("严重滞后")).toBeInTheDocument();
     expect(screen.queryByText("失败")).not.toBeInTheDocument();
+  });
+
+  it("支持 Biz 数据集只读卡片展示", async () => {
+    apiRequest.mockImplementation(async (url: string) => {
+      if (url === "/api/v1/ops/dataset-cards?source_key=biz_tableset") {
+        return {
+          total: 1,
+          groups: [
+            {
+              group_key: "wealth_market",
+              group_label: "财势乾坤",
+              group_order: 90,
+              items: [
+                card({
+                  card_key: "wealth_market_turnover_snapshot",
+                  dataset_key: "wealth_market_turnover_snapshot",
+                  detail_dataset_key: "wealth_market_turnover_snapshot",
+                  resource_key: "wealth_market_turnover_snapshot",
+                  display_name: "成交额分钟快照",
+                  group_key: "wealth_market",
+                  group_label: "财势乾坤",
+                  group_order: 90,
+                  item_order: 10,
+                  domain_key: "biz_tableset",
+                  domain_display_name: "Biz数据集",
+                  delivery_mode: "biz_table_snapshot",
+                  delivery_mode_label: "业务派生表",
+                  delivery_mode_tone: "info",
+                  layer_plan: "biz_tableset",
+                  cadence: "derived",
+                  cadence_display_name: "业务派生",
+                  raw_table: null,
+                  raw_table_label: null,
+                  target_table: "core_serving.wealth_market_turnover_snapshot",
+                  latest_business_date: "2026-05-08",
+                  earliest_business_date: "2026-05-08",
+                  latest_observed_at: "2026-05-08T15:00:00",
+                  latest_success_at: "2026-05-08T20:10:00+08:00",
+                  last_sync_date: null,
+                  expected_business_date: "2026-05-08",
+                  primary_action_key: null,
+                  auto_schedule_status: "none",
+                  auto_schedule_total: 0,
+                  auto_schedule_active: 0,
+                  auto_schedule_next_run_at: null,
+                  probe_total: 0,
+                  probe_active: 0,
+                }),
+              ],
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    renderPage({
+      sourceKey: "biz_tableset",
+      title: "数据集 · Biz数据集",
+      description: "展示本系统自建业务派生表的只读状态。暂不提供写入和调度入口。",
+    });
+
+    expect(await screen.findByText("数据集 · Biz数据集")).toBeInTheDocument();
+    expect(await screen.findByText("成交额分钟快照")).toBeInTheDocument();
+    expect(await screen.findByText("core_serving.wealth_market_turnover_snapshot")).toBeInTheDocument();
+    expect(await screen.findByText("最近构建：2026/05/08 20:10:00")).toBeInTheDocument();
+    expect(await screen.findByText("只读展示")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "去操作" })).not.toBeInTheDocument();
+    expect(screen.queryByText("未配置自动更新")).not.toBeInTheDocument();
   });
 });

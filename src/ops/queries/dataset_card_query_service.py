@@ -27,6 +27,8 @@ from src.ops.dataset_definition_projection import (
     delivery_mode_tone,
 )
 from src.ops.layer_stage_labels import get_layer_stage_display_name
+from src.ops.catalog.biz_table_catalog import BIZ_TABLE_SOURCE_KEY
+from src.ops.queries.biz_table_card_query_service import BizTableCardQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
@@ -72,6 +74,8 @@ class DatasetCardQueryService:
         if normalized_source == "":
             normalized_source = None
         limit = max(1, min(limit, 2000))
+        if normalized_source == BIZ_TABLE_SOURCE_KEY:
+            return BizTableCardQueryService().list_cards(session, limit=limit)
 
         definitions = list_dataset_definitions()
         config_flags = self._config_flags(session, [definition.dataset_key for definition in definitions])
