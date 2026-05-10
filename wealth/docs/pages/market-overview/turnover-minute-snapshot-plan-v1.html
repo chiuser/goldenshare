@@ -664,6 +664,65 @@ CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
             </tr>
           </tbody>
         </table>
+
+        <h3>7.1 手动物化命令区间扩充</h3>
+        <p>
+          为了支持分钟线历史回补后的批量重建，<code>wealth-build-turnover-snapshot</code>
+          需要在既有单日模式基础上增加区间模式。该扩充仍然只属于手动命令能力，
+          不接入自动调度、不接入 TaskRun、不改变页面 API 契约。
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>能力</th>
+              <th>设计口径</th>
+              <th>边界</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>单日模式</td>
+              <td><code>--trade-date YYYY-MM-DD</code></td>
+              <td>保留现有行为，默认生成 <code>1/5/15/30/60</code>，可用 <code>--freq</code> 单频率重建</td>
+            </tr>
+            <tr>
+              <td>区间模式</td>
+              <td><code>--start-date YYYY-MM-DD --end-date YYYY-MM-DD</code></td>
+              <td>按交易日历展开开市日，不按自然日硬跑</td>
+            </tr>
+            <tr>
+              <td>参数互斥</td>
+              <td><code>--trade-date</code> 与 <code>--start-date/--end-date</code> 互斥</td>
+              <td>避免同一命令同时表达单日和区间两个意图</td>
+            </tr>
+            <tr>
+              <td>区间完整性</td>
+              <td><code>--start-date</code> 与 <code>--end-date</code> 必须同时出现，且 <code>start_date &lt;= end_date</code></td>
+              <td>半区间直接拒绝，不能猜默认边界</td>
+            </tr>
+            <tr>
+              <td>提交策略</td>
+              <td>逐交易日执行、逐交易日提交</td>
+              <td>禁止把整个区间放进一个大事务，避免长区间失败导致已完成日期回滚</td>
+            </tr>
+            <tr>
+              <td>输出策略</td>
+              <td>先输出计划，再逐日输出进度，最后输出总汇总</td>
+              <td>长任务必须可观测；失败日期必须可定点重跑</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <pre>goldenshare wealth-build-turnover-snapshot --start-date 2026-05-01 --end-date 2026-05-08
+goldenshare wealth-build-turnover-snapshot --start-date 2026-05-01 --end-date 2026-05-08 --freq 30</pre>
+
+        <p class="legend">
+          计划输出示例：
+          <code>plan range=2026-05-01~2026-05-08 trade_days=5 freqs=1,5,15,30,60</code>，
+          单日进度示例：
+          <code>[2/5] trade_date=2026-05-05 ready=5 failed=0</code>。
+        </p>
       </section>
 
       <section class="section">
@@ -685,6 +744,8 @@ CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
               <li>如果 snapshot 产出链路没有和分钟线同步成功点绑定，会出现 raw 已新、snapshot 未新的短暂不一致。</li>
               <li>如果仍保留 raw fallback，会让系统重新回到“有时快、有时超时”的不稳定态。</li>
               <li><code>points_json</code> 结构一旦定下，后续改动要控制版本。</li>
+              <li>区间命令依赖交易日历；若 <code>core.trade_calendar</code> 缺失或滞后，会导致展开结果为空或不完整。</li>
+              <li>长区间生成耗时较长；如果没有逐日提交和进度输出，用户难以判断任务是否卡住。</li>
             </ol>
           </div>
           <div class="callout">
@@ -693,6 +754,8 @@ CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
               <li>明确 snapshot 是唯一分钟页面事实源，不允许 raw fallback。</li>
               <li>物化任务采用“切片级覆盖”而不是“边写边加”。</li>
               <li>保留 <code>build_version</code> 字段，后续 schema 演进可控。</li>
+              <li>区间命令只展开开市交易日；区间内无开市日时直接失败并输出原因。</li>
+              <li>区间模式逐交易日提交，并在最终汇总中列出失败日期，便于定点重跑。</li>
             </ol>
           </div>
         </div>
@@ -726,6 +789,7 @@ CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
           <h3>D4. 物化触发方式</h3>
           <p>
             已确认：首期只支持手动命令触发，不接自动触发。
+            命令支持单日模式与区间模式；区间模式按交易日历展开并逐日提交。
           </p>
         </div>
 
@@ -761,6 +825,7 @@ CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
           <li>先建表与手动物化命令，再补切片级重建与验证链路。</li>
           <li>再改 <code>turnover</code> 查询链路，彻底切到 snapshot 读取。</li>
           <li>最后做页面回归，确认彻底去掉 raw 分钟在线聚合。</li>
+          <li>在单日命令稳定后，扩充 <code>--start-date/--end-date</code> 区间模式；该步骤只改命令入口、交易日展开、逐日提交和输出，不改表结构与页面 API。</li>
         </ol>
         <p class="footnote">
           当前本方案范围内已无待拍板项，可进入编码前门禁评审阶段。

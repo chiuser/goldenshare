@@ -241,7 +241,9 @@ def refresh_serving_light(
 
 @app.command("wealth-build-turnover-snapshot")
 def wealth_build_turnover_snapshot(
-    trade_date: str = typer.Option(..., "--trade-date", help="交易日，格式 YYYY-MM-DD"),
+    trade_date: str | None = typer.Option(None, "--trade-date", help="交易日，格式 YYYY-MM-DD"),
+    start_date: str | None = typer.Option(None, "--start-date", help="区间起始交易日，格式 YYYY-MM-DD"),
+    end_date: str | None = typer.Option(None, "--end-date", help="区间结束交易日，格式 YYYY-MM-DD"),
     freq: list[int] = typer.Option(
         [],
         "--freq",
@@ -252,7 +254,10 @@ def wealth_build_turnover_snapshot(
         session_local=SessionLocal,
         service_cls=TurnoverSnapshotMaterializeService,
         trade_date=trade_date,
+        start_date=start_date,
+        end_date=end_date,
         freqs=freq,
+        default_exchange=get_settings().default_exchange,
         echo_fn=typer.echo,
     )
 

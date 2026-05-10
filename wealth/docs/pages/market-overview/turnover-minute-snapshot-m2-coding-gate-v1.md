@@ -136,11 +136,80 @@ goldenshare wealth-build-turnover-snapshot --trade-date YYYY-MM-DD
 goldenshare wealth-build-turnover-snapshot --trade-date YYYY-MM-DD --freq 30
 ```
 
-### 5.3 幂等规则
+### 5.3 区间命令扩充方案
+
+#### 5.3.1 目标
+
+支持一次生成一段交易日区间内的 turnover snapshot，便于分钟线历史回补后批量重建页面事实源。
+
+该扩充只属于手动物化命令能力，不引入自动调度，不接入 TaskRun，不改变 `/api/v1/wealth/market/turnover` 对外契约。
+
+#### 5.3.2 参数语义
+
+命令新增：
+
+```text
+goldenshare wealth-build-turnover-snapshot --start-date YYYY-MM-DD --end-date YYYY-MM-DD
+goldenshare wealth-build-turnover-snapshot --start-date YYYY-MM-DD --end-date YYYY-MM-DD --freq 30
+```
+
+参数规则：
+
+1. `--trade-date` 表示单日模式。
+2. `--start-date + --end-date` 表示区间模式。
+3. 单日模式与区间模式互斥，不允许同时传 `--trade-date` 和 `--start-date/--end-date`。
+4. 区间模式必须同时传 `--start-date` 与 `--end-date`，不允许只传其中一个。
+5. `start_date <= end_date`，否则命令直接失败。
+6. `--freq` 继续沿用现有规则：可重复指定；不传默认重建 `1/5/15/30/60`。
+
+#### 5.3.3 交易日展开
+
+区间模式必须通过交易日历展开交易日：
+
+1. 数据源：`core.trade_calendar` 对应模型 `TradeCalendar`。
+2. 展开条件：`exchange = settings.default_exchange` 且 `is_open = true`。
+3. 不按自然日硬跑，周末和节假日不生成 FAILED 快照。
+4. 若区间内没有开市交易日，命令必须失败并输出明确原因，不能静默成功。
+
+#### 5.3.4 提交与失败策略
+
+区间模式必须逐交易日执行、逐交易日提交：
+
+1. 每个交易日调用现有单日物化能力。
+2. 每个交易日完成后立即 `commit`。
+3. 单日失败时，不回滚之前已成功提交的日期。
+4. 失败日期必须进入最终汇总输出，便于重跑指定日期。
+5. 不允许把整个区间包进一个大事务。
+
+#### 5.3.5 友好输出
+
+区间命令必须输出可读进度：
+
+```text
+wealth-build-turnover-snapshot plan range=2026-05-01~2026-05-08 trade_days=5 freqs=1,5,15,30,60
+[1/5] trade_date=2026-05-04 ready=5 failed=0
+[2/5] trade_date=2026-05-05 ready=5 failed=0
+...
+wealth-build-turnover-snapshot done dates=5 freq_jobs=25 ready=25 failed=0
+```
+
+单日模式保留现有逐频率明细输出；区间模式也应保留每个交易日内的频率级明细，避免长任务无反馈。
+
+#### 5.3.6 本轮不做
+
+1. 不新增自动触发。
+2. 不新增 Ops 任务入口。
+3. 不新增前端入口。
+4. 不改变 snapshot 表结构。
+5. 不改变 turnover API 读取逻辑。
+6. 不增加 raw fallback。
+
+### 5.4 幂等规则
 
 1. 同一 `(type, market, trade_date, freq)` 反复执行，结果必须覆盖同一主键行
 2. 不允许累计叠加旧结果
 3. 单频率重建不得影响其他频率快照
+4. 区间重建本质上是多个单日重建的顺序执行；每个日期仍遵守同一主键覆盖规则
 
 ---
 
@@ -225,6 +294,11 @@ goldenshare wealth-build-turnover-snapshot --trade-date YYYY-MM-DD --freq 30
    - 手动物化命令成功构建 `1/5/15/30/60`
    - 重跑同日同频率不产生重复行
    - `build_status=FAILED` 时 API 不读取失败快照
+   - `wealth-build-turnover-snapshot --start-date --end-date` 只展开开市交易日
+   - 区间模式逐交易日提交，前一日成功不被后一日失败回滚
+   - `--trade-date` 与 `--start-date/--end-date` 同时传入时拒绝
+   - 区间模式只传 `--start-date` 或只传 `--end-date` 时拒绝
+   - 区间内无开市交易日时拒绝并输出明确原因
 3. API 测试：
    - `turnover` 真实接口改读 snapshot 后结构不变
    - `debugInfo` 能看到 snapshot 观测日期
@@ -239,6 +313,7 @@ goldenshare wealth-build-turnover-snapshot --trade-date YYYY-MM-DD --freq 30
 1. 若物化器失败：
    - 允许停止切换
    - 不允许页面 fallback raw
+   - 区间模式必须按最终输出中的失败日期定点重跑，不允许盲目清空整表
 2. 若 API 切换后发现快照错误：
    - 回退代码到 snapshot 接入前版本
    - 保留快照表与物化命令，不删除已建结构
@@ -273,3 +348,4 @@ goldenshare wealth-build-turnover-snapshot --trade-date YYYY-MM-DD --freq 30
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-09 | 首版：冻结 turnover 分钟线快照长期改造的编码前门禁 | Codex |
+| v1.1 | 2026-05-10 | 补充 `wealth-build-turnover-snapshot` 区间模式方案：交易日展开、逐日提交、友好输出与测试门禁 | Codex |
