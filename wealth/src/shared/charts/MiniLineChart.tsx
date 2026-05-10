@@ -55,10 +55,10 @@ function niceRange(values: number[], zeroCenter: boolean, yMin?: number, yMax?: 
   let finalMax = max + padding;
 
   if (typeof yMin === "number") {
-    finalMin = Math.max(yMin, finalMin);
+    finalMin = yMin;
   }
   if (typeof yMax === "number") {
-    finalMax = Math.max(yMax, finalMax);
+    finalMax = yMax;
   }
   if (finalMax <= finalMin) {
     finalMax = finalMin + 1;
@@ -94,7 +94,7 @@ function setupCanvas(canvas: HTMLCanvasElement) {
 function drawAxes(
   ctx: CanvasRenderingContext2D,
   metrics: CanvasMetrics,
-  labels: Array<{ label: string; x: number }>,
+  labels: Array<{ align: CanvasTextAlign; label: string; x: number }>,
   yTicks: Array<{ label: string; y: number }>,
 ) {
   const gridColor = cssVar("--cs-color-chart-grid-primary");
@@ -122,8 +122,10 @@ function drawAxes(
   ctx.lineTo(metrics.width - metrics.pad.r, metrics.height - metrics.pad.b);
   ctx.stroke();
 
-  ctx.textAlign = "center";
-  labels.forEach((label) => ctx.fillText(label.label, label.x, metrics.height - 8));
+  labels.forEach((label) => {
+    ctx.textAlign = label.align;
+    ctx.fillText(label.label, label.x, metrics.height - 8);
+  });
 }
 
 export function MiniLineChart({
@@ -143,8 +145,17 @@ export function MiniLineChart({
   const values = data.flatMap((item) => series.map((serie) => Number(item[serie.key])));
   const range = niceRange(values, zeroCenter, yMin, yMax);
 
-  function buildMetrics(width: number, canvasHeight: number): CanvasMetrics {
-    const pad = { l: 48, r: 16, t: 16, b: 32 };
+  function buildMetrics(
+    width: number,
+    canvasHeight: number,
+    padOverrides?: Partial<{ b: number; l: number; r: number; t: number }>,
+  ): CanvasMetrics {
+    const pad = {
+      l: padOverrides?.l ?? 48,
+      r: padOverrides?.r ?? 16,
+      t: padOverrides?.t ?? 16,
+      b: padOverrides?.b ?? 32,
+    };
     const span = range.max - range.min || 1;
     const x = (index: number) => pad.l + (width - pad.l - pad.r) * (index / Math.max(1, data.length - 1));
     const y = (value: number) => pad.t + ((range.max - value) / span) * (canvasHeight - pad.t - pad.b);
@@ -157,7 +168,25 @@ export function MiniLineChart({
     const setup = setupCanvas(canvas);
     if (!setup) return;
     const { ctx, height: canvasHeight, width } = setup;
-    const metrics = buildMetrics(width, canvasHeight);
+    const numberFont = cssVar("--cs-font-family-number");
+    ctx.font = `11px ${numberFont}`;
+    const previewLabels =
+      yTickValues && yTickValues.length > 0
+        ? [...yTickValues].map((value) => yFormatter(value))
+        : [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const value = range.max - (range.max - range.min) * ratio;
+            return yFormatter(value);
+          });
+    const maxYLabelWidth = previewLabels.reduce((maxWidth, label) => {
+      if (typeof ctx.measureText === "function") {
+        return Math.max(maxWidth, ctx.measureText(label).width);
+      }
+      return Math.max(maxWidth, label.length * 7);
+    }, 0);
+    const metrics = buildMetrics(width, canvasHeight, {
+      b: 36,
+      l: Math.max(48, Math.ceil(maxYLabelWidth) + 14),
+    });
     const yTicks =
       yTickValues && yTickValues.length > 0
         ? [...yTickValues].map((value) => ({
@@ -172,7 +201,19 @@ export function MiniLineChart({
             };
           });
     const xLabelIndices = [0, Math.floor((data.length - 1) / 2), data.length - 1];
-    const xLabels = xLabelIndices.map((index) => ({ label: String(data[index]?.label ?? ""), x: metrics.x(index) }));
+    const xLabels = xLabelIndices.map((index, labelIndex) => {
+      if (labelIndex === 0) {
+        return { align: "left" as const, label: String(data[index]?.label ?? ""), x: metrics.pad.l + 2 };
+      }
+      if (labelIndex === xLabelIndices.length - 1) {
+        return {
+          align: "right" as const,
+          label: String(data[index]?.label ?? ""),
+          x: metrics.width - metrics.pad.r - 2,
+        };
+      }
+      return { align: "center" as const, label: String(data[index]?.label ?? ""), x: metrics.x(index) };
+    });
     const sampledDotStep = Math.ceil(data.length / 8);
 
     ctx.clearRect(0, 0, width, canvasHeight);

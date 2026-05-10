@@ -11,6 +11,11 @@ const ranges = [
   { value: "3m", label: "3个月" },
 ];
 
+const TURNOVER_Y_TICKS = [0, 10000, 20000, 30000, 40000];
+const TURNOVER_Y_MIN = 0;
+const TURNOVER_Y_MAX = 40000;
+const TURNOVER_LINE_WIDTH = 2.5;
+
 interface TurnoverOverviewPanelProps {
   viewState: "loading" | "ready" | "error";
   turnover?: MarketTurnoverViewModel;
@@ -46,6 +51,7 @@ export function TurnoverOverviewPanel({ viewState, turnover, errorMessage }: Tur
             {(turnover?.metrics ?? []).map((metric) => (
               <MetricCard
                 key={metric.label}
+                className={metric.label === "5日均值" ? "turnover-metric-avg" : undefined}
                 label={metric.label}
                 sub={metric.sub}
                 value={<span className={metric.tone ?? "flat"}>{metric.value}</span>}
@@ -67,10 +73,13 @@ export function TurnoverOverviewPanel({ viewState, turnover, errorMessage }: Tur
                     color: "var(--cs-color-brand)",
                     dots: true,
                     valueFormatter: (v) => `${Math.round(v)}亿`,
-                    width: 2.5,
+                    width: TURNOVER_LINE_WIDTH,
                   },
                 ]}
                 yFormatter={(value) => `${Math.round(value)}亿`}
+                yMin={TURNOVER_Y_MIN}
+                yMax={TURNOVER_Y_MAX}
+                yTickValues={TURNOVER_Y_TICKS}
               />
             </div>
             <div>
@@ -86,10 +95,13 @@ export function TurnoverOverviewPanel({ viewState, turnover, errorMessage }: Tur
                     name: "成交额",
                     color: "var(--cs-color-info)",
                     valueFormatter: (v) => `${Math.round(v)}亿`,
-                    width: 2.3,
+                    width: TURNOVER_LINE_WIDTH,
                   },
                 ]}
-                yFormatter={(value) => `${Math.round(value / 1000)}k亿`}
+                yFormatter={(value) => `${Math.round(value)}亿`}
+                yMin={TURNOVER_Y_MIN}
+                yMax={TURNOVER_Y_MAX}
+                yTickValues={TURNOVER_Y_TICKS}
               />
             </div>
           </div>

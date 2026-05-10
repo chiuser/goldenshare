@@ -727,6 +727,12 @@ h1 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.turnover-metric-avg .metric-sub {
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .range-switch {
   display: inline-flex;
   background: #0b1220;
