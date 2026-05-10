@@ -1,7 +1,7 @@
 # 股票分钟线指标系统设计方案 v1
 
 - 版本：v1
-- 状态：已评审，M7 新股/老股 state 判定收口
+- 状态：MACD 主链已落地；自动 resume、MA、BOLL 未实现
 - 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
@@ -386,7 +386,7 @@ freq x trade_month x bucket
 -> 每个月的结果先写入 _tmp 指标 by_date 分区
 -> 当月所有 bucket 写完后，replace 当月涉及的正式 by_date 分区
 -> by_date 写入成功后，推进 ema_state 到该月末
--> 记录 month checkpoint 进度
+-> 输出 month 进度
 -> 所有目标月份完成后，重建 indicator research
 ```
 
@@ -396,7 +396,7 @@ freq x trade_month x bucket
 2. 最终仍然保留按日期分区，方便全市场横截面查询。
 3. 内存只承载当前月份当前 bucket，不把多年全市场数据一次性读入内存。
 4. 某个月失败时，已完成月份的 by_date 结果和 `ema_state` 已经落盘，不会整段白跑。
-5. 进度输出能看到 `freq/month/bucket/source_rows/written/checkpoint`，避免长时间黑盒执行。
+5. 进度输出能看到 `freq/month/bucket/source_rows/written`，避免长时间黑盒执行。
 
 ### 7.3 状态更新时机
 
@@ -467,7 +467,7 @@ scope=all_market 或 ts_code
 | 场景 | 处理 |
 |---|---|
 | 新上市股票，源数据从首根开始 | 从首根 K 线建立 state |
-| 老股票缺 state，但已有多年历史 | 进入 bootstrap，全量计算该股票该频度 |
+| 老股票缺 state，但已有多年历史 | 返回 `needs_bootstrap`，拒绝从中途初始化 |
 | 用户要求强制增量但 state 缺失 | 返回 `needs_bootstrap`，不假装成功 |
 
 这样做能得到：
@@ -576,15 +576,8 @@ lake-console compute-stk-mins-indicator \
 
 如果系统能低成本从 source layer 扫到最新 `trade_date`，可以把 `--end-date` 直接填成实际日期；如果扫不到或成本太高，就输出占位符，并明确提示用户填写。
 
-后续阶段再考虑半自动消费：
-
-```bash
-lake-console process-indicator-recalc-queue \
-  --indicator macd \
-  --limit 10
-```
-
-但第一版不要自动后台消费 queue，避免在移动盘上突然启动重 IO 任务。
+后续如果要做半自动消费，必须单独补方案、命令契约、取消/失败恢复规则；当前代码没有自动消费命令。
+第一版不要自动后台消费 queue，避免在移动盘上突然启动重 IO 任务。
 
 ---
 
@@ -933,7 +926,7 @@ bucket = stable_hash(ts_code) % 32
 3. 支持 `--mode full|incremental`。
 4. 支持 `--all-market` 和 `--ts-code`。
 5. 全市场 full 必须按 `freq -> trade_month -> bucket` 流式执行，不能一次性读入多年全市场数据。
-6. 有进度输出，显示当前 `freq/month/bucket/source_rows/written/state_updates/checkpoint`。
+6. 有进度输出，显示当前 `freq/month/bucket/source_rows/written/state_updates`。
 
 ### M5：指标 research 重排
 
@@ -1036,7 +1029,7 @@ bucket = stable_hash(ts_code) % 32
 2. 指标路径采用统一目录 `stk_mins_indicators_by_date`，通过 `indicator=macd` 区分。
 3. 第一批 CLI 采用通用 `compute-stk-mins-indicator --indicator macd`，而不是单独 `compute-stk-mins-macd`。
 4. 全市场 full 先要求 source research 已存在，再计算指标，避免直接扫描大量 by_date。
-5. 源分区替换后的正式重算队列放到 M8；在 M8 前先用文档/命令提示人工重算，不能自动后台启动重 IO 任务。
+5. 源分区替换后的人工重算队列已在 M8 落地；当前只记录待重算项、输出建议命令、支持人工标记完成，不自动后台启动重 IO 任务。
 
 已确认的开发节奏：
 
@@ -1047,6 +1040,7 @@ bucket = stable_hash(ts_code) % 32
 5. 第五轮：M5 指标 research 重排。
 6. 第六轮：M6 全市场 incremental 按交易日流式提交。
 7. 第七轮：M7 缺 state 的新股/老股判定。
+8. 第八轮：M8 源数据修复后的人工重算队列。
 
 M4-A 只做：
 
@@ -1063,20 +1057,20 @@ M4-A 明确不做：
 3. 不做 source partition event 与 recalc queue。
 4. 不做 MA/BOLL。
 
-M4-B 只做：
+M4-B/M6/M7 当前已落地口径：
 
 1. `--all-market + --freq + --start-date + --end-date`。
 2. `mode=full` 时必须读取 source research，并在缺失时失败提示先执行 `rebuild-stk-mins-research-range`。
 3. `mode=incremental` 时读取 source by_date，并要求涉及股票已经存在 state。
 4. `mode=full` 的全市场计算按 source research 的 `trade_month + bucket` 流式读取，并按月提交指标 by_date 分区与 state。
 5. `mode=incremental` 的全市场计算按 `trade_date` 流式读取 by_date 源分区，并按交易日提交指标 by_date 分区与 state。
-6. 本轮不做新股/老股自动判定；`mode=incremental` 遇到缺失 state 的股票必须失败并输出 `needs_bootstrap`，不得从中间日期静默初始化。
+6. `mode=incremental` 缺 state 时必须使用本地 `stock_basic` 判定新股/老股；新股可从首次出现初始化，老股票必须失败并输出 `needs_bootstrap`，不得从中间日期静默初始化。
 
-M4-B 明确不做：
+M4-B/M6/M7 明确不做：
 
 1. 不自动重建 source research。
 2. 不做 indicator research 重排。
-3. 不做 source partition event 与 recalc queue。
+3. 不自动消费 recalc queue。
 4. 不做 MA/BOLL。
 
 M5 只做：
@@ -1104,5 +1098,17 @@ M7 明确不做：
 
 1. 不做自动 resume。
 2. 不做 checkpoint 文件。
-3. 不做 source partition event 与 recalc queue。
+3. 不自动消费 source partition event 与 recalc queue。
 4. 不做 MA/BOLL。
+
+M8 只做：
+
+1. 源分区替换后登记待重算记录。
+2. `list-indicator-recalc-queue` 展示待重算项，并给出可执行的建议命令。
+3. `mark-indicator-recalc-done` 在人工重算完成后关闭 queue 项。
+
+M8 明确不做：
+
+1. 不自动启动指标重算。
+2. 不接生产 Ops TaskRun。
+3. 不实现后台 worker 或定时队列消费。

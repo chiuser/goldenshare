@@ -132,6 +132,7 @@ docs/
 - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
 - [股票历史分钟行情 Lake 股票池生命周期过滤方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-security-universe-filter-plan-v1.md)
 - [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
+- [股票分钟线技术指标开发指南与门禁清单 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-development-guide-v1.md)
 - [stk_mins MACD 大规模计算稳定性评审 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-compute-stability-review-v1.html)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
