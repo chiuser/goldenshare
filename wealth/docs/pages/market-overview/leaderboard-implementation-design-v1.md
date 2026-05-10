@@ -36,7 +36,7 @@
 1. 模块接口路径：`GET /api/v1/wealth/market/leaderboards`。
 2. 是否整页聚合接口：否（模块接口）。
 3. 返回范围：仅榜单模块对象，不返回整页 overview 聚合包。
-4. 配置边界：本期榜单规则由 `definition_registry.py` 固化，不接策略配置中心。
+4. 配置边界：本期榜单规则由策略配置中心读取（`leaderboard.cn_a.v1.json`），不允许用户请求覆盖 `boardKeys`。
 
 ### 3.2 代码目录模板（按模块拆分）
 
@@ -62,7 +62,7 @@ src/biz/
     wealth/
       market/
         leaderboards/
-          definition_registry.py
+          strategy_config_resolver.py
           status_resolver.py
           exception_builder.py
 ```
@@ -72,11 +72,12 @@ src/biz/
 ## 4. 数据流与执行链路
 
 1. 请求入口：`api/wealth/market/leaderboards.py`。
-2. 参数校验：`market/tradeDate/limit/boardKeys/debug` 统一校验。
-3. 查询编排：`leaderboards_query_service.py` 调用 stock pool + equity rankings + dc_hot rankings。
-4. 状态归并：`status_resolver.py` 产出 board 状态与 pageStatus。
-5. 异常组装：`exception_builder.py` 按注册表产出 `LB_*`。
-6. 响应输出：`schemas/.../leaderboards.py` DTO 返回。
+2. 参数校验：`market/tradeDate/limit/debug` 统一校验（`boardKeys` 不接受用户输入）。
+3. 配置读取：`strategy_config_resolver.py` 从策略配置中心读取 `boardKeys/defaultLimit/strictHotDate`。
+4. 查询编排：`leaderboards_query_service.py` 调用 stock pool + equity rankings + dc_hot rankings。
+5. 状态归并：`status_resolver.py` 产出 board 状态与 pageStatus。
+6. 异常组装：`exception_builder.py` 按注册表产出 `LB_*`。
+7. 响应输出：`schemas/.../leaderboards.py` DTO 返回。
 7. 前端行为契约：
    - 真实源 pending -> `loading`；
    - 真实源超时（5 秒）或失败 -> `error`；
@@ -89,6 +90,7 @@ src/biz/
 1. 主查询（主链路）：
    - 行情榜（5 类）：`equity_daily_bar` 主集 + `equity_daily_basic` 补列。
    - 热榜（2 类）：`dc_hot` 主集。
+   - 股票池边界：`security_type='stock'` + `list_status='L'` + 上市/退市日期边界 + ST 过滤。
 2. 辅助查询（补列/补名）：
    - `security_serving` 名称兜底。
 3. 回退查询（可选）：
@@ -129,7 +131,7 @@ src/biz/
 2. 权限点：仅已登录且具备行情读取权限用户可访问（按现有 auth 体系）。
 3. 防误用策略：
    - 限制 `limit` 范围；
-   - 非法 `boardKeys` 拒绝；
+   - 禁止通过请求参数覆盖 `boardKeys`；
    - debug 输出在生产环境禁用，仅开发/受控环境开放（实现时按环境开关）。
 
 ---
@@ -179,7 +181,8 @@ src/biz/
 
 1. 本期不新增独立权限点，沿用 `quote.read`。
 2. debug 模式在生产环境完全禁用。
-3. 本轮榜单定义固定由 `definition_registry` 提供，不接策略配置中心。
+3. 本轮榜单定义固定由策略配置中心提供，不接请求参数覆盖。
+4. 配置版本门禁：测试断言采用语义版本格式校验（`x.y.z`），不把具体版本号写死在测试中。
 4. 本轮无未决拍板项，可直接进入编码门禁执行。
 
 ---
@@ -190,3 +193,4 @@ src/biz/
 |---|---|---|---|
 | v1 | 2026-05-08 | 按模板重构实施方案结构，冻结模块实现落点 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补齐 loading/error/5秒超时行为、definition_registry 配置边界与测试约束 | Codex |
+| v1.2 | 2026-05-10 | 对齐拍板口径：策略配置中心接管榜单定义、请求不再接收 boardKeys、补充股票池过滤与版本门禁 | Codex |

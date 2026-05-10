@@ -56,7 +56,7 @@
    - 禁止用 mock 榜单冒充 ready；
    - 请求超过 5 秒必须进入 `error`。
 5. 渐进替换门禁：本轮只允许 `leaderboards` 模块 source 从 `mock -> real`，其他模块 source 必须保持不变。
-6. 配置语义：本期榜单规则先由后端 `definition_registry` 固化，不接策略配置中心；若后续接配置中心，必须新增三件套评审，不得直接改实现。
+6. 配置语义：本期榜单规则由后端策略配置中心读取（`leaderboard.cn_a.v1.json`），前端不暴露 `boardKeys` 自定义能力。
 
 ---
 
@@ -95,6 +95,12 @@
 1. 来源优先级：行情榜主源 `equity_daily_bar`，热榜主源 `dc_hot`。
 2. 回退策略：仅 `dc_hot` 有 strict/fallback 双模式。
 3. 数据时效语义：盘后快照语义（非实时流）。
+4. 股票池边界（CN_A）：
+   - 必须满足 `security_type='stock'`；
+   - 必须满足 `list_status='L'`；
+   - 必须满足 `list_date <= trade_date` 且 `(delist_date IS NULL OR delist_date > trade_date)`；
+   - 必须过滤 ST（名称含 `ST` 或 `*ST`）；
+   - 停牌标的不应入榜（当日无有效成交行情数据时自然排除）。
 
 ---
 
@@ -126,11 +132,12 @@
 ## 8. API 契约（需求层）
 
 1. 接口路径：`GET /api/v1/wealth/market/leaderboards`。
-2. 请求参数：`market/tradeDate/limit/boardKeys/debug`。
-3. 响应结构：`tradingDay + pageStatus + definitions + boards + debugInfo?`。
-4. 字段命名规则：lowerCamelCase；主体使用 `subjectType/subjectCode/subjectName`。
-5. 向后兼容策略：新增字段只加可选；不改既有字段语义。
-6. debug 语义：`debug=0`（默认）不返回 `debugInfo`；`debug=1` 才返回模块状态与异常明细。
+2. 请求参数：`market/tradeDate/limit/debug`。
+3. 榜单集合来源：`boardKeys` 仅来自策略配置中心（`payload.boardKeys`），不作为用户可控请求参数。
+4. 响应结构：`tradingDay + pageStatus + definitions + boards + debugInfo?`。
+5. 字段命名规则：lowerCamelCase；主体使用 `subjectType/subjectCode/subjectName`。
+6. 向后兼容策略：新增字段只加可选；不改既有字段语义。
+7. debug 语义：`debug=0`（默认）不返回 `debugInfo`；`debug=1` 才返回模块状态与异常明细。
 
 ---
 
@@ -143,7 +150,10 @@
 5. 行为验收：真实源 pending 显示 `loading`，且不展示 mock 榜单。
 6. 行为验收：真实源请求超过 5 秒显示 `error`，不允许静默回退 mock。
 7. 范围验收：本轮仅 `leaderboards` source 变化，其他模块 source 保持不变。
-8. 配置验收：本轮不引入策略配置中心，榜单定义以 `definition_registry` 为唯一事实源。
+8. 配置验收：
+   - 榜单定义必须从策略配置中心读取；
+   - `strictHotDate` 默认 `true` 且可通过配置中心修改；
+   - `boardKeys` 不允许通过用户请求参数覆盖。
 
 ---
 
@@ -160,3 +170,4 @@
 |---|---|---|---|
 | v1 | 2026-05-08 | 按模板重构文档结构，冻结榜单需求边界 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新门禁：补充 loading/error/5秒超时行为、单模块切换纪律、debug 默认语义与配置边界 | Codex |
+| v1.2 | 2026-05-10 | 对齐拍板口径：启用策略配置中心、冻结 CN_A 股票池过滤规则、移除 boardKeys 对外参数 | Codex |

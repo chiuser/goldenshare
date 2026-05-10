@@ -33,7 +33,7 @@
 10. [ ] 前端真实源加载态门禁冻结（loading/ready/error）
 11. [ ] 5 秒超时进入 error 且不展示 mock 回填的行为门禁冻结
 12. [ ] 本轮仅 leaderboards 切换到 real、其余模块 source 不变
-13. [ ] 配置生效语义冻结（本模块当前不接策略中心，规则由 definition_registry 固化）
+13. [ ] 配置生效语义冻结（本模块读取策略配置中心，规则由 `leaderboard.cn_a.v1.json` 提供）
 14. [ ] 通用清单映射矩阵冻结并评审通过
 15. [ ] 模块例外白名单冻结并评审通过
 16. [ ] 签字完成
@@ -48,10 +48,7 @@
 interface LeaderboardsRequest {
   market?: "CN_A";    // default: CN_A
   tradeDate?: string; // YYYY-MM-DD
-  limit?: number;     // default: 10, range: [1, 50]
-  boardKeys?: (
-    "gainers" | "losers" | "amount" | "turnover" | "volumeRatio" | "popularity" | "surge"
-  )[];
+  limit?: number;     // default: payload.defaultLimit, range: [1, 50]
   debug?: 0 | 1;      // default: 0
 }
 ```
@@ -61,8 +58,8 @@ interface LeaderboardsRequest {
 1. `market` 非 `CN_A` -> `400001`
 2. `tradeDate` 非法格式 -> `400001`
 3. `limit` 越界 -> `400001`
-4. `boardKeys` 含非法 key -> `400001`
-5. `debug` 非 `0/1` -> `400001`
+4. `debug` 非 `0/1` -> `400001`
+5. 若请求携带 `boardKeys`，直接拒绝（`400001`），防止用户侧覆盖运营配置。
 
 ### 3.2 响应对象冻结（摘要）
 
@@ -215,11 +212,27 @@ interface LeaderboardsResponseData {
 
 ---
 
-## 5. 查询草案（每榜一条，可直接转实现）
+## 5. 配置门禁（策略配置中心）
+
+配置文件：`src/biz/services/wealth/config/definitions/leaderboard.cn_a.v1.json`
+
+必检项（不通过不得开工）：
+
+1. `moduleKey=leaderboards`、`market=CN_A` 与 registry 注册一致。
+2. `version` 必须符合语义版本格式 `x.y.z`，测试不得把具体版本号写死。
+3. `updatedAt` 必须带时区偏移；`updatedBy` 必填。
+4. `payload.boardKeys` 必须与 7 榜单 key 冻结集合一致：
+   - `gainers/losers/amount/turnover/volumeRatio/popularity/surge`
+5. `payload.defaultLimit` 在允许范围内（建议默认 10）。
+6. `payload.strictHotDate` 默认 `true`，且仅可通过配置中心改。
+
+---
+
+## 6. 查询草案（每榜一条，可直接转实现）
 
 > 约定：以下 SQL 为草案，真实实现可按 SQLAlchemy/CTE 组织，但字段语义必须一致。
 
-### 5.1 `gainers`
+### 6.1 `gainers`
 
 ```sql
 WITH stock_pool AS (
@@ -228,6 +241,11 @@ WITH stock_pool AS (
   JOIN core_serving.security_serving s ON s.ts_code = b.ts_code
   WHERE b.trade_date = :trade_date
     AND s.security_type = 'stock'
+    AND s.list_status = 'L'
+    AND s.list_date <= :trade_date
+    AND (s.delist_date IS NULL OR s.delist_date > :trade_date)
+    AND s.name NOT ILIKE 'ST%'
+    AND s.name NOT ILIKE '*ST%'
 )
 SELECT
   b.ts_code,
@@ -248,23 +266,23 @@ ORDER BY b.pct_chg DESC
 LIMIT :limit;
 ```
 
-### 5.2 `losers`
+### 6.2 `losers`
 
 `ORDER BY b.pct_chg ASC`，其余同 `gainers`。
 
-### 5.3 `amount`
+### 6.3 `amount`
 
 `ORDER BY b.amount DESC`，其余同 `gainers`。
 
-### 5.4 `turnover`
+### 6.4 `turnover`
 
 `ORDER BY db.turnover_rate DESC NULLS LAST`，其余同 `gainers`。
 
-### 5.5 `volumeRatio`
+### 6.5 `volumeRatio`
 
 `ORDER BY db.volume_ratio DESC NULLS LAST`，其余同 `gainers`。
 
-### 5.6 `popularity`
+### 6.6 `popularity`
 
 ```sql
 SELECT
@@ -282,13 +300,13 @@ ORDER BY h.rank ASC
 LIMIT :limit;
 ```
 
-### 5.7 `surge`
+### 6.7 `surge`
 
 `WHERE h.query_hot_type='飙升榜'`，其余同 `popularity`。
 
 ---
 
-## 6. `dc_hot` 严格/回退样例门禁
+## 7. `dc_hot` 严格/回退样例门禁
 
 | 模式 | 目标日有数据 | 行为 | board.status |
 |---|---|---|---|
@@ -304,7 +322,7 @@ LIMIT :limit;
 
 ---
 
-## 7. 状态归并样例门禁
+## 8. 状态归并样例门禁
 
 | 各 board 状态分布 | pageStatus.status |
 |---|---|
@@ -318,7 +336,7 @@ LIMIT :limit;
 
 ---
 
-## 8. 异常码覆盖矩阵（本期）
+## 9. 异常码覆盖矩阵（本期）
 
 | code | 最少覆盖用例 |
 |---|---|
@@ -333,7 +351,7 @@ LIMIT :limit;
 
 ---
 
-## 9. 性能门禁（编码前确认）
+## 10. 性能门禁（编码前确认）
 
 1. 单次请求默认 `limit=10`，7 榜同时返回。
 2. 目标 P95 `< 400ms`（同机房 DB，非冷启动）。
@@ -342,7 +360,7 @@ LIMIT :limit;
 
 ---
 
-## 10. 测试门禁
+## 11. 测试门禁
 
 1. 单元测试：
    - 定义注册表一致性；
@@ -362,7 +380,7 @@ LIMIT :limit;
 
 ---
 
-## 11. 通用清单映射矩阵
+## 12. 通用清单映射矩阵
 
 | 通用清单条目 | 适用性 | 本模块落地位置 | 当前状态 |
 |---|---|---|---|
@@ -376,7 +394,7 @@ LIMIT :limit;
 | 2.8 契约先行与消费者对齐 | 适用 | 第 3 节请求/响应冻结 | 已落地 |
 | 2.9 图表坐标与说明文案约束 | 不适用 | 本模块无图表渲染，只有榜单列表 | 已登记例外 |
 | 2.10 统计计算与数据传输边界 | 适用 | SQL 排序与 limit 截断，不做前端二次统计 | 已落地 |
-| 2.11 配置生效语义 | 适用 | 本期不接策略中心，`definition_registry` 固化并重启生效 | 已落地 |
+| 2.11 配置生效语义 | 适用 | 读取策略配置中心 `leaderboard.cn_a.v1.json`，重启生效，严格校验 envelope+payload | 已落地 |
 | 2.12 通用清单映射矩阵 | 适用 | 本节 | 已落地 |
 | 2.13 模块例外白名单与语义断言 | 适用 | 第 12 节 | 已落地 |
 | 2.14 图表参数优先级 | 不适用 | 本模块无图表组件参数（无 yMin/yMax/ticks） | 已登记例外 |
@@ -385,7 +403,7 @@ LIMIT :limit;
 
 ---
 
-## 12. 模块例外白名单（leaderboards）
+## 13. 模块例外白名单（leaderboards）
 
 | 例外规则 | 生效范围 | 业务语义依据 | 处理方式 |
 |---|---|---|---|
@@ -396,9 +414,9 @@ LIMIT :limit;
 
 ---
 
-## 13. M2 开工签字清单（评审记录）
+## 14. M2 开工签字清单（评审记录）
 
-### 13.1 后端负责人确认
+### 14.1 后端负责人确认
 
 1. [ ] 7 榜定义冻结
 2. [ ] SQL 草案冻结
@@ -406,14 +424,14 @@ LIMIT :limit;
 4. [ ] 状态归并规则冻结
 5. [ ] 异常码全部来自注册表
 
-### 13.2 前端负责人确认
+### 14.2 前端负责人确认
 
 1. [ ] definitions 驱动 tab
 2. [ ] columnSchema 驱动列
 3. [ ] debug 模式开关与展示策略明确
 4. [ ] 名称缺失降级策略明确
 
-### 13.3 产品/架构确认
+### 14.3 产品/架构确认
 
 1. [ ] 本期只交付榜单，不扩散其他模块
 2. [ ] 页面级状态与模块级 debug 状态边界清晰
@@ -421,9 +439,10 @@ LIMIT :limit;
 
 ---
 
-## 14. 版本记录
+## 15. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 建立榜单 M2 编码前门禁清单 | Codex |
 | v1.1 | 2026-05-10 | 对齐最新通用清单：补齐映射矩阵、模块例外白名单、loading/error 行为门禁与配置边界 | Codex |
+| v1.2 | 2026-05-10 | 对齐拍板口径：切策略配置中心、收口 boardKeys 非对外、补配置版本门禁与股票池过滤规则 | Codex |
