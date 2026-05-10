@@ -326,6 +326,73 @@ def test_compute_macd_all_market_incremental_requires_existing_states(tmp_path) 
         )
 
 
+def test_compute_macd_all_market_incremental_streams_by_trade_date(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    progress_messages: list[str] = []
+    service = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=progress_messages.append)
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[
+            _source_row("600000.SH", "2026-04-24 10:00:00", 10.0),
+            _source_row("600000.SH", "2026-04-24 10:30:00", 10.5),
+            _source_row("000001.SZ", "2026-04-24 10:00:00", 8.0),
+            _source_row("000001.SZ", "2026-04-24 10:30:00", 8.2),
+        ],
+    )
+    for ts_code in ("600000.SH", "000001.SZ"):
+        service.compute_macd(
+            mode="full",
+            ts_code=ts_code,
+            freq=30,
+            start_date=datetime(2026, 4, 24).date(),
+            end_date=datetime(2026, 4, 24).date(),
+        )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[
+            _source_row("600000.SH", "2026-04-27 10:00:00", 10.8),
+            _source_row("000001.SZ", "2026-04-27 10:00:00", 8.4),
+        ],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-28",
+        rows=[
+            _source_row("600000.SH", "2026-04-28 10:00:00", 11.0),
+            _source_row("000001.SZ", "2026-04-28 10:00:00", 8.6),
+        ],
+    )
+
+    summary = service.compute_macd(
+        mode="incremental",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2026, 4, 27).date(),
+        end_date=datetime(2026, 4, 28).date(),
+    )
+
+    states = MacdStateStore(lake_root=tmp_path).load_states()
+    first_day_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-27") / "part-000.parquet")
+    second_day_rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-28") / "part-000.parquet")
+    assert summary["status"] == "success"
+    assert summary["scope"] == "all_market"
+    assert summary["mode"] == "incremental"
+    assert summary["committed_trade_dates"] == ["2026-04-27", "2026-04-28"]
+    assert summary["source_rows"] == 4
+    assert summary["written_rows"] == 4
+    assert summary["state_updates"] == 2
+    assert sorted(row["ts_code"] for row in first_day_rows) == ["000001.SZ", "600000.SH"]
+    assert sorted(row["ts_code"] for row in second_day_rows) == ["000001.SZ", "600000.SH"]
+    assert states[("600000.SH", 30)].last_trade_time == datetime(2026, 4, 28, 10, 0)
+    assert states[("000001.SZ", 30)].last_trade_time == datetime(2026, 4, 28, 10, 0)
+    assert any("source_plan mode=incremental freq=30 trade_dates=2" in message for message in progress_messages)
+    assert any("trade_date=1/2 freq=30 date=2026-04-27" in message for message in progress_messages)
+    assert any("trade_date_done freq=30 date=2026-04-28 written=2" in message for message in progress_messages)
+
+
 def test_compute_stk_mins_indicator_cli_all_market(tmp_path) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")

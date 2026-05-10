@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.services.indicators.indicator_by_date_writer import IndicatorByDateWriter
 from lake_console.backend.app.services.indicators.indicator_source_reader import (
+    iter_stk_mins_by_date_source_batches,
     iter_stk_mins_research_source_batches,
+    plan_stk_mins_by_date_source_batches,
     plan_stk_mins_research_source_batches,
-    read_stk_mins_all_source_rows,
     read_stk_mins_source_rows,
 )
 from lake_console.backend.app.services.indicators.indicator_state_store import MacdStateStore
@@ -201,10 +202,6 @@ class StkMinsIndicatorComputeService:
     ) -> dict[str, Any]:
         state_store = MacdStateStore(lake_root=self.lake_root)
         existing_states = state_store.load_states(params=DEFAULT_MACD_PARAMS)
-        source_rows_total = 0
-        indicator_rows_total = 0
-        state_updates: list[MacdState] = []
-        processed_symbols = 0
 
         if mode == "full":
             return self._compute_macd_all_market_full_streaming(
@@ -217,42 +214,125 @@ class StkMinsIndicatorComputeService:
                 state_store=state_store,
             )
         else:
-            writer_session = IndicatorByDateWriter(lake_root=self.lake_root).start_session(
+            return self._compute_macd_all_market_incremental_streaming(
+                freq=freq,
+                start_date=start_date,
+                end_date=end_date,
+                run_id=run_id,
+                started_at=started_at,
+                started=started,
+                state_store=state_store,
+                existing_states=existing_states,
+            )
+
+    def _compute_macd_all_market_incremental_streaming(
+        self,
+        *,
+        freq: int,
+        start_date: date,
+        end_date: date,
+        run_id: str,
+        started_at: datetime,
+        started: float,
+        state_store: MacdStateStore,
+        existing_states: dict[tuple[str, int], MacdState],
+    ) -> dict[str, Any]:
+        source_plan = plan_stk_mins_by_date_source_batches(
+            lake_root=self.lake_root,
+            freq=freq,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if not source_plan.batches:
+            raise RuntimeError(f"缺少源分钟线文件：freq={freq} date_range={start_date.isoformat()}~{end_date.isoformat()}")
+        self.progress(
+            f"[indicator_macd] source_plan mode=incremental freq={freq} "
+            f"trade_dates={len(source_plan.trade_dates)} files={source_plan.file_count}"
+        )
+
+        working_states = dict(existing_states)
+        writer = IndicatorByDateWriter(lake_root=self.lake_root)
+        source_rows_total = 0
+        indicator_rows_total = 0
+        processed_symbols_total = 0
+        updated_state_keys: set[tuple[str, int]] = set()
+        committed_trade_dates: list[str] = []
+        by_date_writes: list[dict[str, Any]] = []
+        state_writes: list[dict[str, Any]] = []
+
+        for batch in iter_stk_mins_by_date_source_batches(
+            lake_root=self.lake_root,
+            freq=freq,
+            start_date=start_date,
+            end_date=end_date,
+            plan=source_plan,
+        ):
+            rows_by_symbol = _group_rows_by_symbol(batch.rows)
+            missing_states = [ts_code for ts_code in sorted(rows_by_symbol) if (ts_code, freq) not in working_states]
+            if missing_states:
+                preview = ", ".join(missing_states[:10])
+                raise RuntimeError(
+                    "needs_bootstrap: 全市场增量存在缺失 state 的股票，M6 不做新股/老股判定，"
+                    f"trade_date={batch.trade_date.isoformat()} preview={preview}"
+                )
+
+            self.progress(
+                f"[indicator_macd] trade_date={batch.batch_index}/{batch.batch_count} "
+                f"freq={freq} date={batch.trade_date.isoformat()} files={len(batch.files)} "
+                f"symbols={len(rows_by_symbol)} source_rows={len(batch.rows)}"
+            )
+            source_rows_total += len(batch.rows)
+            staged_rows: list[dict[str, Any]] = []
+            day_updated_keys: set[tuple[str, int]] = set()
+            for ts_code, rows in sorted(rows_by_symbol.items()):
+                state_key = (ts_code, freq)
+                calculation = calculate_macd(rows, params=DEFAULT_MACD_PARAMS, initial_state=working_states[state_key])
+                if calculation.final_state is None:
+                    continue
+                if calculation.rows:
+                    staged_rows.extend(calculation.rows)
+                    processed_symbols_total += 1
+                    day_updated_keys.add(state_key)
+                working_states[state_key] = calculation.final_state
+
+            if not staged_rows:
+                self.progress(
+                    f"[indicator_macd] trade_date_done freq={freq} date={batch.trade_date.isoformat()} "
+                    "written=0 state_count=unchanged"
+                )
+                continue
+
+            writer_session = writer.start_session(
                 indicator="macd",
                 params_key=DEFAULT_MACD_PARAMS.params_key,
                 freq=freq,
                 run_id=run_id,
             )
-            source_rows = read_stk_mins_all_source_rows(
-                lake_root=self.lake_root,
-                freq=freq,
-                start_date=start_date,
-                end_date=end_date,
+            staged_count = writer_session.stage_rows(staged_rows, part_label="000")
+            write_summary = writer_session.commit()
+            state_summary = state_store.replace_states_after_result_write(
+                list(working_states.values()),
+                result_summary=write_summary,
+                params=DEFAULT_MACD_PARAMS,
+                run_id=run_id,
             )
-            source_rows_total = len(source_rows)
-            rows_by_symbol = _group_rows_by_symbol(source_rows)
-            missing_states = [ts_code for ts_code in sorted(rows_by_symbol) if (ts_code, freq) not in existing_states]
-            if missing_states:
-                preview = ", ".join(missing_states[:10])
-                raise RuntimeError(f"needs_bootstrap: 全市场增量存在缺失 state 的股票：{preview}")
-            for index, (ts_code, rows) in enumerate(sorted(rows_by_symbol.items()), start=1):
-                self.progress(f"[indicator_macd] symbol={index}/{len(rows_by_symbol)} ts_code={ts_code} rows={len(rows)}")
-                calculation = calculate_macd(rows, params=DEFAULT_MACD_PARAMS, initial_state=existing_states[(ts_code, freq)])
-                if not calculation.rows:
-                    continue
-                if calculation.final_state is None:
-                    raise RuntimeError(f"MACD 计算未生成 final_state：ts_code={ts_code} freq={freq}")
-                indicator_rows_total += writer_session.stage_rows(calculation.rows, part_label=f"symbol-{index:06d}")
-                state_updates.append(calculation.final_state)
-                processed_symbols += 1
+            by_date_writes.append(write_summary)
+            state_writes.append(state_summary)
+            committed_trade_dates.append(batch.trade_date.isoformat())
+            updated_state_keys.update(day_updated_keys)
+            indicator_rows_total += staged_count
+            self.progress(
+                f"[indicator_macd] trade_date_done freq={freq} date={batch.trade_date.isoformat()} "
+                f"written={write_summary['written_rows']} state_count={state_summary['state_count']}"
+            )
 
+        elapsed = time.monotonic() - started
         if indicator_rows_total <= 0:
-            elapsed = time.monotonic() - started
             return {
                 "operation": "compute_stk_mins_indicator",
                 "indicator": "macd",
                 "params_key": DEFAULT_MACD_PARAMS.params_key,
-                "mode": mode,
+                "mode": "incremental",
                 "scope": "all_market",
                 "run_id": run_id,
                 "started_at": started_at.isoformat(),
@@ -267,26 +347,16 @@ class StkMinsIndicatorComputeService:
                 "status": "no_op",
                 "elapsed_seconds": round(elapsed, 3),
             }
-
-        write_summary = writer_session.commit()
-        merged_states = _merge_states(existing=existing_states, states=state_updates)
-        state_summary = state_store.replace_states_after_result_write(
-            merged_states,
-            result_summary=write_summary,
-            params=DEFAULT_MACD_PARAMS,
-            run_id=run_id,
-        )
-        elapsed = time.monotonic() - started
         self.progress(
-            f"[indicator_macd] done scope=all_market freq={freq} symbols={processed_symbols} "
-            f"source_rows={source_rows_total} written={write_summary['written_rows']} "
-            f"state_updates={len(state_updates)} elapsed={round(elapsed, 3)}s"
+            f"[indicator_macd] done scope=all_market mode=incremental freq={freq} "
+            f"trade_dates={len(committed_trade_dates)} source_rows={source_rows_total} "
+            f"written={indicator_rows_total} state_updates={len(updated_state_keys)} elapsed={round(elapsed, 3)}s"
         )
         return {
             "operation": "compute_stk_mins_indicator",
             "indicator": "macd",
             "params_key": DEFAULT_MACD_PARAMS.params_key,
-            "mode": mode,
+            "mode": "incremental",
             "scope": "all_market",
             "run_id": run_id,
             "started_at": started_at.isoformat(),
@@ -296,12 +366,13 @@ class StkMinsIndicatorComputeService:
             "end_date": end_date.isoformat(),
             "source_rows": source_rows_total,
             "indicator_rows": indicator_rows_total,
-            "written_rows": write_summary["written_rows"],
-            "state_updates": len(state_updates),
-            "processed_symbols": processed_symbols,
+            "written_rows": indicator_rows_total,
+            "state_updates": len(updated_state_keys),
+            "processed_symbols": processed_symbols_total,
+            "committed_trade_dates": committed_trade_dates,
             "status": "success",
-            "by_date_write": write_summary,
-            "state_write": state_summary,
+            "by_date_writes": by_date_writes,
+            "state_writes": state_writes,
             "elapsed_seconds": round(elapsed, 3),
         }
 
@@ -496,13 +567,6 @@ class StkMinsIndicatorComputeService:
 def _merge_state(*, existing: dict[tuple[str, int], MacdState], state: MacdState) -> list[MacdState]:
     merged = dict(existing)
     merged[(state.ts_code, state.freq)] = state
-    return list(merged.values())
-
-
-def _merge_states(*, existing: dict[tuple[str, int], MacdState], states: Iterable[MacdState]) -> list[MacdState]:
-    merged = dict(existing)
-    for state in states:
-        merged[(state.ts_code, state.freq)] = state
     return list(merged.values())
 
 

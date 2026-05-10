@@ -642,7 +642,7 @@
             <tr>
               <td>计算状态</td>
               <td>先检查本次涉及的所有股票是否已有 state，缺一个就整体失败。</td>
-              <td>每个交易日按股票分组；已有 state 则递推；缺 state 时区分“新股首次出现”和“异常缺 state”。</td>
+              <td>每个交易日按股票分组；已有 state 则递推；M6 不做新股/老股判定，缺 state 直接以 <code>needs_bootstrap</code> 失败。</td>
             </tr>
             <tr>
               <td>写入提交</td>
@@ -723,8 +723,8 @@
         <ol>
           <li>只能在已有 full baseline 的前提下运行全市场 incremental；没有 baseline 时必须提示先跑 full。</li>
           <li>每个交易日独立提交，不能把一段日期区间攒到最后才提交。</li>
-          <li>如果某只股票没有 state，必须先判断它是否是本次日期窗口中新上市股票；不能默认从中间日期初始化老股票。</li>
-          <li>如果无法判断“新股首次出现”，必须拒绝继续，并输出 <code>needs_bootstrap</code> 和样例股票。</li>
+          <li>M6 不引入新股/老股自动判定；如果某只股票没有 state，必须拒绝继续，并输出 <code>needs_bootstrap</code> 和样例股票。</li>
+          <li>新上市股票首次出现、历史 state 缺失修复等恢复语义放到 M7 单独评审，不在 M6 中顺手实现。</li>
           <li>incremental 完成后只重建受影响月份的 indicator research，不重建无关月份。</li>
         </ol>
       </section>

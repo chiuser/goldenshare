@@ -1,8 +1,8 @@
 # 股票分钟线指标系统设计方案 v1
 
 - 版本：v1
-- 状态：已评审，M6 已落地
-- 更新时间：2026-05-09
+- 状态：已评审，M6 incremental 流式化收口
+- 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
 - 后续指标：`MA`、`BOLL`、其他基于分钟线的本地派生指标
@@ -1035,7 +1035,9 @@ M4-B 只做：
 1. `--all-market + --freq + --start-date + --end-date`。
 2. `mode=full` 时必须读取 source research，并在缺失时失败提示先执行 `rebuild-stk-mins-research-range`。
 3. `mode=incremental` 时读取 source by_date，并要求涉及股票已经存在 state。
-4. 全市场写入按分批 staging 后统一 replace 指标 by_date 分区，避免每个股票单独 replace 导致覆盖前序结果。
+4. `mode=full` 的全市场计算按 source research 的 `trade_month + bucket` 流式读取，并按月提交指标 by_date 分区与 state。
+5. `mode=incremental` 的全市场计算按 `trade_date` 流式读取 by_date 源分区，并按交易日提交指标 by_date 分区与 state。
+6. 本轮不做新股/老股自动判定；`mode=incremental` 遇到缺失 state 的股票必须失败并输出 `needs_bootstrap`，不得从中间日期静默初始化。
 
 M4-B 明确不做：
 

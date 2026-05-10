@@ -38,6 +38,31 @@ class ResearchSourcePlan:
         return sum(len(batch.files) for batch in self.batches)
 
 
+@dataclass(frozen=True)
+class ByDateSourceBatch:
+    trade_date: date
+    batch_index: int
+    batch_count: int
+    files: tuple[Path, ...]
+    rows: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class ByDateSourceBatchPlan:
+    trade_date: date
+    files: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class ByDateSourcePlan:
+    trade_dates: tuple[date, ...]
+    batches: tuple[ByDateSourceBatchPlan, ...]
+
+    @property
+    def file_count(self) -> int:
+        return sum(len(batch.files) for batch in self.batches)
+
+
 def read_stk_mins_source_rows(
     *,
     lake_root: Path,
@@ -121,6 +146,59 @@ def plan_stk_mins_research_source_batches(
                 bucket = bucket_dir.name.split("=", 1)[1]
                 batches.append(ResearchSourceBatchPlan(trade_month=month, bucket=bucket, files=tuple(files)))
     return ResearchSourcePlan(months=tuple(months), batches=tuple(batches))
+
+
+def plan_stk_mins_by_date_source_batches(
+    *,
+    lake_root: Path,
+    freq: int,
+    start_date: date,
+    end_date: date,
+) -> ByDateSourcePlan:
+    if end_date < start_date:
+        raise ValueError("end-date 不能早于 start-date。")
+    source_layer = _source_layer(freq)
+    source_root = lake_root / source_layer / "stk_mins_by_date" / f"freq={freq}"
+    batches: list[ByDateSourceBatchPlan] = []
+    for partition in sorted(source_root.glob("trade_date=*")):
+        trade_date = _parse_partition_date(partition)
+        if trade_date is None or trade_date < start_date or trade_date > end_date:
+            continue
+        files = tuple(sorted(partition.glob("*.parquet")))
+        if files:
+            batches.append(ByDateSourceBatchPlan(trade_date=trade_date, files=files))
+    return ByDateSourcePlan(
+        trade_dates=tuple(batch.trade_date for batch in batches),
+        batches=tuple(batches),
+    )
+
+
+def iter_stk_mins_by_date_source_batches(
+    *,
+    lake_root: Path,
+    freq: int,
+    start_date: date,
+    end_date: date,
+    plan: ByDateSourcePlan | None = None,
+):
+    source_plan = plan or plan_stk_mins_by_date_source_batches(
+        lake_root=lake_root,
+        freq=freq,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    batch_count = len(source_plan.batches)
+    for batch_index, batch in enumerate(source_plan.batches, start=1):
+        rows = read_parquet_files(list(batch.files))
+        normalized_rows = [_normalize_source_row(row, expected_freq=freq) for row in rows]
+        if normalized_rows:
+            yield ByDateSourceBatch(
+                trade_date=batch.trade_date,
+                batch_index=batch_index,
+                batch_count=batch_count,
+                files=batch.files,
+                rows=sorted(normalized_rows, key=lambda row: (row["ts_code"], row["trade_time"])),
+            )
 
 
 def iter_stk_mins_research_source_batches(
