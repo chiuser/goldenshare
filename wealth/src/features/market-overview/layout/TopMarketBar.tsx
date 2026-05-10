@@ -20,7 +20,10 @@ export function TopMarketBar({ tickers, statusText, dataDelayText, onAction }: T
     <header className="top-market-bar" aria-label="TopMarketBar">
       <button className="brand" type="button" onClick={() => onAction("跳转：/market/overview")}>
         <img alt="财势乾坤" className="brand-logo" src={logoUrl} />
-        <span>财势乾坤</span>
+        <span className="brand-copy">
+          <span className="brand-title">财势乾坤</span>
+          <span className="brand-subtitle">专业投研平台</span>
+        </span>
       </button>
       <nav className="system-nav" aria-label="一级系统入口">
         {navItems.map((item) => (
