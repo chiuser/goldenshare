@@ -1,0 +1,2 @@
+"""Leaderboards query package."""
+

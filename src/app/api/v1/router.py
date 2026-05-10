@@ -7,6 +7,7 @@ from src.app.auth.api import admin, admin_users, auth, users
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
+from src.biz.api.wealth.market import leaderboards as wealth_market_leaderboards
 from src.biz.api.wealth.market import major_indices as wealth_market_major_indices
 from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
@@ -28,3 +29,4 @@ router.include_router(wealth_market_major_indices.router)
 router.include_router(wealth_market_breadth.router)
 router.include_router(wealth_market_style.router)
 router.include_router(wealth_market_turnover.router)
+router.include_router(wealth_market_leaderboards.router)

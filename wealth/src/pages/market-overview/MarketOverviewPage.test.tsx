@@ -192,6 +192,60 @@ const turnoverPayload = {
   },
 };
 
+const leaderboardsPayload = {
+  tradingDay: {
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    market: "CN_A",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+  },
+  pageStatus: { status: "READY", displayText: "事实聚合已就绪", asOfTime: "2026-04-28T15:05:00+08:00" },
+  definitions: [
+    { boardKey: "gainers", boardLabel: "涨幅榜" },
+    { boardKey: "losers", boardLabel: "跌幅榜" },
+    { boardKey: "amount", boardLabel: "成交额榜" },
+    { boardKey: "turnover", boardLabel: "换手榜" },
+    { boardKey: "volumeRatio", boardLabel: "量比榜" },
+    { boardKey: "popularity", boardLabel: "人气榜" },
+    { boardKey: "surge", boardLabel: "飙升榜" },
+  ],
+  boards: [
+    "gainers",
+    "losers",
+    "amount",
+    "turnover",
+    "volumeRatio",
+    "popularity",
+    "surge",
+  ].map((boardKey, boardIndex) => ({
+    boardKey,
+    boardLabel: ["涨幅榜", "跌幅榜", "成交额榜", "换手榜", "量比榜", "人气榜", "飙升榜"][boardIndex],
+    status: "READY",
+    expectedTradeDate: "2026-04-28",
+    observedTradeDate: "2026-04-28",
+    lagDays: 0,
+    rows: Array.from({ length: 10 }, (_, index) => ({
+      rank: index + 1,
+      subject: {
+        subjectType: "stock",
+        subjectCode: `0000${index + 1}.SZ`,
+        subjectName: `个股${index + 1}`,
+      },
+      metrics: {
+        latestPrice: 10 + index,
+        changePct: 1 + index * 0.1,
+        turnoverRate: 2 + index * 0.1,
+        volumeRatio: 1 + index * 0.1,
+        volume: 100000 + index * 1000,
+        amount: 30000000 + index * 100000,
+        direction: "UP",
+      },
+    })),
+  })),
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -205,12 +259,18 @@ function responseJson(payload: unknown): Response {
   } as Response;
 }
 
+function maybeLeaderboardsResponse(url: string): Promise<Response> | null {
+  if (!url.includes("/api/v1/wealth/market/leaderboards")) return null;
+  return Promise.resolve(responseJson(leaderboardsPayload));
+}
+
 function mockSuccessfulMarketFetch(
   summaryPayload = summaryFiveCards,
   majorPayload = majorIndicesPayload,
   breadthPayloadInput = breadthPayload,
   stylePayloadInput = stylePayload,
   turnoverPayloadInput = turnoverPayload,
+  leaderboardsPayloadInput = leaderboardsPayload,
 ) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
@@ -228,6 +288,9 @@ function mockSuccessfulMarketFetch(
     }
     if (url.includes("/api/v1/wealth/market/turnover")) {
       return responseJson(turnoverPayloadInput);
+    }
+    if (url.includes("/api/v1/wealth/market/leaderboards")) {
+      return responseJson(leaderboardsPayloadInput);
     }
     throw new Error(`unexpected url: ${url}`);
   });
@@ -262,12 +325,12 @@ describe("MarketOverviewPage", () => {
     ["排名", "股票", "最新价", "涨跌幅", "换手率", "量比", "成交量", "成交额"].forEach((column) => {
       expect(within(table).getByText(column)).toBeInTheDocument();
     });
-    ["涨幅榜", "跌幅榜", "成交额榜", "换手榜", "异动榜·量比"].forEach((tab) => {
+    ["涨幅榜", "跌幅榜", "成交额榜", "换手榜", "量比榜", "人气榜", "飙升榜"].forEach((tab) => {
       expect(screen.getByRole("button", { name: tab })).toBeInTheDocument();
     });
     expect(within(table).getAllByRole("row")).toHaveLength(11);
 
-    fireEvent.click(screen.getByRole("button", { name: "异动榜·量比" }));
+    fireEvent.click(screen.getByRole("button", { name: "量比榜" }));
     expect(within(table).getAllByRole("row")).toHaveLength(11);
 
     fireEvent.click(screen.getAllByRole("button", { name: "3个月" })[0]);
@@ -336,6 +399,8 @@ describe("MarketOverviewPage", () => {
           resolveSummaryFetch = resolve;
         });
       }
+      const leaderboardsResponse = maybeLeaderboardsResponse(url);
+      if (leaderboardsResponse) return leaderboardsResponse;
       return Promise.reject(new Error(`unexpected url: ${url}`));
     });
 
@@ -775,7 +840,107 @@ describe("MarketOverviewPage", () => {
     expect(within(turnoverSection).getByText("error")).toBeInTheDocument();
   }, 15000);
 
-  it("uses page-level debug switch for summary, major-indices, breadth, style and turnover modules", async () => {
+  it("shows loading before real leaderboards are returned, without rendering leaderboard table", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    let resolveLeaderboardsFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/leaderboards")) {
+        return new Promise<Response>((resolve) => {
+          resolveLeaderboardsFetch = resolve;
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const leaderboardSection = await screen.findByLabelText("榜单速览");
+    expect(within(leaderboardSection).getByText("loading")).toBeInTheDocument();
+    expect(within(leaderboardSection).queryByRole("table", { name: "个股榜单" })).toBeNull();
+
+    if (typeof resolveLeaderboardsFetch !== "function") {
+      throw new Error("leaderboards fetch resolver is missing");
+    }
+    resolveLeaderboardsFetch(responseJson(leaderboardsPayload));
+
+    await waitFor(() => {
+      const table = within(leaderboardSection).getByRole("table", { name: "个股榜单" });
+      expect(within(table).getAllByRole("row")).toHaveLength(11);
+    });
+  });
+
+  it("shows error state when leaderboards request exceeds 5 seconds", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input, init) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.resolve(responseJson(majorIndicesPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/leaderboards")) {
+        const signal = (init as RequestInit | undefined)?.signal;
+        return new Promise<Response>((_, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    const rendered = render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const leaderboardSection = rendered.container.querySelector<HTMLElement>('[aria-label="榜单速览"]');
+    expect(leaderboardSection).not.toBeNull();
+    if (!leaderboardSection) {
+      throw new Error("leaderboards section not found");
+    }
+    expect(within(leaderboardSection).getByText("loading")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+      await Promise.resolve();
+    });
+    expect(within(leaderboardSection).getByText("请求超时：/api/v1/wealth/market/leaderboards")).toBeInTheDocument();
+    expect(within(leaderboardSection).getByText("error")).toBeInTheDocument();
+  }, 15000);
+
+  it("uses page-level debug switch for summary, major-indices, breadth, style, turnover and leaderboards modules", async () => {
     window.history.pushState({}, "", "/market/overview?debug=1");
     const requestUrls: string[] = [];
     const fetchMock = vi.spyOn(globalThis, "fetch");
@@ -873,6 +1038,24 @@ describe("MarketOverviewPage", () => {
           },
         });
       }
+      if (url.includes("/api/v1/wealth/market/leaderboards")) {
+        return responseJson({
+          ...leaderboardsPayload,
+          debugInfo: {
+            modules: [
+              {
+                moduleKey: "leaderboards",
+                expectedTradeDate: "2026-04-28",
+                observedTradeDate: "2026-04-28",
+                lagDays: 0,
+                status: "READY",
+                note: "facts ready",
+              },
+            ],
+            exceptions: [],
+          },
+        });
+      }
       throw new Error(`unexpected url: ${url}`);
     });
 
@@ -883,21 +1066,25 @@ describe("MarketOverviewPage", () => {
     expect(screen.getByText("breadth")).toBeInTheDocument();
     expect(screen.getByText("marketStyle")).toBeInTheDocument();
     expect(screen.getByText("turnover")).toBeInTheDocument();
+    expect(screen.getByText("leaderboards")).toBeInTheDocument();
 
     const summaryRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/summary"));
     const majorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/major-indices"));
     const breadthRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/breadth"));
     const styleRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/style"));
     const turnoverRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/turnover"));
+    const leaderboardsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/leaderboards"));
     expect(summaryRequest).toBeDefined();
     expect(majorRequest).toBeDefined();
     expect(breadthRequest).toBeDefined();
     expect(styleRequest).toBeDefined();
     expect(turnoverRequest).toBeDefined();
+    expect(leaderboardsRequest).toBeDefined();
     expect(new URL(summaryRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(majorRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(breadthRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(styleRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(turnoverRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(leaderboardsRequest as string).searchParams.get("debug")).toBe("1");
   });
 });

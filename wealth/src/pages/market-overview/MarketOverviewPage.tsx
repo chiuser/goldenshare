@@ -21,6 +21,12 @@ import { PageHeader } from "../../features/market-overview/layout/PageHeader";
 import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
 import { TopMarketBar } from "../../features/market-overview/layout/TopMarketBar";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
+import {
+  buildLeaderboardsViewModelFromApi,
+  buildLeaderboardsViewModelFromMock,
+  type MarketLeaderboardsViewModel,
+} from "../../features/market-overview/leaderboards/api/marketLeaderboardsAdapter";
+import { fetchMarketLeaderboards, type LeaderboardsDebugInfo } from "../../features/market-overview/leaderboards/api/marketLeaderboardsApi";
 import { LimitBoardPanel } from "../../features/market-overview/limit-up/LimitBoardPanel";
 import { StreakLadderPanel } from "../../features/market-overview/limit-up/StreakLadderPanel";
 import { MarketMoneyFlowPanel } from "../../features/market-overview/money-flow/MarketMoneyFlowPanel";
@@ -50,6 +56,7 @@ const MAJOR_INDICES_FETCH_TIMEOUT_MS = 5000;
 const BREADTH_FETCH_TIMEOUT_MS = 5000;
 const STYLE_FETCH_TIMEOUT_MS = 5000;
 const TURNOVER_FETCH_TIMEOUT_MS = 5000;
+const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -83,6 +90,12 @@ export function MarketOverviewPage() {
   );
   const [turnoverErrorMessage, setTurnoverErrorMessage] = useState<string | null>(null);
   const [turnoverDebugInfo, setTurnoverDebugInfo] = useState<TurnoverDebugInfo | null>(null);
+  const [leaderboards, setLeaderboards] = useState<MarketLeaderboardsViewModel | null>(null);
+  const [leaderboardsViewState, setLeaderboardsViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.leaderboards === "real" ? "loading" : "ready",
+  );
+  const [leaderboardsErrorMessage, setLeaderboardsErrorMessage] = useState<string | null>(null);
+  const [leaderboardsDebugInfo, setLeaderboardsDebugInfo] = useState<LeaderboardsDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const pageDebugEnabled = useMemo(() => {
@@ -98,6 +111,7 @@ export function MarketOverviewPage() {
       ...(breadthDebugInfo?.modules ?? []),
       ...(styleDebugInfo?.modules ?? []),
       ...(turnoverDebugInfo?.modules ?? []),
+      ...(leaderboardsDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
@@ -105,10 +119,11 @@ export function MarketOverviewPage() {
       ...(breadthDebugInfo?.exceptions ?? []),
       ...(styleDebugInfo?.exceptions ?? []),
       ...(turnoverDebugInfo?.exceptions ?? []),
+      ...(leaderboardsDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
-  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo, turnoverDebugInfo]);
+  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo, turnoverDebugInfo, leaderboardsDebugInfo]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -152,6 +167,14 @@ export function MarketOverviewPage() {
         setTurnover(null);
         setTurnoverViewState("loading");
         setTurnoverErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.leaderboards === "mock") {
+        setLeaderboards(buildLeaderboardsViewModelFromMock(response.data));
+        setLeaderboardsViewState("ready");
+      } else {
+        setLeaderboards(null);
+        setLeaderboardsViewState("loading");
+        setLeaderboardsErrorMessage(null);
       }
     });
   }, []);
@@ -389,6 +412,55 @@ export function MarketOverviewPage() {
     };
   }, [overview, pageDebugEnabled]);
 
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.leaderboards !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setLeaderboards(null);
+    setLeaderboardsViewState("loading");
+    setLeaderboardsErrorMessage(null);
+    setLeaderboardsDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), LEADERBOARDS_FETCH_TIMEOUT_MS);
+
+    fetchMarketLeaderboards(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setLeaderboards(buildLeaderboardsViewModelFromApi(payload));
+          setLeaderboardsViewState("ready");
+          setLeaderboardsErrorMessage(null);
+          setLeaderboardsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/leaderboards`
+            : error instanceof Error
+              ? error.message
+              : "榜单速览加载失败";
+          setLeaderboards(null);
+          setLeaderboardsViewState("error");
+          setLeaderboardsErrorMessage(message);
+          setLeaderboardsDebugInfo(null);
+          showToast(`榜单速览模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
   function showToast(message: string) {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
@@ -459,7 +531,12 @@ export function MarketOverviewPage() {
           </div>
           <div className="row-two">
             <MarketMoneyFlowPanel overview={overview} />
-            <LeaderboardPanel overview={overview} onAction={showToast} />
+            <LeaderboardPanel
+              viewState={leaderboardsViewState}
+              leaderboards={leaderboards ?? undefined}
+              errorMessage={leaderboardsErrorMessage ?? undefined}
+              onAction={showToast}
+            />
           </div>
           <LimitBoardPanel overview={overview} />
           <StreakLadderPanel overview={overview} onAction={showToast} />
