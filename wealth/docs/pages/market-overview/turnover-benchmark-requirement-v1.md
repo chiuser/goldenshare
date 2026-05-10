@@ -80,16 +80,16 @@
 | 对象 | 字段 | 含义 | 单位 | 可空 | 产出责任 | 缺失降级 |
 |---|---|---|---|---|---|---|
 | `TurnoverPanel` | `tradeDate` | 模块观测交易日 | - | 否 | 后端 | 缺失即异常 |
-| `TurnoverMetrics` | `todayAmount` | 今日总成交额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `TurnoverMetrics` | `prevAmount` | 上一交易日总成交额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `TurnoverMetrics` | `amountDelta` | 与上一交易日差额 | 元 | 是 | 后端 | 缺失显示 `--` |
+| `TurnoverMetrics` | `todayAmount` | 今日总成交额 | `thousand_yuan`（千元） | 是 | 后端 | 缺失显示 `--` |
+| `TurnoverMetrics` | `prevAmount` | 上一交易日总成交额 | `thousand_yuan`（千元） | 是 | 后端 | 缺失显示 `--` |
+| `TurnoverMetrics` | `amountDelta` | 与上一交易日差额 | `thousand_yuan`（千元） | 是 | 后端 | 缺失显示 `--` |
 | `TurnoverMetrics` | `amountDeltaPct` | 与上一交易日差额比例 | % | 是 | 后端 | 缺失显示 `--` |
-| `TurnoverMetrics` | `avg5dAmount` | 5 日均值 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `TurnoverMetrics` | `avg20dAmount` | 20 日均值（或口径项） | 元 | 是 | 后端 | 缺失显示 `--` |
+| `TurnoverMetrics` | `avg5dAmount` | 5 日均值 | `thousand_yuan`（千元） | 是 | 后端 | 缺失显示 `--` |
+| `TurnoverMetrics` | `avg20dAmount` | 20 日均值（或口径项） | `thousand_yuan`（千元） | 是 | 后端 | 缺失显示 `--` |
 | `TurnoverIntradayPoint` | `time` | 时点（HH:mm） | - | 否 | 后端 | 异常点丢弃 |
-| `TurnoverIntradayPoint` | `cumAmount` | 累计成交额 | 元 | 是 | 后端 | 可空点位 |
+| `TurnoverIntradayPoint` | `cumAmount` | 累计成交额 | `thousand_yuan`（千元） | 是 | 后端 | 可空点位 |
 | `TurnoverHistoryPoint` | `tradeDate` | 历史交易日 | - | 否 | 后端 | 异常点丢弃 |
-| `TurnoverHistoryPoint` | `amount` | 当日总成交额 | 元 | 是 | 后端 | 可空点位 |
+| `TurnoverHistoryPoint` | `amount` | 当日总成交额 | `thousand_yuan`（千元） | 是 | 后端 | 可空点位 |
 
 ---
 
@@ -113,7 +113,7 @@
 
 ## 6. 状态语义
 
-1. 页面级状态：`READY/PARTIAL/DELAYED/EMPTY/ERROR`。
+1. 本模块接口页面级状态：`READY/PARTIAL/EMPTY/ERROR`（`DELAYED` 通过 `PARTIAL + moduleStatus=DELAYED` 表达）。
 2. 模块级状态（debug）：返回 `expectedTradeDate/observedTradeDate/lagDays/status/note`。
 3. delayed 判定：`observedTradeDate < expectedTradeDate`。
 4. partial 判定：核心四卡有值但日内曲线缺失，或历史部分缺失。
@@ -153,6 +153,7 @@
 6. 行为验收：真实源请求超过 5 秒显示 error（不回填 mock turnover）。
 7. 范围验收：本轮仅 `turnover` 模块 source 变化，其余模块 source 保持不变。
 8. 展示验收：不新增常驻图下注释（除非后续需求文档明确新增）。
+9. 图表验收：当日累计成交额与历史成交额趋势两张图纵轴都从 `0` 开始，固定刻度为 `0/10000/20000/30000/40000`，不得出现负数刻度。
 
 ---
 
@@ -172,3 +173,4 @@
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结成交额总览模块边界（4卡 + 两图 + 固定范围） | Codex |
 | v1.1 | 2026-05-08 | 拍板落定：20日均值 + 30min 5点日内累计曲线 | Codex |
+| v1.2 | 2026-05-10 | 文档纠偏：金额单位统一为 `thousand_yuan`；状态语义对齐当前实现（DELAYED 通过 PARTIAL 表达） | Codex |

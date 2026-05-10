@@ -40,7 +40,8 @@
 11. [ ] 本轮仅 turnover 切换到 real、其余模块 source 不变
 12. [ ] 说明文案门禁冻结（图下注释默认不常驻）
 13. [ ] 配置生效语义冻结（本模块当前无策略中心配置；若未来引入必须补齐路径/注册键/生效时机/失败行为）
-14. [ ] 签字完成
+14. [ ] 图表坐标语义冻结（两图纵轴从 0 起、固定刻度 `0/10000/20000/30000/40000`、禁止负值刻度）
+15. [ ] 签字完成
 
 ---
 
@@ -108,7 +109,7 @@ interface TurnoverResponseData {
     "sessionStatus": "CLOSED",
     "timezone": "Asia/Shanghai"
   },
-  "pageStatus": { "status": "READY", "displayText": "数据已就绪" },
+  "pageStatus": { "status": "READY", "displayText": "事实聚合已就绪" },
   "turnover": {
     "tradeDate": "2026-05-08",
     "metrics": {
@@ -167,7 +168,7 @@ interface TurnoverResponseData {
 
 ```json
 {
-  "pageStatus": { "status": "EMPTY", "displayText": "暂无可用数据" },
+  "pageStatus": { "status": "EMPTY", "displayText": "模块数据为空" },
   "turnover": {
     "tradeDate": "2026-05-08",
     "metrics": {
@@ -179,7 +180,13 @@ interface TurnoverResponseData {
       "avg20dAmount": null,
       "unit": "thousand_yuan"
     },
-    "intradayCumulative": [],
+    "intradayCumulative": [
+      { "time": "09:30", "cumAmount": null },
+      { "time": "10:30", "cumAmount": null },
+      { "time": "11:30", "cumAmount": null },
+      { "time": "14:00", "cumAmount": null },
+      { "time": "15:00", "cumAmount": null }
+    ],
     "historyByRange": { "oneMonth": [], "threeMonth": [] }
   }
 }
@@ -189,7 +196,7 @@ interface TurnoverResponseData {
 
 ```json
 {
-  "pageStatus": { "status": "ERROR", "displayText": "请求失败，请稍后重试" },
+  "pageStatus": { "status": "ERROR", "displayText": "模块加载失败" },
   "debugInfo": {
     "exceptions": [
       { "module": "turnover", "code": "TO_QUERY_FAILED", "severity": "error", "message": "query failed" }
@@ -240,7 +247,7 @@ interface TurnoverResponseData {
 |---|---|---|---|
 | `TO_SOURCE_DELAYED` | 数据滞后 | `observed < expected` | 模块 DELAYED |
 | `TO_SOURCE_EMPTY` | 空数据 | 四卡与历史均为空 | 模块 EMPTY |
-| `TO_INTRADAY_MISSING` | 日内缺失 | `stk_mins` 当日无可用点 | 模块 PARTIAL |
+| `TO_INTRADAY_MISSING` | 日内缺失 | `wealth_market_turnover_snapshot` 当日无可用点 | 模块 PARTIAL |
 | `TO_QUERY_FAILED` | 查询失败 | SQL/服务异常 | 模块 ERROR |
 
 ---
@@ -269,31 +276,45 @@ interface TurnoverResponseData {
    - 真实源请求超过 5 秒显示 error（不回填 mock turnover）
 4. debug 模式验证：
    - `debug=1` 返回模块级状态和异常；
-   - 生产环境禁用 debug 输出。
+   - `debug=0` 或不传时不返回 `debugInfo`。
 5. 渐进替换约束验证：
    - 仅 `turnover` source 发生变化；
    - 非目标模块 source 与行为不变。
 6. 图表说明文案验证：
    - 默认不展示图下“横轴/纵轴解释”说明文案；
    - 若后续需求新增，必须先更新 benchmark 再改实现。
+7. 图表坐标语义验证：
+   - 当日累计成交额与历史成交额趋势两图纵轴从 `0` 起；
+   - 刻度固定为 `0/10000/20000/30000/40000`；
+   - 不得出现负值刻度。
 
 ---
 
-## 10. 签字清单
+## 10. 通用清单映射矩阵（增补 2.14 / 2.15 / 2.16）
 
-### 10.1 后端负责人
+| 通用清单条目 | 适用性 | 本模块落地位置 | 当前状态 |
+|---|---|---|---|
+| `2.14 图表参数优先级与语义不可篡改` | 适用 | 前端图表：`wealth/src/shared/charts/MiniLineChart.tsx`（`yMin/yMax/yTickValues` 显式参数原值生效）；模块接入：`wealth/src/features/market-overview/turnover/TurnoverOverviewPanel.tsx`（固定传 `0~40000` + 刻度） | 已落地 |
+| `2.15 双图并排坐标区对齐与标签避让` | 适用 | 前端图表：`wealth/src/shared/charts/MiniLineChart.tsx`（纵轴标签宽度驱动 left pad、首尾横轴标签边界对齐、底部留白一致）；模块双图：`TurnoverOverviewPanel.tsx` | 已落地 |
+| `2.16 指标卡片文案长度与单行约束` | 适用 | 前端样式：`wealth/src/pages/market-overview/market-overview-page.css`（`.turnover-metric-avg .metric-sub` 单行 + 小字号）；组件挂载：`TurnoverOverviewPanel.tsx`（给“5日均值”卡片打类名） | 已落地 |
+
+---
+
+## 11. 签字清单
+
+### 11.1 后端负责人
 
 1. [ ] 四卡统计口径可实现
 2. [ ] 日内累计策略可实现
 3. [ ] 状态与异常语义无歧义
 
-### 10.2 前端负责人
+### 11.2 前端负责人
 
 1. [ ] 响应结构可消费
 2. [ ] 样式交互可零改动接入
 3. [ ] 空值/partial 展示可实现
 
-### 10.3 架构/产品负责人
+### 11.3 架构/产品负责人
 
 1. [ ] 范围未扩散
 2. [ ] 四卡与两图语义达成
@@ -301,9 +322,11 @@ interface TurnoverResponseData {
 
 ---
 
-## 11. 版本记录
+## 12. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：建立成交额总览模块编码门禁（4卡 + 两图） | Codex |
 | v1.1 | 2026-05-08 | 拍板落定：20日均值 + 30min 5点日内累计曲线 | Codex |
+| v1.2 | 2026-05-10 | 补充图表坐标硬门禁：两图纵轴固定 0~40000（步长 10000），禁止负值刻度 | Codex |
+| v1.3 | 2026-05-10 | 三项门禁映射矩阵补齐（2.14/2.15/2.16），并纠正文档样例与当前实现一致性 | Codex |
