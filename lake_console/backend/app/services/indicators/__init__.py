@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from lake_console.backend.app.services.indicators.indicator_by_date_writer import IndicatorByDateWriter
 from lake_console.backend.app.services.indicators.indicator_compute_service import StkMinsIndicatorComputeService
+from lake_console.backend.app.services.indicators.indicator_range_service import StkMinsIndicatorRangeService
 from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
 from lake_console.backend.app.services.indicators.indicator_research_service import StkMinsIndicatorResearchService
 from lake_console.backend.app.services.indicators.indicator_state_store import MacdStateStore
@@ -18,6 +19,7 @@ __all__ = [
     "MacdState",
     "MacdStateStore",
     "StkMinsIndicatorComputeService",
+    "StkMinsIndicatorRangeService",
     "StkMinsIndicatorResearchService",
     "calculate_macd",
 ]

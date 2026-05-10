@@ -78,6 +78,41 @@ def test_rebuild_stk_mins_indicator_research_cli(tmp_path) -> None:
     ).exists()
 
 
+def test_rebuild_stk_mins_indicator_research_range_cli(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_indicator_by_date(tmp_path)
+
+    exit_code = main(
+        [
+            "rebuild-stk-mins-indicator-research-range",
+            "--lake-root",
+            str(tmp_path),
+            "--indicator",
+            "macd",
+            "--freq",
+            "30",
+            "--start-month",
+            "2026-04",
+            "--end-month",
+            "2026-04",
+            "--bucket-count",
+            "4",
+        ]
+    )
+
+    assert exit_code == 0
+    assert (
+        tmp_path
+        / "research"
+        / "stk_mins_indicators_by_symbol_month"
+        / "indicator=macd"
+        / "params_key=12_26_9"
+        / "freq=30"
+        / "trade_month=2026-04"
+    ).exists()
+
+
 def _write_indicator_by_date(tmp_path) -> None:
     rows_600000 = calculate_macd(
         [

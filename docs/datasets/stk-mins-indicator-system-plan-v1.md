@@ -371,31 +371,36 @@ lake-console rebuild-stk-mins-research-range \
 推荐执行单位：
 
 ```text
-freq x bucket
+freq x trade_month x bucket
 ```
 
 流程：
 
 ```text
-读取 research/stk_mins_by_symbol_month/freq=*/trade_month=*/bucket=*
--> 在 bucket 内按 ts_code 分组
--> 每个 ts_code 按 trade_time 排序计算全量 MACD
--> 结果先写入 _tmp/{run_id}/indicator_stage/.../trade_date=*/bucket=*
--> 每个 trade_date 汇总所有 bucket
--> 写入正式 derived/stk_mins_indicators_by_date 分区
--> 重建 research/stk_mins_indicators_by_symbol_month
--> 最后更新 ema_state
+执行前 preflight：检查 source research 月份、bucket、文件数量
+-> 按 freq 顺序执行
+-> 每个 freq 内按 trade_month 顺序执行
+-> 每个 trade_month 内按 bucket 流式读取
+-> bucket 内按 ts_code 分组
+-> 每个 ts_code 按 trade_time 排序计算 MACD
+-> 每个月的结果先写入 _tmp 指标 by_date 分区
+-> 当月所有 bucket 写完后，replace 当月涉及的正式 by_date 分区
+-> by_date 写入成功后，推进 ema_state 到该月末
+-> 记录 month checkpoint 进度
+-> 所有目标月份完成后，重建 indicator research
 ```
 
 这样做能得到：
 
 1. 单只股票跨多年连续递推，不断链。
 2. 最终仍然保留按日期分区，方便全市场横截面查询。
-3. 计算阶段可以分 bucket 并行，但正式分区替换仍然受控。
+3. 内存只承载当前月份当前 bucket，不把多年全市场数据一次性读入内存。
+4. 某个月失败时，已完成月份的 by_date 结果和 `ema_state` 已经落盘，不会整段白跑。
+5. 进度输出能看到 `freq/month/bucket/source_rows/written/checkpoint`，避免长时间黑盒执行。
 
 ### 7.3 状态更新时机
 
-`ema_state` 必须最后更新。
+`ema_state` 必须在对应结果分区成功替换后更新。
 
 顺序：
 
@@ -403,10 +408,10 @@ freq x bucket
 1. 指标结果写入 _tmp
 2. 指标结果校验
 3. 指标 by_date 正式替换
-4. 指标 research 重排或标记待重排
-5. state.parquet 写入 _tmp
-6. state.parquet 校验
-7. state.parquet 正式替换
+4. state.parquet 写入 _tmp
+5. state.parquet 校验
+6. state.parquet 正式替换
+7. 指标 research 重排或标记待重排
 8. indicator_runs 记录完成
 ```
 
@@ -415,6 +420,12 @@ freq x bucket
 1. 结果没写完但 state 已前进。
 2. 下次增量跳过未落盘数据。
 3. 出现“页面显示完成、文件实际缺失”的错觉。
+
+特别约束：
+
+1. 禁止用“按月手工执行 full 命令”代替内部流式计算。MACD 是递推指标，手工每月 full 会重置月初 EMA，结果不准确。
+2. `full + all_market` 可以在内部按月提交，但必须由同一个计算流程维护工作 state，不能让用户自己拆命令承担状态连续性。
+3. 如果已有同一 `freq` 的 state 晚于本次 full 的 `end_date`，必须拒绝执行，避免 state 回退。
 
 ---
 
@@ -607,10 +618,22 @@ lake-console process-indicator-recalc-queue \
 
 ## 10. CLI 设计
 
-第一版不要一次塞太多命令。建议先用一个主命令承接指标计算：
+单频计算命令只负责生成 by_date 指标结果：
 
 ```bash
 lake-console compute-stk-mins-indicator \
+  --indicator macd \
+  --mode full \
+  --all-market \
+  --freq 30 \
+  --start-date 2024-01-01 \
+  --end-date 2026-04-30
+```
+
+批量编排命令负责按 `freqs` 顺序逐个执行“计算 by_date + 重建 research”，避免人工漏跑或跑错顺序：
+
+```bash
+lake-console compute-stk-mins-indicator-range \
   --indicator macd \
   --mode full \
   --all-market \
@@ -619,16 +642,23 @@ lake-console compute-stk-mins-indicator \
   --end-date 2026-04-30
 ```
 
-增量：
+每日增量同样用批量编排命令，但必须显式传 `--mode incremental`：
 
 ```bash
-lake-console compute-stk-mins-indicator \
+lake-console compute-stk-mins-indicator-range \
   --indicator macd \
   --mode incremental \
   --all-market \
   --freqs 30,60,90,120 \
   --start-date 2026-05-01 \
   --end-date 2026-05-05
+```
+
+`compute-stk-mins-indicator-range` 是编排命令，不是新算法。它内部按每个 `freq` 依次执行：
+
+```text
+compute-stk-mins-indicator
+-> rebuild-stk-mins-indicator-research-range
 ```
 
 单股票验证：
@@ -650,6 +680,16 @@ lake-console rebuild-stk-mins-indicator-research \
   --indicator macd \
   --freq 30 \
   --trade-month 2026-04
+```
+
+批量重建 research：
+
+```bash
+lake-console rebuild-stk-mins-indicator-research-range \
+  --indicator macd \
+  --freq 30 \
+  --start-month 2026-01 \
+  --end-month 2026-04
 ```
 
 查看待重算队列：
@@ -694,6 +734,7 @@ lake_console/backend/app/services/indicators/
   indicator_source_reader.py
   indicator_by_date_writer.py
   indicator_state_store.py
+  indicator_range_service.py
   indicator_research_service.py
   indicator_recalc_queue.py
   indicator_progress.py
@@ -709,6 +750,7 @@ lake_console/backend/app/services/indicators/
 | `indicator_source_reader.py` | 从 raw/derived/research 读取分钟线 |
 | `indicator_by_date_writer.py` | 写指标 by_date 分区 |
 | `indicator_state_store.py` | 读写 `ema_state` |
+| `indicator_range_service.py` | 编排多频率计算与 research 重建 |
 | `indicator_research_service.py` | 重建指标 research 层 |
 | `indicator_recalc_queue.py` | 管理源分区替换事件与指标重算队列 |
 | `indicator_progress.py` | CLI 进度输出 |
@@ -890,7 +932,8 @@ bucket = stable_hash(ts_code) % 32
 2. 支持 `--indicator macd`。
 3. 支持 `--mode full|incremental`。
 4. 支持 `--all-market` 和 `--ts-code`。
-5. 有单行进度输出，显示当前 `freq/bucket/ts_code/date/written/state_updates`。
+5. 全市场 full 必须按 `freq -> trade_month -> bucket` 流式执行，不能一次性读入多年全市场数据。
+6. 有进度输出，显示当前 `freq/month/bucket/source_rows/written/state_updates/checkpoint`。
 
 ### M5：指标 research 重排
 

@@ -3,11 +3,12 @@ from __future__ import annotations
 import argparse
 from datetime import date
 
-from lake_console.backend.app.cli.commands.common import add_lake_root_arg, print_json, settings_from_args
+from lake_console.backend.app.cli.commands.common import add_lake_root_arg, parse_int_csv, print_json, settings_from_args
 from lake_console.backend.app.services.indicators import (
     DEFAULT_MACD_PARAMS,
     IndicatorRecalcQueueService,
     StkMinsIndicatorComputeService,
+    StkMinsIndicatorRangeService,
     StkMinsIndicatorResearchService,
 )
 
@@ -25,6 +26,20 @@ def register_indicator_commands(subparsers: argparse._SubParsersAction[argparse.
     parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
     parser.set_defaults(handler=_handle_compute_stk_mins_indicator)
 
+    range_parser = subparsers.add_parser(
+        "compute-stk-mins-indicator-range",
+        help="按 freq 编排计算本地 stk_mins 指标并重建 research，当前支持全市场 MACD",
+    )
+    add_lake_root_arg(range_parser)
+    range_parser.add_argument("--indicator", required=True, choices=("macd",), help="指标名，当前支持 macd")
+    range_parser.add_argument("--mode", required=True, choices=("full", "incremental"), help="计算模式")
+    range_parser.add_argument("--all-market", action="store_true", required=True, help="全市场计算；当前编排命令只支持全市场")
+    range_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 30,60,90,120")
+    range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    range_parser.add_argument("--bucket-count", default=None, type=int, help="research bucket 数量，默认读取配置 bucket_count")
+    range_parser.set_defaults(handler=_handle_compute_stk_mins_indicator_range)
+
     research_parser = subparsers.add_parser("rebuild-stk-mins-indicator-research", help="把指标 by_date 分区重排为 by_symbol_month research 层")
     add_lake_root_arg(research_parser)
     research_parser.add_argument("--indicator", required=True, choices=("macd",), help="指标名，当前支持 macd")
@@ -33,6 +48,16 @@ def register_indicator_commands(subparsers: argparse._SubParsersAction[argparse.
     research_parser.add_argument("--params-key", default=DEFAULT_MACD_PARAMS.params_key, help="参数版本，默认 12_26_9")
     research_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
     research_parser.set_defaults(handler=_handle_rebuild_stk_mins_indicator_research)
+
+    research_range_parser = subparsers.add_parser("rebuild-stk-mins-indicator-research-range", help="批量重建指标 research 层")
+    add_lake_root_arg(research_range_parser)
+    research_range_parser.add_argument("--indicator", required=True, choices=("macd",), help="指标名，当前支持 macd")
+    research_range_parser.add_argument("--freq", required=True, type=int, choices=(1, 5, 15, 30, 60, 90, 120), help="分钟周期")
+    research_range_parser.add_argument("--start-month", required=True, help="开始月份，格式 YYYY-MM")
+    research_range_parser.add_argument("--end-month", required=True, help="结束月份，格式 YYYY-MM")
+    research_range_parser.add_argument("--params-key", default=DEFAULT_MACD_PARAMS.params_key, help="参数版本，默认 12_26_9")
+    research_range_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
+    research_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_indicator_research_range)
 
     queue_parser = subparsers.add_parser("list-indicator-recalc-queue", help="查看指标待重算队列，并输出建议重算命令")
     add_lake_root_arg(queue_parser)
@@ -60,6 +85,22 @@ def _handle_compute_stk_mins_indicator(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_compute_stk_mins_indicator_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    if not args.all_market:
+        raise SystemExit("compute-stk-mins-indicator-range 当前只支持 --all-market。")
+    freqs = parse_int_csv(args.freqs, allowed={1, 5, 15, 30, 60, 90, 120}, label="freqs")
+    bucket_count = args.bucket_count or settings.bucket_count
+    summary = StkMinsIndicatorRangeService(lake_root=settings.lake_root, bucket_count=bucket_count).compute_macd_range(
+        mode=args.mode,
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+    )
+    print_json(summary)
+    return 0
+
+
 def _handle_rebuild_stk_mins_indicator_research(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
     bucket_count = args.bucket_count or settings.bucket_count
@@ -68,6 +109,20 @@ def _handle_rebuild_stk_mins_indicator_research(args: argparse.Namespace) -> int
         params_key=args.params_key,
         freq=args.freq,
         trade_month=args.trade_month,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_stk_mins_indicator_research_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    bucket_count = args.bucket_count or settings.bucket_count
+    summary = StkMinsIndicatorResearchService(lake_root=settings.lake_root, bucket_count=bucket_count).rebuild_range(
+        indicator=args.indicator,
+        params_key=args.params_key,
+        freq=args.freq,
+        start_month=args.start_month,
+        end_month=args.end_month,
     )
     print_json(summary)
     return 0

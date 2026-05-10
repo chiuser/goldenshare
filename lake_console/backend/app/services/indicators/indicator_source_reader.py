@@ -14,8 +14,28 @@ DERIVED_FREQS = {90, 120}
 
 @dataclass(frozen=True)
 class ResearchSourceBatch:
+    trade_month: str
     bucket: str
+    batch_index: int
+    batch_count: int
     rows: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class ResearchSourceBatchPlan:
+    trade_month: str
+    bucket: str
+    files: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class ResearchSourcePlan:
+    months: tuple[str, ...]
+    batches: tuple[ResearchSourceBatchPlan, ...]
+
+    @property
+    def file_count(self) -> int:
+        return sum(len(batch.files) for batch in self.batches)
 
 
 def read_stk_mins_source_rows(
@@ -62,6 +82,23 @@ def read_stk_mins_research_source_batches(
     start_date: date,
     end_date: date,
 ) -> list[ResearchSourceBatch]:
+    return list(
+        iter_stk_mins_research_source_batches(
+            lake_root=lake_root,
+            freq=freq,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    )
+
+
+def plan_stk_mins_research_source_batches(
+    *,
+    lake_root: Path,
+    freq: int,
+    start_date: date,
+    end_date: date,
+) -> ResearchSourcePlan:
     if end_date < start_date:
         raise ValueError("end-date 不能早于 start-date。")
     months = _list_trade_months(start_date=start_date, end_date=end_date)
@@ -75,26 +112,47 @@ def read_stk_mins_research_source_batches(
             f" 缺失月份：{', '.join(missing_months[:5])}"
         )
 
-    bucket_files: dict[str, list[Path]] = {}
+    batches: list[ResearchSourceBatchPlan] = []
     for month in months:
         month_root = research_root / f"trade_month={month}"
         for bucket_dir in sorted(month_root.glob("bucket=*")):
             files = sorted(bucket_dir.glob("*.parquet"))
             if files:
                 bucket = bucket_dir.name.split("=", 1)[1]
-                bucket_files.setdefault(bucket, []).extend(files)
+                batches.append(ResearchSourceBatchPlan(trade_month=month, bucket=bucket, files=tuple(files)))
+    return ResearchSourcePlan(months=tuple(months), batches=tuple(batches))
 
-    batches: list[ResearchSourceBatch] = []
-    for bucket, files in sorted(bucket_files.items()):
-        rows = read_parquet_files(files)
+
+def iter_stk_mins_research_source_batches(
+    *,
+    lake_root: Path,
+    freq: int,
+    start_date: date,
+    end_date: date,
+    plan: ResearchSourcePlan | None = None,
+):
+    source_plan = plan or plan_stk_mins_research_source_batches(
+        lake_root=lake_root,
+        freq=freq,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    batch_count = len(source_plan.batches)
+    for batch_index, batch in enumerate(source_plan.batches, start=1):
+        rows = read_parquet_files(list(batch.files))
         normalized_rows = [
             _normalize_source_row(row, expected_freq=freq)
             for row in rows
             if start_date <= _parse_trade_time(row.get("trade_time")).date() <= end_date
         ]
         if normalized_rows:
-            batches.append(ResearchSourceBatch(bucket=bucket, rows=sorted(normalized_rows, key=lambda row: (row["ts_code"], row["trade_time"]))))
-    return batches
+            yield ResearchSourceBatch(
+                trade_month=batch.trade_month,
+                bucket=batch.bucket,
+                batch_index=batch_index,
+                batch_count=batch_count,
+                rows=sorted(normalized_rows, key=lambda row: (row["ts_code"], row["trade_time"])),
+            )
 
 
 def _source_files(*, lake_root: Path, freq: int, start_date: date, end_date: date) -> list[Path]:
