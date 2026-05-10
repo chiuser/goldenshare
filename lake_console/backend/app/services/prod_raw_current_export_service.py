@@ -152,6 +152,8 @@ def _normalize_rows(*, dataset_key: str, rows: list[dict[str, Any]]) -> list[dic
 
 
 def _sort_key(dataset_key: str) -> Callable[[dict[str, Any]], tuple[str, ...]]:
+    if dataset_key == "bse_mapping":
+        return lambda row: (str(row.get("o_code") or ""), str(row.get("n_code") or ""))
     if dataset_key == "ths_member":
         return lambda row: (str(row.get("ts_code") or ""), str(row.get("con_code") or ""))
     return lambda row: (str(row.get("ts_code") or ""),)

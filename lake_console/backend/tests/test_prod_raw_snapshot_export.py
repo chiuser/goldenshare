@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 
 from lake_console.backend.app.catalog.tushare_reference_master import (
+    BSE_MAPPING_FIELDS,
     ETF_BASIC_FIELDS,
     ETF_INDEX_FIELDS,
     THS_INDEX_FIELDS,
@@ -23,6 +24,7 @@ from lake_console.backend.app.sync.planner import LakeSyncPlanner
     ("dataset_key", "expected_table", "expected_fields", "expected_order"),
     [
         ("etf_basic", "raw_tushare.etf_basic", ETF_BASIC_FIELDS, "order by ts_code"),
+        ("bse_mapping", "raw_tushare.bse_mapping", BSE_MAPPING_FIELDS, "order by o_code, n_code"),
         ("etf_index", "raw_tushare.etf_index", ETF_INDEX_FIELDS, "order by ts_code"),
         ("ths_index", "raw_tushare.ths_index", THS_INDEX_FIELDS, "order by ts_code"),
         ("ths_member", "raw_tushare.ths_member", THS_MEMBER_FIELDS, "order by ts_code, con_code"),
@@ -49,15 +51,15 @@ def test_prod_raw_snapshot_query_uses_whitelist_projection(
 
 def test_prod_raw_snapshot_plan_marks_source_and_dual_write_paths(tmp_path) -> None:
     plan = LakeSyncPlanner(lake_root=tmp_path).plan(
-        dataset_key="etf_basic",
+        dataset_key="bse_mapping",
         source="prod-raw-db",
     )
 
     assert plan.source == "prod-raw-db"
-    assert plan.request_strategy_key == "etf_basic:prod-raw-db"
+    assert plan.request_strategy_key == "bse_mapping:prod-raw-db"
     assert plan.request_count == 1
-    assert "raw_tushare/etf_basic/current/part-000.parquet" in plan.write_paths
-    assert "manifest/etf_universe/tushare_etf_basic.parquet" in plan.write_paths
+    assert "raw_tushare/bse_mapping/current/part-000.parquet" in plan.write_paths
+    assert "manifest/security_reference/tushare_bse_mapping.parquet" in plan.write_paths
 
 
 def test_prod_raw_snapshot_plan_rejects_subset_filters(tmp_path) -> None:
@@ -121,6 +123,49 @@ def test_etf_basic_prod_raw_export_writes_raw_and_manifest(monkeypatch, tmp_path
     assert pa.types.is_date(raw_schema.field("setup_date").type)
     assert pa.types.is_date(raw_schema.field("list_date").type)
     assert pa.types.is_float64(raw_schema.field("mgt_fee").type)
+    assert raw_schema.equals(manifest_schema)
+
+
+def test_bse_mapping_prod_raw_export_writes_raw_and_manifest(monkeypatch, tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+
+    def fake_fetch_prod_raw_rows(*, database_url, query):
+        assert database_url == "postgresql://readonly@example/db"
+        assert query.table_name == "raw_tushare.bse_mapping"
+        return [
+            {
+                "name": "示例北交所公司",
+                "o_code": "430198.BJ",
+                "n_code": "830198.BJ",
+                "list_date": date(2020, 7, 27),
+            }
+        ]
+
+    monkeypatch.setattr(
+        "lake_console.backend.app.services.prod_raw_current_export_service.fetch_prod_raw_rows",
+        fake_fetch_prod_raw_rows,
+    )
+
+    summary = ProdRawCurrentExportService(
+        lake_root=tmp_path,
+        database_url="postgresql://readonly@example/db",
+        progress=lambda _: None,
+    ).export(dataset_key="bse_mapping")
+
+    raw_file = tmp_path / "raw_tushare" / "bse_mapping" / "current" / "part-000.parquet"
+    manifest_file = tmp_path / "manifest" / "security_reference" / "tushare_bse_mapping.parquet"
+    raw_schema = pq.read_schema(raw_file)
+    manifest_schema = pq.read_schema(manifest_file)
+
+    assert summary["source"] == "prod-raw-db"
+    assert summary["fetched_rows"] == 1
+    assert summary["written_rows"] == 1
+    assert summary["manifest_written_rows"] == 1
+    assert raw_file.exists()
+    assert manifest_file.exists()
+    assert pa.types.is_date(raw_schema.field("list_date").type)
     assert raw_schema.equals(manifest_schema)
 
 

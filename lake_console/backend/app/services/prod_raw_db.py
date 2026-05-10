@@ -51,6 +51,7 @@ from lake_console.backend.app.catalog.datasets.technical_indicators import (
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_DAILY_BASIC_FIELDS
 from lake_console.backend.app.catalog.tushare_index_series import INDEX_MINS_FIELDS
 from lake_console.backend.app.catalog.tushare_reference_master import (
+    BSE_MAPPING_FIELDS,
     ETF_BASIC_FIELDS,
     ETF_INDEX_FIELDS,
     THS_INDEX_FIELDS,
@@ -61,6 +62,7 @@ from lake_console.backend.app.catalog.tushare_reference_master import (
 PROD_RAW_DB_SOURCE = "prod-raw-db"
 PROD_RAW_DB_ALLOWED_TABLES = {
     "adj_factor": "raw_tushare.adj_factor",
+    "bse_mapping": "raw_tushare.bse_mapping",
     "cyq_perf": "raw_tushare.cyq_perf",
     "daily_basic": "raw_tushare.daily_basic",
     "daily": "raw_tushare.daily",
@@ -105,6 +107,7 @@ PROD_RAW_DB_ALLOWED_TABLES = {
 }
 PROD_RAW_DB_FIELDS = {
     "adj_factor": ADJ_FACTOR_FIELDS,
+    "bse_mapping": BSE_MAPPING_FIELDS,
     "cyq_perf": CYQ_PERF_FIELDS,
     "daily_basic": DAILY_BASIC_FIELDS,
     "daily": DAILY_FIELDS,
@@ -149,6 +152,7 @@ PROD_RAW_DB_FIELDS = {
 }
 PROD_RAW_DB_ORDER_BY = {
     "adj_factor": ("ts_code",),
+    "bse_mapping": ("o_code", "n_code"),
     "cyq_perf": ("ts_code",),
     "daily": ("ts_code",),
     "daily_basic": ("ts_code",),

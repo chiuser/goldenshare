@@ -2,7 +2,7 @@
 
 - 版本：v1
 - 状态：现行
-- 更新时间：2026-05-09
+- 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地数据湖的数据集接入评审、方案设计与实现前检查
 - 相关文档：
   - [Local Lake 数据集同步扩展方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
@@ -42,14 +42,14 @@
 1. 生产侧总数据集：`66`
 2. 其中 Tushare：`64`
 3. 其中 BIYING：`2`
-4. Lake 当前已接入数据集：`49`
-5. Lake 已接入的 `49` 个全部落在 Tushare 主线
-6. 当前 Tushare 剩余未接入 Lake：`15`
+4. Lake 当前已接入数据集：`50`
+5. Lake 已接入的 `50` 个全部落在 Tushare 主线
+6. 当前 Tushare 剩余未接入 Lake：`14`
 
 当前覆盖率：
 
 ```text
-49 / 64 = 76.56%
+50 / 64 = 78.13%
 ```
 
 说明：
@@ -105,11 +105,12 @@
 
 ### 3.3 仅 prod-raw-db
 
-共 `40` 个。
+共 `41` 个。
 
 #### 3.3.1 current_file / snapshot 类
 
 - `etf_basic`
+- `bse_mapping`
 - `etf_index`
 - `ths_index`
 - `ths_member`
@@ -182,14 +183,13 @@
 
 ---
 
-## 4. 还未接入 Lake 的 16 个数据集
+## 4. 还未接入 Lake 的 14 个数据集
 
 当前未接入的 Tushare 数据集如下：
 
 - `bak_basic`
 - `block_trade`
 - `broker_recommend`
-- `bse_mapping`
 - `cctv_news`
 - `dividend`
 - `hk_basic`
@@ -204,7 +204,7 @@
 
 注意：
 
-1. 这 `16` 个当前还不能按“主路线”直接拍脑袋分配模式。
+1. 这 `14` 个当前还不能按“主路线”直接拍脑袋分配模式。
 2. 必须逐个审计后，才能决定它们应该走：
    - `tushare`
    - `prod-raw-db`
@@ -219,7 +219,7 @@
 禁止做法：
 
 ```text
-因为现在大多数走 prod-raw-db，就默认剩余 15 个也走 prod-raw-db。
+因为现在大多数走 prod-raw-db，就默认剩余 14 个也走 prod-raw-db。
 ```
 
 ---

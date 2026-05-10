@@ -18,6 +18,13 @@ ETF_BASIC_FIELDS = (
     "etf_type",
 )
 
+BSE_MAPPING_FIELDS = (
+    "name",
+    "o_code",
+    "n_code",
+    "list_date",
+)
+
 INDEX_BASIC_FIELDS = (
     "ts_code",
     "name",

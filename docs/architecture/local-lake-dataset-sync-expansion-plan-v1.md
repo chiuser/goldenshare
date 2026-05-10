@@ -2,7 +2,7 @@
 
 - 版本：v1
 - 状态：已部分落地；主路线已切换为“`prod-raw-db` 只读导出优先，必要时按最佳事实源选择 `prod-core-db`”
-- 更新时间：2026-05-09
+- 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地移动盘 Tushare Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -33,14 +33,14 @@
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
 8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
-9. Lake 已从首批 6 个数据集扩展到 49 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线、指数分钟线与特色指标多个批次。
+9. Lake 已从首批 6 个数据集扩展到 50 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线、指数分钟线与特色指标多个批次。
 10. `daily` 已验证可以通过 `prod-raw-db` 只读导出，且速度明显优于重新请求 Tushare。
 
 当前生产侧共有 `66` 个 `DatasetDefinition`，其中：
 
 1. `64` 个属于 Tushare 主线。
 2. `2` 个是 `BIYING` 数据源（`biying_equity_daily`、`biying_moneyflow`），不纳入当前 Tushare Lake 主线。
-3. 当前 Lake 已落地 `49 / 64` 个 Tushare 数据集，剩余 `15` 个待规划。
+3. 当前 Lake 已落地 `50 / 64` 个 Tushare 数据集，剩余 `14` 个待规划。
 4. `index_mins` 已按“双模式（tushare + prod-raw-db）+ 同池 active pool + index_basic 生命周期过滤”专项方案落地。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
@@ -538,8 +538,8 @@ rebuild_month
 | 生产 `DatasetDefinition` 总数 | 66 | 含 BIYING |
 | Tushare 数据集 | 64 | 当前 Tushare Lake 主线目标 |
 | BIYING 数据集 | 2 | 暂不纳入本轮 |
-| Lake 已落地 | 49 | 已覆盖参考数据、核心日频、资金流、ETF、板块、热点、榜单、股票周/月线、指数周期线、指数分钟线与特色指标多批次 |
-| Lake 待接入 | 15 | 继续以 `prod-raw-db` 导出优先 |
+| Lake 已落地 | 50 | 已覆盖参考数据、核心日频、资金流、ETF、板块、热点、榜单、股票周/月线、指数周期线、指数分钟线与特色指标多批次 |
+| Lake 待接入 | 14 | 继续以 `prod-raw-db` 导出优先 |
 
 ### 7.2 新主线原则
 
@@ -581,6 +581,7 @@ rebuild_month
 | 数据集 | 原表 | Lake 布局 | 建议来源 |
 |---|---|---|---|
 | `etf_basic` | `raw_tushare.etf_basic` | `current_file` | `prod-raw-db` |
+| `bse_mapping` | `raw_tushare.bse_mapping` | `current_file` | `prod-raw-db` |
 | `hk_basic` | `raw_tushare.hk_basic` | `current_file` | `prod-raw-db` |
 | `us_basic` | `raw_tushare.us_basic` | `current_file` | `prod-raw-db` |
 | `ths_index` | `raw_tushare.ths_index` | `current_file` | `prod-raw-db` |
@@ -592,6 +593,11 @@ rebuild_month
 1. `stock_basic`、`trade_cal`、`index_basic` 已完成，可作为这一批模板。
 2. 这一批最适合先建立 `snapshot/current` 导出套路。
 3. `ths_member` 虽然生产定义里没有时间输入，但导出 Lake 时就是 current 快照，不再受源接口请求方式影响。
+4. `bse_mapping` 当前线上 `raw_tushare.bse_mapping` 仅 `248` 行，`(o_code, n_code)` 唯一，无重复，适合走 `full_fetchall + replace_file`。
+5. `bse_mapping` 需要双落：
+   - `raw_tushare/bse_mapping/current/part-000.parquet`
+   - `manifest/security_reference/tushare_bse_mapping.parquet`
+6. `bse_mapping` 已于 `2026-05-10` 落地到 `lake_console`，并通过 current snapshot 白名单投影测试。
 
 ### 7.5 R2：核心日频分区批
 

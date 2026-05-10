@@ -152,6 +152,7 @@ docs/
 - [连板天梯 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/limit-step-prod-raw-db-lake-export-plan.md)
 - [涨停概念列表 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/limit-cpt-list-prod-raw-db-lake-export-plan.md)
 - [龙虎榜 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/top-list-prod-raw-db-lake-export-plan.md)
+- [北交所新旧代码对照 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/bse-mapping-prod-raw-db-lake-export-plan.md)
 - [东方财富板块日线行情 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/dc-daily-prod-raw-db-lake-export-plan.md)
 - [东方财富板块成分 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/dc-member-prod-raw-db-lake-export-plan.md)
 - [开盘啦榜单 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/kpl-list-prod-raw-db-lake-export-plan.md)

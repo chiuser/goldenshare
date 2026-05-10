@@ -43,6 +43,7 @@ from lake_console.backend.app.sync.strategies.prod_db_trade_date import (
     TopListStrategy,
 )
 from lake_console.backend.app.sync.strategies.prod_raw_current_snapshots import (
+    BSEMappingStrategy,
     ETFBasicStrategy,
     ETFIndexStrategy,
     THSIndexStrategy,
@@ -58,6 +59,7 @@ STRATEGY_CLASSES = {
     DcIndexStrategy.dataset_key: DcIndexStrategy,
     DcMemberStrategy.dataset_key: DcMemberStrategy,
     DailyStrategy.dataset_key: DailyStrategy,
+    BSEMappingStrategy.dataset_key: BSEMappingStrategy,
     ETFBasicStrategy.dataset_key: ETFBasicStrategy,
     ETFIndexStrategy.dataset_key: ETFIndexStrategy,
     FundAdjStrategy.dataset_key: FundAdjStrategy,
@@ -108,6 +110,7 @@ __all__ = [
     "DcIndexStrategy",
     "DcMemberStrategy",
     "DailyStrategy",
+    "BSEMappingStrategy",
     "ETFBasicStrategy",
     "ETFIndexStrategy",
     "FundAdjStrategy",

@@ -43,6 +43,41 @@ class ETFBasicStrategy:
         ).export(dataset_key=self.dataset_key)
 
 
+class BSEMappingStrategy:
+    dataset_key = "bse_mapping"
+
+    def sync(
+        self,
+        *,
+        context: LakeSyncContext,
+        trade_date: date | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        ts_code: str | None = None,
+        name: str | None = None,
+        markets: list[str] | None = None,
+        publisher: str | None = None,
+        category: str | None = None,
+        source: str = "tushare",
+    ) -> LakeSyncResult:
+        _require_prod_raw_source(self.dataset_key, source)
+        _reject_snapshot_filters(
+            dataset_key=self.dataset_key,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            ts_code=ts_code,
+            name=name,
+            markets=markets,
+            publisher=publisher,
+            category=category,
+        )
+        return ProdRawCurrentExportService(
+            lake_root=context.lake_root,
+            database_url=context.settings.prod_raw_db_url,
+        ).export(dataset_key=self.dataset_key)
+
+
 class ETFIndexStrategy:
     dataset_key = "etf_index"
 
