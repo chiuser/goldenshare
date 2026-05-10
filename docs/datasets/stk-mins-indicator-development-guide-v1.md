@@ -210,6 +210,7 @@ UI 或日志里的 written，如果还没真正提交到正式分区，就不能
 |---|---|
 | full 计算从历史起点开始 | 可从第一根 bar 初始化 |
 | incremental 中新上市股票首次出现 | 通过本地 `stock_basic.list_date` 校验后可初始化 |
+| incremental 中北交所 `920xxx.BJ` 分钟线首次出现 | 通过本地 `bse_mapping.n_code` 校验后，仅允许在 `2022-07-15` 初始化 |
 | incremental 中老股票缺 state | 拒绝，输出 `needs_bootstrap` |
 
 判断新股时：
@@ -218,6 +219,8 @@ UI 或日志里的 written，如果还没真正提交到正式分区，就不能
 2. 不允许访问远程数据库。
 3. `list_date` 缺失、不可解析、晚于源数据日期、股票池没有该股票，都必须拒绝。
 4. `delist_date` 存在时，源数据日期晚于退市日期必须拒绝。
+5. 北交所 `920xxx.BJ` 是分钟线代码切换专项口径：只能读取本地 `manifest/security_reference/tushare_bse_mapping.parquet` 判断 `n_code`，不能访问远程库。
+6. 北交所 `920xxx.BJ` 缺 state 时，只允许 `trade_date=2022-07-15` 从首根分钟线初始化；如果晚于该日才缺 state，必须拒绝并提示从 `2022-07-15` 补起。
 
 这样做能避免一种很隐蔽的错误：老股票从某一天中途初始化，结果看起来有 MACD，但前面十几年的递推状态全丢了。
 

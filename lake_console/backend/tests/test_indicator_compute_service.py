@@ -451,6 +451,93 @@ def test_compute_macd_all_market_incremental_bootstraps_new_security(tmp_path) -
     )
 
 
+def test_compute_macd_all_market_incremental_bootstraps_bse_920_on_effective_date(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    progress_messages: list[str] = []
+    _write_universe(tmp_path, [_stock("920001.BJ", "L", "20221227", None)])
+    _write_bse_mapping(
+        tmp_path,
+        [{"name": "北交所样例", "o_code": "830001.BJ", "n_code": "920001.BJ", "list_date": "2022-12-27"}],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2022-07-15",
+        rows=[
+            _source_row("920001.BJ", "2022-07-15 10:00:00", 10.0),
+            _source_row("920001.BJ", "2022-07-15 10:30:00", 10.2),
+        ],
+    )
+
+    summary = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=progress_messages.append).compute_macd(
+        mode="incremental",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2022, 7, 15).date(),
+        end_date=datetime(2022, 7, 15).date(),
+    )
+
+    state = MacdStateStore(lake_root=tmp_path).get_state(ts_code="920001.BJ", freq=30)
+    rows = read_parquet_rows(_indicator_partition(tmp_path, "2022-07-15") / "part-000.parquet")
+    assert summary["status"] == "success"
+    assert summary["bootstrap_symbols"] == 1
+    assert state is not None
+    assert state.last_trade_time == datetime(2022, 7, 15, 10, 30)
+    assert [row["ts_code"] for row in rows] == ["920001.BJ", "920001.BJ"]
+    assert any(
+        "new_security_bootstrap freq=30 date=2022-07-15 count=1 preview=920001.BJ" in message
+        for message in progress_messages
+    )
+
+
+def test_compute_macd_all_market_incremental_rejects_bse_920_after_effective_date_without_state(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_universe(tmp_path, [_stock("920001.BJ", "L", "20221227", None)])
+    _write_bse_mapping(
+        tmp_path,
+        [{"name": "北交所样例", "o_code": "830001.BJ", "n_code": "920001.BJ", "list_date": "2022-12-27"}],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2022-07-18",
+        rows=[_source_row("920001.BJ", "2022-07-18 10:00:00", 10.4)],
+    )
+
+    with pytest.raises(RuntimeError, match="必须从本地首次分钟线日期初始化"):
+        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+            mode="incremental",
+            all_market=True,
+            freq=30,
+            start_date=datetime(2022, 7, 18).date(),
+            end_date=datetime(2022, 7, 18).date(),
+        )
+
+
+def test_compute_macd_all_market_incremental_rejects_unmapped_bse_920_without_state(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_universe(tmp_path, [_stock("920001.BJ", "L", "20221227", None)])
+    _write_bse_mapping(
+        tmp_path,
+        [{"name": "其他北交所样例", "o_code": "830002.BJ", "n_code": "920002.BJ", "list_date": "2022-12-27"}],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2022-07-15",
+        rows=[_source_row("920001.BJ", "2022-07-15 10:00:00", 10.0)],
+    )
+
+    with pytest.raises(RuntimeError, match="不在 bse_mapping.n_code"):
+        StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None).compute_macd(
+            mode="incremental",
+            all_market=True,
+            freq=30,
+            start_date=datetime(2022, 7, 15).date(),
+            end_date=datetime(2022, 7, 15).date(),
+        )
+
+
 def test_compute_macd_all_market_incremental_rejects_old_security_without_state(tmp_path) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
@@ -609,6 +696,10 @@ def _write_research_rows(tmp_path, *, trade_month: str, bucket: str, rows: list[
         / f"bucket={bucket}"
         / "part-000.parquet",
     )
+
+
+def _write_bse_mapping(tmp_path, rows: list[dict[str, object]]) -> None:
+    write_rows_to_parquet(rows, tmp_path / "manifest" / "security_reference" / "tushare_bse_mapping.parquet")
 
 
 def _stock(ts_code: str, list_status: str, list_date: str, delist_date: str | None) -> dict[str, object]:
