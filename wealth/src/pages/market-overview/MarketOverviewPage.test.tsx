@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { marketOverviewModuleSources } from "../../features/market-overview/api/moduleSources";
 import { MarketOverviewPage } from "./MarketOverviewPage";
 
 const summaryFiveCards = {
@@ -297,11 +298,14 @@ function mockSuccessfulMarketFetch(
 }
 
 describe("MarketOverviewPage", () => {
+  const originalLimitUpSource = marketOverviewModuleSources.limitUp;
   beforeEach(() => {
+    marketOverviewModuleSources.limitUp = "mock";
     mockSuccessfulMarketFetch();
   });
 
   afterEach(() => {
+    marketOverviewModuleSources.limitUp = originalLimitUpSource;
     vi.restoreAllMocks();
     vi.useRealTimers();
     window.history.pushState({}, "", "/");

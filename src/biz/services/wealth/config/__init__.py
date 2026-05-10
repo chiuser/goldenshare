@@ -1,4 +1,5 @@
 from .strategy_config_models import (
+    LimitUpStrategyPayload,
     LeaderboardStrategyPayload,
     MajorIndicesStrategyPayload,
     MarketStyleStrategyPayload,
@@ -13,6 +14,7 @@ from .strategy_config_registry import StrategyConfigRegistration, get_default_st
 from .strategy_config_service import StrategyConfigRecord, StrategyConfigService
 
 __all__ = [
+    "LimitUpStrategyPayload",
     "LeaderboardStrategyPayload",
     "MajorIndicesStrategyPayload",
     "MarketStyleStrategyPayload",

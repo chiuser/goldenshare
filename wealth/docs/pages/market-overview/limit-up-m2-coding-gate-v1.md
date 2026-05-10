@@ -25,21 +25,23 @@
 ## 2. 总门禁清单（全通过才能开工）
 
 1. [ ] 文档最终拍板（当前未完成，未完成前不得编码）
-2. [ ] 请求与响应结构冻结
-3. [ ] 8 卡口径冻结（含 ST 分层）
-4. [ ] 封板率排除 ST 口径冻结
-5. [ ] 天地板/地天板文本判定规则冻结
-6. [ ] 今日/昨日结构算法冻结
-7. [ ] 历史 22/62 口径冻结
-8. [ ] 状态归并样例冻结
-9. [ ] 异常覆盖矩阵冻结
-10. [ ] 性能预算冻结
-11. [ ] 真实源 loading/ready/error 行为冻结
-12. [ ] 真实源超时门禁冻结（5 秒超时进入 error，不回填 mock）
-13. [ ] 模块 source 渐进替换门禁冻结（仅目标模块可切 real）
-14. [ ] 通用清单映射矩阵冻结（2.1~2.16）
-15. [ ] 模块例外白名单冻结（若有）
-16. [ ] 签字完成
+2. [x] 请求与响应结构冻结
+3. [x] 8 卡口径冻结（含 ST 分层）
+4. [x] 封板率排除 ST 口径冻结
+5. [x] 天地板/地天板文本判定规则冻结
+6. [x] 今日/昨日结构算法冻结
+7. [x] 历史 22/62 口径冻结
+8. [x] 状态归并样例冻结
+9. [x] 异常覆盖矩阵冻结
+10. [x] 性能预算冻结
+11. [x] 真实源 loading/ready/error 行为冻结
+12. [x] 真实源超时门禁冻结（5 秒超时进入 error，不回填 mock）
+13. [x] 模块 source 渐进替换门禁冻结（仅目标模块可切 real）
+14. [x] 通用清单映射矩阵冻结（2.1~2.18）
+15. [x] 模块例外白名单冻结（若有）
+16. [x] 核心测试 case（真实 API + 前端展示）门禁冻结
+17. [x] 跨模块抽象门禁原则（8 条）映射冻结
+18. [ ] 签字完成
 
 ---
 
@@ -383,6 +385,33 @@ interface LimitUpSummaryResponseData {
 
 ---
 
+## 9.1 核心测试 case 门禁（必填）
+
+1. 核心字段清单（页面可见字段）：
+   - `summaryCards[].value/unit/direction/subText`
+   - `todayStructure.sectors[].limitUpCount`
+   - `todayStructure.leaderStocks[].stockCode/stockName/streakLabel/recentLimitText/changePct`
+   - `yesterdayStructure.sectors[].limitUpCount`
+   - `historyPoints.oneMonth[].limitUpCount/limitDownCount`
+   - `historyPoints.threeMonth[].limitUpCount/limitDownCount`
+   - `pageStatus.status`、`debugInfo.exceptions[].code`
+2. 后端真实 API 集成测试用例列表（禁止 mock service/query）：
+   - `tests/web/test_wealth_market_limit_up_api.py::test_limit_up_summary_ready`
+   - `tests/web/test_wealth_market_limit_up_api.py::test_limit_up_summary_partial_mapping_missing`
+   - `tests/web/test_wealth_market_limit_up_api.py::test_limit_up_summary_delayed`
+   - `tests/web/test_wealth_market_limit_up_api.py::test_limit_up_summary_rule_st_exclusion`
+3. 前端真实 API 展示校验用例列表（禁止 mock adapter）：
+   - `wealth/src/test/market-overview-limit-up-real-api.smoke.test.ts::renders-limit-up-panel`
+   - `wealth/src/test/market-overview-limit-up-real-api.smoke.test.ts::shows-partial-and-error-state`
+4. 执行命令：
+   - `pytest -q tests/web/test_wealth_market_limit_up_api.py`
+   - `cd wealth && npm run test -- src/test/market-overview-limit-up-real-api.smoke.test.ts`
+5. 通过标准：
+   - 后端：核心字段断言、口径断言、状态断言全通过
+   - 前端：2×2 结构、`总数/ST数`、结构联动、错误态展示全部通过
+
+---
+
 ## 10. 通用清单映射矩阵
 
 | 通用清单条目 | 适用性 | 本模块落地位置 | 当前状态 |
@@ -397,50 +426,82 @@ interface LimitUpSummaryResponseData {
 | 2.8 契约先行与消费者对齐 | 适用 | 第 3 节请求/响应冻结 | 已落地 |
 | 2.9 图表坐标与说明文案约束 | 适用 | 第 5 节历史组合柱查询口径 + 第 9 节冒烟 | 已落地 |
 | 2.10 统计计算与传输边界 | 适用 | 第 5 节查询草案 + 第 8 节性能预算 | 已落地 |
-| 2.11 配置生效语义 | 不适用 | 本模块本期不接策略中心配置，固定规则内建 | 已登记例外 |
+| 2.11 配置生效语义 | 适用 | 第 5 节查询草案（ST板块排除码/N窗口）+ 第 11 节配置一致性原则 | 已落地 |
 | 2.12 通用清单映射矩阵 | 适用 | 本节 | 已落地 |
-| 2.13 模块例外白名单与语义断言 | 适用 | 第 11 节 | 已落地 |
+| 2.13 模块例外白名单与语义断言 | 适用 | 第 12 节 | 已落地 |
 | 2.14 图表参数优先级 | 适用 | 第 9 节测试门禁（坐标参数语义断言） | 已落地 |
 | 2.15 双图并排坐标对齐 | 适用 | 第 9 节测试门禁（今日/昨日结构 + 历史图） | 已落地 |
 | 2.16 指标卡片文案单行约束 | 不适用 | 本模块卡片仅事实字段，不包含单行文案强约束需求 | 已登记例外 |
+| 2.17 核心测试 case（真实 API + 前端展示）覆盖 | 适用 | 第 9.1 节 | 已落地 |
+| 2.18 跨模块抽象门禁原则 | 适用 | 第 11 节 | 已落地 |
 
 ---
 
-## 11. 模块例外白名单（limitUp）
+## 11. 跨模块抽象门禁原则映射（必填）
+
+| 原则 | 是否适用 | 落地位置（字段/查询/配置/状态） | 测试落地 | 备注 |
+|---|---|---|---|---|
+| 事实源单一原则 | 是 | 第 3.2 节响应结构、第 5 节查询草案 | `test_limit_up_summary_ready` | 前端不拼装事实 |
+| 契约先行与冻结原则 | 是 | 第 3 节请求/响应冻结 | `test_limit_up_contract_fields` | 契约变更需同轮更新文档+测试 |
+| 配置一致性原则 | 是 | 第 5 节（ST板块排除码、N窗口） | `test_limit_up_config_binding` | 本期仍以固定键读取 |
+| 默认行为显式原则 | 是 | 第 5 节、第 6 节状态归并 | `test_limit_up_summary_partial_mapping_missing` | 未命中返回0、映射缺失进PARTIAL |
+| 排序与筛选确定性原则 | 是 | 第 5 节分布结构排序链 | `test_limit_up_leader_sort_stability` | 固定主次序 |
+| 性能预算前置原则 | 是 | 第 8 节性能门禁 | `test_limit_up_api_latency_budget` | 超预算即不通过 |
+| 可观测与异常标准化原则 | 是 | 第 7 节异常矩阵 + debugInfo | `test_limit_up_exception_codes` | 异常码必须注册 |
+| 测试以用户可见结果为中心原则 | 是 | 第 9 节、第 9.1 节 | `market-overview-limit-up-real-api.smoke.test.ts` | 校验页面真实展示 |
+
+---
+
+### 11.1 参考 case（可复用示例）
+
+1. 市场筛选值或板块筛选值不一致时，接口可能“成功但结构全空”，必须触发 `LU_DISTRIBUTION_MAPPING_MISSING`。
+2. 同分排序未固定会导致 Top3 漂移，必须有主次排序断言。
+3. 契约字段存在但页面空值，必须通过真实 API 展示用例阻断。
+4. strict/fallback 默认行为必须有明确断言，禁止运行时再决定。
+
+---
+
+## 12. 模块例外白名单（limitUp）
 
 | 例外规则 | 生效范围 | 业务语义依据 | 处理方式 |
 |---|---|---|---|
-| 2.11 配置生效语义不适用 | limitUp 全模块 | 本期规则冻结在模块内，不引入策略中心动态配置 | 标记 N/A，本期不新增配置入口 |
 | 2.16 单行卡片文案门禁不适用 | limitUp 全模块 | 统计卡以事实值展示为主，无“指定副文案必须单行”的需求 | 标记 N/A |
 
 ---
 
-## 12. 签字清单
+## 13. 签字清单
 
-### 12.1 后端负责人
+### 13.1 后端负责人
 
 1. [ ] ST 口径与封板率口径可实现
 2. [ ] 天地/地天文本词典规则可实现（含排除词、双计）
 3. [ ] 今日/昨日结构同算法可实现
 
-### 12.2 前端负责人
+### 13.2 前端负责人
 
 1. [ ] 2×2 结构字段可直接消费
 2. [ ] 8 卡 UI 可无歧义映射
 3. [ ] 天地/地天计数按数值渲染（未命中为 0）
 
-### 12.3 架构/产品负责人
+### 13.3 架构/产品负责人
 
 1. [ ] 范围未扩散
 2. [ ] 口径与页面事实一致
 3. [ ] 可进入编码阶段
 
+### 13.4 待完善确认项（执行前）
+
+1. [ ] 三方签字清单全部勾选完成。
+2. [x] `9.1 核心测试 case` 对应的真实 API 与真实展示用例已落库并可执行。
+3. [x] 通用清单映射矩阵（2.1~2.18）完成复审，无冲突条目。
+
 ---
 
-## 13. 版本记录
+## 14. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-09 | 首版：冻结涨跌停统计与分布模块 M2 编码门禁 | Codex |
 | v1.1 | 2026-05-10 | 对齐通用清单：补齐 2.1~2.16 映射矩阵、模块例外白名单、loading/5秒超时/source 渐进替换门禁 | Codex |
 | v1.2 | 2026-05-10 | 对齐拍板口径：ST默认排除、ST板块过滤并补齐Top5、同板块fallback、天地/地天文本词典与双计、未命中返回0 | Codex |
+| v1.3 | 2026-05-10 | 对齐最新模板与通用清单：补齐 2.17/2.18 映射、核心测试 case 门禁、8 条跨模块原则映射 | Codex |

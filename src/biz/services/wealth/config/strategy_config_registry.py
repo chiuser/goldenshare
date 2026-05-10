@@ -7,6 +7,7 @@ from typing import TypeAlias
 from pydantic import BaseModel
 
 from .strategy_config_models import (
+    LimitUpStrategyPayload,
     LeaderboardStrategyPayload,
     MajorIndicesStrategyPayload,
     MarketStyleStrategyPayload,
@@ -54,6 +55,12 @@ def get_default_strategy_config_registrations() -> tuple[StrategyConfigRegistrat
             market="CN_A",
             definition_file="market_style.cn_a.v1.json",
             payload_model=MarketStyleStrategyPayload,
+        ),
+        StrategyConfigRegistration(
+            module_key="limitUp",
+            market="CN_A",
+            definition_file="limit_up.cn_a.v1.json",
+            payload_model=LimitUpStrategyPayload,
         ),
     )
 

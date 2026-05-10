@@ -193,3 +193,22 @@ class MarketStyleStrategyPayload(BaseModel):
 
     ranges: MarketStyleRangeConfig
     card_sources: MarketStyleCardSources = Field(alias="cardSources")
+
+
+class LimitUpStrategyPayload(BaseModel):
+    """Config payload for limit-up module."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    st_excluded_sector_codes: list[str] = Field(alias="stExcludedSectorCodes", min_length=1)
+    recent_limit_window_days: int = Field(alias="recentLimitWindowDays", ge=1, le=60)
+
+    @field_validator("st_excluded_sector_codes")
+    @classmethod
+    def _validate_excluded_sector_codes(cls, values: list[str]) -> list[str]:
+        cleaned = [item.strip() for item in values]
+        if any(not item for item in cleaned):
+            raise ValueError("stExcludedSectorCodes must not contain empty code")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("stExcludedSectorCodes must not contain duplicates")
+        return cleaned

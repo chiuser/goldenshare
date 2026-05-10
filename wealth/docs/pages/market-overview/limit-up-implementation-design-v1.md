@@ -15,9 +15,25 @@
    [limit-up-benchmark-requirement-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/limit-up-benchmark-requirement-v1.md)
 2. 本文目标：冻结本模块的数据链路、查询编排、状态异常、性能预算与实现落位。
 3. 本文不做：不落业务代码，不改页面样式，不改连板天梯模块实现。
+4. 跨模块抽象门禁原则适配结论：8 条原则全部适用，无免除项。
 
 关联门禁：  
 [limit-up-m2-coding-gate-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/limit-up-m2-coding-gate-v1.md)
+
+---
+
+## 1.1 跨模块抽象门禁原则适配（必填）
+
+| 原则 | 本模块结论 | 设计落点 | 计划测试 |
+|---|---|---|---|
+| 事实源单一原则 | 统计事实全部后端产出 | 第 3 节、第 5 节 | 后端 API 字段完整性断言 |
+| 契约先行与冻结原则 | DTO 先冻结再编码 | 第 3.1/3.2 节 | 契约快照测试 + 前端类型校验 |
+| 配置一致性原则 | 仅允许策略中心配置项接入 | 第 5.2 节、第 8 节 | 配置读取路径测试 |
+| 默认行为显式原则 | 未命中文本规则返回 0；缺映射进入 PARTIAL | 第 5.4 节、第 6.2 节 | 异常/降级分支测试 |
+| 排序与筛选确定性原则 | Top5/Top3 固定排序与 fallback 范围 | 第 5.2 节 | 排序稳定性测试 |
+| 性能预算前置原则 | P95 与 payload 预算冻结 | 第 8 节 | 接口耗时与 payload 预算测试 |
+| 可观测与异常标准化原则 | 异常码统一注册，debug 结构化 | 第 7 节 | 异常码覆盖矩阵测试 |
+| 测试以用户可见结果为中心原则 | 真实 API + 前端展示双门禁 | 第 10.1 节 | 后端集成 + 前端 smoke |
 
 ---
 
@@ -295,6 +311,33 @@ src/biz/
 
 ---
 
+## 10.1 核心测试 case（必填）
+
+1. 核心字段清单（页面可见要素）：
+   - 统计卡：`limitUpCount/limitDownCount/brokenLimitCount/sealingRate/streakCount/maxBoard/skyToFloorCount/floorToSkyCount`
+   - 结构块：`sectors[].limitUpCount`、`leaderStocks[].stockCode/stockName/changePct/streakLabel/recentLimitText`
+   - 历史：`historyPoints.oneMonth[].limitUpCount/limitDownCount`、`historyPoints.threeMonth[].limitUpCount/limitDownCount`
+   - 状态与异常：`pageStatus.status`、`debugInfo.modules[].status`、`debugInfo.exceptions[].code`
+2. 后端真实 API 集成测试设计（非 mock service/query）：
+   - `tests/web/test_wealth_market_limit_up_api.py`
+   - 覆盖正常/partial/delayed/error 及 ST 分层、封板率、Top5/Top3 规则断言
+3. 前端真实 API 展示校验设计（非 mock adapter）：
+   - `wealth/src/test/market-overview-limit-up-real-api.smoke.test.ts`
+   - 覆盖 2×2 渲染、统计卡格式、结构联动、状态与错误提示
+4. 执行命令与通过标准：
+   - `pytest -q tests/web/test_wealth_market_limit_up_api.py`
+   - `cd wealth && npm run test -- src/test/market-overview-limit-up-real-api.smoke.test.ts`
+   - 通过标准：字段断言全绿 + 页面关键要素与后端字段一一对应
+
+## 10.2 参考 case（可复用）
+
+1. “接口返回成功但结构块为空”：验证是否命中 `LU_DISTRIBUTION_MAPPING_MISSING`。
+2. “同分排序漂移”：验证 Top3 板块内排序主次序是否固定。
+3. “字段存在但页面空值”：验证后端契约字段与前端消费字段逐项对齐。
+4. “默认行为不清”：验证 strict 与 fallback 路径均有断言。
+
+---
+
 ## 11. 分期里程碑
 
 1. M1（方案冻结）：口径、对象、异常、性能冻结
@@ -328,9 +371,17 @@ src/biz/
 
 ---
 
-## 14. 版本记录
+## 14. 待拍板项（本轮）
+
+1. 业务口径待拍板项：无（已清零）。
+2. 当前仅剩门禁签字与测试落地，不属于规则拍板项。
+
+---
+
+## 15. 版本记录
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-09 | 首版：冻结涨跌停统计与分布模块实施方案（2×2、ST分层、天地/地天降级、结构分布） | Codex |
 | v1.1 | 2026-05-10 | 对齐拍板口径：ST默认排除、ST板块过滤并补齐Top5、同板块fallback、天地/地天文本词典与双计、允许跨板块重复股票 | Codex |
+| v1.2 | 2026-05-10 | 对齐最新三件套模板：补齐 8 条门禁原则映射、核心测试 case 门禁、待拍板项清零说明 | Codex |

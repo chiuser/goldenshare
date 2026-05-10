@@ -1,0 +1,13 @@
+{
+  "moduleKey": "limitUp",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-10T23:30:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "stExcludedSectorCodes": [
+      "885699.TI"
+    ],
+    "recentLimitWindowDays": 10
+  }
+}

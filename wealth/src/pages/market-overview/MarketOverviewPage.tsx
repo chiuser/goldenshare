@@ -29,6 +29,12 @@ import {
 import { fetchMarketLeaderboards, type LeaderboardsDebugInfo } from "../../features/market-overview/leaderboards/api/marketLeaderboardsApi";
 import { LimitBoardPanel } from "../../features/market-overview/limit-up/LimitBoardPanel";
 import { StreakLadderPanel } from "../../features/market-overview/limit-up/StreakLadderPanel";
+import {
+  buildLimitUpViewModelFromApi,
+  buildLimitUpViewModelFromMock,
+  type MarketLimitUpViewModel,
+} from "../../features/market-overview/limit-up/api/marketLimitUpAdapter";
+import { fetchMarketLimitUp, type LimitUpDebugInfo } from "../../features/market-overview/limit-up/api/marketLimitUpApi";
 import { MarketMoneyFlowPanel } from "../../features/market-overview/money-flow/MarketMoneyFlowPanel";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import { MarketStylePanel } from "../../features/market-overview/style/MarketStylePanel";
@@ -57,6 +63,7 @@ const BREADTH_FETCH_TIMEOUT_MS = 5000;
 const STYLE_FETCH_TIMEOUT_MS = 5000;
 const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
+const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -96,6 +103,12 @@ export function MarketOverviewPage() {
   );
   const [leaderboardsErrorMessage, setLeaderboardsErrorMessage] = useState<string | null>(null);
   const [leaderboardsDebugInfo, setLeaderboardsDebugInfo] = useState<LeaderboardsDebugInfo | null>(null);
+  const [limitUp, setLimitUp] = useState<MarketLimitUpViewModel | null>(null);
+  const [limitUpViewState, setLimitUpViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.limitUp === "real" ? "loading" : "ready",
+  );
+  const [limitUpErrorMessage, setLimitUpErrorMessage] = useState<string | null>(null);
+  const [limitUpDebugInfo, setLimitUpDebugInfo] = useState<LimitUpDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const pageDebugEnabled = useMemo(() => {
@@ -112,6 +125,7 @@ export function MarketOverviewPage() {
       ...(styleDebugInfo?.modules ?? []),
       ...(turnoverDebugInfo?.modules ?? []),
       ...(leaderboardsDebugInfo?.modules ?? []),
+      ...(limitUpDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
@@ -120,10 +134,20 @@ export function MarketOverviewPage() {
       ...(styleDebugInfo?.exceptions ?? []),
       ...(turnoverDebugInfo?.exceptions ?? []),
       ...(leaderboardsDebugInfo?.exceptions ?? []),
+      ...(limitUpDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
-  }, [pageDebugEnabled, summaryDebugInfo, majorIndicesDebugInfo, breadthDebugInfo, styleDebugInfo, turnoverDebugInfo, leaderboardsDebugInfo]);
+  }, [
+    pageDebugEnabled,
+    summaryDebugInfo,
+    majorIndicesDebugInfo,
+    breadthDebugInfo,
+    styleDebugInfo,
+    turnoverDebugInfo,
+    leaderboardsDebugInfo,
+    limitUpDebugInfo,
+  ]);
 
   useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
@@ -176,6 +200,14 @@ export function MarketOverviewPage() {
         setLeaderboardsViewState("loading");
         setLeaderboardsErrorMessage(null);
       }
+      if (marketOverviewModuleSources.limitUp === "mock") {
+        setLimitUp(buildLimitUpViewModelFromMock(response.data));
+        setLimitUpViewState("ready");
+      } else {
+        setLimitUp(null);
+        setLimitUpViewState("loading");
+        setLimitUpErrorMessage(null);
+      }
     });
   }, []);
 
@@ -212,6 +244,55 @@ export function MarketOverviewPage() {
           setSummaryViewState("error");
           setSummaryErrorMessage(message);
           showToast(`客观总结模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.limitUp !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setLimitUp(null);
+    setLimitUpViewState("loading");
+    setLimitUpErrorMessage(null);
+    setLimitUpDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), LIMIT_UP_FETCH_TIMEOUT_MS);
+
+    fetchMarketLimitUp(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setLimitUp(buildLimitUpViewModelFromApi(payload));
+          setLimitUpViewState("ready");
+          setLimitUpErrorMessage(null);
+          setLimitUpDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/limit-up/summary`
+            : error instanceof Error
+              ? error.message
+              : "涨跌停统计与分布加载失败";
+          setLimitUp(null);
+          setLimitUpViewState("error");
+          setLimitUpErrorMessage(message);
+          setLimitUpDebugInfo(null);
+          showToast(`涨跌停统计与分布模块异常：${message}`);
         }
       })
       .finally(() => {
@@ -538,7 +619,11 @@ export function MarketOverviewPage() {
               onAction={showToast}
             />
           </div>
-          <LimitBoardPanel overview={overview} />
+          <LimitBoardPanel
+            viewState={limitUpViewState}
+            limitUp={limitUp ?? undefined}
+            errorMessage={limitUpErrorMessage ?? undefined}
+          />
           <StreakLadderPanel overview={overview} onAction={showToast} />
           <SectorOverviewPanel overview={overview} onAction={showToast} />
           <StateBaselinePanel />

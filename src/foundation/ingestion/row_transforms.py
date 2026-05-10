@@ -26,6 +26,10 @@ class RowTransformReject(ValueError):
 _TOP_LIST_PSEUDO_NULL_NUMBER_TEXTS = {"nan", "nat", "none", "null"}
 
 
+def _strip_nul_text(value: Any) -> str:
+    return str(value or "").replace("\x00", "")
+
+
 def _normalize_top_list_optional_number(value: Any) -> Any:
     if value is None:
         return None
@@ -270,12 +274,12 @@ def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
 
 def _news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
-    src = str(transformed.get("src") or "").strip()
-    title = str(transformed.get("title") or "").strip() or None
+    src = _strip_nul_text(transformed.get("src")).strip()
+    title = _strip_nul_text(transformed.get("title")).strip() or None
     content_value = transformed.get("content")
-    content = None if content_value is None else str(content_value).strip() or None
-    channels = str(transformed.get("channels") or "").strip() or None
-    score = str(transformed.get("score") or "").strip() or None
+    content = None if content_value is None else _strip_nul_text(content_value).strip() or None
+    channels = _strip_nul_text(transformed.get("channels")).strip() or None
+    score = _strip_nul_text(transformed.get("score")).strip() or None
     news_time = _parse_news_datetime(
         transformed.get("datetime"),
         field_name="news_time",
