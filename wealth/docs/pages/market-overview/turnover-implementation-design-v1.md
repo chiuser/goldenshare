@@ -98,11 +98,12 @@ src/biz/
 ## 5.1 主查询（当日与前日）
 
 1. 来源：`core_serving.equity_daily_bar`
-2. 当前日：
+2. 金额单位：`amount` 统一按 `thousand_yuan`（千元）口径输出，与市场客观总结模块保持一致。
+3. 当前日：
    - `sum(amount) where trade_date=:target_date`
-3. 前一交易日：
+4. 前一交易日：
    - `sum(amount) where trade_date=:prev_trade_date`
-4. 派生：
+5. 派生：
    - `amountDelta = todayAmount - prevAmount`
    - `amountDeltaPct = amountDelta / prevAmount`
 
@@ -124,16 +125,17 @@ src/biz/
 ## 5.4 日内累计曲线（固定启用）
 
 1. 来源：`core_serving.wealth_market_turnover_snapshot`
-2. 条件：
+2. 金额单位：快照中的 `total_amount` 与 `points_json[].amount` 均为 `thousand_yuan`（千元），物化时由分钟线源端元口径转换而来。
+3. 条件：
    - `type='stock'`
    - `market='CN_A'`
    - `trade_date=目标交易日`
    - `freq=30`
    - `build_status='READY'`
-3. 读取与计算：
+4. 读取与计算：
    - 读取快照单行 `points_json`
    - 依 `tradeTimeTs` 升序累计 `amount`，生成页面所需 `cumAmount`
-4. 坐标点（固定 5 点）：
+5. 坐标点（固定 5 点）：
    - `09:30`
    - `10:30`
    - `11:30`

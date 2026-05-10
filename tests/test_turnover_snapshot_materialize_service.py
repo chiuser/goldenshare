@@ -68,9 +68,13 @@ def test_materialize_trade_date_builds_ready_snapshot() -> None:
         assert snapshot is not None
         assert snapshot.security_count == 2
         assert snapshot.source_row_count == 8
-        assert snapshot.total_amount == Decimal("8800.00")
+        # Raw minute amount is yuan; wealth turnover snapshot stores thousand-yuan.
+        assert snapshot.total_amount == Decimal("8.80")
+        assert snapshot.total_vol == 800
         assert isinstance(snapshot.points_json, list)
         assert len(snapshot.points_json) == 4
+        assert snapshot.points_json[0]["amount"] == 2.2
+        assert snapshot.points_json[0]["vol"] == 200
     finally:
         session.close()
 

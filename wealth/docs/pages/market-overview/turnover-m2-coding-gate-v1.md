@@ -77,7 +77,7 @@ interface TurnoverResponseData {
       amountDeltaPct: number | null;
       avg5dAmount: number | null;
       avg20dAmount: number | null;
-      unit: "yuan";
+      unit: "thousand_yuan";
     };
     intradayCumulative: TurnoverIntradayPoint[];
     historyByRange: {
@@ -112,28 +112,28 @@ interface TurnoverResponseData {
   "turnover": {
     "tradeDate": "2026-05-08",
     "metrics": {
-      "todayAmount": 1052300000000,
-      "prevAmount": 982100000000,
-      "amountDelta": 70200000000,
+      "todayAmount": 1052300000,
+      "prevAmount": 982100000,
+      "amountDelta": 70200000,
       "amountDeltaPct": 7.15,
-      "avg5dAmount": 1018000000000,
-      "avg20dAmount": 936000000000,
-      "unit": "yuan"
+      "avg5dAmount": 1018000000,
+      "avg20dAmount": 936000000,
+      "unit": "thousand_yuan"
     },
     "intradayCumulative": [
       { "time": "09:30", "cumAmount": 0 },
-      { "time": "10:30", "cumAmount": 236000000000 },
-      { "time": "11:30", "cumAmount": 482000000000 },
-      { "time": "14:00", "cumAmount": 812000000000 },
-      { "time": "15:00", "cumAmount": 1052300000000 }
+      { "time": "10:30", "cumAmount": 236000000 },
+      { "time": "11:30", "cumAmount": 482000000 },
+      { "time": "14:00", "cumAmount": 812000000 },
+      { "time": "15:00", "cumAmount": 1052300000 }
     ],
     "historyByRange": {
       "oneMonth": [
-        { "tradeDate": "2026-04-08", "amount": 921000000000 },
-        { "tradeDate": "2026-04-09", "amount": 938000000000 }
+        { "tradeDate": "2026-04-08", "amount": 921000000 },
+        { "tradeDate": "2026-04-09", "amount": 938000000 }
       ],
       "threeMonth": [
-        { "tradeDate": "2026-02-10", "amount": 865000000000 }
+        { "tradeDate": "2026-02-10", "amount": 865000000 }
       ]
     }
   }
@@ -177,7 +177,7 @@ interface TurnoverResponseData {
       "amountDeltaPct": null,
       "avg5dAmount": null,
       "avg20dAmount": null,
-      "unit": "yuan"
+      "unit": "thousand_yuan"
     },
     "intradayCumulative": [],
     "historyByRange": { "oneMonth": [], "threeMonth": [] }

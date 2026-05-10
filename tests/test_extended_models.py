@@ -23,6 +23,7 @@ from src.foundation.models.core.equity_margin import EquityMargin
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.stk_period_bar import StkPeriodBar
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj
+from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
 from src.foundation.models.core.ths_daily import ThsDaily
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
@@ -168,6 +169,10 @@ def test_stk_factor_pro_serving_model_matches_expected_keys() -> None:
 
 def test_stk_mins_vol_uses_bigint() -> None:
     assert isinstance(RawStkMins.__table__.columns["vol"].type, BigInteger)
+
+
+def test_wealth_market_turnover_snapshot_total_vol_uses_bigint() -> None:
+    assert isinstance(WealthMarketTurnoverSnapshot.__table__.columns["total_vol"].type, BigInteger)
 
 
 def test_index_mins_keeps_freq_as_source_string_and_float_volume() -> None:

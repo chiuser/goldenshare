@@ -68,14 +68,16 @@ wealth/
 32. `wealth/docs/pages/market-overview/market-style-m2-coding-gate-v1.md`
 33. `wealth/docs/pages/market-overview/turnover-benchmark-requirement-v1.md`
 34. `wealth/docs/pages/market-overview/turnover-implementation-design-v1.md`
-35. `wealth/docs/pages/market-overview/turnover-m2-coding-gate-v1.md`
-36. `wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md`
-37. `wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md`
-38. `wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md`
-39. `wealth/docs/templates/benchmark-requirement-template.md`
-40. `wealth/docs/templates/implementation-design-template.md`
-41. `wealth/docs/templates/coding-gate-template.md`
-42. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+35. `wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html`
+36. `wealth/docs/pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md`
+37. `wealth/docs/pages/market-overview/turnover-m2-coding-gate-v1.md`
+38. `wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md`
+39. `wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md`
+40. `wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md`
+41. `wealth/docs/templates/benchmark-requirement-template.md`
+42. `wealth/docs/templates/implementation-design-template.md`
+43. `wealth/docs/templates/coding-gate-template.md`
+44. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
 实现市场总览 homepage 前，还必须额外读取：
 
@@ -206,6 +208,13 @@ wealth/
 8. 验证方式
 
 Bug 修复必须先说明原因与影响面。禁止临时补丁叠补丁。
+
+文档门禁与变更纪律（强制）：
+
+1. 评审通过的方案文档是编码门禁，不是“参考意见”。
+2. 发现实现需要偏离已评审文档时，必须先停下，先提交偏离点与影响面，等待拍板；未拍板不得动代码。
+3. 禁止“先写代码再倒改文档适配实现”。文档变更必须先于（或至少同步于）实现变更，并经过确认。
+4. 任何“实现收敛后再改文档兜底”的行为，视为流程违规。
 
 新增模块（或中等以上模块改造）必须执行“三件套”流程：
 

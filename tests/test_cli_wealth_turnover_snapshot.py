@@ -27,7 +27,7 @@ def test_wealth_build_turnover_snapshot_invokes_materializer_and_prints_summary(
             source_row_count=51720,
             points_count=9,
             total_amount=Decimal("3075700000.00"),
-            total_vol=Decimal("91234567.00"),
+            total_vol=91234567,
             build_note=None,
         )
     ]

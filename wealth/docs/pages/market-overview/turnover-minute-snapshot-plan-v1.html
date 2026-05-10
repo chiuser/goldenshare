@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>市场总览｜成交额总览分钟线快照方案 v1</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1220;
+        --panel: #111b2f;
+        --panel-2: #0e1728;
+        --text: #e7edf7;
+        --muted: #91a0b8;
+        --line: #27344d;
+        --brand: #d7a55a;
+        --ok: #23c18a;
+        --warn: #ffb84d;
+        --bad: #ff5d73;
+        --info: #5da8ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, #0a111d 0%, #0b1220 100%);
+        color: var(--text);
+        line-height: 1.65;
+      }
+
+      .page {
+        width: min(1200px, calc(100vw - 48px));
+        margin: 32px auto 64px;
+      }
+
+      .hero,
+      .section,
+      .callout {
+        background: rgba(17, 27, 47, 0.92);
+        border: 1px solid rgba(39, 52, 77, 0.9);
+        border-radius: 18px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+      }
+
+      .hero {
+        padding: 28px 32px;
+        margin-bottom: 18px;
+      }
+
+      .section {
+        padding: 24px 28px;
+        margin-top: 18px;
+      }
+
+      .callout {
+        padding: 18px 20px;
+        margin-top: 18px;
+        background: rgba(14, 23, 40, 0.95);
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0 0 14px;
+        line-height: 1.25;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      h2 {
+        font-size: 22px;
+        margin-top: 4px;
+      }
+
+      h3 {
+        font-size: 18px;
+        color: #f5f7fb;
+      }
+
+      p,
+      li {
+        color: var(--text);
+        margin: 0;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .chip {
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .lead {
+        color: var(--muted);
+        max-width: 980px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .metric {
+        padding: 16px 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .metric .label {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+
+      .metric .value {
+        font-size: 26px;
+        font-weight: 700;
+      }
+
+      .ok {
+        color: var(--ok);
+      }
+
+      .warn {
+        color: var(--warn);
+      }
+
+      .bad {
+        color: var(--bad);
+      }
+
+      .info {
+        color: var(--info);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: left;
+        padding: 10px 10px;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      pre {
+        margin: 12px 0 0;
+        padding: 16px;
+        border-radius: 14px;
+        background: rgba(3, 8, 18, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow-x: auto;
+        font-size: 13px;
+      }
+
+      .diagram {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 16px;
+        background: rgba(6, 11, 21, 0.86);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .diagram svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .legend {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 10px;
+      }
+
+      ul,
+      ol {
+        margin: 10px 0 0 18px;
+        padding: 0;
+      }
+
+      .decision {
+        border-left: 3px solid var(--brand);
+        padding-left: 14px;
+        margin-top: 12px;
+      }
+
+      .footnote {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 10px;
+      }
+
+      a {
+        color: #8ec5ff;
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          width: min(100vw - 24px, 1200px);
+          margin-top: 16px;
+        }
+
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <h1>市场总览｜成交额总览分钟线快照方案 v1</h1>
+        <p class="lead">
+          本方案用于解决 <code>/api/v1/wealth/market/turnover</code> 当前直接扫描
+          <code>raw_tushare.stk_mins</code> 带来的结构性超时问题。目标不是把超时阈值勉强压进
+          <code>5s</code>，而是把页面读取链路彻底改成“读快照，不扫 raw”。
+        </p>
+        <div class="meta">
+          <span class="chip">版本：v1</span>
+          <span class="chip">状态：待评审</span>
+          <span class="chip">范围：wealth 市场总览 / 成交额总览</span>
+          <span class="chip">建议落点：core_serving</span>
+          <span class="chip">文档格式：HTML 方案基线</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>1. 当前事实与为什么必须做长期方案</h2>
+        <div class="grid-3">
+          <div class="metric">
+            <span class="label">最新 30 分钟源时间探测</span>
+            <div class="value bad">40.1s</div>
+          </div>
+          <div class="metric">
+            <span class="label">单日 30 分钟市场聚合</span>
+            <div class="value warn">5.4s</div>
+          </div>
+          <div class="metric">
+            <span class="label">前端模块超时阈值</span>
+            <div class="value info">5.0s</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>问题点</th>
+              <th>当前实现</th>
+              <th>实测现象</th>
+              <th>结论</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>最新分钟线日期探测</td>
+              <td><code>max(trade_time) where freq=30</code></td>
+              <td>无写入任务时仍约 <code>40s</code></td>
+              <td>全分区扫描，结构性不可接受</td>
+            </tr>
+            <tr>
+              <td>日内累计曲线</td>
+              <td>按日聚合 <code>raw_tushare.stk_mins</code></td>
+              <td>有数据日约 <code>5.4s</code></td>
+              <td>单月分区扫描，已经卡到页面超时边界</td>
+            </tr>
+            <tr>
+              <td>页面容错</td>
+              <td>5 秒后直接展示 error</td>
+              <td>模块稳定超时</td>
+              <td>不能靠“调大超时”解决</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="footnote">
+          补充事实：<code>raw_tushare.stk_mins_2026_04</code> 单月分区约
+          <code>31796570</code> 行；2026-04-23 且 <code>freq=30</code> 的日内记录约
+          <code>49572</code> 行。
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>2. 设计目标与非目标</h2>
+        <div class="grid-2">
+          <div class="callout">
+            <h3>目标</h3>
+            <ol>
+              <li>让成交额总览页面完全脱离分钟 raw 表的在线聚合。</li>
+              <li>把“最新可用分钟日期探测”从全表扫描降为 O(1) 或近似 O(1)。</li>
+              <li>让页面读取链路稳定、可预测，并且不受分钟线导入任务影响。</li>
+              <li>保证重跑、补跑、覆盖写入时不会累加重复数据。</li>
+              <li>保持新架构边界：页面只读业务快照，不读 ops 状态表。</li>
+            </ol>
+          </div>
+          <div class="callout">
+            <h3>非目标</h3>
+            <ol>
+              <li>不在本方案内重做 TaskRun、审计模型、财富业务整页聚合接口。</li>
+              <li>不在本方案内重做分钟线原始表结构或历史分区布局。</li>
+              <li>不把页面 fallback 回 raw 查询作为兜底路径。</li>
+              <li>不为了短期通过 5 秒超时而做临时 patch。</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>3. 为什么“只加状态表”不够</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>方案</th>
+              <th>能解决什么</th>
+              <th>解决不了什么</th>
+              <th>结论</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>只加分钟线状态表</td>
+              <td>可以快速拿到最新日期、最新时间</td>
+              <td>盘中累计曲线仍要扫 <code>raw_tushare.stk_mins</code></td>
+              <td>只能解决 40s 探测，不解决 5.4s 图表</td>
+            </tr>
+            <tr>
+              <td>分钟线市场汇总快照表</td>
+              <td>既解决最新日期探测，也解决图表读取</td>
+              <td>需要新增一个物化构建链路</td>
+              <td><strong>推荐</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="footnote">
+          结论：本次应该做“快照表”，而不是只做“状态表”。
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>4. 推荐表设计</h2>
+        <h3>4.1 表名建议</h3>
+        <p>
+          推荐表名：<code>core_serving.wealth_market_turnover_snapshot</code>
+        </p>
+        <p class="footnote">
+          这是一个明确服务于“财富行情 / 市场总览 / 成交额总览”模块的业务快照，而不是通用 raw 状态表。
+        </p>
+
+        <h3>4.2 表结构</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>约束</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>type</code></td>
+              <td><code>varchar(16)</code></td>
+              <td>PK</td>
+              <td>主体类型。首期固定 <code>stock</code>，后续可扩展 <code>index</code>、<code>sector</code></td>
+            </tr>
+            <tr>
+              <td><code>market</code></td>
+              <td><code>varchar(16)</code></td>
+              <td>PK</td>
+              <td>市场标识，首期固定 <code>CN_A</code></td>
+            </tr>
+            <tr>
+              <td><code>trade_date</code></td>
+              <td><code>date</code></td>
+              <td>PK</td>
+              <td>交易日</td>
+            </tr>
+            <tr>
+              <td><code>freq</code></td>
+              <td><code>smallint</code></td>
+              <td>PK</td>
+              <td>分钟周期，首期支持 <code>1/5/15/30/60</code>，后续再扩展</td>
+            </tr>
+            <tr>
+              <td><code>build_status</code></td>
+              <td><code>varchar(16)</code></td>
+              <td>not null</td>
+              <td><code>READY / FAILED</code>。<code>PARTIAL</code> 属于模块展示态，不进入单条快照构建态</td>
+            </tr>
+            <tr>
+              <td><code>latest_trade_time</code></td>
+              <td><code>timestamp</code></td>
+              <td>null</td>
+              <td>该切片内最新分钟点，存本地交易所时间；例如 <code>2026-05-08 15:00:00</code></td>
+            </tr>
+            <tr>
+              <td><code>total_amount</code></td>
+              <td><code>numeric(20,2)</code></td>
+              <td>null</td>
+              <td>该交易日该频率下的全市场成交额总计，单位 <code>thousand_yuan</code>（千元）</td>
+            </tr>
+            <tr>
+              <td><code>total_vol</code></td>
+              <td><code>bigint</code></td>
+              <td>null</td>
+              <td>该交易日该频率下的全市场成交量总计，整数</td>
+            </tr>
+            <tr>
+              <td><code>security_count</code></td>
+              <td><code>integer</code></td>
+              <td>null</td>
+              <td>参与本切片汇总的证券数量</td>
+            </tr>
+            <tr>
+              <td><code>source_row_count</code></td>
+              <td><code>bigint</code></td>
+              <td>null</td>
+              <td>参与本次汇总的源分钟线行数，用于对账、定位失败构建、发现异常波动</td>
+            </tr>
+            <tr>
+              <td><code>points_json</code></td>
+              <td><code>jsonb</code></td>
+              <td>not null</td>
+              <td>该日该频率的全市场分钟点数组，按时间升序；页面图表直接读取这里，不再扫 raw</td>
+            </tr>
+            <tr>
+              <td><code>build_version</code></td>
+              <td><code>varchar(32)</code></td>
+              <td>not null</td>
+              <td>快照构建版本，例如 <code>v1</code>、<code>v1.1-hotfix</code></td>
+            </tr>
+            <tr>
+              <td><code>built_at</code></td>
+              <td><code>timestamptz</code></td>
+              <td>not null</td>
+              <td>本行快照生成时间</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>4.3 <code>points_json</code> 建议结构</h3>
+        <pre>[
+  {
+    "tradeTime": "09:30",
+    "tradeTimeTs": "2026-05-08 09:30:00",
+    "amount": 1288000.52,
+    "vol": 418229103,
+    "securityCount": 5231
+  },
+  {
+    "tradeTime": "10:00",
+    "tradeTimeTs": "2026-05-08 10:00:00",
+    "amount": 1632000.14,
+    "vol": 509108321,
+    "securityCount": 5240
+  }
+]</pre>
+        <p class="footnote">
+          存“该频率下的完整分钟点数组”，不要只存前端固定 5 个点。<code>amount</code> 是该分钟点成交额，单位 <code>thousand_yuan</code>（千元），累计值由查询层生成。
+        </p>
+
+        <h3>4.4 DDL 草案</h3>
+        <pre>CREATE TABLE core_serving.wealth_market_turnover_snapshot (
+  type              varchar(16)  NOT NULL,
+  market            varchar(16)  NOT NULL,
+  trade_date        date         NOT NULL,
+  freq              smallint     NOT NULL,
+  build_status      varchar(16)  NOT NULL,
+  latest_trade_time timestamp    NOT NULL,
+  total_amount      numeric(20,2) NOT NULL,
+  total_vol         bigint       NOT NULL,
+  security_count    integer      NOT NULL,
+  source_row_count  bigint       NOT NULL,
+  points_json       jsonb        NOT NULL DEFAULT '[]'::jsonb,
+  build_version     varchar(32)  NOT NULL DEFAULT 'v1',
+  built_at          timestamptz  NOT NULL DEFAULT now(),
+  build_note        text,
+  PRIMARY KEY (type, market, trade_date, freq),
+  CONSTRAINT ck_wealth_market_turnover_snapshot_type
+    CHECK (type IN ('stock', 'index', 'sector')),
+  CONSTRAINT ck_wealth_market_turnover_snapshot_market
+    CHECK (market = 'CN_A'),
+  CONSTRAINT ck_wealth_market_turnover_snapshot_freq
+    CHECK (freq IN (1, 5, 15, 30, 60)),
+  CONSTRAINT ck_wealth_market_turnover_snapshot_status
+    CHECK (build_status IN ('READY', 'FAILED'))
+);
+
+CREATE INDEX idx_wealth_market_turnover_snapshot_lookup
+  ON core_serving.wealth_market_turnover_snapshot (type, market, freq, build_status, trade_date DESC);</pre>
+        <p class="footnote">
+          当前真实分钟线样本已核实：<code>freq=30</code> 在库里的分钟点形态是
+          <code>09:30 / 10:00 / 10:30 / 11:00 / 11:30 / 13:30 / 14:00 / 14:30 / 15:00</code>，
+          所以 <code>latest_trade_time</code> 的常见终值就是 <code>15:00:00</code>。
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>5. 生成链路设计</h2>
+        <div class="diagram">
+          <svg viewBox="0 0 1100 260" xmlns="http://www.w3.org/2000/svg" aria-label="turnover snapshot build flow">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#8ec5ff"></path>
+              </marker>
+            </defs>
+            <rect x="20" y="48" width="190" height="82" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="115" y="78" text-anchor="middle" fill="#e7edf7" font-size="18">分钟线同步成功</text>
+            <text x="115" y="104" text-anchor="middle" fill="#91a0b8" font-size="13">dataset=stk_mins</text>
+
+            <line x1="210" y1="89" x2="305" y2="89" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow)"/>
+
+            <rect x="305" y="32" width="210" height="114" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="410" y="64" text-anchor="middle" fill="#e7edf7" font-size="18">切片级物化任务</text>
+            <text x="410" y="92" text-anchor="middle" fill="#91a0b8" font-size="13">输入：market + trade_date + freq</text>
+            <text x="410" y="116" text-anchor="middle" fill="#91a0b8" font-size="13">幂等重建，不做累计追加</text>
+
+            <line x1="515" y1="89" x2="620" y2="89" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow)"/>
+
+            <rect x="620" y="24" width="220" height="130" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="730" y="58" text-anchor="middle" fill="#e7edf7" font-size="18">读取 raw_tushare.stk_mins</text>
+            <text x="730" y="86" text-anchor="middle" fill="#91a0b8" font-size="13">只扫单日单频率范围</text>
+            <text x="730" y="110" text-anchor="middle" fill="#91a0b8" font-size="13">聚合全市场分钟点</text>
+            <text x="730" y="134" text-anchor="middle" fill="#91a0b8" font-size="13">生成 points_json + totals</text>
+
+            <line x1="840" y1="89" x2="945" y2="89" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow)"/>
+
+            <rect x="945" y="48" width="135" height="82" rx="16" fill="#1b2c1f" stroke="#325f39"/>
+            <text x="1012" y="78" text-anchor="middle" fill="#e7edf7" font-size="18">UPSERT</text>
+            <text x="1012" y="104" text-anchor="middle" fill="#91a0b8" font-size="13">snapshot 行</text>
+          </svg>
+          <p class="legend">建议：分钟线同步成功后触发切片级 snapshot materialize。失败不回滚 raw 数据，只让 snapshot 保持旧值并记录失败。</p>
+        </div>
+
+        <h3>5.1 触发时机</h3>
+        <ol>
+          <li><code>stk_mins</code> 某个 <code>trade_date + freq</code> 的业务数据提交成功。</li>
+          <li>进入一个独立的 snapshot materialize 步骤。</li>
+          <li>按该日该频率重建一行快照，使用 UPSERT 覆盖。</li>
+        </ol>
+
+        <h3>5.2 为什么不用“边写 raw 边增量累加”</h3>
+        <ol>
+          <li>分钟线任务可能重跑、补跑、局部覆盖，边写边累加最容易重复。</li>
+          <li>快照行很小，单日重算成本可控，幂等性更强。</li>
+          <li>把“原始写入”和“业务快照产出”拆开，排障更清楚。</li>
+        </ol>
+      </section>
+
+      <section class="section">
+        <h2>6. 页面读取链路如何改</h2>
+        <div class="diagram">
+          <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg" aria-label="turnover page read flow">
+            <defs>
+              <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L9,3 z" fill="#8ec5ff"></path>
+              </marker>
+            </defs>
+            <rect x="20" y="54" width="180" height="78" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="110" y="84" text-anchor="middle" fill="#e7edf7" font-size="17">财富前端</text>
+            <text x="110" y="110" text-anchor="middle" fill="#91a0b8" font-size="13">/market/overview</text>
+
+            <line x1="200" y1="93" x2="310" y2="93" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow2)"/>
+
+            <rect x="310" y="40" width="210" height="106" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="415" y="72" text-anchor="middle" fill="#e7edf7" font-size="17">/api/v1/wealth/market/turnover</text>
+            <text x="415" y="98" text-anchor="middle" fill="#91a0b8" font-size="13">日频指标仍读 equity_daily_bar</text>
+            <text x="415" y="122" text-anchor="middle" fill="#91a0b8" font-size="13">分钟曲线改读 snapshot</text>
+
+            <line x1="520" y1="93" x2="635" y2="93" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow2)"/>
+
+            <rect x="635" y="30" width="225" height="126" rx="16" fill="#13223a" stroke="#31415d"/>
+            <text x="748" y="62" text-anchor="middle" fill="#e7edf7" font-size="17">core_serving.wealth_market_turnover_snapshot</text>
+            <text x="748" y="90" text-anchor="middle" fill="#91a0b8" font-size="13">latest READY trade_date</text>
+            <text x="748" y="114" text-anchor="middle" fill="#91a0b8" font-size="13">points_json / totals / latest_trade_time</text>
+            <text x="748" y="138" text-anchor="middle" fill="#91a0b8" font-size="13">不再直扫 raw 分钟表</text>
+
+            <line x1="860" y1="93" x2="970" y2="93" stroke="#8ec5ff" stroke-width="3" marker-end="url(#arrow2)"/>
+
+            <rect x="970" y="54" width="110" height="78" rx="16" fill="#1b2c1f" stroke="#325f39"/>
+            <text x="1025" y="84" text-anchor="middle" fill="#e7edf7" font-size="17">页面响应</text>
+            <text x="1025" y="110" text-anchor="middle" fill="#91a0b8" font-size="13">&lt; 200ms</text>
+          </svg>
+        </div>
+
+        <h3>6.1 具体读取口径</h3>
+        <ol>
+          <li>日级四卡与历史曲线：继续读 <code>core_serving.equity_daily_bar</code>。</li>
+          <li>分钟曲线：改读 snapshot 行的 <code>points_json</code>。</li>
+          <li>最新分钟线可用日期：改读 snapshot 中 <code>build_status='READY'</code> 的最新交易日。</li>
+          <li>页面不再执行 <code>max(trade_time)</code> 或 raw 分钟聚合。</li>
+          <li>明确不保留 raw fallback。snapshot 不可用时，模块直接按 delayed / empty / error 语义暴露。</li>
+        </ol>
+      </section>
+
+      <section class="section">
+        <h2>7. 幂等、恢复与回补规则</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>场景</th>
+              <th>处理方式</th>
+              <th>原因</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>同一天同频率重跑</td>
+              <td>按主键 UPSERT 整行覆盖</td>
+              <td>避免增量累加污染</td>
+            </tr>
+            <tr>
+              <td>分钟线局部重写</td>
+              <td>重新物化该 <code>trade_date + freq</code> 切片</td>
+              <td>快照必须和 raw 保持同一切片一致</td>
+            </tr>
+            <tr>
+              <td>物化失败</td>
+              <td>不回滚 raw；snapshot 保持旧值并记录失败</td>
+              <td>观测失败不能污染业务数据</td>
+            </tr>
+            <tr>
+              <td>历史回补</td>
+              <td>支持按日期范围重建 snapshot</td>
+              <td>便于补历史分钟线后统一修复页面事实源</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>8. 对现有 API 与模块的影响</h2>
+        <ol>
+          <li><code>/api/v1/wealth/market/turnover</code> 的外部契约可以保持不变。</li>
+          <li>内部查询实现需要改：分钟曲线与 observed minute date 从 snapshot 读取。</li>
+          <li><code>pageStatus / moduleStatus</code> 仍按原语义输出，不需要前端改字段。</li>
+          <li>这次不需要改 TaskRun 模型、不需要改审计模型、不需要改 wealth API 命名空间。</li>
+        </ol>
+      </section>
+
+      <section class="section">
+        <h2>9. 主要风险</h2>
+        <div class="grid-2">
+          <div class="callout">
+            <h3>工程风险</h3>
+            <ol>
+              <li>如果 snapshot 产出链路没有和分钟线同步成功点绑定，会出现 raw 已新、snapshot 未新的短暂不一致。</li>
+              <li>如果仍保留 raw fallback，会让系统重新回到“有时快、有时超时”的不稳定态。</li>
+              <li><code>points_json</code> 结构一旦定下，后续改动要控制版本。</li>
+            </ol>
+          </div>
+          <div class="callout">
+            <h3>缓解策略</h3>
+            <ol>
+              <li>明确 snapshot 是唯一分钟页面事实源，不允许 raw fallback。</li>
+              <li>物化任务采用“切片级覆盖”而不是“边写边加”。</li>
+              <li>保留 <code>build_version</code> 字段，后续 schema 演进可控。</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>10. 已确认决策</h2>
+
+        <div class="decision">
+          <h3>D1. 表名</h3>
+          <p>
+            已确认：<code>core_serving.wealth_market_turnover_snapshot</code>
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D2. <code>points_json</code> 存储粒度</h3>
+          <p>
+            已确认：存该频率下完整的日内点序列，不只存页面当前固定点。
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D3. 首期支持的频率</h3>
+          <p>
+            已确认：首期物化 <code>1/5/15/30/60</code>；<code>90/120</code> 暂不纳入，后续按配置扩展。
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D4. 物化触发方式</h3>
+          <p>
+            已确认：首期只支持手动命令触发，不接自动触发。
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D5. 快照主体类型维度</h3>
+          <p>
+            已确认：增加 <code>type</code> 字段，并纳入主键。首期固定写入
+            <code>type=stock</code>；后续可扩展到 <code>index</code>、
+            <code>sector</code> 等主体。
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D6. raw fallback</h3>
+          <p>
+            已确认：不保留 raw fallback。页面只读取 snapshot。
+          </p>
+        </div>
+
+        <div class="decision">
+          <h3>D7. <code>source_row_count</code></h3>
+          <p>
+            已确认：保留。该字段不参与页面展示，只用于物化结果对账、
+            排障和重建验证。
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>11. 建议落地顺序</h2>
+        <ol>
+          <li>补一份编码前门禁文档，限定“只改 turnover minute snapshot，不碰其他模块”。</li>
+          <li>先建表与手动物化命令，再补切片级重建与验证链路。</li>
+          <li>再改 <code>turnover</code> 查询链路，彻底切到 snapshot 读取。</li>
+          <li>最后做页面回归，确认彻底去掉 raw 分钟在线聚合。</li>
+        </ol>
+        <p class="footnote">
+          当前本方案范围内已无待拍板项，可进入编码前门禁评审阶段。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

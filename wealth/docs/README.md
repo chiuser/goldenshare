@@ -69,6 +69,8 @@ docs/
 - [市场风格 M2 编码前门禁 v1](./pages/market-overview/market-style-m2-coding-gate-v1.md)
 - [成交额总览标杆需求 v1](./pages/market-overview/turnover-benchmark-requirement-v1.md)
 - [成交额总览技术实施方案 v1（仅方案）](./pages/market-overview/turnover-implementation-design-v1.md)
+- [成交额总览分钟线快照长期方案 v1（HTML）](./pages/market-overview/turnover-minute-snapshot-plan-v1.html)
+- [成交额总览分钟线快照 M2 编码前门禁 v1](./pages/market-overview/turnover-minute-snapshot-m2-coding-gate-v1.md)
 - [成交额总览 M2 编码前门禁 v1](./pages/market-overview/turnover-m2-coding-gate-v1.md)
 - [大盘资金流向标杆需求 v1](./pages/market-overview/money-flow-benchmark-requirement-v1.md)
 - [大盘资金流向技术实施方案 v1（仅方案）](./pages/market-overview/money-flow-implementation-design-v1.md)

@@ -15,6 +15,7 @@ TURNOVER_SNAPSHOT_ALLOWED_FREQS: tuple[int, ...] = (1, 5, 15, 30, 60)
 TURNOVER_SNAPSHOT_TYPE_STOCK = "stock"
 TURNOVER_SNAPSHOT_MARKET_CN_A = "CN_A"
 TURNOVER_SNAPSHOT_BUILD_VERSION = "v1"
+_YUAN_TO_THOUSAND_YUAN = Decimal("1000")
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +28,7 @@ class TurnoverSnapshotBuildItem:
     source_row_count: int
     points_count: int
     total_amount: Decimal
-    total_vol: Decimal
+    total_vol: int
     build_note: str | None = None
 
 
@@ -74,8 +75,8 @@ class TurnoverSnapshotMaterializeService:
 
         source_row_count = int(summary.source_row_count or 0)
         security_count = int(summary.security_count or 0)
-        total_amount = Decimal(str(summary.total_amount or Decimal("0")))
-        total_vol = Decimal(str(summary.total_vol or Decimal("0")))
+        total_amount = self._to_thousand_yuan(summary.total_amount)
+        total_vol = int(summary.total_vol or 0)
         latest_trade_time = summary.latest_trade_time
 
         if source_row_count <= 0 or latest_trade_time is None:
@@ -103,7 +104,7 @@ class TurnoverSnapshotMaterializeService:
                 source_row_count=0,
                 points_count=0,
                 total_amount=Decimal("0"),
-                total_vol=Decimal("0"),
+                total_vol=0,
                 build_note=build_note,
             )
 
@@ -128,8 +129,8 @@ class TurnoverSnapshotMaterializeService:
                 {
                     "tradeTime": trade_time.strftime("%H:%M"),
                     "tradeTimeTs": trade_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "amount": float(row.amount or 0),
-                    "vol": float(row.vol or 0),
+                    "amount": float(self._to_thousand_yuan(row.amount)),
+                    "vol": int(row.vol or 0),
                     "securityCount": int(row.security_count or 0),
                 }
             )
@@ -200,3 +201,9 @@ class TurnoverSnapshotMaterializeService:
             seen.add(raw_value)
             normalized.append(raw_value)
         return normalized
+
+    @staticmethod
+    def _to_thousand_yuan(value: object | None) -> Decimal:
+        if value is None:
+            return Decimal("0")
+        return Decimal(str(value)) / _YUAN_TO_THOUSAND_YUAN

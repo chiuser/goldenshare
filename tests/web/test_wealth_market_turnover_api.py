@@ -63,12 +63,12 @@ def _seed_turnover_facts(db_session, *, end_date: date, days: int = 62) -> None:
     ]
     points_json = []
     total_amount = Decimal("0")
-    total_vol = Decimal("0")
+    total_vol = 0
     security_count = 2
     source_row_count = 0
     for tick_time, amount in intraday_points:
         point_amount = amount * Decimal("2.3")
-        point_vol = Decimal("1200000") * Decimal("2")
+        point_vol = 1200000 * 2
         total_amount += point_amount
         total_vol += point_vol
         source_row_count += security_count

@@ -31,7 +31,7 @@ class WealthMarketTurnoverSnapshot(Base):
     security_count: Mapped[int] = mapped_column(Integer, nullable=False)
     source_row_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
-    total_vol: Mapped[Decimal] = mapped_column(Numeric(20, 2), nullable=False)
+    total_vol: Mapped[int] = mapped_column(BigInteger, nullable=False)
     points_json: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False, default=list)
     build_status: Mapped[str] = mapped_column(String(16), nullable=False, default="READY", server_default="READY")
     build_version: Mapped[str] = mapped_column(String(32), nullable=False, default="v1", server_default="v1")
