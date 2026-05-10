@@ -81,12 +81,14 @@ wealth/
 
 实现市场总览 homepage 前，还必须额外读取：
 
-1. `wealth/docs/reference/showcase/market-overview-v1.1.html`
-2. `wealth/docs/reference/design/03-design-tokens.md`
-3. `wealth/docs/reference/design/04-component-guidelines.md`
+1. `wealth/docs/reference/showcase/market-overview-v4.html`
+2. `wealth/docs/reference/design/03-design-tokens-v0.2.7.md`
+3. `wealth/docs/reference/design/04-component-guidelines-v0.7.md`
 4. `wealth/docs/reference/codex/market-overview-codex-prompt-v1.md`
 5. `wealth/docs/reference/review/market-overview-html-review-v2.md`
 6. `wealth/docs/reference/review/市场总览html_review_v_2_总控解读与变更单.md`
+7. `wealth/docs/reference/api/market-overview-api-v0.5.md`
+8. `wealth/docs/reference/api/p0-data-dictionary-v0.5.md`
 
 如果上述文档与用户最新指令冲突，先停下说明冲突，不要擅自猜。
 
@@ -164,7 +166,7 @@ wealth/
 
 ## 设计与体验硬约束
 
-1. 市场总览必须高保真参考 `market-overview-v1.1.html`。
+1. 市场总览必须高保真参考当前生效原型 `market-overview-v4.html`。
 2. 默认深色金融终端风。
 3. A 股红涨绿跌：红色表示上涨、正值、净流入、涨停；绿色表示下跌、负值、净流出、跌停。
 4. 行情色不能复用系统 success/error 语义。
@@ -174,7 +176,7 @@ wealth/
 8. 不展示市场温度分数、情绪指数、资金面分数、风险指数作为首页核心结论。
 9. 不允许基于个人审美重排模块、删模块或重做视觉。
 10. Showcase 中未确认的小瑕疵只能记录为待确认项，不得擅自改版。
-11. homepage 首批实现目标是高保真还原，不是重新设计；交互、布局、模块顺序、组件密度、颜色气质默认全部跟随 V1.1 Showcase。
+11. homepage 首批实现目标是高保真还原，不是重新设计；交互、布局、模块顺序、组件密度、颜色气质默认全部跟随当前生效 Showcase。
 12. 任何偏离 Showcase 或设计规范的想法只能列为待拍板项，不允许直接写进代码。
 
 ---
@@ -223,6 +225,12 @@ Bug 修复必须先说明原因与影响面。禁止临时补丁叠补丁。
 3. 再产出 coding gate（编码前门禁）
 4. 用 `wealth/docs/system/module-delivery-checklist-v1.md` 做一次提交前通用检查
 5. 三件套评审通过后才允许编码
+
+三件套执行补充硬门禁（必须同时满足）：
+
+1. 每个模块 `coding-gate` 必须包含“通用清单映射矩阵”，逐条标注适用/不适用及理由；缺失不得开工。
+2. 偏离通用清单的规则必须登记模块级“例外白名单”并评审通过；未登记视为违规。
+3. 关键语义（如累计值图表纵轴非负、固定刻度）必须有可执行测试断言，禁止只写文档不写测试。
 
 ---
 

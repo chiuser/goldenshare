@@ -73,7 +73,7 @@
 
 ## 6. 首期（Phase-1）已登记模块
 
-> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块。
+> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -109,6 +109,14 @@
 | `BR_SOURCE_DELAYED` | `breadth` | warn | false | true | 涨跌分布数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
 | `BR_HISTORY_INCOMPLETE` | `breadth` | warn | false | true | 历史趋势样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |
 | `BR_QUERY_FAILED` | `breadth` | error | false | true | 涨跌分布查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `LU_SOURCE_DELAYED` | `limitUp` | warn | false | true | 涨跌停模块数据日期落后 | `observedTradeDate < expectedTradeDate` | 模块 delayed，页面可能 PARTIAL | biz-api | Phase-1 | active |
+| `LU_SOURCE_EMPTY` | `limitUp` | warn | false | true | 涨跌停模块关键源无数据 | 当日涨停/跌停/炸板集合均为空 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
+| `LU_SEAL_RATE_DENOM_ZERO` | `limitUp` | warn | false | true | 封板率分母为 0 | 非 ST 涨停数 + 非 ST 炸板数 = 0 | `sealingRate` 返回 null，模块可 READY/PARTIAL | biz-api | Phase-1 | active |
+| `LU_PATTERN_INPUT_MISSING` | `limitUp` | warn | false | true | 天地/地天判定输入不足 | 时间字段覆盖率不足或不可解析 | 天地板/地天板返回 null，模块 partial | biz-api | Phase-1 | active |
+| `LU_PATTERN_CONFLICT` | `limitUp` | warn | false | true | 天地/地天冲突样本 | 同一股票同时命中天地与地天规则 | 冲突样本剔除，模块 partial | biz-api | Phase-1 | active |
+| `LU_DISTRIBUTION_MAPPING_MISSING` | `limitUp` | warn | false | true | 结构分布映射缺失 | `dc_member/dc_index` 无法形成有效分布行 | 模块 partial，结构块显示空或缺项 | biz-api | Phase-1 | active |
+| `LU_HISTORY_INCOMPLETE` | `limitUp` | warn | false | true | 历史组合柱样本不足 | 历史点少于 22（1m）或 62（3m） | 模块 partial，debug 标记历史不足 | biz-api | Phase-1 | active |
+| `LU_QUERY_FAILED` | `limitUp` | error | false | true | 涨跌停模块查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
 
 ---
 

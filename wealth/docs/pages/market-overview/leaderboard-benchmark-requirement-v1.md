@@ -51,6 +51,12 @@
    - 前端手工重排榜单或重建股票池；
    - 裸 `code` 作为主体标识；
    - 未登记异常码进入接口。
+4. 行为门禁：
+   - 真实 API 未返回前，模块必须显示 `loading`；
+   - 禁止用 mock 榜单冒充 ready；
+   - 请求超过 5 秒必须进入 `error`。
+5. 渐进替换门禁：本轮只允许 `leaderboards` 模块 source 从 `mock -> real`，其他模块 source 必须保持不变。
+6. 配置语义：本期榜单规则先由后端 `definition_registry` 固化，不接策略配置中心；若后续接配置中心，必须新增三件套评审，不得直接改实现。
 
 ---
 
@@ -98,6 +104,9 @@
 2. 模块级状态（debug）：每榜单提供 `expectedTradeDate/observedTradeDate/lagDays/status/note`。
 3. delayed 判定：`observedTradeDate < expectedTradeDate`。
 4. partial 判定：存在模块 `DELAYED/EMPTY/ERROR` 但非全量同态。
+5. loading/error 行为：
+   - 真实源 pending -> `loading`
+   - 真实源超时（5 秒）或失败 -> `error`
 
 ---
 
@@ -121,6 +130,7 @@
 3. 响应结构：`tradingDay + pageStatus + definitions + boards + debugInfo?`。
 4. 字段命名规则：lowerCamelCase；主体使用 `subjectType/subjectCode/subjectName`。
 5. 向后兼容策略：新增字段只加可选；不改既有字段语义。
+6. debug 语义：`debug=0`（默认）不返回 `debugInfo`；`debug=1` 才返回模块状态与异常明细。
 
 ---
 
@@ -130,6 +140,10 @@
 2. 语义验收：规则由后端定义，前端仅渲染。
 3. 状态验收：页面级与模块级状态规则一致可复现。
 4. 异常验收：仅使用已登记异常码，debug 下可追因。
+5. 行为验收：真实源 pending 显示 `loading`，且不展示 mock 榜单。
+6. 行为验收：真实源请求超过 5 秒显示 `error`，不允许静默回退 mock。
+7. 范围验收：本轮仅 `leaderboards` source 变化，其他模块 source 保持不变。
+8. 配置验收：本轮不引入策略配置中心，榜单定义以 `definition_registry` 为唯一事实源。
 
 ---
 
@@ -145,3 +159,4 @@
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 按模板重构文档结构，冻结榜单需求边界 | Codex |
+| v1.1 | 2026-05-10 | 对齐最新门禁：补充 loading/error/5秒超时行为、单模块切换纪律、debug 默认语义与配置边界 | Codex |

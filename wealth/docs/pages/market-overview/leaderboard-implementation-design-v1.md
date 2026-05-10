@@ -36,6 +36,7 @@
 1. 模块接口路径：`GET /api/v1/wealth/market/leaderboards`。
 2. 是否整页聚合接口：否（模块接口）。
 3. 返回范围：仅榜单模块对象，不返回整页 overview 聚合包。
+4. 配置边界：本期榜单规则由 `definition_registry.py` 固化，不接策略配置中心。
 
 ### 3.2 代码目录模板（按模块拆分）
 
@@ -76,6 +77,10 @@ src/biz/
 4. 状态归并：`status_resolver.py` 产出 board 状态与 pageStatus。
 5. 异常组装：`exception_builder.py` 按注册表产出 `LB_*`。
 6. 响应输出：`schemas/.../leaderboards.py` DTO 返回。
+7. 前端行为契约：
+   - 真实源 pending -> `loading`；
+   - 真实源超时（5 秒）或失败 -> `error`；
+   - 禁止用 mock 榜单冒充 ready。
 
 ---
 
@@ -103,6 +108,9 @@ src/biz/
 3. debug 输出结构：`debugInfo.modules + debugInfo.exceptions`（仅 `debug=1`）。
 4. 异常码映射：只允许使用  
    [exception-code-registry.md](/Users/congming/github/goldenshare/wealth/docs/system/exception-code-registry.md) 中的 `LB_*`。
+5. 状态显示边界：
+   - 页面正式态仅消费 `pageStatus`；
+   - 模块明细状态仅在 `debug=1` 下可见。
 
 ---
 
@@ -138,7 +146,9 @@ src/biz/
    - 空数据/延迟/异常覆盖。
 3. 冒烟验证：
    - 调用 `/leaderboards` 返回结构完整；
-   - debug=0/1 分支正确。
+   - debug=0/1 分支正确；
+   - 真实源 pending 显示 loading（不展示 mock）；
+   - 真实源超过 5 秒显示 error（不回填 mock）。
 4. 失败回滚与观测点：
    - 查询失败只影响模块，不阻断整体请求；
    - 记录 `traceId` 与异常码。
@@ -169,7 +179,8 @@ src/biz/
 
 1. 本期不新增独立权限点，沿用 `quote.read`。
 2. debug 模式在生产环境完全禁用。
-3. 本轮无未决拍板项，可直接进入编码门禁执行。
+3. 本轮榜单定义固定由 `definition_registry` 提供，不接策略配置中心。
+4. 本轮无未决拍板项，可直接进入编码门禁执行。
 
 ---
 
@@ -178,3 +189,4 @@ src/biz/
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 按模板重构实施方案结构，冻结模块实现落点 | Codex |
+| v1.1 | 2026-05-10 | 对齐最新门禁：补齐 loading/error/5秒超时行为、definition_registry 配置边界与测试约束 | Codex |

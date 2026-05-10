@@ -18,9 +18,12 @@ docs/
 ## Drive 原始资料
 
 - [Drive 原始资料索引](./reference/README.md)
+- [市场总览 V4 Showcase 原型（当前生效）](./reference/showcase/market-overview-v4.html)
 - [市场总览 V1.1 Showcase 原型](./reference/showcase/market-overview-v1.1.html)
-- [Design Token 原始文档](./reference/design/03-design-tokens.md)
-- [组件规范原始文档](./reference/design/04-component-guidelines.md)
+- [Design Token 原始文档 v0.2.7（当前生效）](./reference/design/03-design-tokens-v0.2.7.md)
+- [组件规范原始文档 v0.7（当前生效）](./reference/design/04-component-guidelines-v0.7.md)
+- [市场总览 API 草案 v0.5（当前生效）](./reference/api/market-overview-api-v0.5.md)
+- [P0 数据字典 v0.5（当前生效）](./reference/api/p0-data-dictionary-v0.5.md)
 - [Codex 实现提示词原始文档](./reference/codex/market-overview-codex-prompt-v1.md)
 - [Review v2 原始文档](./reference/review/market-overview-html-review-v2.md)
 
@@ -33,6 +36,13 @@ docs/
 3. `system/` 与 `pages/` 中的工程化基线摘要。
 
 如果 `reference/` 与 baseline 摘要冲突，先停下说明冲突，不要擅自选择一个继续写代码。
+
+当前市场总览页面还原与实现，默认以以下版本作为生效事实源：
+
+1. Showcase：`reference/showcase/market-overview-v4.html`
+2. Design Token：`reference/design/03-design-tokens-v0.2.7.md`
+3. Component Guidelines：`reference/design/04-component-guidelines-v0.7.md`
+4. API/数据字典：`reference/api/market-overview-api-v0.5.md` 与 `reference/api/p0-data-dictionary-v0.5.md`
 
 ## 系统级文档
 

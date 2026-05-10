@@ -1,0 +1,1311 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>财势乾坤通用组件库 Demo v1</title>
+  <style>
+    /*
+      财势乾坤｜通用组件库 Demo v1
+      Path: 财势乾坤/showcase/component-library-demo-v1.html
+      Scope: Generic UI component library demo, NOT market-overview page demo.
+      Rule: Core Components use Csq* names; Pattern Examples are examples only and are not Core Components.
+    */
+    :root {
+      color-scheme: dark;
+      --cs-color-bg-page:#070A12;
+      --cs-color-bg-page-alt:#0A0F1A;
+      --cs-color-surface-panel:#101827;
+      --cs-color-surface-panel-subtle:#0D1422;
+      --cs-color-surface-card:#121B2C;
+      --cs-color-surface-card-hover:#182235;
+      --cs-color-surface-elevated:#162033;
+      --cs-color-border-subtle:rgba(148,163,184,.14);
+      --cs-color-border-default:rgba(148,163,184,.22);
+      --cs-color-border-hover:rgba(247,199,107,.34);
+      --cs-color-text-primary:#E5EDF8;
+      --cs-color-text-secondary:#A8B4C6;
+      --cs-color-text-muted:#7B8AA0;
+      --cs-color-text-weak:#5F6E82;
+      --cs-color-market-up:#FF4D5A;
+      --cs-color-market-up-bg:rgba(255,77,90,.12);
+      --cs-color-market-up-border:rgba(255,77,90,.34);
+      --cs-color-market-down:#15C784;
+      --cs-color-market-down-bg:rgba(21,199,132,.12);
+      --cs-color-market-down-border:rgba(21,199,132,.34);
+      --cs-color-market-flat:#DDE6F2;
+      --cs-color-market-flat-muted:#9AA4B2;
+      --cs-color-market-flat-bg:rgba(221,230,242,.10);
+      --cs-color-brand-accent:#F7C76B;
+      --cs-color-brand-accent-bg:rgba(247,199,107,.10);
+      --cs-color-brand-accent-border:rgba(247,199,107,.28);
+      --cs-color-warning:#F59E0B;
+      --cs-color-warning-bg:rgba(245,158,11,.12);
+      --cs-color-info:#5AA7FF;
+      --cs-color-risk:#FF8A3D;
+      --cs-color-risk-bg:rgba(255,138,61,.12);
+      --cs-color-tooltip-bg:rgba(8,13,22,.96);
+      --cs-color-tooltip-border:rgba(247,199,107,.28);
+      --cs-color-chart-grid:rgba(148,163,184,.12);
+      --cs-color-chart-axis:rgba(148,163,184,.38);
+      --cs-color-chart-label:#7B8AA0;
+      --cs-color-chart-crosshair:rgba(247,199,107,.72);
+      --cs-font-family-base:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+      --cs-font-family-number:"DIN Alternate","Roboto Mono","SF Mono","JetBrains Mono",ui-monospace,monospace;
+      --cs-space-4:4px; --cs-space-6:6px; --cs-space-8:8px; --cs-space-10:10px; --cs-space-12:12px; --cs-space-16:16px; --cs-space-20:20px; --cs-space-24:24px;
+      --cs-radius-sm:4px; --cs-radius-md:6px; --cs-radius-lg:8px; --cs-radius-card:8px; --cs-radius-panel:10px; --cs-radius-pill:999px;
+      --cs-shadow-tooltip:0 12px 32px rgba(0,0,0,.42);
+      --cs-demo-page-max-width:1680px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior:smooth; background:var(--cs-color-bg-page); }
+    body {
+      margin:0;
+      color:var(--cs-color-text-primary);
+      font-family:var(--cs-font-family-base);
+      font-size:13px;
+      line-height:1.45;
+      background:
+        radial-gradient(circle at 12% -10%, rgba(247,199,107,.14), transparent 24%),
+        radial-gradient(circle at 84% -8%, rgba(90,167,255,.12), transparent 22%),
+        linear-gradient(180deg,#070A12 0%,#090F19 52%,#060911 100%);
+      min-width: 1320px;
+    }
+    a { color:inherit; text-decoration:none; }
+    button { font:inherit; color:inherit; }
+    .num, .font-num, .metric-card strong, .component-preview b, td.num-col, .price-block b, .amount { font-family:var(--cs-font-family-number); font-variant-numeric: tabular-nums; }
+    .up { color:var(--cs-color-market-up) !important; }
+    .down { color:var(--cs-color-market-down) !important; }
+    .flat { color:var(--cs-color-market-flat) !important; }
+    .demo-hero {
+      max-width:var(--cs-demo-page-max-width);
+      margin:0 auto;
+      padding:24px 24px 12px;
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:linear-gradient(180deg,rgba(7,10,18,.98),rgba(7,10,18,.88));
+      backdrop-filter: blur(16px);
+      border-bottom:1px solid var(--cs-color-border-subtle);
+    }
+    .hero-main { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+    .hero-title h1 { margin:0 0 8px; font-size:28px; letter-spacing:.4px; }
+    .hero-title p { margin:0; color:var(--cs-color-text-secondary); max-width:760px; }
+    .version-pill {
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border:1px solid var(--cs-color-brand-accent-border); border-radius:999px;
+      color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); font-weight:700;
+    }
+    .anchor-nav { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    .anchor-nav a {
+      padding:6px 10px; border:1px solid var(--cs-color-border-subtle); border-radius:8px;
+      color:var(--cs-color-text-secondary); background:rgba(18,27,44,.72);
+    }
+    .anchor-nav a:hover { color:var(--cs-color-brand-accent); border-color:var(--cs-color-border-hover); background:var(--cs-color-surface-card-hover); }
+    .demo-main { max-width:var(--cs-demo-page-max-width); margin:0 auto; padding:18px 24px 42px; }
+    .demo-section { margin-bottom:24px; scroll-margin-top:128px; }
+    .section-title-block { display:flex; justify-content:space-between; align-items:end; margin:0 0 12px; }
+    .section-title-block span { color:var(--cs-color-text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:11px; }
+    .section-title-block h2 { margin:0; font-size:22px; }
+    .token-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; }
+    .token-card, .component-card, .state-tile {
+      background:rgba(16,24,39,.90);
+      border:1px solid var(--cs-color-border-subtle);
+      border-radius:var(--cs-radius-panel);
+      padding:14px;
+      box-shadow:0 10px 28px rgba(0,0,0,.20);
+    }
+    .token-card h3 { margin:0 0 10px; font-size:14px; }
+    .token-card p { color:var(--cs-color-text-secondary); margin:8px 0 0; }
+    .swatches { display:flex; gap:8px; }
+    .swatches i { width:46px; height:34px; border-radius:8px; border:1px solid var(--cs-color-border-subtle); }
+    .market-rule { display:flex; gap:10px; flex-wrap:wrap; }
+    .market-rule b { padding:6px 8px; border-radius:8px; background:rgba(255,255,255,.035); }
+    .space-demo i { display:inline-block; height:28px; border-radius:4px; background:var(--cs-color-brand-accent); margin-right:8px; vertical-align:middle; }
+    .radius-demo { display:flex; gap:10px; }
+    .radius-demo span { display:grid; place-items:center; width:70px; height:44px; background:var(--cs-color-surface-card); border:1px solid var(--cs-color-border-subtle); }
+    .radius-demo span:nth-child(1){ border-radius:4px; } .radius-demo span:nth-child(2){ border-radius:8px; } .radius-demo span:nth-child(3){ border-radius:14px; }
+    .shadow-demo { padding:18px; border-radius:10px; background:var(--cs-color-surface-elevated); box-shadow:var(--cs-shadow-tooltip); }
+    .component-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; align-items:stretch; }
+    .component-card { min-height:360px; display:flex; flex-direction:column; gap:10px; }
+    .component-card-head { display:flex; justify-content:space-between; gap:10px; align-items:start; border-bottom:1px solid var(--cs-color-border-subtle); padding-bottom:10px; }
+    .component-card h3 { margin:0; font-size:16px; }
+    .component-card-head p { margin:3px 0 0; color:var(--cs-color-text-secondary); }
+    .layer-pill { font-size:11px; color:var(--cs-color-brand-accent); border:1px solid var(--cs-color-brand-accent-border); background:var(--cs-color-brand-accent-bg); padding:3px 7px; border-radius:999px; white-space:nowrap; }
+    .component-meta { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .component-meta div { background:rgba(13,20,34,.58); border:1px solid rgba(148,163,184,.10); border-radius:8px; padding:8px; min-height:58px; }
+    .component-meta b { display:block; color:var(--cs-color-text-muted); font-size:11px; margin-bottom:4px; }
+    .component-meta span { color:var(--cs-color-text-secondary); font-size:12px; }
+    .component-preview { flex:1; min-height:120px; background:var(--cs-color-surface-panel-subtle); border:1px solid rgba(148,163,184,.11); border-radius:10px; padding:12px; overflow:hidden; position:relative; }
+    .misuse { color:var(--cs-color-text-muted); font-size:12px; border-top:1px dashed rgba(148,163,184,.18); padding-top:8px; }
+    .misuse b { color:var(--cs-color-warning); }
+    .preview-panel { border:1px solid var(--cs-color-border-subtle); border-radius:10px; background:var(--cs-color-surface-card); overflow:hidden; }
+    .preview-panel-head { display:flex; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--cs-color-border-subtle); font-weight:700; }
+    .preview-panel-head span { color:var(--cs-color-text-muted); font-weight:400; }
+    .preview-panel-body { color:var(--cs-color-text-secondary); padding:14px 12px; }
+    .section-header-demo, .pageheader-demo { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px; border:1px solid var(--cs-color-border-subtle); border-radius:8px; background:var(--cs-color-surface-card); }
+    .section-header-demo button, .pageheader-demo button, .error-state button, .table-error button { background:var(--cs-color-brand-accent-bg); border:1px solid var(--cs-color-brand-accent-border); color:var(--cs-color-brand-accent); border-radius:7px; padding:5px 8px; }
+    .help-dot { width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; font-size:12px; color:var(--cs-color-text-muted); border:1px solid var(--cs-color-border-subtle); }
+    .help-dot.active, .help-dot:hover { color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
+    .tooltip-demo { position:relative; min-height:76px; display:flex; align-items:center; justify-content:center; }
+    .tooltip-box, .chart-tooltip-standalone {
+      background:var(--cs-color-tooltip-bg); border:1px solid var(--cs-color-tooltip-border); border-radius:10px; box-shadow:var(--cs-shadow-tooltip); padding:10px 12px; color:var(--cs-color-text-secondary);
+    }
+    .tooltip-demo .tooltip-box { position:absolute; top:42px; width:220px; }
+    .badge-row, .status-dot-row, .change-value-row, .state-strip { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .badge, .change-badge, .status-badge, .tag, .state-pill { display:inline-flex; align-items:center; justify-content:center; min-height:22px; padding:2px 8px; border-radius:999px; font-size:12px; font-style:normal; border:1px solid rgba(148,163,184,.14); }
+    .badge.rise,.change-badge.rise,.tag.rise { color:var(--cs-color-market-up); background:var(--cs-color-market-up-bg); border-color:var(--cs-color-market-up-border); }
+    .badge.fall,.change-badge.fall,.tag.fall { color:var(--cs-color-market-down); background:var(--cs-color-market-down-bg); border-color:var(--cs-color-market-down-border); }
+    .badge.flat,.change-badge.flat { color:var(--cs-color-market-flat); background:var(--cs-color-market-flat-bg); }
+    .badge.warning,.tag.warning { color:var(--cs-color-warning); background:var(--cs-color-warning-bg); border-color:rgba(245,158,11,.30); }
+    .badge.brand,.tag.brand { color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
+    .tag.neutral { color:var(--cs-color-text-secondary); background:rgba(148,163,184,.10); }
+    .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; }
+    .dot.live { background:var(--cs-color-market-down); box-shadow:0 0 0 3px rgba(21,199,132,.12); }
+    .dot.delayed { background:var(--cs-color-warning); box-shadow:0 0 0 3px rgba(245,158,11,.12); }
+    .dot.error { background:var(--cs-color-risk); box-shadow:0 0 0 3px rgba(255,138,61,.12); }
+    .dot.closed { background:var(--cs-color-text-muted); }
+    .skeleton-line { height:12px; border-radius:999px; margin:8px 0; background:linear-gradient(90deg, rgba(148,163,184,.08), rgba(148,163,184,.18), rgba(148,163,184,.08)); background-size:200% 100%; animation:pulse 1.2s infinite linear; }
+    .skeleton-line.short { width:56%; } .skeleton-block { height:58px; border-radius:8px; background:rgba(148,163,184,.08); }
+    @keyframes pulse { to { background-position:-200% 0; } }
+    .empty-state, .error-state { border:1px dashed var(--cs-color-border-subtle); border-radius:10px; padding:14px; text-align:center; color:var(--cs-color-text-muted); }
+    .empty-state strong, .empty-state small, .error-state small { display:block; }
+    .error-state { border-style:solid; border-color:rgba(255,138,61,.34); background:var(--cs-color-risk-bg); color:var(--cs-color-risk); }
+    .topbar-demo { height:42px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 12px; border:1px solid var(--cs-color-border-subtle); border-radius:9px; background:rgba(8,13,22,.92); }
+    .topbar-demo nav { display:flex; gap:6px; } .topbar-demo nav span { padding:4px 8px; border-radius:7px; color:var(--cs-color-text-secondary); } .topbar-demo nav .active { color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); }
+    .topbar-demo em { color:var(--cs-color-market-down); font-style:normal; font-size:12px; }
+    .breadcrumb-demo { color:var(--cs-color-text-muted); } .breadcrumb-demo span { color:var(--cs-color-text-secondary); } .breadcrumb-demo b { color:var(--cs-color-text-primary); } .breadcrumb-demo i { margin:0 6px; }
+    .pageheader-demo h4 { margin:0; font-size:18px; } .pageheader-demo p { margin:2px 0 0; color:var(--cs-color-text-muted); }
+    .shortcut-demo { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } .shortcut { border:1px solid var(--cs-color-border-subtle); border-radius:9px; padding:10px; background:var(--cs-color-surface-card); } .shortcut small { display:block; color:var(--cs-color-text-muted); } .shortcut.selected { border-color:var(--cs-color-brand-accent-border); background:var(--cs-color-brand-accent-bg); } .shortcut.disabled { opacity:.45; }
+    .tabs-demo,.range-demo,.state-toggle-bar { display:flex; gap:6px; flex-wrap:wrap; } .tabs-demo button,.range-demo button,.state-btn { border:1px solid var(--cs-color-border-subtle); background:rgba(17,28,46,.75); color:var(--cs-color-text-secondary); border-radius:7px; padding:5px 8px; cursor:pointer; } .tabs-demo .active,.range-demo .active,.state-btn.active { color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
+    .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } .metric-card { background:var(--cs-color-surface-card); border:1px solid var(--cs-color-border-subtle); border-radius:9px; padding:10px; } .metric-card span { display:block; color:var(--cs-color-text-muted); font-size:12px; } .metric-card strong { display:block; font-size:22px; margin:6px 0; } .metric-card em { color:var(--cs-color-text-secondary); font-style:normal; font-size:11px; }
+    .info-list div { display:grid; grid-template-columns:80px 1fr 50px; gap:8px; border-bottom:1px solid rgba(148,163,184,.10); padding:7px 0; } .info-list span,.info-list em { color:var(--cs-color-text-muted); font-style:normal; } .info-list b { text-align:right; }
+    .linked-list-preview { display:flex; flex-direction:column; gap:7px; }
+    .linked-row { min-height:42px; display:grid; grid-template-columns:28px minmax(96px,1.1fr) 76px minmax(108px,1fr) 90px 62px; align-items:center; gap:10px; padding:7px 8px; border:1px solid rgba(148,163,184,.12); border-radius:9px; background:rgba(18,27,44,.70); }
+    .linked-row:hover,.linked-row.hover-demo { background:var(--cs-color-surface-card-hover); border-color:var(--cs-color-border-hover); }
+    .linked-row.selected { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
+    .rank-box { display:grid; place-items:center; height:28px; border-radius:7px; background:rgba(148,163,184,.10); color:var(--cs-color-text-secondary); }
+    .identity strong,.identity em { display:block; } .identity em { color:var(--cs-color-text-muted); font-style:normal; font-family:var(--cs-font-family-number); }
+    .price-block b,.price-block em { display:block; text-align:right; } .price-block em { font-style:normal; }
+    .tag-group { display:flex; gap:6px; flex-wrap:wrap; } .meta { color:var(--cs-color-text-secondary); } .amount { text-align:right; color:var(--cs-color-text-primary); }
+    .progress-list { display:flex; flex-direction:column; gap:8px; } .progress-row { display:grid; grid-template-columns:64px 1fr 42px; gap:8px; align-items:center; } .progress-row div { height:8px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; } .progress-row i { display:block; height:100%; border-radius:999px; } .progress-row i.rise { background:var(--cs-color-market-up); } .progress-row i.fall { background:var(--cs-color-market-down); } .progress-row i.neutral { background:var(--cs-color-brand-accent); }
+    .mini-table,.rank-table { width:100%; border-collapse:collapse; } .mini-table th,.mini-table td,.rank-table th,.rank-table td { border-bottom:1px solid rgba(148,163,184,.10); padding:7px 8px; } th { color:var(--cs-color-text-muted); font-weight:600; } .num-col { text-align:right; font-family:var(--cs-font-family-number); } .mini-table tr:hover,.mini-table .hover-demo,.rank-table tr:hover,.rank-table .hover-demo { background:var(--cs-color-surface-card-hover); } .mini-table .selected,.rank-table .selected { background:var(--cs-color-brand-accent-bg); }
+    .rank-table td small { display:block; color:var(--cs-color-text-muted); font-family:var(--cs-font-family-number); } .rank-table-wrap { position:relative; min-height:300px; } .table-state { display:none; position:absolute; inset:44px 0 0; background:rgba(13,20,34,.92); border:1px dashed var(--cs-color-border-subtle); border-radius:9px; padding:18px; color:var(--cs-color-text-muted); } .rank-table-wrap[data-state="loading"] .table-loading,.rank-table-wrap[data-state="empty"] .table-empty,.rank-table-wrap[data-state="error"] .table-error { display:block; } .rank-table-wrap[data-state="loading"] table tbody,.rank-table-wrap[data-state="empty"] table tbody,.rank-table-wrap[data-state="error"] table tbody { opacity:.15; }
+    .column-header-demo { display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:8px; background:var(--cs-color-surface-card); border:1px solid var(--cs-color-border-subtle); } .number-cells { display:grid; grid-template-columns:1fr; gap:8px; } .number-cells span { display:flex; justify-content:space-between; border-bottom:1px solid rgba(148,163,184,.10); padding:6px 0; }
+    .mini-chart { width:100%; height:42px; }
+    .chart-svg { width:100%; height:190px; } .grid line { stroke:var(--cs-color-chart-grid); } .axis line { stroke:var(--cs-color-chart-axis); } .axis-label { fill:var(--cs-color-chart-label); font-size:10px; font-family:var(--cs-font-family-number); } .trend-line { stroke-width:2; } .up-stroke { stroke:var(--cs-color-market-up); } .down-stroke { stroke:var(--cs-color-market-down); } .crosshair { stroke:var(--cs-color-chart-crosshair); stroke-dasharray:3 3; } .chart-point { fill:var(--cs-color-bg-page); stroke:var(--cs-color-brand-accent); stroke-width:2; }
+    .chart-tooltip-demo rect { fill:var(--cs-color-tooltip-bg); stroke:var(--cs-color-tooltip-border); } .chart-tooltip-demo text { fill:var(--cs-color-text-secondary); font-size:11px; } .chart-tooltip-demo .up { fill:var(--cs-color-market-up); } .chart-tooltip-demo .down { fill:var(--cs-color-market-down); }
+    .distribution-demo { display:flex; flex-direction:column; gap:8px; } .dist-row-demo { display:grid; grid-template-columns:58px 1fr 42px; gap:8px; align-items:center; } .dist-row-demo div { height:12px; border-radius:999px; background:rgba(148,163,184,.12); overflow:hidden; } .dist-fill { display:block; height:100%; border-radius:999px; } .dist-fill.rise { background:var(--cs-color-market-up); } .dist-fill.fall { background:var(--cs-color-market-down); } .dist-fill.flat { background:var(--cs-color-market-flat-muted); }
+    .pie-callout-svg { width:100%; max-height:260px; overflow:visible; } .pie-slice { stroke:var(--cs-color-bg-page); stroke-width:3; transition:.16s ease; } .pie-slice:hover { filter:brightness(1.1); transform-origin:center; } .pie-center-hole { fill:var(--cs-color-surface-panel-subtle); stroke:rgba(148,163,184,.22); stroke-width:1; } .slice-percent { fill:#fff; font-size:12px; font-weight:700; font-family:var(--cs-font-family-number); text-shadow:0 1px 2px rgba(0,0,0,.55); } .pie-callout-line { fill:none; stroke:rgba(203,213,225,.58); stroke-width:1.3; } .pie-callout-label { font-size:12px; font-weight:700; font-family:var(--cs-font-family-number); }
+    .heatmap-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(5,42px); gap:6px; } .heat-cell { border-radius:7px; border:1px solid rgba(255,255,255,.06); padding:6px; font-size:11px; line-height:1.2; cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; position:relative; } .heat-cell strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .heat-cell:hover::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 6px); z-index:5; white-space:nowrap; background:var(--cs-color-tooltip-bg); border:1px solid var(--cs-color-tooltip-border); border-radius:8px; padding:6px 8px; color:var(--cs-color-text-primary); box-shadow:var(--cs-shadow-tooltip); } .heat-cell:hover,.heat-cell.selected { border-color:var(--cs-color-border-hover); transform:translateY(-1px); } .heat-cell.rise.level1 { background:rgba(255,77,90,.16); } .heat-cell.rise.level2 { background:rgba(255,77,90,.26); } .heat-cell.rise.level3 { background:rgba(255,77,90,.38); } .heat-cell.rise.level4 { background:rgba(255,77,90,.52); } .heat-cell.fall.level1 { background:rgba(21,199,132,.16); } .heat-cell.fall.level2 { background:rgba(21,199,132,.26); } .heat-cell.fall.level3 { background:rgba(21,199,132,.38); } .heat-cell.fall.level4 { background:rgba(21,199,132,.52); } .heat-cell.flat { background:rgba(221,230,242,.14); } .heat-cell.neutral { background:rgba(90,167,255,.18); } .heat-cell.warning { background:rgba(245,158,11,.18); } .heat-cell.empty { background:rgba(100,116,139,.08); color:var(--cs-color-text-weak); align-items:center; justify-content:center; }
+    .split-demo { display:grid; grid-template-columns: minmax(0,.38fr) minmax(0,.62fr); gap:10px; align-items:center; } .split-demo .pie-callout-svg { max-height:190px; } .split-demo .chart-svg { height:180px; }
+    .chart-tooltip-standalone { display:inline-flex; flex-direction:column; gap:4px; min-width:160px; } .crosshair-demo { position:relative; height:120px; border:1px solid var(--cs-color-border-subtle); border-radius:10px; background:linear-gradient(180deg,#0B1220,#0A101D); overflow:hidden; } .crosshair-v,.crosshair-h { position:absolute; background:var(--cs-color-chart-crosshair); opacity:.8; } .crosshair-v { width:1px; height:100%; left:57%; top:0; } .crosshair-h { height:1px; width:100%; left:0; top:43%; } .crosshair-demo span { position:absolute; left:calc(57% + 8px); top:calc(43% + 8px); padding:5px 7px; border-radius:7px; background:var(--cs-color-tooltip-bg); border:1px solid var(--cs-color-tooltip-border); }
+    .pattern-index-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+    .state-grid { display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:10px; } .state-tile { min-height:92px; display:flex; flex-direction:column; gap:8px; } .state-tile span { color:var(--cs-color-text-secondary); font-size:12px; } .state-tile.hover-demo { background:var(--cs-color-surface-card-hover); border-color:var(--cs-color-border-hover); } .state-tile.selected { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); } .state-tile.active { transform:translateY(1px); background:rgba(247,199,107,.08); } .state-tile.empty { border-style:dashed; color:var(--cs-color-text-muted); } .state-tile.error { background:var(--cs-color-risk-bg); border-color:rgba(255,138,61,.34); color:var(--cs-color-risk); } .state-tile.disabled { opacity:.44; } .state-tile.delayed { background:var(--cs-color-warning-bg); border-color:rgba(245,158,11,.34); color:var(--cs-color-warning); }
+    @media (max-width: 1450px) {
+      body { min-width: 1200px; }
+      .component-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .token-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .state-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header class="demo-hero">
+    <div class="hero-main">
+      <div class="hero-title">
+        <h1>财势乾坤通用组件库 Demo</h1>
+        <p>通用组件、非业务页面。Core Components 使用 Csq 前缀；Pattern Examples 仅展示组合方式，不作为 Core Component 契约。</p>
+      </div>
+      <div class="version-pill">v1<span>Dark First</span></div>
+    </div>
+    <nav class="anchor-nav" aria-label="组件库锚点导航">
+      
+<a href="#tokens">Token</a>
+<a href="#foundation">Foundation</a>
+<a href="#navigation">Navigation</a>
+<a href="#data-display">Data Display</a>
+<a href="#tables">Table</a>
+<a href="#charts">Chart</a>
+<a href="#patterns">Pattern</a>
+<a href="#states">States</a>
+
+    </nav>
+  </header>
+  <main class="demo-main">
+    
+<section class="demo-section" id="tokens">
+  <div class="section-title-block"><span>Design Token Overview</span><h2>0. Design Token Overview</h2></div>
+  <div class="token-grid">
+    <div class="token-card"><h3>色彩 / 状态色</h3><div class="swatches"><i style="background:#070A12"></i><i style="background:#101827"></i><i style="background:#F7C76B"></i><i style="background:#5AA7FF"></i><i style="background:#F59E0B"></i></div><p>页面背景、Panel、品牌金、信息蓝、延迟警告色。</p></div>
+    <div class="token-card"><h3>红涨绿跌</h3><div class="market-rule"><b class="up">上涨 / 净流入 +2.48%</b><b class="down">下跌 / 净流出 -1.16%</b><b class="flat">平盘 0.00%</b></div><p>中国市场硬规则：红涨、绿跌、灰平。</p></div>
+    <div class="token-card"><h3>字体</h3><p class="font-demo">PingFang SC / Microsoft YaHei</p><p class="num font-num">DIN / Mono 数字：12.35亿 +2.48%</p></div>
+    <div class="token-card"><h3>间距</h3><div class="space-demo"><i style="width:4px"></i><i style="width:8px"></i><i style="width:12px"></i><i style="width:16px"></i><i style="width:24px"></i></div><p>4 / 8 / 12 / 16 / 24px 高密度间距。</p></div>
+    <div class="token-card"><h3>圆角 / 边框</h3><div class="radius-demo"><span>sm</span><span>md</span><span>panel</span></div><p>弱边框，克制圆角，不做廉价大屏发光。</p></div>
+    <div class="token-card"><h3>阴影</h3><div class="shadow-demo">Popover / Tooltip / Floating Panel</div><p>深色主题下阴影轻微，避免脏重。</p></div>
+  </div>
+</section>
+
+    
+<section class="demo-section" id="foundation">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Foundation Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqPanel">
+  <div class="component-card-head">
+    <div><h3>CsqPanel</h3><p>标准面板</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>提供通用内容容器，承载标题区、主体区、页脚区和局部状态。</span></div>
+    <div><b>Props</b><span>title, subtitle, extra, body, footer, state, density</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>surface-panel, border, radius, space</span></div>
+  </div>
+  <div class="component-preview"><div class="preview-panel"><div class="preview-panel-head">Panel Title <span>extra</span></div><div class="preview-panel-body">标准面板承载标题、内容、状态与操作区。</div></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止把具体业务模块名写入 Core Component。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqSectionHeader">
+  <div class="component-card-head">
+    <div><h3>CsqSectionHeader</h3><p>模块标题栏</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>提供模块标题、说明、HelpTooltip、右侧操作区和 RangeSwitch 容器。</span></div>
+    <div><b>Props</b><span>title, description, tooltip, actions, extra</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>section-header, help, text, space</span></div>
+  </div>
+  <div class="component-preview"><div class="section-header-demo"><b>模块标题</b><span class="help-dot">?</span><button>操作</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>说明文字不要长期占正文空间，应进入 CsqHelpTooltip。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqHelpTooltip">
+  <div class="component-card-head">
+    <div><h3>CsqHelpTooltip</h3><p>问号说明</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>收纳口径、字段、数据延迟、图表阅读方式等短说明。</span></div>
+    <div><b>Props</b><span>title, content, placement, trigger, maxWidth</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>help-tooltip, tooltip-bg, tooltip-border, z-tooltip</span></div>
+  </div>
+  <div class="component-preview"><div class="tooltip-demo"><span class="help-dot active">?</span><div class="tooltip-box">这里展示短说明、口径和状态解释。</div></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止承载长篇业务字典或交易建议。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqBadge">
+  <div class="component-card-head">
+    <div><h3>CsqBadge</h3><p>标签</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示类型、数量、状态、轻量属性。</span></div>
+    <div><b>Props</b><span>label, count, semantic, size, variant</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>badge-bg, badge-border, market colors, warning</span></div>
+  </div>
+  <div class="component-preview"><div class="badge-row"><span class="badge rise">rise</span><span class="badge fall">fall</span><span class="badge flat">flat</span><span class="badge warning">warning</span><span class="badge brand">brand</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止用 success=green 表示上涨。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqStatusDot">
+  <div class="component-card-head">
+    <div><h3>CsqStatusDot</h3><p>状态点</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>以小圆点表达在线、延迟、异常、关闭、未知等状态。</span></div>
+    <div><b>Props</b><span>status, label, pulse, size, tooltip</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>status-live, status-delayed, status-error</span></div>
+  </div>
+  <div class="component-preview"><div class="status-dot-row"><span><i class="dot live"></i>ready</span><span><i class="dot delayed"></i>delayed</span><span><i class="dot error"></i>error</span><span><i class="dot closed"></i>closed</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>状态色与涨跌色必须分离。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqSkeleton">
+  <div class="component-card-head">
+    <div><h3>CsqSkeleton</h3><p>骨架屏</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>为卡片、表格、图表、文本提供 loading 占位。</span></div>
+    <div><b>Props</b><span>variant, rows, height, width, animated</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>skeleton-bg, skeleton-highlight, radius</span></div>
+  </div>
+  <div class="component-preview"><div><div class="skeleton-line"></div><div class="skeleton-line short"></div><div class="skeleton-block"></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止整页白屏，优先局部占位。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqEmptyState">
+  <div class="component-card-head">
+    <div><h3>CsqEmptyState</h3><p>空状态</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>解释无数据原因并提供下一步动作。</span></div>
+    <div><b>Props</b><span>title, description, reason, actionText</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>empty-bg, empty-border, text-muted</span></div>
+  </div>
+  <div class="component-preview"><div class="empty-state">--<br><strong>暂无数据</strong><small>当前条件下无结果，可调整筛选。</small></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止只写“暂无数据”，要说明原因。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqErrorState">
+  <div class="component-card-head">
+    <div><h3>CsqErrorState</h3><p>异常状态</p></div>
+    <span class="layer-pill">Foundation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示局部模块异常、服务错误、数据源不可用、字段缺失。</span></div>
+    <div><b>Props</b><span>title, message, code, traceId, retryText</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>danger-system, error-bg, error-border</span></div>
+  </div>
+  <div class="component-preview"><div class="error-state"><strong>加载失败</strong><small>服务异常，可重试。traceId: demo_001</small><button>重试</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>系统错误不使用行情上涨红。</div>
+</article>
+</div>
+</section>
+
+
+<section class="demo-section" id="navigation">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Navigation Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqTopBar">
+  <div class="component-card-head">
+    <div><h3>CsqTopBar</h3><p>顶部栏</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>通用顶部容器，承载品牌区、主导航区、状态区和用户区。</span></div>
+    <div><b>Props</b><span>brand, navItems, activeKey, leading, center, trailing</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>topbar-bg, border, brand, z-topbar</span></div>
+  </div>
+  <div class="component-preview"><div class="topbar-demo"><b>财势乾坤</b><nav><span class="active">组件</span><span>图表</span><span>表格</span></nav><em>READY</em></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止绑定为 TopMarketBar 或写死交易系统入口。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqBreadcrumb">
+  <div class="component-card-head">
+    <div><h3>CsqBreadcrumb</h3><p>面包屑</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示页面层级和当前所在位置。</span></div>
+    <div><b>Props</b><span>items, separator, currentKey, maxItems</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>text-muted, brand, breadcrumb-bg</span></div>
+  </div>
+  <div class="component-preview"><div class="breadcrumb-demo"><span>财势乾坤</span><i>/</i><span>组件库</span><i>/</i><b>Demo</b></div></div>
+  <div class="misuse"><b>禁止误用：</b>业务层级由 items 传入，不写死页面路径。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqPageHeader">
+  <div class="component-card-head">
+    <div><h3>CsqPageHeader</h3><p>页面头部</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示页面标题、副标题、状态、操作区。</span></div>
+    <div><b>Props</b><span>title, subtitle, meta, actions, status</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>page-header-height, text, space</span></div>
+  </div>
+  <div class="component-preview"><div class="pageheader-demo"><div><h4>页面标题</h4><p>副标题和状态说明</p></div><button>刷新</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止做成营销 Hero Banner。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqShortcutBar">
+  <div class="component-card-head">
+    <div><h3>CsqShortcutBar</h3><p>快捷入口栏</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>横向承载页面内快捷入口或功能入口。</span></div>
+    <div><b>Props</b><span>items, layout, density, selectedKey</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>shortcut-bg, card-hover, brand, badge</span></div>
+  </div>
+  <div class="component-preview"><div class="shortcut-demo"><div class="shortcut selected">入口A<small>说明</small></div><div class="shortcut">入口B<small>说明</small></div><div class="shortcut disabled">入口C<small>禁用</small></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要写死具体页面入口。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqTabs">
+  <div class="component-card-head">
+    <div><h3>CsqTabs</h3><p>标签页</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>提供分组切换、榜单切换、图表切换。</span></div>
+    <div><b>Props</b><span>tabs, activeKey, variant, size</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>tab-bg, tab-selected, brand, border</span></div>
+  </div>
+  <div class="component-preview"><div class="tabs-demo"><button class="active">Tab A</button><button>Tab B</button><button disabled>Disabled</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>Tab 选中态不用红绿，使用品牌色。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqRangeSwitch">
+  <div class="component-card-head">
+    <div><h3>CsqRangeSwitch</h3><p>时间范围切换</p></div>
+    <span class="layer-pill">Navigation Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>用于 1个月/3个月等范围切换的 segmented control。</span></div>
+    <div><b>Props</b><span>options, selectedValue, disabledValues, size</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>range-switch-bg, selected-bg, brand</span></div>
+  </div>
+  <div class="component-preview"><div class="range-demo"><button class="active">1个月</button><button>3个月</button><button disabled>1年</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要绑定 API 字段名，只输出 selectedValue。</div>
+</article>
+</div>
+</section>
+
+
+<section class="demo-section" id="data-display">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Data Display Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqMetricCard">
+  <div class="component-card-head">
+    <div><h3>CsqMetricCard</h3><p>指标卡</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示一个指标的名称、主值、单位、变化和说明。</span></div>
+    <div><b>Props</b><span>label, value, unit, valueText, change, semantic</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>metric-card, number-font, market colors</span></div>
+  </div>
+  <div class="component-preview">
+<div class="metric-grid">
+  <div class="metric-card"><span>指标 A</span><strong class="up">+2.48%</strong><em>较上期 +0.32</em></div>
+  <div class="metric-card"><span>指标 B</span><strong class="down">-1.16%</strong><em>较上期 -0.42</em></div>
+  <div class="metric-card"><span>指标 C</span><strong class="flat">0.00%</strong><em>平盘</em></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要写死上涨家数、涨停家数等业务名。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqMetricSummaryGroup">
+  <div class="component-card-head">
+    <div><h3>CsqMetricSummaryGroup</h3><p>指标摘要组</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>按栅格组织多个 CsqMetricCard。</span></div>
+    <div><b>Props</b><span>items, columns, density, responsive</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>metric-group-gap, card-bg, space</span></div>
+  </div>
+  <div class="component-preview">
+<div class="metric-grid">
+  <div class="metric-card"><span>指标 A</span><strong class="up">+2.48%</strong><em>较上期 +0.32</em></div>
+  <div class="metric-card"><span>指标 B</span><strong class="down">-1.16%</strong><em>较上期 -0.42</em></div>
+  <div class="metric-card"><span>指标 C</span><strong class="flat">0.00%</strong><em>平盘</em></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要把具体页面的事实卡组写成 Core 契约。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqChangeValue">
+  <div class="component-card-head">
+    <div><h3>CsqChangeValue</h3><p>涨跌数值</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>统一展示带方向的数值、百分比或金额变化。</span></div>
+    <div><b>Props</b><span>value, valueText, direction, unit, showSign</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>change-font, market-up/down/flat</span></div>
+  </div>
+  <div class="component-preview"><div class="change-value-row"><strong class="up">+2.48%</strong><strong class="down">-1.16%</strong><strong class="flat">0.00%</strong></div></div>
+  <div class="misuse"><b>禁止误用：</b>必须红涨绿跌；不得猜测业务方向。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqChangeBadge">
+  <div class="component-card-head">
+    <div><h3>CsqChangeBadge</h3><p>涨跌标签</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>以 badge/pill/cell 形式展示方向值。</span></div>
+    <div><b>Props</b><span>value, label, direction, semantic, variant</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>change-badge, market-bg, market-border</span></div>
+  </div>
+  <div class="component-preview"><div class="badge-row"><span class="change-badge rise">+2.48%</span><span class="change-badge fall">-1.16%</span><span class="change-badge flat">0.00%</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>禁止套用框架 success/danger 默认语义。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqInfoRow">
+  <div class="component-card-head">
+    <div><h3>CsqInfoRow</h3><p>信息行</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示 label + value + extra 的紧凑信息行。</span></div>
+    <div><b>Props</b><span>label, value, valueText, extra, semantic</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>info-row, text, number-font, divider</span></div>
+  </div>
+  <div class="component-preview"><div class="info-list"><div><span>字段 A</span><b>18.62</b><em>元</em></div><div><span>字段 B</span><b class="up">+10.02%</b><em>变化</em></div><div><span>字段 C</span><b>--</b><em>空值</em></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>大量数据不要用 InfoRow 代替表格。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqLinkedMetricList">
+  <div class="component-card-head">
+    <div><h3>CsqLinkedMetricList</h3><p>关联指标列表</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示“实体 + 一组指标/标签”的行式列表，每行一个实体。</span></div>
+    <div><b>Props</b><span>title, maxRows, items, onItemClick, loading</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>linked-list-row, tag, number-font, market colors</span></div>
+  </div>
+  <div class="component-preview">
+<div class="linked-list-preview">
+  <div class="linked-row selected">
+    <span class="rank-box">1</span>
+    <span class="identity"><strong>示例实体 A</strong><em>CODE-A</em></span>
+    <span class="price-block"><b class="up">18.62</b><em class="up">+10.02%</em></span>
+    <span class="tag-group"><i class="tag rise">标签A</i><i class="tag brand">7天5次</i></span>
+    <span class="meta">09:38｜次数 0</span>
+    <span class="amount">5.8亿</span>
+  </div>
+  <div class="linked-row hover-demo">
+    <span class="rank-box">2</span>
+    <span class="identity"><strong>示例实体 B</strong><em>CODE-B</em></span>
+    <span class="price-block"><b class="up">25.88</b><em class="up">+10.00%</em></span>
+    <span class="tag-group"><i class="tag rise">标签A</i><i class="tag neutral">1天1次</i></span>
+    <span class="meta">10:12｜次数 1</span>
+    <span class="amount">3.1亿</span>
+  </div>
+  <div class="linked-row">
+    <span class="rank-box">3</span>
+    <span class="identity"><strong>示例实体 C</strong><em>CODE-C</em></span>
+    <span class="price-block"><b class="down">48.31</b><em class="down">-2.01%</em></span>
+    <span class="tag-group"><i class="tag warning">观察</i><i class="tag fall">回落</i></span>
+    <span class="meta">09:52｜次数 2</span>
+    <span class="amount">2.2亿</span>
+  </div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>禁止命名为领涨股涨停表现；股票只是示例实体。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqProgressList">
+  <div class="component-card-head">
+    <div><h3>CsqProgressList</h3><p>进度条列表</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示名称、横向进度条、数值、占比。</span></div>
+    <div><b>Props</b><span>items, valueKey, maxValue, semantic</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>progress-track, market colors, brand</span></div>
+  </div>
+  <div class="component-preview">
+<div class="progress-list">
+  <div class="progress-row"><span>分类A</span><div><i class="rise" style="width:78%"></i></div><b class="up">78</b></div>
+  <div class="progress-row"><span>分类B</span><div><i class="fall" style="width:52%"></i></div><b class="down">52</b></div>
+  <div class="progress-row"><span>分类C</span><div><i class="neutral" style="width:36%"></i></div><b>36</b></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要写死具体业务分布。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqStatusBadge">
+  <div class="component-card-head">
+    <div><h3>CsqStatusBadge</h3><p>状态标记</p></div>
+    <span class="layer-pill">Data Display Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示 ready/delayed/partial/error/disabled 等状态。</span></div>
+    <div><b>Props</b><span>status, label, message, tooltip, variant</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>status colors, warning, danger-system</span></div>
+  </div>
+  <div class="component-preview"><div class="badge-row"><span class="status-badge ready">READY</span><span class="status-badge delayed">DELAYED</span><span class="status-badge error">ERROR</span><span class="status-badge disabled">DISABLED</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>状态不使用行情涨跌色。</div>
+</article>
+</div>
+</section>
+
+
+<section class="demo-section" id="tables">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Table Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqDataTable">
+  <div class="component-card-head">
+    <div><h3>CsqDataTable</h3><p>数据表格</p></div>
+    <span class="layer-pill">Table Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>通用高密度数据表格，支持列配置、行状态和空/错/加载。</span></div>
+    <div><b>Props</b><span>columns, rows, rowKey, density, loading</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>table-bg, row-hover, border, number-font</span></div>
+  </div>
+  <div class="component-preview"><table class="mini-table"><thead><tr><th>名称</th><th class="num-col">值</th><th>状态</th></tr></thead><tbody><tr><td>示例A</td><td class="num-col up">+2.1%</td><td>ready</td></tr><tr class="hover-demo"><td>示例B</td><td class="num-col down">-0.8%</td><td>delayed</td></tr></tbody></table></div>
+  <div class="misuse"><b>禁止误用：</b>不要在 Core 表格内写死股票列或 API 字段。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqRankTable">
+  <div class="component-card-head">
+    <div><h3>CsqRankTable</h3><p>排名表格</p></div>
+    <span class="layer-pill">Table Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>排名类表格，支持 TopN、高密度和自定义列。</span></div>
+    <div><b>Props</b><span>rankField, topN, columns, rows, density</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>rank-table, table-density, row-hover</span></div>
+  </div>
+  <div class="component-preview">
+<div class="state-toggle-bar" data-target="rank-table-demo">
+  <button class="state-btn active" data-state="default">default</button>
+  <button class="state-btn" data-state="loading">loading</button>
+  <button class="state-btn" data-state="empty">empty</button>
+  <button class="state-btn" data-state="error">error</button>
+</div>
+<div class="rank-table-wrap" id="rank-table-demo" data-state="default">
+  <table class="rank-table">
+    <thead><tr><th>排名</th><th>实体</th><th class="num-col">最新值</th><th class="num-col">变化</th><th class="num-col">比率</th><th class="num-col">金额</th></tr></thead>
+    <tbody>
+      <tr class="selected"><td>1</td><td><strong>样本 A</strong><small>ITEM-A</small></td><td class="num-col">18.62</td><td class="num-col up">+10.02%</td><td class="num-col">3.20</td><td class="num-col">34.8亿</td></tr>
+      <tr class="hover-demo"><td>2</td><td><strong>样本 B</strong><small>ITEM-B</small></td><td class="num-col">25.88</td><td class="num-col up">+4.91%</td><td class="num-col">2.68</td><td class="num-col">27.1亿</td></tr>
+      <tr><td>3</td><td><strong>样本 C</strong><small>ITEM-C</small></td><td class="num-col">9.36</td><td class="num-col down">-2.14%</td><td class="num-col">1.72</td><td class="num-col">19.6亿</td></tr>
+      <tr><td>4</td><td><strong>样本 D</strong><small>ITEM-D</small></td><td class="num-col">42.15</td><td class="num-col flat">0.00%</td><td class="num-col">1.20</td><td class="num-col">11.3亿</td></tr>
+      <tr><td>5</td><td><strong>样本 E</strong><small>ITEM-E</small></td><td class="num-col">31.08</td><td class="num-col up">+1.86%</td><td class="num-col">1.10</td><td class="num-col">9.8亿</td></tr>
+      <tr><td>6</td><td><strong>样本 F</strong><small>ITEM-F</small></td><td class="num-col">8.72</td><td class="num-col down">-0.82%</td><td class="num-col">0.98</td><td class="num-col">7.6亿</td></tr>
+      <tr><td>7</td><td><strong>样本 G</strong><small>ITEM-G</small></td><td class="num-col">15.33</td><td class="num-col up">+0.74%</td><td class="num-col">0.91</td><td class="num-col">5.4亿</td></tr>
+      <tr><td>8</td><td><strong>样本 H</strong><small>ITEM-H</small></td><td class="num-col">21.11</td><td class="num-col down">-0.43%</td><td class="num-col">0.87</td><td class="num-col">4.2亿</td></tr>
+      <tr><td>9</td><td><strong>样本 I</strong><small>ITEM-I</small></td><td class="num-col">11.07</td><td class="num-col up">+0.22%</td><td class="num-col">0.76</td><td class="num-col">3.9亿</td></tr>
+      <tr><td>10</td><td><strong>样本 J</strong><small>ITEM-J</small></td><td class="num-col">6.88</td><td class="num-col down">-0.16%</td><td class="num-col">0.62</td><td class="num-col">2.8亿</td></tr>
+    </tbody>
+  </table>
+  <div class="table-state table-loading"><div class="skeleton-line"></div><div class="skeleton-line short"></div><div class="skeleton-line"></div></div>
+  <div class="table-state table-empty">暂无符合条件的数据，可切换条件或刷新。</div>
+  <div class="table-state table-error">数据加载失败，错误码 503001。<button>重试</button></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>禁止绑定为股票榜单；业务由 columns 适配。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqColumnHeader">
+  <div class="component-card-head">
+    <div><h3>CsqColumnHeader</h3><p>表头</p></div>
+    <span class="layer-pill">Table Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>表格列标题、排序、对齐、HelpTooltip。</span></div>
+    <div><b>Props</b><span>label, field, sortable, sortOrder, align</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>column-header, text-secondary, brand</span></div>
+  </div>
+  <div class="component-preview"><div class="column-header-demo"><span>字段名称</span><b>↓</b><span class="help-dot">?</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>排序方向不使用红绿。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqTableRow">
+  <div class="component-card-head">
+    <div><h3>CsqTableRow</h3><p>表格行</p></div>
+    <span class="layer-pill">Table Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>统一行 hover、selected、clickable、disabled 状态。</span></div>
+    <div><b>Props</b><span>rowKey, selected, disabled, clickable, density</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>row-bg, row-hover, selected-bg</span></div>
+  </div>
+  <div class="component-preview"><table class="mini-table"><tbody><tr><td>default</td><td>普通行</td></tr><tr class="hover-demo"><td>hover</td><td>悬停行</td></tr><tr class="selected"><td>selected</td><td>选中行</td></tr></tbody></table></div>
+  <div class="misuse"><b>禁止误用：</b>禁止整行用涨跌色作为背景。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqTableCellNumber">
+  <div class="component-card-head">
+    <div><h3>CsqTableCellNumber</h3><p>数字单元格</p></div>
+    <span class="layer-pill">Table Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>统一数字对齐、单位、精度、方向色。</span></div>
+    <div><b>Props</b><span>value, valueText, unit, precision, direction</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>table-number, number-font, market colors</span></div>
+  </div>
+  <div class="component-preview"><div class="number-cells"><span>金额 <b>12.35亿</b></span><span>比例 <b class="up">+4.82%</b></span><span>数量 <b>1,236</b></span></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要自行换算业务口径，优先外部 formatter。</div>
+</article>
+</div>
+</section>
+
+
+<section class="demo-section" id="charts">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Chart Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqMiniTrendChart">
+  <div class="component-card-head">
+    <div><h3>CsqMiniTrendChart</h3><p>小型趋势图</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>卡片内轻量趋势线，不承载复杂坐标交互。</span></div>
+    <div><b>Props</b><span>points, height, direction, semantic</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-mini, market colors, series</span></div>
+  </div>
+  <div class="component-preview">
+<svg class="mini-chart" viewBox="0 0 120 34"><polyline points="2,24 18,18 34,21 50,12 66,15 82,8 102,11 118,6" fill="none" stroke="var(--cs-color-market-up)" stroke-width="2"/><path d="M2 24 L18 18 L34 21 L50 12 L66 15 L82 8 L102 11 L118 6 L118 34 L2 34 Z" fill="rgba(255,77,90,.08)"/></svg>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要作为历史分析主图。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqHistoryTrendChart">
+  <div class="component-card-head">
+    <div><h3>CsqHistoryTrendChart</h3><p>历史趋势图</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>带坐标轴、图例、Tooltip、crosshair 的通用历史趋势图。</span></div>
+    <div><b>Props</b><span>data, xKey, series, range, showLegend</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-axis, grid, crosshair, tooltip</span></div>
+  </div>
+  <div class="component-preview">
+<svg class="chart-svg" viewBox="0 0 360 180" role="img" aria-label="CsqHistoryTrendChart 示例">
+  <g class="grid">
+    <line x1="42" y1="22" x2="338" y2="22"/><line x1="42" y1="58" x2="338" y2="58"/>
+    <line x1="42" y1="94" x2="338" y2="94"/><line x1="42" y1="130" x2="338" y2="130"/>
+  </g>
+  <g class="axis"><line x1="42" y1="20" x2="42" y2="146"/><line x1="42" y1="146" x2="338" y2="146"/></g>
+  <text class="axis-label" x="34" y="25" text-anchor="end">3.0</text>
+  <text class="axis-label" x="34" y="96" text-anchor="end">0.0</text>
+  <text class="axis-label" x="34" y="148" text-anchor="end">-2.0</text>
+  <text class="axis-label" x="42" y="168" text-anchor="middle">04-01</text>
+  <text class="axis-label" x="190" y="168" text-anchor="middle">04-15</text>
+  <text class="axis-label" x="338" y="168" text-anchor="middle">04-30</text>
+  <polyline class="trend-line up-stroke" points="42,118 78,100 114,112 150,70 190,74 230,44 270,62 310,36 338,54" fill="none"/>
+  <polyline class="trend-line down-stroke" points="42,82 78,92 114,74 150,110 190,104 230,132 270,120 310,138 338,128" fill="none"/>
+  <line class="crosshair" x1="230" y1="20" x2="230" y2="146"/>
+  <circle class="chart-point" cx="230" cy="44" r="3.8"/>
+  <g class="chart-tooltip-demo">
+    <rect x="238" y="36" width="104" height="58" rx="8"/>
+    <text x="250" y="56">04-22</text>
+    <text x="250" y="75" class="up">序列A +2.1%</text>
+    <text x="250" y="91" class="down">序列B -1.3%</text>
+  </g>
+</svg>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要写死某一业务序列名。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqDistributionChart">
+  <div class="component-card-head">
+    <div><h3>CsqDistributionChart</h3><p>分布图</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>展示区间桶、数量、占比和方向。</span></div>
+    <div><b>Props</b><span>buckets, orientation, selectedKey</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>distribution-bar, chart-grid, market colors</span></div>
+  </div>
+  <div class="component-preview">
+<div class="distribution-demo">
+  <div class="dist-row-demo"><span>区间A</span><div><i class="dist-fill rise" style="width:82%"></i></div><b class="up">342</b></div>
+  <div class="dist-row-demo"><span>区间B</span><div><i class="dist-fill rise" style="width:58%"></i></div><b class="up">216</b></div>
+  <div class="dist-row-demo"><span>区间C</span><div><i class="dist-fill flat" style="width:36%"></i></div><b class="flat">88</b></div>
+  <div class="dist-row-demo"><span>区间D</span><div><i class="dist-fill fall" style="width:51%"></i></div><b class="down">151</b></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不能只用颜色不显示数量。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqBarChart">
+  <div class="component-card-head">
+    <div><h3>CsqBarChart</h3><p>柱状图</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>支持单组/多组柱状图。</span></div>
+    <div><b>Props</b><span>data, xKey, series, stacked, grouped</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-bar, axis, tooltip</span></div>
+  </div>
+  <div class="component-preview">
+<svg class="chart-svg" viewBox="0 0 360 170">
+  <g class="grid"><line x1="38" y1="25" x2="338" y2="25"/><line x1="38" y1="65" x2="338" y2="65"/><line x1="38" y1="105" x2="338" y2="105"/><line x1="38" y1="145" x2="338" y2="145"/></g>
+  <g class="axis"><line x1="38" y1="16" x2="38" y2="145"/><line x1="38" y1="145" x2="338" y2="145"/></g>
+  <g class="bars">
+    <rect x="62" y="70" width="16" height="75" rx="3" fill="var(--cs-color-market-up)"/><rect x="82" y="112" width="16" height="33" rx="3" fill="var(--cs-color-market-down)"/>
+    <rect x="128" y="48" width="16" height="97" rx="3" fill="var(--cs-color-market-up)"/><rect x="148" y="92" width="16" height="53" rx="3" fill="var(--cs-color-market-down)"/>
+    <rect x="194" y="76" width="16" height="69" rx="3" fill="var(--cs-color-market-up)"/><rect x="214" y="122" width="16" height="23" rx="3" fill="var(--cs-color-market-down)"/>
+    <rect x="260" y="38" width="16" height="107" rx="3" fill="var(--cs-color-market-up)"/><rect x="280" y="103" width="16" height="42" rx="3" fill="var(--cs-color-market-down)"/>
+  </g>
+  <text class="axis-label" x="80" y="162" text-anchor="middle">W1</text><text class="axis-label" x="146" y="162" text-anchor="middle">W2</text><text class="axis-label" x="212" y="162" text-anchor="middle">W3</text><text class="axis-label" x="278" y="162" text-anchor="middle">W4</text>
+</svg>
+</div>
+  <div class="misuse"><b>禁止误用：</b>Core 不写死业务 series。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqPieChartWithCallout">
+  <div class="component-card-head">
+    <div><h3>CsqPieChartWithCallout</h3><p>折线标注饼图</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>通用分类占比饼图，支持饼块占比文字和外部折线标注。</span></div>
+    <div><b>Props</b><span>items, showSlicePercent, showCallout, centerContent</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-pie, callout-line, percent-text</span></div>
+  </div>
+  <div class="component-preview">
+<svg class="pie-callout-svg" viewBox="0 0 380 270" role="img" aria-label="CsqPieChartWithCallout 示例">
+  <g class="pie-callouts">
+          <polyline class="pie-callout-line" points="265.5,116.6 286.9,111.1 342.9,111.1" />
+          <text class="pie-callout-label up" x="356.0" y="101.1" text-anchor="end">分类A +12.3亿</text>
+        
+          <polyline class="pie-callout-line" points="185.8,213.9 184.7,235.9 128.7,235.9" />
+          <text class="pie-callout-label down" x="24.0" y="253.9" text-anchor="start">分类B -5.2亿</text>
+        
+          <polyline class="pie-callout-line" points="126.9,181.8 109.1,194.8 53.1,194.8" />
+          <text class="pie-callout-label up" x="24.0" y="212.8" text-anchor="start">分类C +3.1亿</text>
+        
+          <polyline class="pie-callout-line" points="127.3,89.6 109.7,76.5 53.7,76.5" />
+          <text class="pie-callout-label down" x="24.0" y="66.5" text-anchor="start">分类D -8.7亿</text>
+        </g>
+  <g class="pie-slices"><path class="pie-slice rise" d="M 192.07 62.03 A 74 74 0 0 1 227.45 199.83 L 211.76 173.09 A 43 43 0 0 0 191.20 93.02 Z" fill="var(--cs-color-market-up)" data-label="分类A" data-value="+12.3亿"/><path class="pie-slice fall" d="M 223.83 201.82 A 74 74 0 0 1 149.35 197.84 L 166.38 171.93 A 43 43 0 0 0 209.66 174.24 Z" fill="var(--cs-color-market-down)" data-label="分类B" data-value="-5.2亿"/><path class="pie-slice rise" d="M 145.96 195.47 A 74 74 0 0 1 119.83 159.51 L 149.23 149.66 A 43 43 0 0 0 164.41 170.56 Z" fill="var(--cs-color-market-up)" data-label="分类C" data-value="+3.1亿"/><path class="pie-slice fall" d="M 118.63 155.55 A 74 74 0 0 1 187.93 62.03 L 188.80 93.02 A 43 43 0 0 0 148.53 147.36 Z" fill="var(--cs-color-market-down)" data-label="分类D" data-value="-8.7亿"/></g>
+  <circle class="pie-center-hole" cx="190" cy="136" r="41" />
+  <g class="pie-labels"><text class="slice-percent" x="246.7" y="121.5" text-anchor="middle" dominant-baseline="central">42.0%</text><text class="slice-percent" x="186.9" y="194.4" text-anchor="middle" dominant-baseline="central">17.7%</text><text class="slice-percent" x="142.7" y="170.4" text-anchor="middle" dominant-baseline="central">10.6%</text><text class="slice-percent" x="143.0" y="101.2" text-anchor="middle" dominant-baseline="central">29.7%</text></g>
+</svg>
+</div>
+  <div class="misuse"><b>禁止误用：</b>中心默认留空；不显示净额结构、absAmount 或调试字段。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqHeatMapGrid">
+  <div class="component-card-head">
+    <div><h3>CsqHeatMapGrid</h3><p>热力图网格</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>通用 N×M 热力图，支持语义色和中性热度色。</span></div>
+    <div><b>Props</b><span>rows, columns, items, semanticMode</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>heatmap-grid, heatmap-rise/fall/flat</span></div>
+  </div>
+  <div class="component-preview">
+<div class="heatmap-grid" data-tooltip-root>
+  <div class="heat-cell rise level4 selected" data-tip="分类A｜+4.82%｜selected"><strong>分类A</strong><span>+4.82%</span></div>
+  <div class="heat-cell rise level3" data-tip="分类B｜+3.16%"><strong>分类B</strong><span>+3.16%</span></div>
+  <div class="heat-cell fall level2" data-tip="分类C｜-1.22%"><strong>分类C</strong><span>-1.22%</span></div>
+  <div class="heat-cell neutral" data-tip="分类D｜0.42"><strong>分类D</strong><span>0.42</span></div>
+  <div class="heat-cell fall level4" data-tip="分类E｜-3.84%"><strong>分类E</strong><span>-3.84%</span></div>
+  <div class="heat-cell rise level2" data-tip="分类F｜+1.76%"><strong>分类F</strong><span>+1.76%</span></div>
+  <div class="heat-cell flat" data-tip="分类G｜0.00%"><strong>分类G</strong><span>0.00%</span></div>
+  <div class="heat-cell warning" data-tip="分类H｜注意状态"><strong>分类H</strong><span>延迟</span></div>
+  <div class="heat-cell rise level1" data-tip="分类I｜+0.86%"><strong>分类I</strong><span>+0.86%</span></div>
+  <div class="heat-cell fall level1" data-tip="分类J｜-0.62%"><strong>分类J</strong><span>-0.62%</span></div>
+  <div class="heat-cell neutral" data-tip="分类K｜中性"><strong>分类K</strong><span>--</span></div>
+  <div class="heat-cell rise level2" data-tip="分类L｜+1.52%"><strong>分类L</strong><span>+1.52%</span></div>
+  <div class="heat-cell empty" data-tip="空格占位">空</div>
+  <div class="heat-cell fall level3" data-tip="分类M｜-2.41%"><strong>分类M</strong><span>-2.41%</span></div>
+  <div class="heat-cell rise level3" data-tip="分类N｜+2.95%"><strong>分类N</strong><span>+2.95%</span></div>
+  <div class="heat-cell empty" data-tip="空格占位">空</div>
+  <div class="heat-cell neutral" data-tip="分类O｜中性"><strong>分类O</strong><span>0.18</span></div>
+  <div class="heat-cell fall level2" data-tip="分类P｜-1.57%"><strong>分类P</strong><span>-1.57%</span></div>
+  <div class="heat-cell rise level1" data-tip="分类Q｜+0.92%"><strong>分类Q</strong><span>+0.92%</span></div>
+  <div class="heat-cell flat" data-tip="分类R｜平"><strong>分类R</strong><span>平</span></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>不要命名为板块热力图；板块只是 Pattern。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqChartSplitPanel">
+  <div class="component-card-head">
+    <div><h3>CsqChartSplitPanel</h3><p>图表分栏面板</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>通用左右图表组合容器。</span></div>
+    <div><b>Props</b><span>left, right, ratio, gap, responsive</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-split, panel, gap</span></div>
+  </div>
+  <div class="component-preview"><div class="split-demo"><div>
+<svg class="pie-callout-svg" viewBox="0 0 380 270" role="img" aria-label="CsqPieChartWithCallout 示例">
+  <g class="pie-callouts">
+          <polyline class="pie-callout-line" points="265.5,116.6 286.9,111.1 342.9,111.1" />
+          <text class="pie-callout-label up" x="356.0" y="101.1" text-anchor="end">分类A +12.3亿</text>
+        
+          <polyline class="pie-callout-line" points="185.8,213.9 184.7,235.9 128.7,235.9" />
+          <text class="pie-callout-label down" x="24.0" y="253.9" text-anchor="start">分类B -5.2亿</text>
+        
+          <polyline class="pie-callout-line" points="126.9,181.8 109.1,194.8 53.1,194.8" />
+          <text class="pie-callout-label up" x="24.0" y="212.8" text-anchor="start">分类C +3.1亿</text>
+        
+          <polyline class="pie-callout-line" points="127.3,89.6 109.7,76.5 53.7,76.5" />
+          <text class="pie-callout-label down" x="24.0" y="66.5" text-anchor="start">分类D -8.7亿</text>
+        </g>
+  <g class="pie-slices"><path class="pie-slice rise" d="M 192.07 62.03 A 74 74 0 0 1 227.45 199.83 L 211.76 173.09 A 43 43 0 0 0 191.20 93.02 Z" fill="var(--cs-color-market-up)" data-label="分类A" data-value="+12.3亿"/><path class="pie-slice fall" d="M 223.83 201.82 A 74 74 0 0 1 149.35 197.84 L 166.38 171.93 A 43 43 0 0 0 209.66 174.24 Z" fill="var(--cs-color-market-down)" data-label="分类B" data-value="-5.2亿"/><path class="pie-slice rise" d="M 145.96 195.47 A 74 74 0 0 1 119.83 159.51 L 149.23 149.66 A 43 43 0 0 0 164.41 170.56 Z" fill="var(--cs-color-market-up)" data-label="分类C" data-value="+3.1亿"/><path class="pie-slice fall" d="M 118.63 155.55 A 74 74 0 0 1 187.93 62.03 L 188.80 93.02 A 43 43 0 0 0 148.53 147.36 Z" fill="var(--cs-color-market-down)" data-label="分类D" data-value="-8.7亿"/></g>
+  <circle class="pie-center-hole" cx="190" cy="136" r="41" />
+  <g class="pie-labels"><text class="slice-percent" x="246.7" y="121.5" text-anchor="middle" dominant-baseline="central">42.0%</text><text class="slice-percent" x="186.9" y="194.4" text-anchor="middle" dominant-baseline="central">17.7%</text><text class="slice-percent" x="142.7" y="170.4" text-anchor="middle" dominant-baseline="central">10.6%</text><text class="slice-percent" x="143.0" y="101.2" text-anchor="middle" dominant-baseline="central">29.7%</text></g>
+</svg>
+</div><div>
+<svg class="chart-svg" viewBox="0 0 360 180" role="img" aria-label="CsqHistoryTrendChart 示例">
+  <g class="grid">
+    <line x1="42" y1="22" x2="338" y2="22"/><line x1="42" y1="58" x2="338" y2="58"/>
+    <line x1="42" y1="94" x2="338" y2="94"/><line x1="42" y1="130" x2="338" y2="130"/>
+  </g>
+  <g class="axis"><line x1="42" y1="20" x2="42" y2="146"/><line x1="42" y1="146" x2="338" y2="146"/></g>
+  <text class="axis-label" x="34" y="25" text-anchor="end">3.0</text>
+  <text class="axis-label" x="34" y="96" text-anchor="end">0.0</text>
+  <text class="axis-label" x="34" y="148" text-anchor="end">-2.0</text>
+  <text class="axis-label" x="42" y="168" text-anchor="middle">04-01</text>
+  <text class="axis-label" x="190" y="168" text-anchor="middle">04-15</text>
+  <text class="axis-label" x="338" y="168" text-anchor="middle">04-30</text>
+  <polyline class="trend-line up-stroke" points="42,118 78,100 114,112 150,70 190,74 230,44 270,62 310,36 338,54" fill="none"/>
+  <polyline class="trend-line down-stroke" points="42,82 78,92 114,74 150,110 190,104 230,132 270,120 310,138 338,128" fill="none"/>
+  <line class="crosshair" x1="230" y1="20" x2="230" y2="146"/>
+  <circle class="chart-point" cx="230" cy="44" r="3.8"/>
+  <g class="chart-tooltip-demo">
+    <rect x="238" y="36" width="104" height="58" rx="8"/>
+    <text x="250" y="56">04-22</text>
+    <text x="250" y="75" class="up">序列A +2.1%</text>
+    <text x="250" y="91" class="down">序列B -1.3%</text>
+  </g>
+</svg>
+</div></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要绑定为大盘资金流模块。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqChartTooltip">
+  <div class="component-card-head">
+    <div><h3>CsqChartTooltip</h3><p>图表 Tooltip</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>统一图表浮层、序列值、时间和值格式。</span></div>
+    <div><b>Props</b><span>title, items, position, formatter</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>chart-tooltip, tooltip-bg, shadow</span></div>
+  </div>
+  <div class="component-preview"><div class="chart-tooltip-standalone"><strong>04-28</strong><span>序列A <b class="up">+2.18%</b></span><span>序列B <b class="down">-0.62%</b></span></div></div>
+  <div class="misuse"><b>禁止误用：</b>Tooltip 只展示事实和值，不输出建议。</div>
+</article>
+
+
+<article class="component-card" data-component="CsqCrosshairOverlay">
+  <div class="component-card-head">
+    <div><h3>CsqCrosshairOverlay</h3><p>十字定位线</p></div>
+    <span class="layer-pill">Chart Components</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>图表坐标定位层。</span></div>
+    <div><b>Props</b><span>x, y, visible, mode, labelFormatter</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>crosshair-line, axis-label</span></div>
+  </div>
+  <div class="component-preview"><div class="crosshair-demo"><div class="crosshair-v"></div><div class="crosshair-h"></div><span>定位线</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要滥用发光效果。</div>
+</article>
+</div>
+</section>
+
+
+<section class="demo-section" id="patterns">
+  <div class="section-title-block">
+    <span>Pattern Examples：仅作组合示例，不作为 Core Component 契约</span>
+    <h2>Pattern Examples</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="PatternMarketSummary">
+  <div class="component-card-head">
+    <div><h3>PatternMarketSummary</h3><p>市场摘要组合</p></div>
+    <span class="layer-pill">Pattern Examples</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：由 CsqMetricSummaryGroup + CsqInfoRow 组合，展示事实型摘要。</span></div>
+    <div><b>Props</b><span>metrics, infoRows, helpText</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>metric, info-row, panel</span></div>
+  </div>
+  <div class="component-preview">
+<div class="metric-grid">
+  <div class="metric-card"><span>指标 A</span><strong class="up">+2.48%</strong><em>较上期 +0.32</em></div>
+  <div class="metric-card"><span>指标 B</span><strong class="down">-1.16%</strong><em>较上期 -0.42</em></div>
+  <div class="metric-card"><span>指标 C</span><strong class="flat">0.00%</strong><em>平盘</em></div>
+</div>
+<div class="info-list"><div><span>字段 A</span><b>18.62</b><em>元</em></div><div><span>字段 B</span><b class="up">+10.02%</b><em>变化</em></div><div><span>字段 C</span><b>--</b><em>空值</em></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>Pattern 不是 Core Component，不可直接作为通用组件导出。</div>
+</article>
+
+
+<article class="component-card" data-component="PatternIndexGrid">
+  <div class="component-card-head">
+    <div><h3>PatternIndexGrid</h3><p>指数卡片矩阵</p></div>
+    <span class="layer-pill">Pattern Examples</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：由 CsqMetricCard + CsqChangeValue + CsqMiniTrendChart 组合。</span></div>
+    <div><b>Props</b><span>items, columns, onItemClick</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>metric, change, mini-chart</span></div>
+  </div>
+  <div class="component-preview"><div class="pattern-index-grid"><div class="metric-card"><span>指数样例1</span><strong class="up">+1.2%</strong>
+<svg class="mini-chart" viewBox="0 0 120 34"><polyline points="2,24 18,18 34,21 50,12 66,15 82,8 102,11 118,6" fill="none" stroke="var(--cs-color-market-up)" stroke-width="2"/><path d="M2 24 L18 18 L34 21 L50 12 L66 15 L82 8 L102 11 L118 6 L118 34 L2 34 Z" fill="rgba(255,77,90,.08)"/></svg>
+</div><div class="metric-card"><span>指数样例2</span><strong class="down">-0.6%</strong>
+<svg class="mini-chart" viewBox="0 0 120 34"><polyline points="2,24 18,18 34,21 50,12 66,15 82,8 102,11 118,6" fill="none" stroke="var(--cs-color-market-up)" stroke-width="2"/><path d="M2 24 L18 18 L34 21 L50 12 L66 15 L82 8 L102 11 L118 6 L118 34 L2 34 Z" fill="rgba(255,77,90,.08)"/></svg>
+</div><div class="metric-card"><span>指数样例3</span><strong class="up">+1.2%</strong>
+<svg class="mini-chart" viewBox="0 0 120 34"><polyline points="2,24 18,18 34,21 50,12 66,15 82,8 102,11 118,6" fill="none" stroke="var(--cs-color-market-up)" stroke-width="2"/><path d="M2 24 L18 18 L34 21 L50 12 L66 15 L82 8 L102 11 L118 6 L118 34 L2 34 Z" fill="rgba(255,77,90,.08)"/></svg>
+</div><div class="metric-card"><span>指数样例4</span><strong class="down">-0.6%</strong>
+<svg class="mini-chart" viewBox="0 0 120 34"><polyline points="2,24 18,18 34,21 50,12 66,15 82,8 102,11 118,6" fill="none" stroke="var(--cs-color-market-up)" stroke-width="2"/><path d="M2 24 L18 18 L34 21 L50 12 L66 15 L82 8 L102 11 L118 6 L118 34 L2 34 Z" fill="rgba(255,77,90,.08)"/></svg>
+</div></div></div>
+  <div class="misuse"><b>禁止误用：</b>指数只是示例场景，Core 是指标卡和趋势图能力。</div>
+</article>
+
+
+<article class="component-card" data-component="PatternLimitStructure">
+  <div class="component-card-head">
+    <div><h3>PatternLimitStructure</h3><p>涨停结构展示</p></div>
+    <span class="layer-pill">Pattern Examples</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：由 CsqProgressList + CsqLinkedMetricList + CsqBarChart 组合。</span></div>
+    <div><b>Props</b><span>progressItems, linkedItems, historySeries</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>progress, linked-list, bar-chart</span></div>
+  </div>
+  <div class="component-preview">
+<div class="progress-list">
+  <div class="progress-row"><span>分类A</span><div><i class="rise" style="width:78%"></i></div><b class="up">78</b></div>
+  <div class="progress-row"><span>分类B</span><div><i class="fall" style="width:52%"></i></div><b class="down">52</b></div>
+  <div class="progress-row"><span>分类C</span><div><i class="neutral" style="width:36%"></i></div><b>36</b></div>
+</div>
+
+<div class="linked-list-preview">
+  <div class="linked-row selected">
+    <span class="rank-box">1</span>
+    <span class="identity"><strong>示例实体 A</strong><em>CODE-A</em></span>
+    <span class="price-block"><b class="up">18.62</b><em class="up">+10.02%</em></span>
+    <span class="tag-group"><i class="tag rise">标签A</i><i class="tag brand">7天5次</i></span>
+    <span class="meta">09:38｜次数 0</span>
+    <span class="amount">5.8亿</span>
+  </div>
+  <div class="linked-row hover-demo">
+    <span class="rank-box">2</span>
+    <span class="identity"><strong>示例实体 B</strong><em>CODE-B</em></span>
+    <span class="price-block"><b class="up">25.88</b><em class="up">+10.00%</em></span>
+    <span class="tag-group"><i class="tag rise">标签A</i><i class="tag neutral">1天1次</i></span>
+    <span class="meta">10:12｜次数 1</span>
+    <span class="amount">3.1亿</span>
+  </div>
+  <div class="linked-row">
+    <span class="rank-box">3</span>
+    <span class="identity"><strong>示例实体 C</strong><em>CODE-C</em></span>
+    <span class="price-block"><b class="down">48.31</b><em class="down">-2.01%</em></span>
+    <span class="tag-group"><i class="tag warning">观察</i><i class="tag fall">回落</i></span>
+    <span class="meta">09:52｜次数 2</span>
+    <span class="amount">2.2亿</span>
+  </div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>涨停结构是业务组合，不是 Core 命名。</div>
+</article>
+
+
+<article class="component-card" data-component="PatternMoneyFlowSplit">
+  <div class="component-card-head">
+    <div><h3>PatternMoneyFlowSplit</h3><p>资金结构 + 趋势</p></div>
+    <span class="layer-pill">Pattern Examples</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：由 CsqChartSplitPanel + CsqPieChartWithCallout + CsqHistoryTrendChart 组合。</span></div>
+    <div><b>Props</b><span>pieItems, trendSeries, ratio</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>pie, history-trend, split-panel</span></div>
+  </div>
+  <div class="component-preview"><div class="split-demo"><div>
+<svg class="pie-callout-svg" viewBox="0 0 380 270" role="img" aria-label="CsqPieChartWithCallout 示例">
+  <g class="pie-callouts">
+          <polyline class="pie-callout-line" points="265.5,116.6 286.9,111.1 342.9,111.1" />
+          <text class="pie-callout-label up" x="356.0" y="101.1" text-anchor="end">分类A +12.3亿</text>
+        
+          <polyline class="pie-callout-line" points="185.8,213.9 184.7,235.9 128.7,235.9" />
+          <text class="pie-callout-label down" x="24.0" y="253.9" text-anchor="start">分类B -5.2亿</text>
+        
+          <polyline class="pie-callout-line" points="126.9,181.8 109.1,194.8 53.1,194.8" />
+          <text class="pie-callout-label up" x="24.0" y="212.8" text-anchor="start">分类C +3.1亿</text>
+        
+          <polyline class="pie-callout-line" points="127.3,89.6 109.7,76.5 53.7,76.5" />
+          <text class="pie-callout-label down" x="24.0" y="66.5" text-anchor="start">分类D -8.7亿</text>
+        </g>
+  <g class="pie-slices"><path class="pie-slice rise" d="M 192.07 62.03 A 74 74 0 0 1 227.45 199.83 L 211.76 173.09 A 43 43 0 0 0 191.20 93.02 Z" fill="var(--cs-color-market-up)" data-label="分类A" data-value="+12.3亿"/><path class="pie-slice fall" d="M 223.83 201.82 A 74 74 0 0 1 149.35 197.84 L 166.38 171.93 A 43 43 0 0 0 209.66 174.24 Z" fill="var(--cs-color-market-down)" data-label="分类B" data-value="-5.2亿"/><path class="pie-slice rise" d="M 145.96 195.47 A 74 74 0 0 1 119.83 159.51 L 149.23 149.66 A 43 43 0 0 0 164.41 170.56 Z" fill="var(--cs-color-market-up)" data-label="分类C" data-value="+3.1亿"/><path class="pie-slice fall" d="M 118.63 155.55 A 74 74 0 0 1 187.93 62.03 L 188.80 93.02 A 43 43 0 0 0 148.53 147.36 Z" fill="var(--cs-color-market-down)" data-label="分类D" data-value="-8.7亿"/></g>
+  <circle class="pie-center-hole" cx="190" cy="136" r="41" />
+  <g class="pie-labels"><text class="slice-percent" x="246.7" y="121.5" text-anchor="middle" dominant-baseline="central">42.0%</text><text class="slice-percent" x="186.9" y="194.4" text-anchor="middle" dominant-baseline="central">17.7%</text><text class="slice-percent" x="142.7" y="170.4" text-anchor="middle" dominant-baseline="central">10.6%</text><text class="slice-percent" x="143.0" y="101.2" text-anchor="middle" dominant-baseline="central">29.7%</text></g>
+</svg>
+</div><div>
+<svg class="chart-svg" viewBox="0 0 360 180" role="img" aria-label="CsqHistoryTrendChart 示例">
+  <g class="grid">
+    <line x1="42" y1="22" x2="338" y2="22"/><line x1="42" y1="58" x2="338" y2="58"/>
+    <line x1="42" y1="94" x2="338" y2="94"/><line x1="42" y1="130" x2="338" y2="130"/>
+  </g>
+  <g class="axis"><line x1="42" y1="20" x2="42" y2="146"/><line x1="42" y1="146" x2="338" y2="146"/></g>
+  <text class="axis-label" x="34" y="25" text-anchor="end">3.0</text>
+  <text class="axis-label" x="34" y="96" text-anchor="end">0.0</text>
+  <text class="axis-label" x="34" y="148" text-anchor="end">-2.0</text>
+  <text class="axis-label" x="42" y="168" text-anchor="middle">04-01</text>
+  <text class="axis-label" x="190" y="168" text-anchor="middle">04-15</text>
+  <text class="axis-label" x="338" y="168" text-anchor="middle">04-30</text>
+  <polyline class="trend-line up-stroke" points="42,118 78,100 114,112 150,70 190,74 230,44 270,62 310,36 338,54" fill="none"/>
+  <polyline class="trend-line down-stroke" points="42,82 78,92 114,74 150,110 190,104 230,132 270,120 310,138 338,128" fill="none"/>
+  <line class="crosshair" x1="230" y1="20" x2="230" y2="146"/>
+  <circle class="chart-point" cx="230" cy="44" r="3.8"/>
+  <g class="chart-tooltip-demo">
+    <rect x="238" y="36" width="104" height="58" rx="8"/>
+    <text x="250" y="56">04-22</text>
+    <text x="250" y="75" class="up">序列A +2.1%</text>
+    <text x="250" y="91" class="down">序列B -1.3%</text>
+  </g>
+</svg>
+</div></div></div>
+  <div class="misuse"><b>禁止误用：</b>资金字段由页面 adapter 进入通用图表 Props。</div>
+</article>
+
+
+<article class="component-card" data-component="PatternSectorHeatMap">
+  <div class="component-card-head">
+    <div><h3>PatternSectorHeatMap</h3><p>板块热力图展示</p></div>
+    <span class="layer-pill">Pattern Examples</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：由 CsqHeatMapGrid 组合，演示 5×4 场景。</span></div>
+    <div><b>Props</b><span>rows, columns, items</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / loading / empty / error / disabled / data delayed</span></div>
+    <div><b>Token</b><span>heatmap-grid, tooltip</span></div>
+  </div>
+  <div class="component-preview">
+<div class="heatmap-grid" data-tooltip-root>
+  <div class="heat-cell rise level4 selected" data-tip="分类A｜+4.82%｜selected"><strong>分类A</strong><span>+4.82%</span></div>
+  <div class="heat-cell rise level3" data-tip="分类B｜+3.16%"><strong>分类B</strong><span>+3.16%</span></div>
+  <div class="heat-cell fall level2" data-tip="分类C｜-1.22%"><strong>分类C</strong><span>-1.22%</span></div>
+  <div class="heat-cell neutral" data-tip="分类D｜0.42"><strong>分类D</strong><span>0.42</span></div>
+  <div class="heat-cell fall level4" data-tip="分类E｜-3.84%"><strong>分类E</strong><span>-3.84%</span></div>
+  <div class="heat-cell rise level2" data-tip="分类F｜+1.76%"><strong>分类F</strong><span>+1.76%</span></div>
+  <div class="heat-cell flat" data-tip="分类G｜0.00%"><strong>分类G</strong><span>0.00%</span></div>
+  <div class="heat-cell warning" data-tip="分类H｜注意状态"><strong>分类H</strong><span>延迟</span></div>
+  <div class="heat-cell rise level1" data-tip="分类I｜+0.86%"><strong>分类I</strong><span>+0.86%</span></div>
+  <div class="heat-cell fall level1" data-tip="分类J｜-0.62%"><strong>分类J</strong><span>-0.62%</span></div>
+  <div class="heat-cell neutral" data-tip="分类K｜中性"><strong>分类K</strong><span>--</span></div>
+  <div class="heat-cell rise level2" data-tip="分类L｜+1.52%"><strong>分类L</strong><span>+1.52%</span></div>
+  <div class="heat-cell empty" data-tip="空格占位">空</div>
+  <div class="heat-cell fall level3" data-tip="分类M｜-2.41%"><strong>分类M</strong><span>-2.41%</span></div>
+  <div class="heat-cell rise level3" data-tip="分类N｜+2.95%"><strong>分类N</strong><span>+2.95%</span></div>
+  <div class="heat-cell empty" data-tip="空格占位">空</div>
+  <div class="heat-cell neutral" data-tip="分类O｜中性"><strong>分类O</strong><span>0.18</span></div>
+  <div class="heat-cell fall level2" data-tip="分类P｜-1.57%"><strong>分类P</strong><span>-1.57%</span></div>
+  <div class="heat-cell rise level1" data-tip="分类Q｜+0.92%"><strong>分类Q</strong><span>+0.92%</span></div>
+  <div class="heat-cell flat" data-tip="分类R｜平"><strong>分类R</strong><span>平</span></div>
+</div>
+</div>
+  <div class="misuse"><b>禁止误用：</b>板块名仅是 mock，不进入 Core Props。</div>
+</article>
+</div>
+</section>
+
+    
+<section class="demo-section" id="states">
+  <div class="section-title-block"><span>Component States</span><h2>7. Component States</h2></div>
+  <div class="state-grid">
+    <div class="state-tile"><b>default</b><span>正常展示态</span></div>
+    <div class="state-tile hover-demo"><b>hover</b><span>背景提亮，边框增强</span></div>
+    <div class="state-tile selected"><b>selected</b><span>品牌金弱背景</span></div>
+    <div class="state-tile active"><b>active</b><span>点击压暗</span></div>
+    <div class="state-tile loading"><b>loading</b><div class="skeleton-line"></div><div class="skeleton-line short"></div></div>
+    <div class="state-tile empty"><b>empty</b><span>说明无数据原因</span></div>
+    <div class="state-tile error"><b>error</b><span>局部错误 + 重试</span></div>
+    <div class="state-tile disabled"><b>disabled</b><span>不可用但保留布局</span></div>
+    <div class="state-tile delayed"><b>data delayed</b><span>数据延迟，不等于错误</span></div>
+  </div>
+</section>
+
+  </main>
+  <script>
+    // Component Library Demo interactions: generic UI only. No API response binding.
+    document.querySelectorAll('.state-toggle-bar').forEach(bar => {
+      bar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.state-btn');
+        if (!btn) return;
+        bar.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(bar.dataset.target);
+        if (target) target.dataset.state = btn.dataset.state;
+      });
+    });
+    document.querySelectorAll('.tabs-demo button:not([disabled]), .range-demo button:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+    document.querySelectorAll('.heat-cell:not(.empty)').forEach(cell => {
+      cell.addEventListener('click', () => {
+        cell.closest('.heatmap-grid').querySelectorAll('.heat-cell').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+      });
+    });
+  </script>
+</body>
+</html>
