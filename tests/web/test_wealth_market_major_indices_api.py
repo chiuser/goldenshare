@@ -87,8 +87,17 @@ def test_major_indices_endpoint_returns_fixed_10_rows(app_client, db_session) ->
     assert [row["subject"]["subjectCode"] for row in payload["majorIndices"]["rows"]] == _INDEX_CODES
     assert payload["majorIndices"]["rows"][0]["subject"]["subjectName"] == "指数1"
     assert payload["majorIndices"]["rows"][0]["direction"] == "UP"
+    assert payload["majorIndices"]["rows"][0]["point"] == 1000.0
+    assert payload["majorIndices"]["rows"][0]["change"] == 5.0
+    assert payload["majorIndices"]["rows"][0]["changePct"] == 0.5
+    assert all(row["subject"]["subjectType"] == "index" for row in payload["majorIndices"]["rows"])
     assert payload["pageStatus"]["status"] == "READY"
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "majorIndices"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/major-indices", params={"tradeDate": "2026-04-28"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_major_indices_rejects_unsupported_market(app_client) -> None:
@@ -96,4 +105,3 @@ def test_major_indices_rejects_unsupported_market(app_client) -> None:
     assert response.status_code == 400
     payload = response.json()
     assert payload["code"] == "400001"
-

@@ -99,8 +99,17 @@ def test_market_breadth_endpoint_returns_metrics_and_history(app_client, db_sess
     assert payload["breadth"]["metrics"]["redRate"] == 33.33
     assert len(payload["breadth"]["historyByRange"]["1m"]) == 22
     assert len(payload["breadth"]["historyByRange"]["3m"]) == 62
+    first_one_month_point = payload["breadth"]["historyByRange"]["1m"][0]
+    assert set(first_one_month_point.keys()) == {"tradeDate", "upCount", "downCount"}
+    assert first_one_month_point["upCount"] >= 0
+    assert first_one_month_point["downCount"] >= 0
     assert payload["pageStatus"]["status"] == "READY"
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "breadth"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/breadth", params={"tradeDate": "2026-04-28"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_market_breadth_rejects_unsupported_market(app_client) -> None:

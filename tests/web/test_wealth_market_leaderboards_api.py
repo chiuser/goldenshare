@@ -233,6 +233,17 @@ def test_market_leaderboards_endpoint_returns_7_boards(app_client, db_session) -
     assert boards_by_key["amount"]["rows"][0]["subject"]["subjectCode"] == "000003.SZ"
     assert boards_by_key["popularity"]["rows"][0]["rank"] == 1
     assert boards_by_key["surge"]["rows"][0]["rank"] == 1
+    for board_key in ["gainers", "losers", "amount", "turnover", "volumeRatio", "popularity", "surge"]:
+        first_row = boards_by_key[board_key]["rows"][0]
+        assert first_row["subject"]["subjectType"] == "stock"
+        assert first_row["subject"]["subjectCode"]
+        assert first_row["metrics"]["direction"] in {"UP", "DOWN", "FLAT", "UNKNOWN"}
+        assert first_row["metrics"]["latestPrice"] is not None
+        assert first_row["metrics"]["changePct"] is not None
+        assert first_row["metrics"]["turnoverRate"] is not None
+        assert first_row["metrics"]["volumeRatio"] is not None
+        assert first_row["metrics"]["volume"] is not None
+        assert first_row["metrics"]["amount"] is not None
     assert boards_by_key["popularity"]["rows"][0]["metrics"]["turnoverRate"] is not None
     assert boards_by_key["popularity"]["rows"][0]["metrics"]["volumeRatio"] is not None
     assert boards_by_key["popularity"]["rows"][0]["metrics"]["volume"] is not None
@@ -242,6 +253,11 @@ def test_market_leaderboards_endpoint_returns_7_boards(app_client, db_session) -
     assert boards_by_key["surge"]["rows"][0]["metrics"]["volume"] is not None
     assert boards_by_key["surge"]["rows"][0]["metrics"]["amount"] is not None
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "leaderboards"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/leaderboards", params={"tradeDate": "2026-05-08"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_market_leaderboards_strict_hot_date_returns_delayed_empty_hot_boards(app_client, db_session) -> None:

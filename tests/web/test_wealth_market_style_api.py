@@ -94,14 +94,23 @@ def test_market_style_endpoint_returns_cards_and_history(app_client, db_session)
     assert payload["style"]["definition"]["fixedCardCount"] == 3
     assert len(payload["style"]["cards"]) == 3
     cards_by_key = {card["cardKey"]: card for card in payload["style"]["cards"]}
+    assert set(cards_by_key.keys()) == {"largeCap", "smallCap", "median"}
     assert cards_by_key["largeCap"]["valuePct"] == 0.72
     assert cards_by_key["smallCap"]["valuePct"] == 1.48
     assert cards_by_key["median"]["valuePct"] == 0.48
     assert cards_by_key["median"]["direction"] == "UP"
+    assert cards_by_key["largeCap"]["sourceText"]
     assert len(payload["style"]["historyByRange"]["oneMonth"]) == 22
     assert len(payload["style"]["historyByRange"]["threeMonth"]) == 62
+    first_history_point = payload["style"]["historyByRange"]["oneMonth"][0]
+    assert set(first_history_point.keys()) == {"tradeDate", "largePct", "smallPct", "medianPct"}
     assert payload["pageStatus"]["status"] == "READY"
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "marketStyle"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/style", params={"tradeDate": "2026-04-28"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_market_style_rejects_unsupported_market(app_client) -> None:

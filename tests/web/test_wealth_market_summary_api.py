@@ -181,6 +181,13 @@ def test_market_summary_endpoint_returns_debug_payload(app_client, db_session) -
     assert payload["marketSummary"]["definition"]["cardCount"] == 5
     assert len(payload["marketSummary"]["cards"]) == 5
     cards_by_key = {card["cardKey"]: card for card in payload["marketSummary"]["cards"]}
+    assert set(cards_by_key.keys()) == {
+        "majorIndexUpCount",
+        "riseFallCount",
+        "turnoverTotal",
+        "marketNetFlow",
+        "limitUpDown",
+    }
     assert cards_by_key["majorIndexUpCount"]["label"] == "主要指数涨跌比"
     assert cards_by_key["majorIndexUpCount"]["value"] == "2:1"
     assert cards_by_key["majorIndexUpCount"]["subText"] == "上涨数量:下跌数量"
@@ -189,9 +196,16 @@ def test_market_summary_endpoint_returns_debug_payload(app_client, db_session) -
     assert cards_by_key["turnoverTotal"]["subText"] == "较昨日：+5000亿"
     assert cards_by_key["limitUpDown"]["value"] == "1 / 1"
     assert cards_by_key["limitUpDown"]["subText"] == "炸板 1"
+    assert payload["marketSummary"]["textCard"]["title"]
+    assert payload["marketSummary"]["textCard"]["content"]
     expected_template = "objective_close_v1" if payload["tradingDay"]["sessionStatus"] == "CLOSED" else "objective_intraday_v1"
     assert payload["marketSummary"]["textCard"]["templateKey"] == expected_template
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "marketSummary"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/summary", params={"tradeDate": "2026-04-28"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_market_summary_rejects_unsupported_market(app_client) -> None:

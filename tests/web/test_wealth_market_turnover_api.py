@@ -117,12 +117,20 @@ def test_market_turnover_endpoint_returns_metrics_intraday_and_history(app_clien
     assert payload["turnover"]["metrics"]["prevAmount"] == 1600000000.0
     assert payload["turnover"]["metrics"]["amountDelta"] == 10000000.0
     assert payload["turnover"]["metrics"]["amountDeltaPct"] == 0.63
+    assert payload["turnover"]["metrics"]["unit"] == "thousand_yuan"
     assert len(payload["turnover"]["historyByRange"]["oneMonth"]) == 22
     assert len(payload["turnover"]["historyByRange"]["threeMonth"]) == 62
     assert len(payload["turnover"]["intradayCumulative"]) == 5
     assert payload["turnover"]["intradayCumulative"][-1]["cumAmount"] > payload["turnover"]["intradayCumulative"][0]["cumAmount"]
+    assert all((point["cumAmount"] or 0) >= 0 for point in payload["turnover"]["intradayCumulative"])
+    assert set(payload["turnover"]["historyByRange"]["oneMonth"][0].keys()) == {"tradeDate", "amount"}
     assert payload["pageStatus"]["status"] == "READY"
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "turnover"
+
+    no_debug_response = app_client.get("/api/v1/wealth/market/turnover", params={"tradeDate": "2026-04-28"})
+    assert no_debug_response.status_code == 200
+    no_debug_payload = no_debug_response.json()
+    assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
 
 
 def test_market_turnover_rejects_unsupported_market(app_client) -> None:
