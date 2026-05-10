@@ -233,6 +233,14 @@ def test_market_leaderboards_endpoint_returns_7_boards(app_client, db_session) -
     assert boards_by_key["amount"]["rows"][0]["subject"]["subjectCode"] == "000003.SZ"
     assert boards_by_key["popularity"]["rows"][0]["rank"] == 1
     assert boards_by_key["surge"]["rows"][0]["rank"] == 1
+    assert boards_by_key["popularity"]["rows"][0]["metrics"]["turnoverRate"] is not None
+    assert boards_by_key["popularity"]["rows"][0]["metrics"]["volumeRatio"] is not None
+    assert boards_by_key["popularity"]["rows"][0]["metrics"]["volume"] is not None
+    assert boards_by_key["popularity"]["rows"][0]["metrics"]["amount"] is not None
+    assert boards_by_key["surge"]["rows"][0]["metrics"]["turnoverRate"] is not None
+    assert boards_by_key["surge"]["rows"][0]["metrics"]["volumeRatio"] is not None
+    assert boards_by_key["surge"]["rows"][0]["metrics"]["volume"] is not None
+    assert boards_by_key["surge"]["rows"][0]["metrics"]["amount"] is not None
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "leaderboards"
 
 

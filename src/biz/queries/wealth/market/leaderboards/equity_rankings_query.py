@@ -28,6 +28,16 @@ class EquityRankingRow:
     amount: Decimal | None
 
 
+@dataclass(frozen=True, slots=True)
+class EquityMetricsRow:
+    latest_price: Decimal | None
+    change_pct: Decimal | None
+    turnover_rate: Decimal | None
+    volume_ratio: Decimal | None
+    volume: Decimal | None
+    amount: Decimal | None
+
+
 class LeaderboardEquityRankingsQuery:
     """Load stock leaderboard rows from equity daily serving tables."""
 
@@ -122,3 +132,45 @@ class LeaderboardEquityRankingsQuery:
             )
         raise ValueError(f"unsupported equity board key: {board_key}")
 
+    def load_metrics_by_codes(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        ts_codes: set[str],
+    ) -> dict[str, EquityMetricsRow]:
+        if not ts_codes:
+            return {}
+
+        stmt = (
+            select(
+                EquityDailyBar.ts_code,
+                EquityDailyBar.close.label("latest_price"),
+                EquityDailyBar.pct_chg.label("change_pct"),
+                EquityDailyBasic.turnover_rate.label("turnover_rate"),
+                EquityDailyBasic.volume_ratio.label("volume_ratio"),
+                EquityDailyBar.vol.label("volume"),
+                EquityDailyBar.amount.label("amount"),
+            )
+            .outerjoin(
+                EquityDailyBasic,
+                (EquityDailyBasic.ts_code == EquityDailyBar.ts_code)
+                & (EquityDailyBasic.trade_date == EquityDailyBar.trade_date),
+            )
+            .where(
+                EquityDailyBar.trade_date == trade_date,
+                EquityDailyBar.ts_code.in_(tuple(ts_codes)),
+            )
+        )
+        rows = session.execute(stmt).all()
+        return {
+            row.ts_code: EquityMetricsRow(
+                latest_price=row.latest_price,
+                change_pct=row.change_pct,
+                turnover_rate=row.turnover_rate,
+                volume_ratio=row.volume_ratio,
+                volume=row.volume,
+                amount=row.amount,
+            )
+            for row in rows
+        }

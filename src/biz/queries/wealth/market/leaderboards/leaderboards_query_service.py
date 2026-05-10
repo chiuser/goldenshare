@@ -27,7 +27,7 @@ from src.biz.services.wealth.market.leaderboards.strategy_config_resolver import
     LeaderboardStrategyConfigResolver,
 )
 from .dc_hot_rankings_query import DcHotRankingResult, LeaderboardDcHotRankingsQuery
-from .equity_rankings_query import EquityBoardKey, EquityRankingRow, LeaderboardEquityRankingsQuery
+from .equity_rankings_query import EquityBoardKey, EquityMetricsRow, EquityRankingRow, LeaderboardEquityRankingsQuery
 from .leaderboards_state_query import LeaderboardsSourceState, LeaderboardsStateQuery, LeaderboardsTradingDayContext
 from .stock_pool_query import LeaderboardStockPoolQuery
 
@@ -361,17 +361,35 @@ class MarketLeaderboardsQueryService:
                 )
             )
 
+        metrics_by_code: dict[str, EquityMetricsRow] = {}
+        observed_trade_date = hot_result.observed_trade_date
+        if observed_trade_date is not None and hot_result.rows:
+            hot_codes = {row.ts_code for row in hot_result.rows}
+            try:
+                metrics_by_code = self._equity_rankings_query.load_metrics_by_codes(
+                    session,
+                    trade_date=observed_trade_date,
+                    ts_codes=hot_codes,
+                )
+            except Exception as exc:  # noqa: BLE001
+                exceptions.append(
+                    self._exception_builder.query_failed(
+                        message=f"hot board metrics query failed: {exc}",
+                        board_key=definition.board_key,
+                    )
+                )
+
         row_dtos = [
             self._build_row_dto(
                 rank=row.rank if row.rank is not None else index + 1,
                 ts_code=row.ts_code,
                 subject_name=row.subject_name,
-                latest_price=row.latest_price,
-                change_pct=row.change_pct,
-                turnover_rate=None,
-                volume_ratio=None,
-                volume=None,
-                amount=None,
+                latest_price=(metrics_by_code[row.ts_code].latest_price if row.ts_code in metrics_by_code else row.latest_price),
+                change_pct=(metrics_by_code[row.ts_code].change_pct if row.ts_code in metrics_by_code else row.change_pct),
+                turnover_rate=(metrics_by_code[row.ts_code].turnover_rate if row.ts_code in metrics_by_code else None),
+                volume_ratio=(metrics_by_code[row.ts_code].volume_ratio if row.ts_code in metrics_by_code else None),
+                volume=(metrics_by_code[row.ts_code].volume if row.ts_code in metrics_by_code else None),
+                amount=(metrics_by_code[row.ts_code].amount if row.ts_code in metrics_by_code else None),
             )
             for index, row in enumerate(hot_result.rows)
         ]
@@ -537,4 +555,3 @@ class MarketLeaderboardsQueryService:
                 direction=direction,  # type: ignore[arg-type]
             ),
         )
-
