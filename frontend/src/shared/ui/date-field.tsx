@@ -1,7 +1,9 @@
 import { DatePickerInput } from "@mantine/dates";
 import type { ComponentPropsWithoutRef } from "react";
 
-export type DateSelectionRule = "any" | "week_friday" | "month_end";
+// WEEK_FRIDAY_NATURAL_ANCHOR_OK: 股票周线源接口要求自然周五锚点，不是每周最后一个交易日。
+export const CALENDAR_WEEK_FRIDAY_SELECTION_RULE = "week_friday" as const;
+export type DateSelectionRule = "any" | typeof CALENDAR_WEEK_FRIDAY_SELECTION_RULE | "month_end";
 type ExcludeDateInput = Parameters<NonNullable<ComponentPropsWithoutRef<typeof DatePickerInput>["excludeDate"]>>[0];
 
 type DateFieldProps = Omit<ComponentPropsWithoutRef<typeof DatePickerInput>, "value" | "onChange" | "type" | "excludeDate"> & {
@@ -66,7 +68,8 @@ export function isCalendarDateExcluded(value: ExcludeDateInput, selectionRule: D
   if (!parsed) {
     return false;
   }
-  if (selectionRule === "week_friday") {
+  // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 这里承接后端派生的自然周五选择规则，交易日周末规则由 TradeDateField 负责。
+  if (selectionRule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE) {
     return parsed.getDay() !== 5;
   }
   if (selectionRule === "month_end") {

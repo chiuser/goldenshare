@@ -40,7 +40,7 @@ import {
   formatTimezoneLabel,
 } from "../shared/ops-display";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
-import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
+import { CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { useAuth } from "../features/auth/auth-context";
 import { ActionSummaryCard } from "../shared/ui/action-summary-card";
 import { ActivityTimeline } from "../shared/ui/activity-timeline";
@@ -370,8 +370,9 @@ function getSourceLabelFromCatalog(catalog: OpsCatalogResponse | undefined, sour
 }
 
 function toCalendarDateSelectionRule(rule: string | null | undefined): DateSelectionRule {
-  if (rule === "week_friday") {
-    return "week_friday";
+  // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 股票周线自动任务仍按源接口自然周五锚点选择日历日期。
+  if (rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE) {
+    return CALENDAR_WEEK_FRIDAY_SELECTION_RULE;
   }
   if (rule === "month_end") {
     return "month_end";
@@ -390,7 +391,7 @@ function toTradeDateSelectionRule(rule: string | null | undefined): TradeDateSel
 }
 
 function usesCalendarDateControl(rule: string | null | undefined): boolean {
-  return rule === "week_friday" || rule === "month_end";
+  return rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE || rule === "month_end";
 }
 
 export function actionSupportsMonthlyLastDayPolicy(action: CatalogAction | null | undefined): boolean {

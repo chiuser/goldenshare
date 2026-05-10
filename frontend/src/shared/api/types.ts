@@ -571,6 +571,7 @@ export interface OpsManualActionsResponse {
             | "week_last_trading_day"
             | "month_last_trading_day"
             | "calendar_day"
+            // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 后端该 selection_rule 表达股票周线自然周五锚点，不是每周最后交易日。
             | "week_friday"
             | "month_end"
             | "month_key"

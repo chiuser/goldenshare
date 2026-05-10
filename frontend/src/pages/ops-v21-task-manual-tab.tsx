@@ -28,7 +28,7 @@ import type {
 } from "../shared/api/types";
 import { usePersistentState } from "../shared/hooks/use-persistent-state";
 import { AlertBar } from "../shared/ui/alert-bar";
-import { DateField, type DateSelectionRule } from "../shared/ui/date-field";
+import { CALENDAR_WEEK_FRIDAY_SELECTION_RULE, DateField, type DateSelectionRule } from "../shared/ui/date-field";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MonthField } from "../shared/ui/month-field";
 import { SectionCard } from "../shared/ui/section-card";
@@ -216,8 +216,9 @@ function inferCalendarDateRule(modeConfig: ManualActionTimeModeConfig | null): D
   if (!modeConfig) {
     return "any";
   }
-  if (modeConfig.selection_rule === "week_friday") {
-    return "week_friday";
+  // WEEK_FRIDAY_NATURAL_ANCHOR_OK: 股票周线维护沿用源接口自然周五锚点，不能误判为每周最后交易日。
+  if (modeConfig.selection_rule === CALENDAR_WEEK_FRIDAY_SELECTION_RULE) {
+    return CALENDAR_WEEK_FRIDAY_SELECTION_RULE;
   }
   if (modeConfig.selection_rule === "month_end") {
     return "month_end";

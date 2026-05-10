@@ -10,9 +10,10 @@ const ignoredFilePatterns = [/\.test\.(ts|tsx)$/];
 const rules = [
   {
     id: "no-week-friday-runtime",
-    description: "禁止在运行时代码中继续使用 week_friday 旧业务语义",
+    description: "禁止在运行时代码中继续使用未说明的 week_friday 旧业务语义",
     scopePrefixes: ["src/"],
     pattern: /\bweek_friday\b/g,
+    allowedCommentPattern: /WEEK_FRIDAY_NATURAL_ANCHOR_OK/,
     allowlist: [],
   },
   {
@@ -88,15 +89,15 @@ async function collectFiles(rootDir, baseDir = rootDir) {
   return files.sort();
 }
 
-function collectMatches(content, pattern) {
+function collectMatches(lines, pattern) {
   const matches = [];
-  const lines = content.split(/\r?\n/);
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     pattern.lastIndex = 0;
     if (pattern.test(line)) {
       matches.push({
+        lineIndex: index,
         lineNumber: index + 1,
         line: line.trim(),
       });
@@ -104,6 +105,20 @@ function collectMatches(content, pattern) {
   }
 
   return matches;
+}
+
+function hasAllowedNearbyComment(lines, lineIndex, commentPattern) {
+  for (const candidateIndex of [lineIndex, lineIndex - 1]) {
+    const line = lines[candidateIndex];
+    if (line === undefined) {
+      continue;
+    }
+    commentPattern.lastIndex = 0;
+    if (commentPattern.test(line)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function main() {
@@ -114,13 +129,14 @@ async function main() {
   for (const relativePath of files) {
     const absolutePath = path.join(frontendRoot, relativePath);
     const content = await readFile(absolutePath, "utf8");
+    const lines = content.split(/\r?\n/);
 
     for (const rule of rules) {
       if (!rule.scopePrefixes.some((prefix) => relativePath.startsWith(prefix))) {
         continue;
       }
 
-      const matches = collectMatches(content, rule.pattern);
+      const matches = collectMatches(lines, rule.pattern);
       if (!matches.length) {
         continue;
       }
@@ -135,6 +151,17 @@ async function main() {
       }
 
       for (const match of matches) {
+        if (
+          rule.allowedCommentPattern
+          && hasAllowedNearbyComment(lines, match.lineIndex, rule.allowedCommentPattern)
+        ) {
+          allowlistUsage.push({
+            ruleId: rule.id,
+            file: relativePath,
+            count: 1,
+          });
+          continue;
+        }
         violations.push({
           ruleId: rule.id,
           description: rule.description,

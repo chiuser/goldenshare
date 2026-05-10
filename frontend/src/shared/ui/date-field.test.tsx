@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isCalendarDateExcluded } from "./date-field";
+import { CALENDAR_WEEK_FRIDAY_SELECTION_RULE, isCalendarDateExcluded } from "./date-field";
 
 describe("DateField calendar selection rules", () => {
-  it("allows only natural Fridays for week_friday rule", () => {
-    expect(isCalendarDateExcluded("2026-04-23", "week_friday")).toBe(true);
-    expect(isCalendarDateExcluded("2026-04-24", "week_friday")).toBe(false);
+  it("allows only natural Fridays for the stock weekly natural anchor rule", () => {
+    expect(isCalendarDateExcluded("2026-04-23", CALENDAR_WEEK_FRIDAY_SELECTION_RULE)).toBe(true);
+    expect(isCalendarDateExcluded("2026-04-24", CALENDAR_WEEK_FRIDAY_SELECTION_RULE)).toBe(false);
   });
 
   it("allows only natural month-end dates for month_end rule", () => {
