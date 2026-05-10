@@ -310,6 +310,7 @@ def test_compute_macd_all_market_full_requires_source_research(tmp_path) -> None
 def test_compute_macd_all_market_incremental_requires_existing_states(tmp_path) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    _write_universe(tmp_path, [_stock("600000.SH", "L", "19991110", None)])
     _write_source_rows(
         tmp_path,
         trade_date="2026-04-24",
@@ -391,6 +392,105 @@ def test_compute_macd_all_market_incremental_streams_by_trade_date(tmp_path) -> 
     assert any("source_plan mode=incremental freq=30 trade_dates=2" in message for message in progress_messages)
     assert any("trade_date=1/2 freq=30 date=2026-04-27" in message for message in progress_messages)
     assert any("trade_date_done freq=30 date=2026-04-28 written=2" in message for message in progress_messages)
+
+
+def test_compute_macd_all_market_incremental_bootstraps_new_security(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    progress_messages: list[str] = []
+    service = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=progress_messages.append)
+    _write_universe(
+        tmp_path,
+        [
+            _stock("600000.SH", "L", "19991110", None),
+            _stock("301999.SZ", "L", "20260427", None),
+        ],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[
+            _source_row("600000.SH", "2026-04-24 10:00:00", 10.0),
+            _source_row("600000.SH", "2026-04-24 10:30:00", 10.5),
+        ],
+    )
+    service.compute_macd(
+        mode="full",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 24).date(),
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[
+            _source_row("600000.SH", "2026-04-27 10:00:00", 10.8),
+            _source_row("301999.SZ", "2026-04-27 10:00:00", 20.0),
+            _source_row("301999.SZ", "2026-04-27 10:30:00", 20.4),
+        ],
+    )
+
+    summary = service.compute_macd(
+        mode="incremental",
+        all_market=True,
+        freq=30,
+        start_date=datetime(2026, 4, 27).date(),
+        end_date=datetime(2026, 4, 27).date(),
+    )
+
+    states = MacdStateStore(lake_root=tmp_path).load_states()
+    rows = read_parquet_rows(_indicator_partition(tmp_path, "2026-04-27") / "part-000.parquet")
+    assert summary["status"] == "success"
+    assert summary["bootstrap_symbols"] == 1
+    assert states[("301999.SZ", 30)].last_trade_time == datetime(2026, 4, 27, 10, 30)
+    assert sorted(row["ts_code"] for row in rows) == ["301999.SZ", "301999.SZ", "600000.SH"]
+    assert any(
+        "new_security_bootstrap freq=30 date=2026-04-27 count=1 preview=301999.SZ" in message
+        for message in progress_messages
+    )
+
+
+def test_compute_macd_all_market_incremental_rejects_old_security_without_state(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _write_universe(
+        tmp_path,
+        [
+            _stock("600000.SH", "L", "19991110", None),
+            _stock("000001.SZ", "L", "19910403", None),
+        ],
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-24",
+        rows=[_source_row("600000.SH", "2026-04-24 10:00:00", 10.0)],
+    )
+    service = StkMinsIndicatorComputeService(lake_root=tmp_path, progress=lambda _: None)
+    service.compute_macd(
+        mode="full",
+        ts_code="600000.SH",
+        freq=30,
+        start_date=datetime(2026, 4, 24).date(),
+        end_date=datetime(2026, 4, 24).date(),
+    )
+    _write_source_rows(
+        tmp_path,
+        trade_date="2026-04-27",
+        rows=[
+            _source_row("600000.SH", "2026-04-27 10:00:00", 10.8),
+            _source_row("000001.SZ", "2026-04-27 10:00:00", 8.0),
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="老股票缺少 MACD state"):
+        service.compute_macd(
+            mode="incremental",
+            all_market=True,
+            freq=30,
+            start_date=datetime(2026, 4, 27).date(),
+            end_date=datetime(2026, 4, 27).date(),
+        )
 
 
 def test_compute_stk_mins_indicator_cli_all_market(tmp_path) -> None:
@@ -509,6 +609,19 @@ def _write_research_rows(tmp_path, *, trade_month: str, bucket: str, rows: list[
         / f"bucket={bucket}"
         / "part-000.parquet",
     )
+
+
+def _stock(ts_code: str, list_status: str, list_date: str, delist_date: str | None) -> dict[str, object]:
+    return {
+        "ts_code": ts_code,
+        "list_status": list_status,
+        "list_date": list_date,
+        "delist_date": delist_date,
+    }
+
+
+def _write_universe(root, rows: list[dict[str, object]]) -> None:
+    write_rows_to_parquet(rows, root / "manifest" / "security_universe" / "tushare_stock_basic.parquet")
 
 
 def _indicator_partition(tmp_path, trade_date: str):

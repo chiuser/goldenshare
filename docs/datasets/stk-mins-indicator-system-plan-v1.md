@@ -1,7 +1,7 @@
 # 股票分钟线指标系统设计方案 v1
 
 - 版本：v1
-- 状态：已评审，M6 incremental 流式化收口
+- 状态：已评审，M7 新股/老股 state 判定收口
 - 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
@@ -944,7 +944,38 @@ bucket = stable_hash(ts_code) % 32
 3. 支持按 `freq + trade_month` 重建。
 4. DuckDB 验证单股长周期查询。
 
-### M6：源数据修复与重算队列
+### M6：全市场 incremental 流式化
+
+目标：
+
+1. 全市场 `mode=incremental` 按 `trade_date` 读取 source by_date 分区。
+2. 每个交易日独立 stage、commit，并在结果成功写入后推进 state。
+3. 长日期区间 incremental 不得一次性读入所有源分区。
+4. 进度必须显示 `freq/trade_date/source_rows/symbols/written/state_count`。
+
+验收：
+
+1. 长日期区间 incremental 内存占用与单个交易日源分区相关，不随区间长度线性膨胀。
+2. 中途失败时，已完成交易日的指标分区和 state 已经提交。
+3. 缺 state 股票先进入 M7 判定，不允许静默从中间日期初始化。
+
+### M7：缺 state 的新股/老股判定
+
+目标：
+
+1. 全市场 incremental 遇到缺 state 股票时，读取本地 `manifest/security_universe/tushare_stock_basic.parquet`。
+2. 使用 `stock_basic.list_date/delist_date/list_status` 判断是否允许初始化。
+3. `list_date` 落在本次增量窗口内，且源数据日期不早于 `list_date`，可视为新上市股票首次出现，允许从第一根 bar 初始化。
+4. `list_date` 早于本次增量窗口的老股票缺 state，必须拒绝并输出 `needs_bootstrap`。
+5. `stock_basic` 缺少该股票、日期不可解析、源数据日期早于 `list_date`、源数据日期晚于 `delist_date`，都必须拒绝继续。
+
+验收：
+
+1. 新上市股票在窗口内首次出现时，可以自然进入指标库并写入 state。
+2. 老股票缺 state 时拒绝继续，不能生成中途初始化的假 MACD。
+3. 报错必须包含样例股票和人能看懂的原因。
+
+### M8：源数据修复与重算队列
 
 目标：
 
@@ -974,7 +1005,7 @@ bucket = stable_hash(ts_code) % 32
 4. 第一版 queue 只记录 `pending` 并给出建议命令，不自动消费，不后台启动重 IO 任务。
 5. 手动重算完成后，通过 `mark-indicator-recalc-done` 关闭对应 queue。
 
-### M7：MA / BOLL 扩展评审
+### M9：MA / BOLL 扩展评审
 
 目标：
 
@@ -1005,7 +1036,7 @@ bucket = stable_hash(ts_code) % 32
 2. 指标路径采用统一目录 `stk_mins_indicators_by_date`，通过 `indicator=macd` 区分。
 3. 第一批 CLI 采用通用 `compute-stk-mins-indicator --indicator macd`，而不是单独 `compute-stk-mins-macd`。
 4. 全市场 full 先要求 source research 已存在，再计算指标，避免直接扫描大量 by_date。
-5. 源分区替换后，M6 之前先用文档/命令提示人工重算；M6 正式补 queue，且 queue 的 list 命令必须输出建议重算命令。
+5. 源分区替换后的正式重算队列放到 M8；在 M8 前先用文档/命令提示人工重算，不能自动后台启动重 IO 任务。
 
 已确认的开发节奏：
 
@@ -1014,6 +1045,8 @@ bucket = stable_hash(ts_code) % 32
 3. 第三轮：M4-A `compute-stk-mins-indicator` 单股票/单频度 CLI 闭环。
 4. 第四轮：M4-B `compute-stk-mins-indicator --all-market` 全市场闭环。
 5. 第五轮：M5 指标 research 重排。
+6. 第六轮：M6 全市场 incremental 按交易日流式提交。
+7. 第七轮：M7 缺 state 的新股/老股判定。
 
 M4-A 只做：
 
@@ -1059,3 +1092,17 @@ M5 明确不做：
 1. 不自动触发指标计算。
 2. 不做源数据 recalc queue。
 3. 不做 MA/BOLL。
+
+M7 只做：
+
+1. 全市场 `mode=incremental` 缺 state 股票的生命周期判定。
+2. 只读取本地 `manifest/security_universe/tushare_stock_basic.parquet`，不访问远程数据库。
+3. 只允许 `list_date` 落在本次增量窗口内的新上市股票从第一根 bar 初始化。
+4. 老股票缺 state、股票池缺记录、源数据日期越界都必须拒绝继续。
+
+M7 明确不做：
+
+1. 不做自动 resume。
+2. 不做 checkpoint 文件。
+3. 不做 source partition event 与 recalc queue。
+4. 不做 MA/BOLL。

@@ -38,7 +38,7 @@ class SecurityUniverseFilterResult:
 
 
 @dataclass(frozen=True)
-class _SecurityUniverseRow:
+class SecurityUniverseRow:
     ts_code: str
     list_status: str
     list_date: date
@@ -54,7 +54,7 @@ def load_security_universe_for_range(
     if end_date < start_date:
         raise ValueError("股票池过滤区间的 end_date 不能早于 start_date。")
 
-    rows = _load_security_universe_rows(lake_root=lake_root)
+    rows = load_security_universe_rows(lake_root=lake_root)
     selected: list[_SecurityUniverseRow] = []
     skipped_listed_after_range = 0
     skipped_delisted_before_range = 0
@@ -85,7 +85,7 @@ def load_security_universe_for_range(
     )
 
 
-def _load_security_universe_rows(*, lake_root: Path) -> list[_SecurityUniverseRow]:
+def load_security_universe_rows(*, lake_root: Path) -> list[SecurityUniverseRow]:
     universe_file = lake_root / SECURITY_UNIVERSE_PATH
     if not universe_file.exists():
         raise SecurityUniverseError(
@@ -98,7 +98,7 @@ def _load_security_universe_rows(*, lake_root: Path) -> list[_SecurityUniverseRo
         raise SecurityUniverseError("本地股票池为空，请先重新执行 sync-stock-basic。")
 
     seen_codes: set[str] = set()
-    rows: list[_SecurityUniverseRow] = []
+    rows: list[SecurityUniverseRow] = []
     for index, raw_row in enumerate(raw_rows, start=1):
         ts_code = _required_text(raw_row.get("ts_code"), field="ts_code", row_index=index)
         if ts_code in seen_codes:
@@ -124,7 +124,7 @@ def _load_security_universe_rows(*, lake_root: Path) -> list[_SecurityUniverseRo
             )
 
         rows.append(
-            _SecurityUniverseRow(
+            SecurityUniverseRow(
                 ts_code=ts_code,
                 list_status=list_status,
                 list_date=list_date,

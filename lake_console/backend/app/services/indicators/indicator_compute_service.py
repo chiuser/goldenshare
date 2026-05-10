@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.services.indicators.indicator_by_date_writer import IndicatorByDateWriter
+from lake_console.backend.app.services.indicators.indicator_security_classifier import classify_missing_macd_states
 from lake_console.backend.app.services.indicators.indicator_source_reader import (
     iter_stk_mins_by_date_source_batches,
     iter_stk_mins_research_source_batches,
@@ -259,6 +260,7 @@ class StkMinsIndicatorComputeService:
         committed_trade_dates: list[str] = []
         by_date_writes: list[dict[str, Any]] = []
         state_writes: list[dict[str, Any]] = []
+        bootstrap_state_keys: set[tuple[str, int]] = set()
 
         for batch in iter_stk_mins_by_date_source_batches(
             lake_root=self.lake_root,
@@ -270,11 +272,29 @@ class StkMinsIndicatorComputeService:
             rows_by_symbol = _group_rows_by_symbol(batch.rows)
             missing_states = [ts_code for ts_code in sorted(rows_by_symbol) if (ts_code, freq) not in working_states]
             if missing_states:
-                preview = ", ".join(missing_states[:10])
-                raise RuntimeError(
-                    "needs_bootstrap: 全市场增量存在缺失 state 的股票，M6 不做新股/老股判定，"
-                    f"trade_date={batch.trade_date.isoformat()} preview={preview}"
+                classification = classify_missing_macd_states(
+                    lake_root=self.lake_root,
+                    missing_ts_codes=missing_states,
+                    window_start_date=start_date,
+                    trade_date=batch.trade_date,
                 )
+                if classification.rejected:
+                    preview = "; ".join(
+                        f"{ts_code}: {reason}"
+                        for ts_code, reason in list(sorted(classification.rejected_reasons.items()))[:10]
+                    )
+                    raise RuntimeError(
+                        "needs_bootstrap: 全市场增量存在不能安全初始化的缺失 state 股票，"
+                        f"trade_date={batch.trade_date.isoformat()} preview={preview}"
+                    )
+                if classification.bootstrap_ts_codes:
+                    bootstrap_state_keys.update((ts_code, freq) for ts_code in classification.bootstrap_ts_codes)
+                    preview = ", ".join(sorted(classification.bootstrap_ts_codes)[:10])
+                    self.progress(
+                        f"[indicator_macd] new_security_bootstrap freq={freq} "
+                        f"date={batch.trade_date.isoformat()} count={len(classification.bootstrap_ts_codes)} "
+                        f"preview={preview}"
+                    )
 
             self.progress(
                 f"[indicator_macd] trade_date={batch.batch_index}/{batch.batch_count} "
@@ -286,7 +306,7 @@ class StkMinsIndicatorComputeService:
             day_updated_keys: set[tuple[str, int]] = set()
             for ts_code, rows in sorted(rows_by_symbol.items()):
                 state_key = (ts_code, freq)
-                calculation = calculate_macd(rows, params=DEFAULT_MACD_PARAMS, initial_state=working_states[state_key])
+                calculation = calculate_macd(rows, params=DEFAULT_MACD_PARAMS, initial_state=working_states.get(state_key))
                 if calculation.final_state is None:
                     continue
                 if calculation.rows:
@@ -344,6 +364,7 @@ class StkMinsIndicatorComputeService:
                 "indicator_rows": 0,
                 "written_rows": 0,
                 "state_updates": 0,
+                "bootstrap_symbols": 0,
                 "status": "no_op",
                 "elapsed_seconds": round(elapsed, 3),
             }
@@ -368,6 +389,7 @@ class StkMinsIndicatorComputeService:
             "indicator_rows": indicator_rows_total,
             "written_rows": indicator_rows_total,
             "state_updates": len(updated_state_keys),
+            "bootstrap_symbols": len(bootstrap_state_keys),
             "processed_symbols": processed_symbols_total,
             "committed_trade_dates": committed_trade_dates,
             "status": "success",
