@@ -87,3 +87,15 @@ def test_monthly_last_day_policy_rejects_multiple_execution_times() -> None:
             calendar_policy="monthly_last_day",
             after=datetime(2026, 4, 20, 2, 0, tzinfo=timezone.utc),
         )
+
+
+def test_trigger_day_single_range_policy_uses_regular_cron_occurrence() -> None:
+    next_run = compute_next_run_at(
+        schedule_type="cron",
+        timezone_name="Asia/Shanghai",
+        cron_expr="0 19 * * 1-5",
+        calendar_policy="trigger_day_single_range",
+        after=datetime(2026, 4, 20, 2, 0, tzinfo=timezone.utc),
+    )
+
+    assert next_run == datetime(2026, 4, 20, 11, 0, tzinfo=timezone.utc)

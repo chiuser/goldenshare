@@ -28,6 +28,7 @@ from src.ops.models.ops.task_run import TaskRun
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
+TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,6 +287,7 @@ class TaskRunCommandService:
             MONTHLY_LAST_DAY_POLICY,
             MONTHLY_LAST_TRADING_DAY_POLICY,
             MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
+            TRIGGER_DAY_SINGLE_RANGE_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         if normalized_policy == MONTHLY_LAST_DAY_POLICY:
@@ -319,6 +321,31 @@ class TaskRunCommandService:
                 **dict(time_input or {}),
                 "mode": "point",
                 "trade_date": trade_date.isoformat(),
+            }
+        if normalized_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
+            if not self._supports_trigger_day_single_range_policy(definition):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
+                )
+            if self._has_explicit_time_boundary(params_json) or self._has_fixed_ann_date(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发日单日区间策略不能与固定维护日期或窗口混用",
+                )
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日区间策略缺少计划触发时间")
+            trigger_date = self._natural_day_for_schedule(
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
+            return {
+                **dict(time_input or {}),
+                "mode": "range",
+                "start_date": trigger_date.isoformat(),
+                "end_date": trigger_date.isoformat(),
             }
         if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
@@ -461,6 +488,24 @@ class TaskRunCommandService:
             and date_model.bucket_rule == "month_window_has_data"
             and date_model.input_shape == "start_end_month_window"
         )
+
+    @staticmethod
+    def _supports_trigger_day_single_range_policy(definition: DatasetDefinition) -> bool:
+        action = definition.capabilities.get_action("maintain")
+        date_model = definition.date_model
+        return bool(
+            action is not None
+            and tuple(action.supported_time_modes) == ("range",)
+            and date_model.date_axis == "natural_day"
+            and date_model.input_shape == "ann_date_or_start_end"
+        )
+
+    @staticmethod
+    def _has_fixed_ann_date(params_json: dict[str, Any]) -> bool:
+        if params_json.get("ann_date") not in (None, ""):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and time_input.get("ann_date") not in (None, "")
 
     @staticmethod
     def _month_last_day_for_schedule(*, scheduled_at: datetime, timezone_name: str | None) -> date:

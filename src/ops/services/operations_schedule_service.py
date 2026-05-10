@@ -31,10 +31,12 @@ from src.foundation.datasets.registry import get_dataset_definition_by_action_ke
 MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
+TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
 SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_DAY_POLICY,
     MONTHLY_LAST_TRADING_DAY_POLICY,
     MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
+    TRIGGER_DAY_SINGLE_RANGE_POLICY,
 }
 
 
@@ -622,7 +624,47 @@ class OperationsScheduleService:
                     message="自然月窗口策略不能与固定维护日期或窗口混用",
                 )
             return
+        if calendar_policy == TRIGGER_DAY_SINGLE_RANGE_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日区间策略只支持周期执行")
+            if target_type != "dataset_action":
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日区间策略只支持数据集维护任务")
+            try:
+                definition, action = get_dataset_definition_by_action_key(target_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+            if not OperationsScheduleService._supports_trigger_day_single_range_policy(definition=definition, action=action):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集",
+                )
+            if OperationsScheduleService._has_explicit_time_boundary(params_json) or OperationsScheduleService._has_fixed_ann_date(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发日单日区间策略不能与固定维护日期或窗口混用",
+                )
+            return
         raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
+
+    @staticmethod
+    def _supports_trigger_day_single_range_policy(*, definition, action: str) -> bool:  # type: ignore[no-untyped-def]
+        maintain_action = definition.capabilities.get_action(action)
+        date_model = definition.date_model
+        return bool(
+            maintain_action is not None
+            and tuple(maintain_action.supported_time_modes) == ("range",)
+            and date_model.date_axis == "natural_day"
+            and date_model.input_shape == "ann_date_or_start_end"
+        )
+
+    @staticmethod
+    def _has_fixed_ann_date(params_json: dict) -> bool:
+        if params_json.get("ann_date") not in (None, ""):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and time_input.get("ann_date") not in (None, "")
 
     def _next_monthly_last_trading_day_occurrence(
         self,

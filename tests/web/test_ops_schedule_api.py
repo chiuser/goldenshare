@@ -520,6 +520,60 @@ def test_ops_schedule_create_supports_monthly_window_for_index_weight_dataset(ap
     assert payload["calendar_policy"] == "monthly_window_current_month"
 
 
+def test_ops_schedule_create_supports_trigger_day_single_range_for_dividend_and_holdernumber(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    for target_key, display_name in (
+        ("dividend.maintain", "分红送股自动维护"),
+        ("stk_holdernumber.maintain", "股东户数自动维护"),
+    ):
+        response = app_client.post(
+            "/api/v1/ops/schedules",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "target_type": "dataset_action",
+                "target_key": target_key,
+                "display_name": display_name,
+                "schedule_type": "cron",
+                "cron_expr": "0 19 * * *",
+                "timezone": "Asia/Shanghai",
+                "calendar_policy": "trigger_day_single_range",
+                "params_json": {"time_input": {"mode": "range"}},
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["target_key"] == target_key
+        assert payload["calendar_policy"] == "trigger_day_single_range"
+
+
+def test_ops_schedule_create_rejects_trigger_day_single_range_for_unsupported_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "daily.maintain",
+            "display_name": "股票日线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "0 19 * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "trigger_day_single_range",
+            "params_json": {"time_input": {"mode": "range"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集"
+
+
 def test_ops_schedule_create_rejects_monthly_last_day_for_trading_month_dataset(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
