@@ -39,7 +39,17 @@ class LakeSyncPlanner:
         daily_quota_limit: int = STK_MINS_DEFAULT_DAILY_QUOTA_LIMIT,
     ) -> LakeSyncPlan:
         definition = get_dataset_definition(dataset_key)
-        if source == PROD_RAW_DB_SOURCE and dataset_key in {"etf_basic", "bse_mapping", "etf_index", "ths_index", "ths_member"}:
+        if source == PROD_RAW_DB_SOURCE and dataset_key in {
+            "etf_basic",
+            "bse_mapping",
+            "hk_basic",
+            "namechange",
+            "stock_company",
+            "st",
+            "etf_index",
+            "ths_index",
+            "ths_member",
+        }:
             return build_prod_raw_snapshot_plan(
                 definition,
                 trade_date=trade_date,

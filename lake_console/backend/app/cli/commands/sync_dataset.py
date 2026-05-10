@@ -55,7 +55,7 @@ def register_sync_dataset_commands(subparsers: argparse._SubParsersAction[argpar
             "dc_daily、dc_member、dc_index、dc_hot、ths_daily、ths_hot、kpl_list、kpl_concept_cons、"
             "cyq_perf、stk_factor_pro、stk_nineturn、limit_list_d、limit_list_ths、limit_step、limit_cpt_list、top_list、"
             "stk_period_bar_week、stk_period_bar_month、stk_period_bar_adj_week、stk_period_bar_adj_month、index_mins、"
-            "etf_basic、etf_index、ths_index、ths_member"
+            "etf_basic、bse_mapping、hk_basic、namechange、stock_company、st、etf_index、ths_index、ths_member"
         ),
     )
     sync_dataset_parser.add_argument(

@@ -33,14 +33,14 @@
 6. `stock_basic`、`trade_cal` 双落盘。
 7. `stk_mins` 原始层、派生层、research 层。
 8. CLI / Planner / Engine 已收口为分组命令、分类 planner 与 dataset strategy。
-9. Lake 已从首批 6 个数据集扩展到 50 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线、指数分钟线与特色指标多个批次。
+9. Lake 已从首批 6 个数据集扩展到 54 个数据集，覆盖参考数据、日频行情、资金流、ETF、板块、榜单、热点、股票周/月线、指数周期线、指数分钟线与特色指标多个批次。
 10. `daily` 已验证可以通过 `prod-raw-db` 只读导出，且速度明显优于重新请求 Tushare。
 
 当前生产侧共有 `66` 个 `DatasetDefinition`，其中：
 
 1. `64` 个属于 Tushare 主线。
 2. `2` 个是 `BIYING` 数据源（`biying_equity_daily`、`biying_moneyflow`），不纳入当前 Tushare Lake 主线。
-3. 当前 Lake 已落地 `50 / 64` 个 Tushare 数据集，剩余 `14` 个待规划。
+3. 当前 Lake 已落地 `54 / 64` 个 Tushare 数据集，剩余 `10` 个待规划。
 4. `index_mins` 已按“双模式（tushare + prod-raw-db）+ 同池 active pool + index_basic 生命周期过滤”专项方案落地。
 
 下一步目标是：让数据基座中已经支持的数据集，逐步具备“下载到本地移动盘并生成 Parquet Lake”的能力。
@@ -583,7 +583,9 @@ rebuild_month
 | `etf_basic` | `raw_tushare.etf_basic` | `current_file` | `prod-raw-db` |
 | `bse_mapping` | `raw_tushare.bse_mapping` | `current_file` | `prod-raw-db` |
 | `hk_basic` | `raw_tushare.hk_basic` | `current_file` | `prod-raw-db` |
-| `us_basic` | `raw_tushare.us_basic` | `current_file` | `prod-raw-db` |
+| `namechange` | `raw_tushare.namechange` | `current_file` | `prod-raw-db` |
+| `stock_company` | `raw_tushare.stock_company` | `current_file` | `prod-raw-db` |
+| `st` | `raw_tushare.st` | `current_file` | `prod-raw-db` |
 | `ths_index` | `raw_tushare.ths_index` | `current_file` | `prod-raw-db` |
 | `ths_member` | `raw_tushare.ths_member` | `current_file` | `prod-raw-db` |
 | `etf_index` | `raw_tushare.etf_index` | `current_file` | `prod-raw-db` |
@@ -598,6 +600,12 @@ rebuild_month
    - `raw_tushare/bse_mapping/current/part-000.parquet`
    - `manifest/security_reference/tushare_bse_mapping.parquet`
 6. `bse_mapping` 已于 `2026-05-10` 落地到 `lake_console`，并通过 current snapshot 白名单投影测试。
+7. `hk_basic`、`namechange`、`stock_company`、`st` 已于 `2026-05-10` 落地到 `lake_console`，统一走 `prod-raw-db + current_file + manifest` 的双落快照模式。
+8. `hk_basic` 当前生产 raw 现实上只有 `list_status = 'L'`，Lake 首版按当前生产事实落盘，不额外伪造 `D/P` 状态集合。
+9. `namechange`、`st` 虽然源接口支持时间参数，但生产定义已明确把它们收口为 `snapshot_refresh`；Lake 首版保持“全量历史记录 current 文件”语义，不按日期分区。
+10. `stock_company` 虽然生产同步按 `exchange` 分批拉取，但 Lake 正式写入仍只允许全量 current 快照。
+11. `bak_basic` 不纳入这一批 `current_file` 双落快照；它在生产定义和源接口中都属于 `trade_open_day` 历史事实，需另起 `trade_date` 分区方案。
+12. `us_basic` 按当前决策后置，不纳入本轮快照批。
 
 ### 7.5 R2：核心日频分区批
 

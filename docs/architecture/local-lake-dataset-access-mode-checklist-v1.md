@@ -35,21 +35,21 @@
 
 ---
 
-## 2. 当前事实快照（2026-05-09）
+## 2. 当前事实快照（2026-05-10）
 
 基于当前代码真实统计：
 
 1. 生产侧总数据集：`66`
 2. 其中 Tushare：`64`
 3. 其中 BIYING：`2`
-4. Lake 当前已接入数据集：`50`
-5. Lake 已接入的 `50` 个全部落在 Tushare 主线
-6. 当前 Tushare 剩余未接入 Lake：`14`
+4. Lake 当前已接入数据集：`54`
+5. Lake 已接入的 `54` 个全部落在 Tushare 主线
+6. 当前 Tushare 剩余未接入 Lake：`10`
 
 当前覆盖率：
 
 ```text
-50 / 64 = 78.13%
+54 / 64 = 84.38%
 ```
 
 说明：
@@ -105,12 +105,16 @@
 
 ### 3.3 仅 prod-raw-db
 
-共 `41` 个。
+共 `45` 个。
 
 #### 3.3.1 current_file / snapshot 类
 
 - `etf_basic`
 - `bse_mapping`
+- `hk_basic`
+- `namechange`
+- `stock_company`
+- `st`
 - `etf_index`
 - `ths_index`
 - `ths_member`
@@ -183,7 +187,7 @@
 
 ---
 
-## 4. 还未接入 Lake 的 14 个数据集
+## 4. 还未接入 Lake 的 10 个数据集
 
 当前未接入的 Tushare 数据集如下：
 
@@ -192,19 +196,15 @@
 - `broker_recommend`
 - `cctv_news`
 - `dividend`
-- `hk_basic`
 - `index_weight`
 - `major_news`
-- `namechange`
 - `news`
-- `st`
 - `stk_holdernumber`
-- `stock_company`
 - `us_basic`
 
 注意：
 
-1. 这 `14` 个当前还不能按“主路线”直接拍脑袋分配模式。
+1. 这 `10` 个当前还不能按“主路线”直接拍脑袋分配模式。
 2. 必须逐个审计后，才能决定它们应该走：
    - `tushare`
    - `prod-raw-db`
@@ -215,11 +215,14 @@
 
 1. `index_mins` 已作为双模式数据集落地，不再属于“未接入”范围。
 2. `index_weight` 仍保持后置专项，不应和普通 `prod-raw-db` 数据集混看。
+3. `hk_basic`、`namechange`、`stock_company`、`st` 已于 `2026-05-10` 落地到 Lake，不再属于“未接入”范围。
+4. `bak_basic` 已明确不应混入这套快照批；它需要单独按 `trade_open_day / trade_date` 历史事实模型设计。
+5. `us_basic` 按当前决策后置，不纳入本轮快照批。
 
 禁止做法：
 
 ```text
-因为现在大多数走 prod-raw-db，就默认剩余 14 个也走 prod-raw-db。
+因为现在大多数走 prod-raw-db，就默认剩余 10 个也走 prod-raw-db。
 ```
 
 ---

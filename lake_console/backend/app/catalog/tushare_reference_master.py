@@ -25,6 +25,62 @@ BSE_MAPPING_FIELDS = (
     "list_date",
 )
 
+HK_BASIC_FIELDS = (
+    "ts_code",
+    "name",
+    "fullname",
+    "enname",
+    "cn_spell",
+    "market",
+    "list_status",
+    "list_date",
+    "delist_date",
+    "trade_unit",
+    "isin",
+    "curr_type",
+)
+
+NAMECHANGE_FIELDS = (
+    "ts_code",
+    "name",
+    "start_date",
+    "end_date",
+    "ann_date",
+    "change_reason",
+)
+
+STOCK_COMPANY_FIELDS = (
+    "ts_code",
+    "com_name",
+    "com_id",
+    "exchange",
+    "chairman",
+    "manager",
+    "secretary",
+    "reg_capital",
+    "setup_date",
+    "province",
+    "city",
+    "introduction",
+    "website",
+    "email",
+    "office",
+    "employees",
+    "main_business",
+    "business_scope",
+    "ann_date",
+)
+
+ST_FIELDS = (
+    "ts_code",
+    "name",
+    "pub_date",
+    "imp_date",
+    "st_tpye",
+    "st_reason",
+    "st_explain",
+)
+
 INDEX_BASIC_FIELDS = (
     "ts_code",
     "name",
