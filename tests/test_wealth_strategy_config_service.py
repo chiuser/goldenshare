@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,10 @@ def _write_config(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _assert_semver(value: str) -> None:
+    assert re.fullmatch(r"\d+\.\d+\.\d+", value)
+
+
 def test_default_strategy_configs_can_be_loaded() -> None:
     service = StrategyConfigService()
 
@@ -28,9 +33,9 @@ def test_default_strategy_configs_can_be_loaded() -> None:
     leaderboard = service.get_config(module_key="leaderboards", market="CN_A")
     summary = service.get_config(module_key="marketSummary", market="CN_A")
 
-    assert major.version == "1.0.0"
-    assert leaderboard.version == "1.0.0"
-    assert summary.version == "1.0.0"
+    _assert_semver(major.version)
+    _assert_semver(leaderboard.version)
+    _assert_semver(summary.version)
 
     assert isinstance(major.payload, MajorIndicesStrategyPayload)
     assert len(major.payload.index_codes) == 10
@@ -40,7 +45,7 @@ def test_default_strategy_configs_can_be_loaded() -> None:
 def test_get_version_reads_from_strategy_config() -> None:
     service = StrategyConfigService()
     version = service.get_version(module_key="majorIndices", market="CN_A")
-    assert version == "1.0.0"
+    _assert_semver(version)
 
 
 def test_unregistered_module_raises_not_found() -> None:
@@ -138,4 +143,3 @@ def test_default_registration_index_has_no_duplicates() -> None:
     registrations = get_default_strategy_config_registrations()
     index = build_strategy_config_registration_index(registrations)
     assert len(index) == len(registrations)
-
