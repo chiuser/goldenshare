@@ -475,7 +475,71 @@ pre {
             <div class="stat-hint">Storage / Health / Activity 暂停实现，先统一对象与 API 边界。</div>
           </div>
         </div>
-        <p class="note" style="margin-top:12px;">当前应该被视为统一核心模型的是 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code>。`Recovery` 是 Kopia snapshot 领域，不能硬套 dataset 模型。</p>
+        <p class="note" style="margin-top:12px;">当前应该被视为统一核心模型的是 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code>。`Recovery` 属于 Kopia 备份点管理领域，不能硬套数据集模型。</p>
+
+        <h3>1.1 本文档统一用词</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>当前代码名</th>
+                <th>文档与页面说法</th>
+                <th>说明</th>
+                <th>后续处理</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field"><code>primary_layout</code></td>
+                <td>主存储形态</td>
+                <td>数据集默认查看和扫描时采用的主要文件组织方式，不代表业务主模型。</td>
+                <td><span class="state partial">后续代码清扫时改名</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>layout</code></td>
+                <td>存储形态</td>
+                <td>某一层文件在 Lake 中的实际组织方式。</td>
+                <td><span class="state partial">后续统一枚举命名</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>current_file</code></td>
+                <td>当前版本单文件</td>
+                <td>主数据类数据集只有一个当前版本文件，例如 <code>current/part-000.parquet</code>。</td>
+                <td><span class="state partial">避免叫“快照”</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>manifest_file</code></td>
+                <td>辅助清单文件</td>
+                <td>跟随某个数据集存在的辅助清单，不应被描述成独立数据集。</td>
+                <td><span class="state partial">页面说中文</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>by_date</code></td>
+                <td>按交易日期分区</td>
+                <td>以 <code>trade_date=YYYY-MM-DD</code> 为核心分区，分钟数据前面还可能带 <code>freq</code>。</td>
+                <td><span class="state partial">后续改为更明确枚举</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>by_symbol_month</code></td>
+                <td>按月份分桶</td>
+                <td>research 层使用的查询优化形态，路径核心是 <code>trade_month</code> 和 <code>bucket</code>。</td>
+                <td><span class="state partial">后续改为更明确枚举</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>partition_key</code></td>
+                <td>分区定位符</td>
+                <td>用于定位某个分区的稳定字符串，不是数据库主键，也不是展示文案。</td>
+                <td><span class="state future">需改造成结构化字段</span></td>
+              </tr>
+              <tr>
+                <td class="field">Kopia 原始备份对象</td>
+                <td>备份点</td>
+                <td>Kopia 原始字段沿用外部工具命名；在管理台中统一叫备份点，避免让人误解为临时文件。</td>
+                <td><span class="state partial">API 字段后续另评审</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -619,31 +683,31 @@ pre {
             <tbody>
               <tr>
                 <td class="field">LakeDatasetDefinition</td>
-                <td>静态数据集契约，定义 key、名称、分组、布局、写策略和 layers。</td>
+                <td>静态数据集契约，定义 key、名称、分组、主存储形态、写策略和层级。</td>
                 <td><code>catalog/models.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakeLayerDefinition</td>
-                <td>静态层级契约，定义 layer、layout、path、用途和推荐使用方式。</td>
+                <td>静态层级契约，定义层级、存储形态、路径、用途和推荐使用方式。</td>
                 <td><code>catalog/models.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakeDatasetSummary</td>
-                <td>扫描后的 dataset 级事实，给列表、详情、Storage 使用。</td>
+                <td>扫描后的数据集级事实，给列表、详情、Storage 使用。</td>
                 <td><code>schemas/lake.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakeLayerSummary</td>
-                <td>扫描后的 layer 级事实，包括 path、layout、文件数、分区数和空间。</td>
+                <td>扫描后的层级事实，包括路径、存储形态、文件数、分区数和空间。</td>
                 <td><code>schemas/lake.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakePartitionSummary</td>
-                <td>扫描后的 partition 级事实。当前通过独立 partitions API 获取。</td>
+                <td>扫描后的分区事实。当前通过独立 partitions API 获取。</td>
                 <td><code>schemas/lake.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
@@ -679,11 +743,11 @@ pre {
               <tr><td class="field">group_key / group_label / group_order</td><td class="type">str / str / int</td><td>管理台展示分组。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">dataset_role</td><td class="type">str</td><td>数据集角色，例如 raw_dataset。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">storage_root</td><td class="type">str | null</td><td>相对 Lake Root 的主要存储根。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">layers</td><td class="type">list[str]</td><td>该数据集声明的层级。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layers</td><td class="type">list[str]</td><td>该数据集声明的层级。页面展示应使用中文层级名，不直接暴露内部枚举。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">layer_summaries</td><td class="type">list[LakeLayerSummary]</td><td>各层扫描结果。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>所有层级合计。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">row_count</td><td class="type">int | null</td><td>通用列表不计算。当前多为 null。</td><td><span class="state partial">预留</span></td></tr>
-              <tr><td class="field">primary_layout / available_layouts</td><td class="type">str | list[str]</td><td>主要布局和可用布局。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">primary_layout / available_layouts</td><td class="type">str | list[str]</td><td>当前代码字段名。文档与页面口径应理解为“主存储形态 / 可用存储形态”。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">write_policy / update_mode</td><td class="type">str | null</td><td>展示默认写入和更新模式，不代表页面可直接执行。</td><td><span class="state done">已落地</span></td></tr>
             </tbody>
           </table>
@@ -696,10 +760,10 @@ pre {
               <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
             </thead>
             <tbody>
-              <tr><td class="field">layer</td><td class="type">str</td><td><code>raw_tushare / manifest / derived / research</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layer</td><td class="type">str</td><td>内部枚举包括 <code>raw_tushare / manifest / derived / research</code>。页面应展示为“原始层 / 辅助清单层 / 派生层 / 研究层”。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">layer_name / purpose</td><td class="type">str</td><td>层级展示名与用途说明。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">source_layer</td><td class="type">str | null</td><td>来源层，当前 schema 有字段但未填。</td><td><span class="state partial">空壳字段</span></td></tr>
-              <tr><td class="field">layout</td><td class="type">str</td><td><code>current_file / manifest_file / by_date / by_symbol_month</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layout</td><td class="type">str</td><td>内部枚举包括 <code>current_file / manifest_file / by_date / by_symbol_month</code>。页面应展示为“当前版本单文件 / 辅助清单文件 / 按交易日期分区 / 按月份分桶”。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">path</td><td class="type">str</td><td>层级路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>该层扫描得到的物理规模。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">freqs / trade_date range / trade_month range</td><td class="type">list / str</td><td>从分区扫描聚合出来的覆盖范围。</td><td><span class="state done">已落地</span></td></tr>
@@ -715,11 +779,14 @@ pre {
               <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
             </thead>
             <tbody>
-              <tr><td class="field">dataset_key / layer / layout</td><td class="type">str</td><td>分区归属。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">freq / trade_date / trade_month / bucket</td><td class="type">int | str | null</td><td>当前支持的分区键。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">dataset_key / layer / layout</td><td class="type">str</td><td>分区归属。<code>layout</code> 在页面上按“存储形态”解释。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">freq / trade_date / trade_month / bucket</td><td class="type">int | str | null</td><td>当前支持的结构化分区字段。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">path</td><td class="type">str</td><td>分区路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">file_count / total_bytes / modified_at</td><td class="type">int / int / datetime</td><td>分区物理事实。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">partition_key</td><td class="type">str</td><td>文档目标态字段，当前未实现。</td><td><span class="state future">目标态</span></td></tr>
+              <tr><td class="field">partition_key</td><td class="type">str</td><td>旧目标态叫法不准确。后续不应继续作为唯一字段使用。</td><td><span class="state future">目标态需改造</span></td></tr>
+              <tr><td class="field">partition_values</td><td class="type">dict</td><td>目标态结构化分区字段，例如 <code>{"freq": 30, "trade_date": "2026-04-24"}</code>。</td><td><span class="state future">目标态</span></td></tr>
+              <tr><td class="field">partition_locator</td><td class="type">str</td><td>目标态稳定分区定位符，例如 <code>freq=30/trade_date=2026-04-24</code>。</td><td><span class="state future">目标态</span></td></tr>
+              <tr><td class="field">partition_label</td><td class="type">str</td><td>目标态页面展示文案，例如 <code>30min · 2026-04-24</code>。</td><td><span class="state future">目标态</span></td></tr>
               <tr><td class="field">replace_scope / can_replace_safely</td><td class="type">str / bool</td><td>写入安全字段，当前未实现。</td><td><span class="state future">目标态</span></td></tr>
             </tbody>
           </table>
@@ -745,7 +812,7 @@ pre {
                   <tr><td class="field">GET /api/lake/status</td><td><code>LakeStatusResponse</code></td><td>Lake 根目录与磁盘状态。</td></tr>
                   <tr><td class="field">GET /api/datasets</td><td><code>LakeDatasetListResponse</code></td><td>数据集列表，含 layer summaries。</td></tr>
                   <tr><td class="field">GET /api/partitions</td><td><code>LakePartitionListResponse</code></td><td>独立分区列表，可按 dataset/layer/layout 过滤。</td></tr>
-                  <tr><td class="field">GET /api/recovery/*</td><td><code>LakeRecovery*</code></td><td>Kopia snapshot 管理视图。</td></tr>
+                  <tr><td class="field">GET /api/recovery/*</td><td><code>LakeRecovery*</code></td><td>Kopia 备份点管理视图。</td></tr>
                   <tr><td class="field">GET /api/lake/command-examples</td><td><code>LakeCommandExamplesResponse</code></td><td>命令示例与前置条件。</td></tr>
                 </tbody>
               </table>
@@ -782,33 +849,33 @@ pre {
           <div class="object-card">
             <div class="object-head">
               <div class="object-title">stock_basic</div>
-              <div class="object-sub">一个 dataset，两个 layer。manifest 不是独立 dataset。</div>
+              <div class="object-sub">一个数据集，两个层级。辅助清单层不是独立数据集。</div>
             </div>
             <dl>
               <div class="kv"><dt>dataset_key</dt><dd>stock_basic</dd></div>
-              <div class="kv"><dt>primary_layout</dt><dd>current_file</dd></div>
-              <div class="kv"><dt>raw layer</dt><dd>raw_tushare/stock_basic/current/part-000.parquet</dd></div>
-              <div class="kv"><dt>manifest layer</dt><dd>manifest/security_universe/tushare_stock_basic.parquet</dd></div>
-              <div class="kv"><dt>关键结论</dt><dd>stock_basic_universe 不是当前独立 dataset。</dd></div>
+              <div class="kv"><dt>主存储形态</dt><dd>当前版本单文件（代码值：<code>current_file</code>）</dd></div>
+              <div class="kv"><dt>原始层</dt><dd>raw_tushare/stock_basic/current/part-000.parquet</dd></div>
+              <div class="kv"><dt>辅助清单层</dt><dd>manifest/security_universe/tushare_stock_basic.parquet</dd></div>
+              <div class="kv"><dt>关键结论</dt><dd>股票基础信息的辅助清单不是当前独立数据集。</dd></div>
             </dl>
           </div>
 
           <div class="object-card">
             <div class="object-head">
               <div class="object-title">stk_mins</div>
-              <div class="object-sub">一个 dataset，包含 raw / derived / research 三层。</div>
+              <div class="object-sub">一个数据集，包含原始层 / 派生层 / 研究层。</div>
             </div>
             <dl>
               <div class="kv"><dt>dataset_key</dt><dd>stk_mins</dd></div>
-              <div class="kv"><dt>primary_layout</dt><dd>by_date</dd></div>
-              <div class="kv"><dt>raw</dt><dd>raw_tushare/stk_mins_by_date</dd></div>
-              <div class="kv"><dt>derived</dt><dd>derived/stk_mins_by_date</dd></div>
-              <div class="kv"><dt>research</dt><dd>research/stk_mins_by_symbol_month</dd></div>
+              <div class="kv"><dt>主存储形态</dt><dd>按交易日期分区（代码值：<code>by_date</code>）</dd></div>
+              <div class="kv"><dt>原始层</dt><dd>raw_tushare/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>派生层</dt><dd>derived/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>研究层</dt><dd>research/stk_mins_by_symbol_month</dd></div>
             </dl>
           </div>
         </div>
 
-        <h3>7.1 LakeDatasetSummary 示例形状</h3>
+        <h3>7.1 LakeDatasetSummary 当前 API 示例形状</h3>
         <pre>{
   "dataset_key": "stk_mins",
   "display_name": "股票历史分钟行情",
@@ -831,7 +898,7 @@ pre {
   ]
 }</pre>
 
-        <h3>7.2 Kopia Recovery 示例形状</h3>
+        <h3>7.2 Kopia Recovery 当前 API 示例形状</h3>
         <pre>{
   "snapshot_id": "k9673865f7c8f70e07dffd7740e8c9e8b",
   "scope": "whole_lake",
@@ -873,9 +940,9 @@ pre {
               </tr>
               <tr>
                 <td class="field">partition_key</td>
-                <td>分区可读 key</td>
-                <td>当前未返回</td>
-                <td><span class="state partial">后续补字段或降级文档</span></td>
+                <td>分区定位符</td>
+                <td>当前未返回；且不应继续按单一 key 设计</td>
+                <td><span class="state partial">后续改造成结构化字段</span></td>
               </tr>
               <tr>
                 <td class="field">replace_scope</td>
@@ -896,9 +963,9 @@ pre {
                 <td><span class="state partial">保持预留，禁止页面假算</span></td>
               </tr>
               <tr>
-                <td class="field">stock_basic_universe</td>
+                <td class="field">股票基础信息辅助清单</td>
                 <td>写成独立 dataset 示例</td>
-                <td>现实是 stock_basic 的 manifest layer</td>
+                <td>现实是 stock_basic 的辅助清单层</td>
                 <td><span class="state err">文档需修正</span></td>
               </tr>
             </tbody>
