@@ -3,14 +3,22 @@ import { MiniLineChart } from "../../../shared/charts/MiniLineChart";
 import { formatSignedAmountYi } from "../../../shared/lib/formatters";
 import { Panel } from "../../../shared/ui/Panel";
 import { RangeSwitch } from "../../../shared/ui/RangeSwitch";
-import type { MarketOverview, MoneyFlowOrderSizeItem } from "../api/marketOverviewTypes";
+import { SkeletonBlock } from "../../../shared/ui/SkeletonBlock";
+import type { MoneyFlowOrderSizeItem } from "../api/marketOverviewTypes";
+import type { MarketMoneyFlowViewModel } from "./api/marketMoneyFlowAdapter";
 
 const ranges = [
   { value: "1m", label: "1个月" },
   { value: "3m", label: "3个月" },
 ];
 
-export function MarketMoneyFlowPanel({ overview }: { overview: MarketOverview }) {
+interface MarketMoneyFlowPanelProps {
+  viewState: "loading" | "ready" | "error";
+  moneyFlow?: MarketMoneyFlowViewModel;
+  errorMessage?: string;
+}
+
+export function MarketMoneyFlowPanel({ viewState, moneyFlow, errorMessage }: MarketMoneyFlowPanelProps) {
   const [range, setRange] = useState("1m");
 
   return (
@@ -19,41 +27,59 @@ export function MarketMoneyFlowPanel({ overview }: { overview: MarketOverview })
       help="Review v4：左侧为单型资金净流向饼图，饼块显示白色结构占比，外部折线标注单型名称和净额；右侧保留历史资金流向趋势图。"
       meta={<RangeSwitch ariaLabel="大盘资金流向时间范围" onChange={setRange} options={ranges} value={range} />}
     >
-      <div className="fund-top">
-        {overview.moneyFlowMetrics.map((metric) => (
-          <div className="fund-card" key={metric.label}>
-            <div className="metric-label">{metric.label}</div>
-            <div className={`amount ${metric.tone ?? "flat"} num`}>{metric.value}</div>
-            <div className="metric-sub">{metric.sub}</div>
-          </div>
-        ))}
-      </div>
-      <div className="moneyflow-v3-body">
-        <div className="order-pie-panel">
-          <div className="sub-chart-title">
-            <span>单型资金净流向</span>
-            <span className="secondary">callout 标注</span>
-          </div>
-          <div className="pie-wrap">
-            <OrderPieChart items={overview.moneyFlowOrderSizeStructure.items} />
+      {viewState === "loading" ? (
+        <div className="summary-state-wrap">
+          <SkeletonBlock />
+        </div>
+      ) : null}
+      {viewState === "error" ? (
+        <div className="summary-state-wrap">
+          <div className="state-block error-box">
+            <strong>error</strong>
+            <br />
+            <span>{errorMessage ?? "请求超时，请稍后重试。"}</span>
           </div>
         </div>
-        <div className="moneyflow-trend-panel">
-          <div className="sub-chart-title">
-            <span>历史资金净流入趋势</span>
-            <span className="secondary">0轴居中</span>
+      ) : null}
+      {viewState === "ready" ? (
+        <>
+          <div className="fund-top">
+            {(moneyFlow?.metrics ?? []).map((metric) => (
+              <div className="fund-card" key={metric.label}>
+                <div className="metric-label">{metric.label}</div>
+                <div className={`amount ${metric.tone ?? "flat"} num`}>{metric.value}</div>
+                <div className="metric-sub">{metric.sub}</div>
+              </div>
+            ))}
           </div>
-          <MiniLineChart
-            data={overview.charts.moneyFlow[range]}
-            height={230}
-            series={[{ key: "net", name: "净流入", color: "var(--cs-color-text-primary)", dots: true, valueFormatter: formatSignedAmountYi, width: 2.4 }]}
-            valueClassBySign
-            yFormatter={(value) => `${value.toFixed(0)}亿`}
-            zeroCenter
-          />
-        </div>
-      </div>
-      <div className="chart-note">饼图仅表达超大单/大单/中单/小单净额占比结构；饼块面积按净额绝对值，外部折线标注单型名称和净额。趋势图纵轴单位：亿元。</div>
+          <div className="moneyflow-v3-body">
+            <div className="order-pie-panel">
+              <div className="sub-chart-title">
+                <span>单型资金净流向</span>
+                <span className="secondary">callout 标注</span>
+              </div>
+              <div className="pie-wrap">
+                <OrderPieChart items={moneyFlow?.orderSizeItems ?? []} />
+              </div>
+            </div>
+            <div className="moneyflow-trend-panel">
+              <div className="sub-chart-title">
+                <span>历史资金净流入趋势</span>
+                <span className="secondary">0轴居中</span>
+              </div>
+              <MiniLineChart
+                data={moneyFlow?.chartsByRange[range as "1m" | "3m"] ?? []}
+                height={230}
+                series={[{ key: "net", name: "净流入", color: "var(--cs-color-text-primary)", dots: true, valueFormatter: formatSignedAmountYi, width: 2.4 }]}
+                valueClassBySign
+                yFormatter={(value) => `${value.toFixed(0)}亿`}
+                zeroCenter
+              />
+            </div>
+          </div>
+          <div className="chart-note">饼图仅表达超大单/大单/中单/小单净额占比结构；饼块面积按净额绝对值，外部折线标注单型名称和净额。趋势图纵轴单位：亿元。</div>
+        </>
+      ) : null}
     </Panel>
   );
 }

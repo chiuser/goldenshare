@@ -36,6 +36,12 @@ import {
 } from "../../features/market-overview/limit-up/api/marketLimitUpAdapter";
 import { fetchMarketLimitUp, type LimitUpDebugInfo } from "../../features/market-overview/limit-up/api/marketLimitUpApi";
 import { MarketMoneyFlowPanel } from "../../features/market-overview/money-flow/MarketMoneyFlowPanel";
+import {
+  buildMoneyFlowViewModelFromApi,
+  buildMoneyFlowViewModelFromMock,
+  type MarketMoneyFlowViewModel,
+} from "../../features/market-overview/money-flow/api/marketMoneyFlowAdapter";
+import { fetchMarketMoneyFlow, type MoneyFlowDebugInfo } from "../../features/market-overview/money-flow/api/marketMoneyFlowApi";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import { MarketStylePanel } from "../../features/market-overview/style/MarketStylePanel";
 import {
@@ -62,6 +68,7 @@ const MAJOR_INDICES_FETCH_TIMEOUT_MS = 5000;
 const BREADTH_FETCH_TIMEOUT_MS = 5000;
 const STYLE_FETCH_TIMEOUT_MS = 5000;
 const TURNOVER_FETCH_TIMEOUT_MS = 5000;
+const MONEY_FLOW_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 
@@ -127,6 +134,12 @@ export function MarketOverviewPage() {
   );
   const [turnoverErrorMessage, setTurnoverErrorMessage] = useState<string | null>(null);
   const [turnoverDebugInfo, setTurnoverDebugInfo] = useState<TurnoverDebugInfo | null>(null);
+  const [moneyFlow, setMoneyFlow] = useState<MarketMoneyFlowViewModel | null>(null);
+  const [moneyFlowViewState, setMoneyFlowViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.moneyFlow === "real" ? "loading" : "ready",
+  );
+  const [moneyFlowErrorMessage, setMoneyFlowErrorMessage] = useState<string | null>(null);
+  const [moneyFlowDebugInfo, setMoneyFlowDebugInfo] = useState<MoneyFlowDebugInfo | null>(null);
   const [leaderboards, setLeaderboards] = useState<MarketLeaderboardsViewModel | null>(null);
   const [leaderboardsViewState, setLeaderboardsViewState] = useState<"loading" | "ready" | "error">(
     marketOverviewModuleSources.leaderboards === "real" ? "loading" : "ready",
@@ -155,6 +168,7 @@ export function MarketOverviewPage() {
       ...(breadthDebugInfo?.modules ?? []),
       ...(styleDebugInfo?.modules ?? []),
       ...(turnoverDebugInfo?.modules ?? []),
+      ...(moneyFlowDebugInfo?.modules ?? []),
       ...(leaderboardsDebugInfo?.modules ?? []),
       ...(limitUpDebugInfo?.modules ?? []),
     ];
@@ -164,6 +178,7 @@ export function MarketOverviewPage() {
       ...(breadthDebugInfo?.exceptions ?? []),
       ...(styleDebugInfo?.exceptions ?? []),
       ...(turnoverDebugInfo?.exceptions ?? []),
+      ...(moneyFlowDebugInfo?.exceptions ?? []),
       ...(leaderboardsDebugInfo?.exceptions ?? []),
       ...(limitUpDebugInfo?.exceptions ?? []),
     ];
@@ -176,6 +191,7 @@ export function MarketOverviewPage() {
     breadthDebugInfo,
     styleDebugInfo,
     turnoverDebugInfo,
+    moneyFlowDebugInfo,
     leaderboardsDebugInfo,
     limitUpDebugInfo,
   ]);
@@ -222,6 +238,14 @@ export function MarketOverviewPage() {
         setTurnover(null);
         setTurnoverViewState("loading");
         setTurnoverErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.moneyFlow === "mock") {
+        setMoneyFlow(buildMoneyFlowViewModelFromMock(response.data));
+        setMoneyFlowViewState("ready");
+      } else {
+        setMoneyFlow(null);
+        setMoneyFlowViewState("loading");
+        setMoneyFlowErrorMessage(null);
       }
       if (marketOverviewModuleSources.leaderboards === "mock") {
         setLeaderboards(buildLeaderboardsViewModelFromMock(response.data));
@@ -573,6 +597,55 @@ export function MarketOverviewPage() {
     };
   }, [overview, pageDebugEnabled]);
 
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.moneyFlow !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setMoneyFlow(null);
+    setMoneyFlowViewState("loading");
+    setMoneyFlowErrorMessage(null);
+    setMoneyFlowDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), MONEY_FLOW_FETCH_TIMEOUT_MS);
+
+    fetchMarketMoneyFlow(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setMoneyFlow(buildMoneyFlowViewModelFromApi(payload));
+          setMoneyFlowViewState("ready");
+          setMoneyFlowErrorMessage(null);
+          setMoneyFlowDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/money-flow`
+            : error instanceof Error
+              ? error.message
+              : "大盘资金流向加载失败";
+          setMoneyFlow(null);
+          setMoneyFlowViewState("error");
+          setMoneyFlowErrorMessage(message);
+          setMoneyFlowDebugInfo(null);
+          showToast(`大盘资金流向模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
   function showToast(message: string) {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
@@ -642,7 +715,11 @@ export function MarketOverviewPage() {
             />
           </div>
           <div className="row-two">
-            <MarketMoneyFlowPanel overview={overview} />
+            <MarketMoneyFlowPanel
+              viewState={moneyFlowViewState}
+              moneyFlow={moneyFlow ?? undefined}
+              errorMessage={moneyFlowErrorMessage ?? undefined}
+            />
             <LeaderboardPanel
               viewState={leaderboardsViewState}
               leaderboards={leaderboards ?? undefined}

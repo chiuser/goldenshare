@@ -18,7 +18,7 @@ export const marketOverviewModuleSources: MarketOverviewModuleSources = {
   breadth: "real",
   style: "real",
   turnover: "real",
-  moneyFlow: "mock",
+  moneyFlow: "real",
   leaderboards: "real",
   limitUp: "real",
   sectors: "mock",
