@@ -6,6 +6,7 @@
 - 适用范围：`lake_console` 本地移动盘 Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
+  - [Local Lake Console 数据模型关系图 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-data-model-map-v1.html)
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
 
 ---
@@ -20,6 +21,7 @@
 2. 页面不能靠路径字符串自行猜测数据集、层级、分区和用途。
 3. 后续讨论读写能力时，需要先有稳定的数据集对象、层级对象、分区对象和文件对象。
 4. `raw_tushare`、`derived`、`research`、`manifest` 在业务语义上不同，必须在模型里明确表达。
+5. 后续 `datasets / datasetDetail / storage / health / activity` 不能各自维护一套独立事实模型。
 
 本文只定义模型，不定义写入按钮、任务执行、调度或远程同步能力。
 
@@ -53,10 +55,86 @@
 5. 读写分离：本模型先支持读和展示；写能力后续基于该模型再设计，不在本轮混入。
 6. 展示目录独立：`category` / `group_key` 等用户可见分组必须参考 Ops 默认展示目录，不得直接使用生产 `DatasetDefinition.domain` 或 Lake catalog 代码文件名。
 7. 列表轻量：数据集列表默认只展示 `file_count`、`total_bytes`、日期范围、最近修改时间；`row_count` 不在列表页默认计算。
+8. 页面只允许在统一核心模型上做**薄投影**，不允许为每个页面发明新的底层事实对象。
 
 ---
 
-## 4. 总体模型
+## 4. 当前审计结论：统一模型是否已经存在
+
+结论先说：
+
+**有统一核心模型，但目前只在“Lake 数据集文件事实”这条线上统一得比较明确。**
+
+当前代码里已经稳定收敛的核心模型是：
+
+```text
+LakeDatasetDefinition
+  └─ LakeLayerDefinition
+
+LakeDatasetSummary
+  └─ LakeLayerSummary[]
+       └─ LakePartitionSummary[]
+
+LakeRiskItem
+LakeStatusResponse
+```
+
+这条模型链当前已经被这些代码共同使用：
+
+1. catalog 定义层
+   - [models.py](/Users/congming/github/goldenshare/lake_console/backend/app/catalog/models.py)
+2. 文件系统扫描层
+   - [filesystem_scanner.py](/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py)
+3. backend schema 层
+   - [lake.py](/Users/congming/github/goldenshare/lake_console/backend/app/schemas/lake.py)
+4. frontend dataset / partition 消费层
+   - [types.ts](/Users/congming/github/goldenshare/lake_console/frontend/src/types.ts)
+
+所以如果只问：
+
+```text
+Datasets / DatasetDetail / Storage / 后续 Health / 后续 Activity
+是不是应该共用一套数据集事实模型？
+```
+
+答案是：
+
+**是，而且当前已经有一个应该继续共用的核心模型：`LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary`。**
+
+### 4.1 当前的例外域
+
+`Recovery` 不属于上面这条数据集事实模型。
+
+因为它的事实源不是 Lake dataset 文件本身，而是 **Kopia snapshot inventory**。
+
+所以 `Recovery` 当前使用的是另一套对象：
+
+1. `LakeRecoveryRepositorySummaryResponse`
+2. `LakeRecoverySnapshotSummary`
+3. `LakeRecoverySnapshotDetailResponse`
+
+这不属于“页面各自发明模型”，而是**不同领域对象**：
+
+1. `Datasets / Storage / Health / Activity`
+   - 管的是 Lake 文件事实
+2. `Recovery`
+   - 管的是 Kopia 快照事实
+
+### 4.2 当前真正的风险点
+
+当前最值得警惕的不是“没有统一模型”，而是：
+
+1. frontend 的 [types.ts](/Users/congming/github/goldenshare/lake_console/frontend/src/types.ts) 还是手写镜像，不是自动生成；
+2. 旧文档里混有一部分目标态字段和 API 想象；
+3. 如果后续页面开发不受约束，确实很容易开始在页面层重新拼新模型。
+
+所以现在最应该守住的规则是：
+
+**新页面只能在核心模型上做投影，不能再造底层事实模型。**
+
+---
+
+## 5. 总体模型
 
 ```text
 LakeDataset
@@ -74,7 +152,18 @@ LakeDataset
 
 ---
 
-## 5. 枚举定义
+说明补充：
+
+1. 当前代码里已经实际落地的是：
+   - `LakeDatasetSummary`
+   - `LakeLayerSummary`
+   - `LakePartitionSummary`
+2. `LakeFileSummary` 仍是后续可扩展方向，不是当前页面通用主对象。
+3. 第一阶段新页面应优先停在 `dataset / layer / partition` 三层，不要过早扩成文件级工作台。
+
+---
+
+## 6. 枚举定义
 
 ### 5.1 `LakeLayer`
 
@@ -148,7 +237,7 @@ LakeDataset
 
 ---
 
-## 6. `LakeDataset`
+## 7. `LakeDataset`
 
 `LakeDataset` 是页面与 API 的核心对象。
 
@@ -309,7 +398,7 @@ stk_mins
 
 ---
 
-## 7. `LakeLayerSummary`
+## 8. `LakeLayerSummary`
 
 `LakeLayerSummary` 描述一个数据集在某个层级内的文件事实。
 
@@ -347,7 +436,7 @@ stk_mins
 
 ---
 
-## 8. `LakePartitionSummary`
+## 9. `LakePartitionSummary`
 
 `LakePartitionSummary` 描述一个具体分区。
 
@@ -413,7 +502,7 @@ stk_mins
 
 ---
 
-## 9. `LakeFileSummary`
+## 10. `LakeFileSummary`
 
 `LakeFileSummary` 描述一个具体 Parquet 文件。
 
@@ -442,7 +531,7 @@ stk_mins
 
 ---
 
-## 10. `LakeRiskItem`
+## 11. `LakeRiskItem`
 
 `LakeRiskItem` 用于表示文件事实风险。
 
@@ -471,7 +560,7 @@ stk_mins
 
 ---
 
-## 11. 当前已知数据集建模
+## 12. 当前已知数据集建模
 
 ### 11.1 `stock_basic`
 
@@ -572,39 +661,93 @@ stk_mins
 
 ---
 
-## 12. API 方向
+## 13. 页面与 API 的统一约束
 
-后续 API 不应继续只返回扁平 `LakeDatasetSummary`。
+后续页面开发时，必须先判断自己属于哪个领域对象，再决定可用模型。
 
-建议方向：
+### 13.1 Lake 文件事实页
 
-```text
-GET /api/lake/datasets
-  -> LakeDataset[]
+以下页面必须共用这条核心模型：
 
-GET /api/lake/datasets/{dataset_key}
-  -> LakeDataset + LakeLayerSummary[] + LakePartitionSummary[]
+1. `datasets`
+2. `datasetDetail`
+3. `storage`
+4. `health`
+5. `activity`
 
-GET /api/lake/datasets/{dataset_key}/partitions
-  -> LakePartitionSummary[]
+允许使用的核心对象：
 
-GET /api/lake/datasets/{dataset_key}/files
-  -> LakeFileSummary[]
-```
+1. `LakeStatusResponse`
+2. `LakeDatasetSummary`
+3. `LakeLayerSummary`
+4. `LakePartitionSummary`
+5. `LakeRiskItem`
 
-说明：
+允许做的只是：
 
-1. 前端不自行拼路径。
-2. 前端不自行判断层级用途。
-3. 后端统一给出 `replace_scope`、`recommended_usage`、`risks`。
-4. 写能力后续必须基于 `write_policy` 和 `replace_scope` 设计，不允许直接在页面上拼命令。
+1. 增加筛选字段
+2. 增加排序字段
+3. 把已有对象组合成页面 view model
+
+不允许：
+
+1. 页面自己重新定义“dataset footprint”底层事实
+2. 页面自己发明第二套 layer 结构
+3. 页面靠路径字符串重新猜 dataset / layer / layout
+
+### 13.2 Recovery 页
+
+`Recovery` 是例外域。
+
+它必须使用：
+
+1. `LakeRecoveryRepositorySummaryResponse`
+2. `LakeRecoverySnapshotSummary`
+3. `LakeRecoverySnapshotDetailResponse`
+
+不能硬套 `LakeDatasetSummary`。
+
+原因：
+
+1. `Recovery` 的事实源是 Kopia snapshot，不是 Lake dataset 扫描结果；
+2. snapshot 可以覆盖 whole_lake，也可以覆盖某个子路径，它不是一个标准 dataset summary。
+
+### 13.3 前端类型规则
+
+frontend 当前的 [types.ts](/Users/congming/github/goldenshare/lake_console/frontend/src/types.ts) 只是 backend schema 的镜像层。
+
+统一要求：
+
+1. `DatasetSummary / LayerSummary / PartitionSummary` 必须继续对齐 backend 的：
+   - `LakeDatasetSummary`
+   - `LakeLayerSummary`
+   - `LakePartitionSummary`
+2. 前端可以做展示 view model，但不能把镜像类型改成独立事实口径。
+
+### 13.4 Storage 页的直接约束
+
+`Storage / Cost` 第一阶段必须直接复用：
+
+1. `LakeStatusResponse`
+2. `LakeDatasetSummary`
+3. `LakeLayerSummary`
+
+它可以在 API 层加：
+
+1. summary 聚合
+2. 排序
+3. 分页
+
+但不允许再定义一套新的“StorageDatasetFact”作为底层主对象。
 
 ---
 
-## 13. 已确认口径
+## 14. 已确认口径
 
 1. `manifest` 层必须展示。它可以作为数据集辅助层展示，也可以在 Lake 层级总览中统计，但不能从页面隐藏。
 2. 数据集列表页默认不计算 `row_count`，只展示 `file_count`、`total_bytes`、日期范围和最近修改时间。
 3. `row_count` 在详情页或显式刷新时计算。
 4. `research` 第一版作为 `stk_mins` 子层展示，不作为独立数据集卡片展示。
 5. 写入页面入口暂缓；第一版先做“命令示例 / 操作提示”页面，不触发写入。
+6. `Storage / Health / Activity` 后续都必须站在 `LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary` 这条统一模型上扩展。
+7. `Recovery` 使用单独的 Kopia snapshot 领域模型，不属于“页面各自乱造模型”。

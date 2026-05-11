@@ -8,6 +8,14 @@ tushare_token = "fill-your-tushare-token-here"
 # Must point to a read-only user with access limited to raw_tushare whitelist tables.
 prod_raw_db_url = ""
 
+# Optional. Recovery page reads Kopia snapshots through the backend.
+# On macOS, kopia_config_path usually points to:
+# ~/Library/Application Support/kopia/repository.config
+# If repository password is not persisted in Keychain, set kopia_password too.
+kopia_config_path = ""
+kopia_password = ""
+kopia_bin = "kopia"
+
 # Optional local server settings.
 host = "127.0.0.1"
 port = 8010

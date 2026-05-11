@@ -120,3 +120,47 @@ export type CommandExampleGroup = {
   group_order: number;
   items: CommandExampleItem[];
 };
+
+export type RecoveryRepositorySummary = {
+  connected: boolean;
+  repository_type: string | null;
+  repository_path: string | null;
+  lake_root: string;
+  snapshot_count: number;
+  pinned_snapshot_count: number;
+  latest_snapshot_at: string | null;
+  latest_baseline_at: string | null;
+  repository_error: string | null;
+};
+
+export type RecoveryCommandHint = {
+  command_key: string;
+  title: string;
+  command: string;
+  scenario: string;
+};
+
+export type RecoverySnapshotSummary = {
+  snapshot_id: string;
+  manifest_id: string | null;
+  description: string | null;
+  scope: string;
+  dataset_key: string | null;
+  source_path: string;
+  display_path: string;
+  is_baseline: boolean;
+  pins: string[];
+  retention_reasons: string[];
+  total_size: number;
+  file_count: number;
+  dir_count: number;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export type RecoverySnapshotDetail = RecoverySnapshotSummary & {
+  repository_path: string | null;
+  host: string | null;
+  user_name: string | null;
+  command_hints: RecoveryCommandHint[];
+};

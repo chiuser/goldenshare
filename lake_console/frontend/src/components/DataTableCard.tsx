@@ -12,6 +12,7 @@ type DataTableCardProps<T> = {
   empty: ReactNode;
   getRowKey: (row: T) => string;
   label: string;
+  onRowClick?: (row: T) => void;
   rowTone?: (row: T) => "default" | "selected" | "warning" | "error";
   rows: T[];
 };
@@ -21,6 +22,7 @@ export function DataTableCard<T>({
   empty,
   getRowKey,
   label,
+  onRowClick,
   rowTone,
   rows,
 }: DataTableCardProps<T>) {
@@ -44,7 +46,11 @@ export function DataTableCard<T>({
           {rows.map((row) => {
             const tone = rowTone?.(row) ?? "default";
             return (
-              <tr className={tone === "default" ? undefined : `row-${tone}`} key={getRowKey(row)}>
+              <tr
+                className={[tone === "default" ? undefined : `row-${tone}`, onRowClick ? "row-clickable" : undefined].filter(Boolean).join(" ")}
+                key={getRowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
                 {columns.map((column) => (
                   <td className={column.className} key={column.key}>
                     {column.render(row)}

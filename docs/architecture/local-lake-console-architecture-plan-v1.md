@@ -1,7 +1,7 @@
 # Local Lake Console 架构方案 v1
 
 - 版本：v1
-- 状态：已部分落地，`stk_mins` 下载窗口与配额平稳停机、专项恢复、derived/research 已落地；通用持久备份与恢复管理待继续收口
+- 状态：已部分落地，`stk_mins` 下载窗口与配额平稳停机、专项恢复、derived/research 已落地；Kopia 集成恢复管理待继续收口
 - 更新时间：2026-05-11
 - 适用范围：本地移动 SSD 上的 Tushare Parquet Lake 管理台
 - 目录目标：`lake_console/`
@@ -172,7 +172,7 @@ M3 stk_mins 单股票单日最小写入闭环
 M4 只读页面展示
 M5 全市场写入与进度
 M6 派生与 research 重排
-M7 持久备份、恢复账本与前端恢复管理
+M7 Kopia 集成恢复管理与前端恢复页
 ```
 
 ### M1：框架隔离
@@ -293,6 +293,10 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 2. 页面可在本地独立访问。
 3. 生产前端不出现 Lake Console 入口。
 
+后续页面能力扩展、信息架构、交互密度与管理台 roadmap 见：
+
+- [Local Lake 管理台升级路线图 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-management-roadmap-v1.md)
+
 ### M5：全市场写入与进度
 
 目标：
@@ -346,26 +350,29 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 4. `research` 展示为研究查询优化层，适合单股长周期回测和少数股票相似性分析。
 5. 分区列表按 layer 分组展示，避免用户把三层数据混用。
 
-### M7：持久备份、恢复账本与前端恢复管理
+### M7：Kopia 集成恢复管理与前端恢复页
 
 目标：
 
-1. 正式 `raw/derived/research/manifest` 写入统一接入持久 backup 机制。
-2. 正式替换写入统一生成 `manifest/write_recovery_log.jsonl`。
-3. 增加 `_recovery/backups/**` 与 `_recovery/restore_runs/**` 目录规范。
-4. 为 Lake 前端增加 Recovery / Write Safety 页面，能查看真实 backup / restore 状态。
-5. `stk_mins` 的专项恢复能力逐步并轨到统一恢复账本与管理页。
+1. 使用 Kopia 作为底层 snapshot / pin / restore 引擎。
+2. 为 Lake 前端增加 Recovery / Write Safety 页面，能查看 repository、snapshot、pin 与 restore 命令。
+3. Recovery 页第一期只做只读可视化与命令辅助，不做一键恢复。
+4. 后续如需人工操作审计，只补轻量 action log，不重建自研 recovery 主账本。
 
 详细方案见：
 
-- [Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md)
+- [Local Lake Kopia 集成恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md)
+- [Local Lake 管理台升级路线图 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-management-roadmap-v1.md)
+- [Local Lake 页面演进边界卡 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-page-evolution-boundary-card-v1.md)
+- [Local Lake Recovery / Write Safety 页面交互设计 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-recovery-write-safety-page-design-v1.md)
+- [Local Lake Recovery 最小 API 设计 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-recovery-api-minimal-design-v1.md)
 
 验收：
 
-1. 正式 replace 写入成功后，旧版本不会被立即删除。
-2. `write_recovery_log.jsonl` 能记录 before/after 行数、backup 路径和恢复状态。
-3. 前端能按 dataset/layer/status 查询恢复记录。
-4. `stk_mins` 的样本恢复可在统一恢复页面中看到。
+1. 前端能看到当前 Kopia repository 状态。
+2. 前端能看到全湖 baseline snapshot 与 pin。
+3. 前端能按 dataset/path/scope 查询 snapshots。
+4. 详情抽屉能生成 restore 命令预览。
 
 ### M6 补充：什么是 research 重排
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActivePage } from "../components/AppShell";
+import { DEFAULT_RECOVERY_FILTERS, type RecoveryFilters } from "./useRecoveryData";
 import type { CommandExampleGroup, DatasetSummary } from "../types";
 
 type UseLakeConsoleSelectionInput = {
@@ -12,6 +13,8 @@ export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeCons
   const [activePage, setActivePage] = useState<ActivePage>("datasets");
   const [selectedCommandGroupKey, setSelectedCommandGroupKey] = useState<string>("");
   const [selectedCommandItemKey, setSelectedCommandItemKey] = useState<string>("");
+  const [recoveryFilters, setRecoveryFilters] = useState<RecoveryFilters>(DEFAULT_RECOVERY_FILTERS);
+  const [selectedRecoveryRecordId, setSelectedRecoveryRecordId] = useState<string>("");
 
   useEffect(() => {
     const preferred = datasets.find((dataset) => dataset.dataset_key === selectedDatasetKey);
@@ -46,14 +49,27 @@ export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeCons
     setSelectedCommandItemKey(group?.items[0]?.item_key ?? "");
   }
 
+  function updateRecoveryFilters(next: Partial<RecoveryFilters>) {
+    setRecoveryFilters((current) => ({ ...current, ...next }));
+  }
+
+  function clearSelectedRecoveryRecord() {
+    setSelectedRecoveryRecordId("");
+  }
+
   return {
     activePage,
+    clearSelectedRecoveryRecord,
     openDatasetDetail,
+    recoveryFilters,
     selectedCommandGroupKey,
     selectedCommandItemKey,
     selectedDatasetKey,
+    selectedRecoveryRecordId,
     selectCommandGroup,
     setActivePage,
     setSelectedCommandItemKey,
+    setSelectedRecoveryRecordId,
+    updateRecoveryFilters,
   };
 }

@@ -147,3 +147,54 @@ class LakePartitionSummary(BaseModel):
 
 class LakePartitionListResponse(BaseModel):
     items: list[LakePartitionSummary]
+
+
+class LakeRecoveryRepositorySummaryResponse(BaseModel):
+    connected: bool
+    repository_type: str | None = None
+    repository_path: str | None = None
+    lake_root: str
+    snapshot_count: int
+    pinned_snapshot_count: int
+    latest_snapshot_at: datetime | None = None
+    latest_baseline_at: datetime | None = None
+    repository_error: str | None = None
+
+
+class LakeRecoveryCommandHint(BaseModel):
+    command_key: str
+    title: str
+    command: str
+    scenario: str
+
+
+class LakeRecoverySnapshotSummary(BaseModel):
+    snapshot_id: str
+    manifest_id: str | None = None
+    description: str | None = None
+    scope: str
+    dataset_key: str | None = None
+    source_path: str
+    display_path: str
+    is_baseline: bool = False
+    pins: list[str] = []
+    retention_reasons: list[str] = []
+    total_size: int
+    file_count: int
+    dir_count: int
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class LakeRecoverySnapshotListResponse(BaseModel):
+    items: list[LakeRecoverySnapshotSummary]
+    total: int
+    limit: int
+    offset: int
+
+
+class LakeRecoverySnapshotDetailResponse(LakeRecoverySnapshotSummary):
+    repository_path: str | None = None
+    host: str | None = None
+    user_name: str | None = None
+    command_hints: list[LakeRecoveryCommandHint] = []

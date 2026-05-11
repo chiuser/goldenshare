@@ -12,6 +12,11 @@ from lake_console.backend.app.schemas.lake import (
     LakePartitionSummary,
     LakePathInfo,
     LakeRiskItem,
+    LakeRecoveryCommandHint,
+    LakeRecoveryRepositorySummaryResponse,
+    LakeRecoverySnapshotDetailResponse,
+    LakeRecoverySnapshotListResponse,
+    LakeRecoverySnapshotSummary,
     LakeStatusResponse,
 )
 
@@ -29,5 +34,10 @@ __all__ = [
     "LakePartitionSummary",
     "LakePathInfo",
     "LakeRiskItem",
+    "LakeRecoveryCommandHint",
+    "LakeRecoveryRepositorySummaryResponse",
+    "LakeRecoverySnapshotDetailResponse",
+    "LakeRecoverySnapshotListResponse",
+    "LakeRecoverySnapshotSummary",
     "LakeStatusResponse",
 ]

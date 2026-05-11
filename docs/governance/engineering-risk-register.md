@@ -35,7 +35,7 @@
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
 | RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
-| RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Open | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
+| RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
 
 ---
 
@@ -333,3 +333,24 @@
 2. 该日期 `freq=1` 已存在完整 `300114.SZ` 1 分钟事实，因此采用 `repair-stk-mins-from-1m --ts-code 300114.SZ` 单股票 merge 模式修补。
 3. 单股票 merge 模式只允许白名单 source gap 日期，且目标分区必须已存在；写入时只替换指定 `ts_code` 行，保留同分区其他股票。
 4. 已补测试证明 `repair-stk-mins-from-1m --ts-code` 不会覆盖同分区其他股票。
+
+补充处理记录（2026-05-11，clean 层收口启动）：
+
+1. 已新增 `bootstrap-stk-mins-by-date-clean --dry-run/--apply`，用于把 `raw_tushare/stk_mins_by_date` 受控初始化到 `research/stk_mins_by_date_clean`。该命令只复制 raw 到 clean，不修改 raw；写入走 `_tmp -> 校验 -> replace`，clean 分区已存在时默认拒绝覆盖。
+2. 已新增 `build-stk-mins-security-identity-map --dry-run/--apply`，用于生成 clean 层使用的 `manifest/security_identity/security_identity_map.parquet`。当前规则覆盖 `stock_basic`、`bse_mapping` 与可唯一推断的 `namechange` 重叠映射。
+3. 已新增 `audit-stk-mins-by-date-clean` 与 `rebuild-stk-mins-by-date-clean-range --dry-run`，用于只读审计当前 clean 层，以及预演 raw -> clean 真正清洗后的保留/过滤统计；本阶段不写清洗结果。
+4. 已用真实 Lake 小窗口验证：
+   - `bootstrap-stk-mins-by-date-clean --dry-run --freqs 1 --start-date 2026-04-24 --end-date 2026-04-24`
+   - `build-stk-mins-security-identity-map --dry-run --sample-limit 5`
+   - `rebuild-stk-mins-by-date-clean-range --dry-run --freqs 1 --start-date 2026-04-24 --end-date 2026-04-24`
+5. 已执行完整 clean bootstrap：
+   - 命令：`bootstrap-stk-mins-by-date-clean --apply --freqs 1,5,15,30,60`
+   - 结果：写入 `research/stk_mins_by_date_clean` 共 `21045` 个分区、`21637` 个文件、`4576237808` 行。
+   - 说明：该动作只是 raw 到 clean 的完整副本初始化，不做清洗，不修改 raw。
+6. 已执行 `build-stk-mins-security-identity-map --apply --sample-limit 5`：
+   - 写入 `manifest/security_identity/security_identity_map.parquet` 共 `6089` 条 source code 映射、`5837` 个 identity。
+   - 当前无 identity 冲突；规则覆盖 `stock_basic`、`bse_mapping` 与可唯一推断的 `namechange` 映射。
+7. 已执行 clean 层只读样本审计与 dry-run rebuild：
+   - `2010-07-30 freq=1`：当前 clean 副本审计结果为 `needs_rebuild`，原因 `invalid_price=241`；dry-run rebuild 预计保留 `455731` 行、过滤 `241` 行。
+   - `2026-04-24 freq=1`：dry-run rebuild 预计保留 `1326946` 行、过滤 `0` 行。
+8. 本 P0 先关闭：raw 事故恢复、单股票写入防覆盖测试、clean 初始副本和 clean 审计门禁已建立。clean 层仍需继续执行全量 audit/dry-run rebuild，并在用户确认后再执行 clean rebuild；该事项转入后续计划内数据清洗工作，不再作为阻塞所有开发的 P0 风险。

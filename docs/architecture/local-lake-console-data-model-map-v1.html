@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Lake Console 数据模型关系图 v1</title>
+<style>
+:root {
+  --neutral-0: #ffffff;
+  --neutral-1: #f7f8fa;
+  --neutral-2: #f0f2f5;
+  --neutral-3: #e5e7eb;
+  --neutral-4: #d1d5db;
+  --neutral-5: #9ca3af;
+  --neutral-6: #6b7280;
+  --neutral-7: #4b5563;
+  --neutral-8: #1f2937;
+  --neutral-9: #0f172a;
+  --brand-0: #eaf1fa;
+  --brand-1: #c8daf0;
+  --brand-4: #3f73b8;
+  --brand-5: #1f5499;
+  --brand-6: #154173;
+  --success: #0f8a5f;
+  --success-bg: #e4f4ec;
+  --warning: #b07b00;
+  --warning-bg: #fbefcc;
+  --error: #b42626;
+  --error-bg: #fbe9e9;
+  --info: #1f5499;
+  --info-bg: #eaf1fa;
+  --surface: var(--neutral-0);
+  --page: var(--neutral-1);
+  --border: var(--neutral-3);
+  --text: var(--neutral-7);
+  --title: var(--neutral-9);
+  --muted: var(--neutral-6);
+  --hint: var(--neutral-5);
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--brand-5); text-decoration: none; }
+a:hover { color: var(--brand-6); }
+code, pre { font-family: var(--mono); }
+
+.shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid var(--border);
+  background: #fbfcfe;
+  padding: 20px 14px;
+  overflow: auto;
+}
+.brand {
+  padding: 0 8px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.brand-title {
+  color: var(--title);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.brand-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+.nav {
+  display: grid;
+  gap: 2px;
+}
+.nav a {
+  color: var(--neutral-7);
+  display: block;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.nav a:hover {
+  background: var(--neutral-2);
+  color: var(--title);
+}
+
+.main {
+  min-width: 0;
+  padding: 28px 32px 56px;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+h1 {
+  margin: 0 0 8px;
+  color: var(--title);
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+.lead {
+  color: var(--muted);
+  margin: 0;
+  max-width: 900px;
+}
+.meta {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 260px;
+  font-size: 12px;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.meta-row span:first-child { color: var(--muted); }
+.meta-row span:last-child {
+  color: var(--title);
+  font-family: var(--mono);
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfe;
+}
+.section-header h2 {
+  margin: 0;
+  color: var(--title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.section-body { padding: 16px; }
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.stat {
+  border: 1px solid var(--border);
+  background: #fbfcfe;
+  border-radius: 8px;
+  padding: 12px;
+}
+.stat-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.stat-value {
+  color: var(--title);
+  font-size: 20px;
+  font-weight: 700;
+}
+.stat-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.pill-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--neutral-2);
+  color: var(--neutral-7);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pill.ok { color: var(--success); background: var(--success-bg); }
+.pill.warn { color: var(--warning); background: var(--warning-bg); }
+.pill.err { color: var(--error); background: var(--error-bg); }
+.pill.info { color: var(--info); background: var(--info-bg); }
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+th, td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  background: var(--neutral-2);
+  color: var(--neutral-6);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+td {
+  color: var(--neutral-7);
+  font-size: 13px;
+}
+tr:last-child td { border-bottom: 0; }
+.field {
+  color: var(--title);
+  font-family: var(--mono);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.type {
+  color: var(--brand-6);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.state {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.state.done { color: var(--success); background: var(--success-bg); }
+.state.partial { color: var(--warning); background: var(--warning-bg); }
+.state.future { color: var(--neutral-6); background: var(--neutral-2); }
+.state.domain { color: var(--info); background: var(--info-bg); }
+
+.diagram {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  padding: 14px;
+  overflow: auto;
+}
+.diagram svg {
+  display: block;
+  min-width: 940px;
+  width: 100%;
+  height: auto;
+}
+.node-title {
+  font-size: 13px;
+  font-weight: 700;
+  fill: #1f2937;
+}
+.node-sub {
+  font-size: 11px;
+  fill: #6b7280;
+}
+.link {
+  stroke: #9ca3af;
+  stroke-width: 1.4;
+  fill: none;
+  marker-end: url(#arrow);
+}
+.node {
+  fill: #ffffff;
+  stroke: #d1d5db;
+  stroke-width: 1;
+  rx: 8;
+}
+.node.blue {
+  fill: #f4f8fd;
+  stroke: #9fbde2;
+}
+.node.green {
+  fill: #f1f8f4;
+  stroke: #9fd4bd;
+}
+.node.yellow {
+  fill: #fff9e8;
+  stroke: #e5c46a;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.object-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+.object-head {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.object-title {
+  color: var(--title);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.object-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  border-top: 1px solid var(--border);
+}
+.kv:first-child { border-top: 0; }
+.kv dt, .kv dd {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.kv dt {
+  color: var(--muted);
+  background: var(--neutral-2);
+}
+.kv dd {
+  color: var(--title);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+pre {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #dbeafe;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.note {
+  border-left: 3px solid var(--brand-4);
+  padding: 10px 12px;
+  background: var(--brand-0);
+  color: var(--neutral-7);
+  border-radius: 6px;
+}
+.callout-warn {
+  border-left-color: var(--warning);
+  background: var(--warning-bg);
+}
+.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: 1fr; }
+  .side {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .main { padding: 22px 18px 44px; }
+  .hero { grid-template-columns: 1fr; }
+  .grid-3, .grid-2, .cards { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-title">Lake Console Data Model</div>
+      <div class="brand-sub">当前真实模型与目标边界</div>
+    </div>
+    <nav class="nav" aria-label="文档导航">
+      <a href="#overview">总览</a>
+      <a href="#domains">领域划分</a>
+      <a href="#pipeline">事实流向</a>
+      <a href="#objects">对象关系</a>
+      <a href="#fields">字段字典</a>
+      <a href="#api">API 架构</a>
+      <a href="#examples">实际对象示例</a>
+      <a href="#gaps">现状与目标态</a>
+      <a href="#rules">后续开发规则</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="hero">
+      <div>
+        <h1>Local Lake Console 数据模型关系图 v1</h1>
+        <p class="lead">这份 HTML 只描述数据模型与 API 边界，不进入新页面开发。目标是把 Lake 管理台的对象、字段、关系和现状差异摆清楚，后续页面只能在这些模型上做投影。</p>
+      </div>
+      <div class="meta" aria-label="文档元信息">
+        <div class="meta-row"><span>状态</span><span>待评审</span></div>
+        <div class="meta-row"><span>更新时间</span><span>2026-05-12</span></div>
+        <div class="meta-row"><span>范围</span><span>lake_console</span></div>
+        <div class="meta-row"><span>依据</span><span>当前代码事实</span></div>
+      </div>
+    </header>
+
+    <section class="section" id="overview">
+      <div class="section-header">
+        <div>
+          <h2>1. 总览判断</h2>
+          <p>先把结论放在最前面，避免后面继续把目标态当成现状。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="stat">
+            <div class="stat-label">核心文件事实模型</div>
+            <div class="stat-value">已存在</div>
+            <div class="stat-hint">Dataset / Layer / Partition / Risk 已经贯通 backend 与 frontend。</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">当前最大出入</div>
+            <div class="stat-value">API 与目标态混写</div>
+            <div class="stat-hint">文档里有 File、ReplaceScope、Detail API 等未落地内容。</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">开发策略</div>
+            <div class="stat-value">先收模型</div>
+            <div class="stat-hint">Storage / Health / Activity 暂停实现，先统一对象与 API 边界。</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:12px;">当前应该被视为统一核心模型的是 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code>。`Recovery` 是 Kopia snapshot 领域，不能硬套 dataset 模型。</p>
+      </div>
+    </section>
+
+    <section class="section" id="domains">
+      <div class="section-header">
+        <div>
+          <h2>2. 领域划分</h2>
+          <p>先分清哪些页面共享模型，哪些属于独立领域。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>领域</th>
+                <th>主事实源</th>
+                <th>核心对象</th>
+                <th>页面范围</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">Lake 文件事实</td>
+                <td>catalog + filesystem scanner</td>
+                <td><code>LakeDatasetSummary</code>, <code>LakeLayerSummary</code>, <code>LakePartitionSummary</code></td>
+                <td>Datasets, DatasetDetail, Storage, Health, Activity</td>
+                <td><span class="state done">当前主模型</span></td>
+              </tr>
+              <tr>
+                <td class="field">Lake 根目录状态</td>
+                <td>LakeRootService</td>
+                <td><code>LakeStatusResponse</code>, <code>DiskUsageInfo</code>, <code>LakePathInfo</code></td>
+                <td>总览, Storage</td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">Kopia 恢复事实</td>
+                <td>Kopia CLI JSON</td>
+                <td><code>LakeRecoverySnapshotSummary</code>, <code>LakeRecoveryRepositorySummaryResponse</code></td>
+                <td>Recovery</td>
+                <td><span class="state domain">独立领域</span></td>
+              </tr>
+              <tr>
+                <td class="field">命令示例</td>
+                <td>catalog command examples</td>
+                <td><code>LakeCommandExampleResponse</code>, <code>LakeCommandExampleGroupResponse</code></td>
+                <td>Commands</td>
+                <td><span class="state done">辅助领域</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="pipeline">
+      <div class="section-header">
+        <div>
+          <h2>3. 文件事实流向</h2>
+          <p>从 catalog 到页面，事实应该沿着一条路径流动。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="diagram">
+          <svg viewBox="0 0 1040 360" role="img" aria-label="Lake 文件事实流向图">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#9ca3af"></path>
+              </marker>
+            </defs>
+
+            <rect class="node blue" x="30" y="42" width="170" height="72" rx="8"></rect>
+            <text class="node-title" x="48" y="72">LakeDatasetDefinition</text>
+            <text class="node-sub" x="48" y="94">catalog 静态契约</text>
+
+            <rect class="node blue" x="30" y="158" width="170" height="72" rx="8"></rect>
+            <text class="node-title" x="48" y="188">LakeLayerDefinition</text>
+            <text class="node-sub" x="48" y="210">层级与布局声明</text>
+
+            <rect class="node" x="270" y="92" width="180" height="88" rx="8"></rect>
+            <text class="node-title" x="290" y="126">FilesystemScanner</text>
+            <text class="node-sub" x="290" y="148">读取真实路径与 parquet 文件</text>
+            <text class="node-sub" x="290" y="166">不读取业务数据库</text>
+
+            <rect class="node green" x="520" y="36" width="180" height="72" rx="8"></rect>
+            <text class="node-title" x="540" y="66">LakeDatasetSummary</text>
+            <text class="node-sub" x="540" y="88">dataset 级展示事实</text>
+
+            <rect class="node green" x="520" y="140" width="180" height="72" rx="8"></rect>
+            <text class="node-title" x="540" y="170">LakeLayerSummary</text>
+            <text class="node-sub" x="540" y="192">layer 级空间与范围</text>
+
+            <rect class="node green" x="520" y="244" width="180" height="72" rx="8"></rect>
+            <text class="node-title" x="540" y="274">LakePartitionSummary</text>
+            <text class="node-sub" x="540" y="296">partition 级文件事实</text>
+
+            <rect class="node yellow" x="780" y="78" width="210" height="88" rx="8"></rect>
+            <text class="node-title" x="800" y="112">Backend API</text>
+            <text class="node-sub" x="800" y="134">/api/datasets</text>
+            <text class="node-sub" x="800" y="152">/api/partitions</text>
+
+            <rect class="node yellow" x="780" y="214" width="210" height="88" rx="8"></rect>
+            <text class="node-title" x="800" y="248">Frontend Types</text>
+            <text class="node-sub" x="800" y="270">DatasetSummary / LayerSummary</text>
+            <text class="node-sub" x="800" y="288">PartitionSummary</text>
+
+            <path class="link" d="M200 78 C230 78, 236 112, 270 122"></path>
+            <path class="link" d="M200 194 C232 194, 238 156, 270 146"></path>
+            <path class="link" d="M450 136 C482 98, 492 78, 520 72"></path>
+            <path class="link" d="M450 136 C484 136, 490 172, 520 176"></path>
+            <path class="link" d="M450 136 C482 202, 492 270, 520 280"></path>
+            <path class="link" d="M700 72 C730 72, 746 112, 780 122"></path>
+            <path class="link" d="M700 176 C732 176, 748 134, 780 132"></path>
+            <path class="link" d="M700 280 C732 280, 748 154, 780 148"></path>
+            <path class="link" d="M885 166 L885 214"></path>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="objects">
+      <div class="section-header">
+        <div>
+          <h2>4. 对象关系</h2>
+          <p>当前真实对象与目标态对象需要分开看。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>对象</th>
+                <th>职责</th>
+                <th>来源文件</th>
+                <th>当前状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">LakeDatasetDefinition</td>
+                <td>静态数据集契约，定义 key、名称、分组、布局、写策略和 layers。</td>
+                <td><code>catalog/models.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakeLayerDefinition</td>
+                <td>静态层级契约，定义 layer、layout、path、用途和推荐使用方式。</td>
+                <td><code>catalog/models.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakeDatasetSummary</td>
+                <td>扫描后的 dataset 级事实，给列表、详情、Storage 使用。</td>
+                <td><code>schemas/lake.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakeLayerSummary</td>
+                <td>扫描后的 layer 级事实，包括 path、layout、文件数、分区数和空间。</td>
+                <td><code>schemas/lake.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakePartitionSummary</td>
+                <td>扫描后的 partition 级事实。当前通过独立 partitions API 获取。</td>
+                <td><code>schemas/lake.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakeFileSummary</td>
+                <td>文件级对象，包含 schema、row_count、文件 hash 等。</td>
+                <td>无</td>
+                <td><span class="state future">目标态</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="fields">
+      <div class="section-header">
+        <div>
+          <h2>5. 字段字典</h2>
+          <p>只列当前页面与 API 会直接依赖的核心字段。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <h3>5.1 LakeDatasetSummary</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="field">dataset_key</td><td class="type">str</td><td>数据集唯一 key，例如 <code>stk_mins</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">display_name</td><td class="type">str</td><td>页面展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">group_key / group_label / group_order</td><td class="type">str / str / int</td><td>管理台展示分组。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">dataset_role</td><td class="type">str</td><td>数据集角色，例如 raw_dataset。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">storage_root</td><td class="type">str | null</td><td>相对 Lake Root 的主要存储根。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layers</td><td class="type">list[str]</td><td>该数据集声明的层级。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layer_summaries</td><td class="type">list[LakeLayerSummary]</td><td>各层扫描结果。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>所有层级合计。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">row_count</td><td class="type">int | null</td><td>通用列表不计算。当前多为 null。</td><td><span class="state partial">预留</span></td></tr>
+              <tr><td class="field">primary_layout / available_layouts</td><td class="type">str | list[str]</td><td>主要布局和可用布局。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">write_policy / update_mode</td><td class="type">str | null</td><td>展示默认写入和更新模式，不代表页面可直接执行。</td><td><span class="state done">已落地</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.2 LakeLayerSummary</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="field">layer</td><td class="type">str</td><td><code>raw_tushare / manifest / derived / research</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layer_name / purpose</td><td class="type">str</td><td>层级展示名与用途说明。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">source_layer</td><td class="type">str | null</td><td>来源层，当前 schema 有字段但未填。</td><td><span class="state partial">空壳字段</span></td></tr>
+              <tr><td class="field">layout</td><td class="type">str</td><td><code>current_file / manifest_file / by_date / by_symbol_month</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">path</td><td class="type">str</td><td>层级路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>该层扫描得到的物理规模。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">freqs / trade_date range / trade_month range</td><td class="type">list / str</td><td>从分区扫描聚合出来的覆盖范围。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">row_count</td><td class="type">int | null</td><td>当前通用 scanner 不计算。</td><td><span class="state partial">预留</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.3 LakePartitionSummary</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="field">dataset_key / layer / layout</td><td class="type">str</td><td>分区归属。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">freq / trade_date / trade_month / bucket</td><td class="type">int | str | null</td><td>当前支持的分区键。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">path</td><td class="type">str</td><td>分区路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">file_count / total_bytes / modified_at</td><td class="type">int / int / datetime</td><td>分区物理事实。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_key</td><td class="type">str</td><td>文档目标态字段，当前未实现。</td><td><span class="state future">目标态</span></td></tr>
+              <tr><td class="field">replace_scope / can_replace_safely</td><td class="type">str / bool</td><td>写入安全字段，当前未实现。</td><td><span class="state future">目标态</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="api">
+      <div class="section-header">
+        <div>
+          <h2>6. API 架构</h2>
+          <p>当前实现和目标态 API 需要分开展示。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div>
+            <h3>当前已实现</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>API</th><th>返回对象</th><th>用途</th></tr></thead>
+                <tbody>
+                  <tr><td class="field">GET /api/lake/status</td><td><code>LakeStatusResponse</code></td><td>Lake 根目录与磁盘状态。</td></tr>
+                  <tr><td class="field">GET /api/datasets</td><td><code>LakeDatasetListResponse</code></td><td>数据集列表，含 layer summaries。</td></tr>
+                  <tr><td class="field">GET /api/partitions</td><td><code>LakePartitionListResponse</code></td><td>独立分区列表，可按 dataset/layer/layout 过滤。</td></tr>
+                  <tr><td class="field">GET /api/recovery/*</td><td><code>LakeRecovery*</code></td><td>Kopia snapshot 管理视图。</td></tr>
+                  <tr><td class="field">GET /api/lake/command-examples</td><td><code>LakeCommandExamplesResponse</code></td><td>命令示例与前置条件。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3>目标态候选</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>API</th><th>状态</th><th>说明</th></tr></thead>
+                <tbody>
+                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}</td><td><span class="state future">未实现</span></td><td>单 dataset 详情，是否需要取代前端拼接需另评审。</td></tr>
+                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}/partitions</td><td><span class="state future">未实现</span></td><td>更规整的 dataset 子资源形式。</td></tr>
+                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}/files</td><td><span class="state future">未实现</span></td><td>依赖 <code>LakeFileSummary</code> 落地。</td></tr>
+                  <tr><td class="field">GET /api/storage/*</td><td><span class="state future">未实现</span></td><td>Storage 页薄投影，必须复用 dataset/layer 核心模型。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <p class="note callout-warn" style="margin-top:12px;">目标态 API 不能继续写得像现状。任何新 API 进入实现前，都必须先说明它是在复用核心模型，还是新增独立领域对象。</p>
+      </div>
+    </section>
+
+    <section class="section" id="examples">
+      <div class="section-header">
+        <div>
+          <h2>7. 实际对象示例</h2>
+          <p>取当前 catalog 中真实存在的对象，展示它们应该怎么被理解。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="cards">
+          <div class="object-card">
+            <div class="object-head">
+              <div class="object-title">stock_basic</div>
+              <div class="object-sub">一个 dataset，两个 layer。manifest 不是独立 dataset。</div>
+            </div>
+            <dl>
+              <div class="kv"><dt>dataset_key</dt><dd>stock_basic</dd></div>
+              <div class="kv"><dt>primary_layout</dt><dd>current_file</dd></div>
+              <div class="kv"><dt>raw layer</dt><dd>raw_tushare/stock_basic/current/part-000.parquet</dd></div>
+              <div class="kv"><dt>manifest layer</dt><dd>manifest/security_universe/tushare_stock_basic.parquet</dd></div>
+              <div class="kv"><dt>关键结论</dt><dd>stock_basic_universe 不是当前独立 dataset。</dd></div>
+            </dl>
+          </div>
+
+          <div class="object-card">
+            <div class="object-head">
+              <div class="object-title">stk_mins</div>
+              <div class="object-sub">一个 dataset，包含 raw / derived / research 三层。</div>
+            </div>
+            <dl>
+              <div class="kv"><dt>dataset_key</dt><dd>stk_mins</dd></div>
+              <div class="kv"><dt>primary_layout</dt><dd>by_date</dd></div>
+              <div class="kv"><dt>raw</dt><dd>raw_tushare/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>derived</dt><dd>derived/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>research</dt><dd>research/stk_mins_by_symbol_month</dd></div>
+            </dl>
+          </div>
+        </div>
+
+        <h3>7.1 LakeDatasetSummary 示例形状</h3>
+        <pre>{
+  "dataset_key": "stk_mins",
+  "display_name": "股票历史分钟行情",
+  "group_key": "equity_market",
+  "primary_layout": "by_date",
+  "layers": ["raw_tushare", "derived", "research"],
+  "partition_count": 0,
+  "file_count": 0,
+  "total_bytes": 0,
+  "row_count": null,
+  "layer_summaries": [
+    {
+      "layer": "raw_tushare",
+      "layout": "by_date",
+      "path": "raw_tushare/stk_mins_by_date",
+      "partition_count": 0,
+      "file_count": 0,
+      "total_bytes": 0
+    }
+  ]
+}</pre>
+
+        <h3>7.2 Kopia Recovery 示例形状</h3>
+        <pre>{
+  "snapshot_id": "k9673865f7c8f70e07dffd7740e8c9e8b",
+  "scope": "whole_lake",
+  "dataset_key": null,
+  "source_path": "/Volumes/datasource/goldenshare-tushare-lake",
+  "is_baseline": true,
+  "pins": ["goldenshare-lake-baseline-2026-05-11"],
+  "total_size": 240750886354,
+  "file_count": 244442,
+  "dir_count": 145646
+}</pre>
+      </div>
+    </section>
+
+    <section class="section" id="gaps">
+      <div class="section-header">
+        <div>
+          <h2>8. 现状与目标态差异</h2>
+          <p>这张表是后续整理模型时最该盯住的清单。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>文档目标态</th>
+                <th>当前现实</th>
+                <th>建议处理</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">LakeFileSummary</td>
+                <td>文件级对象</td>
+                <td>没有 schema、scanner、API、前端消费</td>
+                <td><span class="state future">标为目标态</span></td>
+              </tr>
+              <tr>
+                <td class="field">partition_key</td>
+                <td>分区可读 key</td>
+                <td>当前未返回</td>
+                <td><span class="state partial">后续补字段或降级文档</span></td>
+              </tr>
+              <tr>
+                <td class="field">replace_scope</td>
+                <td>写入安全范围</td>
+                <td>当前未返回</td>
+                <td><span class="state future">写能力设计时再落</span></td>
+              </tr>
+              <tr>
+                <td class="field">dataset detail API</td>
+                <td>独立详情接口</td>
+                <td>当前前端用 dataset list + partitions list 组合</td>
+                <td><span class="state partial">API 架构阶段评审</span></td>
+              </tr>
+              <tr>
+                <td class="field">row_count</td>
+                <td>详情或显式刷新可算</td>
+                <td>字段存在，通用链路未填</td>
+                <td><span class="state partial">保持预留，禁止页面假算</span></td>
+              </tr>
+              <tr>
+                <td class="field">stock_basic_universe</td>
+                <td>写成独立 dataset 示例</td>
+                <td>现实是 stock_basic 的 manifest layer</td>
+                <td><span class="state err">文档需修正</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="rules">
+      <div class="section-header">
+        <div>
+          <h2>9. 后续开发规则</h2>
+          <p>在模型梳理完成前，新页面开发应暂停。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="note">
+            <strong>必须遵守</strong>
+            <p>Storage / Health / Activity 只能在 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code> 上做页面投影。需要新字段时，先改模型与 API 设计，再开发页面。</p>
+          </div>
+          <div class="note callout-warn">
+            <strong>必须避免</strong>
+            <p>不要让每个页面自己解析 path、自己发明 layer 结构、自己计算事实字段。前端只做展示 view model，不做事实推断。</p>
+          </div>
+        </div>
+
+        <h3>9.1 推荐推进顺序</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>顺序</th><th>工作</th><th>产物</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>收正当前模型文档</td><td>现状字段和目标态字段分开</td></tr>
+              <tr><td>2</td><td>评审 API 架构</td><td>统一 dataset/detail/partition API 边界</td></tr>
+              <tr><td>3</td><td>补必要 schema</td><td>只补被业务需要证明过的字段</td></tr>
+              <tr><td>4</td><td>恢复页面开发</td><td>Storage 先做，Health / Activity 后置</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

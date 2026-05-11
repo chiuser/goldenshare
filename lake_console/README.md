@@ -41,12 +41,21 @@ prod_raw_db_url = "postgresql://readonly-user:...@host:5432/goldenshare"
 prod_core_db_url = "postgresql://readonly-user:...@host:5432/goldenshare"
 ```
 
+Recovery 页面通过 backend 调用 `kopia` CLI 读取 snapshot inventory。若要让页面非交互显示 Kopia 数据，需要补齐 Kopia 配置路径；若 repository 密码没有持久保存在 Keychain，还需要补 `kopia_password`：
+
+```toml
+kopia_config_path = "/Users/your-name/Library/Application Support/kopia/repository.config"
+kopia_password = "..."
+```
+
 Environment variables are still supported and override `config.local.toml`:
 
 ```bash
 export GOLDENSHARE_LAKE_ROOT=/Volumes/TushareData/goldenshare-tushare-lake
 export TUSHARE_TOKEN=...
 export GOLDENSHARE_PROD_RAW_DB_URL=postgresql://readonly-user:...@host:5432/goldenshare
+export KOPIA_CONFIG_PATH="$HOME/Library/Application Support/kopia/repository.config"
+export KOPIA_PASSWORD=...
 ```
 
 The local Tushare client is rate-limited globally. The default is 500 requests per minute:

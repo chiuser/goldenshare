@@ -2,6 +2,7 @@
 @import "./styles/dataset.css";
 @import "./styles/command.css";
 @import "./styles/risk.css";
+@import "./styles/recovery.css";
 
 /* App shell */
 .app {
@@ -516,6 +517,10 @@ code {
 
 .data-table-card tbody tr:hover {
   background: var(--neutral-1);
+}
+
+.data-table-card tr.row-clickable {
+  cursor: pointer;
 }
 
 .data-table-card tr.row-selected {
