@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { marketOverviewModuleSources } from "../../features/market-overview/api/moduleSources";
 import { fetchMarketOverviewMock } from "../../features/market-overview/api/marketOverviewMockAdapter";
-import type { MarketOverview } from "../../features/market-overview/api/marketOverviewTypes";
+import type { MarketOverview, QuoteItem } from "../../features/market-overview/api/marketOverviewTypes";
 import { MarketBreadthPanel } from "../../features/market-overview/breadth/MarketBreadthPanel";
 import {
   buildBreadthViewModelFromApi,
@@ -65,6 +65,36 @@ const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 
+function isFiniteNumber(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function buildHeaderTickers(
+  overview: MarketOverview | null,
+  majorIndices: MarketMajorIndicesViewModel | null,
+): QuoteItem[] {
+  const fallback = overview?.tickers ?? [];
+  if (!majorIndices?.indices.length) return fallback;
+
+  const mapped = majorIndices.indices.flatMap<QuoteItem>((row) => {
+    if (!isFiniteNumber(row.point) || !isFiniteNumber(row.change) || !isFiniteNumber(row.pct)) {
+      return [];
+    }
+    return [
+      {
+        code: row.code,
+        name: row.name,
+        point: row.point,
+        change: row.change,
+        pct: row.pct,
+        direction: row.direction,
+      },
+    ];
+  });
+
+  return mapped.length > 0 ? mapped : fallback;
+}
+
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [summary, setSummary] = useState<MarketSummaryViewModel | null>(null);
@@ -111,6 +141,7 @@ export function MarketOverviewPage() {
   const [limitUpDebugInfo, setLimitUpDebugInfo] = useState<LimitUpDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
   const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
     if (typeof window === "undefined") return false;
@@ -566,7 +597,7 @@ export function MarketOverviewPage() {
 
   return (
     <div className="market-terminal">
-      <TopMarketBar dataDelayText={overview.dataDelayText} onAction={showToast} statusText={overview.statusText} tickers={overview.tickers} />
+      <TopMarketBar dataDelayText={overview.dataDelayText} onAction={showToast} statusText={overview.statusText} tickers={headerTickers} />
       <main className="page-shell">
         <Breadcrumb onAction={showToast} />
         <PageHeader refreshing={refreshing} tradeDate={overview.tradeDate} updateTime={overview.updateTime} onRefresh={refresh} />

@@ -514,6 +514,49 @@ describe("MarketOverviewPage", () => {
     });
   });
 
+  it("uses major-indices real data in header ticker strip when available", async () => {
+    render(<MarketOverviewPage />);
+
+    const topBar = await screen.findByLabelText("TopMarketBar");
+    await waitFor(() => {
+      expect(within(topBar).getAllByText("中证A500").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("falls back to overview ticker strip when major-indices request fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation((input) => {
+      const url = toUrlString(input);
+      if (url.includes("/api/v1/wealth/market/summary")) {
+        return Promise.resolve(responseJson(summaryFiveCards));
+      }
+      if (url.includes("/api/v1/wealth/market/breadth")) {
+        return Promise.resolve(responseJson(breadthPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/style")) {
+        return Promise.resolve(responseJson(stylePayload));
+      }
+      if (url.includes("/api/v1/wealth/market/turnover")) {
+        return Promise.resolve(responseJson(turnoverPayload));
+      }
+      if (url.includes("/api/v1/wealth/market/major-indices")) {
+        return Promise.reject(new Error("major indices failed"));
+      }
+      const leaderboardsResponse = maybeLeaderboardsResponse(url);
+      if (leaderboardsResponse) return leaderboardsResponse;
+      return Promise.reject(new Error(`unexpected url: ${url}`));
+    });
+
+    render(<MarketOverviewPage />);
+
+    const topBar = await screen.findByLabelText("TopMarketBar");
+    await waitFor(() => {
+      expect(within(topBar).getAllByText("中证1000").length).toBeGreaterThan(0);
+    });
+    expect(within(topBar).queryByText("中证A500")).not.toBeInTheDocument();
+  });
+
   it("shows error state when major indices request exceeds 5 seconds", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.spyOn(globalThis, "fetch");
