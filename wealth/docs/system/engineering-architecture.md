@@ -104,7 +104,7 @@ src/shared/ui/
 - loaded
 - data delayed
 
-首期 mock 也要覆盖这些状态，不能只做 happy path。
+mock adapter 与真实 API 模块都要覆盖这些状态，不能只做 happy path。
 
 ## 数据流
 

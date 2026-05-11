@@ -2663,7 +2663,7 @@ interface SectorHeatMapItem {
 | 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` / `market-overview-v1.html` 基线 | 作为页面设计基线，Review v3 不主动重构非点名区域。 |
 | 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.2.6` | 采用 Review v3 相关的三段式涨停结构、单型资金净流向饼图、资金模块左右布局 Token 约束。 |
 | 5 | `财势乾坤/设计/04-component-guidelines.md` | `P0 组件库与交互组件方案 v0.5 merged-full` | 本文件的修订基线，完整保留此前内容，只追加 Review v3 局部修订。 |
-| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 市场总览开发落地基线 | 作为组件 Props 与 API 字段映射依据。 |
+| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 历史 API 草案 | 历史参考，不作为当前 API、字段契约或组件 Props 映射依据。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v3.pdf` | `市场总览页review-v3` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v3-总控解读与变更单.md` | `市场总览 HTML Review v3｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 
@@ -3256,7 +3256,7 @@ sandbox:/mnt/data/review-v3-output-final/04-component-guidelines.md
 | 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` | 作为页面设计基线，Review v4 不主动重构非点名区域。 |
 | 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.2.6` | 必读新版 Token，采用 Review v4 的行式领涨股涨停表现、饼图 callout 折线、饼块白色占比文字等约束。 |
 | 5 | `财势乾坤/设计/04-component-guidelines.md` | `P0 组件库与交互组件方案 v0.6 merged-full` | 本文件的修订基线，完整保留此前内容，只追加 Review v4 局部修订。 |
-| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 市场总览开发落地基线 | 作为组件 Props 与 API 字段映射依据；本轮原则上不改数据 model。 |
+| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 历史 API 草案 | 历史参考，不作为当前 API、字段契约或组件 Props 映射依据；本轮原则上不改数据 model。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v4.pdf` | `市场总览页review-v4` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v4-总控解读与变更单.md` | `市场总览 HTML Review v4｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 

@@ -10,8 +10,8 @@
 > 所属系统：乾坤行情  
 > 页面优先级：P0  
 > 实现基线：`财势乾坤/showcase/market-overview-v1.1.html`  
-> API 基线：`财势乾坤/数据字典与API文档/market-overview-api-v0.4.md`  
-> 数据字典基线：`财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4.md`  
+> 历史 API 基线（已废弃）：`财势乾坤/数据字典与API文档/market-overview-api-v0.4.md`
+> 历史数据字典基线（已废弃）：`财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4.md`
 > 组件规范基线：`财势乾坤/设计/04-component-guidelines.md`  
 > Design Token 基线：`财势乾坤/设计/03-design-tokens.md`
 

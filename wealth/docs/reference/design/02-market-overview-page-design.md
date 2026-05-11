@@ -25,7 +25,7 @@
 | `04-component-guidelines.md` | 已检索到，状态 `Draft v0.3` | 组件拆分和状态模型按当前 v0.3 执行；若后续组件命名变化，需要同步更新 Showcase 注释与 Codex 提示词。 |
 | `market-overview-api-v0.3.md` | 已检索到，状态 `Audit 修订稿` | Mock ViewModel 按 `GET /api/market/home-overview` 聚合接口组织；榜单部分存在 API/PRD 口径待确认，已在“待产品总控确认问题”标注。 |
 
-> 说明：虽然 03、04、API v0.3 均已可作为当前落地依据，但 04 仍为 Draft、API 为 Audit 修订稿，因此本页面设计文档标记为 `v0.1`，HTML Showcase 标记为 `v1`，后续可随上游最终版做字段级校正。
+> 历史说明：下表反映本文编写时的上游状态；其中 API v0.3、`GET /api/market/home-overview` 与 mock ViewModel 口径已废弃，不再作为当前落地依据。
 
 ---
 

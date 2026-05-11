@@ -104,7 +104,7 @@ interface WealthApiResponse<T> {
 }
 ```
 
-首期 mock adapter 也按该结构模拟。
+未接真实 API 的模块 mock adapter 也必须按该结构模拟；已接真实 API 的模块不得继续使用整页 mock 或旧 reference response 替代。
 
 ## 聚合数据结构（对象化，不拍扁）
 
