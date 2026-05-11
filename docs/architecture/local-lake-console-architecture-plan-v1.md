@@ -1,8 +1,8 @@
 # Local Lake Console 架构方案 v1
 
 - 版本：v1
-- 状态：已部分落地，`stk_mins` 下载窗口与配额平稳停机已落地，README/配置说明与实跑验证待继续收口
-- 更新时间：2026-05-03
+- 状态：已部分落地，`stk_mins` 下载窗口与配额平稳停机、专项恢复、derived/research 已落地；通用持久备份与恢复管理待继续收口
+- 更新时间：2026-05-11
 - 适用范围：本地移动 SSD 上的 Tushare Parquet Lake 管理台
 - 目录目标：`lake_console/`
 
@@ -172,6 +172,7 @@ M3 stk_mins 单股票单日最小写入闭环
 M4 只读页面展示
 M5 全市场写入与进度
 M6 派生与 research 重排
+M7 持久备份、恢复账本与前端恢复管理
 ```
 
 ### M1：框架隔离
@@ -344,6 +345,27 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 3. `derived` 展示为本地派生周期层，适合 90/120 分钟线等本地计算结果。
 4. `research` 展示为研究查询优化层，适合单股长周期回测和少数股票相似性分析。
 5. 分区列表按 layer 分组展示，避免用户把三层数据混用。
+
+### M7：持久备份、恢复账本与前端恢复管理
+
+目标：
+
+1. 正式 `raw/derived/research/manifest` 写入统一接入持久 backup 机制。
+2. 正式替换写入统一生成 `manifest/write_recovery_log.jsonl`。
+3. 增加 `_recovery/backups/**` 与 `_recovery/restore_runs/**` 目录规范。
+4. 为 Lake 前端增加 Recovery / Write Safety 页面，能查看真实 backup / restore 状态。
+5. `stk_mins` 的专项恢复能力逐步并轨到统一恢复账本与管理页。
+
+详细方案见：
+
+- [Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md)
+
+验收：
+
+1. 正式 replace 写入成功后，旧版本不会被立即删除。
+2. `write_recovery_log.jsonl` 能记录 before/after 行数、backup 路径和恢复状态。
+3. 前端能按 dataset/layer/status 查询恢复记录。
+4. `stk_mins` 的样本恢复可在统一恢复页面中看到。
 
 ### M6 补充：什么是 research 重排
 
@@ -1215,6 +1237,7 @@ research 重排会耗时，因为它需要读取一个月的 by_date Parquet，�
 再做 stk_mins 单股票单日最小写入闭环
 再做页面展示
 最后扩展全市场同步、90/120 派生、research 重排
+并补上正式写入的持久备份、恢复账本与前端恢复管理
 ```
 
 这条路线同时满足：

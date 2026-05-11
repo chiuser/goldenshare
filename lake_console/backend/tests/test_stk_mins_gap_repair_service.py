@@ -159,6 +159,66 @@ def test_repair_from_1m_rejects_existing_target_partition(tmp_path) -> None:
         )
 
 
+def test_repair_from_1m_merges_single_symbol_into_existing_partition(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+
+    trade_date = date(2010, 9, 2)
+    _write_source_rows(
+        tmp_path,
+        trade_date=trade_date,
+        rows=[
+            _minute_row("300114.SZ", "2010-09-02 09:30:00", 10.0, 10.0, 10.0, 10.0, 10.0, 100.0, "SZSE", 10.0),
+            _minute_row("300114.SZ", "2010-09-02 09:31:00", 10.1, 10.2, 10.3, 10.0, 10.0, 102.0, "SZSE", 10.2),
+            _minute_row("300114.SZ", "2010-09-02 09:32:00", 10.2, 10.3, 10.4, 10.1, 10.0, 103.0, "SZSE", 10.3),
+            _minute_row("300114.SZ", "2010-09-02 09:33:00", 10.3, 10.4, 10.5, 10.2, 10.0, 104.0, "SZSE", 10.4),
+            _minute_row("300114.SZ", "2010-09-02 09:34:00", 10.4, 10.5, 10.6, 10.3, 10.0, 105.0, "SZSE", 10.5),
+            _minute_row("300114.SZ", "2010-09-02 09:35:00", 10.5, 10.6, 10.7, 10.4, 10.0, 106.0, "SZSE", 10.6),
+        ],
+    )
+    target_partition = tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=5" / "trade_date=2010-09-02"
+    write_rows_to_parquet(
+        [
+            {
+                "ts_code": "000001.SZ",
+                "freq": 5,
+                "trade_time": datetime(2010, 9, 2, 9, 30),
+                "open": 8.0,
+                "close": 8.0,
+                "high": 8.0,
+                "low": 8.0,
+                "vol": 1.0,
+                "amount": 8.0,
+                "exchange": "SZSE",
+                "vwap": 8.0,
+            }
+        ],
+        target_partition / "part-00000.parquet",
+    )
+
+    summary = StkMinsGapRepairService(lake_root=tmp_path, progress=lambda _: None).repair_day(
+        trade_date=trade_date,
+        freq=5,
+        ts_code="300114.SZ",
+    )
+    repaired_rows = sorted(
+        _read_partition_rows(tmp_path, freq=5, trade_date=trade_date),
+        key=lambda item: (item["ts_code"], item["trade_time"]),
+    )
+
+    assert summary["scope"] == "single_symbol_merge"
+    assert summary["ts_code"] == "300114.SZ"
+    assert summary["existing_target_rows"] == 1
+    assert summary["existing_target_symbol_rows"] == 0
+    assert summary["repaired_symbol_rows"] == 2
+    assert summary["written_rows"] == 3
+    assert [row["ts_code"] for row in repaired_rows] == ["000001.SZ", "300114.SZ", "300114.SZ"]
+    assert [row["trade_time"] for row in repaired_rows if row["ts_code"] == "300114.SZ"] == [
+        datetime(2010, 9, 2, 9, 30),
+        datetime(2010, 9, 2, 9, 35),
+    ]
+
+
 def _minute_row(
     ts_code: str,
     trade_time: str,

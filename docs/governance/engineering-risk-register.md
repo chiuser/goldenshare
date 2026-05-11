@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-08
+更新时间：2026-05-11
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -35,6 +35,7 @@
 | RISK-2026-04-26-004 | P1 | 旧同步状态模型若未在 Date Model Freshness 收口中彻底退场，会继续制造状态口径分裂和旧语义回流 | Ops freshness/status 页面、数据集卡片状态、状态重建命令、旧同步状态对账服务 | Closed | [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md) |
 | RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
+| RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Open | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
 
 ---
 
@@ -258,3 +259,77 @@
 1. `pytest -q tests/architecture/test_subsystem_dependency_matrix.py`
 2. `pytest -q tests/web/test_health_api.py tests/web/test_ops_pages.py tests/web/test_platform_check_page.py`
 3. Wealth 侧契约与 mock smoke（如有）：`cd wealth && npm run typecheck && npm run test && npm run build`
+
+---
+
+## 10. RISK-2026-05-11-007 处理要求
+
+风险说明：
+
+1. 旧 `lake-console sync-stk-mins-range --ts-code ... --freq ...` 单股票区间补数路径曾复用整分区替换写入。
+2. 该路径会把目标 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*` 分区替换成单股票数据，而不是合并进原有全市场分区。
+3. 已只读确认本地 Lake 中 `freq=1` 有大量交易日分区只剩 `300114.SZ`，`freq=5` 有局部同类损坏；`research/stk_mins_by_symbol_month` 仍保留可用于恢复的全市场数据。
+4. 在完成审计与恢复前，继续运行分钟线同步、派生、research 重排或指标计算，可能扩大损坏范围或覆盖可恢复证据。
+
+立即止血：
+
+1. 暂停所有 `stk_mins` 写入、派生、research 重排和指标计算命令。
+2. 只允许开发和执行只读审计命令、dry-run 恢复预演命令，以及经明确评审后的恢复命令。
+3. 禁止清理 `_tmp`、`_recovery`、raw 损坏分区和 research 层，直到恢复方案完成并通过校验。
+4. 单股票补数路径不得再使用整分区替换；任何修复必须证明不会删除同分区其他股票。
+
+正式修复：
+
+1. 新增 `audit-stk-mins-raw-integrity` 只读命令，按 `freq/trade_date` 统计 raw 行数、缺失分区、严重低行数分区和 research 可恢复行数。
+2. 新增 `recover-stk-mins-raw-from-research --dry-run` 命令，只生成恢复计划，不写 `_tmp` 或正式分区。
+3. dry-run 必须明确：哪些分区可从 research 恢复、哪些分区缺少 research 源、会合并多少 patch `ts_code` 行、预计恢复后的行数。
+4. `recover-stk-mins-raw-from-research --apply` 已作为 `stk_mins` 单点恢复能力落地，但后续不得继续复制新的 ad-hoc apply 路径；恢复 apply 必须逐步并轨到通用持久 backup、统一恢复账本和前端 Recovery 管理体系。
+5. 恢复后必须补充 raw/research 双向校验，确认受损日期不再只有单股票行。
+6. 所有正式 Lake replace 写入必须统一接入持久 backup 机制，成功后不得立即删除旧版本。
+7. 必须新增 `manifest/write_recovery_log.jsonl` 作为恢复主索引，并允许从 `_recovery/**/metadata.json` 重建。
+8. Lake 管理台前端必须新增 Recovery / Write Safety 页面，能查询恢复记录、backup 路径、before/after 行数和 restore dry-run 结果。
+9. `stk_mins` 的专项恢复能力后续必须并轨到通用恢复账本与前端管理体系，不再长期维持独立恢复孤岛。
+
+关闭门禁：
+
+1. `audit-stk-mins-raw-integrity` 能稳定列出 `freq=1`、`freq=5` 的损坏分区和损失估算。
+2. `recover-stk-mins-raw-from-research --dry-run` 能对样本日期生成可恢复计划，且不写入任何 Parquet、`_tmp` 或 manifest。
+3. 单股票补数路径已有测试证明不会覆盖同分区其他股票。
+4. 恢复 apply 命令完成并通过样本日期、整月和全量损坏区间校验。
+5. 风险关闭时必须记录恢复命令、恢复分区数量、恢复前后行数对比和剩余风险。
+
+阶段性处理记录（2026-05-11）：
+
+1. 已新增只读审计命令 `audit-stk-mins-raw-integrity`，并完成本地 Lake 全量事故窗口复审：
+   - 范围：`2009-01-01 ~ 2026-05-08`
+   - 频度：`1,5,15,30,60`
+   - 结果：`severely_low_partitions=0`，`recoverable_issue_partitions=0`
+2. 已新增 `recover-stk-mins-raw-from-research --dry-run/--apply`，恢复逻辑为：
+   - 以 `research/stk_mins_by_symbol_month` 的当日全市场数据为主体；
+   - 合并当前 raw 中 `patch_ts_code=300114.SZ` 的补数行；
+   - 按 `(ts_code, freq, trade_time)` 去重；
+   - 写入前备份旧 raw 分区与 patch 行到 `_recovery/<run_id>/...`。
+3. 已完成实际恢复：
+   - `freq=5`：恢复 `2010-08-27 ~ 2011-08-05` 中 227 个严重低行数分区。
+   - `freq=1`：恢复 `2010-08-27 ~ 2025-02-14` 中 3508 个严重低行数分区。
+   - 合计恢复严重低行数分区：3735 个。
+4. 已逐段复审通过：
+   - `freq=5` 事故窗口复审：`severe=0`、`missing=0`。
+   - `freq=1` 已按年度复审，2010、2011、2012、2013、2014、2016、2017、2018、2019、2020、2021、2022、2023、2024 以及 `2025-01-01 ~ 2025-02-14` 均为 `severe=0`、`missing=0`。
+   - `freq=1` 的 2015 年仍存在 `underfilled=136`，但已确认不属于本次单股票覆盖整分区事故恢复对象。
+5. 全量复审剩余风险：
+   - `2026-05-08` 在 `freq=1,5,15,30,60` 均为 missing，且 research 也无当日数据，不能通过本恢复命令修复；应作为后续普通补数任务处理。
+   - 若干历史 `underfilled` 分区仍存在，属于数据完整性审计议题，不得用本次事故恢复工具硬修。
+   - 通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面尚未完成，因此本 P0 仍保持 Open，直到恢复治理能力完成或经评审拆分为后续风险项。
+6. 已通过本地代码门禁：
+   - `lake_console/.venv/bin/python -m py_compile lake_console/backend/app/services/stk_mins_raw_recovery_service.py lake_console/backend/app/cli/commands/stk_mins.py lake_console/backend/app/services/tushare_stk_mins_sync_service.py`
+   - `lake_console/.venv/bin/python -m pytest -q lake_console/backend/tests/test_stk_mins_raw_recovery_service.py lake_console/backend/tests/test_tushare_stk_mins_sync_service.py`
+   - `python3 scripts/check_docs_integrity.py`
+   - `git diff --check`
+
+补充处理记录（2026-05-11）：
+
+1. 已确认 `300114.SZ` 历史分钟线补数后仅剩 `freq=5 trade_date=2010-09-02` 无源端返回数据。
+2. 该日期 `freq=1` 已存在完整 `300114.SZ` 1 分钟事实，因此采用 `repair-stk-mins-from-1m --ts-code 300114.SZ` 单股票 merge 模式修补。
+3. 单股票 merge 模式只允许白名单 source gap 日期，且目标分区必须已存在；写入时只替换指定 `ts_code` 行，保留同分区其他股票。
+4. 已补测试证明 `repair-stk-mins-from-1m --ts-code` 不会覆盖同分区其他股票。

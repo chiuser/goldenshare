@@ -336,6 +336,7 @@ display_name = "Lake 维护命令"
 |---|---|---|
 | 预览全市场区间分钟线 | 不请求 Tushare，只预估股票数、freq、交易日窗口和请求量 | `lake-console plan-sync stk_mins --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30` |
 | 同步单股票单日分钟线 | 适合小范围验证或补单只股票 | `lake-console sync-stk-mins --ts-code 600000.SH --freq 30 --trade-date 2026-04-24` |
+| 同步单股票区间分钟线 | 适合补旧代码或小范围历史缺口；按 freq 定窗口请求，并按 ts_code 合并写入分区 | `lake-console sync-stk-mins-range --ts-code 300114.SZ --freqs 1,5,15,30,60 --start-date 2010-08-27 --end-date 2025-02-16` |
 | 同步全市场区间分钟线 | 按本地交易日历展开交易日，写入 `stk_mins_by_date` | `lake-console sync-stk-mins-range --all-market --freqs 1,5,15,30,60 --start-date 2026-04-01 --end-date 2026-04-30` |
 | 派生 90/120 分钟线 | 从 30/60 分钟线生成本地派生层 | `lake-console derive-stk-mins --trade-date 2026-04-24 --targets 90,120` |
 | 重建 research 月分区 | 把 by_date 数据重排为 by_symbol_month，适合单股长周期回测 | `lake-console rebuild-stk-mins-research --freq 30 --trade-month 2026-04` |

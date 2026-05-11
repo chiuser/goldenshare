@@ -136,6 +136,21 @@ request, then writes the returned rows into `freq=*/trade_date=*` Parquet
 partitions. The terminal progress bar shows the current window, symbol, freq,
 page and offset without printing one line per request.
 
+Run single-symbol minute range sync, for example when backfilling an old code
+after a security code switch:
+
+```bash
+lake-console sync-stk-mins-range \
+  --ts-code 300114.SZ \
+  --freqs 1,5,15,30,60 \
+  --start-date 2010-08-27 \
+  --end-date 2025-02-16
+```
+
+Single-symbol range sync also uses freq-based date windows. It merges rows by
+`ts_code` inside each `freq/trade_date` partition, so it does not remove other
+symbols already present in the same partition.
+
 Preview and export `daily` from the production raw table instead of Tushare:
 
 ```bash

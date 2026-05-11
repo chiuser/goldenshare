@@ -44,7 +44,7 @@ class StkMinsGapRepairService:
         self.lake_root = lake_root
         self.progress = progress or print
 
-    def repair_day(self, *, trade_date: date, freq: int) -> dict[str, Any]:
+    def repair_day(self, *, trade_date: date, freq: int, ts_code: str | None = None) -> dict[str, Any]:
         if freq not in SUPPORTED_STK_MINS_GAP_REPAIR_FREQS:
             allowed = ", ".join(str(item) for item in sorted(SUPPORTED_STK_MINS_GAP_REPAIR_FREQS))
             raise ValueError(f"repair-stk-mins-from-1m 仅支持 freq={allowed}。")
@@ -60,8 +60,11 @@ class StkMinsGapRepairService:
         started = time_module.monotonic()
         run_id = _run_id("repair-stk-mins-from-1m")
         LakeRootService(self.lake_root).require_ready_for_write()
+        normalized_ts_code = _normalize_ts_code(ts_code)
+        scope = "single_symbol_merge" if normalized_ts_code else "full_partition"
         self.progress(
-            f"[repair_stk_mins_from_1m] start run_id={run_id} trade_date={trade_date.isoformat()} target_freq={freq}"
+            f"[repair_stk_mins_from_1m] start run_id={run_id} trade_date={trade_date.isoformat()} "
+            f"target_freq={freq} scope={scope} ts_code={normalized_ts_code or '-'}"
         )
 
         source_partition = self._partition(freq=1, trade_date=trade_date)
@@ -70,21 +73,52 @@ class StkMinsGapRepairService:
             raise RuntimeError(f"缺少 1 分钟源分区：{source_partition}")
 
         final_partition = self._partition(freq=freq, trade_date=trade_date)
-        if final_partition.exists():
+        if normalized_ts_code and not final_partition.exists():
+            raise RuntimeError(
+                f"目标分区不存在，单股票 repair 不允许创建单股票正式分区：{final_partition}"
+            )
+        if not normalized_ts_code and final_partition.exists():
             raise RuntimeError(
                 f"目标分区已存在，repair 不允许覆盖正式分区：{final_partition}"
             )
 
         source_rows = read_parquet_files(source_files)
-        repaired_rows = derive_gap_rows(source_rows, target_freq=freq, trade_date=trade_date)
+        source_symbol_rows = [
+            row for row in source_rows if not normalized_ts_code or str(row.get("ts_code") or "").strip() == normalized_ts_code
+        ]
+        repaired_rows = derive_gap_rows(source_symbol_rows, target_freq=freq, trade_date=trade_date)
         if not repaired_rows:
             raise RuntimeError(
                 f"1 分钟源分区存在，但无法生成 freq={freq} 修补结果：trade_date={trade_date.isoformat()}"
             )
+        if normalized_ts_code:
+            repaired_rows = [
+                row for row in repaired_rows if str(row.get("ts_code") or "").strip() == normalized_ts_code
+            ]
+            if not repaired_rows:
+                raise RuntimeError(
+                    f"1 分钟源分区存在，但未生成 ts_code={normalized_ts_code} 的 freq={freq} 修补结果："
+                    f"trade_date={trade_date.isoformat()}"
+                )
 
         tmp_partition = self._tmp_partition(run_id=run_id, freq=freq, trade_date=trade_date)
+        existing_target_rows = 0
+        existing_target_symbol_rows = 0
+        written_rows = repaired_rows
+        if normalized_ts_code:
+            target_files = sorted(final_partition.glob("*.parquet"))
+            existing_rows = read_parquet_files(target_files)
+            existing_target_rows = len(existing_rows)
+            existing_target_symbol_rows = sum(
+                1 for row in existing_rows if str(row.get("ts_code") or "").strip() == normalized_ts_code
+            )
+            retained_rows = [
+                row for row in existing_rows if str(row.get("ts_code") or "").strip() != normalized_ts_code
+            ]
+            written_rows = _deduplicate_rows(retained_rows + repaired_rows)
+
         tmp_file = tmp_partition / "part-00000.parquet"
-        written = write_rows_to_parquet(repaired_rows, tmp_file)
+        written = write_rows_to_parquet(written_rows, tmp_file)
         validated = read_parquet_row_count(tmp_file)
         if validated != written:
             raise RuntimeError(f"repair_stk_mins_from_1m 校验失败：written={written} validated={validated}")
@@ -111,9 +145,15 @@ class StkMinsGapRepairService:
             "trade_date": trade_date.isoformat(),
             "source_freq": 1,
             "target_freq": freq,
+            "ts_code": normalized_ts_code,
+            "scope": scope,
             "repair_reason": "source_gap",
             "known_source_gap_dates": [item.isoformat() for item in allowed_dates],
             "source_rows": len(source_rows),
+            "source_symbol_rows": len(source_symbol_rows),
+            "repaired_symbol_rows": len(repaired_rows),
+            "existing_target_rows": existing_target_rows,
+            "existing_target_symbol_rows": existing_target_symbol_rows,
             "written_rows": written,
             "output": str(final_partition),
             "elapsed_seconds": round(elapsed, 3),
@@ -122,7 +162,9 @@ class StkMinsGapRepairService:
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         self.progress(
             f"[repair_stk_mins_from_1m] done trade_date={trade_date.isoformat()} target_freq={freq} "
-            f"source_rows={len(source_rows)} written={written} partition={final_partition} "
+            f"scope={scope} ts_code={normalized_ts_code or '-'} source_rows={len(source_rows)} "
+            f"source_symbol_rows={len(source_symbol_rows)} repaired_symbol_rows={len(repaired_rows)} "
+            f"written={written} partition={final_partition} "
             f"elapsed={math.ceil(elapsed)}s"
         )
         return summary
@@ -176,6 +218,29 @@ def derive_gap_rows(source_rows: list[dict[str, Any]], *, target_freq: int, trad
     output.sort(key=lambda item: item["trade_time"], reverse=True)
     output.sort(key=lambda item: str(item["ts_code"]))
     return output
+
+
+def _deduplicate_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[tuple[str, int, datetime], dict[str, Any]] = {}
+    for row in rows:
+        ts_code = str(row.get("ts_code") or "").strip()
+        freq = int(row.get("freq") or 0)
+        trade_time = _parse_trade_time(row.get("trade_time"))
+        if not ts_code or not freq:
+            continue
+        copied = dict(row)
+        copied["ts_code"] = ts_code
+        copied["freq"] = freq
+        copied["trade_time"] = trade_time
+        deduped[(ts_code, freq, trade_time)] = copied
+    return [deduped[key] for key in sorted(deduped, key=lambda item: (item[0], item[2], item[1]))]
+
+
+def _normalize_ts_code(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = value.strip()
+    return text or None
 
 
 def _split_sessions(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:

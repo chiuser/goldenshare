@@ -1,8 +1,8 @@
 # 股票历史分钟行情 Parquet Lake 方案 v1
 
 - 版本：v1
-- 状态：已部分落地，下载窗口与配额平稳停机已落地，README/配置说明与实跑验证待继续收口
-- 更新时间：2026-05-03
+- 状态：已部分落地，下载窗口与配额平稳停机、专项恢复、1m 修补、derived/research 已落地；通用持久备份与恢复管理待继续收口
+- 更新时间：2026-05-11
 - 数据集：`stk_mins`
 - 数据源：Tushare
 - 源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
@@ -1156,6 +1156,119 @@ lake-console sync-stk-mins \
 
 只有在上述 5 步都通过后，才能把 README 和配置样例里的“月窗/31 天”说明改成新口径。
 
+### M5.2：单股票区间补数窗口与分区合并
+
+背景：
+
+1. 股票代码切换场景会出现当前股票池只保留新代码，但历史分钟线需要补旧代码的情况，例如 `300114.SZ -> 302132.SZ`。
+2. 单股票区间补数如果继续按“每个交易日一次请求”，会浪费 Tushare 日请求配额。
+3. 单股票补数不能直接替换整个 `freq/trade_date` 分区，否则会把同日同频的其他股票行误删。
+
+执行口径：
+
+1. `sync-stk-mins-range --ts-code` 与 `--all-market` 共用按 `freq` 定交易日窗口的请求模型。
+2. 单股票区间支持 `--freqs 1,5,15,30,60`，内部按频度逐个窗口执行。
+3. 单股票写入采用分区内按 `ts_code` 合并：
+   - 读取目标 `freq/trade_date` 分区已有行；
+   - 删除同一 `ts_code` 的旧行；
+   - 追加本次拉取的新行；
+   - 按 `(ts_code, freq, trade_time)` 去重；
+   - 写入 `_tmp` 后原子替换目标分区。
+4. 单股票补数只报告本次目标股票写入行数，分区事件仍标记对应 `freq/trade_date` 已被替换，用于后续指标重算提示。
+
+示例：
+
+```bash
+lake-console sync-stk-mins-range \
+  --ts-code 300114.SZ \
+  --freqs 1,5,15,30,60 \
+  --start-date 2010-08-27 \
+  --end-date 2025-02-16
+```
+
+验收：
+
+1. 单股票区间补数不会删除同一分区下其他 `ts_code` 的行。
+2. 单股票区间补数按 `freq` 定窗口请求，不再逐交易日请求。
+3. 单股票区间支持 `--freqs`。
+4. 重复执行同一单股票补数命令保持幂等。
+
+### M5.3：P0 raw 分区覆盖事故审计与 dry-run 恢复预案
+
+说明：
+
+1. 本节记录的是 `stk_mins` 当前专项审计与恢复口径。
+2. 后续通用化方向已独立收口到：
+   - [Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md)
+3. `stk_mins` 的 `audit / dry-run / apply` 恢复能力后续必须并轨到统一的：
+   - `manifest/write_recovery_log.jsonl`
+   - `_recovery/backups/**`
+   - `_recovery/restore_runs/**`
+   - Lake 前端 Recovery / Write Safety 页面
+4. 在并轨完成前，`stk_mins` 仍是 P0 首个专项恢复对象，但不应继续长期维持独立恢复体系。
+
+背景：
+
+1. 旧版单股票区间补数路径曾对 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*` 执行整分区替换。
+2. 已确认本地 Lake 中 `freq=1` 存在大量交易日分区被覆盖成只剩 `300114.SZ`，`freq=5` 存在局部同类损坏。
+3. `research/stk_mins_by_symbol_month` 仍保留全市场规模数据，应优先作为 raw 恢复来源。
+
+立即规则：
+
+1. 恢复完成前，不继续执行 `stk_mins` 写入、派生、research 重排或指标计算。
+2. 本阶段只允许只读审计和 dry-run 恢复预演，不允许直接写正式分区。
+3. 不清理 `_tmp`、`_recovery`、raw 损坏分区或 research 层。
+
+命令：
+
+```bash
+lake-console audit-stk-mins-raw-integrity \
+  --freqs 1,5,15,30,60 \
+  --start-date 2009-01-01 \
+  --end-date 2026-05-08 \
+  --patch-ts-code 300114.SZ
+```
+
+该命令只读统计 raw 分区状态，包括缺失分区、严重低行数分区、行数缺口估算、可从 research 恢复的分区数量和样本。
+
+```bash
+lake-console recover-stk-mins-raw-from-research \
+  --freqs 1,5 \
+  --start-date 2010-08-27 \
+  --end-date 2025-02-14 \
+  --patch-ts-code 300114.SZ \
+  --dry-run
+```
+
+该命令只生成恢复预案，不写 `_tmp`、manifest 或正式 Parquet 分区。预案口径：
+
+1. 从 `research/stk_mins_by_symbol_month` 读取对应 `freq/month`。
+2. 按 `trade_time` 过滤到目标交易日。
+3. 统计当前 raw 中 `patch_ts_code` 行数。
+4. 预估恢复时使用 `research 当日全市场行 + 当前 raw patch 行`，按 `(ts_code, freq, trade_time)` 去重。
+
+样本恢复命令：
+
+```bash
+lake-console recover-stk-mins-raw-from-research \
+  --freqs 1 \
+  --start-date 2022-01-04 \
+  --end-date 2022-01-04 \
+  --patch-ts-code 300114.SZ \
+  --apply
+```
+
+`--apply` 规则：
+
+1. 只恢复 `missing` 或 `severely_low` 的 raw 分区，不触碰 `underfilled/ok` 分区。
+2. 每个恢复分区先写入 `_tmp`，校验行数后再替换正式分区。
+3. 替换前把原 raw 分区保留到 `_recovery/<run_id>/raw_partition_backup/...`。
+4. 同时把当前 raw 中 `patch_ts_code` 行备份到 `_recovery/<run_id>/patch_rows/...`。
+5. 输出 `write_intent=true`，并返回备份路径、恢复分区数和写入行数。
+6. 后续必须把这些恢复结果同步纳入统一恢复账本，而不是只停留在专项输出中。
+
+全量恢复必须先通过单日样本和整月样本校验，再执行全量区间。
+
 ### M6：派生与 research 重排
 
 目标：
@@ -1181,6 +1294,7 @@ lake-console sync-stk-mins \
 1. 对已审计确认的 `5/15` 分钟 source gap，不再继续向源端重试。
 2. 直接使用本地 `freq=1` 正式分区，按现有 `5/15` 分钟桶规则聚合生成缺口分区。
 3. 结果直接写回 `raw_tushare/stk_mins_by_date/freq=5|15/trade_date=*`，而不是写到 `derived`。
+4. 若目标分区已存在但仅缺某一只股票，必须使用 `--ts-code` 单股票 merge 模式，只替换该股票行，不得覆盖同日其他股票。
 
 第一版范围只允许以下 4 个已知缺口：
 
@@ -1194,9 +1308,15 @@ lake-console sync-stk-mins \
 规则：
 
 1. 只允许修补“已审计确认的 source gap 白名单日期”，不做任意日期通用派生。
-2. 默认不覆盖已存在的正式 `5/15` 分区；目标分区已存在时，repair 必须报错退出。
-3. `09:30` 首桶单独保留。
-4. 后续桶按 session 内连续分钟聚合：
+2. 默认不覆盖已存在的正式 `5/15` 分区；目标分区已存在且未传 `--ts-code` 时，repair 必须报错退出。
+3. 传入 `--ts-code` 时进入单股票 merge 模式：
+   - 目标分区必须已存在，防止误创建单股票正式分区；
+   - 只从 `freq=1` 源分区聚合该 `ts_code` 的目标分钟行；
+   - 读取目标分区现有行，移除同 `ts_code` 旧行后再合并修补行；
+   - 按 `(ts_code, freq, trade_time)` 去重；
+   - 原子替换目标分区，确保同分区其他股票不丢失。
+4. `09:30` 首桶单独保留。
+5. 后续桶按 session 内连续分钟聚合：
    - `5 分钟`
      - `09:31~09:35 -> 09:35`
      - `09:36~09:40 -> 09:40`
@@ -1205,16 +1325,18 @@ lake-console sync-stk-mins \
      - `09:31~09:45 -> 09:45`
      - `09:46~10:00 -> 10:00`
      - `13:01~13:15 -> 13:15`
-5. 输出字段仍然必须保持正式 `stk_mins` raw schema：
+6. 输出字段仍然必须保持正式 `stk_mins` raw schema：
    - `ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap`
-6. `vwap` 口径：
+7. `vwap` 口径：
    - 若桶内 `sum(amount) > 0 and sum(vol) > 0`，取 `round(sum(amount) / sum(vol), 3)`
    - 若桶内 `sum(vol) == 0`，取桶内最后一条 `1 分钟` 的 `vwap`
    - 若最后一条 `vwap` 为空，再退回最后一条 `close`
-7. provenance 只记录到 manifest summary：
+8. provenance 只记录到 manifest summary：
    - `operation = repair_stk_mins_from_1m`
    - `source_freq = 1`
    - `target_freq = 5/15`
+   - `scope = full_partition | single_symbol_merge`
+   - `ts_code = <股票代码或空>`
    - `repair_reason = source_gap`
 
 验收：
@@ -1223,6 +1345,7 @@ lake-console sync-stk-mins \
 2. 先选一日已有正常 `15 分钟` 数据，做 `1 -> 15` 对比，确认桶锚点和字段一致。
 3. 再对 4 个缺口执行 repair，补齐正式 Lake 分区。
 4. repair 后这些缺口不再归类为 `lake_sync_failure`，而是已由本地 `1 分钟` 事实修补完成。
+5. 对 `--ts-code` 单股票 merge 模式，必须有测试证明目标分区中的其他股票行被保留。
 
 ---
 

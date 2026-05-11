@@ -650,7 +650,8 @@ def test_stk_mins_market_sync_reads_local_universe_and_writes_parts(tmp_path, mo
 
 
 def test_stk_mins_range_uses_local_open_trade_calendar(tmp_path, monkeypatch):
-    calls: list[date] = []
+    fetch_calls: list[dict[str, Any]] = []
+    merged_dates: list[date] = []
 
     monkeypatch.setattr(
         mins_module,
@@ -665,22 +666,83 @@ def test_stk_mins_range_uses_local_open_trade_calendar(tmp_path, monkeypatch):
     calendar.parent.mkdir(parents=True)
     calendar.write_text("fake parquet", encoding="utf-8")
 
-    def fake_sync_single(self: TushareStkMinsSyncService, *, ts_code: str, freq: int, trade_date: date) -> dict[str, Any]:
-        calls.append(trade_date)
-        return {"fetched_rows": 1, "written_rows": 1, "trade_date": trade_date.isoformat()}
+    def fake_fetch(
+        self: TushareStkMinsSyncService,
+        *,
+        ts_code: str,
+        freq: int,
+        window_start: date,
+        window_end: date,
+        units_done: int,
+        units_total: int,
+    ) -> list[dict[str, Any]]:
+        fetch_calls.append(
+            {
+                "ts_code": ts_code,
+                "freq": freq,
+                "window_start": window_start,
+                "window_end": window_end,
+                "units_done": units_done,
+                "units_total": units_total,
+            }
+        )
+        return [
+            {
+                "ts_code": ts_code,
+                "trade_time": "2026-04-24 10:00:00",
+                "open": 10.1,
+                "close": 10.2,
+                "high": 10.3,
+                "low": 10.0,
+                "vol": 1000,
+                "amount": 10200.0,
+            },
+            {
+                "ts_code": ts_code,
+                "trade_time": "2026-04-27 10:00:00",
+                "open": 10.2,
+                "close": 10.3,
+                "high": 10.4,
+                "low": 10.1,
+                "vol": 2000,
+                "amount": 20400.0,
+            },
+        ]
 
-    monkeypatch.setattr(TushareStkMinsSyncService, "sync_single_symbol_day", fake_sync_single)
+    def fake_merge(
+        self: TushareStkMinsSyncService,
+        *,
+        run_id: str,
+        ts_code: str,
+        freq: int,
+        trade_date: date,
+        rows: list[dict[str, Any]],
+    ) -> int:
+        merged_dates.append(trade_date)
+        return len(rows)
+
+    monkeypatch.setattr(TushareStkMinsSyncService, "_fetch_symbol_window", fake_fetch)
+    monkeypatch.setattr(TushareStkMinsSyncService, "_merge_single_symbol_partition", fake_merge)
 
     summary = TushareStkMinsSyncService(lake_root=tmp_path, client=FakeClient(), progress=lambda message: None).sync_range(
         start_date=date(2026, 4, 24),
         end_date=date(2026, 4, 27),
-        freqs=[],
+        freqs=[30],
         all_market=False,
         ts_code="000001.SZ",
-        freq=30,
     )
 
-    assert calls == [date(2026, 4, 24), date(2026, 4, 27)]
+    assert fetch_calls == [
+        {
+            "ts_code": "000001.SZ",
+            "freq": 30,
+            "window_start": date(2026, 4, 24),
+            "window_end": date(2026, 4, 27),
+            "units_done": 0,
+            "units_total": 1,
+        }
+    ]
+    assert merged_dates == [date(2026, 4, 24), date(2026, 4, 27)]
     assert summary["trade_date_count"] == 2
     assert summary["written_rows"] == 2
 

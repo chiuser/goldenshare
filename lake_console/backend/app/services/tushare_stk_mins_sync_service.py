@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ from lake_console.backend.app.services.indicators.indicator_recalc_queue import 
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
+    read_parquet_files,
     read_parquet_rows,
     read_parquet_row_count,
     replace_directory_atomically,
@@ -141,29 +143,14 @@ class TushareStkMinsSyncService:
             ManifestService(self.lake_root).append_sync_run(summary)
             return summary
 
-        partition = (
-            self.lake_root
-            / "raw_tushare"
-            / "stk_mins_by_date"
-            / f"freq={freq}"
-            / f"trade_date={trade_date.isoformat()}"
-        )
-        tmp_dir = self.lake_root / "_tmp" / run_id / "raw_tushare" / "stk_mins_by_date" / f"freq={freq}" / f"trade_date={trade_date.isoformat()}"
-        tmp_file = tmp_dir / "part-000.parquet"
-        backup_root = self.lake_root / "_tmp" / run_id / "_backup"
-        self.progress(f"[stk_mins] writing rows={len(all_rows)} partition={tmp_dir}")
-        written = write_rows_to_parquet(all_rows, tmp_file)
-        validated = read_parquet_row_count(tmp_file)
-        if validated != written:
-            raise RuntimeError(f"stk_mins Parquet 校验失败：written={written} validated={validated}")
-
-        replace_directory_atomically(tmp_dir=tmp_dir, final_dir=partition, backup_root=backup_root)
-        self._record_source_partition_replaced(
-            layer="raw_tushare",
+        partition = self._final_partition(freq=freq, trade_date=trade_date)
+        self.progress(f"[stk_mins] merging rows={len(all_rows)} partition={partition}")
+        written = self._merge_single_symbol_partition(
+            run_id=run_id,
+            ts_code=ts_code,
             freq=freq,
             trade_date=trade_date,
-            run_id=run_id,
-            written_rows=written,
+            rows=all_rows,
         )
         elapsed = time.monotonic() - started
         summary = self._summary(
@@ -375,6 +362,7 @@ class TushareStkMinsSyncService:
         total_fetched = 0
         total_written = 0
         summaries: list[dict[str, Any]] = []
+        summary_freqs = freqs
         if all_market:
             if not freqs:
                 raise ValueError("sync-stk-mins-range --all-market 必须至少指定一个 freq。")
@@ -458,16 +446,35 @@ class TushareStkMinsSyncService:
                 )
                 return summary
         else:
-            for date_index, trade_date in enumerate(trade_dates, start=1):
-                self.progress(f"[stk_mins_range] trade_date={trade_date.isoformat()} dates_done={date_index}/{len(trade_dates)}")
-                if not ts_code:
-                    raise ValueError("单股票区间模式必须传 ts_code。")
-                if freq is None:
-                    raise ValueError("单股票区间模式必须传 freq。")
-                day_summary = self.sync_single_symbol_day(ts_code=ts_code, freq=freq, trade_date=trade_date)
-                summaries.append(day_summary)
-                total_fetched += int(day_summary.get("fetched_rows") or 0)
-                total_written += int(day_summary.get("written_rows") or 0)
+            if not ts_code:
+                raise ValueError("单股票区间模式必须传 ts_code。")
+            single_freqs = freqs or ([freq] if freq is not None else [])
+            if not single_freqs:
+                raise ValueError("单股票区间模式必须传 freq 或 freqs。")
+            summary_freqs = single_freqs
+            invalid_freqs = sorted(set(single_freqs) - STK_MINS_ALLOWED_FREQS)
+            if invalid_freqs:
+                allowed = ", ".join(str(item) for item in sorted(STK_MINS_ALLOWED_FREQS))
+                raise ValueError(f"不支持的 freq={invalid_freqs}，允许值：{allowed}")
+            LakeRootService(self.lake_root).require_ready_for_write()
+            windows_by_freq = {current_freq: build_target_request_windows(trade_dates=trade_dates, freq=current_freq) for current_freq in single_freqs}
+            units_total = sum(len(current_windows) for current_windows in windows_by_freq.values())
+            unit_base = 0
+            for current_freq in single_freqs:
+                current_windows = windows_by_freq[current_freq]
+                for window in current_windows:
+                    window_summary = self._sync_single_symbol_window_partitions(
+                        run_id=run_id,
+                        ts_code=ts_code,
+                        freq=current_freq,
+                        window=window,
+                        unit_base=unit_base,
+                        units_total=units_total,
+                    )
+                    summaries.append(window_summary)
+                    total_fetched += int(window_summary.get("fetched_rows") or 0)
+                    total_written += int(window_summary.get("written_rows") or 0)
+                    unit_base += 1
 
         elapsed = time.monotonic() - started
         summary = {
@@ -481,7 +488,7 @@ class TushareStkMinsSyncService:
             "end_date": end_date.isoformat(),
             "trade_dates": [item.isoformat() for item in trade_dates],
             "trade_date_count": len(trade_dates),
-            "freqs": freqs if all_market else ([freq] if freq is not None else []),
+            "freqs": summary_freqs,
             "ts_code": ts_code,
             "security_universe": universe.to_dict() if all_market else None,
             "fetched_rows": total_fetched,
@@ -495,6 +502,64 @@ class TushareStkMinsSyncService:
             f"written={total_written} elapsed={math.ceil(elapsed)}s"
         )
         return summary
+
+    def _sync_single_symbol_window_partitions(
+        self,
+        *,
+        run_id: str,
+        ts_code: str,
+        freq: int,
+        window: StkMinsRequestWindow,
+        unit_base: int,
+        units_total: int,
+    ) -> dict[str, Any]:
+        rows = self._fetch_symbol_window(
+            ts_code=ts_code,
+            freq=freq,
+            window_start=window.start_date,
+            window_end=window.end_date,
+            units_done=unit_base,
+            units_total=units_total,
+        )
+        trade_date_set = set(window.trade_dates)
+        rows_by_trade_date: dict[date, list[dict[str, Any]]] = {}
+        for row in rows:
+            trade_time = datetime.fromisoformat(str(row["trade_time"]))
+            trade_date = trade_time.date()
+            if trade_date in trade_date_set:
+                rows_by_trade_date.setdefault(trade_date, []).append(row)
+
+        written_total = 0
+        for trade_date, partition_rows in sorted(rows_by_trade_date.items()):
+            written_total += self._merge_single_symbol_partition(
+                run_id=run_id,
+                ts_code=ts_code,
+                freq=freq,
+                trade_date=trade_date,
+                rows=partition_rows,
+            )
+        self.progress(
+            StkMinsProgressEvent(
+                units_done=unit_base + 1,
+                units_total=units_total,
+                ts_code=ts_code,
+                trade_date=None,
+                freq=freq,
+                fetched_rows=len(rows),
+                written_rows=written_total,
+                window_start=window.start_date,
+                window_end=window.end_date,
+            )
+        )
+        return {
+            "window_start": window.start_date.isoformat(),
+            "window_end": window.end_date.isoformat(),
+            "trade_dates": [item.isoformat() for item in window.trade_dates],
+            "freq": freq,
+            "ts_code": ts_code,
+            "fetched_rows": len(rows),
+            "written_rows": written_total,
+        }
 
     def _sync_market_window_partitions(
         self,
@@ -788,6 +853,52 @@ class TushareStkMinsSyncService:
     def _flush_window_part(self, *, run_id: str, freq: int, trade_date: date, rows: list[dict[str, Any]], part_index: int) -> int:
         return self._flush_part(rows=rows, tmp_partition=self._tmp_partition(run_id=run_id, freq=freq, trade_date=trade_date), part_index=part_index)
 
+    def _merge_single_symbol_partition(
+        self,
+        *,
+        run_id: str,
+        ts_code: str,
+        freq: int,
+        trade_date: date,
+        rows: list[dict[str, Any]],
+    ) -> int:
+        if not rows:
+            return 0
+        final_partition = self._final_partition(freq=freq, trade_date=trade_date)
+        existing_rows = self._read_partition_rows(final_partition)
+        retained_rows = [row for row in existing_rows if str(row.get("ts_code") or "").strip().upper() != ts_code.upper()]
+        merged_rows = _deduplicate_stk_mins_rows(retained_rows + rows)
+        tmp_partition = self._tmp_partition(run_id=run_id, freq=freq, trade_date=trade_date)
+        if tmp_partition.exists():
+            shutil.rmtree(tmp_partition)
+        written_file_rows = self._flush_part(rows=merged_rows, tmp_partition=tmp_partition, part_index=0)
+        if written_file_rows != len(merged_rows):
+            raise RuntimeError(f"stk_mins 单股票合并写入校验失败：expected={len(merged_rows)} actual={written_file_rows}")
+        replace_directory_atomically(
+            tmp_dir=tmp_partition,
+            final_dir=final_partition,
+            backup_root=self.lake_root / "_tmp" / run_id / "_backup",
+        )
+        self._record_source_partition_replaced(
+            layer="raw_tushare",
+            freq=freq,
+            trade_date=trade_date,
+            run_id=run_id,
+            written_rows=len(rows),
+        )
+        self.progress(
+            f"[stk_mins_range] merge_partition ts_code={ts_code} freq={freq} trade_date={trade_date.isoformat()} "
+            f"old_rows={len(existing_rows)} new_rows={len(rows)} final_rows={len(merged_rows)}"
+        )
+        return len(rows)
+
+    @staticmethod
+    def _read_partition_rows(partition: Path) -> list[dict[str, Any]]:
+        if not partition.exists():
+            return []
+        files = sorted(path for path in partition.glob("*.parquet") if path.is_file())
+        return read_parquet_files(files)
+
     def _tmp_partition(self, *, run_id: str, freq: int, trade_date: date) -> Path:
         return (
             self.lake_root
@@ -839,6 +950,27 @@ def _normalize_stk_mins_row(row: dict[str, Any], *, freq: int, trade_date: date 
     normalized["exchange"] = _normalize_optional_text(normalized.get("exchange"))
     normalized["trade_time"] = _normalize_trade_time(normalized.get("trade_time"), trade_date=trade_date)
     return normalized
+
+
+def _deduplicate_stk_mins_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[tuple[str, int, str], dict[str, Any]] = {}
+    for row in rows:
+        ts_code = str(row.get("ts_code") or "").strip()
+        freq = int(row.get("freq") or 0)
+        trade_time = _normalize_trade_time(row.get("trade_time"), trade_date=None)
+        normalized = dict(row)
+        normalized["ts_code"] = ts_code
+        normalized["freq"] = freq
+        normalized["trade_time"] = trade_time
+        by_key[(ts_code, freq, trade_time.isoformat(sep=" "))] = normalized
+    return sorted(
+        by_key.values(),
+        key=lambda item: (
+            str(item["ts_code"]),
+            int(item["freq"]),
+            _normalize_trade_time(item["trade_time"], trade_date=None),
+        ),
+    )
 
 
 def _normalize_trade_time(value: Any, *, trade_date: date | None) -> datetime:
