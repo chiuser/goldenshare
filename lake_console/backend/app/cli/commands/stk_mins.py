@@ -7,6 +7,7 @@ from lake_console.backend.app.cli.commands.common import add_lake_root_arg, pars
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
+from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
 from lake_console.backend.app.services.stk_mins_raw_recovery_service import StkMinsRawRecoveryService
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
 from lake_console.backend.app.services.stk_mins_schema_migration_service import StkMinsSchemaMigrationService
@@ -49,6 +50,16 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     derive_range_parser.add_argument("--targets", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
     derive_range_parser.set_defaults(handler=_handle_derive_stk_mins_range)
 
+    derive_from_clean_range_parser = subparsers.add_parser(
+        "rebuild-stk-mins-derived-from-clean-range",
+        help="从 clean 30/60 分钟线批量重建 derived 90/120 分钟线",
+    )
+    add_lake_root_arg(derive_from_clean_range_parser)
+    derive_from_clean_range_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
+    derive_from_clean_range_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
+    derive_from_clean_range_parser.add_argument("--target-freqs", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
+    derive_from_clean_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_derived_from_clean_range)
+
     repair_parser = subparsers.add_parser("repair-stk-mins-from-1m", help="用本地 1 分钟线修补已审计的 5/15 分钟 source gap")
     add_lake_root_arg(repair_parser)
     repair_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="缺口交易日，格式 YYYY-MM-DD")
@@ -70,6 +81,17 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     research_range_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60,90,120")
     research_range_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
     research_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_research_range)
+
+    research_from_clean_range_parser = subparsers.add_parser(
+        "rebuild-stk-mins-research-from-clean-range",
+        help="从 clean/derived 输入批量重建 by_symbol_month research 层",
+    )
+    add_lake_root_arg(research_from_clean_range_parser)
+    research_from_clean_range_parser.add_argument("--start-month", required=True, help="开始月份，格式 YYYY-MM")
+    research_from_clean_range_parser.add_argument("--end-month", required=True, help="结束月份，格式 YYYY-MM")
+    research_from_clean_range_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 1,5,15,30,60,90,120")
+    research_from_clean_range_parser.add_argument("--bucket-count", default=None, type=int, help="bucket 数量，默认读取配置 bucket_count")
+    research_from_clean_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_research_range)
 
     migrate_parser = subparsers.add_parser("migrate-stk-mins-schema", help="迁移本地 stk_mins raw Parquet schema，不请求 Tushare")
     add_lake_root_arg(migrate_parser)
@@ -100,6 +122,73 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     recover_mode.add_argument("--apply", action="store_true", help="执行恢复写入；会备份原 raw 分区到 _recovery")
     recover_parser.add_argument("--sample-limit", default=20, type=int, help="每个 freq 返回的计划样本数量上限")
     recover_parser.set_defaults(handler=_handle_recover_stk_mins_raw_from_research)
+
+    clean_bootstrap_parser = subparsers.add_parser(
+        "bootstrap-stk-mins-by-date-clean",
+        help="把 raw_tushare/stk_mins_by_date 原样初始化到 research/stk_mins_by_date_clean",
+    )
+    add_lake_root_arg(clean_bootstrap_parser)
+    clean_bootstrap_mode = clean_bootstrap_parser.add_mutually_exclusive_group(required=True)
+    clean_bootstrap_mode.add_argument("--dry-run", action="store_true", help="只统计待拷贝 raw 分区，不写文件")
+    clean_bootstrap_mode.add_argument("--apply", action="store_true", help="执行 raw -> clean 初始化拷贝")
+    clean_bootstrap_parser.add_argument("--freqs", default="1,5,15,30,60", help="多个分钟周期，逗号分隔")
+    clean_bootstrap_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="可选开始交易日")
+    clean_bootstrap_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="可选结束交易日")
+    clean_bootstrap_parser.add_argument("--replace-existing", action="store_true", help="允许替换已存在的 clean 分区")
+    clean_bootstrap_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    clean_bootstrap_parser.set_defaults(handler=_handle_bootstrap_stk_mins_by_date_clean)
+
+    identity_parser = subparsers.add_parser(
+        "build-stk-mins-security-identity-map",
+        help="构建 stk_mins clean 层使用的 security_identity_map",
+    )
+    add_lake_root_arg(identity_parser)
+    identity_mode = identity_parser.add_mutually_exclusive_group(required=True)
+    identity_mode.add_argument("--dry-run", action="store_true", help="只生成身份映射预案，不写 manifest")
+    identity_mode.add_argument("--apply", action="store_true", help="写入 manifest/security_identity/security_identity_map.parquet")
+    identity_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    identity_parser.set_defaults(handler=_handle_build_stk_mins_security_identity_map)
+
+    clean_audit_parser = subparsers.add_parser(
+        "audit-stk-mins-by-date-clean",
+        help="只读审计 research/stk_mins_by_date_clean 是否符合 clean 规则",
+    )
+    add_lake_root_arg(clean_audit_parser)
+    clean_audit_parser.add_argument("--freqs", default="1,5,15,30,60", help="多个分钟周期，逗号分隔")
+    clean_audit_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="可选开始交易日")
+    clean_audit_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="可选结束交易日")
+    clean_audit_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    clean_audit_parser.set_defaults(handler=_handle_audit_stk_mins_by_date_clean)
+
+    clean_completeness_parser = subparsers.add_parser(
+        "audit-stk-mins-clean-completeness",
+        help="审计 clean 分钟线完备性，并可写入 G6 完备性问题账本",
+    )
+    add_lake_root_arg(clean_completeness_parser)
+    clean_completeness_parser.add_argument("--freqs", default="1,5,15,30,60", help="多个分钟周期，逗号分隔")
+    clean_completeness_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="可选开始交易日")
+    clean_completeness_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="可选结束交易日")
+    clean_completeness_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    clean_completeness_parser.add_argument(
+        "--write-ledger",
+        action="store_true",
+        help="只写 manifest/stk_mins_quality/clean_completeness_issue_ledger.parquet，不修改 clean/derived/research",
+    )
+    clean_completeness_parser.set_defaults(handler=_handle_audit_stk_mins_clean_completeness)
+
+    clean_rebuild_parser = subparsers.add_parser(
+        "rebuild-stk-mins-by-date-clean-range",
+        help="按 raw -> clean 规则重建 research/stk_mins_by_date_clean",
+    )
+    add_lake_root_arg(clean_rebuild_parser)
+    clean_rebuild_mode = clean_rebuild_parser.add_mutually_exclusive_group(required=True)
+    clean_rebuild_mode.add_argument("--dry-run", action="store_true", help="只生成清洗重建计划，不写文件")
+    clean_rebuild_mode.add_argument("--apply", action="store_true", help="执行 clean 分区重建，只替换 research/stk_mins_by_date_clean")
+    clean_rebuild_parser.add_argument("--freqs", default="1,5,15,30,60", help="多个分钟周期，逗号分隔")
+    clean_rebuild_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="可选开始交易日")
+    clean_rebuild_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="可选结束交易日")
+    clean_rebuild_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    clean_rebuild_parser.set_defaults(handler=_handle_rebuild_stk_mins_by_date_clean_range)
 
 
 def _handle_sync_stk_mins(args: argparse.Namespace) -> int:
@@ -177,6 +266,18 @@ def _handle_derive_stk_mins(args: argparse.Namespace) -> int:
 def _handle_derive_stk_mins_range(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
     targets = parse_int_csv(args.targets, allowed={90, 120}, label="targets")
+    summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_range(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        targets=targets,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_stk_mins_derived_from_clean_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    targets = parse_int_csv(args.target_freqs, allowed={90, 120}, label="target-freqs")
     summary = StkMinsDerivedService(lake_root=settings.lake_root).derive_range(
         start_date=args.start_date,
         end_date=args.end_date,
@@ -267,5 +368,74 @@ def _handle_recover_stk_mins_raw_from_research(args: argparse.Namespace) -> int:
             patch_ts_code=args.patch_ts_code,
             sample_limit=args.sample_limit,
         )
+    print_json(summary)
+    return 0
+
+
+def _handle_bootstrap_stk_mins_by_date_clean(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=None)
+    summary = StkMinsCleanService(lake_root=settings.lake_root).bootstrap_clean_from_raw(
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        dry_run=args.dry_run,
+        apply=args.apply,
+        replace_existing=args.replace_existing,
+        sample_limit=args.sample_limit,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_build_stk_mins_security_identity_map(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = StkMinsCleanService(lake_root=settings.lake_root).build_security_identity_map(
+        dry_run=args.dry_run,
+        apply=args.apply,
+        sample_limit=args.sample_limit,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_audit_stk_mins_by_date_clean(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=None)
+    summary = StkMinsCleanService(lake_root=settings.lake_root).audit_clean_layer(
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        sample_limit=args.sample_limit,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_audit_stk_mins_clean_completeness(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=None)
+    summary = StkMinsCleanService(lake_root=settings.lake_root).audit_clean_completeness(
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        sample_limit=args.sample_limit,
+        write_ledger=args.write_ledger,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_rebuild_stk_mins_by_date_clean_range(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=None)
+    summary = StkMinsCleanService(lake_root=settings.lake_root).rebuild_clean_from_raw(
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        dry_run=args.dry_run,
+        apply=args.apply,
+        sample_limit=args.sample_limit,
+    )
     print_json(summary)
     return 0

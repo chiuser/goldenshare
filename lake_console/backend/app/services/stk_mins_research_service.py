@@ -41,8 +41,8 @@ class StkMinsResearchService:
         started = time.monotonic()
         run_id = _run_id("research-stk-mins")
         LakeRootService(self.lake_root).require_ready_for_write()
-        source_layer = "raw_tushare" if freq in RAW_FREQS else "derived"
-        source_root = self.lake_root / source_layer / "stk_mins_by_date" / f"freq={freq}"
+        source_layer = "research_clean" if freq in RAW_FREQS else "derived"
+        source_root = _source_root(lake_root=self.lake_root, source_layer=source_layer, freq=freq)
         source_files = _month_source_files(source_root=source_root, trade_month=trade_month)
         if not source_files:
             raise RuntimeError(f"缺少可重排源文件：{source_root}/trade_date={trade_month}-*/")
@@ -68,12 +68,15 @@ class StkMinsResearchService:
         written_total = 0
         self.progress(
             f"[research_stk_mins] start run_id={run_id} freq={freq} trade_month={trade_month} "
-            f"source_files={len(source_files)} source_rows={len(rows)} buckets={self.bucket_count}"
+            f"source_layer={source_layer} source_files={len(source_files)} source_rows={len(rows)} buckets={self.bucket_count}"
         )
         for bucket, bucket_rows_value in sorted(buckets.items()):
             bucket_dir = tmp_month / f"bucket={bucket}"
             tmp_file = bucket_dir / "part-000.parquet"
-            written = write_rows_to_parquet(sorted(bucket_rows_value, key=lambda item: (str(item.get("ts_code") or ""), str(item.get("trade_time") or ""))), tmp_file)
+            written = write_rows_to_parquet(
+                sorted(bucket_rows_value, key=lambda item: (_bucket_key(item), str(item.get("trade_time") or ""))),
+                tmp_file,
+            )
             validated = read_parquet_row_count(tmp_file)
             if validated != written:
                 raise RuntimeError(f"research bucket 校验失败：written={written} validated={validated} file={tmp_file}")
@@ -184,10 +187,10 @@ class StkMinsResearchService:
 def bucket_rows(*, rows: list[dict[str, Any]], bucket_count: int) -> dict[int, list[dict[str, Any]]]:
     buckets: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        ts_code = str(row.get("ts_code") or "").strip()
-        if not ts_code:
+        bucket_key = _bucket_key(row)
+        if not bucket_key:
             continue
-        bucket = stable_bucket(ts_code=ts_code, bucket_count=bucket_count)
+        bucket = stable_bucket(ts_code=bucket_key, bucket_count=bucket_count)
         buckets[bucket].append(row)
     return buckets
 
@@ -225,12 +228,24 @@ def list_trade_months(*, start_month: str, end_month: str) -> list[str]:
 def _missing_month_sources(*, lake_root: Path, freqs: list[int], trade_months: list[str]) -> list[Path]:
     missing: list[Path] = []
     for freq in freqs:
-        source_layer = "raw_tushare" if freq in RAW_FREQS else "derived"
-        source_root = lake_root / source_layer / "stk_mins_by_date" / f"freq={freq}"
+        source_layer = "research_clean" if freq in RAW_FREQS else "derived"
+        source_root = _source_root(lake_root=lake_root, source_layer=source_layer, freq=freq)
         for trade_month in trade_months:
             if not _month_source_files(source_root=source_root, trade_month=trade_month):
                 missing.append(source_root / f"trade_date={trade_month}-*")
     return missing
+
+
+def _source_root(*, lake_root: Path, source_layer: str, freq: int) -> Path:
+    if source_layer == "research_clean":
+        return lake_root / "research" / "stk_mins_by_date_clean" / f"freq={freq}"
+    if source_layer == "derived":
+        return lake_root / "derived" / "stk_mins_by_date" / f"freq={freq}"
+    raise ValueError(f"不支持的 stk_mins research source_layer={source_layer}")
+
+
+def _bucket_key(row: dict[str, Any]) -> str:
+    return str(row.get("ts_code") or "").strip()
 
 
 def _validate_trade_month(value: str) -> None:

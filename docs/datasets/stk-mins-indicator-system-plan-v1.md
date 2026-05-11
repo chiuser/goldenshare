@@ -1,7 +1,7 @@
 # 股票分钟线指标系统设计方案 v1
 
 - 版本：v1
-- 状态：MACD 主链已落地；自动 resume、MA、BOLL 未实现
+- 状态：历史实现说明；MACD 全市场正式重算需按 v2 方案重新收口
 - 更新时间：2026-05-10
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 首个指标：`MACD(12,26,9)`
@@ -10,6 +10,9 @@
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
   - [Local Lake Console 数据集模型 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md)
+  - [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md)
+
+> 当前说明：本文件记录 MACD v1 主链与经验沉淀。由于本地 Lake 已发现股票代码变更、北交所代码切换、源分钟线补数后指标未重算等问题，后续正式 MACD 全量重算与增量链路以 v2 方案为准。v1 文档不得再作为“当前 MACD 已完整可用”的依据。
 
 ---
 

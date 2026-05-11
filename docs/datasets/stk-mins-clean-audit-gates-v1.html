@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>stk_mins clean / audit 门禁流程图 v1</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2f;
+      --panel-2: #17213a;
+      --ink: #e8eefc;
+      --muted: #95a3bd;
+      --line: #2c3b5e;
+      --blue: #5ba7ff;
+      --cyan: #34d3d8;
+      --green: #38d996;
+      --amber: #ffbf5f;
+      --red: #ff6b7a;
+      --purple: #b794ff;
+      --white: #ffffff;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 10% 5%, rgba(91, 167, 255, 0.22), transparent 32rem),
+        radial-gradient(circle at 88% 2%, rgba(183, 148, 255, 0.18), transparent 28rem),
+        linear-gradient(180deg, #08101f 0%, #0b1020 42%, #080b14 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.65;
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 44px 28px 80px;
+    }
+
+    .hero {
+      border: 1px solid rgba(149, 163, 189, 0.22);
+      border-radius: 28px;
+      padding: 34px;
+      background: rgba(18, 26, 47, 0.86);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(52, 211, 216, 0.12);
+      border: 1px solid rgba(52, 211, 216, 0.35);
+      color: #b8fbff;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 1.04;
+      letter-spacing: -0.045em;
+    }
+
+    h2 {
+      margin: 50px 0 16px;
+      font-size: 28px;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+      line-height: 1.25;
+    }
+
+    p {
+      color: var(--muted);
+      margin: 8px 0;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      color: #d9e7ff;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 7px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .summary-card {
+      background: rgba(11, 16, 32, 0.58);
+      border: 1px solid rgba(149, 163, 189, 0.22);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--white);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 13px;
+      color: #d7e3fa;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 16px currentColor;
+    }
+
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.red { background: var(--red); }
+    .dot.purple { background: var(--purple); }
+
+    .panel {
+      margin-top: 18px;
+      border: 1px solid rgba(149, 163, 189, 0.2);
+      background: rgba(18, 26, 47, 0.78);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 10px 4px 4px;
+    }
+
+    svg text {
+      font-family: var(--sans);
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .legend-card {
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .legend-card b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--white);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .card ul,
+    .panel ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .card li,
+    .panel li {
+      margin: 7px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: #eaf2ff;
+      background: rgba(91, 167, 255, 0.12);
+      font-weight: 700;
+    }
+
+    td {
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-family: var(--mono);
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .status.success { background: rgba(56, 217, 150, 0.13); color: #bcf7dc; }
+    .status.review { background: rgba(255, 191, 95, 0.13); color: #ffe2b7; }
+    .status.failed { background: rgba(255, 107, 122, 0.14); color: #ffc7cf; }
+    .status.info { background: rgba(91, 167, 255, 0.14); color: #cfe6ff; }
+
+    .callout {
+      border-radius: 20px;
+      padding: 18px 20px;
+      margin: 18px 0;
+      border: 1px solid rgba(255, 191, 95, 0.32);
+      background: linear-gradient(135deg, rgba(255, 191, 95, 0.13), rgba(255, 255, 255, 0.035));
+    }
+
+    .callout.red {
+      border-color: rgba(255, 107, 122, 0.36);
+      background: linear-gradient(135deg, rgba(255, 107, 122, 0.14), rgba(255, 255, 255, 0.035));
+    }
+
+    .callout.green {
+      border-color: rgba(56, 217, 150, 0.36);
+      background: linear-gradient(135deg, rgba(56, 217, 150, 0.12), rgba(255, 255, 255, 0.035));
+    }
+
+    .callout strong {
+      color: var(--white);
+    }
+
+    .flow-list {
+      display: grid;
+      gap: 14px;
+      counter-reset: gate;
+    }
+
+    .gate {
+      position: relative;
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 16px;
+      border-radius: 20px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.052);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .gate-no {
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(91, 167, 255, 0.26), rgba(52, 211, 216, 0.12));
+      border: 1px solid rgba(91, 167, 255, 0.38);
+      font-family: var(--mono);
+      font-weight: 800;
+      color: var(--white);
+    }
+
+    .gate h3 {
+      margin: 0 0 8px;
+    }
+
+    .gate-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .kbd {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      color: #d7e3fa;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer {
+      margin-top: 52px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid,
+      .grid-2,
+      .grid-3,
+      .legend {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        padding: 24px 14px 56px;
+      }
+
+      .hero {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow"><span class="dot"></span>stk_mins clean / audit gates v1</span>
+          <h1>股票分钟线清洗与审计门禁流程图</h1>
+          <p>
+            本文档把 <code>raw_tushare/stk_mins_by_date</code> 到
+            <code>research/stk_mins_by_date_clean</code>、derived、by_month research、后续技术指标输入之间的门禁全部画清楚。
+            核心目标只有一个：先保证数据干净，再允许下游重建；任何脏数据、口径不明或审计缺口都不能悄悄流进指标计算。
+          </p>
+          <div class="pill-row">
+            <span class="pill"><span class="dot green"></span>raw 不改写</span>
+            <span class="pill"><span class="dot cyan"></span>clean 使用最新 ts_code</span>
+            <span class="pill"><span class="dot amber"></span>退市股整只排除</span>
+            <span class="pill"><span class="dot purple"></span>问题解释进账本</span>
+            <span class="pill"><span class="dot red"></span>failed 阻断下游</span>
+          </div>
+        </div>
+        <aside class="summary-card">
+          <strong>当前口径</strong>
+          <p>
+            raw 是源站事实；clean 是研究事实。clean 只保留仍未退市股票的有效分钟线，
+            并把旧代码归一成最新代码。clean、derived、research、indicator 行级数据不得携带
+            <code>identity_id</code>、<code>source_ts_code</code>、<code>list_date</code>、<code>delist_date</code>。
+            身份、退市、异常剔除、完备性问题都必须通过独立账本解释。
+          </p>
+          <p>
+            本文档是 <a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md">MACD v2 重算与增量可靠性方案</a>
+            的图形化门禁说明。
+          </p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>1. 总流程图</h2>
+      <p>
+        这张图描述的是运行顺序。绿色节点表示可以继续，黄色表示需要人工复核，红色表示硬失败，必须停下。
+        下游 derived、by_month research、MACD 只能在 clean 审计通过后启动。
+      </p>
+      <div class="diagram">
+        <svg width="1180" height="640" viewBox="0 0 1180 640" role="img" aria-label="stk_mins clean audit overall flow">
+          <defs>
+            <linearGradient id="g-blue" x1="0" x2="1">
+              <stop offset="0%" stop-color="#263e72" />
+              <stop offset="100%" stop-color="#1a2d50" />
+            </linearGradient>
+            <linearGradient id="g-green" x1="0" x2="1">
+              <stop offset="0%" stop-color="#1f5a48" />
+              <stop offset="100%" stop-color="#174336" />
+            </linearGradient>
+            <linearGradient id="g-amber" x1="0" x2="1">
+              <stop offset="0%" stop-color="#61471d" />
+              <stop offset="100%" stop-color="#3f3018" />
+            </linearGradient>
+            <linearGradient id="g-red" x1="0" x2="1">
+              <stop offset="0%" stop-color="#68313b" />
+              <stop offset="100%" stop-color="#44212a" />
+            </linearGradient>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#6f84ad" />
+            </marker>
+          </defs>
+
+          <rect x="24" y="34" width="210" height="112" rx="18" fill="url(#g-blue)" stroke="#5ba7ff" opacity="0.95" />
+          <text x="48" y="68" fill="#ffffff" font-size="17" font-weight="800">G0 事实输入</text>
+          <text x="48" y="96" fill="#cfe0ff" font-size="13">stock_basic / trade_cal</text>
+          <text x="48" y="118" fill="#cfe0ff" font-size="13">suspend_d / namechange</text>
+          <text x="48" y="140" fill="#cfe0ff" font-size="13">bse_mapping / raw stk_mins</text>
+
+          <rect x="284" y="34" width="210" height="112" rx="18" fill="url(#g-blue)" stroke="#5ba7ff" opacity="0.95" />
+          <text x="308" y="68" fill="#ffffff" font-size="17" font-weight="800">G1 身份映射</text>
+          <text x="308" y="96" fill="#cfe0ff" font-size="13">source -> latest</text>
+          <text x="308" y="118" fill="#cfe0ff" font-size="13">无冲突 / 无重叠</text>
+          <text x="308" y="140" fill="#cfe0ff" font-size="13">写入身份账本</text>
+
+          <rect x="544" y="34" width="210" height="112" rx="18" fill="url(#g-blue)" stroke="#5ba7ff" opacity="0.95" />
+          <text x="568" y="68" fill="#ffffff" font-size="17" font-weight="800">G2 raw 分区审计</text>
+          <text x="568" y="96" fill="#cfe0ff" font-size="13">路径 / freq / trade_date</text>
+          <text x="568" y="118" fill="#cfe0ff" font-size="13">字段解析 / 文件可读</text>
+          <text x="568" y="140" fill="#cfe0ff" font-size="13">不反推、不改 raw</text>
+
+          <rect x="804" y="34" width="210" height="112" rx="18" fill="url(#g-amber)" stroke="#ffbf5f" opacity="0.98" />
+          <text x="828" y="68" fill="#ffffff" font-size="17" font-weight="800">G3 clean dry-run</text>
+          <text x="828" y="96" fill="#ffe6bf" font-size="13">只读模拟过滤/归一</text>
+          <text x="828" y="118" fill="#ffe6bf" font-size="13">输出 kept / filtered</text>
+          <text x="828" y="140" fill="#ffe6bf" font-size="13">先审计，后写入</text>
+
+          <line x1="234" y1="90" x2="278" y2="90" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="494" y1="90" x2="538" y2="90" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="754" y1="90" x2="798" y2="90" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+
+          <rect x="804" y="206" width="210" height="112" rx="18" fill="url(#g-green)" stroke="#38d996" opacity="0.98" />
+          <text x="828" y="240" fill="#ffffff" font-size="17" font-weight="800">G4 clean 写入</text>
+          <text x="828" y="268" fill="#c9ffe6" font-size="13">_tmp -> 校验 -> replace</text>
+          <text x="828" y="290" fill="#c9ffe6" font-size="13">字段只保留 clean schema</text>
+          <text x="828" y="312" fill="#c9ffe6" font-size="13">不能带血缘字段</text>
+
+          <rect x="544" y="206" width="210" height="112" rx="18" fill="url(#g-amber)" stroke="#ffbf5f" opacity="0.98" />
+          <text x="568" y="240" fill="#ffffff" font-size="17" font-weight="800">G5 clean 门禁</text>
+          <text x="568" y="268" fill="#ffe6bf" font-size="13">schema / 唯一键</text>
+          <text x="568" y="290" fill="#ffe6bf" font-size="13">raw -> clean 统计一致</text>
+          <text x="568" y="312" fill="#ffe6bf" font-size="13">完成后才能进入下游</text>
+
+          <rect x="284" y="206" width="210" height="112" rx="18" fill="url(#g-amber)" stroke="#ffbf5f" opacity="0.98" />
+          <text x="308" y="240" fill="#ffffff" font-size="17" font-weight="800">G6 完备性审计</text>
+          <text x="308" y="268" fill="#ffe6bf" font-size="13">交易日连续性</text>
+          <text x="308" y="290" fill="#ffe6bf" font-size="13">停牌解释缺口</text>
+          <text x="308" y="312" fill="#ffe6bf" font-size="13">写入问题账本</text>
+
+          <rect x="24" y="206" width="210" height="112" rx="18" fill="url(#g-red)" stroke="#ff6b7a" opacity="0.98" />
+          <text x="48" y="240" fill="#ffffff" font-size="17" font-weight="800">阻断规则</text>
+          <text x="48" y="268" fill="#ffd2d8" font-size="13">failed: 停止</text>
+          <text x="48" y="290" fill="#ffd2d8" font-size="13">needs_review: 停止</text>
+          <text x="48" y="312" fill="#ffd2d8" font-size="13">success: 放行</text>
+
+          <line x1="909" y1="146" x2="909" y2="200" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="804" y1="262" x2="760" y2="262" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="544" y1="262" x2="500" y2="262" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="284" y1="262" x2="240" y2="262" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+
+          <rect x="284" y="386" width="210" height="116" rx="18" fill="url(#g-green)" stroke="#38d996" opacity="0.98" />
+          <text x="308" y="420" fill="#ffffff" font-size="17" font-weight="800">G7 derived 90/120</text>
+          <text x="308" y="448" fill="#c9ffe6" font-size="13">只读 clean 30/60</text>
+          <text x="308" y="470" fill="#c9ffe6" font-size="13">不直接读 raw</text>
+          <text x="308" y="492" fill="#c9ffe6" font-size="13">输出最新 ts_code</text>
+
+          <rect x="544" y="386" width="210" height="116" rx="18" fill="url(#g-green)" stroke="#38d996" opacity="0.98" />
+          <text x="568" y="420" fill="#ffffff" font-size="17" font-weight="800">G8 by_month research</text>
+          <text x="568" y="448" fill="#c9ffe6" font-size="13">只读 clean/derived</text>
+          <text x="568" y="470" fill="#c9ffe6" font-size="13">按最新 ts_code 分桶</text>
+          <text x="568" y="492" fill="#c9ffe6" font-size="13">行数与输入一致</text>
+
+          <rect x="804" y="386" width="210" height="116" rx="18" fill="url(#g-green)" stroke="#38d996" opacity="0.98" />
+          <text x="828" y="420" fill="#ffffff" font-size="17" font-weight="800">G9 指标输入放行</text>
+          <text x="828" y="448" fill="#c9ffe6" font-size="13">MACD / MA / BOLL</text>
+          <text x="828" y="470" fill="#c9ffe6" font-size="13">只读 by_month</text>
+          <text x="828" y="492" fill="#c9ffe6" font-size="13">state key=ts_code+freq</text>
+
+          <line x1="389" y1="318" x2="389" y2="380" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="494" y1="444" x2="538" y2="444" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+          <line x1="754" y1="444" x2="798" y2="444" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow)" />
+
+          <path d="M129 318 C129 558 909 558 909 506" fill="none" stroke="#ff6b7a" stroke-width="2.5" stroke-dasharray="8 8" marker-end="url(#arrow)" opacity="0.78" />
+          <text x="384" y="590" fill="#ffd2d8" font-size="13">任何 failed / needs_review 都不得绕过 clean 门禁进入 derived、research 或指标计算</text>
+
+          <rect x="284" y="334" width="210" height="36" rx="12" fill="rgba(183,148,255,0.13)" stroke="#b794ff" />
+          <text x="304" y="357" fill="#eadcff" font-size="13">身份账本：security_identity_map</text>
+          <rect x="24" y="334" width="230" height="36" rx="12" fill="rgba(183,148,255,0.13)" stroke="#b794ff" />
+          <text x="44" y="357" fill="#eadcff" font-size="13">完备性问题账本：issue ledger</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <div class="legend-card"><b><span class="dot green"></span> success</b><p>门禁通过，可以进入下一步。</p></div>
+        <div class="legend-card"><b><span class="dot amber"></span> needs_review</b><p>信息不足或口径不能自动判定，默认阻断。</p></div>
+        <div class="legend-card"><b><span class="dot red"></span> failed</b><p>确认错误，必须修复，不能放行。</p></div>
+        <div class="legend-card"><b><span class="dot purple"></span> explained</b><p>缺失有停牌或生命周期依据，不阻断但必须计数。</p></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2. 硬口径</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3>raw 层</h3>
+          <p>raw 只保存源站事实，源站返回什么代码就保存什么代码。raw 不负责研究口径清洗，不因为代码变更或退市而改写历史。</p>
+          <ul>
+            <li>路径：<code>raw_tushare/stk_mins_by_date</code></li>
+            <li>保留源站原始 <code>ts_code</code></li>
+            <li>每日增量先落 raw</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>clean 层</h3>
+          <p>clean 是研究事实，只保留可用于研究和指标计算的股票分钟线。</p>
+          <ul>
+            <li>旧代码直接归一为最新 <code>ts_code</code></li>
+            <li>未退市股票保留 <code>list_date</code> 起的数据</li>
+            <li>已退市股票整只排除，不保留退市前历史</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>下游层</h3>
+          <p>derived、by_month research、MACD 等技术指标只能读取 clean 之后的数据。</p>
+          <ul>
+            <li>derived 90/120 只读 clean 30/60</li>
+            <li>by_month 只读 clean/derived</li>
+            <li>指标 state key 使用最新 <code>ts_code + freq</code></li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout red">
+        <strong>绝对禁止：</strong>
+        clean、derived、research、indicator 行级输出不得包含
+        <code>identity_id</code>、<code>source_ts_code</code>、<code>list_date</code>、<code>delist_date</code>、<code>identity_version</code>。
+        这些字段只属于 manifest / audit，不属于分钟线事实行。
+      </div>
+      <div class="callout">
+        <strong>账本原则：</strong>
+        如果某条数据为什么被归一、为什么被剔除、为什么缺失可以接受，需要解释，这个解释必须进入账本。
+        不能为了让下游“看懂原因”就在 clean、derived、research 或 indicator 行级数据里加解释列。
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3. 两本账：身份账本与完备性问题账本</h2>
+      <p>
+        clean 行只保存行情事实。所有解释性信息分散到两本账里：G1 身份账本负责“这是谁”，G6 完备性问题账本负责“这里为什么缺、为什么剔除、是否需要修”。
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <h3>G1 身份账本</h3>
+          <p><code>manifest/security_identity/security_identity_map.parquet</code></p>
+          <ul>
+            <li>记录 <code>source_ts_code -> latest_ts_code</code>。</li>
+            <li>记录代码变更、北交所映射、曾用名证据、退市状态。</li>
+            <li>记录无法确认的映射，阻断 clean 生成。</li>
+            <li>退市股票也必须在账本里有记录；clean 根据账本整只排除。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>G6 完备性问题账本</h3>
+          <p><code>manifest/stk_mins_quality/clean_completeness_issue_ledger.parquet</code></p>
+          <ul>
+            <li>记录交易日缺口、日内 bar 缺口、异常 bar、重复冲突。</li>
+            <li>记录停牌解释、生命周期解释、需要人工复核的问题。</li>
+            <li>记录后续处理动作：阻断、修复、剔除、接受已解释。</li>
+            <li>问题行只有先进入账本，后续 clean 修复或重建才允许剔除。</li>
+          </ul>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>信息类型</th>
+            <th>放在哪里</th>
+            <th>是否进入 clean 行级数据</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>旧代码、最新代码、代码切换区间</td>
+            <td>G1 身份账本</td>
+            <td>否</td>
+            <td>clean 只输出最新 <code>ts_code</code>，不背历史血缘字段。</td>
+          </tr>
+          <tr>
+            <td>退市股票记录</td>
+            <td>G1 身份账本</td>
+            <td>否</td>
+            <td>退市股整只不进 clean，但排除依据必须可追溯。</td>
+          </tr>
+          <tr>
+            <td>缺失交易日、缺失 bar、异常时点</td>
+            <td>G6 完备性问题账本</td>
+            <td>否</td>
+            <td>这是质量问题解释，不是行情事实字段。</td>
+          </tr>
+          <tr>
+            <td>停牌解释</td>
+            <td>G6 完备性问题账本，证据指向 <code>suspend_d</code></td>
+            <td>否</td>
+            <td>缺失可以被解释，但 clean 行不需要为缺失添加列。</td>
+          </tr>
+          <tr>
+            <td>允许剔除的问题行</td>
+            <td>G6 完备性问题账本</td>
+            <td>否</td>
+            <td>先记账，再剔除；不能静默删数据。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>4. 每一步审计什么</h2>
+      <div class="flow-list">
+        <div class="gate">
+          <div class="gate-no">G0</div>
+          <div>
+            <h3>事实输入完整性审计</h3>
+            <p>
+              先确认所有判断 clean 的外部事实都在本地 Lake 中存在，并且可读。这里不改任何文件。
+            </p>
+            <ul>
+              <li><code>stock_basic</code>：判断股票是否仍在市场、上市日期、退市日期。</li>
+              <li><code>trade_cal</code>：判断哪些日期是开市交易日。</li>
+              <li><code>suspend_d</code>：解释某只未退市股票在某个交易日为什么没有分钟线。</li>
+              <li><code>namechange</code> / <code>bse_mapping</code>：辅助建立旧代码到最新代码的映射。</li>
+              <li><code>raw_tushare/stk_mins_by_date</code>：源站分钟线事实。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: 全部存在且可读</span>
+              <span class="status review">needs_review: 缺少 trade_cal / suspend_d</span>
+              <span class="status failed">failed: 文件损坏或 schema 不可解析</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G1</div>
+          <div>
+            <h3>security_identity_map 审计</h3>
+            <p>
+              目标是把源站旧代码映射到当前最新代码。它只产出映射表，不把映射字段写入每一行分钟线。
+            </p>
+            <ul>
+              <li>同一个 <code>source_ts_code</code> 只能映射到一个 <code>latest_ts_code</code>。</li>
+              <li>映射区间不能重叠，不能一行源数据匹配多个最新代码。</li>
+              <li>北交所 <code>920xxx.BJ</code>、代码改名、曾用名必须能通过本地事实解释。</li>
+              <li><code>effective_delist_date</code> 非空表示该最新股票已退市，clean 后续整只排除。</li>
+              <li>G1 中出现的所有情况，包括退市股票和无法确认映射，都必须写入身份账本。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: 唯一映射</span>
+              <span class="status review">needs_review: 只能靠名称猜测</span>
+              <span class="status failed">failed: 冲突映射 / 区间重叠</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G2</div>
+          <div>
+            <h3>raw 分区审计</h3>
+            <p>
+              按 <code>freq + trade_date</code> 检查 raw 分区。raw 是源事实，审计只读，不用 downstream 结果反推 raw。
+            </p>
+            <ul>
+              <li>路径必须符合 <code>raw_tushare/stk_mins_by_date/freq=X/trade_date=YYYY-MM-DD</code>。</li>
+              <li><code>trade_time</code> 可解析，且能落到对应 <code>trade_date</code>。</li>
+              <li>字段能读、文件非空、Parquet metadata 可解析。</li>
+              <li>raw 分区缺失不等于 clean 错误，但必须在后续完整性审计中说明影响。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: raw 分区可读</span>
+              <span class="status review">needs_review: 分区缺失但无法判断原因</span>
+              <span class="status failed">failed: Parquet 损坏或字段无法解析</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G3</div>
+          <div>
+            <h3>clean dry-run 规则审计</h3>
+            <p>
+              写入 clean 前，先用只读方式模拟 raw -> clean，得到每个分区应保留多少、过滤多少、为什么过滤。
+            </p>
+            <ul>
+              <li><code>source_ts_code -> latest_ts_code</code>：旧代码归一为最新代码。</li>
+              <li><code>invalid_price</code>：OHLC 非法、全 0 或 <code>high < low</code>。</li>
+              <li><code>invalid_volume_amount</code>：成交量或成交额为负。</li>
+              <li><code>invalid_trade_time</code>：时间为空或无法解析。</li>
+              <li><code>before_list_date</code>：未退市股票上市日前数据。</li>
+              <li><code>delisted_security</code>：已退市股票整只排除。</li>
+              <li><code>duplicate_same_payload</code>：同 key 内容一致，可去重并计数。</li>
+              <li><code>duplicate_conflict_payload</code>：同 key 内容冲突，直接失败。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: dry-run 无冲突</span>
+              <span class="status review">needs_review: 身份缺失或事实不足</span>
+              <span class="status failed">failed: 同 key 不同内容</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G4</div>
+          <div>
+            <h3>clean 写入安全门禁</h3>
+            <p>
+              clean 写入采用 <code>_tmp -> 校验 -> replace</code>。人话讲：先写到临时目录，确认新分区没问题，再替换正式分区。
+            </p>
+            <ul>
+              <li>正式分区不允许半成品写入。</li>
+              <li>写入字段必须严格等于 clean schema。</li>
+              <li>写入结果必须和 dry-run 的 <code>kept_rows</code>、过滤原因统计一致。</li>
+              <li>如果校验失败，临时结果不能提升为正式 clean。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: replace 成功且统计一致</span>
+              <span class="status failed">failed: 写入后校验不一致</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G5</div>
+          <div>
+            <h3>clean schema / row quality 门禁</h3>
+            <p>
+              这是 clean 成品的行级硬门禁。它检查的是 clean 自身是否干净，不再看计算指标。
+            </p>
+            <ul>
+              <li>字段必须等于 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount,trade_date</code>。</li>
+              <li><code>ts_code + freq + trade_time</code> 必须唯一。</li>
+              <li><code>trade_time.date == trade_date</code>。</li>
+              <li>OHLC 必须大于 0，<code>high >= low</code>，<code>vol/amount >= 0</code>。</li>
+              <li>不能出现已退市股票，不能出现上市日前数据。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: clean 行级质量通过</span>
+              <span class="status failed">failed: 任一硬规则违反</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G6</div>
+          <div>
+            <h3>股票级交易日连续性审计</h3>
+            <p>
+              审计对象只包含 clean 中的未退市股票。它不是要求所有股票全历史都有数据，而是要求在该股票应该交易的窗口内，缺失必须有解释。
+            </p>
+            <ul>
+              <li>预期日期：<code>open_trade_dates_between(max(list_date, audit_start_date), audit_end_date)</code>。</li>
+              <li>如果 raw 中有应保留行但 clean 缺失：<code>failed</code>。</li>
+              <li>如果 raw 没有行，但 <code>suspend_d.suspend_type='S'</code>：<code>explained_by_suspend</code>。</li>
+              <li>如果 raw 没有行且停牌事实也缺：<code>missing_source_or_calendar_gap</code>，进入 <code>needs_review</code>。</li>
+              <li>上市日前缺失：<code>explained_by_lifecycle</code>。</li>
+              <li>G6 暴露的问题必须写入完备性问题账本；需要剔除的问题行，只有先记账后才能在 clean 修复中剔除。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: 无未解释缺口</span>
+              <span class="status info">explained_by_suspend: 有停牌依据</span>
+              <span class="status review">needs_review: 事实不足</span>
+              <span class="status failed">failed: clean 漏写</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G7</div>
+          <div>
+            <h3>日内 bar 完整性审计</h3>
+            <p>
+              对每只股票、每个频度、每个交易日，检查日内 K 线数量和时间点是否符合 A 股常规交易时段。
+            </p>
+            <ul>
+              <li>常规交易时段：09:30~11:30，13:00~15:00。</li>
+              <li>参考 bar 数：1 分钟 241，5 分钟 49，15 分钟 17，30 分钟 9，60 分钟 5。</li>
+              <li><code>bar_count == reference_count</code>：通过。</li>
+              <li><code>0 < bar_count < reference_count</code>：<code>needs_review</code>，输出缺失时间段。</li>
+              <li><code>bar_count > reference_count</code>：<code>failed</code>，通常是重复或异常时间点。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: bar 完整</span>
+              <span class="status review">needs_review: 少 bar</span>
+              <span class="status failed">failed: 多 bar / 异常时间</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gate">
+          <div class="gate-no">G8</div>
+          <div>
+            <h3>derived / by_month research 门禁</h3>
+            <p>
+              clean 审计通过后，才允许生成 derived 和 by_month research。这里的核心是保证下游没有绕回 raw，也没有重新引入旧 schema。
+            </p>
+            <ul>
+              <li>derived 90/120 只能读取 clean 30/60。</li>
+              <li>by_month research 只能读取 clean/derived。</li>
+              <li>输出全部使用最新 <code>ts_code</code>。</li>
+              <li>输出不得包含行级身份字段。</li>
+              <li>by_month 行数必须等于对应 clean/derived 输入行数。</li>
+            </ul>
+            <div class="gate-meta">
+              <span class="status success">pass: 可以作为指标输入</span>
+              <span class="status failed">failed: 读错源或 schema 污染</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>5. raw -> clean 决策图</h2>
+      <p>
+        这张图是每一行 raw 分钟线进入 clean 前的判断路径。注意：退市股不是“退市后过滤”，而是只要该股票已退市，整只不进 clean。
+      </p>
+      <div class="diagram">
+        <svg width="1180" height="500" viewBox="0 0 1180 500" role="img" aria-label="raw to clean row decision flow">
+          <defs>
+            <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#6f84ad" />
+            </marker>
+          </defs>
+          <rect x="38" y="54" width="180" height="76" rx="16" fill="#263e72" stroke="#5ba7ff" />
+          <text x="64" y="88" fill="#fff" font-size="16" font-weight="800">raw 行</text>
+          <text x="64" y="112" fill="#cfe0ff" font-size="13">source ts_code</text>
+
+          <rect x="278" y="54" width="190" height="76" rx="16" fill="#263e72" stroke="#5ba7ff" />
+          <text x="306" y="88" fill="#fff" font-size="16" font-weight="800">身份映射</text>
+          <text x="306" y="112" fill="#cfe0ff" font-size="13">source -> latest</text>
+
+          <rect x="528" y="54" width="190" height="76" rx="16" fill="#61471d" stroke="#ffbf5f" />
+          <text x="556" y="88" fill="#fff" font-size="16" font-weight="800">股票状态判断</text>
+          <text x="556" y="112" fill="#ffe6bf" font-size="13">退市 / 上市日</text>
+
+          <rect x="778" y="54" width="190" height="76" rx="16" fill="#61471d" stroke="#ffbf5f" />
+          <text x="806" y="88" fill="#fff" font-size="16" font-weight="800">行情质量判断</text>
+          <text x="806" y="112" fill="#ffe6bf" font-size="13">价格 / 时间 / 重复</text>
+
+          <rect x="528" y="212" width="190" height="76" rx="16" fill="#68313b" stroke="#ff6b7a" />
+          <text x="556" y="246" fill="#fff" font-size="16" font-weight="800">过滤</text>
+          <text x="556" y="270" fill="#ffd2d8" font-size="13">delisted_security</text>
+
+          <rect x="778" y="212" width="190" height="76" rx="16" fill="#68313b" stroke="#ff6b7a" />
+          <text x="806" y="246" fill="#fff" font-size="16" font-weight="800">过滤 / 失败</text>
+          <text x="806" y="270" fill="#ffd2d8" font-size="13">invalid / duplicate conflict</text>
+
+          <rect x="998" y="212" width="150" height="76" rx="16" fill="#1f5a48" stroke="#38d996" />
+          <text x="1022" y="246" fill="#fff" font-size="16" font-weight="800">进入 clean</text>
+          <text x="1022" y="270" fill="#c9ffe6" font-size="13">latest ts_code</text>
+
+          <line x1="218" y1="92" x2="272" y2="92" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow2)" />
+          <line x1="468" y1="92" x2="522" y2="92" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow2)" />
+          <line x1="718" y1="92" x2="772" y2="92" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow2)" />
+          <path d="M623 130 L623 206" stroke="#ff6b7a" stroke-width="3" marker-end="url(#arrow2)" />
+          <text x="642" y="174" fill="#ffd2d8" font-size="13">已退市</text>
+          <path d="M873 130 L873 206" stroke="#ff6b7a" stroke-width="3" marker-end="url(#arrow2)" />
+          <text x="892" y="174" fill="#ffd2d8" font-size="13">质量失败</text>
+          <line x1="968" y1="250" x2="992" y2="250" stroke="#38d996" stroke-width="3" marker-end="url(#arrow2)" />
+          <path d="M873 130 C914 162 992 170 1073 206" fill="none" stroke="#38d996" stroke-width="3" marker-end="url(#arrow2)" />
+          <text x="943" y="154" fill="#c9ffe6" font-size="13">有效且未退市</text>
+
+          <rect x="278" y="354" width="870" height="92" rx="18" fill="rgba(255,255,255,0.055)" stroke="#2c3b5e" />
+          <text x="306" y="388" fill="#fff" font-size="17" font-weight="800">进入 clean 的行必须满足</text>
+          <text x="306" y="418" fill="#cfe0ff" font-size="14">最新 ts_code；未退市；交易日不早于 list_date；OHLC 合法；trade_time 合法；同 ts_code+freq+trade_time 唯一。</text>
+        </svg>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>6. 门禁矩阵</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>审计对象</th>
+            <th>通过口径</th>
+            <th>阻断口径</th>
+            <th>下游影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>G0 事实输入</td>
+            <td>stock_basic、trade_cal、suspend_d、namechange、bse_mapping、raw stk_mins</td>
+            <td>本地文件存在、字段可读、关键字段不缺失。</td>
+            <td>关键事实缺失或不可读。</td>
+            <td>不能生成 clean。</td>
+          </tr>
+          <tr>
+            <td>G1 身份映射</td>
+            <td>security_identity_map 身份账本</td>
+            <td>每个源代码唯一映射到最新代码，映射区间无冲突；退市记录明确。</td>
+            <td>同一源代码多重映射、区间重叠、无法确定最新代码、退市状态缺依据。</td>
+            <td>不能执行 raw -> clean 归一。</td>
+          </tr>
+          <tr>
+            <td>G3 dry-run</td>
+            <td>raw 行级规则</td>
+            <td>能解释每一行保留或过滤原因，且无冲突重复。</td>
+            <td>duplicate_conflict_payload、identity_conflict、规则无法解释。</td>
+            <td>不能写 clean。</td>
+          </tr>
+          <tr>
+            <td>G5 clean 成品</td>
+            <td>clean 分区</td>
+            <td>schema 严格、行级质量合格、唯一键无重复。</td>
+            <td>字段污染、非法价格、上市日前数据、已退市股票、重复冲突。</td>
+            <td>不能进入完备性审计和下游重建。</td>
+          </tr>
+          <tr>
+            <td>G6 交易日连续性</td>
+            <td>未退市股票的交易日覆盖与 G6 问题账本</td>
+            <td>缺失都能被停牌或生命周期解释，问题已记录到账本。</td>
+            <td>未解释缺口、raw/日历/停牌事实不足、问题未入账。</td>
+            <td>不能进入 derived/research。</td>
+          </tr>
+          <tr>
+            <td>G7 日内 bar</td>
+            <td>每只股票每个交易日的 bar 数和时点</td>
+            <td>bar 数符合频度规则，时间点合法。</td>
+            <td>多 bar、异常时间点、缺失 bar 未解释。</td>
+            <td>不能作为指标输入。</td>
+          </tr>
+          <tr>
+            <td>G8 下游层</td>
+            <td>derived 90/120、by_month research</td>
+            <td>只读 clean/derived，行数一致，schema 不污染。</td>
+            <td>直接读 raw、旧代码断裂、身份字段混入行级数据。</td>
+            <td>不能开始 MACD/MA/BOLL。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>7. 状态如何汇总</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>单项状态</h3>
+          <table>
+            <thead>
+              <tr><th>状态</th><th>含义</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="status success">pass</span></td><td>明确通过。</td></tr>
+              <tr><td><span class="status failed">failed</span></td><td>确认错误，必须修复。</td></tr>
+              <tr><td><span class="status review">needs_review</span></td><td>存在异常信号，现有事实不能自动判定。</td></tr>
+              <tr><td><span class="status info">duplicate_same_payload</span></td><td>同 key 内容一致，可去重，但必须计数。</td></tr>
+              <tr><td><span class="status failed">duplicate_conflict_payload</span></td><td>同 key 内容不一致，等同失败。</td></tr>
+              <tr><td><span class="status info">explained_by_suspend</span></td><td>缺失由停牌记录解释。</td></tr>
+              <tr><td><span class="status info">explained_by_lifecycle</span></td><td>上市前缺失或退市股票整只排除。</td></tr>
+              <tr><td><span class="status review">missing_source_or_calendar_gap</span></td><td>raw、交易日历或停复牌事实不足。</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>全局状态</h3>
+          <p>门禁汇总遵循从严规则，不允许“多数通过就放行”。</p>
+          <ul>
+            <li>任意项 <code>failed</code> 或 <code>duplicate_conflict_payload</code>：全局 <code>failed</code>。</li>
+            <li>否则任意项 <code>needs_review</code> 或 <code>missing_source_or_calendar_gap</code>：全局 <code>needs_review</code>。</li>
+            <li>否则：全局 <code>success</code>。</li>
+          </ul>
+          <div class="callout green">
+            <strong>放行条件：</strong>
+            只有全局 <code>success</code> 才允许进入 derived/research/MACD。<code>needs_review</code> 不是警告，它默认也是阻断。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>8. 运行时序</h2>
+      <p>
+        从运行角度看，这不是“一边清洗一边算指标”的流程，而是分阶段门禁。上一阶段没有通过，下一个阶段不能启动。
+      </p>
+      <div class="diagram">
+        <svg width="1180" height="360" viewBox="0 0 1180 360" role="img" aria-label="execution sequence">
+          <defs>
+            <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#6f84ad" />
+            </marker>
+          </defs>
+          <rect x="34" y="54" width="180" height="90" rx="18" fill="#263e72" stroke="#5ba7ff" />
+          <text x="58" y="88" fill="#fff" font-size="16" font-weight="800">1. 准备事实</text>
+          <text x="58" y="116" fill="#cfe0ff" font-size="13">manifest + raw</text>
+
+          <rect x="254" y="54" width="180" height="90" rx="18" fill="#263e72" stroke="#5ba7ff" />
+          <text x="278" y="88" fill="#fff" font-size="16" font-weight="800">2. 建映射</text>
+          <text x="278" y="116" fill="#cfe0ff" font-size="13">source -> latest</text>
+
+          <rect x="474" y="54" width="180" height="90" rx="18" fill="#61471d" stroke="#ffbf5f" />
+          <text x="498" y="88" fill="#fff" font-size="16" font-weight="800">3. dry-run</text>
+          <text x="498" y="116" fill="#ffe6bf" font-size="13">只读模拟清洗</text>
+
+          <rect x="694" y="54" width="180" height="90" rx="18" fill="#1f5a48" stroke="#38d996" />
+          <text x="718" y="88" fill="#fff" font-size="16" font-weight="800">4. 写 clean</text>
+          <text x="718" y="116" fill="#c9ffe6" font-size="13">临时目录提升</text>
+
+          <rect x="914" y="54" width="180" height="90" rx="18" fill="#61471d" stroke="#ffbf5f" />
+          <text x="938" y="88" fill="#fff" font-size="16" font-weight="800">5. 审计 clean</text>
+          <text x="938" y="116" fill="#ffe6bf" font-size="13">质量 + 完备性</text>
+
+          <line x1="214" y1="99" x2="248" y2="99" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+          <line x1="434" y1="99" x2="468" y2="99" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+          <line x1="654" y1="99" x2="688" y2="99" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+          <line x1="874" y1="99" x2="908" y2="99" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+
+          <rect x="254" y="220" width="180" height="90" rx="18" fill="#1f5a48" stroke="#38d996" />
+          <text x="278" y="254" fill="#fff" font-size="16" font-weight="800">6. 生成 derived</text>
+          <text x="278" y="282" fill="#c9ffe6" font-size="13">90 / 120</text>
+
+          <rect x="474" y="220" width="180" height="90" rx="18" fill="#1f5a48" stroke="#38d996" />
+          <text x="498" y="254" fill="#fff" font-size="16" font-weight="800">7. 生成 by_month</text>
+          <text x="498" y="282" fill="#c9ffe6" font-size="13">research 输入</text>
+
+          <rect x="694" y="220" width="180" height="90" rx="18" fill="#1f5a48" stroke="#38d996" />
+          <text x="718" y="254" fill="#fff" font-size="16" font-weight="800">8. 指标计算</text>
+          <text x="718" y="282" fill="#c9ffe6" font-size="13">MACD / MA / BOLL</text>
+
+          <path d="M1004 144 C1004 188 344 176 344 214" fill="none" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+          <line x1="434" y1="265" x2="468" y2="265" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+          <line x1="654" y1="265" x2="688" y2="265" stroke="#6f84ad" stroke-width="3" marker-end="url(#arrow3)" />
+        </svg>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>9. 人话版结论</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>clean 通过前，谁都不能往下跑</h3>
+          <p>
+            如果 clean 里还有已退市股票、旧代码断裂、无效价格、重复冲突、未解释缺口，就不能生成 90/120，也不能重排 by_month，更不能算 MACD。
+          </p>
+        </div>
+        <div class="card">
+          <h3>审计不是“看起来差不多”</h3>
+          <p>
+            每一类异常都必须落到固定枚举和统计上。能解释的写清楚，不能解释的进入 <code>needs_review</code>，确认错误的进入 <code>failed</code>。
+          </p>
+        </div>
+        <div class="card">
+          <h3>退市股不进入研究事实</h3>
+          <p>
+            raw 可以保存退市股源站历史，但 clean 作为研究事实层不保留。退市股必须记录在身份账本里；clean 中出现退市股就是门禁失败。
+          </p>
+        </div>
+        <div class="card">
+          <h3>停牌要靠事实解释</h3>
+          <p>
+            缺数据不能拍脑袋说“可能停牌”。必须用 <code>suspend_d</code> 解释，并记录到完备性问题账本；没有停牌事实，就进入 <code>needs_review</code>。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>10. 与现有方案的关系</h2>
+      <p>
+        本 HTML 是图形化说明，不替代详细工程方案。具体实现仍以
+        <a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md">stk-mins-macd-v2-recompute-and-incremental-plan.md</a>
+        为主。后续如果 clean 审计规则、状态枚举、目录层级发生变化，必须同时更新这份图文说明，避免团队继续按旧口径理解。
+      </p>
+    </section>
+
+    <footer class="footer">
+      <p>Version: v1 · Scope: Local Lake stk_mins clean / audit gates · Updated: 2026-05-12</p>
+    </footer>
+  </main>
+</body>
+</html>

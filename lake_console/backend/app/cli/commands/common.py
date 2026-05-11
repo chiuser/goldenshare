@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date, datetime
 from typing import Any
 
 from lake_console.backend.app.settings import load_settings
@@ -16,7 +17,15 @@ def settings_from_args(args: argparse.Namespace):
 
 
 def print_json(payload: Any) -> None:
-    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=_json_default))
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
 
 
 def parse_freqs(raw_value: str | None, *, fallback: int | None) -> list[int]:

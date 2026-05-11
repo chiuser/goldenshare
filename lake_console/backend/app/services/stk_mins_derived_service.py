@@ -192,23 +192,23 @@ class StkMinsDerivedService:
 
 
 def derive_rows(source_rows: list[dict[str, Any]], *, target_freq: int, group_size: int) -> list[dict[str, Any]]:
-    rows_by_code_day: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    rows_by_series_day: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in source_rows:
-        ts_code = str(row.get("ts_code") or "").strip()
+        series_key = _series_key(row)
         trade_time = _parse_trade_time(row.get("trade_time"))
-        if ts_code and trade_time:
+        if series_key and trade_time:
             if target_freq == 90 and trade_time.time() == time(9, 30):
                 continue
-            rows_by_code_day[(ts_code, trade_time.date().isoformat())].append(row)
+            rows_by_series_day[(series_key, trade_time.date().isoformat())].append(row)
 
     result: list[dict[str, Any]] = []
-    for (ts_code, _trade_date), rows in sorted(rows_by_code_day.items()):
+    for (_series_key_value, _trade_date), rows in sorted(rows_by_series_day.items()):
         sorted_rows = sorted(rows, key=lambda item: str(item.get("trade_time") or ""))
         for start in range(0, len(sorted_rows), group_size):
             chunk = sorted_rows[start : start + group_size]
             if len(chunk) < group_size and target_freq != 90:
                 continue
-            result.append(_aggregate_chunk(ts_code=ts_code, target_freq=target_freq, chunk=chunk))
+            result.append(_aggregate_chunk(target_freq=target_freq, chunk=chunk))
     return result
 
 
@@ -224,13 +224,18 @@ def _missing_source_partitions(*, lake_root: Path, trade_dates: list[date], targ
 
 
 def _source_partition(*, lake_root: Path, source_freq: int, trade_date: date) -> Path:
-    return lake_root / "raw_tushare" / "stk_mins_by_date" / f"freq={source_freq}" / f"trade_date={trade_date.isoformat()}"
+    return lake_root / "research" / "stk_mins_by_date_clean" / f"freq={source_freq}" / f"trade_date={trade_date.isoformat()}"
 
 
-def _aggregate_chunk(*, ts_code: str, target_freq: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:
+def _aggregate_chunk(*, target_freq: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:
+    trade_time = _parse_trade_time(chunk[-1].get("trade_time"))
+    if trade_time is None:
+        raise RuntimeError("派生分钟线遇到无法解析的 trade_time。")
+    ts_code = _consistent_required_value(chunk, "ts_code")
     return {
         "ts_code": ts_code,
         "freq": target_freq,
+        "trade_date": trade_time.date().isoformat(),
         "trade_time": chunk[-1].get("trade_time"),
         "open": chunk[0].get("open"),
         "close": chunk[-1].get("close"),
@@ -239,6 +244,36 @@ def _aggregate_chunk(*, ts_code: str, target_freq: int, chunk: list[dict[str, An
         "vol": sum(_number(row.get("vol")) for row in chunk),
         "amount": sum(_number(row.get("amount")) for row in chunk),
     }
+
+
+def _series_key(row: dict[str, Any]) -> str:
+    return str(row.get("ts_code") or "").strip()
+
+
+def _consistent_required_value(chunk: list[dict[str, Any]], field: str) -> str:
+    value = _consistent_optional_value(chunk, field)
+    if value is None:
+        raise RuntimeError(f"派生分钟线缺少必需字段：{field}")
+    return value
+
+
+def _consistent_optional_value(chunk: list[dict[str, Any]], field: str) -> str | None:
+    values = {_normalize_text(row.get(field)) for row in chunk}
+    values.discard("")
+    if not values:
+        return None
+    if len(values) > 1:
+        raise RuntimeError(f"派生分钟线同一聚合窗口内 {field} 不一致：{sorted(values)}")
+    return next(iter(values))
+
+
+def _normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    raw_value = str(value).strip()
+    if raw_value.lower() in {"nan", "nat", "none"}:
+        return ""
+    return raw_value
 
 
 def _number(value: Any) -> float:

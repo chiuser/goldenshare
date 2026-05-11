@@ -6,7 +6,7 @@ from datetime import date, datetime
 import pytest
 
 from lake_console.backend.app.services.indicators import IndicatorRecalcQueueService
-from lake_console.backend.app.services.parquet_writer import write_rows_to_parquet
+from lake_console.backend.app.services.parquet_writer import read_parquet_rows, write_rows_to_parquet
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 
 
@@ -16,11 +16,11 @@ def test_derive_day_records_indicator_recalc_queue_for_derived_partition(tmp_pat
     trade_date = date(2026, 4, 24)
     write_rows_to_parquet(
         [
-            _bar("600000.SH", "2026-04-24 10:00:00", 10.0),
-            _bar("600000.SH", "2026-04-24 10:30:00", 10.5),
-            _bar("600000.SH", "2026-04-24 11:00:00", 10.8),
+            _bar("600000.SH", "2026-04-24", "2026-04-24 10:00:00", 10.0),
+            _bar("600000.SH", "2026-04-24", "2026-04-24 10:30:00", 10.5),
+            _bar("600000.SH", "2026-04-24", "2026-04-24 11:00:00", 10.8),
         ],
-        tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=30" / "trade_date=2026-04-24" / "part-000.parquet",
+        tmp_path / "research" / "stk_mins_by_date_clean" / "freq=30" / "trade_date=2026-04-24" / "part-000.parquet",
     )
 
     summary = StkMinsDerivedService(lake_root=tmp_path, progress=lambda _: None).derive_day(
@@ -34,16 +34,22 @@ def test_derive_day_records_indicator_recalc_queue_for_derived_partition(tmp_pat
     ]
     queue_items = IndicatorRecalcQueueService(lake_root=tmp_path).list_items()
     assert summary["written_rows"] == 1
+    rows = read_parquet_rows(tmp_path / "derived" / "stk_mins_by_date" / "freq=90" / "trade_date=2026-04-24" / "part-000.parquet")
+    assert rows[0]["ts_code"] == "600000.SH"
+    assert "identity_id" not in rows[0]
+    assert "source_ts_code" not in rows[0]
+    assert rows[0]["trade_date"] == "2026-04-24"
     assert event_rows[0]["layer"] == "derived"
     assert event_rows[0]["freq"] == 90
     assert queue_items[0]["freq_value"] == 90
     assert queue_items[0]["status"] == "pending"
 
 
-def _bar(ts_code: str, trade_time: str, close: float) -> dict[str, object]:
+def _bar(ts_code: str, trade_date: str, trade_time: str, close: float) -> dict[str, object]:
     return {
         "ts_code": ts_code,
         "freq": 30,
+        "trade_date": trade_date,
         "trade_time": datetime.fromisoformat(trade_time),
         "open": close,
         "close": close,
