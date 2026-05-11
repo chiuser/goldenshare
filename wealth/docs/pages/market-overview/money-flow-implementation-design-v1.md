@@ -12,9 +12,25 @@
    [money-flow-benchmark-requirement-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md)
 2. 本文目标：冻结大盘资金流向模块的数据源、查询口径、状态与异常语义。
 3. 本文不做：不落业务代码，不改页面样式，不改其他模块。
+4. 跨模块抽象门禁原则适配结论：本模块全量适用 8 条原则，落点见 `1.1`。
 
 关联门禁：  
 [money-flow-m2-coding-gate-v1.md](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md)
+
+---
+
+## 1.1 跨模块抽象门禁原则适配（必填）
+
+| 原则 | 本模块结论 | 设计落点 | 计划测试 |
+|---|---|---|---|
+| 事实源单一原则 | 适用；资金流事实单源 | `market_moneyflow_dc` 单源读取 | 集成测试校验字段来源与值 |
+| 契约先行与冻结原则 | 适用；先冻结 DTO 再编码 | `money_flow.py` schema 与样例响应 | 契约字段断言测试 |
+| 配置一致性原则 | 适用；首期无配置分支 | 固定 `oneMonth/threeMonth` | 请求无配置分支回归 |
+| 默认行为显式原则 | 适用；未传 `tradeDate` 明确回退期望日 | 参数校验与 `trade_calendar` 取值策略 | 未传参 + 边界态测试 |
+| 排序与筛选确定性原则 | 适用；历史点升序、无跨源拼接 | 历史查询输出排序规则 | 排序稳定性测试 |
+| 性能预算前置原则 | 适用；P95 预算前置 | 预算 `P95 < 260ms`、payload `< 90KB` | 集成压测与门禁记录 |
+| 可观测与异常标准化原则 | 适用；统一异常对象与模块状态 | `status_resolver` + `exception_builder` | delayed/empty/error 分支测试 |
+| 测试以用户可见结果为中心原则 | 适用；双卡与历史图为主验收 | 核心字段与页面展示一一映射 | 真实 API + 前端展示 smoke |
 
 ---
 
@@ -118,6 +134,36 @@ src/biz/
 3. 双卡可用但历史不足：模块 `PARTIAL`。
 4. SQL/服务异常：模块 `ERROR`。
 
+### 5.5 辅助查询（补列/补名）
+
+1. 本模块无“补列补名”跨表查询，所有展示字段来自单源 `market_moneyflow_dc`。
+2. 不做名称字典补齐，不做跨源拼接，避免事实漂移。
+
+### 5.6 回退查询（可选）
+
+1. 本模块无回退查询。
+2. 当源缺失时，通过 `DELAYED/PARTIAL/EMPTY` 显式状态表达，不做隐式 fallback。
+
+### 5.7 去重、排序、截断规则
+
+1. 历史序列按 `tradeDate` 升序。
+2. 不做去重裁剪（由交易日序列与单日一条约束保证唯一性）。
+3. 固定区间：
+   - `oneMonth` 最多 22 点；
+   - `threeMonth` 最多 62 点。
+
+### 5.8 默认行为与边界行为（严格/降级/回退）
+
+1. 未传 `tradeDate`：使用交易日历期望日。
+2. 源数据落后：标记 `DELAYED`，不回退旧口径数据掩盖状态。
+3. 历史不足：标记 `PARTIAL`，保留可展示点位。
+4. 查询失败：标记 `ERROR`，不影响其他模块渲染。
+
+### 5.9 关键筛选枚举与排序规则固定化
+
+1. `market` 仅接受 `CN_A`，不支持其他市场枚举。
+2. 排序规则固定为 `tradeDate` 升序；不存在主次排序歧义。
+
 ---
 
 ## 6. 状态与异常落地
@@ -156,6 +202,7 @@ src/biz/
 3. 防误用策略：
    - 非法 market/date 直接 `400001`；
    - debug 输出生产禁用。
+   - 前端超时阈值默认 5 秒，超时按模块 error 处理，不做静默回退。
 
 ---
 
@@ -172,6 +219,34 @@ src/biz/
    - UI 保持不变
 4. 失败回滚与观测：
    - 查询失败仅影响模块，不阻塞整页其他模块。
+
+### 9.1 核心测试 case（必填）
+
+1. 核心字段清单（页面可见要素对应字段）：
+   - `moneyFlow.metrics.todayNetAmount`
+   - `moneyFlow.metrics.prevNetAmount`
+   - `moneyFlow.historyByRange.oneMonth[].netAmount`
+   - `moneyFlow.historyByRange.threeMonth[].netAmount`
+   - `pageStatus.status`
+2. 后端真实 API 集成测试设计（非 mock service/query）：
+   - 覆盖 `READY/PARTIAL/DELAYED/EMPTY/ERROR`；
+   - 覆盖 `tradeDate` 显式输入与默认路径；
+   - 断言历史点排序与范围长度上限。
+3. 前端真实 API 展示校验设计（非 mock adapter）：
+   - 双卡数值、涨跌颜色语义、空值降级 `--`；
+   - 历史区间切换（1个月/3个月）与点位更新；
+   - debug=1 时模块状态与异常列表可见。
+4. 执行命令与通过标准：
+   - 后端：`pytest -q tests/web/test_wealth_market_money_flow_api.py`
+   - 前端：`npm run test:smoke -- money-flow`
+   - 标准：核心字段断言全通过，无未登记异常码。
+
+### 9.2 参考 case（可复用）
+
+1. “接口成功但模块空数据”：验证 `EMPTY` 归因正确，不误报 `ERROR`。
+2. “历史同分/空值混合”：验证折线点位按日期升序、空值点不污染排序。
+3. “默认行为不清”：验证未传 `tradeDate` 与传 `tradeDate` 两条路径返回语义一致。
+4. “debug 泄露风险”：验证生产环境 `debug` 输出禁用。
 
 ---
 
@@ -195,7 +270,7 @@ src/biz/
 
 ---
 
-## 12. 已确认清零项
+## 12. 待拍板项（当前已清零）
 
 1. 本模块采用单源 `market_moneyflow_dc`，不做跨表兜底。
 2. 时间范围固定 `1个月/3个月`。
@@ -209,3 +284,5 @@ src/biz/
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
 | v1 | 2026-05-08 | 首版：冻结大盘资金流向模块实施口径（双卡 + 历史趋势 + 分单结构） | Codex |
+| v1.1 | 2026-05-12 | 对齐实施方案模板：补齐 8 条原则适配矩阵与核心测试 case 门禁 | Codex |
+| v1.2 | 2026-05-12 | 强化实现层编排章节：补齐辅助/回退/排序截断/默认行为与超时阈值约束 | Codex |
