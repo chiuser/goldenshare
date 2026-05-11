@@ -2,6 +2,14 @@
 
 本目录保存“财势乾坤”Google Drive 资料的本地原始拷贝。
 
+重要约束：本目录是历史原始资料区，不是当前工程契约区。`api/`、`product/`、`codex/`、早期 `design/` 文档中的旧 API 路径、旧字段结构、旧聚合模型只说明历史设计来源，后续方案设计和代码实现不得直接沿用。
+
+当前实现依据：
+
+1. 工程规则：`wealth/docs/system/**`
+2. 市场总览模块契约：`wealth/docs/pages/market-overview/**` 的三件套
+3. 视觉高保真：当前生效 Showcase、Design Token、组件规范
+
 这些文件不是工程实现方案，而是设计、产品、API、Showcase、Logo 与评审资料的本地原始记录入口。后续实现市场总览 homepage 时，必须先读取这些参考资料，再写实现方案。
 
 ## 资料来源
@@ -38,8 +46,8 @@ reference/
 | `财势乾坤/设计/02-market-overview-page-design.md` | `design/02-market-overview-page-design.md` | 市场总览页面设计 |
 | `财势乾坤/设计/03-design-tokens.md` | `design/03-design-tokens-v0.2.7.md` | 视觉 token 与硬约束（当前生效） |
 | `财势乾坤/设计/04-component-guidelines.md` | `design/04-component-guidelines-v0.7.md` | 组件职责与交互规范（当前生效） |
-| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.5.md` | `api/p0-data-dictionary-v0.5.md` | P0 数据字典（当前生效） |
-| `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `api/market-overview-api-v0.5.md` | 市场总览 API 草案（当前生效） |
+| `财势乾坤/数据字典与API文档/p0-data-dictionary-v0.5.md` | `api/p0-data-dictionary-v0.5.md` | P0 数据字典（历史参考，不作为实现契约） |
+| `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `api/market-overview-api-v0.5.md` | 市场总览 API 草案（历史参考，不作为实现契约） |
 | `财势乾坤/Logo/*` | `brand/logo/*` | Logo 与品牌图片原始素材 |
 | `财势乾坤/codex/market-overview-codex-prompt-v1.md` | `codex/market-overview-codex-prompt-v1.md` | Codex 实现边界与验收 |
 | `财势乾坤/showcase/market-overview-v4.html` | `showcase/market-overview-v4.html` | homepage 还原当前生效原型 |
@@ -54,7 +62,7 @@ reference/
 
 1. `showcase/market-overview-v1.1.html` 是 homepage 还原的最高优先级资料。
 2. `design/03-design-tokens.md` 与 `design/04-component-guidelines.md` 是视觉与组件实现的硬约束。
-3. `api/` 目录只作为首期 mock contract 的来源，本阶段不接真实 API。
-4. 任何与用户最新指令冲突的旧路径或旧命名，都必须先列为待拍板项，不得擅自沿用。
+3. `api/` 目录只作为历史 API/数据字典输入材料，不能作为当前实现 contract。
+4. 任何与 `system/`、`pages/` 当前基线或用户最新指令冲突的旧路径、旧字段、旧命名，都必须按当前基线修正，不得擅自沿用。
 5. 不允许为了“更好看”或“更工程化”偏离 Showcase 的布局、模块顺序、密度与交互。
-6. 历史版本若无当前实现价值可从本地仓库移除；当前实现默认以 v4 Showcase、v0.5 API/数据字典、v0.2.7 Token、v0.7 组件规范为准。
+6. 历史版本若无当前实现价值可从本地仓库移除；当前实现默认以 v4 Showcase、v0.2.7 Token、v0.7 组件规范作为视觉/组件参考，以 `pages/` 模块三件套作为 API/数据模型事实源。

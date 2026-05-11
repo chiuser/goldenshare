@@ -1,14 +1,16 @@
 # 财势乾坤｜市场总览 API 草案 v0.5
 
+> 历史参考声明：本文是 Drive 原始 API 草案快照，包含 `/api/market/home-overview`、`/api/moneyflow/market`、`/api/index/summary` 等旧路径和旧聚合模型。当前工程实现不得直接沿用本文路径、参数或字段结构。当前 API 契约以 `wealth/docs/pages/market-overview/**` 模块三件套与 `wealth/docs/pages/market-overview/api-contract-baseline.md` 为准。
+
 建议保存路径：`/docs/wealth/api/market-overview-api.md`  
 负责人：`04_API 契约与数据字典`  
 版本：`v0.5`  
-状态：`市场总览开发落地基线`  
+状态：`历史参考，不作为实现契约`
 更新时间：`2026-05-10`
 
 ---
 
-## 0. 本轮审计结论
+## 0. 历史审计结论（已废弃）
 
 本版以市场总览 PRD 为上游约束，收敛 API 到“市场总览开发落地”所需范围：
 
@@ -70,7 +72,7 @@ API 字段使用业务命名，但金额、成交量等数值单位默认保持 
 
 ---
 
-## 2. 推荐接口策略
+## 2. 历史推荐接口策略（已废弃）
 
 | 场景 | 推荐接口 | 说明 |
 |---|---|---|

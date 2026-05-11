@@ -1,10 +1,12 @@
 # 财势乾坤｜P0 数据字典 v0.4
 
+> 历史参考声明：本文是早期 Review 阶段数据字典快照，仅用于追溯原始设计来源。当前工程实现不得直接沿用本文旧接口映射、旧聚合对象或旧字段结构；当前字段来源和模块契约以 `wealth/docs/pages/market-overview/**` 模块三件套与 `api-contract-baseline.md` 为准。
+
 建议保存路径：`/docs/wealth/api/p0-data-dictionary.md`  
 公共区建议保存路径：`财势乾坤/数据字典与API文档/p0-data-dictionary-v0.4.md`  
 负责人：`04_API 契约与数据字典`  
 版本：`v0.4`  
-状态：`HTML Review v2 全量修订稿`  
+状态：`历史参考，不作为实现契约`
 更新时间：`2026-05-07`
 
 ---
@@ -27,7 +29,7 @@
 
 ---
 
-## 0. 本轮 Review v2 修订范围
+## 0. 历史 Review v2 修订范围（已废弃）
 
 本版是在 `p0-data-dictionary-v0.4.md` 基础上，按 `market-overview-html-review-v2.md` 和总控变更单做**限定范围修订**。本轮只处理 Review v2 明确点名的四个区域：
 

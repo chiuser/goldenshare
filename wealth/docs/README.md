@@ -22,18 +22,20 @@ docs/
 - [市场总览 V1.1 Showcase 原型](./reference/showcase/market-overview-v1.1.html)
 - [Design Token 原始文档 v0.2.7（当前生效）](./reference/design/03-design-tokens-v0.2.7.md)
 - [组件规范原始文档 v0.7（当前生效）](./reference/design/04-component-guidelines-v0.7.md)
-- [市场总览 API 草案 v0.5（当前生效）](./reference/api/market-overview-api-v0.5.md)
-- [P0 数据字典 v0.5（当前生效）](./reference/api/p0-data-dictionary-v0.5.md)
+- [市场总览 API 草案 v0.5（历史参考，不作为实现契约）](./reference/api/market-overview-api-v0.5.md)
+- [P0 数据字典 v0.5（历史参考，不作为实现契约）](./reference/api/p0-data-dictionary-v0.5.md)
 - [Codex 实现提示词原始文档](./reference/codex/market-overview-codex-prompt-v1.md)
 - [Review v2 原始文档](./reference/review/market-overview-html-review-v2.md)
 
 `reference/` 保存从 Drive 拷贝到本地的原始资料，包括历史版本、review、Logo、HTML Showcase、设计文档、API 与数据字典。它用于防止后续开发只依赖聊天记录或远程 Drive 记忆。
 
+注意：`reference/api/**`、旧 Codex prompt、旧产品稿中的 API 路径和字段结构是历史输入材料，不再作为当前工程实现契约。当前 API、数据模型、字段映射、测试门禁以 `system/` 与 `pages/` 下的当前基线和模块三件套为准。
+
 编码前的优先级：
 
 1. 用户最新指令。
-2. `reference/` 中的 Drive 原始资料，尤其是 Showcase、Design Token、组件规范和 review 变更单。
-3. `system/` 与 `pages/` 中的工程化基线摘要。
+2. `system/` 与 `pages/` 中的工程化基线、模块三件套和编码门禁。
+3. `reference/` 中的 Drive 原始资料，其中 Showcase、Design Token、组件规范和 review 变更单可作为视觉/产品背景参考；`reference/api/**` 不得直接作为实现依据。
 
 如果 `reference/` 与 baseline 摘要冲突，先停下说明冲突，不要擅自选择一个继续写代码。
 
@@ -42,7 +44,7 @@ docs/
 1. Showcase：`reference/showcase/market-overview-v4.html`
 2. Design Token：`reference/design/03-design-tokens-v0.2.7.md`
 3. Component Guidelines：`reference/design/04-component-guidelines-v0.7.md`
-4. API/数据字典：`reference/api/market-overview-api-v0.5.md` 与 `reference/api/p0-data-dictionary-v0.5.md`
+4. API/数据字典：以 `pages/market-overview/*-benchmark-requirement-v1.md`、`*-implementation-design-v1.md`、`*-m2-coding-gate-v1.md` 和 `pages/market-overview/api-contract-baseline.md` 为准；`reference/api/*` 仅保留历史参考。
 
 ## 系统级文档
 

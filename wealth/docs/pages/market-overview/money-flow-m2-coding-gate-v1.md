@@ -8,6 +8,7 @@
 
 1. [大盘资金流向标杆需求 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md)
 2. [大盘资金流向技术实施方案 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md)
+3. [money-flow 真实数据验证用例 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-real-data-validation-cases-v1.md)
 
 ---
 
@@ -34,6 +35,7 @@
 11. [ ] 核心测试 case（真实 API + 前端展示）门禁冻结
 12. [ ] 跨模块抽象门禁原则（8 条）映射完成
 13. [ ] `module-delivery-checklist-v1` 映射完成（否决项全过）
+14. [ ] 前端 provider/view-model adapter 方案冻结
 
 ---
 
@@ -44,7 +46,7 @@
 ```ts
 interface MoneyFlowRequest {
   market?: "CN_A";    // default: CN_A
-  tradeDate?: string; // YYYY-MM-DD
+  tradeDate?: string; // YYYY-MM-DD；可选观测交易日
   debug?: 0 | 1;      // default: 0
 }
 ```
@@ -52,8 +54,10 @@ interface MoneyFlowRequest {
 参数校验规则：
 
 1. `market` 非 `CN_A` -> `400001`
-2. `tradeDate` 非法格式 -> `400001`
+2. `tradeDate` 非合法 `YYYY-MM-DD` 日期格式 -> `400001`
 3. `debug` 非 `0/1` -> `400001`
+4. 未传 `tradeDate` 时，由后端按交易日历和盘后口径推导期望交易日。
+5. `tradeDate` 只作为模块观测日，不允许扩展成用户侧资金流规则配置。
 
 ### 3.2 响应结构冻结
 
@@ -196,6 +200,7 @@ interface MoneyFlowResponseData {
    - `select trade_date, net_amount from core_serving.market_moneyflow_dc where trade_date in (:d,:prev_d)`
 2. 分单结构：
    - 与目标交易日同查 `buy_elg_amount/buy_elg_amount_rate/...`
+   - 源列名为 `buy_*`，契约按数据源口径承接为“单型资金净流向”；禁止前端自行改写语义或二次计算。
 3. 历史趋势：
    - 按 22/62 交易日序列查询 `net_amount`
 4. 排序说明：
@@ -248,7 +253,7 @@ interface MoneyFlowResponseData {
    - 正常/延迟/partial/空/错误五态
    - 历史点位与时间排序
 3. 冒烟测试：
-   - 双卡 + 历史图数据结构可渲染
+   - 双卡 + 单型资金净流向饼图 + 历史图数据结构可渲染
 4. debug 模式验证：
    - `debug=1` 返回模块级状态和异常；
    - 生产环境禁用 debug 输出。
@@ -258,25 +263,46 @@ interface MoneyFlowResponseData {
 1. 核心字段清单（页面可见字段）：
    - `moneyFlow.metrics.todayNetAmount`
    - `moneyFlow.metrics.prevNetAmount`
+   - `moneyFlow.byOrderSize.elg.amount/rate`
+   - `moneyFlow.byOrderSize.lg.amount/rate`
+   - `moneyFlow.byOrderSize.md.amount/rate`
+   - `moneyFlow.byOrderSize.sm.amount/rate`
    - `moneyFlow.historyByRange.oneMonth[].netAmount`
    - `moneyFlow.historyByRange.threeMonth[].netAmount`
    - `pageStatus.status`
 2. 后端真实 API 集成测试用例列表（禁止 mock service/query）：
    - `READY/PARTIAL/DELAYED/EMPTY/ERROR` 五态；
-   - `tradeDate` 显式入参与默认路径；
+   - `tradeDate` 显式入参与默认路径（系统自动交易日）；
    - 历史点排序与区间上限（22/62）。
 3. 前端真实 API 展示校验用例列表（禁止 mock adapter）：
    - 双卡数值与红涨绿跌语义；
+   - 单型资金净流向饼图四类金额、占比、方向；
    - 空值降级 `--`；
    - 1个月/3个月切换；
    - debug 信息显示（仅调试态）。
 4. 执行命令：
    - `pytest -q tests/web/test_wealth_market_money_flow_api.py`
-   - `npm run test:smoke -- money-flow`
+   - `cd wealth && npm run test -- market-overview-money-flow-real-api`
 5. 通过标准：
    - 核心字段断言全通过；
    - 页面关键展示项通过；
    - 无未登记异常码。
+
+### 9.2 本轮真实数据验证结果（2026-05-12）
+
+1. 执行命令：
+   - `bash scripts/psql-remote.sh -f /Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-real-data-validation-sql-v1.sql`
+2. 状态验证结果：
+   - 默认路径（系统自动交易日）-> `READY`
+   - 显式 `tradeDate` 路径需在 API 实现时纳入同一测试套件。
+3. 性能基线结果（`EXPLAIN ANALYZE`）：
+   - Query-P1：`Execution Time ~ 18.8ms`
+   - Query-P2：`Execution Time ~ 19.0ms`
+   - Query-P3：`Execution Time ~ 18.9ms`
+4. 结论：
+   - 查询组合可正确产出双卡、分单、22/62 历史窗口；
+   - 性能满足 `P95 < 260ms` 预算；
+   - 当前可进入 API 编码阶段（仅限 money-flow 模块范围）。
 
 ---
 
@@ -311,11 +337,11 @@ interface MoneyFlowResponseData {
 | 事实源单一原则 | 是 | `market_moneyflow_dc` 单源读取 | API 集成：字段来源与值断言 | 禁止跨源补值 |
 | 契约先行与冻结原则 | 是 | `moneyFlow.metrics/byOrderSize/historyByRange` | API 契约断言 + 前端消费断言 | 字段语义冻结 |
 | 配置一致性原则 | 是 | 本模块无策略配置分支 | 无配置分支回归用例 | 固定 1m/3m |
-| 默认行为显式原则 | 是 | `tradeDate` 默认逻辑 + delayed/partial 规则 | 未传参/边界态测试 | 禁止隐式 fallback |
+| 默认行为显式原则 | 是 | 显式观测日 + 系统自动交易日逻辑 + delayed/partial 规则 | 显式 `tradeDate`/默认路径/边界态测试 | 禁止隐式 fallback |
 | 排序与筛选确定性原则 | 是 | 历史点按 `tradeDate` 升序 | 排序稳定性测试 | 无随机顺序 |
 | 性能预算前置原则 | 是 | P95 与 payload 门禁 | 集成耗时与返回体统计 | 超预算先优化查询 |
 | 可观测与异常标准化原则 | 是 | `debugInfo.modules/exceptions` | delayed/empty/error 分支断言 | 异常码必须注册 |
-| 测试以用户可见结果为中心原则 | 是 | 双卡 + 历史图 + 状态文案 | 前端 smoke 校验 | 禁止只测中间态 |
+| 测试以用户可见结果为中心原则 | 是 | 双卡 + 单型资金净流向饼图 + 历史图 + 状态文案 | 前端 smoke 校验 | 禁止只测中间态 |
 
 ### 11.1 参考 case（可复用示例）
 
@@ -355,6 +381,7 @@ interface MoneyFlowResponseData {
 | 2.15 双图并排坐标对齐与标签避让 | 不适用 | 本模块仅单图，不涉及双图并排 |
 | 2.16 指标卡片文案长度与单行约束 | 通过 | 双卡结构固定，文案长度受控 |
 | 2.17 核心测试 case 覆盖 | 通过 | 9.1 已冻结真实 API + 前端展示门禁 |
+| 2.18 跨模块抽象门禁原则 | 通过 | 11 已逐条映射 8 条原则，并补齐测试落点 |
 
 ### 11.4 模块 source 切换记录（2.7 追踪项）
 
@@ -362,13 +389,23 @@ interface MoneyFlowResponseData {
 2. source key：`marketOverview.moduleSources.moneyFlow`
 3. 切换前：`mock`
 4. 切换后（本轮目标）：`real`
-5. 非目标模块：全部维持 `mock`（不变更）
-6. 回滚步骤：
+5. 非目标模块：保持当前实际 source 不变，不允许回退或顺手切换。
+6. 当前基线：
+   - 已为 `real`：`summary`、`majorIndices`、`breadth`、`style`、`turnover`、`leaderboards`、`limitUp`。
+   - 仍为 `mock`：`sectors`。
+   - 本轮只允许 `moneyFlow: mock -> real`。
+7. 回滚步骤：
    - 将 `moneyFlow` source 置回 `mock`；
    - 回退本轮 `money-flow` 模块接口/adapter 改动；
    - 保持其他模块不动。
 
----
+### 11.5 前端接入门禁（provider / view-model adapter）
+
+1. 必须新增 money-flow 模块 provider，且只调用 `/api/v1/wealth/market/money-flow`。
+2. 必须新增或收敛 `MoneyFlowPanelViewModel`，显式承载双卡、分单饼图、历史图、状态与 debug 信息。
+3. `MarketMoneyFlowPanel` 不允许继续直接消费整页 `MarketOverview` 对象。
+4. adapter 只能做展示边界转换，例如元到亿、正负方向、空值显示，不允许新增事实计算。
+5. 页面层不得拼接 `moneyFlowMetrics`、`moneyFlowOrderSizeStructure`、`charts.moneyFlow` 这类旧整页字段。
 
 ## 12. 版本记录
 
@@ -377,3 +414,6 @@ interface MoneyFlowResponseData {
 | v1 | 2026-05-08 | 首版：建立大盘资金流向模块编码门禁（双卡 + 历史趋势 + 分单结构） | Codex |
 | v1.1 | 2026-05-12 | 对齐门禁模板与交付清单：补齐核心测试 case、8 条原则映射与 checklist 否决项映射 | Codex |
 | v1.2 | 2026-05-12 | 补齐性能超时门禁与模块 source 切换追踪项（2.7），完善回滚记录口径 | Codex |
+| v1.3 | 2026-05-12 | 回写真实数据验证结果，收敛为默认路径口径并移除前端不存在输入分支 | Codex |
+| v1.4 | 2026-05-12 | 根据审计结果修正 source 切换基线、补 2.18 映射、修正前端测试命令并新增 provider/view-model adapter 门禁 | Codex |
+| v1.5 | 2026-05-12 | 统一市场模块请求口径：恢复 `tradeDate` 可选观测日参数，并补齐显式日期测试门禁 | Codex |

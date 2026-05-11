@@ -1,5 +1,7 @@
 # 财势乾坤｜市场总览页面设计文档 v0.1
 
+> 历史参考声明：本文是早期页面设计原始快照，保留页面定位、模块顺序、视觉结构等背景信息。文中的旧 API 路径、mock ViewModel 和字段结构不再作为当前工程实现契约；当前 API 与数据模型以 `wealth/docs/pages/market-overview/**` 模块三件套为准。
+
 > 建议路径：`/docs/wealth/pages/market-overview-page-design.md`  
 > 负责人：`02_页面原型与 HTML Showcase`  
 > 页面正式名称：`市场总览`  

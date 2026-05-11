@@ -1,10 +1,12 @@
 # 财势乾坤｜市场总览 API 草案 v0.4
 
+> 历史参考声明：本文是早期 Review 阶段 API 草案快照，仅用于追溯原始设计来源。当前工程实现不得直接沿用本文旧路径、旧参数或旧字段结构；当前契约以 `wealth/docs/pages/market-overview/**` 模块三件套与 `api-contract-baseline.md` 为准。
+
 建议保存路径：`/docs/wealth/api/market-overview-api.md`  
 公共区建议保存路径：`财势乾坤/数据字典与API文档/market-overview-api-v0.4.md`  
 负责人：`04_API 契约与数据字典`  
 版本：`v0.4`  
-状态：`HTML Review v2 全量修订稿`  
+状态：`历史参考，不作为实现契约`
 更新时间：`2026-05-07`
 
 ---
@@ -27,7 +29,7 @@
 
 ---
 
-## 0. 本轮 Review v2 修订范围
+## 0. 历史 Review v2 修订范围（已废弃）
 
 本版是完整全量文档，包含此前 v0.4 已确认内容，并仅对 Review v2 明确点名区域做修订：
 

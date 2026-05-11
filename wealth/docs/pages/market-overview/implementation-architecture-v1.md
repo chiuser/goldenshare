@@ -293,14 +293,15 @@ pages/market-overview/market-overview-page.css
 
 ## 9. 数据与 ViewModel 架构
 
-首期只使用 mock adapter，但 mock 必须模拟真实 contract。
+当前采用“已接模块走真实 API，未接模块保留 mock adapter”的渐进替换模式。mock 必须模拟对应模块真实 contract，禁止回退到旧整页聚合 mock。
 
 ```text
 MarketOverviewPage
-  -> loadMarketOverview(params)
-  -> WealthApiResponse<MarketOverview>
-  -> toMarketOverviewViewModel(response.data)
-  -> feature components
+  -> module provider
+  -> /api/v1/wealth/market/{module} 或模块 mock adapter
+  -> module response
+  -> module view-model adapter
+  -> feature component
 ```
 
 ### 9.1 类型文件
@@ -317,7 +318,7 @@ MarketOverviewPage
 
 ### 9.2 Mock Adapter
 
-`marketOverviewMockAdapter.ts` 只负责返回静态 mock 响应和模拟四态。
+mock adapter 只用于尚未接真实 API 的模块，并且必须模块化隔离。已接真实 API 的模块不得继续从整页 mock 中取数。
 
 建议函数：
 
@@ -482,7 +483,7 @@ npm run build
 不做：
 
 1. 不写全部模块。
-2. 不接真实 API。
+2. 不在基础壳阶段接计划外真实 API。
 
 ### 13.2 Step 2：数据 contract 与 mock adapter
 
@@ -495,7 +496,7 @@ npm run build
 不做：
 
 1. 不创造 V1.1 没有的业务结论。
-2. 不调用后端。
+2. 不调用未评审的后端。
 
 ### 13.3 Step 3：布局壳与上半屏
 

@@ -2,16 +2,20 @@
 
 ## 来源
 
-本基线来自：
+本基线来自当前工程化文档，而不是 `reference/api/**` 旧草案：
 
 ```text
-wealth/docs/reference/api/market-overview-api-v0.4.md
-wealth/docs/reference/api/p0-data-dictionary-v0.4.md
 wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md
-wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md
-wealth/docs/pages/market-overview/market-summary-implementation-design-v1.md
-wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md
-wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
+wealth/docs/pages/market-overview/*-benchmark-requirement-v1.md
+wealth/docs/pages/market-overview/*-implementation-design-v1.md
+wealth/docs/pages/market-overview/*-m2-coding-gate-v1.md
+wealth/docs/system/module-delivery-checklist-v1.md
+wealth/docs/system/engineering-architecture.md
+```
+
+`wealth/docs/reference/api/market-overview-api-v0.4/v0.5.md` 与
+`wealth/docs/reference/api/p0-data-dictionary-v0.4/v0.5.md`
+只作为历史输入材料，不再作为当前 API 实现契约。
 
 字段级“来源表/来源列/转换规则”以
 `wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md`
@@ -24,25 +28,52 @@ wealth/docs/pages/market-overview/leaderboard-implementation-design-v1.md
 今日市场客观总结模块（卡片数量 5/6 配置化、文字卡后端配置驱动）以
 `wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md`
 为专用基线。
-```
 
 ## 当前阶段
 
-首期只实现 mock adapter，不接真实后端 API。
+市场总览已进入“模块级真实 API 渐进替换”阶段。
 
 真实后端 API 当前统一路径：
+
+```http
+GET /api/v1/wealth/market/{module}
+```
+
+整页聚合接口如需恢复，统一路径为：
 
 ```http
 GET /api/v1/wealth/market/overview
 ```
 
-模块化分拆（已进入设计但未实现）：
+但整页聚合接口必须单独设计，不允许复用早期 `/api/market/home-overview`。
+
+已采用模块化接口的方向：
 
 ```http
 GET /api/v1/wealth/market/summary
+GET /api/v1/wealth/market/major-indices
+GET /api/v1/wealth/market/breadth
+GET /api/v1/wealth/market/style
+GET /api/v1/wealth/market/turnover
+GET /api/v1/wealth/market/leaderboards
+GET /api/v1/wealth/market/limit-up/summary
+GET /api/v1/wealth/market/money-flow
 ```
 
-该模块接口用于“今日市场客观总结”单模块输出；整页聚合后续再由 overview 聚合接口统一编排。
+模块接口只返回模块对象；整页聚合后续再由 overview 聚合接口统一编排。
+
+## 旧口径替换表（禁止直接沿用）
+
+| 历史口径 | 历史含义 | 当前方向 |
+|---|---|---|
+| `GET /api/market/home-overview` | 早期首屏大聚合接口 | 不作为当前实现依据；若恢复整页聚合，使用 `GET /api/v1/wealth/market/overview` 并单独设计 |
+| `GET /api/index/summary` | 早期指数/顶部指数局部接口 | 主要指数模块统一走 `GET /api/v1/wealth/market/major-indices` |
+| `GET /api/market/breadth` | 早期涨跌分布接口 | 统一走 `GET /api/v1/wealth/market/breadth` |
+| `GET /api/market/style` | 早期市场风格接口 | 统一走 `GET /api/v1/wealth/market/style` |
+| `GET /api/market/turnover` | 早期成交额总览接口 | 统一走 `GET /api/v1/wealth/market/turnover` |
+| `GET /api/moneyflow/market` | 早期大盘资金流接口 | 统一走 `GET /api/v1/wealth/market/money-flow` |
+| `includeHistory` | 早期由前端决定是否返回历史序列 | 不再作为通用参数；历史窗口由模块契约定义 |
+| 整页 mock 根对象 `data.moneyFlow/data.indices/...` | 早期从整页对象直接喂组件 | 已接真实 API 的模块必须通过模块 provider + view-model adapter |
 
 ## 请求参数
 

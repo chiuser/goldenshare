@@ -25,8 +25,9 @@ wealth/
 ```
 
 - `wealth` 负责财势乾坤行情系统前端。
-- 首期只落地“乾坤行情 / 市场总览”页面。
-- 首期默认使用 mock adapter，并按“三件套 + 模块级渐进替换”逐模块接入真实后端 API。
+- 当前主线是“乾坤行情 / 市场总览”页面按模块逐步接入真实后端 API。
+- 已完成真实接入的模块继续保持真实 API；未完成模块才允许保留 mock。
+- 新模块必须按“三件套 + 模块级渐进替换”流程推进，禁止参考旧聚合 API 直接编码。
 
 ---
 
@@ -87,10 +88,10 @@ wealth/
 4. `wealth/docs/reference/codex/market-overview-codex-prompt-v1.md`
 5. `wealth/docs/reference/review/market-overview-html-review-v2.md`
 6. `wealth/docs/reference/review/市场总览html_review_v_2_总控解读与变更单.md`
-7. `wealth/docs/reference/api/market-overview-api-v0.5.md`
-8. `wealth/docs/reference/api/p0-data-dictionary-v0.5.md`
 
 如果上述文档与用户最新指令冲突，先停下说明冲突，不要擅自猜。
+
+注意：`wealth/docs/reference/api/**` 不在 homepage 开发必读清单中。只有做历史追溯时才读取，读取后也不得作为当前 API 或数据模型依据。
 
 ---
 
@@ -99,8 +100,9 @@ wealth/
 - React + TypeScript + Vite。
 - 独立 `package.json`、独立构建、独立测试。
 - 默认路由首期规划为 `/market/overview`。
-- 真实 API 命名空间规划为 `/api/v1/wealth/market/overview`。
-- 首期页面数据来自本地 mock adapter，mock 结构必须贴近本地 API contract。
+- 真实 API 命名空间统一为 `/api/v1/wealth/market/{module}`；整页聚合接口如需恢复，必须单独设计并评审。
+- 模块真实 API 已接入后，前端不得回退到整页 mock 或旧 reference API 口径。
+- `wealth/docs/reference/**` 只作为历史原始资料与视觉/产品背景参考；API、数据模型、字段映射、测试门禁必须以 `wealth/docs/pages/**` 三件套和 `wealth/docs/system/**` 当前基线为准。
 
 ---
 
@@ -193,6 +195,8 @@ wealth/
 8. 本期仅榜单模块启用结构化异常码；其他模块后续分期接入，不允许提前扩散到计划外范围。
 9. 后续接真实后端 API 时，`src/biz` 必须按模块目录组织（`api/queries/schemas/services` 四层都要按 `wealth/market/<module>` 分层），禁止扁平堆文件；规范见 `wealth/docs/system/engineering-architecture.md`。
 10. 模块接口只返回模块对象；整页聚合对象必须独立接口与独立 DTO 文件，不允许混在模块 schema 中。
+11. 禁止把 `wealth/docs/reference/api/**`、旧 Codex prompt、旧产品稿中的 `/api/market/home-overview`、`/api/moneyflow/market`、`/api/index/summary` 等旧路径作为新方案依据。
+12. 旧 reference 文档出现的 `includeHistory`、旧聚合根对象、旧扁平字段，只能作为历史输入材料；进入代码前必须先在当前模块三件套中重新定义。
 
 ---
 

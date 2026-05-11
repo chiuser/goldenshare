@@ -46,21 +46,21 @@ Drive 原提示词中的“现有前端项目”已按用户最新决策修正�
 7. `wealth/docs/pages/market-overview/api-contract-baseline.md`
 8. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
 
-## 首期实现目标
+## 当前实现目标
 
-1. 在 `wealth` 中实现市场总览页面。
-2. 使用本地 mock adapter，不接真实 API。
+1. 在 `wealth` 中持续完善市场总览页面。
+2. 已接真实 API 的模块必须保持真实 API；未接模块才允许保留本地 mock adapter。
 3. 路由规划为 `/market/overview`。
-4. mock contract 对齐 `/api/v1/wealth/market/overview`。
-5. 高保真参考 `market-overview-v1.1.html`。
+4. 模块 API 统一对齐 `/api/v1/wealth/market/{module}`；整页聚合接口如需恢复必须单独评审。
+5. 高保真参考当前生效 Showcase。
 6. 保证红涨绿跌。
 7. 覆盖 loading / empty / error / data delayed / loaded。
 8. 补最小 smoke 测试。
 
 ## 不做事项
 
-1. 不接真实后端。
-2. 不修改 `src/**` 后端。
+1. 不为未评审模块临时接真实后端。
+2. 不修改计划外 `src/**` 后端。
 3. 不修改现有 `frontend/**`。
 4. 不复用运营后台 Shell。
 5. 不引入固定 SideNav。

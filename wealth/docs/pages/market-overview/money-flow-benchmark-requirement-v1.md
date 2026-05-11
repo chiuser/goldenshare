@@ -8,12 +8,13 @@
 
 1. [大盘资金流向技术实施方案 v1（仅方案）](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md)
 2. [大盘资金流向 M2 编码前门禁 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md)
+3. [money-flow 真实数据验证用例 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/money-flow-real-data-validation-cases-v1.md)
 
 ---
 
 ## 1. 目标与定位
 
-1. 模块目标：输出“今日/昨日大盘资金净流入 + 历史净流入趋势”的客观事实。
+1. 模块目标：输出“今日/昨日大盘资金净流入 + 单型资金净流向结构 + 历史净流入趋势”的客观事实。
 2. 用户价值：用户快速判断市场资金方向是否在改善或转弱。
 3. 业务定位：市场总览首屏核心模块，提供客观统计，不输出主观建议。
 
@@ -25,7 +26,7 @@
 
 1. 双卡指标：今日大盘资金净流入、昨日大盘资金净流入。
 2. 历史趋势：净流入折线，时间范围固定 `1个月`、`3个月`。
-3. 结构化分单数据：超大单/大单/中单/小单净流入额与占比（后端返回，首期前端不展示）。
+3. 结构化分单数据：超大单/大单/中单/小单资金净流向金额与占比（后端返回，并在当前 UI 中展示为“单型资金净流向”饼图）。
 4. 模块级 debug 状态（仅调试模式）。
 
 ### 2.2 本期不覆盖
@@ -50,7 +51,7 @@
 2. 契约归属：模块契约以本三件套为唯一事实源，字段名/可空策略/状态语义本期冻结。
 3. 无配置能力：本模块不接入策略配置中心，不读取模块策略文件。
 4. 固定时间范围：仅支持 `1个月` 与 `3个月`。
-5. UI 不变：保持当前页面结构和交互（双卡 + 单折线 + RangeSwitch）不变。
+5. UI 不变：保持当前页面结构和交互（双卡 + 单型资金净流向饼图 + 单折线 + RangeSwitch）不变。
 6. 统计口径冻结：统一使用 `market_moneyflow_dc`。
 
 禁止事项：
@@ -68,7 +69,7 @@
 5. 排序筛选确定性：历史点统一按 `tradeDate` 升序输出；不做跨源拼接或跨口径混排。
 6. 性能预算前置：模块接口 P95 预算 `< 260ms`，超预算先查 SQL/序列化，不先引缓存。
 7. 可观测标准化：异常对象统一 `module/code/severity/message/details`，异常码必须先登记再使用。
-8. 用户可见结果优先：验收以“双卡 + 历史曲线 + 状态文案”可见一致性为主，不以中间查询结果替代。
+8. 用户可见结果优先：验收以“双卡 + 单型资金净流向饼图 + 历史曲线 + 状态文案”可见一致性为主，不以中间查询结果替代。
 
 ---
 
@@ -87,14 +88,14 @@
 | `MoneyFlowMetrics` | `todayNetAmount` | 今日大盘净流入 | 元 | 是 | 后端 | 缺失显示 `--` |
 | `MoneyFlowMetrics` | `prevNetAmount` | 昨日大盘净流入 | 元 | 是 | 后端 | 缺失显示 `--` |
 | `MoneyFlowMetrics` | `unit` | 金额原始单位 | - | 否 | 后端 | 固定 `yuan` |
-| `OrderSizeFlow` | `elg.amount` | 超大单净流入额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `elg.rate` | 超大单净流入占比 | % | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `lg.amount` | 大单净流入额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `lg.rate` | 大单净流入占比 | % | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `md.amount` | 中单净流入额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `md.rate` | 中单净流入占比 | % | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `sm.amount` | 小单净流入额 | 元 | 是 | 后端 | 缺失显示 `--` |
-| `OrderSizeFlow` | `sm.rate` | 小单净流入占比 | % | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `elg.amount` | 超大单资金净流向金额 | 元 | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `elg.rate` | 超大单资金净流向占比 | % | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `lg.amount` | 大单资金净流向金额 | 元 | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `lg.rate` | 大单资金净流向占比 | % | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `md.amount` | 中单资金净流向金额 | 元 | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `md.rate` | 中单资金净流向占比 | % | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `sm.amount` | 小单资金净流向金额 | 元 | 是 | 后端 | 缺失显示 `--` |
+| `OrderSizeFlow` | `sm.rate` | 小单资金净流向占比 | % | 是 | 后端 | 缺失显示 `--` |
 | `MoneyFlowPanel` | `historyByRange` | 各时间范围趋势点 | - | 否 | 后端 | 空数组 + 模块 empty |
 | `MoneyFlowHistoryPoint` | `tradeDate` | 历史交易日 | - | 否 | 后端 | 异常点丢弃 |
 | `MoneyFlowHistoryPoint` | `netAmount` | 当日净流入 | 元 | 是 | 后端 | 可空点位 |
@@ -108,14 +109,14 @@
 | `tradeDate` | `core_serving.trade_calendar` | `trade_date` | date -> `YYYY-MM-DD` | 取目标交易日 |
 | `todayNetAmount` | `core_serving.market_moneyflow_dc` | `net_amount` | 目标交易日取值 | 单源 |
 | `prevNetAmount` | `core_serving.market_moneyflow_dc` | `net_amount` | 前一交易日取值 | 单源 |
-| `elg.amount` | `core_serving.market_moneyflow_dc` | `buy_elg_amount` | 原样 | 单源 |
-| `elg.rate` | `core_serving.market_moneyflow_dc` | `buy_elg_amount_rate` | 原样 | 单源 |
-| `lg.amount` | `core_serving.market_moneyflow_dc` | `buy_lg_amount` | 原样 | 单源 |
-| `lg.rate` | `core_serving.market_moneyflow_dc` | `buy_lg_amount_rate` | 原样 | 单源 |
-| `md.amount` | `core_serving.market_moneyflow_dc` | `buy_md_amount` | 原样 | 单源 |
-| `md.rate` | `core_serving.market_moneyflow_dc` | `buy_md_amount_rate` | 原样 | 单源 |
-| `sm.amount` | `core_serving.market_moneyflow_dc` | `buy_sm_amount` | 原样 | 单源 |
-| `sm.rate` | `core_serving.market_moneyflow_dc` | `buy_sm_amount_rate` | 原样 | 单源 |
+| `elg.amount` | `core_serving.market_moneyflow_dc` | `buy_elg_amount` | 按源表单型字段原样承接为超大单资金净流向金额 | 单源 |
+| `elg.rate` | `core_serving.market_moneyflow_dc` | `buy_elg_amount_rate` | 按源表单型字段原样承接为超大单资金净流向占比 | 单源 |
+| `lg.amount` | `core_serving.market_moneyflow_dc` | `buy_lg_amount` | 按源表单型字段原样承接为大单资金净流向金额 | 单源 |
+| `lg.rate` | `core_serving.market_moneyflow_dc` | `buy_lg_amount_rate` | 按源表单型字段原样承接为大单资金净流向占比 | 单源 |
+| `md.amount` | `core_serving.market_moneyflow_dc` | `buy_md_amount` | 按源表单型字段原样承接为中单资金净流向金额 | 单源 |
+| `md.rate` | `core_serving.market_moneyflow_dc` | `buy_md_amount_rate` | 按源表单型字段原样承接为中单资金净流向占比 | 单源 |
+| `sm.amount` | `core_serving.market_moneyflow_dc` | `buy_sm_amount` | 按源表单型字段原样承接为小单资金净流向金额 | 单源 |
+| `sm.rate` | `core_serving.market_moneyflow_dc` | `buy_sm_amount_rate` | 按源表单型字段原样承接为小单资金净流向占比 | 单源 |
 | `historyByRange[*].netAmount` | `core_serving.market_moneyflow_dc` | `net_amount` | 按交易日序列取历史值 | 22/62 交易日 |
 
 补充：
@@ -123,6 +124,7 @@
 1. 来源优先级：单源 `market_moneyflow_dc`。
 2. 回退策略：不跨源补值，不用其他表估算资金流。
 3. 时效语义：盘后快照语义（非实时流）。
+4. 分单字段说明：源表列名为 `buy_*_amount`，本模块按东方财富大盘资金流源字段口径承接为“单型资金净流向”；前端不得根据列名自行改写为“买入额”或另行计算买卖差。
 
 ---
 
@@ -130,6 +132,7 @@
 
 1. 页面级状态：`READY/PARTIAL/DELAYED/EMPTY/ERROR`。
 2. 模块级状态（debug）：返回 `expectedTradeDate/observedTradeDate/lagDays/status/note`。
+   - `expectedTradeDate` 表示本次请求解析后的目标观测交易日；显式传入 `tradeDate` 时等于该值，未传时由后端按交易日历和盘后口径推导。
 3. delayed 判定：`observedTradeDate < expectedTradeDate`。
 4. partial 判定：双卡可用但历史范围缺口，或分单结构缺失。
 
@@ -152,6 +155,9 @@
 
 1. 接口路径：`GET /api/v1/wealth/market/money-flow`。
 2. 请求参数：`market/tradeDate/debug`。
+   - `tradeDate` 可选，语义为“观测交易日”，用于回看、验证和调试。
+   - 未传 `tradeDate` 时，后端按交易日历和盘后口径自动推导期望交易日。
+   - `tradeDate` 不是用户侧资金流规则配置项，前端不得用它改变榜单、范围或资金流计算口径。
 3. 响应结构：`tradingDay + pageStatus + moneyFlow + debugInfo?`。
 4. 字段命名规则：lowerCamelCase + 语义化字段。
 5. 向后兼容策略：只增不改；不改现有字段语义。
@@ -160,7 +166,7 @@
 
 ## 9. 验收标准
 
-1. 功能验收：返回双卡指标 + `1个月/3个月` 历史净流入趋势。
+1. 功能验收：返回双卡指标 + 单型资金净流向结构 + `1个月/3个月` 历史净流入趋势。
 2. 语义验收：净流入正负语义稳定（正=净流入，负=净流出）。
 3. 状态验收：debug 可见模块 delayed/empty/error 追因。
 4. 异常验收：仅使用注册表异常码。
@@ -172,15 +178,22 @@
 3. “历史样本不足”：验证 `threeMonth` 点位不足时状态归并为 `PARTIAL`，但 `oneMonth` 正常可展示。
 4. “源日期落后”：验证 `observedTradeDate < expectedTradeDate` 时模块标记 `DELAYED`。
 
+### 9.2 本轮真实数据验证结论（2026-05-12）
+
+1. 数据源范围：`2023-04-17 ~ 2026-05-11`，总行数 `740`。
+2. 默认路径（系统自动交易日）：状态 `READY`（`22/62` 历史窗口完整）。
+3. 显式 `tradeDate` 路径：作为统一市场模块口径，必须在 API 实现时纳入同一测试套件。
+4. 查询组合（双卡 + 分单 + 历史）在真实库可稳定产出。
+5. 性能基线（SQL 级）约 `19ms`，显著低于模块预算。
+
 ---
 
-## 10. 待拍板项（当前已清零）
+## 10. 已确认项（本轮）
 
 1. 资金流模块数据源固定为 `market_moneyflow_dc`。
 2. 时间范围固定 `1个月/3个月`。
-3. 保持当前页面样式与交互不变。
-4. 分单结构（超大/大/中/小净流入额与占比）作为模块标准返回对象保留。
-5. 本轮无未决拍板项。
+3. 分单结构（超大/大/中/小资金净流向金额与占比）作为模块标准返回对象保留，并作为当前 UI 可见饼图的数据来源。
+4. 本轮无新增拍板阻断项。
 
 ---
 
@@ -191,3 +204,6 @@
 | v1 | 2026-05-08 | 首版：冻结大盘资金流向模块边界（双卡 + 历史趋势 + 分单结构） | Codex |
 | v1.1 | 2026-05-12 | 对齐三件套模板：补齐跨模块门禁原则与验收参考 case，统一“待拍板项”章节语义 | Codex |
 | v1.2 | 2026-05-12 | 强化模板对齐：补齐“规则归属/契约归属”硬约束，统一需求层冻结表达 | Codex |
+| v1.3 | 2026-05-12 | 回写真实数据验证结果（仅默认路径），清理前端不存在输入分支的噪音 | Codex |
+| v1.4 | 2026-05-12 | 根据审计结果修正分单结构为当前 UI 可见模块，并补充分单源字段语义说明 | Codex |
+| v1.5 | 2026-05-12 | 统一市场模块请求口径：恢复 `tradeDate` 可选观测日参数，并定义其为回看/验证/调试用途 | Codex |

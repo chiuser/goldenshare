@@ -1,5 +1,7 @@
 # 财势乾坤｜P0 组件库与交互组件方案 v0.5 完整合并版
 
+> 历史参考声明：本文是旧版组件规范快照，仅用于追溯早期组件设计。文中的 API 路径、字段映射、聚合接口和旧对象名不再作为当前工程实现契约；当前组件参考优先使用 `04-component-guidelines-v0.7.md`，当前 API 与数据模型以 `wealth/docs/pages/market-overview/**` 模块三件套为准。
+
 > 建议保存路径：`/docs/wealth/04-component-guidelines.md`  
 > 负责人：`03_组件库与交互组件方案`  
 > 状态：`Draft v0.5 merged-full / HTML Review v2 局部修订版`  

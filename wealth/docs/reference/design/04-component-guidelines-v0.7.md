@@ -1,5 +1,7 @@
 # 财势乾坤｜P0 组件库与交互组件方案 v0.7 完整合并版
 
+> 当前使用说明：本文仍是组件视觉、交互和布局的重要参考；但文中的 API 路径、字段映射、聚合接口和旧对象名属于历史口径，不再作为后端 API 或前端数据模型实现依据。当前 API 与数据模型以 `wealth/docs/pages/market-overview/**` 模块三件套为准。
+
 > 建议保存路径：`/docs/wealth/04-component-guidelines.md`  
 > 负责人：`03_组件库与交互组件方案`  
 > 状态：`Draft v0.7 merged-full / HTML Review v4 局部修订版`  
@@ -3841,4 +3843,3 @@ interface MoneyFlowNetStructurePanelPropsV4 extends MoneyFlowNetStructurePanelPr
 ```text
 sandbox:/mnt/data/review-v4-output-final/04-component-guidelines.md
 ```
-

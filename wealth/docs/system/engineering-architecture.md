@@ -108,24 +108,28 @@ src/shared/ui/
 
 ## 数据流
 
-首期数据流：
+当前数据流：
 
 ```text
-Page -> marketOverviewApi mock adapter -> typed mock data -> components
+Page -> module provider -> /api/v1/wealth/market/{module} -> typed module response -> view-model adapter -> components
 ```
 
-后续真实 API 数据流：
+未接真实 API 的模块允许临时走 mock adapter，但必须按模块隔离，不得回退到旧整页聚合 mock。
+
+后续整页聚合数据流（如恢复）：
 
 ```text
 Page -> marketOverviewApi client -> /api/v1/wealth/market/overview -> typed response -> components
 ```
 
+整页聚合接口必须单独设计，不允许复用旧 `/api/market/home-overview`。
+
 前端不得绕过 adapter 直接拼接口，也不得调用 ops 后台接口凑数据。
 
 ## wealth 后端 API 代码组织规范（系统级）
 
-> 本规范用于后续接真实 API 阶段。  
-> 当前首期仍以 mock 为主，但目录规范先冻结，避免后续代码走样。
+> 本规范用于当前与后续真实 API 接入阶段。
+> 已接真实 API 的模块必须保持模块接口与目录规范；未接模块才允许保留 mock。
 
 ### 目标
 
