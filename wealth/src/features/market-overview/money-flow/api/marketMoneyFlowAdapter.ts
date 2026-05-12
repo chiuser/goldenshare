@@ -39,13 +39,6 @@ function directionByAmount(value: number | null | undefined): MoneyFlowOrderSize
   return "flat";
 }
 
-function flowSubText(value: number | null | undefined): string {
-  if (typeof value !== "number") return "数据源：moneyflow_mkt_dc";
-  if (value > 0) return "净流入；数据源：moneyflow_mkt_dc";
-  if (value < 0) return "净流出；数据源：moneyflow_mkt_dc";
-  return "资金基本平衡；数据源：moneyflow_mkt_dc";
-}
-
 function mapHistoryPoints(points: Array<{ tradeDate: string; netAmount?: number | null }>): MultiTrendPoint[] {
   return points.map((point) => ({
     label: point.tradeDate.slice(5),
@@ -91,7 +84,7 @@ export function buildMoneyFlowViewModelFromApi(payload: MarketMoneyFlowResponse)
         label: "今日大盘资金净流入",
         value: formatSignedYiFromYuan(metrics.todayNetAmount),
         tone: toneByAmount(metrics.todayNetAmount),
-        sub: flowSubText(metrics.todayNetAmount),
+        sub: payload.moneyFlow.tradeDate,
       },
       {
         label: "上一交易日大盘资金净流入",

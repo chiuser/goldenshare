@@ -56,7 +56,6 @@ export function MarketMoneyFlowPanel({ viewState, moneyFlow, errorMessage }: Mar
             <div className="order-pie-panel">
               <div className="sub-chart-title">
                 <span>单型资金净流向</span>
-                <span className="secondary">callout 标注</span>
               </div>
               <div className="pie-wrap">
                 <OrderPieChart items={moneyFlow?.orderSizeItems ?? []} />
@@ -65,7 +64,6 @@ export function MarketMoneyFlowPanel({ viewState, moneyFlow, errorMessage }: Mar
             <div className="moneyflow-trend-panel">
               <div className="sub-chart-title">
                 <span>历史资金净流入趋势</span>
-                <span className="secondary">0轴居中</span>
               </div>
               <MiniLineChart
                 data={moneyFlow?.chartsByRange[range as "1m" | "3m"] ?? []}
@@ -77,7 +75,6 @@ export function MarketMoneyFlowPanel({ viewState, moneyFlow, errorMessage }: Mar
               />
             </div>
           </div>
-          <div className="chart-note">饼图仅表达超大单/大单/中单/小单净额占比结构；饼块面积按净额绝对值，外部折线标注单型名称和净额。趋势图纵轴单位：亿元。</div>
         </>
       ) : null}
     </Panel>
@@ -102,8 +99,8 @@ function OrderPieChart({ items }: { items: MoneyFlowOrderSizeItem[] }) {
   const sum = items.reduce((total, item) => total + item.absAmount, 0) || 1;
   const cx = 180;
   const cy = 96;
-  const r = 52;
-  const ir = 27;
+  const r = 68;
+  const ir = 35;
   const gapDeg = 3.1;
   let start = 0;
 
@@ -111,10 +108,10 @@ function OrderPieChart({ items }: { items: MoneyFlowOrderSizeItem[] }) {
     MoneyFlowOrderSizeItem["orderSize"],
     { side: "left" | "right"; band: "top" | "bottom"; lineY: number; labelX: number }
   > = {
-    superLarge: { side: "right", band: "top", lineY: 54, labelX: 334 },
-    small: { side: "left", band: "top", lineY: 56, labelX: 26 },
-    medium: { side: "left", band: "bottom", lineY: 146, labelX: 26 },
-    large: { side: "right", band: "bottom", lineY: 154, labelX: 334 },
+    superLarge: { side: "right", band: "top", lineY: 44, labelX: 346 },
+    small: { side: "left", band: "top", lineY: 48, labelX: 14 },
+    medium: { side: "left", band: "bottom", lineY: 154, labelX: 14 },
+    large: { side: "right", band: "bottom", lineY: 164, labelX: 346 },
   };
 
   return (
@@ -133,7 +130,7 @@ function OrderPieChart({ items }: { items: MoneyFlowOrderSizeItem[] }) {
           const labelPoint = piePoint(cx, cy, (r + ir) / 2, mid);
           const anchorPoint = piePoint(cx, cy, r + 3, mid);
           const cfg = callout[item.orderSize];
-          const elbowX = cfg.side === "right" ? 258 : 102;
+          const elbowX = cfg.side === "right" ? 274 : 86;
           const lineEndX = cfg.side === "right" ? cfg.labelX - 8 : cfg.labelX + 8;
           const textAnchor = cfg.side === "right" ? "end" : "start";
           const textY = cfg.band === "top" ? cfg.lineY - 10 : cfg.lineY + 13;

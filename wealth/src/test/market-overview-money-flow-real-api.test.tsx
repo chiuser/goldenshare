@@ -115,6 +115,11 @@ describe("market-overview money-flow real api", () => {
     expect(within(panel).getByText("大单 -187.2亿")).toBeInTheDocument();
     expect(within(panel).getByText("中单 -55.0亿")).toBeInTheDocument();
     expect(within(panel).getByText("小单 +325.1亿")).toBeInTheDocument();
+    expect(within(panel).getByText("2026-05-11")).toBeInTheDocument();
+    expect(within(panel).queryByText("0轴居中")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("callout 标注")).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/饼图仅表达/)).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/数据源：moneyflow_mkt_dc/)).not.toBeInTheDocument();
 
     const moneyFlowRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/money-flow"));
     expect(moneyFlowRequest).toBeDefined();
