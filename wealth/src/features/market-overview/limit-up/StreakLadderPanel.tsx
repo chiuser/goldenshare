@@ -4,15 +4,18 @@ import type { LadderV5PromotionLayer, LadderV5Stock, MarketOverview } from "../a
 
 interface StreakLadderPanelProps {
   overview: MarketOverview;
+  ladder?: MarketOverview["ladderV5"];
+  viewState?: "loading" | "ready" | "error";
+  errorMessage?: string;
   onAction: (message: string) => void;
 }
 
-export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps) {
+export function StreakLadderPanel({ overview, ladder, viewState = "ready", errorMessage, onAction }: StreakLadderPanelProps) {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
-  const ladder = overview.ladderV5;
+  const ladderData = ladder ?? overview.ladderV5;
 
   const layers = useMemo(() => {
-    if (!ladder) return [];
+    if (!ladderData) return [];
 
     const next: Array<
       | { type: "above"; key: string; stocks: LadderV5Stock[] }
@@ -20,21 +23,21 @@ export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps
       | ({ type: "promotion"; key: string } & LadderV5PromotionLayer)
     > = [];
 
-    if (ladder.highestStreakLevel >= 6) {
-      next.push({ type: "above", key: "aboveFive", stocks: ladder.aboveFive });
+    if (ladderData.highestStreakLevel >= 6) {
+      next.push({ type: "above", key: "aboveFive", stocks: ladderData.aboveFive });
     }
 
-    const maxNormal = Math.min(ladder.highestStreakLevel, 5);
+    const maxNormal = Math.min(ladderData.highestStreakLevel, 5);
     for (let level = maxNormal; level >= 2; level -= 1) {
-      const promotion = ladder.promotions[level];
+      const promotion = ladderData.promotions[level];
       if (promotion) next.push({ type: "promotion", key: `promotion-${level}`, ...promotion });
     }
 
-    if (ladder.highestStreakLevel >= 1) {
-      next.push({ type: "first", key: "first", stocks: ladder.firstBoard });
+    if (ladderData.highestStreakLevel >= 1) {
+      next.push({ type: "first", key: "first", stocks: ladderData.firstBoard });
     }
     return next;
-  }, [ladder]);
+  }, [ladderData]);
 
   const totalStocks = useMemo(
     () =>
@@ -79,8 +82,8 @@ export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps
       >
         <span className="stock-card-name-v5">{stock.stockName}</span>
         <span className="stock-card-code-v5">{stock.stockCode}</span>
-        <span className={`stock-card-price-v5 num ${pctClass}`}>{stock.latestPrice.toFixed(2)}</span>
-        <span className={`stock-card-change-v5 num ${pctClass}`}>{fmtPct(stock.changePct)}</span>
+        <span className={`stock-card-price-v5 num ${pctClass}`}>{Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"}</span>
+        <span className={`stock-card-change-v5 num ${pctClass}`}>{Number.isFinite(stock.changePct) ? fmtPct(stock.changePct) : "--"}</span>
         <span className="stock-card-sector-v5">{stock.sectorName}</span>
         <span className="stock-card-meta-v5">{meta}</span>
       </article>
@@ -106,12 +109,16 @@ export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps
       meta={<span className="secondary">昨日层级 → 今日晋级层级｜股票卡片可点击</span>}
     >
       <div className="limit-ladder-v5">
-        {ladder ? (
+        {viewState === "loading" ? (
+          <div className="ladder-empty-v5">loading</div>
+        ) : viewState === "error" ? (
+          <div className="ladder-empty-v5">{errorMessage ?? "连板天梯加载失败"}</div>
+        ) : ladderData ? (
           <>
             <div className="ladder-v5-summary">
               <div>
-                <strong>{ladder.tradeDate} 连板天梯</strong>
-                <span className="secondary">　最高 {ladder.highestStreakLevel} 板，昨日层级展示全量昨日股票，今日层级仅展示晋级成功股票。</span>
+                <strong>{ladderData.tradeDate} 连板天梯</strong>
+                <span className="secondary">　最高 {ladderData.highestStreakLevel} 板，昨日层级展示全量昨日股票，今日层级仅展示晋级成功股票。</span>
               </div>
               <div className="ladder-v5-tags">
                 <span className="ladder-v5-tag">股票 {totalStocks} 项展示</span>

@@ -72,6 +72,7 @@ describe("market-overview money-flow real api", () => {
     marketOverviewModuleSources.moneyFlow = "real";
     marketOverviewModuleSources.leaderboards = "mock";
     marketOverviewModuleSources.limitUp = "mock";
+    marketOverviewModuleSources.streakLadder = "mock";
     marketOverviewModuleSources.sectors = "mock";
   });
 

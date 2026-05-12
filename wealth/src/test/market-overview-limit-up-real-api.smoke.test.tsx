@@ -105,6 +105,7 @@ describe("market-overview limit-up real api smoke", () => {
     marketOverviewModuleSources.moneyFlow = "mock";
     marketOverviewModuleSources.leaderboards = "mock";
     marketOverviewModuleSources.limitUp = "real";
+    marketOverviewModuleSources.streakLadder = "mock";
     marketOverviewModuleSources.sectors = "mock";
   });
 

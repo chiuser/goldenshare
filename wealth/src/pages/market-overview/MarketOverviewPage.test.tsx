@@ -300,15 +300,18 @@ function mockSuccessfulMarketFetch(
 describe("MarketOverviewPage", () => {
   const originalLimitUpSource = marketOverviewModuleSources.limitUp;
   const originalMoneyFlowSource = marketOverviewModuleSources.moneyFlow;
+  const originalStreakLadderSource = marketOverviewModuleSources.streakLadder;
   beforeEach(() => {
     marketOverviewModuleSources.limitUp = "mock";
     marketOverviewModuleSources.moneyFlow = "mock";
+    marketOverviewModuleSources.streakLadder = "mock";
     mockSuccessfulMarketFetch();
   });
 
   afterEach(() => {
     marketOverviewModuleSources.limitUp = originalLimitUpSource;
     marketOverviewModuleSources.moneyFlow = originalMoneyFlowSource;
+    marketOverviewModuleSources.streakLadder = originalStreakLadderSource;
     vi.restoreAllMocks();
     vi.useRealTimers();
     window.history.pushState({}, "", "/");

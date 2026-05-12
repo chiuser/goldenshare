@@ -1,0 +1,1 @@
+"""Streak ladder module services."""

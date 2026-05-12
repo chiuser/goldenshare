@@ -9,6 +9,7 @@ export interface MarketOverviewModuleSources {
   moneyFlow: ModuleSource;
   leaderboards: ModuleSource;
   limitUp: ModuleSource;
+  streakLadder: ModuleSource;
   sectors: ModuleSource;
 }
 
@@ -21,5 +22,6 @@ export const marketOverviewModuleSources: MarketOverviewModuleSources = {
   moneyFlow: "real",
   leaderboards: "real",
   limitUp: "real",
+  streakLadder: "real",
   sectors: "mock",
 };

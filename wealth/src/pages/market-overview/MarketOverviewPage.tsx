@@ -35,6 +35,11 @@ import {
   type MarketLimitUpViewModel,
 } from "../../features/market-overview/limit-up/api/marketLimitUpAdapter";
 import { fetchMarketLimitUp, type LimitUpDebugInfo } from "../../features/market-overview/limit-up/api/marketLimitUpApi";
+import { buildStreakLadderViewModelFromApi } from "../../features/market-overview/limit-up/api/marketStreakLadderAdapter";
+import {
+  fetchMarketStreakLadder,
+  type StreakLadderDebugInfo,
+} from "../../features/market-overview/limit-up/api/marketStreakLadderApi";
 import { MarketMoneyFlowPanel } from "../../features/market-overview/money-flow/MarketMoneyFlowPanel";
 import {
   buildMoneyFlowViewModelFromApi,
@@ -71,6 +76,7 @@ const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 const MONEY_FLOW_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
+const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
 
 function isFiniteNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -152,6 +158,12 @@ export function MarketOverviewPage() {
   );
   const [limitUpErrorMessage, setLimitUpErrorMessage] = useState<string | null>(null);
   const [limitUpDebugInfo, setLimitUpDebugInfo] = useState<LimitUpDebugInfo | null>(null);
+  const [streakLadder, setStreakLadder] = useState<MarketOverview["ladderV5"] | null>(null);
+  const [streakLadderViewState, setStreakLadderViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.streakLadder === "real" ? "loading" : "ready",
+  );
+  const [streakLadderErrorMessage, setStreakLadderErrorMessage] = useState<string | null>(null);
+  const [streakLadderDebugInfo, setStreakLadderDebugInfo] = useState<StreakLadderDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
@@ -171,6 +183,7 @@ export function MarketOverviewPage() {
       ...(moneyFlowDebugInfo?.modules ?? []),
       ...(leaderboardsDebugInfo?.modules ?? []),
       ...(limitUpDebugInfo?.modules ?? []),
+      ...(streakLadderDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
@@ -181,6 +194,7 @@ export function MarketOverviewPage() {
       ...(moneyFlowDebugInfo?.exceptions ?? []),
       ...(leaderboardsDebugInfo?.exceptions ?? []),
       ...(limitUpDebugInfo?.exceptions ?? []),
+      ...(streakLadderDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
@@ -194,6 +208,7 @@ export function MarketOverviewPage() {
     moneyFlowDebugInfo,
     leaderboardsDebugInfo,
     limitUpDebugInfo,
+    streakLadderDebugInfo,
   ]);
 
   useEffect(() => {
@@ -262,6 +277,14 @@ export function MarketOverviewPage() {
         setLimitUp(null);
         setLimitUpViewState("loading");
         setLimitUpErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.streakLadder === "mock") {
+        setStreakLadder(response.data.ladderV5 ?? null);
+        setStreakLadderViewState("ready");
+      } else {
+        setStreakLadder(null);
+        setStreakLadderViewState("loading");
+        setStreakLadderErrorMessage(null);
       }
     });
   }, []);
@@ -348,6 +371,55 @@ export function MarketOverviewPage() {
           setLimitUpErrorMessage(message);
           setLimitUpDebugInfo(null);
           showToast(`涨跌停统计与分布模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.streakLadder !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setStreakLadder(null);
+    setStreakLadderViewState("loading");
+    setStreakLadderErrorMessage(null);
+    setStreakLadderDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), STREAK_LADDER_FETCH_TIMEOUT_MS);
+
+    fetchMarketStreakLadder(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setStreakLadder(buildStreakLadderViewModelFromApi(payload));
+          setStreakLadderViewState("ready");
+          setStreakLadderErrorMessage(null);
+          setStreakLadderDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/streak-ladder`
+            : error instanceof Error
+              ? error.message
+              : "连板天梯加载失败";
+          setStreakLadder(null);
+          setStreakLadderViewState("error");
+          setStreakLadderErrorMessage(message);
+          setStreakLadderDebugInfo(null);
+          showToast(`连板天梯模块异常：${message}`);
         }
       })
       .finally(() => {
@@ -732,7 +804,13 @@ export function MarketOverviewPage() {
             limitUp={limitUp ?? undefined}
             errorMessage={limitUpErrorMessage ?? undefined}
           />
-          <StreakLadderPanel overview={overview} onAction={showToast} />
+          <StreakLadderPanel
+            overview={overview}
+            ladder={streakLadder ?? undefined}
+            viewState={streakLadderViewState}
+            errorMessage={streakLadderErrorMessage ?? undefined}
+            onAction={showToast}
+          />
           <SectorOverviewPanel overview={overview} onAction={showToast} />
           <StateBaselinePanel />
         </div>
