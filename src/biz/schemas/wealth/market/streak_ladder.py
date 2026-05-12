@@ -39,6 +39,7 @@ class LadderV5StockDto(BaseModel):
     changePct: float | None = None
     sectorName: str | None = None
     openTimes: int | None = None
+    firstLimitTime: str | None = None
     currentStreakLevel: int = Field(ge=0)
     advanced: bool
 

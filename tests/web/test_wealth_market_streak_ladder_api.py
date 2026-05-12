@@ -34,6 +34,7 @@ def _add_limit_up_row(
     close: Decimal | None,
     pct_chg: Decimal | None,
     open_times: int | None = 0,
+    first_time: str | None = None,
     industry: str | None = "机器人",
     name: str | None = None,
 ) -> None:
@@ -52,7 +53,7 @@ def _add_limit_up_row(
             total_mv=None,
             turnover_ratio=None,
             fd_amount=None,
-            first_time=None,
+            first_time=first_time,
             last_time=None,
             open_times=open_times,
             up_stat=None,

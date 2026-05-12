@@ -35,6 +35,7 @@ export interface MarketStreakLadderResponse {
       changePct?: number | null;
       sectorName?: string | null;
       openTimes?: number | null;
+      firstLimitTime?: string | null;
       currentStreakLevel: number;
       advanced: boolean;
     }>;
@@ -50,6 +51,7 @@ export interface MarketStreakLadderResponse {
           changePct?: number | null;
           sectorName?: string | null;
           openTimes?: number | null;
+          firstLimitTime?: string | null;
           currentStreakLevel: number;
           advanced: boolean;
         }>;
@@ -60,6 +62,7 @@ export interface MarketStreakLadderResponse {
           changePct?: number | null;
           sectorName?: string | null;
           openTimes?: number | null;
+          firstLimitTime?: string | null;
           currentStreakLevel: number;
           advanced: boolean;
         }>;
@@ -72,6 +75,7 @@ export interface MarketStreakLadderResponse {
       changePct?: number | null;
       sectorName?: string | null;
       openTimes?: number | null;
+      firstLimitTime?: string | null;
       currentStreakLevel: number;
       advanced: boolean;
     }>;

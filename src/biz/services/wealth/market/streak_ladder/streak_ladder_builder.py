@@ -20,6 +20,7 @@ class StreakLadderRow:
     latest_price: Decimal | None
     change_pct: Decimal | None
     open_times: int | None
+    first_limit_time: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +74,7 @@ class StreakLadderBuilder:
                 changePct=change_pct,
                 sectorName=row.sector_name,
                 openTimes=row.open_times,
+                firstLimitTime=row.first_limit_time,
                 currentStreakLevel=row.board_count if current_streak_level is None else current_streak_level,
                 advanced=advanced,
             )

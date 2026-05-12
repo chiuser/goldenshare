@@ -8,6 +8,7 @@ function toStock(item: {
   changePct?: number | null;
   sectorName?: string | null;
   openTimes?: number | null;
+  firstLimitTime?: string | null;
   currentStreakLevel: number;
   advanced: boolean;
 }): LadderV5Stock {
@@ -18,6 +19,7 @@ function toStock(item: {
     changePct: typeof item.changePct === "number" ? item.changePct : 0,
     sectorName: item.sectorName?.trim() || "--",
     openTimes: typeof item.openTimes === "number" ? item.openTimes : 0,
+    firstLimitTime: item.firstLimitTime?.trim() || undefined,
     currentStreakLevel: item.currentStreakLevel,
     advanced: item.advanced,
   };
@@ -33,6 +35,7 @@ function toPromotionLayer(layer: {
     changePct?: number | null;
     sectorName?: string | null;
     openTimes?: number | null;
+    firstLimitTime?: string | null;
     currentStreakLevel: number;
     advanced: boolean;
   }>;
@@ -43,6 +46,7 @@ function toPromotionLayer(layer: {
     changePct?: number | null;
     sectorName?: string | null;
     openTimes?: number | null;
+    firstLimitTime?: string | null;
     currentStreakLevel: number;
     advanced: boolean;
   }>;

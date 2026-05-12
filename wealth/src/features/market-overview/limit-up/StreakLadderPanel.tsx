@@ -10,6 +10,17 @@ interface StreakLadderPanelProps {
   onAction: (message: string) => void;
 }
 
+const FIRST_LAYER_COLLAPSED_VISIBLE_COUNT = 12;
+
+function isOpeningLimitTime(firstLimitTime?: string): boolean {
+  if (!firstLimitTime) return false;
+  const digits = firstLimitTime.replace(/\D/g, "");
+  if (!digits) return false;
+  const numeric = Number(digits.padStart(6, "0"));
+  if (!Number.isFinite(numeric)) return false;
+  return numeric >= 91500 && numeric <= 93000;
+}
+
 export function StreakLadderPanel({ overview, ladder, viewState = "ready", errorMessage, onAction }: StreakLadderPanelProps) {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
   const ladderData = ladder ?? overview.ladderV5;
@@ -71,7 +82,15 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
 
   const renderCard = (stock: LadderV5Stock, mode: "above" | "normal") => {
     const pctClass = clsBy(stock.changePct);
-    const meta = mode === "above" ? `${stock.currentStreakLevel}板` : `开板 ${stock.openTimes}次`;
+    const isOneWordBoard = mode === "normal" && stock.openTimes <= 0 && isOpeningLimitTime(stock.firstLimitTime);
+    const meta =
+      mode === "above"
+        ? `${stock.currentStreakLevel}板`
+        : stock.openTimes <= 0
+          ? isOneWordBoard
+            ? "一字板"
+            : "未开板"
+          : `开板${stock.openTimes}次`;
     const advClass = mode === "above" ? "above" : stock.advanced ? "advanced" : "not-advanced";
     return (
       <article
@@ -129,7 +148,11 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
               const expanded = expandedLayers.has(layer.key);
               if (layer.type === "above" || layer.type === "first") {
                 const isAbove = layer.type === "above";
-                const needExpand = layer.stocks.length > 12;
+                const needExpand = layer.type === "first" && layer.stocks.length > FIRST_LAYER_COLLAPSED_VISIBLE_COUNT;
+                const visibleStocks =
+                  layer.type === "first" && !expanded
+                    ? layer.stocks.slice(0, FIRST_LAYER_COLLAPSED_VISIBLE_COUNT)
+                    : layer.stocks;
                 const label = isAbove ? "五板以上" : "首板";
                 const subtitle = isAbove ? "只展示今日六板及以上，右下显示具体板数" : "只展示今日首板股票";
                 return (
@@ -148,7 +171,7 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
                       </div>
                     </div>
                     <div className="ladder-body-v5">
-                      <div className="stock-grid-v5">{layer.stocks.map((stock) => renderCard(stock, isAbove ? "above" : "normal"))}</div>
+                      <div className="stock-grid-v5">{visibleStocks.map((stock) => renderCard(stock, isAbove ? "above" : "normal"))}</div>
                       {needExpand ? (
                         <button className="ladder-expand-v5" type="button" data-layer-key={layer.key} onClick={() => toggleLayer(layer.key)}>
                           <span className={`arrows ${expanded ? "is-up" : "is-down"}`} aria-hidden="true">

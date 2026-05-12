@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { marketOverviewModuleSources } from "../features/market-overview/api/moduleSources";
 import { MarketOverviewPage } from "../pages/market-overview/MarketOverviewPage";
@@ -34,6 +34,7 @@ const streakLadderSuccessPayload = {
             changePct: 10.02,
             sectorName: "机器人",
             openTimes: 0,
+            firstLimitTime: "92500",
             currentStreakLevel: 3,
             advanced: false,
           },
@@ -126,5 +127,57 @@ describe("market-overview streak-ladder real api smoke", () => {
       expect(within(panel).queryByText("loading")).not.toBeInTheDocument();
     });
     expect(within(panel).getByText("streak ladder unavailable")).toBeInTheDocument();
+  });
+
+  it("collapses-first-board-to-two-rows-and-expands-on-click", async () => {
+    const payload = {
+      ...streakLadderSuccessPayload,
+      streakLadderV5: {
+        ...streakLadderSuccessPayload.streakLadderV5,
+        highestStreakLevel: 1,
+        promotions: {},
+        firstBoard: Array.from({ length: 13 }, (_, index) => ({
+          stockName: `首板示例${index + 1}`,
+          stockCode: `0000${index + 1}.SZ`,
+          latestPrice: 10 + index,
+          changePct: 10.0,
+          sectorName: "示例板块",
+          openTimes: index === 0 ? 0 : 1,
+          firstLimitTime: index === 0 ? "92500" : "100000",
+          currentStreakLevel: 1,
+          advanced: true,
+        })),
+      },
+    };
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/api/v1/wealth/market/streak-ladder")) {
+        return responseJson(payload);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    render(<MarketOverviewPage />);
+
+    const panel = await screen.findByLabelText("连板天梯");
+    await waitFor(() => {
+      expect(within(panel).queryByText("loading")).not.toBeInTheDocument();
+    });
+
+    const firstLayer = panel.querySelector<HTMLElement>('section[data-layer-key="first"]');
+    expect(firstLayer).not.toBeNull();
+    if (!firstLayer) throw new Error("first layer not found");
+
+    expect(within(firstLayer).queryAllByText("一字板").length).toBeGreaterThan(0);
+    expect(firstLayer.querySelectorAll(".stock-compact-card-v5")).toHaveLength(12);
+    expect(within(firstLayer).queryByText("首板示例13")).not.toBeInTheDocument();
+
+    fireEvent.click(within(firstLayer).getByRole("button", { name: "展开全部" }));
+
+    await waitFor(() => {
+      expect(firstLayer.querySelectorAll(".stock-compact-card-v5")).toHaveLength(13);
+    });
+    expect(within(firstLayer).getByText("首板示例13")).toBeInTheDocument();
   });
 });

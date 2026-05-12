@@ -117,6 +117,7 @@ export interface LadderV5Stock {
   changePct: number;
   sectorName: string;
   openTimes: number;
+  firstLimitTime?: string;
   currentStreakLevel: number;
   advanced: boolean;
 }

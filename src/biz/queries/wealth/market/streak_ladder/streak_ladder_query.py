@@ -33,6 +33,7 @@ class StreakLadderQuery:
                 EquityLimitList.close,
                 EquityLimitList.pct_chg,
                 EquityLimitList.open_times,
+                EquityLimitList.first_time,
             ).where(
                 EquityLimitList.trade_date == trade_date,
                 EquityLimitList.limit_type == "U",
@@ -90,6 +91,7 @@ class StreakLadderQuery:
                     latest_price=close,
                     change_pct=pct_chg,
                     open_times=row.open_times,
+                    first_limit_time=row.first_time,
                 )
             )
 
