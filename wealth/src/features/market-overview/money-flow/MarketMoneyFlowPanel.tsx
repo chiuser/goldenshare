@@ -106,11 +106,11 @@ function OrderPieChart({ items }: { items: MoneyFlowOrderSizeItem[] }) {
 
   const callout: Record<
     MoneyFlowOrderSizeItem["orderSize"],
-    { side: "left" | "right"; band: "top" | "bottom"; lineY: number; labelX: number }
+    { side: "left" | "right"; band: "top" | "bottom"; lineY: number; labelX: number; elbowX?: number }
   > = {
     superLarge: { side: "right", band: "top", lineY: 44, labelX: 346 },
     small: { side: "left", band: "top", lineY: 48, labelX: 14 },
-    medium: { side: "left", band: "bottom", lineY: 154, labelX: 14 },
+    medium: { side: "left", band: "bottom", lineY: 164, labelX: 14, elbowX: 74 },
     large: { side: "right", band: "bottom", lineY: 164, labelX: 346 },
   };
 
@@ -130,7 +130,7 @@ function OrderPieChart({ items }: { items: MoneyFlowOrderSizeItem[] }) {
           const labelPoint = piePoint(cx, cy, (r + ir) / 2, mid);
           const anchorPoint = piePoint(cx, cy, r + 3, mid);
           const cfg = callout[item.orderSize];
-          const elbowX = cfg.side === "right" ? 274 : 86;
+          const elbowX = cfg.elbowX ?? (cfg.side === "right" ? 274 : 86);
           const lineEndX = cfg.side === "right" ? cfg.labelX - 8 : cfg.labelX + 8;
           const textAnchor = cfg.side === "right" ? "end" : "start";
           const textY = cfg.band === "top" ? cfg.lineY - 10 : cfg.lineY + 13;
