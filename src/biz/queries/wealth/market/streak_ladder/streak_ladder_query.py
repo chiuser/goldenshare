@@ -42,7 +42,11 @@ class StreakLadderQuery:
         codes_to_fill = {
             row.ts_code
             for row in raw_rows
-            if row.ts_code and (row.close is None or row.pct_chg is None)
+            if row.ts_code
+            and not self._is_valid_limit_up_metrics(
+                close=row.close,
+                pct_chg=row.pct_chg,
+            )
         }
         fallback_map = self._load_daily_bar_map(session, trade_date=trade_date, codes=codes_to_fill)
 
@@ -67,9 +71,15 @@ class StreakLadderQuery:
                     invalid_sample_raw_value = str(row.limit_times) if row.limit_times is not None else None
                 continue
 
-            fallback = fallback_map.get(row.ts_code)
-            close = row.close if row.close is not None else fallback[0] if fallback is not None else None
-            pct_chg = row.pct_chg if row.pct_chg is not None else fallback[1] if fallback is not None else None
+            close = row.close
+            pct_chg = row.pct_chg
+            if not self._is_valid_limit_up_metrics(close=close, pct_chg=pct_chg):
+                fallback = fallback_map.get(row.ts_code)
+                if fallback is not None:
+                    close = fallback[0]
+                    pct_chg = fallback[1]
+            if not self._is_valid_limit_up_metrics(close=close, pct_chg=pct_chg):
+                continue
 
             valid_rows.append(
                 StreakLadderRow(
@@ -125,3 +135,11 @@ class StreakLadderQuery:
                 continue
             result[row.ts_code] = (row.close, row.pct_chg)
         return result
+
+    @staticmethod
+    def _is_valid_limit_up_metrics(
+        *,
+        close: Decimal | None,
+        pct_chg: Decimal | None,
+    ) -> bool:
+        return bool(close is not None and pct_chg is not None and close > 0 and pct_chg > 0)

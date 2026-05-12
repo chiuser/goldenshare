@@ -5,11 +5,12 @@ from decimal import Decimal
 
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 
 def _ensure_tables(db_session) -> None:
     bind = db_session.get_bind()
-    for table in [TradeCalendar.__table__, EquityLimitList.__table__]:
+    for table in [TradeCalendar.__table__, EquityLimitList.__table__, EquityDailyBar.__table__]:
         table.create(bind, checkfirst=True)
 
 
@@ -56,6 +57,32 @@ def _add_limit_up_row(
             open_times=open_times,
             up_stat=None,
             limit_times=board_count,
+        )
+    )
+
+
+def _add_daily_bar_row(
+    db_session,
+    *,
+    trade_date: date,
+    ts_code: str,
+    close: Decimal | None,
+    pct_chg: Decimal | None,
+) -> None:
+    db_session.add(
+        EquityDailyBar(
+            ts_code=ts_code,
+            trade_date=trade_date,
+            open=None,
+            high=None,
+            low=None,
+            close=close,
+            pre_close=None,
+            change_amount=None,
+            pct_chg=pct_chg,
+            vol=None,
+            amount=None,
+            source="tushare",
         )
     )
 
@@ -165,3 +192,73 @@ def test_streak_ladder_partial_on_invalid_board_count(app_client, db_session) ->
     assert payload["pageStatus"]["status"] == "PARTIAL"
     codes = {item["code"] for item in payload["debugInfo"]["exceptions"]}
     assert "SL_INVALID_BOARD_COUNT" in codes
+
+
+def test_streak_ladder_drops_invalid_price_metrics_when_fallback_still_invalid(app_client, db_session) -> None:
+    _ensure_tables(db_session)
+    trade_day = date(2026, 4, 28)
+    prev_day = date(2026, 4, 27)
+    _add_calendar_row(db_session, trade_date=prev_day, prev_trade_date=date(2026, 4, 26))
+    _add_calendar_row(db_session, trade_date=trade_day, prev_trade_date=prev_day)
+    _add_limit_up_row(
+        db_session,
+        trade_date=trade_day,
+        ts_code="GOOD.SZ",
+        board_count=1,
+        close=Decimal("9.99"),
+        pct_chg=Decimal("10.00"),
+    )
+    _add_limit_up_row(
+        db_session,
+        trade_date=trade_day,
+        ts_code="DIRTY.SZ",
+        board_count=1,
+        close=Decimal("0"),
+        pct_chg=Decimal("-100"),
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/streak-ladder",
+        params={"tradeDate": "2026-04-28", "debug": 1},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    first_board_codes = [item["stockCode"] for item in payload["streakLadderV5"]["firstBoard"]]
+    assert first_board_codes == ["GOOD.SZ"]
+
+
+def test_streak_ladder_uses_daily_bar_fallback_for_invalid_source_metrics(app_client, db_session) -> None:
+    _ensure_tables(db_session)
+    trade_day = date(2026, 4, 28)
+    prev_day = date(2026, 4, 27)
+    _add_calendar_row(db_session, trade_date=prev_day, prev_trade_date=date(2026, 4, 26))
+    _add_calendar_row(db_session, trade_date=trade_day, prev_trade_date=prev_day)
+    _add_limit_up_row(
+        db_session,
+        trade_date=trade_day,
+        ts_code="DIRTY.SZ",
+        board_count=1,
+        close=Decimal("0"),
+        pct_chg=Decimal("-100"),
+    )
+    _add_daily_bar_row(
+        db_session,
+        trade_date=trade_day,
+        ts_code="DIRTY.SZ",
+        close=Decimal("12.34"),
+        pct_chg=Decimal("10.01"),
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/streak-ladder",
+        params={"tradeDate": "2026-04-28", "debug": 1},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    first_board = payload["streakLadderV5"]["firstBoard"]
+    assert len(first_board) == 1
+    assert first_board[0]["stockCode"] == "DIRTY.SZ"
+    assert first_board[0]["latestPrice"] == 12.34
+    assert first_board[0]["changePct"] == 10.01
