@@ -461,6 +461,12 @@ actual_value=bar_count=6
 /tmp/stk_mins_2022_bj_freq30_actual6_rebuild_from_15min.csv
 ```
 
+专项方案：
+
+```text
+docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
+```
+
 ## 8. 禁止事项
 
 第一阶段禁止：
