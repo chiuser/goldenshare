@@ -149,6 +149,7 @@ docs/
 - [stk_mins clean 完备性审计排查记录 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-completeness-investigation-notes-v1.md)
 - [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)
 - [stk_mins 当前错误 clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-current-clean-20241030-multifreq-repair-plan-v1.md)
+- [stk_mins 当前错误 clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)
 - [股票技术面因子（专业版）Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-prod-raw-db-lake-export-plan.md)

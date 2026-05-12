@@ -19,6 +19,7 @@
 1. 本门禁对应模块：`limitUp`
 2. 本门禁对应需求文档：`limit-up-benchmark-requirement-v1.md`
 3. 本门禁对应实施方案：`limit-up-implementation-design-v1.md`
+4. 本门禁只约束 `limitUp` 模块；共享来源不等于跨模块耦合。
 
 ---
 
@@ -42,6 +43,7 @@
 16. [x] 核心测试 case（真实 API + 前端展示）门禁冻结
 17. [x] 跨模块抽象门禁原则（8 条）映射冻结
 18. [x] 签字完成
+19. [x] 已确认“只维护 limitUp 字段真值表，不扩展到其它模块”
 
 ---
 
@@ -296,6 +298,8 @@ interface LimitUpSummaryResponseData {
 ---
 
 ## 5. 查询草案（可直接转实现）
+
+> 口径声明：本节为 `limitUp` 模块真值表落地门禁，不包含连板天梯等其它模块规则。
 
 1. 当日三集合：
    - `U/D/B`：`limit_list_ths` 按 `limit_type` 分组去重 `ts_code`

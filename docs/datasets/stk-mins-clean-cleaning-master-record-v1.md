@@ -430,6 +430,12 @@ freq=5/15/30/60 下 bar_count=271 股票数均为 0
 /tmp/stk_mins_clean_missing_0930_with_1min_availability.csv
 ```
 
+专项方案：
+
+```text
+docs/datasets/stk-mins-current-clean-missing-0930-repair-plan-v1.md
+```
+
 ### 7.2 `2022` 年北交所 `30min` 原始缺失
 
 问题规模：

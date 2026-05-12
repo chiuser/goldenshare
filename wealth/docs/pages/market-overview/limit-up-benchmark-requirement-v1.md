@@ -43,6 +43,9 @@
 
 ### 2.3 与其他模块边界
 
+1. `limitUp` 是独立模块，只维护“涨跌停统计与分布”自身字段真值表。
+2. 本模块三件套不维护连板天梯、榜单、板块总览等其它模块字段。
+3. 即使与其它模块共享同一来源表（如 `limit_list_ths`、`trade_calendar`），也仅做共享来源说明，不做模块耦合设计。
 1. 上游依赖：
    - `core_serving.limit_list_ths`
    - `core_serving.limit_cpt_list`
@@ -126,6 +129,8 @@
 
 ## 5. 数据来源与映射（事实层）
 
+> 口径声明：本章是“涨跌停统计与分布模块字段真值表”，只约束 `limitUp` 模块自身字段；不承担其它模块字段定义。
+
 | 业务字段 | 来源表 | 来源列 | 转换规则 | 备注 |
 |---|---|---|---|---|
 | 涨停总家数 | `core_serving.limit_list_ths` | `trade_date, ts_code, limit_type` | `count(distinct ts_code) where limit_type='涨停池'` | 当日 |
@@ -147,6 +152,7 @@
 1. 主源优先级：`limit_list_ths` 为主源；`limit_step` 提供连板补充；`equity_stock_st` 提供 ST 标签。
 2. 回退策略：结构映射缺失时不跨日补值，进入 `PARTIAL` 并输出模块异常。
 3. 数据时效语义：盘后快照语义（当前非实时流）。
+4. 共享来源说明：若其它模块复用相同表，仅共享数据事实，不共享本模块规则、排序与组装逻辑。
 
 ---
 
