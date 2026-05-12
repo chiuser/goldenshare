@@ -75,10 +75,13 @@ wealth/
 38. `wealth/docs/pages/market-overview/money-flow-benchmark-requirement-v1.md`
 39. `wealth/docs/pages/market-overview/money-flow-implementation-design-v1.md`
 40. `wealth/docs/pages/market-overview/money-flow-m2-coding-gate-v1.md`
-41. `wealth/docs/templates/benchmark-requirement-template.md`
-42. `wealth/docs/templates/implementation-design-template.md`
-43. `wealth/docs/templates/coding-gate-template.md`
-44. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
+41. `wealth/docs/pages/market-overview/streak-ladder-benchmark-requirement-v1.md`
+42. `wealth/docs/pages/market-overview/streak-ladder-implementation-design-v1.md`
+43. `wealth/docs/pages/market-overview/streak-ladder-m2-coding-gate-v1.md`
+44. `wealth/docs/templates/benchmark-requirement-template.md`
+45. `wealth/docs/templates/implementation-design-template.md`
+46. `wealth/docs/templates/coding-gate-template.md`
+47. 当前目标目录中的更近 `AGENTS.md`（如未来新增）
 
 实现市场总览 homepage 前，还必须额外读取：
 

@@ -110,6 +110,33 @@ export interface LadderLevel {
   }>;
 }
 
+export interface LadderV5Stock {
+  stockName: string;
+  stockCode: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  openTimes: number;
+  currentStreakLevel: number;
+  advanced: boolean;
+}
+
+export interface LadderV5PromotionLayer {
+  previousLabel: string;
+  currentLabel: string;
+  previousStocks: LadderV5Stock[];
+  currentStocks: LadderV5Stock[];
+}
+
+export interface LadderV5 {
+  tradeDate: string;
+  prevTradeDate: string;
+  highestStreakLevel: number;
+  aboveFive: LadderV5Stock[];
+  promotions: Record<number, LadderV5PromotionLayer>;
+  firstBoard: LadderV5Stock[];
+}
+
 export interface SectorRankRow {
   name: string;
   text: string;
@@ -159,6 +186,7 @@ export interface MarketOverview {
     yesterday: LimitSectorLeaderStructure;
   };
   ladder: LadderLevel[];
+  ladderV5?: LadderV5;
   sectors: {
     columns: SectorColumn[];
     heatmap: HeatCell[];

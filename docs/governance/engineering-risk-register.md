@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-11
+更新时间：2026-05-12
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -36,6 +36,7 @@
 | RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
 | RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
+| RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Open | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 
 ---
 
@@ -353,4 +354,66 @@
 7. 已执行 clean 层只读样本审计与 dry-run rebuild：
    - `2010-07-30 freq=1`：当前 clean 副本审计结果为 `needs_rebuild`，原因 `invalid_price=241`；dry-run rebuild 预计保留 `455731` 行、过滤 `241` 行。
    - `2026-04-24 freq=1`：dry-run rebuild 预计保留 `1326946` 行、过滤 `0` 行。
-8. 本 P0 先关闭：raw 事故恢复、单股票写入防覆盖测试、clean 初始副本和 clean 审计门禁已建立。clean 层仍需继续执行全量 audit/dry-run rebuild，并在用户确认后再执行 clean rebuild；该事项转入后续计划内数据清洗工作，不再作为阻塞所有开发的 P0 风险。
+8. 该记录属于 clean 层收口启动背景，不关闭 `RISK-2026-05-12-008`。当前 clean 物理 schema 已确认存在缺陷，后续必须按 `RISK-2026-05-12-008` 的两阶段策略处理。
+
+---
+
+## 11. RISK-2026-05-12-008 处理要求
+
+风险说明：
+
+1. 当前 `research/stk_mins_by_date_clean` 是一份已经完成大量清洗动作、但物理 schema 错误的 clean 数据集。
+2. 错误点包括：缺失源业务字段 `exchange/vwap`，并额外写入物理列 `trade_date`。
+3. 因为 schema 已错，这份 clean 不能作为最终正式 clean 数据集，也不能直接作为 derived/research/indicator 的长期可信基准。
+4. 但这份 clean 已经承载了大量清洗排查、专项修复和问题分类工作，仍可作为“清洗流程演练与规则沉淀对象”继续收尾。
+
+当前决策（2026-05-12）：
+
+1. 第一阶段先继续把当前这份错误 schema 的 clean 数据集，按照既有清洗记录中的遗留项清理完。
+2. 第一阶段目标不是让这份 clean 成为最终正式数据，而是把完整清洗流程跑通并沉淀规则，包括问题发现、分类、专项修复、复查和文档记录。
+3. 第一阶段仍不得进入 derived/research/indicator 的正式重建链路；它只服务于清洗动作验证与规则沉淀。
+4. 第一阶段完成后，第二阶段再考虑从 `raw_tushare/stk_mins_by_date` 重新生成正式 clean。
+5. 第二阶段正式 clean 必须修正 schema：保留 `exchange/vwap`，不写物理 `trade_date`，并复用第一阶段已经验证过的清洗规则。
+
+第一阶段剩余清洗项：
+
+1. 高频缺 `09:30:00` bar：用同日同股票 clean `1min 09:30:00` 恢复 `5/15/30/60` 缺失 bar。
+2. `2024-10-30` 多频率混入 `1min`：仅处理问题清单中的股票、日期和频率，用 schema 口径已明确的 `1min` 修复源重新生成 `5/15/30/60`。
+3. `2022` 年北交所 `30min` 原始缺失：用同日 clean `15min` 合成缺失的 `30min`。
+
+第一阶段硬约束：
+
+1. 不修改 raw。
+2. 不重建 derived/research/indicator。
+3. 不把当前错误 schema clean 误标为最终可用版本。
+4. 每个专项必须先 dry-run，再由用户确认是否 apply。
+5. 每个专项完成后必须回写排查记录和复查结果。
+
+第二阶段前置条件：
+
+1. 第一阶段三个遗留清洗项全部执行并复查完成。
+2. `stk_mins` clean 清洗规则文档齐备，且明确哪些规则来自源事实、哪些来自清洗账本。
+3. 正式 raw -> clean 重建方案重新评审通过。
+4. 正式 clean 重建必须使用正确 schema：
+   - `ts_code`
+   - `freq`
+   - `trade_time`
+   - `open`
+   - `close`
+   - `high`
+   - `low`
+   - `vol`
+   - `amount`
+   - `exchange`
+   - `vwap`
+5. 正式 clean 禁止写入物理列：
+   - `trade_date`
+   - `identity_id`
+   - `source_ts_code`
+
+关闭门禁：
+
+1. 当前错误 schema clean 的清洗遗留项已全部处理并形成记录。
+2. 正式 raw -> clean 重建方案已评审通过。
+3. 正式 clean 已按正确 schema 重建并通过 schema、行数守恒、去重冲突、字段保真和完备性审计。
+4. derived/research/indicator 只基于正式 clean 重建，不再基于错误 schema clean。

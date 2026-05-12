@@ -28,7 +28,7 @@
 | 市场资金流（大盘） | `core_serving.market_moneyflow_dc` | 主力/超大/大/中/小净流入及占比 |
 | 热榜 | `core_serving.dc_hot` | 人气榜、飙升榜 |
 | 涨跌停 | `core_serving.limit_list_ths` | 涨停池/跌停池/炸板池统计（按 `ts_code` 去重） |
-| 连板 | `core_serving.limit_step` | 首板到高板分层（`nums`） |
+| 连板 | `core_serving.equity_limit_list` | 首板到高板分层（`limit_times`）与开板次数（`open_times`） |
 | 板块总览 | `core_serving.dc_index` | 板块涨跌、上涨下跌家数、龙头信息 |
 | 板块行情 | `core_serving.dc_daily` | 板块日线补充（涨跌幅/成交额等） |
 | 板块资金流 | `core_serving.board_moneyflow_dc` | 行业/概念/地域资金流 |
@@ -310,20 +310,24 @@ interface StreakBucket {
 interface LadderStockRow {
   subject: SubjectRef;  // stock
   boardCount: number;   // 1/2/3/4/5/6...
+  sectorName?: string | null;
   latestPrice?: number;
   changePct?: number;
+  direction: "UP" | "DOWN" | "FLAT" | "UNKNOWN";
   openTimes?: number;
 }
 ```
 
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
-| `subject.subjectCode` | `limit_step` | `ts_code` | 原样 |
-| `subject.subjectName` | `limit_step` | `name` | 原样 |
-| `boardCount` | `limit_step` | `nums` | `nums::int`，非数字丢弃并记录诊断 |
+| `subject.subjectCode` | `equity_limit_list` | `ts_code` | 原样 |
+| `subject.subjectName` | `equity_limit_list` | `name` | 原样；缺失时前端只展示代码 |
+| `boardCount` | `equity_limit_list` | `limit_times` | 正整数；非数字丢弃并记录诊断 |
 | `ladderBucket` | 派生 | - | `1/2/3/4` 各自；`>=5 => fifthPlus` |
-| `latestPrice/changePct` | `equity_daily_bar` | `close/pct_chg` | `(ts_code, trade_date)` 左连接 |
-| `openTimes` | `equity_limit_list` | `open_times` | `(ts_code, trade_date, limit_type='U')` |
+| `latestPrice/changePct` | `equity_limit_list` | `close/pct_chg` | 缺失显示 `--` |
+| `direction` | 派生 | `changePct` | `>0 UP`，`<0 DOWN`，`=0 FLAT`，缺失 `UNKNOWN` |
+| `openTimes` | `equity_limit_list` | `open_times` | 缺失显示 `--` |
+| `sectorName` | `equity_limit_list` | `industry` | 缺失显示 `--` |
 
 ---
 
@@ -384,7 +388,7 @@ interface ModuleStatusItem {
 | 字段 | 来源 | 规则 |
 |---|---|---|
 | `moduleKey` | 固定枚举 | `marketSummary/majorIndices/leaderboards/limitUp/streakLadder/sectorOverview/moneyFlow` |
-| `source` | 固定映射 | 如 `dc_hot`、`equity_daily_bar`、`limit_step` |
+| `source` | 固定映射 | 如 `dc_hot`、`equity_daily_bar`、`equity_limit_list` |
 | `observedTradeDate` | 对应源表 | `max(trade_date)`（按模块口径） |
 | `expectedTradeDate` | 请求参数/交易日解析 | 当前应展示交易日 |
 | `status` | 派生 | `observed==expected => READY`；落后 => `DELAYED`；无数据=>`EMPTY`；部分缺失=>`PARTIAL` |
@@ -460,7 +464,7 @@ interface MarketOverviewData {
 
 1. `GET /api/v1/wealth/market/leaderboards`
 2. `GET /api/v1/wealth/market/limit-up/summary`
-3. `GET /api/v1/wealth/market/limit-up/streak-ladder`
+3. `GET /api/v1/wealth/market/streak-ladder`
 4. `GET /api/v1/wealth/market/sector-overview`
 
 ---

@@ -1,90 +1,106 @@
-# 财势乾坤｜Design Token 与视觉规范 v0.2.5
+# 财势乾坤｜Design Token 与视觉规范 v0.3.1
 
-> 所属项目：财势乾坤  
-> 文档名称：`03-design-tokens.md`  
-> 建议保存路径：`财势乾坤/设计/03-design-tokens.md`  
-> 文档角色：01_Design Token 与视觉规范  
-> 适用范围：P0 Web 页面，优先服务“乾坤行情 / 市场总览”  
-> 默认主题：Dark First，Light Token Ready  
-> 市场规则：中国市场红涨绿跌  
-> 当前状态：v0.2.5，基于市场总览 HTML Review v2 局部修订  
-> 本轮修订边界：仅补充 Review v2 点名区域的视觉规则，不主动修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、涨跌分布、市场风格、成交额总览、大盘资金流向、连板天梯、全局主题色、全局字体。
-
----
-
-## 0. 文档目标与本轮修订边界
-
-本规范用于指导“财势乾坤”P0 阶段 Web 页面视觉落地，重点服务“市场总览”页面的 HTML Showcase、组件库设计和前端实现。
-
-市场总览是系统打开后的默认落地页，但导航归属固定为“乾坤行情”。该页面是 A 股市场客观事实总览页，不是主观分析结论页。
-
-本规范不做完整品牌手册，重点解决以下问题：
-
-1. 明确深色主题下市场总览的可落地视觉 Token。
-2. 保留浅色主题 Token 结构，后续可通过配置切换。
-3. 固化 A 股红涨绿跌规则。
-4. 明确市场总览无固定 SideNav 的桌面端布局规则。
-5. 为 02 页面原型、03 组件库、04 API、05 Codex 提示词提供一致的视觉和字段约束。
-6. 基于 Review v1 补齐图表坐标、Tooltip、RangeSwitch、HelpTooltip、资金趋势线、涨跌停组合柱图、横向连板天梯等规则。
-7. 基于 Review v2 轻量补充以下区域视觉规则：
-   - 今日市场客观总结与主要指数左右结构；
-   - 榜单速览 Top10 表格密度；
-   - 涨跌停统计与分布 2×2 区域；
-   - 板块速览 4 列 × 2 行榜单矩阵 + 右侧跨两行 5×4 热力图。
-
-### 0.1 本轮允许修改区域
-
-本轮只允许补充或修订以下区域的视觉规则：
-
-1. 今日市场客观总结与主要指数组合布局。
-2. 榜单速览 Top10 表格。
-3. 涨跌停统计与分布 2×2 区域。
-4. 板块速览 4 列 × 2 行榜单矩阵 + 右侧跨两行 5×4 热力图。
-
-### 0.2 本轮禁止主动修改区域
-
-本轮禁止主动修改：
-
-1. TopMarketBar。
-2. Breadcrumb。
-3. PageHeader。
-4. ShortcutBar。
-5. 涨跌分布。
-6. 市场风格。
-7. 成交额总览。
-8. 大盘资金流向。
-9. 连板天梯。
-10. 全局主题色。
-11. 全局字体。
-12. 与 Review v2 无关的组件视觉规则。
-
-若后续实现中因为 Review v2 指定区域的布局调整而被动影响相邻模块，需要在页面设计或 Codex 执行报告中单独说明。
+> 所属项目：财势乾坤
+> 文档名称：`03-design-tokens.md`
+> 建议保存路径：`财势乾坤/设计/03-design-tokens.md`
+> 文档角色：01_Design Token 与视觉规范
+> 适用范围：P0 Web 页面、通用组件库 Demo、后续行情终端类页面
+> 默认主题：Dark First，Light Token Ready
+> 市场规则：中国市场红涨绿跌
+> 当前状态：v0.3.1，基于《组件库Demo产品需求文档 v0.2.md》与市场总览 Review v5 修订
+> 本轮重点：在保留通用组件库 Demo Token 的基础上，仅补充市场总览 / 连板天梯模块的标准股票卡片、层级容器、晋级箭头、展开收起与五板以上层视觉规则；不修改 Review v5 未点名区域。
 
 ---
 
-## 1. 已确认产品决策
+## 0. 本轮上游文档与修订边界
+
+### 0.1 本轮读取到的上游文档
+
+| 文件 | 版本 / 状态 | 本文档处理 |
+|---|---|---|
+| `财势乾坤行情软件项目总说明_v_0_2.md` | v0.2 | 继续作为项目级产品与 UI 总控纲领，约束产品名称、A 股优先、红涨绿跌、深色默认、专业沉稳风格。 |
+| `组件库Demo产品需求文档 v0.2.md` | v0.2，Review 草案 | 作为本轮主输入，确认组件库 Demo 与具体业务解耦，不绑定市场总览、API、数据字典或具体业务对象。 |
+| `03-design-tokens.md` | 当前公共区 Token 基线 | 作为本文档的既有内容基线，保留已确认的全局主题、红涨绿跌、深浅主题结构与市场总览既有页面级约束。 |
+
+### 0.2 本轮不触发停止条件的确认
+
+已读取到的《组件库Demo产品需求文档 v0.2.md》明确：
+
+1. 文档标题为“财势乾坤通用组件库 Demo 产品需求文档 v0.2”；
+2. 本版修订重点为“组件库必须与具体业务解耦”；
+3. 组件库 Demo 不绑定市场总览、API、数据字典或具体业务对象；
+4. `04 API 契约与数据字典` 不参与本轮主流程。
+
+因此，本轮继续修订 `03-design-tokens.md`。
+
+### 0.3 本轮修订边界
+
+本轮目标是支撑：
+
+```text
+财势乾坤/showcase/component-library-demo-v1.html
+```
+
+本轮新增或强化的是 **通用组件 Token**，不是具体业务页面 Token。
+
+允许新增或强化：
+
+- 通用组件状态 Token；
+- 通用容器 Token；
+- 通用数据展示 Token；
+- 通用表格 Token；
+- 通用图表 Token；
+- 通用饼图 callout Token；
+- 通用热力图 Token；
+- 通用 Tooltip、Callout、Skeleton、Empty、Error、Data Delayed 状态 Token。
+
+禁止新增：
+
+- 市场总览专属 Token；
+- 涨跌停业务专属 Token；
+- 持仓业务专属 Token；
+- 机会雷达业务专属 Token；
+- 交易计划业务专属 Token；
+- Tushare 原字段专属 Token；
+- 具体 API response 字段专属 Token。
+
+### 0.4 命名边界
+
+组件命名统一使用：
+
+```text
+Csq*
+```
+
+CSS Design Token 变量仍统一使用：
+
+```css
+--cs-*
+```
+
+说明：
+
+- `Csq` 是组件名前缀，例如 `CsqPanel`、`CsqDataTable`。
+- `--cs-*` 是 CSS Token 前缀，例如 `--cs-color-bg-page`。
+- 本轮不新增 `--csq-*` CSS Token 前缀，避免与既有 Design Token 体系冲突。
+
+---
+
+## 1. 已确认产品与视觉决策
 
 | 决策项 | 已确认结论 | 对视觉 / Token 的影响 |
 |---|---|---|
-| 产品名称 | 财势乾坤 | 所有页面标题、品牌露出、文档标题统一使用该名称 |
+| 产品名称 | 财势乾坤 | 所有页面标题、文档标题、品牌露出统一使用该名称 |
 | 首期形态 | Web 优先 | Token 和布局优先支持桌面 Web |
 | 首期市场 | A 股优先 | 涨跌色、指数、榜单、K 线均按中国市场习惯设计 |
-| 默认落地页 | 市场总览 | 系统打开后默认进入市场总览 |
-| 页面归属 | 市场总览属于乾坤行情 | Breadcrumb 固定为“财势乾坤 / 乾坤行情 / 市场总览” |
-| 页面职责 | 市场客观事实总览 | 不展示市场温度、情绪指数、资金面分数、风险指数的具体分数 |
-| 桌面端导航 | 不使用固定 SideNav | 使用 TopMarketBar + Breadcrumb + PageHeader + ShortcutBar + 全宽行情内容区 |
-| TopMarketBar | 乾坤行情展开，其他系统折叠 | 当前系统横向展开，其他系统进入 GlobalSystemMenu |
-| PageHeader 高度 | 56px | 固化 `--cs-layout-page-header-height: 56px` |
-| 主要指数 | 10 个，2 行 × 5 列 | IndexGrid 固化高密度两行排布 |
-| ShortcutBar 状态 | 只展示未读提醒数量 | 不展示自选数量、持仓数量等个人状态 |
-| 板块热力图 | Review v2 要求在板块速览右侧跨两行展示 5×4 热力图 | 不再只是入口；本轮仅在板块速览指定区域补充展示规则 |
-| 连板天梯 | 展示完整结构 | 允许模块内部滑动；Review v2 不再修改该区域 |
-| 市场风格口径 | API 侧定义 | Token 只定义展示样式，不定义大盘 / 小盘计算口径 |
-| 资金流拆分 | 支持超大单 / 大单 / 中单 / 小单 | FundFlowBar 和资金卡支持多层级结构；Review v2 不再修改该区域 |
-| 自动刷新 | 可配置，默认 10s | RefreshControl 默认展示“自动 10s”；Review v2 不再修改该区域 |
-| 浅色主题 | P0 只保留 Token 结构 | Showcase 优先深色高保真 |
+| 默认主题 | 深色默认 | 深色主题可直接支持 HTML Showcase |
+| 浅色主题 | 保留完整 Token 结构 | 后续可通过配置切换 |
+| 视觉方向 | 专业、沉稳、高密度、金融终端感 | 不做官网风、低幼风、廉价大屏风 |
+| 涨跌色 | 中国市场红涨绿跌 | 上涨红、下跌绿、平盘白色/灰白色 |
+| 系统错误色 | 不使用行情红 | 避免与上涨红冲突 |
 | 品牌强调色 | 金色系固定 | 品牌、选中、十字光标、重点入口使用金色系 |
-| Review v2 范围 | 只改 4 个点名区域 | 本文只新增对应布局密度和视觉规则 |
+| 组件库边界 | 与具体业务解耦 | Core Component 不使用具体业务命名 |
+| Demo 目标 | 展示通用 UI 能力 | 不绑定市场总览 API，不绑定 Tushare 字段 |
 
 ---
 
@@ -96,47 +112,31 @@
 |---|---|
 | 专业 | 面向进阶投资者与专业交易者，不做娱乐化表达 |
 | 沉稳 | 低亮度背景、克制强调色、减少视觉噪音 |
-| 高密度 | 支撑 10 个指数、分布、资金、涨跌停、板块、榜单同屏展示 |
+| 高密度 | 支撑表格、图表、卡片、热力图等信息密集组件 |
 | 金融终端感 | 数字清晰、表格紧凑、图表克制、状态明确 |
-| 数据可信 | 明确交易日、开闭市、更新时间、数据延迟和异常 |
-| 客观事实 | 市场总览只呈现市场事实，不输出主观买卖结论 |
+| 数据可信 | 明确数据状态、延迟、空态、异常态 |
+| 组件可复用 | 组件表达 UI 能力，不固化具体业务流程 |
 
-### 2.2 适用场景
-
-本规范适用于：
-
-- 市场总览；
-- 板块与榜单行情；
-- 指数详情；
-- 个股详情；
-- 我的自选；
-- 市场温度与情绪分析页的基础容器和图表部分；
-- 机会雷达、持仓分析、提醒中心的行情数据表达部分。
-
-其中，“市场总览”是 v0.2.5 的优先落地页面。
-
-### 2.3 禁止方向
+### 2.2 禁止方向
 
 明确禁止：
 
-1. 市场总览桌面端使用固定 SideNav。
-2. 为左侧导航预留大面积空白。
-3. 把市场总览做成独立一级菜单。
-4. 把市场总览做成欢迎页、营销页或品牌展示页。
-5. 使用廉价大屏风、霓虹风、发光边框、大面积无意义渐变。
-6. 使用低幼插画、过度圆角、卡通化图标。
-7. 在市场总览展示市场温度、情绪指数、资金面分数、风险指数的具体分数。
-8. 在市场总览输出“建议买入、建议减仓、看多、看空、明日大概率上涨”等主观结论。
-9. 出现绿涨红跌。
-10. 把行情红作为系统错误主色。
+1. 低幼卡通风；
+2. 官网营销 Hero 风；
+3. 廉价大屏风；
+4. 霓虹发光边框；
+5. 大面积无意义渐变；
+6. 把 UI 框架默认 `success=green` 当作上涨色；
+7. 绿涨红跌；
+8. 把系统错误色和行情上涨红混用；
+9. 将通用组件命名为具体业务模块；
+10. 在组件 Props 中直接绑定具体 API response 或 Tushare 原字段。
 
 ---
 
 ## 3. Token 命名规范
 
-### 3.1 命名前缀
-
-统一使用：
+### 3.1 CSS Token 前缀
 
 ```css
 --cs-*
@@ -155,9 +155,9 @@
 --cs-color-surface-panel
 --cs-color-text-primary
 --cs-color-market-up
---cs-layout-top-market-bar-height
---cs-radius-card
---cs-shadow-dropdown
+--cs-component-panel-padding
+--cs-table-row-height-compact
+--cs-chart-tooltip-bg
 ```
 
 ### 3.3 Token 分类
@@ -168,20 +168,40 @@
 | 字体 | `--cs-font-*` |
 | 间距 | `--cs-space-*` |
 | 尺寸 / 布局 | `--cs-size-*` / `--cs-layout-*` |
+| 组件 | `--cs-component-*` |
+| 表格 | `--cs-table-*` |
+| 图表 | `--cs-chart-*` |
 | 圆角 | `--cs-radius-*` |
 | 边框 | `--cs-border-*` |
 | 阴影 | `--cs-shadow-*` |
 | 层级 | `--cs-z-*` |
 | 动效 | `--cs-motion-*` |
-| 图表 | `--cs-chart-*` |
 | 行情 | `--cs-color-market-*` |
 | 状态 | `--cs-color-status-*` |
+
+### 3.4 组件命名规则
+
+通用组件使用 `Csq` 前缀：
+
+```text
+CsqPanel
+CsqMetricCard
+CsqDataTable
+CsqPieChartWithCallout
+CsqHeatMapGrid
+```
+
+规则：
+
+1. 组件名表达 UI 能力，不表达具体业务对象；
+2. Core Component 不出现具体页面名；
+3. 图表组件按图表形态命名；
+4. 表格组件按表格能力命名；
+5. 业务组合只能作为 Pattern Example，不进入 Core Component 命名。
 
 ---
 
 ## 4. 全局基础 Token
-
-> 本轮 Review v2 不修改全局主题色、全局字体和基础间距体系。本节保留既有基线。
 
 ### 4.1 Color 基础 Token
 
@@ -322,8 +342,9 @@
 :root {
   --cs-z-base: 0;
   --cs-z-sticky: 100;
-  --cs-z-top-market-bar: 300;
+  --cs-z-topbar: 300;
   --cs-z-dropdown: 500;
+  --cs-z-popover: 620;
   --cs-z-tooltip: 700;
   --cs-z-modal-mask: 900;
   --cs-z-modal: 1000;
@@ -348,8 +369,6 @@
 ---
 
 ## 5. 深色主题 Token
-
-> 本轮 Review v2 不修改全局主题色。本节保留既有深色主题基线，并承接 Review v1 已确认的图表与 Tooltip Token。
 
 ```css
 :root,
@@ -383,20 +402,13 @@
   --cs-color-chart-bg: #0B1220;
   --cs-color-chart-panel-bg: #0D1422;
   --cs-color-chart-grid: rgba(148, 163, 184, 0.12);
-  --cs-color-chart-grid-strong: rgba(148, 163, 184, 0.20);
   --cs-color-chart-axis: rgba(148, 163, 184, 0.38);
-  --cs-color-chart-axis-strong: rgba(203, 213, 225, 0.42);
   --cs-color-chart-label: #7B8AA0;
   --cs-color-chart-crosshair: rgba(247, 199, 107, 0.72);
-  --cs-color-chart-zero-axis: rgba(229, 237, 248, 0.34);
-  --cs-color-chart-point-hover-fill: #0B1220;
-  --cs-color-chart-point-hover-stroke: #F7C76B;
 
   /* Tooltip */
   --cs-color-tooltip-bg: rgba(8, 13, 22, 0.96);
   --cs-color-tooltip-border: rgba(247, 199, 107, 0.28);
-  --cs-color-tooltip-text: #E5EDF8;
-  --cs-color-tooltip-muted: #A8B4C6;
 
   /* Border / Divider */
   --cs-color-border-subtle: rgba(148, 163, 184, 0.14);
@@ -426,10 +438,10 @@
   --cs-color-market-down-bg-strong: rgba(21, 199, 132, 0.20);
   --cs-color-market-down-border: rgba(21, 199, 132, 0.34);
 
-  --cs-color-market-flat: #D8DEE8;
-  --cs-color-market-flat-soft: #A8B4C6;
-  --cs-color-market-flat-bg: rgba(216, 222, 232, 0.10);
-  --cs-color-market-flat-border: rgba(216, 222, 232, 0.26);
+  --cs-color-market-flat: #DDE6F2;
+  --cs-color-market-flat-muted: #9AA4B2;
+  --cs-color-market-flat-bg: rgba(221, 230, 242, 0.10);
+  --cs-color-market-flat-border: rgba(221, 230, 242, 0.24);
 
   /* Brand gold */
   --cs-color-brand-primary: #C99A3D;
@@ -466,19 +478,6 @@
   --cs-color-indicator-k: #F7C76B;
   --cs-color-indicator-d: #5AA7FF;
   --cs-color-indicator-j: #A78BFA;
-
-  /* Review v1: historical chart series */
-  --cs-color-series-large-cap: #5AA7FF;
-  --cs-color-series-small-cap: #A78BFA;
-  --cs-color-series-median: #F7C76B;
-  --cs-color-series-turnover: #5AA7FF;
-  --cs-color-series-fundflow-main: #E5EDF8;
-
-  /* Limit-up / break board */
-  --cs-color-limit-up: var(--cs-color-market-up);
-  --cs-color-limit-down: var(--cs-color-market-down);
-  --cs-color-limit-break: var(--cs-color-warning);
-  --cs-color-limit-break-bg: var(--cs-color-warning-bg);
 }
 ```
 
@@ -486,7 +485,7 @@
 
 ## 6. 浅色主题 Token
 
-> P0 阶段只保留浅色主题 Token 结构，后续通过配置即可切换，不要求在 P0 Showcase 中同步实现高保真浅色页面。本轮 Review v2 不修改浅色主题结构。
+浅色主题本轮只保留结构，不要求组件库 Demo 同步做高保真浅色展示。
 
 ```css
 [data-theme="light"] {
@@ -519,20 +518,13 @@
   --cs-color-chart-bg: #FFFFFF;
   --cs-color-chart-panel-bg: #F8FAFC;
   --cs-color-chart-grid: rgba(15, 23, 42, 0.10);
-  --cs-color-chart-grid-strong: rgba(15, 23, 42, 0.18);
   --cs-color-chart-axis: rgba(15, 23, 42, 0.34);
-  --cs-color-chart-axis-strong: rgba(15, 23, 42, 0.44);
   --cs-color-chart-label: #64748B;
   --cs-color-chart-crosshair: rgba(168, 117, 33, 0.72);
-  --cs-color-chart-zero-axis: rgba(15, 23, 42, 0.34);
-  --cs-color-chart-point-hover-fill: #FFFFFF;
-  --cs-color-chart-point-hover-stroke: #A87521;
 
   /* Tooltip */
   --cs-color-tooltip-bg: rgba(255, 255, 255, 0.98);
   --cs-color-tooltip-border: rgba(201, 154, 61, 0.30);
-  --cs-color-tooltip-text: #0F172A;
-  --cs-color-tooltip-muted: #64748B;
 
   /* Border / Divider */
   --cs-color-border-subtle: rgba(15, 23, 42, 0.10);
@@ -563,11 +555,11 @@
   --cs-color-market-down-border: rgba(5, 150, 105, 0.28);
 
   --cs-color-market-flat: #475569;
-  --cs-color-market-flat-soft: #64748B;
+  --cs-color-market-flat-muted: #64748B;
   --cs-color-market-flat-bg: rgba(100, 116, 139, 0.10);
   --cs-color-market-flat-border: rgba(100, 116, 139, 0.24);
 
-  /* Brand gold */
+  /* Brand */
   --cs-color-brand-primary: #A87521;
   --cs-color-brand-primary-hover: #C28A2E;
   --cs-color-brand-accent: #C99A3D;
@@ -591,264 +583,19 @@
   --cs-color-status-abnormal: #EA580C;
   --cs-color-status-missing: #94A3B8;
 
-  /* Chart series */
-  --cs-color-series-large-cap: #2563EB;
-  --cs-color-series-small-cap: #7C3AED;
-  --cs-color-series-median: #A87521;
-  --cs-color-series-turnover: #2563EB;
-  --cs-color-series-fundflow-main: #0F172A;
-
-  --cs-color-limit-up: var(--cs-color-market-up);
-  --cs-color-limit-down: var(--cs-color-market-down);
-  --cs-color-limit-break: var(--cs-color-warning);
-  --cs-color-limit-break-bg: var(--cs-color-warning-bg);
+  /* MA / indicators */
+  --cs-color-ma-5: #A87521;
+  --cs-color-ma-10: #2563EB;
+  --cs-color-ma-20: #7C3AED;
+  --cs-color-ma-60: #0891B2;
 }
 ```
 
 ---
 
-## 7. 市场总览基础布局 Token
+## 7. 通用行情语义色规则
 
-> 本节为既有市场总览布局基线。Review v2 没有修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、全局主题和全局字体。
-
-```css
-:root {
-  /* Top layout */
-  --cs-layout-top-market-bar-height: 52px;
-  --cs-layout-breadcrumb-height: 32px;
-  --cs-layout-page-header-height: 56px;
-  --cs-layout-shortcut-bar-height: 44px;
-
-  /* Page width */
-  --cs-layout-content-min-width: 1180px;
-  --cs-layout-content-max-width: 1680px;
-  --cs-layout-content-max-width-wide: 1920px;
-
-  /* Page padding */
-  --cs-layout-page-padding-x: 20px;
-  --cs-layout-page-padding-y: 16px;
-  --cs-layout-page-padding-x-wide: 24px;
-
-  /* Module spacing */
-  --cs-layout-module-gap: 14px;
-  --cs-layout-section-gap: 16px;
-  --cs-layout-card-gap: 12px;
-
-  /* Card padding */
-  --cs-layout-panel-padding: 14px;
-  --cs-layout-card-padding: 12px;
-  --cs-layout-card-padding-compact: 10px;
-
-  /* Table density */
-  --cs-layout-table-header-height: 32px;
-  --cs-layout-table-row-height: 34px;
-  --cs-layout-table-row-height-compact: 30px;
-
-  /* Index cards */
-  --cs-layout-index-card-count: 10;
-  --cs-layout-index-card-rows: 2;
-  --cs-layout-index-card-columns: 5;
-  --cs-layout-index-card-min-width: 152px;
-  --cs-layout-index-card-height: 92px;
-  --cs-layout-index-card-height-compact: 86px;
-
-  /* Mini chart */
-  --cs-layout-mini-chart-width: 96px;
-  --cs-layout-mini-chart-height: 32px;
-  --cs-layout-sparkline-height: 28px;
-
-  /* Ranking base */
-  --cs-layout-ranking-table-row-height: 32px;
-  --cs-layout-ranking-table-visible-rows: 8;
-
-  /* Limit-up ladder */
-  --cs-layout-limit-ladder-min-height: 280px;
-  --cs-layout-limit-ladder-level-min-width: 148px;
-  --cs-layout-limit-ladder-max-height: 420px;
-
-  /* No SideNav dependency */
-  --cs-layout-market-overview-sidebar-width: 0px;
-}
-```
-
----
-
-## 8. Review v1 已确认的图表、Tooltip 与切换控件 Token
-
-> 本节来自 Review v1 后的视觉基线。本轮 Review v2 未修改这些规则，仅作为全量文档保留。
-
-### 8.1 HelpTooltip / 圆圈问号
-
-```css
-:root {
-  --cs-help-icon-size: 16px;
-  --cs-help-icon-font-size: 11px;
-  --cs-help-icon-color: var(--cs-color-text-muted);
-  --cs-help-icon-color-hover: var(--cs-color-brand-accent);
-  --cs-help-icon-color-active: var(--cs-color-brand-primary-hover);
-  --cs-help-icon-bg: transparent;
-  --cs-help-icon-bg-hover: var(--cs-color-brand-accent-bg);
-  --cs-help-icon-border: var(--cs-color-border-default);
-  --cs-help-icon-border-hover: var(--cs-color-brand-accent-border);
-
-  --cs-help-tooltip-max-width: 320px;
-  --cs-help-tooltip-padding-x: 12px;
-  --cs-help-tooltip-padding-y: 10px;
-  --cs-help-tooltip-radius: var(--cs-radius-lg);
-  --cs-help-tooltip-bg: var(--cs-color-tooltip-bg);
-  --cs-help-tooltip-border: var(--cs-color-tooltip-border);
-  --cs-help-tooltip-text: var(--cs-color-tooltip-text);
-  --cs-help-tooltip-muted: var(--cs-color-tooltip-muted);
-  --cs-help-tooltip-z: var(--cs-z-tooltip);
-}
-```
-
-规则：
-
-1. 模块标题下方的解释性文字不直接占用正文空间，应收纳到标题旁 HelpTooltip。
-2. 圆圈问号尺寸 16px，字号 11px，默认弱文字，hover 使用品牌金。
-3. Tooltip 深色主题下必须有足够可读性，背景接近不透明。
-4. Tooltip 最大宽度 320px，避免解释文字横向过长。
-
-### 8.2 RangeSwitch：1个月 / 3个月
-
-```css
-:root {
-  --cs-range-switch-height: 26px;
-  --cs-range-switch-padding-x: 8px;
-  --cs-range-switch-font-size: 12px;
-  --cs-range-switch-gap: 4px;
-  --cs-range-switch-radius: var(--cs-radius-md);
-  --cs-range-switch-bg: var(--cs-color-surface-panel-subtle);
-  --cs-range-switch-border: var(--cs-color-border-subtle);
-  --cs-range-switch-text: var(--cs-color-text-secondary);
-  --cs-range-switch-bg-hover: var(--cs-color-surface-card-hover);
-  --cs-range-switch-text-hover: var(--cs-color-text-primary);
-  --cs-range-switch-bg-selected: var(--cs-color-brand-accent-bg);
-  --cs-range-switch-border-selected: var(--cs-color-brand-accent-border);
-  --cs-range-switch-text-selected: var(--cs-color-brand-accent);
-  --cs-range-switch-disabled-opacity: 0.45;
-  --cs-chart-header-control-gap: 8px;
-}
-```
-
-适用模块：
-
-- 涨跌分布历史趋势图；
-- 市场风格历史趋势图；
-- 历史成交额趋势图；
-- 大盘资金流历史趋势图；
-- 涨跌停历史柱状图。
-
-### 8.3 HistoryTrendChart 基础视觉
-
-```css
-:root {
-  --cs-history-chart-height-sm: 160px;
-  --cs-history-chart-height-md: 190px;
-  --cs-history-chart-height-lg: 220px;
-  --cs-history-chart-padding-top: 12px;
-  --cs-history-chart-padding-right: 12px;
-  --cs-history-chart-padding-bottom: 22px;
-  --cs-history-chart-padding-left: 34px;
-  --cs-history-chart-legend-gap: 10px;
-  --cs-history-chart-legend-font-size: 11px;
-  --cs-history-chart-axis-font-size: 11px;
-  --cs-history-chart-line-width: 1.5px;
-  --cs-history-chart-line-width-emphasis: 2px;
-  --cs-history-chart-point-size: 4px;
-  --cs-history-chart-point-size-hover: 6px;
-}
-```
-
-规则：
-
-1. 图表背景使用 `--cs-color-chart-bg`。
-2. X / Y 轴使用 `--cs-color-chart-axis`。
-3. 坐标文字使用 `--cs-color-chart-label`。
-4. 网格线使用 `--cs-color-chart-grid`。
-5. 鼠标定位线使用 `--cs-color-chart-crosshair`。
-6. Tooltip 使用 `--cs-color-tooltip-*`。
-7. 数据点 hover 使用空心点或描边点，不做发光效果。
-8. 图例字号 11px，避免占用图表主体。
-
-### 8.4 涨跌分布趋势线
-
-| 系列 | 颜色 | 说明 |
-|---|---|---|
-| 上涨家数线 | `--cs-color-market-up` | 红色 |
-| 下跌家数线 | `--cs-color-market-down` | 绿色 |
-| 平盘家数 | 不进入历史趋势图 | 平盘只在当日卡片中展示 |
-
-Tooltip 显示：
-
-```text
-日期
-上涨家数：xxxx
-下跌家数：xxxx
-```
-
-### 8.5 市场风格趋势线
-
-市场风格趋势图是百分比曲线。系列色不直接表达涨跌方向，而是表达“数据系列身份”；Tooltip 内具体数值仍按正负红绿显示。
-
-| 系列 | 颜色 | 说明 |
-|---|---|---|
-| 大盘平均涨跌幅 | `--cs-color-series-large-cap` | 系列身份色，不代表涨跌方向 |
-| 小盘平均涨跌幅 | `--cs-color-series-small-cap` | 系列身份色，不代表涨跌方向 |
-| 涨跌中位数 | `--cs-color-series-median` | 系列身份色，不代表涨跌方向 |
-
-规则：
-
-1. 曲线颜色不使用红绿，以避免与正负语义冲突。
-2. Y 轴 0 线需要清晰展示。
-3. Tooltip 中百分比为正时红色，为负时绿色，为 0 时白色 / 灰白色。
-
-### 8.6 成交额趋势图
-
-成交额趋势图包括：
-
-1. 日内累计成交额趋势线；
-2. 历史成交额趋势线。
-
-规则：
-
-- 日内累计成交额 X 轴为盘中时间；
-- 历史成交额 X 轴为交易日期；
-- 金额单位自动显示为亿元 / 万亿元；
-- Tooltip 金额格式示例：`成交额：1.24 万亿元`、`成交额：8564.32 亿元`；
-- 成交额本身不使用红绿，默认使用系列色或主文字色。
-
-### 8.7 大盘资金流向趋势图
-
-必须遵守：
-
-1. 主趋势线使用白色：`--cs-color-series-fundflow-main`。
-2. Y 轴 0 值在视觉中线位置。
-3. 净流入为正数，净流出为负数。
-4. Tooltip 中净流入正数用红色。
-5. Tooltip 中净流出负数用绿色。
-6. 坐标轴单位为亿元。
-
-### 8.8 涨跌停历史组合柱图
-
-| 柱类型 | 颜色 |
-|---|---|
-| 涨停柱 | `--cs-color-market-up` |
-| 跌停柱 | `--cs-color-market-down` |
-
-规则：
-
-1. 同一日期下涨停和跌停在同一柱组中表达。
-2. Tooltip 显示日期、涨停数、跌停数。
-3. 支持 1个月 / 3个月切换。
-4. 炸板不进入该组合柱图；炸板在统计卡和结构块中使用警示色展示。
-
----
-
-## 9. 行情涨跌色规则
-
-### 9.1 硬规则
+### 7.1 硬规则
 
 ```text
 上涨 / 正变化 / 净流入 / 涨停 / 高于基准 = 红色
@@ -856,7 +603,7 @@ Tooltip 显示：
 平盘 / 0变化 / 无方向 / 无数据方向 = 白色或灰白色
 ```
 
-### 9.2 CSS 类
+### 7.2 CSS 类
 
 ```css
 .cs-market-up {
@@ -869,10 +616,6 @@ Tooltip 显示：
 
 .cs-market-flat {
   color: var(--cs-color-market-flat);
-}
-
-.cs-market-flat-soft {
-  color: var(--cs-color-market-flat-soft);
 }
 
 .cs-market-up-bg {
@@ -888,1030 +631,1855 @@ Tooltip 显示：
 }
 ```
 
-### 9.3 平盘白色 / 灰白色规则
-
-| 场景 | 平盘颜色 | 说明 |
-|---|---|---|
-| 指数卡主数字 | 白色 / 灰白色 `--cs-color-market-flat` | 保持可读，避免误判为缺失 |
-| 涨跌幅 `0.00%` | 灰白色 `--cs-color-market-flat-soft` | 低于上涨/下跌视觉权重 |
-| 表格最新价平盘 | 灰白色 | 不使用红绿 |
-| Tooltip 平盘值 | 灰白色 | 与正负值区分 |
-| K 线十字 / 平盘柱 | 灰色 / 灰白色 | 不用红绿 |
-| 无数据 | `--` + 弱文字 | 不等同平盘 |
-
-### 9.4 场景规则
+### 7.3 通用场景规则
 
 | 场景 | 规则 |
 |---|---|
-| 指数卡 | 点位、涨跌额、涨跌幅红涨绿跌，平盘白色 / 灰白色 |
-| 个股价格 | 最新价相对昨收红涨绿跌 |
-| K 线 | 阳线红，阴线绿，平盘灰白 |
-| 涨跌幅文字 | 正数红且带 `+`，负数绿且带 `-`，零值灰白 |
-| 榜单 | 最新价与涨跌幅列红绿；换手率、量比、成交量、成交额中性色 |
-| 热力图 | 涨幅越大红越深，跌幅越大绿越深，平盘灰白 |
-| 资金流 | 净流入红，净流出绿，零值灰白；资金流历史主线白色，Tooltip 正负红绿 |
-| Tooltip | 所有涨跌字段继续红绿，平盘灰白 |
-| 图表曲线 | 方向型曲线红绿；身份型曲线不用红绿 |
-| 表格行 | 行背景不随涨跌变色，只对数字上色 |
-| Mock 数据 | `change`、`pctChg`、`trend`、颜色必须一致 |
+| CsqChangeValue | 正值红、负值绿、零值灰白 |
+| CsqChangeBadge | 方向由 `direction` 控制，不由组件自行猜测业务 |
+| CsqDataTable 数字列 | 金额、数量、比例默认中性色；涨跌字段按方向色 |
+| CsqPieChartWithCallout | `rise` 红、`fall` 绿、`flat` 灰白、`neutral/custom` 按传入色 |
+| CsqHeatMapGrid | `rise` 红系、`fall` 绿系、`flat` 灰白、`neutral` 中性、`warning` 橙色 |
+| CsqChartTooltip | Tooltip 内正负值继续红绿 |
+| Mock 数据 | `value`、`changeText`、`direction`、颜色必须一致 |
 
 ---
 
-## 10. Review v2：今日市场客观总结 + 主要指数左右结构
+# 8. 通用组件状态 Token
 
-> 本节是 v0.2.5 新增规则，只影响 Review v2 点名区域，不改变其它首屏模块。
+### 8.1 状态枚举
 
-### 10.1 布局结构
+组件库 Demo 必须覆盖：
 
-“今日市场客观总结 + 主要指数”必须保持左右结构，各占一半空间。
-
-```text
-┌──────────────────────────────┬──────────────────────────────┐
-│ 今日市场客观总结              │ 主要指数                      │
-│ 50%                           │ 50%                           │
-└──────────────────────────────┴──────────────────────────────┘
+```ts
+type CsqComponentState =
+  | "default"
+  | "hover"
+  | "active"
+  | "selected"
+  | "disabled"
+  | "loading"
+  | "empty"
+  | "error"
+  | "dataDelayed";
 ```
 
-禁止：
-
-1. 将“今日市场客观总结”和“主要指数”拆成两个独占整行模块。
-2. 将 10 个指数改成单行横向滚动。
-3. 因左右结构而删除主要指数。
-4. 因左右结构而引入固定 SideNav。
-
-### 10.2 布局 Token
+### 8.2 状态 Token
 
 ```css
 :root {
-  --cs-layout-summary-index-gap: 14px;
-  --cs-layout-summary-index-columns: 1fr 1fr;
-  --cs-layout-summary-panel-min-height: 214px;
-  --cs-layout-summary-fact-card-count: 5;
-  --cs-layout-summary-fact-card-height: 58px;
-  --cs-layout-summary-fact-card-min-width: 104px;
-  --cs-layout-summary-note-card-min-height: 82px;
-  --cs-layout-summary-note-card-padding: 12px;
-  --cs-layout-summary-note-card-font-size: 12px;
-  --cs-layout-summary-note-card-line-height: 1.55;
+  --cs-state-opacity-disabled: 0.44;
+  --cs-state-opacity-loading: 0.68;
 
-  --cs-layout-split-index-card-height: 72px;
-  --cs-layout-split-index-card-height-compact: 66px;
-  --cs-layout-split-index-card-gap: 8px;
-  --cs-layout-split-index-card-padding: 9px;
-  --cs-layout-split-index-card-title-size: 11px;
-  --cs-layout-split-index-card-value-size: 18px;
-  --cs-layout-split-index-card-change-size: 12px;
+  --cs-state-bg-hover: var(--cs-color-surface-card-hover);
+  --cs-state-bg-active: rgba(247, 199, 107, 0.10);
+  --cs-state-bg-selected: var(--cs-color-brand-accent-bg);
+  --cs-state-bg-disabled: rgba(100, 116, 139, 0.08);
+  --cs-state-bg-loading: rgba(148, 163, 184, 0.10);
+  --cs-state-bg-empty: rgba(148, 163, 184, 0.06);
+  --cs-state-bg-error: var(--cs-color-risk-bg);
+  --cs-state-bg-data-delayed: var(--cs-color-warning-bg);
+
+  --cs-state-border-default: var(--cs-color-border-subtle);
+  --cs-state-border-hover: var(--cs-color-border-hover);
+  --cs-state-border-active: var(--cs-color-brand-accent-border);
+  --cs-state-border-selected: var(--cs-color-brand-accent-border);
+  --cs-state-border-disabled: rgba(148, 163, 184, 0.10);
+  --cs-state-border-error: rgba(255, 138, 61, 0.34);
+  --cs-state-border-data-delayed: rgba(245, 158, 11, 0.34);
+
+  --cs-state-text-disabled: var(--cs-color-text-weak);
+  --cs-state-text-empty: var(--cs-color-text-muted);
+  --cs-state-text-error: var(--cs-color-risk);
+  --cs-state-text-data-delayed: var(--cs-color-status-delayed);
 }
 ```
 
-### 10.3 推荐 CSS
+### 8.3 状态使用规则
 
-```css
-.cs-summary-index-row {
-  display: grid;
-  grid-template-columns: var(--cs-layout-summary-index-columns);
-  gap: var(--cs-layout-summary-index-gap);
-  align-items: stretch;
-}
-
-.cs-market-summary-panel,
-.cs-major-index-panel {
-  min-height: var(--cs-layout-summary-panel-min-height);
-}
-
-.cs-summary-fact-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(var(--cs-layout-summary-fact-card-min-width), 1fr));
-  gap: var(--cs-space-8);
-}
-
-.cs-summary-fact-card {
-  min-height: var(--cs-layout-summary-fact-card-height);
-  padding: var(--cs-space-8);
-  background: var(--cs-color-surface-card);
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
-}
-
-.cs-summary-note-card {
-  min-height: var(--cs-layout-summary-note-card-min-height);
-  padding: var(--cs-layout-summary-note-card-padding);
-  margin-top: var(--cs-space-10);
-  background: var(--cs-color-surface-panel-subtle);
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
-  color: var(--cs-color-text-secondary);
-  font-size: var(--cs-layout-summary-note-card-font-size);
-  line-height: var(--cs-layout-summary-note-card-line-height);
-}
-
-.cs-major-index-grid--split {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-template-rows: repeat(2, var(--cs-layout-split-index-card-height));
-  gap: var(--cs-layout-split-index-card-gap);
-}
-
-.cs-index-card--split {
-  height: var(--cs-layout-split-index-card-height);
-  padding: var(--cs-layout-split-index-card-padding);
-}
-```
-
-### 10.4 左侧 5 个事实卡片密度
-
-| 项目 | 规则 |
-|---|---|
-| 数量 | 固定 5 个事实卡片 |
-| 排列 | 半宽容器内 5 列，宽度不足时允许 3+2 自动换行，但不能变成纵向长列表 |
-| 高度 | 58px 左右，最高不超过 68px |
-| 标题字号 | 11px |
-| 主数字字号 | 18–22px |
-| 单位字号 | 11px |
-| 内边距 | 8px |
-| 背景 | `--cs-color-surface-card` |
-| 边框 | `--cs-color-border-subtle` |
-| 涨跌色 | 涉及方向的数字红涨绿跌，平盘灰白 |
-
-### 10.5 左侧说明性文字卡片
-
-说明性文字卡片用于放置今日市场事实摘要，不输出主观结论。
-
-| 项目 | 规则 |
-|---|---|
-| 高度 | 最小 82px，可随内容扩展，但不应超过 120px |
-| 字号 | 12px |
-| 行高 | 1.55 |
-| 背景 | `--cs-color-surface-panel-subtle` |
-| 边框 | `--cs-color-border-subtle` |
-| 文字 | `--cs-color-text-secondary` |
-| 强调 | 仅对客观事实数字用行情色；不使用大段红绿文字 |
-
-允许表达：
-
-```text
-主要指数多数上涨，上涨家数多于下跌家数，成交额较上一交易日放大。
-```
-
-禁止表达：
-
-```text
-市场已经转强，适合积极加仓。
-```
-
-### 10.6 右侧主要指数两行 × 每行 5 个
-
-| 项目 | 规则 |
-|---|---|
-| 数量 | 10 个指数 |
-| 排列 | 2 行 × 5 列 |
-| 单卡高度 | 66–72px，半宽区域专用紧凑卡片 |
-| 卡片间距 | 8px |
-| 指数名称字号 | 11px |
-| 点位字号 | 18px 左右 |
-| 涨跌幅字号 | 12px |
-| 小趋势图 | 可选；若空间不足可隐藏，不影响主信息 |
-| 涨跌色 | 点位、涨跌额、涨跌幅红涨绿跌，平盘灰白 |
-
-指数顺序保持既有确认：
-
-第一行：上证指数、深证 A 指、创业板指、科创综指、北证 50。  
-第二行：沪深 300、上证 50、中证 A500、中证 500、中证 1000。
+| 状态 | 背景 | 边框 | 文字 | 交互 |
+|---|---|---|---|---|
+| default | 默认组件背景 | 弱边框 | 主文字/次文字 | 正常 |
+| hover | 轻微提亮 | hover 边框 | 不改变数据语义色 | 不触发业务动作 |
+| active | 弱品牌金背景 | 品牌金边框 | 主文字 | 鼠标按下 / 当前激活 |
+| selected | 品牌金弱背景 | 品牌金边框 | 品牌金或主文字 | 当前选中 |
+| disabled | 禁用背景 | 禁用边框 | 弱文字 | 不可点击 |
+| loading | 骨架背景 | 保留弱边框 | 不显示真实数据 | 保留布局 |
+| empty | 空态背景 | 弱边框 | 弱文字 | 可展示下一步动作 |
+| error | 风险弱背景 | 风险边框 | 风险文字 | 可重试 |
+| data delayed | 警告弱背景 | 警告边框 | 警告文字 | 可查看数据说明 |
 
 ---
 
-## 11. Review v2：榜单速览 Top10 表格
+# 9. 通用容器 Token
 
-> 本节是 v0.2.5 新增规则，只影响榜单速览表格，不修改其它表格体系。
-
-### 11.1 列顺序
-
-榜单速览表格必须支持以下列顺序：
-
-```text
-排名｜股票｜最新价｜涨跌幅｜换手率｜量比｜成交量｜成交额
-```
-
-### 11.2 表格密度 Token
+## 9.1 CsqPanel
 
 ```css
 :root {
-  --cs-ranking-top10-header-height: 30px;
-  --cs-ranking-top10-row-height: 30px;
-  --cs-ranking-top10-row-height-compact: 28px;
-  --cs-ranking-top10-font-size-header: 11px;
-  --cs-ranking-top10-font-size-cell: 12px;
-  --cs-ranking-top10-font-size-code: 10px;
-  --cs-ranking-top10-cell-padding-x: 6px;
-  --cs-ranking-top10-cell-padding-y: 0px;
-  --cs-ranking-top10-table-min-height: 330px;
-
-  --cs-ranking-col-rank-width: 42px;
-  --cs-ranking-col-stock-width: 118px;
-  --cs-ranking-col-price-width: 68px;
-  --cs-ranking-col-pct-width: 72px;
-  --cs-ranking-col-turnover-width: 66px;
-  --cs-ranking-col-volume-ratio-width: 58px;
-  --cs-ranking-col-volume-width: 82px;
-  --cs-ranking-col-amount-width: 88px;
-}
-```
-
-### 11.3 半宽容器中的密度规则
-
-榜单速览在半宽容器中展示 Top10 时，必须控制行高和字号。
-
-| 项目 | 规则 |
-|---|---|
-| 展示数量 | Top10 |
-| 表头高度 | 30px |
-| 正文行高 | 30px，极限紧凑可 28px |
-| 表头字号 | 11px |
-| 单元格字号 | 12px |
-| 股票代码字号 | 10px |
-| 单元格横向 padding | 6px |
-| 表格总高度 | 约 330px，不应显著撑高同排模块 |
-| 表格滚动 | 优先完整显示 Top10；半宽极窄时可横向滚动，不允许隐藏列 |
-
-### 11.4 列宽建议
-
-| 列 | 宽度建议 | 对齐 | 颜色规则 |
-|---|---:|---|---|
-| 排名 | 42px | 居中 | 中性色 |
-| 股票 | 118px | 左对齐 | 名称主文字，代码弱文字 |
-| 最新价 | 68px | 右对齐 | 按个股涨跌方向红绿，平盘灰白 |
-| 涨跌幅 | 72px | 右对齐 | 正红、负绿、零灰白 |
-| 换手率 | 66px | 右对齐 | 中性色 |
-| 量比 | 58px | 右对齐 | 中性色；异常高不自动红绿，可由业务另加标签 |
-| 成交量 | 82px | 右对齐 | 中性色 |
-| 成交额 | 88px | 右对齐 | 中性色 |
-
-### 11.5 hover / selected 状态
-
-```css
-.cs-ranking-table--top10 tbody tr:hover {
-  background: var(--cs-color-table-row-hover-bg);
-}
-
-.cs-ranking-table--top10 tbody tr[aria-selected="true"] {
-  background: var(--cs-color-table-row-selected-bg);
-  box-shadow: inset 2px 0 0 var(--cs-color-brand-accent);
+  --cs-component-panel-bg: var(--cs-color-surface-panel);
+  --cs-component-panel-border: 1px solid var(--cs-color-border-subtle);
+  --cs-component-panel-radius: var(--cs-radius-panel);
+  --cs-component-panel-padding: var(--cs-space-14);
+  --cs-component-panel-gap: var(--cs-space-12);
+  --cs-component-panel-shadow: var(--cs-shadow-none);
 }
 ```
 
 规则：
 
-1. hover 只改变行背景，不改变数字涨跌色。
-2. selected 使用品牌金竖线或弱背景，不使用红绿。
-3. 排名、股票、换手率、量比、成交量、成交额保持中性色。
-4. 最新价和涨跌幅仍按红涨绿跌。
-5. 平盘使用白色或灰白色，不使用红绿。
+- `CsqPanel` 是所有高密度模块的基础容器。
+- 默认不使用强阴影。
+- 面板标题、内容、操作区之间保持紧凑间距。
+- 不承担具体业务含义。
 
-### 11.6 数字格式规则
-
-| 字段 | 格式示例 |
-|---|---|
-| 最新价 | `12.34` |
-| 涨跌幅 | `+3.21%` / `-2.18%` / `0.00%` |
-| 换手率 | `7.35%` |
-| 量比 | `1.82` |
-| 成交量 | `128.4万手` / `1.26亿股`，按 API displayText 优先 |
-| 成交额 | `8.42亿` / `1264万`，按 API displayText 优先 |
-
----
-
-## 12. Review v2：涨跌停统计与分布 2×2 区域
-
-> 本节是 v0.2.5 新增规则，只影响“涨跌停统计与分布”模块，不修改连板天梯。
-
-### 12.1 2×2 结构
-
-涨跌停统计与分布区域必须采用 2×2 网格：
-
-```text
-┌──────────────────────────────┬──────────────────────────────┐
-│ 左上：8 个统计卡片            │ 右上：今日涨停板块分布        │
-│                              │      + 跌停 / 炸板结构        │
-├──────────────────────────────┼──────────────────────────────┤
-│ 左下：历史涨跌停组合柱状图    │ 右下：昨天涨停板块分布        │
-│                              │      + 跌停 / 炸板结构        │
-└──────────────────────────────┴──────────────────────────────┘
-```
-
-### 12.2 布局 Token
+## 9.2 CsqSectionHeader
 
 ```css
 :root {
-  --cs-limit-dist-grid-gap: 12px;
-  --cs-limit-dist-grid-row-min-height: 214px;
-  --cs-limit-dist-panel-padding: 12px;
-  --cs-limit-stat-card-count: 8;
-  --cs-limit-stat-card-height: 58px;
-  --cs-limit-stat-card-gap: 8px;
-  --cs-limit-stat-card-title-size: 11px;
-  --cs-limit-stat-card-value-size: 20px;
-  --cs-limit-stat-card-unit-size: 11px;
-
-  --cs-limit-structure-list-row-height: 24px;
-  --cs-limit-structure-list-font-size: 12px;
-  --cs-limit-structure-tag-height: 20px;
-  --cs-limit-structure-tag-font-size: 11px;
-
-  --cs-limit-history-chart-height: 186px;
-  --cs-limit-history-chart-min-height: 176px;
-  --cs-limit-history-chart-padding-top: 10px;
-  --cs-limit-history-chart-padding-bottom: 22px;
-
-  --cs-limit-day-label-height: 22px;
-  --cs-limit-day-label-padding-x: 8px;
-  --cs-limit-day-label-font-size: 11px;
-}
-```
-
-### 12.3 推荐 CSS
-
-```css
-.cs-limit-distribution-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: repeat(2, minmax(var(--cs-limit-dist-grid-row-min-height), auto));
-  gap: var(--cs-limit-dist-grid-gap);
-}
-
-.cs-limit-distribution-cell {
-  padding: var(--cs-limit-dist-panel-padding);
-  background: var(--cs-color-surface-card);
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
-}
-
-.cs-limit-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, var(--cs-limit-stat-card-height));
-  gap: var(--cs-limit-stat-card-gap);
-}
-```
-
-### 12.4 左上：8 个统计卡片
-
-建议 8 个统计卡片：
-
-1. 涨停家数；
-2. 跌停家数；
-3. 炸板家数；
-4. 封板率；
-5. 连板家数；
-6. 最高连板；
-7. 天地板；
-8. 地天板。
-
-| 项目 | 规则 |
-|---|---|
-| 排列 | 4 列 × 2 行 |
-| 卡片高度 | 58px |
-| 卡片间距 | 8px |
-| 标题字号 | 11px |
-| 主数字字号 | 20px |
-| 内边距 | 8px |
-| 背景 | `--cs-color-surface-panel-subtle` |
-| 涨停 / 连板 | 红色或品牌金；涨停主色为红 |
-| 跌停 | 绿色 |
-| 炸板 | 警示色 / 中性警示色，不使用红绿 |
-| 封板率 | 默认主文字，异常低时可警示色 |
-
-### 12.5 右上：今日涨停板块分布 + 跌停 / 炸板结构
-
-| 项目 | 规则 |
-|---|---|
-| 标题 | `今日结构` 标签 + 模块标题 |
-| 标签 | 使用品牌金弱背景或信息蓝弱背景，不使用红绿 |
-| 行高 | 24px |
-| 字号 | 12px |
-| Top 数量 | 建议展示 Top5 板块 |
-| 涨停板块分布 | 红色数字或红色弱标签 |
-| 跌停结构 | 绿色数字或绿色弱标签 |
-| 炸板结构 | 警示色数字或警示弱标签 |
-| hover | 背景轻微提亮，边框不发光 |
-
-### 12.6 左下：历史涨跌停组合柱状图
-
-| 项目 | 规则 |
-|---|---|
-| 图表高度 | 176–186px |
-| 柱组 | 同一日期下涨停柱 + 跌停柱 |
-| 涨停柱 | 红色 |
-| 跌停柱 | 绿色 |
-| X 轴 | 交易日期 |
-| Y 轴 | 数量 |
-| Tooltip | 日期、涨停数、跌停数 |
-| RangeSwitch | 支持 1个月 / 3个月 |
-| 炸板 | 不进入组合柱图 |
-
-### 12.7 右下：昨天涨停板块分布 + 跌停 / 炸板结构
-
-| 项目 | 规则 |
-|---|---|
-| 标题 | `昨日结构` 标签 + 模块标题 |
-| 视觉密度 | 与右上今日结构保持一致 |
-| 用途 | 与今日结构对照 |
-| 涨停板块分布 | 红色数字或红色弱标签 |
-| 跌停结构 | 绿色数字或绿色弱标签 |
-| 炸板结构 | 警示色数字或警示弱标签 |
-| 数据为空 | 展示局部空态，不影响其它 3 个区块 |
-
-### 12.8 今日 / 昨日标签样式
-
-```css
-.cs-day-label {
-  height: var(--cs-limit-day-label-height);
-  padding: 0 var(--cs-limit-day-label-padding-x);
-  border-radius: var(--cs-radius-pill);
-  font-size: var(--cs-limit-day-label-font-size);
-  background: var(--cs-color-brand-accent-bg);
-  border: 1px solid var(--cs-color-brand-accent-border);
-  color: var(--cs-color-brand-accent);
+  --cs-component-section-header-height: 32px;
+  --cs-component-section-header-gap: var(--cs-space-8);
+  --cs-component-section-title-size: var(--cs-font-size-14);
+  --cs-component-section-title-weight: var(--cs-font-weight-semibold);
+  --cs-component-section-desc-size: var(--cs-font-size-12);
+  --cs-component-section-action-gap: var(--cs-space-8);
 }
 ```
 
 规则：
 
-1. `今日` 和 `昨日` 是时间标签，不表达涨跌方向。
-2. 标签使用品牌金或中性色，不使用红绿。
-3. 若昨日数据不可用，使用 `--cs-color-status-missing`。
+- 标题行高度建议 32px。
+- 主标题左对齐。
+- 说明文字不应长期占正文空间，应进入 `CsqHelpTooltip`。
+- 操作区用于 RangeSwitch、按钮、状态说明等。
 
----
-
-## 13. Review v2：板块速览 4列×2行榜单矩阵 + 右侧跨两行 5×4 热力图
-
-> 本节是 v0.2.5 新增规则，只影响“板块速览”模块。
-
-### 13.1 总体结构
-
-板块速览必须改为：左侧 4 列 × 2 行榜单矩阵，右侧板块热力图独立跨两行。
-
-```text
-┌────────────┬────────────┬────────────┬────────────┬──────────────────┐
-│ 行业涨幅前五 │ 概念涨幅前五 │ 地域涨幅前五 │ 资金流入前五 │                  │
-│ Top5       │ Top5       │ Top5       │ Top5       │                  │
-├────────────┼────────────┼────────────┼────────────┤ 板块热力图 5×4   │
-│ 行业跌幅前五 │ 概念跌幅前五 │ 地域跌幅前五 │ 资金流出前五 │                  │
-│ Top5       │ Top5       │ Top5       │ Top5       │                  │
-└────────────┴────────────┴────────────┴────────────┴──────────────────┘
-```
-
-热力图必须在右侧独立占两行高度，不是只放在第一行。
-
-### 13.2 布局 Token
+## 9.3 CsqHelpTooltip
 
 ```css
 :root {
-  --cs-sector-overview-gap: 12px;
-  --cs-sector-overview-list-columns: 4;
-  --cs-sector-overview-list-rows: 2;
-  --cs-sector-overview-heatmap-width: 360px;
-  --cs-sector-overview-heatmap-min-width: 320px;
-  --cs-sector-overview-row-min-height: 170px;
-  --cs-sector-rank-block-padding: 10px;
-  --cs-sector-rank-block-title-height: 24px;
-  --cs-sector-rank-block-title-font-size: 12px;
-  --cs-sector-rank-row-height: 24px;
-  --cs-sector-rank-row-font-size: 12px;
-  --cs-sector-rank-row-gap: 4px;
+  --cs-component-help-size: 16px;
+  --cs-component-help-icon-size: 12px;
+  --cs-component-help-color: var(--cs-color-text-muted);
+  --cs-component-help-color-hover: var(--cs-color-brand-accent);
+  --cs-component-help-bg-hover: var(--cs-color-brand-accent-bg);
+  --cs-component-help-radius: var(--cs-radius-pill);
 
-  --cs-sector-heatmap-rows: 5;
-  --cs-sector-heatmap-columns: 4;
-  --cs-sector-heatmap-cell-gap: 6px;
-  --cs-sector-heatmap-cell-min-height: 46px;
-  --cs-sector-heatmap-cell-padding: 8px;
-  --cs-sector-heatmap-cell-radius: 6px;
-  --cs-sector-heatmap-title-height: 24px;
+  --cs-component-help-tooltip-bg: var(--cs-color-tooltip-bg);
+  --cs-component-help-tooltip-border: 1px solid var(--cs-color-tooltip-border);
+  --cs-component-help-tooltip-radius: var(--cs-radius-lg);
+  --cs-component-help-tooltip-padding: 10px 12px;
+  --cs-component-help-tooltip-width-max: 280px;
+  --cs-component-help-tooltip-text: var(--cs-color-text-secondary);
+  --cs-component-help-tooltip-z: var(--cs-z-tooltip);
 }
 ```
 
-### 13.3 推荐 CSS
+规则：
+
+- 圆圈问号尺寸 16px。
+- hover 变为品牌金。
+- Tooltip 最大宽度 280px。
+- 深色主题下必须保证说明文字可读。
+- Tooltip 不承载业务结论，只承载口径说明和字段解释。
+
+## 9.4 CsqBadge
 
 ```css
-.cs-sector-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(
-    var(--cs-sector-overview-heatmap-min-width),
-    var(--cs-sector-overview-heatmap-width)
-  );
-  grid-template-rows: repeat(2, minmax(var(--cs-sector-overview-row-min-height), auto));
-  gap: var(--cs-sector-overview-gap);
-}
+:root {
+  --cs-component-badge-height: 20px;
+  --cs-component-badge-padding-x: 7px;
+  --cs-component-badge-radius: var(--cs-radius-pill);
+  --cs-component-badge-font-size: var(--cs-font-size-11);
+  --cs-component-badge-gap: var(--cs-space-4);
 
-.cs-sector-heatmap-panel {
-  grid-column: 5;
-  grid-row: 1 / span 2;
-}
-
-.cs-sector-rank-block {
-  padding: var(--cs-sector-rank-block-padding);
-  background: var(--cs-color-surface-card);
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
-}
-
-.cs-sector-heatmap-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(5, minmax(var(--cs-sector-heatmap-cell-min-height), 1fr));
-  gap: var(--cs-sector-heatmap-cell-gap);
+  --cs-component-badge-bg-neutral: rgba(148, 163, 184, 0.12);
+  --cs-component-badge-bg-rise: var(--cs-color-market-up-bg);
+  --cs-component-badge-bg-fall: var(--cs-color-market-down-bg);
+  --cs-component-badge-bg-flat: var(--cs-color-market-flat-bg);
+  --cs-component-badge-bg-warning: var(--cs-color-warning-bg);
+  --cs-component-badge-bg-brand: var(--cs-color-brand-accent-bg);
 }
 ```
 
-### 13.4 左侧 8 个榜单块
+语义：
 
-榜单块分别为：
-
-第一行：
-
-1. 行业涨幅前五；
-2. 概念涨幅前五；
-3. 地域涨幅前五；
-4. 资金流入前五。
-
-第二行：
-
-1. 行业跌幅前五；
-2. 概念跌幅前五；
-3. 地域跌幅前五；
-4. 资金流出前五。
-
-| 项目 | 规则 |
-|---|---|
-| 榜单块标题高度 | 24px |
-| 标题字号 | 12px，字重 600 |
-| Top5 行高 | 24px |
-| Top5 行字号 | 12px |
-| 榜单块内边距 | 10px |
-| 榜单块间距 | 12px |
-| 排名列 | 弱文字，最小宽度 20px |
-| 板块名称 | 主文字，超出省略 |
-| 涨跌幅 | 红涨绿跌，平盘灰白 |
-| 资金净流入 / 流出 | 净流入红，净流出绿 |
-| hover | 背景提亮，边框保持克制 |
-
-### 13.5 右侧板块热力图 5×4
-
-| 项目 | 规则 |
-|---|---|
-| 位置 | 右侧独立区域，跨两行 |
-| 内部结构 | 5 行 × 4 列，共 20 个格子 |
-| 格子间距 | 6px |
-| 格子最小高度 | 46px |
-| 格子内边距 | 8px |
-| 格子圆角 | 6px |
-| 颜色 | 红涨绿跌，平盘灰白 |
-| 面积 | v1.2 Showcase 中格子尺寸可以一致；如后续要表达成交额权重，需另行确认 |
-| hover | 边框品牌金，亮度轻微提升 |
-| Tooltip | 展示板块名称、板块类型、涨跌幅、成交额、资金净流入、上涨/下跌成分股数量 |
-
-### 13.6 热力图颜色分档
-
-```css
-:root,
-[data-theme="dark"] {
-  --cs-sector-heat-up-1: rgba(255, 77, 90, 0.18);
-  --cs-sector-heat-up-2: rgba(255, 77, 90, 0.32);
-  --cs-sector-heat-up-3: rgba(255, 77, 90, 0.52);
-  --cs-sector-heat-up-4: rgba(255, 77, 90, 0.74);
-
-  --cs-sector-heat-down-1: rgba(21, 199, 132, 0.18);
-  --cs-sector-heat-down-2: rgba(21, 199, 132, 0.32);
-  --cs-sector-heat-down-3: rgba(21, 199, 132, 0.52);
-  --cs-sector-heat-down-4: rgba(21, 199, 132, 0.74);
-
-  --cs-sector-heat-flat: rgba(216, 222, 232, 0.12);
-  --cs-sector-heat-missing: rgba(100, 116, 139, 0.10);
-}
-```
-
-分档规则：
-
-| 区间 | 颜色 |
-|---|---|
-| `pctChg >= +7%` | 强红 `--cs-sector-heat-up-4` |
-| `+3% <= pctChg < +7%` | 中强红 `--cs-sector-heat-up-3` |
-| `0 < pctChg < +3%` | 弱红 / 中红 |
-| `pctChg = 0` | 灰白 |
-| `-3% < pctChg < 0` | 弱绿 / 中绿 |
-| `-7% < pctChg <= -3%` | 中强绿 |
-| `pctChg <= -7%` | 强绿 `--cs-sector-heat-down-4` |
-
-### 13.7 热力图 hover 与 Tooltip
-
-```css
-.cs-sector-heatmap-cell:hover {
-  border-color: var(--cs-color-border-hover);
-  filter: brightness(1.08);
-}
-
-.cs-sector-heatmap-tooltip {
-  max-width: 260px;
-  padding: 10px 12px;
-  background: var(--cs-color-tooltip-bg);
-  border: 1px solid var(--cs-color-tooltip-border);
-  color: var(--cs-color-tooltip-text);
-  border-radius: var(--cs-radius-lg);
-  box-shadow: var(--cs-shadow-tooltip);
-  z-index: var(--cs-z-tooltip);
-}
-```
-
-Tooltip 字段建议：
-
-```text
-板块名称
-板块类型：行业 / 概念 / 地域
-涨跌幅：+3.24%
-成交额：xxx 亿
-资金净流入：+xx 亿
-上涨成分股：xx
-下跌成分股：xx
-```
-
----
-
-## 14. 市场总览专用组件视觉规则
-
-### 14.1 TopMarketBar（本轮未修改）
-
-TopMarketBar 用于承载产品标识、乾坤行情展开菜单、其它系统折叠入口、指数条、时间、开闭市状态、数据状态和用户入口。
-
-本轮 Review v2 禁止主动修改该区域。现有 Token 和视觉规则继续沿用。
-
-### 14.2 Breadcrumb（本轮未修改）
-
-固定表达：
-
-```text
-财势乾坤 / 乾坤行情 / 市场总览
-```
-
-本轮 Review v2 禁止主动修改该区域。
-
-### 14.3 PageHeader（本轮未修改）
-
-已确认高度：56px。本轮 Review v2 禁止主动修改该区域。
-
-### 14.4 ShortcutBar（本轮未修改）
-
-ShortcutBar 是轻量快捷入口，不是大卡片入口墙。本轮 Review v2 禁止主动修改该区域。
-
-### 14.5 MarketSummaryIndexSplit（本轮新增）
-
-对应“今日市场客观总结 + 主要指数”左右结构。必须使用第 10 章 Token。
-
-组件要求：
-
-- `MarketSummaryPanel`：左侧 50%。
-- `MajorIndexPanel`：右侧 50%。
-- `MarketFactCard`：5 个事实卡。
-- `MarketSummaryNoteCard`：说明性文字卡。
-- `IndexCard--split`：半宽紧凑指数卡。
-
-### 14.6 RankingTableTop10（本轮新增）
-
-对应榜单速览 Top10 表格。必须使用第 11 章 Token。
-
-组件要求：
-
-- 固定列顺序；
-- Top10；
-- 半宽容器高密度；
-- 最新价、涨跌幅红涨绿跌；
-- 换手率、量比、成交量、成交额中性色。
-
-### 14.7 LimitDistributionGrid2x2（本轮新增）
-
-对应涨跌停统计与分布 2×2 区域。必须使用第 12 章 Token。
-
-组件要求：
-
-- 左上 8 个统计卡；
-- 右上今日结构；
-- 左下历史组合柱图；
-- 右下昨日结构；
-- 今日 / 昨日标签不使用红绿。
-
-### 14.8 SectorOverviewMatrixHeatmap（本轮新增）
-
-对应板块速览 4 列 × 2 行榜单矩阵 + 右侧跨两行 5×4 热力图。必须使用第 13 章 Token。
-
-组件要求：
-
-- 左侧 8 个榜单块；
-- 每个榜单块 Top5；
-- 右侧热力图跨两行；
-- 热力图内部 5×4；
-- 热力图红涨绿跌，平盘灰白。
-
----
-
-## 15. 状态规范
-
-> 本轮 Review v2 不修改全局状态规范。本节保留既有规则。
-
-### 15.1 Loading
-
-- 首次加载使用骨架屏。
-- 自动刷新时保留旧数据，显示刷新中状态，不整页闪烁。
-- 表格、图表、热力图、2×2 区块均应支持局部 loading。
-
-### 15.2 Empty
-
-| 空态 | 文案 |
-|---|---|
-| 非交易日 | 当前为非交易日，展示最近一个交易日数据 |
-| 数据未生成 | 数据正在生成，请稍后刷新 |
-| 单模块无数据 | 当前模块暂无数据 |
-| 无权限 | 登录后查看个人入口状态 |
-
-### 15.3 Error
-
-异常类型：
-
-- 网络异常；
-- 服务异常；
-- 数据源不可用；
-- 数据延迟；
-- 字段缺失；
-- 部分模块计算失败；
-- 自动刷新失败。
-
-系统异常使用橙色，不使用行情红。
-
-### 15.4 Selected
-
-选中态统一使用品牌金。
-
-```css
-.cs-selected {
-  color: var(--cs-color-brand-accent);
-  background: var(--cs-color-brand-accent-bg);
-  border-color: var(--cs-color-brand-accent-border);
-}
-```
-
----
-
-## 16. 前端落地建议
-
-### 16.1 推荐样式文件
-
-```text
-src/styles/
-├── design-tokens.css
-├── theme-dark.css
-├── theme-light.css
-├── market-colors.css
-├── chart-tokens.css
-└── market-overview-layout.css
-```
-
-P0 也可以先合并为：
-
-```text
-src/styles/design-tokens.css
-```
-
-### 16.2 行情方向工具函数
-
-```ts
-export type MarketTrend = "up" | "down" | "flat";
-
-export function getMarketTrend(value: number): MarketTrend {
-  if (value > 0) return "up";
-  if (value < 0) return "down";
-  return "flat";
-}
-
-export function getMarketTrendClass(trend: MarketTrend): string {
-  if (trend === "up") return "cs-market-up";
-  if (trend === "down") return "cs-market-down";
-  return "cs-market-flat";
-}
-```
-
-### 16.3 Mock 数据校验
-
-```ts
-export interface MarketNumber {
-  value: number;
-  change?: number;
-  pctChg?: number;
-  trend: MarketTrend;
-}
-
-export function assertMarketTrend(item: MarketNumber) {
-  if (item.pctChg == null) return;
-
-  if (item.pctChg > 0 && item.trend !== "up") {
-    throw new Error("pctChg > 0 must use trend=up");
-  }
-
-  if (item.pctChg < 0 && item.trend !== "down") {
-    throw new Error("pctChg < 0 must use trend=down");
-  }
-
-  if (item.pctChg === 0 && item.trend !== "flat") {
-    throw new Error("pctChg = 0 must use trend=flat");
-  }
-}
-```
-
-### 16.4 禁止硬编码颜色
-
-禁止：
-
-```tsx
-<span style={{ color: "green" }}>+1.23%</span>
-```
-
-必须：
-
-```tsx
-<span className={getMarketTrendClass(item.trend)}>
-  {formatPct(item.pctChg)}
-</span>
-```
-
----
-
-## 17. 本轮 Review v2 修改摘要
-
-本轮基于 Review v2 只做局部修订，不重做完整视觉体系。
-
-| 区域 | 修改摘要 |
-|---|---|
-| 今日市场客观总结 + 主要指数 | 恢复左右 50% / 50% 结构；左侧 5 个事实卡 + 说明卡；右侧 10 个指数 2 行 × 5 列 |
-| 榜单速览 | 表格展示 Top10；固定列顺序为：排名、股票、最新价、涨跌幅、换手率、量比、成交量、成交额 |
-| 涨跌停统计与分布 | 改为 2×2：左上 8 卡、右上今日结构、左下历史柱图、右下昨日结构 |
-| 板块速览 | 改为左侧 4 列 × 2 行榜单矩阵 + 右侧跨两行 5×4 热力图 |
-| 红涨绿跌 | 强化榜单、热力图、涨跌停区域的方向色规则 |
-| 中性色 | 明确换手率、量比、成交量、成交额默认中性色 |
-
----
-
-## 18. 本轮未修改区域说明
-
-按 Review v2 总控变更单，本轮未修改以下区域：
-
-1. TopMarketBar。
-2. Breadcrumb。
-3. PageHeader。
-4. ShortcutBar。
-5. 涨跌分布。
-6. 市场风格。
-7. 成交额总览。
-8. 大盘资金流向。
-9. 连板天梯。
-10. 全局主题色。
-11. 全局字体。
-12. 路由结构。
-13. 未被 Review v2 点名的 Mock 数据结构。
-
-本文中这些区域仅保留既有规则，不新增或重构。
-
----
-
-## 19. 本轮影响到的组件
-
-| 组件 | 影响类型 | 说明 |
+| semantic | 背景 | 文字 |
 |---|---|---|
-| `MarketSummaryIndexSplit` | 新增 / 明确 | 今日市场客观总结 + 主要指数左右结构 |
-| `MarketSummaryPanel` | 视觉密度补充 | 左侧 5 个事实卡 + 说明卡 |
-| `MajorIndexPanel` | 视觉密度补充 | 右侧 10 个指数 2 行 × 5 列 |
-| `IndexCard` | 新增 split compact 变体 | 半宽容器内使用更紧凑高度和字号 |
-| `RankingTable` | 补充 Top10 密度 | 固定列顺序与列宽 |
-| `LimitDistributionGrid2x2` | 新增 / 明确 | 涨跌停统计与分布 2×2 |
-| `LimitStatCard` | 补充密度 | 左上 8 个统计卡 |
-| `LimitStructurePanel` | 新增 / 明确 | 今日 / 昨日板块分布与跌停炸板结构 |
-| `LimitHistoryBarChart` | 保留并定位 | 左下历史组合柱图 |
-| `SectorOverviewMatrixHeatmap` | 新增 / 明确 | 板块速览矩阵 + 右侧热力图 |
-| `SectorRankBlock` | 新增 / 明确 | 8 个 Top5 榜单块 |
-| `SectorHeatMap` | 补充 5×4 规则 | 右侧跨两行热力图 |
+| neutral | `--cs-component-badge-bg-neutral` | 次级文字 |
+| rise | `--cs-component-badge-bg-rise` | 上涨红 |
+| fall | `--cs-component-badge-bg-fall` | 下跌绿 |
+| flat | `--cs-component-badge-bg-flat` | 平盘灰白 |
+| warning | `--cs-component-badge-bg-warning` | 警告色 |
+| brand | `--cs-component-badge-bg-brand` | 品牌金 |
+
+## 9.5 CsqStatusDot
+
+```css
+:root {
+  --cs-component-status-dot-size: 7px;
+  --cs-component-status-dot-ring-size: 11px;
+  --cs-component-status-dot-live: var(--cs-color-status-live);
+  --cs-component-status-dot-delayed: var(--cs-color-status-delayed);
+  --cs-component-status-dot-closed: var(--cs-color-status-closed);
+  --cs-component-status-dot-error: var(--cs-color-status-abnormal);
+  --cs-component-status-dot-missing: var(--cs-color-status-missing);
+}
+```
+
+## 9.6 CsqSkeleton
+
+```css
+:root {
+  --cs-component-skeleton-bg: rgba(148, 163, 184, 0.08);
+  --cs-component-skeleton-shine: rgba(148, 163, 184, 0.16);
+  --cs-component-skeleton-radius: var(--cs-radius-md);
+  --cs-component-skeleton-duration: 1.2s;
+}
+```
+
+## 9.7 CsqEmptyState
+
+```css
+:root {
+  --cs-component-empty-bg: var(--cs-state-bg-empty);
+  --cs-component-empty-border: 1px dashed var(--cs-color-border-subtle);
+  --cs-component-empty-radius: var(--cs-radius-card);
+  --cs-component-empty-padding: var(--cs-space-16);
+  --cs-component-empty-title-color: var(--cs-color-text-secondary);
+  --cs-component-empty-desc-color: var(--cs-color-text-muted);
+  --cs-component-empty-icon-color: var(--cs-color-text-weak);
+}
+```
+
+## 9.8 CsqErrorState
+
+```css
+:root {
+  --cs-component-error-bg: var(--cs-color-risk-bg);
+  --cs-component-error-border: 1px solid var(--cs-state-border-error);
+  --cs-component-error-radius: var(--cs-radius-card);
+  --cs-component-error-padding: var(--cs-space-14);
+  --cs-component-error-title-color: var(--cs-color-risk);
+  --cs-component-error-desc-color: var(--cs-color-text-secondary);
+}
+```
 
 ---
 
-## 20. 对 02 market-overview-v1.1.html 的视觉约束
+# 10. 通用数据展示 Token
 
-> 若 02 输出目标版本为 `market-overview-v1.2.html`，本节约束同样适用。
+## 10.1 CsqMetricCard
 
-1. 页面名称仍为“市场总览”。
-2. 页面归属仍为“乾坤行情”。
-3. 不得使用固定 SideNav。
-4. 不得修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar。
-5. 今日市场客观总结与主要指数必须保持左右结构，各占 50%。
-6. 左侧今日市场客观总结必须先展示 5 个事实卡，再展示说明性文字卡片。
-7. 右侧主要指数必须 2 行 × 5 列，不得横向滚动，不得减少数量。
-8. 榜单速览必须展示 Top10。
-9. 榜单表格列顺序必须为：排名、股票、最新价、涨跌幅、换手率、量比、成交量、成交额。
-10. 榜单中的最新价和涨跌幅按红涨绿跌；换手率、量比、成交量、成交额保持中性色。
-11. 涨跌停统计与分布必须是 2×2。
-12. 2×2 左上为 8 个统计卡；右上为今日涨停板块分布 + 跌停 / 炸板结构；左下为历史涨跌停组合柱状图；右下为昨天涨停板块分布 + 跌停 / 炸板结构。
-13. 今日 / 昨日标签不使用红绿，使用品牌金或中性色。
-14. 板块速览必须是左侧 4 列 × 2 行榜单矩阵 + 右侧跨两行热力图。
-15. 板块热力图必须在右侧独立占两行高度。
-16. 板块热力图内部必须是 5 行 × 4 列。
-17. 板块热力图红涨绿跌，平盘灰白。
-18. 视觉仍需保持专业、沉稳、高密度，不得变成廉价大屏。
+```css
+:root {
+  --cs-component-metric-card-bg: var(--cs-color-surface-card);
+  --cs-component-metric-card-border: 1px solid var(--cs-color-border-subtle);
+  --cs-component-metric-card-radius: var(--cs-radius-card);
+  --cs-component-metric-card-padding: var(--cs-space-12);
+  --cs-component-metric-card-gap: var(--cs-space-6);
+
+  --cs-component-metric-title-size: var(--cs-font-size-12);
+  --cs-component-metric-title-color: var(--cs-color-text-secondary);
+  --cs-component-metric-value-size: var(--cs-font-size-24);
+  --cs-component-metric-value-weight: var(--cs-font-weight-bold);
+  --cs-component-metric-unit-size: var(--cs-font-size-12);
+  --cs-component-metric-unit-color: var(--cs-color-text-muted);
+  --cs-component-metric-sub-size: var(--cs-font-size-11);
+}
+```
+
+规则：
+
+- 指标卡不绑定任何具体业务。
+- 数值使用 `--cs-font-family-number`。
+- 若数值带方向，必须通过 `direction` 映射到 rise/fall/flat。
+
+## 10.2 CsqMetricSummaryGroup
+
+```css
+:root {
+  --cs-component-metric-group-gap: var(--cs-space-10);
+  --cs-component-metric-group-columns-min: 2;
+  --cs-component-metric-group-columns-max: 5;
+}
+```
+
+规则：
+
+- 用于多个 `CsqMetricCard` 的组合。
+- 列数由容器宽度和业务页面决定。
+- Core Component 只定义布局能力，不定义卡片含义。
+
+## 10.3 CsqChangeValue
+
+```css
+:root {
+  --cs-component-change-font-family: var(--cs-font-family-number);
+  --cs-component-change-font-size: var(--cs-font-size-13);
+  --cs-component-change-font-weight: var(--cs-font-weight-semibold);
+  --cs-component-change-up-color: var(--cs-color-market-up);
+  --cs-component-change-down-color: var(--cs-color-market-down);
+  --cs-component-change-flat-color: var(--cs-color-market-flat);
+}
+```
+
+规则：
+
+- `+1.25%` 红色。
+- `-0.83%` 绿色。
+- `0.00%` 白色/灰白色。
+- 正数必须带 `+`，负数必须带 `-`。
+
+## 10.4 CsqChangeBadge
+
+```css
+:root {
+  --cs-component-change-badge-height: 22px;
+  --cs-component-change-badge-padding-x: 8px;
+  --cs-component-change-badge-radius: var(--cs-radius-pill);
+  --cs-component-change-badge-font-size: var(--cs-font-size-12);
+}
+```
+
+语义：
+
+| direction | 背景 | 文字 |
+|---|---|---|
+| rise | `--cs-color-market-up-bg` | `--cs-color-market-up` |
+| fall | `--cs-color-market-down-bg` | `--cs-color-market-down` |
+| flat | `--cs-color-market-flat-bg` | `--cs-color-market-flat` |
+| neutral | 中性弱背景 | 次级文字 |
+
+## 10.5 CsqInfoRow
+
+```css
+:root {
+  --cs-component-info-row-height: 28px;
+  --cs-component-info-row-gap: var(--cs-space-8);
+  --cs-component-info-label-color: var(--cs-color-text-muted);
+  --cs-component-info-value-color: var(--cs-color-text-primary);
+  --cs-component-info-meta-color: var(--cs-color-text-weak);
+  --cs-component-info-row-border: 1px solid var(--cs-color-divider);
+}
+```
+
+## 10.6 CsqLinkedMetricList
+
+`CsqLinkedMetricList` 是通用“实体 + 指标”行式列表，不是“领涨股表现”专属组件。
+
+```css
+:root {
+  --cs-component-linked-list-bg: transparent;
+  --cs-component-linked-list-row-height: 34px;
+  --cs-component-linked-list-row-gap: var(--cs-space-6);
+  --cs-component-linked-list-row-padding-x: var(--cs-space-8);
+  --cs-component-linked-list-row-radius: var(--cs-radius-md);
+  --cs-component-linked-list-row-hover-bg: var(--cs-color-surface-card-hover);
+  --cs-component-linked-list-row-selected-bg: var(--cs-color-brand-accent-bg);
+  --cs-component-linked-list-row-selected-border: 1px solid var(--cs-color-brand-accent-border);
+
+  --cs-component-linked-list-primary-size: var(--cs-font-size-13);
+  --cs-component-linked-list-primary-weight: var(--cs-font-weight-semibold);
+  --cs-component-linked-list-secondary-size: var(--cs-font-size-11);
+  --cs-component-linked-list-secondary-color: var(--cs-color-text-muted);
+  --cs-component-linked-list-meta-size: var(--cs-font-size-11);
+  --cs-component-linked-list-meta-color: var(--cs-color-text-weak);
+}
+```
+
+规则：
+
+1. 每行一个实体；
+2. 实体信息与指标信息同一行打通；
+3. 行 hover 时整行高亮；
+4. 支持标签、数值、状态混合展示；
+5. 不绑定股票、板块、涨停、持仓等业务。
+
+## 10.7 CsqProgressList
+
+```css
+:root {
+  --cs-component-progress-list-row-height: 28px;
+  --cs-component-progress-list-gap: var(--cs-space-6);
+  --cs-component-progress-track-height: 6px;
+  --cs-component-progress-track-bg: rgba(148, 163, 184, 0.14);
+  --cs-component-progress-track-radius: var(--cs-radius-pill);
+  --cs-component-progress-fill-neutral: var(--cs-color-brand-accent);
+  --cs-component-progress-fill-rise: var(--cs-color-market-up);
+  --cs-component-progress-fill-fall: var(--cs-color-market-down);
+  --cs-component-progress-fill-flat: var(--cs-color-market-flat);
+}
+```
+
+## 10.8 CsqStatusBadge
+
+```css
+:root {
+  --cs-component-status-badge-height: 22px;
+  --cs-component-status-badge-padding-x: 8px;
+  --cs-component-status-badge-radius: var(--cs-radius-pill);
+  --cs-component-status-badge-font-size: var(--cs-font-size-11);
+}
+```
 
 ---
 
-## 21. 对 03 组件规范的 Token 映射建议
+# 11. 通用表格 Token
 
-| 组件 | 应映射 Token |
+## 11.1 CsqDataTable
+
+```css
+:root {
+  --cs-table-bg: var(--cs-color-table-bg);
+  --cs-table-border: 1px solid var(--cs-color-border-subtle);
+  --cs-table-radius: var(--cs-radius-card);
+
+  --cs-table-header-height: 32px;
+  --cs-table-header-bg: var(--cs-color-table-header-bg);
+  --cs-table-header-color: var(--cs-color-text-secondary);
+  --cs-table-header-font-size: var(--cs-font-size-12);
+  --cs-table-header-font-weight: var(--cs-font-weight-semibold);
+
+  --cs-table-row-height: 34px;
+  --cs-table-row-height-compact: 30px;
+  --cs-table-row-height-comfortable: 38px;
+  --cs-table-row-bg: var(--cs-color-table-row-bg);
+  --cs-table-row-alt-bg: var(--cs-color-table-row-alt-bg);
+  --cs-table-row-hover-bg: var(--cs-color-table-row-hover-bg);
+  --cs-table-row-selected-bg: var(--cs-color-table-row-selected-bg);
+
+  --cs-table-cell-padding-x: 8px;
+  --cs-table-cell-font-size: var(--cs-font-size-12);
+  --cs-table-cell-color: var(--cs-color-text-primary);
+  --cs-table-cell-muted-color: var(--cs-color-text-muted);
+}
+```
+
+## 11.2 CsqRankTable
+
+```css
+:root {
+  --cs-rank-table-row-height: 32px;
+  --cs-rank-table-visible-rows-default: 10;
+  --cs-rank-table-rank-col-width: 42px;
+  --cs-rank-table-name-col-min-width: 120px;
+  --cs-rank-table-number-col-width-sm: 72px;
+  --cs-rank-table-number-col-width-md: 88px;
+  --cs-rank-table-number-col-width-lg: 104px;
+}
+```
+
+规则：
+
+- 支持 TopN，不绑定股票业务；
+- 排名列中性色；
+- 名称列左对齐；
+- 数字列右对齐；
+- 方向列由 `direction` 决定颜色；
+- hover 行背景使用中性色提亮，不整行变红/绿；
+- selected 行使用品牌金弱背景。
+
+## 11.3 CsqColumnHeader
+
+```css
+:root {
+  --cs-table-column-header-gap: var(--cs-space-4);
+  --cs-table-column-header-sort-icon-size: 12px;
+  --cs-table-column-header-help-size: 14px;
+}
+```
+
+## 11.4 CsqTableRow
+
+```css
+:root {
+  --cs-table-row-clickable-cursor: pointer;
+  --cs-table-row-active-bg: rgba(247, 199, 107, 0.12);
+}
+```
+
+## 11.5 CsqTableCellNumber
+
+```css
+:root {
+  --cs-table-number-font-family: var(--cs-font-family-number);
+  --cs-table-number-font-size: var(--cs-font-size-12);
+  --cs-table-number-font-weight: var(--cs-font-weight-medium);
+}
+```
+
+格式规则：
+
+| 类型 | 格式 |
 |---|---|
-| `MarketSummaryIndexSplit` | `--cs-layout-summary-index-*` |
-| `MarketSummaryPanel` | `--cs-layout-summary-fact-card-*`、`--cs-layout-summary-note-card-*` |
-| `MajorIndexPanel` | `--cs-layout-split-index-card-*` |
-| `IndexCard--split` | `--cs-layout-split-index-card-height`、`--cs-layout-split-index-card-padding` |
-| `RankingTableTop10` | `--cs-ranking-top10-*`、`--cs-ranking-col-*` |
-| `LimitDistributionGrid2x2` | `--cs-limit-dist-*` |
-| `LimitStatCard` | `--cs-limit-stat-card-*` |
-| `LimitStructurePanel` | `--cs-limit-structure-*`、`--cs-limit-day-label-*` |
-| `LimitHistoryBarChart` | `--cs-limit-history-chart-*`、`--cs-color-market-up/down` |
-| `SectorOverviewMatrixHeatmap` | `--cs-sector-overview-*` |
-| `SectorRankBlock` | `--cs-sector-rank-*` |
-| `SectorHeatMap` | `--cs-sector-heatmap-*`、`--cs-sector-heat-*` |
-| `SectorHeatMapTooltip` | `--cs-color-tooltip-*`、`--cs-shadow-tooltip` |
+| amount | `1.23亿`、`862.4万`、`1.02万亿` |
+| volume | `12.35万手`、`2.18亿股` |
+| percent | `+1.25%`、`-0.83%`、`0.00%` |
+| ratio | `1.26`、`0.82` |
+| count | `1,236` |
+| empty | `--` |
+
+表格状态：
+
+| 状态 | 规则 |
+|---|---|
+| loading | 表格保留表头，正文显示骨架行 |
+| empty | 表头保留，正文显示空态说明 |
+| error | 表头保留，正文显示局部错误块与重试 |
+| data delayed | 表格右上角或标题区显示延迟标签 |
 
 ---
 
-## 22. 对 05 Codex 提示词的硬性视觉约束
+# 12. 通用图表 Token
 
-Codex 实现市场总览 Review v2 修订时，必须写入：
+## 12.1 图表基础
 
-```text
-硬性视觉约束：
-
-1. 本轮只允许修改 Review v2 点名区域：今日市场客观总结与主要指数、榜单速览表格、涨跌停统计与分布、板块速览。
-2. 不得主动修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、涨跌分布、市场风格、成交额总览、大盘资金流向、连板天梯、全局主题色、全局字体。
-3. 今日市场客观总结与主要指数必须恢复左右 50% / 50% 结构。
-4. 今日市场客观总结左侧必须展示 5 个事实卡片 + 下方说明性文字卡片。
-5. 主要指数右侧必须保持 2 行 × 5 列，共 10 个指数。
-6. 榜单速览必须展示 Top10。
-7. 榜单列顺序必须为：排名、股票、最新价、涨跌幅、换手率、量比、成交量、成交额。
-8. 最新价、涨跌幅按红涨绿跌；换手率、量比、成交量、成交额为中性色。
-9. 涨跌停统计与分布必须为 2×2：左上 8 卡，右上今日结构，左下历史柱图，右下昨日结构。
-10. 涨停红，跌停绿，炸板使用中性警示色。
-11. 板块速览必须为左侧 4 列 × 2 行榜单矩阵 + 右侧跨两行 5×4 热力图。
-12. 板块热力图必须在右侧独立跨两行，不得只放在第一行。
-13. 热力图红涨绿跌，平盘灰白。
-14. 不得引入固定 SideNav。
-15. 不得展示市场温度、市场情绪指数、资金面分数、风险指数作为首页核心结论。
+```css
+:root {
+  --cs-chart-bg: var(--cs-color-chart-bg);
+  --cs-chart-panel-bg: var(--cs-color-chart-panel-bg);
+  --cs-chart-radius: var(--cs-radius-card);
+  --cs-chart-padding: 10px;
+  --cs-chart-title-size: var(--cs-font-size-13);
+  --cs-chart-title-weight: var(--cs-font-weight-semibold);
+}
 ```
 
-Smoke test：
+## 12.2 坐标轴与网格线
+
+```css
+:root {
+  --cs-chart-axis-color: var(--cs-color-chart-axis);
+  --cs-chart-axis-line-width: 1px;
+  --cs-chart-axis-label-color: var(--cs-color-chart-label);
+  --cs-chart-axis-label-size: var(--cs-font-size-11);
+
+  --cs-chart-grid-color: var(--cs-color-chart-grid);
+  --cs-chart-grid-line-width: 1px;
+  --cs-chart-grid-dash: 2 4;
+  --cs-chart-zero-axis-color: rgba(221, 230, 242, 0.32);
+  --cs-chart-zero-axis-width: 1px;
+}
+```
+
+## 12.3 Crosshair
+
+```css
+:root {
+  --cs-chart-crosshair-color: var(--cs-color-chart-crosshair);
+  --cs-chart-crosshair-width: 1px;
+  --cs-chart-crosshair-dash: 3 3;
+  --cs-chart-crosshair-label-bg: var(--cs-color-tooltip-bg);
+  --cs-chart-crosshair-label-color: var(--cs-color-text-primary);
+  --cs-chart-crosshair-label-border: 1px solid var(--cs-color-tooltip-border);
+}
+```
+
+## 12.4 CsqChartTooltip
+
+```css
+:root {
+  --cs-chart-tooltip-bg: var(--cs-color-tooltip-bg);
+  --cs-chart-tooltip-border: 1px solid var(--cs-color-tooltip-border);
+  --cs-chart-tooltip-radius: var(--cs-radius-lg);
+  --cs-chart-tooltip-padding: 10px 12px;
+  --cs-chart-tooltip-shadow: var(--cs-shadow-tooltip);
+  --cs-chart-tooltip-font-size: var(--cs-font-size-12);
+  --cs-chart-tooltip-title-color: var(--cs-color-text-primary);
+  --cs-chart-tooltip-label-color: var(--cs-color-text-muted);
+  --cs-chart-tooltip-value-color: var(--cs-color-text-primary);
+  --cs-chart-tooltip-z: var(--cs-z-tooltip);
+}
+```
+
+## 12.5 CsqRangeSwitch
+
+```css
+:root {
+  --cs-component-range-switch-height: 26px;
+  --cs-component-range-switch-padding-x: 8px;
+  --cs-component-range-switch-gap: 2px;
+  --cs-component-range-switch-radius: var(--cs-radius-md);
+  --cs-component-range-switch-bg: rgba(148, 163, 184, 0.08);
+  --cs-component-range-switch-border: 1px solid var(--cs-color-border-subtle);
+
+  --cs-component-range-switch-item-height: 22px;
+  --cs-component-range-switch-item-padding-x: 8px;
+  --cs-component-range-switch-item-font-size: var(--cs-font-size-12);
+  --cs-component-range-switch-item-color: var(--cs-color-text-muted);
+  --cs-component-range-switch-item-hover-bg: var(--cs-color-surface-card-hover);
+  --cs-component-range-switch-item-hover-color: var(--cs-color-text-primary);
+  --cs-component-range-switch-item-selected-bg: var(--cs-color-brand-accent-bg);
+  --cs-component-range-switch-item-selected-color: var(--cs-color-brand-accent);
+  --cs-component-range-switch-item-disabled-color: var(--cs-color-text-weak);
+}
+```
+
+## 12.6 CsqMiniTrendChart
+
+```css
+:root {
+  --cs-chart-mini-height: 30px;
+  --cs-chart-mini-line-width: 1.4px;
+  --cs-chart-mini-fill-opacity: 0.10;
+}
+```
+
+## 12.7 CsqHistoryTrendChart
+
+```css
+:root {
+  --cs-chart-history-height: 180px;
+  --cs-chart-history-height-compact: 142px;
+  --cs-chart-history-line-width: 1.6px;
+  --cs-chart-history-point-size: 4px;
+  --cs-chart-history-point-hover-size: 6px;
+}
+```
+
+## 12.8 CsqDistributionChart
+
+```css
+:root {
+  --cs-chart-distribution-bar-gap: 4px;
+  --cs-chart-distribution-bar-radius: var(--cs-radius-xs);
+  --cs-chart-distribution-up: var(--cs-color-market-up);
+  --cs-chart-distribution-down: var(--cs-color-market-down);
+  --cs-chart-distribution-flat: var(--cs-color-market-flat-muted);
+}
+```
+
+## 12.9 CsqBarChart
+
+```css
+:root {
+  --cs-chart-bar-gap: 6px;
+  --cs-chart-bar-group-gap: 12px;
+  --cs-chart-bar-radius: 3px 3px 0 0;
+  --cs-chart-bar-up: var(--cs-color-market-up);
+  --cs-chart-bar-down: var(--cs-color-market-down);
+  --cs-chart-bar-flat: var(--cs-color-market-flat-muted);
+  --cs-chart-bar-neutral: var(--cs-color-brand-accent);
+}
+```
+
+## 12.10 CsqChartSplitPanel
+
+```css
+:root {
+  --cs-chart-split-gap: var(--cs-space-12);
+  --cs-chart-split-left-min-width: 180px;
+  --cs-chart-split-right-min-width: 280px;
+  --cs-chart-split-left-ratio: 0.36;
+  --cs-chart-split-right-ratio: 0.64;
+}
+```
+
+规则：
+
+- `CsqChartSplitPanel` 是通用左右图表容器；
+- 不绑定资金流、饼图或趋势图业务；
+- 左右比例可由组件 props 或 CSS 覆盖；
+- 默认左侧适合饼图 / 小图，右侧适合趋势图。
+
+---
+
+# 13. CsqPieChartWithCallout 视觉规则
+
+## 13.1 组件定位
+
+`CsqPieChartWithCallout` 是通用折线标注饼图，用于展示分类占比结构。
+
+它不绑定资金业务，不绑定订单类型，不绑定市场总览。
+
+## 13.2 Token
+
+```css
+:root {
+  --cs-chart-pie-size: 168px;
+  --cs-chart-pie-size-sm: 132px;
+  --cs-chart-pie-size-lg: 204px;
+
+  --cs-chart-pie-inner-radius-ratio: 0.52;
+  --cs-chart-pie-slice-gap: 2px;
+  --cs-chart-pie-slice-stroke: var(--cs-color-bg-page);
+  --cs-chart-pie-slice-stroke-width: 2px;
+  --cs-chart-pie-slice-hover-opacity: 0.92;
+  --cs-chart-pie-slice-hover-filter: brightness(1.08);
+
+  --cs-chart-pie-percent-label-color: #FFFFFF;
+  --cs-chart-pie-percent-label-size: var(--cs-font-size-11);
+  --cs-chart-pie-percent-label-weight: var(--cs-font-weight-semibold);
+  --cs-chart-pie-percent-label-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+
+  --cs-chart-pie-callout-line-color: rgba(203, 213, 225, 0.58);
+  --cs-chart-pie-callout-line-width: 1px;
+  --cs-chart-pie-callout-dot-size: 3px;
+  --cs-chart-pie-callout-text-size: var(--cs-font-size-11);
+  --cs-chart-pie-callout-label-color: var(--cs-color-text-secondary);
+  --cs-chart-pie-callout-value-color: var(--cs-color-text-primary);
+
+  --cs-chart-pie-center-bg: transparent;
+  --cs-chart-pie-center-text-display: none;
+}
+```
+
+## 13.3 饼图尺寸
+
+| 尺寸 | Token | 用途 |
+|---|---|---|
+| 小 | `--cs-chart-pie-size-sm` | 小容器、组件 Demo 紧凑区 |
+| 标准 | `--cs-chart-pie-size` | 默认展示 |
+| 大 | `--cs-chart-pie-size-lg` | 图表页或宽容器 |
+
+## 13.4 饼块颜色语义
+
+| colorSemantic | 颜色 |
+|---|---|
+| `rise` | `--cs-color-market-up` |
+| `fall` | `--cs-color-market-down` |
+| `flat` | `--cs-color-market-flat` |
+| `neutral` | `--cs-color-brand-accent` 或中性蓝灰 |
+| `warning` | `--cs-color-warning` |
+| `custom` | 由调用方显式传入 |
+
+## 13.5 饼块面积
+
+饼块面积只由 `value` 的绝对数值或传入权重决定。
+
+组件不判断业务含义。
+
+```ts
+interface CsqPieChartWithCalloutItem {
+  key: string;
+  label: string;
+  value: number;
+  percent?: number;
+  valueText?: string;
+  colorSemantic?: "rise" | "fall" | "flat" | "neutral" | "warning" | "custom";
+  color?: string;
+}
+```
+
+## 13.6 饼块上占比文字
+
+规则：
+
+1. 占比文字放在对应饼块上；
+2. 占比文字必须是白色；
+3. 占比文字不放在图例里；
+4. 占比文字不放在外部折线标注里；
+5. 占比文字不放在饼图中心；
+6. 小于 8% 的饼块可隐藏内部占比，改由 callout 承载名称与数值；
+7. 占比文字需要有轻微阴影，保证在红/绿/中性色块上可读。
+
+## 13.7 外部 Callout 折线
+
+规则：
+
+1. 每个饼块可引出一条折线；
+2. 折线从饼块外缘引出；
+3. 折线有一个转折点；
+4. 折线末端展示 label 与 valueText；
+5. 正值 valueText 可使用上涨红；
+6. 负值 valueText 可使用下跌绿；
+7. 零值 valueText 使用灰白；
+8. callout 不遮挡饼块上的白色占比；
+9. callout 不侵入相邻图表区域；
+10. 小空间下可只显示两侧主 callout，其余进入 Tooltip。
+
+## 13.8 饼图中心留空规则
+
+默认：
 
 ```text
-1. 今日市场客观总结与主要指数是否左右 50% / 50%。
-2. 今日市场客观总结是否为 5 个事实卡 + 说明卡。
-3. 主要指数是否为 2 行 × 5 列。
-4. 榜单是否展示 Top10。
-5. 榜单列顺序是否为：排名、股票、最新价、涨跌幅、换手率、量比、成交量、成交额。
-6. 榜单中换手率、量比、成交量、成交额是否为中性色。
-7. 涨跌停统计与分布是否为 2×2。
-8. 涨跌停 2×2 四区块位置是否正确。
-9. 板块速览是否为左侧 4 列 × 2 行榜单矩阵。
-10. 板块热力图是否在右侧跨两行。
-11. 板块热力图内部是否为 5×4。
-12. 红涨绿跌是否正确。
-13. 是否未改动 Review v2 禁止修改区域。
+centerContent = null
+```
+
+禁止中心显示：
+
+```text
+净额结构
+absAmount
+value
+debug
+任意英文调试字段
+```
+
+允许：
+
+- 空心留白；
+- 极简装饰中心点；
+- 业务页面如需中心文案，必须由页面级设计单独确认，不作为默认规则。
+
+## 13.9 Tooltip
+
+```css
+:root {
+  --cs-chart-pie-tooltip-bg: var(--cs-chart-tooltip-bg);
+  --cs-chart-pie-tooltip-border: var(--cs-chart-tooltip-border);
+  --cs-chart-pie-tooltip-radius: var(--cs-chart-tooltip-radius);
+  --cs-chart-pie-tooltip-padding: var(--cs-chart-tooltip-padding);
+}
+```
+
+Tooltip 内容建议：
+
+```text
+分类名称
+数值
+占比
+方向 / 状态
 ```
 
 ---
 
-## 23. 待产品总控确认问题
+# 14. CsqHeatMapGrid 视觉规则
 
-本轮 Review v2 相关视觉规则已经可以支持 HTML Showcase 落地。仍建议产品总控确认以下细节：
+## 14.1 组件定位
 
-1. 今日市场客观总结左侧 5 个事实卡的最终字段名称是否固定。
-2. 榜单 Top10 在 1366px 宽度下是否允许表格横向滚动，还是必须压缩列宽完整展示。
-3. 榜单中的“成交量”单位优先显示“股 / 手 / 万手”哪一种，是否完全由 API `displayText` 决定。
-4. 涨跌停统计与分布右上 / 右下结构块的 Top 数量是否固定为 Top5。
-5. 昨天涨停板块分布是否在非交易日展示最近一个交易日，还是展示空态。
-6. 板块热力图 5×4 的 20 个板块是按涨跌幅、成交额还是综合排序，是否由 API 提供排序结果。
-7. 热力图格子是否等面积展示，还是后续需要按成交额 / 市值调整面积。
-8. 板块速览右侧热力图 Tooltip 是否需要展示领涨股 / 领跌股字段。
+`CsqHeatMapGrid` 是通用热力图网格组件，不绑定板块业务。
+
+## 14.2 Token
+
+```css
+:root {
+  --cs-heatmap-grid-gap: 6px;
+  --cs-heatmap-grid-cell-min-width: 72px;
+  --cs-heatmap-grid-cell-min-height: 46px;
+  --cs-heatmap-grid-cell-radius: var(--cs-radius-md);
+  --cs-heatmap-grid-cell-padding: 6px;
+  --cs-heatmap-grid-cell-border: 1px solid rgba(255, 255, 255, 0.04);
+  --cs-heatmap-grid-cell-hover-border: 1px solid var(--cs-color-border-hover);
+  --cs-heatmap-grid-cell-selected-border: 1px solid var(--cs-color-brand-accent-border);
+  --cs-heatmap-grid-cell-empty-bg: rgba(100, 116, 139, 0.08);
+
+  --cs-heatmap-cell-label-size: var(--cs-font-size-12);
+  --cs-heatmap-cell-label-weight: var(--cs-font-weight-semibold);
+  --cs-heatmap-cell-value-size: var(--cs-font-size-11);
+  --cs-heatmap-cell-value-weight: var(--cs-font-weight-medium);
+}
+```
+
+## 14.3 语义色
+
+```css
+:root {
+  --cs-heatmap-rise-1: rgba(255, 77, 90, 0.18);
+  --cs-heatmap-rise-2: rgba(255, 77, 90, 0.32);
+  --cs-heatmap-rise-3: rgba(255, 77, 90, 0.52);
+  --cs-heatmap-rise-4: rgba(255, 77, 90, 0.74);
+
+  --cs-heatmap-fall-1: rgba(21, 199, 132, 0.18);
+  --cs-heatmap-fall-2: rgba(21, 199, 132, 0.32);
+  --cs-heatmap-fall-3: rgba(21, 199, 132, 0.52);
+  --cs-heatmap-fall-4: rgba(21, 199, 132, 0.74);
+
+  --cs-heatmap-flat: rgba(221, 230, 242, 0.14);
+  --cs-heatmap-neutral: rgba(90, 167, 255, 0.18);
+  --cs-heatmap-warning: rgba(245, 158, 11, 0.18);
+}
+```
+
+## 14.4 N 行 × M 列
+
+```ts
+interface CsqHeatMapGridProps {
+  rows: number;
+  columns: number;
+  items: Array<{
+    key: string;
+    label: string;
+    value?: number;
+    valueText?: string;
+    semantic?: "rise" | "fall" | "flat" | "neutral" | "warning";
+    level?: 1 | 2 | 3 | 4;
+    rowIndex?: number;
+    columnIndex?: number;
+    tooltip?: string;
+  }>;
+}
+```
+
+规则：
+
+1. 支持任意 N 行 × M 列；
+2. Demo 中建议展示 5 行 × 4 列，但组件不固化该尺寸；
+3. 空格子展示占位背景；
+4. hover 时提高边框和亮度；
+5. selected 使用品牌金边框；
+6. Tooltip 使用 `CsqChartTooltip` 或通用 Tooltip Token；
+7. 不允许热力图出现绿涨红跌。
 
 ---
 
-## 24. 当前版本结论
+# 15. 通用组件 Demo 页面 Token
 
-`03-design-tokens.md v0.2.5` 是基于 Review v2 的全量 Design Token 与视觉规范文档。
+```css
+:root {
+  --cs-demo-page-max-width: 1680px;
+  --cs-demo-page-padding-x: 24px;
+  --cs-demo-page-padding-y: 20px;
+  --cs-demo-section-gap: 20px;
+  --cs-demo-component-grid-gap: 16px;
+  --cs-demo-component-card-min-height: 220px;
+  --cs-demo-component-preview-bg: var(--cs-color-surface-panel-subtle);
+  --cs-demo-component-code-bg: rgba(2, 6, 23, 0.42);
+}
+```
 
-本版满足：
+Demo 结构建议：
 
-1. 输出文件名保持 `03-design-tokens.md`。
-2. 文档为全量文档，不是增量补丁。
-3. 只围绕 Review v2 点名区域补充视觉规则。
-4. 榜单 Top10 表格密度规则明确。
-5. 涨跌停 2×2 区域视觉规则明确。
-6. 板块速览 4 列 × 2 行 + 右侧跨两行 5×4 热力图规则明确。
-7. 红涨绿跌规则无误。
-8. 不引入 SideNav 相关市场总览桌面端依赖。
+```text
+财势乾坤通用组件库 Demo
+├── 0. Design Token Overview
+├── 1. Foundation Components
+├── 2. Navigation Components
+├── 3. Data Display Components
+├── 4. Table Components
+├── 5. Chart Components
+├── 6. Pattern Examples
+└── 7. Component States
+```
+
+每个组件卡片结构：
+
+```text
+组件名
+中文名
+组件类型
+使用场景
+关键 Props
+状态
+Design Token
+实际预览
+禁止误用
+```
+
+---
+
+# 16. Core Component 对应 Token 映射
+
+| Core Component | 主要 Token |
+|---|---|
+| `CsqPanel` | `--cs-component-panel-*`、`--cs-color-surface-panel`、`--cs-color-border-subtle` |
+| `CsqSectionHeader` | `--cs-component-section-*`、`--cs-font-size-14`、`--cs-color-text-primary` |
+| `CsqHelpTooltip` | `--cs-component-help-*`、`--cs-color-tooltip-*`、`--cs-z-tooltip` |
+| `CsqBadge` | `--cs-component-badge-*`、`--cs-color-market-*`、`--cs-color-warning` |
+| `CsqStatusDot` | `--cs-component-status-dot-*`、`--cs-color-status-*` |
+| `CsqSkeleton` | `--cs-component-skeleton-*` |
+| `CsqEmptyState` | `--cs-component-empty-*` |
+| `CsqErrorState` | `--cs-component-error-*` |
+| `CsqMetricCard` | `--cs-component-metric-*`、`--cs-font-family-number` |
+| `CsqMetricSummaryGroup` | `--cs-component-metric-group-*` |
+| `CsqChangeValue` | `--cs-component-change-*` |
+| `CsqChangeBadge` | `--cs-component-change-badge-*`、`--cs-component-badge-*` |
+| `CsqInfoRow` | `--cs-component-info-*` |
+| `CsqLinkedMetricList` | `--cs-component-linked-list-*` |
+| `CsqProgressList` | `--cs-component-progress-*` |
+| `CsqStatusBadge` | `--cs-component-status-badge-*` |
+| `CsqDataTable` | `--cs-table-*` |
+| `CsqRankTable` | `--cs-rank-table-*`、`--cs-table-*` |
+| `CsqColumnHeader` | `--cs-table-column-header-*` |
+| `CsqTableRow` | `--cs-table-row-*` |
+| `CsqTableCellNumber` | `--cs-table-number-*` |
+| `CsqMiniTrendChart` | `--cs-chart-mini-*` |
+| `CsqHistoryTrendChart` | `--cs-chart-history-*`、`--cs-chart-axis-*`、`--cs-chart-grid-*` |
+| `CsqDistributionChart` | `--cs-chart-distribution-*` |
+| `CsqBarChart` | `--cs-chart-bar-*` |
+| `CsqPieChartWithCallout` | `--cs-chart-pie-*` |
+| `CsqHeatMapGrid` | `--cs-heatmap-*` |
+| `CsqChartSplitPanel` | `--cs-chart-split-*` |
+| `CsqChartTooltip` | `--cs-chart-tooltip-*` |
+| `CsqCrosshairOverlay` | `--cs-chart-crosshair-*` |
+
+---
+
+# 17. Pattern Example 对应 Token 映射
+
+Pattern Example 不作为 Core Component 契约，只展示通用组件在行情场景中的组合方式。
+
+| Pattern | 组合组件 | Token 映射说明 |
+|---|---|---|
+| `PatternMarketSummary` | `CsqMetricSummaryGroup` + `CsqInfoRow` | 使用指标组、信息行、状态 Token；不固化市场总览业务字段 |
+| `PatternIndexGrid` | `CsqMetricCard` + `CsqChangeValue` + `CsqMiniTrendChart` | 使用卡片、涨跌值、小趋势图 Token |
+| `PatternLimitStructure` | `CsqProgressList` + `CsqLinkedMetricList` | 使用进度列表、实体指标行式列表 Token |
+| `PatternMoneyFlowSplit` | `CsqPieChartWithCallout` + `CsqHistoryTrendChart` + `CsqChartSplitPanel` | 使用饼图 callout、趋势图、左右分栏 Token |
+| `PatternSectorHeatMap` | `CsqHeatMapGrid` | 使用热力图网格 Token；可模拟 5×4，但组件不固化 |
+| `PatternRankBoard` | `CsqRankTable` + `CsqTabs` | 使用排名表格和切换控件 Token |
+
+---
+
+# 18. 对 03《04-component-guidelines.md》的 Token 使用建议
+
+1. 组件规范中的 Core Component 必须使用本文件定义的 `Csq*` 命名。
+2. 组件 Props 应保持抽象，不绑定具体页面或 API response。
+3. 具体业务页面的字段映射应通过 adapter 完成，例如：
+
+```text
+页面 API response → adapter → Csq Component Props
+```
+
+4. `CsqPieChartWithCallout` 不得命名为资金专属组件。
+5. `CsqHeatMapGrid` 不得命名为板块专属组件。
+6. `CsqLinkedMetricList` 不得命名为领涨股或涨停表现专属组件。
+7. Pattern Example 可以使用行情 mock 数据，但必须标记为 Pattern，不进入 Core Component 契约。
+8. 组件状态必须覆盖 default、hover、active、selected、disabled、loading、empty、error、data delayed。
+9. 所有颜色必须通过 Token 获取，不得在组件内硬编码红绿。
+10. 中国市场红涨绿跌应作为组件库默认方向色规则。
+
+---
+
+# 19. 对 02 `component-library-demo-v1.html` 的视觉约束
+
+1. Demo 文件必须是单文件 HTML/CSS/JS。
+2. Demo 页面标题为“财势乾坤通用组件库 Demo”。
+3. 深色主题优先。
+4. 不要求本轮实现完整浅色主题，但 CSS Token 结构必须可切换。
+5. 每个组件卡片必须展示：
+   - 组件名；
+   - 中文名；
+   - 组件类型；
+   - 使用场景；
+   - Props 摘要；
+   - 状态；
+   - Design Token；
+   - 实际预览；
+   - 禁止误用。
+6. Demo 必须展示组件状态：
+   - default；
+   - hover；
+   - active；
+   - selected；
+   - disabled；
+   - loading；
+   - empty；
+   - error；
+   - data delayed。
+7. `CsqPieChartWithCallout` 必须展示：
+   - 饼块上白色占比；
+   - 外部 callout 折线；
+   - callout 文字；
+   - 中心留空；
+   - 禁止中心显示调试字段。
+8. `CsqHeatMapGrid` 必须展示：
+   - N 行 × M 列；
+   - rise / fall / flat / neutral / warning；
+   - hover；
+   - selected；
+   - Tooltip；
+   - 空格子占位。
+9. `CsqRankTable` 必须展示：
+   - 高密度行高；
+   - 表头；
+   - hover 行；
+   - selected 行；
+   - 数字列右对齐；
+   - 涨跌色单元格；
+   - loading / empty / error 表格态。
+10. `CsqLinkedMetricList` 必须展示：
+    - 每行一个实体；
+    - 实体 + 指标同一行；
+    - 标签；
+    - hover 整行高亮；
+    - 不绑定具体业务名称。
+11. Mock 数据必须真实感，但只作为组件抽象样例，不作为 API 契约。
+12. Demo 不得使用廉价大屏风、霓虹风、低幼插画。
+13. 红涨绿跌必须正确。
+
+---
+
+# 20. 本轮组件库 Demo Token 修改摘要
+
+1. 新增通用组件状态 Token：default、hover、active、selected、disabled、loading、empty、error、data delayed。
+2. 新增通用容器 Token：`CsqPanel`、`CsqSectionHeader`、`CsqHelpTooltip`、`CsqBadge`、`CsqStatusDot`、`CsqSkeleton`、`CsqEmptyState`、`CsqErrorState`。
+3. 新增通用数据展示 Token：`CsqMetricCard`、`CsqMetricSummaryGroup`、`CsqChangeValue`、`CsqChangeBadge`、`CsqInfoRow`、`CsqLinkedMetricList`、`CsqProgressList`、`CsqStatusBadge`。
+4. 新增通用表格 Token：`CsqDataTable`、`CsqRankTable`、`CsqColumnHeader`、`CsqTableRow`、`CsqTableCellNumber`。
+5. 新增通用图表 Token：`CsqMiniTrendChart`、`CsqHistoryTrendChart`、`CsqDistributionChart`、`CsqBarChart`、`CsqPieChartWithCallout`、`CsqHeatMapGrid`、`CsqChartSplitPanel`、`CsqChartTooltip`、`CsqCrosshairOverlay`。
+6. 明确 `CsqPieChartWithCallout` 是通用饼图，不绑定资金业务。
+7. 明确 `CsqHeatMapGrid` 是通用热力图，不绑定板块业务。
+8. 明确 `CsqLinkedMetricList` 是通用“实体 + 指标”行式列表，不绑定领涨股或涨停表现业务。
+9. 强化红涨绿跌、平盘白色/灰白色规则。
+10. 保留既有市场总览已确认内容，但本轮不新增市场总览专属 Token。
+
+---
+
+# 21. 本轮未修改区域说明
+
+本轮未主动修改以下已确认内容：
+
+1. 项目产品名称；
+2. A 股优先原则；
+3. 深色主题默认策略；
+4. 浅色主题 Token 结构；
+5. 红涨绿跌规则；
+6. 金色品牌强调色；
+7. 市场总览已确认的页面级布局约束；
+8. 市场总览 TopMarketBar / Breadcrumb / PageHeader / ShortcutBar 约束；
+9. 市场总览主要指数清单和排序；
+10. 市场总览自动刷新默认 10s；
+11. 市场总览板块热力图入口 route 暂空；
+12. 既有图表坐标轴、Tooltip、crosshair 基础规则。
+
+说明：
+
+```text
+本轮新增的是通用组件库 Demo 所需 Token，不代表修改市场总览业务页面结构。
+```
+
+---
+
+# 22. 待产品总控确认问题
+
+1. `Csq` 是否正式作为财势乾坤组件库统一前缀？
+2. CSS Token 前缀是否继续保持 `--cs-*`，不新增 `--csq-*`？
+3. Core Component 与 Pattern Example 的边界是否认可？
+4. `component-library-demo-v1.html` 是否作为后续 Codex 组件实现的标准输入？
+5. 组件库 Demo v1 是否需要展示浅色主题预览，还是仅保留浅色 Token 结构？
+6. 是否需要在 Demo 中展示移动端 / 窄屏状态？
+7. 组件状态是否需要做成可交互切换，还是静态展示即可？
+8. 是否需要将组件注册表同步维护在 `04-component-guidelines.md` 中？
+9. `CsqPieChartWithCallout` 是否默认允许中心留空，业务页面如需中心文案再单独确认？
+10. `CsqHeatMapGrid` 的默认 Demo 是否使用 5×4，还是展示更多 N×M 示例？
+
+---
+
+## 23. 下载与保存路径
+
+本轮输出文件名：
+
+```text
+03-design-tokens.md
+```
+
+建议放置到 Google Drive：
+
+```text
+财势乾坤/设计/03-design-tokens.md
+```
+
+---
+
+## 24. 总结
+
+财势乾坤通用组件库 Demo 的 Design Token 修订目标，是在不破坏既有市场总览页面级规范的前提下，将已经多轮验证过的 UI 能力抽象为可复用的组件级 Token。
+
+本轮最重要的边界是：
+
+```text
+通用组件库可以服务行情软件场景，但不能绑定具体业务页面、具体 API 或具体数据源。
+```
+
+第一版组件库 Demo 应保持克制，优先覆盖 P0 阶段已经验证过的通用 UI 能力，统一命名、状态、密度、图表、表格、卡片、Tooltip、Callout 和热力图表达，为后续 Codex 与前端工程实现提供稳定输入。
+
+
+---
+
+# 25. 市场总览 / 连板天梯模块视觉规则（Review v5 修订）
+
+> 本节仅服务 `市场总览 / 连板天梯模块`。
+> 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、页面整体主题、全局字体或页面整体布局顺序。
+
+## 25.1 Review v5 设计边界
+
+Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票卡片列表升级为：
+
+```text
+昨日层级 → 今日晋级层级
+```
+
+并建立一套可落地的视觉规则：
+
+1. 标准股票卡片；
+2. 昨日层级容器；
+3. 今日晋级层级容器；
+4. 首板独立层；
+5. 五板以上独立层；
+6. 晋级箭头；
+7. 展开 / 收起控件；
+8. 股票卡片 hover / clickable 状态；
+9. 五板以上卡片右下角“具体板数”样式。
+
+## 25.2 连板天梯专用 Token
+
+```css
+:root {
+  /* Limit ladder module */
+  --cs-limit-ladder-row-gap: 12px;
+  --cs-limit-ladder-layer-gap: 10px;
+  --cs-limit-ladder-bridge-width: 44px;
+  --cs-limit-ladder-layer-padding: 10px;
+  --cs-limit-ladder-layer-title-height: 28px;
+  --cs-limit-ladder-stock-grid-gap-x: 8px;
+  --cs-limit-ladder-stock-grid-gap-y: 8px;
+
+  /* Stock compact card */
+  --cs-stock-card-width: 148px;
+  --cs-stock-card-height: 72px;
+  --cs-stock-card-padding-x: 10px;
+  --cs-stock-card-padding-y: 8px;
+  --cs-stock-card-radius: var(--cs-radius-card);
+  --cs-stock-card-border-width: 1px;
+
+  /* Expand / collapse */
+  --cs-limit-ladder-expand-height: 28px;
+  --cs-limit-ladder-expand-icon-size: 12px;
+  --cs-limit-ladder-expand-font-size: var(--cs-font-size-12);
+
+  /* Arrow */
+  --cs-limit-ladder-arrow-size: 18px;
+  --cs-limit-ladder-arrow-line-width: 1px;
+}
+
+[data-theme="dark"] {
+  --cs-limit-ladder-layer-bg: rgba(16, 24, 39, 0.78);
+  --cs-limit-ladder-layer-bg-subtle: rgba(13, 20, 34, 0.82);
+  --cs-limit-ladder-layer-bg-above-five: rgba(247, 199, 107, 0.07);
+  --cs-limit-ladder-layer-border: rgba(148, 163, 184, 0.16);
+  --cs-limit-ladder-layer-border-emphasis: rgba(247, 199, 107, 0.28);
+  --cs-limit-ladder-layer-title-bg: rgba(255, 255, 255, 0.025);
+  --cs-limit-ladder-layer-title-text: var(--cs-color-text-secondary);
+
+  --cs-stock-card-bg: rgba(18, 27, 44, 0.92);
+  --cs-stock-card-bg-hover: rgba(24, 34, 53, 0.96);
+  --cs-stock-card-bg-active: rgba(21, 30, 48, 0.98);
+  --cs-stock-card-border: rgba(148, 163, 184, 0.16);
+  --cs-stock-card-border-hover: rgba(247, 199, 107, 0.34);
+  --cs-stock-card-border-active: rgba(247, 199, 107, 0.48);
+  --cs-stock-card-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.24);
+
+  --cs-stock-card-name-text: var(--cs-color-text-primary);
+  --cs-stock-card-code-text: var(--cs-color-text-muted);
+  --cs-stock-card-sector-text: var(--cs-color-text-secondary);
+  --cs-stock-card-open-times-text: var(--cs-color-warning);
+  --cs-stock-card-streak-level-text: var(--cs-color-brand-accent);
+  --cs-stock-card-streak-level-bg: rgba(247, 199, 107, 0.10);
+  --cs-stock-card-streak-level-border: rgba(247, 199, 107, 0.28);
+
+  --cs-limit-ladder-arrow-color: rgba(247, 199, 107, 0.72);
+  --cs-limit-ladder-arrow-bg: rgba(247, 199, 107, 0.08);
+  --cs-limit-ladder-expand-bg: rgba(148, 163, 184, 0.08);
+  --cs-limit-ladder-expand-bg-hover: rgba(247, 199, 107, 0.10);
+  --cs-limit-ladder-expand-border: rgba(148, 163, 184, 0.14);
+  --cs-limit-ladder-expand-text: var(--cs-color-text-secondary);
+  --cs-limit-ladder-expand-text-hover: var(--cs-color-brand-accent);
+}
+
+[data-theme="light"] {
+  --cs-limit-ladder-layer-bg: #FFFFFF;
+  --cs-limit-ladder-layer-bg-subtle: #F8FAFC;
+  --cs-limit-ladder-layer-bg-above-five: rgba(201, 154, 61, 0.08);
+  --cs-limit-ladder-layer-border: rgba(15, 23, 42, 0.10);
+  --cs-limit-ladder-layer-border-emphasis: rgba(201, 154, 61, 0.26);
+  --cs-limit-ladder-layer-title-bg: rgba(15, 23, 42, 0.025);
+  --cs-limit-ladder-layer-title-text: var(--cs-color-text-secondary);
+
+  --cs-stock-card-bg: #FFFFFF;
+  --cs-stock-card-bg-hover: #F8FAFC;
+  --cs-stock-card-bg-active: #F1F5F9;
+  --cs-stock-card-border: rgba(15, 23, 42, 0.12);
+  --cs-stock-card-border-hover: rgba(201, 154, 61, 0.36);
+  --cs-stock-card-border-active: rgba(201, 154, 61, 0.48);
+  --cs-stock-card-shadow-hover: 0 8px 18px rgba(15, 23, 42, 0.10);
+
+  --cs-stock-card-name-text: var(--cs-color-text-primary);
+  --cs-stock-card-code-text: var(--cs-color-text-muted);
+  --cs-stock-card-sector-text: var(--cs-color-text-secondary);
+  --cs-stock-card-open-times-text: var(--cs-color-warning);
+  --cs-stock-card-streak-level-text: var(--cs-color-brand-accent);
+  --cs-stock-card-streak-level-bg: rgba(201, 154, 61, 0.10);
+  --cs-stock-card-streak-level-border: rgba(201, 154, 61, 0.28);
+
+  --cs-limit-ladder-arrow-color: rgba(168, 117, 33, 0.72);
+  --cs-limit-ladder-arrow-bg: rgba(201, 154, 61, 0.08);
+  --cs-limit-ladder-expand-bg: rgba(15, 23, 42, 0.04);
+  --cs-limit-ladder-expand-bg-hover: rgba(201, 154, 61, 0.08);
+  --cs-limit-ladder-expand-border: rgba(15, 23, 42, 0.10);
+  --cs-limit-ladder-expand-text: var(--cs-color-text-secondary);
+  --cs-limit-ladder-expand-text-hover: var(--cs-color-brand-accent);
+}
+```
+
+## 25.3 标准股票卡片视觉规则
+
+标准股票卡片是连板天梯中的基础展示单元。字段固定为：
+
+```text
+左上：股票名称      右上：涨跌幅
+左中：股票代码      右中：所属板块
+左下：最新价        右下：开板次数
+```
+
+五板以上层特殊规则：
+
+```text
+右下：具体板数，如 6板 / 7板 / 8板
+```
+
+### 25.3.1 尺寸与密度
+
+| 项 | Token / 建议值 | 说明 |
+|---|---:|---|
+| 卡片宽度 | `--cs-stock-card-width: 148px` | 每行 6 只时适配全宽区域 |
+| 卡片高度 | `--cs-stock-card-height: 72px` | 允许 3 行信息，保持高密度 |
+| 横向内边距 | `--cs-stock-card-padding-x: 10px` | 保证左右字段不贴边 |
+| 纵向内边距 | `--cs-stock-card-padding-y: 8px` | 兼顾密度与可读性 |
+| 圆角 | `--cs-stock-card-radius` | 使用既有卡片圆角 |
+| 边框 | `--cs-stock-card-border` | 细边框，不做发光 |
+
+推荐 CSS：
+
+```css
+.cs-stock-compact-card {
+  width: var(--cs-stock-card-width);
+  min-height: var(--cs-stock-card-height);
+  padding: var(--cs-stock-card-padding-y) var(--cs-stock-card-padding-x);
+  border-radius: var(--cs-stock-card-radius);
+  border: var(--cs-stock-card-border-width) solid var(--cs-stock-card-border);
+  background: var(--cs-stock-card-bg);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: repeat(3, minmax(16px, auto));
+  column-gap: 8px;
+  row-gap: 2px;
+  cursor: pointer;
+  transition:
+    background var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
+    border-color var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
+    box-shadow var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
+    transform var(--cs-motion-duration-fast) var(--cs-motion-ease-standard);
+}
+```
+
+### 25.3.2 字体与对齐
+
+| 字段 | 字号 | 字重 | 颜色 | 对齐 |
+|---|---:|---:|---|---|
+| 股票名称 | 13px | 600 | `--cs-stock-card-name-text` | 左对齐 |
+| 股票代码 | 11px | 400/500 | `--cs-stock-card-code-text` | 左对齐 |
+| 最新价 | 12px | 600 | 按涨跌方向红/绿/灰白 | 左对齐，数字字体 |
+| 涨跌幅 | 12px | 700 | 红涨绿跌 | 右对齐，数字字体 |
+| 所属板块 | 11px | 400/500 | `--cs-stock-card-sector-text` | 右对齐，单行省略 |
+| 开板次数 | 11px | 500 | `--cs-stock-card-open-times-text` | 右对齐 |
+| 具体板数 | 11px | 700 | `--cs-stock-card-streak-level-text` | 右对齐，pill 标签 |
+
+```css
+.cs-stock-card-name {
+  font-size: var(--cs-font-size-13);
+  font-weight: var(--cs-font-weight-semibold);
+  color: var(--cs-stock-card-name-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-stock-card-code,
+.cs-stock-card-sector,
+.cs-stock-card-open-times {
+  font-size: var(--cs-font-size-11);
+  line-height: var(--cs-line-height-compact);
+}
+
+.cs-stock-card-price,
+.cs-stock-card-change {
+  font-family: var(--cs-font-family-number);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-stock-card-change,
+.cs-stock-card-sector,
+.cs-stock-card-open-times,
+.cs-stock-card-streak-level {
+  text-align: right;
+}
+```
+
+### 25.3.3 Hover / clickable / active 状态
+
+```css
+.cs-stock-compact-card:hover {
+  background: var(--cs-stock-card-bg-hover);
+  border-color: var(--cs-stock-card-border-hover);
+  box-shadow: var(--cs-stock-card-shadow-hover);
+}
+
+.cs-stock-compact-card:active,
+.cs-stock-compact-card.is-active {
+  background: var(--cs-stock-card-bg-active);
+  border-color: var(--cs-stock-card-border-active);
+  transform: translateY(1px);
+}
+
+.cs-stock-compact-card.is-clickable {
+  cursor: pointer;
+}
+```
+
+规则：
+
+1. hover 时整卡高亮；
+2. clickable 状态必须通过 cursor 与 hover 边框提示；
+3. active 仅用于鼠标按下或键盘确认，不作为常驻选中；
+4. 不设置层级标题点击态，因为层级标题暂不支持点击。
+
+## 25.4 层级容器视觉规则
+
+连板天梯层级容器分为四类：
+
+1. 昨日层级容器；
+2. 今日晋级层级容器；
+3. 首板独立层容器；
+4. 五板以上独立层容器。
+
+所有层级容器必须使用现有深色金融终端风格，不照搬草图浅蓝背景。
+
+### 25.4.1 昨日层级容器
+
+用途：展示昨日属于某层级的所有股票，卡片数据使用今日行情。
+
+```css
+.cs-limit-ladder-prev-layer {
+  background: var(--cs-limit-ladder-layer-bg-subtle);
+  border: 1px solid var(--cs-limit-ladder-layer-border);
+  border-radius: var(--cs-radius-panel);
+  padding: var(--cs-limit-ladder-layer-padding);
+}
+```
+
+视觉规则：
+
+- 标题如 `昨日首板`、`昨日二板`、`昨日三板`；
+- 标题使用次级文字，不做强高亮；
+- 容器背景略弱于今日晋级层；
+- 容器内股票卡片仍可点击进入个股详情。
+
+### 25.4.2 今日晋级层级容器
+
+用途：展示从昨日层级成功晋级到今日 N 板的股票。
+
+```css
+.cs-limit-ladder-current-layer {
+  background: var(--cs-limit-ladder-layer-bg);
+  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
+  border-radius: var(--cs-radius-panel);
+  padding: var(--cs-limit-ladder-layer-padding);
+}
+```
+
+视觉规则：
+
+- 标题如 `今日二板`、`今日三板`、`今日四板`、`今日五板`；
+- 边框可略带品牌金弱强调；
+- 不使用大面积红色背景；
+- 成功晋级本身不等于主观推荐，不做过强视觉冲击。
+
+### 25.4.3 首板独立层容器
+
+用途：只展示今日首板股票，没有昨日来源。
+
+```css
+.cs-limit-ladder-first-layer {
+  background: var(--cs-limit-ladder-layer-bg);
+  border: 1px solid var(--cs-limit-ladder-layer-border);
+  border-radius: var(--cs-radius-panel);
+  padding: var(--cs-limit-ladder-layer-padding);
+}
+```
+
+视觉规则：
+
+- 标题固定为 `首板`；
+- 独立占一行；
+- 该层位于低位层，整体顺序靠下；
+- 不展示晋级箭头。
+
+### 25.4.4 五板以上独立层容器
+
+用途：只展示今日六板及以上股票，不包含今日五板。
+
+```css
+.cs-limit-ladder-above-five-layer {
+  background: var(--cs-limit-ladder-layer-bg-above-five);
+  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
+  border-radius: var(--cs-radius-panel);
+  padding: var(--cs-limit-ladder-layer-padding);
+}
+```
+
+视觉规则：
+
+1. 顶部独立层；
+2. 标题固定为 `五板以上`；
+3. 只展示今日六板及以上；
+4. 不包含今日五板；
+5. 不展示成“昨日五板 → 今日六板”的晋级结构；
+6. 股票卡片右下显示具体板数，如 `6板`、`7板`；
+7. 使用弱品牌金边框或弱金背景，不使用夸张发光。
+
+### 25.4.5 层级标题条
+
+```css
+.cs-limit-ladder-layer-title {
+  height: var(--cs-limit-ladder-layer-title-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 6px;
+  color: var(--cs-limit-ladder-layer-title-text);
+  font-size: var(--cs-font-size-13);
+  font-weight: var(--cs-font-weight-semibold);
+  border-bottom: 1px solid var(--cs-color-divider);
+  margin-bottom: var(--cs-space-8);
+}
+```
+
+规则：
+
+- 层级标题清晰但不喧宾夺主；
+- 标题不支持点击，不出现 link hover；
+- 可在标题右侧展示股票数量，例如 `12只`；
+- 股票数量使用弱文字或数字字体。
+
+## 25.5 层级排列与网格密度
+
+### 25.5.1 二板及以上晋级结构
+
+```text
+昨日 N-1 板     →     今日 N 板
+```
+
+推荐 CSS：
+
+```css
+.cs-limit-ladder-promotion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cs-limit-ladder-bridge-width) minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--cs-limit-ladder-layer-gap);
+  margin-bottom: var(--cs-limit-ladder-row-gap);
+}
+```
+
+### 25.5.2 股票卡片网格
+
+默认每层最多展示 2 行 × 每行 6 只。
+
+```css
+.cs-limit-ladder-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(var(--cs-stock-card-width), 1fr));
+  gap: var(--cs-limit-ladder-stock-grid-gap-y) var(--cs-limit-ladder-stock-grid-gap-x);
+  overflow: hidden;
+}
+
+.cs-limit-ladder-stock-grid.is-collapsed {
+  max-height: calc(var(--cs-stock-card-height) * 2 + var(--cs-limit-ladder-stock-grid-gap-y));
+}
+
+.cs-limit-ladder-stock-grid.is-expanded {
+  max-height: none;
+}
+```
+
+规则：
+
+1. 默认最多展示 12 只；
+2. 每层独立控制展开状态；
+3. 展开不影响其它层；
+4. 如果宽度不足，可在 1366px 附近降级为每行 5 只，但不得破坏卡片字段结构；
+5. 不因连板天梯改造引入横向固定 SideNav。
+
+## 25.6 晋级箭头视觉规则
+
+晋级箭头用于连接：
+
+```text
+昨日 N-1 板 → 今日 N 板
+```
+
+```css
+.cs-limit-ladder-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cs-limit-ladder-arrow-color);
+  font-size: var(--cs-limit-ladder-arrow-size);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.cs-limit-ladder-arrow::before {
+  content: "→";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-limit-ladder-arrow-bg);
+  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
+}
+```
+
+规则：
+
+1. 箭头颜色使用品牌金弱强调；
+2. 箭头大小约 18px；
+3. 箭头左右与容器间距由 `--cs-limit-ladder-layer-gap` 控制；
+4. hover 不变化；
+5. 不做点击态；
+6. 不表达买卖方向，只表达层级晋级关系。
+
+## 25.7 展开 / 收起控件视觉规则
+
+每层默认最多展示 12 只股票。超过 12 只时，底部显示展开控件。
+
+### 25.7.1 默认收起态
+
+```text
+⌄⌄ 展开全部
+```
+
+```css
+.cs-limit-ladder-expand-control {
+  height: var(--cs-limit-ladder-expand-height);
+  margin-top: var(--cs-space-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cs-space-4);
+  border: 1px solid var(--cs-limit-ladder-expand-border);
+  border-radius: var(--cs-radius-pill);
+  background: var(--cs-limit-ladder-expand-bg);
+  color: var(--cs-limit-ladder-expand-text);
+  font-size: var(--cs-limit-ladder-expand-font-size);
+  cursor: pointer;
+  user-select: none;
+}
+
+.cs-limit-ladder-expand-control:hover {
+  background: var(--cs-limit-ladder-expand-bg-hover);
+  color: var(--cs-limit-ladder-expand-text-hover);
+  border-color: var(--cs-color-border-hover);
+}
+```
+
+### 25.7.2 展开态
+
+展开后文案：
+
+```text
+收起
+```
+
+规则：
+
+1. 展开/收起只影响当前层；
+2. 展开后可以撑开连板天梯模块高度；
+3. 如果页面高度压力大，允许连板天梯模块内部滚动；
+4. 不允许因此压缩或改动其它非本轮模块；
+5. 展开控件不使用红绿，使用中性 + 品牌金 hover。
+
+## 25.8 五板以上具体板数样式
+
+五板以上层股票卡片右下角显示具体板数，而不是开板次数。
+
+```css
+.cs-stock-card-streak-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--cs-radius-pill);
+  border: 1px solid var(--cs-stock-card-streak-level-border);
+  background: var(--cs-stock-card-streak-level-bg);
+  color: var(--cs-stock-card-streak-level-text);
+  font-size: var(--cs-font-size-11);
+  font-weight: var(--cs-font-weight-bold);
+  line-height: 1;
+  font-family: var(--cs-font-family-number);
+  font-variant-numeric: tabular-nums;
+}
+```
+
+规则：
+
+1. 文案示例：`6板`、`7板`、`8板`；
+2. 只在五板以上层显示；
+3. 今日五板仍属于 `昨日四板 → 今日五板` 层，不使用该五板以上样式；
+4. 该标签使用品牌金弱强调，不使用涨停红大面积背景；
+5. 不输出推荐、强势判断等主观结论。
+
+## 25.9 连板天梯状态规则
+
+| 状态 | 视觉规则 |
+|---|---|
+| loading | 层级标题骨架 + 2 行股票卡片骨架 |
+| empty | 当前层显示“暂无该层级股票”，不隐藏其它层 |
+| error | 当前层模块级错误块，允许单层重试 |
+| disabled | 通常不出现；如数据不可点击，卡片透明度降低且不显示 pointer |
+| data delayed | 层级标题右侧显示延迟 Badge，不改变股票涨跌色 |
+
+## 25.10 连板天梯禁止事项
+
+1. 不照搬草图浅蓝背景；
+2. 不把层级标题做成可点击链接；
+3. 不把五板以上展示成 `昨日五板 → 今日六板`；
+4. 不让今日五板进入五板以上层；
+5. 不将晋级箭头做成交易方向或买卖提示；
+6. 不使用大面积红色背景强调涨停；
+7. 不因连板天梯改造修改页面其它模块视觉规则。
+
+---
+
+# 26. 本轮 Review v5 修改摘要
+
+1. 仅修订 `市场总览 / 连板天梯模块` 的视觉规则。
+2. 新增标准股票卡片规则：左上股票名称、左中股票代码、左下最新价、右上涨跌幅、右中所属板块、右下开板次数。
+3. 五板以上层股票卡片右下显示具体板数，如 `6板`、`7板`、`8板`。
+4. 新增昨日层级容器和今日晋级层级容器视觉规则。
+5. 新增首板独立层容器视觉规则。
+6. 新增五板以上独立层容器弱强调规则。
+7. 新增晋级箭头视觉规则。
+8. 新增展开 / 收起控件规则：默认最多 2 行 × 6 只，共 12 只，超出显示 `展开全部`，展开后显示 `收起`。
+9. 明确股票卡片 hover / active / clickable 状态。
+10. 保持红涨绿跌规则不变。
+
+# 27. 本轮未修改区域说明
+
+本轮没有修改以下区域：
+
+1. TopMarketBar；
+2. Breadcrumb；
+3. PageHeader；
+4. ShortcutBar；
+5. 今日市场客观总结；
+6. 主要指数；
+7. 涨跌分布；
+8. 市场风格；
+9. 成交额总览；
+10. 大盘资金流向；
+11. 榜单速览；
+12. 涨跌停统计与分布；
+13. 板块速览；
+14. 页面整体主题；
+15. 全局字体；
+16. 与 Review v5 无关的任何视觉规则。
+
+```text
+本轮因 Review v5 修改而被动影响的区域：无
+原因：无
+是否需要产品总控确认：否
+```
+
+# 28. 本轮新增或修订 Token 清单
+
+| Token | 类型 | 用途 |
+|---|---|---|
+| `--cs-limit-ladder-row-gap` | 新增 | 连板天梯层级行间距 |
+| `--cs-limit-ladder-layer-gap` | 新增 | 昨日层级、箭头、今日层级之间间距 |
+| `--cs-limit-ladder-bridge-width` | 新增 | 晋级箭头连接区宽度 |
+| `--cs-limit-ladder-layer-padding` | 新增 | 层级容器内边距 |
+| `--cs-limit-ladder-layer-title-height` | 新增 | 层级标题条高度 |
+| `--cs-limit-ladder-stock-grid-gap-x` | 新增 | 股票卡片网格横向间距 |
+| `--cs-limit-ladder-stock-grid-gap-y` | 新增 | 股票卡片网格纵向间距 |
+| `--cs-stock-card-width` | 新增 | 标准股票卡片宽度 |
+| `--cs-stock-card-height` | 新增 | 标准股票卡片高度 |
+| `--cs-stock-card-padding-x` | 新增 | 标准股票卡片横向内边距 |
+| `--cs-stock-card-padding-y` | 新增 | 标准股票卡片纵向内边距 |
+| `--cs-stock-card-bg` | 新增 | 股票卡片背景 |
+| `--cs-stock-card-bg-hover` | 新增 | 股票卡片 hover 背景 |
+| `--cs-stock-card-bg-active` | 新增 | 股票卡片点击态背景 |
+| `--cs-stock-card-border` | 新增 | 股票卡片边框 |
+| `--cs-stock-card-border-hover` | 新增 | 股票卡片 hover 边框 |
+| `--cs-stock-card-border-active` | 新增 | 股票卡片点击态边框 |
+| `--cs-stock-card-shadow-hover` | 新增 | 股票卡片 hover 阴影 |
+| `--cs-stock-card-name-text` | 新增 | 股票名称文字色 |
+| `--cs-stock-card-code-text` | 新增 | 股票代码文字色 |
+| `--cs-stock-card-sector-text` | 新增 | 所属板块文字色 |
+| `--cs-stock-card-open-times-text` | 新增 | 开板次数文字色 |
+| `--cs-stock-card-streak-level-text` | 新增 | 五板以上具体板数文字色 |
+| `--cs-stock-card-streak-level-bg` | 新增 | 五板以上具体板数标签背景 |
+| `--cs-stock-card-streak-level-border` | 新增 | 五板以上具体板数标签边框 |
+| `--cs-limit-ladder-arrow-color` | 新增 | 晋级箭头颜色 |
+| `--cs-limit-ladder-arrow-bg` | 新增 | 晋级箭头圆形弱背景 |
+| `--cs-limit-ladder-expand-height` | 新增 | 展开 / 收起控件高度 |
+| `--cs-limit-ladder-expand-bg` | 新增 | 展开 / 收起控件背景 |
+| `--cs-limit-ladder-expand-bg-hover` | 新增 | 展开 / 收起控件 hover 背景 |
+| `--cs-limit-ladder-expand-border` | 新增 | 展开 / 收起控件边框 |
+| `--cs-limit-ladder-expand-text` | 新增 | 展开 / 收起控件文字 |
+| `--cs-limit-ladder-expand-text-hover` | 新增 | 展开 / 收起控件 hover 文字 |
+
+# 29. 对 03 `04-component-guidelines.md` 的 Token 映射建议
+
+| 组件 / Pattern | 建议使用 Token |
+|---|---|
+| `CsqStockCompactCard` | `--cs-stock-card-*`、`--cs-color-market-*`、`--cs-font-family-number` |
+| `PatternLimitLadder` | `--cs-limit-ladder-*`、`--cs-stock-card-*` |
+| `LimitLadderPromotionLayer` | `--cs-limit-ladder-layer-bg`、`--cs-limit-ladder-layer-border`、`--cs-limit-ladder-layer-title-*` |
+| `LimitLadderSpecialLayer` | `--cs-limit-ladder-layer-bg-above-five`、`--cs-limit-ladder-layer-border-emphasis` |
+| `LimitLadderStockGrid` | `--cs-limit-ladder-stock-grid-gap-x`、`--cs-limit-ladder-stock-grid-gap-y`、`--cs-stock-card-width` |
+| `LimitLadderExpandControl` | `--cs-limit-ladder-expand-*` |
+| `LimitLadderPromotionArrow` | `--cs-limit-ladder-arrow-*` |
+
+建议 03 约束：
+
+1. `CsqStockCompactCard` 是相对通用紧凑股票卡片，可作为 Core Component 候选；
+2. `PatternLimitLadder` 是市场总览连板天梯业务 Pattern，不应进入通用组件库 Core Component；
+3. 层级标题不支持点击；
+4. 股票卡片支持点击进入个股详情；
+5. 展开 / 收起只作用于当前层。
+
+# 30. 对 02 `market-overview-v1.4.html` 的视觉约束
+
+1. 只修改连板天梯模块。
+2. 使用深色金融终端风格，不照搬草图浅蓝背景。
+3. 新增标准股票卡片，字段位置必须为：
+   - 左上：股票名称；
+   - 左中：股票代码；
+   - 左下：最新价；
+   - 右上：涨跌幅；
+   - 右中：所属板块；
+   - 右下：开板次数。
+4. 五板以上层卡片右下显示具体板数，不显示开板次数。
+5. 二板及以上层级采用 `昨日 N-1 板 → 今日 N 板` 的左右结构。
+6. 昨日层级展示昨日该层级所有股票，卡片信息用今日数据。
+7. 今日晋级层级只展示晋级成功股票。
+8. 首板层独立展示今日首板股票。
+9. 五板以上层独立置顶，只展示今日六板及以上，不包含今日五板。
+10. 今日五板仍属于 `昨日四板 → 今日五板` 层。
+11. 每层默认最多展示 2 行 × 6 只，即 12 只股票。
+12. 超出 12 只时底部显示 `展开全部` 控件。
+13. 展开后显示 `收起` 控件。
+14. 展开 / 收起只影响当前层。
+15. 股票卡片 hover 时整卡高亮，点击进入个股详情页。
+16. 晋级箭头只表达层级关系，不做点击态。
+17. 层级标题不支持点击，不做链接样式。
+18. 不修改 Review v5 未点名模块。
+
+# 31. 待产品总控确认问题
+
+1. 标准股票卡片宽度 `148px` 是否满足 1366px 下每行 6 只展示，还是需要降为 136px？
+2. 连板天梯在 1366px 宽度下是否允许每行自动降级为 5 只？
+3. 展开后优先采用“模块内部滚动”还是“模块向下撑开”？当前建议优先内部滚动或局部展开，不影响其它模块。
+4. 五板以上层是否固定标题为“五板以上”，还是显示“六板及以上”？当前按 Review v5 使用“五板以上”。
+5. 开板次数为 0 时显示 `0次`、`未开板`，还是弱化为 `--`？当前 Token 只定义样式，文案由 02/03 确认。
+6. 层级标题右侧是否展示股票数量，例如 `12只`？当前建议允许展示。
+
+# 32. 本轮输出文件下载链接
+
+本轮输出文件名：
+
+```text
+03-design-tokens.md
+```
+
+下载链接由本轮对话附件提供。
+
+建议放置到 Google Drive：
+
+```text
+财势乾坤/设计/03-design-tokens.md
+```
