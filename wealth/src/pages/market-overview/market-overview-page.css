@@ -1799,9 +1799,26 @@ tbody tr:active {
 }
 
 .ladder-expand-v5 .arrows {
+  align-items: center;
+  display: inline-flex;
+  flex-direction: column;
   font-family: var(--cs-font-family-number);
-  letter-spacing: -2px;
+  font-size: 10px;
+  line-height: 8px;
   transform: translateY(-1px);
+}
+
+.ladder-expand-v5 .arrows .arrow-line {
+  display: block;
+  height: 8px;
+}
+
+.ladder-expand-v5 .arrows.is-down .arrow-line:last-child {
+  margin-top: -1px;
+}
+
+.ladder-expand-v5 .arrows.is-up .arrow-line:last-child {
+  margin-top: -1px;
 }
 
 .ladder-empty-v5 {

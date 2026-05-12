@@ -144,7 +144,10 @@ export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps
                       <div className="stock-grid-v5">{layer.stocks.map((stock) => renderCard(stock, isAbove ? "above" : "normal"))}</div>
                       {needExpand ? (
                         <button className="ladder-expand-v5" type="button" data-layer-key={layer.key} onClick={() => toggleLayer(layer.key)}>
-                          <span className="arrows">{expanded ? "⌃⌃" : "⌄⌄"}</span>
+                          <span className={`arrows ${expanded ? "is-up" : "is-down"}`} aria-hidden="true">
+                            <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
+                            <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
+                          </span>
                           <span>{expanded ? "收起" : "展开全部"}</span>
                         </button>
                       ) : null}
@@ -178,7 +181,10 @@ export function StreakLadderPanel({ overview, onAction }: StreakLadderPanelProps
                     </div>
                     {needExpand ? (
                       <button className="ladder-expand-v5" type="button" data-layer-key={layer.key} onClick={() => toggleLayer(layer.key)}>
-                        <span className="arrows">{expanded ? "⌃⌃" : "⌄⌄"}</span>
+                        <span className={`arrows ${expanded ? "is-up" : "is-down"}`} aria-hidden="true">
+                          <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
+                          <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
+                        </span>
                         <span>{expanded ? "收起" : "展开全部"}</span>
                       </button>
                     ) : null}
