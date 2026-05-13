@@ -7,6 +7,7 @@ import pytest
 
 from lake_console.backend.app.services.indicators import IndicatorRecalcQueueService
 from lake_console.backend.app.services.parquet_writer import read_parquet_rows, write_rows_to_parquet
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.tushare_stk_mins_sync_service import TushareStkMinsSyncService
 
 
@@ -47,9 +48,10 @@ def test_stk_mins_range_uses_lifecycle_filtered_security_universe(tmp_path) -> N
     }
 
 
-def test_stk_mins_single_symbol_day_records_indicator_recalc_queue(tmp_path) -> None:
+def test_stk_mins_single_symbol_day_records_indicator_recalc_queue(tmp_path, monkeypatch) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    _mock_clean_next_refresh(monkeypatch)
     _write_universe(tmp_path, [_stock("600000.SH", "L", "19991110", None)])
     client = _FakeSingleSymbolClient(
         [
@@ -74,14 +76,59 @@ def test_stk_mins_single_symbol_day_records_indicator_recalc_queue(tmp_path) -> 
 
     queue_items = IndicatorRecalcQueueService(lake_root=tmp_path).list_items()
     assert summary["written_rows"] == 1
+    assert summary["clean_next_refresh"] == {"status": "passed", "affected_partitions": 1}
+    assert summary["affected_partitions"] == [
+        {
+            "dataset_key": "stk_mins",
+            "source_key": "tushare",
+            "layer": "raw_tushare",
+            "partition_grain": "trade_date",
+            "partition_values": {"freq": "30", "trade_date": "2026-04-24"},
+            "partition_path": "raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24",
+            "source_run_id": summary["run_id"],
+            "write_revision": f"{summary['run_id']}:raw_tushare:freq=30:trade_date=2026-04-24",
+            "rows_written": 1,
+            "bytes_written": summary["affected_partitions"][0]["bytes_written"],
+        }
+    ]
+    assert summary["affected_partitions"][0]["bytes_written"] > 0
     assert queue_items[0]["reason"] == "source_partition_replaced"
     assert queue_items[0]["freq_value"] == 30
     assert queue_items[0]["security_scope"] == "all"
 
 
-def test_stk_mins_single_symbol_range_uses_windows_and_merges_existing_partition(tmp_path) -> None:
+def test_stk_mins_single_symbol_day_forces_clean_next_refresh(tmp_path) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    _write_universe(tmp_path, [_stock("600000.SH", "L", "19991110", None)])
+    client = _FakeSingleSymbolClient(
+        [
+            _source_row("600000.SH", "2026-04-24 10:00:00", close=10.1),
+            _source_row("600000.SH", "2026-04-24 11:00:00", close=10.2),
+            _source_row("600000.SH", "2026-04-24 13:00:00", close=10.3),
+            _source_row("600000.SH", "2026-04-24 14:00:00", close=10.4),
+            _source_row("600000.SH", "2026-04-24 15:00:00", close=10.5),
+        ]
+    )
+
+    summary = TushareStkMinsSyncService(
+        lake_root=tmp_path,
+        client=client,
+        progress=lambda _: None,
+    ).sync_single_symbol_day(ts_code="600000.SH", freq=60, trade_date=date(2026, 4, 24))
+
+    assert summary["clean_next_refresh"]["status"] == "passed"
+    assert (
+        tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=60" / "trade_date=2026-04-24" / "part-000.parquet"
+    ).exists()
+    gate_rows = read_parquet_rows(tmp_path / "manifest" / "stk_mins_quality" / "clean_next_partition_gate.parquet")
+    assert gate_rows[0]["status"] == "passed"
+
+
+def test_stk_mins_single_symbol_range_uses_windows_and_merges_existing_partition(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    _mock_clean_next_refresh(monkeypatch)
     _write_calendar(tmp_path, [date(2026, 4, 24), date(2026, 4, 27)])
     existing_partition = tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=30" / "trade_date=2026-04-24" / "part-000.parquet"
     write_rows_to_parquet(
@@ -121,6 +168,12 @@ def test_stk_mins_single_symbol_range_uses_windows_and_merges_existing_partition
     ]
     assert summary["freqs"] == [30, 60]
     assert summary["written_rows"] == 3
+    assert summary["clean_next_refresh"] == {"status": "passed", "affected_partitions": 3}
+    assert sorted((item["partition_values"]["freq"], item["partition_values"]["trade_date"]) for item in summary["affected_partitions"]) == [
+        ("30", "2026-04-24"),
+        ("30", "2026-04-27"),
+        ("60", "2026-04-24"),
+    ]
 
     merged_partition = tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=30" / "trade_date=2026-04-24" / "part-00000.parquet"
     merged_rows = read_parquet_rows(merged_partition)
@@ -162,6 +215,25 @@ class _WindowRowsClient:
         if int(kwargs["offset"]):
             return []
         return self.rows_by_freq.get(int(kwargs["freq"]), [])
+
+
+def _mock_clean_next_refresh(monkeypatch) -> None:
+    def fake_refresh(self, *, affected_partitions, dry_run: bool, apply: bool):
+        assert dry_run is False
+        assert apply is True
+        queue_service = IndicatorRecalcQueueService(lake_root=self.lake_root)
+        for partition in affected_partitions:
+            values = dict(partition.get("partition_values") or {})
+            queue_service.record_source_partition_replaced(
+                layer="research/stk_mins_by_date_clean_next",
+                freq=int(values["freq"]),
+                trade_date=date.fromisoformat(str(values["trade_date"])),
+                run_id=str(partition.get("source_run_id") or "test-clean"),
+                written_rows=int(partition.get("rows_written") or 0),
+            )
+        return {"status": "passed", "affected_partitions": len(affected_partitions)}
+
+    monkeypatch.setattr(CleanNextRefreshService, "refresh", fake_refresh)
 
 
 def _stock(ts_code: str, list_status: str, list_date: str, delist_date: str | None) -> dict[str, object]:

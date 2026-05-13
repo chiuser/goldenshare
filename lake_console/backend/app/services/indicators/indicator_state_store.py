@@ -28,7 +28,7 @@ STATE_REQUIRED_FIELDS = (
     "ema_fast",
     "ema_slow",
     "dea",
-    "source_layer",
+    "source_node_key",
     "source_watermark",
     "state_version",
     "updated_at",
@@ -117,7 +117,7 @@ def _normalize_states(states: Iterable[MacdState]) -> list[MacdState]:
 
 
 def _state_to_row(state: MacdState, *, params: MacdParams) -> dict[str, Any]:
-    source_layer = "raw_tushare" if state.freq in {1, 5, 15, 30, 60} else "derived"
+    source_node_key = "clean_next_by_date" if state.freq in {1, 5, 15, 30, 60} else "derived_by_date"
     return {
         "indicator_key": "macd",
         "params_key": params.params_key,
@@ -128,7 +128,7 @@ def _state_to_row(state: MacdState, *, params: MacdParams) -> dict[str, Any]:
         "ema_fast": float(state.ema_fast),
         "ema_slow": float(state.ema_slow),
         "dea": float(state.dea),
-        "source_layer": source_layer,
+        "source_node_key": source_node_key,
         "source_watermark": state.last_trade_time.replace(tzinfo=None),
         "state_version": STATE_VERSION,
         "updated_at": datetime.now(timezone.utc).replace(tzinfo=None),

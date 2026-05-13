@@ -109,7 +109,7 @@ class StkMinsCurrentClean20241030MultifreqRepairService:
             "operation": "repair_current_clean_20241030_multifreq",
             "mode": "apply" if apply else "dry_run",
             "dataset_layer": "research/stk_mins_by_date_clean",
-            "source_layer": "research/stk_mins_by_date_clean",
+            "source_path": "research/stk_mins_by_date_clean",
             "schema_mode": "current_wrong_clean_10_columns",
             "trade_date": TARGET_TRADE_DATE.isoformat(),
             "source_freq": SOURCE_FREQ,

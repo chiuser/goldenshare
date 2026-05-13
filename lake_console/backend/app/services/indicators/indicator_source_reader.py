@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.services.parquet_writer import read_parquet_files
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextPartitionGateService
 
 
 RAW_FREQS = {1, 5, 15, 30, 60}
@@ -157,8 +158,7 @@ def plan_stk_mins_by_date_source_batches(
 ) -> ByDateSourcePlan:
     if end_date < start_date:
         raise ValueError("end-date 不能早于 start-date。")
-    source_layer = _source_layer(freq)
-    source_root = lake_root / source_layer / "stk_mins_by_date" / f"freq={freq}"
+    source_root = _source_root(lake_root=lake_root, freq=freq)
     batches: list[ByDateSourceBatchPlan] = []
     for partition in sorted(source_root.glob("trade_date=*")):
         trade_date = _parse_partition_date(partition)
@@ -167,6 +167,8 @@ def plan_stk_mins_by_date_source_batches(
         files = tuple(sorted(partition.glob("*.parquet")))
         if files:
             batches.append(ByDateSourceBatchPlan(trade_date=trade_date, files=files))
+    if freq in RAW_FREQS:
+        _require_clean_next_gate_for_trade_dates(lake_root=lake_root, freq=freq, trade_dates=[batch.trade_date for batch in batches])
     return ByDateSourcePlan(
         trade_dates=tuple(batch.trade_date for batch in batches),
         batches=tuple(batches),
@@ -234,23 +236,34 @@ def iter_stk_mins_research_source_batches(
 
 
 def _source_files(*, lake_root: Path, freq: int, start_date: date, end_date: date) -> list[Path]:
-    source_layer = _source_layer(freq)
-    source_root = lake_root / source_layer / "stk_mins_by_date" / f"freq={freq}"
+    source_root = _source_root(lake_root=lake_root, freq=freq)
     files: list[Path] = []
+    trade_dates: list[date] = []
     for partition in sorted(source_root.glob("trade_date=*")):
         trade_date = _parse_partition_date(partition)
         if trade_date is None or trade_date < start_date or trade_date > end_date:
             continue
-        files.extend(sorted(partition.glob("*.parquet")))
+        partition_files = sorted(partition.glob("*.parquet"))
+        if partition_files:
+            trade_dates.append(trade_date)
+            files.extend(partition_files)
+    if freq in RAW_FREQS:
+        _require_clean_next_gate_for_trade_dates(lake_root=lake_root, freq=freq, trade_dates=trade_dates)
     return files
 
 
-def _source_layer(freq: int) -> str:
+def _source_root(*, lake_root: Path, freq: int) -> Path:
     if freq in RAW_FREQS:
-        return "raw_tushare"
+        return lake_root / "research" / "stk_mins_by_date_clean_next" / f"freq={freq}"
     if freq in DERIVED_FREQS:
-        return "derived"
+        return lake_root / "derived" / "stk_mins_by_date" / f"freq={freq}"
     raise ValueError("指标源读取仅支持 freq=1/5/15/30/60/90/120。")
+
+
+def _require_clean_next_gate_for_trade_dates(*, lake_root: Path, freq: int, trade_dates: list[date]) -> None:
+    service = CleanNextPartitionGateService(lake_root=lake_root)
+    for trade_date in sorted(set(trade_dates)):
+        service.require_passed(freq=freq, trade_date=trade_date)
 
 
 def _parse_partition_date(partition: Path) -> date | None:

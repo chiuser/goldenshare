@@ -1,7 +1,7 @@
 # Local Lake Console 架构方案 v1
 
 - 版本：v1
-- 状态：已部分落地；`stk_mins` 正式 clean 基准已切到 `clean_next`，derived/research 后续必须基于 clean_next 重建；Kopia 集成恢复管理待继续收口
+- 状态：已部分落地；`stk_mins` 正式 clean 基准已切到 `clean_next`，derived/research 后续必须基于 clean_next 重建；Kopia 集成恢复管理待继续收口；后端模型/API 契约已补目标态，代码待按契约收口
 - 更新时间：2026-05-13
 - 适用范围：本地移动 SSD 上的 Tushare Parquet Lake 管理台
 - 目录目标：`lake_console/`
@@ -770,9 +770,339 @@ lake-console clean-tmp --older-than-hours 24
 
 ---
 
-## 11. API 契约草案
+## 11. 后端模型/API 契约
 
-本节定义第一版 Lake Console 后端 API 的输入参数和输出对象。后续实现必须以这里为契约起点，不能只返回临时拼装字段。
+本节是 `lake_console` 数据湖总览、数据集清单、节点详情和硬盘资产视图的正式技术契约。当前实现已切到 `/api/lake/overview`、`/api/lake/datasets`、`/api/lake/partitions`、`/api/lake/physical-assets`，旧的 `/api/datasets`、`/api/partitions`、`LakeLayerSummary`、`layer_summaries` 不再作为正式口径。
+
+参考模型图：`docs/architecture/local-lake-console-data-model-map-v1.html`。
+
+### 11.0 开发硬约束
+
+| 规则 | 后端责任 | 前端责任 | 禁止行为 |
+|---|---|---|---|
+| 展示事实以后端为准 | 返回页面所需的完整事实字段、展示名、提示文案、排序权重和状态 | 按 response 直接展示 | 前端根据 `path/layer/layout` 猜业务含义 |
+| 聚合计算在后端完成 | 计算全湖占用、已登记容量、漏账差异、节点覆盖范围、分区规模 | 展示后端聚合结果 | 前端把多个接口结果拼起来算总数或判断漏账 |
+| 语义判断在后端完成 | 返回 `registered_state`、`asset_role`、`node_name`、`layer_name`、`partition_label` | 只根据语义字段控制布局和样式 | 前端通过目录名包含 `clean/derived/research` 判断资产类型 |
+| 页面模型由 API 输出 | 为总览页、数据集列表、节点详情、硬盘资产列表提供稳定 response model | 不维护第二套事实模型 | 每个页面私下定义一套事实字段 |
+
+### 11.1 目标对象关系
+
+核心关系：
+
+```text
+Dataset 数据集
+  -> Node 内容节点
+    -> Partition 分区
+
+PhysicalAsset 硬盘资产
+  -> 可关联到 Dataset/Node，也可以是未登记资产或治理目录
+```
+
+`Layer` 只表示湖内大层级，例如 `raw_tushare`、`manifest`、`derived`、`research`。`Dataset` 与 `Layer` 不直接建模；它们通过 `Node` 间接关联。
+
+### 11.2 Catalog 定义对象
+
+#### `LakeLayerDefinition`
+
+全局大层级定义，只保存层级本身，不保存路径和扫描规则。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `layer` | string | 稳定枚举，如 `raw_tushare/manifest/derived/research` |
+| `layer_name` | string | 中文展示名，如 `原始层` |
+| `layer_order` | integer | 展示排序 |
+| `description` | string | 层级说明 |
+
+#### `LakeNodeDefinition`
+
+数据集下的具体内容节点定义。路径、扫描规则、血缘和分区维度必须落在节点上。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `node_key` | string | 数据集内唯一节点 key，如 `clean_next_by_date` |
+| `node_name` | string | 中文展示名 |
+| `layer` | string | 所属湖内大层级 |
+| `path` | string | 相对 Lake Root 的节点根路径 |
+| `scan_profile` | string | 扫描规则 |
+| `asset_role` | string | 资产角色，如 `source_raw/clean_baseline/local_derived/query_projection` |
+| `source_node_keys` | string[] | 来源内容节点 key，用于表达血缘 |
+| `partition_dimensions` | string[] | 该节点解析出的分区维度 |
+| `recommended_usage` | string | 推荐使用方式 |
+| `sort_order` | integer | 节点展示排序 |
+
+#### `LakeDatasetDefinition`
+
+数据集定义是 Catalog 中的一条业务资产登记。数据集拥有节点，不直接拥有路径型 layer。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `dataset_key` | string | 数据集 key |
+| `display_name` | string | 中文展示名 |
+| `source` | string | 数据来源口径 |
+| `api_name` | string 或 null | 源接口名 |
+| `source_doc_id` | string 或 null | 源文档编号 |
+| `description` | string 或 null | 数据集说明 |
+| `dataset_role` | string | 数据集角色 |
+| `group_key` | string | 页面分组 |
+| `supported_freqs` | integer[] | 支持频率 |
+| `raw_freqs` | integer[] | 原始层频率 |
+| `derived_freqs` | integer[] | 派生层频率 |
+| `nodes` | `LakeNodeDefinition[]` | 内容节点定义 |
+| `command_examples` | `LakeCommandExample[]` | 命令示例 |
+
+### 11.3 扫描规则
+
+`scan_profile` 是后端 scanner 的规则名。前端不得理解或解析目录结构。
+
+| scan_profile | 目录形态 | 分区维度 | 示例 |
+|---|---|---|---|
+| `current_file` | 单文件当前版本 | 无 | `raw_tushare/stock_basic/current/part-000.parquet` |
+| `manifest_file` | 单文件辅助清单 | 无 | `manifest/security_universe/tushare_stock_basic.parquet` |
+| `trade_date` | 按交易日 | `trade_date` | `raw_tushare/daily/trade_date=2026-05-08` |
+| `freq_trade_date` | 频率 + 交易日 | `freq/trade_date` | `raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24` |
+| `freq_trade_month_bucket` | 频率 + 月份 + 分桶 | `freq/trade_month/bucket` | `research/stk_mins_by_symbol_month/freq=30/trade_month=2026-04/bucket=12` |
+| `indicator_params_freq_trade_date` | 指标 + 参数 + 频率 + 交易日 | `indicator/params_key/freq/trade_date` | `derived/stk_mins_indicators_by_date/indicator=macd/params_key=12_26_9/freq=30/trade_date=2026-04-24` |
+| `indicator_params_freq_trade_month_bucket` | 指标 + 参数 + 频率 + 月份 + 分桶 | `indicator/params_key/freq/trade_month/bucket` | `research/stk_mins_indicators_by_symbol_month/indicator=macd/params_key=12_26_9/freq=30/trade_month=2026-04/bucket=12` |
+
+### 11.4 API 输出对象
+
+#### `LakeDatasetSummary`
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `dataset_key` | string | 数据集 key |
+| `display_name` | string | 中文展示名 |
+| `group_key` | string | 分组 key |
+| `group_label` | string | 分组展示名 |
+| `group_order` | integer | 分组排序 |
+| `source` | string | 来源 key |
+| `source_label` | string | 来源展示名 |
+| `description` | string 或 null | 说明 |
+| `dataset_role` | string | 角色 key |
+| `dataset_role_label` | string | 角色展示名 |
+| `node_summaries` | `LakeNodeSummary[]` | 节点摘要 |
+| `total_bytes` | integer | 节点合计大小 |
+| `file_count` | integer | 节点合计文件数 |
+| `partition_count` | integer | 节点合计分区数 |
+| `coverage_label` | string | 后端生成的覆盖范围展示 |
+| `latest_modified_at` | string 或 null | 最近修改时间 |
+| `health_status` | string | `ok/warning/error/empty` |
+| `health_label` | string | 展示文案 |
+| `risks` | `LakeRiskItem[]` | 数据集风险 |
+| `sort_order` | integer | 数据集排序 |
+
+#### `LakeNodeSummary`
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `dataset_key` | string | 所属数据集 |
+| `node_key` | string | 节点 key |
+| `node_name` | string | 节点中文名 |
+| `layer` | string | 大层级 key |
+| `layer_name` | string | 大层级中文名 |
+| `path` | string | 相对 Lake Root 路径 |
+| `scan_profile` | string | 扫描规则 |
+| `asset_role` | string | 资产角色 key |
+| `asset_role_label` | string | 资产角色展示名 |
+| `source_node_keys` | string[] | 来源节点 |
+| `partition_dimensions` | string[] | 分区维度 |
+| `partition_count` | integer | 分区数 |
+| `file_count` | integer | 文件数 |
+| `total_bytes` | integer | 大小 |
+| `freqs` | integer[] | 频率 |
+| `coverage_label` | string | 覆盖范围展示 |
+| `latest_modified_at` | string 或 null | 最近修改时间 |
+| `recommended_usage` | string | 推荐使用方式 |
+| `registered_state` | string | `registered/missing_on_disk` |
+| `risks` | `LakeRiskItem[]` | 节点风险 |
+
+#### `LakePartitionSummary`
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `dataset_key` | string | 数据集 key |
+| `node_key` | string | 节点 key |
+| `partition_values` | object | 结构化分区字段 |
+| `partition_locator` | string | 稳定定位符，如 `freq=30/trade_date=2026-04-24` |
+| `partition_label` | string | 展示文案，如 `30min · 2026-04-24` |
+| `path` | string | 相对 Lake Root 路径 |
+| `file_count` | integer | 文件数 |
+| `total_bytes` | integer | 大小 |
+| `row_count` | integer 或 null | 行数 |
+| `modified_at` | string 或 null | 最近修改时间 |
+| `risks` | `LakeRiskItem[]` | 分区风险 |
+
+#### `LakePhysicalAssetSummary`
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `path` | string | 相对 Lake Root 的路径 |
+| `asset_type` | string | `directory/file` |
+| `registered_state` | string | `registered/unregistered/governance` |
+| `dataset_key` | string 或 null | 关联数据集 |
+| `node_key` | string 或 null | 关联节点 |
+| `display_name` | string | 后端生成展示名 |
+| `total_bytes` | integer | 大小 |
+| `file_count` | integer | 文件数 |
+| `dir_count` | integer | 子目录数 |
+| `latest_modified_at` | string 或 null | 最近修改时间 |
+| `risk_level` | string | `none/info/warning/error` |
+| `risk_label` | string | 风险展示文案 |
+
+#### `LakeOverviewResponse`
+
+总览页必须优先消费该对象，不再由前端自行拼装首页事实。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `generated_at` | string | 后端生成时间 |
+| `lake_root` | string | Lake Root |
+| `summary_metrics` | object[] | 首页指标卡，包含 `key/label/value/hint/tone/sort_order` |
+| `layer_groups` | object[] | 湖内层级展示，后端完成聚合 |
+| `sync_method_groups` | object[] | 来源与同步方式展示，后端完成聚合 |
+| `dataset_rows` | object[] | 数据集清单行，后端给出展示字段 |
+| `physical_assets` | `LakePhysicalAssetSummary[]` | 全湖硬盘资产摘要 |
+| `risks` | `LakeRiskItem[]` | 总览风险 |
+
+### 11.5 正式 API
+
+#### `GET /api/lake/overview`
+
+用途：数据湖总览页专用聚合接口。
+
+输入：无。后端读取 `GOLDENSHARE_LAKE_ROOT` 和 Catalog。
+
+输出：`LakeOverviewResponse`。
+
+要求：
+
+1. 返回首页所需全部展示信息。
+2. 后端完成全湖登记资产与硬盘资产差异计算。
+3. 前端不得再自行从 datasets、partitions、status 多接口拼首页。
+
+#### `GET /api/lake/datasets`
+
+用途：数据集列表与数据集详情的基础事实接口。
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 含义 |
+|---|---|---:|---|
+| `dataset_key` | string | 否 | 过滤数据集 |
+| `node_key` | string | 否 | 过滤内容节点 |
+| `layer` | string | 否 | 过滤大层级 |
+| `registered_state` | string | 否 | 过滤登记状态 |
+
+输出：
+
+```json
+{
+  "items": []
+}
+```
+
+其中 `items` 为 `LakeDatasetSummary[]`。
+
+#### `GET /api/lake/partitions`
+
+用途：按数据集和节点列出分区。
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 含义 |
+|---|---|---:|---|
+| `dataset_key` | string | 是 | 数据集 key |
+| `node_key` | string | 是 | 内容节点 key |
+| `freq` | integer | 否 | 频率 |
+| `trade_date_from` | date | 否 | 起始交易日 |
+| `trade_date_to` | date | 否 | 结束交易日 |
+| `trade_month` | string | 否 | 月份 |
+| `bucket` | integer | 否 | 分桶 |
+| `indicator` | string | 否 | 指标名 |
+| `params_key` | string | 否 | 指标参数 key |
+
+输出：
+
+```json
+{
+  "items": []
+}
+```
+
+其中 `items` 为 `LakePartitionSummary[]`。返回对象必须包含 `partition_values`、`partition_locator` 和 `partition_label`，不能让前端用散字段拼分区文案。
+
+#### `GET /api/lake/physical-assets`
+
+用途：展示真实硬盘资产，包括已登记资产、未登记资产和治理目录。
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 含义 |
+|---|---|---:|---|
+| `registered_state` | string | 否 | `registered/unregistered/governance` |
+| `path_prefix` | string | 否 | 路径前缀 |
+| `asset_type` | string | 否 | `directory/file` |
+| `limit` | integer | 否 | 默认 200 |
+| `offset` | integer | 否 | 默认 0 |
+
+输出：
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "limit": 200,
+  "offset": 0
+}
+```
+
+其中 `items` 为 `LakePhysicalAssetSummary[]`。
+
+### 11.6 后置 API
+
+以下 API 不进入本轮模型/API 收口第一批，除非后续有单独方案：
+
+| API | 后置原因 |
+|---|---|
+| `GET /api/lake/nodes` | 第一批可由 datasets 内嵌 `node_summaries` 覆盖 |
+| `GET /api/lake/files` | 文件级 schema/row_count 需要额外读取 parquet metadata，成本更高 |
+| `POST /api/lake/validate` | 需要先稳定 Node 与 PhysicalAsset 模型 |
+| `POST /api/lake/query/sample` | DuckDB sample 查询需单独安全方案 |
+
+### 11.7 旧口径清理要求
+
+| 旧口径 | 处理 |
+|---|---|
+| `LakeLayerDefinition.path/layout/recommended_usage` | 移入 `LakeNodeDefinition` |
+| `LakeLayerSummary.source_layer` | 删除，血缘改用 `source_node_keys` |
+| `LakeDatasetSummary.layer_summaries` | 改为 `node_summaries` |
+| `LakePartitionSummary.layer/layout/freq/trade_date/trade_month/bucket` 作为主字段 | 改为 `node_key` + `partition_values` + `partition_locator` + `partition_label` |
+| `/api/datasets`、`/api/partitions` | 不作为正式契约；实现阶段应切到 `/api/lake/datasets`、`/api/lake/partitions` |
+| 前端 `layerLabel/layoutLabel/sourceLabel` 等事实翻译 | 清零，改为后端返回展示字段 |
+| 前端 `buildLayerAggregates` 这类事实聚合 | 清零，改为消费 `GET /api/lake/overview` |
+
+### 11.8 开发落地状态
+
+1. 已补 `LakeNodeDefinition`、`LakeNodeSummary`、`LakePhysicalAssetSummary`、`LakeOverviewResponse`。
+2. 已把 Catalog 中的数据集路径型 layer 收口为 node，保留全局 `LakeLayerDefinition` 只做大层级字典。
+3. 已按 node 扫描分区，并补全湖 physical asset 扫描。
+4. 已实现 `/api/lake/overview`、`/api/lake/datasets`、`/api/lake/partitions`、`/api/lake/physical-assets`。
+5. 已把 Recovery 之外的数据湖总览与详情前端切到后端展示字段，清掉页面事实推断。
+6. 后续若新增 Storage / Cost 或 Health 页面，必须复用本节模型，不允许重新按页面自建一套事实字段。
+
+### 11.9 开发门禁
+
+进入代码开发前必须确认：
+
+1. 本节契约和 `local-lake-console-data-model-map-v1.html` 口径一致。
+2. 不新增与本节无关 API。
+3. 不顺手开发 Storage / Cost 新页面。
+4. 不保留新旧模型双主线。
+5. 不改生产 `src/**`、生产 `frontend/**` 或生产 Ops/Web。
+
+## 11-old. 旧版 API 契约草案（归档，不作为后续开发依据）
+
+本节保留早期第一版 API 草案，仅用于说明当前代码历史来源。后续开发不得以本归档小节作为契约依据；正式依据是上方第 11 章目标态契约。
 
 ### 11.1 通用对象
 

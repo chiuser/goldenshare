@@ -1,4 +1,4 @@
-import type { DatasetSummary, LayerSummary } from "../types";
+import type { DatasetSummary, NodeSummary } from "../types";
 
 export function formatBytes(value: number): string {
   if (!Number.isFinite(value)) {
@@ -25,6 +25,9 @@ export function formatRange(start: string | null, end: string | null): string {
 }
 
 export function formatDateOrMonthRange(dataset: DatasetSummary): string {
+  if (dataset.coverage_label) {
+    return dataset.coverage_label;
+  }
   const dateRange = formatRange(dataset.earliest_trade_date, dataset.latest_trade_date);
   if (dateRange !== "-") {
     return dateRange;
@@ -32,12 +35,15 @@ export function formatDateOrMonthRange(dataset: DatasetSummary): string {
   return formatRange(dataset.earliest_trade_month, dataset.latest_trade_month);
 }
 
-export function formatLayerDateOrMonthRange(layer: LayerSummary): string {
-  const dateRange = formatRange(layer.earliest_trade_date, layer.latest_trade_date);
+export function formatNodeDateOrMonthRange(node: NodeSummary): string {
+  if (node.coverage_label) {
+    return node.coverage_label;
+  }
+  const dateRange = formatRange(node.earliest_trade_date, node.latest_trade_date);
   if (dateRange !== "-") {
     return dateRange;
   }
-  return formatRange(layer.earliest_trade_month, layer.latest_trade_month);
+  return formatRange(node.earliest_trade_month, node.latest_trade_month);
 }
 
 export function formatRowCount(value: number | null): string {

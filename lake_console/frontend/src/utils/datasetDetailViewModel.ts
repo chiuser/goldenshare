@@ -19,8 +19,8 @@ export type DatasetDetailViewModel = {
 
 export function buildDatasetDetailViewModel(dataset: DatasetSummary, partitions: PartitionSummary[]): DatasetDetailViewModel {
   const latestFile = partitions[0] ?? null;
-  const layerRisks = dataset.layer_summaries.flatMap((layer) => layer.risks);
-  const riskTotal = dataset.risks.length + layerRisks.length;
+  const nodeRisks = dataset.node_summaries.flatMap((node) => node.risks);
+  const riskTotal = dataset.risks.length + nodeRisks.length;
   const overviewMetrics = buildOverviewMetrics(dataset, riskTotal);
 
   return {
@@ -35,16 +35,16 @@ export function buildDatasetDetailViewModel(dataset: DatasetSummary, partitions:
 
 function buildOverviewMetrics(dataset: DatasetSummary, riskTotal: number): DatasetDetailMetricView[] {
   const metrics: Array<DatasetDetailMetricView | null> = [
-    { key: "files", label: "文件数", value: String(dataset.file_count), hint: "全部层级合计" },
+    { key: "files", label: "文件数", value: String(dataset.file_count), hint: "全部内容节点合计" },
     { key: "bytes", label: "总大小", value: formatBytes(dataset.total_bytes), hint: "按本地文件大小汇总" },
-    { key: "layers", label: "层级数", value: String(dataset.layers.length), hint: dataset.layers.join(", ") || "-" },
-    { key: "partitions", label: "分区数", value: String(dataset.partition_count), hint: "全部层级合计" },
+    { key: "nodes", label: "节点数", value: String(dataset.node_summaries.length), hint: dataset.node_summaries.map((node) => node.node_key).join(", ") || "-" },
+    { key: "partitions", label: "分区数", value: String(dataset.partition_count), hint: "全部内容节点合计" },
     dataset.row_count !== null
       ? { key: "rows", label: "行数", value: formatRowCount(dataset.row_count), hint: "来自 Parquet metadata 或显式统计" }
       : null,
-    { key: "range", label: "日期范围", value: formatDateOrMonthRange(dataset), hint: "按文件分区事实汇总" },
+    { key: "range", label: "日期范围", value: dataset.coverage_label || formatDateOrMonthRange(dataset), hint: "后端覆盖范围字段" },
     { key: "updated", label: "最近更新", value: formatDateTime(dataset.latest_modified_at), hint: "本地文件修改时间" },
-    { key: "risks", label: "风险", value: riskTotal ? String(riskTotal) : "无", hint: "数据集与层级风险合计" },
+    { key: "risks", label: "风险", value: riskTotal ? String(riskTotal) : "无", hint: "数据集与内容节点风险合计" },
   ];
   return metrics.filter((metric): metric is DatasetDetailMetricView => metric !== null);
 }

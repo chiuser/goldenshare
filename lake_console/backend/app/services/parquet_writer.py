@@ -46,26 +46,42 @@ def replace_file_atomically(*, tmp_file: Path, final_file: Path, backup_root: Pa
     final_file.parent.mkdir(parents=True, exist_ok=True)
     backup_root.mkdir(parents=True, exist_ok=True)
     backup_file = backup_root / final_file.name
-    if final_file.exists():
+    final_moved = False
+    try:
+        if final_file.exists():
+            if backup_file.exists():
+                backup_file.unlink()
+            final_file.replace(backup_file)
+            final_moved = True
+        tmp_file.replace(final_file)
+    except Exception:
+        if final_moved and backup_file.exists() and not final_file.exists():
+            backup_file.replace(final_file)
+        raise
+    else:
         if backup_file.exists():
             backup_file.unlink()
-        final_file.replace(backup_file)
-    tmp_file.replace(final_file)
-    if backup_file.exists():
-        backup_file.unlink()
 
 
 def replace_directory_atomically(*, tmp_dir: Path, final_dir: Path, backup_root: Path) -> None:
     final_dir.parent.mkdir(parents=True, exist_ok=True)
     backup_root.mkdir(parents=True, exist_ok=True)
     backup_dir = backup_root / final_dir.name
-    if backup_dir.exists():
-        shutil.rmtree(backup_dir)
-    if final_dir.exists():
-        final_dir.replace(backup_dir)
-    tmp_dir.replace(final_dir)
-    if backup_dir.exists():
-        shutil.rmtree(backup_dir)
+    final_moved = False
+    try:
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        if final_dir.exists():
+            final_dir.replace(backup_dir)
+            final_moved = True
+        tmp_dir.replace(final_dir)
+    except Exception:
+        if final_moved and backup_dir.exists() and not final_dir.exists():
+            backup_dir.replace(final_dir)
+        raise
+    else:
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
 
 
 def _require_pandas():  # type: ignore[no-untyped-def]

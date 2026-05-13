@@ -110,7 +110,7 @@ class StkMinsCleanNext2022BjFreq30RepairService:
             "operation": "repair_stk_mins_clean_next_2022_bj_freq30",
             "mode": "apply" if apply else "dry_run",
             "dataset_layer": str(CLEAN_NEXT_ROOT),
-            "source_layer": str(CLEAN_NEXT_ROOT),
+            "source_path": str(CLEAN_NEXT_ROOT),
             "schema_mode": "formal_clean_next_11_columns",
             "date_range": {
                 "start": TARGET_START_DATE.isoformat(),

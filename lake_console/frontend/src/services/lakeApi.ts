@@ -1,6 +1,7 @@
 import type {
   CommandExampleGroup,
   DatasetSummary,
+  LakeOverview,
   LakeStatus,
   PartitionSummary,
   RecoveryRepositorySummary,
@@ -39,8 +40,12 @@ export function loadLakeStatus(): Promise<LakeStatus> {
   return fetchJson<LakeStatus>("/api/lake/status", "数据湖控制台 API 请求失败。");
 }
 
+export function loadLakeOverview(): Promise<LakeOverview> {
+  return fetchJson<LakeOverview>("/api/lake/overview", "数据湖总览 API 请求失败。");
+}
+
 export async function loadDatasets(): Promise<DatasetSummary[]> {
-  const payload = await fetchJson<DatasetListResponse>("/api/datasets", "数据湖控制台 API 请求失败。");
+  const payload = await fetchJson<DatasetListResponse>("/api/lake/datasets", "数据湖数据集 API 请求失败。");
   return payload.items;
 }
 
@@ -49,9 +54,9 @@ export async function loadCommandExamples(): Promise<CommandExampleGroup[]> {
   return payload.groups;
 }
 
-export async function loadPartitions(datasetKey: string): Promise<PartitionSummary[]> {
+export async function loadPartitions(datasetKey: string, nodeKey: string): Promise<PartitionSummary[]> {
   const payload = await fetchJson<PartitionListResponse>(
-    `/api/partitions?dataset_key=${encodeURIComponent(datasetKey)}`,
+    `/api/lake/partitions?dataset_key=${encodeURIComponent(datasetKey)}&node_key=${encodeURIComponent(nodeKey)}`,
     "分区 API 请求失败。",
   );
   return payload.items;

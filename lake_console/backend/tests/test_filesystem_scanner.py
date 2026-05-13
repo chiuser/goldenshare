@@ -37,7 +37,7 @@ def test_index_mins_scan_accepts_minute_suffix_freq_partition(tmp_path) -> None:
     )
 
     summary = FilesystemScanner(tmp_path).list_datasets(dataset_key="index_mins")[0]
-    partitions = FilesystemScanner(tmp_path).list_partitions(dataset_key="index_mins", freq=30)
+    partitions = FilesystemScanner(tmp_path).list_partitions(dataset_key="index_mins", node_key="raw_tushare_by_date", freq=30)
 
     assert summary.health_status == "ok"
     assert summary.file_count == 1
@@ -45,5 +45,5 @@ def test_index_mins_scan_accepts_minute_suffix_freq_partition(tmp_path) -> None:
     assert summary.freqs == [30]
     assert summary.earliest_trade_date == "2026-01-05"
     assert summary.latest_trade_date == "2026-01-05"
-    assert partitions[0].freq == 30
-    assert partitions[0].trade_date == "2026-01-05"
+    assert partitions[0].partition_values["freq"] == 30
+    assert partitions[0].partition_values["trade_date"] == "2026-01-05"

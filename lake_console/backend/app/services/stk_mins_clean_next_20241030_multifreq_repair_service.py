@@ -114,7 +114,7 @@ class StkMinsCleanNext20241030MultifreqRepairService:
             "operation": "repair_stk_mins_clean_next_20241030_multifreq",
             "mode": "apply" if apply else "dry_run",
             "dataset_layer": str(CLEAN_NEXT_ROOT),
-            "source_layer": str(CLEAN_NEXT_ROOT),
+            "source_path": str(CLEAN_NEXT_ROOT),
             "schema_mode": "formal_clean_next_11_columns",
             "trade_date": TARGET_TRADE_DATE.isoformat(),
             "source_freq": SOURCE_FREQ,

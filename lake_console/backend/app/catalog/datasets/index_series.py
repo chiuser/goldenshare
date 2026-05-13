@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 from lake_console.backend.app.catalog.tushare_index_series import (
     INDEX_DAILY_BASIC_FIELDS,
     INDEX_DAILY_FIELDS,
@@ -25,12 +25,12 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="指数日线原始事实层，字段口径保持 Tushare index_daily。",
-                layout="by_date",
+                node_name="源站事实",
+                description="指数日线原始事实层，字段口径保持 Tushare index_daily。",
+                scan_profile="by_date",
                 path="raw_tushare/index_daily",
                 recommended_usage="指数横截面与日频行情研究。",
             ),
@@ -86,12 +86,12 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="指数每日指标原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="指数每日指标原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/index_daily_basic",
                 recommended_usage="指数估值、换手和规模指标研究。",
             ),
@@ -147,12 +147,12 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="最佳事实",
-                purpose="指数周线修复事实层，字段口径保持 Tushare index_weekly。",
-                layout="by_date",
+                node_name="最佳事实",
+                description="指数周线修复事实层，字段口径保持 Tushare index_weekly。",
+                scan_profile="by_date",
                 path="raw_tushare/index_weekly",
                 recommended_usage="指数周频走势、周收益和跨周期比较研究。",
             ),
@@ -208,12 +208,12 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="最佳事实",
-                purpose="指数分钟线原始事实层，双模式共用同一字段契约和 active pool 生命周期口径。",
-                layout="by_date",
+                node_name="最佳事实",
+                description="指数分钟线原始事实层，双模式共用同一字段契约和 active pool 生命周期口径。",
+                scan_profile="by_date",
                 path="raw_tushare/index_mins_by_date",
                 recommended_usage="指数分钟级走势、分时研究与后续本地分钟派生分析。",
             ),
@@ -293,12 +293,12 @@ INDEX_SERIES_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="最佳事实",
-                purpose="指数月线修复事实层，字段口径保持 Tushare index_monthly。",
-                layout="by_date",
+                node_name="最佳事实",
+                description="指数月线修复事实层，字段口径保持 Tushare index_monthly。",
+                scan_profile="by_date",
                 path="raw_tushare/index_monthly",
                 recommended_usage="指数月频走势、长周期回顾和月度比较研究。",
             ),

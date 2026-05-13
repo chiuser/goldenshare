@@ -17,6 +17,7 @@ from lake_console.backend.app.services.parquet_writer import (
     replace_directory_atomically,
     write_rows_to_parquet,
 )
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateBlockedError, CleanNextPartitionGateService
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 from lake_console.backend.app.sync.helpers.dates import load_open_trade_dates
 
@@ -50,6 +51,7 @@ class StkMinsDerivedService:
         outputs: list[str] = []
         for target_freq in targets:
             source_freq, group_size = DERIVED_FREQ_MAP[target_freq]
+            _require_clean_next_gate_passed(lake_root=self.lake_root, source_freq=source_freq, trade_date=trade_date)
             source_partition = _source_partition(lake_root=self.lake_root, source_freq=source_freq, trade_date=trade_date)
             source_files = sorted(source_partition.glob("*.parquet"))
             if not source_files:
@@ -142,6 +144,11 @@ class StkMinsDerivedService:
             preview = "\n".join(str(item) for item in missing_sources[:10])
             suffix = "" if len(missing_sources) <= 10 else f"\n... 另有 {len(missing_sources) - 10} 个缺失源分区"
             raise RuntimeError(f"derive-stk-mins-range 缺少源分区，未执行任何写入：\n{preview}{suffix}")
+        gate_errors = _source_gate_errors(lake_root=self.lake_root, trade_dates=trade_dates, targets=targets)
+        if gate_errors:
+            preview = "\n".join(gate_errors[:10])
+            suffix = "" if len(gate_errors) <= 10 else f"\n... 另有 {len(gate_errors) - 10} 个 gate 问题"
+            raise RuntimeError(f"derive-stk-mins-range 源 clean_next gate 未通过，未执行任何写入：\n{preview}{suffix}")
 
         started_at = datetime.now(timezone.utc)
         started = time_module.monotonic()
@@ -223,8 +230,24 @@ def _missing_source_partitions(*, lake_root: Path, trade_dates: list[date], targ
     return missing
 
 
+def _source_gate_errors(*, lake_root: Path, trade_dates: list[date], targets: list[int]) -> list[str]:
+    errors: list[str] = []
+    for current_trade_date in trade_dates:
+        for target_freq in targets:
+            source_freq, _group_size = DERIVED_FREQ_MAP[target_freq]
+            try:
+                _require_clean_next_gate_passed(lake_root=lake_root, source_freq=source_freq, trade_date=current_trade_date)
+            except CleanNextGateBlockedError as exc:
+                errors.append(str(exc))
+    return errors
+
+
 def _source_partition(*, lake_root: Path, source_freq: int, trade_date: date) -> Path:
-    return lake_root / "research" / "stk_mins_by_date_clean" / f"freq={source_freq}" / f"trade_date={trade_date.isoformat()}"
+    return lake_root / "research" / "stk_mins_by_date_clean_next" / f"freq={source_freq}" / f"trade_date={trade_date.isoformat()}"
+
+
+def _require_clean_next_gate_passed(*, lake_root: Path, source_freq: int, trade_date: date) -> None:
+    CleanNextPartitionGateService(lake_root=lake_root).require_passed(freq=source_freq, trade_date=trade_date)
 
 
 def _aggregate_chunk(*, target_freq: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:

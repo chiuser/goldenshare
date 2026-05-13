@@ -1,8 +1,8 @@
 import { DatasetDetailHeader } from "../components/DatasetDetailHeader";
 import { DatasetDetailMetaPanel } from "../components/DatasetDetailMetaPanel";
 import { EmptyState } from "../components/EmptyState";
-import { LayerRow } from "../components/LayerRow";
 import { Metric } from "../components/Metric";
+import { NodeRow } from "../components/NodeRow";
 import { SectionCard } from "../components/SectionCard";
 import type { DatasetSummary, PartitionSummary } from "../types";
 import { buildDatasetDetailViewModel } from "../utils/datasetDetailViewModel";
@@ -31,15 +31,15 @@ export function DatasetDetailPage({ dataset, partitions, onBack }: DatasetDetail
       <div className="detail-content-stack">
         <DatasetDetailMetaPanel dataset={dataset} detailView={detailView} />
 
-        <SectionCard className="detail-layer-section" title="数据层级">
-          {dataset.layer_summaries.length ? (
+        <SectionCard className="detail-layer-section" title="内容节点">
+          {dataset.node_summaries.length ? (
             <div className="layer-stack">
-              {dataset.layer_summaries.map((layer) => (
-                <LayerRow layer={layer} key={`${dataset.dataset_key}-${layer.layer}-${layer.layout}`} />
+              {dataset.node_summaries.map((node) => (
+                <NodeRow node={node} key={`${dataset.dataset_key}-${node.node_key}`} />
               ))}
             </div>
           ) : (
-            <EmptyState title="暂无层级文件" description="当前数据集还没有扫描到 raw、manifest、derived 或 research 文件。" />
+            <EmptyState title="暂无内容节点文件" description="当前数据集还没有扫描到已登记内容节点文件。" />
           )}
         </SectionCard>
       </div>

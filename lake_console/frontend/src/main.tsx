@@ -20,17 +20,18 @@ function App() {
     commandGroups: initialData.commandGroups,
     datasets: initialData.datasets,
   });
-  const { commandError, commandGroups, datasets, error, status } = initialData;
-  const { partitionError, partitions } = useDatasetPartitions(selection.selectedDatasetKey);
-  const { summary, summaryError, summaryLoading, reloadSummary } = useRecoveryRepositorySummary();
-  const { records, total, recordsError, recordsLoading, reloadSnapshots } = useRecoverySnapshots(selection.recoveryFilters);
-  const { detail, detailError, detailLoading, reloadDetail } = useRecoverySnapshotDetail(selection.selectedRecoveryRecordId);
-  const pageError = error ?? partitionError;
+  const { commandError, commandGroups, datasets, error, overview, status } = initialData;
   const viewModel = useLakeConsoleViewModel({
     datasets,
     selectedDatasetKey: selection.selectedDatasetKey,
     status,
   });
+  const selectedNodeKey = viewModel.selectedDataset?.node_summaries[0]?.node_key ?? "";
+  const { partitionError, partitions } = useDatasetPartitions(selection.selectedDatasetKey, selectedNodeKey);
+  const { summary, summaryError, summaryLoading, reloadSummary } = useRecoveryRepositorySummary();
+  const { records, total, recordsError, recordsLoading, reloadSnapshots } = useRecoverySnapshots(selection.recoveryFilters);
+  const { detail, detailError, detailLoading, reloadDetail } = useRecoverySnapshotDetail(selection.selectedRecoveryRecordId);
+  const pageError = error ?? partitionError;
   const refreshRecovery = () => {
     reloadSummary();
     reloadSnapshots();
@@ -45,12 +46,8 @@ function App() {
 
       {selection.activePage === "datasets" ? (
         <DatasetOverviewPage
-          datasets={datasets}
-          readyDatasets={viewModel.readyDatasets}
-          riskCount={viewModel.riskCount}
+          overview={overview}
           status={status}
-          totalBytes={viewModel.totalBytes}
-          totalFiles={viewModel.totalFiles}
           onOpenDetail={selection.openDatasetDetail}
         />
       ) : null}

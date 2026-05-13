@@ -19,20 +19,18 @@ export function DatasetDetailMetaPanel({ dataset, detailView }: DatasetDetailMet
       <div className="detail-meta-stack">
         <DetailGroup title="身份">
           <div className="detail-grid">
-            <DetailItem label="数据源" value={dataset.source} />
+            <DetailItem label="数据源" value={dataset.source_label} />
             <DetailItem label="数据集 key" value={dataset.dataset_key} />
             <DetailItem label="分组" value={dataset.group_label ?? "-"} />
-            <DetailItem label="角色" value={dataset.dataset_role} />
+            <DetailItem label="角色" value={dataset.dataset_role_label} />
           </div>
         </DetailGroup>
 
         <DetailGroup title="存储与写入">
           <div className="detail-grid">
-            <DetailItem label="存储根" value={dataset.storage_root ?? "-"} wide />
-            <DetailItem label="主布局" value={dataset.primary_layout ?? "-"} />
-            <DetailItem label="写入策略" value={dataset.write_policy ?? "-"} />
-            <DetailItem label="更新方式" value={dataset.update_mode ?? "-"} />
-            <DetailItem label="可用布局" value={dataset.available_layouts.join(", ") || "-"} wide />
+            <DetailItem label="内容节点" value={String(dataset.node_summaries.length)} />
+            <DetailItem label="覆盖范围" value={dataset.coverage_label} />
+            <DetailItem label="健康状态" value={dataset.health_label} />
             <DetailItem label="支持频度" value={dataset.supported_freqs.join(", ") || "-"} wide />
           </div>
         </DetailGroup>

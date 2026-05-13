@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 FUND_DAILY_FIELDS: tuple[str, ...] = (
@@ -39,12 +39,12 @@ MARKET_FUND_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 基金日线原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 基金日线原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/fund_daily",
                 recommended_usage="ETF / 基金日频行情研究。",
             ),
@@ -100,12 +100,12 @@ MARKET_FUND_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 基金复权因子原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 基金复权因子原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/fund_adj",
                 recommended_usage="ETF / 基金复权价格恢复与研究。",
             ),

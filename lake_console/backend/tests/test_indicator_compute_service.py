@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
 from lake_console.backend.app.cli.main import main
 from lake_console.backend.app.services.indicators import MacdStateStore, StkMinsIndicatorComputeService
 from lake_console.backend.app.services.parquet_writer import read_parquet_rows, write_rows_to_parquet
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateStatus, CleanNextPartitionGateService
 
 
 def test_compute_macd_full_writes_indicator_and_state(tmp_path) -> None:
@@ -729,8 +730,9 @@ def _source_row(ts_code: str, trade_time: str, close: float) -> dict[str, object
 def _write_source_rows(tmp_path, *, trade_date: str, rows: list[dict[str, object]]) -> None:
     write_rows_to_parquet(
         rows,
-        tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=30" / f"trade_date={trade_date}" / "part-000.parquet",
+        tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=30" / f"trade_date={trade_date}" / "part-000.parquet",
     )
+    _write_passed_gate(tmp_path, freq=30, trade_date=date.fromisoformat(trade_date), rows=len(rows))
 
 
 def _write_research_rows(tmp_path, *, trade_month: str, bucket: str, rows: list[dict[str, object]]) -> None:
@@ -761,6 +763,28 @@ def _stock(ts_code: str, list_status: str, list_date: str, delist_date: str | No
 
 def _write_universe(root, rows: list[dict[str, object]]) -> None:
     write_rows_to_parquet(rows, root / "manifest" / "security_universe" / "tushare_stock_basic.parquet")
+
+
+def _write_passed_gate(tmp_path, *, freq: int, trade_date: date, rows: int) -> None:
+    CleanNextPartitionGateService(lake_root=tmp_path).write_statuses(
+        [
+            CleanNextGateStatus(
+                freq=freq,
+                trade_date=trade_date,
+                clean_partition_path=f"research/stk_mins_by_date_clean_next/freq={freq}/trade_date={trade_date.isoformat()}",
+                source_run_id="test-run",
+                clean_run_id="test-clean",
+                write_revision=f"test-run:freq={freq}:trade_date={trade_date.isoformat()}",
+                status="passed",
+                issue_count=0,
+                raw_rows=rows,
+                clean_rows=rows,
+                ledger_path="manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet",
+                message="passed",
+            )
+        ],
+        run_id=f"test-gate-{freq}-{trade_date.isoformat()}",
+    )
 
 
 def _indicator_partition(tmp_path, trade_date: str):

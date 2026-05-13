@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 LIMIT_LIST_D_FIELDS: tuple[str, ...] = (
@@ -89,13 +89,13 @@ TOP_LIST_FIELDS: tuple[str, ...] = (
 )
 
 
-def _by_date_layers(*, dataset_key: str, purpose: str, recommended_usage: str) -> tuple[LakeLayerDefinition, ...]:
+def _by_date_nodes(*, dataset_key: str, description: str, recommended_usage: str) -> tuple[LakeNodeDefinition, ...]:
     return (
-        LakeLayerDefinition(
+        LakeNodeDefinition(
             layer="raw_tushare",
-            layer_name="源站事实",
-            purpose=purpose,
-            layout="by_date",
+            node_name="源站事实",
+            description=description,
+            scan_profile="by_date",
             path=f"raw_tushare/{dataset_key}",
             recommended_usage=recommended_usage,
         ),
@@ -163,9 +163,9 @@ LEADER_BOARD_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="limit_list_d",
-            purpose="Tushare 每日涨跌停、炸板数据原始落盘层。",
+            description="Tushare 每日涨跌停、炸板数据原始落盘层。",
             recommended_usage="涨停池、炸板池与跌停池日频研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -188,9 +188,9 @@ LEADER_BOARD_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="limit_list_ths",
-            purpose="Tushare 同花顺涨跌停榜单原始落盘层。",
+            description="Tushare 同花顺涨跌停榜单原始落盘层。",
             recommended_usage="同花顺涨停池、连板池与炸板池研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -213,9 +213,9 @@ LEADER_BOARD_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="limit_step",
-            purpose="Tushare 连板天梯原始落盘层。",
+            description="Tushare 连板天梯原始落盘层。",
             recommended_usage="连板进阶统计与强势热度研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -240,9 +240,9 @@ LEADER_BOARD_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="limit_cpt_list",
-            purpose="Tushare 最强板块统计原始落盘层。",
+            description="Tushare 最强板块统计原始落盘层。",
             recommended_usage="强势板块轮动与板块热度研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -267,9 +267,9 @@ LEADER_BOARD_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="top_list",
-            purpose="Tushare 龙虎榜每日明细原始落盘层。",
+            description="Tushare 龙虎榜每日明细原始落盘层。",
             recommended_usage="龙虎榜上榜统计与席位活跃度日频研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(

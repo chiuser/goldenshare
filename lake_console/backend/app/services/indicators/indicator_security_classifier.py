@@ -102,7 +102,7 @@ def classify_missing_macd_states(
 def _find_bse_920_first_source_dates(*, lake_root: Path, ts_codes: list[str], freq: int, end_date: date) -> dict[str, date]:
     if not ts_codes:
         return {}
-    source_root = lake_root / _source_layer(freq) / "stk_mins_by_date" / f"freq={freq}"
+    source_root = _source_root(lake_root=lake_root, freq=freq)
     source_files: list[Path] = []
     for partition in sorted(source_root.glob("trade_date=*")):
         partition_date = _parse_trade_date_partition(partition)
@@ -124,11 +124,11 @@ def _find_bse_920_first_source_dates(*, lake_root: Path, ts_codes: list[str], fr
     return {str(ts_code): first_trade_time.date() for ts_code, first_trade_time in rows if first_trade_time is not None}
 
 
-def _source_layer(freq: int) -> str:
+def _source_root(*, lake_root: Path, freq: int) -> Path:
     if freq in RAW_FREQS:
-        return "raw_tushare"
+        return lake_root / "research" / "stk_mins_by_date_clean_next" / f"freq={freq}"
     if freq in DERIVED_FREQS:
-        return "derived"
+        return lake_root / "derived" / "stk_mins_by_date" / f"freq={freq}"
     raise ValueError("指标源读取仅支持 freq=1/5/15/30/60/90/120。")
 
 

@@ -136,7 +136,7 @@ def build_stk_mins_plan(
         request_count=target_request_count,
         partition_count=current_partition_count,
         write_policy=definition.write_policy,
-        write_paths=tuple(layer.path for layer in definition.layers),
+        write_paths=tuple(node.path for node in definition.nodes),
         required_manifests=(
             "manifest/security_universe/tushare_stock_basic.parquet",
             "manifest/trading_calendar/tushare_trade_cal.parquet",

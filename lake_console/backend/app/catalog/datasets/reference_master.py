@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
@@ -18,20 +18,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式 ETF 基础资料维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式 ETF 基础资料维表。",
+                scan_profile="current_file",
                 path="raw_tushare/etf_basic/current/part-000.parquet",
                 recommended_usage="ETF 名称、跟踪指数、管理人等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行 ETF 池",
-                purpose="后续本地 ETF 相关任务使用的辅助清单。",
-                layout="manifest_file",
+                node_name="执行 ETF 池",
+                description="后续本地 ETF 相关任务使用的辅助清单。",
+                scan_profile="manifest_file",
                 path="manifest/etf_universe/tushare_etf_basic.parquet",
                 recommended_usage="供后续本地 ETF universe 读取或辅助任务引用。",
             ),
@@ -69,20 +69,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式股票基础资料维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式股票基础资料维表。",
+                scan_profile="current_file",
                 path="raw_tushare/stock_basic/current/part-000.parquet",
                 recommended_usage="股票名称、行业、上市状态等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行股票池",
-                purpose="本地同步任务使用的股票池。",
-                layout="manifest_file",
+                node_name="执行股票池",
+                description="本地同步任务使用的股票池。",
+                scan_profile="manifest_file",
                 path="manifest/security_universe/tushare_stock_basic.parquet",
                 recommended_usage="为 stk_mins 全市场同步提供本地 ts_code 清单。",
             ),
@@ -120,20 +120,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式交易日历维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式交易日历维表。",
+                scan_profile="current_file",
                 path="raw_tushare/trade_cal/current/part-000.parquet",
                 recommended_usage="研究查询中的交易日判断。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行交易日历",
-                purpose="本地同步任务使用的交易日历。",
-                layout="manifest_file",
+                node_name="执行交易日历",
+                description="本地同步任务使用的交易日历。",
+                scan_profile="manifest_file",
                 path="manifest/trading_calendar/tushare_trade_cal.parquet",
                 recommended_usage="区间同步展开交易日，不访问远程数据库。",
             ),
@@ -171,20 +171,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式 ETF 跟踪指数维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式 ETF 跟踪指数维表。",
+                scan_profile="current_file",
                 path="raw_tushare/etf_index/current/part-000.parquet",
                 recommended_usage="ETF 与其跟踪指数之间的研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行 ETF 引用清单",
-                purpose="后续本地 ETF 相关辅助引用清单。",
-                layout="manifest_file",
+                node_name="执行 ETF 引用清单",
+                description="后续本地 ETF 相关辅助引用清单。",
+                scan_profile="manifest_file",
                 path="manifest/etf_reference/tushare_etf_index.parquet",
                 recommended_usage="供后续本地 ETF reference 场景读取。",
             ),
@@ -222,20 +222,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式北交所新旧代码对照维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式北交所新旧代码对照维表。",
+                scan_profile="current_file",
                 path="raw_tushare/bse_mapping/current/part-000.parquet",
                 recommended_usage="证券代码映射与研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行参考清单",
-                purpose="后续本地代码映射与辅助校验使用的参考清单。",
-                layout="manifest_file",
+                node_name="执行参考清单",
+                description="后续本地代码映射与辅助校验使用的参考清单。",
+                scan_profile="manifest_file",
                 path="manifest/security_reference/tushare_bse_mapping.parquet",
                 recommended_usage="供后续本地代码映射、辅助校验与轻量引用场景读取。",
             ),
@@ -273,20 +273,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式指数基础资料维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式指数基础资料维表。",
+                scan_profile="current_file",
                 path="raw_tushare/index_basic/current/part-000.parquet",
                 recommended_usage="指数名称、市场、发布方等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行指数池",
-                purpose="后续指数行情同步任务使用的指数池。",
-                layout="manifest_file",
+                node_name="执行指数池",
+                description="后续指数行情同步任务使用的指数池。",
+                scan_profile="manifest_file",
                 path="manifest/index_universe/tushare_index_basic.parquet",
                 recommended_usage="为 index_daily/index_weekly/index_monthly/index_weight 提供本地指数清单。",
             ),
@@ -340,20 +340,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式同花顺板块列表维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式同花顺板块列表维表。",
+                scan_profile="current_file",
                 path="raw_tushare/ths_index/current/part-000.parquet",
                 recommended_usage="板块名称、市场和类型等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行板块池",
-                purpose="后续本地板块相关任务使用的板块代码池。",
-                layout="manifest_file",
+                node_name="执行板块池",
+                description="后续本地板块相关任务使用的板块代码池。",
+                scan_profile="manifest_file",
                 path="manifest/board_universe/tushare_ths_index.parquet",
                 recommended_usage="供后续本地板块 universe 或成员同步辅助引用。",
             ),
@@ -391,20 +391,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式同花顺板块成分维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式同花顺板块成分维表。",
+                scan_profile="current_file",
                 path="raw_tushare/ths_member/current/part-000.parquet",
                 recommended_usage="板块-成分股研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行板块成员清单",
-                purpose="后续本地板块成员相关任务使用的辅助清单。",
-                layout="manifest_file",
+                node_name="执行板块成员清单",
+                description="后续本地板块成员相关任务使用的辅助清单。",
+                scan_profile="manifest_file",
                 path="manifest/board_membership/tushare_ths_member.parquet",
                 recommended_usage="供后续本地板块成员辅助任务或清单读取。",
             ),
@@ -442,20 +442,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式港股基础信息维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式港股基础信息维表。",
+                scan_profile="current_file",
                 path="raw_tushare/hk_basic/current/part-000.parquet",
                 recommended_usage="港股名称、上市日期、市场类别等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行港股池",
-                purpose="后续本地港股相关任务使用的辅助清单。",
-                layout="manifest_file",
+                node_name="执行港股池",
+                description="后续本地港股相关任务使用的辅助清单。",
+                scan_profile="manifest_file",
                 path="manifest/security_universe/tushare_hk_basic.parquet",
                 recommended_usage="供后续本地港股 universe 读取或辅助任务引用。",
             ),
@@ -493,20 +493,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式股票曾用名历史维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式股票曾用名历史维表。",
+                scan_profile="current_file",
                 path="raw_tushare/namechange/current/part-000.parquet",
                 recommended_usage="证券更名历史研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行参考清单",
-                purpose="后续本地曾用名参考与辅助校验使用的参考清单。",
-                layout="manifest_file",
+                node_name="执行参考清单",
+                description="后续本地曾用名参考与辅助校验使用的参考清单。",
+                scan_profile="manifest_file",
                 path="manifest/security_reference/tushare_namechange.parquet",
                 recommended_usage="供本地曾用名 reference 场景读取。",
             ),
@@ -544,20 +544,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式上市公司基本信息维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式上市公司基本信息维表。",
+                scan_profile="current_file",
                 path="raw_tushare/stock_company/current/part-000.parquet",
                 recommended_usage="公司资料、所在地、主营业务等研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行参考清单",
-                purpose="后续本地公司资料参考与辅助校验使用的参考清单。",
-                layout="manifest_file",
+                node_name="执行参考清单",
+                description="后续本地公司资料参考与辅助校验使用的参考清单。",
+                scan_profile="manifest_file",
                 path="manifest/security_reference/tushare_stock_company.parquet",
                 recommended_usage="供本地公司资料 reference 场景读取。",
             ),
@@ -595,20 +595,20 @@ REFERENCE_MASTER_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("current_file", "manifest_file"),
         write_policy="replace_file",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="正式 ST 风险警示事件历史维表。",
-                layout="current_file",
+                node_name="源站事实",
+                description="正式 ST 风险警示事件历史维表。",
+                scan_profile="current_file",
                 path="raw_tushare/st/current/part-000.parquet",
                 recommended_usage="ST 风险警示历史研究查询 join。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="manifest",
-                layer_name="执行参考清单",
-                purpose="后续本地 ST 风险事件参考与辅助校验使用的参考清单。",
-                layout="manifest_file",
+                node_name="执行参考清单",
+                description="后续本地 ST 风险事件参考与辅助校验使用的参考清单。",
+                scan_profile="manifest_file",
                 path="manifest/security_reference/tushare_st.parquet",
                 recommended_usage="供本地 ST 风险事件 reference 场景读取。",
             ),

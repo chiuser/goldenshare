@@ -5,7 +5,7 @@ import math
 import time
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,7 @@ from lake_console.backend.app.services.parquet_writer import (
     replace_directory_atomically,
     write_rows_to_parquet,
 )
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateBlockedError, CleanNextPartitionGateService
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 
 
@@ -41,11 +42,13 @@ class StkMinsResearchService:
         started = time.monotonic()
         run_id = _run_id("research-stk-mins")
         LakeRootService(self.lake_root).require_ready_for_write()
-        source_layer = "research_clean" if freq in RAW_FREQS else "derived"
-        source_root = _source_root(lake_root=self.lake_root, source_layer=source_layer, freq=freq)
+        source_node_key = "clean_next_by_date" if freq in RAW_FREQS else "derived_by_date"
+        source_root = _source_root(lake_root=self.lake_root, source_node_key=source_node_key, freq=freq)
         source_files = _month_source_files(source_root=source_root, trade_month=trade_month)
         if not source_files:
             raise RuntimeError(f"缺少可重排源文件：{source_root}/trade_date={trade_month}-*/")
+        if freq in RAW_FREQS:
+            _require_clean_next_gate_for_files(lake_root=self.lake_root, freq=freq, source_files=source_files)
 
         rows = read_parquet_files(source_files)
         buckets = bucket_rows(rows=rows, bucket_count=self.bucket_count)
@@ -68,7 +71,7 @@ class StkMinsResearchService:
         written_total = 0
         self.progress(
             f"[research_stk_mins] start run_id={run_id} freq={freq} trade_month={trade_month} "
-            f"source_layer={source_layer} source_files={len(source_files)} source_rows={len(rows)} buckets={self.bucket_count}"
+            f"source_node_key={source_node_key} source_files={len(source_files)} source_rows={len(rows)} buckets={self.bucket_count}"
         )
         for bucket, bucket_rows_value in sorted(buckets.items()):
             bucket_dir = tmp_month / f"bucket={bucket}"
@@ -97,7 +100,7 @@ class StkMinsResearchService:
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "freq": freq,
             "trade_month": trade_month,
-            "source_layer": source_layer,
+            "source_node_key": source_node_key,
             "source_files": len(source_files),
             "source_rows": len(rows),
             "bucket_count": self.bucket_count,
@@ -131,6 +134,11 @@ class StkMinsResearchService:
             preview = "\n".join(str(item) for item in missing_sources[:10])
             suffix = "" if len(missing_sources) <= 10 else f"\n... 另有 {len(missing_sources) - 10} 个缺失源月份"
             raise RuntimeError(f"rebuild-stk-mins-research-range 缺少源文件，未执行任何写入：\n{preview}{suffix}")
+        gate_errors = _month_gate_errors(lake_root=self.lake_root, freqs=freqs, trade_months=months)
+        if gate_errors:
+            preview = "\n".join(gate_errors[:10])
+            suffix = "" if len(gate_errors) <= 10 else f"\n... 另有 {len(gate_errors) - 10} 个 gate 问题"
+            raise RuntimeError(f"rebuild-stk-mins-research-range 源 clean_next gate 未通过，未执行任何写入：\n{preview}{suffix}")
 
         started_at = datetime.now(timezone.utc)
         started = time.monotonic()
@@ -228,20 +236,53 @@ def list_trade_months(*, start_month: str, end_month: str) -> list[str]:
 def _missing_month_sources(*, lake_root: Path, freqs: list[int], trade_months: list[str]) -> list[Path]:
     missing: list[Path] = []
     for freq in freqs:
-        source_layer = "research_clean" if freq in RAW_FREQS else "derived"
-        source_root = _source_root(lake_root=lake_root, source_layer=source_layer, freq=freq)
+        source_node_key = "clean_next_by_date" if freq in RAW_FREQS else "derived_by_date"
+        source_root = _source_root(lake_root=lake_root, source_node_key=source_node_key, freq=freq)
         for trade_month in trade_months:
             if not _month_source_files(source_root=source_root, trade_month=trade_month):
                 missing.append(source_root / f"trade_date={trade_month}-*")
     return missing
 
 
-def _source_root(*, lake_root: Path, source_layer: str, freq: int) -> Path:
-    if source_layer == "research_clean":
-        return lake_root / "research" / "stk_mins_by_date_clean" / f"freq={freq}"
-    if source_layer == "derived":
+def _month_gate_errors(*, lake_root: Path, freqs: list[int], trade_months: list[str]) -> list[str]:
+    errors: list[str] = []
+    for freq in freqs:
+        if freq not in RAW_FREQS:
+            continue
+        source_root = _source_root(lake_root=lake_root, source_node_key="clean_next_by_date", freq=freq)
+        for trade_month in trade_months:
+            source_files = _month_source_files(source_root=source_root, trade_month=trade_month)
+            try:
+                _require_clean_next_gate_for_files(lake_root=lake_root, freq=freq, source_files=source_files)
+            except CleanNextGateBlockedError as exc:
+                errors.append(str(exc))
+    return errors
+
+
+def _source_root(*, lake_root: Path, source_node_key: str, freq: int) -> Path:
+    if source_node_key == "clean_next_by_date":
+        return lake_root / "research" / "stk_mins_by_date_clean_next" / f"freq={freq}"
+    if source_node_key == "derived_by_date":
         return lake_root / "derived" / "stk_mins_by_date" / f"freq={freq}"
-    raise ValueError(f"不支持的 stk_mins research source_layer={source_layer}")
+    raise ValueError(f"不支持的 stk_mins research source_node_key={source_node_key}")
+
+
+def _require_clean_next_gate_for_files(*, lake_root: Path, freq: int, source_files: list[Path]) -> None:
+    service = CleanNextPartitionGateService(lake_root=lake_root)
+    for trade_date in sorted({_parse_partition_date(path.parent) for path in source_files}):
+        if trade_date is None:
+            continue
+        service.require_passed(freq=freq, trade_date=trade_date)
+
+
+def _parse_partition_date(partition: Path) -> date | None:
+    prefix = "trade_date="
+    if not partition.name.startswith(prefix):
+        return None
+    try:
+        return date.fromisoformat(partition.name[len(prefix) :])
+    except ValueError:
+        return None
 
 
 def _bucket_key(row: dict[str, Any]) -> str:

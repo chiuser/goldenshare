@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 CYQ_PERF_FIELDS: tuple[str, ...] = (
@@ -359,12 +359,12 @@ TECHNICAL_INDICATOR_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 每日筹码及胜率原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 每日筹码及胜率原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/cyq_perf",
                 recommended_usage="筹码分布、平均成本与胜率日频研究。",
             ),
@@ -420,12 +420,12 @@ TECHNICAL_INDICATOR_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 股票技术面因子（专业版）原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 股票技术面因子（专业版）原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_factor_pro",
                 recommended_usage="宽表技术面研究、横截面因子筛选与回测输入。",
             ),
@@ -452,12 +452,12 @@ TECHNICAL_INDICATOR_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 神奇九转指标原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 神奇九转指标原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_nineturn",
                 recommended_usage="趋势耗尽识别、时序形态分析与指标研究。",
             ),
@@ -468,6 +468,48 @@ TECHNICAL_INDICATOR_DATASETS: tuple[LakeDatasetDefinition, ...] = (
             sample_trade_date="2026-04-24",
             sample_start_date="2023-01-03",
             sample_end_date="2026-04-24",
+        ),
+    ),
+    LakeDatasetDefinition(
+        dataset_key="stk_mins_indicators",
+        display_name="股票分钟指标",
+        source="local",
+        api_name=None,
+        source_doc_id=None,
+        description="基于股票分钟线本地计算的分钟级指标资产。",
+        dataset_role="derived_dataset",
+        storage_root="derived/stk_mins_indicators_by_date",
+        group_key="technical_indicators",
+        primary_layout="by_date",
+        available_layouts=("by_date", "by_symbol_month"),
+        write_policy="replace_partition",
+        update_mode="derived_local",
+        supported_freqs=(1, 5, 15, 30, 60, 90, 120),
+        nodes=(
+            LakeNodeDefinition(
+                layer="derived",
+                node_key="indicators_by_date",
+                node_name="指标按交易日资产",
+                description="按指标、参数、频率和交易日组织的分钟指标派生结果。",
+                scan_profile="indicator_params_freq_trade_date",
+                path="derived/stk_mins_indicators_by_date",
+                recommended_usage="指标补算、单日横截面分析和研究层重排来源。",
+                asset_role="local_derived",
+                source_node_keys=("stk_mins.clean_next_by_date", "stk_mins.derived_by_date"),
+                partition_dimensions=("indicator", "params_key", "freq", "trade_date"),
+            ),
+            LakeNodeDefinition(
+                layer="research",
+                node_key="indicators_by_symbol_month",
+                node_name="指标按标的月份资产",
+                description="按指标、参数、频率、月份和标的分桶组织的查询优化资产。",
+                scan_profile="indicator_params_freq_trade_month_bucket",
+                path="research/stk_mins_indicators_by_symbol_month",
+                recommended_usage="单股长周期指标查询和回测读取。",
+                asset_role="query_projection",
+                source_node_keys=("indicators_by_date",),
+                partition_dimensions=("indicator", "params_key", "freq", "trade_month", "bucket"),
+            ),
         ),
     ),
 )

@@ -33,7 +33,7 @@ QUEUE_REQUIRED_FIELDS = (
     "error_message",
 )
 QUEUE_STATUSES = frozenset({"pending", "running", "done", "failed"})
-SOURCE_LAYERS = frozenset({"raw_tushare", "derived"})
+SOURCE_LAYERS = frozenset({"research/stk_mins_by_date_clean_next", "derived"})
 
 
 class IndicatorRecalcQueueService:

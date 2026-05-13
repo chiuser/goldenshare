@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from lake_console.backend.app.api import command_examples, datasets, health, lake_status, partitions, recovery
+from lake_console.backend.app.api import command_examples, datasets, health, lake_status, overview, partitions, physical_assets, recovery
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Goldenshare Lake Console", version="0.1.0")
     app.include_router(health.router)
     app.include_router(lake_status.router)
+    app.include_router(overview.router)
     app.include_router(datasets.router)
     app.include_router(command_examples.router)
     app.include_router(partitions.router)
+    app.include_router(physical_assets.router)
     app.include_router(recovery.router)
     return app
 

@@ -44,7 +44,7 @@ def test_macd_state_store_writes_after_indicator_result_success(tmp_path) -> Non
     assert loaded_state == result.final_state
     assert state_rows[0]["indicator_key"] == "macd"
     assert state_rows[0]["source_dataset_key"] == "stk_mins"
-    assert state_rows[0]["source_layer"] == "raw_tushare"
+    assert state_rows[0]["source_node_key"] == "clean_next_by_date"
     assert state_rows[0]["state_version"] == 1
     assert state_rows[0]["updated_at"] is not None
     assert not (tmp_path / "_tmp" / "test-state-success" / "manifest").exists()

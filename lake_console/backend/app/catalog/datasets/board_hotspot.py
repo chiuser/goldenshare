@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 DC_DAILY_FIELDS: tuple[str, ...] = (
@@ -131,13 +131,13 @@ KPL_CONCEPT_CONS_FIELDS: tuple[str, ...] = (
 )
 
 
-def _by_date_layers(*, dataset_key: str, purpose: str, recommended_usage: str) -> tuple[LakeLayerDefinition, ...]:
+def _by_date_nodes(*, dataset_key: str, description: str, recommended_usage: str) -> tuple[LakeNodeDefinition, ...]:
     return (
-        LakeLayerDefinition(
+        LakeNodeDefinition(
             layer="raw_tushare",
-            layer_name="源站事实",
-            purpose=purpose,
-            layout="by_date",
+            node_name="源站事实",
+            description=description,
+            scan_profile="by_date",
             path=f"raw_tushare/{dataset_key}",
             recommended_usage=recommended_usage,
         ),
@@ -205,9 +205,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="dc_daily",
-            purpose="Tushare 东方财富板块日线行情原始落盘层。",
+            description="Tushare 东方财富板块日线行情原始落盘层。",
             recommended_usage="板块日线、涨跌幅与成交统计研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -230,9 +230,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="dc_member",
-            purpose="Tushare 东方财富板块成分原始落盘层。",
+            description="Tushare 东方财富板块成分原始落盘层。",
             recommended_usage="板块-成分关系研究与成分股映射查询。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -255,9 +255,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="dc_index",
-            purpose="Tushare 东方财富概念板块原始落盘层。",
+            description="Tushare 东方财富概念板块原始落盘层。",
             recommended_usage="概念板块列表、龙头与板块强弱分析。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -280,9 +280,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="ths_daily",
-            purpose="Tushare 同花顺板块指数行情原始落盘层。",
+            description="Tushare 同花顺板块指数行情原始落盘层。",
             recommended_usage="板块指数日线、涨跌幅与市值研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -305,9 +305,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="dc_hot",
-            purpose="Tushare 东方财富热榜原始落盘层。",
+            description="Tushare 东方财富热榜原始落盘层。",
             recommended_usage="热榜排行、市场切片与热点类型分析。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -330,9 +330,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="ths_hot",
-            purpose="Tushare 同花顺热榜原始落盘层。",
+            description="Tushare 同花顺热榜原始落盘层。",
             recommended_usage="热榜排行、市场切片与盘中盘后热点分析。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -355,9 +355,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="kpl_list",
-            purpose="Tushare 开盘啦榜单原始落盘层。",
+            description="Tushare 开盘啦榜单原始落盘层。",
             recommended_usage="打板、情绪与强势榜单研究。",
         ),
         command_examples=_prod_raw_trade_date_examples(
@@ -380,9 +380,9 @@ BOARD_HOTSPOT_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_by_date_layers(
+        nodes=_by_date_nodes(
             dataset_key="kpl_concept_cons",
-            purpose="Tushare 开盘啦板块成分原始落盘层。",
+            description="Tushare 开盘啦板块成分原始落盘层。",
             recommended_usage="题材-成分关系研究与概念热度分析。",
         ),
         command_examples=_prod_raw_trade_date_examples(

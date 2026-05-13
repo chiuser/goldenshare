@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 MONEYFLOW_FIELDS: tuple[str, ...] = (
@@ -138,13 +138,13 @@ MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET: dict[str, tuple[date, ...]] = {
 }
 
 
-def _moneyflow_layers(*, dataset_key: str, purpose: str, recommended_usage: str) -> tuple[LakeLayerDefinition, ...]:
+def _moneyflow_nodes(*, dataset_key: str, description: str, recommended_usage: str) -> tuple[LakeNodeDefinition, ...]:
     return (
-        LakeLayerDefinition(
+        LakeNodeDefinition(
             layer="raw_tushare",
-            layer_name="源站事实",
-            purpose=purpose,
-            layout="by_date",
+            node_name="源站事实",
+            description=description,
+            scan_profile="by_date",
             path=f"raw_tushare/{dataset_key}",
             recommended_usage=recommended_usage,
         ),
@@ -209,9 +209,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow",
-            purpose="Tushare 个股资金流向原始落盘层。",
+            description="Tushare 个股资金流向原始落盘层。",
             recommended_usage="个股资金面研究、单日全市场资金分布分析。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow", display_name="个股资金流向"),
@@ -230,9 +230,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_ths",
-            purpose="Tushare 同花顺个股资金流向原始落盘层。",
+            description="Tushare 同花顺个股资金流向原始落盘层。",
             recommended_usage="个股资金面横截面分析与源站对比。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ths", display_name="个股资金流向（THS）"),
@@ -251,9 +251,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_dc",
-            purpose="Tushare 东方财富个股资金流向原始落盘层。",
+            description="Tushare 东方财富个股资金流向原始落盘层。",
             recommended_usage="个股资金流向（DC）历史分析与日频研究。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_dc", display_name="个股资金流向（DC）"),
@@ -272,9 +272,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_cnt_ths",
-            purpose="Tushare 概念板块资金流向原始落盘层。",
+            description="Tushare 概念板块资金流向原始落盘层。",
             recommended_usage="概念板块资金流向与强弱轮动分析。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_cnt_ths", display_name="概念板块资金流向（THS）"),
@@ -293,9 +293,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_ind_ths",
-            purpose="Tushare 同花顺行业资金流向原始落盘层。",
+            description="Tushare 同花顺行业资金流向原始落盘层。",
             recommended_usage="行业资金流向与板块轮动研究。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ind_ths", display_name="行业资金流向（THS）"),
@@ -314,9 +314,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_ind_dc",
-            purpose="Tushare 东方财富板块资金流向原始落盘层。",
+            description="Tushare 东方财富板块资金流向原始落盘层。",
             recommended_usage="板块资金流向与榜单型横截面研究。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_ind_dc", display_name="板块资金流向（DC）"),
@@ -335,9 +335,9 @@ MONEYFLOW_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=_moneyflow_layers(
+        nodes=_moneyflow_nodes(
             dataset_key="moneyflow_mkt_dc",
-            purpose="Tushare 大盘资金流向原始落盘层。",
+            description="Tushare 大盘资金流向原始落盘层。",
             recommended_usage="市场整体资金面日频研究。",
         ),
         command_examples=_moneyflow_command_examples(dataset_key="moneyflow_mkt_dc", display_name="大盘资金流向（DC）"),

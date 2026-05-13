@@ -28,12 +28,18 @@ export type LakeStatus = {
   risks: RiskItem[];
 };
 
-export type LayerSummary = {
+export type NodeSummary = {
+  dataset_key: string;
+  node_key: string;
+  node_name: string;
   layer: string;
   layer_name: string;
-  purpose: string;
-  layout: string;
   path: string;
+  scan_profile: string;
+  asset_role: string;
+  asset_role_label: string;
+  source_node_keys: string[];
+  partition_dimensions: string[];
   partition_count: number;
   file_count: number;
   total_bytes: number;
@@ -44,7 +50,9 @@ export type LayerSummary = {
   latest_trade_date: string | null;
   earliest_trade_month: string | null;
   latest_trade_month: string | null;
+  coverage_label: string;
   recommended_usage: string;
+  registered_state: string;
   risks: RiskItem[];
 };
 
@@ -52,15 +60,15 @@ export type DatasetSummary = {
   dataset_key: string;
   display_name: string;
   source: string;
+  source_label: string;
   category: string | null;
   group_key: string | null;
   group_label: string | null;
   group_order: number | null;
   description: string | null;
   dataset_role: string;
-  storage_root: string | null;
-  layers: string[];
-  layer_summaries: LayerSummary[];
+  dataset_role_label: string;
+  node_summaries: NodeSummary[];
   freqs: number[];
   supported_freqs: number[];
   raw_freqs: number[];
@@ -74,25 +82,97 @@ export type DatasetSummary = {
   latest_trade_date: string | null;
   earliest_trade_month: string | null;
   latest_trade_month: string | null;
-  primary_layout: string | null;
-  available_layouts: string[];
-  write_policy: string | null;
-  update_mode: string | null;
+  coverage_label: string;
   health_status: "ok" | "warning" | "error" | "empty" | string;
+  health_label: string;
   risks: RiskItem[];
+  sort_order: number;
 };
 
 export type PartitionSummary = {
   dataset_key: string;
-  layer: string;
-  layout: string;
-  freq: number | null;
-  trade_date: string | null;
-  trade_month: string | null;
-  bucket: number | null;
+  node_key: string;
+  partition_values: Record<string, string | number>;
+  partition_locator: string;
+  partition_label: string;
   path: string;
   file_count: number;
   total_bytes: number;
+  row_count: number | null;
+  modified_at: string | null;
+  risks: RiskItem[];
+};
+
+export type LakePhysicalAssetSummary = {
+  path: string;
+  asset_type: string;
+  registered_state: string;
+  dataset_key: string | null;
+  node_key: string | null;
+  display_name: string;
+  total_bytes: number;
+  file_count: number;
+  dir_count: number;
+  latest_modified_at: string | null;
+  risk_level: string;
+  risk_label: string;
+};
+
+export type LakeOverviewMetric = {
+  key: string;
+  label: string;
+  value: string;
+  hint: string;
+  tone: "subtle" | "success" | "warning" | "error" | string;
+  sort_order: number;
+};
+
+export type LakeOverviewLayerGroup = {
+  layer: string;
+  layer_name: string;
+  dataset_count: number;
+  node_count: number;
+  partition_count: number;
+  file_count: number;
+  total_bytes: number;
+  coverage_label: string;
+  freqs: number[];
+  sample_path: string | null;
+  sort_order: number;
+};
+
+export type LakeOverviewSyncMethodGroup = {
+  key: string;
+  label: string;
+  count: number;
+  sort_order: number;
+};
+
+export type LakeOverviewDatasetRow = {
+  dataset_key: string;
+  display_name: string;
+  group_label: string;
+  source_label: string;
+  node_count: number;
+  partition_count: number;
+  file_count: number;
+  total_bytes: number;
+  coverage_label: string;
+  health_status: string;
+  health_label: string;
+  primary_path: string | null;
+  sort_order: number;
+};
+
+export type LakeOverview = {
+  generated_at: string;
+  lake_root: string;
+  summary_metrics: LakeOverviewMetric[];
+  layer_groups: LakeOverviewLayerGroup[];
+  sync_method_groups: LakeOverviewSyncMethodGroup[];
+  dataset_rows: LakeOverviewDatasetRow[];
+  physical_assets: LakePhysicalAssetSummary[];
+  risks: RiskItem[];
 };
 
 export type CommandExample = {

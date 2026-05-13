@@ -38,9 +38,9 @@ def build_prod_raw_snapshot_plan(
         mode="snapshot_refresh",
         request_strategy_key=f"{definition.dataset_key}:prod-raw-db",
         request_count=1,
-        partition_count=len(definition.layers),
+        partition_count=len(definition.nodes),
         write_policy=definition.write_policy,
-        write_paths=tuple(layer.path for layer in definition.layers),
+        write_paths=tuple(node.path for node in definition.nodes),
         required_manifests=(),
         parameters={},
         notes=(

@@ -7,14 +7,23 @@ from lake_console.backend.app.services.filesystem_scanner import FilesystemScann
 from lake_console.backend.app.settings import load_settings
 
 
-router = APIRouter(prefix="/api/datasets", tags=["datasets"])
+router = APIRouter(prefix="/api/lake/datasets", tags=["datasets"])
 
 
 @router.get("", response_model=LakeDatasetListResponse)
 def list_datasets(
     dataset_key: str | None = Query(default=None),
+    node_key: str | None = Query(default=None),
     layer: str | None = Query(default=None),
+    registered_state: str | None = Query(default=None),
 ) -> LakeDatasetListResponse:
     settings = load_settings()
     scanner = FilesystemScanner(settings.lake_root)
-    return LakeDatasetListResponse(items=scanner.list_datasets(dataset_key=dataset_key, layer=layer))
+    return LakeDatasetListResponse(
+        items=scanner.list_datasets(
+            dataset_key=dataset_key,
+            node_key=node_key,
+            layer=layer,
+            registered_state=registered_state,
+        )
+    )

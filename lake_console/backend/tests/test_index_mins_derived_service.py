@@ -50,7 +50,7 @@ def test_derive_index_mins_day_builds_90_and_120_from_formal_raw(tmp_path) -> No
     rows_120 = _read_partition_rows(tmp_path, freq="120min", trade_date=trade_date)
 
     assert summary["operation"] == "derive_index_mins"
-    assert summary["source_layer"] == "raw_tushare"
+    assert summary["source_node_key"] == "raw_tushare_by_date"
     assert summary["trade_date"] == "2025-08-01"
     assert summary["targets"] == ["90min", "120min"]
     assert summary["source_rows"] == 14

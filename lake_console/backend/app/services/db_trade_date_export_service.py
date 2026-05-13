@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from lake_console.backend.app.catalog.datasets import get_dataset_definition
-from lake_console.backend.app.catalog.models import LakeLayerDefinition
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -239,10 +238,10 @@ class DbTradeDateExportService:
             return self._empty_partition_summary(trade_date=trade_date)
 
         definition = get_dataset_definition(self.dataset_key)
-        raw_layer = _require_layer(definition.layers, layer="raw_tushare")
-        tmp_dir = self.lake_root / "_tmp" / run_id / raw_layer.path / f"trade_date={trade_date.isoformat()}"
+        raw_node = definition.require_node(layer="raw_tushare")
+        tmp_dir = self.lake_root / "_tmp" / run_id / raw_node.path / f"trade_date={trade_date.isoformat()}"
         tmp_file = tmp_dir / "part-000.parquet"
-        final_dir = self.lake_root / raw_layer.path / f"trade_date={trade_date.isoformat()}"
+        final_dir = self.lake_root / raw_node.path / f"trade_date={trade_date.isoformat()}"
         final_file = final_dir / "part-000.parquet"
         backup_root = self.lake_root / "_tmp" / run_id / "_backup" / self.dataset_key / f"trade_date={trade_date.isoformat()}"
 
@@ -326,13 +325,6 @@ def _normalize_ts_code(value: Any) -> str | None:
 
 def _is_nan(value: Any) -> bool:
     return isinstance(value, float) and math.isnan(value)
-
-
-def _require_layer(layers: tuple[LakeLayerDefinition, ...], *, layer: str) -> LakeLayerDefinition:
-    for item in layers:
-        if item.layer == layer:
-            return item
-    raise RuntimeError(f"LakeDatasetDefinition 缺少 layer={layer} 定义。")
 
 
 def _write_and_validate(*, rows: list[dict[str, Any]], tmp_file: Path) -> int:

@@ -15,7 +15,7 @@ def test_indicator_recalc_queue_records_source_event_and_pending_item(tmp_path) 
     service = IndicatorRecalcQueueService(lake_root=tmp_path)
 
     summary = service.record_source_partition_replaced(
-        layer="raw_tushare",
+        layer="research/stk_mins_by_date_clean_next",
         freq=30,
         trade_date=date(2026, 4, 24),
         run_id="test-source-replace",
@@ -29,7 +29,7 @@ def test_indicator_recalc_queue_records_source_event_and_pending_item(tmp_path) 
     queue_items = service.list_items(include_done=True)
     assert summary["event"]["event_type"] == "partition_replaced"
     assert event_rows[0]["dataset_key"] == "stk_mins"
-    assert event_rows[0]["layer"] == "raw_tushare"
+    assert event_rows[0]["layer"] == "research/stk_mins_by_date_clean_next"
     assert queue_items[0]["indicator_key"] == "macd"
     assert queue_items[0]["params_key"] == "12_26_9"
     assert queue_items[0]["freq_scope"] == "single"

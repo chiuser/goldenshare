@@ -313,7 +313,7 @@ def test_audit_formal_clean_next_completeness_accepts_after_hours_extra_bars(tmp
     assert summary["issue_count"] == 0
 
 
-def test_audit_formal_clean_next_completeness_clears_stale_ledger_when_no_issues(tmp_path) -> None:
+def test_audit_formal_clean_next_completeness_resolves_stale_ledger_when_no_issues(tmp_path) -> None:
     _write_stock_basic(tmp_path, [{"ts_code": "000001.SZ", "list_date": "20100101", "delist_date": None}])
     _write_parquet(
         tmp_path / "manifest" / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet",
@@ -359,9 +359,53 @@ def test_audit_formal_clean_next_completeness_clears_stale_ledger_when_no_issues
     assert summary["issue_count"] == 0
     assert summary["ledger"]["existing_rows"] == 1
     assert summary["ledger"]["new_records"] == 0
-    assert summary["ledger"]["written_rows"] == 0
+    assert summary["ledger"]["written_rows"] == 1
+    assert summary["ledger"]["open_records"] == 0
+    assert summary["ledger"]["resolved_records"] == 1
     assert summary["ledger"]["write_skipped"] is False
-    assert read_parquet_rows(ledger_file) == []
+    ledger_rows = read_parquet_rows(ledger_file)
+    assert len(ledger_rows) == 1
+    assert ledger_rows[0]["ledger_schema_version"] == 2
+    assert ledger_rows[0]["issue_state"] == "resolved"
+    assert ledger_rows[0]["resolved_run_id"]
+    assert ledger_rows[0]["partition_key"] == "freq=1/trade_date=2026-04-24"
+
+
+def test_audit_formal_clean_next_completeness_keeps_one_open_record_for_repeated_issue(tmp_path) -> None:
+    _write_stock_basic(tmp_path, [{"ts_code": "000001.SZ", "list_date": "20100101", "delist_date": None}])
+    rows = [
+        _mins_row("000001.SZ", 1, f"2026-04-24 {hour:02d}:{minute:02d}:00")
+        for hour, minute in _minute_times(include_after_hours=False)[:-1]
+    ]
+    _write_parquet(
+        tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=1" / "trade_date=2026-04-24" / "part-000.parquet",
+        rows,
+    )
+    service = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None)
+
+    first = service.audit_formal_clean_next_completeness(
+        freqs=[1],
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 24),
+        write_ledger=True,
+    )
+    second = service.audit_formal_clean_next_completeness(
+        freqs=[1],
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 24),
+        write_ledger=True,
+    )
+
+    ledger_file = tmp_path / "manifest" / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet"
+    ledger_rows = read_parquet_rows(ledger_file)
+    assert first["issue_count"] == 1
+    assert second["issue_count"] == 1
+    assert len(ledger_rows) == 1
+    assert ledger_rows[0]["issue_state"] == "open"
+    assert ledger_rows[0]["severity"] == "block"
+    assert ledger_rows[0]["seen_count"] == 2
+    assert ledger_rows[0]["first_seen_run_id"]
+    assert ledger_rows[0]["last_seen_run_id"]
 
 
 def test_audit_clean_completeness_writes_issue_ledger_without_mutating_clean_rows(tmp_path) -> None:

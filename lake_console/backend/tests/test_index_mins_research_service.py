@@ -71,7 +71,7 @@ def test_index_mins_research_rebuild_month_uses_lifecycle_complete_gate(tmp_path
         rows.extend(read_parquet_rows(path))
 
     assert summary["operation"] == "research_index_mins"
-    assert summary["source_layer"] == "raw_tushare"
+    assert summary["source_node_key"] == "raw_tushare_by_date"
     assert summary["freq"] == "15min"
     assert summary["trade_month"] == "2025-07"
     assert summary["bucket_count"] == 16

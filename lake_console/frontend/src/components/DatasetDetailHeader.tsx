@@ -14,7 +14,7 @@ export function DatasetDetailHeader({ dataset, onBack }: DatasetDetailHeaderProp
         <button className="back-button" onClick={onBack} type="button">
           ← 返回数据集总览
         </button>
-        <span className="detail-hero-context">本地文件事实 / {dataset.source}</span>
+        <span className="detail-hero-context">本地文件事实 / {dataset.source_label}</span>
       </div>
       <PageHeader
         eyebrow="Dataset detail"

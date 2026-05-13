@@ -15,7 +15,7 @@ from lake_console.backend.app.catalog.tushare_stk_mins import (
     STK_MINS_FIELDS,
     STK_MINS_SOURCE_FIELDS,
 )
-from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
+from lake_console.backend.app.services.affected_partition import AffectedPartition
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -34,6 +34,7 @@ from lake_console.backend.app.services.stk_mins_windowing import (
     StkMinsRequestWindow,
     build_target_request_windows,
 )
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 from lake_console.backend.app.services.tushare_client import TushareLakeClient, TushareQuotaExceededError
 DEFAULT_PART_ROWS = 500_000
@@ -74,6 +75,12 @@ class StkMinsQuotaExhausted(RuntimeError):
 
 
 ProgressCallback = Callable[[str | StkMinsProgressEvent], None]
+
+
+@dataclass(frozen=True)
+class StkMinsRawPartitionWriteResult:
+    written_rows: int
+    affected_partition: AffectedPartition
 
 
 class TushareStkMinsSyncService:
@@ -139,13 +146,14 @@ class TushareStkMinsSyncService:
                 written_rows=0,
                 output=None,
                 elapsed_seconds=round(time.monotonic() - started, 3),
+                affected_partitions=[],
             )
             ManifestService(self.lake_root).append_sync_run(summary)
             return summary
 
         partition = self._final_partition(freq=freq, trade_date=trade_date)
         self.progress(f"[stk_mins] merging rows={len(all_rows)} partition={partition}")
-        written = self._merge_single_symbol_partition(
+        write_result = self._merge_single_symbol_partition(
             run_id=run_id,
             ts_code=ts_code,
             freq=freq,
@@ -160,15 +168,19 @@ class TushareStkMinsSyncService:
             freq=freq,
             trade_date=trade_date,
             fetched_rows=len(all_rows),
-            written_rows=written,
+            written_rows=write_result.written_rows,
             output=str(partition),
             elapsed_seconds=round(elapsed, 3),
+            affected_partitions=[write_result.affected_partition.to_dict()],
+        )
+        summary["clean_next_refresh"] = self._refresh_clean_next_or_raise(
+            affected_partitions=list(summary["affected_partitions"])
         )
         ManifestService(self.lake_root).append_sync_run(summary)
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         self.progress(
             f"[stk_mins] done ts_code={ts_code} freq={freq} trade_date={trade_date.isoformat()} "
-            f"fetched={len(all_rows)} written={written} partition={partition} elapsed={math.ceil(elapsed)}s"
+            f"fetched={len(all_rows)} written={write_result.written_rows} partition={partition} elapsed={math.ceil(elapsed)}s"
         )
         return summary
 
@@ -208,6 +220,7 @@ class TushareStkMinsSyncService:
         )
         total_fetched = int(day_summary["fetched_rows"])
         total_written = int(day_summary["written_rows"])
+        affected_partitions = list(day_summary.get("affected_partitions") or [])
 
         elapsed = time.monotonic() - started
         summary = {
@@ -223,8 +236,10 @@ class TushareStkMinsSyncService:
             "security_universe": universe.to_dict(),
             "fetched_rows": total_fetched,
             "written_rows": total_written,
+            "affected_partitions": affected_partitions,
             "elapsed_seconds": round(elapsed, 3),
         }
+        summary["clean_next_refresh"] = self._refresh_clean_next_or_raise(affected_partitions=affected_partitions)
         ManifestService(self.lake_root).append_sync_run(summary)
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         self.progress(
@@ -248,6 +263,7 @@ class TushareStkMinsSyncService:
         total_units = units_total or (len(freqs) * len(ts_codes))
         total_fetched = 0
         total_written = 0
+        affected_partitions: list[dict[str, object]] = []
         for freq_index, freq in enumerate(freqs, start=1):
             tmp_partition = (
                 self.lake_root
@@ -314,13 +330,13 @@ class TushareStkMinsSyncService:
                     final_dir=final_partition,
                     backup_root=self.lake_root / "_tmp" / run_id / "_backup",
                 )
-                self._record_source_partition_replaced(
-                    layer="raw_tushare",
+                affected_partition = self._affected_raw_partition(
+                    run_id=run_id,
                     freq=freq,
                     trade_date=trade_date,
-                    run_id=run_id,
-                    written_rows=freq_written,
+                    rows_written=freq_written,
                 )
+                affected_partitions.append(affected_partition.to_dict())
             if verbose:
                 self.progress(
                     f"[stk_mins] all_market freq_done freq={freq} fetched={freq_fetched} written={freq_written} "
@@ -332,6 +348,7 @@ class TushareStkMinsSyncService:
             "symbols_total": len(ts_codes),
             "fetched_rows": total_fetched,
             "written_rows": total_written,
+            "affected_partitions": affected_partitions,
         }
 
     def sync_range(
@@ -362,6 +379,7 @@ class TushareStkMinsSyncService:
         total_fetched = 0
         total_written = 0
         summaries: list[dict[str, Any]] = []
+        affected_partitions: list[dict[str, object]] = []
         summary_freqs = freqs
         if all_market:
             if not freqs:
@@ -399,6 +417,7 @@ class TushareStkMinsSyncService:
                         summaries.append(window_summary)
                         total_fetched += int(window_summary.get("fetched_rows") or 0)
                         total_written += int(window_summary.get("written_rows") or 0)
+                        affected_partitions.extend(list(window_summary.get("affected_partitions") or []))
                         unit_base += len(ts_codes)
             except StkMinsQuotaExhausted as exc:
                 elapsed = time.monotonic() - started
@@ -418,6 +437,7 @@ class TushareStkMinsSyncService:
                     "security_universe": universe.to_dict(),
                     "fetched_rows": total_fetched,
                     "written_rows": total_written,
+                    "affected_partitions": affected_partitions,
                     "day_runs": summaries,
                     "completed_units": exc.completed_units,
                     "units_total": exc.units_total,
@@ -437,6 +457,7 @@ class TushareStkMinsSyncService:
                     },
                     "elapsed_seconds": round(elapsed, 3),
                 }
+                summary["clean_next_refresh"] = self._refresh_clean_next_or_raise(affected_partitions=affected_partitions)
                 ManifestService(self.lake_root).append_sync_run(summary)
                 self.progress(
                     f"[stk_mins_range] quota_exhausted completed_units={exc.completed_units}/{exc.units_total} "
@@ -474,6 +495,7 @@ class TushareStkMinsSyncService:
                     summaries.append(window_summary)
                     total_fetched += int(window_summary.get("fetched_rows") or 0)
                     total_written += int(window_summary.get("written_rows") or 0)
+                    affected_partitions.extend(list(window_summary.get("affected_partitions") or []))
                     unit_base += 1
 
         elapsed = time.monotonic() - started
@@ -493,9 +515,11 @@ class TushareStkMinsSyncService:
             "security_universe": universe.to_dict() if all_market else None,
             "fetched_rows": total_fetched,
             "written_rows": total_written,
+            "affected_partitions": affected_partitions,
             "day_runs": summaries,
             "elapsed_seconds": round(elapsed, 3),
         }
+        summary["clean_next_refresh"] = self._refresh_clean_next_or_raise(affected_partitions=affected_partitions)
         ManifestService(self.lake_root).append_sync_run(summary)
         self.progress(
             f"[stk_mins_range] done trade_dates={len(trade_dates)} fetched={total_fetched} "
@@ -530,14 +554,17 @@ class TushareStkMinsSyncService:
                 rows_by_trade_date.setdefault(trade_date, []).append(row)
 
         written_total = 0
+        affected_partitions: list[dict[str, object]] = []
         for trade_date, partition_rows in sorted(rows_by_trade_date.items()):
-            written_total += self._merge_single_symbol_partition(
+            write_result = self._merge_single_symbol_partition(
                 run_id=run_id,
                 ts_code=ts_code,
                 freq=freq,
                 trade_date=trade_date,
                 rows=partition_rows,
             )
+            written_total += write_result.written_rows
+            affected_partitions.append(write_result.affected_partition.to_dict())
         self.progress(
             StkMinsProgressEvent(
                 units_done=unit_base + 1,
@@ -559,6 +586,7 @@ class TushareStkMinsSyncService:
             "ts_code": ts_code,
             "fetched_rows": len(rows),
             "written_rows": written_total,
+            "affected_partitions": affected_partitions,
         }
 
     def _sync_market_window_partitions(
@@ -579,6 +607,7 @@ class TushareStkMinsSyncService:
         touched_partitions: set[date] = set()
         total_fetched = 0
         total_written = 0
+        affected_partitions: list[dict[str, object]] = []
         for symbol_index, ts_code in enumerate(ts_codes, start=1):
             try:
                 rows = self._fetch_symbol_window(
@@ -686,13 +715,13 @@ class TushareStkMinsSyncService:
                 final_dir=self._final_partition(freq=freq, trade_date=trade_date),
                 backup_root=self.lake_root / "_tmp" / run_id / "_backup",
             )
-            self._record_source_partition_replaced(
-                layer="raw_tushare",
+            affected_partition = self._affected_raw_partition(
+                run_id=run_id,
                 freq=freq,
                 trade_date=trade_date,
-                run_id=run_id,
-                written_rows=partition_written_rows.get(trade_date, 0),
+                rows_written=partition_written_rows.get(trade_date, 0),
             )
+            affected_partitions.append(affected_partition.to_dict())
         return {
             "window_start": window.start_date.isoformat(),
             "window_end": window.end_date.isoformat(),
@@ -701,6 +730,7 @@ class TushareStkMinsSyncService:
             "symbols_total": len(ts_codes),
             "fetched_rows": total_fetched,
             "written_rows": total_written,
+            "affected_partitions": affected_partitions,
         }
 
     @staticmethod
@@ -715,6 +745,7 @@ class TushareStkMinsSyncService:
         written_rows: int,
         output: str | None,
         elapsed_seconds: float,
+        affected_partitions: list[dict[str, object]],
     ) -> dict[str, Any]:
         return {
             "dataset_key": "stk_mins",
@@ -728,6 +759,7 @@ class TushareStkMinsSyncService:
             "fetched_rows": fetched_rows,
             "written_rows": written_rows,
             "output": output,
+            "affected_partitions": affected_partitions,
             "elapsed_seconds": elapsed_seconds,
         }
 
@@ -861,9 +893,9 @@ class TushareStkMinsSyncService:
         freq: int,
         trade_date: date,
         rows: list[dict[str, Any]],
-    ) -> int:
+    ) -> StkMinsRawPartitionWriteResult:
         if not rows:
-            return 0
+            raise ValueError("单股票分区合并不接受空 rows。")
         final_partition = self._final_partition(freq=freq, trade_date=trade_date)
         existing_rows = self._read_partition_rows(final_partition)
         retained_rows = [row for row in existing_rows if str(row.get("ts_code") or "").strip().upper() != ts_code.upper()]
@@ -879,18 +911,17 @@ class TushareStkMinsSyncService:
             final_dir=final_partition,
             backup_root=self.lake_root / "_tmp" / run_id / "_backup",
         )
-        self._record_source_partition_replaced(
-            layer="raw_tushare",
+        affected_partition = self._affected_raw_partition(
+            run_id=run_id,
             freq=freq,
             trade_date=trade_date,
-            run_id=run_id,
-            written_rows=len(rows),
+            rows_written=written_file_rows,
         )
         self.progress(
             f"[stk_mins_range] merge_partition ts_code={ts_code} freq={freq} trade_date={trade_date.isoformat()} "
             f"old_rows={len(existing_rows)} new_rows={len(rows)} final_rows={len(merged_rows)}"
         )
-        return len(rows)
+        return StkMinsRawPartitionWriteResult(written_rows=len(rows), affected_partition=affected_partition)
 
     @staticmethod
     def _read_partition_rows(partition: Path) -> list[dict[str, Any]]:
@@ -913,6 +944,24 @@ class TushareStkMinsSyncService:
     def _final_partition(self, *, freq: int, trade_date: date) -> Path:
         return self.lake_root / "raw_tushare" / "stk_mins_by_date" / f"freq={freq}" / f"trade_date={trade_date.isoformat()}"
 
+    def _affected_raw_partition(self, *, run_id: str, freq: int, trade_date: date, rows_written: int) -> AffectedPartition:
+        partition = self._final_partition(freq=freq, trade_date=trade_date)
+        return AffectedPartition(
+            dataset_key="stk_mins",
+            source_key="tushare",
+            layer="raw_tushare",
+            partition_grain="trade_date",
+            partition_values={
+                "freq": str(freq),
+                "trade_date": trade_date.isoformat(),
+            },
+            partition_path=str(partition.relative_to(self.lake_root)),
+            source_run_id=run_id,
+            write_revision=f"{run_id}:raw_tushare:freq={freq}:trade_date={trade_date.isoformat()}",
+            rows_written=rows_written,
+            bytes_written=_directory_size(partition),
+        )
+
     def _append_checkpoint(self, *, run_id: str, payload: dict[str, Any]) -> None:
         checkpoint_file = self._checkpoint_file(run_id=run_id)
         checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
@@ -922,22 +971,20 @@ class TushareStkMinsSyncService:
     def _checkpoint_file(self, *, run_id: str) -> Path:
         return self.lake_root / "manifest" / "sync_checkpoints" / "stk_mins_range" / f"run_id={run_id}" / "checkpoint.jsonl"
 
-    def _record_source_partition_replaced(
-        self,
-        *,
-        layer: str,
-        freq: int,
-        trade_date: date,
-        run_id: str,
-        written_rows: int,
-    ) -> None:
-        IndicatorRecalcQueueService(lake_root=self.lake_root).record_source_partition_replaced(
-            layer=layer,
-            freq=freq,
-            trade_date=trade_date,
-            run_id=run_id,
-            written_rows=written_rows,
+    def _refresh_clean_next_or_raise(self, *, affected_partitions: list[dict[str, object]]) -> dict[str, Any] | None:
+        if not affected_partitions:
+            return None
+        refresh = CleanNextRefreshService(lake_root=self.lake_root, progress=self.progress).refresh(
+            affected_partitions=affected_partitions,
+            dry_run=False,
+            apply=True,
         )
+        if refresh.get("status") != "passed":
+            raise RuntimeError(
+                "stk_mins raw 已写入，但 clean_next scoped audit 未通过，已阻断下游消费。"
+                f" status={refresh.get('status')} ledger={refresh.get('ledger_path')} gate={refresh.get('gate_path')}"
+            )
+        return refresh
 
 
 def _normalize_stk_mins_row(row: dict[str, Any], *, freq: int, trade_date: date | None) -> dict[str, Any]:
@@ -1007,6 +1054,12 @@ def _parse_date(value: Any) -> date:
 
 def _is_nan(value: Any) -> bool:
     return isinstance(value, float) and math.isnan(value)
+
+
+def _directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
 
 
 def _run_id(suffix: str) -> str:

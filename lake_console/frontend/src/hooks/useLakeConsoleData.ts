@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { loadCommandExamples, loadDatasets, loadLakeStatus, loadPartitions } from "../services/lakeApi";
-import type { CommandExampleGroup, DatasetSummary, LakeStatus, PartitionSummary } from "../types";
+import { loadCommandExamples, loadDatasets, loadLakeOverview, loadLakeStatus, loadPartitions } from "../services/lakeApi";
+import type { CommandExampleGroup, DatasetSummary, LakeOverview, LakeStatus, PartitionSummary } from "../types";
 
 export function useLakeConsoleData() {
   const [status, setStatus] = useState<LakeStatus | null>(null);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
+  const [overview, setOverview] = useState<LakeOverview | null>(null);
   const [commandGroups, setCommandGroups] = useState<CommandExampleGroup[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -13,9 +14,10 @@ export function useLakeConsoleData() {
     let cancelled = false;
     async function loadInitialData() {
       try {
-        const [statusPayload, datasetItems] = await Promise.all([loadLakeStatus(), loadDatasets()]);
+        const [statusPayload, overviewPayload, datasetItems] = await Promise.all([loadLakeStatus(), loadLakeOverview(), loadDatasets()]);
         if (!cancelled) {
           setStatus(statusPayload);
+          setOverview(overviewPayload);
           setDatasets(datasetItems);
         }
       } catch (caught) {
@@ -55,23 +57,24 @@ export function useLakeConsoleData() {
     commandGroups,
     datasets,
     error,
+    overview,
     status,
   };
 }
 
-export function useDatasetPartitions(selectedDatasetKey: string) {
+export function useDatasetPartitions(selectedDatasetKey: string, selectedNodeKey: string) {
   const [partitions, setPartitions] = useState<PartitionSummary[]>([]);
   const [partitionError, setPartitionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadDatasetPartitions() {
-      if (!selectedDatasetKey) {
+      if (!selectedDatasetKey || !selectedNodeKey) {
         setPartitions([]);
         return;
       }
       try {
-        const partitionItems = await loadPartitions(selectedDatasetKey);
+        const partitionItems = await loadPartitions(selectedDatasetKey, selectedNodeKey);
         if (!cancelled) {
           setPartitions(partitionItems.slice(0, 24));
           setPartitionError(null);
@@ -86,7 +89,7 @@ export function useDatasetPartitions(selectedDatasetKey: string) {
     return () => {
       cancelled = true;
     };
-  }, [selectedDatasetKey]);
+  }, [selectedDatasetKey, selectedNodeKey]);
 
   return {
     partitionError,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeLayerDefinition
+from lake_console.backend.app.catalog.models import LakeCommandExample, LakeDatasetDefinition, LakeNodeDefinition
 
 
 DAILY_FIELDS: tuple[str, ...] = (
@@ -181,12 +181,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 复权因子原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 复权因子原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/adj_factor",
                 recommended_usage="复权价格恢复与日频研究输入。",
             ),
@@ -242,12 +242,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 日线行情原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 日线行情原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/daily",
                 recommended_usage="单日全市场横截面、行情研究基础数据。",
             ),
@@ -345,12 +345,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 每日指标原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 每日指标原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/daily_basic",
                 recommended_usage="估值、换手、流通盘等日频指标研究。",
             ),
@@ -409,30 +409,44 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         supported_freqs=(1, 5, 15, 30, 60, 90, 120),
         raw_freqs=(1, 5, 15, 30, 60),
         derived_freqs=(90, 120),
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="原始分钟线",
-                purpose="Tushare 原始分钟线。",
-                layout="by_date",
+                node_name="原始分钟线",
+                description="Tushare 原始分钟线。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_mins_by_date",
                 recommended_usage="单日全市场排名、横截面统计、派生计算来源。",
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="derived",
-                layer_name="派生分钟线",
-                purpose="本地计算得到的 90/120 分钟线。",
-                layout="by_date",
+                node_name="派生分钟线",
+                description="本地计算得到的 90/120 分钟线。",
+                scan_profile="by_date",
                 path="derived/stk_mins_by_date",
                 recommended_usage="本地派生周期分析。",
+                source_node_keys=("clean_next_by_date",),
             ),
-            LakeLayerDefinition(
+            LakeNodeDefinition(
                 layer="research",
-                layer_name="研究重排",
-                purpose="按股票和月份重排后的查询优化层。",
-                layout="by_symbol_month",
+                node_key="clean_next_by_date",
+                node_name="clean next 按交易日资产",
+                description="清洗后的分钟线 next 基准资产。",
+                scan_profile="freq_trade_date",
+                path="research/stk_mins_by_date_clean_next",
+                recommended_usage="后续 derived 和 research 重建的正式基准输入。",
+                asset_role="clean_baseline",
+                source_node_keys=("raw_tushare_by_date",),
+                sort_order=20,
+            ),
+            LakeNodeDefinition(
+                layer="research",
+                node_name="研究重排",
+                description="按股票和月份重排后的查询优化层。",
+                scan_profile="freq_trade_month_bucket",
                 path="research/stk_mins_by_symbol_month",
                 recommended_usage="单股长周期回测、少数股票多月相似性分析。",
+                source_node_keys=("clean_next_by_date", "derived_by_date"),
             ),
         ),
         command_examples=(
@@ -547,12 +561,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 融资融券汇总原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 融资融券汇总原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/margin",
                 recommended_usage="两融日频统计与市场研究。",
             ),
@@ -608,12 +622,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 涨跌停价格原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 涨跌停价格原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_limit",
                 recommended_usage="交易约束、涨跌停边界与日频研究输入。",
             ),
@@ -669,12 +683,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare ST 股票列表原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare ST 股票列表原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stock_st",
                 recommended_usage="ST 风险过滤与参考数据查询。",
             ),
@@ -730,12 +744,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 每日停复牌信息原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 每日停复牌信息原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/suspend_d",
                 recommended_usage="停复牌参考数据与交易可用性分析。",
             ),
@@ -791,12 +805,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 股票周线原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 股票周线原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_period_bar_week",
                 recommended_usage="股票周线回看、周频收益与周级研究输入。",
             ),
@@ -823,12 +837,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 股票月线原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 股票月线原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_period_bar_month",
                 recommended_usage="股票月线回看、月频收益与月级研究输入。",
             ),
@@ -855,12 +869,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 股票周线复权原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 股票周线复权原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_period_bar_adj_week",
                 recommended_usage="周频复权回测、复权价格序列恢复与研究输入。",
             ),
@@ -887,12 +901,12 @@ MARKET_EQUITY_DATASETS: tuple[LakeDatasetDefinition, ...] = (
         available_layouts=("by_date",),
         write_policy="replace_partition",
         update_mode="manual_cli",
-        layers=(
-            LakeLayerDefinition(
+        nodes=(
+            LakeNodeDefinition(
                 layer="raw_tushare",
-                layer_name="源站事实",
-                purpose="Tushare 股票月线复权原始落盘层。",
-                layout="by_date",
+                node_name="源站事实",
+                description="Tushare 股票月线复权原始落盘层。",
+                scan_profile="by_date",
                 path="raw_tushare/stk_period_bar_adj_month",
                 recommended_usage="月频复权回测、复权价格序列恢复与研究输入。",
             ),

@@ -26,6 +26,7 @@ INTRADAY_EXPECTED_BAR_COUNT = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5}
 INTRADAY_AFTER_HOURS_BAR_COUNT = {1: 30, 5: 6, 15: 2, 30: 1, 60: 1}
 CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_completeness_issue_ledger.parquet"
 FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet"
+FORMAL_ISSUE_LEDGER_SCHEMA_VERSION = 2
 ISSUE_LEDGER_FIELDS = (
     "issue_id",
     "gate",
@@ -43,6 +44,35 @@ ISSUE_LEDGER_FIELDS = (
     "reason",
     "created_at",
     "resolved_at",
+)
+FORMAL_ISSUE_LEDGER_FIELDS = (
+    "ledger_schema_version",
+    "issue_key",
+    "issue_state",
+    "severity",
+    "dataset_key",
+    "source_key",
+    "layer",
+    "partition_key",
+    "freq",
+    "trade_date",
+    "trade_time",
+    "latest_ts_code",
+    "issue_type",
+    "expected_value",
+    "actual_value",
+    "evidence_dataset",
+    "evidence_ref",
+    "action",
+    "reason",
+    "first_seen_run_id",
+    "last_seen_run_id",
+    "resolved_run_id",
+    "first_seen_at",
+    "last_seen_at",
+    "resolved_at",
+    "seen_count",
+    "superseded_by_issue_key",
 )
 CLEAN_STK_MINS_FIELDS = (
     "ts_code",
@@ -410,6 +440,7 @@ class StkMinsCleanService:
                 issue_records=issue_records,
                 ledger_relative_path=FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH,
                 run_label="stk-mins-clean-next-issue-ledger",
+                audited_partition_keys=[_partition_key(partition.freq, partition.trade_date) for partition in partitions],
             )
 
         return {
@@ -1764,6 +1795,7 @@ class StkMinsCleanService:
             issue_records=issue_records,
             ledger_relative_path=CLEAN_ISSUE_LEDGER_RELATIVE_PATH,
             run_label="stk-mins-clean-issue-ledger",
+            audited_partition_keys=None,
         )
 
     def _write_clean_issue_ledger_to_path(
@@ -1772,7 +1804,16 @@ class StkMinsCleanService:
         issue_records: list[dict[str, Any]],
         ledger_relative_path: Path,
         run_label: str,
+        audited_partition_keys: list[str] | None = None,
     ) -> dict[str, Any]:
+        if ledger_relative_path == FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH:
+            return self._write_formal_clean_next_issue_ledger(
+                issue_records=issue_records,
+                ledger_relative_path=ledger_relative_path,
+                run_label=run_label,
+                audited_partition_keys=set(audited_partition_keys or []),
+            )
+
         ledger_file = self.lake_root / ledger_relative_path
         existing_rows = self._read_optional_parquet_rows(ledger_file)
         ledger_rows = sorted(issue_records, key=lambda row: str(row.get("issue_id") or ""))
@@ -1796,6 +1837,85 @@ class StkMinsCleanService:
             "existing_rows": len(existing_rows),
             "new_records": len(issue_records),
             "written_rows": written,
+            "write_skipped": False,
+        }
+
+    def _write_formal_clean_next_issue_ledger(
+        self,
+        *,
+        issue_records: list[dict[str, Any]],
+        ledger_relative_path: Path,
+        run_label: str,
+        audited_partition_keys: set[str],
+    ) -> dict[str, Any]:
+        ledger_file = self.lake_root / ledger_relative_path
+        existing_rows = self._read_optional_parquet_rows(ledger_file)
+
+        LakeRootService(self.lake_root).require_ready_for_write()
+        run_id = _run_id(run_label)
+        observed_at = datetime.now(timezone.utc)
+
+        existing_by_key: dict[str, dict[str, Any]] = {}
+        for row in existing_rows:
+            normalized = _normalize_formal_ledger_existing_row(row)
+            if normalized:
+                existing_by_key[str(normalized["issue_key"])] = normalized
+
+        current_by_key: dict[str, dict[str, Any]] = {}
+        for record in issue_records:
+            current = _formal_ledger_row_from_issue_record(record=record, run_id=run_id, observed_at=observed_at)
+            current_by_key[str(current["issue_key"])] = current
+
+        merged_by_key: dict[str, dict[str, Any]] = {}
+        for issue_key, current in current_by_key.items():
+            existing = existing_by_key.get(issue_key)
+            if existing:
+                merged = dict(current)
+                merged["first_seen_run_id"] = existing.get("first_seen_run_id") or current["first_seen_run_id"]
+                merged["first_seen_at"] = existing.get("first_seen_at") or current["first_seen_at"]
+                merged["seen_count"] = int(existing.get("seen_count") or 0) + 1
+                merged["issue_state"] = "open"
+                merged["resolved_run_id"] = None
+                merged["resolved_at"] = None
+                merged["superseded_by_issue_key"] = None
+                merged_by_key[issue_key] = merged
+            else:
+                merged_by_key[issue_key] = current
+
+        for issue_key, existing in existing_by_key.items():
+            if issue_key in merged_by_key:
+                continue
+            if existing.get("issue_state") == "open" and str(existing.get("partition_key") or "") in audited_partition_keys:
+                resolved = dict(existing)
+                resolved["issue_state"] = "resolved"
+                resolved["resolved_run_id"] = run_id
+                resolved["resolved_at"] = observed_at
+                merged_by_key[issue_key] = resolved
+            else:
+                merged_by_key[issue_key] = existing
+
+        ledger_rows = sorted((_formal_ledger_project(row) for row in merged_by_key.values()), key=lambda row: str(row["issue_key"]))
+        tmp_file = self.lake_root / "_tmp" / run_id / ledger_relative_path
+        backup_root = self.lake_root / "_tmp" / run_id / "_backup" / ledger_relative_path.parent
+        if ledger_rows:
+            written = write_rows_to_parquet(ledger_rows, tmp_file)
+        else:
+            written = _write_empty_issue_ledger(tmp_file, fields=FORMAL_ISSUE_LEDGER_FIELDS)
+        validated = read_parquet_row_count(tmp_file)
+        if written != validated:
+            raise RuntimeError(f"clean_next 完备性问题账本校验失败：written={written} validated={validated}")
+        replace_file_atomically(tmp_file=tmp_file, final_file=ledger_file, backup_root=backup_root)
+        TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
+
+        issue_states = Counter(str(row.get("issue_state") or "") for row in ledger_rows)
+        return {
+            "run_id": run_id,
+            "path": str(ledger_file),
+            "existing_rows": len(existing_rows),
+            "new_records": len(issue_records),
+            "written_rows": written,
+            "open_records": int(issue_states.get("open", 0)),
+            "resolved_records": int(issue_states.get("resolved", 0)),
             "write_skipped": False,
         }
 
@@ -2115,14 +2235,135 @@ def _issue_record(
     }
 
 
-def _write_empty_issue_ledger(output_path: Path) -> int:
+def _formal_ledger_row_from_issue_record(*, record: dict[str, Any], run_id: str, observed_at: datetime) -> dict[str, Any]:
+    freq = int(record.get("freq") or 0)
+    trade_date = _parse_date(record.get("trade_date"))
+    partition_key = _partition_key(freq, trade_date)
+    trade_time = _normalize_issue_time(record.get("trade_time"))
+    issue_key = _formal_issue_key(
+        dataset_key="stk_mins",
+        layer=str(FORMAL_CLEAN_RELATIVE_ROOT),
+        partition_key=partition_key,
+        gate=str(record.get("gate") or ""),
+        issue_type=str(record.get("issue_type") or ""),
+        latest_ts_code=str(record.get("latest_ts_code") or ""),
+        trade_time=trade_time,
+        expected_value=_optional_text(record.get("expected_value")),
+        evidence_ref=_optional_text(record.get("evidence_ref")),
+    )
+    return _formal_ledger_project(
+        {
+            "ledger_schema_version": FORMAL_ISSUE_LEDGER_SCHEMA_VERSION,
+            "issue_key": issue_key,
+            "issue_state": "open",
+            "severity": "block",
+            "dataset_key": "stk_mins",
+            "source_key": "tushare",
+            "layer": str(FORMAL_CLEAN_RELATIVE_ROOT),
+            "partition_key": partition_key,
+            "freq": freq,
+            "trade_date": trade_date,
+            "trade_time": trade_time,
+            "latest_ts_code": str(record.get("latest_ts_code") or ""),
+            "issue_type": str(record.get("issue_type") or ""),
+            "expected_value": _optional_text(record.get("expected_value")),
+            "actual_value": _optional_text(record.get("actual_value")),
+            "evidence_dataset": _optional_text(record.get("evidence_dataset")),
+            "evidence_ref": _optional_text(record.get("evidence_ref")),
+            "action": "block",
+            "reason": _optional_text(record.get("reason")),
+            "first_seen_run_id": run_id,
+            "last_seen_run_id": run_id,
+            "resolved_run_id": None,
+            "first_seen_at": observed_at,
+            "last_seen_at": observed_at,
+            "resolved_at": None,
+            "seen_count": 1,
+            "superseded_by_issue_key": None,
+        }
+    )
+
+
+def _normalize_formal_ledger_existing_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    if row.get("issue_key"):
+        return _formal_ledger_project(row)
+    if not row.get("issue_id"):
+        return None
+    created_at = row.get("created_at") or datetime.now(timezone.utc)
+    return _formal_ledger_project(
+        {
+            **_formal_ledger_row_from_issue_record(record=row, run_id="legacy", observed_at=created_at),
+            "first_seen_run_id": "legacy",
+            "last_seen_run_id": "legacy",
+            "first_seen_at": created_at,
+            "last_seen_at": created_at,
+            "resolved_at": row.get("resolved_at"),
+            "issue_state": "resolved" if row.get("resolved_at") else "open",
+        }
+    )
+
+
+def _formal_ledger_project(row: dict[str, Any]) -> dict[str, Any]:
+    projected = {field: row.get(field) for field in FORMAL_ISSUE_LEDGER_FIELDS}
+    projected["ledger_schema_version"] = FORMAL_ISSUE_LEDGER_SCHEMA_VERSION
+    projected["severity"] = projected.get("severity") or "block"
+    projected["issue_state"] = projected.get("issue_state") or "open"
+    projected["dataset_key"] = projected.get("dataset_key") or "stk_mins"
+    projected["source_key"] = projected.get("source_key") or "tushare"
+    projected["layer"] = projected.get("layer") or str(FORMAL_CLEAN_RELATIVE_ROOT)
+    projected["seen_count"] = int(projected.get("seen_count") or 0)
+    return projected
+
+
+def _formal_issue_key(
+    *,
+    dataset_key: str,
+    layer: str,
+    partition_key: str,
+    gate: str,
+    issue_type: str,
+    latest_ts_code: str,
+    trade_time: str | None,
+    expected_value: str | None,
+    evidence_ref: str | None,
+) -> str:
+    identity = "|".join(
+        [
+            dataset_key,
+            layer,
+            partition_key,
+            gate,
+            issue_type,
+            latest_ts_code,
+            trade_time or "",
+            expected_value or "",
+            evidence_ref or "",
+        ]
+    )
+    return sha1(identity.encode("utf-8")).hexdigest()
+
+
+def _partition_key(freq: int, trade_date: date) -> str:
+    return f"freq={freq}/trade_date={trade_date.isoformat()}"
+
+
+def _optional_text(value: Any | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in {"nan", "nat", "none", "null"}:
+        return None
+    return text
+
+
+def _write_empty_issue_ledger(output_path: Path, *, fields: tuple[str, ...] = ISSUE_LEDGER_FIELDS) -> int:
     try:
         import pandas as pd
         import pyarrow  # noqa: F401
     except ModuleNotFoundError as exc:
         raise RuntimeError("缺少 Parquet 写入依赖，无法写入空问题账本。") from exc
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(columns=list(ISSUE_LEDGER_FIELDS)).to_parquet(
+    pd.DataFrame(columns=list(fields)).to_parquet(
         output_path,
         index=False,
         engine="pyarrow",

@@ -89,7 +89,7 @@ def build_index_mins_plan(
         request_count=request_count,
         partition_count=len(normalized_freqs) * len(trade_dates),
         write_policy=definition.write_policy,
-        write_paths=tuple(layer.path for layer in definition.layers),
+        write_paths=tuple(node.path for node in definition.nodes),
         required_manifests=(
             "manifest/index_universe/index_mins_active_pool.parquet",
             "manifest/index_universe/tushare_index_basic.parquet",

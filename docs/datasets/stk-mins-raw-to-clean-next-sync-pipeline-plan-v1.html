@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>stk_mins raw -> clean_next 同步链路方案 v1</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: rgba(22, 28, 38, 0.9);
+      --panel-2: rgba(31, 39, 52, 0.92);
+      --line: rgba(148, 163, 184, 0.28);
+      --text: #e5edf7;
+      --muted: #9aa8ba;
+      --blue: #60a5fa;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #fb7185;
+      --purple: #a78bfa;
+      --code: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(96, 165, 250, 0.22), transparent 32%),
+        radial-gradient(circle at 82% 12%, rgba(34, 211, 238, 0.16), transparent 28%),
+        linear-gradient(135deg, #080b10 0%, #0d1117 45%, #111827 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.7;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 44px 0 72px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 38px;
+      letter-spacing: -0.03em;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin: 10px 0 0;
+      color: var(--muted);
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      color: #dbeafe;
+      background: rgba(96, 165, 250, 0.12);
+      border: 1px solid rgba(96, 165, 250, 0.18);
+      padding: 2px 6px;
+      border-radius: 7px;
+    }
+
+    pre {
+      margin: 14px 0 0;
+      padding: 16px;
+      overflow: auto;
+      background: rgba(7, 10, 15, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: #d6e4f7;
+      line-height: 1.55;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.26);
+      backdrop-filter: blur(18px);
+    }
+
+    .section {
+      margin-top: 20px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.9);
+    }
+
+    .meta-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .meta-row,
+    .kv {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 14px;
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .meta-row:last-child,
+    .kv:last-child {
+      border-bottom: 0;
+    }
+
+    .label {
+      color: var(--muted);
+    }
+
+    .value {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+    }
+
+    .mini-card strong {
+      color: var(--text);
+    }
+
+    .mini-card p {
+      font-size: 14px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+    }
+
+    .table th,
+    .table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .table th {
+      color: #dbeafe;
+      background: rgba(96, 165, 250, 0.12);
+      font-size: 13px;
+    }
+
+    .table td {
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow {
+      margin-top: 18px;
+      background: rgba(3, 7, 18, 0.7);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .node {
+      fill: rgba(15, 23, 42, 0.96);
+      stroke: rgba(148, 163, 184, 0.38);
+      stroke-width: 1.2;
+      rx: 14;
+    }
+
+    .node.raw {
+      stroke: rgba(96, 165, 250, 0.75);
+    }
+
+    .node.clean {
+      stroke: rgba(52, 211, 153, 0.75);
+    }
+
+    .node.audit {
+      stroke: rgba(251, 191, 36, 0.76);
+    }
+
+    .node.fail {
+      stroke: rgba(251, 113, 133, 0.82);
+    }
+
+    .svg-title {
+      font-size: 15px;
+      fill: #e5edf7;
+      font-weight: 750;
+    }
+
+    .svg-sub {
+      font-size: 12px;
+      fill: #9aa8ba;
+    }
+
+    .svg-lane {
+      font-size: 13px;
+      fill: #93c5fd;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .arrow {
+      stroke: rgba(203, 213, 225, 0.72);
+      stroke-width: 2;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .arrow.warn {
+      stroke: rgba(251, 191, 36, 0.85);
+    }
+
+    .arrow.fail {
+      stroke: rgba(251, 113, 133, 0.85);
+    }
+
+    .callout {
+      border-left: 4px solid var(--amber);
+      padding: 14px 16px;
+      background: rgba(251, 191, 36, 0.09);
+      border-radius: 14px;
+      color: #fde68a;
+      margin-top: 14px;
+    }
+
+    .callout.good {
+      border-color: var(--green);
+      background: rgba(52, 211, 153, 0.09);
+      color: #bbf7d0;
+    }
+
+    .callout.bad {
+      border-color: var(--red);
+      background: rgba(251, 113, 133, 0.09);
+      color: #fecdd3;
+    }
+
+    ul,
+    ol {
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: #cbd5e1;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 880px) {
+      main {
+        width: min(100% - 24px, 1180px);
+        padding-top: 24px;
+      }
+
+      .hero,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="card">
+        <div class="eyebrow"><span class="dot"></span>stk_mins raw -> clean_next pipeline</div>
+        <h1>股票分钟线 raw 同步后自动刷新 clean_next 方案 v1</h1>
+        <p>
+          目标是打通一条可靠链路：从 Tushare 拉取 `stk_mins` 写入 raw 后，
+          立刻基于本次受影响的 raw 分区生成并审计 `clean_next`，让后续 90/120 分钟线、
+          by-month research 和技术指标始终以最新 clean 基准继续工作。
+        </p>
+        <div class="pill-row">
+          <span class="pill">raw 是源站事实</span>
+          <span class="pill">clean_next 是研究基准</span>
+          <span class="pill">先审计再发布</span>
+          <span class="pill">不回滚 raw</span>
+          <span class="pill">失败写问题账本</span>
+        </div>
+      </div>
+      <aside class="card">
+        <div class="meta-grid">
+          <div class="meta-row">
+            <div class="label">状态</div>
+            <div class="value">待评审</div>
+          </div>
+          <div class="meta-row">
+            <div class="label">更新时间</div>
+            <div class="value">2026-05-13</div>
+          </div>
+          <div class="meta-row">
+            <div class="label">适用范围</div>
+            <div class="value">本地 Lake `stk_mins`</div>
+          </div>
+          <div class="meta-row">
+            <div class="label">输入层</div>
+            <div class="value">`raw_tushare/stk_mins_by_date`</div>
+          </div>
+          <div class="meta-row">
+            <div class="label">输出层</div>
+            <div class="value">`research/stk_mins_by_date_clean_next`</div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card section">
+      <h2>1. 用人话说，这条链路要解决什么</h2>
+      <p>
+        现在 raw 和 clean_next 是两层数据。raw 负责保存源站原始事实，clean_next 负责保存可以直接用于研究和派生的干净数据。
+        如果每天只更新 raw，不更新 clean_next，那么后面的 90/120、by-month research、MACD 就会读到旧 clean。
+      </p>
+      <div class="callout good">
+        这条链路要做到：每次 `stk_mins` 同步 raw 成功后，系统自动拿本次影响到的 `freq + trade_date`
+        分区，从 raw 重新生成 clean_next，并通过审计后发布。
+      </div>
+      <div class="callout">
+        这里的“同时更新”不是数据库事务里的同时提交。更准确地说，是一个严格串联的安全流程：
+        raw 先成功落盘，clean_next 再基于 raw 审计后发布。clean_next 失败不能回滚 raw，也不能假装整体成功。
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>2. 总流程图</h2>
+      <div class="flow" aria-label="raw to clean_next flow">
+        <svg width="1120" height="520" viewBox="0 0 1120 520" role="img">
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 z" fill="rgba(203, 213, 225, 0.8)"></path>
+            </marker>
+          </defs>
+
+          <text class="svg-lane" x="24" y="45">SYNC LANE：源站拉取与 raw 发布</text>
+          <text class="svg-lane" x="24" y="240">CLEAN LANE：clean_next 构建、审计与发布</text>
+          <text class="svg-lane" x="24" y="420">OBSERVE LANE：问题账本与下游准入</text>
+
+          <rect class="node raw" x="24" y="70" width="150" height="86" rx="14"></rect>
+          <text class="svg-title" x="44" y="104">1. 拉取 Tushare</text>
+          <text class="svg-sub" x="44" y="127">分页、限速、进度输出</text>
+
+          <rect class="node raw" x="214" y="70" width="150" height="86" rx="14"></rect>
+          <text class="svg-title" x="234" y="104">2. stage raw</text>
+          <text class="svg-sub" x="234" y="127">写 _tmp/run_id</text>
+
+          <rect class="node audit" x="404" y="70" width="150" height="86" rx="14"></rect>
+          <text class="svg-title" x="424" y="104">3. raw 校验</text>
+          <text class="svg-sub" x="424" y="127">schema / row / key</text>
+
+          <rect class="node raw" x="594" y="70" width="150" height="86" rx="14"></rect>
+          <text class="svg-title" x="614" y="104">4. 发布 raw</text>
+          <text class="svg-sub" x="614" y="127">replace affected partition</text>
+
+          <rect class="node clean" x="784" y="70" width="190" height="86" rx="14"></rect>
+          <text class="svg-title" x="804" y="104">5. 输出影响分区</text>
+          <text class="svg-sub" x="804" y="127">freq + trade_date list</text>
+
+          <path class="arrow" d="M174 113 H214"></path>
+          <path class="arrow" d="M364 113 H404"></path>
+          <path class="arrow" d="M554 113 H594"></path>
+          <path class="arrow" d="M744 113 H784"></path>
+
+          <rect class="node clean" x="214" y="265" width="180" height="86" rx="14"></rect>
+          <text class="svg-title" x="234" y="299">6. 从 raw 构建 clean</text>
+          <text class="svg-sub" x="234" y="322">只读 affected raw partition</text>
+
+          <rect class="node audit" x="434" y="265" width="180" height="86" rx="14"></rect>
+          <text class="svg-title" x="454" y="299">7. scoped audit</text>
+          <text class="svg-sub" x="454" y="322">schema / duplicate / completeness</text>
+
+          <rect class="node clean" x="654" y="265" width="190" height="86" rx="14"></rect>
+          <text class="svg-title" x="674" y="299">8. 发布 clean_next</text>
+          <text class="svg-sub" x="674" y="322">replace clean partition</text>
+
+          <rect class="node clean" x="884" y="265" width="190" height="86" rx="14"></rect>
+          <text class="svg-title" x="904" y="299">9. 下游可继续</text>
+          <text class="svg-sub" x="904" y="322">derived / by-month / indicators</text>
+
+          <path class="arrow" d="M879 156 C879 215 304 205 304 265"></path>
+          <path class="arrow" d="M394 308 H434"></path>
+          <path class="arrow" d="M614 308 H654"></path>
+          <path class="arrow" d="M844 308 H884"></path>
+
+          <rect class="node fail" x="214" y="438" width="210" height="60" rx="14"></rect>
+          <text class="svg-title" x="234" y="464">clean 审计失败</text>
+          <text class="svg-sub" x="234" y="486">raw 保留，clean_next 不发布</text>
+
+          <rect class="node audit" x="474" y="438" width="210" height="60" rx="14"></rect>
+          <text class="svg-title" x="494" y="464">写入问题账本</text>
+          <text class="svg-sub" x="494" y="486">记录分区、原因、修复命令</text>
+
+          <rect class="node fail" x="734" y="438" width="250" height="60" rx="14"></rect>
+          <text class="svg-title" x="754" y="464">阻断下游 affected partitions</text>
+          <text class="svg-sub" x="754" y="486">不能生成 derived / indicators</text>
+
+          <path class="arrow fail" d="M524 351 C524 392 319 392 319 438"></path>
+          <path class="arrow warn" d="M424 468 H474"></path>
+          <path class="arrow warn" d="M684 468 H734"></path>
+        </svg>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>3. 关键原则</h2>
+      <div class="grid-3">
+        <div class="mini-card">
+          <h3>raw 不承担清洗</h3>
+          <p>raw 只保存源站事实。源站返回什么字段，raw 就按源站事实保存，不能在 raw 层删除、改代码、补派生字段。</p>
+        </div>
+        <div class="mini-card">
+          <h3>clean_next 只能从 raw 来</h3>
+          <p>clean_next 不直接吃接口返回行，不从旧 clean 来，也不从 derived/research 反推。它只读受影响 raw 分区。</p>
+        </div>
+        <div class="mini-card">
+          <h3>审计通过才发布</h3>
+          <p>clean_next 候选分区必须先通过 scoped audit。失败时保留旧 clean_next，写问题账本，阻断下游。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>4. 数据层职责</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>层</th>
+            <th>路径</th>
+            <th>职责</th>
+            <th>禁止事项</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>raw</td>
+            <td><code>raw_tushare/stk_mins_by_date</code></td>
+            <td>保存 Tushare 源站分钟线事实，按 <code>freq + trade_date</code> 分区。</td>
+            <td>禁止做身份归一、退市过滤、技术指标计算。</td>
+          </tr>
+          <tr>
+            <td>clean_next</td>
+            <td><code>research/stk_mins_by_date_clean_next</code></td>
+            <td>保存清洗后的研究事实：最新代码、剔除退市股、剔除上市日前数据、保留 <code>exchange/vwap</code>。</td>
+            <td>禁止新增 <code>trade_date/identity_id/source_ts_code</code> 物理列。</td>
+          </tr>
+          <tr>
+            <td>quality ledger</td>
+            <td><code>manifest/stk_mins_quality</code></td>
+            <td>记录 scoped audit 的问题分区、原因码、样本、建议修复命令。</td>
+            <td>禁止用口头说明替代账本；失败原因必须可复查。</td>
+          </tr>
+          <tr>
+            <td>downstream</td>
+            <td><code>derived</code> / <code>research by-month</code> / indicators</td>
+            <td>只在 clean_next 通过后继续生成。</td>
+            <td>禁止绕过 clean_next 直接读 raw 做研究链路。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card section">
+      <h2>5. 写入顺序与失败语义</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>场景</th>
+            <th>raw 状态</th>
+            <th>clean_next 状态</th>
+            <th>系统应该怎么说人话</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Tushare 拉取失败</td>
+            <td>不变</td>
+            <td>不变</td>
+            <td>“源站拉取失败，没有写入任何正式数据。”</td>
+          </tr>
+          <tr>
+            <td>raw stage 校验失败</td>
+            <td>不变</td>
+            <td>不变</td>
+            <td>“源数据候选文件不合格，正式分区未替换。”</td>
+          </tr>
+          <tr>
+            <td>raw 发布成功，clean 审计成功</td>
+            <td>已更新</td>
+            <td>已更新</td>
+            <td>“raw 和 clean_next 已同步推进，下游可以继续。”</td>
+          </tr>
+          <tr>
+            <td>raw 发布成功，clean 审计失败</td>
+            <td>已更新</td>
+            <td>保持旧分区</td>
+            <td>“raw 已更新，但 clean_next 未发布；请先处理账本问题，再生成下游。”</td>
+          </tr>
+          <tr>
+            <td>clean 发布失败</td>
+            <td>已更新</td>
+            <td>保持旧分区或进入待人工确认</td>
+            <td>“raw 已更新，clean_next 发布失败；不要重建 derived/research/indicator。”</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout bad">
+        绝对不要因为 clean_next 审计失败去回滚 raw。raw 是源站事实，回滚 raw 会把已经成功同步的源数据也打回去，风险比 clean 延迟更大。
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>6. scoped audit 要检查什么</h2>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h3>结构门禁</h3>
+          <ul>
+            <li>Parquet 物理列必须是 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap</code>。</li>
+            <li>禁止出现 <code>trade_date</code>、<code>identity_id</code>、<code>source_ts_code</code>。</li>
+            <li><code>freq</code> 只能是 <code>1/5/15/30/60</code>。</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h3>内容门禁</h3>
+          <ul>
+            <li>同一 <code>ts_code + freq + trade_time</code> 不允许重复且值冲突。</li>
+            <li>不能有退市股票。</li>
+            <li>不能有上市日前数据。</li>
+            <li>不能有结构性非法价格，例如 <code>high &lt; low</code>。</li>
+            <li>不能有负成交量或负成交额。</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h3>完备性门禁</h3>
+          <ul>
+            <li>按交易日和频率检查日内 bar 数。</li>
+            <li>允许正常盘后交易导致的 bar 数增加。</li>
+            <li>缺 bar、异常多 bar 必须进入问题账本。</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h3>下游准入门禁</h3>
+          <ul>
+            <li>affected partition 的 clean_next 没通过，不能生成对应 derived。</li>
+            <li>clean_next 或 derived 没通过，不能重排 by-month。</li>
+            <li>by-month 没重排，不能继续计算指标。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>7. 受影响分区怎么算</h2>
+      <p>
+        每次同步结束后，必须产出明确的 affected partitions。它是后续 clean_next 刷新的唯一输入。
+      </p>
+      <pre><code>affected_partitions = [
+  { dataset_key: "stk_mins", freq: 1, trade_date: "2026-05-13" },
+  { dataset_key: "stk_mins", freq: 5, trade_date: "2026-05-13" }
+]</code></pre>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>同步方式</th>
+            <th>affected partitions</th>
+            <th>clean_next 处理</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>单日全市场</td>
+            <td>本次同步的所有 <code>freq + trade_date</code></td>
+            <td>逐个从 raw 完整重建 clean_next 分区。</td>
+          </tr>
+          <tr>
+            <td>区间全市场</td>
+            <td>区间内所有交易日与频率组合</td>
+            <td>按分区逐个重建，失败分区进入账本，不影响已通过分区。</td>
+          </tr>
+          <tr>
+            <td>单股票补数</td>
+            <td>该股票写入过的 <code>freq + trade_date</code></td>
+            <td>仍按完整分区从 raw 重建 clean_next，不能只把一只股票行直接 patch 进 clean_next。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card section">
+      <h2>8. 推荐命令与模块拆分</h2>
+      <p>
+        第一版不要把逻辑散在同步命令里。先沉淀一个可以独立验证的 clean_next 刷新入口，再接入 `sync-stk-mins-range` 主链。
+      </p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>能力</th>
+            <th>建议入口</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>从 raw 分区刷新 clean_next</td>
+            <td><code>refresh-stk-mins-clean-next</code></td>
+            <td>输入 affected partitions，支持 <code>--dry-run</code> 和 <code>--apply</code>。</td>
+          </tr>
+          <tr>
+            <td>同步后自动刷新 clean_next</td>
+            <td><code>sync-stk-mins-range</code></td>
+            <td>raw 发布成功后自动调用 clean_next 刷新服务；最终口径应默认执行，不作为长期可选兼容分支。</td>
+          </tr>
+          <tr>
+            <td>查看未通过分区</td>
+            <td><code>list-stk-mins-clean-next-issues</code></td>
+            <td>显示问题分区、原因、样本和推荐修复命令。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        独立命令不是临时方案。它是 repair / audit 工具，方便在 raw 已经更新但 clean_next 未通过时，针对问题分区重跑。
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>9. 实施里程碑</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>目标</th>
+            <th>验收</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>M1</td>
+            <td>抽出 affected partitions 模型和 sync run 输出。</td>
+            <td>同步命令能明确输出本次影响的 <code>freq + trade_date</code> 清单。</td>
+          </tr>
+          <tr>
+            <td>M2</td>
+            <td>实现独立 clean_next refresh 服务。</td>
+            <td>给定一个 raw 分区，能 dry-run 出写入行数、过滤原因、审计结果。</td>
+          </tr>
+          <tr>
+            <td>M3</td>
+            <td>实现 scoped audit 与问题账本。</td>
+            <td>构造缺 bar、重复 key、非法价格样本时，clean_next 不发布并写账本。</td>
+          </tr>
+          <tr>
+            <td>M4</td>
+            <td>接入 `sync-stk-mins-range` 主链。</td>
+            <td>同步小窗口后 raw 与 clean_next 同步推进；失败分支有清楚输出。</td>
+          </tr>
+          <tr>
+            <td>M5</td>
+            <td>接入下游准入保护。</td>
+            <td>clean_next 未通过的 affected partitions 不允许进入 derived / by-month / indicators。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card section">
+      <h2>10. 已拍板结论</h2>
+      <ol>
+        <li>同步命令最终默认强制刷新 clean_next，不留长期跳过分支。</li>
+        <li>clean_next scoped audit 将完整性问题全部视为阻断，进入问题账本后人工审计修复。</li>
+        <li>单股票补数后不允许只 patch clean_next 单股票，必须按 affected partition 从 raw 重建。</li>
+        <li>下游 derived/by-month/indicator 必须读取 clean_next 通过状态，否则链路仍可能吃到旧 clean。</li>
+      </ol>
+      <div class="callout good">
+        详细技术落地方案见：
+        <code>docs/datasets/stk-mins-raw-to-clean-next-sync-pipeline-technical-design-v1.html</code>。
+      </div>
+      <p class="footer-note">
+        本文是方案文档，不代表代码已实现。实现前必须再按当前 `lake_console` 代码逐项审计，不允许凭本文猜实现。
+      </p>
+    </section>
+  </main>
+</body>
+</html>

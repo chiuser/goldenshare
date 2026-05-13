@@ -110,7 +110,7 @@ class IndexMinsResearchService:
             "run_id": run_id,
             "started_at": started_at.isoformat(),
             "finished_at": datetime.now(timezone.utc).isoformat(),
-            "source_layer": "raw_tushare",
+            "source_node_key": "raw_tushare_by_date",
             "freq": normalized_freq,
             "trade_month": trade_month,
             "input_trade_dates": [item.isoformat() for item in gate.trade_dates],

@@ -12,7 +12,7 @@ export function DatasetCard({ dataset, onOpenDetail }: DatasetCardProps) {
     <article className="dataset-card surface-card surface-card-interactive">
       <div className="dataset-card-top">
         <div>
-          <span className="dataset-source">{dataset.source}</span>
+          <span className="dataset-source">{dataset.source_label}</span>
           <strong>{dataset.display_name}</strong>
         </div>
         <HealthBadge status={dataset.health_status} />
@@ -26,7 +26,7 @@ export function DatasetCard({ dataset, onOpenDetail }: DatasetCardProps) {
       <dl className="dataset-facts">
         <DatasetFact label="文件" value={String(dataset.file_count)} />
         <DatasetFact label="大小" value={formatBytes(dataset.total_bytes)} />
-        <DatasetFact label="层级" value={String(dataset.layers.length)} />
+        <DatasetFact label="节点" value={String(dataset.node_summaries.length)} />
         <DatasetFact label="分区" value={String(dataset.partition_count)} />
       </dl>
       <div className="dataset-card-actions">

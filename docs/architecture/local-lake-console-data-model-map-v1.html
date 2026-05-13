@@ -332,6 +332,81 @@ tr:last-child td { border-bottom: 0; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.concept-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+  min-height: 128px;
+}
+.concept-card strong {
+  display: block;
+  color: var(--title);
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.concept-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 8px;
+}
+.model-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr) 40px minmax(0, 1fr) 40px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.model-node-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+.model-node-card.blue { background: #f4f8fd; border-color: #9fbde2; }
+.model-node-card.green { background: #f1f8f4; border-color: #9fd4bd; }
+.model-node-card.yellow { background: #fff9e8; border-color: #e5c46a; }
+.model-node-title {
+  color: var(--title);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.model-node-desc {
+  color: var(--muted);
+  font-size: 12px;
+}
+.model-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neutral-5);
+  font-weight: 800;
+  font-size: 18px;
+}
+.uml-text {
+  background: #111827;
+  color: #dbeafe;
+}
+.decision-list {
+  display: grid;
+  gap: 10px;
+}
+.decision-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px 12px;
+}
+.decision-title {
+  color: var(--title);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
 .object-card {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -412,7 +487,8 @@ pre {
   }
   .main { padding: 22px 18px 44px; }
   .hero { grid-template-columns: 1fr; }
-  .grid-3, .grid-2, .cards { grid-template-columns: 1fr; }
+  .grid-3, .grid-2, .cards, .model-grid, .model-flow { grid-template-columns: 1fr; }
+  .model-arrow { transform: rotate(90deg); }
 }
 </style>
 </head>
@@ -425,6 +501,9 @@ pre {
     </div>
     <nav class="nav" aria-label="文档导航">
       <a href="#overview">总览</a>
+      <a href="#target-model">目标模型草案</a>
+      <a href="#catalog-role">Catalog 职责</a>
+      <a href="#target-examples">目标映射示例</a>
       <a href="#domains">领域划分</a>
       <a href="#pipeline">事实流向</a>
       <a href="#objects">对象关系</a>
@@ -440,13 +519,13 @@ pre {
     <header class="hero">
       <div>
         <h1>Local Lake Console 数据模型关系图 v1</h1>
-        <p class="lead">这份 HTML 只描述数据模型与 API 边界，不进入新页面开发。目标是把 Lake 管理台的对象、字段、关系和现状差异摆清楚，后续页面只能在这些模型上做投影。</p>
+        <p class="lead">这份 HTML 只描述数据模型与 API 边界，不进入新页面开发。当前重点是把“层级、内容节点、分区、硬盘资产”的关系画清楚，用来评审最终模型，避免后续页面各管一套数据。</p>
       </div>
       <div class="meta" aria-label="文档元信息">
-        <div class="meta-row"><span>状态</span><span>已补充 clean_next 基准层</span></div>
+        <div class="meta-row"><span>状态</span><span>模型草案待评审</span></div>
         <div class="meta-row"><span>更新时间</span><span>2026-05-13</span></div>
         <div class="meta-row"><span>范围</span><span>lake_console</span></div>
-        <div class="meta-row"><span>依据</span><span>当前代码事实</span></div>
+        <div class="meta-row"><span>依据</span><span>当前代码 + 硬盘事实</span></div>
       </div>
     </header>
 
@@ -460,22 +539,22 @@ pre {
       <div class="section-body">
         <div class="grid-3">
           <div class="stat">
-            <div class="stat-label">核心文件事实模型</div>
-            <div class="stat-value">已存在</div>
-            <div class="stat-hint">Dataset / Layer / Partition / Risk 已经贯通 backend 与 frontend。</div>
+            <div class="stat-label">当前核心模型</div>
+            <div class="stat-value">不够细</div>
+            <div class="stat-hint">Dataset / Layer / Partition 已存在，但 Layer 同时承担了大层级和具体内容节点两种含义。</div>
           </div>
           <div class="stat">
             <div class="stat-label">当前最大出入</div>
-            <div class="stat-value">API 与目标态混写</div>
-            <div class="stat-hint">文档里有 File、ReplaceScope、Detail API 等未落地内容。</div>
+            <div class="stat-value">漏账</div>
+            <div class="stat-hint">管理台主要扫描 catalog 登记路径，不能完整表达硬盘上已有的 clean_next、指标资产和治理目录。</div>
           </div>
           <div class="stat">
             <div class="stat-label">开发策略</div>
-            <div class="stat-value">先收模型</div>
-            <div class="stat-hint">Storage / Health / Activity 暂停实现，先统一对象与 API 边界。</div>
+            <div class="stat-value">先定模型</div>
+            <div class="stat-hint">新页面暂停，先评审 Dataset / Node / Partition / PhysicalAsset 的语义边界。</div>
           </div>
         </div>
-        <p class="note" style="margin-top:12px;">当前应该被视为统一核心模型的是 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code>。`Recovery` 属于 Kopia 备份点管理领域，不能硬套数据集模型。</p>
+        <p class="note" style="margin-top:12px;">目标模型建议改成 <code>数据集 Dataset -> 内容节点 Node -> 分区 Partition / 文件 File</code>，同时增加 <code>硬盘资产 PhysicalAsset</code> 用来反映真实目录。<code>Layer</code> 只保留“原始层 / 辅助清单层 / 派生层 / 研究层”这种大层级含义，不再混用成具体目录。</p>
 
         <h3>1.1 本文档统一用词</h3>
         <div class="table-wrap">
@@ -532,6 +611,30 @@ pre {
                 <td><span class="state future">需改造成结构化字段</span></td>
               </tr>
               <tr>
+                <td class="field"><code>layer</code></td>
+                <td>湖内大层级</td>
+                <td>只表示 <code>raw_tushare / manifest / derived / research</code> 这类顶层归属，不表示具体内容目录。</td>
+                <td><span class="state partial">保留但收窄语义</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>node</code></td>
+                <td>内容节点</td>
+                <td>表示某个数据集在某一层里的具体资产，例如 <code>clean_next_by_date</code>、<code>by_symbol_month</code>、<code>indicators_by_date</code>。</td>
+                <td><span class="state future">建议新增</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>scan_profile</code></td>
+                <td>扫描规则</td>
+                <td>告诉后端如何理解目录结构，例如按交易日、按月份分桶、按指标参数交易日。</td>
+                <td><span class="state future">建议新增</span></td>
+              </tr>
+              <tr>
+                <td class="field"><code>physical_asset</code></td>
+                <td>硬盘资产</td>
+                <td>从真实 Lake 目录扫描得到的目录或文件摘要，可标记是否已登记到数据集模型。</td>
+                <td><span class="state future">建议新增</span></td>
+              </tr>
+              <tr>
                 <td class="field">Kopia 原始备份对象</td>
                 <td>备份点</td>
                 <td>Kopia 原始字段沿用外部工具命名；在管理台中统一叫备份点，避免让人误解为临时文件。</td>
@@ -540,6 +643,348 @@ pre {
             </tbody>
           </table>
         </div>
+      </div>
+    </section>
+
+    <section class="section" id="target-model">
+      <div class="section-header">
+        <div>
+          <h2>A. 目标模型草案</h2>
+          <p>这部分是待评审方案，不代表已经进入代码实现。</p>
+        </div>
+        <div class="pill-row">
+          <span class="pill warn">待评审</span>
+          <span class="pill info">只定模型</span>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="model-grid">
+          <div class="concept-card">
+            <strong>数据集 Dataset</strong>
+            业务上可被管理、同步、审计的一组数据。
+            <span>例：股票历史分钟行情、指数历史分钟行情、分钟指标。</span>
+          </div>
+          <div class="concept-card">
+            <strong>大层级 Layer</strong>
+            Lake 里的顶层归属，只回答“数据处在哪一层”。
+            <span>例：原始层、辅助清单层、派生层、研究层。</span>
+          </div>
+          <div class="concept-card">
+            <strong>内容节点 Node</strong>
+            一个数据集在某个大层级里的具体资产。
+            <span>例：clean_next_by_date、by_symbol_month、indicators_by_date。</span>
+          </div>
+          <div class="concept-card">
+            <strong>分区 Partition</strong>
+            内容节点下面按日期、月份、频率、指标参数切出来的动态片段。
+            <span>例：freq=30/trade_date=2026-04-24。</span>
+          </div>
+        </div>
+
+        <h3>核心关系图</h3>
+        <div class="model-flow" aria-label="目标数据模型关系图">
+          <div class="model-node-card blue">
+            <div class="model-node-title">Dataset 数据集</div>
+            <div class="model-node-desc">业务对象。决定名称、分组、来源、同步方式和管理入口。</div>
+          </div>
+          <div class="model-arrow">→</div>
+          <div class="model-node-card green">
+            <div class="model-node-title">Node 内容节点</div>
+            <div class="model-node-desc">具体资产。决定路径、扫描规则、用途、来源节点。</div>
+          </div>
+          <div class="model-arrow">→</div>
+          <div class="model-node-card yellow">
+            <div class="model-node-title">Partition 分区</div>
+            <div class="model-node-desc">动态切片。由扫描规则从路径解析出来，不进 catalog 手写。</div>
+          </div>
+          <div class="model-arrow">↔</div>
+          <div class="model-node-card">
+            <div class="model-node-title">PhysicalAsset 硬盘资产</div>
+            <div class="model-node-desc">真实目录或文件摘要。用来发现已登记、未登记、治理目录和漏账。</div>
+          </div>
+        </div>
+
+        <h3>UML 草案</h3>
+        <pre class="uml-text">class LakeDatasetDefinition {
+  dataset_key: str
+  dataset_name: str
+  group_key: str
+  source: str
+  dataset_role: str
+  nodes: list[LakeNodeDefinition]
+}
+
+class LakeLayerDefinition {
+  layer: str
+  layer_name: str
+  layer_order: int
+  description: str
+}
+
+class LakeNodeDefinition {
+  dataset_key: str
+  node_key: str
+  node_name: str
+  layer: str
+  path: str
+  scan_profile: str
+  asset_role: str
+  source_node_keys: list[str]
+  partition_dimensions: list[str]
+}
+
+class LakeNodeSummary {
+  dataset_key: str
+  node_key: str
+  layer: str
+  path: str
+  scan_profile: str
+  partition_count: int
+  file_count: int
+  total_bytes: int
+  partition_dimensions: list[str]
+}
+
+class LakePartitionSummary {
+  dataset_key: str
+  node_key: str
+  partition_values: dict
+  partition_locator: str
+  partition_label: str
+  path: str
+  file_count: int
+  total_bytes: int
+}
+
+class LakePhysicalAssetSummary {
+  path: str
+  asset_type: str
+  registered_state: str
+  dataset_key: str | null
+  node_key: str | null
+  total_bytes: int
+  file_count: int
+}
+
+LakeDatasetDefinition "1" *-- "1..*" LakeNodeDefinition
+LakeNodeDefinition "*" --> "1" LakeLayerDefinition
+LakeNodeDefinition "1" --> "0..*" LakeNodeSummary
+LakeNodeSummary "1" --> "0..*" LakePartitionSummary
+LakePhysicalAssetSummary "0..*" --> "0..1" LakeNodeDefinition</pre>
+
+        <p class="note" style="margin-top:12px;">关键约束：<code>Layer</code> 只回答“在哪一层”，<code>Node</code> 才回答“这一层里的哪个具体内容”。例如 <code>research</code> 是大层级，<code>stk_mins_by_date_clean_next</code> 和 <code>stk_mins_by_symbol_month</code> 是两个内容节点，不能再让 <code>research</code> 一个人同时表示这两件事。</p>
+
+        <h3>Dataset 与 Layer 的关系</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>关系</th>
+                <th>是否直接建模</th>
+                <th>原因</th>
+                <th>例子</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">Dataset -> Node</td>
+                <td>是</td>
+                <td>数据集拥有多个稳定内容节点，这是业务资产定义的核心关系。</td>
+                <td><code>stk_mins</code> 拥有 <code>raw_by_date</code>、<code>clean_next_by_date</code>、<code>by_symbol_month</code>。</td>
+              </tr>
+              <tr>
+                <td class="field">Node -> Layer</td>
+                <td>是</td>
+                <td>每个内容节点必须说明自己位于哪个湖内大层级。</td>
+                <td><code>clean_next_by_date</code> 位于 <code>research</code> 研究层。</td>
+              </tr>
+              <tr>
+                <td class="field">Dataset -> Layer</td>
+                <td>否，只做派生展示</td>
+                <td>数据集和大层级是通过内容节点间接关联。直接保存会造成“一个 research 到底代表哪个资产”的歧义。</td>
+                <td><code>stk_mins</code> 显示有研究层，是因为它有研究层节点，不是因为数据集直接挂了一个 research 目录。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="catalog-role">
+      <div class="section-header">
+        <div>
+          <h2>B. Catalog 职责边界</h2>
+          <p>Catalog 不是硬盘目录清单，也不是分区清单；它只登记稳定业务资产。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <p class="note">这里的 <code>Catalog</code> 可以理解成“数据湖资产登记册”。<code>LakeDatasetDefinition</code> 是登记册里的一条数据集定义；<code>LakeNodeDefinition</code> 是这条数据集定义下面的内容节点定义。登记册负责说“应该有什么、在哪里、怎么扫”，硬盘扫描负责说“实际有什么、大小多少、缺不缺”。</p>
+
+        <div class="grid-2">
+          <div>
+            <h3>应该进入 Catalog</h3>
+            <div class="decision-list">
+              <div class="decision-item">
+                <div class="decision-title">数据集</div>
+                数据集 key、名称、分组、来源、同步方式、业务角色。
+              </div>
+              <div class="decision-item">
+                <div class="decision-title">内容节点</div>
+                节点 key、所属大层级、路径、扫描规则、用途、来源节点。
+              </div>
+              <div class="decision-item">
+                <div class="decision-title">扫描规则</div>
+                目录结构如何解析成分区字段，例如交易日期、月份分桶、指标参数。
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3>不应该进入 Catalog</h3>
+            <div class="decision-list">
+              <div class="decision-item">
+                <div class="decision-title">每个具体分区</div>
+                <code>trade_date=2026-04-24</code> 这类是扫描结果，不是手写定义。
+              </div>
+              <div class="decision-item">
+                <div class="decision-title">每个具体文件</div>
+                parquet 文件数量、大小、修改时间来自硬盘扫描，不进静态配置。
+              </div>
+              <div class="decision-item">
+                <div class="decision-title">临时和治理目录</div>
+                <code>_tmp</code>、<code>_recovery</code> 应作为硬盘资产展示，默认不是数据集节点。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Catalog 与硬盘扫描的关系</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>问题</th>
+                <th>Catalog 回答</th>
+                <th>硬盘扫描回答</th>
+                <th>管理台展示方式</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>这个目录是不是稳定业务资产？</td>
+                <td>是 / 否，归属于哪个数据集和节点</td>
+                <td>目录是否真实存在</td>
+                <td>已登记 / 未登记 / 治理目录</td>
+              </tr>
+              <tr>
+                <td>这个资产怎么读？</td>
+                <td>扫描规则和分区维度</td>
+                <td>实际有哪些目录和文件</td>
+                <td>节点覆盖范围、大小、文件数、分区数</td>
+              </tr>
+              <tr>
+                <td>为什么总览漏账？</td>
+                <td>没有登记的节点无法进入数据集摘要</td>
+                <td>全湖扫描能看到真实占用</td>
+                <td>总览需要同时展示登记模型和硬盘资产差异</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="target-examples">
+      <div class="section-header">
+        <div>
+          <h2>C. 目标映射示例</h2>
+          <p>用真实目录举例，检查语义是否清楚。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <h3>股票历史分钟行情：一个数据集，多个内容节点</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>数据集</th>
+                <th>大层级</th>
+                <th>内容节点</th>
+                <th>路径</th>
+                <th>扫描规则</th>
+                <th>用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">stk_mins</td>
+                <td>原始层</td>
+                <td class="field">raw_by_date</td>
+                <td><code>raw_tushare/stk_mins_by_date</code></td>
+                <td>频率 + 交易日期</td>
+                <td>远程生产库同步后的原始分钟线</td>
+              </tr>
+              <tr>
+                <td class="field">stk_mins</td>
+                <td>研究层</td>
+                <td class="field">clean_next_by_date</td>
+                <td><code>research/stk_mins_by_date_clean_next</code></td>
+                <td>频率 + 交易日期</td>
+                <td>清洗后的 next 基准资产</td>
+              </tr>
+              <tr>
+                <td class="field">stk_mins</td>
+                <td>派生层</td>
+                <td class="field">derived_by_date</td>
+                <td><code>derived/stk_mins_by_date</code></td>
+                <td>频率 + 交易日期</td>
+                <td>由 1min 补算出的高频率资产</td>
+              </tr>
+              <tr>
+                <td class="field">stk_mins</td>
+                <td>研究层</td>
+                <td class="field">by_symbol_month</td>
+                <td><code>research/stk_mins_by_symbol_month</code></td>
+                <td>频率 + 交易月份 + 标的分桶</td>
+                <td>面向查询优化的按标的月份组织形态</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>分钟指标：建议作为新数据集，指标参数是分区维度</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>数据集</th>
+                <th>大层级</th>
+                <th>内容节点</th>
+                <th>路径</th>
+                <th>扫描规则</th>
+                <th>动态分区字段</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">stk_mins_indicators</td>
+                <td>派生层</td>
+                <td class="field">indicators_by_date</td>
+                <td><code>derived/stk_mins_indicators_by_date</code></td>
+                <td>指标 + 参数 + 频率 + 交易日期</td>
+                <td><code>indicator</code>, <code>params_key</code>, <code>freq</code>, <code>trade_date</code></td>
+              </tr>
+              <tr>
+                <td class="field">stk_mins_indicators</td>
+                <td>研究层</td>
+                <td class="field">indicators_by_symbol_month</td>
+                <td><code>research/stk_mins_indicators_by_symbol_month</code></td>
+                <td>指标 + 参数 + 频率 + 交易月份 + 标的分桶</td>
+                <td><code>indicator</code>, <code>params_key</code>, <code>freq</code>, <code>trade_month</code>, <code>bucket</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top:12px;">举例：<code>MACD</code> 和 <code>12_26_9</code> 不应该变成两个 catalog 节点，它们只是 <code>stk_mins_indicators</code> 这个数据集下面的动态分区字段。否则 catalog 会随着指标和参数组合无限膨胀。</p>
       </div>
     </section>
 
@@ -566,9 +1011,9 @@ pre {
               <tr>
                 <td class="field">Lake 文件事实</td>
                 <td>catalog + filesystem scanner</td>
-                <td><code>LakeDatasetSummary</code>, <code>LakeLayerSummary</code>, <code>LakePartitionSummary</code></td>
+                <td><code>LakeDatasetSummary</code>, <code>LakeNodeSummary</code>, <code>LakePartitionSummary</code>, <code>LakePhysicalAssetSummary</code></td>
                 <td>Datasets, DatasetDetail, Storage, Health, Activity</td>
-                <td><span class="state done">当前主模型</span></td>
+                <td><span class="state done">已收口到节点模型</span></td>
               </tr>
               <tr>
                 <td class="field">Lake 根目录状态</td>
@@ -600,8 +1045,8 @@ pre {
     <section class="section" id="pipeline">
       <div class="section-header">
         <div>
-          <h2>3. 文件事实流向</h2>
-          <p>从 catalog 到页面，事实应该沿着一条路径流动。</p>
+          <h2>3. 当前文件事实流向</h2>
+          <p>当前实现已经在 Dataset 和 Partition 之间补上 Node，并由后端输出总览聚合与硬盘资产摘要。</p>
         </div>
       </div>
       <div class="section-body">
@@ -618,8 +1063,8 @@ pre {
             <text class="node-sub" x="48" y="94">catalog 静态契约</text>
 
             <rect class="node blue" x="30" y="158" width="170" height="72" rx="8"></rect>
-            <text class="node-title" x="48" y="188">LakeLayerDefinition</text>
-            <text class="node-sub" x="48" y="210">层级与布局声明</text>
+            <text class="node-title" x="48" y="188">LakeNodeDefinition</text>
+            <text class="node-sub" x="48" y="210">节点路径与扫描规则</text>
 
             <rect class="node" x="270" y="92" width="180" height="88" rx="8"></rect>
             <text class="node-title" x="290" y="126">FilesystemScanner</text>
@@ -631,8 +1076,8 @@ pre {
             <text class="node-sub" x="540" y="88">dataset 级展示事实</text>
 
             <rect class="node green" x="520" y="140" width="180" height="72" rx="8"></rect>
-            <text class="node-title" x="540" y="170">LakeLayerSummary</text>
-            <text class="node-sub" x="540" y="192">layer 级空间与范围</text>
+            <text class="node-title" x="540" y="170">LakeNodeSummary</text>
+            <text class="node-sub" x="540" y="192">node 级空间与范围</text>
 
             <rect class="node green" x="520" y="244" width="180" height="72" rx="8"></rect>
             <text class="node-title" x="540" y="274">LakePartitionSummary</text>
@@ -640,12 +1085,12 @@ pre {
 
             <rect class="node yellow" x="780" y="78" width="210" height="88" rx="8"></rect>
             <text class="node-title" x="800" y="112">Backend API</text>
-            <text class="node-sub" x="800" y="134">/api/datasets</text>
-            <text class="node-sub" x="800" y="152">/api/partitions</text>
+            <text class="node-sub" x="800" y="134">/api/lake/overview</text>
+            <text class="node-sub" x="800" y="152">/api/lake/datasets</text>
 
             <rect class="node yellow" x="780" y="214" width="210" height="88" rx="8"></rect>
             <text class="node-title" x="800" y="248">Frontend Types</text>
-            <text class="node-sub" x="800" y="270">DatasetSummary / LayerSummary</text>
+            <text class="node-sub" x="800" y="270">DatasetSummary / NodeSummary</text>
             <text class="node-sub" x="800" y="288">PartitionSummary</text>
 
             <path class="link" d="M200 78 C230 78, 236 112, 270 122"></path>
@@ -666,7 +1111,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>4. 对象关系</h2>
-          <p>当前真实对象与目标态对象需要分开看。</p>
+          <p>当前真实对象已经收口到 Dataset / Node / Partition / PhysicalAsset 四类核心文件事实。</p>
         </div>
       </div>
       <div class="section-body">
@@ -683,13 +1128,19 @@ pre {
             <tbody>
               <tr>
                 <td class="field">LakeDatasetDefinition</td>
-                <td>静态数据集契约，定义 key、名称、分组、主存储形态、写策略和层级。</td>
+                <td>静态数据集契约，定义 key、名称、来源、分组、频率和内容节点。</td>
                 <td><code>catalog/models.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakeLayerDefinition</td>
-                <td>静态层级契约，定义层级、存储形态、路径、用途和推荐使用方式。</td>
+                <td>全局大层级定义，只定义原始层、辅助清单层、派生层、研究层。</td>
+                <td><code>catalog/models.py</code></td>
+                <td><span class="state done">已瘦身</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakeNodeDefinition</td>
+                <td>定义一个数据集在某一层里的具体内容节点，包括路径、扫描规则、用途和来源节点。</td>
                 <td><code>catalog/models.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
@@ -700,14 +1151,20 @@ pre {
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
-                <td class="field">LakeLayerSummary</td>
-                <td>扫描后的层级事实，包括路径、存储形态、文件数、分区数和空间。</td>
+                <td class="field">LakeNodeSummary</td>
+                <td>扫描后的内容节点事实，包括路径、扫描规则、分区数、文件数、空间和覆盖范围。</td>
                 <td><code>schemas/lake.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
               <tr>
                 <td class="field">LakePartitionSummary</td>
                 <td>扫描后的分区事实。当前通过独立 partitions API 获取。</td>
+                <td><code>schemas/lake.py</code></td>
+                <td><span class="state done">已落地</span></td>
+              </tr>
+              <tr>
+                <td class="field">LakePhysicalAssetSummary</td>
+                <td>全湖硬盘资产摘要，用来展示已登记资产、未登记资产、治理目录和漏账。</td>
                 <td><code>schemas/lake.py</code></td>
                 <td><span class="state done">已落地</span></td>
               </tr>
@@ -731,7 +1188,107 @@ pre {
         </div>
       </div>
       <div class="section-body">
-        <h3>5.1 LakeDatasetSummary</h3>
+        <h3>5.0 目标字段关系</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>对象</th><th>关键字段</th><th>人话含义</th><th>评审重点</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">LakeDatasetDefinition</td>
+                <td><code>dataset_key</code>, <code>dataset_name</code>, <code>group_key</code>, <code>source</code>, <code>dataset_role</code>, <code>nodes</code></td>
+                <td>定义“这是什么业务数据”。不直接假设只有一个存储根。</td>
+                <td>是否保留 <code>storage_root</code>，还是改由主内容节点提供。</td>
+              </tr>
+              <tr>
+                <td class="field">LakeLayerDefinition</td>
+                <td><code>layer</code>, <code>layer_name</code>, <code>layer_order</code>, <code>description</code></td>
+                <td>定义“处在哪个湖内大层级”。</td>
+                <td>只做全局大层级，不再保存路径和布局。</td>
+              </tr>
+              <tr>
+                <td class="field">LakeNodeDefinition</td>
+                <td><code>node_key</code>, <code>node_name</code>, <code>layer</code>, <code>path</code>, <code>scan_profile</code>, <code>asset_role</code>, <code>source_node_keys</code>, <code>partition_dimensions</code></td>
+                <td>定义“这个数据集在这一层里的哪个具体内容”。</td>
+                <td>节点 key 是否足够稳定，扫描规则是否覆盖现有目录。</td>
+              </tr>
+              <tr>
+                <td class="field">LakePartitionSummary</td>
+                <td><code>partition_values</code>, <code>partition_locator</code>, <code>partition_label</code>, <code>path</code></td>
+                <td>定义“某个节点下面的一片数据”。</td>
+                <td>用结构化字段替代单一 <code>partition_key</code>。</td>
+              </tr>
+              <tr>
+                <td class="field">LakePhysicalAssetSummary</td>
+                <td><code>path</code>, <code>asset_type</code>, <code>registered_state</code>, <code>dataset_key</code>, <code>node_key</code>, <code>total_bytes</code></td>
+                <td>定义“硬盘上真实存在什么”。</td>
+                <td>既要反映全湖真实情况，也不能把临时目录误注册成业务数据集。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.1 LakeNodeDefinition 草案</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>含义</th><th>例子</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">node_key</td>
+                <td class="type">str</td>
+                <td>内容节点唯一 key。只在所属数据集内唯一即可。</td>
+                <td><code>clean_next_by_date</code></td>
+              </tr>
+              <tr>
+                <td class="field">node_name</td>
+                <td class="type">str</td>
+                <td>给页面看的中文名称。</td>
+                <td>clean next 按交易日资产</td>
+              </tr>
+              <tr>
+                <td class="field">layer</td>
+                <td class="type">str</td>
+                <td>该节点所属湖内大层级。</td>
+                <td><code>research</code></td>
+              </tr>
+              <tr>
+                <td class="field">path</td>
+                <td class="type">str</td>
+                <td>相对 Lake Root 的节点根路径。</td>
+                <td><code>research/stk_mins_by_date_clean_next</code></td>
+              </tr>
+              <tr>
+                <td class="field">scan_profile</td>
+                <td class="type">str</td>
+                <td>扫描规则，决定如何从路径解析分区字段。</td>
+                <td><code>freq_trade_date</code></td>
+              </tr>
+              <tr>
+                <td class="field">asset_role</td>
+                <td class="type">str</td>
+                <td>资产角色，说明它是原始来源、清洗基准、派生结果还是查询投影。</td>
+                <td><code>clean_baseline</code></td>
+              </tr>
+              <tr>
+                <td class="field">source_node_keys</td>
+                <td class="type">list[str]</td>
+                <td>来源内容节点。用于表达血缘，不再用粗粒度 <code>source_layer</code>。</td>
+                <td><code>["raw_by_date"]</code></td>
+              </tr>
+              <tr>
+                <td class="field">partition_dimensions</td>
+                <td class="type">list[str]</td>
+                <td>该节点会解析出来的分区维度。</td>
+                <td><code>["freq", "trade_date"]</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>5.2 LakeDatasetSummary</h3>
         <div class="table-wrap">
           <table>
             <thead>
@@ -740,53 +1297,55 @@ pre {
             <tbody>
               <tr><td class="field">dataset_key</td><td class="type">str</td><td>数据集唯一 key，例如 <code>stk_mins</code>。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">display_name</td><td class="type">str</td><td>页面展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">source / source_label</td><td class="type">str / str</td><td>来源 key 和后端生成的来源展示名。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">group_key / group_label / group_order</td><td class="type">str / str / int</td><td>管理台展示分组。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">dataset_role</td><td class="type">str</td><td>数据集角色，例如 raw_dataset。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">storage_root</td><td class="type">str | null</td><td>相对 Lake Root 的主要存储根。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">layers</td><td class="type">list[str]</td><td>该数据集声明的层级。页面展示应使用中文层级名，不直接暴露内部枚举。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">layer_summaries</td><td class="type">list[LakeLayerSummary]</td><td>各层扫描结果。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>所有层级合计。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">dataset_role / dataset_role_label</td><td class="type">str / str</td><td>数据集角色 key 和后端生成的角色展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">node_summaries</td><td class="type">list[LakeNodeSummary]</td><td>数据集下的内容节点扫描结果。页面不再消费 <code>layer_summaries</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>所有内容节点合计。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">row_count</td><td class="type">int | null</td><td>通用列表不计算。当前多为 null。</td><td><span class="state partial">预留</span></td></tr>
-              <tr><td class="field">primary_layout / available_layouts</td><td class="type">str | list[str]</td><td>当前代码字段名。文档与页面口径应理解为“主存储形态 / 可用存储形态”。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">write_policy / update_mode</td><td class="type">str | null</td><td>展示默认写入和更新模式，不代表页面可直接执行。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">coverage_label</td><td class="type">str</td><td>后端生成的覆盖范围展示文案。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">health_status / health_label</td><td class="type">str / str</td><td>状态 key 和后端生成的状态展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">sort_order</td><td class="type">int</td><td>后端生成的数据集排序字段。</td><td><span class="state done">已落地</span></td></tr>
             </tbody>
           </table>
         </div>
 
-        <h3>5.2 LakeLayerSummary</h3>
+        <h3>5.3 LakeNodeSummary</h3>
         <div class="table-wrap">
           <table>
             <thead>
               <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
             </thead>
             <tbody>
-              <tr><td class="field">layer</td><td class="type">str</td><td>内部枚举包括 <code>raw_tushare / manifest / derived / research</code>。页面应展示为“原始层 / 辅助清单层 / 派生层 / 研究层”。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">layer_name / purpose</td><td class="type">str</td><td>层级展示名与用途说明。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">source_layer</td><td class="type">str | null</td><td>来源层，当前 schema 有字段但未填。</td><td><span class="state partial">空壳字段</span></td></tr>
-              <tr><td class="field">layout</td><td class="type">str</td><td>内部枚举包括 <code>current_file / manifest_file / by_date / by_symbol_month</code>。页面应展示为“当前版本单文件 / 辅助清单文件 / 按交易日期分区 / 按月份分桶”。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">path</td><td class="type">str</td><td>层级路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>该层扫描得到的物理规模。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">dataset_key / node_key / node_name</td><td class="type">str</td><td>节点归属、稳定 key 和中文展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">layer / layer_name</td><td class="type">str / str</td><td>节点所属湖内大层级及后端展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">path</td><td class="type">str</td><td>内容节点根路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">scan_profile</td><td class="type">str</td><td>后端扫描规则名。前端只能展示，不能据此解析目录。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">asset_role / asset_role_label</td><td class="type">str / str</td><td>资产角色 key 和后端生成展示名。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">source_node_keys</td><td class="type">list[str]</td><td>来源内容节点。替代旧的 <code>source_layer</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_dimensions</td><td class="type">list[str]</td><td>该节点可解析出的结构化分区字段。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_count / file_count / total_bytes</td><td class="type">int</td><td>该节点扫描得到的物理规模。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">freqs / trade_date range / trade_month range</td><td class="type">list / str</td><td>从分区扫描聚合出来的覆盖范围。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">row_count</td><td class="type">int | null</td><td>当前通用 scanner 不计算。</td><td><span class="state partial">预留</span></td></tr>
+              <tr><td class="field">coverage_label</td><td class="type">str</td><td>后端生成的覆盖范围展示文案。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">registered_state</td><td class="type">str</td><td>节点登记和硬盘存在状态，例如 <code>registered/missing_on_disk</code>。</td><td><span class="state done">已落地</span></td></tr>
             </tbody>
           </table>
         </div>
 
-        <h3>5.3 LakePartitionSummary</h3>
+        <h3>5.4 LakePartitionSummary</h3>
         <div class="table-wrap">
           <table>
             <thead>
               <tr><th>字段</th><th>类型</th><th>含义</th><th>状态</th></tr>
             </thead>
             <tbody>
-              <tr><td class="field">dataset_key / layer / layout</td><td class="type">str</td><td>分区归属。<code>layout</code> 在页面上按“存储形态”解释。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">freq / trade_date / trade_month / bucket</td><td class="type">int | str | null</td><td>当前支持的结构化分区字段。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">dataset_key / node_key</td><td class="type">str</td><td>分区归属到具体数据集和具体内容节点。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_values</td><td class="type">dict</td><td>结构化分区字段，例如 <code>{"freq": 30, "trade_date": "2026-04-24"}</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_locator</td><td class="type">str</td><td>稳定分区定位符，例如 <code>freq=30/trade_date=2026-04-24</code>。</td><td><span class="state done">已落地</span></td></tr>
+              <tr><td class="field">partition_label</td><td class="type">str</td><td>页面展示文案，例如 <code>30min · 2026-04-24</code>。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">path</td><td class="type">str</td><td>分区路径或单文件路径。</td><td><span class="state done">已落地</span></td></tr>
               <tr><td class="field">file_count / total_bytes / modified_at</td><td class="type">int / int / datetime</td><td>分区物理事实。</td><td><span class="state done">已落地</span></td></tr>
-              <tr><td class="field">partition_key</td><td class="type">str</td><td>旧目标态叫法不准确。后续不应继续作为唯一字段使用。</td><td><span class="state future">目标态需改造</span></td></tr>
-              <tr><td class="field">partition_values</td><td class="type">dict</td><td>目标态结构化分区字段，例如 <code>{"freq": 30, "trade_date": "2026-04-24"}</code>。</td><td><span class="state future">目标态</span></td></tr>
-              <tr><td class="field">partition_locator</td><td class="type">str</td><td>目标态稳定分区定位符，例如 <code>freq=30/trade_date=2026-04-24</code>。</td><td><span class="state future">目标态</span></td></tr>
-              <tr><td class="field">partition_label</td><td class="type">str</td><td>目标态页面展示文案，例如 <code>30min · 2026-04-24</code>。</td><td><span class="state future">目标态</span></td></tr>
               <tr><td class="field">replace_scope / can_replace_safely</td><td class="type">str / bool</td><td>写入安全字段，当前未实现。</td><td><span class="state future">目标态</span></td></tr>
             </tbody>
           </table>
@@ -798,7 +1357,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>6. API 架构</h2>
-          <p>当前实现和目标态 API 需要分开展示。</p>
+        <p>当前实现已切到节点模型 API。前端只消费后端输出字段，不再自行拼装层级、路径和首页统计。</p>
         </div>
       </div>
       <div class="section-body">
@@ -810,8 +1369,10 @@ pre {
                 <thead><tr><th>API</th><th>返回对象</th><th>用途</th></tr></thead>
                 <tbody>
                   <tr><td class="field">GET /api/lake/status</td><td><code>LakeStatusResponse</code></td><td>Lake 根目录与磁盘状态。</td></tr>
-                  <tr><td class="field">GET /api/datasets</td><td><code>LakeDatasetListResponse</code></td><td>数据集列表，含 layer summaries。</td></tr>
-                  <tr><td class="field">GET /api/partitions</td><td><code>LakePartitionListResponse</code></td><td>独立分区列表，可按 dataset/layer/layout 过滤。</td></tr>
+                  <tr><td class="field">GET /api/lake/overview</td><td><code>LakeOverviewResponse</code></td><td>总览页专用聚合。后端返回湖内层级、来源方式、数据集清单、硬盘资产样本。</td></tr>
+                  <tr><td class="field">GET /api/lake/datasets</td><td><code>LakeDatasetListResponse</code></td><td>数据集列表和详情基础事实，含 <code>node_summaries</code>。</td></tr>
+                  <tr><td class="field">GET /api/lake/partitions</td><td><code>LakePartitionListResponse</code></td><td>按 <code>dataset_key + node_key</code> 列出结构化分区。</td></tr>
+                  <tr><td class="field">GET /api/lake/physical-assets</td><td><code>LakePhysicalAssetListResponse</code></td><td>全湖硬盘资产列表，区分已登记、未登记和治理目录。</td></tr>
                   <tr><td class="field">GET /api/recovery/*</td><td><code>LakeRecovery*</code></td><td>Kopia 备份点管理视图。</td></tr>
                   <tr><td class="field">GET /api/lake/command-examples</td><td><code>LakeCommandExamplesResponse</code></td><td>命令示例与前置条件。</td></tr>
                 </tbody>
@@ -819,21 +1380,59 @@ pre {
             </div>
           </div>
           <div>
-            <h3>目标态候选</h3>
+            <h3>后续候选</h3>
             <div class="table-wrap">
               <table>
                 <thead><tr><th>API</th><th>状态</th><th>说明</th></tr></thead>
                 <tbody>
-                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}</td><td><span class="state future">未实现</span></td><td>单 dataset 详情，是否需要取代前端拼接需另评审。</td></tr>
-                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}/partitions</td><td><span class="state future">未实现</span></td><td>更规整的 dataset 子资源形式。</td></tr>
-                  <tr><td class="field">GET /api/lake/datasets/{dataset_key}/files</td><td><span class="state future">未实现</span></td><td>依赖 <code>LakeFileSummary</code> 落地。</td></tr>
-                  <tr><td class="field">GET /api/storage/*</td><td><span class="state future">未实现</span></td><td>Storage 页薄投影，必须复用 dataset/layer 核心模型。</td></tr>
+                  <tr><td class="field">GET /api/lake/nodes</td><td><span class="state future">候选</span></td><td>按数据集、层级、节点查询内容节点摘要。是否单独暴露需评审。</td></tr>
+                  <tr><td class="field">GET /api/lake/storage-cost</td><td><span class="state future">候选</span></td><td>后续 Storage / Cost 页专用聚合，必须复用同一套 Dataset / Node / PhysicalAsset 模型。</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
         <p class="note callout-warn" style="margin-top:12px;">目标态 API 不能继续写得像现状。任何新 API 进入实现前，都必须先说明它是在复用核心模型，还是新增独立领域对象。</p>
+
+        <h3>6.1 API 硬约束：前端零推断</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>原则</th>
+                <th>后端必须负责</th>
+                <th>前端只能负责</th>
+                <th>禁止行为</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="field">展示事实以后端为准</td>
+                <td>返回页面所需的完整展示字段，包括名称、状态、大小、覆盖范围、层级、节点、提示文案和排序权重。</td>
+                <td>按 API 字段直接渲染，不自行补字段。</td>
+                <td>前端根据 <code>path</code>、<code>layer</code>、<code>layout</code> 猜中文名、状态或业务含义。</td>
+              </tr>
+              <tr>
+                <td class="field">聚合计算在后端完成</td>
+                <td>完成数据集总量、节点总量、全湖占用、漏账差异、登记状态等聚合。</td>
+                <td>展示后端给出的聚合结果和明细列表。</td>
+                <td>前端把多个 API 结果拼起来算总数、算差异、判断是否漏账。</td>
+              </tr>
+              <tr>
+                <td class="field">语义判断在后端完成</td>
+                <td>明确返回 <code>registered_state</code>、<code>asset_role</code>、<code>node_name</code>、<code>layer_name</code>、<code>partition_label</code> 等展示语义。</td>
+                <td>根据后端语义字段控制样式和布局。</td>
+                <td>前端通过目录名包含 <code>clean</code>、<code>derived</code>、<code>research</code> 来判断资产类型。</td>
+              </tr>
+              <tr>
+                <td class="field">页面模型由 API 输出</td>
+                <td>为总览、数据集列表、节点详情、硬盘资产列表提供稳定 response model。</td>
+                <td>只做轻量 view rendering，不维护第二套数据模型。</td>
+                <td>每个页面各自定义一套事实字段，或者私下组装与 API 不一致的 view model。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -849,13 +1448,12 @@ pre {
           <div class="object-card">
             <div class="object-head">
               <div class="object-title">stock_basic</div>
-              <div class="object-sub">一个数据集，两个层级。辅助清单层不是独立数据集。</div>
+              <div class="object-sub">一个数据集，两个内容节点。辅助清单层不是独立数据集。</div>
             </div>
             <dl>
               <div class="kv"><dt>dataset_key</dt><dd>stock_basic</dd></div>
-              <div class="kv"><dt>主存储形态</dt><dd>当前版本单文件（代码值：<code>current_file</code>）</dd></div>
-              <div class="kv"><dt>原始层</dt><dd>raw_tushare/stock_basic/current/part-000.parquet</dd></div>
-              <div class="kv"><dt>辅助清单层</dt><dd>manifest/security_universe/tushare_stock_basic.parquet</dd></div>
+              <div class="kv"><dt>原始节点</dt><dd><code>raw_current</code>：raw_tushare/stock_basic/current/part-000.parquet</dd></div>
+              <div class="kv"><dt>辅助清单节点</dt><dd><code>manifest_file</code>：manifest/security_universe/tushare_stock_basic.parquet</dd></div>
               <div class="kv"><dt>关键结论</dt><dd>股票基础信息的辅助清单不是当前独立数据集。</dd></div>
             </dl>
           </div>
@@ -867,11 +1465,10 @@ pre {
             </div>
             <dl>
               <div class="kv"><dt>dataset_key</dt><dd>stk_mins</dd></div>
-              <div class="kv"><dt>主存储形态</dt><dd>按交易日期分区（代码值：<code>by_date</code>）</dd></div>
-              <div class="kv"><dt>原始层</dt><dd>raw_tushare/stk_mins_by_date</dd></div>
-              <div class="kv"><dt>clean 基准层</dt><dd>research/stk_mins_by_date_clean_next</dd></div>
-              <div class="kv"><dt>派生层</dt><dd>derived/stk_mins_by_date</dd></div>
-              <div class="kv"><dt>研究层</dt><dd>research/stk_mins_by_symbol_month</dd></div>
+              <div class="kv"><dt>原始节点</dt><dd><code>raw_tushare_by_date</code>：raw_tushare/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>clean 基准节点</dt><dd><code>clean_next_by_date</code>：research/stk_mins_by_date_clean_next</dd></div>
+              <div class="kv"><dt>派生节点</dt><dd><code>derived_by_date</code>：derived/stk_mins_by_date</dd></div>
+              <div class="kv"><dt>研究节点</dt><dd><code>by_symbol_month</code>：research/stk_mins_by_symbol_month</dd></div>
             </dl>
           </div>
         </div>
@@ -880,26 +1477,59 @@ pre {
         <pre>{
   "dataset_key": "stk_mins",
   "display_name": "股票历史分钟行情",
+  "source": "tushare",
+  "source_label": "Tushare",
   "group_key": "equity_market",
-  "primary_layout": "by_date",
-  "layers": ["raw_tushare", "derived", "research"],
+  "dataset_role": "raw_dataset",
+  "dataset_role_label": "原始数据集",
   "partition_count": 0,
   "file_count": 0,
   "total_bytes": 0,
-  "row_count": null,
-  "layer_summaries": [
+  "coverage_label": "-",
+  "health_status": "empty",
+  "health_label": "未落盘",
+  "node_summaries": [
     {
+      "node_key": "raw_tushare_by_date",
+      "node_name": "原始分钟线",
       "layer": "raw_tushare",
-      "layout": "by_date",
+      "layer_name": "原始层",
       "path": "raw_tushare/stk_mins_by_date",
+      "scan_profile": "freq_trade_date",
+      "asset_role": "source_raw",
+      "asset_role_label": "原始来源",
+      "source_node_keys": [],
+      "partition_dimensions": ["freq", "trade_date"],
       "partition_count": 0,
       "file_count": 0,
-      "total_bytes": 0
+      "total_bytes": 0,
+      "coverage_label": "-"
     }
   ]
 }</pre>
 
-        <h3>7.2 Kopia Recovery 当前 API 示例形状</h3>
+        <h3>7.2 LakeOverviewResponse 当前 API 示例形状</h3>
+        <pre>{
+  "lake_root": "/Volumes/datasource/goldenshare-tushare-lake",
+  "summary_metrics": [
+    {"key": "datasets", "label": "数据集", "value": "64", "hint": "62 个已有文件落盘"}
+  ],
+  "layer_groups": [
+    {
+      "layer": "research",
+      "layer_name": "研究层",
+      "dataset_count": 3,
+      "node_count": 4,
+      "partition_count": 1234,
+      "file_count": 5678,
+      "total_bytes": 67645734912,
+      "coverage_label": "2025-01-02 至 2026-05-08"
+    }
+  ],
+  "dataset_rows": []
+}</pre>
+
+        <h3>7.3 Kopia Recovery 当前 API 示例形状</h3>
         <pre>{
   "snapshot_id": "k9673865f7c8f70e07dffd7740e8c9e8b",
   "scope": "whole_lake",
@@ -933,6 +1563,36 @@ pre {
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td class="field">Layer / Node 混用</td>
+                <td>Layer 是大层级，Node 是具体内容节点</td>
+                <td><code>LakeLayerDefinition</code> 同时保存 layer、path、layout、purpose</td>
+                <td><span class="state partial">拆出 Node 模型</span></td>
+              </tr>
+              <tr>
+                <td class="field">clean_next 资产</td>
+                <td>作为 <code>stk_mins</code> 的研究层内容节点</td>
+                <td>硬盘真实存在，但管理台摘要可能漏账或表达不完整</td>
+                <td><span class="state partial">补 Node 定义和扫描摘要</span></td>
+              </tr>
+              <tr>
+                <td class="field">分钟指标资产</td>
+                <td>作为 <code>stk_mins_indicators</code> 数据集，指标和参数是分区维度</td>
+                <td><code>derived/stk_mins_indicators_by_date</code> 与 <code>research/stk_mins_indicators_by_symbol_month</code> 当前不应继续漏账</td>
+                <td><span class="state future">新增数据集与扫描规则</span></td>
+              </tr>
+              <tr>
+                <td class="field">全湖硬盘资产</td>
+                <td>能够展示已登记、未登记、治理目录</td>
+                <td>当前总览更多依赖 catalog，不能完整解释硬盘真实占用</td>
+                <td><span class="state future">补 PhysicalAsset 摘要</span></td>
+              </tr>
+              <tr>
+                <td class="field">前端事实拼接</td>
+                <td>后端提供完整事实，前端只展示</td>
+                <td>部分页面仍可能按 path、layer、layout 做推断</td>
+                <td><span class="state partial">API 收口后清扫</span></td>
+              </tr>
               <tr>
                 <td class="field">LakeFileSummary</td>
                 <td>文件级对象</td>
@@ -986,7 +1646,7 @@ pre {
         <div class="grid-2">
           <div class="note">
             <strong>必须遵守</strong>
-            <p>Storage / Health / Activity 只能在 <code>LakeDatasetSummary -> LakeLayerSummary -> LakePartitionSummary</code> 上做页面投影。需要新字段时，先改模型与 API 设计，再开发页面。</p>
+            <p>Storage / Health / Activity 只能在 <code>Dataset -> Node -> Partition</code> 和 <code>PhysicalAsset</code> 这套模型上做页面投影。需要新字段时，先改模型与 API 设计，再开发页面。</p>
           </div>
           <div class="note callout-warn">
             <strong>必须避免</strong>
@@ -1001,10 +1661,10 @@ pre {
               <tr><th>顺序</th><th>工作</th><th>产物</th></tr>
             </thead>
             <tbody>
-              <tr><td>1</td><td>收正当前模型文档</td><td>现状字段和目标态字段分开</td></tr>
-              <tr><td>2</td><td>评审 API 架构</td><td>统一 dataset/detail/partition API 边界</td></tr>
-              <tr><td>3</td><td>补必要 schema</td><td>只补被业务需要证明过的字段</td></tr>
-              <tr><td>4</td><td>恢复页面开发</td><td>Storage 先做，Health / Activity 后置</td></tr>
+              <tr><td>1</td><td>评审本文档目标模型</td><td>确认 Layer / Node / Partition / PhysicalAsset 是否无语义重叠</td></tr>
+              <tr><td>2</td><td>确定 API 契约</td><td>明确 overview、datasets、partitions、physical-assets 的返回边界</td></tr>
+              <tr><td>3</td><td>代码内字段和枚举清扫</td><td>旧口径清零，前端不再自行拼事实</td></tr>
+              <tr><td>4</td><td>恢复页面开发</td><td>先修数据湖总览真实反映全湖，再进入 Storage / Cost</td></tr>
             </tbody>
           </table>
         </div>

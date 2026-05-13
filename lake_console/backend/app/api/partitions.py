@@ -7,31 +7,33 @@ from lake_console.backend.app.services.filesystem_scanner import FilesystemScann
 from lake_console.backend.app.settings import load_settings
 
 
-router = APIRouter(prefix="/api/partitions", tags=["partitions"])
+router = APIRouter(prefix="/api/lake/partitions", tags=["partitions"])
 
 
 @router.get("", response_model=LakePartitionListResponse)
 def list_partitions(
-    dataset_key: str | None = Query(default=None),
-    layer: str | None = Query(default=None),
-    layout: str | None = Query(default=None),
+    dataset_key: str = Query(),
+    node_key: str = Query(),
     freq: int | None = Query(default=None),
     trade_date_from: str | None = Query(default=None),
     trade_date_to: str | None = Query(default=None),
     trade_month: str | None = Query(default=None),
     bucket: int | None = Query(default=None),
+    indicator: str | None = Query(default=None),
+    params_key: str | None = Query(default=None),
 ) -> LakePartitionListResponse:
     settings = load_settings()
     scanner = FilesystemScanner(settings.lake_root)
     return LakePartitionListResponse(
         items=scanner.list_partitions(
             dataset_key=dataset_key,
-            layer=layer,
-            layout=layout,
+            node_key=node_key,
             freq=freq,
             trade_date_from=trade_date_from,
             trade_date_to=trade_date_to,
             trade_month=trade_month,
             bucket=bucket,
+            indicator=indicator,
+            params_key=params_key,
         )
     )

@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.catalog.datasets import get_dataset_definition
-from lake_console.backend.app.catalog.models import LakeLayerDefinition
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -54,8 +53,8 @@ class ProdRawCurrentExportService:
         run_id = _run_id(dataset_key.replace("_", "-"))
         LakeRootService(self.lake_root).require_ready_for_write()
 
-        raw_layer = _require_layer(definition.layers, layer="raw_tushare")
-        manifest_layer = _require_layer(definition.layers, layer="manifest")
+        raw_node = definition.require_node(layer="raw_tushare")
+        manifest_node = definition.require_node(layer="manifest")
         query = build_prod_raw_current_query(dataset_key=dataset_key)
 
         self.progress(f"[{dataset_key}:prod-raw-db] start run_id={run_id}")
@@ -63,10 +62,10 @@ class ProdRawCurrentExportService:
         if not rows:
             raise RuntimeError(f"{dataset_key} 未获取到任何有效记录，拒绝覆盖本地 current/manifest 文件。")
 
-        raw_tmp = self.lake_root / "_tmp" / run_id / raw_layer.path
-        raw_final = self.lake_root / raw_layer.path
-        manifest_tmp = self.lake_root / "_tmp" / run_id / manifest_layer.path
-        manifest_final = self.lake_root / manifest_layer.path
+        raw_tmp = self.lake_root / "_tmp" / run_id / raw_node.path
+        raw_final = self.lake_root / raw_node.path
+        manifest_tmp = self.lake_root / "_tmp" / run_id / manifest_node.path
+        manifest_final = self.lake_root / manifest_node.path
         backup_root = self.lake_root / "_tmp" / run_id / "_backup"
 
         self.progress(f"[{dataset_key}:prod-raw-db] writing raw rows={len(rows)} output={raw_tmp}")
@@ -157,13 +156,6 @@ def _sort_key(dataset_key: str) -> Callable[[dict[str, Any]], tuple[str, ...]]:
     if dataset_key == "ths_member":
         return lambda row: (str(row.get("ts_code") or ""), str(row.get("con_code") or ""))
     return lambda row: (str(row.get("ts_code") or ""),)
-
-
-def _require_layer(layers: tuple[LakeLayerDefinition, ...], *, layer: str) -> LakeLayerDefinition:
-    for item in layers:
-        if item.layer == layer:
-            return item
-    raise RuntimeError(f"LakeDatasetDefinition 缺少 layer={layer} 定义。")
 
 
 def _is_nan(value: Any) -> bool:

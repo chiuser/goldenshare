@@ -45,7 +45,7 @@ def build_trade_date_plan(
         )
         if not dates:
             raise RuntimeError(f"{definition.dataset_key} 在 {start_date.isoformat()} ~ {end_date.isoformat()} 范围内没有可导出的锚点日期。")
-    write_paths = tuple(f"{layer.path}/trade_date={item.isoformat()}" for item in dates for layer in definition.layers)
+    write_paths = tuple(f"{node.path}/trade_date={item.isoformat()}" for item in dates for node in definition.nodes)
     if source == "prod-raw-db":
         if definition.dataset_key not in {
             "cyq_perf",
