@@ -86,8 +86,28 @@ const sectorPayload = {
 
 const moduleSourcesSnapshot = { ...marketOverviewModuleSources };
 
+const pageContextPayload = {
+  pageContext: {
+    market: "CN_A",
+    tradeDate: "2026-05-11",
+    prevTradeDate: "2026-05-08",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+    generatedAt: "2026-05-11T15:05:00+08:00",
+    source: "default",
+  },
+};
+
 function responseJson(payload: unknown): Response {
   return { ok: true, json: async () => payload } as Response;
+}
+
+function maybeContextResponse(url: string): Promise<Response> | null {
+  if (!url.includes("/api/v1/wealth/market/context")) {
+    return null;
+  }
+  return Promise.resolve(responseJson(pageContextPayload));
 }
 
 describe("market-overview sector-overview real api", () => {
@@ -117,6 +137,10 @@ describe("market-overview sector-overview real api", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       requestUrls.push(url);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/sector-overview")) {
         return new Promise<Response>((resolve) => {
           resolveSectorFetch = resolve;
@@ -148,6 +172,7 @@ describe("market-overview sector-overview real api", () => {
     const sectorRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/sector-overview"));
     expect(sectorRequest).toBeDefined();
     expect(new URL(sectorRequest as string).searchParams.get("market")).toBe("CN_A");
+    expect(new URL(sectorRequest as string).searchParams.get("tradeDate")).toBe("2026-05-11");
   });
 
   it("uses the page-level debug switch for sector-overview", async () => {
@@ -156,6 +181,10 @@ describe("market-overview sector-overview real api", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       requestUrls.push(url);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/sector-overview")) {
         return responseJson(sectorPayload);
       }
@@ -175,6 +204,10 @@ describe("market-overview sector-overview real api", () => {
     vi.useFakeTimers();
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (!url.includes("/api/v1/wealth/market/sector-overview")) {
         return Promise.reject(new Error(`unexpected url: ${url}`));
       }

@@ -17,7 +17,7 @@ export function PageHeader({ tradeDate, updateTime, onRefresh, refreshing }: Pag
       </div>
       <div className="header-actions">
         <span>
-          数据更新时间：<span className="num">{updateTime}</span>
+          页面更新时间：<span className="num">{updateTime}</span>
         </span>
         <button className={refreshing ? "refresh-btn loading" : "refresh-btn"} type="button" onClick={onRefresh}>
           {refreshing ? "刷新中" : "手动刷新"}

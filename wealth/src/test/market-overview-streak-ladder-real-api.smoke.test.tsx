@@ -82,8 +82,28 @@ const streakLadderSuccessPayload = {
 
 const moduleSourcesSnapshot = { ...marketOverviewModuleSources };
 
+const pageContextPayload = {
+  pageContext: {
+    market: "CN_A",
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+    generatedAt: "2026-04-28T15:05:00+08:00",
+    source: "default",
+  },
+};
+
 function responseJson(payload: unknown): Response {
   return { ok: true, json: async () => payload } as Response;
+}
+
+function maybeContextResponse(url: string): Promise<Response> | null {
+  if (!url.includes("/api/v1/wealth/market/context")) {
+    return null;
+  }
+  return Promise.resolve(responseJson(pageContextPayload));
 }
 
 describe("market-overview streak-ladder real api smoke", () => {
@@ -108,6 +128,10 @@ describe("market-overview streak-ladder real api smoke", () => {
   it("renders-streak-ladder-panel", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/streak-ladder")) {
         return responseJson(streakLadderSuccessPayload);
       }
@@ -129,11 +153,21 @@ describe("market-overview streak-ladder real api smoke", () => {
   });
 
   it("shows-error-state", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ code: "503001", message: "streak ladder unavailable" }),
-      status: 503,
-    } as Response);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
+      if (url.includes("/api/v1/wealth/market/streak-ladder")) {
+        return {
+          ok: false,
+          json: async () => ({ code: "503001", message: "streak ladder unavailable" }),
+          status: 503,
+        } as Response;
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
 
     render(<MarketOverviewPage />);
 
@@ -171,6 +205,10 @@ describe("market-overview streak-ladder real api smoke", () => {
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/streak-ladder")) {
         return responseJson(payload);
       }

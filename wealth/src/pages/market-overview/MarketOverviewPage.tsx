@@ -9,6 +9,11 @@ import {
   type MarketBreadthViewModel,
 } from "../../features/market-overview/breadth/api/marketBreadthAdapter";
 import { fetchMarketBreadth, type BreadthDebugInfo } from "../../features/market-overview/breadth/api/marketBreadthApi";
+import {
+  buildMarketPageContextViewModelFromApi,
+  type MarketPageContextViewModel,
+} from "../../features/market-overview/context/api/marketPageContextAdapter";
+import { fetchMarketPageContext } from "../../features/market-overview/context/api/marketPageContextApi";
 import { MajorIndexPanel } from "../../features/market-overview/indices/MajorIndexPanel";
 import {
   buildMajorIndicesViewModelFromApi,
@@ -87,6 +92,7 @@ const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
 const SECTOR_OVERVIEW_FETCH_TIMEOUT_MS = 5000;
+const PAGE_CONTEXT_FETCH_TIMEOUT_MS = 5000;
 
 function isFiniteNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -120,6 +126,9 @@ function buildHeaderTickers(
 
 export function MarketOverviewPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
+  const [pageContext, setPageContext] = useState<MarketPageContextViewModel | null>(null);
+  const [pageContextViewState, setPageContextViewState] = useState<"loading" | "ready" | "error">("loading");
+  const [pageContextErrorMessage, setPageContextErrorMessage] = useState<string | null>(null);
   const [summary, setSummary] = useState<MarketSummaryViewModel | null>(null);
   const [summaryViewState, setSummaryViewState] = useState<"loading" | "ready" | "error">(
     marketOverviewModuleSources.summary === "real" ? "loading" : "ready",
@@ -231,6 +240,46 @@ export function MarketOverviewPage() {
   ]);
 
   useEffect(() => {
+    let canceled = false;
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => abortController.abort(), PAGE_CONTEXT_FETCH_TIMEOUT_MS);
+    setPageContext(null);
+    setPageContextViewState("loading");
+    setPageContextErrorMessage(null);
+
+    fetchMarketPageContext({ market: "CN_A" }, { signal: abortController.signal })
+      .then((payload) => {
+        if (!canceled) {
+          setPageContext(buildMarketPageContextViewModelFromApi(payload));
+          setPageContextViewState("ready");
+          setPageContextErrorMessage(null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? "请求超时：/api/v1/wealth/market/context"
+            : error instanceof Error
+              ? error.message
+              : "页面时间上下文加载失败";
+          setPageContext(null);
+          setPageContextViewState("error");
+          setPageContextErrorMessage(message);
+          showToast(`页面时间上下文异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     fetchMarketOverviewMock().then((response) => {
       setOverview(response.data);
       if (marketOverviewModuleSources.summary === "mock") {
@@ -317,7 +366,7 @@ export function MarketOverviewPage() {
   }, []);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.summary !== "real") return;
 
     let canceled = false;
@@ -329,7 +378,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), SUMMARY_FETCH_TIMEOUT_MS);
 
     fetchMarketSummary(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -359,10 +408,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.limitUp !== "real") return;
 
     let canceled = false;
@@ -374,7 +423,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), LIMIT_UP_FETCH_TIMEOUT_MS);
 
     fetchMarketLimitUp(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -408,10 +457,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.streakLadder !== "real") return;
 
     let canceled = false;
@@ -423,7 +472,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), STREAK_LADDER_FETCH_TIMEOUT_MS);
 
     fetchMarketStreakLadder(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -457,10 +506,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.breadth !== "real") return;
 
     let canceled = false;
@@ -472,7 +521,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), BREADTH_FETCH_TIMEOUT_MS);
 
     fetchMarketBreadth(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -502,10 +551,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.majorIndices !== "real") return;
 
     let canceled = false;
@@ -517,7 +566,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), MAJOR_INDICES_FETCH_TIMEOUT_MS);
 
     fetchMarketMajorIndices(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -551,10 +600,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.style !== "real") return;
 
     let canceled = false;
@@ -566,7 +615,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), STYLE_FETCH_TIMEOUT_MS);
 
     fetchMarketStyle(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -596,10 +645,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.turnover !== "real") return;
 
     let canceled = false;
@@ -611,7 +660,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), TURNOVER_FETCH_TIMEOUT_MS);
 
     fetchMarketTurnover(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -645,10 +694,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.leaderboards !== "real") return;
 
     let canceled = false;
@@ -660,7 +709,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), LEADERBOARDS_FETCH_TIMEOUT_MS);
 
     fetchMarketLeaderboards(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -694,10 +743,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.moneyFlow !== "real") return;
 
     let canceled = false;
@@ -709,7 +758,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), MONEY_FLOW_FETCH_TIMEOUT_MS);
 
     fetchMarketMoneyFlow(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -743,10 +792,10 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
-    if (!overview) return;
+    if (!overview || !pageContext) return;
     if (marketOverviewModuleSources.sectors !== "real") return;
 
     let canceled = false;
@@ -758,7 +807,7 @@ export function MarketOverviewPage() {
     const timeoutId = window.setTimeout(() => abortController.abort(), SECTOR_OVERVIEW_FETCH_TIMEOUT_MS);
 
     fetchMarketSectorOverview(
-      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { market: "CN_A", tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? 1 : 0 },
       { signal: abortController.signal },
     )
       .then((payload) => {
@@ -792,7 +841,7 @@ export function MarketOverviewPage() {
       canceled = true;
       abortController.abort();
     };
-  }, [overview, pageDebugEnabled]);
+  }, [overview, pageContext, pageDebugEnabled]);
 
   function showToast(message: string) {
     setToast(message);
@@ -804,11 +853,24 @@ export function MarketOverviewPage() {
     setRefreshing(true);
     window.setTimeout(() => {
       setRefreshing(false);
-      showToast("市场总览已刷新：2026-04-28 15:05:18");
+      showToast(`市场总览已刷新：${pageContext?.updateTime ?? "页面时间上下文未就绪"}`);
     }, 900);
   }
 
-  if (!overview) {
+  if (pageContextViewState === "error") {
+    return (
+      <main className="page-shell">
+        <div className="state-block error-box">
+          <strong>页面时间上下文加载失败</strong>
+          <br />
+          <span>{pageContextErrorMessage ?? "请稍后重试"}</span>
+        </div>
+        {toast ? <div id="toast">{toast}</div> : null}
+      </main>
+    );
+  }
+
+  if (!overview || !pageContext) {
     return (
       <main className="page-shell">
         <SkeletonBlock />
@@ -821,7 +883,7 @@ export function MarketOverviewPage() {
       <TopMarketBar dataDelayText={overview.dataDelayText} onAction={showToast} statusText={overview.statusText} tickers={headerTickers} />
       <main className="page-shell">
         <Breadcrumb onAction={showToast} />
-        <PageHeader refreshing={refreshing} tradeDate={overview.tradeDate} updateTime={overview.updateTime} onRefresh={refresh} />
+        <PageHeader refreshing={refreshing} tradeDate={pageContext.tradeDate} updateTime={pageContext.updateTime} onRefresh={refresh} />
         <ShortcutBar onAction={showToast} />
         <div className="content-grid">
           <div className="summary-index-row" aria-label="今日市场客观总结与主要指数组合">

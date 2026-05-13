@@ -58,8 +58,28 @@ const moneyFlowPayload = {
 
 const moduleSourcesSnapshot = { ...marketOverviewModuleSources };
 
+const pageContextPayload = {
+  pageContext: {
+    market: "CN_A",
+    tradeDate: "2026-05-11",
+    prevTradeDate: "2026-05-08",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+    generatedAt: "2026-05-11T15:05:00+08:00",
+    source: "default",
+  },
+};
+
 function responseJson(payload: unknown): Response {
   return { ok: true, json: async () => payload } as Response;
+}
+
+function maybeContextResponse(url: string): Promise<Response> | null {
+  if (!url.includes("/api/v1/wealth/market/context")) {
+    return null;
+  }
+  return Promise.resolve(responseJson(pageContextPayload));
 }
 
 describe("market-overview money-flow real api", () => {
@@ -89,6 +109,10 @@ describe("market-overview money-flow real api", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       requestUrls.push(url);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/money-flow")) {
         return new Promise<Response>((resolve) => {
           resolveMoneyFlowFetch = resolve;
@@ -125,6 +149,7 @@ describe("market-overview money-flow real api", () => {
     const moneyFlowRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/money-flow"));
     expect(moneyFlowRequest).toBeDefined();
     expect(new URL(moneyFlowRequest as string).searchParams.get("market")).toBe("CN_A");
+    expect(new URL(moneyFlowRequest as string).searchParams.get("tradeDate")).toBe("2026-05-11");
   });
 
   it("uses the page-level debug switch for money-flow", async () => {
@@ -133,6 +158,10 @@ describe("market-overview money-flow real api", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       requestUrls.push(url);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (url.includes("/api/v1/wealth/market/money-flow")) {
         return responseJson(moneyFlowPayload);
       }
@@ -152,6 +181,10 @@ describe("market-overview money-flow real api", () => {
     vi.useFakeTimers();
     vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) {
+        return contextResponse;
+      }
       if (!url.includes("/api/v1/wealth/market/money-flow")) {
         return Promise.reject(new Error(`unexpected url: ${url}`));
       }

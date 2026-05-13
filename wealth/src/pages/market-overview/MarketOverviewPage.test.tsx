@@ -247,6 +247,19 @@ const leaderboardsPayload = {
   })),
 };
 
+const pageContextPayload = {
+  pageContext: {
+    market: "CN_A",
+    tradeDate: "2026-04-28",
+    prevTradeDate: "2026-04-27",
+    isTradingDay: true,
+    sessionStatus: "CLOSED",
+    timezone: "Asia/Shanghai",
+    generatedAt: "2026-04-28T15:05:00+08:00",
+    source: "explicit",
+  },
+};
+
 function toUrlString(input: RequestInfo | URL): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.toString();
@@ -265,6 +278,11 @@ function maybeLeaderboardsResponse(url: string): Promise<Response> | null {
   return Promise.resolve(responseJson(leaderboardsPayload));
 }
 
+function maybeContextResponse(url: string): Promise<Response> | null {
+  if (!url.includes("/api/v1/wealth/market/context")) return null;
+  return Promise.resolve(responseJson(pageContextPayload));
+}
+
 function mockSuccessfulMarketFetch(
   summaryPayload = summaryFiveCards,
   majorPayload = majorIndicesPayload,
@@ -275,6 +293,8 @@ function mockSuccessfulMarketFetch(
 ) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = toUrlString(input);
+    const contextResponse = maybeContextResponse(url);
+    if (contextResponse) return contextResponse;
     if (url.includes("/api/v1/wealth/market/summary")) {
       return responseJson(summaryPayload);
     }
@@ -324,6 +344,8 @@ describe("MarketOverviewPage", () => {
     render(<MarketOverviewPage />);
 
     expect(await screen.findByRole("heading", { name: "市场总览" })).toBeInTheDocument();
+    expect(screen.getByText("交易日 2026-04-28")).toBeInTheDocument();
+    expect(screen.getByText("2026-04-28 15:05:00")).toBeInTheDocument();
     expect(screen.getByLabelText("TopMarketBar")).toBeInTheDocument();
     expect(screen.getByLabelText("今日市场客观总结")).toBeInTheDocument();
     expect(screen.getByLabelText("主要指数")).toBeInTheDocument();
@@ -395,6 +417,8 @@ describe("MarketOverviewPage", () => {
     let resolveSummaryFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
       }
@@ -439,6 +463,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/major-indices")) {
         return Promise.resolve(responseJson(majorIndicesPayload));
       }
@@ -487,6 +513,8 @@ describe("MarketOverviewPage", () => {
     let resolveMajorFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -537,6 +565,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -572,6 +602,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -623,6 +655,8 @@ describe("MarketOverviewPage", () => {
     let resolveBreadthFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -665,6 +699,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -716,6 +752,8 @@ describe("MarketOverviewPage", () => {
     let resolveStyleFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -758,6 +796,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -809,6 +849,8 @@ describe("MarketOverviewPage", () => {
     let resolveTurnoverFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -851,6 +893,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -902,6 +946,8 @@ describe("MarketOverviewPage", () => {
     let resolveLeaderboardsFetch: ((value: Response | PromiseLike<Response>) => void) | undefined;
     fetchMock.mockImplementation((input) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -948,6 +994,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((input, init) => {
       const url = toUrlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return Promise.resolve(responseJson(summaryFiveCards));
       }
@@ -996,6 +1044,30 @@ describe("MarketOverviewPage", () => {
     expect(within(leaderboardSection).getByText("error")).toBeInTheDocument();
   }, 15000);
 
+  it("stops real module requests when page context fails", async () => {
+    const requestUrls: string[] = [];
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async (input) => {
+      const url = toUrlString(input);
+      requestUrls.push(url);
+      if (url.includes("/api/v1/wealth/market/context")) {
+        return {
+          ok: false,
+          status: 503,
+          json: async () => ({ code: "503001", message: "context unavailable" }),
+        } as Response;
+      }
+      return responseJson(summaryFiveCards);
+    });
+
+    render(<MarketOverviewPage />);
+
+    expect(await screen.findByText("页面时间上下文加载失败")).toBeInTheDocument();
+    expect(screen.getByText("context unavailable")).toBeInTheDocument();
+    expect(requestUrls).toEqual([expect.stringContaining("/api/v1/wealth/market/context")]);
+  });
+
   it("uses page-level debug switch for summary, major-indices, breadth, style, turnover and leaderboards modules", async () => {
     window.history.pushState({}, "", "/market/overview?debug=1");
     const requestUrls: string[] = [];
@@ -1004,6 +1076,8 @@ describe("MarketOverviewPage", () => {
     fetchMock.mockImplementation(async (input) => {
       const url = toUrlString(input);
       requestUrls.push(url);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
       if (url.includes("/api/v1/wealth/market/summary")) {
         return responseJson({
           ...summaryFiveCards,
@@ -1130,6 +1204,8 @@ describe("MarketOverviewPage", () => {
     const styleRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/style"));
     const turnoverRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/turnover"));
     const leaderboardsRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/leaderboards"));
+    const contextRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/context"));
+    expect(contextRequest).toBeDefined();
     expect(summaryRequest).toBeDefined();
     expect(majorRequest).toBeDefined();
     expect(breadthRequest).toBeDefined();
@@ -1142,5 +1218,11 @@ describe("MarketOverviewPage", () => {
     expect(new URL(styleRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(turnoverRequest as string).searchParams.get("debug")).toBe("1");
     expect(new URL(leaderboardsRequest as string).searchParams.get("debug")).toBe("1");
+    expect(new URL(summaryRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+    expect(new URL(majorRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+    expect(new URL(breadthRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+    expect(new URL(styleRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+    expect(new URL(turnoverRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
+    expect(new URL(leaderboardsRequest as string).searchParams.get("tradeDate")).toBe("2026-04-28");
   });
 });
