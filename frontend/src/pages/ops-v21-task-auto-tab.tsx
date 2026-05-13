@@ -67,7 +67,12 @@ type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
-type CalendarPolicy = "" | "monthly_last_day" | "monthly_last_trading_day" | "monthly_window_current_month";
+type CalendarPolicy =
+  | ""
+  | "monthly_last_day"
+  | "monthly_last_trading_day"
+  | "monthly_window_current_month"
+  | "trigger_day_single_range";
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
@@ -249,6 +254,15 @@ export function formatScheduleRule(
   if (calendarPolicy === "monthly_window_current_month") {
     return `每月最后一天 ${parsed.repeatTime}，维护当月自然月窗口`;
   }
+  if (calendarPolicy === "trigger_day_single_range") {
+    const base =
+      parsed.repeatMode === "daily"
+        ? `每天 ${parsed.repeatTime}`
+        : parsed.repeatMode === "weekly"
+          ? `每周 ${parsed.repeatWeekdays.map((item) => weekdayLabel[item] || item).join("、")} ${parsed.repeatTime}`
+          : `每月 ${parsed.repeatMonthDay} 日 ${parsed.repeatTime}`;
+    return `${base}，维护触发日`;
+  }
   if (parsed.repeatMode === "daily") {
     return `每天 ${parsed.repeatTime}`;
   }
@@ -406,6 +420,23 @@ export function actionSupportsMonthlyWindowPolicy(action: CatalogAction | null |
   return action?.action_type === "dataset_action" && action.date_selection_rule === "month_window";
 }
 
+export function actionSupportsTriggerDaySingleRangePolicy(action: CatalogAction | null | undefined): boolean {
+  if (action?.action_type !== "dataset_action" || action.date_selection_rule !== "calendar_day") {
+    return false;
+  }
+  const paramKeys = new Set((action.parameters || []).map((param) => param.key));
+  return (
+    paramKeys.has("ann_date")
+    && paramKeys.has("start_date")
+    && paramKeys.has("end_date")
+    && !paramKeys.has("trade_date")
+  );
+}
+
+function policyGeneratesTimeInput(calendarPolicy: CalendarPolicy): boolean {
+  return calendarPolicy === "monthly_window_current_month" || calendarPolicy === "trigger_day_single_range";
+}
+
 export function resolveEffectiveCalendarPolicy(args: {
   scheduleType: string;
   repeatMode: RepeatMode;
@@ -431,6 +462,12 @@ export function resolveEffectiveCalendarPolicy(args: {
     && actionSupportsMonthlyWindowPolicy(args.selectedAction)
   ) {
     return "monthly_window_current_month";
+  }
+  if (
+    args.scheduleType === "cron"
+    && actionSupportsTriggerDaySingleRangePolicy(args.selectedAction)
+  ) {
+    return "trigger_day_single_range";
   }
   return "";
 }
@@ -721,7 +758,7 @@ export function OpsAutomationPage() {
       params[param.key] = param.param_type === "integer" ? Number(singleValue) : singleValue;
     }
 
-    if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsSingleDay && supportsDateRange) {
+    if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsSingleDay && supportsDateRange) {
       if (form.date_mode === "single_day") {
         if (form.selected_date) {
           params.trade_date = form.selected_date;
@@ -730,11 +767,11 @@ export function OpsAutomationPage() {
         params.start_date = form.start_date;
         params.end_date = form.end_date;
       }
-    } else if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsSingleDay) {
+    } else if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsSingleDay) {
       if (form.selected_date) {
         params.trade_date = form.selected_date;
       }
-    } else if (effectiveCalendarPolicy !== "monthly_window_current_month" && supportsDateRange && form.start_date && form.end_date) {
+    } else if (!policyGeneratesTimeInput(effectiveCalendarPolicy) && supportsDateRange && form.start_date && form.end_date) {
       params.start_date = form.start_date;
       params.end_date = form.end_date;
     }
@@ -760,7 +797,7 @@ export function OpsAutomationPage() {
         timeInput.mode = "range";
         timeInput.start_month = params.start_month;
         timeInput.end_month = params.end_month;
-      } else if (effectiveCalendarPolicy === "monthly_window_current_month") {
+      } else if (policyGeneratesTimeInput(effectiveCalendarPolicy)) {
         timeInput.mode = "range";
       } else if (supportsSingleDay) {
         timeInput.mode = "point";
@@ -806,18 +843,21 @@ export function OpsAutomationPage() {
         form.repeat_month_day,
         effectiveCalendarPolicy,
       );
+      const triggerDaySuffix = effectiveCalendarPolicy === "trigger_day_single_range" ? "，维护触发日" : "";
       const detail =
         form.repeat_mode === "daily"
-          ? `每天 ${form.repeat_time}`
+          ? `每天 ${form.repeat_time}${triggerDaySuffix}`
             : form.repeat_mode === "weekly"
-              ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}`
+              ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}${triggerDaySuffix}`
               : effectiveCalendarPolicy === "monthly_last_day"
                 ? `每月最后一天 ${form.repeat_time}`
                 : effectiveCalendarPolicy === "monthly_last_trading_day"
                   ? `每月最后一个交易日 ${form.repeat_time}`
                 : effectiveCalendarPolicy === "monthly_window_current_month"
                   ? `每月最后一天 ${form.repeat_time}，维护当月自然月窗口`
-                : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
+                  : effectiveCalendarPolicy === "trigger_day_single_range"
+                    ? `每月 ${form.repeat_month_day} 日 ${form.repeat_time}，维护触发日`
+                    : `每月 ${form.repeat_month_day} 日 ${form.repeat_time}`;
       return {
         title: "重复执行",
         detail,
@@ -1712,7 +1752,7 @@ export function OpsAutomationPage() {
               <Accordion.Control>维护参数</Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
-                  {(effectiveCalendarPolicy !== "monthly_window_current_month" && (supportsSingleDay || supportsDateRange)) ? (
+                  {(!policyGeneratesTimeInput(effectiveCalendarPolicy) && (supportsSingleDay || supportsDateRange)) ? (
                     <Stack gap="xs">
                       <Text fw={700} size="sm">可选：固定维护日期</Text>
                       {(supportsSingleDay && supportsDateRange) ? (

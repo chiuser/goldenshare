@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  actionSupportsTriggerDaySingleRangePolicy,
   buildCronExpression,
   formatScheduleRule,
   parseCronExpression,
@@ -19,6 +20,24 @@ describe("自动任务日期策略", () => {
   const monthlyWindowAction = {
     action_type: "dataset_action",
     date_selection_rule: "month_window",
+  };
+  const annDateRangeAction = {
+    action_type: "dataset_action",
+    date_selection_rule: "calendar_day",
+    parameters: [
+      { key: "start_date" },
+      { key: "end_date" },
+      { key: "ann_date" },
+    ],
+  };
+  const naturalDayTradeDateAction = {
+    action_type: "dataset_action",
+    date_selection_rule: "calendar_day",
+    parameters: [
+      { key: "trade_date" },
+      { key: "start_date" },
+      { key: "end_date" },
+    ],
   };
 
   it("recommends monthly calendar policies from dataset date selection rules", () => {
@@ -48,6 +67,25 @@ describe("自动任务日期策略", () => {
         scheduleType: "once",
         repeatMode: "monthly",
         selectedAction: monthlyCalendarAction as never,
+      }),
+    ).toBe("");
+  });
+
+  it("recommends trigger-day single-range policy for ann_date range-only datasets", () => {
+    expect(actionSupportsTriggerDaySingleRangePolicy(annDateRangeAction as never)).toBe(true);
+    expect(actionSupportsTriggerDaySingleRangePolicy(naturalDayTradeDateAction as never)).toBe(false);
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "daily",
+        selectedAction: annDateRangeAction as never,
+      }),
+    ).toBe("trigger_day_single_range");
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "once",
+        repeatMode: "daily",
+        selectedAction: annDateRangeAction as never,
       }),
     ).toBe("");
   });
@@ -82,5 +120,15 @@ describe("自动任务日期策略", () => {
     expect(formatScheduleRule("cron", "0 19 * * *", null, "monthly_window_current_month")).toBe(
       "每月最后一天 19:00，维护当月自然月窗口",
     );
+  });
+
+  it("keeps trigger_day_single_range on regular cron occurrence and labels trigger-day maintenance", () => {
+    expect(buildCronExpression("daily", "19:00", [], "1", "trigger_day_single_range")).toBe("0 19 * * *");
+    expect(buildCronExpression("weekly", "19:00", ["1", "5"], "1", "trigger_day_single_range")).toBe("0 19 * * 1,5");
+    expect(parseCronExpression("0 19 * * *", "trigger_day_single_range")).toMatchObject({
+      repeatMode: "daily",
+      repeatTime: "19:00",
+    });
+    expect(formatScheduleRule("cron", "0 19 * * *", null, "trigger_day_single_range")).toBe("每天 19:00，维护触发日");
   });
 });
