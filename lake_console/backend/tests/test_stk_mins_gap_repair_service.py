@@ -5,12 +5,14 @@ from datetime import date, datetime
 import pytest
 
 from lake_console.backend.app.services.parquet_writer import read_parquet_rows, write_rows_to_parquet
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
 
 
-def test_repair_from_1m_builds_5m_partition_for_known_source_gap(tmp_path) -> None:
+def test_repair_from_1m_builds_5m_partition_for_known_source_gap(tmp_path, monkeypatch) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    refresh_calls = _mock_clean_next_refresh(monkeypatch)
 
     trade_date = date(2010, 9, 2)
     _write_source_rows(
@@ -45,6 +47,12 @@ def test_repair_from_1m_builds_5m_partition_for_known_source_gap(tmp_path) -> No
     assert summary["repair_reason"] == "source_gap"
     assert summary["target_freq"] == 5
     assert summary["written_rows"] == 3
+    assert summary["clean_next_refresh"]["status"] == "passed"
+    assert len(refresh_calls) == 1
+    affected_partition = refresh_calls[0][0]
+    assert affected_partition.layer == "raw_tushare"
+    assert affected_partition.partition_values == {"freq": "5", "trade_date": "2010-09-02"}
+    assert affected_partition.partition_path == "raw_tushare/stk_mins_by_date/freq=5/trade_date=2010-09-02"
 
     assert [row["trade_time"] for row in repaired_rows] == [
         datetime(2010, 9, 2, 9, 30),
@@ -67,9 +75,10 @@ def test_repair_from_1m_builds_5m_partition_for_known_source_gap(tmp_path) -> No
     assert repaired_rows[2]["vwap"] == 11.0
 
 
-def test_repair_from_1m_builds_15m_partition_for_known_source_gap(tmp_path) -> None:
+def test_repair_from_1m_builds_15m_partition_for_known_source_gap(tmp_path, monkeypatch) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    _mock_clean_next_refresh(monkeypatch)
 
     trade_date = date(2009, 5, 5)
     rows = [
@@ -159,9 +168,10 @@ def test_repair_from_1m_rejects_existing_target_partition(tmp_path) -> None:
         )
 
 
-def test_repair_from_1m_merges_single_symbol_into_existing_partition(tmp_path) -> None:
+def test_repair_from_1m_merges_single_symbol_into_existing_partition(tmp_path, monkeypatch) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")
+    refresh_calls = _mock_clean_next_refresh(monkeypatch)
 
     trade_date = date(2010, 9, 2)
     _write_source_rows(
@@ -212,6 +222,9 @@ def test_repair_from_1m_merges_single_symbol_into_existing_partition(tmp_path) -
     assert summary["existing_target_symbol_rows"] == 0
     assert summary["repaired_symbol_rows"] == 2
     assert summary["written_rows"] == 3
+    assert summary["clean_next_refresh"]["status"] == "passed"
+    assert len(refresh_calls) == 1
+    assert refresh_calls[0][0].partition_values == {"freq": "5", "trade_date": "2010-09-02"}
     assert [row["ts_code"] for row in repaired_rows] == ["000001.SZ", "300114.SZ", "300114.SZ"]
     assert [row["trade_time"] for row in repaired_rows if row["ts_code"] == "300114.SZ"] == [
         datetime(2010, 9, 2, 9, 30),
@@ -257,3 +270,24 @@ def _read_partition_rows(root, *, freq: int, trade_date: date) -> list[dict[str,
     return read_parquet_rows(
         root / "raw_tushare" / "stk_mins_by_date" / f"freq={freq}" / f"trade_date={trade_date.isoformat()}" / "part-00000.parquet"
     )
+
+
+def _mock_clean_next_refresh(monkeypatch) -> list[list[object]]:
+    calls: list[list[object]] = []
+
+    def fake_refresh(self, *, affected_partitions, dry_run: bool, apply: bool) -> dict[str, object]:
+        del self
+        assert dry_run is False
+        assert apply is True
+        calls.append(list(affected_partitions))
+        return {
+            "status": "passed",
+            "affected_partitions": len(affected_partitions),
+            "passed_partitions": len(affected_partitions),
+            "failed_partitions": 0,
+            "ledger_path": None,
+            "gate_path": "manifest/stk_mins_quality/clean_next_gate_status.parquet",
+        }
+
+    monkeypatch.setattr(CleanNextRefreshService, "refresh", fake_refresh)
+    return calls

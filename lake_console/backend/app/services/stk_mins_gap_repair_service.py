@@ -8,7 +8,8 @@ from datetime import date, datetime, time, timezone
 from pathlib import Path
 from typing import Any
 
-from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
+from lake_console.backend.app.services.affected_partition import AffectedPartition
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
@@ -127,13 +128,15 @@ class StkMinsGapRepairService:
             final_dir=final_partition,
             backup_root=self.lake_root / "_tmp" / run_id / "_backup",
         )
-        IndicatorRecalcQueueService(lake_root=self.lake_root).record_source_partition_replaced(
-            layer="raw_tushare",
+
+        affected_partition = self._affected_raw_partition(
             freq=freq,
             trade_date=trade_date,
             run_id=run_id,
-            written_rows=written,
+            rows_written=written,
+            final_partition=final_partition,
         )
+        clean_next_refresh = self._refresh_clean_next_or_raise(affected_partition=affected_partition)
 
         elapsed = time_module.monotonic() - started
         summary = {
@@ -156,6 +159,8 @@ class StkMinsGapRepairService:
             "existing_target_symbol_rows": existing_target_symbol_rows,
             "written_rows": written,
             "output": str(final_partition),
+            "affected_partitions": [affected_partition.to_dict()],
+            "clean_next_refresh": clean_next_refresh,
             "elapsed_seconds": round(elapsed, 3),
         }
         ManifestService(self.lake_root).append_sync_run(summary)
@@ -182,6 +187,42 @@ class StkMinsGapRepairService:
             / f"freq={freq}"
             / f"trade_date={trade_date.isoformat()}"
         )
+
+    def _affected_raw_partition(
+        self,
+        *,
+        freq: int,
+        trade_date: date,
+        run_id: str,
+        rows_written: int,
+        final_partition: Path,
+    ) -> AffectedPartition:
+        relative_path = final_partition.relative_to(self.lake_root).as_posix()
+        return AffectedPartition(
+            dataset_key="stk_mins",
+            source_key="tushare",
+            layer="raw_tushare",
+            partition_grain="trade_date",
+            partition_values={"freq": str(freq), "trade_date": trade_date.isoformat()},
+            partition_path=relative_path,
+            source_run_id=run_id,
+            write_revision=f"{run_id}:raw_tushare:freq={freq}:trade_date={trade_date.isoformat()}",
+            rows_written=rows_written,
+            bytes_written=_directory_size(final_partition),
+        )
+
+    def _refresh_clean_next_or_raise(self, *, affected_partition: AffectedPartition) -> dict[str, Any]:
+        refresh = CleanNextRefreshService(lake_root=self.lake_root, progress=self.progress).refresh(
+            affected_partitions=[affected_partition],
+            dry_run=False,
+            apply=True,
+        )
+        if refresh.get("status") != "passed":
+            raise RuntimeError(
+                "repair-stk-mins-from-1m raw 已写入，但 clean_next scoped audit 未通过，已阻断下游消费。"
+                f" status={refresh.get('status')} ledger={refresh.get('ledger_path')} gate={refresh.get('gate_path')}"
+            )
+        return refresh
 
 
 def derive_gap_rows(source_rows: list[dict[str, Any]], *, target_freq: int, trade_date: date) -> list[dict[str, Any]]:
@@ -370,3 +411,9 @@ def _parse_trade_time(value: Any) -> datetime:
 
 def _run_id(suffix: str) -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{suffix}"
+
+
+def _directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
