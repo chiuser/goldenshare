@@ -24,6 +24,7 @@ export interface MarketStreakLadderStockResponse {
   firstLimitTime?: string | null;
   currentStreakLevel: number;
   advanced: boolean;
+  quoteStatus: "READY" | "SUSPENDED" | "MISSING";
 }
 
 export interface MarketStreakLadderResponse {

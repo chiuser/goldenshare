@@ -41,6 +41,39 @@ const streakLadderSuccessPayload = {
             firstLimitTime: "92500",
             currentStreakLevel: 3,
             advanced: false,
+            quoteStatus: "READY",
+          },
+          {
+            stockName: "停牌示例",
+            stockCode: "000009.SZ",
+            latestPrice: null,
+            changePct: null,
+            sectorName: null,
+            limitAmount: null,
+            limitAmountDisplayText: "--",
+            limitAmountLabel: "封单金额",
+            streakText: "昨日3板",
+            openTimes: null,
+            firstLimitTime: null,
+            currentStreakLevel: 0,
+            advanced: false,
+            quoteStatus: "SUSPENDED",
+          },
+          {
+            stockName: "缺行情示例",
+            stockCode: "000010.SZ",
+            latestPrice: null,
+            changePct: null,
+            sectorName: null,
+            limitAmount: null,
+            limitAmountDisplayText: "--",
+            limitAmountLabel: "封单金额",
+            streakText: "昨日3板",
+            openTimes: null,
+            firstLimitTime: null,
+            currentStreakLevel: 0,
+            advanced: false,
+            quoteStatus: "MISSING",
           },
         ],
         currentStocks: [
@@ -57,6 +90,7 @@ const streakLadderSuccessPayload = {
             openTimes: 1,
             currentStreakLevel: 4,
             advanced: true,
+            quoteStatus: "READY",
           },
         ],
       },
@@ -75,6 +109,7 @@ const streakLadderSuccessPayload = {
         openTimes: 2,
         currentStreakLevel: 1,
         advanced: false,
+        quoteStatus: "READY",
       },
     ],
   },
@@ -150,6 +185,15 @@ describe("market-overview streak-ladder real api smoke", () => {
     expect(within(panel).getByText("3.1亿")).toBeInTheDocument();
     expect(within(panel).getByText("示例首板A")).toBeInTheDocument();
     expect(within(panel).getAllByText("首板").length).toBeGreaterThan(0);
+    const suspendedCard = within(panel).getByText("停牌示例").closest("article");
+    const missingCard = within(panel).getByText("缺行情示例").closest("article");
+    expect(suspendedCard).not.toBeNull();
+    expect(missingCard).not.toBeNull();
+    if (!suspendedCard || !missingCard) throw new Error("quote status cards not found");
+    expect(within(suspendedCard).getByText("停牌")).toBeInTheDocument();
+    expect(within(suspendedCard).queryByText("昨日3板")).not.toBeInTheDocument();
+    expect(within(missingCard).getByText("--")).toBeInTheDocument();
+    expect(within(missingCard).queryByText("昨日3板")).not.toBeInTheDocument();
   });
 
   it("shows-error-state", async () => {
@@ -199,6 +243,7 @@ describe("market-overview streak-ladder real api smoke", () => {
           firstLimitTime: index === 0 ? "92500" : "100000",
           currentStreakLevel: 1,
           advanced: true,
+          quoteStatus: "READY",
         })),
       },
     };

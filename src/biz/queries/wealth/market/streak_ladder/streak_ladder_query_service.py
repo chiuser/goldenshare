@@ -47,11 +47,17 @@ class StreakLadderQueryService:
         try:
             today_result = self._query.load_rows(session, trade_date=trading_day_context.expected_trade_date)
             prev_result = self._query.load_rows(session, trade_date=trading_day_context.prev_trade_date)
+            current_quote_map = self._query.load_current_quote_map(
+                session,
+                trade_date=trading_day_context.expected_trade_date,
+                codes={row.ts_code for row in prev_result.rows},
+            )
             build_result = self._builder.build(
                 trade_date=trading_day_context.expected_trade_date,
                 prev_trade_date=trading_day_context.prev_trade_date,
                 today_rows=today_result.rows,
                 prev_rows=prev_result.rows,
+                current_quote_map=current_quote_map,
             )
         except Exception as exc:  # noqa: BLE001
             exceptions.append(self._exception_builder.query_failed(message=f"streak ladder query failed: {exc}"))

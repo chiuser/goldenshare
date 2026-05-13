@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 PageStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY", "ERROR"]
 SessionStatusValue = Literal["PRE_OPEN", "TRADING", "BREAK", "CLOSED"]
 SeverityValue = Literal["info", "warn", "error"]
+QuoteStatusValue = Literal["READY", "SUSPENDED", "MISSING"]
 
 
 class TradingDayDto(BaseModel):
@@ -46,6 +47,7 @@ class LadderV5StockDto(BaseModel):
     firstLimitTime: str | None = None
     currentStreakLevel: int = Field(ge=0)
     advanced: bool
+    quoteStatus: QuoteStatusValue
 
 
 class LadderV5PromotionLayerDto(BaseModel):

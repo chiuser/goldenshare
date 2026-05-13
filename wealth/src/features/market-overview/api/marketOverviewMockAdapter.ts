@@ -75,6 +75,7 @@ const ladderStock = (
     openTimes,
     currentStreakLevel,
     advanced,
+    quoteStatus: "READY" as const,
   };
 };
 

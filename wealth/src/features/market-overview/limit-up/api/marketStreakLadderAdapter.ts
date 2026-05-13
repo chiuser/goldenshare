@@ -5,17 +5,18 @@ function toStock(item: MarketStreakLadderStockResponse): LadderV5Stock {
   return {
     stockName: item.stockName?.trim() || item.stockCode,
     stockCode: item.stockCode,
-    latestPrice: typeof item.latestPrice === "number" ? item.latestPrice : 0,
-    changePct: typeof item.changePct === "number" ? item.changePct : 0,
-    sectorName: item.sectorName?.trim() || "--",
+    latestPrice: typeof item.latestPrice === "number" ? item.latestPrice : null,
+    changePct: typeof item.changePct === "number" ? item.changePct : null,
+    sectorName: item.sectorName?.trim() || null,
     limitAmount: typeof item.limitAmount === "number" ? item.limitAmount : null,
     limitAmountDisplayText: item.limitAmountDisplayText.trim() || "--",
     limitAmountLabel: item.limitAmountLabel,
     streakText: item.streakText.trim() || "--",
-    openTimes: typeof item.openTimes === "number" ? item.openTimes : 0,
+    openTimes: typeof item.openTimes === "number" ? item.openTimes : null,
     firstLimitTime: item.firstLimitTime?.trim() || undefined,
     currentStreakLevel: item.currentStreakLevel,
     advanced: item.advanced,
+    quoteStatus: item.quoteStatus,
   };
 }
 

@@ -41,19 +41,6 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
     return next;
   }, [ladderData]);
 
-  const totalStocks = useMemo(
-    () =>
-      layers.reduce(
-        (sum, layer) =>
-          sum +
-          (layer.type === "promotion"
-            ? layer.previousStocks.length + layer.currentStocks.length
-            : layer.stocks.length),
-        0,
-      ),
-    [layers],
-  );
-
   const toggleLayer = (key: string) => {
     setExpandedLayers((prev) => {
       const next = new Set(prev);
@@ -63,7 +50,8 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
     });
   };
 
-  const clsBy = (value: number) => {
+  const clsBy = (value: number | null) => {
+    if (value === null) return "flat";
     if (value > 0) return "up";
     if (value < 0) return "down";
     return "flat";
@@ -74,31 +62,43 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
   const renderCard = (stock: LadderV5Stock, mode: "above" | "normal") => {
     const pctClass = clsBy(stock.changePct);
     const advClass = mode === "above" ? "above" : stock.advanced ? "advanced" : "not-advanced";
+    const quoteUnavailable = stock.quoteStatus !== "READY";
+    const priceText =
+      stock.quoteStatus === "SUSPENDED"
+        ? "停牌"
+        : stock.latestPrice !== null && Number.isFinite(stock.latestPrice)
+          ? stock.latestPrice.toFixed(2)
+          : "--";
+    const titleText = quoteUnavailable
+      ? `${stock.stockName}｜${stock.stockCode}｜${priceText}`
+      : `点击进入个股详情：${stock.stockName}｜${stock.stockCode}｜最新价 ${priceText}｜${stock.limitAmountLabel} ${stock.limitAmountDisplayText}｜${stock.streakText}`;
     return (
       <article
-        className={`stock-compact-card-v5 ${advClass}`}
+        className={`stock-compact-card-v5 ${advClass} ${quoteUnavailable ? "quote-unavailable" : ""}`}
         key={`${stock.stockCode}-${stock.currentStreakLevel}`}
-        title={`点击进入个股详情：${stock.stockName}｜${stock.stockCode}｜最新价 ${
-          Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"
-        }｜${stock.limitAmountLabel} ${stock.limitAmountDisplayText}｜${stock.streakText}`}
+        title={titleText}
         onClick={() => onAction(`进入个股详情：${stock.stockCode}`)}
       >
         <span className="stock-card-code-v5">{stock.stockCode}</span>
         <div className="stock-card-split-v7">
           <div className="stock-card-zone-v7 left">
             <span className="stock-card-name-v5">{stock.stockName}</span>
-            <span className={`stock-card-price-v5 num ${pctClass}`}>
-              {Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"}
-            </span>
+            <span className={`stock-card-price-v5 num ${pctClass}`}>{priceText}</span>
           </div>
-          <div className="stock-card-zone-v7 mid">
-            <span className={`stock-card-change-v5 num ${pctClass}`}>{Number.isFinite(stock.changePct) ? fmtPct(stock.changePct) : "--"}</span>
-            <span className="stock-card-board-amount-v6">{stock.limitAmountDisplayText}</span>
-          </div>
-          <div className="stock-card-zone-v7 right">
-            <span className="stock-card-sector-v5">{stock.sectorName}</span>
-            <span className="stock-card-meta-v5">{stock.streakText}</span>
-          </div>
+          {quoteUnavailable ? null : (
+            <>
+              <div className="stock-card-zone-v7 mid">
+                <span className={`stock-card-change-v5 num ${pctClass}`}>
+                  {stock.changePct !== null && Number.isFinite(stock.changePct) ? fmtPct(stock.changePct) : "--"}
+                </span>
+                <span className="stock-card-board-amount-v6">{stock.limitAmountDisplayText}</span>
+              </div>
+              <div className="stock-card-zone-v7 right">
+                <span className="stock-card-sector-v5">{stock.sectorName ?? "--"}</span>
+                <span className="stock-card-meta-v5">{stock.streakText}</span>
+              </div>
+            </>
+          )}
         </div>
       </article>
     );
@@ -132,11 +132,6 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
             <div className="ladder-v5-summary">
               <div>
                 <strong>{ladderData.tradeDate} 连板天梯</strong>
-                <span className="secondary">　最高 {ladderData.highestStreakLevel} 板，昨日层级展示全量昨日股票，今日层级仅展示晋级成功股票。</span>
-              </div>
-              <div className="ladder-v5-tags">
-                <span className="ladder-v5-tag">股票 {totalStocks} 项展示</span>
-                <span className="ladder-v5-tag">每层默认最多 12 只</span>
               </div>
             </div>
             {layers.map((layer) => {
@@ -189,7 +184,6 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
                       <b>
                         {layer.previousLabel} → {layer.currentLabel}
                       </b>
-                      <span>左侧为昨日层级全量，右侧为今日晋级成功</span>
                     </div>
                     <div className="ladder-head-meta-v5">
                       <span className="count">昨日 {layer.previousStocks.length} 只</span>

@@ -113,17 +113,18 @@ export interface LadderLevel {
 export interface LadderV5Stock {
   stockName: string;
   stockCode: string;
-  latestPrice: number;
-  changePct: number;
-  sectorName: string;
+  latestPrice: number | null;
+  changePct: number | null;
+  sectorName: string | null;
   limitAmount: number | null;
   limitAmountDisplayText: string;
   limitAmountLabel: "封单金额" | "板上成交金额";
   streakText: string;
-  openTimes: number;
+  openTimes: number | null;
   firstLimitTime?: string;
   currentStreakLevel: number;
   advanced: boolean;
+  quoteStatus: "READY" | "SUSPENDED" | "MISSING";
 }
 
 export interface LadderV5PromotionLayer {

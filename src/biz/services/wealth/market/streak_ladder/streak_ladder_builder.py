@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Literal
 
 from src.biz.schemas.wealth.market.streak_ladder import (
     LadderV5PromotionLayerDto,
     LadderV5StockDto,
     StreakLadderV5Dto,
 )
+
+
+QuoteStatus = Literal["READY", "SUSPENDED", "MISSING"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +28,14 @@ class StreakLadderRow:
     limit_amount: Decimal | None
     open_times: int | None
     first_limit_time: str | None
+    quote_status: QuoteStatus = "READY"
+
+
+@dataclass(frozen=True, slots=True)
+class StreakLadderCurrentQuote:
+    latest_price: Decimal | None
+    change_pct: Decimal | None
+    quote_status: QuoteStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +55,9 @@ class StreakLadderBuilder:
         prev_trade_date: date,
         today_rows: list[StreakLadderRow],
         prev_rows: list[StreakLadderRow],
+        current_quote_map: dict[str, StreakLadderCurrentQuote] | None = None,
     ) -> StreakLadderBuildResult:
+        current_quote_map = current_quote_map or {}
         today_by_code = {row.ts_code: row for row in today_rows}
         prev_by_level: dict[int, list[StreakLadderRow]] = {}
         today_by_level: dict[int, list[StreakLadderRow]] = {}
@@ -68,9 +82,16 @@ class StreakLadderBuilder:
             latest_price = float(row.latest_price) if row.latest_price is not None else None
             change_pct = float(row.change_pct) if row.change_pct is not None else None
             limit_amount, limit_amount_label = _resolve_limit_amount(row)
-            if (latest_price is None or change_pct is None or limit_amount is None) and metric_missing_sample is None:
+            quote_status = _normalize_quote_status(row.quote_status)
+            limit_context_requires_amount = quote_status == "READY" and row.limit_type in {"U", "D"} and display_level > 0
+            metric_missing = (
+                quote_status == "MISSING"
+                or (quote_status == "READY" and (latest_price is None or change_pct is None))
+                or (limit_context_requires_amount and limit_amount is None)
+            )
+            if metric_missing and metric_missing_sample is None:
                 metric_missing_sample = row.ts_code
-            if latest_price is None or change_pct is None or limit_amount is None:
+            if metric_missing:
                 has_metric_missing = True
             return LadderV5StockDto(
                 stockName=row.stock_name,
@@ -89,6 +110,7 @@ class StreakLadderBuilder:
                 firstLimitTime=row.first_limit_time,
                 currentStreakLevel=display_level,
                 advanced=advanced,
+                quoteStatus=quote_status,
             )
 
         above_five = sorted(
@@ -115,7 +137,10 @@ class StreakLadderBuilder:
             previous_stocks: list[LadderV5StockDto] = []
             for prev_row in prev_candidates:
                 today_row = today_by_code.get(prev_row.ts_code)
-                chosen_row = today_row or prev_row
+                chosen_row = today_row or _apply_current_quote(
+                    prev_row,
+                    current_quote_map.get(prev_row.ts_code),
+                )
                 advanced = prev_row.ts_code in advanced_codes
                 current_streak_level = today_row.board_count if today_row is not None else 0
                 previous_stocks.append(
@@ -192,6 +217,47 @@ def _to_chinese_level(level: int) -> str:
     if level == 5:
         return "五板"
     return f"{level}板"
+
+
+def _apply_current_quote(
+    row: StreakLadderRow,
+    quote: StreakLadderCurrentQuote | None,
+) -> StreakLadderRow:
+    quote_status = _normalize_quote_status(quote.quote_status if quote is not None else "MISSING")
+    if quote_status == "READY" and quote is not None:
+        return replace(
+            row,
+            latest_price=quote.latest_price,
+            change_pct=quote.change_pct,
+            limit_type=None,
+            fd_amount=None,
+            limit_amount=None,
+            open_times=None,
+            first_limit_time=None,
+            quote_status="READY",
+        )
+    return replace(
+        row,
+        latest_price=None,
+        change_pct=None,
+        sector_name=None,
+        limit_type=None,
+        fd_amount=None,
+        limit_amount=None,
+        open_times=None,
+        first_limit_time=None,
+        quote_status=quote_status,
+    )
+
+
+def _normalize_quote_status(raw_status: str | None) -> QuoteStatus:
+    if raw_status == "READY":
+        return "READY"
+    if raw_status == "SUSPENDED":
+        return "SUSPENDED"
+    if raw_status == "MISSING":
+        return "MISSING"
+    return "MISSING"
 
 
 def _resolve_limit_amount(row: StreakLadderRow) -> tuple[Decimal | None, str]:

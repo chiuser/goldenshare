@@ -103,6 +103,7 @@ interface LadderV5Stock {
   firstLimitTime: string | null;
   currentStreakLevel: number; // 掉队可为 0
   advanced: boolean;
+  quoteStatus: "READY" | "SUSPENDED" | "MISSING";
 }
 ```
 
@@ -112,6 +113,7 @@ interface LadderV5Stock {
 2. `limitAmountLabel` 是金额口径标签，当前连板天梯固定为“封单金额”。
 3. `openTimes/firstLimitTime` 暂不进入 v7 卡片默认展示区，仅保留为扩展/调试事实字段。
 4. `streakText` 是右侧标签区唯一连板文本，不拆成多个字段。
+5. `quoteStatus` 由后端判定，前端不得自行用空价格猜测停牌或缺行情。
 
 ---
 
@@ -124,6 +126,7 @@ interface LadderV5Stock {
 1. `core_serving.trade_calendar`
 2. `core_serving.equity_limit_list`
 3. `core_serving.equity_daily_bar`（仅补展示列）
+4. `core_serving.equity_suspend_d`（仅解释当日无行情是否停牌）
 
 ### 4.2 `limit_list_d` 金额字段规则
 
@@ -159,12 +162,14 @@ interface LadderV5Stock {
 | `limitAmountDisplayText` | 后端格式化 | `fd_amount` | 缺失返回 `--` |
 | `limitAmountLabel` | 后端常量 | - | 当前固定返回 `封单金额` |
 | `streakText` | 后端生成 | `limit_times` + 跨日层级 | 一个字段、一个标签 |
+| `quoteStatus` | `equity_daily_bar` / `equity_suspend_d` | `close/pct_chg`、`suspend_type` | 后端判定：有当日行情为 `READY`，缺行情且停牌为 `SUSPENDED`，否则 `MISSING` |
 
 约束：
 
 1. `equity_limit_list` 必须过滤 `limit_type='U'`。
 2. `equity_daily_bar` 不能参与板数/晋级/金额判定。
 3. 共享来源仅用于说明数据事实，不允许在本模块内耦合其它模块的业务规则。
+4. 昨日层股票当日未涨停时，不允许回退展示昨日价格；必须用当日 `equity_daily_bar`，无当日行情时再用 `equity_suspend_d` 解释状态。
 
 ---
 
@@ -183,6 +188,8 @@ src/biz/queries/wealth/market/streak_ladder/streak_ladder_query.py
 1. `EquityLimitList.limit_type`
 2. `EquityLimitList.fd_amount`
 3. `EquityLimitList.limit_amount`
+4. 当前交易日 `EquityDailyBar.close/pct_chg`，用于昨日层掉队股票展示当日行情。
+5. 当前交易日 `EquitySuspendD.suspend_type='S'`，用于昨日层股票无当日行情时标记停牌。
 
 ### 5.2 行对象
 
@@ -198,6 +205,7 @@ src/biz/services/wealth/market/streak_ladder/streak_ladder_builder.py
 limit_type: str | None
 fd_amount: Decimal | None
 limit_amount: Decimal | None
+quote_status: str
 ```
 
 ### 5.3 有效性门禁
@@ -207,7 +215,14 @@ limit_amount: Decimal | None
 1. `close > 0`
 2. `pct_chg > 0`
 
-金额缺失不剔除结构行，只把 `limitAmount=null`、`limitAmountDisplayText="--"`，并触发 `PARTIAL` 或 debug note。
+涨停上下文金额缺失不剔除结构行，只把 `limitAmount=null`、`limitAmountDisplayText="--"`，并触发 `PARTIAL` 或 debug note。昨日层掉队股票的金额置空是非涨停场景的正常口径，不单独触发 `PARTIAL`。
+
+昨日层掉队股票额外门禁：
+
+1. 当日 `equity_daily_bar` 存在且 `close>0`、`pct_chg` 非空：`quoteStatus=READY`，展示当日价格和涨跌幅，金额置空。
+2. 当日 `equity_daily_bar` 缺失，且 `equity_suspend_d.suspend_type='S'`：`quoteStatus=SUSPENDED`。
+3. 当日 `equity_daily_bar` 缺失，且无停牌记录：`quoteStatus=MISSING`。
+4. `SUSPENDED/MISSING` 不允许回退昨日价格。
 
 ---
 
@@ -254,7 +269,8 @@ limit_amount: Decimal | None
    - 保留 `prevCandidates` 全量；
    - 对每只股票：
      - 若当日存在记录：展示列优先取当日；
-     - 若当日不存在记录：展示列回退昨日值；
+     - 若当日不存在记录但有当日 `equity_daily_bar`：展示当日价格/涨跌幅，金额置空；
+     - 若当日不存在记录且无当日 `equity_daily_bar`：查 `equity_suspend_d`，停牌返回 `quoteStatus=SUSPENDED`，否则 `quoteStatus=MISSING`；
    - `advanced = stockCode in advancedCodes`；
    - `currentStreakLevel`：
      - 当日存在记录：取当日板数；
@@ -341,7 +357,7 @@ def resolve_limit_amount(row: StreakLadderRow) -> tuple[Decimal | None, str]:
 
 1. `READY`：结构完整可展示。
 2. `DELAYED`：`observedTradeDate < expectedTradeDate`。
-3. `PARTIAL`：存在无效板数行、补列缺失或金额缺失。
+3. `PARTIAL`：存在无效板数行、当日行情缺失且无停牌依据，或涨停上下文金额缺失。
 4. `EMPTY`：目标日无有效涨停结构数据。
 5. `ERROR`：查询或组装异常。
 
@@ -353,7 +369,7 @@ def resolve_limit_amount(row: StreakLadderRow) -> tuple[Decimal | None, str]:
 4. `SL_JOIN_METRIC_MISSING`
 5. `SL_QUERY_FAILED`
 
-金额缺失可以先进入 `SL_JOIN_METRIC_MISSING`，details 中标记 `field=fd_amount`。
+涨停上下文金额缺失可以进入 `SL_JOIN_METRIC_MISSING`，details 中标记 `field=fd_amount`。昨日层掉队股票若有当日行情但无封单金额，不属于金额缺失。
 
 ---
 

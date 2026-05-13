@@ -102,6 +102,7 @@ interface LadderV5Stock {
   firstLimitTime: string | null;
   currentStreakLevel: number;
   advanced: boolean;
+  quoteStatus: "READY" | "SUSPENDED" | "MISSING";
 }
 ```
 
@@ -116,6 +117,7 @@ interface LadderV5Stock {
 1. `core_serving.trade_calendar`：交易日上下文。
 2. `core_serving.equity_limit_list`：连板主事实。
 3. `core_serving.equity_daily_bar`：展示补列（仅补列）。
+4. `core_serving.equity_suspend_d`：解释昨日层股票当日无行情时是否停牌。
 
 ### 4.2 字段级门禁
 
@@ -133,6 +135,7 @@ interface LadderV5Stock {
 | `limitAmountDisplayText` | 后端格式化 | 必须由后端返回 |
 | `limitAmountLabel` | 后端常量 | 当前固定为 `封单金额` |
 | `streakText` | 后端生成 | 必须由后端返回 |
+| `quoteStatus` | `equity_daily_bar` / `equity_suspend_d` | 必须由后端返回，前端不得自行猜测 |
 
 强制规则：
 
@@ -143,6 +146,8 @@ interface LadderV5Stock {
 5. 涨停卡片禁止使用 `limit_amount`。
 6. 涨停卡片禁止使用 `amount`。
 7. 与其它模块共享来源表时，仅共享数据事实，不共享模块规则与组装逻辑。
+8. 昨日层股票当日未涨停时，必须展示当日行情；缺当日 `equity_daily_bar` 时先查 `equity_suspend_d`，确认停牌才返回 `SUSPENDED`，否则返回 `MISSING`。
+9. `SUSPENDED/MISSING` 不允许回退展示昨日价格。
 
 ### 4.3 `limit_list_d` 金额口径门禁
 
@@ -173,6 +178,10 @@ interface LadderV5Stock {
    - `previousStocks.currentStreakLevel`：
      - 当日有记录取当日板数；
      - 当日无记录记 `0`（掉队）
+   - `previousStocks.quoteStatus`：
+     - 当日有行情：`READY`；
+     - 当日无行情但停牌表命中 `S`：`SUSPENDED`；
+     - 当日无行情且无停牌依据：`MISSING`。
 
 ### 5.3 文案生成门禁
 
@@ -183,6 +192,8 @@ interface LadderV5Stock {
    - 当日 6 板及以上：`N板`
    - 昨日层掉队股票：`昨日N板`
 3. 前端不得自行拼接或覆盖 `streakText`。
+4. 前端不得自行推断 `quoteStatus`。
+5. `SUSPENDED/MISSING` 股票卡片只展示股票代码、股票名称和价格位文案，其中 `SUSPENDED` 价格位显示“停牌”，`MISSING` 价格位显示 `--`。
 
 ### 5.4 严禁行为
 
@@ -229,6 +240,7 @@ wealth/src/features/market-overview/limit-up/api/marketStreakLadderApi.ts
    - `limitAmountDisplayText`
    - `limitAmountLabel`
    - `streakText`
+   - `quoteStatus`
 
 ### 7.2 Adapter
 
@@ -244,6 +256,7 @@ wealth/src/features/market-overview/limit-up/api/marketStreakLadderAdapter.ts
 2. Adapter 不得格式化金额。
 3. Adapter 不得拼接 `streakText`。
 4. Adapter 只允许做空值清洗与类型稳定。
+5. Adapter 不得通过 `latestPrice/changePct` 为空自行推断停牌状态。
 
 ### 7.3 ViewModel 与组件
 
@@ -264,6 +277,8 @@ wealth/src/features/market-overview/limit-up/StreakLadderPanel.tsx
    - 右侧：`sectorName/streakText`
 3. 组件不得默认展示 `openTimes`。
 4. 组件不得自行回退成“一字板/开板N次”文案。
+5. `quoteStatus=SUSPENDED` 时，价格位显示“停牌”，并隐藏涨跌幅、金额、板块、连板文本。
+6. `quoteStatus=MISSING` 时，价格位显示 `--`，并隐藏涨跌幅、金额、板块、连板文本。
 
 ---
 
@@ -273,7 +288,7 @@ wealth/src/features/market-overview/limit-up/StreakLadderPanel.tsx
 
 1. `READY`：结构完整
 2. `DELAYED`：源观测日落后
-3. `PARTIAL`：存在板数异常、补列缺失或金额缺失
+3. `PARTIAL`：存在板数异常、当日行情缺失且无停牌依据，或涨停上下文金额缺失
 4. `EMPTY`：目标日无有效数据
 5. `ERROR`：查询/编排异常
 
@@ -299,6 +314,9 @@ wealth/src/features/market-overview/limit-up/StreakLadderPanel.tsx
 3. `previousStocks` 同时包含 `advanced=true/false`
 4. stock 对象包含 `limitAmountDisplayText`
 5. stock 对象包含 `streakText`
+6. 昨日层掉队股票有当日 `equity_daily_bar` 时，必须展示当日价格/涨跌幅，不得展示昨日价格。
+7. 昨日层掉队股票无当日 `equity_daily_bar` 且停牌表命中时，必须返回 `quoteStatus=SUSPENDED`。
+8. 昨日层掉队股票无当日 `equity_daily_bar` 且无停牌记录时，必须返回 `quoteStatus=MISSING`。
 
 ### 9.2 delayed 样例（必须覆盖）
 
@@ -329,7 +347,7 @@ wealth/src/features/market-overview/limit-up/StreakLadderPanel.tsx
    - 两日组合单测（含晋级/掉队）
    - 金额来源单测（`fd_amount` 进入涨停卡片）
    - 文案生成单测（`首板/N连板/N板/昨日N板`）
-   - 异常分支单测（无效板数、补列缺失、金额缺失、空数据）
+   - 异常分支单测（无效板数、当日行情缺失且无停牌依据、涨停上下文金额缺失、空数据）
    - 集成测试（API 契约）
 2. 前端：
    - adapter 字段映射测试

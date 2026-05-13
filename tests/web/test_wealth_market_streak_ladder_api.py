@@ -4,13 +4,14 @@ from datetime import date
 from decimal import Decimal
 
 from src.foundation.models.core.equity_limit_list import EquityLimitList
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 
 def _ensure_tables(db_session) -> None:
     bind = db_session.get_bind()
-    for table in [TradeCalendar.__table__, EquityLimitList.__table__, EquityDailyBar.__table__]:
+    for table in [TradeCalendar.__table__, EquityLimitList.__table__, EquityDailyBar.__table__, EquitySuspendD.__table__]:
         table.create(bind, checkfirst=True)
 
 
@@ -89,6 +90,25 @@ def _add_daily_bar_row(
     )
 
 
+def _add_suspend_row(
+    db_session,
+    *,
+    trade_date: date,
+    ts_code: str,
+    suspend_type: str = "S",
+) -> None:
+    db_session.add(
+        EquitySuspendD(
+            id=1,
+            row_key_hash=f"{ts_code}-{trade_date.isoformat()}-{suspend_type}",
+            ts_code=ts_code,
+            trade_date=trade_date,
+            suspend_timing=None,
+            suspend_type=suspend_type,
+        )
+    )
+
+
 def test_streak_ladder_ready_with_promotions(app_client, db_session) -> None:
     _ensure_tables(db_session)
     today = date(2026, 4, 28)
@@ -111,6 +131,8 @@ def test_streak_ladder_ready_with_promotions(app_client, db_session) -> None:
     _add_limit_up_row(db_session, trade_date=prev, ts_code="X.SZ", board_count=3, close=Decimal("7.10"), pct_chg=Decimal("1.00"))
     _add_limit_up_row(db_session, trade_date=prev, ts_code="D.SZ", board_count=1, close=Decimal("6.90"), pct_chg=Decimal("1.50"))
     _add_limit_up_row(db_session, trade_date=prev, ts_code="Y.SZ", board_count=1, close=Decimal("5.50"), pct_chg=Decimal("0.80"))
+    _add_daily_bar_row(db_session, trade_date=today, ts_code="X.SZ", close=Decimal("7.01"), pct_chg=Decimal("-1.10"))
+    _add_daily_bar_row(db_session, trade_date=today, ts_code="Y.SZ", close=Decimal("5.55"), pct_chg=Decimal("0.50"))
     db_session.commit()
 
     response = app_client.get(
@@ -136,10 +158,62 @@ def test_streak_ladder_ready_with_promotions(app_client, db_session) -> None:
     x_row = next(item for item in promotion_4["previousStocks"] if item["stockCode"] == "X.SZ")
     assert x_row["advanced"] is False
     assert x_row["currentStreakLevel"] == 0
+    assert x_row["latestPrice"] == 7.01
+    assert x_row["changePct"] == -1.1
+    assert x_row["quoteStatus"] == "READY"
     assert x_row["streakText"] == "昨日三板"
     current_codes = [item["stockCode"] for item in promotion_4["currentStocks"]]
     assert current_codes == ["C.SZ"]
     assert promotion_4["currentStocks"][0]["streakText"] == "4连板"
+
+
+def test_streak_ladder_previous_side_uses_current_quote_and_marks_suspend_or_missing(app_client, db_session) -> None:
+    _ensure_tables(db_session)
+    today = date(2026, 4, 28)
+    prev = date(2026, 4, 27)
+    pre_prev = date(2026, 4, 26)
+    _add_calendar_row(db_session, trade_date=pre_prev, prev_trade_date=None)
+    _add_calendar_row(db_session, trade_date=prev, prev_trade_date=pre_prev)
+    _add_calendar_row(db_session, trade_date=today, prev_trade_date=prev)
+
+    _add_limit_up_row(db_session, trade_date=today, ts_code="ADV.SZ", board_count=4, close=Decimal("12.00"), pct_chg=Decimal("10.00"))
+    _add_limit_up_row(db_session, trade_date=prev, ts_code="ADV.SZ", board_count=3, close=Decimal("10.00"), pct_chg=Decimal("5.00"))
+    _add_limit_up_row(db_session, trade_date=prev, ts_code="QUOTE.SZ", board_count=3, close=Decimal("9.00"), pct_chg=Decimal("4.00"))
+    _add_limit_up_row(db_session, trade_date=prev, ts_code="SUSP.SZ", board_count=3, close=Decimal("8.00"), pct_chg=Decimal("3.00"))
+    _add_limit_up_row(db_session, trade_date=prev, ts_code="MISS.SZ", board_count=3, close=Decimal("7.00"), pct_chg=Decimal("2.00"))
+    _add_daily_bar_row(db_session, trade_date=today, ts_code="QUOTE.SZ", close=Decimal("11.11"), pct_chg=Decimal("-2.22"))
+    _add_suspend_row(db_session, trade_date=today, ts_code="SUSP.SZ")
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/streak-ladder",
+        params={"tradeDate": "2026-04-28", "debug": 1},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    previous_stocks = payload["streakLadderV5"]["promotions"]["4"]["previousStocks"]
+    by_code = {item["stockCode"]: item for item in previous_stocks}
+
+    assert by_code["QUOTE.SZ"]["advanced"] is False
+    assert by_code["QUOTE.SZ"]["currentStreakLevel"] == 0
+    assert by_code["QUOTE.SZ"]["latestPrice"] == 11.11
+    assert by_code["QUOTE.SZ"]["changePct"] == -2.22
+    assert by_code["QUOTE.SZ"]["limitAmount"] is None
+    assert by_code["QUOTE.SZ"]["limitAmountDisplayText"] == "--"
+    assert by_code["QUOTE.SZ"]["quoteStatus"] == "READY"
+    assert by_code["QUOTE.SZ"]["streakText"] == "昨日三板"
+
+    assert by_code["SUSP.SZ"]["quoteStatus"] == "SUSPENDED"
+    assert by_code["SUSP.SZ"]["latestPrice"] is None
+    assert by_code["SUSP.SZ"]["changePct"] is None
+    assert by_code["SUSP.SZ"]["sectorName"] is None
+    assert by_code["SUSP.SZ"]["limitAmount"] is None
+    assert by_code["SUSP.SZ"]["limitAmountDisplayText"] == "--"
+
+    assert by_code["MISS.SZ"]["quoteStatus"] == "MISSING"
+    assert by_code["MISS.SZ"]["latestPrice"] is None
+    assert by_code["MISS.SZ"]["changePct"] is None
+    assert "SL_JOIN_METRIC_MISSING" in {item["code"] for item in payload["debugInfo"]["exceptions"]}
 
 
 def test_streak_ladder_delayed_status(app_client, db_session) -> None:

@@ -7,7 +7,8 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.biz.services.wealth.market.streak_ladder.streak_ladder_builder import StreakLadderRow
+from src.biz.services.wealth.market.streak_ladder.streak_ladder_builder import StreakLadderCurrentQuote, StreakLadderRow
+from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
@@ -144,6 +145,66 @@ class StreakLadderQuery:
             result[row.ts_code] = (row.close, row.pct_chg)
         return result
 
+    def load_current_quote_map(
+        self,
+        session: Session,
+        *,
+        trade_date: date,
+        codes: set[str],
+    ) -> dict[str, StreakLadderCurrentQuote]:
+        if not codes:
+            return {}
+
+        result: dict[str, StreakLadderCurrentQuote] = {}
+        daily_rows = session.execute(
+            select(
+                EquityDailyBar.ts_code,
+                EquityDailyBar.close,
+                EquityDailyBar.pct_chg,
+            ).where(
+                EquityDailyBar.trade_date == trade_date,
+                EquityDailyBar.ts_code.in_(codes),
+            )
+        ).all()
+        for row in daily_rows:
+            if not row.ts_code:
+                continue
+            if self._is_valid_daily_quote(close=row.close, pct_chg=row.pct_chg):
+                result[row.ts_code] = StreakLadderCurrentQuote(
+                    latest_price=row.close,
+                    change_pct=row.pct_chg,
+                    quote_status="READY",
+                )
+
+        missing_codes = codes - set(result)
+        if not missing_codes:
+            return result
+
+        suspended_codes = {
+            row.ts_code
+            for row in session.execute(
+                select(EquitySuspendD.ts_code).where(
+                    EquitySuspendD.trade_date == trade_date,
+                    EquitySuspendD.ts_code.in_(missing_codes),
+                    EquitySuspendD.suspend_type == "S",
+                )
+            ).all()
+            if row.ts_code
+        }
+        for ts_code in suspended_codes:
+            result[ts_code] = StreakLadderCurrentQuote(
+                latest_price=None,
+                change_pct=None,
+                quote_status="SUSPENDED",
+            )
+        for ts_code in missing_codes - suspended_codes:
+            result[ts_code] = StreakLadderCurrentQuote(
+                latest_price=None,
+                change_pct=None,
+                quote_status="MISSING",
+            )
+        return result
+
     @staticmethod
     def _is_valid_limit_up_metrics(
         *,
@@ -151,3 +212,11 @@ class StreakLadderQuery:
         pct_chg: Decimal | None,
     ) -> bool:
         return bool(close is not None and pct_chg is not None and close > 0 and pct_chg > 0)
+
+    @staticmethod
+    def _is_valid_daily_quote(
+        *,
+        close: Decimal | None,
+        pct_chg: Decimal | None,
+    ) -> bool:
+        return bool(close is not None and pct_chg is not None and close > 0)

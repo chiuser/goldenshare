@@ -141,6 +141,7 @@
 | `firstLimitTime` | 首次封板时间 | 是 | 不进入 v7 卡片可见区域，仅作为扩展/调试事实字段 |
 | `currentStreakLevel` | 当前板数 | 否 | 可为 `0`（已掉队） |
 | `advanced` | 是否晋级成功 | 否 | `true/false` |
+| `quoteStatus` | 当日行情状态 | 否 | `READY` 有当日行情；`SUSPENDED` 当日停牌；`MISSING` 当日行情缺失且无停牌依据 |
 
 ---
 
@@ -153,6 +154,7 @@
 1. `core_serving.trade_calendar`
 2. `core_serving.equity_limit_list`
 3. `core_serving.equity_daily_bar`（仅用于补齐当日行情展示列，不参与板数判定）
+4. `core_serving.equity_suspend_d`（仅用于解释“昨日层股票当日无行情”的停牌状态）
 
 ### 6.2 来源接口事实
 
@@ -186,6 +188,7 @@
 | `limitAmountDisplayText` | 后端格式化 | `fd_amount` | 例如 `1.27亿`、`8200万`、`--` |
 | `limitAmountLabel` | 后端常量 | - | 当前固定为 `封单金额` |
 | `streakText` | 后端生成 | `limit_times` + 跨日层级 | 一个字段、一个标签 |
+| `quoteStatus` | `equity_daily_bar` / `equity_suspend_d` | `close/pct_chg`、`suspend_type` | 有当日行情为 `READY`；缺当日行情且 `suspend_type='S'` 为 `SUSPENDED`；否则为 `MISSING` |
 
 补充：
 
@@ -194,6 +197,7 @@
 3. `amount` 禁止作为 v7 股票卡片金额来源。
 4. 若未来跌停模块复用相同卡片，跌停金额应取 `limit_amount`，标签为“板上成交金额”；这不改变连板天梯当前涨停口径。
 5. 若其它模块也使用 `equity_limit_list`，那属于“共享来源”关系，不构成与连板天梯的数据耦合。
+6. 昨日层股票若当日不在涨停池，必须优先取当日 `equity_daily_bar` 行情展示；若缺当日行情，再查 `equity_suspend_d` 判断是否停牌。
 
 ---
 
@@ -211,6 +215,11 @@
    - `previousStocks.currentStreakLevel`：
      - 若当日仍在涨停池，取当日板数；
      - 若当日不在涨停池，取 `0`（掉队）。
+   - `previousStocks` 展示字段：
+     - 当日仍在涨停池：使用当日涨停行；
+     - 当日不在涨停池但有当日 `equity_daily_bar`：使用当日 `close/pct_chg`，金额置空；
+     - 缺当日 `equity_daily_bar` 且 `equity_suspend_d.suspend_type='S'`：`quoteStatus=SUSPENDED`；
+     - 缺当日 `equity_daily_bar` 且无停牌记录：`quoteStatus=MISSING`。
 6. 构建 `firstBoard`：
    - 当日 `currentStreakLevel=1` 全量股票。
 7. 构建 `streakText`：
@@ -293,7 +302,7 @@
    - 右侧：`sectorName/streakText`
    - 左上角：`stockCode`
 6. 涨停卡片金额必须来自 `fd_amount`，不得来自 `amount` 或 `limit_amount`。
-7. 状态与异常必须能解释源落后、无数据、无效板数、展示补列缺失、金额缺失等关键场景。
+7. 状态与异常必须能解释源落后、无数据、无效板数、当日行情缺失且无停牌依据、涨停上下文金额缺失等关键场景。
 
 ---
 

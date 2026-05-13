@@ -1721,6 +1721,10 @@ tbody tr:active {
   min-width: 0;
 }
 
+.stock-compact-card-v5.quote-unavailable .stock-card-split-v7 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .stock-card-zone-v7 {
   align-items: center;
   display: grid;
