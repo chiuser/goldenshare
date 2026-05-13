@@ -34,7 +34,7 @@ export function AppShell({ activePage, children, initialized, onNavigate }: AppS
             onClick={() => onNavigate("datasets")}
             type="button"
           >
-            数据集总览
+            数据湖总览
           </button>
           <button className={activePage === "recovery" ? "sidebar-link active" : "sidebar-link"} onClick={() => onNavigate("recovery")} type="button">
             Recovery

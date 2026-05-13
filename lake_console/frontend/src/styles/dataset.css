@@ -1,3 +1,307 @@
+.lake-overview-page {
+  display: grid;
+  gap: 14px;
+}
+
+.lake-overview-page .section-card {
+  padding: 16px;
+}
+
+.lake-overview-page .section-card-header {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.lake-overview-metrics {
+  margin-bottom: 12px;
+}
+
+.lake-overview-summary-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 10px;
+}
+
+.lake-overview-fact-tile,
+.lake-overview-count-card,
+.lake-overview-flow-node {
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--neutral-0);
+}
+
+.lake-overview-fact-tile {
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.lake-overview-fact-tile span,
+.lake-overview-fact-tile em {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.lake-overview-fact-tile strong {
+  display: block;
+  margin: 4px 0 3px;
+  color: var(--text-title);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.lake-overview-fact-tile strong.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.lake-overview-domain-table {
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+}
+
+.lake-overview-domain-table table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+}
+
+.lake-overview-domain-table th,
+.lake-overview-domain-table td {
+  border-bottom: 1px solid var(--border-default);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.lake-overview-domain-table th {
+  color: var(--text-muted);
+  background: var(--neutral-1);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lake-overview-domain-table td {
+  color: var(--text-body);
+  font-size: 13px;
+}
+
+.lake-overview-domain-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.lake-overview-domain-table td > strong {
+  display: block;
+  color: var(--text-title);
+}
+
+.lake-overview-domain-table code {
+  max-width: none;
+  color: var(--text-body);
+  background: var(--neutral-1);
+}
+
+.lake-table-muted {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.lake-overview-flow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lake-overview-flow-node {
+  min-width: 0;
+  padding: 10px;
+}
+
+.lake-overview-flow-node span {
+  color: var(--text-hint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.lake-overview-flow-node strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-title);
+  font-size: 13px;
+}
+
+.lake-overview-flow-node code {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 7px;
+  padding: 3px 6px;
+  color: var(--brand-6);
+  font-size: 11px;
+}
+
+.lake-overview-flow-node p {
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.lake-overview-source-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lake-overview-count-card {
+  padding: 10px 12px;
+}
+
+.lake-overview-count-card h3 {
+  margin: 0 0 8px;
+  color: var(--text-title);
+  font-size: 14px;
+}
+
+.lake-overview-count-list {
+  display: grid;
+  gap: 6px;
+}
+
+.lake-overview-count-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  background: var(--neutral-1);
+}
+
+.lake-overview-count-list span {
+  color: var(--text-body);
+  font-size: 13px;
+}
+
+.lake-overview-count-list strong {
+  color: var(--text-title);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.lake-overview-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(150px, 0.8fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.lake-overview-toolbar input,
+.lake-overview-toolbar select {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 0 10px;
+  color: var(--text-body);
+  background: var(--neutral-0);
+  font: inherit;
+  font-size: 13px;
+}
+
+.lake-overview-toolbar input:focus-visible,
+.lake-overview-toolbar select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.lake-overview-inventory .data-table-card table {
+  min-width: 1280px;
+}
+
+.lake-overview-inventory .data-table-card th,
+.lake-overview-inventory .data-table-card td {
+  padding: 9px 10px;
+}
+
+.lake-inventory-dataset-col {
+  width: 230px;
+}
+
+.lake-inventory-path-col {
+  width: 250px;
+}
+
+.lake-inventory-number-col {
+  width: 150px;
+  text-align: right !important;
+}
+
+.lake-inventory-name {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lake-inventory-name > div {
+  min-width: 0;
+}
+
+.lake-inventory-name strong,
+.lake-inventory-stack strong {
+  display: block;
+  color: var(--text-title);
+}
+
+.lake-inventory-name code,
+.lake-inventory-stack code {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 4px;
+  color: var(--text-body);
+  background: var(--neutral-1);
+  overflow-wrap: anywhere;
+}
+
+.lake-inventory-stack {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lake-inventory-stack span,
+.lake-chip-stack span {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.lake-inventory-numeric {
+  justify-items: end;
+}
+
+.lake-chip-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.lake-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.lake-chip-row .badge {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
 .dataset-groups,
 .dataset-list {
   display: grid;
@@ -500,12 +804,20 @@
 }
 
 @media (max-width: 1280px) {
+  .lake-overview-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .dataset-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 960px) {
+  .lake-overview-summary-grid,
+  .lake-overview-source-grid,
+  .lake-overview-toolbar,
+  .lake-overview-flow,
   .dataset-list,
   .dataset-card dl,
   .detail-grid,
