@@ -48,7 +48,6 @@ export function SectorOverviewPanel({ sectorOverview, viewState, errorMessage, o
         <div className="heatmap-panel">
           <div className="sector-title">
             <span>板块热力图</span>
-            <span className="secondary">5 × 4</span>
           </div>
           <div className="heatmap-preview">
             {sectorOverview.heatmap.map((cell) => {
