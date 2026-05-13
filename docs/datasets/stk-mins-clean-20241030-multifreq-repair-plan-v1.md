@@ -2,9 +2,17 @@
 
 ## 1. 状态
 
-待评审。
+已按 `clean_next` 当前现实口径订正，并已执行本专项修复。
 
-本文只定义修复方案，不表示已经执行修复。
+本文定义修复方案，并记录 2026-05-13 的实际执行结果。
+
+2026-05-13 订正说明：
+
+1. 当前正式 clean candidate 已经从 raw 全量构建到 `research/stk_mins_by_date_clean_next`。
+2. `clean_next` 已通过 M4 基础审计，物理 schema 为正式 11 列。
+3. M5 完备性账本确认 `2024-10-30` 多频率混入 `1min` 问题仍存在于 `clean_next`。
+4. 因此本文执行目标从旧路径 `research/stk_mins_by_date_clean` 订正为 `research/stk_mins_by_date_clean_next`。
+5. 本文不服务当前错误 schema clean；错误 clean 演练方案见 `stk-mins-current-clean-20241030-multifreq-repair-plan-v1.md`。
 
 本版已纠正早期草案中的错误 schema 口径：
 
@@ -14,7 +22,7 @@
 
 ## 2. 问题背景
 
-`research/stk_mins_by_date_clean` 的 `2024-10-30` 分区中，部分北交所股票在 `5/15/30/60` 分钟频率下出现 `bar_count=271`。
+`research/stk_mins_by_date_clean_next` 的 `2024-10-30` 分区中，部分北交所股票在 `5/15/30/60` 分钟频率下出现 `bar_count=271`。
 
 这个数量是 `1min` 当日包含盘后交易时段后的行数，不是 `5/15/30/60` 应有的行数。因此判断为：
 
@@ -32,10 +40,10 @@
 
 ## 3. 真实影响范围
 
-影响范围来自当前完备性问题账本：
+影响范围来自 `clean_next` 当前完备性问题账本：
 
 ```text
-/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_completeness_issue_ledger.parquet
+/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet
 ```
 
 筛选条件：
@@ -69,16 +77,17 @@ freq=5 比其他频率少 1 只股票。
 本专项只允许处理：
 
 ```text
-research/stk_mins_by_date_clean/freq=5/trade_date=2024-10-30
-research/stk_mins_by_date_clean/freq=15/trade_date=2024-10-30
-research/stk_mins_by_date_clean/freq=30/trade_date=2024-10-30
-research/stk_mins_by_date_clean/freq=60/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=5/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=15/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=30/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=60/trade_date=2024-10-30
 ```
 
 本专项禁止处理：
 
 ```text
 raw_tushare/stk_mins_by_date
+research/stk_mins_by_date_clean
 derived/stk_mins_by_date
 research/stk_mins_by_symbol_month
 research/stk_mins_indicators_by_date
@@ -93,7 +102,7 @@ manifest/security_identity_map
 
 ## 5. 修复数据来源
 
-修复来源必须是 schema 正确的同日 `1min` 数据。
+修复来源必须是 schema 正确的同日 `clean_next 1min` 数据。
 
 目标字段口径必须与 raw `stk_mins` 源字段一致：
 
@@ -111,41 +120,35 @@ exchange
 vwap
 ```
 
-当前已经确认：早期生成的 `research/stk_mins_by_date_clean` 物理 schema 存在缺陷，缺少 `exchange/vwap`，并额外写入了物理列 `trade_date`。因此：
+当前已经确认：`research/stk_mins_by_date_clean_next/freq=1/trade_date=2024-10-30` 物理 schema 正确，包含 `exchange/vwap`，且不包含物理列 `trade_date`。因此：
 
-1. 如果本专项在 clean schema 修正后执行，修复来源可以使用同日 schema 正确的 clean `1min`。
-2. 如果本专项在 clean schema 修正前执行，不允许只读取当前 10 列 clean `1min` 作为唯一来源；必须从 raw `1min` 读取 `exchange/vwap`，并应用与 clean 一致的身份归一、过滤和去重规则，构造 schema 正确的 `1min` 修复源。
-3. 禁止因为当前错误 clean 缺字段，就在修复输出里继续丢弃 `exchange/vwap`。
+1. 本专项直接使用 `clean_next` 同日 `1min` 作为修复来源。
+2. 本专项不得读取当前错误 schema 的 `research/stk_mins_by_date_clean` 作为来源。
+3. 本专项不得直接回退读取 raw；如果 `clean_next 1min` 门禁失败，必须停止并先修复 `clean_next 1min`，不能在本专项里临时绕路。
+4. 禁止因为历史错误 clean 缺字段，就在修复输出里继续丢弃 `exchange/vwap`。
 
 目标来源路径：
 
 ```text
-research/stk_mins_by_date_clean/freq=1/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=1/trade_date=2024-10-30
 ```
-
-若该路径仍为错误 schema，则必须回退到：
-
-```text
-raw_tushare/stk_mins_by_date/freq=1/trade_date=2024-10-30
-```
-
-并先经过 clean 规则转换后，才能作为本专项聚合来源。
 
 当前已核验：
 
 | 校验项 | 结果 |
 | --- | --- |
+| `clean_next 1min` 物理字段 | `ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap` |
 | 受影响股票并集数量 | 254 |
-| clean 1min 每只股票总行数 | 271 |
-| clean 1min 每只股票常规时段行数 | 241 |
-| clean 1min 缺失或不足 271 的股票数 | 0 |
-| clean 1min 常规时段不足 241 的股票数 | 0 |
+| `clean_next 1min` 每只股票总行数 | 271 |
+| `clean_next 1min` 每只股票常规时段行数 | 241 |
+| `clean_next 1min` 缺失或不足 271 的股票数 | 0 |
+| `clean_next 1min` 常规时段不足 241 的股票数 | 0 |
 
 说明：
 
 ```text
 1min 当日包含 15:01~15:30 盘后交易数据，所以总数为 271。
-但当前 clean 高频分区的目标口径仍是常规交易时段，不把盘后交易合入 5/15/30/60。
+但当前 `clean_next` 高频分区的目标口径仍是常规交易时段，不把盘后交易合入 `5/15/30/60`。
 ```
 
 因此本专项只使用：
@@ -293,8 +296,8 @@ trade_date
 建议新增专项命令：
 
 ```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-20241030-multifreq --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-20241030-multifreq --apply
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --apply
 ```
 
 命令必须硬编码本专项边界：
@@ -303,16 +306,16 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-cl
 trade_date=2024-10-30
 source_freq=1
 target_freqs=5,15,30,60
-source_layer=schema_correct_1min
-target_layer=research/stk_mins_by_date_clean
-affected_codes_source=clean_completeness_issue_ledger
+source_layer=research/stk_mins_by_date_clean_next/freq=1/trade_date=2024-10-30
+target_layer=research/stk_mins_by_date_clean_next
+affected_codes_source=clean_next_completeness_issue_ledger
 ```
 
-`source_layer=schema_correct_1min` 的含义：
+`source_layer=research/stk_mins_by_date_clean_next/freq=1/trade_date=2024-10-30` 的含义：
 
-1. 优先使用 schema 正确的 `research/stk_mins_by_date_clean/freq=1/trade_date=2024-10-30`。
-2. 如果当前 clean `1min` 仍缺 `exchange/vwap` 或仍包含物理 `trade_date`，必须使用 raw `1min` 构造修复源。
-3. 构造 raw 修复源时，必须应用与 clean 一致的身份归一、退市/上市日前过滤、非法行过滤和去重规则。
+1. 只使用 `clean_next` 的同日 `1min`。
+2. 如果 `clean_next 1min` schema 或行数门禁失败，专项停止。
+3. 不允许在本专项内读取旧错误 clean 或 raw 绕过门禁。
 
 禁止把它泛化成任意日期、任意频率的自由修复工具。
 
@@ -326,7 +329,7 @@ affected_codes_source=clean_completeness_issue_ledger
 2. 每个 `freq` 的旧错误行数。
 3. 每个 `freq` 的预计重建行数。
 4. 每个 `freq` 的预计分区总行数变化。
-5. clean `1min` 源数据是否满足每只股票 `271` 行、常规时段 `241` 行。
+5. `clean_next 1min` 源数据是否满足每只股票 `271` 行、常规时段 `241` 行。
 6. 修复源是否包含 `exchange/vwap`。
 7. 是否存在重复 key。
 8. 是否存在无法生成目标窗口的股票。
@@ -385,7 +388,7 @@ schema 包含 exchange/vwap
 
 若任一股票不满足，专项必须停止，不允许部分修。
 
-若当前 clean `1min` 缺少 `exchange/vwap`，不得继续以它作为唯一来源；必须先从 raw `1min` 构造 schema 正确的修复源。
+若 `clean_next 1min` 缺少 `exchange/vwap` 或出现额外物理字段，不得继续执行本专项；必须先修复 `clean_next 1min`。
 
 ### G3. 聚合结果门禁
 
@@ -432,7 +435,7 @@ source_ts_code
 `trade_date` 只能通过分区目录表达：
 
 ```text
-research/stk_mins_by_date_clean/freq=<freq>/trade_date=2024-10-30
+research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=2024-10-30
 ```
 
 ### G6. 回归门禁
@@ -440,7 +443,7 @@ research/stk_mins_by_date_clean/freq=<freq>/trade_date=2024-10-30
 修复后至少执行：
 
 ```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-20241030-multifreq --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
 ```
 
 专项 apply 后必须执行分区直读校验，确认受影响股票不再是 `bar_count=271`。
@@ -451,7 +454,7 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-cl
 
 ```sql
 select freq, latest_ts_code, actual_value
-from read_parquet('/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_completeness_issue_ledger.parquet')
+from read_parquet('/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet')
 where trade_date = date '2024-10-30'
   and freq in (5,15,30,60)
   and actual_value = 'bar_count=271';
@@ -464,7 +467,7 @@ where trade_date = date '2024-10-30'
 `apply` 必须把旧分区备份到：
 
 ```text
-/Volumes/datasource/goldenshare-tushare-lake/_tmp/<run_id>/_backup/research/stk_mins_by_date_clean/freq=<freq>/trade_date=2024-10-30
+/Volumes/datasource/goldenshare-tushare-lake/_tmp/<run_id>/_backup/research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=2024-10-30
 ```
 
 如果 apply 后任一校验失败：
@@ -495,8 +498,69 @@ where trade_date = date '2024-10-30'
 2. 运行 dry-run，确认所有门禁通过后再申请执行 apply。
 3. 执行 apply 后，只做本专项聚焦校验，不顺手重建 derived/research/indicator。
 
-## 12. 下一步
+## 12. 执行记录
 
-本方案 review 通过后，才进入代码实现。
+执行时间：2026-05-13
 
-代码实现完成后，先跑 `dry-run` 并输出结果给 review，再决定是否执行 `apply`。
+执行命令：
+
+```bash
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --apply
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-clean-next-completeness --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30 --sample-limit 20
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-date-clean-next --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30
+```
+
+修复前 `dry-run` 结果：
+
+| freq | 受影响股票数 | 旧错误行数 | 新重建行数 | 净减少 | `missing_vwap_rows` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 5 | 253 | 68,563 | 12,397 | 56,166 | 0 |
+| 15 | 254 | 68,834 | 4,318 | 64,516 | 0 |
+| 30 | 254 | 68,834 | 2,286 | 66,548 | 0 |
+| 60 | 254 | 68,834 | 1,270 | 67,564 | 0 |
+
+`apply` 执行结果：
+
+| freq | 替换前分区行数 | 替换后分区行数 | 重建行数 |
+| --- | ---: | ---: | ---: |
+| 5 | 316,944 | 260,778 | 12,397 |
+| 15 | 155,007 | 90,491 | 4,318 |
+| 30 | 114,446 | 47,898 | 2,286 |
+| 60 | 94,179 | 26,615 | 1,270 |
+
+执行 run_id：
+
+```text
+20260513T013935Z-repair-clean-next-20241030-multifreq
+```
+
+修复后复核：
+
+1. 重跑专项 `dry-run` 后，四个频率的 `net_reduction` 均为 `0`，说明目标受影响股票已不再是 `bar_count=271` 污染行。
+2. `audit-stk-mins-clean-next-completeness --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30` 返回 `issue_count=0`。
+3. `audit-stk-mins-by-date-clean-next --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30` 返回 `issue_count=0`，schema 为正式 11 列：
+
+```text
+ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap
+```
+
+本专项只修复 `research/stk_mins_by_date_clean_next` 的 `2024-10-30`、`5/15/30/60` 四个分区，未触碰：
+
+```text
+raw_tushare/stk_mins_by_date
+research/stk_mins_by_date_clean
+derived/stk_mins_by_date
+research/stk_mins_by_symbol_month
+research/stk_mins_indicators_by_date
+research/stk_mins_indicators_by_symbol_month
+```
+
+## 13. 下一步
+
+继续处理 `clean_next` 完备性账本中剩余的 `missing_intraday_bar` 问题。下一专项是：
+
+```text
+2022 北交所 30min 缺失（bar_count=6）
+```

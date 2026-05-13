@@ -191,6 +191,128 @@ def test_rebuild_clean_apply_writes_normalized_clean_partition_without_touching_
     assert {row["ts_code"] for row in raw_rows} == {"300114.SZ"}
 
 
+def test_formal_clean_next_keeps_zero_price_rows_and_writes_formal_schema(tmp_path) -> None:
+    _write_stock_basic(tmp_path, [{"ts_code": "600988.SH", "list_date": "20100101", "delist_date": None}])
+    _write_raw_partition(
+        tmp_path,
+        freq=1,
+        trade_date="2011-12-12",
+        rows=[
+            _mins_row("600988.SH", 1, "2011-12-12 09:34:00", open=9.35, close=9.36, high=9.36, low=0.0),
+            _mins_row("600988.SH", 1, "2011-12-12 09:35:00", open=0.0, close=0.0, high=0.0, low=0.0, vol=0, amount=0.0),
+        ],
+    )
+
+    dry_run = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).plan_rebuild_formal_clean_next(
+        freqs=[1],
+        start_date=date(2011, 12, 12),
+        end_date=date(2011, 12, 12),
+    )
+    assert dry_run["operation"] == "rebuild_stk_mins_by_date_clean_next"
+    assert dry_run["kept_rows"] == 2
+    assert dry_run["filtered_rows"] == 0
+    assert dry_run["schema"] == [
+        "ts_code",
+        "freq",
+        "trade_time",
+        "open",
+        "close",
+        "high",
+        "low",
+        "vol",
+        "amount",
+        "exchange",
+        "vwap",
+    ]
+
+    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).rebuild_formal_clean_next_from_raw(
+        freqs=[1],
+        start_date=date(2011, 12, 12),
+        end_date=date(2011, 12, 12),
+        dry_run=False,
+        apply=True,
+    )
+
+    clean_file = tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=1" / "trade_date=2011-12-12" / "part-000.parquet"
+    rows = read_parquet_rows(clean_file)
+    assert summary["kept_rows"] == 2
+    assert rows
+    assert list(rows[0]) == dry_run["schema"]
+    assert "trade_date" not in rows[0]
+    assert "source_ts_code" not in rows[0]
+    assert "identity_id" not in rows[0]
+    assert {row["trade_time"].strftime("%H:%M:%S") for row in rows} == {"09:34:00", "09:35:00"}
+
+
+def test_formal_clean_next_refuses_to_overwrite_existing_partition_without_flag(tmp_path) -> None:
+    _write_stock_basic(tmp_path, [{"ts_code": "000001.SZ", "list_date": "20100101", "delist_date": None}])
+    _write_raw_partition(
+        tmp_path,
+        freq=1,
+        trade_date="2026-03-02",
+        rows=[_mins_row("000001.SZ", 1, "2026-03-02 10:00:00")],
+    )
+    service = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None)
+    service.rebuild_formal_clean_next_from_raw(
+        freqs=[1],
+        start_date=date(2026, 3, 2),
+        end_date=date(2026, 3, 2),
+        dry_run=False,
+        apply=True,
+    )
+
+    with pytest.raises(RuntimeError, match="clean candidate 目标分区已存在"):
+        service.rebuild_formal_clean_next_from_raw(
+            freqs=[1],
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 2),
+            dry_run=False,
+            apply=True,
+        )
+
+
+def test_audit_formal_clean_next_allows_zero_price_structure_and_blocks_duplicates(tmp_path) -> None:
+    _write_stock_basic(tmp_path, [{"ts_code": "600988.SH", "list_date": "20100101", "delist_date": None}])
+    _write_parquet(
+        tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=1" / "trade_date=2011-12-12" / "part-000.parquet",
+        [
+            _mins_row("600988.SH", 1, "2011-12-12 09:34:00", open=9.35, close=9.36, high=9.36, low=0.0),
+            _mins_row("600988.SH", 1, "2011-12-12 09:34:00", open=9.35, close=9.36, high=9.36, low=0.0),
+        ],
+    )
+
+    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).audit_formal_clean_next_layer(
+        freqs=[1],
+        start_date=date(2011, 12, 12),
+        end_date=date(2011, 12, 12),
+    )
+
+    assert summary["status"] == "failed"
+    assert summary["issue_type_counts"] == {"duplicate_same_payload": 1}
+    assert "invalid_price_structure" not in summary["issue_type_counts"]
+
+
+def test_audit_formal_clean_next_completeness_accepts_after_hours_extra_bars(tmp_path) -> None:
+    _write_stock_basic(tmp_path, [{"ts_code": "000001.SZ", "list_date": "20100101", "delist_date": None}])
+    rows = [
+        _mins_row("000001.SZ", 1, f"2026-04-24 {hour:02d}:{minute:02d}:00")
+        for hour, minute in _minute_times(include_after_hours=True)
+    ]
+    _write_parquet(
+        tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=1" / "trade_date=2026-04-24" / "part-000.parquet",
+        rows,
+    )
+
+    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).audit_formal_clean_next_completeness(
+        freqs=[1],
+        start_date=date(2026, 4, 24),
+        end_date=date(2026, 4, 24),
+    )
+
+    assert summary["status"] == "success"
+    assert summary["issue_count"] == 0
+
+
 def test_audit_clean_completeness_writes_issue_ledger_without_mutating_clean_rows(tmp_path) -> None:
     _write_stock_basic(
         tmp_path,
@@ -256,17 +378,39 @@ def _write_parquet(path, rows: list[dict[str, object]]) -> None:
     pd.DataFrame(rows).to_parquet(path, index=False, engine="pyarrow", compression="zstd")
 
 
-def _mins_row(ts_code: str, freq: int, trade_time: str, *, close: float = 10.1) -> dict[str, object]:
+def _mins_row(
+    ts_code: str,
+    freq: int,
+    trade_time: str,
+    *,
+    open: float | None = None,
+    close: float = 10.1,
+    high: float | None = None,
+    low: float | None = None,
+    vol: int = 1000,
+    amount: float = 10100.0,
+) -> dict[str, object]:
+    open_value = open if open is not None else (10.0 if close > 0 else 0.0)
+    high_value = high if high is not None else (10.2 if close > 0 else 0.0)
+    low_value = low if low is not None else (9.9 if close > 0 else 0.0)
     return {
         "ts_code": ts_code,
         "freq": freq,
         "trade_time": pd.Timestamp(trade_time),
-        "open": 10.0 if close > 0 else 0.0,
+        "open": open_value,
         "close": close,
-        "high": 10.2 if close > 0 else 0.0,
-        "low": 9.9 if close > 0 else 0.0,
-        "vol": 1000,
-        "amount": 10100.0,
+        "high": high_value,
+        "low": low_value,
+        "vol": vol,
+        "amount": amount,
         "exchange": None,
         "vwap": None,
     }
+
+
+def _minute_times(*, include_after_hours: bool) -> list[tuple[int, int]]:
+    times = [(value // 60, value % 60) for value in range(9 * 60 + 30, 11 * 60 + 30 + 1)]
+    times.extend((value // 60, value % 60) for value in range(13 * 60 + 1, 15 * 60 + 1))
+    if include_after_hours:
+        times.extend((15, minute) for minute in range(1, 31))
+    return times
