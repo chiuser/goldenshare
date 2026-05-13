@@ -190,6 +190,29 @@ def test_ops_schedule_create_rejects_dataset_action_without_maintain_suffix(app_
     assert response.json()["code"] == "validation_error"
 
 
+def test_ops_schedule_create_rejects_dataset_action_missing_required_filter(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "stk_mins.maintain",
+            "display_name": "股票分钟自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "15 19 * * 1,2,3,4,5",
+            "timezone": "Asia/Shanghai",
+            "params_json": {"time_input": {"mode": "point"}, "filters": {}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "股票历史分钟行情 缺少必填参数：分钟周期"
+
+
 def test_ops_schedule_list_update_pause_and_resume(app_client, user_factory, ops_schedule_factory) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     schedule = ops_schedule_factory(

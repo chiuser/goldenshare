@@ -193,7 +193,7 @@ class DatasetRequestValidator:
             if field.name not in normalized and field.default is not None:
                 normalized[field.name] = field.default
             if field.required and field.name not in normalized:
-                raise self._error("required_param_missing", f"缺少必填参数：{field.label or field.name}")
+                raise self._error("required_param_missing", f"缺少必填参数：{self._field_label(field, field.name)}")
             if field.name in normalized:
                 normalized[field.name] = self._coerce_value(field, normalized[field.name])
 

@@ -373,6 +373,7 @@ class TaskRunCommandService:
             action = definition.capabilities.get_action(context.action)
             if action is None:
                 raise WebAppError(status_code=422, code="validation_error", message="数据集不支持该维护动作")
+            TaskRunCommandService._validate_required_dataset_filters(definition, context.filters)
             return
         if context.task_type == "workflow":
             payload_target_key = str((context.request_payload or {}).get("target_key") or "")
@@ -663,6 +664,19 @@ class TaskRunCommandService:
             "failure_policy_default",
         }
         return {key: value for key, value in params_json.items() if key not in reserved}
+
+    @staticmethod
+    def _validate_required_dataset_filters(definition: DatasetDefinition, filters: dict[str, Any]) -> None:
+        missing: list[str] = []
+        for field in definition.input_model.filters:
+            if not field.required:
+                continue
+            value = filters.get(field.name, field.default)
+            if value in (None, "", []):
+                missing.append(field.display_label)
+        if missing:
+            joined = "、".join(missing)
+            raise WebAppError(status_code=422, code="validation_error", message=f"{definition.display_name} 缺少必填参数：{joined}")
 
     @staticmethod
     def _dataset_action_request_payload(params_json: dict[str, Any]) -> dict[str, Any]:

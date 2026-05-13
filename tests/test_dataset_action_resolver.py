@@ -105,6 +105,19 @@ def test_index_daily_request_builder_requires_ts_code() -> None:
         _index_daily_params(request, date(2026, 4, 24), {})
 
 
+def test_dataset_action_resolver_reports_required_filter_with_display_label(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={},
+    )
+
+    with pytest.raises(IngestionValidationError, match="缺少必填参数：分钟周期"):
+        resolver.build_plan(request)
+
+
 @pytest.mark.parametrize(
     "dataset_key",
     ("daily", "adj_factor", "cyq_perf", "fund_daily", "index_daily", "index_daily_basic"),
