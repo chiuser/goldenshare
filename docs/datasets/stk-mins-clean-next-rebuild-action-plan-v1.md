@@ -12,26 +12,26 @@
 
 [stk_mins clean 数据清洗总记录 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-cleaning-master-record-v1.md)
 
-该总账本记录了当前错误 clean 的产生背景、错误 schema、已执行专项、剩余问题和正式 clean 的目标口径。本文只负责后续正式 `clean_next` 的行动计划。
+该总账本记录了历史错误 clean 的产生背景、错误 schema、已执行专项、正式 clean 重建和后续 clean_next 基准口径。本文只负责正式 `clean_next` 的行动计划。
 
 ## 2. 当前决策
 
-1. 保留旧错误 clean：
+1. 旧错误 clean 已删除：
    `research/stk_mins_by_date_clean`
 
-2. 新建正式 clean candidate：
+2. 正式 clean candidate 已建成：
    `research/stk_mins_by_date_clean_next`
 
-3. 旧错误 clean 不删除、不覆盖、不作为正式输出。
+3. 旧错误 clean 不再作为任何后续输入。
 
 4. `raw_tushare/stk_mins_by_date` 不修改。
 
 5. `clean_next` 只从 raw 构建，不从旧错误 clean 构建。
 
-6. `clean_next` 构建完成并通过审计前，不重建：
+6. `clean_next` 已构建完成并通过审计；后续重建 `derived/stk_mins_by_date` 必须从 `clean_next` 读取：
    `derived/stk_mins_by_date`
 
-7. `clean_next` 构建完成并通过审计前，不重建：
+7. `clean_next` 已构建完成并通过审计；后续重建 `research/stk_mins_by_symbol_month` 必须从 `clean_next` 与 `derived` 读取：
    `research/stk_mins_by_symbol_month`
 
 8. `clean_next` 构建完成并通过审计前，不重建任何技术指标。
@@ -128,7 +128,7 @@ research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>
 3. 保留旧命令：
    `rebuild-stk-mins-by-date-clean-range`
 
-4. 旧命令只作为当前错误 clean 历史流程，不作为正式 clean 构建入口。
+4. 旧命令只作为历史错误 clean 流程记录，不作为正式 clean 构建入口。
 
 5. 新增测试，断言输出字段严格等于 11 列正式 schema。
 

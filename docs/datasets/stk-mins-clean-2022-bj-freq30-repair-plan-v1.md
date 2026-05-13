@@ -8,7 +8,7 @@
 
 2026-05-13 订正说明：
 
-1. 旧方案 `stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md` 只服务当前错误 schema 的 `research/stk_mins_by_date_clean`。
+1. 历史错误 clean 演练方案只服务错误 schema 的 `research/stk_mins_by_date_clean`，相关独立文档已删除，历史摘要见 `stk-mins-clean-cleaning-master-record-v1.md`。
 2. 当前正式 clean candidate 已经构建到 `research/stk_mins_by_date_clean_next`，物理 schema 为正式 11 列。
 3. `clean_next` 完备性账本确认仍存在 `2022-07-15 ~ 2022-12-30` 的北交所 `30min` 缺失问题。
 4. 因此本文是面向正式 `clean_next` 的新专项方案，不复用旧错误 clean 的命令与 schema 口径。
@@ -83,7 +83,7 @@ research/stk_mins_by_date_clean_next/freq=15/trade_date=<同一交易日>
 
 ```text
 raw_tushare/stk_mins_by_date
-research/stk_mins_by_date_clean
+已删除的历史错误 clean 路径 research/stk_mins_by_date_clean
 research/stk_mins_by_date_clean_next/freq=1
 research/stk_mins_by_date_clean_next/freq=5
 research/stk_mins_by_date_clean_next/freq=15 的正式分区写入
@@ -389,13 +389,7 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-
 
 ## 12. 与旧 current-clean 方案的关系
 
-旧方案：
-
-```text
-docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
-```
-
-只服务当前错误 schema clean，输出为错误 10 列：
+旧错误 clean 演练方案只服务历史错误 schema clean，输出为错误 10 列；独立文档已删除，历史摘要见 `stk-mins-clean-cleaning-master-record-v1.md`：
 
 ```text
 ts_code, freq, trade_time, open, close, high, low, vol, amount, trade_date

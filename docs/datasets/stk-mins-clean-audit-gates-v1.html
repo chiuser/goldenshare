@@ -389,7 +389,7 @@
           <h1>股票分钟线清洗与审计门禁流程图</h1>
           <p>
             本文档把 <code>raw_tushare/stk_mins_by_date</code> 到
-            <code>research/stk_mins_by_date_clean</code>、derived、by_month research、后续技术指标输入之间的门禁全部画清楚。
+            <code>research/stk_mins_by_date_clean_next</code>、derived、by_month research、后续技术指标输入之间的门禁全部画清楚。
             核心目标只有一个：先保证数据干净，再允许下游重建；任何脏数据、口径不明或审计缺口都不能悄悄流进指标计算。
           </p>
           <div class="pill-row">
@@ -403,8 +403,8 @@
         <aside class="summary-card">
           <strong>当前口径</strong>
           <p>
-            raw 是源站事实；clean 是研究事实。clean 只保留仍未退市股票的有效分钟线，
-            并把旧代码归一成最新代码。clean、derived、research、indicator 行级数据不得携带
+            raw 是源站事实；clean_next 是当前正式研究事实。clean_next 只保留仍未退市股票的有效分钟线，
+            并把旧代码归一成最新代码。clean_next、derived、research、indicator 行级数据不得携带
             <code>identity_id</code>、<code>source_ts_code</code>、<code>list_date</code>、<code>delist_date</code>。
             身份、退市、异常剔除、完备性问题都必须通过独立账本解释。
           </p>
@@ -565,10 +565,10 @@
         </div>
         <div class="card">
           <h3>下游层</h3>
-          <p>derived、by_month research、MACD 等技术指标只能读取 clean 之后的数据。</p>
+          <p>derived、by_month research、MACD 等技术指标只能读取 clean_next 之后的数据。</p>
           <ul>
-            <li>derived 90/120 只读 clean 30/60</li>
-            <li>by_month 只读 clean/derived</li>
+            <li>derived 90/120 只读 clean_next 30/60</li>
+            <li>by_month 只读 clean_next/derived</li>
             <li>指标 state key 使用最新 <code>ts_code + freq</code></li>
           </ul>
         </div>
@@ -845,8 +845,8 @@
               clean 审计通过后，才允许生成 derived 和 by_month research。这里的核心是保证下游没有绕回 raw，也没有重新引入旧 schema。
             </p>
             <ul>
-              <li>derived 90/120 只能读取 clean 30/60。</li>
-              <li>by_month research 只能读取 clean/derived。</li>
+              <li>derived 90/120 只能读取 clean_next 30/60。</li>
+              <li>by_month research 只能读取 clean_next/derived。</li>
               <li>输出全部使用最新 <code>ts_code</code>。</li>
               <li>输出不得包含行级身份字段。</li>
               <li>by_month 行数必须等于对应 clean/derived 输入行数。</li>

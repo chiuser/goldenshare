@@ -1,7 +1,7 @@
 # 股票分钟线技术指标开发指南与门禁清单 v1
 
 - 状态：当前生效
-- 更新时间：2026-05-10
+- 更新时间：2026-05-13
 - 适用范围：`lake_console` 本地 Parquet Lake 的 `stk_mins` 技术指标开发
 - 当前已落地指标：`MACD(12,26,9)`
 - 后续候选指标：`MA`、`BOLL`、其他基于分钟 K 线的本地派生指标
@@ -34,7 +34,7 @@
 
 | 能力 | 当前事实 |
 |---|---|
-| 输入源 | `raw_tushare/stk_mins_by_date` 与 `derived/stk_mins_by_date` |
+| 输入源 | `research/stk_mins_by_symbol_month`；该层由 `research/stk_mins_by_date_clean_next` 与 `derived/stk_mins_by_date` 重排生成 |
 | 原始频度 | `1/5/15/30/60` |
 | 本地派生频度 | `90/120` |
 | 主输出层 | `derived/stk_mins_indicators_by_date/indicator=<indicator>/params_key=<params_key>/freq=<freq>/trade_date=<date>/` |
@@ -50,6 +50,7 @@
 3. 不接生产 Ops TaskRun。
 4. 不引入生产前端或生产后端依赖。
 5. 不把生产调度、生产状态表、生产 freshness 链路带进 `lake_console`。
+6. 不直接读取已删除的 `research/stk_mins_by_date_clean`，也不绕过 `clean_next -> derived -> by-month research` 这条基准链路。
 
 ---
 
@@ -74,7 +75,7 @@
 
 ### 4.1 输入契约
 
-1. 读取 `raw_tushare/stk_mins_by_date` 还是 `derived/stk_mins_by_date`。
+1. 读取 `research/stk_mins_by_symbol_month` 中哪些频度；`1/5/15/30/60` 来自 `clean_next` 重排，`90/120` 来自 `derived` 重排。
 2. 支持哪些 freq：`1/5/15/30/60/90/120` 是否都支持。
 3. 需要哪些输入字段，例如 `close`、`high`、`low`、`vol`。
 4. 输入字段的类型和空值策略是什么。

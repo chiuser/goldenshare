@@ -1,8 +1,8 @@
 # Local Lake Console 架构方案 v1
 
 - 版本：v1
-- 状态：已部分落地，`stk_mins` 下载窗口与配额平稳停机、专项恢复、derived/research 已落地；Kopia 集成恢复管理待继续收口
-- 更新时间：2026-05-11
+- 状态：已部分落地；`stk_mins` 正式 clean 基准已切到 `clean_next`，derived/research 后续必须基于 clean_next 重建；Kopia 集成恢复管理待继续收口
+- 更新时间：2026-05-13
 - 适用范围：本地移动 SSD 上的 Tushare Parquet Lake 管理台
 - 目录目标：`lake_console/`
 
@@ -328,16 +328,16 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 
 目标：
 
-1. 从 `30min` 生成 `90min`。
-2. 从 `60min` 生成 `120min`。
+1. 从 `research/stk_mins_by_date_clean_next` 的 `30min` 生成 `90min`。
+2. 从 `research/stk_mins_by_date_clean_next` 的 `60min` 生成 `120min`。
 3. 写入 `derived/stk_mins_by_date`。
-4. 从 by_date 重排生成 `research/stk_mins_by_symbol_month`。
+4. 从 `clean_next` 与 `derived` 重排生成 `research/stk_mins_by_symbol_month`。
 5. 为 `index_mins` 增加 `research/index_mins_by_symbol_month`。
 6. `index_mins` 的 `90/120min` derived 层已落地。
 
 验收：
 
-1. `90/120` 与原始分钟线字段一致。
+1. `90/120` 与 clean 分钟线字段一致。
 2. DuckDB 可直接读取派生数据。
 3. 单股长周期回测优先读 research 层。
 4. `index_mins` research 只从正式 raw 层重排，不从远程源直接重建。
@@ -383,7 +383,7 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 具体来说：
 
 ```text
-输入：raw_tushare/stk_mins_by_date/freq=15/trade_date=2026-04-01..2026-04-30
+输入：research/stk_mins_by_date_clean_next/freq=15/trade_date=2026-04-01..2026-04-30
 输出：research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=00..31
 ```
 
@@ -530,16 +530,17 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 
 之后有两类后处理：
 
-1. 派生周期：从 `30min` by_date 生成 `90min` by_date，从 `60min` by_date 生成 `120min` by_date。
-2. research 重排：把 by_date 数据按 `freq + trade_month + bucket` 重新组织，生成适合回测和相似性分析的 research 层。
+1. 派生周期：从 `clean_next` 的 `30min` by_date 生成 `90min` by_date，从 `clean_next` 的 `60min` by_date 生成 `120min` by_date。
+2. research 重排：把 `clean_next` 与 `derived` by_date 数据按 `freq + trade_month + bucket` 重新组织，生成适合回测和相似性分析的 research 层。
 3. `index_mins` 当前已进入第 2 类；`90/120min` 本地派生频率也已落地，但尚未进入 `research`。
 
 最终形成：
 
 ```text
 raw_tushare/stk_mins_by_date/            # Tushare 原始分钟线，按日组织
+research/stk_mins_by_date_clean_next/    # 正式 clean 分钟线，按日组织
 derived/stk_mins_by_date/                # 90/120 派生分钟线，按日组织
-research/stk_mins_by_symbol_month/       # 原始 + 派生分钟线，按月和股票桶组织
+research/stk_mins_by_symbol_month/       # clean + 派生分钟线，按月和股票桶组织
 research/index_mins_by_symbol_month/     # 指数分钟线研究层，按月和指数桶组织
 ```
 

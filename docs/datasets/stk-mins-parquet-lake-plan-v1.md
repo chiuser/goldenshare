@@ -1,8 +1,8 @@
 # 股票历史分钟行情 Parquet Lake 方案 v1
 
 - 版本：v1
-- 状态：已部分落地，下载窗口与配额平稳停机、专项恢复、1m 修补、derived/research 已落地；通用持久备份与恢复管理待继续收口
-- 更新时间：2026-05-11
+- 状态：已部分落地；正式 clean 基准为 `research/stk_mins_by_date_clean_next`，后续 90/120 与 by-month research 必须基于 clean_next 重建
+- 更新时间：2026-05-13
 - 数据集：`stk_mins`
 - 数据源：Tushare
 - 源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
@@ -131,10 +131,11 @@ raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet
 2. 股票范围很广，通常是全市场。
 3. 频度明确，例如 `30min`。
 
-最适合读取按日期组织的数据：
+最适合读取按日期组织的数据。源站核验和补数看 raw；正常研究、派生和指标链路看 clean：
 
 ```text
 raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
+research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-04-24/
 ```
 
 ### 3.2 单股长周期回测
@@ -163,7 +164,7 @@ research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=07/
 
 访问特点：
 
-1. 输入是已有 `30min` 或 `60min` 数据。
+1. 输入是正式 clean 基准中的 `30min` 或 `60min` 数据。
 2. 输出不是 Tushare 原始数据，而是我方派生数据。
 3. 生成结果后仍应像其他分钟线一样被 DuckDB 高速读取。
 
@@ -185,11 +186,12 @@ research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=07/
 
 ## 4. 总体存储设计
 
-本方案采用两层 Parquet 布局：
+本方案采用三类 Parquet 布局：
 
 ```text
-1. by_date 层：同步友好，适合单日全市场计算和补数。
-2. by_symbol_month 层：研究友好，适合单股长周期回测和多股相似性分析。
+1. raw by_date 层：源站事实与补数入口。
+2. clean_next by_date 层：清洗后的正式研究基准，适合派生和日级扫描。
+3. by_symbol_month 层：研究友好，适合单股长周期回测和多股相似性分析。
 ```
 
 目录建议：
@@ -218,6 +220,13 @@ research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=07/
       freq=120/
 
   research/
+    stk_mins_by_date_clean_next/
+      freq=1/
+      freq=5/
+      freq=15/
+      freq=30/
+      freq=60/
+
     stk_mins_by_symbol_month/
       freq=1/
       freq=5/
@@ -233,11 +242,12 @@ research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=07/
 说明：
 
 1. `raw_tushare/` 只保存 Tushare 原始接口口径数据。
-2. `derived/` 保存我方计算出来的分钟线，例如 `90/120`。
-3. `research/` 保存为研究查询优化过的重排数据，既可以来自 `raw_tushare`，也可以来自 `derived`。
-4. `_tmp/` 只用于写入临时目录。写入成功后通过 rename/replace 切换为正式分区。
-5. 成功任务应清理本次 `_tmp/{run_id}` 的空目录；失败或中断任务保留 `_tmp/{run_id}` 供排查。
-6. 历史 `_tmp/{run_id}` 只能通过 `lake-console clean-tmp --dry-run` 审计后，再用 `--older-than-hours` 显式清理。
+2. `research/stk_mins_by_date_clean_next` 是从 raw 清洗后的正式 clean 基准，保留 `exchange/vwap`，不写 `trade_date/identity_id/source_ts_code` 物理列。
+3. `derived/` 保存我方计算出来的分钟线，例如 `90/120`，输入必须来自 `clean_next`。
+4. `research/stk_mins_by_symbol_month` 保存为研究查询优化过的重排数据，输入必须来自 `clean_next` 与 `derived`。
+5. `_tmp/` 只用于写入临时目录。写入成功后通过 rename/replace 切换为正式分区。
+6. 成功任务应清理本次 `_tmp/{run_id}` 的空目录；失败或中断任务保留 `_tmp/{run_id}` 供排查。
+7. 历史 `_tmp/{run_id}` 只能通过 `lake-console clean-tmp --dry-run` 审计后，再用 `--older-than-hours` 显式清理。
 
 ---
 
@@ -252,7 +262,7 @@ research/stk_mins_by_symbol_month/freq=15/trade_month=2026-04/bucket=07/
 1. 从 Tushare 同步数据。
 2. 重跑某个交易日。
 3. 单日全市场扫描。
-4. 派生 `90/120` 分钟线的日级输入。
+4. 为 `clean_next` 重建提供源站事实。
 
 ### 5.2 Tushare 原始分钟线目录
 
@@ -328,8 +338,37 @@ ts_code, freq, trade_time, open, high, low, close, vol, amount, exchange, vwap
 差异：
 
 1. `freq` 取值为 `90/120`。
-2. 数据来源是我方聚合计算，不是 Tushare 原始接口。
+2. 数据来源是我方基于 `clean_next` 的聚合计算，不是 Tushare 原始接口。
 3. `derived_runs.jsonl` 记录生成来源、输入频度、输入分区、生成时间。
+
+### 5.4 正式 clean_next by_date 目录
+
+`clean_next` 是当前所有研究和派生链路的基准输入：
+
+```text
+research/stk_mins_by_date_clean_next/
+  freq=1/
+    trade_date=2026-04-24/
+      part-000.parquet
+  freq=5/
+  freq=15/
+  freq=30/
+  freq=60/
+```
+
+字段与 raw 源业务字段一致：
+
+```text
+ts_code, freq, trade_time, open, high, low, close, vol, amount, exchange, vwap
+```
+
+它与 raw 的区别：
+
+1. `ts_code` 已按 `manifest/security_identity/security_identity_map.parquet` 归一为最新代码。
+2. 已剔除退市股票、上市日前数据、结构性非法价格、负成交量/成交额等不可用于研究的数据。
+3. 保留源业务字段 `exchange/vwap`。
+4. 不新增 `trade_date/identity_id/source_ts_code` 物理列。
+5. 下游 `derived` 与 `research/stk_mins_by_symbol_month` 必须读取该层，而不是直接读取 raw。
 
 ---
 
@@ -736,17 +775,17 @@ replace_partition(freq, trade_date)
 
 ### 7.3 by_symbol_month 重排
 
-`by_symbol_month` 不直接从 Tushare 写入，而是从 by_date 层生成：
+`by_symbol_month` 不直接从 Tushare 写入，而是从 clean/derived by_date 层生成：
 
 ```text
-raw_tushare/stk_mins_by_date -> research/stk_mins_by_symbol_month
-derived/stk_mins_by_date     -> research/stk_mins_by_symbol_month
+research/stk_mins_by_date_clean_next -> research/stk_mins_by_symbol_month
+derived/stk_mins_by_date             -> research/stk_mins_by_symbol_month
 ```
 
 生成触发：
 
 1. 某个 `freq + trade_date` 同步完成后，标记其所属 `trade_month` 需要重排。
-2. 重排任务按 `freq + trade_month` 读取当月所有日分区。
+2. 重排任务按 `freq + trade_month` 读取当月所有日分区；`1/5/15/30/60` 读取 `clean_next`，`90/120` 读取 `derived`。
 3. 按 `bucket` 写入 32 个桶分区。
 4. 写入成功后替换该 `freq + trade_month` 的 research 分区。
 
@@ -811,7 +850,7 @@ lake-console derive-stk-mins-range \
 
 1. 命令读取本地交易日历 `manifest/trading_calendar/tushare_trade_cal.parquet`。
 2. 只对 `is_open=true` 的交易日执行派生。
-3. 每个交易日分别读取对应 raw 分区，并写入对应 derived 分区。
+3. 每个交易日分别读取对应 `clean_next` 分区，并写入对应 derived 分区。
 4. 如果某个交易日缺少源分区，命令必须失败并指出缺失日期和路径，不允许静默跳过。
 5. 这只是用户入口的批量化；物理写入仍然按 `freq + trade_date` 分区替换。
 
@@ -1273,15 +1312,15 @@ lake-console recover-stk-mins-raw-from-research \
 
 目标：
 
-1. 从 `30min` 生成 `90min`。
-2. 从 `60min` 生成 `120min`。
+1. 从 `clean_next` 的 `30min` 生成 `90min`。
+2. 从 `clean_next` 的 `60min` 生成 `120min`。
 3. 写入 `derived/stk_mins_by_date`。
-4. 从 by_date 重排生成 `research/stk_mins_by_symbol_month`。
+4. 从 `clean_next` 与 `derived` 重排生成 `research/stk_mins_by_symbol_month`。
 5. 支持 32 个 stable hash bucket。
 
 验收：
 
-1. `90/120` 与原始分钟线字段一致。
+1. `90/120` 与 clean 分钟线字段一致。
 2. DuckDB 可直接读取派生数据。
 3. 前端展示 `raw_tushare`、`derived`、`research` 三层语义和推荐用途。
 4. 分区列表按 layer 分组展示，用户能区分原始落盘、派生周期和研究重排。

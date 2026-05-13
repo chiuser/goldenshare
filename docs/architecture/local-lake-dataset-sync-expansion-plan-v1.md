@@ -1,8 +1,8 @@
 # Local Lake 数据集同步扩展方案 v1
 
 - 版本：v1
-- 状态：已部分落地；主路线已切换为“`prod-raw-db` 只读导出优先，必要时按最佳事实源选择 `prod-core-db`”
-- 更新时间：2026-05-10
+- 状态：已部分落地；`stk_mins` 下游研究链路以 `clean_next` 为正式基准
+- 更新时间：2026-05-13
 - 适用范围：`lake_console` 本地移动盘 Tushare Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -514,9 +514,17 @@ replace_partition
 
 ```text
 raw_tushare/stk_mins_by_date/freq=<freq>/trade_date=YYYY-MM-DD/*.parquet
+research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=YYYY-MM-DD/*.parquet
 derived/stk_mins_by_date/freq=90|120/trade_date=YYYY-MM-DD/*.parquet
 research/stk_mins_by_symbol_month/freq=<freq>/trade_month=YYYY-MM/bucket=<bucket>/*.parquet
 ```
+
+口径：
+
+1. `raw_tushare/stk_mins_by_date` 是源站事实层。
+2. `research/stk_mins_by_date_clean_next` 是后续 90/120 派生、by-month research 与指标计算的正式 clean 基准。
+3. `derived/stk_mins_by_date` 只保存 90/120。
+4. `research/stk_mins_by_symbol_month` 由 clean_next 与 derived 重排生成。
 
 写入策略：
 

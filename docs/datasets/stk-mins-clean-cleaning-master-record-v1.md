@@ -13,7 +13,7 @@
 1. 错误 schema clean `research/stk_mins_by_date_clean` 已删除。
 2. 正式 clean candidate `research/stk_mins_by_date_clean_next` 已从 raw 重建完成。
 3. `clean_next` 已通过基础审计与全量完备性审计。
-4. 后续 derived、symbol-month、indicator 等工作必须基于 `research/stk_mins_by_date_clean_next` 继续推进。
+4. 后续 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标等工作必须基于 `research/stk_mins_by_date_clean_next` 继续推进。
 
 本文保留错误 clean 产生、排查、专项修复和正式 clean 重建的全过程记录，用于后续复盘与门禁依据。本文不再表示仍有待清理的错误 clean。
 
@@ -24,8 +24,8 @@
 | [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md) | P0 风险与两阶段处理策略 |
 | [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) | `stk_mins` Lake 总体存储方案 |
 | [stk_mins clean / audit 门禁流程图 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-audit-gates-v1.html) | clean 与审计门禁流程图 |
-| [stk_mins clean 完备性审计排查记录 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-completeness-investigation-notes-v1.md) | 已发现问题、排查结论、已修复记录 |
 | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md) | `2024-10-30` 多频率混入 `1min` 专项方案 |
+| [stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md) | `2022` 北交所 `30min` 缺失专项方案 |
 | [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md) | 指标依赖 clean 前置条件 |
 | [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md) | 分钟线字段与存储优化背景 |
 
@@ -49,12 +49,23 @@ Lake root：
 | raw 恢复备份 | `_recovery/<run_id>/...` | raw 事故恢复备份与恢复证据 |
 | clean 修复临时目录 | `_tmp/<run_id>/...` | clean 专项修复的临时输出与备份位置 |
 
-注意：
+当前标准链路：
 
-1. 第一阶段不修改 raw。
-2. 第一阶段不重建 `derived/stk_mins_by_date`。
-3. 第一阶段不重建 `research/stk_mins_by_symbol_month`。
-4. 第一阶段不重建技术指标。
+```text
+raw_tushare/stk_mins_by_date
+  -> research/stk_mins_by_date_clean_next
+  -> derived/stk_mins_by_date                  # 只承接 90/120 分钟线
+  -> research/stk_mins_by_symbol_month
+  -> indicators                                # 例如 MACD
+```
+
+约束：
+
+1. `raw_tushare/stk_mins_by_date` 是源站事实层，每日增量同步只写这里。
+2. `research/stk_mins_by_date_clean_next` 是当前正式 clean 基准，后续 90/120 分钟线、by-month research、指标计算都必须从它或其派生层读取。
+3. `derived/stk_mins_by_date` 只保存我方派生的 90/120 分钟线，不保存 Tushare 原始 1/5/15/30/60 分钟线。
+4. `research/stk_mins_by_symbol_month` 是研究查询重排层，输入必须是 `clean_next` 的 1/5/15/30/60 和 `derived` 的 90/120。
+5. 已删除的 `research/stk_mins_by_date_clean` 只作为历史事故记录出现，不再作为任何后续任务的输入。
 
 ## 4. 字段结构
 
@@ -147,6 +158,38 @@ source_ts_code
 research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>
 ```
 
+### 4.4 raw 到 clean_next 的当前清洗规则
+
+`clean_next` 不是 raw 的简单副本。它是从 raw 重建出来、经过身份归一和质量门禁后的研究基准层。
+
+当前清洗规则：
+
+| 规则 | 处理方式 |
+| --- | --- |
+| 代码归一 | 通过 `manifest/security_identity/security_identity_map.parquet` 把旧代码统一写成最新 `ts_code` |
+| 退市股票 | 不进入 `clean_next` |
+| 上市日前数据 | 不进入 `clean_next` |
+| 无法解析的 `trade_time` | 不进入 `clean_next` |
+| 结构性非法价格 | 不进入 `clean_next`，例如 `high < low` 或无法解析数值 |
+| 负成交量/成交额 | 不进入 `clean_next` |
+| OHLC 为 0 | 不因单个或多个 OHLC 为 0 自动删除；这类 bar 可能代表无报价或特殊交易状态，必须由完备性审计判断 |
+| 字段保留 | 保留 raw 源业务字段 `exchange/vwap` |
+| 额外字段 | 禁止新增物理列 `trade_date/identity_id/source_ts_code` |
+
+身份映射只写在 `security_identity_map` 账本中，不把 `identity_id/source_ts_code` 这类血缘字段写回分钟线行数据。分钟线 clean 数据只表达可用于研究的规范化行情事实。
+
+### 4.5 下游读取口径
+
+后续所有分钟线下游任务必须按以下口径读取：
+
+| 下游层 | 输入 | 输出 |
+| --- | --- | --- |
+| 90/120 分钟线派生 | `research/stk_mins_by_date_clean_next/freq=30|60` | `derived/stk_mins_by_date/freq=90|120` |
+| by-month research 重排 | `research/stk_mins_by_date_clean_next/freq=1|5|15|30|60` 与 `derived/stk_mins_by_date/freq=90|120` | `research/stk_mins_by_symbol_month` |
+| MACD 等技术指标 | `research/stk_mins_by_symbol_month` | `derived/stk_mins_indicators_by_date` 与对应指标 research 层 |
+
+禁止让指标、derived、by-month research 直接读取已删除的 `research/stk_mins_by_date_clean`。除源数据巡检和 raw 修复外，也不应让研究链路直接读取 raw。
+
 ## 5. 已执行动作与产物
 
 本节只记录已有文档明确写出的动作和产物。未保留完整命令的动作，不补造命令。
@@ -172,7 +215,7 @@ docs/governance/engineering-risk-register.md
 RISK-2026-05-11-007
 ```
 
-### 5.2 clean 初始副本与身份映射
+### 5.2 历史错误 clean 初始副本与身份映射
 
 已执行 clean bootstrap：
 
@@ -182,7 +225,7 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli bootstrap-stk-mins
   --freqs 1,5,15,30,60
 ```
 
-产物：
+历史产物：
 
 ```text
 research/stk_mins_by_date_clean
@@ -199,7 +242,7 @@ research/stk_mins_by_date_clean
 说明：
 
 ```text
-该动作只是 raw -> clean 的完整副本初始化，不做清洗，不修改 raw。
+该动作只是历史阶段 raw -> 错误 clean 的完整副本初始化，不做清洗，不修改 raw。该路径后来确认 schema 错误，已删除，不再作为后续输入。
 ```
 
 已执行身份映射构建：
@@ -405,11 +448,15 @@ freq=5/15/30/60 下 bar_count=271 股票数均为 0
 且每只股票 bar_count 分别为 49/17/9/5
 ```
 
-## 7. 第一阶段剩余清洗项
+## 7. 历史清洗项归档
 
-第一阶段只处理当前错误 schema clean 的内容清洗流程沉淀，不解决最终 schema。
+本节记录错误 schema clean 阶段曾经识别出的专项问题，用于解释 clean 流程如何被验证和纠偏。当前 `clean_next` 已通过全量基础审计和完备性审计，本节不再表示仍有待处理项。
+
+历史第一阶段只处理当时错误 schema clean 的内容清洗流程沉淀，不解决最终 schema。后续正式 clean 已通过 `clean_next` 重建完成。
 
 ### 7.1 高频缺 `09:30:00` bar
+
+状态：历史错误 clean 阶段专项；正式 `clean_next` 已通过完备性审计，不再按本节继续修旧数据。
 
 问题规模：
 
@@ -433,13 +480,11 @@ freq=5/15/30/60 下 bar_count=271 股票数均为 0
 /tmp/stk_mins_clean_missing_0930_with_1min_availability.csv
 ```
 
-专项方案：
-
-```text
-docs/datasets/stk-mins-current-clean-missing-0930-repair-plan-v1.md
-```
+历史错误 clean 演练方案已删除；执行摘要以本文记录为准。
 
 ### 7.2 `2022` 年北交所 `30min` 原始缺失
+
+状态：正式 `clean_next` 专项已执行并通过完备性审计；本节保留历史问题规模和修复依据。
 
 问题规模：
 
@@ -473,7 +518,7 @@ actual_value=bar_count=6
 专项方案：
 
 ```text
-docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
+docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md
 ```
 
 ## 8. 历史阶段禁止事项
@@ -482,7 +527,7 @@ docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
 2. 重建 derived。
 3. 重建 research by symbol month。
 4. 重建技术指标。
-5. 把当前错误 schema clean 作为正式 clean 对外宣称。
+5. 把历史错误 schema clean 作为正式 clean 对外宣称。
 6. 在未 dry-run 和未获得用户确认前执行 apply。
 7. 在文档中把没有记录的历史命令补造成已执行事实。
 

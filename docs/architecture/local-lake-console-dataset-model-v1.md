@@ -1,8 +1,8 @@
 # Local Lake Console 数据集模型 v1
 
 - 版本：v1
-- 状态：待评审
-- 更新时间：2026-04-30
+- 状态：已部分落地；已补充 `stk_mins` clean_next 基准层口径
+- 更新时间：2026-05-13
 - 适用范围：`lake_console` 本地移动盘 Parquet Lake
 - 相关文档：
   - [Local Lake Console 架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md)
@@ -171,15 +171,16 @@ LakeDataset
 |---|---|---|
 | `raw_tushare` | Tushare 原始接口落盘层 | `raw_tushare/stk_mins_by_date` |
 | `derived` | 本地派生数据层 | `derived/stk_mins_by_date/freq=90` |
-| `research` | 研究查询优化层 | `research/stk_mins_by_symbol_month` |
+| `research` | clean 基准与研究查询优化层 | `research/stk_mins_by_date_clean_next`、`research/stk_mins_by_symbol_month` |
 | `manifest` | 执行辅助清单层 | `manifest/security_universe` |
 
 说明：
 
 1. `raw_tushare` 是外部数据源事实。
-2. `derived` 是我方本地计算结果，不应伪装成 Tushare 原始数据。
-3. `research` 是同一批数据的查询友好物理重排，不代表新业务口径。
-4. `manifest` 是执行辅助事实，不应作为主要研究查询入口，除非明确用于股票池、运行记录等辅助用途。
+2. `research/stk_mins_by_date_clean_next` 是从 raw 清洗后的正式分钟线基准。
+3. `derived` 是我方本地计算结果，不应伪装成 Tushare 原始数据。
+4. `research` 是同一批数据的查询友好物理重排，不代表新业务口径。
+5. `manifest` 是执行辅助事实，不应作为主要研究查询入口，除非明确用于股票池、运行记录等辅助用途。
 
 ### 5.2 `LakeLayout`
 
@@ -649,7 +650,7 @@ stk_mins
 | `update_mode` | `manual_cli` |
 | `raw_freqs` | `[1,5,15,30,60]` |
 | `derived_freqs` | `[90,120]` |
-| `available_layouts` | `[by_date, by_symbol_month]` |
+| `available_layouts` | `[by_date, clean_next_by_date, by_symbol_month]` |
 
 层级：
 

@@ -1,14 +1,30 @@
 # 股票分钟线 MACD v2 重算与增量可靠性方案
 
 - 版本：v1
-- 状态：待评审；clean 层口径已按 2026-05-11 评审意见收敛
-- 更新时间：2026-05-11
+- 状态：当前参考；clean 基准已切到 `research/stk_mins_by_date_clean_next`
+- 更新时间：2026-05-13
 - 适用范围：`lake_console` 本地 Parquet Lake
 - 指标范围：`MACD(12,26,9)`
 - 数据范围：`stk_mins` 的 `1/5/15/30/60/90/120` 分钟线
 - 最高优先级：准确 > 性能 > 增量可靠
 
 ---
+
+## 0. 当前 clean 基线口径
+
+截至 2026-05-13，正式 clean 基准为：
+
+```text
+research/stk_mins_by_date_clean_next
+```
+
+已删除的历史错误 clean 路径：
+
+```text
+research/stk_mins_by_date_clean
+```
+
+本文所有可执行设计都以 `clean_next` 为准。后续 90/120 分钟线、by-month research、MACD 计算都不能直接读取旧错误 clean，也不能绕过 `clean_next` 直接把 raw 当作研究输入。
 
 ## 1. 目标
 
@@ -138,9 +154,9 @@ latest_ts_code 的有效起点 = 该股票所有历史代码在 stock_basic 中�
 1. 代码变更后的 clean/derived/research/MACD 输出统一使用最新代码。
 2. `raw_tushare/stk_mins_by_date` 不做物理改写，继续保存源站原始事实。
 3. `manifest/security_identity/security_identity_map.parquet` 只记录 `source_ts_code -> latest_ts_code` 的映射关系、生效区间和审计信息；不把血缘字段重复写入每一行分钟线。
-4. `research/stk_mins_by_date_clean` 是清洗后的干净分钟线事实层，删除无效行、清理未退市股票上市日前数据、整只排除已退市股票，并把旧代码直接归一为最新代码。
+4. `research/stk_mins_by_date_clean_next` 是清洗后的干净分钟线事实层，删除无效行、清理未退市股票上市日前数据、整只排除已退市股票，并把旧代码直接归一为最新代码。
 5. clean/derived/research/indicator 行级输出不得保留 `identity_id`、`source_ts_code`、`list_date`、`delist_date`、`identity_version`。
-6. `derived` 的 `90/120` 分钟线必须基于 `research/stk_mins_by_date_clean` 生成，不再直接基于 raw。
+6. `derived` 的 `90/120` 分钟线必须基于 `research/stk_mins_by_date_clean_next` 生成，不再直接基于 raw。
 7. `research/stk_mins_by_symbol_month` 必须基于 clean/derived 结果重排，不再直接基于 raw。
 8. 对未退市股票，`stock_basic.list_date` 是有效行情起算基准；即使上市日前存在非 0 分钟线，也按无效数据处理，不进入 clean 层。
 9. 对已退市股票，clean 层整只剔除，不保留退市前历史分钟线。
@@ -155,7 +171,7 @@ latest_ts_code 的有效起点 = 该股票所有历史代码在 stock_basic 中�
 
 `raw_tushare/stk_mins_by_date` 是源站原始事实层。每日从 Tushare 更新到最新分钟线时，新数据先写入 raw。
 
-`research/stk_mins_by_date_clean` 是清洗后的研究事实层。第一版 clean 先从 raw 完整拷贝初始化，然后通过 clean rebuild 删除脏数据、统一新旧代码、过滤未退市股票上市日前数据，并整只排除已退市股票。
+`research/stk_mins_by_date_clean_next` 是清洗后的研究事实层。第一版 clean 先从 raw 完整拷贝初始化，然后通过 clean rebuild 删除脏数据、统一新旧代码、过滤未退市股票上市日前数据，并整只排除已退市股票。
 
 初始化完成后，clean 不是一次性快照。之后每日 raw 有新增分区时，新增 raw 数据必须经过同一套 clean 规则透传进入 clean，且必须保证：
 
@@ -182,7 +198,7 @@ latest_ts_code 的有效起点 = 该股票所有历史代码在 stock_basic 中�
 raw_tushare/stk_mins_by_date
   保存源站原样：300114.SZ / 302132.SZ
 
-research/stk_mins_by_date_clean
+research/stk_mins_by_date_clean_next
   保存清洗后事实：删除无效行，统一成 302132.SZ 的连续序列
 ```
 
@@ -522,7 +538,7 @@ reports/stk_mins_effective_start_audit_2026-05-11/detail_by_code_freq.csv
 
 ### 6.1 目标
 
-生成 `research/stk_mins_by_date_clean`。
+生成 `research/stk_mins_by_date_clean_next`。
 
 它是基于 raw 源站事实清洗后的分钟线事实层，不是指标结果，也不是专门为 MACD 临时拼出来的输入。它承担三件事：
 
@@ -534,7 +550,7 @@ reports/stk_mins_effective_start_audit_2026-05-11/detail_by_code_freq.csv
 后续所有研究口径都从这里往下游走：
 
 ```text
-research/stk_mins_by_date_clean
+research/stk_mins_by_date_clean_next
 -> derived 90/120 分钟线
 -> research/stk_mins_by_symbol_month
 -> MACD / 后续 MA / BOLL
@@ -557,7 +573,7 @@ manifest/security_universe/tushare_stock_basic.parquet
 新增：
 
 ```text
-research/stk_mins_by_date_clean/
+research/stk_mins_by_date_clean_next/
   freq=1/
     trade_date=2025-02-17/
       part-000.parquet
@@ -680,12 +696,12 @@ lake-console rebuild-stk-mins-by-date-clean-range \
 
 `audit` 只读当前 clean 层并输出违规统计；`rebuild-stk-mins-by-date-clean-range --dry-run` 只基于 raw 计算真正清洗后的保留/过滤统计，不写清洗结果。
 
-`rebuild-stk-mins-by-date-clean-range --apply` 会真实替换 `research/stk_mins_by_date_clean` 对应分区。它只读取 raw，只写 clean，不修改 `raw_tushare/stk_mins_by_date`。每个分区写入都必须走：
+`rebuild-stk-mins-by-date-clean-range --apply` 会真实替换 `research/stk_mins_by_date_clean_next` 对应分区。它只读取 raw，只写 clean，不修改 `raw_tushare/stk_mins_by_date`。每个分区写入都必须走：
 
 ```text
 raw 分区
 -> 生成 clean DataFrame
--> 写入 _tmp/{run_id}/research/stk_mins_by_date_clean/...
+-> 写入 _tmp/{run_id}/research/stk_mins_by_date_clean_next/...
 -> 校验 part-000.parquet 行数等于 kept_rows
 -> 替换正式 clean 分区
 ```
@@ -697,7 +713,7 @@ raw 分区
 ### 6.10 clean 完备性审计门禁
 
 clean 重建完成后，不能只看过滤原因为空就进入 derived/research。  
-`research/stk_mins_by_date_clean` 是后续 derived、research、MACD、MA、BOLL 的共同输入，所以它必须先通过单独的完备性审计门禁。
+`research/stk_mins_by_date_clean_next` 是后续 derived、research、MACD、MA、BOLL 的共同输入，所以它必须先通过单独的完备性审计门禁。
 
 #### 6.10.1 目标
 
@@ -720,7 +736,7 @@ clean 中是否还有非法价格、非法时间、重复 key？
 
 ```text
 raw_tushare/stk_mins_by_date/freq=1|5|15|30|60/trade_date=*/*.parquet
-research/stk_mins_by_date_clean/freq=1|5|15|30|60/trade_date=*/*.parquet
+research/stk_mins_by_date_clean_next/freq=1|5|15|30|60/trade_date=*/*.parquet
 manifest/security_identity/security_identity_map.parquet
 manifest/security_universe/tushare_stock_basic.parquet
 manifest/trading_calendar/tushare_trade_cal.parquet
@@ -836,7 +852,7 @@ raw_tushare/stk_mins_by_date/freq=X/trade_date=YYYY-MM-DD
 如果该 raw 分区经过 clean 规则后 `kept_rows > 0`，则必须存在对应 clean 分区：
 
 ```text
-research/stk_mins_by_date_clean/freq=X/trade_date=YYYY-MM-DD
+research/stk_mins_by_date_clean_next/freq=X/trade_date=YYYY-MM-DD
 ```
 
 并且：
@@ -1098,16 +1114,14 @@ compute-stk-mins-indicator-range
    - `invalid_volume_amount`：`302`
    - `duplicate_reasons`：空，当前没有发现同一清洗主键下的重复冲突。
    - 耗时：约 `5793.856` 秒。
-8. 2026-05-12 口径修正：前述全量 clean rebuild 产物包含行级 `identity_id/source_ts_code/list_date/delist_date/identity_version`，与最新评审口径不一致，必须删除并按最新 schema 重新生成。该产物不得作为 M3 输入。
-9. 结论：`research/stk_mins_by_date_clean` 已完成过一轮全量真实重建，且只写 clean 层，没有修改 `raw_tushare/stk_mins_by_date`；但由于 schema 口径错误，下一步必须先按最新 schema 重建 clean，再执行全量 clean audit。
-10. 已完成的旧口径 full audit 仅能证明旧产物在无效价格、上市/退市边界、重复冲突上通过，不代表新 schema 已通过，也不代表股票连续性/交易时段完整性已通过：
-   - 命令：`audit-stk-mins-by-date-clean --freqs 1,5,15,30,60 --start-date 2009-01-01 --end-date 2026-05-07`
-   - 分区数：`21045`
-   - clean 行数：`4561827979`
-   - `filter_reasons`：空。
-   - `duplicate_reasons`：空。
-   - `status`：`success`。
-11. 最新门禁结论：clean 层不能继续使用，必须按“行级只保留最新 ts_code + 行情字段”的口径重建。重建后还必须增加连续性审计，覆盖每只股票每个 freq 的交易日与日内交易时段完整性。
+8. 2026-05-12 口径修正：前述全量 clean rebuild 产物包含行级 `identity_id/source_ts_code/list_date/delist_date/identity_version`，与最新评审口径不一致，已按历史事故处理，不得作为 M3 输入。
+9. 2026-05-13 最新结论：正式 `research/stk_mins_by_date_clean_next` 已按最新 schema 重建完成，物理列为 `ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap`，不包含 `trade_date/identity_id/source_ts_code`。
+10. `clean_next` 已通过基础审计与完备性审计：
+   - 分区数：`21045`。
+   - 频率：`1/5/15/30/60`。
+   - 完备性问题账本：`0` 行。
+   - 已完成专项：`2024-10-30` 多频率混入 `1min`、`2022` 北交所 `30min bar_count=6`。
+11. 最新门禁结论：M3 必须从 `clean_next` 继续；不得读取已删除的 `research/stk_mins_by_date_clean`，不得绕过 clean 直接以 raw 作为研究输入。
 
 ---
 
@@ -1127,8 +1141,8 @@ compute-stk-mins-indicator-range
 输入：
 
 ```text
-research/stk_mins_by_date_clean/freq=30/trade_date=*/*.parquet
-research/stk_mins_by_date_clean/freq=60/trade_date=*/*.parquet
+research/stk_mins_by_date_clean_next/freq=30/trade_date=*/*.parquet
+research/stk_mins_by_date_clean_next/freq=60/trade_date=*/*.parquet
 ```
 
 输出：
@@ -1149,7 +1163,7 @@ ts_code = 最新代码
 输入：
 
 ```text
-research/stk_mins_by_date_clean/freq=1|5|15|30|60/trade_date=*/*.parquet
+research/stk_mins_by_date_clean_next/freq=1|5|15|30|60/trade_date=*/*.parquet
 derived/stk_mins_by_date/freq=90|120/trade_date=*/*.parquet
 ```
 
@@ -1180,7 +1194,7 @@ MACD worker 就读不到完整连续序列。
 2. 同一 `ts_code + freq + trade_time` 不重复。
 3. `300114/302132` 在 by_month 层统一输出为最新代码 `302132.SZ`，可按一个 `ts_code` 连续读取。
 4. by_month 不得包含早于 list_date 的数据，也不得包含任何已退市股票的数据。
-5. derived 90/120 不得读取 raw 30/60，只能读取 clean 30/60。
+5. derived 90/120 不得读取 raw 30/60，只能读取 `clean_next` 30/60。
 6. derived/research 不得包含行级 `identity_id/source_ts_code/list_date/delist_date/identity_version`。
 
 ### 7.6 CLI
@@ -1266,7 +1280,7 @@ research/stk_mins_by_symbol_month/freq=*/trade_month=*/bucket=*/*.parquet
 
 ```text
 raw_tushare/stk_mins_by_date
-research/stk_mins_by_date_clean
+research/stk_mins_by_date_clean_next
 ```
 
 原因：
@@ -1691,7 +1705,7 @@ lake-console compute-stk-mins-indicator-v2 \
 
 目标：
 
-1. 生成 `research/stk_mins_by_date_clean`。
+1. 生成 `research/stk_mins_by_date_clean_next`。
 2. 删除无效行、未退市股票上市日前数据，并整只排除已退市股票数据。
 3. 所有代码变更后的序列按最新代码连续。
 
@@ -1845,7 +1859,7 @@ D 股票：中途补历史数据
 已确认：
 
 1. `300114.SZ -> 302132.SZ` 输出统一使用最新代码。
-2. `raw_tushare/stk_mins_by_date` 不修改；新增 `research/stk_mins_by_date_clean` 做清洗。
+2. `raw_tushare/stk_mins_by_date` 不修改；新增 `research/stk_mins_by_date_clean_next` 做清洗。
 3. clean 层按 `stock_basic.list_date` 与退市状态过滤：未退市股票保留 list_date 起的数据，已退市股票整只不进入 clean。
 4. 旧 MACD 产物允许按 M4 的 audit/dry-run/apply 流程清理。
 5. 第一版并行 worker 默认值设为 `4`，上限先设为 `8`。

@@ -47,6 +47,7 @@
 | 能力 | 当前实现 |
 |---|---|
 | 原始分钟线落盘 | `raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet` |
+| 正式 clean 基准 | `research/stk_mins_by_date_clean_next/freq=*/trade_date=*/*.parquet` |
 | 90/120 分钟线派生 | `derived/stk_mins_by_date/freq=90|120/trade_date=*/*.parquet` |
 | 研究层重排 | `research/stk_mins_by_symbol_month/freq=*/trade_month=*/bucket=*/*.parquet` |
 | 临时写入 | `_tmp/{run_id} -> 校验 -> replace` |
@@ -65,11 +66,14 @@
 `1/5/15/30/60` 分钟指标读取：
 
 ```text
-raw_tushare/stk_mins_by_date/
+research/stk_mins_by_symbol_month/
   freq=30/
-    trade_date=2026-04-24/
+    trade_month=2026-04/
+      bucket=07/
       part-000.parquet
 ```
+
+该 research 层必须由 `research/stk_mins_by_date_clean_next` 重排生成。指标系统不直接读取 raw，也不读取已删除的历史错误 clean。
 
 必须字段：
 
@@ -91,17 +95,18 @@ open, high, low, vol, amount, exchange, vwap
 `90/120` 分钟指标读取：
 
 ```text
-derived/stk_mins_by_date/
+research/stk_mins_by_symbol_month/
   freq=90/
-    trade_date=2026-04-24/
-      part-000.parquet
+    trade_month=2026-04/
+      bucket=07/
+        part-000.parquet
 ```
 
 说明：
 
 1. `90` 来自 `30` 分钟线。
 2. `120` 来自 `60` 分钟线。
-3. 指标系统不关心它们来自源站还是本地派生，只要求 `trade_time` 顺序稳定、`close` 可用。
+3. 指标系统通过 by-month research 读取它们；该层必须由 `derived/stk_mins_by_date` 重排生成。
 
 ### 3.3 前复权口径
 
@@ -452,7 +457,7 @@ scope=all_market 或 ts_code
 读取：
 
 1. `ema_state` 找到每只股票、每个频度的 `last_trade_time`。
-2. `raw_tushare/stk_mins_by_date` 或 `derived/stk_mins_by_date` 读取新增 bar。
+2. 从 `research/stk_mins_by_symbol_month` 读取新增 bar；其中 `1/5/15/30/60` 来自 `clean_next` 重排，`90/120` 来自 `derived` 重排。
 3. 只处理 `trade_time > last_trade_time` 的行。
 
 输出：
@@ -486,6 +491,7 @@ scope=all_market 或 ts_code
 
 ```text
 raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24
+research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-04-24
 ```
 
 则对应指标可能过期：

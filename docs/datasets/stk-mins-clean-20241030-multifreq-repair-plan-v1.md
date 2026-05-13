@@ -12,13 +12,13 @@
 2. `clean_next` 已通过 M4 基础审计，物理 schema 为正式 11 列。
 3. M5 完备性账本确认 `2024-10-30` 多频率混入 `1min` 问题仍存在于 `clean_next`。
 4. 因此本文执行目标从旧路径 `research/stk_mins_by_date_clean` 订正为 `research/stk_mins_by_date_clean_next`。
-5. 本文不服务当前错误 schema clean；错误 clean 演练方案见 `stk-mins-current-clean-20241030-multifreq-repair-plan-v1.md`。
+5. 本文不服务历史错误 schema clean；相关演练文档已删除，历史摘要见 `stk-mins-clean-cleaning-master-record-v1.md`。
 
 本版已纠正早期草案中的错误 schema 口径：
 
 1. `exchange` / `vwap` 是 `stk_mins` 源站业务字段，clean 层不得丢弃。
 2. `trade_date` 只能来自 Hive 分区目录 `trade_date=YYYY-MM-DD`，不得作为 Parquet 物理列写入。
-3. 本专项不得把当前错误 clean schema 当成目标 schema。
+3. 本专项不得把历史错误 clean schema 当成目标 schema。
 
 ## 2. 问题背景
 
@@ -87,7 +87,7 @@ research/stk_mins_by_date_clean_next/freq=60/trade_date=2024-10-30
 
 ```text
 raw_tushare/stk_mins_by_date
-research/stk_mins_by_date_clean
+已删除的历史错误 clean 路径 research/stk_mins_by_date_clean
 derived/stk_mins_by_date
 research/stk_mins_by_symbol_month
 research/stk_mins_indicators_by_date
@@ -123,7 +123,7 @@ vwap
 当前已经确认：`research/stk_mins_by_date_clean_next/freq=1/trade_date=2024-10-30` 物理 schema 正确，包含 `exchange/vwap`，且不包含物理列 `trade_date`。因此：
 
 1. 本专项直接使用 `clean_next` 同日 `1min` 作为修复来源。
-2. 本专项不得读取当前错误 schema 的 `research/stk_mins_by_date_clean` 作为来源。
+2. 本专项不得读取历史错误 schema 的 `research/stk_mins_by_date_clean` 作为来源。
 3. 本专项不得直接回退读取 raw；如果 `clean_next 1min` 门禁失败，必须停止并先修复 `clean_next 1min`，不能在本专项里临时绕路。
 4. 禁止因为历史错误 clean 缺字段，就在修复输出里继续丢弃 `exchange/vwap`。
 
@@ -550,7 +550,7 @@ ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap
 
 ```text
 raw_tushare/stk_mins_by_date
-research/stk_mins_by_date_clean
+已删除的历史错误 clean 路径 research/stk_mins_by_date_clean
 derived/stk_mins_by_date
 research/stk_mins_by_symbol_month
 research/stk_mins_indicators_by_date
