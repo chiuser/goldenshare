@@ -1,19 +1,21 @@
 # stk_mins clean 数据清洗总记录 v1
 
-状态：待评审
+状态：历史总账本；正式 `clean_next` 已通过审计并作为后续 clean 基准
 最近更新：2026-05-13
-适用范围：本地 Lake `stk_mins` 当前错误 schema clean 数据集的清洗流程沉淀
+适用范围：本地 Lake `stk_mins` clean 清洗流程沉淀、正式 `clean_next` 构建与审计记录
 
 ## 1. 本文定位
 
 本文记录 `stk_mins` 从 raw 到 clean 相关的已执行动作、已产生产物、当前数据结构、遗留问题和后续清洗顺序。
 
-当前决策分两阶段：
+当前最终决策：
 
-1. 第一阶段：继续把当前这份错误 schema 的 `research/stk_mins_by_date_clean` 按既有清洗记录中的遗留项清理完。该阶段目标不是让它成为最终正式数据，而是把清洗流程跑通，沉淀问题分类、专项修复、复查和记录方法。
-2. 第二阶段：第一阶段完成后，再从 `raw_tushare/stk_mins_by_date` 重新生成正式 clean。正式 clean 必须保留 `exchange/vwap`，不得写入物理列 `trade_date`。
+1. 错误 schema clean `research/stk_mins_by_date_clean` 已删除。
+2. 正式 clean candidate `research/stk_mins_by_date_clean_next` 已从 raw 重建完成。
+3. `clean_next` 已通过基础审计与全量完备性审计。
+4. 后续 derived、symbol-month、indicator 等工作必须基于 `research/stk_mins_by_date_clean_next` 继续推进。
 
-本文同时记录已执行修复动作与剩余待执行项，以作为第一阶段清洗总账本。
+本文保留错误 clean 产生、排查、专项修复和正式 clean 重建的全过程记录，用于后续复盘与门禁依据。本文不再表示仍有待清理的错误 clean。
 
 ## 2. 相关文档
 
@@ -40,7 +42,8 @@ Lake root：
 | 层 | 路径 | 当前用途 |
 | --- | --- | --- |
 | raw | `raw_tushare/stk_mins_by_date/freq=<freq>/trade_date=<YYYY-MM-DD>/*.parquet` | 源站分钟线事实，保留 Tushare 字段 |
-| clean 当前副本 | `research/stk_mins_by_date_clean/freq=<freq>/trade_date=<YYYY-MM-DD>/*.parquet` | 当前错误 schema clean，第一阶段继续用于清洗流程沉淀 |
+| clean 历史错误副本 | `research/stk_mins_by_date_clean/freq=<freq>/trade_date=<YYYY-MM-DD>/*.parquet` | 已删除；历史上曾是错误 schema clean，用于清洗流程沉淀 |
+| clean_next 正式基准 | `research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>/*.parquet` | 当前后续工作使用的 clean 基准 |
 | identity map | `manifest/security_identity/security_identity_map.parquet` | 记录旧代码到最新代码的身份映射账本 |
 | 完备性问题账本 | `manifest/stk_mins_quality/clean_completeness_issue_ledger.parquet` | G6 完备性审计问题账本 |
 | raw 恢复备份 | `_recovery/<run_id>/...` | raw 事故恢复备份与恢复证据 |
@@ -89,9 +92,9 @@ vwap
 | `exchange` | 交易所代码 |
 | `vwap` | 成交均价 |
 
-### 4.2 当前错误 clean 物理 schema
+### 4.2 历史错误 clean 物理 schema
 
-当前错误 clean 抽样核验的物理列：
+历史错误 clean 抽样核验的物理列：
 
 ```text
 ts_code
@@ -110,11 +113,11 @@ trade_date
 
 1. 缺失源业务字段 `exchange/vwap`。
 2. 额外写入物理列 `trade_date`。
-3. 该 clean 不能作为最终正式 clean。
+3. 该 clean 不能作为最终正式 clean，且已按用户决策删除。
 
-### 4.3 第二阶段正式 clean 目标 schema
+### 4.3 正式 clean_next 目标 schema
 
-正式 clean 应使用与 raw 源业务字段一致的物理列：
+正式 `clean_next` 使用与 raw 源业务字段一致的物理列：
 
 ```text
 ts_code
@@ -130,7 +133,7 @@ exchange
 vwap
 ```
 
-正式 clean 禁止写入以下物理列：
+正式 `clean_next` 禁止写入以下物理列：
 
 ```text
 trade_date
@@ -141,7 +144,7 @@ source_ts_code
 `trade_date` 只通过目录分区表达：
 
 ```text
-research/stk_mins_by_date_clean/freq=<freq>/trade_date=<YYYY-MM-DD>
+research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>
 ```
 
 ## 5. 已执行动作与产物
@@ -473,9 +476,7 @@ actual_value=bar_count=6
 docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
 ```
 
-## 8. 禁止事项
-
-第一阶段禁止：
+## 8. 历史阶段禁止事项
 
 1. 修改 raw。
 2. 重建 derived。
@@ -485,18 +486,58 @@ docs/datasets/stk-mins-current-clean-2022-bj-freq30-repair-plan-v1.md
 6. 在未 dry-run 和未获得用户确认前执行 apply。
 7. 在文档中把没有记录的历史命令补造成已执行事实。
 
-## 9. 后续执行顺序建议
+## 9. 最终收口记录
 
-建议按以下顺序继续：
+### 2026-05-13 正式 clean_next 完成
 
-1. 高频缺 `09:30:00` bar 专项：先出方案或 dry-run 只读统计，再确认是否 apply。
-2. `2022` 年北交所 `30min` 原始缺失专项：先出专项方案，再 dry-run。
-3. 两个专项完成后，重跑 clean 完备性审计，更新本总记录与排查记录。
-4. 用户确认第一阶段收尾后，再进入第二阶段正式 raw -> clean 重建方案评审。
+正式 `clean_next` 构建与审计完成：
+
+```text
+path=/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean_next
+schema=ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap
+basic_audit_issue_count=0
+completeness_audit_issue_count=0
+completeness_partitions=21,045
+freqs=1,5,15,30,60
+```
+
+已知专项均已完成：
+
+1. `2024-10-30` 多频率混入 `1min`。
+2. `2022-07-15~2022-12-30` 北交所 `30min bar_count=6`。
+
+完备性问题账本已清空：
+
+```text
+path=/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet
+rows=0
+```
+
+### 2026-05-13 删除错误 clean
+
+用户确认后，旧错误 schema clean 已删除：
+
+```text
+deleted=/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean
+exists_after_delete=false
+```
+
+正式 `clean_next` 保留：
+
+```text
+kept=/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean_next
+exists=true
+size=63G
+```
 
 ## 10. 当前未解决的问题
 
-1. 当前 clean schema 仍然错误，缺 `exchange/vwap`，多物理 `trade_date`。
-2. 当前错误 clean 即使完成内容清洗，也不能作为最终正式 clean。
-3. 正式 raw -> clean 重建方案尚未重新评审。
-4. derived/research/indicator 必须等待正式 clean 完成后再重建。
+当前 clean 层清洗问题已收口。
+
+后续不再修复旧错误 clean；后续工作转入：
+
+1. 基于 `research/stk_mins_by_date_clean_next` 重建 `derived/stk_mins_by_date`。
+2. 基于正式 clean / derived 重建 `research/stk_mins_by_symbol_month`。
+3. 基于正式 clean / research 重建分钟技术指标。
+
+每一步都必须单独出目标、输入路径、输出路径、验证门禁，不得默认引用已删除的 `research/stk_mins_by_date_clean`。

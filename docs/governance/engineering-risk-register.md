@@ -36,7 +36,7 @@
 | RISK-2026-05-05-005 | P1 | `cadence` 作为低价值节奏标签仍残留在 Ops freshness/status/card 链路和前端展示中，容易制造语义误导，并阻碍 `date_model` 成为唯一时间事实源 | `DatasetDefinition.domain`、Ops freshness/status snapshot、数据源卡片 API、前端数据源页、相关报表导出 | Open | [`cadence` 退场清单 v1](/Users/congming/github/goldenshare/docs/governance/cadence-deprecation-checklist-v1.md) |
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
 | RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
-| RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Open | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
+| RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 
 ---
 
@@ -417,3 +417,19 @@
 2. 正式 raw -> clean 重建方案已评审通过。
 3. 正式 clean 已按正确 schema 重建并通过 schema、行数守恒、去重冲突、字段保真和完备性审计。
 4. derived/research/indicator 只基于正式 clean 重建，不再基于错误 schema clean。
+
+关闭记录（2026-05-13）：
+
+1. 已构建正式 clean candidate：`research/stk_mins_by_date_clean_next`。
+2. `clean_next` 物理 schema 已确认为正式 11 列：
+   `ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap`。
+3. `clean_next` 已完成全量基础审计，`issue_count=0`。
+4. `clean_next` 已完成全量完备性审计，覆盖 `freq=1,5,15,30,60` 共 `21,045` 个分区，`issue_count=0`。
+5. 两个已知专项均已修复并复查通过：
+   - `2024-10-30` 多频率混入 `1min`；
+   - `2022-07-15~2022-12-30` 北交所 `30min bar_count=6`。
+6. `clean_next` 完备性问题账本已按最终审计结果清空，路径：
+   `/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet`。
+7. 旧错误 schema clean 已按用户决策删除：
+   `/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean`。
+8. 后续 derived、symbol-month、indicator 只能基于 `research/stk_mins_by_date_clean_next` 继续推进，不得再引用已删除的错误 clean。

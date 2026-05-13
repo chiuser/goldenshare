@@ -26,6 +26,24 @@ INTRADAY_EXPECTED_BAR_COUNT = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5}
 INTRADAY_AFTER_HOURS_BAR_COUNT = {1: 30, 5: 6, 15: 2, 30: 1, 60: 1}
 CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_completeness_issue_ledger.parquet"
 FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet"
+ISSUE_LEDGER_FIELDS = (
+    "issue_id",
+    "gate",
+    "issue_type",
+    "status",
+    "latest_ts_code",
+    "freq",
+    "trade_date",
+    "trade_time",
+    "expected_value",
+    "actual_value",
+    "evidence_dataset",
+    "evidence_ref",
+    "action",
+    "reason",
+    "created_at",
+    "resolved_at",
+)
 CLEAN_STK_MINS_FIELDS = (
     "ts_code",
     "freq",
@@ -1757,24 +1775,16 @@ class StkMinsCleanService:
     ) -> dict[str, Any]:
         ledger_file = self.lake_root / ledger_relative_path
         existing_rows = self._read_optional_parquet_rows(ledger_file)
-        rows_by_id = {str(row.get("issue_id")): row for row in existing_rows if row.get("issue_id")}
-        for record in issue_records:
-            rows_by_id[str(record["issue_id"])] = record
-        merged_rows = sorted(rows_by_id.values(), key=lambda row: str(row.get("issue_id") or ""))
-        if not merged_rows:
-            return {
-                "path": str(ledger_file),
-                "existing_rows": len(existing_rows),
-                "new_records": 0,
-                "written_rows": 0,
-                "write_skipped": True,
-            }
+        ledger_rows = sorted(issue_records, key=lambda row: str(row.get("issue_id") or ""))
 
         LakeRootService(self.lake_root).require_ready_for_write()
         run_id = _run_id(run_label)
         tmp_file = self.lake_root / "_tmp" / run_id / ledger_relative_path
         backup_root = self.lake_root / "_tmp" / run_id / "_backup" / ledger_relative_path.parent
-        written = write_rows_to_parquet(merged_rows, tmp_file)
+        if ledger_rows:
+            written = write_rows_to_parquet(ledger_rows, tmp_file)
+        else:
+            written = _write_empty_issue_ledger(tmp_file)
         validated = read_parquet_row_count(tmp_file)
         if written != validated:
             raise RuntimeError(f"clean 完备性问题账本校验失败：written={written} validated={validated}")
@@ -2103,6 +2113,22 @@ def _issue_record(
         "created_at": datetime.now(timezone.utc),
         "resolved_at": None,
     }
+
+
+def _write_empty_issue_ledger(output_path: Path) -> int:
+    try:
+        import pandas as pd
+        import pyarrow  # noqa: F401
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("缺少 Parquet 写入依赖，无法写入空问题账本。") from exc
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(columns=list(ISSUE_LEDGER_FIELDS)).to_parquet(
+        output_path,
+        index=False,
+        engine="pyarrow",
+        compression="zstd",
+    )
+    return 0
 
 
 def _normalize_issue_time(value: Any | None) -> str | None:

@@ -1,6 +1,6 @@
 # stk_mins 正式 clean_next 重建行动计划 v1
 
-状态：M0-M5 已执行；M5 完备性审计发现待专项修复问题，禁止晋升
+状态：M0-M6 已执行；`clean_next` 已成为后续工作 clean 基准
 最近更新：2026-05-13
 适用范围：本地 Lake `stk_mins` 从 `raw_tushare/stk_mins_by_date` 构建正式 clean candidate
 
@@ -304,6 +304,32 @@ output=research/stk_mins_by_date_clean_next
 2. 单独出晋升或替换方案。
 3. 再执行后续 derived/research/indicator 重建。
 
+执行结果（2026-05-13）：
+
+用户已确认：
+
+1. 删除旧错误 clean。
+2. 后续使用 `research/stk_mins_by_date_clean_next` 继续推进 derived、symbol-month、indicator 等工作。
+
+实际执行：
+
+```text
+deleted=/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean
+kept=/Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean_next
+```
+
+删除后验证：
+
+```text
+research/stk_mins_by_date_clean exists=false
+research/stk_mins_by_date_clean_next exists=true
+research/stk_mins_by_date_clean_next size=63G
+```
+
+说明：
+
+本阶段没有把 `clean_next` 重命名为 `clean`，也没有重建 derived、symbol-month 或指标层。后续所有下游重建方案必须显式读取 `research/stk_mins_by_date_clean_next`，不得再引用已删除的错误 schema clean。
+
 ## 6. 停止条件
 
 遇到以下任一情况，必须停止并汇报：
@@ -606,6 +632,124 @@ missing_intraday_bar freq=30  count=13,568 date_range=2022-07-15~2022-12-30
 2. `missing_intraday_bar` 集中在 `2022-07-15~2022-12-30` 的 `freq=30`，符合之前已知的“2022 北交所 30min 缺失 bar_count=6”问题特征，需要后续专项用 15min 重建 30min。
 3. M5 只写问题账本，不修改 `clean_next`、不修改旧错误 clean、不修改 raw、不重建 derived/research/indicator。
 
+专项处理记录：
+
+1. `2024-10-30` 多频率混入 `1min` 专项已完成，执行记录见 [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)。
+2. `2022-07-15~2022-12-30` 北交所 `30min` 缺失（`bar_count=6`）专项已完成，执行记录见 [stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md)。
+3. 旧账本仍记录原始问题清单；专项修复是否成功必须以分区直读校验或重新运行完备性审计为准，不能只看旧账本是否仍有历史记录。
+
 下一阶段准入判断：
 
-M5 未通过晋升门禁。`clean_next` 当前不能晋升为正式 clean，必须先处理问题账本中的两个专项，或由用户明确决定是否接受这些问题。
+M5 初始账本中的两个已知专项均已完成，并已在后续全量完备性复审中确认无残留问题。
+
+#### M5 专项二：2022 北交所 30min 缺失修复
+
+专项方案：
+
+[stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md)
+
+执行命令：
+
+```bash
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --apply
+```
+
+执行结果摘要：
+
+```text
+run_id=20260513T021617Z-repair-clean-next-2022-bj-freq30
+affected_trade_dates=115
+affected_codes_total=13,568
+affected_unique_codes=161
+old_affected_rows_total=81,408
+rebuilt_rows_total=122,112
+target_rows_before_total=4,934,172
+target_rows_after_total=4,974,876
+missing_vwap_rows=0
+status=success
+```
+
+修复后 scoped audit：
+
+```bash
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-clean-next-completeness \
+  --freqs 30 \
+  --start-date 2022-07-15 \
+  --end-date 2022-12-30 \
+  --sample-limit 20
+
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-date-clean-next \
+  --freqs 30 \
+  --start-date 2022-07-15 \
+  --end-date 2022-12-30
+```
+
+验证结果：
+
+```text
+completeness scoped audit: partitions=115, issue_count=0, status=success
+base scoped audit: partitions=115, issue_count=0, status=success
+schema=ts_code,freq,trade_time,open,close,high,low,vol,amount,exchange,vwap
+```
+
+结论：
+
+`2022-07-15~2022-12-30` 北交所 `30min bar_count=6` 问题已在正式 `clean_next` 中修复。旧问题账本仍是原始问题清单，不会自动反映修复后的状态；后续以重新运行完备性审计结果为准。
+
+#### M5 全量完备性复审
+
+执行命令：
+
+```bash
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-clean-next-completeness \
+  --freqs 1,5,15,30,60 \
+  --sample-limit 50 \
+  --write-ledger
+```
+
+结果摘要：
+
+```text
+operation=audit_stk_mins_clean_next_completeness
+dataset_layer=research/stk_mins_by_date_clean_next
+partitions=21,045
+freqs=1,5,15,30,60
+issue_count=0
+issue_type_counts={}
+status=success
+write_intent=true
+```
+
+本次复审结论：
+
+1. `clean_next` 全量完备性审计通过。
+2. `2024-10-30` 多频率混入 `1min` 问题未复现。
+3. `2022-07-15~2022-12-30` 北交所 `30min bar_count=6` 问题未复现。
+4. 当前没有已知待修复项。
+
+账本修正：
+
+全量复审通过后，发现旧账本文件仍保留历史问题行。已按本次复审结果将账本原子替换为空问题账本：
+
+```text
+path=/Volumes/datasource/goldenshare-tushare-lake/manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet
+run_id=20260513T031011Z-stk-mins-clean-next-issue-ledger-clear
+existing_rows=14,583
+new_records=0
+written_rows=0
+write_skipped=false
+```
+
+复核结果：
+
+```text
+rows=0
+columns=issue_id,gate,issue_type,status,latest_ts_code,freq,trade_date,trade_time,expected_value,actual_value,evidence_dataset,evidence_ref,action,reason,created_at,resolved_at
+```
+
+下一阶段准入判断：
+
+M5 已通过。允许进入 M6：是否晋升 `clean_next` 为正式 clean 的决策与方案。
+
+M6 已按用户决策完成。下一步可以进入 derived / symbol-month / indicator 重建方案与执行，但每一轮仍必须单独列清目标、输入路径、输出路径和验证门禁。

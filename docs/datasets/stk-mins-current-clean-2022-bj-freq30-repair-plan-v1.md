@@ -4,6 +4,16 @@
 最近更新：2026-05-13  
 适用范围：当前错误 schema 的 `research/stk_mins_by_date_clean`
 
+重要说明：
+
+本文是历史第一阶段“当前错误 schema clean”的演练方案，不适用于正式 `clean_next`。
+
+正式 `clean_next` 的 2022 北交所 `30min` 缺失专项方案见：
+
+```text
+docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md
+```
+
 ## 1. 本文定位
 
 本文只服务第一阶段当前错误 clean 的专项修复：
