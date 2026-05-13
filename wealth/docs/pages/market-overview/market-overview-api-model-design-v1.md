@@ -336,6 +336,7 @@ interface LadderStockRow {
 ```ts
 interface SectorOverviewPanel {
   tradeDate: string;
+  status: "READY" | "PARTIAL" | "DELAYED" | "EMPTY" | "ERROR";
   columns: SectorColumn[];
   heatMapItems: SectorHeatItem[];
 }
@@ -343,26 +344,50 @@ interface SectorOverviewPanel {
 interface SectorColumn {
   columnKey: string;
   title: string;
-  tone: "up" | "down";
+  tone: "UP" | "DOWN" | "NEUTRAL";
+  metricLabel: string;
   rows: SectorRankRow[];
 }
 
 interface SectorRankRow {
   rank: number;
-  subject: SubjectRef; // sector
-  metricText: string;
-  metricValue: number;
+  subject: {
+    subjectType: "sector";
+    subjectCode: string;
+    subjectName?: string | null;
+    sectorType: "INDUSTRY" | "CONCEPT" | "REGION";
+  };
+  metric: {
+    value?: number | null;
+    displayText: string;
+    unit?: "%" | null;
+    direction: "UP" | "DOWN" | "FLAT" | "UNKNOWN";
+  };
+  leadingStock?: {
+    stockCode?: string | null;
+    stockName?: string | null;
+    changePct?: number | null;
+  } | null;
+}
+
+interface SectorHeatItem {
+  subject: SectorRankRow["subject"];
+  changePct?: number | null;
+  direction: "UP" | "DOWN" | "FLAT" | "UNKNOWN";
+  riseStockCount?: number | null;
+  fallStockCount?: number | null;
+  leadingStock?: SectorRankRow["leadingStock"];
 }
 ```
 
 | 数据列 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
 | 板块代码/名称 | `dc_index` | `ts_code`, `name` | 作为 `subjectCode/subjectName` |
-| 板块涨跌幅 | `dc_index`/`dc_daily` | `pct_change` | 具体实现选一张主表固定 |
+| 板块涨跌幅 | `dc_daily` | `pct_change` | 板块涨跌榜与热力图主指标 |
 | 上涨下跌家数 | `dc_index` | `up_num`, `down_num` | 原样 |
-| 板块成交额 | `dc_daily` | `amount` | 原样 |
-| 板块资金流 | `board_moneyflow_dc` | `net_amount` 等 | `trade_date + content_type` 筛选 |
-| 内容分类 | `board_moneyflow_dc` | `content_type` | 仅 `行业/概念/地域` |
+| 板块成交额 | `dc_daily` | `amount` | 扩展指标，本期不改变 UI |
+| 板块资金流 | `board_moneyflow_dc` | `net_amount`, `net_amount_rate` | 资金流入/流出榜主指标 |
+| 内容分类 | `dc_daily` / `board_moneyflow_dc` / `dc_index` | `category` / `content_type` / `idx_type` | `行业板块/概念板块/地域板块` 与 `行业/概念/地域` 映射到统一 sectorType |
 
 ---
 

@@ -1,0 +1,1 @@
+"""Sector overview service helpers."""

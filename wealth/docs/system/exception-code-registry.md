@@ -73,7 +73,7 @@
 
 ## 6. 首期（Phase-1）已登记模块
 
-> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块。
+> 当前已登记：榜单模块 + 今日市场客观总结模块 + 主要指数模块 + 市场风格模块 + 成交额总览模块 + 大盘资金流向模块 + 涨跌分布模块 + 涨跌停统计与分布模块 + 连板天梯模块 + 板块速览模块。
 
 | code | module | severity | userVisible | debugOnly | meaning | trigger | frontendAction | owner | phase | status |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -122,6 +122,10 @@
 | `SL_INVALID_BOARD_COUNT` | `streakLadder` | warn | false | true | 连板次数字段非法 | `equity_limit_list.limit_times` 无法解析为正整数 | 丢弃异常行，模块 partial，debug 标记样本 | biz-api | Phase-1 | active |
 | `SL_JOIN_METRIC_MISSING` | `streakLadder` | warn | false | true | 连板股票展示补列缺失 | 价格、涨跌幅、开板次数或主题标签缺失 | 主行继续展示，缺失字段显示 `--`，模块 partial | biz-api | Phase-1 | active |
 | `SL_QUERY_FAILED` | `streakLadder` | error | false | true | 连板天梯查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
+| `SO_SOURCE_DELAYED` | `sectorOverview` | warn | false | true | 板块速览源数据日期落后 | DC 组合源任一必需源观测日期落后 | 模块 delayed，debug 标记落后源 | biz-api | Phase-1 | active |
+| `SO_SOURCE_EMPTY` | `sectorOverview` | warn | false | true | 板块速览源数据为空 | 目标/观测交易日无有效 DC 组合源数据 | 模块 empty，展示空态 | biz-api | Phase-1 | active |
+| `SO_COLUMN_METRIC_UNAVAILABLE` | `sectorOverview` | error | false | true | 板块速览列指标不可由冻结源产出 | 列定义要求 DC 组合源不存在的指标 | 模块 error，禁止伪造数据 | biz-api | Phase-1 | active |
+| `SO_QUERY_FAILED` | `sectorOverview` | error | false | true | 板块速览查询失败 | SQL/服务异常 | 模块 error，保留其他模块渲染 | biz-api | Phase-1 | active |
 
 ---
 

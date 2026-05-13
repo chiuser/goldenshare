@@ -301,10 +301,12 @@ describe("MarketOverviewPage", () => {
   const originalLimitUpSource = marketOverviewModuleSources.limitUp;
   const originalMoneyFlowSource = marketOverviewModuleSources.moneyFlow;
   const originalStreakLadderSource = marketOverviewModuleSources.streakLadder;
+  const originalSectorsSource = marketOverviewModuleSources.sectors;
   beforeEach(() => {
     marketOverviewModuleSources.limitUp = "mock";
     marketOverviewModuleSources.moneyFlow = "mock";
     marketOverviewModuleSources.streakLadder = "mock";
+    marketOverviewModuleSources.sectors = "mock";
     mockSuccessfulMarketFetch();
   });
 
@@ -312,6 +314,7 @@ describe("MarketOverviewPage", () => {
     marketOverviewModuleSources.limitUp = originalLimitUpSource;
     marketOverviewModuleSources.moneyFlow = originalMoneyFlowSource;
     marketOverviewModuleSources.streakLadder = originalStreakLadderSource;
+    marketOverviewModuleSources.sectors = originalSectorsSource;
     vi.restoreAllMocks();
     vi.useRealTimers();
     window.history.pushState({}, "", "/");

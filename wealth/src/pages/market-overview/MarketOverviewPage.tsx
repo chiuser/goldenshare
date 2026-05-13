@@ -48,6 +48,15 @@ import {
 } from "../../features/market-overview/money-flow/api/marketMoneyFlowAdapter";
 import { fetchMarketMoneyFlow, type MoneyFlowDebugInfo } from "../../features/market-overview/money-flow/api/marketMoneyFlowApi";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
+import {
+  buildSectorOverviewViewModelFromApi,
+  buildSectorOverviewViewModelFromMock,
+  type MarketSectorOverviewViewModel,
+} from "../../features/market-overview/sectors/api/marketSectorOverviewAdapter";
+import {
+  fetchMarketSectorOverview,
+  type SectorOverviewDebugInfo,
+} from "../../features/market-overview/sectors/api/marketSectorOverviewApi";
 import { MarketStylePanel } from "../../features/market-overview/style/MarketStylePanel";
 import {
   buildStyleViewModelFromApi,
@@ -77,6 +86,7 @@ const MONEY_FLOW_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
+const SECTOR_OVERVIEW_FETCH_TIMEOUT_MS = 5000;
 
 function isFiniteNumber(value: number | null | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -164,6 +174,12 @@ export function MarketOverviewPage() {
   );
   const [streakLadderErrorMessage, setStreakLadderErrorMessage] = useState<string | null>(null);
   const [streakLadderDebugInfo, setStreakLadderDebugInfo] = useState<StreakLadderDebugInfo | null>(null);
+  const [sectorOverview, setSectorOverview] = useState<MarketSectorOverviewViewModel | null>(null);
+  const [sectorOverviewViewState, setSectorOverviewViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.sectors === "real" ? "loading" : "ready",
+  );
+  const [sectorOverviewErrorMessage, setSectorOverviewErrorMessage] = useState<string | null>(null);
+  const [sectorOverviewDebugInfo, setSectorOverviewDebugInfo] = useState<SectorOverviewDebugInfo | null>(null);
   const [toast, setToast] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
@@ -184,6 +200,7 @@ export function MarketOverviewPage() {
       ...(leaderboardsDebugInfo?.modules ?? []),
       ...(limitUpDebugInfo?.modules ?? []),
       ...(streakLadderDebugInfo?.modules ?? []),
+      ...(sectorOverviewDebugInfo?.modules ?? []),
     ];
     const exceptionItems = [
       ...(summaryDebugInfo?.exceptions ?? []),
@@ -195,6 +212,7 @@ export function MarketOverviewPage() {
       ...(leaderboardsDebugInfo?.exceptions ?? []),
       ...(limitUpDebugInfo?.exceptions ?? []),
       ...(streakLadderDebugInfo?.exceptions ?? []),
+      ...(sectorOverviewDebugInfo?.exceptions ?? []),
     ];
     if (!moduleItems.length && !exceptionItems.length) return null;
     return { modules: moduleItems, exceptions: exceptionItems };
@@ -209,6 +227,7 @@ export function MarketOverviewPage() {
     leaderboardsDebugInfo,
     limitUpDebugInfo,
     streakLadderDebugInfo,
+    sectorOverviewDebugInfo,
   ]);
 
   useEffect(() => {
@@ -285,6 +304,14 @@ export function MarketOverviewPage() {
         setStreakLadder(null);
         setStreakLadderViewState("loading");
         setStreakLadderErrorMessage(null);
+      }
+      if (marketOverviewModuleSources.sectors === "mock") {
+        setSectorOverview(buildSectorOverviewViewModelFromMock(response.data));
+        setSectorOverviewViewState("ready");
+      } else {
+        setSectorOverview(null);
+        setSectorOverviewViewState("loading");
+        setSectorOverviewErrorMessage(null);
       }
     });
   }, []);
@@ -718,6 +745,55 @@ export function MarketOverviewPage() {
     };
   }, [overview, pageDebugEnabled]);
 
+  useEffect(() => {
+    if (!overview) return;
+    if (marketOverviewModuleSources.sectors !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setSectorOverview(null);
+    setSectorOverviewViewState("loading");
+    setSectorOverviewErrorMessage(null);
+    setSectorOverviewDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), SECTOR_OVERVIEW_FETCH_TIMEOUT_MS);
+
+    fetchMarketSectorOverview(
+      { market: "CN_A", debug: pageDebugEnabled ? 1 : 0 },
+      { signal: abortController.signal },
+    )
+      .then((payload) => {
+        if (!canceled) {
+          setSectorOverview(buildSectorOverviewViewModelFromApi(payload));
+          setSectorOverviewViewState("ready");
+          setSectorOverviewErrorMessage(null);
+          setSectorOverviewDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/sector-overview`
+            : error instanceof Error
+              ? error.message
+              : "板块速览加载失败";
+          setSectorOverview(null);
+          setSectorOverviewViewState("error");
+          setSectorOverviewErrorMessage(message);
+          setSectorOverviewDebugInfo(null);
+          showToast(`板块速览模块异常：${message}`);
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageDebugEnabled]);
+
   function showToast(message: string) {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
@@ -811,7 +887,12 @@ export function MarketOverviewPage() {
             errorMessage={streakLadderErrorMessage ?? undefined}
             onAction={showToast}
           />
-          <SectorOverviewPanel overview={overview} onAction={showToast} />
+          <SectorOverviewPanel
+            sectorOverview={sectorOverview}
+            viewState={sectorOverviewViewState}
+            errorMessage={sectorOverviewErrorMessage ?? undefined}
+            onAction={showToast}
+          />
           <StateBaselinePanel />
         </div>
       </main>

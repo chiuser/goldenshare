@@ -59,6 +59,7 @@ GET /api/v1/wealth/market/leaderboards
 GET /api/v1/wealth/market/limit-up/summary
 GET /api/v1/wealth/market/streak-ladder
 GET /api/v1/wealth/market/money-flow
+GET /api/v1/wealth/market/sector-overview
 ```
 
 模块接口只返回模块对象；整页聚合后续再由 overview 聚合接口统一编排。
@@ -174,7 +175,7 @@ subjectiveMarketConclusion
    - 涨幅/跌幅/成交额/换手/量比由 `equity_daily_bar` 主链路，换手与量比关联 `equity_daily_basic`。
    - 人气榜/飙升榜来自 `dc_hot`。
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
-3. 板块速览统一 DC 口径：`dc_index`/`dc_daily` + `board_moneyflow_dc`。
+3. 板块速览统一 DC 口径：本轮冻结为 `core_serving.dc_daily + core_serving.board_moneyflow_dc + core_serving.dc_index` 组合源。`dc_daily` 承接板块涨跌榜与热力图主行情，`board_moneyflow_dc` 承接资金流入/流出榜，`dc_index` 承接名称、类型、上涨/下跌家数、领涨股等结构补充信息。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
 
 ## 性能原则

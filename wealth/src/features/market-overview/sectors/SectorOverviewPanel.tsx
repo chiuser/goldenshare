@@ -1,14 +1,17 @@
 import { directionClass, directionFromNumber } from "../../../shared/lib/marketDirection";
 import { formatSignedPercent } from "../../../shared/lib/formatters";
 import { Panel } from "../../../shared/ui/Panel";
-import type { MarketOverview, SectorRankRow } from "../api/marketOverviewTypes";
+import { SkeletonBlock } from "../../../shared/ui/SkeletonBlock";
+import type { SectorOverviewRankRowViewModel, MarketSectorOverviewViewModel } from "./api/marketSectorOverviewAdapter";
 
 interface SectorOverviewPanelProps {
-  overview: MarketOverview;
+  sectorOverview?: MarketSectorOverviewViewModel | null;
+  viewState: "loading" | "ready" | "error";
+  errorMessage?: string;
   onAction: (message: string) => void;
 }
 
-export function SectorOverviewPanel({ overview, onAction }: SectorOverviewPanelProps) {
+export function SectorOverviewPanel({ sectorOverview, viewState, errorMessage, onAction }: SectorOverviewPanelProps) {
   return (
     <Panel
       title="板块速览"
@@ -19,9 +22,18 @@ export function SectorOverviewPanel({ overview, onAction }: SectorOverviewPanelP
         </button>
       }
     >
+      {viewState === "loading" ? <SkeletonBlock /> : null}
+      {viewState === "error" ? (
+        <div className="state-block error-box">
+          <strong>error</strong>
+          <br />
+          <span>{errorMessage ?? "板块速览加载失败"}</span>
+        </div>
+      ) : null}
+      {viewState === "ready" && sectorOverview ? (
       <div className="sector-v2-layout">
         <div className="sector-matrix">
-          {overview.sectors.columns.map((column) => (
+          {sectorOverview.columns.map((column) => (
             <div className="sector-col" key={column.key}>
               <div className="sector-title">
                 <span>{column.title}</span>
@@ -39,7 +51,7 @@ export function SectorOverviewPanel({ overview, onAction }: SectorOverviewPanelP
             <span className="secondary">5 × 4</span>
           </div>
           <div className="heatmap-preview">
-            {overview.sectors.heatmap.map((cell) => {
+            {sectorOverview.heatmap.map((cell) => {
               const cls = directionClass(directionFromNumber(cell.pct));
               const alpha = cell.pct >= 0 ? Math.min(0.42, 0.08 + cell.pct / 18) : Math.min(0.42, 0.08 + Math.abs(cell.pct) / 12);
               const bg = cell.pct >= 0 ? `rgba(255,77,90,${alpha})` : `rgba(21,199,132,${alpha})`;
@@ -62,6 +74,7 @@ export function SectorOverviewPanel({ overview, onAction }: SectorOverviewPanelP
           </div>
         </div>
       </div>
+      ) : null}
     </Panel>
   );
 }
@@ -72,7 +85,7 @@ function SectorRankItem({
   tone,
   onAction,
 }: {
-  row: SectorRankRow;
+  row: SectorOverviewRankRowViewModel;
   rank: number;
   tone: "up" | "down";
   onAction: (message: string) => void;

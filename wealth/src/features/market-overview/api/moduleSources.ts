@@ -23,5 +23,5 @@ export const marketOverviewModuleSources: MarketOverviewModuleSources = {
   leaderboards: "real",
   limitUp: "real",
   streakLadder: "real",
-  sectors: "mock",
+  sectors: "real",
 };
