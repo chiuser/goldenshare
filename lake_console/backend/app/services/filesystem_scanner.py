@@ -198,7 +198,7 @@ class FilesystemScanner:
         freq_dirs = list(root.glob("freq=*"))
         if freq_dirs:
             for freq_dir in freq_dirs:
-                freq = _parse_int_partition(freq_dir.name, "freq")
+                freq = _parse_freq_partition(freq_dir.name)
                 if freq is None:
                     continue
                 result.extend(self._scan_trade_date_dirs(definition, layer_definition, freq_dir, freq=freq))
@@ -240,7 +240,7 @@ class FilesystemScanner:
             return []
         result: list[LakePartitionSummary] = []
         for freq_dir in root.glob("freq=*"):
-            freq = _parse_int_partition(freq_dir.name, "freq")
+            freq = _parse_freq_partition(freq_dir.name)
             if freq is None:
                 continue
             for month_dir in freq_dir.glob("trade_month=*"):
@@ -306,6 +306,18 @@ def _parse_int_partition(name: str, key: str) -> int | None:
     value = _parse_str_partition(name, key)
     if value is None:
         return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _parse_freq_partition(name: str) -> int | None:
+    value = _parse_str_partition(name, "freq")
+    if value is None:
+        return None
+    if value.endswith("min"):
+        value = value.removesuffix("min")
     try:
         return int(value)
     except ValueError:

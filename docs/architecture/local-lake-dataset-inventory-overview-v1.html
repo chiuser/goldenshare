@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Lake 数据集总览 v1</title>
+<style>
+:root {
+  --page: #f6f7f9;
+  --surface: #ffffff;
+  --surface-soft: #fbfcfe;
+  --line: #dfe4ea;
+  --line-strong: #c9d1dc;
+  --text: #334155;
+  --muted: #667085;
+  --hint: #8a94a6;
+  --title: #111827;
+  --brand: #1f5499;
+  --brand-soft: #e8f0fb;
+  --green: #0f7a55;
+  --green-soft: #e7f5ee;
+  --amber: #a66b00;
+  --amber-soft: #fbefcc;
+  --red: #b42318;
+  --red-soft: #fde8e5;
+  --blue-soft: #eaf2ff;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--mono); }
+.shell {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  padding: 18px 14px;
+  background: #fbfcff;
+  border-right: 1px solid var(--line);
+}
+.brand {
+  padding: 4px 8px 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.brand-title {
+  color: var(--title);
+  font-weight: 800;
+  font-size: 15px;
+}
+.brand-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.nav a {
+  display: block;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: #475467;
+  font-size: 13px;
+}
+.nav a:hover {
+  background: #eef2f7;
+  color: var(--title);
+  text-decoration: none;
+}
+.main {
+  min-width: 0;
+  padding: 26px 30px 60px;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px;
+  align-items: start;
+}
+h1 {
+  margin: 0 0 8px;
+  color: var(--title);
+  font-size: 27px;
+  line-height: 1.2;
+}
+.lead {
+  max-width: 1000px;
+  color: var(--muted);
+  margin: 0;
+}
+.meta {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+}
+.meta-row span:first-child { color: var(--muted); }
+.meta-row span:last-child {
+  color: var(--title);
+  font-family: var(--mono);
+  text-align: right;
+}
+.section {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 15px;
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--line);
+}
+.section-header h2 {
+  margin: 0;
+  color: var(--title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.section-body { padding: 15px; }
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  padding: 11px;
+}
+.metric-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.metric-value {
+  color: var(--title);
+  font-weight: 800;
+  font-size: 21px;
+  margin-top: 2px;
+}
+.metric-note {
+  color: var(--muted);
+  margin-top: 3px;
+  font-size: 12px;
+}
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #344054;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.amber { background: var(--amber-soft); color: var(--amber); }
+.pill.blue { background: var(--brand-soft); color: var(--brand); }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.flow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+.flow-node {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 9px;
+  padding: 10px;
+  min-height: 104px;
+}
+.flow-node h3 {
+  margin: 0 0 6px;
+  color: var(--title);
+  font-size: 13px;
+}
+.flow-node p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+th, td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f4f6f9;
+  color: #5b6575;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: 0; }
+td code {
+  color: #475467;
+  font-size: 12px;
+  word-break: break-all;
+}
+.dataset-table {
+  min-width: 1420px;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.strong {
+  color: var(--title);
+  font-weight: 750;
+}
+.muted {
+  color: var(--muted);
+}
+.hint {
+  color: var(--hint);
+}
+.warn-line {
+  margin-top: 4px;
+  color: var(--amber);
+  font-size: 12px;
+  white-space: normal;
+}
+.status-ok { color: var(--green); font-weight: 700; }
+.status-empty { color: var(--amber); font-weight: 700; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.toolbar input,
+.toolbar select {
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0 9px;
+  min-width: 180px;
+}
+.callout {
+  border: 1px solid var(--amber-soft);
+  border-left: 4px solid #c08400;
+  background: #fffaf0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #624a14;
+}
+.code-block {
+  margin: 0;
+  padding: 11px 12px;
+  background: #0f172a;
+  color: #dbeafe;
+  border-radius: 9px;
+  overflow: auto;
+  font-size: 12px;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.small-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.small-list li { margin: 3px 0; }
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; }
+  .hero { grid-template-columns: 1fr; }
+  .grid-4, .grid-3, .two-col, .flow { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-title">Local Lake 数据集总览</div>
+      <div class="brand-sub">架构、数据集、来源、同步、现状</div>
+    </div>
+    <nav class="nav">
+      <a href="#summary">总览</a>
+      <a href="#truth">事实口径</a>
+      <a href="#architecture">架构链路</a>
+      <a href="#layers">湖内层级</a>
+      <a href="#sources">来源与同步方式</a>
+      <a href="#inventory">数据集清单</a>
+      <a href="#physical-gap">物理差异与待收口</a>
+      <a href="#commands">常用命令</a>
+      <a href="#docs">文档索引</a>
+      <a href="#refresh">刷新方法</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <section class="hero">
+      <div>
+        <h1>Local Lake 数据集总览 v1</h1>
+        <p class="lead">
+          这份文档把本地数据湖的架构、数据集目录、来源、同步方式、湖内路径、当前物理统计和关联方案文档收在一起。
+          目标是看这一份就能理解当前 Lake 是什么、有哪些数据、从哪里来、怎么同步、哪些地方还没完全纳入统一模型。
+        </p>
+      </div>
+      <div class="meta">
+        <div class="meta-row"><span>版本</span><span>v1</span></div>
+        <div class="meta-row"><span>状态</span><span>当前总览</span></div>
+        <div class="meta-row"><span>更新时间</span><span>2026-05-13 12:00 CST</span></div>
+        <div class="meta-row"><span>Lake Root</span><span>/Volumes/datasource/goldenshare-tushare-lake</span></div>
+        <div class="meta-row"><span>事实源</span><span>catalog + 文件扫描 + docs/datasets</span></div>
+      </div>
+    </section>
+
+    <section id="summary" class="section">
+      <div class="section-header">
+        <div>
+          <h2>一眼总览</h2>
+          <p>数字来自 2026-05-13 本机扫描；总容量用文件系统占用，catalog 数字用 Lake Console 统一数据集扫描器。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-4">
+          <div class="card">
+            <div class="metric-label">全湖文件系统占用</div>
+            <div class="metric-value">233.7 GB</div>
+            <div class="metric-note">`du -sk` 约 228,254,260 KiB</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">catalog 数据集</div>
+            <div class="metric-value">54</div>
+            <div class="metric-note">54 个非空，0 个 empty</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">catalog 可统计数据量</div>
+            <div class="metric-value">81.5 GB</div>
+            <div class="metric-note">74,309 文件 / 73,717 分区</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">数据时间范围</div>
+            <div class="metric-value">1990-12-19</div>
+            <div class="metric-note">最新扫描日期到 2026-05-08</div>
+          </div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="grid-4">
+          <div class="card">
+            <div class="metric-label">最大源站事实数据集</div>
+            <div class="metric-value">stk_mins</div>
+            <div class="metric-note">catalog 约 69.5 GB</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">最大未纳入 catalog 资产</div>
+            <div class="metric-value">分钟指标</div>
+            <div class="metric-note">`derived/stk_mins_indicators_by_date` 约 75G</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">正式 clean 基准</div>
+            <div class="metric-value">63G</div>
+            <div class="metric-note">`research/stk_mins_by_date_clean_next`</div>
+          </div>
+          <div class="card">
+            <div class="metric-label">备份点</div>
+            <div class="metric-value">Kopia</div>
+            <div class="metric-note">全湖 pinned baseline 已建立</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="truth" class="section">
+      <div class="section-header">
+        <div>
+          <h2>事实口径</h2>
+          <p>这份文档区分“代码目录已登记的数据集”和“磁盘真实存在的物理资产”。这点很重要，不然会漏账。</p>
+        </div>
+      </div>
+      <div class="section-body two-col">
+        <div class="card">
+          <div class="strong">统一数据集口径</div>
+          <ul class="small-list">
+            <li>事实源：<a href="/Users/congming/github/goldenshare/lake_console/backend/app/catalog/datasets">lake_console/backend/app/catalog/datasets</a></li>
+            <li>扫描器：<a href="/Users/congming/github/goldenshare/lake_console/backend/app/services/filesystem_scanner.py">filesystem_scanner.py</a></li>
+            <li>当前登记 54 个数据集，全部来源标记为 Tushare 口径。</li>
+            <li>用于 Dataset 页面、后续 Storage / Cost 页面和数据集详情。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="strong">物理文件口径</div>
+          <ul class="small-list">
+            <li>事实源：`/Volumes/datasource/goldenshare-tushare-lake` 的真实目录。</li>
+            <li>包含 `raw_tushare`、`derived`、`research`、`manifest`、`_tmp`、`_recovery`。</li>
+            <li>当前物理占用约 233.7GB，明显大于 catalog 可统计的 81.5GB。</li>
+            <li>差异不是误差，是部分资产尚未被统一模型完整接管。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section">
+      <div class="section-header">
+        <div>
+          <h2>架构链路</h2>
+          <p>Lake Console 是本地移动盘工具，不挂生产 Ops，不写远程业务库。生产库只在白名单导出场景中只读访问。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="flow">
+          <div class="flow-node">
+            <h3>源站 / 生产只读</h3>
+            <p>Tushare 直连、prod-raw-db、少数 prod-core-db 例外。</p>
+          </div>
+          <div class="flow-node">
+            <h3>源站事实层</h3>
+            <p>`raw_tushare` 保存源接口或已批准事实源的原始字段口径。</p>
+          </div>
+          <div class="flow-node">
+            <h3>研究基准层</h3>
+            <p>`research/stk_mins_by_date_clean_next` 是分钟线正式 clean 基准。</p>
+          </div>
+          <div class="flow-node">
+            <h3>本地派生层</h3>
+            <p>`derived` 保存 90/120 分钟线和分钟指标等本地计算结果。</p>
+          </div>
+          <div class="flow-node">
+            <h3>研究重排层</h3>
+            <p>`research` 保存按股票月份分桶等查询友好布局。</p>
+          </div>
+          <div class="flow-node">
+            <h3>查询与管理</h3>
+            <p>DuckDB 研究查询、Lake Console 页面、Kopia 备份恢复。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="layers" class="section">
+      <div class="section-header">
+        <div>
+          <h2>湖内层级</h2>
+          <p>中文展示用人话；代码路径保留实际目录名，避免看文档和看磁盘对不上。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>层级</th><th>人话含义</th><th>典型路径</th><th>当前占用</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>raw_tushare</code></td>
+                <td>源站事实层</td>
+                <td><code>raw_tushare/daily/trade_date=2026-04-30</code></td>
+                <td class="num">约 76G</td>
+                <td>保存 Tushare 或已批准生产事实源导出的原始字段口径。</td>
+              </tr>
+              <tr>
+                <td><code>derived</code></td>
+                <td>本地派生层</td>
+                <td><code>derived/stk_mins_indicators_by_date</code></td>
+                <td class="num">约 75G</td>
+                <td>本地计算结果，例如分钟 MACD、后续 90/120 分钟线。</td>
+              </tr>
+              <tr>
+                <td><code>research</code></td>
+                <td>研究查询层</td>
+                <td><code>research/stk_mins_by_date_clean_next</code></td>
+                <td class="num">约 63G</td>
+                <td>clean 基准和查询重排，不等于新数据来源。</td>
+              </tr>
+              <tr>
+                <td><code>manifest</code></td>
+                <td>辅助清单与运行账本</td>
+                <td><code>manifest/security_universe/tushare_stock_basic.parquet</code></td>
+                <td class="num">约 317M</td>
+                <td>中文统一叫“辅助清单”，路径名仍是 `manifest`。</td>
+              </tr>
+              <tr>
+                <td><code>_tmp</code></td>
+                <td>临时写入区</td>
+                <td><code>_tmp/&lt;run_id&gt;</code></td>
+                <td class="num">约 3.3G</td>
+                <td>临时目录残留需要单独治理，不应当被当作正式数据集。</td>
+              </tr>
+              <tr>
+                <td><code>_recovery</code></td>
+                <td>事故恢复证据</td>
+                <td><code>_recovery/20260510T233701Z-stk-mins-raw-recovery</code></td>
+                <td class="num">约 99M</td>
+                <td>历史恢复动作留下的证据和备份，不是研究查询入口。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="sources" class="section">
+      <div class="section-header">
+        <div>
+          <h2>来源与同步方式</h2>
+          <p>“来源”指业务事实口径，“同步方式”指 Lake 从哪里拿数据写 Parquet。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <div class="strong">Tushare 直连</div>
+            <p class="muted">直接请求源接口，适合本地股票池、交易日历、分钟线等必须按本地规则拉取的场景。</p>
+            <div class="pill-row"><span class="pill blue">stock_basic</span><span class="pill blue">trade_cal</span><span class="pill blue">stk_mins</span></div>
+          </div>
+          <div class="card">
+            <div class="strong">prod-raw-db 只读导出</div>
+            <p class="muted">从生产 `raw_tushare` 白名单表只读导出，适合大批量补湖和日频/快照数据。</p>
+            <div class="pill-row"><span class="pill green">daily</span><span class="pill green">moneyflow</span><span class="pill green">board</span></div>
+          </div>
+          <div class="card">
+            <div class="strong">prod-core-db 只读例外</div>
+            <p class="muted">只在 serving 层更完整、更可靠且已写入方案时使用。</p>
+            <div class="pill-row"><span class="pill amber">index_daily</span><span class="pill amber">index_weekly</span><span class="pill amber">index_monthly</span></div>
+          </div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="callout">
+          `prod-raw-db` 和 `prod-core-db` 都是只读来源，不允许把生产 Ops 状态、TaskRun、调度状态或远程数据库状态混进本地 Lake 文件事实。
+        </div>
+      </div>
+    </section>
+
+    <section id="inventory" class="section">
+      <div class="section-header">
+        <div>
+          <h2>数据集清单</h2>
+          <p>表格由当前 catalog + 本地文件扫描生成，并补充了 docs/datasets 的关联方案文档。</p>
+        </div>
+        <div class="pill-row">
+          <span class="pill blue" id="visible-count">54 项</span>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="toolbar">
+          <input id="query" placeholder="搜索数据集 / key / API / 路径">
+          <select id="group-filter"><option value="">全部分组</option></select>
+          <select id="sync-filter"><option value="">全部同步方式</option></select>
+          <select id="health-filter"><option value="">全部状态</option></select>
+        </div>
+        <div class="table-wrap">
+          <table class="dataset-table">
+            <thead>
+              <tr>
+                <th>数据集</th>
+                <th>分组</th>
+                <th>来源 / 同步</th>
+                <th>源接口文档</th>
+                <th>湖内路径</th>
+                <th>层级 / 频率</th>
+                <th>时间范围</th>
+                <th class="num">规模</th>
+                <th>方案文档</th>
+              </tr>
+            </thead>
+            <tbody id="dataset-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="physical-gap" class="section">
+      <div class="section-header">
+        <div>
+          <h2>物理差异与待收口</h2>
+          <p>这些不是新需求，是当前总览必须如实展示的差异。后续要不要代码清扫，需要另起任务。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>物理资产</th><th>当前事实</th><th>为什么没完整进入 catalog</th><th>建议归属</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>research/stk_mins_by_date_clean_next</code></td>
+                <td>约 63G，21045 个 Parquet，频率 `1/5/15/30/60`，日期 `2009-01-05 ~ 2026-05-07`。</td>
+                <td>当前 catalog 的 `stk_mins` research 层只登记了 by-symbol-month，不包含 by-date clean 基准。</td>
+                <td>应作为 `stk_mins` 的正式 clean 基准层进入统一模型。</td>
+              </tr>
+              <tr>
+                <td><code>derived/stk_mins_indicators_by_date</code></td>
+                <td>约 75G，102576 个 Parquet，当前指标 `macd`，参数 `12_26_9`，频率 `1/30`。</td>
+                <td>分钟指标系统已形成物理资产，但 catalog 还没有独立指标数据集或 `stk_mins` 指标层。</td>
+                <td>建议后续定义为分钟指标资产，避免 Storage / Cost 和详情页漏掉最大派生资产。</td>
+              </tr>
+              <tr>
+                <td><code>research/stk_mins_indicators_by_symbol_month</code></td>
+                <td>约 28M，32 个 Parquet，当前只覆盖 `2026-04`、`freq=30`、32 个 bucket。</td>
+                <td>指标 research 层还未进入 catalog。</td>
+                <td>应和 by-date 指标层绑定为同一个指标资产的两种存储形态。</td>
+              </tr>
+              <tr>
+                <td><code>_tmp</code></td>
+                <td>约 3.3G，包含多轮历史同步、修复和恢复临时目录。</td>
+                <td>`_tmp` 不是数据集，不应进入数据集清单，但 Storage / Cost 页面必须展示。</td>
+                <td>进入存储治理和清理建议，不进入研究查询。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="commands" class="section">
+      <div class="section-header">
+        <div>
+          <h2>常用命令</h2>
+          <p>这里只放理解 Lake 所需的骨架命令；具体每个数据集的命令以 catalog command examples 为准。</p>
+        </div>
+      </div>
+      <div class="section-body two-col">
+        <pre class="code-block"># 查看 Lake root 状态
+lake-console status
+
+# 扫描 catalog 已登记数据集
+lake-console list-datasets
+
+# 预览单个数据集同步计划
+lake-console plan-sync daily --from prod-raw-db --trade-date 2026-04-30
+
+# 执行单个数据集同步
+lake-console sync-dataset daily --from prod-raw-db --trade-date 2026-04-30</pre>
+        <pre class="code-block"># 股票分钟线全市场区间同步
+lake-console sync-stk-mins-range \
+  --all-market \
+  --freqs 1,5,15,30,60 \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30
+
+# 生成 90/120 分钟线
+lake-console derive-stk-mins-range \
+  --start-date 2026-04-01 \
+  --end-date 2026-04-30 \
+  --targets 90,120</pre>
+      </div>
+    </section>
+
+    <section id="docs" class="section">
+      <div class="section-header">
+        <div>
+          <h2>文档索引</h2>
+          <p>这份总览吸收这些文档的信息，但不替代专项方案中的执行细节和历史审计记录。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>文档</th><th>用途</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md">Local Lake Console 架构方案 v1</a></td>
+                <td>本地 Lake Console 的边界、隔离规则、阶段路线。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-console-dataset-model-v1.md">Local Lake Console 数据集模型 v1</a></td>
+                <td>数据集、层级、分区、风险对象的统一模型。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-console-data-model-map-v1.html">Local Lake Console 数据模型关系图 v1</a></td>
+                <td>模型关系、字段命名和页面消费关系。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md">Local Lake 数据集同步扩展方案 v1</a></td>
+                <td>prod-raw-db 优先、prod-core-db 例外、index_mins 双模式等同步策略。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md">股票历史分钟行情 Parquet Lake 方案 v1</a></td>
+                <td>`stk_mins` 原始层、派生层、研究层的核心设计。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-cleaning-master-record-v1.md">stk_mins clean 数据清洗总记录 v1</a></td>
+                <td>正式 clean 基准、历史事故、修复动作和后续读取口径。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md">指数历史分钟行情 Lake 双模式接入方案 v1</a></td>
+                <td>`index_mins` 的 prod-raw-db + Tushare 补齐、有效期过滤和补数口径。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md">资金流 6+1 Lake prod-raw-db 统一导出方案</a></td>
+                <td>资金流系列数据集的统一导出策略。</td>
+              </tr>
+              <tr>
+                <td><a href="/Users/congming/github/goldenshare/docs/datasets">docs/datasets</a></td>
+                <td>全部单数据集方案和历史审计记录。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="refresh" class="section">
+      <div class="section-header">
+        <div>
+          <h2>刷新方法</h2>
+          <p>以后更新这份 HTML 时，先跑下面几类只读命令，再同步更新表格和差异区。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <pre class="code-block"># 1. catalog 统一数据集扫描
+PYTHONPATH=. lake_console/.venv/bin/python -m lake_console.backend.app.cli list-datasets
+
+# 2. 全湖物理占用
+du -sk /Volumes/datasource/goldenshare-tushare-lake /Volumes/datasource/goldenshare-tushare-lake/*
+
+# 3. 重点未纳入 catalog 的物理资产
+find /Volumes/datasource/goldenshare-tushare-lake/research/stk_mins_by_date_clean_next -name '*.parquet' | wc -l
+find /Volumes/datasource/goldenshare-tushare-lake/derived/stk_mins_indicators_by_date -name '*.parquet' | wc -l
+find /Volumes/datasource/goldenshare-tushare-lake/raw_tushare/index_mins_by_date -name '*.parquet' | wc -l</pre>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const REPO = "/Users/congming/github/goldenshare/";
+const DATASETS = [{"key":"bse_mapping","name":"北交所新旧代码对照","group":"A股基础数据","source":"tushare","api":"bse_mapping","source_doc":"375","source_title":"北交所新旧代码对照表","source_path":"docs/sources/tushare/股票数据/基础数据/0375_北交所新旧代码对照表.md","sync":"prod-raw-db","storage":"raw_tushare/bse_mapping","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":14650,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/bse-mapping-prod-raw-db-lake-export-plan.md","docs/datasets/bse-mapping-dataset-development.md"]},{"key":"etf_basic","name":"ETF 基础信息","group":"A股基础数据","source":"tushare","api":"etf_basic","source_doc":"385","source_title":"ETF基础信息","source_path":"docs/sources/tushare/ETF专题/0385_ETF基础信息.md","sync":"prod-raw-db","storage":"raw_tushare/etf_basic","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":237906,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/etf-basic-prod-raw-db-lake-export-plan.md"]},{"key":"hk_basic","name":"港股基础信息","group":"A股基础数据","source":"tushare","api":"hk_basic","source_doc":"191","source_title":"港股列表","source_path":"docs/sources/tushare/港股数据/0191_港股列表.md","sync":"prod-raw-db","storage":"raw_tushare/hk_basic","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":320488,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/hk-basic-prod-raw-db-lake-export-plan.md"]},{"key":"index_basic","name":"指数基础信息","group":"A股基础数据","source":"tushare","api":"index_basic","source_doc":"94","source_title":"指数基本信息","source_path":"docs/sources/tushare/指数专题/0094_指数基本信息.md","sync":"Tushare 直连","storage":"raw_tushare/index_basic","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":1032176,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/index-basic-lake-dataset-development.md","docs/datasets/index-basic-source-alignment-fix-plan-v1.md"]},{"key":"namechange","name":"股票曾用名","group":"A股基础数据","source":"tushare","api":"namechange","source_doc":"100","source_title":"股票曾用名","source_path":"docs/sources/tushare/股票数据/基础数据/0100_股票曾用名.md","sync":"prod-raw-db","storage":"raw_tushare/namechange","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":459636,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/namechange-prod-raw-db-lake-export-plan.md","docs/datasets/namechange-dataset-development.md"]},{"key":"st","name":"ST 风险警示事件","group":"A股基础数据","source":"tushare","api":"st","source_doc":"423","source_title":"ST风险警示板股票","source_path":"docs/sources/tushare/股票数据/基础数据/0423_ST风险警示板股票.md","sync":"prod-raw-db","storage":"raw_tushare/st","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":748442,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/st-prod-raw-db-lake-export-plan.md","docs/datasets/st-dataset-development.md"]},{"key":"stk_limit","name":"每日涨跌停价格","group":"A股基础数据","source":"tushare","api":"stk_limit","source_doc":"183","source_title":"每日涨跌停价格","source_path":"docs/sources/tushare/股票数据/行情数据/0183_每日涨跌停价格.md","sync":"prod-raw-db","storage":"raw_tushare/stk_limit","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-01-02","end":"2026-04-30","bytes":53871243,"files":562,"partitions":562,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-limit-prod-raw-db-lake-export-plan.md","docs/datasets/stk-limit-dataset-development.md"]},{"key":"stock_basic","name":"股票基础信息","group":"A股基础数据","source":"tushare","api":"stock_basic","source_doc":"25","source_title":"股票基础信息","source_path":"docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md","sync":"Tushare 直连","storage":"raw_tushare/stock_basic","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":714934,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":[]},{"key":"stock_company","name":"上市公司基本信息","group":"A股基础数据","source":"tushare","api":"stock_company","source_doc":"112","source_title":"上市公司基本信息","source_path":"docs/sources/tushare/股票数据/基础数据/0112_上市公司基本信息.md","sync":"prod-raw-db","storage":"raw_tushare/stock_company","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":11442432,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/stock-company-prod-raw-db-lake-export-plan.md","docs/datasets/stock-company-dataset-development.md"]},{"key":"stock_st","name":"ST股票列表","group":"A股基础数据","source":"tushare","api":"stock_st","source_doc":"397","source_title":"ST股票列表","source_path":"docs/sources/tushare/股票数据/基础数据/0397_ST股票列表.md","sync":"prod-raw-db","storage":"raw_tushare/stock_st","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2016-08-09","end":"2026-04-30","bytes":11135644,"files":2360,"partitions":2360,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stock-st-prod-raw-db-lake-export-plan.md","docs/datasets/stock-st-dataset-development.md"]},{"key":"suspend_d","name":"每日停复牌信息","group":"A股基础数据","source":"tushare","api":"suspend_d","source_doc":"214","source_title":"每日停复牌信息","source_path":"docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md","sync":"prod-raw-db","storage":"raw_tushare/suspend_d","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2025-01-02","end":"2026-04-30","bytes":931057,"files":320,"partitions":320,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/suspend-d-prod-raw-db-lake-export-plan.md","docs/datasets/suspend-d-dataset-development.md"]},{"key":"trade_cal","name":"交易日历","group":"A股基础数据","source":"tushare","api":"trade_cal","source_doc":"26","source_title":"交易日历","source_path":"docs/sources/tushare/股票数据/基础数据/0026_交易日历.md","sync":"Tushare 直连","storage":"raw_tushare/trade_cal","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":136664,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":[]},{"key":"daily","name":"股票日线","group":"A股行情","source":"tushare","api":"daily","source_doc":"27","source_title":"A股日线行情","source_path":"docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md","sync":"prod-raw-db","storage":"raw_tushare/daily","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"1990-12-19","end":"2026-04-30","bytes":770665057,"files":8632,"partitions":8632,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/daily-prod-raw-db-lake-export-plan.md","docs/datasets/daily-lake-dataset-development.md"]},{"key":"daily_basic","name":"每日指标","group":"A股行情","source":"tushare","api":"daily_basic","source_doc":"32","source_title":"每日指标","source_path":"docs/sources/tushare/股票数据/行情数据/0032_每日指标.md","sync":"prod-raw-db","storage":"raw_tushare/daily_basic","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-04","end":"2026-04-30","bytes":1474767786,"files":3963,"partitions":3963,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/daily-basic-prod-raw-db-lake-export-plan.md"]},{"key":"margin","name":"融资融券汇总","group":"A股行情","source":"tushare","api":"margin","source_doc":"58","source_title":"融资融券交易汇总","source_path":"docs/sources/tushare/股票数据/两融及转融通/0058_融资融券交易汇总.md","sync":"prod-raw-db","storage":"raw_tushare/margin","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2025-01-02","end":"2026-04-30","bytes":1847422,"files":320,"partitions":320,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/margin-prod-raw-db-lake-export-plan.md","docs/datasets/margin-dataset-development.md"]},{"key":"stk_mins","name":"股票历史分钟行情","group":"A股行情","source":"tushare","api":"stk_mins","source_doc":"370","source_title":"股票历史分钟行情","source_path":"docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md","sync":"Tushare 直连","storage":"raw_tushare/stk_mins_by_date","layout":"by_date","layers":["raw_tushare","derived","research"],"freqs":[1,5,15,30,60,90,120],"start":"2009-01-05","end":"2026-05-07","bytes":69545397475,"files":21637,"partitions":21045,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-mins-parquet-lake-plan-v1.md","docs/datasets/stk-mins-clean-cleaning-master-record-v1.md","docs/datasets/stk-mins-indicator-system-plan-v1.md"]},{"key":"stk_period_bar_adj_month","name":"股票月线行情（复权）","group":"A股行情","source":"tushare","api":"stk_week_month_adj","source_doc":"365","source_title":"股票周/月线行情(复权--每日更新)","source_path":"docs/sources/tushare/股票数据/行情数据/0365_股票周_月线行情(复权--每日更新).md","sync":"prod-raw-db","storage":"raw_tushare/stk_period_bar_adj_month","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-31","end":"2026-04-30","bytes":49701934,"files":196,"partitions":196,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-period-bar-adj-month-prod-raw-db-lake-export-plan.md"]},{"key":"stk_period_bar_adj_week","name":"股票周线行情（复权）","group":"A股行情","source":"tushare","api":"stk_week_month_adj","source_doc":"365","source_title":"股票周/月线行情(复权--每日更新)","source_path":"docs/sources/tushare/股票数据/行情数据/0365_股票周_月线行情(复权--每日更新).md","sync":"prod-raw-db","storage":"raw_tushare/stk_period_bar_adj_week","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-01","end":"2026-05-01","bytes":201379497,"files":836,"partitions":836,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-period-bar-adj-week-prod-raw-db-lake-export-plan.md"]},{"key":"stk_period_bar_month","name":"股票月线行情","group":"A股行情","source":"tushare","api":"stk_weekly_monthly","source_doc":"336","source_title":"股票周/月线行情(每日更新)","source_path":"docs/sources/tushare/股票数据/行情数据/0336_股票周_月线行情(每日更新).md","sync":"prod-raw-db","storage":"raw_tushare/stk_period_bar_month","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-31","end":"2026-04-30","bytes":29467981,"files":196,"partitions":196,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-period-bar-month-prod-raw-db-lake-export-plan.md"]},{"key":"stk_period_bar_week","name":"股票周线行情","group":"A股行情","source":"tushare","api":"stk_weekly_monthly","source_doc":"336","source_title":"股票周/月线行情(每日更新)","source_path":"docs/sources/tushare/股票数据/行情数据/0336_股票周_月线行情(每日更新).md","sync":"prod-raw-db","storage":"raw_tushare/stk_period_bar_week","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-01","end":"2026-05-01","bytes":117364372,"files":836,"partitions":836,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-period-bar-week-prod-raw-db-lake-export-plan.md"]},{"key":"dc_daily","name":"东方财富板块日线行情","group":"板块 / 题材","source":"tushare","api":"dc_daily","source_doc":"382","source_title":"东财概念板块行情","source_path":"docs/sources/tushare/股票数据/打板专题数据/0382_东财概念板块行情.md","sync":"prod-raw-db","storage":"raw_tushare/dc_daily","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-01-02","end":"2026-05-08","bytes":30173670,"files":565,"partitions":565,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/dc-daily-prod-raw-db-lake-export-plan.md","docs/datasets/dc-daily-category-identity-fix-plan-v1.md"]},{"key":"dc_hot","name":"东方财富热榜","group":"板块 / 题材","source":"tushare","api":"dc_hot","source_doc":"321","source_title":"东方财富热榜","source_path":"docs/sources/tushare/股票数据/打板专题数据/0321_东方财富热榜.md","sync":"prod-raw-db","storage":"raw_tushare/dc_hot","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-03-20","end":"2026-05-07","bytes":13629954,"files":510,"partitions":510,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/dc-hot-prod-raw-db-lake-export-plan.md"]},{"key":"dc_index","name":"东方财富概念板块","group":"板块 / 题材","source":"tushare","api":"dc_index","source_doc":"362","source_title":"东方财富概念板块","source_path":"docs/sources/tushare/股票数据/打板专题数据/0362_东方财富概念板块.md","sync":"prod-raw-db","storage":"raw_tushare/dc_index","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-12-20","end":"2026-05-07","bytes":9826169,"files":330,"partitions":330,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/dc-index-prod-raw-db-lake-export-plan.md"]},{"key":"dc_member","name":"东方财富板块成分","group":"板块 / 题材","source":"tushare","api":"dc_member","source_doc":"363","source_title":"东方财富板块成分","source_path":"docs/sources/tushare/股票数据/打板专题数据/0363_东方财富板块成分.md","sync":"prod-raw-db","storage":"raw_tushare/dc_member","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-12-20","end":"2026-05-07","bytes":89889982,"files":330,"partitions":330,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/dc-member-prod-raw-db-lake-export-plan.md"]},{"key":"kpl_concept_cons","name":"开盘啦板块成分","group":"板块 / 题材","source":"tushare","api":"kpl_concept_cons","source_doc":"351","source_title":"开盘啦题材成分","source_path":"docs/sources/tushare/股票数据/打板专题数据/0351_开盘啦题材成分.md","sync":"prod-raw-db","storage":"raw_tushare/kpl_concept_cons","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-10-14","end":"2026-05-08","bytes":136860841,"files":379,"partitions":379,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/kpl-concept-cons-prod-raw-db-lake-export-plan.md"]},{"key":"kpl_list","name":"开盘啦榜单","group":"板块 / 题材","source":"tushare","api":"kpl_list","source_doc":"347","source_title":"开盘啦榜单数据","source_path":"docs/sources/tushare/股票数据/打板专题数据/0347_开盘啦榜单数据.md","sync":"prod-raw-db","storage":"raw_tushare/kpl_list","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2025-01-02","end":"2026-05-07","bytes":11030215,"files":322,"partitions":322,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/kpl-list-prod-raw-db-lake-export-plan.md"]},{"key":"ths_daily","name":"同花顺板块指数行情","group":"板块 / 题材","source":"tushare","api":"ths_daily","source_doc":"260","source_title":"同花顺板块指数行情","source_path":"docs/sources/tushare/股票数据/打板专题数据/0260_同花顺板块指数行情.md","sync":"prod-raw-db","storage":"raw_tushare/ths_daily","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-02","end":"2026-05-08","bytes":234896602,"files":1535,"partitions":1535,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/ths-daily-prod-raw-db-lake-export-plan.md","docs/datasets/ths-daily-valuation-fields-rebuild-plan-v1.md"]},{"key":"ths_hot","name":"同花顺热榜","group":"板块 / 题材","source":"tushare","api":"ths_hot","source_doc":"320","source_title":"同花顺热榜","source_path":"docs/sources/tushare/股票数据/打板专题数据/0320_同花顺热榜.md","sync":"prod-raw-db","storage":"raw_tushare/ths_hot","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2025-01-02","end":"2026-05-07","bytes":14898980,"files":322,"partitions":322,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/ths-hot-prod-raw-db-lake-export-plan.md"]},{"key":"ths_index","name":"同花顺板块列表","group":"板块 / 题材","source":"tushare","api":"ths_index","source_doc":"259","source_title":"同花顺概念和行业指数","source_path":"docs/sources/tushare/股票数据/打板专题数据/0259_同花顺概念和行业指数.md","sync":"prod-raw-db","storage":"raw_tushare/ths_index","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":57438,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/ths-index-prod-raw-db-lake-export-plan.md"]},{"key":"ths_member","name":"同花顺板块成分","group":"板块 / 题材","source":"tushare","api":"ths_member","source_doc":"261","source_title":"同花顺概念板块成分","source_path":"docs/sources/tushare/股票数据/打板专题数据/0261_同花顺概念板块成分.md","sync":"prod-raw-db","storage":"raw_tushare/ths_member","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":2412542,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/ths-member-prod-raw-db-lake-export-plan.md"]},{"key":"top_list","name":"龙虎榜","group":"榜单","source":"tushare","api":"top_list","source_doc":"106","source_title":"龙虎榜每日明细","source_path":"docs/sources/tushare/股票数据/打板专题数据/0106_龙虎榜每日明细.md","sync":"prod-raw-db","storage":"raw_tushare/top_list","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2016-01-04","end":"2026-05-07","bytes":40050881,"files":2509,"partitions":2509,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/top-list-prod-raw-db-lake-export-plan.md"]},{"key":"limit_cpt_list","name":"涨停概念列表","group":"涨跌停榜","source":"tushare","api":"limit_cpt_list","source_doc":"357","source_title":"最强板块统计","source_path":"docs/sources/tushare/股票数据/打板专题数据/0357_最强板块统计.md","sync":"prod-raw-db","storage":"raw_tushare/limit_cpt_list","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-11-13","end":"2026-04-30","bytes":3766137,"files":597,"partitions":597,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/limit-cpt-list-prod-raw-db-lake-export-plan.md"]},{"key":"limit_list_d","name":"每日涨跌停名单","group":"涨跌停榜","source":"tushare","api":"limit_list_d","source_doc":"298","source_title":"涨跌停列表（新）","source_path":"docs/sources/tushare/股票数据/打板专题数据/0298_涨跌停列表（新）.md","sync":"prod-raw-db","storage":"raw_tushare/limit_list_d","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-02","end":"2026-05-07","bytes":27397025,"files":1534,"partitions":1534,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/limit-list-d-prod-raw-db-lake-export-plan.md"]},{"key":"limit_list_ths","name":"同花顺涨停名单","group":"涨跌停榜","source":"tushare","api":"limit_list_ths","source_doc":"355","source_title":"涨跌停榜单（同花顺）","source_path":"docs/sources/tushare/股票数据/打板专题数据/0355_涨跌停榜单（同花顺）.md","sync":"prod-raw-db","storage":"raw_tushare/limit_list_ths","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-11-01","end":"2026-05-07","bytes":15132320,"files":607,"partitions":607,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/limit-list-ths-prod-raw-db-lake-export-plan.md"]},{"key":"limit_step","name":"连板梯队","group":"涨跌停榜","source":"tushare","api":"limit_step","source_doc":"356","source_title":"连板天梯","source_path":"docs/sources/tushare/股票数据/打板专题数据/0356_连板天梯.md","sync":"prod-raw-db","storage":"raw_tushare/limit_step","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-11-13","end":"2026-04-30","bytes":1854821,"files":597,"partitions":597,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/limit-step-prod-raw-db-lake-export-plan.md"]},{"key":"index_daily","name":"指数日线行情","group":"A股指数行情","source":"tushare","api":"index_daily","source_doc":"95","source_title":"指数日线行情","source_path":"docs/sources/tushare/指数专题/0095_指数日线行情.md","sync":"prod-core-db","storage":"raw_tushare/index_daily","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-02","end":"2026-04-30","bytes":117343001,"files":1532,"partitions":1532,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/index-daily-prod-core-db-lake-export-plan.md"]},{"key":"index_daily_basic","name":"指数每日指标","group":"A股指数行情","source":"tushare","api":"index_dailybasic","source_doc":"128","source_title":"大盘指数每日指标","source_path":"docs/sources/tushare/指数专题/0128_大盘指数每日指标.md","sync":"prod-raw-db","storage":"raw_tushare/index_daily_basic","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-02","end":"2026-04-30","bytes":11650591,"files":1532,"partitions":1532,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/index-daily-basic-prod-raw-db-lake-export-plan.md"]},{"key":"index_mins","name":"指数历史分钟行情","group":"A股指数行情","source":"tushare","api":"idx_mins","source_doc":"419","source_title":"股票历史分钟行情","source_path":"docs/sources/tushare/指数专题/0419_股票历史分钟行情.md","sync":"prod-raw-db + Tushare 补齐","storage":"raw_tushare/index_mins_by_date","layout":"by_date","layers":["raw_tushare"],"freqs":[1,5,15,30,60],"start":"2025-01-02","end":"2026-05-08","bytes":3093448632,"files":1615,"partitions":1615,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/index-mins-dual-source-lake-plan-v1.md","docs/datasets/index-mins-dataset-development.md"]},{"key":"index_monthly","name":"指数月线行情","group":"A股指数行情","source":"tushare","api":"index_monthly","source_doc":"172","source_title":"指数月线行情","source_path":"docs/sources/tushare/指数专题/0172_指数月线行情.md","sync":"prod-core-db","storage":"raw_tushare/index_monthly","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-23","end":"2026-04-30","bytes":5729662,"files":76,"partitions":76,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/index-monthly-prod-core-db-lake-export-plan.md"]},{"key":"index_weekly","name":"指数周线行情","group":"A股指数行情","source":"tushare","api":"index_weekly","source_doc":"171","source_title":"指数周线行情","source_path":"docs/sources/tushare/指数专题/0171_指数周线行情.md","sync":"prod-core-db","storage":"raw_tushare/index_weekly","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2020-01-03","end":"2026-05-08","bytes":24071855,"files":325,"partitions":325,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/index-weekly-prod-core-db-lake-export-plan.md"]},{"key":"etf_index","name":"ETF 跟踪指数","group":"ETF基金","source":"tushare","api":"etf_index","source_doc":"386","source_title":"ETF基准指数列表","source_path":"docs/sources/tushare/ETF专题/0386_ETF基准指数列表.md","sync":"prod-raw-db","storage":"raw_tushare/etf_index","layout":"current_file","layers":["raw_tushare","manifest"],"freqs":[],"start":null,"end":null,"bytes":85010,"files":2,"partitions":2,"health":"ok","write_policy":"replace_file","docs":["docs/datasets/etf-index-prod-raw-db-lake-export-plan.md","docs/datasets/etf-index-dataset-development.md"]},{"key":"fund_adj","name":"基金复权因子","group":"ETF基金","source":"tushare","api":"fund_adj","source_doc":"199","source_title":"基金复权因子","source_path":"docs/sources/tushare/ETF专题/0199_基金复权因子.md","sync":"prod-raw-db","storage":"raw_tushare/fund_adj","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2016-01-04","end":"2026-04-30","bytes":19145566,"files":2507,"partitions":2507,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/fund-adj-prod-raw-db-lake-export-plan.md","docs/datasets/fund-adj-dataset-development.md"]},{"key":"fund_daily","name":"基金日线行情","group":"ETF基金","source":"tushare","api":"fund_daily","source_doc":"127","source_title":"ETF日线行情","source_path":"docs/sources/tushare/ETF专题/0127_ETF日线行情.md","sync":"prod-raw-db","storage":"raw_tushare/fund_daily","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2016-01-04","end":"2026-04-30","bytes":118561572,"files":2507,"partitions":2507,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/fund-daily-prod-raw-db-lake-export-plan.md","docs/datasets/etf-fund-daily-dataset-development.md"]},{"key":"moneyflow","name":"个股资金流向","group":"资金流向","source":"tushare","api":"moneyflow","source_doc":"170","source_title":"个股资金流向","source_path":"docs/sources/tushare/股票数据/资金流向数据/0170_个股资金流向.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-04","end":"2026-04-30","bytes":1194106479,"files":3963,"partitions":3963,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-lake-dataset-development.md"]},{"key":"moneyflow_cnt_ths","name":"概念板块资金流向（THS）","group":"资金流向","source":"tushare","api":"moneyflow_cnt_ths","source_doc":"371","source_title":"同花顺概念板块资金流向（THS）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0371_同花顺概念板块资金流向（THS）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_cnt_ths","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-09-10","end":"2026-04-30","bytes":9128690,"files":392,"partitions":392,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-cnt-ths-dataset-development.md"]},{"key":"moneyflow_dc","name":"个股资金流向（DC）","group":"资金流向","source":"tushare","api":"moneyflow_dc","source_doc":"349","source_title":"个股资金流向（DC）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0349_个股资金流向（DC）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_dc","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-09-11","end":"2026-04-30","bytes":206695989,"files":635,"partitions":635,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-dc-dataset-development.md"]},{"key":"moneyflow_ind_dc","name":"板块资金流向（DC）","group":"资金流向","source":"tushare","api":"moneyflow_ind_dc","source_doc":"344","source_title":"东财概念及行业板块资金流向（DC）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0344_东财概念及行业板块资金流向（DC）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_ind_dc","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-09-12","end":"2026-04-30","bytes":25673090,"files":635,"partitions":635,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-ind-dc-dataset-development.md"]},{"key":"moneyflow_ind_ths","name":"行业资金流向（THS）","group":"资金流向","source":"tushare","api":"moneyflow_ind_ths","source_doc":"343","source_title":"同花顺行业资金流向（THS）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0343_同花顺行业资金流向（THS）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_ind_ths","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-09-10","end":"2026-04-30","bytes":4992365,"files":392,"partitions":392,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-ind-ths-dataset-development.md"]},{"key":"moneyflow_mkt_dc","name":"大盘资金流向（DC）","group":"资金流向","source":"tushare","api":"moneyflow_mkt_dc","source_doc":"345","source_title":"大盘资金流向（DC）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0345_大盘资金流向（DC）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_mkt_dc","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-04-17","end":"2026-04-30","bytes":7341600,"files":736,"partitions":736,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-mkt-dc-dataset-development.md"]},{"key":"moneyflow_ths","name":"个股资金流向（THS）","group":"资金流向","source":"tushare","api":"moneyflow_ths","source_doc":"348","source_title":"个股资金流向（THS）","source_path":"docs/sources/tushare/股票数据/资金流向数据/0348_个股资金流向（THS）.md","sync":"prod-raw-db","storage":"raw_tushare/moneyflow_ths","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2024-12-19","end":"2026-04-30","bytes":90912762,"files":329,"partitions":329,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/moneyflow-family-prod-raw-db-lake-export-plan.md","docs/datasets/moneyflow-ths-dataset-development.md"]},{"key":"adj_factor","name":"复权因子","group":"技术指标","source":"tushare","api":"adj_factor","source_doc":"28","source_title":"复权因子","source_path":"docs/sources/tushare/股票数据/行情数据/0028_复权因子.md","sync":"prod-raw-db","storage":"raw_tushare/adj_factor","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2010-01-04","end":"2026-04-30","bytes":121496230,"files":3963,"partitions":3963,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/adj-factor-prod-raw-db-lake-export-plan.md"]},{"key":"cyq_perf","name":"每日筹码及胜率","group":"技术指标","source":"tushare","api":"cyq_perf","source_doc":"293","source_title":"每日筹码及胜率","source_path":"docs/sources/tushare/股票数据/特色数据/0293_每日筹码及胜率.md","sync":"prod-raw-db","storage":"raw_tushare/cyq_perf","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2018-01-02","end":"2026-05-07","bytes":205213797,"files":2021,"partitions":2021,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/cyq-perf-prod-raw-db-lake-export-plan.md","docs/datasets/cyq-perf-dataset-development.md"]},{"key":"stk_factor_pro","name":"股票技术面因子（专业版）","group":"技术指标","source":"tushare","api":"stk_factor_pro","source_doc":"328","source_title":"股票技术面因子(专业版)","source_path":"docs/sources/tushare/股票数据/特色数据/0328_股票技术面因子(专业版).md","sync":"prod-raw-db","storage":"raw_tushare/stk_factor_pro","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2025-01-02","end":"2026-05-08","bytes":3172141567,"files":323,"partitions":323,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-factor-pro-prod-raw-db-lake-export-plan.md","docs/datasets/stk-factor-pro-dataset-development.md"]},{"key":"stk_nineturn","name":"神奇九转指标","group":"技术指标","source":"tushare","api":"stk_nineturn","source_doc":"364","source_title":"神奇九转指标","source_path":"docs/sources/tushare/股票数据/特色数据/0364_神奇九转指标.md","sync":"prod-raw-db","storage":"raw_tushare/stk_nineturn","layout":"by_date","layers":["raw_tushare"],"freqs":[],"start":"2023-01-03","end":"2026-05-08","bytes":142690662,"files":807,"partitions":807,"health":"ok","write_policy":"replace_partition","docs":["docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md","docs/datasets/stk-nineturn-dataset-development.md"]}];
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[ch]);
+}
+function fmtBytes(value) {
+  if (!value) return "0 B";
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)} GB`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} KB`;
+  return `${value} B`;
+}
+function layoutLabel(value) {
+  return {
+    current_file: "当前版本单文件",
+    by_date: "按交易日期分区",
+    by_symbol_month: "按月份分桶",
+    manifest_file: "辅助清单文件"
+  }[value] || value;
+}
+function docLinks(paths) {
+  if (!paths || paths.length === 0) return '<span class="muted">暂无专项文档</span>';
+  return paths.map(path => {
+    const label = path.split("/").pop();
+    return `<a href="${REPO}${encodeURI(path)}">${escapeHtml(label)}</a>`;
+  }).join("<br>");
+}
+function sourceLink(item) {
+  if (!item.source_path) return '<span class="muted">无</span>';
+  return `<a href="${REPO}${encodeURI(item.source_path)}">${escapeHtml(item.source_doc)} ${escapeHtml(item.source_title)}<br><span class="muted">${escapeHtml(item.api || "")}</span></a>`;
+}
+function dateRange(item) {
+  if (!item.start && !item.end) return '<span class="muted">快照</span>';
+  return `${escapeHtml(item.start || "")} ~ ${escapeHtml(item.end || "")}`;
+}
+function statusLabel(value) {
+  if (value === "ok") return '<span class="status-ok">ok</span>';
+  if (value === "empty") return '<span class="status-empty">empty</span>';
+  return escapeHtml(value);
+}
+function rowHtml(item) {
+  const freqText = item.freqs && item.freqs.length ? item.freqs.join(" / ") : "-";
+  const note = item.physical_note ? `<div class="warn-line">${escapeHtml(item.physical_note)}</div>` : "";
+  const scale = item.physical_bytes_label ? `${fmtBytes(item.bytes)} / 物理 ${escapeHtml(item.physical_bytes_label)}` : fmtBytes(item.bytes);
+  return `<tr>
+    <td><div class="strong">${escapeHtml(item.name)}</div><code>${escapeHtml(item.key)}</code></td>
+    <td>${escapeHtml(item.group)}</td>
+    <td>${escapeHtml(item.sync)}<br><span class="muted">${escapeHtml(item.source)}</span></td>
+    <td>${sourceLink(item)}</td>
+    <td><code>${escapeHtml(item.storage)}</code><br><span class="muted">${escapeHtml(layoutLabel(item.layout))}</span></td>
+    <td>${escapeHtml(item.layers.join(", "))}<br><span class="muted">freq: ${escapeHtml(freqText)}</span></td>
+    <td>${dateRange(item)}<br><span class="muted">${statusLabel(item.health)}</span></td>
+    <td class="num">${scale}<br><span class="muted">${item.files} 文件 / ${item.partitions} 分区</span>${note}</td>
+    <td>${docLinks(item.docs)}</td>
+  </tr>`;
+}
+function optionHtml(values) {
+  return values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+}
+function render() {
+  const q = document.getElementById("query").value.trim().toLowerCase();
+  const group = document.getElementById("group-filter").value;
+  const sync = document.getElementById("sync-filter").value;
+  const health = document.getElementById("health-filter").value;
+  const rows = DATASETS.filter(item => {
+    const haystack = [
+      item.key, item.name, item.group, item.sync, item.api, item.storage,
+      item.source_doc, item.source_title, ...(item.docs || [])
+    ].join(" ").toLowerCase();
+    return (!q || haystack.includes(q)) &&
+      (!group || item.group === group) &&
+      (!sync || item.sync === sync) &&
+      (!health || item.health === health);
+  });
+  document.getElementById("dataset-rows").innerHTML = rows.map(rowHtml).join("");
+  document.getElementById("visible-count").textContent = `${rows.length} 项`;
+}
+function initFilters() {
+  const groups = [...new Set(DATASETS.map(item => item.group))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const syncs = [...new Set(DATASETS.map(item => item.sync))].sort();
+  const healths = [...new Set(DATASETS.map(item => item.health))].sort();
+  document.getElementById("group-filter").insertAdjacentHTML("beforeend", optionHtml(groups));
+  document.getElementById("sync-filter").insertAdjacentHTML("beforeend", optionHtml(syncs));
+  document.getElementById("health-filter").insertAdjacentHTML("beforeend", optionHtml(healths));
+  for (const id of ["query", "group-filter", "sync-filter", "health-filter"]) {
+    document.getElementById(id).addEventListener("input", render);
+  }
+}
+initFilters();
+render();
+</script>
+</body>
+</html>
