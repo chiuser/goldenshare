@@ -1,14 +1,14 @@
-# 财势乾坤｜Design Token 与视觉规范 v0.3.1
+# 财势乾坤｜Design Token 与视觉规范 v0.3.3
 
-> 所属项目：财势乾坤
-> 文档名称：`03-design-tokens.md`
-> 建议保存路径：`财势乾坤/设计/03-design-tokens.md`
-> 文档角色：01_Design Token 与视觉规范
-> 适用范围：P0 Web 页面、通用组件库 Demo、后续行情终端类页面
-> 默认主题：Dark First，Light Token Ready
-> 市场规则：中国市场红涨绿跌
-> 当前状态：v0.3.1，基于《组件库Demo产品需求文档 v0.2.md》与市场总览 Review v5 修订
-> 本轮重点：在保留通用组件库 Demo Token 的基础上，仅补充市场总览 / 连板天梯模块的标准股票卡片、层级容器、晋级箭头、展开收起与五板以上层视觉规则；不修改 Review v5 未点名区域。
+> 所属项目：财势乾坤  
+> 文档名称：`03-design-tokens.md`  
+> 建议保存路径：`财势乾坤/设计/03-design-tokens.md`  
+> 文档角色：01_Design Token 与视觉规范  
+> 适用范围：P0 Web 页面、通用组件库 Demo、后续行情终端类页面  
+> 默认主题：Dark First，Light Token Ready  
+> 市场规则：中国市场红涨绿跌  
+> 当前状态：v0.3.3，基于市场总览 Review v7 修订  
+> 本轮重点：仅补充 `市场总览 / 连板天梯 / 标准股票卡片` 的视觉规则，将股票卡片从上一轮“右上角代码 + 2×3 机械网格”正式替换为“左侧识别区 / 中间行情事实区 / 右侧标签区”的横向三分区卡片；不修改 Review v7 未点名区域。
 
 ---
 
@@ -19,72 +19,78 @@
 | 文件 | 版本 / 状态 | 本文档处理 |
 |---|---|---|
 | `财势乾坤行情软件项目总说明_v_0_2.md` | v0.2 | 继续作为项目级产品与 UI 总控纲领，约束产品名称、A 股优先、红涨绿跌、深色默认、专业沉稳风格。 |
-| `组件库Demo产品需求文档 v0.2.md` | v0.2，Review 草案 | 作为本轮主输入，确认组件库 Demo 与具体业务解耦，不绑定市场总览、API、数据字典或具体业务对象。 |
-| `03-design-tokens.md` | 当前公共区 Token 基线 | 作为本文档的既有内容基线，保留已确认的全局主题、红涨绿跌、深浅主题结构与市场总览既有页面级约束。 |
+| `市场总览产品需求文档 v0.2.md` | v0.2，Review 草案 | 作为市场总览页面 PRD，约束页面名称、归属、模块、非目标、无固定 SideNav 等基线。 |
+| `02-market-overview-page-design.md` | v0.1 | 作为市场总览页面设计基线，保持桌面端、A 股、深色主题和无固定 SideNav 方向。 |
+| `03-design-tokens.md` | 当前公共区 Token 基线 | 作为本文档既有内容基线，保留已确认的全局主题、红涨绿跌、通用组件 Token 与市场总览既有页面级约束。 |
+| `market-overview-html-review-v7-总控解读与变更单.md` | HTML Review v7，总控解读草案 | 作为本轮直接变更依据，限定只修订连板天梯中的标准股票卡片视觉规则。 |
 
-### 0.2 本轮不触发停止条件的确认
+### 0.2 本轮不变的市场总览基线
 
-已读取到的《组件库Demo产品需求文档 v0.2.md》明确：
+即使本轮修订标准股票卡片，以下基线不得改变：
 
-1. 文档标题为“财势乾坤通用组件库 Demo 产品需求文档 v0.2”；
-2. 本版修订重点为“组件库必须与具体业务解耦”；
-3. 组件库 Demo 不绑定市场总览、API、数据字典或具体业务对象；
-4. `04 API 契约与数据字典` 不参与本轮主流程。
-
-因此，本轮继续修订 `03-design-tokens.md`。
+1. 页面名称是“市场总览”。
+2. 页面属于“乾坤行情”。
+3. 市场总览不是独立一级菜单。
+4. 桌面端不使用固定 SideNav。
+5. 页面只展示 A 股市场客观事实。
+6. 不展示市场温度、市场情绪指数、资金面分数、风险指数作为首页核心结论。
+7. 中国市场红涨绿跌：上涨红色、下跌绿色、平盘白色/灰白色。
+8. 不输出买卖建议。
 
 ### 0.3 本轮修订边界
 
-本轮目标是支撑：
+本轮只允许修订：
 
 ```text
-财势乾坤/showcase/component-library-demo-v1.html
+市场总览 / 连板天梯 / 标准股票卡片
 ```
 
-本轮新增或强化的是 **通用组件 Token**，不是具体业务页面 Token。
+具体包括：
 
-允许新增或强化：
+- 股票代码左上角胶囊；
+- 左侧识别区：股票代码胶囊、股票名称、最新价；
+- 中间行情事实区：涨幅、板上成交额；
+- 右侧标签区：所属板块、N天M板/板型标签；
+- 股票名称；
+- 涨幅；
+- 所属板块；
+- 最新价；
+- 板上成交额；
+- N天M板/板型标签；
+- 卡片 hover / clickable / selected 状态。
 
-- 通用组件状态 Token；
-- 通用容器 Token；
-- 通用数据展示 Token；
-- 通用表格 Token；
-- 通用图表 Token；
-- 通用饼图 callout Token；
-- 通用热力图 Token；
-- 通用 Tooltip、Callout、Skeleton、Empty、Error、Data Delayed 状态 Token。
+本轮禁止主动修改：
 
-禁止新增：
+1. TopMarketBar；
+2. Breadcrumb；
+3. PageHeader；
+4. ShortcutBar；
+5. 今日市场客观总结；
+6. 主要指数；
+7. 涨跌分布；
+8. 市场风格；
+9. 成交额总览；
+10. 大盘资金流向；
+11. 榜单速览；
+12. 涨跌停统计与分布；
+13. 板块速览；
+14. 连板天梯层级结构；
+15. 连板天梯展开 / 收起逻辑；
+16. 页面整体主题；
+17. 全局字体；
+18. 与 Review v7 无关的任何视觉规则。
 
-- 市场总览专属 Token；
-- 涨跌停业务专属 Token；
-- 持仓业务专属 Token；
-- 机会雷达业务专属 Token；
-- 交易计划业务专属 Token；
-- Tushare 原字段专属 Token；
-- 具体 API response 字段专属 Token。
+### 0.4 组件库通用边界继续保留
 
-### 0.4 命名边界
+此前基于《组件库Demo产品需求文档 v0.2.md》补充的通用组件 Token 继续保留，但本轮不新增具体业务专属通用组件。
 
-组件命名统一使用：
-
-```text
-Csq*
-```
+`CsqStockCompactCard` 可以作为紧凑股票卡片候选组件，但本轮 Review v7 的具体字段结构仅用于市场总览连板天梯场景，不扩大为所有股票卡片的强制唯一结构。
 
 CSS Design Token 变量仍统一使用：
 
 ```css
 --cs-*
 ```
-
-说明：
-
-- `Csq` 是组件名前缀，例如 `CsqPanel`、`CsqDataTable`。
-- `--cs-*` 是 CSS Token 前缀，例如 `--cs-color-bg-page`。
-- 本轮不新增 `--csq-*` CSS Token 前缀，避免与既有 Design Token 体系冲突。
-
----
 
 ## 1. 已确认产品与视觉决策
 
@@ -1775,228 +1781,164 @@ Pattern Example 不作为 Core Component 契约，只展示通用组件在行情
 
 ---
 
-# 25. 市场总览 / 连板天梯模块视觉规则（Review v5 修订）
+---
 
-> 本节仅服务 `市场总览 / 连板天梯模块`。
-> 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、页面整体主题、全局字体或页面整体布局顺序。
+# 25. 市场总览 / 连板天梯 / 标准股票卡片视觉规则（Review v7 修订）
 
-## 25.1 Review v5 设计边界
+> 本节仅服务 `市场总览 / 连板天梯 / 标准股票卡片`。  
+> 本节正式替代 Review v6 的“股票代码右上角 + 主体 2 行 × 3 列”方案。  
+> 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、连板天梯层级结构、连板天梯展开 / 收起逻辑、页面整体主题、全局字体或页面整体布局顺序。
 
-Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票卡片列表升级为：
+## 25.1 Review v7 设计边界
 
-```text
-昨日层级 → 今日晋级层级
-```
+Review v7 只处理连板天梯中的标准股票卡片视觉结构，不改变 Review v5 / v6 已确认的连板天梯层级逻辑。
 
-并建立一套可落地的视觉规则：
+本轮修改目标：
 
-1. 标准股票卡片；
-2. 昨日层级容器；
-3. 今日晋级层级容器；
-4. 首板独立层；
-5. 五板以上独立层；
-6. 晋级箭头；
-7. 展开 / 收起控件；
-8. 股票卡片 hover / clickable 状态；
-9. 五板以上卡片右下角“具体板数”样式。
+1. 用户新截图正式替代上一轮股票卡片方案；
+2. 废弃上一轮“股票代码右上角角标 + 主体 2 行 × 3 列机械网格”的结构；
+3. 新版卡片采用横向三分区结构：左侧识别区 / 中间行情事实区 / 右侧标签区；
+4. 股票代码改为左上角胶囊标签；
+5. 字段集合不变，仍为股票代码、股票名称、最新价、涨幅、所属板块、板上成交额、N天M板/板型；
+6. 保持当前市场总览深色金融终端风格；
+7. 不修改连板天梯层级结构、展开/收起逻辑、五板以上规则。
 
-## 25.2 连板天梯专用 Token
+## 25.2 新版标准股票卡片 Token
 
 ```css
 :root {
-  /* Limit ladder module */
-  --cs-limit-ladder-row-gap: 12px;
-  --cs-limit-ladder-layer-gap: 10px;
-  --cs-limit-ladder-bridge-width: 44px;
-  --cs-limit-ladder-layer-padding: 10px;
-  --cs-limit-ladder-layer-title-height: 28px;
-  --cs-limit-ladder-stock-grid-gap-x: 8px;
-  --cs-limit-ladder-stock-grid-gap-y: 8px;
-
-  /* Stock compact card */
-  --cs-stock-card-width: 148px;
-  --cs-stock-card-height: 72px;
+  /* Stock compact card - Review v7 */
+  --cs-stock-card-width: 176px;
+  --cs-stock-card-min-width: 160px;
+  --cs-stock-card-height: 82px;
   --cs-stock-card-padding-x: 10px;
   --cs-stock-card-padding-y: 8px;
   --cs-stock-card-radius: var(--cs-radius-card);
   --cs-stock-card-border-width: 1px;
 
-  /* Expand / collapse */
-  --cs-limit-ladder-expand-height: 28px;
-  --cs-limit-ladder-expand-icon-size: 12px;
-  --cs-limit-ladder-expand-font-size: var(--cs-font-size-12);
+  /* Horizontal zones */
+  --cs-stock-card-zone-gap: 8px;
+  --cs-stock-card-left-zone-width: 1.08fr;
+  --cs-stock-card-center-zone-width: 0.88fr;
+  --cs-stock-card-right-zone-width: 0.96fr;
+  --cs-stock-card-zone-row-gap: 5px;
 
-  /* Arrow */
-  --cs-limit-ladder-arrow-size: 18px;
-  --cs-limit-ladder-arrow-line-width: 1px;
+  /* Code pill */
+  --cs-stock-card-code-pill-height: 17px;
+  --cs-stock-card-code-pill-padding-x: 6px;
+  --cs-stock-card-code-pill-font-size: var(--cs-font-size-10);
+  --cs-stock-card-code-pill-margin-bottom: 5px;
+
+  /* Field sizes */
+  --cs-stock-card-name-font-size: var(--cs-font-size-13);
+  --cs-stock-card-name-font-weight: var(--cs-font-weight-semibold);
+  --cs-stock-card-price-font-size: var(--cs-font-size-12);
+  --cs-stock-card-price-font-weight: var(--cs-font-weight-semibold);
+  --cs-stock-card-change-font-size: var(--cs-font-size-12);
+  --cs-stock-card-change-font-weight: var(--cs-font-weight-bold);
+  --cs-stock-card-meta-font-size: var(--cs-font-size-11);
+  --cs-stock-card-board-amount-font-size: var(--cs-font-size-11);
+  --cs-stock-card-streak-tag-font-size: var(--cs-font-size-11);
+  --cs-stock-card-streak-tag-height: 18px;
+  --cs-stock-card-streak-tag-padding-x: 7px;
 }
 
 [data-theme="dark"] {
-  --cs-limit-ladder-layer-bg: rgba(16, 24, 39, 0.78);
-  --cs-limit-ladder-layer-bg-subtle: rgba(13, 20, 34, 0.82);
-  --cs-limit-ladder-layer-bg-above-five: rgba(247, 199, 107, 0.07);
-  --cs-limit-ladder-layer-border: rgba(148, 163, 184, 0.16);
-  --cs-limit-ladder-layer-border-emphasis: rgba(247, 199, 107, 0.28);
-  --cs-limit-ladder-layer-title-bg: rgba(255, 255, 255, 0.025);
-  --cs-limit-ladder-layer-title-text: var(--cs-color-text-secondary);
-
   --cs-stock-card-bg: rgba(18, 27, 44, 0.92);
   --cs-stock-card-bg-hover: rgba(24, 34, 53, 0.96);
   --cs-stock-card-bg-active: rgba(21, 30, 48, 0.98);
+  --cs-stock-card-bg-selected: rgba(247, 199, 107, 0.08);
   --cs-stock-card-border: rgba(148, 163, 184, 0.16);
   --cs-stock-card-border-hover: rgba(247, 199, 107, 0.34);
   --cs-stock-card-border-active: rgba(247, 199, 107, 0.48);
+  --cs-stock-card-border-selected: rgba(247, 199, 107, 0.54);
   --cs-stock-card-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.24);
 
   --cs-stock-card-name-text: var(--cs-color-text-primary);
-  --cs-stock-card-code-text: var(--cs-color-text-muted);
+  --cs-stock-card-code-pill-text: rgba(168, 180, 198, 0.80);
+  --cs-stock-card-code-pill-bg: rgba(148, 163, 184, 0.08);
+  --cs-stock-card-code-pill-border: rgba(148, 163, 184, 0.12);
   --cs-stock-card-sector-text: var(--cs-color-text-secondary);
-  --cs-stock-card-open-times-text: var(--cs-color-warning);
-  --cs-stock-card-streak-level-text: var(--cs-color-brand-accent);
-  --cs-stock-card-streak-level-bg: rgba(247, 199, 107, 0.10);
-  --cs-stock-card-streak-level-border: rgba(247, 199, 107, 0.28);
-
-  --cs-limit-ladder-arrow-color: rgba(247, 199, 107, 0.72);
-  --cs-limit-ladder-arrow-bg: rgba(247, 199, 107, 0.08);
-  --cs-limit-ladder-expand-bg: rgba(148, 163, 184, 0.08);
-  --cs-limit-ladder-expand-bg-hover: rgba(247, 199, 107, 0.10);
-  --cs-limit-ladder-expand-border: rgba(148, 163, 184, 0.14);
-  --cs-limit-ladder-expand-text: var(--cs-color-text-secondary);
-  --cs-limit-ladder-expand-text-hover: var(--cs-color-brand-accent);
+  --cs-stock-card-board-amount-text: rgba(229, 237, 248, 0.84);
+  --cs-stock-card-streak-tag-text: var(--cs-color-brand-accent);
+  --cs-stock-card-streak-tag-bg: rgba(247, 199, 107, 0.10);
+  --cs-stock-card-streak-tag-border: rgba(247, 199, 107, 0.28);
 }
 
 [data-theme="light"] {
-  --cs-limit-ladder-layer-bg: #FFFFFF;
-  --cs-limit-ladder-layer-bg-subtle: #F8FAFC;
-  --cs-limit-ladder-layer-bg-above-five: rgba(201, 154, 61, 0.08);
-  --cs-limit-ladder-layer-border: rgba(15, 23, 42, 0.10);
-  --cs-limit-ladder-layer-border-emphasis: rgba(201, 154, 61, 0.26);
-  --cs-limit-ladder-layer-title-bg: rgba(15, 23, 42, 0.025);
-  --cs-limit-ladder-layer-title-text: var(--cs-color-text-secondary);
-
   --cs-stock-card-bg: #FFFFFF;
   --cs-stock-card-bg-hover: #F8FAFC;
   --cs-stock-card-bg-active: #F1F5F9;
+  --cs-stock-card-bg-selected: rgba(201, 154, 61, 0.08);
   --cs-stock-card-border: rgba(15, 23, 42, 0.12);
   --cs-stock-card-border-hover: rgba(201, 154, 61, 0.36);
   --cs-stock-card-border-active: rgba(201, 154, 61, 0.48);
+  --cs-stock-card-border-selected: rgba(201, 154, 61, 0.54);
   --cs-stock-card-shadow-hover: 0 8px 18px rgba(15, 23, 42, 0.10);
 
   --cs-stock-card-name-text: var(--cs-color-text-primary);
-  --cs-stock-card-code-text: var(--cs-color-text-muted);
+  --cs-stock-card-code-pill-text: rgba(71, 85, 105, 0.74);
+  --cs-stock-card-code-pill-bg: rgba(15, 23, 42, 0.04);
+  --cs-stock-card-code-pill-border: rgba(15, 23, 42, 0.10);
   --cs-stock-card-sector-text: var(--cs-color-text-secondary);
-  --cs-stock-card-open-times-text: var(--cs-color-warning);
-  --cs-stock-card-streak-level-text: var(--cs-color-brand-accent);
-  --cs-stock-card-streak-level-bg: rgba(201, 154, 61, 0.10);
-  --cs-stock-card-streak-level-border: rgba(201, 154, 61, 0.28);
-
-  --cs-limit-ladder-arrow-color: rgba(168, 117, 33, 0.72);
-  --cs-limit-ladder-arrow-bg: rgba(201, 154, 61, 0.08);
-  --cs-limit-ladder-expand-bg: rgba(15, 23, 42, 0.04);
-  --cs-limit-ladder-expand-bg-hover: rgba(201, 154, 61, 0.08);
-  --cs-limit-ladder-expand-border: rgba(15, 23, 42, 0.10);
-  --cs-limit-ladder-expand-text: var(--cs-color-text-secondary);
-  --cs-limit-ladder-expand-text-hover: var(--cs-color-brand-accent);
+  --cs-stock-card-board-amount-text: rgba(15, 23, 42, 0.76);
+  --cs-stock-card-streak-tag-text: var(--cs-color-brand-accent);
+  --cs-stock-card-streak-tag-bg: rgba(201, 154, 61, 0.10);
+  --cs-stock-card-streak-tag-border: rgba(201, 154, 61, 0.28);
 }
 ```
 
-## 25.3 标准股票卡片视觉规则
+说明：
 
-标准股票卡片是连板天梯中的基础展示单元。字段固定为：
+- `--cs-stock-card-width` 建议为 `176px`，用于容纳三分区结构；
+- 局部空间紧张时可降级至 `--cs-stock-card-min-width: 160px`；
+- 该调整只影响连板天梯标准股票卡片，不修改全局卡片宽度；
+- 股票代码胶囊从上一轮右上角角标改为左上角胶囊，旧的 `code-badge-right` 方案不再作为默认结构使用。
 
-```text
-左上：股票名称      右上：涨跌幅
-左中：股票代码      右中：所属板块
-左下：最新价        右下：开板次数
-```
+## 25.3 新版标准股票卡片整体规则
 
-五板以上层特殊规则：
+新版股票卡片必须遵守当前市场总览深色金融终端风格。
 
-```text
-右下：具体板数，如 6板 / 7板 / 8板
-```
+用户新截图只用于确定：
 
-### 25.3.1 尺寸与密度
+1. 信息排布；
+2. 三分区结构；
+3. 视觉层级关系。
 
-| 项 | Token / 建议值 | 说明 |
-|---|---:|---|
-| 卡片宽度 | `--cs-stock-card-width: 148px` | 每行 6 只时适配全宽区域 |
-| 卡片高度 | `--cs-stock-card-height: 72px` | 允许 3 行信息，保持高密度 |
-| 横向内边距 | `--cs-stock-card-padding-x: 10px` | 保证左右字段不贴边 |
-| 纵向内边距 | `--cs-stock-card-padding-y: 8px` | 兼顾密度与可读性 |
-| 圆角 | `--cs-stock-card-radius` | 使用既有卡片圆角 |
-| 边框 | `--cs-stock-card-border` | 细边框，不做发光 |
+不得照搬截图中的：
+
+1. 浅色背景；
+2. 蓝色边框；
+3. 非系统字体；
+4. 示例图中的具体装饰元素；
+5. 与当前市场总览不一致的按钮或高亮样式。
 
 推荐 CSS：
 
 ```css
 .cs-stock-compact-card {
   width: var(--cs-stock-card-width);
+  min-width: var(--cs-stock-card-min-width);
   min-height: var(--cs-stock-card-height);
   padding: var(--cs-stock-card-padding-y) var(--cs-stock-card-padding-x);
   border-radius: var(--cs-stock-card-radius);
   border: var(--cs-stock-card-border-width) solid var(--cs-stock-card-border);
   background: var(--cs-stock-card-bg);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: repeat(3, minmax(16px, auto));
-  column-gap: 8px;
-  row-gap: 2px;
   cursor: pointer;
+  display: grid;
+  grid-template-columns:
+    minmax(0, var(--cs-stock-card-left-zone-width))
+    minmax(0, var(--cs-stock-card-center-zone-width))
+    minmax(0, var(--cs-stock-card-right-zone-width));
+  column-gap: var(--cs-stock-card-zone-gap);
+  align-items: stretch;
   transition:
     background var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
     border-color var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
     box-shadow var(--cs-motion-duration-fast) var(--cs-motion-ease-standard),
     transform var(--cs-motion-duration-fast) var(--cs-motion-ease-standard);
 }
-```
 
-### 25.3.2 字体与对齐
-
-| 字段 | 字号 | 字重 | 颜色 | 对齐 |
-|---|---:|---:|---|---|
-| 股票名称 | 13px | 600 | `--cs-stock-card-name-text` | 左对齐 |
-| 股票代码 | 11px | 400/500 | `--cs-stock-card-code-text` | 左对齐 |
-| 最新价 | 12px | 600 | 按涨跌方向红/绿/灰白 | 左对齐，数字字体 |
-| 涨跌幅 | 12px | 700 | 红涨绿跌 | 右对齐，数字字体 |
-| 所属板块 | 11px | 400/500 | `--cs-stock-card-sector-text` | 右对齐，单行省略 |
-| 开板次数 | 11px | 500 | `--cs-stock-card-open-times-text` | 右对齐 |
-| 具体板数 | 11px | 700 | `--cs-stock-card-streak-level-text` | 右对齐，pill 标签 |
-
-```css
-.cs-stock-card-name {
-  font-size: var(--cs-font-size-13);
-  font-weight: var(--cs-font-weight-semibold);
-  color: var(--cs-stock-card-name-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cs-stock-card-code,
-.cs-stock-card-sector,
-.cs-stock-card-open-times {
-  font-size: var(--cs-font-size-11);
-  line-height: var(--cs-line-height-compact);
-}
-
-.cs-stock-card-price,
-.cs-stock-card-change {
-  font-family: var(--cs-font-family-number);
-  font-variant-numeric: tabular-nums;
-}
-
-.cs-stock-card-change,
-.cs-stock-card-sector,
-.cs-stock-card-open-times,
-.cs-stock-card-streak-level {
-  text-align: right;
-}
-```
-
-### 25.3.3 Hover / clickable / active 状态
-
-```css
 .cs-stock-compact-card:hover {
   background: var(--cs-stock-card-bg-hover);
   border-color: var(--cs-stock-card-border-hover);
@@ -2010,342 +1952,370 @@ Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票�
   transform: translateY(1px);
 }
 
-.cs-stock-compact-card.is-clickable {
-  cursor: pointer;
+.cs-stock-compact-card.is-selected {
+  background: var(--cs-stock-card-bg-selected);
+  border-color: var(--cs-stock-card-border-selected);
 }
 ```
 
-规则：
+交互规则：
 
 1. hover 时整卡高亮；
-2. clickable 状态必须通过 cursor 与 hover 边框提示；
-3. active 仅用于鼠标按下或键盘确认，不作为常驻选中；
-4. 不设置层级标题点击态，因为层级标题暂不支持点击。
+2. clickable 状态必须通过 `cursor: pointer`、hover 边框和弱阴影提示；
+3. active 仅用于鼠标按下或键盘确认；
+4. selected 为可选状态，仅当页面需要表达当前选中股票时使用；
+5. 卡片点击进入个股详情；
+6. 不因为卡片点击态修改连板天梯层级标题交互。
 
-## 25.4 层级容器视觉规则
+## 25.4 股票代码左上角胶囊
 
-连板天梯层级容器分为四类：
-
-1. 昨日层级容器；
-2. 今日晋级层级容器；
-3. 首板独立层容器；
-4. 五板以上独立层容器。
-
-所有层级容器必须使用现有深色金融终端风格，不照搬草图浅蓝背景。
-
-### 25.4.1 昨日层级容器
-
-用途：展示昨日属于某层级的所有股票，卡片数据使用今日行情。
-
-```css
-.cs-limit-ladder-prev-layer {
-  background: var(--cs-limit-ladder-layer-bg-subtle);
-  border: 1px solid var(--cs-limit-ladder-layer-border);
-  border-radius: var(--cs-radius-panel);
-  padding: var(--cs-limit-ladder-layer-padding);
-}
-```
-
-视觉规则：
-
-- 标题如 `昨日首板`、`昨日二板`、`昨日三板`；
-- 标题使用次级文字，不做强高亮；
-- 容器背景略弱于今日晋级层；
-- 容器内股票卡片仍可点击进入个股详情。
-
-### 25.4.2 今日晋级层级容器
-
-用途：展示从昨日层级成功晋级到今日 N 板的股票。
-
-```css
-.cs-limit-ladder-current-layer {
-  background: var(--cs-limit-ladder-layer-bg);
-  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
-  border-radius: var(--cs-radius-panel);
-  padding: var(--cs-limit-ladder-layer-padding);
-}
-```
-
-视觉规则：
-
-- 标题如 `今日二板`、`今日三板`、`今日四板`、`今日五板`；
-- 边框可略带品牌金弱强调；
-- 不使用大面积红色背景；
-- 成功晋级本身不等于主观推荐，不做过强视觉冲击。
-
-### 25.4.3 首板独立层容器
-
-用途：只展示今日首板股票，没有昨日来源。
-
-```css
-.cs-limit-ladder-first-layer {
-  background: var(--cs-limit-ladder-layer-bg);
-  border: 1px solid var(--cs-limit-ladder-layer-border);
-  border-radius: var(--cs-radius-panel);
-  padding: var(--cs-limit-ladder-layer-padding);
-}
-```
-
-视觉规则：
-
-- 标题固定为 `首板`；
-- 独立占一行；
-- 该层位于低位层，整体顺序靠下；
-- 不展示晋级箭头。
-
-### 25.4.4 五板以上独立层容器
-
-用途：只展示今日六板及以上股票，不包含今日五板。
-
-```css
-.cs-limit-ladder-above-five-layer {
-  background: var(--cs-limit-ladder-layer-bg-above-five);
-  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
-  border-radius: var(--cs-radius-panel);
-  padding: var(--cs-limit-ladder-layer-padding);
-}
-```
-
-视觉规则：
-
-1. 顶部独立层；
-2. 标题固定为 `五板以上`；
-3. 只展示今日六板及以上；
-4. 不包含今日五板；
-5. 不展示成“昨日五板 → 今日六板”的晋级结构；
-6. 股票卡片右下显示具体板数，如 `6板`、`7板`；
-7. 使用弱品牌金边框或弱金背景，不使用夸张发光。
-
-### 25.4.5 层级标题条
-
-```css
-.cs-limit-ladder-layer-title {
-  height: var(--cs-limit-ladder-layer-title-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px 6px;
-  color: var(--cs-limit-ladder-layer-title-text);
-  font-size: var(--cs-font-size-13);
-  font-weight: var(--cs-font-weight-semibold);
-  border-bottom: 1px solid var(--cs-color-divider);
-  margin-bottom: var(--cs-space-8);
-}
-```
-
-规则：
-
-- 层级标题清晰但不喧宾夺主；
-- 标题不支持点击，不出现 link hover；
-- 可在标题右侧展示股票数量，例如 `12只`；
-- 股票数量使用弱文字或数字字体。
-
-## 25.5 层级排列与网格密度
-
-### 25.5.1 二板及以上晋级结构
+股票代码显示在左上角胶囊中，例如：
 
 ```text
-昨日 N-1 板     →     今日 N 板
+603017.SH
 ```
+
+要求：
+
+1. 不再放右上角；
+2. 不再作为普通正文列；
+3. 位于左侧识别区顶部；
+4. 弱化但清晰可读；
+5. 不抢股票名称的视觉权重；
+6. 不使用涨跌色。
 
 推荐 CSS：
 
 ```css
-.cs-limit-ladder-promotion-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--cs-limit-ladder-bridge-width) minmax(0, 1fr);
-  align-items: stretch;
-  gap: var(--cs-limit-ladder-layer-gap);
-  margin-bottom: var(--cs-limit-ladder-row-gap);
-}
-```
-
-### 25.5.2 股票卡片网格
-
-默认每层最多展示 2 行 × 每行 6 只。
-
-```css
-.cs-limit-ladder-stock-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(var(--cs-stock-card-width), 1fr));
-  gap: var(--cs-limit-ladder-stock-grid-gap-y) var(--cs-limit-ladder-stock-grid-gap-x);
-  overflow: hidden;
-}
-
-.cs-limit-ladder-stock-grid.is-collapsed {
-  max-height: calc(var(--cs-stock-card-height) * 2 + var(--cs-limit-ladder-stock-grid-gap-y));
-}
-
-.cs-limit-ladder-stock-grid.is-expanded {
-  max-height: none;
-}
-```
-
-规则：
-
-1. 默认最多展示 12 只；
-2. 每层独立控制展开状态；
-3. 展开不影响其它层；
-4. 如果宽度不足，可在 1366px 附近降级为每行 5 只，但不得破坏卡片字段结构；
-5. 不因连板天梯改造引入横向固定 SideNav。
-
-## 25.6 晋级箭头视觉规则
-
-晋级箭头用于连接：
-
-```text
-昨日 N-1 板 → 今日 N 板
-```
-
-```css
-.cs-limit-ladder-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cs-limit-ladder-arrow-color);
-  font-size: var(--cs-limit-ladder-arrow-size);
-  line-height: 1;
-  pointer-events: none;
-}
-
-.cs-limit-ladder-arrow::before {
-  content: "→";
+.cs-stock-card-code-pill {
+  align-self: flex-start;
+  height: var(--cs-stock-card-code-pill-height);
+  padding: 0 var(--cs-stock-card-code-pill-padding-x);
+  margin-bottom: var(--cs-stock-card-code-pill-margin-bottom);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   border-radius: var(--cs-radius-pill);
-  background: var(--cs-limit-ladder-arrow-bg);
-  border: 1px solid var(--cs-limit-ladder-layer-border-emphasis);
-}
-```
-
-规则：
-
-1. 箭头颜色使用品牌金弱强调；
-2. 箭头大小约 18px；
-3. 箭头左右与容器间距由 `--cs-limit-ladder-layer-gap` 控制；
-4. hover 不变化；
-5. 不做点击态；
-6. 不表达买卖方向，只表达层级晋级关系。
-
-## 25.7 展开 / 收起控件视觉规则
-
-每层默认最多展示 12 只股票。超过 12 只时，底部显示展开控件。
-
-### 25.7.1 默认收起态
-
-```text
-⌄⌄ 展开全部
-```
-
-```css
-.cs-limit-ladder-expand-control {
-  height: var(--cs-limit-ladder-expand-height);
-  margin-top: var(--cs-space-8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--cs-space-4);
-  border: 1px solid var(--cs-limit-ladder-expand-border);
-  border-radius: var(--cs-radius-pill);
-  background: var(--cs-limit-ladder-expand-bg);
-  color: var(--cs-limit-ladder-expand-text);
-  font-size: var(--cs-limit-ladder-expand-font-size);
-  cursor: pointer;
-  user-select: none;
-}
-
-.cs-limit-ladder-expand-control:hover {
-  background: var(--cs-limit-ladder-expand-bg-hover);
-  color: var(--cs-limit-ladder-expand-text-hover);
-  border-color: var(--cs-color-border-hover);
-}
-```
-
-### 25.7.2 展开态
-
-展开后文案：
-
-```text
-收起
-```
-
-规则：
-
-1. 展开/收起只影响当前层；
-2. 展开后可以撑开连板天梯模块高度；
-3. 如果页面高度压力大，允许连板天梯模块内部滚动；
-4. 不允许因此压缩或改动其它非本轮模块；
-5. 展开控件不使用红绿，使用中性 + 品牌金 hover。
-
-## 25.8 五板以上具体板数样式
-
-五板以上层股票卡片右下角显示具体板数，而不是开板次数。
-
-```css
-.cs-stock-card-streak-level {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: var(--cs-radius-pill);
-  border: 1px solid var(--cs-stock-card-streak-level-border);
-  background: var(--cs-stock-card-streak-level-bg);
-  color: var(--cs-stock-card-streak-level-text);
-  font-size: var(--cs-font-size-11);
-  font-weight: var(--cs-font-weight-bold);
-  line-height: 1;
+  border: 1px solid var(--cs-stock-card-code-pill-border);
+  background: var(--cs-stock-card-code-pill-bg);
+  color: var(--cs-stock-card-code-pill-text);
+  font-size: var(--cs-stock-card-code-pill-font-size);
   font-family: var(--cs-font-family-number);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
 }
 ```
 
-规则：
+视觉参数：
 
-1. 文案示例：`6板`、`7板`、`8板`；
-2. 只在五板以上层显示；
-3. 今日五板仍属于 `昨日四板 → 今日五板` 层，不使用该五板以上样式；
-4. 该标签使用品牌金弱强调，不使用涨停红大面积背景；
-5. 不输出推荐、强势判断等主观结论。
+| 项 | 建议值 |
+|---|---:|
+| 高度 | `17px` |
+| 横向内边距 | `6px` |
+| 字号 | `10px` |
+| 圆角 | `pill` |
+| 颜色 | 弱中性色，透明度约 0.8 |
 
-## 25.9 连板天梯状态规则
+## 25.5 左 / 中 / 右三分区结构
 
-| 状态 | 视觉规则 |
+新版卡片由三个纵向分区组成。
+
+### 25.5.1 左侧识别区
+
+包含：
+
+```text
+股票代码胶囊
+股票名称
+最新价
+```
+
+视觉规则：
+
+1. 股票名称是最高识别权重；
+2. 最新价为强行情数字；
+3. 最新价可按涨跌方向红 / 绿 / 灰显示；
+4. 左侧识别区左对齐。
+
+### 25.5.2 中间行情事实区
+
+包含：
+
+```text
+涨幅
+板上成交额
+```
+
+视觉规则：
+
+1. 涨幅红涨绿跌，强强调；
+2. 板上成交额为中性或弱强调；
+3. 板上成交额不使用涨跌色；
+4. 中间区数字右对齐或居中偏右对齐。
+
+### 25.5.3 右侧标签区
+
+包含：
+
+```text
+所属板块
+N天M板/板型标签
+```
+
+视觉规则：
+
+1. 所属板块使用中性色；
+2. 所属板块单行省略；
+3. N天M板/板型使用胶囊标签；
+4. 标签紧凑，不能撑高卡片；
+5. 右侧标签区右对齐。
+
+推荐 CSS：
+
+```css
+.cs-stock-card-zone {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  row-gap: var(--cs-stock-card-zone-row-gap);
+}
+
+.cs-stock-card-left-zone {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cs-stock-card-center-zone {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cs-stock-card-right-zone {
+  align-items: flex-end;
+  text-align: right;
+}
+```
+
+## 25.6 字段视觉规则
+
+| 字段 | 分区 | 视觉层级 | 字号 / 字重 | 颜色 / 规则 | 对齐 |
+|---|---|---|---:|---|---|
+| 股票代码 | 左侧识别区顶部 | 弱角标 | `10px / 500` | 弱中性色 | 左对齐胶囊 |
+| 股票名称 | 左侧识别区 | 最高识别权重 | `13px / 600` | `--cs-stock-card-name-text` | 左对齐，单行省略 |
+| 最新价 | 左侧识别区 | 强行情数字 | `12px / 600` | 可按涨跌方向红/绿/灰 | 左对齐，数字字体 |
+| 涨幅 | 中间行情事实区 | 强强调 | `12px / 700` | 红涨绿跌 | 右对齐，数字字体 |
+| 板上成交额 | 中间行情事实区 | 辅助事实 | `11px / 500` | 中性或弱强调 | 右对齐，数字字体 |
+| 所属板块 | 右侧标签区 | 中性识别 | `11px / 500` | `--cs-stock-card-sector-text` | 右对齐，单行省略 |
+| N天M板/板型 | 右侧标签区 | 标签强调 | `11px / 600` | 品牌金弱强调或中性标签 | 右对齐胶囊 |
+
+推荐 CSS：
+
+```css
+.cs-stock-card-name {
+  color: var(--cs-stock-card-name-text);
+  font-size: var(--cs-stock-card-name-font-size);
+  font-weight: var(--cs-stock-card-name-font-weight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cs-stock-card-price,
+.cs-stock-card-change,
+.cs-stock-card-board-amount {
+  font-family: var(--cs-font-family-number);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cs-stock-card-price {
+  font-size: var(--cs-stock-card-price-font-size);
+  font-weight: var(--cs-stock-card-price-font-weight);
+}
+
+.cs-stock-card-change {
+  font-size: var(--cs-stock-card-change-font-size);
+  font-weight: var(--cs-stock-card-change-font-weight);
+}
+
+.cs-stock-card-sector {
+  color: var(--cs-stock-card-sector-text);
+  font-size: var(--cs-stock-card-meta-font-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cs-stock-card-board-amount {
+  color: var(--cs-stock-card-board-amount-text);
+  font-size: var(--cs-stock-card-board-amount-font-size);
+}
+```
+
+## 25.7 板上成交额视觉规则
+
+字段口径：**只在板上发生的成交金额**。
+
+明确不是：
+
+1. 封单金额；
+2. 全天成交额；
+3. 总成交额；
+4. 板块成交额；
+5. 主力净流入。
+
+展示格式：
+
+```text
+3.20亿
+8200万
+```
+
+视觉规则：
+
+1. 使用中性色或弱强调色；
+2. 不使用涨跌红/绿；
+3. 不显示为“封单”；
+4. 不显示为“成交额”以免误导为全天成交额；
+5. Tooltip 或 Help 文案中可解释：`板上成交额：只统计封板状态下发生的成交金额`。
+
+## 25.8 N天M板/板型标签视觉规则
+
+字段口径：一个字段，一个标签。
+
+可能文案：
+
+```text
+首板
+2连板
+3连板
+7天5板
+9天7板
+```
+
+要求：
+
+1. 不拆成两个字段；
+2. 不做两个独立标签；
+3. 如果视觉上需要区分，可在同一个标签内部用主次文字，但语义仍是同一字段；
+4. 标签必须紧凑，适合小卡片；
+5. 不使用大面积涨停红背景。
+
+推荐 CSS：
+
+```css
+.cs-stock-card-streak-tag {
+  height: var(--cs-stock-card-streak-tag-height);
+  padding: 0 var(--cs-stock-card-streak-tag-padding-x);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cs-radius-pill);
+  border: 1px solid var(--cs-stock-card-streak-tag-border);
+  background: var(--cs-stock-card-streak-tag-bg);
+  color: var(--cs-stock-card-streak-tag-text);
+  font-size: var(--cs-stock-card-streak-tag-font-size);
+  font-weight: var(--cs-font-weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+}
+```
+
+允许样式：
+
+| 样式 | 示例 | 使用场景 |
+|---|---|---|
+| 普通标签 | `首板` / `2连板` / `3连板` | 连续连板表达简单时 |
+| 复合短标签 | `7天5板` / `9天7板` | 近期表现更重要时 |
+
+禁止：
+
+```text
+2连板  +  7天5板  // 两个独立标签同时展示
+```
+
+默认只展示一个标签文本。
+
+## 25.9 红涨绿跌规则在股票卡片内的应用
+
+| 字段 | 涨跌色规则 |
 |---|---|
-| loading | 层级标题骨架 + 2 行股票卡片骨架 |
-| empty | 当前层显示“暂无该层级股票”，不隐藏其它层 |
-| error | 当前层模块级错误块，允许单层重试 |
-| disabled | 通常不出现；如数据不可点击，卡片透明度降低且不显示 pointer |
-| data delayed | 层级标题右侧显示延迟 Badge，不改变股票涨跌色 |
+| 涨幅 | 必须红涨绿跌，正红、负绿、零灰白 |
+| 最新价 | 可按涨跌方向红/绿/灰白显示；若信息密度过高，可使用主文字并只让涨幅承载方向色 |
+| 股票名称 | 不使用涨跌色 |
+| 股票代码 | 不使用涨跌色 |
+| 所属板块 | 不使用涨跌色 |
+| 板上成交额 | 不使用涨跌色 |
+| N天M板/板型 | 使用品牌金 / 中性标签，不使用大面积红绿背景 |
 
-## 25.10 连板天梯禁止事项
+推荐：
 
-1. 不照搬草图浅蓝背景；
-2. 不把层级标题做成可点击链接；
-3. 不把五板以上展示成 `昨日五板 → 今日六板`；
-4. 不让今日五板进入五板以上层；
-5. 不将晋级箭头做成交易方向或买卖提示；
-6. 不使用大面积红色背景强调涨停；
-7. 不因连板天梯改造修改页面其它模块视觉规则。
+```text
+方向色优先落在涨幅，最新价可同步弱方向色。
+```
+
+## 25.10 与 Review v5 / v6 连板天梯规则的兼容
+
+本轮不改变 Review v5 已确认的连板天梯结构，也不改变 Review v6 确认的字段口径。以下规则保持不变：
+
+1. 昨日层级 → 今日晋级层级；
+2. 昨日层级展示昨日该层级所有股票，卡片信息用今日数据；
+3. 今日层级展示晋级成功股票；
+4. 首板层只展示今日首板；
+5. 五板以上层只展示今日六板及以上；
+6. 今日五板仍在 `昨日四板 → 今日五板` 层；
+7. 每层默认最多 2 行，每行 6 只；
+8. 超出后显示展开入口；
+9. 展开后支持收起；
+10. 股票卡片点击进入个股详情；
+11. 层级标题暂不支持点击。
+
+股票卡片字段变化：
+
+| Review v6 方案 | Review v7 处理 |
+|---|---|
+| 股票代码右上角角标 | 改为左上角胶囊标签 |
+| 主体 2 行 × 3 列 | 改为左 / 中 / 右三分区结构 |
+| 第一行：股票名称 / 涨幅 / 所属板块 | 保留字段，但按三分区重排 |
+| 第二行：最新价 / 板上成交额 / N天M板标签 | 保留字段，但按三分区重排 |
+| 右下字段 | 仍由 `N天M板/板型` 标签承载 |
+
+## 25.11 标准股票卡片禁止事项
+
+1. 不再使用 Review v6 的股票代码右上角方案；
+2. 不再使用 Review v6 的 `2 行 × 3 列` 机械网格方案；
+3. 不照搬用户截图中的浅色背景或非系统视觉元素；
+4. 不将股票代码作为普通正文列；
+5. 不再使用“收盘价格”口径；
+6. 不将板上成交额误写为封单金额或全天成交额；
+7. 不将 `N天M板/板型` 拆成两个独立字段；
+8. 不修改连板天梯层级结构；
+9. 不修改连板天梯展开/收起逻辑；
+10. 不修改市场总览其它模块视觉规则。
 
 ---
 
-# 26. 本轮 Review v5 修改摘要
+# 26. 本轮 Review v7 修改摘要
 
-1. 仅修订 `市场总览 / 连板天梯模块` 的视觉规则。
-2. 新增标准股票卡片规则：左上股票名称、左中股票代码、左下最新价、右上涨跌幅、右中所属板块、右下开板次数。
-3. 五板以上层股票卡片右下显示具体板数，如 `6板`、`7板`、`8板`。
-4. 新增昨日层级容器和今日晋级层级容器视觉规则。
-5. 新增首板独立层容器视觉规则。
-6. 新增五板以上独立层容器弱强调规则。
-7. 新增晋级箭头视觉规则。
-8. 新增展开 / 收起控件规则：默认最多 2 行 × 6 只，共 12 只，超出显示 `展开全部`，展开后显示 `收起`。
-9. 明确股票卡片 hover / active / clickable 状态。
-10. 保持红涨绿跌规则不变。
+1. 仅修订 `市场总览 / 连板天梯 / 标准股票卡片` 的视觉规则。
+2. 用户新截图正式替代上一轮股票卡片方案。
+3. 股票代码从右上角角标改为左上角胶囊标签。
+4. 上一轮 `2 行 × 3 列` 机械网格方案作废。
+5. 新版卡片采用横向三分区结构：
+   - 左侧识别区：股票代码胶囊、股票名称、最新价；
+   - 中间行情事实区：涨幅、板上成交额；
+   - 右侧标签区：所属板块、N天M板/板型标签。
+6. 股票名称保持最高识别权重。
+7. 最新价为强行情数字，可按涨跌方向红/绿/灰显示。
+8. 涨幅红涨绿跌，强强调。
+9. 板上成交额保持中性或弱强调，不使用涨跌色。
+10. N天M板/板型仍为一个字段、一个标签。
+11. 保持红涨绿跌规则不变。
+12. 不修改 Review v7 未点名区域。
 
 # 27. 本轮未修改区域说明
 
@@ -2364,12 +2334,14 @@ Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票�
 11. 榜单速览；
 12. 涨跌停统计与分布；
 13. 板块速览；
-14. 页面整体主题；
-15. 全局字体；
-16. 与 Review v5 无关的任何视觉规则。
+14. 连板天梯层级结构；
+15. 连板天梯展开 / 收起逻辑；
+16. 页面整体主题；
+17. 全局字体；
+18. 与 Review v7 无关的任何视觉规则。
 
 ```text
-本轮因 Review v5 修改而被动影响的区域：无
+本轮因 Review v7 修改而被动影响的区域：无
 原因：无
 是否需要产品总控确认：否
 ```
@@ -2378,95 +2350,113 @@ Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票�
 
 | Token | 类型 | 用途 |
 |---|---|---|
-| `--cs-limit-ladder-row-gap` | 新增 | 连板天梯层级行间距 |
-| `--cs-limit-ladder-layer-gap` | 新增 | 昨日层级、箭头、今日层级之间间距 |
-| `--cs-limit-ladder-bridge-width` | 新增 | 晋级箭头连接区宽度 |
-| `--cs-limit-ladder-layer-padding` | 新增 | 层级容器内边距 |
-| `--cs-limit-ladder-layer-title-height` | 新增 | 层级标题条高度 |
-| `--cs-limit-ladder-stock-grid-gap-x` | 新增 | 股票卡片网格横向间距 |
-| `--cs-limit-ladder-stock-grid-gap-y` | 新增 | 股票卡片网格纵向间距 |
-| `--cs-stock-card-width` | 新增 | 标准股票卡片宽度 |
-| `--cs-stock-card-height` | 新增 | 标准股票卡片高度 |
-| `--cs-stock-card-padding-x` | 新增 | 标准股票卡片横向内边距 |
-| `--cs-stock-card-padding-y` | 新增 | 标准股票卡片纵向内边距 |
-| `--cs-stock-card-bg` | 新增 | 股票卡片背景 |
-| `--cs-stock-card-bg-hover` | 新增 | 股票卡片 hover 背景 |
-| `--cs-stock-card-bg-active` | 新增 | 股票卡片点击态背景 |
-| `--cs-stock-card-border` | 新增 | 股票卡片边框 |
-| `--cs-stock-card-border-hover` | 新增 | 股票卡片 hover 边框 |
-| `--cs-stock-card-border-active` | 新增 | 股票卡片点击态边框 |
-| `--cs-stock-card-shadow-hover` | 新增 | 股票卡片 hover 阴影 |
-| `--cs-stock-card-name-text` | 新增 | 股票名称文字色 |
-| `--cs-stock-card-code-text` | 新增 | 股票代码文字色 |
-| `--cs-stock-card-sector-text` | 新增 | 所属板块文字色 |
-| `--cs-stock-card-open-times-text` | 新增 | 开板次数文字色 |
-| `--cs-stock-card-streak-level-text` | 新增 | 五板以上具体板数文字色 |
-| `--cs-stock-card-streak-level-bg` | 新增 | 五板以上具体板数标签背景 |
-| `--cs-stock-card-streak-level-border` | 新增 | 五板以上具体板数标签边框 |
-| `--cs-limit-ladder-arrow-color` | 新增 | 晋级箭头颜色 |
-| `--cs-limit-ladder-arrow-bg` | 新增 | 晋级箭头圆形弱背景 |
-| `--cs-limit-ladder-expand-height` | 新增 | 展开 / 收起控件高度 |
-| `--cs-limit-ladder-expand-bg` | 新增 | 展开 / 收起控件背景 |
-| `--cs-limit-ladder-expand-bg-hover` | 新增 | 展开 / 收起控件 hover 背景 |
-| `--cs-limit-ladder-expand-border` | 新增 | 展开 / 收起控件边框 |
-| `--cs-limit-ladder-expand-text` | 新增 | 展开 / 收起控件文字 |
-| `--cs-limit-ladder-expand-text-hover` | 新增 | 展开 / 收起控件 hover 文字 |
+| `--cs-stock-card-width` | 修订 | 新版三分区标准股票卡片宽度 |
+| `--cs-stock-card-min-width` | 修订 | 小宽度下股票卡片最小宽度 |
+| `--cs-stock-card-height` | 修订 | 新版三分区标准股票卡片高度 |
+| `--cs-stock-card-padding-x` | 修订 | 股票卡片横向内边距 |
+| `--cs-stock-card-padding-y` | 修订 | 股票卡片纵向内边距 |
+| `--cs-stock-card-zone-gap` | 新增 | 左 / 中 / 右三分区间距 |
+| `--cs-stock-card-left-zone-width` | 新增 | 左侧识别区宽度比例 |
+| `--cs-stock-card-center-zone-width` | 新增 | 中间行情事实区宽度比例 |
+| `--cs-stock-card-right-zone-width` | 新增 | 右侧标签区宽度比例 |
+| `--cs-stock-card-zone-row-gap` | 新增 | 分区内部纵向间距 |
+| `--cs-stock-card-code-pill-height` | 新增 | 股票代码胶囊高度 |
+| `--cs-stock-card-code-pill-padding-x` | 新增 | 股票代码胶囊横向内边距 |
+| `--cs-stock-card-code-pill-font-size` | 新增 | 股票代码胶囊字号 |
+| `--cs-stock-card-code-pill-margin-bottom` | 新增 | 股票代码胶囊与股票名称间距 |
+| `--cs-stock-card-code-pill-text` | 新增 | 股票代码胶囊文字色 |
+| `--cs-stock-card-code-pill-bg` | 新增 | 股票代码胶囊背景 |
+| `--cs-stock-card-code-pill-border` | 新增 | 股票代码胶囊边框 |
+| `--cs-stock-card-name-font-size` | 保留/修订 | 股票名称字号 |
+| `--cs-stock-card-name-font-weight` | 保留/修订 | 股票名称字重 |
+| `--cs-stock-card-price-font-size` | 保留/修订 | 最新价字号 |
+| `--cs-stock-card-price-font-weight` | 保留/修订 | 最新价字重 |
+| `--cs-stock-card-change-font-size` | 保留/修订 | 涨幅字号 |
+| `--cs-stock-card-change-font-weight` | 保留/修订 | 涨幅字重 |
+| `--cs-stock-card-meta-font-size` | 保留/修订 | 所属板块等次级信息字号 |
+| `--cs-stock-card-board-amount-font-size` | 新增 | 板上成交额字号 |
+| `--cs-stock-card-board-amount-text` | 保留/修订 | 板上成交额文字色 |
+| `--cs-stock-card-streak-tag-font-size` | 新增 | N天M板/板型标签字号 |
+| `--cs-stock-card-streak-tag-height` | 新增 | N天M板/板型标签高度 |
+| `--cs-stock-card-streak-tag-padding-x` | 新增 | N天M板/板型标签横向内边距 |
+| `--cs-stock-card-streak-tag-text` | 新增 | N天M板/板型标签文字色 |
+| `--cs-stock-card-streak-tag-bg` | 新增 | N天M板/板型标签背景 |
+| `--cs-stock-card-streak-tag-border` | 新增 | N天M板/板型标签边框 |
 
 # 29. 对 03 `04-component-guidelines.md` 的 Token 映射建议
 
 | 组件 / Pattern | 建议使用 Token |
 |---|---|
 | `CsqStockCompactCard` | `--cs-stock-card-*`、`--cs-color-market-*`、`--cs-font-family-number` |
-| `PatternLimitLadder` | `--cs-limit-ladder-*`、`--cs-stock-card-*` |
-| `LimitLadderPromotionLayer` | `--cs-limit-ladder-layer-bg`、`--cs-limit-ladder-layer-border`、`--cs-limit-ladder-layer-title-*` |
-| `LimitLadderSpecialLayer` | `--cs-limit-ladder-layer-bg-above-five`、`--cs-limit-ladder-layer-border-emphasis` |
-| `LimitLadderStockGrid` | `--cs-limit-ladder-stock-grid-gap-x`、`--cs-limit-ladder-stock-grid-gap-y`、`--cs-stock-card-width` |
-| `LimitLadderExpandControl` | `--cs-limit-ladder-expand-*` |
-| `LimitLadderPromotionArrow` | `--cs-limit-ladder-arrow-*` |
+| `PatternLimitLadder` | 继续使用 `--cs-limit-ladder-*`、`--cs-stock-card-*` |
+| `LimitLadderStockGrid` | 继续使用 `--cs-limit-ladder-stock-grid-gap-x`、`--cs-limit-ladder-stock-grid-gap-y`、`--cs-stock-card-width` |
 
-建议 03 约束：
+建议 03 修订 `CsqStockCompactCard`：
 
-1. `CsqStockCompactCard` 是相对通用紧凑股票卡片，可作为 Core Component 候选；
-2. `PatternLimitLadder` 是市场总览连板天梯业务 Pattern，不应进入通用组件库 Core Component；
-3. 层级标题不支持点击；
-4. 股票卡片支持点击进入个股详情；
-5. 展开 / 收起只作用于当前层。
+```ts
+interface CsqStockCompactCardProps {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+  direction?: 'rise' | 'fall' | 'flat';
+  selected?: boolean;
+  onClick?: () => void;
+}
+```
 
-# 30. 对 02 `market-overview-v1.4.html` 的视觉约束
+展示结构：
 
-1. 只修改连板天梯模块。
-2. 使用深色金融终端风格，不照搬草图浅蓝背景。
-3. 新增标准股票卡片，字段位置必须为：
-   - 左上：股票名称；
-   - 左中：股票代码；
-   - 左下：最新价；
-   - 右上：涨跌幅；
-   - 右中：所属板块；
-   - 右下：开板次数。
-4. 五板以上层卡片右下显示具体板数，不显示开板次数。
-5. 二板及以上层级采用 `昨日 N-1 板 → 今日 N 板` 的左右结构。
-6. 昨日层级展示昨日该层级所有股票，卡片信息用今日数据。
-7. 今日晋级层级只展示晋级成功股票。
-8. 首板层独立展示今日首板股票。
-9. 五板以上层独立置顶，只展示今日六板及以上，不包含今日五板。
-10. 今日五板仍属于 `昨日四板 → 今日五板` 层。
-11. 每层默认最多展示 2 行 × 6 只，即 12 只股票。
-12. 超出 12 只时底部显示 `展开全部` 控件。
-13. 展开后显示 `收起` 控件。
-14. 展开 / 收起只影响当前层。
-15. 股票卡片 hover 时整卡高亮，点击进入个股详情页。
-16. 晋级箭头只表达层级关系，不做点击态。
-17. 层级标题不支持点击，不做链接样式。
-18. 不修改 Review v5 未点名模块。
+```text
+codePill: stockCode
+leftIdentity: stockName / latestPrice
+centerMetrics: changePct / boardTradeAmount
+rightTags: sectorName / streakText
+```
+
+组件说明：
+
+1. `stockCode` 显示在左上角胶囊中；
+2. `stockCode` 不再显示在右上角；
+3. `latestPrice` 是最新价，不是收盘价格；
+4. `boardTradeAmount` 是板上成交额，只在板上发生的成交金额；
+5. `streakText` 是 `N天M板/板型`，一个字段、一个标签；
+6. 连板天梯中的标准股票卡片统一使用左 / 中 / 右三分区布局。
+
+# 30. 对 02 `market-overview-v1.6.html` 的视觉约束
+
+1. 只修改连板天梯中的标准股票卡片。
+2. 用户新截图正式替代上一轮股票卡片方案。
+3. 股票代码必须改为左上角胶囊标签。
+4. 不得继续使用右上角代码方案。
+5. 不得继续使用 `2 行 × 3 列` 机械网格方案。
+6. 卡片必须使用左 / 中 / 右三分区结构：
+   - 左侧识别区：股票代码、股票名称、最新价；
+   - 中间行情事实区：涨幅、板上成交额；
+   - 右侧标签区：所属板块、N天M板/板型标签。
+7. 股票名称是最高识别权重。
+8. 最新价是强行情数字，可按方向红/绿/灰显示。
+9. 涨幅必须红涨绿跌，并强强调。
+10. 板上成交额按“只在板上发生的成交金额”理解和展示，不得误写为封单金额或全天成交额。
+11. `N天M板/板型` 必须是一个字段、一个标签。
+12. 不照搬用户截图中的浅色背景或非系统视觉元素。
+13. 必须使用当前市场总览深色金融终端风格。
+14. 保持卡片 hover / clickable 状态。
+15. 不修改连板天梯层级结构。
+16. 不修改连板天梯展开/收起逻辑。
+17. 不修改市场总览其它模块。
 
 # 31. 待产品总控确认问题
 
-1. 标准股票卡片宽度 `148px` 是否满足 1366px 下每行 6 只展示，还是需要降为 136px？
-2. 连板天梯在 1366px 宽度下是否允许每行自动降级为 5 只？
-3. 展开后优先采用“模块内部滚动”还是“模块向下撑开”？当前建议优先内部滚动或局部展开，不影响其它模块。
-4. 五板以上层是否固定标题为“五板以上”，还是显示“六板及以上”？当前按 Review v5 使用“五板以上”。
-5. 开板次数为 0 时显示 `0次`、`未开板`，还是弱化为 `--`？当前 Token 只定义样式，文案由 02/03 确认。
-6. 层级标题右侧是否展示股票数量，例如 `12只`？当前建议允许展示。
+1. 新版三分区标准股票卡片宽度是否接受 `176px`，以保证三分区信息可读？
+2. 在 1366px 下是否允许卡片宽度降级到 `160px`，并通过减少每行卡片数保持可读性？
+3. 股票代码胶囊是否只展示代码，不展示交易所中文或市场标签？当前建议只展示 `603017.SH` 这种格式。
+4. 最新价是否必须随涨跌方向着色？当前建议可按方向弱着色，也可只让涨幅承载方向色以降低噪音。
+5. N天M板标签是否统一使用品牌金描边胶囊？当前建议如此，以避免大面积红色背景增加噪音。
+6. 板上成交额是否只在 Tooltip 中补充完整口径？当前建议卡片内只显示金额。
 
 # 32. 本轮输出文件下载链接
 
@@ -2483,3 +2473,4 @@ Review v5 只处理连板天梯模块，目标是将连板天梯从普通股票�
 ```text
 财势乾坤/设计/03-design-tokens.md
 ```
+

@@ -10,6 +10,22 @@ export interface MarketStreakLadderFetchOptions {
   signal?: AbortSignal;
 }
 
+export interface MarketStreakLadderStockResponse {
+  stockName?: string | null;
+  stockCode: string;
+  latestPrice?: number | null;
+  changePct?: number | null;
+  sectorName?: string | null;
+  limitAmount: number | null;
+  limitAmountDisplayText: string;
+  limitAmountLabel: "封单金额" | "板上成交金额";
+  streakText: string;
+  openTimes?: number | null;
+  firstLimitTime?: string | null;
+  currentStreakLevel: number;
+  advanced: boolean;
+}
+
 export interface MarketStreakLadderResponse {
   tradingDay: {
     tradeDate: string;
@@ -28,57 +44,17 @@ export interface MarketStreakLadderResponse {
     tradeDate: string;
     prevTradeDate: string;
     highestStreakLevel: number;
-    aboveFive: Array<{
-      stockName?: string | null;
-      stockCode: string;
-      latestPrice?: number | null;
-      changePct?: number | null;
-      sectorName?: string | null;
-      openTimes?: number | null;
-      firstLimitTime?: string | null;
-      currentStreakLevel: number;
-      advanced: boolean;
-    }>;
+    aboveFive: MarketStreakLadderStockResponse[];
     promotions: Record<
       number,
       {
         previousLabel: string;
         currentLabel: string;
-        previousStocks: Array<{
-          stockName?: string | null;
-          stockCode: string;
-          latestPrice?: number | null;
-          changePct?: number | null;
-          sectorName?: string | null;
-          openTimes?: number | null;
-          firstLimitTime?: string | null;
-          currentStreakLevel: number;
-          advanced: boolean;
-        }>;
-        currentStocks: Array<{
-          stockName?: string | null;
-          stockCode: string;
-          latestPrice?: number | null;
-          changePct?: number | null;
-          sectorName?: string | null;
-          openTimes?: number | null;
-          firstLimitTime?: string | null;
-          currentStreakLevel: number;
-          advanced: boolean;
-        }>;
+        previousStocks: MarketStreakLadderStockResponse[];
+        currentStocks: MarketStreakLadderStockResponse[];
       }
     >;
-    firstBoard: Array<{
-      stockName?: string | null;
-      stockCode: string;
-      latestPrice?: number | null;
-      changePct?: number | null;
-      sectorName?: string | null;
-      openTimes?: number | null;
-      firstLimitTime?: string | null;
-      currentStreakLevel: number;
-      advanced: boolean;
-    }>;
+    firstBoard: MarketStreakLadderStockResponse[];
   };
   debugInfo?: {
     modules: Array<{

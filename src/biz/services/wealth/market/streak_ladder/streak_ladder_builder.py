@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from src.biz.schemas.wealth.market.streak_ladder import (
     LadderV5PromotionLayerDto,
@@ -16,9 +16,12 @@ class StreakLadderRow:
     ts_code: str
     stock_name: str | None
     sector_name: str | None
+    limit_type: str | None
     board_count: int
     latest_price: Decimal | None
     change_pct: Decimal | None
+    fd_amount: Decimal | None
+    limit_amount: Decimal | None
     open_times: int | None
     first_limit_time: str | None
 
@@ -61,11 +64,13 @@ class StreakLadderBuilder:
             current_streak_level: int | None = None,
         ) -> LadderV5StockDto:
             nonlocal has_metric_missing, metric_missing_sample
+            display_level = row.board_count if current_streak_level is None else current_streak_level
             latest_price = float(row.latest_price) if row.latest_price is not None else None
             change_pct = float(row.change_pct) if row.change_pct is not None else None
-            if (latest_price is None or change_pct is None) and metric_missing_sample is None:
+            limit_amount, limit_amount_label = _resolve_limit_amount(row)
+            if (latest_price is None or change_pct is None or limit_amount is None) and metric_missing_sample is None:
                 metric_missing_sample = row.ts_code
-            if latest_price is None or change_pct is None:
+            if latest_price is None or change_pct is None or limit_amount is None:
                 has_metric_missing = True
             return LadderV5StockDto(
                 stockName=row.stock_name,
@@ -73,9 +78,16 @@ class StreakLadderBuilder:
                 latestPrice=latest_price,
                 changePct=change_pct,
                 sectorName=row.sector_name,
+                limitAmount=float(limit_amount) if limit_amount is not None else None,
+                limitAmountDisplayText=_format_limit_amount(limit_amount),
+                limitAmountLabel=limit_amount_label,
+                streakText=_build_streak_text(
+                    current_streak_level=display_level,
+                    source_board_count=row.board_count,
+                ),
                 openTimes=row.open_times,
                 firstLimitTime=row.first_limit_time,
-                currentStreakLevel=row.board_count if current_streak_level is None else current_streak_level,
+                currentStreakLevel=display_level,
                 advanced=advanced,
             )
 
@@ -180,3 +192,33 @@ def _to_chinese_level(level: int) -> str:
     if level == 5:
         return "五板"
     return f"{level}板"
+
+
+def _resolve_limit_amount(row: StreakLadderRow) -> tuple[Decimal | None, str]:
+    if row.limit_type == "D":
+        return (row.limit_amount, "板上成交金额")
+    return (row.fd_amount, "封单金额")
+
+
+def _format_limit_amount(value: Decimal | None) -> str:
+    if value is None:
+        return "--"
+    abs_value = abs(value)
+    if abs_value >= Decimal("100000000"):
+        amount = (value / Decimal("100000000")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return f"{amount}亿"
+    if abs_value >= Decimal("10000"):
+        amount = (value / Decimal("10000")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        return f"{amount}万"
+    amount = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return str(amount)
+
+
+def _build_streak_text(*, current_streak_level: int, source_board_count: int) -> str:
+    if current_streak_level <= 0:
+        return f"昨日{_to_chinese_level(source_board_count)}"
+    if current_streak_level == 1:
+        return "首板"
+    if current_streak_level <= 5:
+        return f"{current_streak_level}连板"
+    return f"{current_streak_level}板"

@@ -38,6 +38,10 @@ class LadderV5StockDto(BaseModel):
     latestPrice: float | None = None
     changePct: float | None = None
     sectorName: str | None = None
+    limitAmount: float | None = None
+    limitAmountDisplayText: str
+    limitAmountLabel: Literal["封单金额", "板上成交金额"]
+    streakText: str
     openTimes: int | None = None
     firstLimitTime: str | None = None
     currentStreakLevel: int = Field(ge=0)

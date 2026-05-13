@@ -12,15 +12,6 @@ interface StreakLadderPanelProps {
 
 const FIRST_LAYER_COLLAPSED_VISIBLE_COUNT = 12;
 
-function isOpeningLimitTime(firstLimitTime?: string): boolean {
-  if (!firstLimitTime) return false;
-  const digits = firstLimitTime.replace(/\D/g, "");
-  if (!digits) return false;
-  const numeric = Number(digits.padStart(6, "0"));
-  if (!Number.isFinite(numeric)) return false;
-  return numeric >= 91500 && numeric <= 93000;
-}
-
 export function StreakLadderPanel({ overview, ladder, viewState = "ready", errorMessage, onAction }: StreakLadderPanelProps) {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
   const ladderData = ladder ?? overview.ladderV5;
@@ -82,29 +73,33 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
 
   const renderCard = (stock: LadderV5Stock, mode: "above" | "normal") => {
     const pctClass = clsBy(stock.changePct);
-    const isOneWordBoard = mode === "normal" && stock.openTimes <= 0 && isOpeningLimitTime(stock.firstLimitTime);
-    const meta =
-      mode === "above"
-        ? `${stock.currentStreakLevel}板`
-        : stock.openTimes <= 0
-          ? isOneWordBoard
-            ? "一字板"
-            : "未开板"
-          : `开板${stock.openTimes}次`;
     const advClass = mode === "above" ? "above" : stock.advanced ? "advanced" : "not-advanced";
     return (
       <article
         className={`stock-compact-card-v5 ${advClass}`}
         key={`${stock.stockCode}-${stock.currentStreakLevel}`}
-        title={`点击进入个股详情：${stock.stockName}｜${stock.stockCode}`}
+        title={`点击进入个股详情：${stock.stockName}｜${stock.stockCode}｜最新价 ${
+          Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"
+        }｜${stock.limitAmountLabel} ${stock.limitAmountDisplayText}｜${stock.streakText}`}
         onClick={() => onAction(`进入个股详情：${stock.stockCode}`)}
       >
-        <span className="stock-card-name-v5">{stock.stockName}</span>
         <span className="stock-card-code-v5">{stock.stockCode}</span>
-        <span className={`stock-card-price-v5 num ${pctClass}`}>{Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"}</span>
-        <span className={`stock-card-change-v5 num ${pctClass}`}>{Number.isFinite(stock.changePct) ? fmtPct(stock.changePct) : "--"}</span>
-        <span className="stock-card-sector-v5">{stock.sectorName}</span>
-        <span className="stock-card-meta-v5">{meta}</span>
+        <div className="stock-card-split-v7">
+          <div className="stock-card-zone-v7 left">
+            <span className="stock-card-name-v5">{stock.stockName}</span>
+            <span className={`stock-card-price-v5 num ${pctClass}`}>
+              {Number.isFinite(stock.latestPrice) ? stock.latestPrice.toFixed(2) : "--"}
+            </span>
+          </div>
+          <div className="stock-card-zone-v7 mid">
+            <span className={`stock-card-change-v5 num ${pctClass}`}>{Number.isFinite(stock.changePct) ? fmtPct(stock.changePct) : "--"}</span>
+            <span className="stock-card-board-amount-v6">{stock.limitAmountDisplayText}</span>
+          </div>
+          <div className="stock-card-zone-v7 right">
+            <span className="stock-card-sector-v5">{stock.sectorName}</span>
+            <span className="stock-card-meta-v5">{stock.streakText}</span>
+          </div>
+        </div>
       </article>
     );
   };

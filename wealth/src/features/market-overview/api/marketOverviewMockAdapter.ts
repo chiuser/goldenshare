@@ -40,6 +40,16 @@ const leaderboardRows = (rows: Array<[string, string, number, number, number, nu
     amount,
   }));
 
+function mockLimitAmountDisplayText(value: number) {
+  return `${(value / 100000000).toFixed(1)}亿`;
+}
+
+function mockStreakText(currentStreakLevel: number, advanced: boolean) {
+  if (!advanced) return `昨日${currentStreakLevel}板`;
+  if (currentStreakLevel <= 1) return "首板";
+  return `${currentStreakLevel}连板`;
+}
+
 const ladderStock = (
   stockName: string,
   stockCode: string,
@@ -49,16 +59,24 @@ const ladderStock = (
   openTimes: number,
   currentStreakLevel: number,
   advanced = true,
-) => ({
-  stockName,
-  stockCode,
-  latestPrice,
-  changePct,
-  sectorName,
-  openTimes,
-  currentStreakLevel,
-  advanced,
-});
+) => {
+  const limitAmount = Math.round((latestPrice + currentStreakLevel) * 10000000);
+
+  return {
+    stockName,
+    stockCode,
+    latestPrice,
+    changePct,
+    sectorName,
+    limitAmount,
+    limitAmountDisplayText: mockLimitAmountDisplayText(limitAmount),
+    limitAmountLabel: "封单金额" as const,
+    streakText: mockStreakText(currentStreakLevel, advanced),
+    openTimes,
+    currentStreakLevel,
+    advanced,
+  };
+};
 
 const indices = [
   { code: "000001.SH", name: "上证指数", point: 3128.42, change: 28.66, pct: 0.92, direction: "UP" },

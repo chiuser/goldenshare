@@ -1,12 +1,11 @@
-# 财势乾坤｜P0 组件库与交互组件方案 v0.9 完整合并版
+# 财势乾坤｜P0 组件库与交互组件方案 v1.1 完整合并版
 
-> 建议保存路径：`/docs/wealth/04-component-guidelines.md`
-> 负责人：`03_组件库与交互组件方案`
-> 状态：`Draft v0.9 merged-full / Review v5 连板天梯局部修订版`
-> 更新时间：`2026-05-12`
-> 本轮重点：在完整保留此前市场总览组件规范与通用组件库注册表的基础上，只修订“市场总览 / 连板天梯模块”的组件与交互方案。
-> 合并说明：本版以 Google Drive 公共区 `04-component-guidelines.md` v0.8 merged-full 为完整基线，完整保留此前已确认内容，并合并 Review v5 对连板天梯模块的局部修订。本轮不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览及 Review v5 未点名组件。请勿用局部 delta 文档覆盖本文件。
-> Token 执行口径：当前工程运行时统一使用 `--cs-*`；文中保留的 `--csq-*` 仅作历史引用阅读，不得用于实现。
+> 建议保存路径：`/docs/wealth/04-component-guidelines.md`  
+> 负责人：`03_组件库与交互组件方案`  
+> 状态：`Draft v1.1 merged-full / Review v7 标准股票卡片局部修订版`  
+> 更新时间：`2026-05-13`  
+> 本轮重点：在完整保留此前市场总览组件规范、通用组件库注册表、Review v5 连板天梯规则与 Review v6 标准股票卡片字段口径的基础上，只修订“市场总览 / 连板天梯 / 标准股票卡片”的布局结构。
+> 合并说明：本版以已交付的 Review v6 完整合并版为基线，完整保留此前已确认内容，并合并 Review v7 对 `CsqStockCompactCard` 的局部修订。Review v7 正式替代 Review v6 中“股票代码右上角 + 主体 2 行 × 3 列”的卡片结构，但不改变字段集合、连板天梯层级结构、展开/收起逻辑或其它市场总览模块。请勿用局部 delta 文档覆盖本文件。
 
 ---
 
@@ -1152,24 +1151,24 @@ interface LimitUpStreakLadderProps {
 
 ```css
 :root[data-theme="dark"] {
-  --cs-color-bg-page: ...;
-  --cs-color-bg-topbar: ...;
-  --cs-color-bg-panel: ...;
-  --cs-color-bg-panel-hover: ...;
-  --cs-color-border-subtle: ...;
-  --cs-color-text-primary: ...;
-  --cs-color-text-secondary: ...;
-  --cs-color-rise: ...;
-  --cs-color-rise-bg: ...;
-  --cs-color-fall: ...;
-  --cs-color-fall-bg: ...;
-  --cs-color-flat: ...;
-  --cs-color-brand: ...;
-  --cs-color-warning: ...;
-  --cs-color-danger-system: ...;
-  --cs-font-family-number: ...;
-  --cs-density-topbar-height: ...;
-  --cs-density-table-row-height: ...;
+  --csq-color-bg-page: ...;
+  --csq-color-bg-topbar: ...;
+  --csq-color-bg-panel: ...;
+  --csq-color-bg-panel-hover: ...;
+  --csq-color-border-subtle: ...;
+  --csq-color-text-primary: ...;
+  --csq-color-text-secondary: ...;
+  --csq-color-rise: ...;
+  --csq-color-rise-bg: ...;
+  --csq-color-fall: ...;
+  --csq-color-fall-bg: ...;
+  --csq-color-flat: ...;
+  --csq-color-brand: ...;
+  --csq-color-warning: ...;
+  --csq-color-danger-system: ...;
+  --csq-font-family-number: ...;
+  --csq-density-topbar-height: ...;
+  --csq-density-table-row-height: ...;
 }
 ```
 
@@ -1313,7 +1312,7 @@ Smoke test：
 
 ## 15. HTML Review v1 → market-overview-v1.1 增量合并规范
 
-> 本节为 v0.4 新增内容。它不替代前文 v0.3 已有组件规范，而是作为 market-overview-v1.1 的补充实现约束。
+> 本节为 v0.4 新增内容。它不替代前文 v0.3 已有组件规范，而是作为 market-overview-v1.1 的补充实现约束。  
 > 合并原则：旧版已有组件说明继续有效；如本节对同一组件提出更具体规则，则以本节为 market-overview-v1.1 的落地准则。
 
 ### 0. 本轮实际读取的公共区文件
@@ -2666,7 +2665,7 @@ interface SectorHeatMapItem {
 | 7 | `财势乾坤/review/market-overview-html-review-v3.pdf` | `市场总览页review-v3` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v3-总控解读与变更单.md` | `市场总览 HTML Review v3｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 
-本轮未能读取但应读取的文档：无。
+本轮未能读取但应读取的文档：无。  
 本轮是否继续：是。
 
 ---
@@ -3259,7 +3258,7 @@ sandbox:/mnt/data/review-v3-output-final/04-component-guidelines.md
 | 7 | `财势乾坤/review/market-overview-html-review-v4.pdf` | `市场总览页review-v4` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v4-总控解读与变更单.md` | `市场总览 HTML Review v4｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 
-本轮未能读取但应读取的文档：无。
+本轮未能读取但应读取的文档：无。  
 本轮是否继续：是。
 
 ---
@@ -4832,7 +4831,7 @@ sandbox:/mnt/data/component-registry-output/04-component-guidelines.md
 
 # 20. HTML Review v5 → market-overview-v1.4 连板天梯局部修订合并规范
 
-> 本节为 Review v5 对“市场总览 / 连板天梯模块”的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v4 已确认内容，而是在完整保留 v0.8 merged-full 基线的前提下，只追加连板天梯模块的新组件、Pattern、动态层级规则、展开/收起规则和 Mock 结构建议。
+> 本节为 Review v5 对“市场总览 / 连板天梯模块”的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v4 已确认内容，而是在完整保留 v0.8 merged-full 基线的前提下，只追加连板天梯模块的新组件、Pattern、动态层级规则、展开/收起规则和 Mock 结构建议。  
 > 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览及其它 Review v5 未点名组件。
 
 ## 20.1 本轮读取文档与采用基线
@@ -4847,7 +4846,7 @@ sandbox:/mnt/data/component-registry-output/04-component-guidelines.md
 | 6 | `财势乾坤/review/market-overview-html-review-v5.pdf` | `市场总览页review-v5` | 原始 Review 反馈依据。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v5-总控解读与变更单.md` | `市场总览 HTML Review v5｜总控解读与变更单` | 本轮直接变更单，规定只处理连板天梯模块。 |
 
-本轮未能读取但应读取的文档：无。
+本轮未能读取但应读取的文档：无。  
 本轮是否继续：是。
 
 ---
@@ -5210,7 +5209,7 @@ interface LimitLadderExpandControlProps {
 3. 展开后显示全部股票，并显示“收起”。
 4. 点击“收起”后恢复 12 只展示。
 5. 展开/收起只影响当前层级。
-6. 展开后按 Review v5 固定为“当前层向下撑开”；不引入模块内部滚动分支，不得压缩或重排 Review v5 未点名模块。
+6. 展开后允许当前层向下撑开，或在连板天梯模块内部滚动；不得压缩或重排 Review v5 未点名模块。
 
 ---
 
@@ -5293,7 +5292,7 @@ interface LimitLadderExpandControlProps {
 
 ## 20.11 Mock 数据结构建议
 
-> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。
+> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。  
 > 本轮不要求 04 API 与数据字典参与，也不正式修改 API 文档。
 
 ```ts
@@ -5503,23 +5502,23 @@ interface MarketOverviewLimitLadderMock {
 - `DataDelayState`
 - `PermissionState`
 
-本轮因 Review v5 修改而被动影响的区域：无。
-原因：本轮只替换连板天梯模块内部结构，不影响其它模块。
+本轮因 Review v5 修改而被动影响的区域：无。  
+原因：本轮只替换连板天梯模块内部结构，不影响其它模块。  
 是否需要产品总控确认：否。
 
 ---
 
-## 20.18 Review v5 连板天梯已确认口径（替代旧待确认项）
+## 20.18 待产品总控确认问题
 
-1. `CsqStockCompactCard` 宽度固定为 `148px`，不做 `1366px` 下压缩变体。
-2. 连板天梯保持每行 `6` 只，不做 `1366px` 自动降级为 `5` 只。
-3. 展开后按 Review v5 口径处理为“模块向下撑开”，不引入“内部滚动优先”策略分支。
-4. 五板以上层标题固定为“五板以上”。
-5. `openTimes=0` 显示为“未开板”。
-6. 层级标题右侧展示股票数量（如 `12只`）。
-7. 昨日层级中的股票卡使用今日行情数据，涨跌方向按今日红涨绿跌显示。
-8. 当前不新增该点位的解释 Tooltip，按 Review v5 原型保持纯展示口径。
-9. 若某层 `currentStocks` 为空但 `previousStocks` 非空，保留右侧今日层级容器并显示空态“暂无晋级”。
+1. `CsqStockCompactCard` 宽度是否固定为 148px，还是允许在 1366px 下压缩到 136px？
+2. 连板天梯在 1366px 宽度下是否允许每行从 6 只自动降级为 5 只？当前建议允许，但不破坏字段结构。
+3. 展开后优先使用“模块内部滚动”还是“模块向下撑开”？当前建议优先模块内部滚动或局部展开，避免影响其它模块。
+4. 五板以上层标题是否固定为“五板以上”，还是展示“六板及以上”？当前按 Review v5 使用“五板以上”。
+5. `openTimes=0` 时显示 `0次`、`未开板`，还是 `--`？建议 `未开板`，但由 02 Showcase 最终确认。
+6. 层级标题右侧是否展示股票数量，例如 `12只`？当前建议允许展示。
+7. 昨日层级中今日已断板或下跌股票是否仍使用红涨绿跌显示今日涨跌幅？当前规则是使用今日行情数据，因此应按今日涨跌方向显示。
+8. 是否需要在 Tooltip 中解释“昨日层级股票使用今日行情数据”？建议通过 HelpTooltip 或层级说明提供。
+9. 如果某层 currentStocks 为空但 previousStocks 不为空，右侧今日层级是否显示空态“暂无晋级”？当前建议保留右侧容器并显示空态。
 
 ---
 
@@ -5563,3 +5562,1172 @@ interface MarketOverviewLimitLadderMock {
 ```text
 sandbox:/mnt/data/review-v5-output-final/04-component-guidelines.md
 ```
+
+---
+
+## 21. HTML Review v6 → market-overview-v1.5 标准股票卡片局部修订合并规范
+
+> 本节为 `market-overview-html-review-v6` 的全量合并内容。它不替代前文已确认的组件规范，而是在完整保留 v0.9 merged-full 基线的前提下，只对 Review v6 明确点名的 `CsqStockCompactCard` 做结构修订。  
+> 自 `market-overview-v1.5.html` 起，市场总览连板天梯中的标准股票卡片默认结构以本节为准。此前 Review v5 中关于 `openTimes` 右下默认展示、`currentStreakLevel` 五板以上覆盖展示的描述，降级为历史规则或可选扩展，不再作为本卡片默认结构。  
+> 本节不修改 `MarketOverviewLimitLadder`、`LimitLadderPromotionLayer`、`LimitLadderSpecialLayer`、`LimitLadderFirstLayer`、`LimitLadderExpandControl` 的层级逻辑、展开/收起逻辑和点击逻辑。
+
+### 21.1 本轮读取文档与采用基线
+
+| 序号 | 公共区文件 | 读取到的版本 / 状态 | 本轮用途 |
+|---:|---|---|---|
+| 1 | `财势乾坤/项目总说明/财势乾坤行情软件项目总说明_v_0_2.md` | `财势乾坤项目总说明 v0.2` / Review 草案 v0.2 | 继续约束项目定位、P0 范围、专业沉稳风格、A 股红涨绿跌和不输出买卖建议。 |
+| 2 | `财势乾坤/产品文档/市场总览产品需求文档 v0.2.md` | `市场总览产品需求文档 v0.2` / Review 草案 | 继续约束市场总览页面名称、归属、非目标、无固定 SideNav 和客观事实边界。 |
+| 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` | 作为页面设计基线；本轮不改页面整体布局。 |
+| 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.3.2` / Review v6 修订 | 作为 `CsqStockCompactCard` 的视觉 Token 依据。 |
+| 5 | `财势乾坤/设计/04-component-guidelines.md` | `P0 组件库与交互组件方案 v0.9 merged-full` | 本文件的完整修订基线，保留此前内容并追加本节。 |
+| 6 | `财势乾坤/review/market-overview-html-review-v6.pdf` | `市场总览页review-v6` | 原始 Review 反馈依据。 |
+| 7 | `财势乾坤/review/market-overview-html-review-v6-总控解读与变更单.md` | `市场总览 HTML Review v6｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，限定只修订标准股票卡片。 |
+
+本轮未能读取但应读取的文档：无。  
+本轮是否继续：是。
+
+---
+
+### 21.2 本轮修订边界
+
+#### 21.2.1 允许修改区域
+
+本轮只允许修订：
+
+```text
+市场总览 / 连板天梯 / 标准股票卡片
+```
+
+具体对应组件：
+
+```text
+CsqStockCompactCard
+```
+
+#### 21.2.2 禁止主动修改区域
+
+以下组件、模块和规则保持 v0.9 merged-full 规范，不做主动改动：
+
+- `TopMarketBar`
+- `Breadcrumb`
+- `PageHeader`
+- `ShortcutBar`
+- 今日市场客观总结
+- 主要指数
+- 涨跌分布
+- 市场风格
+- 成交额总览
+- 大盘资金流向
+- 榜单速览
+- 涨跌停统计与分布
+- 板块速览
+- `MarketOverviewLimitLadder` 的层级结构
+- `LimitLadderPromotionLayer` 的昨日/今日晋级结构
+- `LimitLadderSpecialLayer` 的五板以上层级规则
+- `LimitLadderFirstLayer` 的首板层规则
+- `LimitLadderExpandControl` 的展开/收起逻辑
+- 昨日层级展示规则
+- 今日层级展示规则
+- 五板以上层级规则
+- 股票点击进入个股详情的交互
+- 页面整体主题
+- 全局字体
+- 页面整体布局顺序
+- 与 Review v6 无关的组件、Mock 数据结构和业务规则
+
+---
+
+### 21.3 `CsqStockCompactCard` 修订版
+
+| 项 | 说明 |
+|---|---|
+| 组件名 | `CsqStockCompactCard` |
+| 中文名 | 紧凑型股票卡片 |
+| 所属层级 | Core Component 候选 / Data Display Component。它是紧凑股票信息展示组件，本轮主要用于市场总览连板天梯。 |
+| 组件定位 | 用于在高密度场景中展示一只股票的核心行情事实和短线表现信息。组件具备一定复用性，但本轮展示结构优先服务市场总览连板天梯。 |
+| 是否市场总览 P0 必需 | 是，用于 `MarketOverviewLimitLadder` 内的股票卡片。 |
+| 是否改变连板天梯逻辑 | 否。本轮只修改卡片内部字段与布局，不修改天梯层级、展开/收起、昨日/今日规则。 |
+| 默认结构 | 右上角股票代码角标 + 主体 2 行 × 3 列。 |
+| 点击行为 | 点击卡片进入个股详情页，携带 `stockCode` 和当前 `tradeDate`。 |
+| 状态 | default / hover / active / selected / disabled / loading / empty / error。loading、empty、error 主要由父容器或层级容器处理，卡片自身只定义 default、hover、active、selected、disabled 的视觉。 |
+| 涨跌色规则 | `changePct` 必须红涨绿跌；`latestPrice` 可按方向弱着色或使用主文字，由页面实现统一；股票名称、股票代码、所属板块、板上成交额不使用涨跌色。 |
+| Design Token 依赖 | 依赖 `03-design-tokens.md v0.3.2` 中 `--cs-stock-card-*`、`--cs-color-market-*`、`--cs-font-family-number`、`--cs-color-brand-accent-*`。 |
+| 禁止误用 | 不得把 `boardTradeAmount` 写成封单金额或全天成交额；不得把 `streakText` 拆成两个默认字段；不得把股票代码放入主体 2×3 网格。 |
+
+#### 21.3.1 Props
+
+本轮修订后的默认 Props：
+
+```ts
+interface CsqStockCompactCardProps {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+  onClick?: () => void;
+}
+```
+
+说明：
+
+1. 以上 Props 是组件默认展示契约，不是正式 API response。
+2. 页面 API response 到组件 Props 的转换应由页面 ViewModel / Adapter 完成。
+3. `direction`、`selected`、`disabled` 等状态字段可在前端实现中作为扩展 UI props，但不进入本轮用户指定的最小 Props 契约。
+4. `openTimes`、`currentStreakLevel` 不再作为默认展示字段；如未来业务需要，可作为扩展信息进入 Tooltip 或高级变体，不影响本轮默认结构。
+
+#### 21.3.2 展示结构
+
+新的 `CsqStockCompactCard` 由两部分组成：
+
+1. 右上角股票代码角标；
+2. 主体 2 行 × 3 列信息区。
+
+```text
+┌────────────────────────────────────────────────────┐
+│                                            600172.SH│
+│ 股票名称              涨幅              所属板块    │
+│ 最新价                板上成交额        N天M板标签  │
+└────────────────────────────────────────────────────┘
+```
+
+结构规则：
+
+| 区域 | 字段 | 说明 |
+|---|---|---|
+| 右上角角标 | `stockCode` | 股票代码，弱化但可读，不属于主体 2×3 信息区。 |
+| 第一行左侧 | `stockName` | 股票名称，主识别信息，视觉权重最高。 |
+| 第一行中间 | `changePct` | 涨幅，红涨绿跌，带正负号和百分号。 |
+| 第一行右侧 | `sectorName` | 所属板块，中性信息，右对齐，超出省略。 |
+| 第二行左侧 | `latestPrice` | 最新价，不再使用“收盘价格”口径。 |
+| 第二行中间 | `boardTradeAmount` | 板上成交额，只在板上发生的成交金额。 |
+| 第二行右侧 | `streakText` | N天M板/板型，一个字段、一个标签。 |
+
+---
+
+### 21.4 字段口径与显示规则
+
+#### 21.4.1 `stockCode`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 股票代码。 |
+| 显示位置 | 卡片右上角角标。 |
+| 是否主体字段 | 否，不属于主体 2×3 信息区。 |
+| 视觉权重 | 弱化但可读。 |
+| 示例 | `600172.SH`、`300124.SZ`。 |
+| 禁止 | 禁止放回左中；禁止作为普通正文列；禁止使用涨跌色。 |
+
+#### 21.4.2 `stockName`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 股票名称。 |
+| 显示位置 | 第一行左侧。 |
+| 视觉权重 | 最高，是卡片主识别信息。 |
+| 规则 | 单行展示，过长省略；不使用涨跌色。 |
+| 示例 | `黄河旋风`、`汇川技术`。 |
+
+#### 21.4.3 `latestPrice`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 最新价。 |
+| 显示位置 | 第二行左侧。 |
+| 口径说明 | 盘中展示实时或最近行情价；收盘后最新价等于收盘价。 |
+| 修订说明 | 不再使用“收盘价格”作为字段名或显示口径。 |
+| 颜色 | 可按涨跌方向弱着色，也可使用主文字，仅让 `changePct` 承载方向色。 |
+| 示例 | `10.76`。 |
+
+#### 21.4.4 `changePct`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 涨幅 / 涨跌幅。 |
+| 显示位置 | 第一行中间。 |
+| 颜色 | 必须红涨绿跌，正红、负绿、零灰白。 |
+| 格式 | 正数带 `+`，保留百分号。 |
+| 示例 | `+10.02%`、`-3.18%`、`0.00%`。 |
+
+#### 21.4.5 `sectorName`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 所属板块。 |
+| 显示位置 | 第一行右侧。 |
+| 颜色 | 中性文字，不使用涨跌色。 |
+| 规则 | 单行展示，过长省略；右对齐。 |
+| 示例 | `通用设备`、`机器人`、`固态电池`。 |
+
+#### 21.4.6 `boardTradeAmount`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | 板上成交额。 |
+| 显示位置 | 第二行中间。 |
+| 口径 | 只在板上发生的成交金额。 |
+| 明确不是 | 不是封单金额；不是全天成交额；不是总成交额；不是板块成交额；不是资金净流入。 |
+| 颜色 | 中性或弱强调，不使用涨跌红/绿。 |
+| 格式 | 建议由 ViewModel 格式化为 `3.20亿`、`8200万`。 |
+| Tooltip | 可说明“板上成交额：只统计封板状态下发生的成交金额”。 |
+
+#### 21.4.7 `streakText`
+
+| 项 | 说明 |
+|---|---|
+| 业务含义 | N天M板 / 板型文本。 |
+| 显示位置 | 第二行右侧。 |
+| 字段规则 | 一个字段，一个标签。 |
+| 禁止 | 不拆成两个独立字段；不默认同时展示两个独立标签。 |
+| 示例 | `首板`、`2连板`、`3连板`、`7天5板`、`9天7板`、`6板`。 |
+| 五板以上 | 五板以上层也通过 `streakText` 承载具体板数或近期表现；不再用 `currentStreakLevel` 覆盖右下字段。 |
+
+---
+
+### 21.5 旧默认字段移除 / 降级说明
+
+本轮默认结构中不再使用以下字段：
+
+| 旧字段 / 口径 | Review v6 处理 | 说明 |
+|---|---|---|
+| `openTimes` 作为右下默认字段 | 移除默认展示，降级为未来扩展字段 | 若后续需要展示开板次数，可进入 Tooltip 或扩展变体，但不作为本轮默认卡片结构。 |
+| `currentStreakLevel` 作为五板以上右下覆盖字段 | 移除默认覆盖，统一由 `streakText` 承载 | 五板以上可传入 `streakText: '6板'` 或 `streakText: '9天7板'`。 |
+| 收盘价格 | 改为 `latestPrice` | 市场总览可盘中展示，字段口径必须是最新价。 |
+| 封单金额 | 不进入本轮默认结构 | 本轮字段是板上成交额，不是封单金额。 |
+| 全天成交额 | 不进入本轮默认结构 | 本轮字段是板上成交额，不是全天成交额。 |
+
+---
+
+### 21.6 状态与交互
+
+| 状态 | 规则 |
+|---|---|
+| default | 深色卡片背景、弱边框、2×3 信息区正常展示。 |
+| hover | 整卡高亮，边框提亮，可有弱阴影；不改变字段颜色语义。 |
+| active | 鼠标按下或键盘确认时轻微压暗或下移 1px。 |
+| selected | 可选状态；如页面需要选中股票，使用品牌金弱背景 / 品牌金边框。 |
+| disabled | 通常不出现；如股票不可点击，降低透明度并取消 pointer。 |
+| loading | 由父容器或层级容器处理，展示股票卡片骨架。 |
+| empty | 由父容器或层级容器处理，展示“暂无该层级股票”。 |
+| error | 由父容器或层级容器处理，展示单层错误块。 |
+
+交互要求：
+
+1. 卡片 hover 时整卡高亮；
+2. 卡片 click 进入个股详情页；
+3. 组件通过 `onClick?: () => void` 暴露点击事件；
+4. 组件不关心路由细节，路由由页面层处理；
+5. 点击卡片不改变连板天梯展开 / 收起状态；
+6. 点击卡片不改变层级标题行为；
+7. 层级标题仍不支持点击。
+
+---
+
+### 21.7 与连板天梯其它组件的关系
+
+本轮不修改以下组件逻辑，只说明它们内部使用新版 `CsqStockCompactCard`：
+
+| 组件 / Pattern | 本轮处理 |
+|---|---|
+| `MarketOverviewLimitLadder` | 保持市场总览业务复合组件定位；内部股票卡片改用 Review v6 版 `CsqStockCompactCard`。 |
+| `LimitLadderPromotionLayer` | 结构仍为 `昨日 N-1 板 → 今日 N 板`；`previousStocks` 和 `currentStocks` 均使用新版卡片展示。 |
+| `LimitLadderSpecialLayer` | 仍用于“五板以上”独立层；不修改五板以上只展示今日六板及以上的规则；卡片右下由 `streakText` 承载，如 `6板`。 |
+| `LimitLadderFirstLayer` | 仍只展示今日首板；股票卡片使用新版结构。 |
+| `LimitLadderExpandControl` | 展开 / 收起逻辑保持不变；默认最多 2 行 × 6 只，超出展开全部。 |
+| `LimitLadderPromotionLayer.previousStocks` | 仍展示昨日该层级所有股票，卡片信息使用今日数据。 |
+| `LimitLadderPromotionLayer.currentStocks` | 仍只展示今日晋级成功股票，卡片信息使用今日数据。 |
+
+---
+
+### 21.8 Mock 数据结构建议
+
+本轮不让 04 修改 API，以下结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。
+
+```ts
+interface LimitLadderStockCard {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+}
+```
+
+Mock 示例：
+
+```ts
+const mockLimitLadderStock: LimitLadderStockCard = {
+  stockCode: '600172.SH',
+  stockName: '黄河旋风',
+  latestPrice: 10.76,
+  changePct: 10.02,
+  sectorName: '通用设备',
+  boardTradeAmount: 320000000,
+  streakText: '7天5板',
+};
+```
+
+ViewModel 展示格式建议：
+
+```ts
+interface LimitLadderStockCardViewModel extends LimitLadderStockCard {
+  latestPriceText: string;        // 例如：10.76
+  changePctText: string;          // 例如：+10.02%
+  boardTradeAmountText: string;   // 例如：3.20亿 / 8200万
+  direction: 'rise' | 'fall' | 'flat';
+}
+```
+
+说明：
+
+1. `boardTradeAmountText` 可由前端 mock adapter 生成，不要求 API 本轮提供；
+2. `direction` 可由 `changePct` 派生，仅用于 UI 着色；
+3. `streakText` 是单一展示字段，不拆分；
+4. 04 本轮不参与，不正式修改 API 文档和数据字典。
+
+---
+
+### 21.9 对 02 `market-overview-v1.5.html` 的组件使用建议
+
+1. 只修改连板天梯中的标准股票卡片。
+2. 股票代码必须放在卡片右上角角标。
+3. 股票代码不得进入主体 2×3 信息区。
+4. 主体信息必须为 2 行 × 3 列：
+   - 第一行：股票名称、涨幅、所属板块；
+   - 第二行：最新价、板上成交额、N天M板/板型。
+5. 股票名称为最高识别权重。
+6. 涨幅必须红涨绿跌，并保留正负号。
+7. 最新价显示为最新价，不得写成收盘价格。
+8. 板上成交额按“只在板上发生的成交金额”理解和展示，不得误写为封单金额或全天成交额。
+9. `N天M板/板型` 必须是一个字段、一个标签。
+10. 五板以上层不再通过 `currentStreakLevel` 单独覆盖右下角，而是通过 `streakText` 显示 `6板`、`7板` 或 `9天7板`。
+11. 不照搬 Review v6 示意图浅色背景、蓝色边框、按钮样式或字体。
+12. 必须使用当前市场总览深色金融终端风格。
+13. 保持卡片 hover / clickable 状态。
+14. 不修改连板天梯层级结构。
+15. 不修改连板天梯展开/收起逻辑。
+16. 不修改连板天梯五板以上层级规则。
+17. 不修改市场总览其它模块。
+18. 若卡片空间不足，优先缩短 `boardTradeAmountText`，例如 `3.2亿`；不得删除 `streakText`。
+
+---
+
+### 21.10 对 01 Design Token 的依赖
+
+本轮依赖 `03-design-tokens.md v0.3.2` 中以下 Token 和规则：
+
+| Token / 规则 | 用途 |
+|---|---|
+| `--cs-stock-card-width` / `--cs-stock-card-min-width` / `--cs-stock-card-height` | 新版卡片尺寸。 |
+| `--cs-stock-card-code-badge-*` | 右上角股票代码角标样式。 |
+| `--cs-stock-card-body-*` | 主体 2 行 × 3 列布局。 |
+| `--cs-stock-card-name-*` | 股票名称字号和字重。 |
+| `--cs-stock-card-change-*` | 涨幅字号和字重。 |
+| `--cs-stock-card-price-*` | 最新价字号和字重。 |
+| `--cs-stock-card-board-amount-*` | 板上成交额中性 / 弱强调样式。 |
+| `--cs-stock-card-tag-*` | `N天M板/板型` 标签样式。 |
+| `--cs-color-market-up/down/flat` | 红涨绿跌。 |
+| `--cs-font-family-number` | 价格、涨幅、金额等数字字段。 |
+| `--cs-stock-card-bg-hover` / `--cs-stock-card-border-hover` / `--cs-stock-card-shadow-hover` | 整卡 hover 高亮。 |
+
+03 实现时不得绕过 Token 直接硬编码卡片颜色、边框、字号和 hover 样式。
+
+---
+
+### 21.11 是否需要后续拉 04 参与的条件
+
+本轮不正式修改 API 契约，不要求 04 参与。
+
+后续只有在以下条件出现时，再单独拉 04 API 与数据字典参与：
+
+| 条件 | 是否需要 04 | 原因 |
+|---|---:|---|
+| 需要正式在接口中增加 `boardTradeAmount` | 是 | `boardTradeAmount` 涉及明确业务口径，需要数据字典定义来源和计算方式。 |
+| 需要正式在接口中增加 `streakText` | 是 | `N天M板/板型` 文案可能需要统一生成口径。 |
+| 需要区分 `streakText` 的“首板 / 连板 / N天M板”类型 | 是 | 可能需要新增字段或枚举，而不是单一文本。 |
+| 需要展示 `boardTradeAmountDisplayText` | 是 | 若希望后端统一格式化金额，需要 API 字段确认。 |
+| 只在 Showcase Mock 中展示新版卡片 | 否 | 本轮可由前端 mock adapter 生成。 |
+| 仅调整卡片 CSS 和布局 | 否 | 不涉及 API 契约。 |
+
+本轮结论：
+
+```text
+04 本轮不参与；本节 Mock 字段只用于 Showcase 和组件设计，不作为正式 API 契约。
+```
+
+---
+
+### 21.12 本轮 Review v6 修改摘要
+
+1. 仅修订 `CsqStockCompactCard`。
+2. 股票代码改为右上角角标，弱化但可读。
+3. 主体信息改为 `2 行 × 3 列`：
+   - 第一行：股票名称、涨幅、所属板块；
+   - 第二行：最新价、板上成交额、N天M板/板型。
+4. “收盘价格”口径修正为“最新价”。
+5. 新增 `boardTradeAmount` 字段作为板上成交额，仅指板上发生的成交金额。
+6. 明确 `boardTradeAmount` 不是封单金额、不是全天成交额、不是总成交额。
+7. `streakText` 明确为一个字段、一个标签，不拆成两个独立字段。
+8. `openTimes` 不再作为卡片默认右下字段。
+9. `currentStreakLevel` 不再作为五板以上默认右下覆盖字段，由 `streakText` 承载。
+10. 不修改连板天梯其它组件、层级结构、展开/收起逻辑和股票点击交互。
+
+### 21.13 本轮修订组件清单
+
+| 类型 | 组件 | 处理方式 |
+|---|---|---|
+| 修订 | `CsqStockCompactCard` | 修订默认 Props、字段口径、显示结构和旧字段降级说明。 |
+| 影响说明 | `MarketOverviewLimitLadder` | 仅说明内部使用新版 `CsqStockCompactCard`，不修改层级逻辑。 |
+| 影响说明 | `LimitLadderPromotionLayer` | 仅说明 `previousStocks/currentStocks` 卡片使用新版结构，不修改昨日/今日规则。 |
+| 影响说明 | `LimitLadderSpecialLayer` | 仅说明五板以上卡片通过 `streakText` 承载具体板数，不修改五板以上层级规则。 |
+| 影响说明 | `LimitLadderFirstLayer` | 仅说明首板层卡片使用新版结构，不修改首板层规则。 |
+| 影响说明 | `LimitLadderExpandControl` | 无逻辑修改。 |
+
+### 21.14 本轮未修改组件清单
+
+以下组件和模块保持 v0.9 merged-full 规范，不主动修改：
+
+- `TopMarketBar`
+- `Breadcrumb`
+- `PageHeader`
+- `ShortcutBar`
+- 今日市场客观总结
+- 主要指数
+- 涨跌分布
+- 市场风格
+- 成交额总览
+- 大盘资金流向
+- 榜单速览
+- 涨跌停统计与分布
+- 板块速览
+- `MarketOverviewLimitLadder` 的层级结构
+- `LimitLadderPromotionLayer` 的昨日 / 今日晋级逻辑
+- `LimitLadderSpecialLayer` 的五板以上层级规则
+- `LimitLadderFirstLayer` 的首板层规则
+- `LimitLadderExpandControl` 的展开 / 收起逻辑
+- `CsqPanel`
+- `CsqSectionHeader`
+- `CsqHelpTooltip`
+- `CsqBadge`
+- `CsqStatusDot`
+- `CsqSkeleton`
+- `CsqEmptyState`
+- `CsqErrorState`
+- `CsqMetricCard`
+- `CsqMetricSummaryGroup`
+- `CsqChangeValue`
+- `CsqChangeBadge`
+- `CsqInfoRow`
+- `CsqLinkedMetricList`
+- `CsqProgressList`
+- `CsqStatusBadge`
+- `CsqDataTable`
+- `CsqRankTable`
+- `CsqColumnHeader`
+- `CsqTableRow`
+- `CsqTableCellNumber`
+- `CsqMiniTrendChart`
+- `CsqHistoryTrendChart`
+- `CsqDistributionChart`
+- `CsqBarChart`
+- `CsqPieChartWithCallout`
+- `CsqHeatMapGrid`
+- `CsqChartSplitPanel`
+- `CsqChartTooltip`
+- `CsqCrosshairOverlay`
+
+```text
+本轮因 Review v6 修改而被动影响的区域：无
+原因：本轮只替换标准股票卡片内部字段结构，不改变父组件逻辑。
+是否需要产品总控确认：否
+```
+
+### 21.15 待产品总控确认问题
+
+1. `CsqStockCompactCard` 的默认宽度是否采用 Token v0.3.2 建议的 `168px`，并在窄宽度下允许降级到 `152px`？
+2. `latestPrice` 是否需要随涨跌方向弱着色，还是仅让 `changePct` 承载红涨绿跌？当前建议：`changePct` 必须方向色，`latestPrice` 可弱方向色。
+3. `boardTradeAmount` 在卡片内是否只展示金额，不展示“板上成交额”标签？当前建议：卡片内只展示金额，完整口径放入 Tooltip / 组件说明。
+4. `boardTradeAmount` 为空时展示 `--`，还是隐藏中列内容？建议展示 `--` 并保留布局。
+5. `streakText` 是否允许同时出现“连板型”和“N天M板型”的不同文案？当前按一个字段一个标签处理，由上游 mock 决定文本。
+6. 是否需要保留 `openTimes` 在卡片 Tooltip 中展示？当前默认结构不展示，但可作为未来扩展。
+7. 五板以上层是否统一传 `streakText='6板'`，还是优先传 `streakText='9天7板'`？当前组件只接受文本，不判断业务优先级。
+
+### 21.16 Review v6 验收清单
+
+| 验收项 | 要求 |
+|---|---|
+| 完整文档 | 本文件仍是完整 `04-component-guidelines.md`，不是 delta 文档。 |
+| 修改边界 | 只修订 `CsqStockCompactCard`。 |
+| 右上角代码 | `stockCode` 位于卡片右上角，弱化但可读，不进入主体 2×3。 |
+| 主体结构 | 第一行 `stockName / changePct / sectorName`；第二行 `latestPrice / boardTradeAmount / streakText`。 |
+| 最新价 | 使用 `latestPrice`，不再使用“收盘价格”口径。 |
+| 板上成交额 | `boardTradeAmount` 口径明确：只在板上发生的成交金额，不是封单金额或全天成交额。 |
+| N天M板标签 | `streakText` 是一个字段、一个标签，不拆分。 |
+| 旧字段降级 | `openTimes` 和 `currentStreakLevel` 不作为默认结构字段。 |
+| 连板天梯逻辑 | 不修改层级结构、昨日/今日规则、五板以上规则、展开/收起逻辑。 |
+| 交互 | 卡片点击进入个股详情；父组件逻辑不变。 |
+| API | 不正式修改 API 契约，只提供 Mock 字段建议。 |
+| 未授权改动 | 未修改 Review v6 未点名组件或页面整体布局。 |
+
+### 21.17 建议放置到 Google Drive 的路径
+
+```text
+财势乾坤/设计/04-component-guidelines.md
+```
+
+### 21.18 建议仓库保存路径
+
+```text
+/docs/wealth/04-component-guidelines.md
+```
+
+### 21.19 本轮输出文件下载链接
+
+对话交付文件：
+
+```text
+sandbox:/mnt/data/review-v6-output-final/04-component-guidelines.md
+```
+
+---
+
+## 22. HTML Review v7 → market-overview-v1.6 标准股票卡片局部修订合并规范
+
+> 本节为 Review v7 对 `市场总览 / 连板天梯 / 标准股票卡片` 的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v6 已确认内容，而是在完整保留 v1.0 merged-full 基线的前提下，只修订 `CsqStockCompactCard` 的布局结构与组件说明。  
+> 本节是当前最新覆盖规则：**Review v7 正式替代 Review v6 中“股票代码右上角 + 主体 2 行 × 3 列”的标准股票卡片结构。**  
+> 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、连板天梯层级结构、连板天梯展开/收起逻辑及其它 Review v7 未点名组件。
+
+### 22.1 本轮读取文档与采用基线
+
+| 序号 | 公共区文件 | 读取到的版本 / 状态 | 本轮用途 |
+|---:|---|---|---|
+| 1 | `财势乾坤/项目总说明/财势乾坤行情软件项目总说明_v_0_2.md` | `财势乾坤项目总说明 v0.2` / Review 草案 v0.2 | 继续约束产品定位、P0 范围、A 股优先、红涨绿跌、深色默认、专业沉稳风格。 |
+| 2 | `财势乾坤/产品文档/市场总览产品需求文档 v0.2.md` | `市场总览产品需求文档 v0.2` / Review 草案 | 继续约束市场总览页面名称、归属、非目标、无固定 SideNav、客观事实页边界。 |
+| 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` | 作为市场总览页面设计基线；本轮仅修订连板天梯标准股票卡片，不主动调整页面其它模块。 |
+| 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.3.3` | 采用 Review v7 中股票代码左上角胶囊、三分区卡片、标签区、hover/clickable/selected 状态等 Token。 |
+| 5 | `财势乾坤/设计/04-component-guidelines.md` | 公共区当前读取到 `P0 组件库与交互组件方案 v0.9 merged-full / Review v5 连板天梯局部修订版`；本文件合并时以已交付的 Review v6 完整合并版为防回退基线 | 公共区文件用于核验当前组件基线；为避免丢失已确认的 Review v6 标准股票卡片字段口径，本版在 v6 完整合并版基础上追加 Review v7 修订。 |
+| 6 | `财势乾坤/review/market-overview-html-review-v7-总控解读与变更单.md` | `市场总览 HTML Review v7｜总控解读与变更单` | 本轮直接变更单，规定只处理 `CsqStockCompactCard`。 |
+
+本轮未能读取但应读取的文档：无。  
+本轮是否继续：是。
+
+---
+
+### 22.2 本轮修订边界
+
+#### 22.2.1 允许修改区域
+
+```text
+市场总览 / 连板天梯 / 标准股票卡片 / CsqStockCompactCard
+```
+
+本轮只允许修订：
+
+1. `CsqStockCompactCard` 的内部结构；
+2. `CsqStockCompactCard` 的字段位置；
+3. `CsqStockCompactCard` 的布局分区；
+4. `CsqStockCompactCard` 的废弃旧结构说明；
+5. 组件内部使用新版 `CsqStockCompactCard` 的父组件兼容说明；
+6. Showcase Mock 字段建议。
+
+#### 22.2.2 禁止主动修改区域
+
+以下组件和模块保持 v1.0 merged-full 规范，不做主动改动：
+
+- `TopMarketBar`
+- `GlobalSystemMenu`
+- `IndexTickerStrip`
+- `Breadcrumb`
+- `PageHeader`
+- `MarketStatusPill`
+- `DataStatusBadge`
+- `ShortcutBar`
+- `QuickEntryCard`
+- `QuickEntryBadge`
+- 今日市场客观总结相关组件
+- 主要指数相关组件
+- `MarketBreadthPanel` / 涨跌分布
+- `MarketStylePanel` / 市场风格
+- `TurnoverSummaryCard` / 成交额总览
+- `MoneyFlowSummaryPanel` / 大盘资金流向
+- `RankingTable` / 榜单速览
+- `LimitUpDistributionGrid` / 涨跌停统计与分布
+- `LimitUpSectorLeaderPanel` / 领涨股涨停表现
+- `OrderSizeNetPieChart` / 资金饼图
+- `SectorOverviewMatrix` / 板块速览矩阵
+- `SectorHeatMap` / 板块热力图
+- `MarketOverviewLimitLadder` 的层级结构
+- `LimitLadderPromotionLayer`
+- `LimitLadderSpecialLayer`
+- `LimitLadderFirstLayer`
+- `LimitLadderExpandControl`
+- 昨日层级展示规则
+- 今日层级展示规则
+- 五板以上层级规则
+- 展开 / 收起逻辑
+- 页面整体主题、全局字体、页面整体布局顺序
+- 与 Review v7 无关的任何组件或 Mock 数据结构
+
+---
+
+### 22.3 CsqStockCompactCard：Review v7 最新结构
+
+| 项 | 说明 |
+|---|---|
+| 组件名 | `CsqStockCompactCard` |
+| 中文名 | 标准紧凑股票卡片 |
+| 所属层级 | Data Display Components / 行情终端领域通用组件 |
+| 组件定位 | 用于紧凑型股票信息展示。当前主要用于市场总览连板天梯，也可作为后续短线异动股、板块领涨股、股票候选列表的复用基础。 |
+| 是否 Core Component | 是，但它是“股票展示领域组件”，不是市场总览专属组件；Props 不绑定 API response。 |
+| 是否市场总览 P0 必需 | 是，Review v5 / v6 / v7 连续点名。 |
+| 本轮结构结论 | 新版结构正式替代 Review v6 的右上角代码 + 2 行 × 3 列机械网格方案。 |
+| 输入字段 / Props | `stockCode`、`stockName`、`latestPrice`、`changePct`、`sectorName`、`boardTradeAmount`、`streakText`、`onClick`。字段集合保持稳定。 |
+| 视觉结构 | `codePill` + `leftIdentity` + `centerMetrics` + `rightTags`。股票代码位于左上角胶囊；主体为横向三分区，而不是机械 2×3 网格。 |
+| 交互行为 | hover 整卡高亮；click 进入个股详情页；支持键盘 focus / Enter 触发点击；父级层级标题、晋级箭头和展开控件逻辑不变。 |
+| 状态 | default：正常卡片；hover：整卡背景、边框、弱阴影增强；active：轻微压暗或下移 1px；selected：品牌金弱背景/边框，可选；disabled：透明度降低且不触发点击；loading/empty/error 由父容器处理。 |
+| 涨跌色规则 | `changePct` 必须红涨绿跌；`latestPrice` 可跟随方向弱着色；`stockName`、`stockCode`、`sectorName` 使用中性色；`boardTradeAmount` 使用中性或弱强调色；`streakText` 使用标签样式，不拆字段。 |
+| Design Token 映射 | `--cs-stock-card-*`、`--cs-color-market-*`、`--cs-font-family-number`、`--cs-color-brand-accent-*`、`--cs-color-warning`。以 `03-design-tokens.md v0.3.3` 为准。 |
+| 禁止误用 | 不展示买卖建议、机会评分、市场温度、风险指数；不使用右上角股票代码方案；不使用 2×3 机械网格；不将 `streakText` 拆成两个标签；不把板上成交额误写为封单金额或全天成交额。 |
+
+```ts
+interface CsqStockCompactCardProps {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+  onClick?: () => void;
+}
+```
+
+#### 22.3.1 结构树
+
+新版 `CsqStockCompactCard` 必须按以下结构组织：
+
+```text
+CsqStockCompactCard
+├── codePill
+├── leftIdentity
+│   ├── stockName
+│   └── latestPrice
+├── centerMetrics
+│   ├── changePct
+│   └── boardTradeAmount
+└── rightTags
+    ├── sectorName
+    └── streakTextPill
+```
+
+说明：
+
+1. `codePill` 是独立的左上角胶囊，不属于主体普通列。
+2. `leftIdentity` 是股票识别区，负责股票名称和最新价。
+3. `centerMetrics` 是行情事实区，负责涨幅和板上成交额。
+4. `rightTags` 是标签区，负责所属板块和 N天M板 / 板型。
+5. 三分区是视觉和信息架构分区，不改变字段集合，不引入新 API 字段。
+
+#### 22.3.2 结构示意
+
+```text
+┌──────────────────────────────────────────────┐
+│ [603017.SH]                                  │
+│ 中衡设计          +10.02%          低空经济   │
+│ 12.74             1.27亿            3连板     │
+└──────────────────────────────────────────────┘
+```
+
+推荐布局理解：
+
+```text
+┌──────────────────────────────────────────────┐
+│ codePill                                     │
+│ leftIdentity      centerMetrics    rightTags │
+│ stockName         changePct        sectorName│
+│ latestPrice       boardTradeAmount streakText│
+└──────────────────────────────────────────────┘
+```
+
+---
+
+### 22.4 字段说明与显示位置
+
+#### 22.4.1 stockCode
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `stockCode` |
+| 显示位置 | 左上角 `codePill`。 |
+| 显示规则 | 胶囊标签，弱化但清晰可读；建议使用等宽数字字体。 |
+| 禁止 | 不显示在右上角；不作为主体普通列；不与 `stockName` 混排。 |
+
+#### 22.4.2 stockName
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `stockName` |
+| 显示位置 | `leftIdentity` 第一行。 |
+| 显示规则 | 主识别字段，视觉权重最高，单行省略。 |
+| 禁止 | 不使用涨跌色，不做标签化。 |
+
+#### 22.4.3 latestPrice
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `latestPrice` |
+| 显示位置 | `leftIdentity` 第二行。 |
+| 口径 | 最新价。盘中展示实时或最近行情价；收盘后最新价自然等于收盘价。 |
+| 显示规则 | 数字字体；可跟随涨跌方向弱着色，或使用主文字色并由 `changePct` 承载方向色。 |
+| 禁止 | 不使用“收盘价格”作为字段名或展示口径。 |
+
+#### 22.4.4 changePct
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `changePct` |
+| 显示位置 | `centerMetrics` 第一行。 |
+| 显示规则 | 红涨绿跌，正数带 `+`，负数带 `-`，保留 2 位小数。 |
+| 视觉层级 | 强强调，仅次于股票名称和最新价。 |
+
+#### 22.4.5 boardTradeAmount
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `boardTradeAmount` |
+| 显示位置 | `centerMetrics` 第二行。 |
+| 口径 | 只在板上发生的成交金额。 |
+| 显示规则 | 建议格式化为 `3.20亿`、`8200万`；使用中性色或弱强调色；数字字体。 |
+| 明确不是 | 不是封单金额；不是全天成交额；不是总成交额；不是板块成交额；不是主力净流入。 |
+| Tooltip 建议 | `板上成交额：只统计封板状态下发生的成交金额`。 |
+
+#### 22.4.6 sectorName
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `sectorName` |
+| 显示位置 | `rightTags` 第一行。 |
+| 显示规则 | 所属板块，中性色，单行省略。 |
+| 禁止 | 不使用涨跌红绿，不与 `streakText` 合并为一个字段。 |
+
+#### 22.4.7 streakText
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `streakText` |
+| 显示位置 | `rightTags` 第二行，作为 `streakTextPill`。 |
+| 口径 | N天M板 / 板型，一个字段，一个标签。 |
+| 示例 | `首板`、`2连板`、`3连板`、`7天5板`、`9天7板`。 |
+| 显示规则 | 胶囊标签，可使用红色描边、弱红背景或品牌弱强调；不得使用大面积红背景。 |
+| 禁止 | 不拆成两个字段；不同时展示两个独立标签；不再通过 `currentStreakLevel` 特殊覆盖右下字段。 |
+
+#### 22.4.8 onClick
+
+| 项 | 说明 |
+|---|---|
+| 字段 | `onClick` |
+| 交互 | 点击股票卡片进入个股详情页。 |
+| 路由参数 | 页面层负责携带 `stockCode`、`tradeDate`。组件本身不绑定路由实现。 |
+| 可访问性 | clickable 状态建议提供 `role="button"`、`tabIndex=0`、Enter / Space 触发。 |
+
+---
+
+### 22.5 废弃旧规则
+
+Review v7 正式废弃以下 Review v6 规则：
+
+| 废弃项 | 原规则 | Review v7 新规则 |
+|---|---|---|
+| 股票代码位置 | 股票代码在右上角角标 | 股票代码在左上角胶囊 `codePill` |
+| 主体布局 | 第一行：`stockName / changePct / sectorName`；第二行：`latestPrice / boardTradeAmount / streakText` | 横向三分区：`leftIdentity / centerMetrics / rightTags` |
+| 视觉组织方式 | 2 行 × 3 列机械网格 | 行情终端式横向信息卡片 |
+| 五板以上右下覆盖 | 右下字段可由 `currentStreakLevel` 覆盖为 `6板 / 7板` | 统一通过 `streakText` 承载 N天M板 / 板型信息 |
+| openTimes 默认展示 | Review v5 曾以 openTimes 作为右下默认字段 | Review v7 默认结构不展示 openTimes；如未来需要，只能作为扩展或 Tooltip 字段，不进入默认结构 |
+
+说明：
+
+1. 字段集合基本不变；
+2. 变化的是布局结构和视觉层级；
+3. `streakText` 统一承载 N天M板 / 板型信息；
+4. 废弃旧结构不代表删除历史 Review 记录，但当前实现必须以本节为准。
+
+---
+
+### 22.6 视觉结构与密度建议
+
+#### 22.6.1 三分区宽度建议
+
+| 分区 | 建议宽度 | 说明 |
+|---|---:|---|
+| `leftIdentity` | 38%～44% | 股票名称和最新价需要优先可读。 |
+| `centerMetrics` | 24%～30% | 涨幅和板上成交额偏数字展示，居中或右对齐。 |
+| `rightTags` | 28%～34% | 板块和 streak 标签需要完整可读。 |
+
+#### 22.6.2 对齐建议
+
+| 元素 | 对齐 |
+|---|---|
+| codePill | 左上角，独立胶囊。 |
+| stockName | 左对齐。 |
+| latestPrice | 左对齐。 |
+| changePct | 居中或右对齐，保持与 boardTradeAmount 垂直对齐。 |
+| boardTradeAmount | 居中或右对齐。 |
+| sectorName | 右对齐，单行省略。 |
+| streakTextPill | 右对齐，胶囊标签。 |
+
+#### 22.6.3 推荐视觉层级
+
+1. `stockName`：最高识别权重。
+2. `latestPrice` / `changePct`：主要行情事实。
+3. `streakTextPill`：连板标签强调。
+4. `boardTradeAmount`：辅助事实。
+5. `sectorName`：上下文信息。
+6. `codePill`：弱化但清晰。
+
+#### 22.6.4 红涨绿跌规则
+
+| 字段 | 颜色规则 |
+|---|---|
+| `changePct` | 必须红涨绿跌。正红、负绿、零灰白。 |
+| `latestPrice` | 可跟随涨跌方向弱着色；若视觉噪音过高，可用主文字色。 |
+| `stockName` | 中性主文字，不用涨跌色。 |
+| `stockCode` | 中性弱文字，不用涨跌色。 |
+| `sectorName` | 中性文字，不用涨跌色。 |
+| `boardTradeAmount` | 中性或弱强调，不用涨跌色。 |
+| `streakText` | 标签样式，可用红色描边 / 弱红背景 / 品牌弱强调；不拆字段。 |
+
+---
+
+### 22.7 状态与交互
+
+| 状态 | 规则 |
+|---|---|
+| default | 深色卡片底、弱边框、字段按三分区展示。 |
+| hover | 整卡背景轻微提亮，边框增强，cursor 为 pointer。 |
+| active | 卡片轻微压暗或下移 1px。 |
+| selected | 可选：使用品牌金弱背景或细描边，不能与涨停红混淆。 |
+| disabled | 降低透明度，不触发点击。 |
+| loading | 由父容器处理；若卡片局部 loading，保持 codePill、三分区骨架。 |
+| empty | 由父容器处理，不建议单卡空态。 |
+| error | 由父容器处理，不建议单卡错误态。 |
+
+交互规则：
+
+1. 整卡 hover 高亮。
+2. 整卡 click 进入个股详情页。
+3. 不在 `codePill`、`streakTextPill` 上拆分独立点击行为。
+4. 不改变 `MarketOverviewLimitLadder` 的层级标题点击规则。
+5. 不改变 `LimitLadderExpandControl` 的展开/收起规则。
+6. 不改变晋级箭头的非点击状态。
+
+---
+
+### 22.8 与连板天梯其它组件的关系
+
+以下组件只需说明其内部股票卡片换用新版 `CsqStockCompactCard`，不修改自身逻辑：
+
+| 组件 | 本轮处理 |
+|---|---|
+| `MarketOverviewLimitLadder` | 内部股票展示单元换用 Review v7 版 `CsqStockCompactCard`；动态层级、昨日/今日规则、五板以上规则、展开/收起逻辑不变。 |
+| `LimitLadderPromotionLayer` | 左侧 `previousStocks` 和右侧 `currentStocks` 均使用新版卡片；标题、箭头、层级规则不变。 |
+| `LimitLadderSpecialLayer` | 继续只展示今日六板及以上；不再使用 `currentStreakLevel` 覆盖右下字段，而由 `streakText` 承载具体板型或板数。 |
+| `LimitLadderFirstLayer` | 继续只展示今日首板；股票卡片使用新版三分区结构。 |
+| `LimitLadderExpandControl` | 展开/收起规则不变；默认折叠仍最多展示 2 行 × 6 只。 |
+
+必须保持：
+
+1. 昨日层级展示昨日该层级所有股票，卡片信息用今日数据；
+2. 今日层级只展示晋级成功股票；
+3. 首板层只展示今日首板；
+4. 五板以上层只展示今日六板及以上；
+5. 今日五板仍在 `昨日四板 → 今日五板`；
+6. 展开 / 收起只影响当前层；
+7. 股票点击进入个股详情。
+
+---
+
+### 22.9 Mock 数据结构建议
+
+> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。  
+> 本轮不要求 04 API 与数据字典参与，也不正式修改 API 文档。
+
+```ts
+interface LimitLadderStockCard {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+}
+```
+
+Mock 示例：
+
+```ts
+const stockCardMock: LimitLadderStockCard = {
+  stockCode: '603017.SH',
+  stockName: '中衡设计',
+  latestPrice: 12.74,
+  changePct: 10.02,
+  sectorName: '低空经济',
+  boardTradeAmount: 127000000,
+  streakText: '3连板',
+};
+```
+
+Mock 规则：
+
+1. `stockCode` 显示在左上角胶囊。
+2. `stockName` 与 `latestPrice` 进入 `leftIdentity`。
+3. `changePct` 与 `boardTradeAmount` 进入 `centerMetrics`。
+4. `sectorName` 与 `streakText` 进入 `rightTags`。
+5. `boardTradeAmount` 格式化为 `1.27亿`、`8200万` 等展示文案。
+6. `streakText` 只传一个文本，不拆分为多个标签。
+7. 不再在 Mock 中为默认卡片传 `openTimes` 或 `currentStreakLevel`。
+8. 该结构不作为正式 API 契约，不引用 Tushare 原字段。
+
+---
+
+### 22.10 对 02 `market-overview-v1.6.html` 的组件使用建议
+
+1. 只修改连板天梯中的标准股票卡片。
+2. 股票代码必须改为左上角胶囊标签。
+3. 不再使用右上角代码方案。
+4. 不再使用 `2 行 × 3 列` 机械网格方案。
+5. 卡片结构必须改为：`codePill + leftIdentity + centerMetrics + rightTags`。
+6. 左侧识别区展示：`stockName`、`latestPrice`。
+7. 中间行情事实区展示：`changePct`、`boardTradeAmount`。
+8. 右侧标签区展示：`sectorName`、`streakTextPill`。
+9. `boardTradeAmount` 按“只在板上发生的成交金额”展示，不得写成封单金额或全天成交额。
+10. `streakText` 是一个字段、一个标签，不拆分为多个标签。
+11. 使用现有市场总览深色金融终端风格，不机械照搬用户截图的像素、色值、边框或字体。
+12. hover / clickable 状态必须清晰。
+13. 不修改连板天梯层级结构。
+14. 不修改连板天梯展开 / 收起逻辑。
+15. 不修改连板天梯五板以上层级规则。
+16. 不修改市场总览其它模块。
+17. 红涨绿跌必须正确。
+18. 不输出买卖建议或主观结论。
+
+---
+
+### 22.11 对 01 Design Token 的依赖
+
+本节依赖 `03-design-tokens.md v0.3.3` 中以下 Token 或规则：
+
+| 组件 / 区域 | Token / 规则 |
+|---|---|
+| `CsqStockCompactCard` | `--cs-stock-card-*`、`--cs-color-market-*`、`--cs-font-family-number` |
+| `codePill` | 股票代码左上角胶囊背景、边框、文字色、字号、内边距、圆角 |
+| `leftIdentity` | 股票名称、最新价的字体层级、行距、左侧宽度比例 |
+| `centerMetrics` | 涨幅、板上成交额的字体层级、对齐方式、数字字体 |
+| `rightTags` | 所属板块、`streakTextPill` 的对齐、标签样式、描边、弱背景 |
+| hover / selected | 卡片 hover 背景、边框、弱阴影；selected 品牌弱强调 |
+| 红涨绿跌 | `changePct` 必须使用 `--cs-color-market-up/down/flat` |
+
+必须遵守：
+
+1. 股票代码胶囊在左上角；
+2. 三分区结构不使用 Review v6 的右上角代码与机械 2×3 网格；
+3. `streakTextPill` 是一个标签；
+4. `boardTradeAmount` 使用中性或弱强调，不使用涨跌红绿；
+5. Review v7 未点名区域 Token 不修改。
+
+---
+
+### 22.12 是否需要后续拉 04 参与的条件
+
+本轮不要求 04 API 与数据字典参与，因为当前任务只要求组件结构和 Showcase Mock 字段建议。
+
+后续在以下任一条件出现时，需要单独拉 04 参与：
+
+1. 需要把 `boardTradeAmount` 从 Mock 字段转为正式 API 字段；
+2. 需要明确“板上成交额”的真实计算来源、交易状态筛选、成交明细聚合口径；
+3. 需要在正式 API 中返回 `boardTradeAmountDisplayText`，避免前端自行换算单位；
+4. 需要把 `streakText` 的 N天M板 / 板型生成逻辑放到后端统一计算；
+5. 现有 `streakLadder` 数据无法提供 `latestPrice`、`changePct`、`sectorName`、`boardTradeAmount`、`streakText`；
+6. 需要明确 ST 股票是否纳入连板天梯与 N天M板统计；
+7. 需要将连板天梯 Mock 结构转为正式 API 契约。
+
+---
+
+### 22.13 本轮 Review v7 修改摘要
+
+1. 只修订 `CsqStockCompactCard`。
+2. 用户新截图正式替代 Review v6 的股票卡片结构。
+3. 股票代码从右上角改为左上角胶囊 `codePill`。
+4. 废弃 Review v6 的 `2 行 × 3 列` 机械网格方案。
+5. 新结构改为：`codePill + leftIdentity + centerMetrics + rightTags`。
+6. `leftIdentity` 包含 `stockName`、`latestPrice`。
+7. `centerMetrics` 包含 `changePct`、`boardTradeAmount`。
+8. `rightTags` 包含 `sectorName`、`streakTextPill`。
+9. Props 字段集合保持稳定，不新增 API 字段。
+10. `boardTradeAmount` 口径保持：只在板上发生的成交金额，不是封单金额，不是全天成交额。
+11. `streakText` 继续是一个字段、一个标签。
+12. 不修改连板天梯层级结构、展开/收起逻辑、五板以上规则或其它市场总览模块。
+
+---
+
+### 22.14 本轮修订组件清单
+
+| 类型 | 组件 | 处理方式 |
+|---|---|---|
+| 修订 | `CsqStockCompactCard` | 由 Review v6 的右上角代码 + 2×3 机械网格，修订为 Review v7 的左上角代码胶囊 + 横向三分区结构。 |
+
+---
+
+### 22.15 本轮未修改组件清单
+
+以下组件保持 v1.0 merged-full 规范，不做主动改动：
+
+- `TopMarketBar`
+- `GlobalSystemMenu`
+- `IndexTickerStrip`
+- `Breadcrumb`
+- `PageHeader`
+- `MarketStatusPill`
+- `DataStatusBadge`
+- `ShortcutBar`
+- `QuickEntryCard`
+- `QuickEntryBadge`
+- 今日市场客观总结相关组件
+- `IndexGrid`
+- `IndexCard`
+- `MarketBreadthPanel`
+- `DistributionChart`
+- `HistoryTrendChart`
+- `MarketStylePanel`
+- `MarketStyleTrendChart`
+- `TurnoverSummaryCard`
+- `IntradayTurnoverChart`
+- `MoneyFlowSummaryPanel`
+- `FundFlowBar`
+- `MoneyFlowHistoryChart`
+- `MoneyFlowNetStructurePanel`
+- `OrderSizeNetPieChart`
+- `RankingTable`
+- `StockTable`
+- `SortableHeader`
+- `TabPanel`
+- `LimitUpSummaryCard`
+- `LimitUpDistributionGrid`
+- `LimitUpSectorLeaderPanel`
+- `LimitUpLeaderPerformanceTable`
+- `LimitUpDownHistoryBarChart`
+- `SectorOverviewMatrix`
+- `SectorHeatMap`
+- `MarketOverviewLimitLadder` 的层级结构与渲染规则
+- `LimitLadderPromotionLayer`
+- `LimitLadderSpecialLayer`
+- `LimitLadderFirstLayer`
+- `LimitLadderExpandControl`
+- 昨日层级展示规则
+- 今日层级展示规则
+- 五板以上层级规则
+- 展开 / 收起逻辑
+- `CsqPieChartWithCallout`
+- `CsqLinkedMetricList`
+- `CsqHeatMapGrid`
+- `CsqRankTable`
+- `CsqChartSplitPanel`
+- `HelpTooltip`
+- `RangeSwitch`
+- `LoadingSkeleton`
+- `EmptyState`
+- `ErrorState`
+- `DataDelayState`
+- `PermissionState`
+
+```text
+本轮因 Review v7 修改而被动影响的区域：
+- MarketOverviewLimitLadder / LimitLadderPromotionLayer / LimitLadderSpecialLayer / LimitLadderFirstLayer 内部股票卡片渲染
+原因：这些父组件内部使用 CsqStockCompactCard，因此视觉上会切换到新版卡片结构，但父组件层级逻辑、展开/收起逻辑和数据规则不变。
+是否需要产品总控确认：否，属于 Review v7 明确点名的标准股票卡片替换范围。
+```
+
+---
+
+### 22.16 Mock 数据结构建议
+
+```ts
+interface LimitLadderStockCard {
+  stockCode: string;
+  stockName: string;
+  latestPrice: number;
+  changePct: number;
+  sectorName: string;
+  boardTradeAmount: number;
+  streakText: string;
+}
+```
+
+使用说明：
+
+1. 该结构只用于 Showcase Mock 和组件设计。
+2. 不作为正式 API 契约。
+3. 04 本轮不参与。
+4. 如果真实 API 暂无 `boardTradeAmount` 或 `streakText`，02 Showcase 可以先使用 Mock 字段。
+5. 后续进入真实开发时，若数据源无法支撑，需要单独发起 04 API / 数据字典任务。
+
+---
+
+### 22.17 待产品总控确认问题
+
+1. `CsqStockCompactCard` 默认宽度是否需要从 Review v6 的 168px 再调整，以适配左 / 中 / 右三分区？当前建议允许 168～180px 范围内微调。
+2. `codePill` 是否显示完整交易所后缀，如 `603017.SH`，还是显示简写 `603017`？当前建议完整显示，保持股票代码可识别。
+3. `boardTradeAmount` 卡片内是否只显示金额，例如 `1.27亿`，完整口径放 Tooltip？当前建议如此。
+4. `streakTextPill` 是否使用红色描边弱背景，还是品牌金弱背景？当前建议红色弱描边更贴近涨停语义，但不要大面积红底。
+5. `latestPrice` 是否跟随方向弱着色？当前建议可弱着色，但 `changePct` 是唯一强方向色。
+6. 右侧 `sectorName` 过长时是省略还是 Tooltip 展示完整？当前建议单行省略 + Tooltip。
+7. 若一只股票属于多个板块，`sectorName` 是主板块、行业板块还是触发涨停的主题板块？当前组件只接收单一文本，业务层需决定。
+
+---
+
+### 22.18 Review v7 验收清单
+
+| 验收项 | 要求 |
+|---|---|
+| 完整文档 | 本文件仍是完整 `04-component-guidelines.md`，不是 delta 文档。 |
+| 修改边界 | 只修订 `CsqStockCompactCard`。 |
+| codePill | `stockCode` 位于左上角胶囊，不在右上角，不进入主体普通列。 |
+| 三分区 | `leftIdentity / centerMetrics / rightTags` 三分区清晰。 |
+| leftIdentity | 包含 `stockName` 和 `latestPrice`。 |
+| centerMetrics | 包含 `changePct` 和 `boardTradeAmount`。 |
+| rightTags | 包含 `sectorName` 和 `streakTextPill`。 |
+| 最新价 | 使用 `latestPrice`，不使用“收盘价格”。 |
+| 板上成交额 | `boardTradeAmount` 口径明确：只在板上发生的成交金额，不是封单金额或全天成交额。 |
+| N天M板标签 | `streakText` 是一个字段、一个标签，不拆分。 |
+| 旧规则废弃 | 明确废弃右上角代码、2×3 机械网格、`currentStreakLevel` 右下覆盖方案。 |
+| 连板天梯逻辑 | 不修改层级结构、昨日/今日规则、五板以上规则、展开/收起逻辑。 |
+| 交互 | 卡片点击进入个股详情；父组件逻辑不变。 |
+| API | 不正式修改 API 契约，只提供 Mock 字段建议。 |
+| 未授权改动 | 未修改 Review v7 未点名组件或页面整体布局。 |
+
+---
+
+### 22.19 建议放置到 Google Drive 的路径
+
+```text
+财势乾坤/设计/04-component-guidelines.md
+```
+
+### 22.20 建议仓库保存路径
+
+```text
+/docs/wealth/04-component-guidelines.md
+```
+
+### 22.21 本轮输出文件下载链接
+
+对话交付文件：
+
+```text
+sandbox:/mnt/data/review-v7-output-final/04-component-guidelines.md
+```
+

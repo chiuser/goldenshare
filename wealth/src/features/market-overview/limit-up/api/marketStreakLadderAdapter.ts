@@ -1,23 +1,17 @@
 import type { LadderV5, LadderV5PromotionLayer, LadderV5Stock } from "../../api/marketOverviewTypes";
-import type { MarketStreakLadderResponse } from "./marketStreakLadderApi";
+import type { MarketStreakLadderResponse, MarketStreakLadderStockResponse } from "./marketStreakLadderApi";
 
-function toStock(item: {
-  stockName?: string | null;
-  stockCode: string;
-  latestPrice?: number | null;
-  changePct?: number | null;
-  sectorName?: string | null;
-  openTimes?: number | null;
-  firstLimitTime?: string | null;
-  currentStreakLevel: number;
-  advanced: boolean;
-}): LadderV5Stock {
+function toStock(item: MarketStreakLadderStockResponse): LadderV5Stock {
   return {
     stockName: item.stockName?.trim() || item.stockCode,
     stockCode: item.stockCode,
     latestPrice: typeof item.latestPrice === "number" ? item.latestPrice : 0,
     changePct: typeof item.changePct === "number" ? item.changePct : 0,
     sectorName: item.sectorName?.trim() || "--",
+    limitAmount: typeof item.limitAmount === "number" ? item.limitAmount : null,
+    limitAmountDisplayText: item.limitAmountDisplayText.trim() || "--",
+    limitAmountLabel: item.limitAmountLabel,
+    streakText: item.streakText.trim() || "--",
     openTimes: typeof item.openTimes === "number" ? item.openTimes : 0,
     firstLimitTime: item.firstLimitTime?.trim() || undefined,
     currentStreakLevel: item.currentStreakLevel,
@@ -28,28 +22,8 @@ function toStock(item: {
 function toPromotionLayer(layer: {
   previousLabel: string;
   currentLabel: string;
-  previousStocks: Array<{
-    stockName?: string | null;
-    stockCode: string;
-    latestPrice?: number | null;
-    changePct?: number | null;
-    sectorName?: string | null;
-    openTimes?: number | null;
-    firstLimitTime?: string | null;
-    currentStreakLevel: number;
-    advanced: boolean;
-  }>;
-  currentStocks: Array<{
-    stockName?: string | null;
-    stockCode: string;
-    latestPrice?: number | null;
-    changePct?: number | null;
-    sectorName?: string | null;
-    openTimes?: number | null;
-    firstLimitTime?: string | null;
-    currentStreakLevel: number;
-    advanced: boolean;
-  }>;
+  previousStocks: MarketStreakLadderStockResponse[];
+  currentStocks: MarketStreakLadderStockResponse[];
 }): LadderV5PromotionLayer {
   return {
     previousLabel: layer.previousLabel,

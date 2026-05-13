@@ -33,6 +33,7 @@ def _add_limit_up_row(
     board_count: int | None,
     close: Decimal | None,
     pct_chg: Decimal | None,
+    fd_amount: Decimal | None = Decimal("127000000"),
     open_times: int | None = 0,
     first_time: str | None = None,
     industry: str | None = "机器人",
@@ -52,7 +53,7 @@ def _add_limit_up_row(
             float_mv=None,
             total_mv=None,
             turnover_ratio=None,
-            fd_amount=None,
+            fd_amount=fd_amount,
             first_time=first_time,
             last_time=None,
             open_times=open_times,
@@ -122,7 +123,12 @@ def test_streak_ladder_ready_with_promotions(app_client, db_session) -> None:
     ladder = payload["streakLadderV5"]
     assert ladder["highestStreakLevel"] == 6
     assert [item["stockCode"] for item in ladder["aboveFive"]] == ["A.SZ"]
+    assert ladder["aboveFive"][0]["limitAmount"] == 127000000.0
+    assert ladder["aboveFive"][0]["limitAmountDisplayText"] == "1.27亿"
+    assert ladder["aboveFive"][0]["limitAmountLabel"] == "封单金额"
+    assert ladder["aboveFive"][0]["streakText"] == "6板"
     assert [item["stockCode"] for item in ladder["firstBoard"]] == ["E.SZ"]
+    assert ladder["firstBoard"][0]["streakText"] == "首板"
 
     promotion_4 = ladder["promotions"]["4"]
     previous_codes = [item["stockCode"] for item in promotion_4["previousStocks"]]
@@ -130,8 +136,10 @@ def test_streak_ladder_ready_with_promotions(app_client, db_session) -> None:
     x_row = next(item for item in promotion_4["previousStocks"] if item["stockCode"] == "X.SZ")
     assert x_row["advanced"] is False
     assert x_row["currentStreakLevel"] == 0
+    assert x_row["streakText"] == "昨日三板"
     current_codes = [item["stockCode"] for item in promotion_4["currentStocks"]]
     assert current_codes == ["C.SZ"]
+    assert promotion_4["currentStocks"][0]["streakText"] == "4连板"
 
 
 def test_streak_ladder_delayed_status(app_client, db_session) -> None:
@@ -263,3 +271,34 @@ def test_streak_ladder_uses_daily_bar_fallback_for_invalid_source_metrics(app_cl
     assert first_board[0]["stockCode"] == "DIRTY.SZ"
     assert first_board[0]["latestPrice"] == 12.34
     assert first_board[0]["changePct"] == 10.01
+
+
+def test_streak_ladder_marks_partial_when_limit_amount_missing(app_client, db_session) -> None:
+    _ensure_tables(db_session)
+    trade_day = date(2026, 4, 28)
+    prev_day = date(2026, 4, 27)
+    _add_calendar_row(db_session, trade_date=prev_day, prev_trade_date=date(2026, 4, 26))
+    _add_calendar_row(db_session, trade_date=trade_day, prev_trade_date=prev_day)
+    _add_limit_up_row(
+        db_session,
+        trade_date=trade_day,
+        ts_code="MISS.SZ",
+        board_count=1,
+        close=Decimal("9.99"),
+        pct_chg=Decimal("10.00"),
+        fd_amount=None,
+    )
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/streak-ladder",
+        params={"tradeDate": "2026-04-28", "debug": 1},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["pageStatus"]["status"] == "PARTIAL"
+    first_board = payload["streakLadderV5"]["firstBoard"]
+    assert first_board[0]["limitAmount"] is None
+    assert first_board[0]["limitAmountDisplayText"] == "--"
+    assert first_board[0]["limitAmountLabel"] == "封单金额"
+    assert "SL_JOIN_METRIC_MISSING" in {item["code"] for item in payload["debugInfo"]["exceptions"]}

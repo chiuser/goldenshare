@@ -93,7 +93,7 @@ class StreakLadderQueryService:
         if build_result.has_metric_missing:
             exceptions.append(
                 self._exception_builder.join_metric_missing(
-                    message="price/change metric missing on some rows",
+                    message="display metric missing on some rows",
                     sample_ts_code=build_result.metric_missing_sample,
                 )
             )

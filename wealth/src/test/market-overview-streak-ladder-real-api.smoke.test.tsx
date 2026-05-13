@@ -33,6 +33,10 @@ const streakLadderSuccessPayload = {
             latestPrice: 12.34,
             changePct: 10.02,
             sectorName: "机器人",
+            limitAmount: 580000000,
+            limitAmountDisplayText: "5.8亿",
+            limitAmountLabel: "封单金额",
+            streakText: "昨日3板",
             openTimes: 0,
             firstLimitTime: "92500",
             currentStreakLevel: 3,
@@ -46,6 +50,10 @@ const streakLadderSuccessPayload = {
             latestPrice: 15.8,
             changePct: 10.0,
             sectorName: "机器人",
+            limitAmount: 310000000,
+            limitAmountDisplayText: "3.1亿",
+            limitAmountLabel: "封单金额",
+            streakText: "4连板",
             openTimes: 1,
             currentStreakLevel: 4,
             advanced: true,
@@ -60,6 +68,10 @@ const streakLadderSuccessPayload = {
         latestPrice: 9.56,
         changePct: 10.01,
         sectorName: "算力设备",
+        limitAmount: 220000000,
+        limitAmountDisplayText: "2.2亿",
+        limitAmountLabel: "封单金额",
+        streakText: "首板",
         openTimes: 2,
         currentStreakLevel: 1,
         advanced: false,
@@ -110,7 +122,10 @@ describe("market-overview streak-ladder real api smoke", () => {
     });
     expect(within(panel).getByText("昨日3板 → 今日4板")).toBeInTheDocument();
     expect(within(panel).getByText("示例晋级股票A")).toBeInTheDocument();
+    expect(within(panel).getByText("4连板")).toBeInTheDocument();
+    expect(within(panel).getByText("3.1亿")).toBeInTheDocument();
     expect(within(panel).getByText("示例首板A")).toBeInTheDocument();
+    expect(within(panel).getAllByText("首板").length).toBeGreaterThan(0);
   });
 
   it("shows-error-state", async () => {
@@ -142,6 +157,10 @@ describe("market-overview streak-ladder real api smoke", () => {
           latestPrice: 10 + index,
           changePct: 10.0,
           sectorName: "示例板块",
+          limitAmount: 100000000 + index * 10000000,
+          limitAmountDisplayText: `${(1 + index * 0.1).toFixed(1)}亿`,
+          limitAmountLabel: "封单金额",
+          streakText: "首板",
           openTimes: index === 0 ? 0 : 1,
           firstLimitTime: index === 0 ? "92500" : "100000",
           currentStreakLevel: 1,
@@ -169,7 +188,7 @@ describe("market-overview streak-ladder real api smoke", () => {
     expect(firstLayer).not.toBeNull();
     if (!firstLayer) throw new Error("first layer not found");
 
-    expect(within(firstLayer).queryAllByText("一字板").length).toBeGreaterThan(0);
+    expect(within(firstLayer).queryAllByText("首板").length).toBeGreaterThan(0);
     expect(firstLayer.querySelectorAll(".stock-compact-card-v5")).toHaveLength(12);
     expect(within(firstLayer).queryByText("首板示例13")).not.toBeInTheDocument();
 

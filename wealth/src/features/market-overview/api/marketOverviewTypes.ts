@@ -116,6 +116,10 @@ export interface LadderV5Stock {
   latestPrice: number;
   changePct: number;
   sectorName: string;
+  limitAmount: number | null;
+  limitAmountDisplayText: string;
+  limitAmountLabel: "封单金额" | "板上成交金额";
+  streakText: string;
   openTimes: number;
   firstLimitTime?: string;
   currentStreakLevel: number;
