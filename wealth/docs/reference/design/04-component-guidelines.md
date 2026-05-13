@@ -1,9 +1,9 @@
 # 财势乾坤｜P0 组件库与交互组件方案 v1.1 完整合并版
 
-> 建议保存路径：`/docs/wealth/04-component-guidelines.md`  
-> 负责人：`03_组件库与交互组件方案`  
-> 状态：`Draft v1.1 merged-full / Review v7 标准股票卡片局部修订版`  
-> 更新时间：`2026-05-13`  
+> 当前仓库保存路径：`wealth/docs/reference/design/04-component-guidelines.md`
+> 负责人：`03_组件库与交互组件方案`
+> 状态：`Draft v1.1 merged-full / Review v7 标准股票卡片局部修订版`
+> 更新时间：`2026-05-13`
 > 本轮重点：在完整保留此前市场总览组件规范、通用组件库注册表、Review v5 连板天梯规则与 Review v6 标准股票卡片字段口径的基础上，只修订“市场总览 / 连板天梯 / 标准股票卡片”的布局结构。
 > 合并说明：本版以已交付的 Review v6 完整合并版为基线，完整保留此前已确认内容，并合并 Review v7 对 `CsqStockCompactCard` 的局部修订。Review v7 正式替代 Review v6 中“股票代码右上角 + 主体 2 行 × 3 列”的卡片结构，但不改变字段集合、连板天梯层级结构、展开/收起逻辑或其它市场总览模块。请勿用局部 delta 文档覆盖本文件。
 
@@ -15,10 +15,12 @@
 
 本文件基于以下文档约束修订：
 
-1. `/docs/wealth/00-project-overview.md`
-2. `/docs/wealth/prd/market-overview-prd.md`
-3. `/docs/wealth/03-design-tokens.md`
-4. `/mnt/data/docs/wealth/api/market-overview-api.md`
+1. `wealth/docs/system/engineering-architecture.md`
+2. `wealth/docs/system/design-system-baseline.md`
+3. `wealth/docs/system/component-guidelines-baseline.md`
+4. `wealth/docs/system/api-contract-baseline.md`
+5. `wealth/docs/pages/market-overview/**` 中各模块三件套文档
+6. 历史 Drive / showcase 文档仅作为视觉与原始需求参考，不作为当前 API、目录结构或组件命名事实源。
 
 ### 0.2 v0.3 相对 v0.1 / v0.2 的关键收敛
 
@@ -38,6 +40,22 @@
 - 移动端完整组件规范；
 - K 线详情页完整图表引擎；
 - 机会雷达、策略验证、持仓分析的完整组件系统。
+
+---
+
+## 0.4 当前仓库实现对齐说明（2026-05-13）
+
+本文件是组件视觉与交互参考文档。当前代码实现和工程结构以仓库真实文件为准：
+
+1. 当前前端工程目录是 `wealth/`，不是历史文档中的 `/docs/wealth` 或 Drive 路径。
+2. 当前市场总览页面入口是 `wealth/src/pages/market-overview/MarketOverviewPage.tsx`。
+3. 当前模块代码按 `wealth/src/features/market-overview/**` 组织，已存在 `summary`、`indices`、`breadth`、`style`、`turnover`、`money-flow`、`leaderboards`、`limit-up`、`sectors`、`layout`。
+4. 当前共享组件在 `wealth/src/shared/ui/**`，真实组件名是 `Panel`、`MetricCard`、`DataStatusBadge`、`MarketStatusPill`、`RangeSwitch`、`SkeletonBlock`；`Csq*` 是设计稿/长期组件库候选命名，不是当前代码命名。
+5. 当前 CSS Token 前缀是 `--cs-*`，对应实现文件 `wealth/src/styles/design-tokens.css`；不得新增 `--csq-*`。
+6. 当前真实 API 统一在 `/api/v1/wealth/market/{module}` 命名空间下；历史 `/api/market/*`、`/api/index/*`、`/api/moneyflow/*`、`/api/limitup/*`、`/api/leaderboard/*` 路径不再作为实现依据。
+7. 已接真实 API 的模块必须通过模块 provider + view-model adapter 消费模块接口；不得回退到旧整页聚合 mock。
+8. 后文历史合并记录中出现的 Drive 路径、`sandbox:/mnt/data/**` 路径和旧 `/docs/wealth/**` 口径，均只表示当时的来源快照；当前工程落位必须以 `wealth/**` 实际目录为准。
+9. 后文历史章节中的“待产品总控确认问题”不代表当前仍有待拍板项；当前模块开发是否存在待确认，以 `wealth/docs/pages/market-overview/**` 的三件套和最新评审结论为准。
 
 ---
 
@@ -161,53 +179,53 @@ interface SourceRef {
 
 ## 2. Design Token 依赖约定
 
-> 具体色值以 `/docs/wealth/03-design-tokens.md` 为准。本文件只约束组件必须使用哪些 Token，不硬编码色值。
+> 具体色值以 `wealth/docs/reference/design/03-design-tokens.md` 和 `wealth/src/styles/design-tokens.css` 为准。本文件只约束组件必须使用哪些 Token，不硬编码色值。
 
 ### 2.1 颜色 Token
 
 | Token | 用途 | 组件使用 |
 |---|---|---|
-| `--csq-color-bg-page` | 页面背景 | 市场总览全局背景 |
-| `--csq-color-bg-topbar` | 顶部栏背景 | TopMarketBar |
-| `--csq-color-bg-panel` | 面板背景 | 所有 Panel 型组件 |
-| `--csq-color-bg-panel-hover` | 面板 hover | 卡片、表格行、热力图块 |
-| `--csq-color-border-subtle` | 弱分割线 | 面板、表格、顶部栏 |
-| `--csq-color-border-strong` | 强边框 | selected / active 状态 |
-| `--csq-color-text-primary` | 主要文字 | 标题、关键数值 |
-| `--csq-color-text-secondary` | 次级文字 | 标签、说明、更新时间 |
-| `--csq-color-text-muted` | 弱文字 | 单位、空态说明 |
-| `--csq-color-rise` | 上涨/净流入/涨停 | ChangeBadge、IndexCard、FundFlowBar |
-| `--csq-color-rise-bg` | 上涨弱背景 | 涨幅区间、涨停卡背景 |
-| `--csq-color-fall` | 下跌/净流出/跌停 | ChangeBadge、DistributionChart、HeatMap |
-| `--csq-color-fall-bg` | 下跌弱背景 | 跌幅区间、跌停块背景 |
-| `--csq-color-flat` | 平盘/无变化 | ChangeBadge、平盘家数 |
-| `--csq-color-brand` | 品牌强调 | TopMarketBar 品牌、选中线 |
-| `--csq-color-warning` | 延迟/警告 | DataDelayState、DataStatusBadge |
-| `--csq-color-danger-system` | 系统错误 | ErrorState，不用于行情上涨 |
+| `--cs-color-bg-page` | 页面背景 | 市场总览全局背景 |
+| `--cs-color-bg-topbar` | 顶部栏背景 | TopMarketBar |
+| `--cs-color-bg-panel` | 面板背景 | 所有 Panel 型组件 |
+| `--cs-color-bg-panel-hover` | 面板 hover | 卡片、表格行、热力图块 |
+| `--cs-color-border-subtle` | 弱分割线 | 面板、表格、顶部栏 |
+| `--cs-color-border-strong` | 强边框 | selected / active 状态 |
+| `--cs-color-text-primary` | 主要文字 | 标题、关键数值 |
+| `--cs-color-text-secondary` | 次级文字 | 标签、说明、更新时间 |
+| `--cs-color-text-muted` | 弱文字 | 单位、空态说明 |
+| `--cs-color-market-up` | 上涨/净流入/涨停 | ChangeBadge、IndexCard、FundFlowBar |
+| `--cs-color-market-up-weak` | 上涨弱背景 | 涨幅区间、涨停卡背景 |
+| `--cs-color-market-down` | 下跌/净流出/跌停 | ChangeBadge、DistributionChart、HeatMap |
+| `--cs-color-market-down-weak` | 下跌弱背景 | 跌幅区间、跌停块背景 |
+| `--cs-color-market-flat` | 平盘/无变化 | ChangeBadge、平盘家数 |
+| `--cs-color-brand` | 品牌强调 | TopMarketBar 品牌、选中线 |
+| `--cs-color-warning` | 延迟/警告 | DataDelayState、DataStatusBadge |
+| `--cs-color-danger-system` | 系统错误 | ErrorState，不用于行情上涨 |
 
 ### 2.2 字体、尺寸、间距 Token
 
 | Token | 用途 |
 |---|---|
-| `--csq-font-family-base` | 中文和普通文本 |
-| `--csq-font-family-number` | 行情数字、表格数字、金额 |
-| `--csq-font-size-xs/sm/md/lg` | 高密度标题、标签、正文、关键数字 |
-| `--csq-line-height-dense` | 高密度表格和榜单 |
-| `--csq-space-2/4/6/8/12/16/20/24` | 内边距、组件间距 |
-| `--csq-radius-sm/md/lg` | 表格、卡片、Tooltip 圆角 |
-| `--csq-shadow-panel` | 面板阴影，深色下应克制 |
-| `--csq-z-topbar` | 顶部栏层级 |
-| `--csq-z-popover` | Tooltip / 菜单层级 |
+| `--cs-font-family-base` | 中文和普通文本 |
+| `--cs-font-family-number` | 行情数字、表格数字、金额 |
+| `--cs-font-size-xs/sm/md/lg` | 高密度标题、标签、正文、关键数字 |
+| `--cs-line-height-dense` | 高密度表格和榜单 |
+| `--cs-space-2/4/6/8/12/16/20/24` | 内边距、组件间距 |
+| `--cs-radius-sm/md/lg` | 表格、卡片、Tooltip 圆角 |
+| `--cs-shadow-panel` | 面板阴影，深色下应克制 |
+| `--cs-z-topbar` | 顶部栏层级 |
+| `--cs-z-popover` | Tooltip / 菜单层级 |
 
 ### 2.3 密度 Token
 
 | Token | 建议用途 |
 |---|---|
-| `--csq-density-topbar-height` | TopMarketBar 高度，建议 48–56px |
-| `--csq-density-page-header-height` | PageHeader 高度，建议 56–72px |
-| `--csq-density-table-row-height` | 榜单行高，建议 34–40px |
-| `--csq-density-card-padding` | 指数卡/指标卡内边距，建议 10–14px |
-| `--csq-density-panel-gap` | 面板间距，建议 10–16px |
+| `--cs-layout-top-market-bar-height` | TopMarketBar 高度，建议 48–56px |
+| `--cs-layout-page-header-height` | PageHeader 高度，建议 56–72px |
+| 组件局部行高 | 榜单行高，当前在 `market-overview-page.css` 局部控制，尚未抽为全局 Token |
+| 组件局部 padding | 指数卡/指标卡内边距，当前在 `market-overview-page.css` 局部控制，尚未抽为全局 Token |
+| 组件局部 gap | 面板间距，当前在 `market-overview-page.css` 局部控制，尚未抽为全局 Token |
 
 ---
 
@@ -225,30 +243,29 @@ interface SourceRef {
 │ ShortcutBar：市场温度与情绪｜机会雷达｜我的自选｜我的持仓｜提醒中心｜用户设置  │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ 全宽行情内容区                                                               │
-│  ├─ IndexCard 区                                                             │
-│  ├─ MarketBreadthPanel / MarketStylePanel / TurnoverSummaryCard              │
-│  ├─ MoneyFlowSummaryPanel / FundFlowBar                                      │
-│  ├─ LimitUpSummaryCard / LimitUpDistribution / LimitUpStreakLadder           │
-│  └─ SectorRankList / HeatMap / RankingTable / StockTable                     │
+│  ├─ MarketSummaryPanel / MajorIndexPanel                                     │
+│  ├─ MarketBreadthPanel / MarketStylePanel / TurnoverOverviewPanel            │
+│  ├─ MarketMoneyFlowPanel / LeaderboardPanel                                  │
+│  ├─ LimitBoardPanel / StreakLadderPanel                                      │
+│  └─ SectorOverviewPanel                                                      │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 聚合 API 到组件的一级映射
+### 3.2 当前模块 API 到组件的一级映射
 
-| 聚合字段 | 推荐接口 | 主要组件 |
+| 模块字段 | 当前接口 | 当前主要组件 |
 |---|---|---|
-| `overview` | `GET /api/market/overview` 或聚合内 `data.overview` | TopMarketBar、PageHeader、MarketStatusPill、DataStatusBadge |
-| `indices` | `GET /api/index/summary` 或聚合内 `data.indices` | IndexTickerStrip、IndexCard、QuoteTicker、MiniTrendChart |
-| `breadth` | `GET /api/market/breadth` 或聚合内 `data.breadth` | MarketBreadthPanel、DistributionChart、MetricCard |
-| `style` | `GET /api/market/style` 或聚合内 `data.style` | MarketStylePanel、MetricCard |
-| `turnover` | `GET /api/market/turnover` 或聚合内 `data.turnover` | TurnoverSummaryCard、MiniTrendChart |
-| `moneyFlow` | `GET /api/moneyflow/market` 或聚合内 `data.moneyFlow` | MoneyFlowSummaryPanel、FundFlowBar |
-| `limitUp` | `GET /api/limitup/summary` 或聚合内 `data.limitUp` | LimitUpSummaryCard、MetricCard |
-| `limitUpDistribution` | 聚合字段或 `GET /api/limitup/distribution` | LimitUpDistribution |
-| `streakLadder` | `GET /api/limitup/streak-ladder` 或聚合内 `data.streakLadder` | LimitUpStreakLadder |
-| `topSectors` | `GET /api/sector/top` 或聚合内 `data.topSectors` | SectorRankList、SectorTable、HeatMap |
-| `stockLeaderboards` | `GET /api/leaderboard/stock` 或聚合内 `data.stockLeaderboards` | RankingTable、StockTable、TabPanel、SortableHeader |
-| `quickEntries` | `GET /api/settings/quick-entry` 或聚合内 `data.quickEntries` | ShortcutBar、QuickEntryCard、QuickEntryBadge |
+| `marketSummary` | `GET /api/v1/wealth/market/summary` | `MarketSummaryPanel` |
+| `majorIndices` | `GET /api/v1/wealth/market/major-indices` | `TopMarketBar`、`MajorIndexPanel` |
+| `breadth` | `GET /api/v1/wealth/market/breadth` | `MarketBreadthPanel` |
+| `style` | `GET /api/v1/wealth/market/style` | `MarketStylePanel` |
+| `turnover` | `GET /api/v1/wealth/market/turnover` | `TurnoverOverviewPanel` |
+| `moneyFlow` | `GET /api/v1/wealth/market/money-flow` | `MarketMoneyFlowPanel` |
+| `leaderboards` | `GET /api/v1/wealth/market/leaderboards` | `LeaderboardPanel` |
+| `limitUp` | `GET /api/v1/wealth/market/limit-up/summary` | `LimitBoardPanel` |
+| `streakLadder` | `GET /api/v1/wealth/market/streak-ladder` | `StreakLadderPanel` |
+| `sectorOverview` | 暂未接真实 API，当前仍为 mock | `SectorOverviewPanel` |
+| `layout` | 前端静态配置 / 页面状态 | `TopMarketBar`、`Breadcrumb`、`PageHeader`、`ShortcutBar` |
 
 ---
 
@@ -270,7 +287,7 @@ interface SourceRef {
 | 交互行为 | 点击系统入口展开二级页面列表或进入系统默认页；点击指数进入指数详情；hover 指数显示更多字段；点击数据状态展示数据源/延迟说明；点击用户入口进入用户菜单或用户设置。 |
 | 状态 | default：顶部栏稳定展示；hover：系统入口、指数条、用户入口轻微提亮；active：点击压暗；selected：当前系统“乾坤行情”高亮；disabled：未开放系统置灰；loading：指数条骨架，品牌和菜单不闪烁；empty：指数为空显示 `--` 并保留栏位；error：DataStatusBadge 显示异常，指数条可展示最近缓存。 |
 | 涨跌色规则 | 指数点位、涨跌额、涨跌幅按 `direction` 红涨绿跌；开闭市状态不使用涨跌红绿，使用状态 Token；系统异常不使用上涨红。 |
-| 与 Design Token 的关系 | `--csq-color-bg-topbar`、`--csq-color-border-subtle`、`--csq-color-brand`、`--csq-color-rise/fall/flat`、`--csq-font-family-number`、`--csq-density-topbar-height`、`--csq-z-topbar`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-topbar`、`--cs-color-border-subtle`、`--cs-color-brand`、`--cs-color-market-up/down/flat`、`--cs-font-family-number`、`--cs-layout-top-market-bar-height`、`--cs-z-topbar`。 |
 | 备注 | 不得做成大型官网导航；不得增加营销口号；系统入口需要紧凑，避免挤压指数条。 |
 
 ```ts
@@ -305,12 +322,12 @@ interface TopMarketBarProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `items`、`currentKey`、`onItemClick`、`onItemHover`。市场总览固定 items：`财势乾坤 / 乾坤行情 / 市场总览`。 |
 | 字段类型 | `items: BreadcrumbItem[]`；`BreadcrumbItem = { key:string; label:string; href?:string; clickable:boolean; current?:boolean; menuItems?:RouteItem[] }`。 |
-| 与 API 字段的映射 | 主要来自路由静态配置；如聚合接口返回 `breadcrumb`，也只能用于校验文案，不建议动态改变固定层级。 |
+| 与 API 字段的映射 | 主要来自路由静态配置；当前不依赖整页聚合接口动态返回 `breadcrumb`。 |
 | 视觉结构 | 低高度文本链路，放在 PageHeader 上方或同一行左侧。分隔符使用 `/` 或 Chevron，当前项加粗/高亮但不做大色块。 |
 | 交互行为 | 点击“财势乾坤”返回默认落地页；点击“乾坤行情”展开同系统页面列表或跳转市场总览；“市场总览”为当前态，不跳转或仅刷新当前页。hover 可显示可点击态。 |
 | 状态 | default：三段层级正常展示；hover：可点击段文字提亮；active：点击时压暗；selected：当前“市场总览”使用当前态；disabled：当前项不可点击；loading：不需要骨架，保留静态层级；empty：不允许为空，兜底固定表达；error：路由异常时仍兜底固定表达。 |
 | 涨跌色规则 | 不承载涨跌数据，禁止使用红绿表达层级。 |
-| 与 Design Token 的关系 | `--csq-color-text-secondary`、`--csq-color-text-primary`、`--csq-color-brand`、`--csq-font-size-xs`、`--csq-space-4/8`。 |
+| 与 Design Token 的关系 | `--cs-color-text-secondary`、`--cs-color-text-primary`、`--cs-color-brand`、`--cs-font-size-xs`、`--cs-space-4/8`。 |
 | 备注 | 固定表达必须是：`财势乾坤 / 乾坤行情 / 市场总览`。不要写成“首页 / 市场总览”。 |
 
 ### 4.3 ShortcutBar / QuickEntryCard
@@ -328,7 +345,7 @@ interface TopMarketBarProps {
 | 交互行为 | 点击进入对应页面；未登录点击个人入口时引导登录；disabled 入口不跳转并显示原因；可 hover 显示更详细说明。 |
 | 状态 | default：横向轻量入口；hover：卡片描边/背景轻微提亮；active：点击压暗；selected：当前页或当前系统可显示细线高亮；disabled：未登录/未开放置灰；loading：个人数量骨架；empty：个人入口数量为空显示“未配置”而非隐藏；error：个人状态加载失败时仅入口保留、数量显示 `--`。 |
 | 涨跌色规则 | 不展示市场涨跌；Badge 不能用红绿表达市场温度/情绪强弱。提醒数量可用品牌/警告色，不使用行情涨跌色。 |
-| 与 Design Token 的关系 | `--csq-color-bg-panel`、`--csq-color-bg-panel-hover`、`--csq-color-border-subtle`、`--csq-color-brand`、`--csq-color-warning`、`--csq-font-size-sm/xs`、`--csq-density-card-padding`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-panel`、`--cs-color-bg-panel-hover`、`--cs-color-border-subtle`、`--cs-color-brand`、`--cs-color-warning`；卡片 padding 目前按组件局部 CSS 控制，尚未抽成全局 Token。 |
 | 备注 | 允许展示“3 条待处理提醒”“自选 28 只”“已登记持仓 5 只”；禁止展示“市场温度 82 分”“情绪指数亢奋”“资金面分数偏强”“风险指数建议减仓”。 |
 
 ```ts
@@ -366,12 +383,12 @@ interface ShortcutBarProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `indexCode`、`indexName`、`latestPoint`、`change`、`changePct`、`direction`、`amount`、`volume`、`open`、`high`、`low`、`preClose`、`trend`、`asOf`。 |
 | 字段类型 | `number | null`、`Direction`、`AmountValue`、`Array<{time:string; value:number}>`。 |
-| 与 API 字段的映射 | `data.indices[]` 或 `/api/index/summary`：`code/name/close/change/changePct/direction/amount/vol/open/high/low/preClose/asOf/trend`。字段名以 API 文档为准，组件只要求 ViewModel 适配到以上 props。 |
+| 与 API 字段的映射 | `data.indices[]` 或 `/api/v1/wealth/market/major-indices`：`code/name/close/change/changePct/direction/amount/vol/open/high/low/preClose/asOf/trend`。字段名以 API 文档为准，组件只要求 ViewModel 适配到以上 props。 |
 | 视觉结构 | 卡片顶部指数名和代码，中部大号点位，右侧或下方显示涨跌额/涨跌幅，底部显示成交额和 MiniTrendChart。4–7 个卡片横向网格排列。 |
 | 交互行为 | 点击卡片进入指数详情页并携带 `indexCode`、`tradeDate`；hover 显示最高、最低、开盘、昨收、更新时间；可支持排序但首页默认按预设指数顺序。 |
 | 状态 | default：正常行情；hover：卡片边框提亮，小趋势线增强；active：点击压暗；selected：从顶部指数条下钻回来时可高亮当前指数；disabled：指数暂停或不可用置灰；loading：点位和趋势线骨架；empty：指数值缺失显示 `--`；error：单卡异常显示“指数数据异常”，不影响其他卡。 |
 | 涨跌色规则 | `direction=UP` 点位、涨跌额、涨跌幅、小趋势线用红；`DOWN` 用绿；`FLAT` 用灰。成交额不因涨跌着色，除非展示较昨日变化。 |
-| 与 Design Token 的关系 | `--csq-color-bg-panel`、`--csq-color-rise/fall/flat`、`--csq-font-family-number`、`--csq-font-size-lg`、`--csq-density-card-padding`、`--csq-radius-md`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-panel`、`--cs-color-market-up/down/flat`、`--cs-font-family-number`；卡片 padding 与局部字号目前按组件 CSS 控制，尚未抽成全局 Token。 |
 | 备注 | 不允许使用大面积红绿背景，避免多个指数同时上涨时满屏刺眼；优先使用文字色和细线表达方向。 |
 
 ### 4.5 DistributionChart
@@ -389,7 +406,7 @@ interface ShortcutBarProps {
 | 交互行为 | hover 区间显示 Tooltip：区间、家数、占比、代表筛选条件；点击区间跳转板块与榜单行情页，携带 `changePctRange`、`tradeDate`。 |
 | 状态 | default：所有区间展示；hover：当前区间高亮并显示 Tooltip；active：点击区间压暗；selected：已选区间保持描边；disabled：不可下钻时只展示 Tooltip；loading：图表网格骨架；empty：无分布数据提示“当前交易日分布未生成”；error：显示模块错误和重试。 |
 | 涨跌色规则 | 正涨幅区间红，负跌幅区间绿，平盘灰；绝不使用蓝紫表示涨跌。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-rise-bg/fall-bg`、`--csq-color-chart-grid`、`--csq-color-tooltip-bg`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-market-up-weak/down-weak`、`--cs-color-chart-grid-primary`、`--cs-color-chart-tooltip-bg`、`--cs-font-family-number`。 |
 | 备注 | 点击下钻不在首页弹大抽屉，优先进入板块与榜单行情页，避免首页复杂化。 |
 
 ### 4.6 FundFlowBar
@@ -407,7 +424,7 @@ interface ShortcutBarProps {
 | 交互行为 | hover 分段显示金额、占比、更新时间、数据来源；点击可进入资金流向详情页或板块与榜单页资金榜；数据延迟时显示 DataStatusBadge。 |
 | 状态 | default：分段条正常；hover：分段高亮 Tooltip；active：点击压暗；selected：选中某一资金类型时描边；disabled：资金模块不可用时置灰；loading：条形骨架；empty：资金源未生成时提示“资金流数据暂缺”；error：显示数据源异常和最近缓存时间。 |
 | 涨跌色规则 | 资金正值/净流入为红，负值/净流出为绿，零值灰；不要使用“绿色=好”的通用语义。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-bg-panel`、`--csq-color-chart-grid`、`--csq-color-warning`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-bg-panel`、`--cs-color-chart-grid-primary`、`--cs-color-warning`、`--cs-font-family-number`。 |
 | 备注 | `mainNetInflow` 等金额单位必须按 API 的 `unit` 或字段说明格式化；不得在组件内部固定假设为元、万元或亿元。 |
 
 ### 4.7 LimitUpStreakLadder
@@ -420,12 +437,12 @@ interface ShortcutBarProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `levels`、`highestStreak`、`tradeDate`、`onStockClick`、`onSectorClick`。 |
 | 字段类型 | 见下方 TypeScript 接口。 |
-| 与 API 字段的映射 | `data.streakLadder[]` 或 `/api/limitup/streak-ladder`：`streak/count/items[]`，个股项映射 `stockCode/stockName/sectors/latestPrice/changePct/sealAmount/firstLimitTime/openTimes`。 |
+| 与 API 字段的映射 | `data.streakLadder[]` 或 `/api/v1/wealth/market/streak-ladder`：`streak/count/items[]`，个股项映射 `stockCode/stockName/sectors/latestPrice/changePct/sealAmount/firstLimitTime/openTimes`。 |
 | 视觉结构 | 横向或纵向天梯。层级从高到低或从左到右展示：N 板、5 板、4 板、3 板、2 板、首板。每层显示层级标题、数量和个股小卡片。 |
 | 交互行为 | 点击股票进入个股详情；点击板块标签进入板块与榜单行情页；hover 个股显示封单金额、首次封板时间、开板次数、所属概念；点击层级标题可进入连板榜筛选。 |
 | 状态 | default：层级和卡片展示；hover：股票卡/板块标签提亮；active：点击压暗；selected：选中的层级或个股描边；disabled：停牌/数据不可下钻置灰；loading：层级骨架；empty：当日无连板时显示“今日暂无连板股”；error：显示连板数据异常，保留涨跌停摘要。 |
 | 涨跌色规则 | 连板、涨停、涨幅均使用红色体系；跌停相关不放入连板天梯，若展示风险标记用警告色，不用绿色。 |
-| 与 Design Token 的关系 | `--csq-color-rise`、`--csq-color-rise-bg`、`--csq-color-bg-panel`、`--csq-color-border-subtle`、`--csq-font-family-number`、`--csq-radius-sm/md`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up`、`--cs-color-market-up-weak`、`--cs-color-bg-panel`、`--cs-color-border-subtle`、`--cs-font-family-number`、`--cs-radius-sm/md`。 |
 | 备注 | 首页不宜展示过多股票卡，超过每层展示上限时使用“+N”进入详情，避免撑高页面。 |
 
 ```ts
@@ -464,12 +481,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `tabs`、`activeTabKey`、`columns`、`rows`、`sort`、`rowKey`、`loading`、`onTabChange`、`onSortChange`、`onRowClick`、`onMoreClick`。 |
 | 字段类型 | `columns: RankingColumn[]`；`rows: StockRankItem[] | SectorRankItem[]`；`sort: {field:string; order:'asc'|'desc'}`。 |
-| 与 API 字段的映射 | `data.stockLeaderboards` 或 `/api/leaderboard/stock`：`rankType/items[]`；个股字段映射 `rank/stockCode/stockName/latestPrice/changePct/amount/volume/turnoverRate/volumeRatio/industry/concepts`。 |
+| 与 API 字段的映射 | `data.stockLeaderboards` 或 `/api/v1/wealth/market/leaderboards`：`rankType/items[]`；个股字段映射 `rank/stockCode/stockName/latestPrice/changePct/amount/volume/turnoverRate/volumeRatio/industry/concepts`。 |
 | 视觉结构 | Panel 内部上方 TabPanel；下方高密度表格。首页默认每个榜单 Top 5–10 行，更多进入板块与榜单行情页。表格列保持稳定，数字右对齐。 |
 | 交互行为 | Tab 切换榜单；点击表头排序；点击个股行进入个股详情并携带 `stockCode`、`tradeDate`；点击“查看更多”进入完整榜单页并携带 `rankType`。 |
 | 状态 | default：默认榜单展示；hover：行高亮；active：行点击压暗；selected：当前 Tab 高亮，可选中当前行；disabled：榜单无权限或未开放时置灰；loading：表格骨架行；empty：当前榜单无数据时局部空态；error：当前榜单失败时显示重试，不影响其他榜单。 |
 | 涨跌色规则 | 个股涨跌幅、涨跌额、最新价方向严格红涨绿跌；成交额、成交量、换手、量比默认中性色；跌幅榜中的负值必须为绿色。 |
-| 与 Design Token 的关系 | `--csq-density-table-row-height`、`--csq-font-family-number`、`--csq-color-bg-panel`、`--csq-color-bg-panel-hover`、`--csq-color-rise/fall/flat`、`--csq-color-border-subtle`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-bg-panel`、`--cs-color-bg-panel-hover`、`--cs-color-market-up/down/flat`、`--cs-color-border-subtle`；表格行高目前按组件局部 CSS 控制，尚未抽成全局 Token。 |
 | 备注 | 不要一次性在首页塞完整分页表格；首页是速览，完整筛选和分页放到“板块与榜单行情页”。 |
 
 ---
@@ -495,7 +512,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击一级系统进入默认页或展开下级页面；hover 展示菜单；键盘支持方向键切换。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不承载涨跌数据，不使用红绿表达选中；选中使用品牌色或边框。 |
-| 与 Design Token 的关系 | `--csq-color-bg-topbar`、`--csq-color-brand`、`--csq-color-text-secondary`、`--csq-z-popover`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-topbar`、`--cs-color-brand`、`--cs-color-text-secondary`、`--cs-z-popover`。 |
 | 备注 | 当前系统为“乾坤行情”；市场总览不是独立一级菜单。 |
 
 
@@ -509,12 +526,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `items`、`speed`、`compact`、`onItemClick`。 |
 | 字段类型 | `items: IndexTickerItem[]`，字段含 `code/name/latestPoint/change/changePct/direction/asOf`。 |
-| 与 API 字段的映射 | `data.indices[]` 或 `/api/index/summary`。 |
+| 与 API 字段的映射 | `data.indices[]` 或 `/api/v1/wealth/market/major-indices`。 |
 | 视觉结构 | 横向 ticker，可固定展示或溢出滚动；每项包含名称、点位、涨跌幅。 |
 | 交互行为 | hover 暂停滚动并显示 Tooltip；点击进入指数详情。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 指数涨跌按 `direction` 红涨绿跌，平盘灰色。 |
-| 与 Design Token 的关系 | `--csq-font-family-number`、`--csq-color-rise/fall/flat`、`--csq-density-topbar-height`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-market-up/down/flat`、`--cs-layout-top-market-bar-height`。 |
 | 备注 | 指数条不得挤掉 GlobalSystemMenu 和状态信息；空间不足时优先隐藏成交额。 |
 
 
@@ -533,7 +550,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击刷新触发聚合或模块刷新；点击数据说明打开 Popover。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不直接展示涨跌；若标题旁展示市场范围，不使用红绿。 |
-| 与 Design Token 的关系 | `--csq-font-size-lg`、`--csq-color-text-primary`、`--csq-color-text-secondary`、`--csq-space-8/12`。 |
+| 与 Design Token 的关系 | `--cs-font-size-lg`、`--cs-color-text-primary`、`--cs-color-text-secondary`、`--cs-space-8/12`。 |
 | 备注 | PageHeader 不做营销文案，只描述页面事实和时间上下文。 |
 
 
@@ -552,7 +569,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 展示交易时间段；点击无必要，若点击可打开交易日说明。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用涨跌红绿；交易中可用品牌/信息色，非交易日用灰，异常另由 DataStatusBadge 表达。 |
-| 与 Design Token 的关系 | `--csq-color-info`、`--csq-color-flat`、`--csq-radius-sm`、`--csq-font-size-xs`。 |
+| 与 Design Token 的关系 | `--cs-color-info`、`--cs-color-market-flat`、`--cs-radius-sm`、`--cs-font-size-xs`。 |
 | 备注 | 避免把“交易中”显示成红色，防止误读为上涨。 |
 
 
@@ -571,7 +588,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击展示数据源、更新时间、延迟说明；error 状态提供重试或查看缓存。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用行情涨跌色；READY 可用中性或信息色，DELAYED 用 warning，ERROR 用系统错误色。 |
-| 与 Design Token 的关系 | `--csq-color-warning`、`--csq-color-danger-system`、`--csq-color-text-muted`、`--csq-radius-sm`。 |
+| 与 Design Token 的关系 | `--cs-color-warning`、`--cs-color-danger-system`、`--cs-color-text-muted`、`--cs-radius-sm`。 |
 | 备注 | 数据异常不能让整页白屏；优先模块级降级。 |
 
 
@@ -590,7 +607,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击入口跳转；未登录个人入口引导登录。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不承载市场涨跌，不用红绿展示分析强弱。 |
-| 与 Design Token 的关系 | `--csq-color-bg-panel`、`--csq-color-border-subtle`、`--csq-color-brand`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-panel`、`--cs-color-border-subtle`、`--cs-color-brand`。 |
 | 备注 | 不可做成大面积入口卡片墙。 |
 
 
@@ -609,7 +626,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击跳转，disabled 时 Tooltip 说明原因。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不展示行情分数，不使用红绿表达强弱。 |
-| 与 Design Token 的关系 | `--csq-density-card-padding`、`--csq-radius-md`、`--csq-color-bg-panel-hover`。 |
+| 与 Design Token 的关系 | `--cs-radius-card`、`--cs-color-bg-panel-hover`；卡片 padding 目前按组件局部 CSS 控制。 |
 | 备注 | 市场温度与情绪入口只写“查看市场综合分析”，不写具体分数。 |
 
 
@@ -628,7 +645,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 随卡片高亮；自身通常不单独点击。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不展示行情涨跌，不使用红绿表示市场强弱；提醒数量可用 warning。 |
-| 与 Design Token 的关系 | `--csq-color-warning`、`--csq-color-brand`、`--csq-font-size-xs`、`--csq-radius-sm`。 |
+| 与 Design Token 的关系 | `--cs-color-warning`、`--cs-color-brand`、`--cs-font-size-xs`、`--cs-radius-sm`。 |
 | 备注 | 严禁展示市场温度、情绪、资金面、风险指数的分数徽标。 |
 
 
@@ -647,7 +664,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 显示指标口径；点击可按业务下钻。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 与涨跌方向相关的指标按 direction 着色；纯数量默认中性，涨停数量可红、跌停数量可绿。 |
-| 与 Design Token 的关系 | `--csq-color-bg-panel`、`--csq-font-family-number`、`--csq-color-rise/fall/flat`、`--csq-space-8/12`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-panel`、`--cs-font-family-number`、`--cs-color-market-up/down/flat`、`--cs-space-8/12`。 |
 | 备注 | 不允许把综合分析分数塞入市场总览 MetricCard。 |
 
 
@@ -666,7 +683,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 可显示原始值；active 不单独处理。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | UP 红、DOWN 绿、FLAT 灰。必须展示正号 `+`。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-rise-bg/fall-bg`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-market-up-weak/down-weak`、`--cs-font-family-number`。 |
 | 备注 | 禁止套用 Element Plus `success/danger` 默认语义。 |
 
 
@@ -685,7 +702,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击进入详情；hover 显示更多行情字段。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 涨跌字段红涨绿跌；名称不染色或仅轻微跟随。 |
-| 与 Design Token 的关系 | `--csq-font-family-number`、`--csq-color-rise/fall/flat`、`--csq-font-size-xs/sm`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-market-up/down/flat`、`--cs-font-size-xs/sm`。 |
 | 备注 | 适合 TopMarketBar 和小模块，不替代表格。 |
 
 
@@ -704,7 +721,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 显示日期和值；首页不做复杂缩放。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 若表示价格趋势，按最后方向红绿；若表示成交额/家数，使用中性或模块语义色。 |
-| 与 Design Token 的关系 | `--csq-color-chart-grid`、`--csq-color-rise/fall/flat`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-chart-grid-primary`、`--cs-color-market-up/down/flat`、`--cs-font-family-number`。 |
 | 备注 | Showcase 可用 SVG 或 Canvas 模拟，不依赖完整图表库。 |
 
 
@@ -718,12 +735,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `upCount`、`downCount`、`flatCount`、`redRate`、`medianChangePct`、`distribution`、`history`。 |
 | 字段类型 | `number|null`、`Direction`、`DistributionBucket[]`、`TrendPoint[]`。 |
-| 与 API 字段的映射 | `data.breadth` 或 `/api/market/breadth`。 |
+| 与 API 字段的映射 | `data.breadth` 或 `/api/v1/wealth/market/breadth`。 |
 | 视觉结构 | Panel 内上方 MetricCard 组，下方 DistributionChart，可附近半年趋势入口。 |
 | 交互行为 | 点击涨跌区间下钻榜单；hover 显示口径。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 上涨家数红，下跌家数绿，平盘灰；中位涨跌按正负红绿。 |
-| 与 Design Token 的关系 | `--csq-color-bg-panel`、`--csq-color-rise/fall/flat`、`--csq-density-panel-gap`。 |
+| 与 Design Token 的关系 | `--cs-color-bg-panel`、`--cs-color-market-up/down/flat`；Panel 内部 gap 目前按组件局部 CSS 控制。 |
 | 备注 | 只展示客观分布，不写“赚钱效应强/弱”的主观结论。 |
 
 
@@ -737,12 +754,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `medianChangePct`、`equalWeightChangePct`、`largeCapChangePct`、`smallCapChangePct`、`styleItems`。 |
 | 字段类型 | `number|null`、`Array<{label:string; value:number; direction:Direction}>`。 |
-| 与 API 字段的映射 | `data.style` 或 `/api/market/style`。 |
+| 与 API 字段的映射 | `data.style` 或 `/api/v1/wealth/market/style`。 |
 | 视觉结构 | 紧凑对比条 + MetricCard，避免大仪表盘。 |
 | 交互行为 | hover 展示口径；点击可进入板块与榜单页风格筛选。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 涨跌百分比按 direction 红绿；风格标签本身不用红绿。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-bg-panel`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-bg-panel`、`--cs-font-family-number`。 |
 | 备注 | 禁止输出“今日不适合题材股”等主观建议。 |
 
 
@@ -756,12 +773,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `totalAmount`、`amountChange`、`amountChangePct`、`marketBreakdown`、`history`、`unit`。 |
 | 字段类型 | `AmountValue`、`number|null`、`TrendPoint[]`。 |
-| 与 API 字段的映射 | `data.turnover` 或 `/api/market/turnover`。 |
+| 与 API 字段的映射 | `data.turnover` 或 `/api/v1/wealth/market/turnover`。 |
 | 视觉结构 | 主值大数字 + 同比/环比小标签 + MiniTrendChart。 |
 | 交互行为 | hover 趋势线显示日期与成交额；点击进入成交额历史详情或榜单页。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 成交额主值默认中性；较昨日增加可红，减少可绿，但需标注“较昨日”。 |
-| 与 Design Token 的关系 | `--csq-font-family-number`、`--csq-color-bg-panel`、`--csq-color-rise/fall/flat`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-bg-panel`、`--cs-color-market-up/down/flat`。 |
 | 备注 | 金额单位按 API `unit/displayText` 格式化，不在组件里固定换算。 |
 
 
@@ -775,12 +792,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `summary`、`segments`、`history`、`dataStatus`、`sourceRefs`。 |
 | 字段类型 | `summary: MoneyFlowSummary; segments: FundFlowSegment[]`。 |
-| 与 API 字段的映射 | `data.moneyFlow` 或 `/api/moneyflow/market`。 |
+| 与 API 字段的映射 | `data.moneyFlow` 或 `/api/v1/wealth/market/money-flow`。 |
 | 视觉结构 | 上方净流入/净流出主值，中部 FundFlowBar，下方数据时间/趋势。 |
 | 交互行为 | hover 展示来源；点击资金类型进入资金榜。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 净流入红、净流出绿、零值灰；数据状态不使用行情红绿。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-warning`、`--csq-color-bg-panel`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-warning`、`--cs-color-bg-panel`。 |
 | 备注 | 首页不输出资金面分数或“资金面强弱评级”。 |
 
 
@@ -794,12 +811,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `limitUpCount`、`limitDownCount`、`brokenLimitCount`、`sealRate`、`streakCount`、`highestStreak`、`firstBoardCount`、`secondBoardCount`、`thirdPlusCount`。 |
 | 字段类型 | `number|null`、`percent number`。 |
-| 与 API 字段的映射 | `data.limitUp` 或 `/api/limitup/summary`。 |
+| 与 API 字段的映射 | `data.limitUp` 或 `/api/v1/wealth/market/limit-up/summary`。 |
 | 视觉结构 | 多 MetricCard 组成的摘要卡，可突出最高连板和封板率。 |
 | 交互行为 | 点击涨停/跌停/炸板进入对应榜单；hover 展示定义。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 涨停、连板红；跌停绿；炸板可用 warning 或中性，避免误判为涨跌方向。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/warning`、`--csq-font-family-number`、`--csq-color-bg-panel`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down + --cs-color-warning`、`--cs-font-family-number`、`--cs-color-bg-panel`。 |
 | 备注 | 只展示短线情绪事实，不写“情绪高潮/冰点”。 |
 
 
@@ -818,7 +835,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击板块/层级进入对应榜单；hover 显示数量和占比。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 涨停分布红，跌停分布绿，炸板 warning。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/warning`、`--csq-color-chart-grid`、`--csq-color-bg-panel`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down + --cs-color-warning`、`--cs-color-chart-grid-primary`、`--cs-color-bg-panel`。 |
 | 备注 | 数据不足时展示可解释空态，不要伪造板块分布。 |
 
 
@@ -832,12 +849,12 @@ interface LimitUpStreakLadderProps {
 | 是否市场总览 P0 必需 | 是。 |
 | 输入字段 / Props | `rows`、`columns`、`sort`、`onRowClick`、`onLeaderStockClick`。 |
 | 字段类型 | `rows: SectorRankItem[]`。 |
-| 与 API 字段的映射 | `data.topSectors.items[]` 或 `/api/sector/top`。 |
+| 与 API 字段的映射 | `data.topSectors.items[]` 或 `/api/v1/wealth/market/sector-overview`。 |
 | 视觉结构 | 表格行高 34–40px，数字右对齐，板块名左对齐。 |
 | 交互行为 | 点击板块进入板块与榜单页；点击领涨股进入个股详情；表头排序。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 板块涨跌幅红涨绿跌；资金净流入红、净流出绿。 |
-| 与 Design Token 的关系 | `--csq-density-table-row-height`、`--csq-font-family-number`、`--csq-color-rise/fall/flat`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-market-up/down/flat`；表格行高目前按组件局部 CSS 控制。 |
 | 备注 | 首页只展示 Top 5–10，完整表放到板块与榜单行情页。 |
 
 
@@ -856,7 +873,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 切换行业/概念/地域/资金；点击板块下钻。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 涨幅榜红，跌幅榜绿，资金流入红、流出绿。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall`、`--csq-color-bg-panel`、`--csq-font-family-number`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down`、`--cs-color-bg-panel`、`--cs-font-family-number`。 |
 | 备注 | 比 HeatMap 更适合首页首屏；HeatMap 可放下半屏或作为入口。 |
 
 
@@ -875,7 +892,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | hover 显示板块名、涨跌幅、成交额、资金；点击板块下钻。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 上涨红、下跌绿、平盘灰；颜色深浅表达幅度绝对值。 |
-| 与 Design Token 的关系 | `--csq-color-rise/fall/flat`、`--csq-color-bg-panel`、`--csq-color-tooltip-bg`。 |
+| 与 Design Token 的关系 | `--cs-color-market-up/down/flat`、`--cs-color-bg-panel`、`--cs-color-chart-tooltip-bg`。 |
 | 备注 | 不做花哨三维大屏热力图，避免廉价感。 |
 
 
@@ -894,7 +911,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 行 hover；点击进入个股详情；表头排序。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 最新价、涨跌额、涨跌幅红涨绿跌；成交额等默认中性。 |
-| 与 Design Token 的关系 | `--csq-density-table-row-height`、`--csq-font-family-number`、`--csq-color-rise/fall/flat`。 |
+| 与 Design Token 的关系 | `--cs-font-family-number`、`--cs-color-market-up/down/flat`；表格行高目前按组件局部 CSS 控制。 |
 | 备注 | 首页表格不展示过多操作按钮，避免从行情速览变成后台列表。 |
 
 
@@ -913,7 +930,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击切换降序/升序/取消；disabled 时显示不可排序。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不承载涨跌色，排序高亮用品牌色。 |
-| 与 Design Token 的关系 | `--csq-color-text-secondary`、`--csq-color-brand`、`--csq-font-size-xs`。 |
+| 与 Design Token 的关系 | `--cs-color-text-secondary`、`--cs-color-brand`、`--cs-font-size-xs`。 |
 | 备注 | 首页排序不应触发大量接口风暴；可本地排序 Top 数据。 |
 
 
@@ -932,7 +949,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击切换；键盘左右切换；disabled Tab 不响应。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不直接承载涨跌色；涨幅榜/跌幅榜的内容自身着色。 |
-| 与 Design Token 的关系 | `--csq-color-brand`、`--csq-color-border-subtle`、`--csq-font-size-sm`。 |
+| 与 Design Token 的关系 | `--cs-color-brand`、`--cs-color-border-subtle`、`--cs-font-size-sm`。 |
 | 备注 | Tab 数量控制在 4–6 个，避免拥挤。 |
 
 
@@ -951,7 +968,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 不可点击；局部刷新时保留旧数据优先，必要时覆盖小 skeleton。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用涨跌色，使用中性骨架色。 |
-| 与 Design Token 的关系 | `--csq-color-skeleton-bg`、`--csq-color-skeleton-highlight`、`--csq-radius-sm`。 |
+| 与 Design Token 的关系 | `--cs-color-skeleton-bg`、`--cs-color-skeleton-highlight`、`--cs-radius-sm`。 |
 | 备注 | 刷新时优先显示小型 loading，不要整页清空。 |
 
 
@@ -970,7 +987,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 可点击刷新、查看最近交易日或进入配置。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用涨跌红绿，使用中性色。 |
-| 与 Design Token 的关系 | `--csq-color-text-muted`、`--csq-color-bg-panel`、`--csq-font-size-sm`。 |
+| 与 Design Token 的关系 | `--cs-color-text-muted`、`--cs-color-bg-panel`、`--cs-font-size-sm`。 |
 | 备注 | 禁止只写“暂无数据”；必须说明原因。 |
 
 
@@ -989,7 +1006,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击重试；可复制 traceId；不阻塞其他模块。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 使用系统错误色，不使用行情上涨红。 |
-| 与 Design Token 的关系 | `--csq-color-danger-system`、`--csq-color-bg-panel`、`--csq-color-text-secondary`。 |
+| 与 Design Token 的关系 | `--cs-color-danger-system`、`--cs-color-bg-panel`、`--cs-color-text-secondary`。 |
 | 备注 | 单模块异常不允许导致市场总览整页白屏。 |
 
 
@@ -1008,7 +1025,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击查看数据源状态；可触发刷新。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用涨跌色；使用 warning。 |
-| 与 Design Token 的关系 | `--csq-color-warning`、`--csq-color-bg-panel`、`--csq-font-size-xs`。 |
+| 与 Design Token 的关系 | `--cs-color-warning`、`--cs-color-bg-panel`、`--cs-font-size-xs`。 |
 | 备注 | 延迟不是错误，不应使用强错误视觉。 |
 
 
@@ -1027,7 +1044,7 @@ interface LimitUpStreakLadderProps {
 | 交互行为 | 点击登录或进入设置；无权限时显示申请/说明。 |
 | 状态 | default：正常展示；hover：可点击区域轻微提亮；active：点击压暗或描边增强；selected：当前项显示选中底色/左侧标识线；disabled：降低透明度并禁止点击；loading：骨架或占位，不改变布局；empty：显示原因和下一步动作；error：显示异常说明和重试入口。 |
 | 涨跌色规则 | 不使用涨跌色。 |
-| 与 Design Token 的关系 | `--csq-color-info`、`--csq-color-warning`、`--csq-color-text-muted`。 |
+| 与 Design Token 的关系 | `--cs-color-info`、`--cs-color-warning`、`--cs-color-text-muted`。 |
 | 备注 | 未登录不能影响市场总览主行情事实展示。 |
 
 
@@ -1151,24 +1168,24 @@ interface LimitUpStreakLadderProps {
 
 ```css
 :root[data-theme="dark"] {
-  --csq-color-bg-page: ...;
-  --csq-color-bg-topbar: ...;
-  --csq-color-bg-panel: ...;
-  --csq-color-bg-panel-hover: ...;
-  --csq-color-border-subtle: ...;
-  --csq-color-text-primary: ...;
-  --csq-color-text-secondary: ...;
-  --csq-color-rise: ...;
-  --csq-color-rise-bg: ...;
-  --csq-color-fall: ...;
-  --csq-color-fall-bg: ...;
-  --csq-color-flat: ...;
-  --csq-color-brand: ...;
-  --csq-color-warning: ...;
-  --csq-color-danger-system: ...;
-  --csq-font-family-number: ...;
-  --csq-density-topbar-height: ...;
-  --csq-density-table-row-height: ...;
+  --cs-color-bg-page: ...;
+  --cs-color-bg-topbar: ...;
+  --cs-color-bg-panel: ...;
+  --cs-color-bg-panel-hover: ...;
+  --cs-color-border-subtle: ...;
+  --cs-color-text-primary: ...;
+  --cs-color-text-secondary: ...;
+  --cs-color-market-up: ...;
+  --cs-color-market-up-weak: ...;
+  --cs-color-market-down: ...;
+  --cs-color-market-down-weak: ...;
+  --cs-color-market-flat: ...;
+  --cs-color-brand: ...;
+  --cs-color-warning: ...;
+  --cs-color-danger-system: ...;
+  --cs-font-family-number: ...;
+  --cs-layout-top-market-bar-height: ...;
+  --cs-layout-page-header-height: ...;
 }
 ```
 
@@ -1178,39 +1195,33 @@ interface LimitUpStreakLadderProps {
 
 ### 10.1 核心原则
 
-1. 市场总览优先使用 `GET /api/market/home-overview` 聚合接口。
-2. 模块刷新、懒加载、错误重试使用模块接口。
+1. 当前阶段市场总览优先使用模块接口 `GET /api/v1/wealth/market/{module}`。
+2. 整页聚合接口 `GET /api/v1/wealth/market/overview` 仅作为未来可选方向；恢复前必须单独设计和评审。
 3. 组件 Props 不直接暴露 Tushare 原始字段名，统一由 ViewModel 适配为业务字段。
 4. 金额、成交量等数值单位由 API 字段说明、`unit`、`displayText` 或 `sourceRefs` 决定，组件不自行假设。
 5. API 不得向市场总览返回市场温度、情绪指数、资金面分数、风险指数作为首页核心展示字段。
 
 ### 10.2 组件到 API 字段映射总表
 
-| 组件 | 聚合字段 | 模块接口 | 关键字段 |
+| 当前组件 | 模块字段 | 当前接口 / 来源 | 关键字段 |
 |---|---|---|---|
-| `TopMarketBar` | `overview`、`indices` | `/api/market/overview`、`/api/index/summary` | `market`、`tradeDate`、`sessionStatus`、`asOf`、`dataStatus`、`indices[]` |
-| `GlobalSystemMenu` | 无 | 路由配置 / 权限接口 | `activeSystem`、`systems[]` |
-| `IndexTickerStrip` | `indices` | `/api/index/summary` | `code`、`name`、`latestPoint`、`changePct`、`direction` |
-| `Breadcrumb` | 可选 `breadcrumb` | 路由配置 | 固定：财势乾坤 / 乾坤行情 / 市场总览 |
-| `PageHeader` | `overview` | `/api/market/overview` | `tradeDate`、`sessionStatus`、`asOf`、`dataStatus` |
-| `MarketStatusPill` | `overview` | `/api/market/overview` | `sessionStatus`、`isTradingDay`、`openTime`、`closeTime` |
-| `DataStatusBadge` | 各模块 `dataStatus` | 各模块接口 | `dataStatus`、`asOf`、`delaySeconds`、`sourceRefs[]` |
-| `ShortcutBar` | `quickEntries` | `/api/settings/quick-entry` | `key`、`title`、`route`、`enabled`、`badge` |
-| `IndexCard` | `indices` | `/api/index/summary` | `latestPoint`、`change`、`changePct`、`amount`、`trend[]` |
-| `MetricCard` | 多模块 | 多模块接口 | `upCount`、`downCount`、`redRate`、`totalAmount`、`limitUpCount` 等 |
-| `DistributionChart` | `breadth` | `/api/market/breadth` | `distribution[]`、`upCount`、`downCount`、`flatCount` |
-| `MarketBreadthPanel` | `breadth` | `/api/market/breadth` | `medianChangePct`、`redRate`、`history[]` |
-| `MarketStylePanel` | `style` | `/api/market/style` | `largeCapChangePct`、`smallCapChangePct`、`equalWeightChangePct` |
-| `TurnoverSummaryCard` | `turnover` | `/api/market/turnover` | `totalAmount`、`amountChange`、`history[]`、`unit` |
-| `FundFlowBar` | `moneyFlow` | `/api/moneyflow/market` | `mainNetInflow`、`superLargeNetInflow`、`largeNetInflow`、`mediumNetInflow`、`smallNetInflow` |
-| `MoneyFlowSummaryPanel` | `moneyFlow` | `/api/moneyflow/market` | `summary`、`segments[]`、`history[]`、`dataStatus` |
-| `LimitUpSummaryCard` | `limitUp` | `/api/limitup/summary` | `limitUpCount`、`limitDownCount`、`brokenLimitCount`、`sealRate`、`highestStreak` |
-| `LimitUpDistribution` | `limitUpDistribution` | `/api/limitup/summary` 或后续分布接口 | `items[]`、`sectorDistribution[]`、`streakDistribution[]` |
-| `LimitUpStreakLadder` | `streakLadder` | `/api/limitup/streak-ladder` | `streak`、`count`、`items[].stockCode`、`openTimes`、`firstLimitTime` |
-| `SectorRankList` / `SectorTable` | `topSectors` | `/api/sector/top` | `sectorCode`、`sectorName`、`sectorType`、`changePct`、`netInflow`、`leaderStock` |
-| `HeatMap` | `topSectors.heatMapItems` | `/api/sector/top` 或后续热力图接口 | `sectorCode`、`sectorName`、`changePct`、`amount`、`weight` |
-| `RankingTable` / `StockTable` | `stockLeaderboards` | `/api/leaderboard/stock` | `rankType`、`items[].stockCode`、`latestPrice`、`changePct`、`amount`、`turnoverRate`、`volumeRatio` |
-| `LoadingSkeleton` | 无 | 前端状态 | `loading=true` |
+| `TopMarketBar` | `majorIndices` + 页面状态 | `/api/v1/wealth/market/major-indices` + 页面组合状态 | `items[]`、`tradeDate`、`status` |
+| `Breadcrumb` | 静态页面结构 | 前端配置 | 固定：财势乾坤 / 乾坤行情 / 市场总览 |
+| `PageHeader` | 页面标题与交易日 | 页面组合状态 | `tradeDate`、`status`、`updatedAt` |
+| `MarketStatusPill` | 页面/交易日状态 | 页面组合状态 | `label`、`tone` |
+| `DataStatusBadge` | 模块状态 | 各模块接口或页面 debug 状态 | `label`、`tone`、`title` |
+| `ShortcutBar` | 静态入口 | 前端配置 | `label`、`active` |
+| `MajorIndexPanel` | `majorIndices` | `/api/v1/wealth/market/major-indices` | `items[].name/code/latestPoint/change/changePct/direction` |
+| `MetricCard` | 多模块事实卡 | 多模块接口 | `label`、`value`、`sub` |
+| `MarketBreadthPanel` | `breadth` | `/api/v1/wealth/market/breadth` | `metrics`、`chartsByRange` |
+| `MarketStylePanel` | `style` | `/api/v1/wealth/market/style` | `largeCapChangePct`、`smallCapChangePct`、`equalWeightChangePct` |
+| `TurnoverOverviewPanel` | `turnover` | `/api/v1/wealth/market/turnover` | `metrics`、`intraday`、`historyByRange` |
+| `MarketMoneyFlowPanel` | `moneyFlow` | `/api/v1/wealth/market/money-flow` | `summary`、`segments[]`、`historyByRange` |
+| `LimitBoardPanel` | `limitUp` | `/api/v1/wealth/market/limit-up/summary` | `metrics`、`distribution`、`historyByRange` |
+| `StreakLadderPanel` | `streakLadder` | `/api/v1/wealth/market/streak-ladder` | `buckets[].stockCount`、`stocks[].subject.subjectCode`、`boardCount`、`openTimes` |
+| `SectorOverviewPanel` | `sectorOverview` | 当前 mock；后续 `/api/v1/wealth/market/sector-overview` 需单独三件套 | `sectors`、`heatMap` |
+| `LeaderboardPanel` | `leaderboards` | `/api/v1/wealth/market/leaderboards` | `boards[].items[].subject.subjectCode/latestPrice/changePct/amount/turnoverRate/volumeRatio` |
+| `SkeletonBlock` | 无 | 前端状态 | `viewState='loading'` |
 | `EmptyState` | 各模块 | 各模块接口 | `dataStatus='EMPTY'`、空数组、`code=404001` |
 | `ErrorState` | 各模块 | 各模块接口 | `code!=0`、`traceId`、`message` |
 | `DataDelayState` | 各模块 | 各模块接口 | `dataStatus='DELAYED'`、`delaySeconds`、`sourceRefs[]` |
@@ -1220,7 +1231,7 @@ interface LimitUpStreakLadderProps {
 
 ## 11. 给 02 HTML Showcase 的组件使用建议
 
-1. Showcase 文件建议：`/docs/wealth/showcase/market-overview-v1.html`。
+1. Showcase 文件建议：`wealth/docs/reference/showcase/market-overview-v1.html`（如存在）。
 2. 单文件 HTML/CSS/JS；不依赖构建工具。
 3. 页面标题必须是“市场总览”，层级必须是“财势乾坤 / 乾坤行情 / 市场总览”。
 4. 桌面端不得出现固定 SideNav、PersistentLeftRail、大型左侧导航栏。
@@ -1245,12 +1256,13 @@ Codex 实现市场总览页面时，提示词必须包含以下约束：
 你需要实现“财势乾坤 / 乾坤行情 / 市场总览”页面。
 
 必须阅读：
-1. /docs/wealth/00-project-overview.md
-2. /docs/wealth/prd/market-overview-prd.md
-3. /docs/wealth/03-design-tokens.md
-4. /docs/wealth/04-component-guidelines.md
-5. /docs/wealth/api/market-overview-api.md
-6. /docs/wealth/showcase/market-overview-v1.html（如存在）
+1. wealth/AGENTS.md
+2. wealth/docs/system/engineering-architecture.md
+3. wealth/docs/system/design-system-baseline.md
+4. wealth/docs/system/component-guidelines-baseline.md
+5. wealth/docs/system/api-contract-baseline.md
+6. wealth/docs/pages/market-overview/** 中对应模块三件套
+7. wealth/docs/reference/showcase/** 中对应 showcase（如存在）
 
 实现约束：
 - 页面名称为“市场总览”。
@@ -1312,7 +1324,7 @@ Smoke test：
 
 ## 15. HTML Review v1 → market-overview-v1.1 增量合并规范
 
-> 本节为 v0.4 新增内容。它不替代前文 v0.3 已有组件规范，而是作为 market-overview-v1.1 的补充实现约束。  
+> 本节为 v0.4 新增内容。它不替代前文 v0.3 已有组件规范，而是作为 market-overview-v1.1 的补充实现约束。
 > 合并原则：旧版已有组件说明继续有效；如本节对同一组件提出更具体规则，则以本节为 market-overview-v1.1 的落地准则。
 
 ### 0. 本轮实际读取的公共区文件
@@ -1342,7 +1354,7 @@ Smoke test：
 本轮因此采用：
 
 - Design Token：`03-design-tokens.md v0.2.4`
-- API：`market-overview-api-v0.4.md`
+- API：历史合并记录中使用 `market-overview-api-v0.4.md`；当前工程契约以 `wealth/docs/system/api-contract-baseline.md` 和模块三件套为准。
 - 数据字典：`p0-data-dictionary-v0.4.md`
 - 组件基线：`04-component-guidelines.md v0.3`
 - 变更单：`市场总览 HTML Review v1`
@@ -1462,7 +1474,7 @@ type ComponentState =
 | Token | 用途 |
 |---|---|
 | `--cs-color-bg-page` | 页面背景 |
-| `--cs-color-bg-top-market-bar` | TopMarketBar 背景 |
+| `--cs-color-bg-topbar` | TopMarketBar 背景 |
 | `--cs-color-surface-panel` | Panel 背景 |
 | `--cs-color-surface-card` | 卡片背景 |
 | `--cs-color-surface-card-hover` | 卡片 hover |
@@ -1473,17 +1485,17 @@ type ComponentState =
 | `--cs-color-text-muted` | 弱文字 |
 | `--cs-color-market-up` | 上涨 / 净流入 / 涨停 |
 | `--cs-color-market-down` | 下跌 / 净流出 / 跌停 |
-| `--cs-color-market-flat-strong` | 平盘关键数字 |
-| `--cs-color-market-flat-soft` | 平盘弱标签 |
+| `--cs-color-market-flat` | 平盘数字与标签 |
 | `--cs-font-family-number` | 行情数字 |
 | `--cs-layout-top-market-bar-height` | 顶部栏高度 |
 | `--cs-layout-page-header-height` | PageHeader 高度 |
-| `--cs-shadow-dropdown` | 下拉菜单 |
-| `--cs-z-popover` | Tooltip / Popover 层级 |
+| `--cs-shadow-panel` | Panel 阴影 |
 
-#### 3.2 v0.2.4 新增 Token 依赖
+#### 3.2 候选 Token 依赖（当前未全部落地）
 
-| 组件 | 必须使用的 Token |
+> 以下来自历史设计稿，是后续组件精细化时的候选 Token。当前仓库尚未全部在 `wealth/src/styles/design-tokens.css` 中落地，开发时不得直接假定它们已存在。
+
+| 组件 | 候选 Token |
 |---|---|
 | HelpTooltip | `--cs-color-help-icon`、`--cs-color-help-icon-hover`、`--cs-color-help-tooltip-bg`、`--cs-color-help-tooltip-border`、`--cs-color-help-tooltip-text` |
 | RangeSwitch | `--cs-color-range-switch-bg`、`--cs-color-range-switch-border`、`--cs-color-range-switch-item-selected-bg`、`--cs-color-range-switch-item-selected-text` |
@@ -1498,13 +1510,29 @@ type ComponentState =
 
 ### 4. API 对象与字段总约束
 
-#### 4.1 市场总览聚合接口
+#### 4.1 市场总览模块接口
 
 ```http
-GET /api/market/home-overview
+GET /api/v1/wealth/market/{module}
 ```
 
-组件以该聚合接口为首屏数据主来源，模块接口用于局部刷新和 3个月历史数据懒加载。
+当前实现不以整页聚合接口作为首屏数据主来源。页面按模块 provider 调用各自接口，再由模块 view-model adapter 映射到组件。整页 `overview` 聚合接口只作为未来可选方向，恢复前必须单独设计和评审。
+
+当前已落地或已规划的模块接口：
+
+```text
+/api/v1/wealth/market/summary
+/api/v1/wealth/market/major-indices
+/api/v1/wealth/market/breadth
+/api/v1/wealth/market/style
+/api/v1/wealth/market/turnover
+/api/v1/wealth/market/money-flow
+/api/v1/wealth/market/leaderboards
+/api/v1/wealth/market/limit-up/summary
+/api/v1/wealth/market/streak-ladder
+```
+
+下方 `MarketOverviewData` 仅保留为“未来聚合接口候选形态”，不是当前实现契约：
 
 ```ts
 interface MarketOverviewData {
@@ -2120,7 +2148,7 @@ MarketOverviewPage
 
 ### 10. 给 04 API 的字段需求
 
-本轮组件落地依赖 API v0.4 的以下字段：
+本轮组件落地依赖当前模块接口的以下字段；历史 API v0.4/v0.5 只作为字段来源参考，不作为路径和聚合方式依据：
 
 1. `breadth.historyPoints[]`
 2. `style.historyPoints[]`
@@ -2136,8 +2164,8 @@ MarketOverviewPage
 字段原则：
 
 - `rangeType` 使用 `1m | 3m`；
-- 聚合接口默认返回 `1m`；
-- `3m` 支持模块接口局部刷新；
+- 模块接口默认返回 `1m`；
+- `3m` 由对应模块接口局部刷新；
 - 金额和成交量单位必须通过字段表、`unit` 或 `displayText` 明确；
 - 不返回市场温度、情绪、资金面分数、风险指数作为首页核心展示字段。
 
@@ -2661,11 +2689,11 @@ interface SectorHeatMapItem {
 | 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` / `market-overview-v1.html` 基线 | 作为页面设计基线，Review v3 不主动重构非点名区域。 |
 | 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.2.6` | 采用 Review v3 相关的三段式涨停结构、单型资金净流向饼图、资金模块左右布局 Token 约束。 |
 | 5 | `财势乾坤/设计/04-component-guidelines.md` | `P0 组件库与交互组件方案 v0.5 merged-full` | 本文件的修订基线，完整保留此前内容，只追加 Review v3 局部修订。 |
-| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 市场总览开发落地基线 | 作为组件 Props 与 API 字段映射依据。 |
+| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 历史字段参考 | 当前工程契约以 `wealth/docs/system/api-contract-baseline.md` 与模块三件套为准。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v3.pdf` | `市场总览页review-v3` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v3-总控解读与变更单.md` | `市场总览 HTML Review v3｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 
-本轮未能读取但应读取的文档：无。  
+本轮未能读取但应读取的文档：无。
 本轮是否继续：是。
 
 ---
@@ -2904,7 +2932,7 @@ interface LimitUpPerformanceListProps {
 | click 行为 | 可选：点击单型进入资金流详情或筛选资金榜；如未实现详情页，点击只高亮。 |
 | 状态 | default：饼图 + 图例；hover：饼块和图例高亮；selected：选中单型描边；loading：饼图骨架；empty：显示“暂无单型资金净额结构”；error：显示错误块。 |
 | 与 API 字段映射 | `moneyFlow.orderSizeNetStructure.items[]`；若 API 暂未返回该对象，可由 `moneyFlow.superLargeOrderNetInflow`、`largeOrderNetInflow`、`mediumOrderNetInflow`、`smallOrderNetInflow` 适配。 |
-| 与 Design Token 映射 | `--cs-color-market-up`、`--cs-color-market-down`、`--cs-color-market-flat-strong`、`--cs-color-chart-tooltip-bg`、`--cs-color-chart-tooltip-border`、`--cs-font-family-number`。 |
+| 与 Design Token 映射 | `--cs-color-market-up`、`--cs-color-market-down`、`--cs-color-market-flat`、`--cs-color-chart-tooltip-bg`、`--cs-color-chart-tooltip-border`、`--cs-font-family-number`。 |
 | 备注 | 不使用两个“流入/流出”饼图，因为当前数据是各单型净额，不是真实流入额和流出额拆分。组件文案推荐“单型资金净流向”或“单型净额结构”，不推荐“流入结构 / 流出结构”。 |
 
 ```ts
@@ -2973,7 +3001,7 @@ function toOrderSizeNetPieItems(moneyFlow: MoneyFlowSummary): OrderSizeNetPieIte
 | 状态 | default：左饼图右趋势图；hover：各自子组件高亮；selected：选中单型时饼图图例高亮；loading：左饼图骨架 + 右图表骨架；empty：饼图为空时保留右趋势图，趋势图为空时保留饼图；error：子组件局部错误，不拖垮整个资金模块。 |
 | 涨跌色规则 | 饼图按净额方向红/绿/灰；趋势图主线白色，Tooltip 正红负绿；总净额卡仍按正红负绿。 |
 | 与 API 字段映射 | `moneyFlow.orderSizeNetStructure.items[]`、`moneyFlow.todayNetInflowAmount`、`moneyFlow.historyPoints[]`；兼容 v0.5 已有 `superLargeOrderNetInflow/largeOrderNetInflow/mediumOrderNetInflow/smallOrderNetInflow` 字段。 |
-| 与 Design Token 映射 | `--cs-color-market-up/down/flat`、`--cs-color-trend-moneyflow-main`、`--cs-color-chart-zero-axis`、`--cs-color-chart-grid`、`--cs-color-chart-tooltip-bg`、`--cs-space-12/16`。 |
+| 与 Design Token 映射 | `--cs-color-market-up/down/flat`、`--cs-color-trend-moneyflow-main`、`--cs-color-chart-zero-line`、`--cs-color-chart-grid-primary`、`--cs-color-chart-tooltip-bg`、`--cs-space-12/16`。 |
 | 备注 | 本组件只调整大盘资金流向模块内部布局，不改变成交额总览、榜单速览、页面整体顺序。 |
 
 ```ts
@@ -3094,7 +3122,7 @@ Review v3 组件落地依赖 Token v0.2.6 或同等 Token，尤其：
 
   --cs-color-order-pie-inflow: var(--cs-color-market-up);
   --cs-color-order-pie-outflow: var(--cs-color-market-down);
-  --cs-color-order-pie-flat: var(--cs-color-market-flat-strong);
+  --cs-color-order-pie-flat: var(--cs-color-market-flat);
   --cs-color-order-pie-stroke: ...;
 
   --cs-layout-moneyflow-pie-width-ratio: 0.38;
@@ -3228,7 +3256,7 @@ Review v3 组件落地依赖 Token v0.2.6 或同等 Token，尤其：
 ### 17.20 建议仓库保存路径
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 ### 17.21 本轮输出文件下载链接
@@ -3254,11 +3282,11 @@ sandbox:/mnt/data/review-v3-output-final/04-component-guidelines.md
 | 3 | `财势乾坤/设计/02-market-overview-page-design.md` | `市场总览页面设计文档 v0.1` | 作为页面设计基线，Review v4 不主动重构非点名区域。 |
 | 4 | `财势乾坤/设计/03-design-tokens.md` | `Design Token 与视觉规范 v0.2.6` | 必读新版 Token，采用 Review v4 的行式领涨股涨停表现、饼图 callout 折线、饼块白色占比文字等约束。 |
 | 5 | `财势乾坤/设计/04-component-guidelines.md` | `P0 组件库与交互组件方案 v0.6 merged-full` | 本文件的修订基线，完整保留此前内容，只追加 Review v4 局部修订。 |
-| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 市场总览开发落地基线 | 作为组件 Props 与 API 字段映射依据；本轮原则上不改数据 model。 |
+| 6 | `财势乾坤/数据字典与API文档/market-overview-api-v0.5.md` | `市场总览 API 草案 v0.5` / 历史字段参考 | 当前工程契约以 `wealth/docs/system/api-contract-baseline.md` 与模块三件套为准；本轮原则上不改数据 model。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v4.pdf` | `市场总览页review-v4` | 原始 Review 反馈依据。 |
 | 8 | `财势乾坤/review/market-overview-html-review-v4-总控解读与变更单.md` | `市场总览 HTML Review v4｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，规定只处理两个点名区域。 |
 
-本轮未能读取但应读取的文档：无。  
+本轮未能读取但应读取的文档：无。
 本轮是否继续：是。
 
 ---
@@ -3831,7 +3859,7 @@ interface MoneyFlowNetStructurePanelPropsV4 extends MoneyFlowNetStructurePanelPr
 ### 18.20 建议仓库保存路径
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 ### 18.21 本轮输出文件下载链接
@@ -4537,7 +4565,7 @@ interface CsqPieChartWithCalloutProps {
 
 **状态**：default 正常展示；hover 扇区轻微外扩并高亮 callout；selected 使用品牌描边；loading 显示圆形骨架；empty 显示 CsqEmptyState；error 显示 CsqErrorState。
 
-**Design Token 映射**：`--cs-chart-pie-size`、`--cs-chart-pie-slice-stroke`、`--cs-chart-pie-percent-color`、`--cs-chart-pie-callout-line-color`、`--cs-color-market-up/down/flat`、`--cs-color-tooltip-bg`。
+**Design Token 映射**：`--cs-chart-pie-size`、`--cs-chart-pie-slice-stroke`、`--cs-chart-pie-percent-color`、`--cs-chart-pie-callout-line-color`、`--cs-color-market-up/down/flat`、`--cs-color-chart-tooltip-bg`。
 
 **禁止误用**：不得在 Core 组件内写“净额结构”、`absAmount`、Tushare 字段、资金字段；不得使用两个饼图表达真实流入/流出，除非业务层明确提供真实流入额和流出额。
 
@@ -4818,7 +4846,7 @@ Smoke test：
 建议仓库路径：
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 对话交付文件：
@@ -4831,7 +4859,7 @@ sandbox:/mnt/data/component-registry-output/04-component-guidelines.md
 
 # 20. HTML Review v5 → market-overview-v1.4 连板天梯局部修订合并规范
 
-> 本节为 Review v5 对“市场总览 / 连板天梯模块”的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v4 已确认内容，而是在完整保留 v0.8 merged-full 基线的前提下，只追加连板天梯模块的新组件、Pattern、动态层级规则、展开/收起规则和 Mock 结构建议。  
+> 本节为 Review v5 对“市场总览 / 连板天梯模块”的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v4 已确认内容，而是在完整保留 v0.8 merged-full 基线的前提下，只追加连板天梯模块的新组件、Pattern、动态层级规则、展开/收起规则和 Mock 结构建议。
 > 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览及其它 Review v5 未点名组件。
 
 ## 20.1 本轮读取文档与采用基线
@@ -4846,7 +4874,7 @@ sandbox:/mnt/data/component-registry-output/04-component-guidelines.md
 | 6 | `财势乾坤/review/market-overview-html-review-v5.pdf` | `市场总览页review-v5` | 原始 Review 反馈依据。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v5-总控解读与变更单.md` | `市场总览 HTML Review v5｜总控解读与变更单` | 本轮直接变更单，规定只处理连板天梯模块。 |
 
-本轮未能读取但应读取的文档：无。  
+本轮未能读取但应读取的文档：无。
 本轮是否继续：是。
 
 ---
@@ -5292,7 +5320,7 @@ interface LimitLadderExpandControlProps {
 
 ## 20.11 Mock 数据结构建议
 
-> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。  
+> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。
 > 本轮不要求 04 API 与数据字典参与，也不正式修改 API 文档。
 
 ```ts
@@ -5502,8 +5530,8 @@ interface MarketOverviewLimitLadderMock {
 - `DataDelayState`
 - `PermissionState`
 
-本轮因 Review v5 修改而被动影响的区域：无。  
-原因：本轮只替换连板天梯模块内部结构，不影响其它模块。  
+本轮因 Review v5 修改而被动影响的区域：无。
+原因：本轮只替换连板天梯模块内部结构，不影响其它模块。
 是否需要产品总控确认：否。
 
 ---
@@ -5552,7 +5580,7 @@ interface MarketOverviewLimitLadderMock {
 ## 20.21 建议仓库保存路径
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 ## 20.22 本轮输出文件下载链接
@@ -5567,8 +5595,8 @@ sandbox:/mnt/data/review-v5-output-final/04-component-guidelines.md
 
 ## 21. HTML Review v6 → market-overview-v1.5 标准股票卡片局部修订合并规范
 
-> 本节为 `market-overview-html-review-v6` 的全量合并内容。它不替代前文已确认的组件规范，而是在完整保留 v0.9 merged-full 基线的前提下，只对 Review v6 明确点名的 `CsqStockCompactCard` 做结构修订。  
-> 自 `market-overview-v1.5.html` 起，市场总览连板天梯中的标准股票卡片默认结构以本节为准。此前 Review v5 中关于 `openTimes` 右下默认展示、`currentStreakLevel` 五板以上覆盖展示的描述，降级为历史规则或可选扩展，不再作为本卡片默认结构。  
+> 本节为 `market-overview-html-review-v6` 的全量合并内容。它不替代前文已确认的组件规范，而是在完整保留 v0.9 merged-full 基线的前提下，只对 Review v6 明确点名的 `CsqStockCompactCard` 做结构修订。
+> 自 `market-overview-v1.5.html` 起，市场总览连板天梯中的标准股票卡片默认结构以本节为准。此前 Review v5 中关于 `openTimes` 右下默认展示、`currentStreakLevel` 五板以上覆盖展示的描述，降级为历史规则或可选扩展，不再作为本卡片默认结构。
 > 本节不修改 `MarketOverviewLimitLadder`、`LimitLadderPromotionLayer`、`LimitLadderSpecialLayer`、`LimitLadderFirstLayer`、`LimitLadderExpandControl` 的层级逻辑、展开/收起逻辑和点击逻辑。
 
 ### 21.1 本轮读取文档与采用基线
@@ -5583,7 +5611,7 @@ sandbox:/mnt/data/review-v5-output-final/04-component-guidelines.md
 | 6 | `财势乾坤/review/market-overview-html-review-v6.pdf` | `市场总览页review-v6` | 原始 Review 反馈依据。 |
 | 7 | `财势乾坤/review/market-overview-html-review-v6-总控解读与变更单.md` | `市场总览 HTML Review v6｜总控解读与变更单` / 产品总控解读草案 | 本轮直接变更单，限定只修订标准股票卡片。 |
 
-本轮未能读取但应读取的文档：无。  
+本轮未能读取但应读取的文档：无。
 本轮是否继续：是。
 
 ---
@@ -6082,7 +6110,7 @@ interface LimitLadderStockCardViewModel extends LimitLadderStockCard {
 ### 21.18 建议仓库保存路径
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 ### 21.19 本轮输出文件下载链接
@@ -6097,8 +6125,8 @@ sandbox:/mnt/data/review-v6-output-final/04-component-guidelines.md
 
 ## 22. HTML Review v7 → market-overview-v1.6 标准股票卡片局部修订合并规范
 
-> 本节为 Review v7 对 `市场总览 / 连板天梯 / 标准股票卡片` 的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v6 已确认内容，而是在完整保留 v1.0 merged-full 基线的前提下，只修订 `CsqStockCompactCard` 的布局结构与组件说明。  
-> 本节是当前最新覆盖规则：**Review v7 正式替代 Review v6 中“股票代码右上角 + 主体 2 行 × 3 列”的标准股票卡片结构。**  
+> 本节为 Review v7 对 `市场总览 / 连板天梯 / 标准股票卡片` 的组件级修订。它不替代前文已确认的通用组件库注册表、市场总览页面组件规范或 Review v1～v6 已确认内容，而是在完整保留 v1.0 merged-full 基线的前提下，只修订 `CsqStockCompactCard` 的布局结构与组件说明。
+> 本节是当前最新覆盖规则：**Review v7 正式替代 Review v6 中“股票代码右上角 + 主体 2 行 × 3 列”的标准股票卡片结构。**
 > 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、连板天梯层级结构、连板天梯展开/收起逻辑及其它 Review v7 未点名组件。
 
 ### 22.1 本轮读取文档与采用基线
@@ -6112,7 +6140,7 @@ sandbox:/mnt/data/review-v6-output-final/04-component-guidelines.md
 | 5 | `财势乾坤/设计/04-component-guidelines.md` | 公共区当前读取到 `P0 组件库与交互组件方案 v0.9 merged-full / Review v5 连板天梯局部修订版`；本文件合并时以已交付的 Review v6 完整合并版为防回退基线 | 公共区文件用于核验当前组件基线；为避免丢失已确认的 Review v6 标准股票卡片字段口径，本版在 v6 完整合并版基础上追加 Review v7 修订。 |
 | 6 | `财势乾坤/review/market-overview-html-review-v7-总控解读与变更单.md` | `市场总览 HTML Review v7｜总控解读与变更单` | 本轮直接变更单，规定只处理 `CsqStockCompactCard`。 |
 
-本轮未能读取但应读取的文档：无。  
+本轮未能读取但应读取的文档：无。
 本轮是否继续：是。
 
 ---
@@ -6452,7 +6480,7 @@ Review v7 正式废弃以下 Review v6 规则：
 
 ### 22.9 Mock 数据结构建议
 
-> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。  
+> 本节结构仅用于 Showcase Mock 和组件设计，不作为正式 API 契约。
 > 本轮不要求 04 API 与数据字典参与，也不正式修改 API 文档。
 
 ```ts
@@ -6720,7 +6748,7 @@ interface LimitLadderStockCard {
 ### 22.20 建议仓库保存路径
 
 ```text
-/docs/wealth/04-component-guidelines.md
+wealth/docs/reference/design/04-component-guidelines.md
 ```
 
 ### 22.21 本轮输出文件下载链接
@@ -6730,4 +6758,3 @@ interface LimitLadderStockCard {
 ```text
 sandbox:/mnt/data/review-v7-output-final/04-component-guidelines.md
 ```
-

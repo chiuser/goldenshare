@@ -1,13 +1,13 @@
 # 财势乾坤｜Design Token 与视觉规范 v0.3.3
 
-> 所属项目：财势乾坤  
-> 文档名称：`03-design-tokens.md`  
-> 建议保存路径：`财势乾坤/设计/03-design-tokens.md`  
-> 文档角色：01_Design Token 与视觉规范  
-> 适用范围：P0 Web 页面、通用组件库 Demo、后续行情终端类页面  
-> 默认主题：Dark First，Light Token Ready  
-> 市场规则：中国市场红涨绿跌  
-> 当前状态：v0.3.3，基于市场总览 Review v7 修订  
+> 所属项目：财势乾坤
+> 文档名称：`03-design-tokens.md`
+> 当前仓库保存路径：`wealth/docs/reference/design/03-design-tokens.md`
+> 文档角色：01_Design Token 与视觉规范
+> 适用范围：P0 Web 页面、通用组件库 Demo、后续行情终端类页面
+> 默认主题：Dark First，Light Token Ready
+> 市场规则：中国市场红涨绿跌
+> 当前状态：v0.3.3，基于市场总览 Review v7 修订
 > 本轮重点：仅补充 `市场总览 / 连板天梯 / 标准股票卡片` 的视觉规则，将股票卡片从上一轮“右上角代码 + 2×3 机械网格”正式替换为“左侧识别区 / 中间行情事实区 / 右侧标签区”的横向三分区卡片；不修改 Review v7 未点名区域。
 
 ---
@@ -91,6 +91,19 @@ CSS Design Token 变量仍统一使用：
 ```css
 --cs-*
 ```
+
+## 0.5 当前仓库实现对齐说明（2026-05-13）
+
+本文件是视觉 Token 参考文档，但当前代码实现以仓库内真实文件为准：
+
+1. 当前 Token 实现文件：`wealth/src/styles/design-tokens.css`。
+2. 当前全局样式入口：`wealth/src/styles/global.css`。
+3. 当前 CSS 变量前缀固定为 `--cs-*`，不新增 `--csq-*`。
+4. 当前已落地 Token 是精简生产子集，覆盖页面背景、顶部栏、面板、卡片、文字、行情涨跌色、图表轴线、间距、圆角与阴影；本文后续更完整的 Token 清单只作为扩展候选，不代表已经全部实现。
+5. `Csq*` 是设计稿中的组件命名口径；当前 React 实现使用 `wealth/src/shared/ui` 下的 `Panel`、`MetricCard`、`DataStatusBadge`、`MarketStatusPill`、`RangeSwitch`、`SkeletonBlock` 等实际组件名。除非单独评审组件库重命名，不得按本文把现有代码批量改名为 `Csq*`。
+6. 当前市场总览页面代码在 `wealth/src/pages/market-overview/MarketOverviewPage.tsx` 与 `wealth/src/features/market-overview/**`；视觉规则落地时必须优先对齐这些真实模块结构。
+
+---
 
 ## 1. 已确认产品与视觉决策
 
@@ -187,7 +200,7 @@ CSS Design Token 变量仍统一使用：
 
 ### 3.4 组件命名规则
 
-通用组件使用 `Csq` 前缀：
+设计稿与长期组件库候选使用 `Csq` 前缀：
 
 ```text
 CsqPanel
@@ -204,6 +217,7 @@ CsqHeatMapGrid
 3. 图表组件按图表形态命名；
 4. 表格组件按表格能力命名；
 5. 业务组合只能作为 Pattern Example，不进入 Core Component 命名。
+6. 当前代码层尚未采用 `Csq*` 命名，现阶段应使用 `wealth/src/shared/ui` 的实际组件名；若要引入 `Csq*` 组件库，需要单独设计迁移方案。
 
 ---
 
@@ -384,7 +398,7 @@ CsqHeatMapGrid
   /* Background */
   --cs-color-bg-page: #070A12;
   --cs-color-bg-page-alt: #0A0F1A;
-  --cs-color-bg-top-market-bar: rgba(8, 13, 22, 0.96);
+  --cs-color-bg-topbar: rgba(8, 13, 22, 0.96);
   --cs-color-bg-breadcrumb: rgba(10, 15, 26, 0.92);
   --cs-color-bg-page-header: #0B1220;
 
@@ -407,14 +421,14 @@ CsqHeatMapGrid
   /* Chart */
   --cs-color-chart-bg: #0B1220;
   --cs-color-chart-panel-bg: #0D1422;
-  --cs-color-chart-grid: rgba(148, 163, 184, 0.12);
-  --cs-color-chart-axis: rgba(148, 163, 184, 0.38);
-  --cs-color-chart-label: #7B8AA0;
-  --cs-color-chart-crosshair: rgba(247, 199, 107, 0.72);
+  --cs-color-chart-grid-primary: rgba(148, 163, 184, 0.12);
+  --cs-color-chart-axis-line: rgba(148, 163, 184, 0.38);
+  --cs-color-chart-axis-label: #7B8AA0;
+  --cs-color-chart-crosshair-line: rgba(247, 199, 107, 0.72);
 
   /* Tooltip */
-  --cs-color-tooltip-bg: rgba(8, 13, 22, 0.96);
-  --cs-color-tooltip-border: rgba(247, 199, 107, 0.28);
+  --cs-color-chart-tooltip-bg: rgba(8, 13, 22, 0.96);
+  --cs-color-chart-tooltip-border: rgba(247, 199, 107, 0.28);
 
   /* Border / Divider */
   --cs-color-border-subtle: rgba(148, 163, 184, 0.14);
@@ -500,7 +514,7 @@ CsqHeatMapGrid
   /* Background */
   --cs-color-bg-page: #F5F7FB;
   --cs-color-bg-page-alt: #EEF2F7;
-  --cs-color-bg-top-market-bar: rgba(255, 255, 255, 0.96);
+  --cs-color-bg-topbar: rgba(255, 255, 255, 0.96);
   --cs-color-bg-breadcrumb: rgba(255, 255, 255, 0.92);
   --cs-color-bg-page-header: #FFFFFF;
 
@@ -523,14 +537,14 @@ CsqHeatMapGrid
   /* Chart */
   --cs-color-chart-bg: #FFFFFF;
   --cs-color-chart-panel-bg: #F8FAFC;
-  --cs-color-chart-grid: rgba(15, 23, 42, 0.10);
-  --cs-color-chart-axis: rgba(15, 23, 42, 0.34);
-  --cs-color-chart-label: #64748B;
-  --cs-color-chart-crosshair: rgba(168, 117, 33, 0.72);
+  --cs-color-chart-grid-primary: rgba(15, 23, 42, 0.10);
+  --cs-color-chart-axis-line: rgba(15, 23, 42, 0.34);
+  --cs-color-chart-axis-label: #64748B;
+  --cs-color-chart-crosshair-line: rgba(168, 117, 33, 0.72);
 
   /* Tooltip */
-  --cs-color-tooltip-bg: rgba(255, 255, 255, 0.98);
-  --cs-color-tooltip-border: rgba(201, 154, 61, 0.30);
+  --cs-color-chart-tooltip-bg: rgba(255, 255, 255, 0.98);
+  --cs-color-chart-tooltip-border: rgba(201, 154, 61, 0.30);
 
   /* Border / Divider */
   --cs-color-border-subtle: rgba(15, 23, 42, 0.10);
@@ -770,8 +784,8 @@ type CsqComponentState =
   --cs-component-help-bg-hover: var(--cs-color-brand-accent-bg);
   --cs-component-help-radius: var(--cs-radius-pill);
 
-  --cs-component-help-tooltip-bg: var(--cs-color-tooltip-bg);
-  --cs-component-help-tooltip-border: 1px solid var(--cs-color-tooltip-border);
+  --cs-component-help-tooltip-bg: var(--cs-color-chart-tooltip-bg);
+  --cs-component-help-tooltip-border: 1px solid var(--cs-color-chart-tooltip-border);
   --cs-component-help-tooltip-radius: var(--cs-radius-lg);
   --cs-component-help-tooltip-padding: 10px 12px;
   --cs-component-help-tooltip-width-max: 280px;
@@ -1155,12 +1169,12 @@ type CsqComponentState =
 
 ```css
 :root {
-  --cs-chart-axis-color: var(--cs-color-chart-axis);
+  --cs-chart-axis-color: var(--cs-color-chart-axis-line);
   --cs-chart-axis-line-width: 1px;
-  --cs-chart-axis-label-color: var(--cs-color-chart-label);
+  --cs-chart-axis-label-color: var(--cs-color-chart-axis-label);
   --cs-chart-axis-label-size: var(--cs-font-size-11);
 
-  --cs-chart-grid-color: var(--cs-color-chart-grid);
+  --cs-chart-grid-color: var(--cs-color-chart-grid-primary);
   --cs-chart-grid-line-width: 1px;
   --cs-chart-grid-dash: 2 4;
   --cs-chart-zero-axis-color: rgba(221, 230, 242, 0.32);
@@ -1172,12 +1186,12 @@ type CsqComponentState =
 
 ```css
 :root {
-  --cs-chart-crosshair-color: var(--cs-color-chart-crosshair);
+  --cs-chart-crosshair-color: var(--cs-color-chart-crosshair-line);
   --cs-chart-crosshair-width: 1px;
   --cs-chart-crosshair-dash: 3 3;
-  --cs-chart-crosshair-label-bg: var(--cs-color-tooltip-bg);
+  --cs-chart-crosshair-label-bg: var(--cs-color-chart-tooltip-bg);
   --cs-chart-crosshair-label-color: var(--cs-color-text-primary);
-  --cs-chart-crosshair-label-border: 1px solid var(--cs-color-tooltip-border);
+  --cs-chart-crosshair-label-border: 1px solid var(--cs-color-chart-tooltip-border);
 }
 ```
 
@@ -1185,8 +1199,8 @@ type CsqComponentState =
 
 ```css
 :root {
-  --cs-chart-tooltip-bg: var(--cs-color-tooltip-bg);
-  --cs-chart-tooltip-border: 1px solid var(--cs-color-tooltip-border);
+  --cs-chart-tooltip-bg: var(--cs-color-chart-tooltip-bg);
+  --cs-chart-tooltip-border: 1px solid var(--cs-color-chart-tooltip-border);
   --cs-chart-tooltip-radius: var(--cs-radius-lg);
   --cs-chart-tooltip-padding: 10px 12px;
   --cs-chart-tooltip-shadow: var(--cs-shadow-tooltip);
@@ -1735,18 +1749,15 @@ Pattern Example 不作为 Core Component 契约，只展示通用组件在行情
 
 ---
 
-# 22. 待产品总控确认问题
+# 22. 历史待确认问题的当前口径
 
-1. `Csq` 是否正式作为财势乾坤组件库统一前缀？
-2. CSS Token 前缀是否继续保持 `--cs-*`，不新增 `--csq-*`？
-3. Core Component 与 Pattern Example 的边界是否认可？
-4. `component-library-demo-v1.html` 是否作为后续 Codex 组件实现的标准输入？
-5. 组件库 Demo v1 是否需要展示浅色主题预览，还是仅保留浅色 Token 结构？
-6. 是否需要在 Demo 中展示移动端 / 窄屏状态？
-7. 组件状态是否需要做成可交互切换，还是静态展示即可？
-8. 是否需要将组件注册表同步维护在 `04-component-guidelines.md` 中？
-9. `CsqPieChartWithCallout` 是否默认允许中心留空，业务页面如需中心文案再单独确认？
-10. `CsqHeatMapGrid` 的默认 Demo 是否使用 5×4，还是展示更多 N×M 示例？
+以下问题来自历史设计稿合并记录。当前仓库落地时按 0.5 的实现对齐口径执行：
+
+1. `Csq*` 仅作为设计稿和长期组件库候选命名；当前代码不按 `Csq*` 批量改名。
+2. CSS Token 前缀已经固定为 `--cs-*`，不新增 `--csq-*`。
+3. 当前已落地 Token 以 `wealth/src/styles/design-tokens.css` 为准，本文后续更完整的 Token 清单只是扩展候选。
+4. 组件实现必须优先对齐 `wealth/src/shared/ui/**` 与 `wealth/src/features/market-overview/**` 的真实结构。
+5. showcase 与历史 Demo 只作为视觉参考；编码前仍需读取对应模块三件套和当前系统规范。
 
 ---
 
@@ -1785,8 +1796,8 @@ Pattern Example 不作为 Core Component 契约，只展示通用组件在行情
 
 # 25. 市场总览 / 连板天梯 / 标准股票卡片视觉规则（Review v7 修订）
 
-> 本节仅服务 `市场总览 / 连板天梯 / 标准股票卡片`。  
-> 本节正式替代 Review v6 的“股票代码右上角 + 主体 2 行 × 3 列”方案。  
+> 本节仅服务 `市场总览 / 连板天梯 / 标准股票卡片`。
+> 本节正式替代 Review v6 的“股票代码右上角 + 主体 2 行 × 3 列”方案。
 > 本节不修改 TopMarketBar、Breadcrumb、PageHeader、ShortcutBar、今日市场客观总结、主要指数、涨跌分布、市场风格、成交额总览、大盘资金流向、榜单速览、涨跌停统计与分布、板块速览、连板天梯层级结构、连板天梯展开 / 收起逻辑、页面整体主题、全局字体或页面整体布局顺序。
 
 ## 25.1 Review v7 设计边界
@@ -2473,4 +2484,3 @@ rightTags: sectorName / streakText
 ```text
 财势乾坤/设计/03-design-tokens.md
 ```
-
