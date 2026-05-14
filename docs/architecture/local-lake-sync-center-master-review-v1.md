@@ -81,16 +81,17 @@
 | Sync Profile Catalog | `lake_console/backend/app/services/sync_center_profiles.py` | M1-M3 已定义本期 4 个 enabled profile 和 3 个 planned 专项 profile。 |
 | Lake Job 状态模型 | `lake_console/backend/app/services/lake_job_state.py` | M1-M3 已实现 `manifest/lake_jobs/**` 的 plan/run/events/current/lock 原子读写。 |
 | Kopia Prewrite Backup 服务 | `lake_console/backend/app/services/kopia_prewrite_backup_service.py` | M1-M3 已实现写前备份服务封装；真实执行前必须先 backup。 |
+| Sync Profile Runner 小样本 | `lake_console/backend/app/services/sync_profile_runner.py` | M4 已接入 `prod_db_snapshot_refresh + bse_mapping`，用于验证 `plan -> backup -> write -> events -> run result`。 |
 
 ### 4.2 尚未具备能力
 
 | 缺口 | 说明 |
 | --- | --- |
-| Profile Runner 真实执行器 | M1-M3 只到 Kopia backup 后安全停止；尚未调用底层 sync engine 写数据。 |
-| Sync Center 前端页面 | 当前 frontend 里没有 Sync Center 页面和对应 API client/types。 |
+| Profile Runner 完整执行器 | 当前只允许 `prod_db_snapshot_refresh + bse_mapping` 小样本；其他 profile/dataset 尚未开放。 |
+| Sync Center 前端页面 | M5 已接入 `lake_console/frontend/src/pages/SyncCenterPage.tsx`，左侧菜单新增 `Sync Center`；页面只允许启动 `prod_db_snapshot_refresh + bse_mapping` 小样本。 |
 | Profile CLI | 设计中有 `plan-profile` / `sync-profile`，当前尚未实现。 |
 
-结论：当前底层单数据集同步能力可以复用；M1-M3 已补齐任务编排壳，但真实 profile runner 仍必须在 M4 后单独接入，不能把页面直接接到底层 export service 上。
+结论：当前底层单数据集同步能力可以复用；M1-M4 已打通一个最小真实写入样本，但完整 profile runner 仍必须逐批接入，不能把页面直接接到底层 export service 上。
 
 ## 5. 端到端链路核对
 
@@ -480,6 +481,16 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 ### M4：Profile Runner 小样本执行
 
+状态：已完成首个小样本。对应代码为 `lake_console/backend/app/services/sync_profile_runner.py`；当前只允许执行 `prod_db_snapshot_refresh + bse_mapping`，其他 profile/dataset 会在启动前拒绝。
+
+真实验证记录：
+
+1. plan：`POST /api/lake/sync/profiles/prod_db_snapshot_refresh/plan`，参数 `dataset_keys=["bse_mapping"]`。
+2. run：`POST /api/lake/sync/runs`，状态 `success`。
+3. Kopia prewrite backup：已生成 snapshot id。
+4. 同步结果：`fetched_rows=248`，`written_rows=248`，`manifest_written_rows=248`。
+5. 同步后文件：`raw_tushare/bse_mapping/current/part-000.parquet` 与 `manifest/security_reference/tushare_bse_mapping.parquet` 均为 248 行。
+
 目标：
 
 1. 实现 `SyncProfileRunner`。
@@ -493,6 +504,8 @@ API 不做大接口。每个接口只服务一个页面动作：
 3. 失败时 run 能进入 `failed` 或 `partial_failed`。
 
 ### M5：Sync Center 前端页面
+
+状态：已完成首版页面接入。对应代码为 `lake_console/frontend/src/pages/SyncCenterPage.tsx`、`lake_console/frontend/src/hooks/useSyncCenterData.ts` 与 `lake_console/frontend/src/services/lakeApi.ts` 的 Sync Center API client。页面展示全部 profile，但启动按钮只对当前 runner 已支持的 `prod_db_snapshot_refresh + bse_mapping` 开放，避免把 M6 能力误暴露为可执行。
 
 目标：
 
@@ -508,6 +521,8 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 ### M6：本期 4 个 Profile 完整接入
 
+状态：代码接入已完成，真实大范围写入仍必须由运营按小样本逐个启动验证。当前 `SyncProfileRunner` 只开放本期 4 个 profile，`stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍保持 planned，不允许启动。
+
 目标：
 
 1. 接入 `prod_db_daily`。
@@ -515,11 +530,19 @@ API 不做大接口。每个接口只服务一个页面动作：
 3. 接入 `prod_db_manual_backfill`。
 4. 接入 `lake_reference_refresh`。
 
+实现口径：
+
+1. `prod_db_daily`：只允许从 `prod-raw-db` / `prod-core-db` 白名单读取，复用 `DbTradeDateExportService`，按 `trade_date` 或 `start_date/end_date` 输出分区文件。
+2. `prod_db_snapshot_refresh`：只允许从 `prod-raw-db` current/snapshot 白名单读取，复用 `ProdRawCurrentExportService`，替换 raw current 与对应 manifest。
+3. `prod_db_manual_backfill`：允许日频/周月锚点类按区间补数，也允许 snapshot 白名单做 current 刷新；仍然必须走 plan -> Kopia -> lock -> runner。
+4. `lake_reference_refresh`：只允许 `stock_basic`、`trade_cal`、`index_basic` 三个本地参考数据集，复用现有 Tushare reference service；`trade_cal` 支持不传日期做全量分页刷新。
+
 门禁：
 
 1. 每个 profile 至少有一个小样本真实执行验证。
 2. 每个 profile 有失败场景测试。
 3. 每个 profile 生成的 backup/run/events 可追溯。
+4. 前端只能启动 enabled 且 runner 已接入的 M6 profile；后续专项只能生成预览或显示 disabled，不得启动。
 
 ### M7：本地自动化与长期维护
 
@@ -580,11 +603,11 @@ python3 scripts/check_docs_integrity.py
 
 ### 12.2 主要缺口
 
-缺口不在底层同步能力，而在 Sync Center 编排层：
+当前 Sync Center 编排层已完成 M1-M6 的主要代码接入，剩余缺口集中在真实写入验证与后续专项：
 
-1. Profile Runner 真实执行器未实现。
-2. 前端页面未实现。
-3. profile CLI 未实现。
+1. 4 个 M6 profile 已进入 runner 白名单，但仍需要按小样本逐个做真实执行验证并记录结果。
+2. `stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍是 planned，必须走独立专项设计，不能复用普通 profile runner。
+3. profile CLI 未实现；当前推荐从 Sync Center 页面/API 触发，以保证 Kopia、锁、计划和事件记录完整。
 
 ### 12.3 开发建议
 

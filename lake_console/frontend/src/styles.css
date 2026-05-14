@@ -3,6 +3,7 @@
 @import "./styles/command.css";
 @import "./styles/risk.css";
 @import "./styles/recovery.css";
+@import "./styles/sync-center.css";
 
 /* App shell */
 .app {

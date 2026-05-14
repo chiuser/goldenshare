@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Badge } from "./Badge";
 
-export type ActivePage = "datasets" | "datasetDetail" | "recovery" | "commands" | "risks";
+export type ActivePage = "datasets" | "datasetDetail" | "sync" | "recovery" | "commands" | "risks";
 
 type AppShellProps = {
   activePage: ActivePage;
@@ -35,6 +35,9 @@ export function AppShell({ activePage, children, initialized, onNavigate }: AppS
             type="button"
           >
             数据湖总览
+          </button>
+          <button className={activePage === "sync" ? "sidebar-link active" : "sidebar-link"} onClick={() => onNavigate("sync")} type="button">
+            Sync Center
           </button>
           <button className={activePage === "recovery" ? "sidebar-link active" : "sidebar-link"} onClick={() => onNavigate("recovery")} type="button">
             Recovery

@@ -12,6 +12,7 @@ import { DatasetDetailPage } from "./pages/DatasetDetailPage";
 import { DatasetOverviewPage } from "./pages/DatasetOverviewPage";
 import { RecoveryPage } from "./pages/RecoveryPage";
 import { RiskPage } from "./pages/RiskPage";
+import { SyncCenterPage } from "./pages/SyncCenterPage";
 import "./styles.css";
 
 function App() {
@@ -75,6 +76,8 @@ function App() {
           onSelectItem={selection.setSelectedCommandItemKey}
         />
       ) : null}
+
+      {selection.activePage === "sync" ? <SyncCenterPage /> : null}
 
       {selection.activePage === "recovery" ? (
         <RecoveryPage

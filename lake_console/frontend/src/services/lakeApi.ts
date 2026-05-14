@@ -7,6 +7,13 @@ import type {
   RecoveryRepositorySummary,
   RecoverySnapshotDetail,
   RecoverySnapshotSummary,
+  SyncCurrentRun,
+  SyncLock,
+  SyncPlanResponse,
+  SyncProfileSummary,
+  SyncRunDetail,
+  SyncRunEvent,
+  SyncRunResponse,
 } from "../types";
 
 type DatasetListResponse = {
@@ -28,12 +35,62 @@ type RecoverySnapshotListResponse = {
   offset: number;
 };
 
+type SyncProfileListResponse = {
+  items: SyncProfileSummary[];
+};
+
+type SyncRunEventListResponse = {
+  items: SyncRunEvent[];
+  next_cursor: number;
+};
+
 async function fetchJson<T>(path: string, errorMessage: string): Promise<T> {
-  const response = await fetch(path);
+  return requestJson<T>(path, { method: "GET" }, errorMessage);
+}
+
+async function postJson<T>(path: string, body: unknown, errorMessage: string): Promise<T> {
+  return requestJson<T>(
+    path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    errorMessage,
+  );
+}
+
+async function requestJson<T>(path: string, init: RequestInit, errorMessage: string): Promise<T> {
+  const response = await fetch(path, init);
   if (!response.ok) {
-    throw new Error(errorMessage);
+    throw new Error(await readApiError(response, errorMessage));
   }
   return (await response.json()) as T;
+}
+
+async function readApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.clone().json()) as { detail?: unknown };
+    if (payload.detail && typeof payload.detail === "object") {
+      const detail = payload.detail as { code?: unknown; message?: unknown };
+      const code = typeof detail.code === "string" ? detail.code : `HTTP_${response.status}`;
+      const message = typeof detail.message === "string" ? detail.message : fallback;
+      return `[${code}] ${message}`;
+    }
+    if (typeof payload.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+  } catch {
+    try {
+      const text = await response.text();
+      if (text.trim()) {
+        return text.trim();
+      }
+    } catch {
+      // Keep the fallback below when the API did not return readable text.
+    }
+  }
+  return fallback;
 }
 
 export function loadLakeStatus(): Promise<LakeStatus> {
@@ -88,4 +145,60 @@ export function loadRecoverySnapshots(params: {
 
 export function loadRecoverySnapshotDetail(snapshotId: string): Promise<RecoverySnapshotDetail> {
   return fetchJson<RecoverySnapshotDetail>(`/api/recovery/snapshots/${encodeURIComponent(snapshotId)}`, "Recovery 明细 API 请求失败。");
+}
+
+export async function loadSyncProfiles(): Promise<SyncProfileSummary[]> {
+  const payload = await fetchJson<SyncProfileListResponse>("/api/lake/sync/profiles", "Sync Center Profile API 请求失败。");
+  return payload.items;
+}
+
+export function loadSyncLock(): Promise<SyncLock> {
+  return fetchJson<SyncLock>("/api/lake/sync/lock", "Sync Center Lock API 请求失败。");
+}
+
+export function loadSyncCurrentRun(): Promise<SyncCurrentRun> {
+  return fetchJson<SyncCurrentRun>("/api/lake/sync/runs/current", "Sync Center 当前任务 API 请求失败。");
+}
+
+export function createSyncPlan(params: {
+  profileKey: string;
+  datasetKeys: string[];
+  targetDate?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}): Promise<SyncPlanResponse> {
+  return postJson<SyncPlanResponse>(
+    `/api/lake/sync/profiles/${encodeURIComponent(params.profileKey)}/plan`,
+    {
+      dataset_keys: params.datasetKeys.length ? params.datasetKeys : null,
+      target_date: params.targetDate || null,
+      start_date: params.startDate || null,
+      end_date: params.endDate || null,
+      include_backup_plan: true,
+    },
+    "Sync Center Plan API 请求失败。",
+  );
+}
+
+export function startSyncRun(planToken: string): Promise<SyncRunResponse> {
+  return postJson<SyncRunResponse>(
+    "/api/lake/sync/runs",
+    {
+      plan_token: planToken,
+      confirmed_backup_required: true,
+      confirmed_no_sql: true,
+    },
+    "Sync Center Run API 请求失败。",
+  );
+}
+
+export function loadSyncRunDetail(runId: string): Promise<SyncRunDetail> {
+  return fetchJson<SyncRunDetail>(`/api/lake/sync/runs/${encodeURIComponent(runId)}`, "Sync Center Run 详情 API 请求失败。");
+}
+
+export function loadSyncRunEvents(runId: string, cursor = 0): Promise<SyncRunEventListResponse> {
+  return fetchJson<SyncRunEventListResponse>(
+    `/api/lake/sync/runs/${encodeURIComponent(runId)}/events?cursor=${cursor}&limit=200`,
+    "Sync Center Run 事件 API 请求失败。",
+  );
 }

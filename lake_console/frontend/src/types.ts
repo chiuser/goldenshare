@@ -244,3 +244,133 @@ export type RecoverySnapshotDetail = RecoverySnapshotSummary & {
   user_name: string | null;
   command_hints: RecoveryCommandHint[];
 };
+
+export type SyncProfileDatasetSummary = {
+  dataset_key: string;
+};
+
+export type SyncProfileSummary = {
+  profile_key: string;
+  display_name: string;
+  description: string;
+  profile_status: string;
+  default_lookback_days: number | null;
+  requires_kopia_backup: boolean;
+  stale_after_seconds: number;
+  disabled_reason: string | null;
+  datasets: SyncProfileDatasetSummary[];
+};
+
+export type SyncLock = {
+  status: string;
+  run_id: string | null;
+  profile_key: string | null;
+  owner_pid: number | null;
+  owner_host: string | null;
+  acquired_at: string | null;
+  last_heartbeat_at: string | null;
+  stale_after_seconds: number;
+  can_release_stale: boolean;
+};
+
+export type SyncPlanDatasetPlan = {
+  dataset_key: string;
+  display_name: string;
+  source: string;
+  api_name: string;
+  mode: string;
+  request_strategy_key: string;
+  request_count: number;
+  partition_count: number;
+  write_policy: string;
+  write_paths: string[];
+  required_manifests: string[];
+  parameters: Record<string, unknown>;
+  status: string;
+  notes: string[];
+};
+
+export type SyncPlanIssue = {
+  dataset_key?: string;
+  code?: string;
+  message?: string;
+  [key: string]: unknown;
+};
+
+export type SyncBackupPlan = {
+  required: boolean;
+  provider: string;
+  snapshot_strategy: string;
+  pin_policy: string;
+  pinned: boolean;
+  backup_paths: string[];
+  path_missing_before_write: string[];
+};
+
+export type SyncPlanResponse = {
+  plan_token: string;
+  plan_token_expires_at: string;
+  profile_key: string;
+  profile: SyncProfileSummary;
+  request: Record<string, unknown>;
+  normalized_parameters: Record<string, unknown>;
+  lock: SyncLock;
+  dataset_plans: SyncPlanDatasetPlan[];
+  backup_plan: SyncBackupPlan;
+  blockers: SyncPlanIssue[];
+  warnings: SyncPlanIssue[];
+  summary: {
+    dataset_count?: number;
+    blocked_count?: number;
+    write_path_count?: number;
+    backup_path_count?: number;
+    path_missing_before_write_count?: number;
+    [key: string]: unknown;
+  };
+};
+
+export type SyncRunResponse = {
+  run_id: string;
+  profile_key: string;
+  status: string;
+  lock: SyncLock;
+  detail_url: string;
+  events_url: string;
+};
+
+export type SyncCurrentRun = {
+  active_run_id: string | null;
+  status: string;
+  profile_key: string | null;
+  started_at: string | null;
+  updated_at: string;
+  progress_summary: string;
+  current_dataset_key: string | null;
+  current_partition: string | null;
+};
+
+export type SyncRunDetail = {
+  run_id: string;
+  profile_key: string;
+  plan_token: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  backup: Record<string, unknown> | null;
+  progress: Record<string, unknown>;
+  dataset_results: Record<string, unknown>[];
+  errors: SyncPlanIssue[];
+};
+
+export type SyncRunEvent = {
+  seq: number;
+  event_id: string;
+  created_at: string;
+  level: string;
+  event_type: string;
+  message: string;
+  dataset_key: string | null;
+  partition_locator: string | null;
+  metrics: Record<string, unknown>;
+  error: SyncPlanIssue | null;
+};

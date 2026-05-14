@@ -29,6 +29,7 @@ from lake_console.backend.app.services.lake_job_state import (
     new_plan_token,
     new_run_id,
 )
+from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.services.sync_center_profiles import ProfileDisabledError, SyncProfileCatalog, SyncProfilePlanner
 from lake_console.backend.app.settings import LakeConsoleConfigError, load_settings
 
@@ -128,6 +129,15 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             message="计划仍存在 blockers，不能启动 run。",
             context={"blockers": blockers},
         )
+    try:
+        SyncProfileRunner.validate_plan(plan=plan)
+    except SyncProfileRunnerError as exc:
+        raise _api_error(
+            status_code=400,
+            code="SYNC_PROFILE_RUNNER_UNSUPPORTED_SCOPE",
+            message=str(exc),
+            context={"profile_key": plan.get("profile_key"), "dataset_plans": plan.get("dataset_plans") or []},
+        ) from exc
 
     profile_key = str(plan["profile_key"])
     run_id = new_run_id(profile_key)
@@ -158,6 +168,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             context={"lock": exc.lock_payload},
         ) from exc
 
+    backup: dict[str, Any] | None = None
     try:
         store.write_run({**run_payload, "status": "lock_acquired"})
         store.write_current(_current_payload(run_id=run_id, profile_key=profile_key, status="backup_running", summary="已拿到写入锁，正在创建 Kopia 预写备份。"))
@@ -180,26 +191,33 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
                 "metrics": {"snapshot_count": len(backup.get("snapshot_ids") or [])},
             },
         )
+        store.write_run({**run_payload, "status": "running", "backup": backup})
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=profile_key,
+                status="running",
+                summary="Kopia 预写备份已完成，正在执行 Sync Profile Runner。",
+            )
+        )
+        store.append_event(run_id, {"event_type": "execution_started", "message": "开始执行 Sync Profile Runner。"})
+        runner = SyncProfileRunner(
+            settings=settings,
+            progress=lambda event: store.append_event(run_id, event),
+        )
+        runner_result = runner.run(plan=plan)
         final_payload = {
             **run_payload,
-            "status": "blocked",
+            "status": "success",
             "finished_at": _utc_now_iso(),
             "backup": backup,
-            "progress": {
-                "summary": "M1-M3 只实现 run 骨架；真实数据写入将在后续 Profile Runner 阶段接入。",
-                "current_dataset_key": None,
-                "current_partition": None,
-            },
-            "errors": [
-                {
-                    "code": "EXECUTION_NOT_IMPLEMENTED",
-                    "message": "M1-M3 不执行真实数据同步，只验证 plan、lock、backup、run 状态链路。",
-                }
-            ],
+            "progress": runner_result.get("progress") or {},
+            "dataset_results": runner_result.get("dataset_results") or [],
+            "errors": [],
         }
         store.write_run(final_payload)
-        store.append_event(run_id, {"event_type": "run_blocked", "level": "warning", "message": "真实写入执行器尚未接入，本轮安全停止。"})
-        store.write_current(_idle_current_payload(summary="最近一次 Sync Center run 已在备份后安全停止，未执行真实数据写入。"))
+        store.append_event(run_id, {"event_type": "run_completed", "message": "Sync Center run 执行完成。"})
+        store.write_current(_idle_current_payload(summary="最近一次 Sync Center run 已执行完成。"))
     except KopiaPrewriteBackupError as exc:
         failed = {
             **run_payload,
@@ -216,6 +234,40 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             message="Kopia prewrite snapshot 创建失败，未执行任何写入。",
             context={"run_id": run_id, "error": str(exc)},
         ) from exc
+    except SyncProfileRunnerError as exc:
+        failed = {
+            **run_payload,
+            "status": "failed",
+            "finished_at": _utc_now_iso(),
+            "backup": backup,
+            "errors": [{"code": "SYNC_PROFILE_RUNNER_FAILED", "message": str(exc)}],
+        }
+        store.write_run(failed)
+        store.append_event(run_id, {"event_type": "run_failed", "level": "error", "message": str(exc), "error": {"code": "SYNC_PROFILE_RUNNER_FAILED", "message": str(exc)}})
+        store.write_current(_idle_current_payload(summary="Sync Profile Runner 执行失败。"))
+        raise _api_error(
+            status_code=500,
+            code="SYNC_PROFILE_RUNNER_FAILED",
+            message=str(exc),
+            context={"run_id": run_id},
+        ) from exc
+    except Exception as exc:
+        failed = {
+            **run_payload,
+            "status": "failed",
+            "finished_at": _utc_now_iso(),
+            "backup": backup,
+            "errors": [{"code": "SYNC_PROFILE_RUNNER_UNEXPECTED_ERROR", "message": str(exc)}],
+        }
+        store.write_run(failed)
+        store.append_event(run_id, {"event_type": "run_failed", "level": "error", "message": str(exc), "error": {"code": "SYNC_PROFILE_RUNNER_UNEXPECTED_ERROR", "message": str(exc)}})
+        store.write_current(_idle_current_payload(summary="Sync Profile Runner 执行异常。"))
+        raise _api_error(
+            status_code=500,
+            code="SYNC_PROFILE_RUNNER_UNEXPECTED_ERROR",
+            message=str(exc),
+            context={"run_id": run_id},
+        ) from exc
     finally:
         try:
             lock_service.release(run_id=run_id)
@@ -225,7 +277,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
     return SyncRunResponse(
         run_id=run_id,
         profile_key=profile_key,
-        status="blocked",
+        status="success",
         lock=LakeJobLockService(store).get_lock(),
         detail_url=f"/api/lake/sync/runs/{run_id}",
         events_url=f"/api/lake/sync/runs/{run_id}/events",

@@ -18,12 +18,15 @@ def build_snapshot_plan(
     notes = ["快照类数据集以 current 文件为替换范围。"]
     parameters: dict[str, Any] = {}
     if definition.dataset_key == "trade_cal":
-        if start_date is None or end_date is None:
-            raise ValueError("trade_cal 计划预览必须传 --start-date 和 --end-date。")
-        if end_date < start_date:
+        if (start_date is None) != (end_date is None):
+            raise ValueError("trade_cal 计划预览的 start-date 和 end-date 必须同时传入，或同时省略。")
+        if start_date is not None and end_date is not None and end_date < start_date:
             raise ValueError("--end-date 不能早于 --start-date。")
-        parameters = {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()}
-        notes = ["trade_cal 会双落盘 raw current 与交易日历 manifest。"]
+        if start_date is not None and end_date is not None:
+            parameters = {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()}
+            notes = ["trade_cal 区间刷新会双落盘 raw current 与交易日历 manifest。"]
+        else:
+            notes = ["trade_cal 不传日期时走全量分页刷新，双落盘 raw current 与交易日历 manifest。"]
     if market:
         parameters["market"] = parse_csv(market)
     return LakeSyncPlan(
