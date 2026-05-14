@@ -56,11 +56,14 @@ export function SyncCenterPage() {
     if (!selectedProfile) {
       return;
     }
+    if (!selectedDatasetKey) {
+      return;
+    }
     const keys = selectedProfile.datasets.map((item) => item.dataset_key);
     if (keys.includes(selectedDatasetKey)) {
       return;
     }
-    setSelectedDatasetKey(keys[0] ?? "");
+    setSelectedDatasetKey("");
   }, [selectedDatasetKey, selectedProfile]);
 
   useEffect(() => {
@@ -128,6 +131,17 @@ export function SyncCenterPage() {
     setRunError(null);
   }
 
+  function handleApplyDailyProfileRecommendation() {
+    setSelectedProfileKey("prod_db_daily");
+    setSelectedDatasetKey("");
+    setTargetDate(recommendations?.expected_reference_date ?? todayInputValue());
+    setStartDate("");
+    setEndDate("");
+    setPlan(null);
+    setPlanError(null);
+    setRunError(null);
+  }
+
   return (
     <div className="sync-center-layout">
       <PageHeader
@@ -161,9 +175,19 @@ export function SyncCenterPage() {
               参考日期 {recommendations?.expected_reference_date ?? "—"}，cutoff {recommendations?.cutoff_time ?? "20:00"}
             </span>
           </div>
-          <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
-            刷新建议
-          </button>
+          <div className="sync-recommendation-actions">
+            <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
+              刷新建议
+            </button>
+            <button
+              className="sync-inline-button"
+              disabled={!recommendations?.expected_reference_date}
+              onClick={handleApplyDailyProfileRecommendation}
+              type="button"
+            >
+              带入每日全量参数
+            </button>
+          </div>
         </div>
         {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
         {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
@@ -221,6 +245,7 @@ export function SyncCenterPage() {
             <label className="sync-field">
               <span>数据集</span>
               <select value={selectedDatasetKey} onChange={(event) => setSelectedDatasetKey(event.target.value)}>
+                <option value="">全部数据集</option>
                 {(selectedProfile?.datasets ?? []).map((dataset) => (
                   <option key={dataset.dataset_key} value={dataset.dataset_key}>
                     {dataset.dataset_key}

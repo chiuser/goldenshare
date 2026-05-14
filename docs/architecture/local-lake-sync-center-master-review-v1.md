@@ -729,20 +729,35 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
 
 ```text
 带入计划参数
+带入每日全量参数
 ```
 
-按钮行为只允许：
+单行 `带入计划参数` 行为只允许：
 
 1. 选择 `prod_db_manual_backfill`。
 2. 设置当前数据集。
 3. 填入 `start_date` / `end_date`。
 4. 清空旧 plan。
 
+卡片级 `带入每日全量参数` 行为只允许：
+
+1. 选择 `prod_db_daily`。
+2. 设置数据集为 `全部数据集`。
+3. 填入 `target_date=expected_reference_date`。
+4. 清空旧 plan。
+5. 仍需用户手动点击“生成计划”和“启动同步任务”。
+
+计划参数区的数据集选择必须支持：
+
+1. `全部数据集`：前端传 `dataset_keys=[]`，后端按 profile 默认数据集全集生成计划。
+2. 单个数据集：前端传 `dataset_keys=[dataset_key]`，只生成该数据集计划。
+
 按钮不允许：
 
 1. 直接启动 run。
 2. 自动创建 backup。
-3. 自动同步全部落后数据集。
+3. 绕过 plan -> Kopia -> lock -> runner。
+4. 自动把每个落后数据集按各自窗口拆成多个任务。
 
 #### M6.5.8 开发门禁
 

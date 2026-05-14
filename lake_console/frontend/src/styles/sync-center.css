@@ -94,6 +94,13 @@
   margin-bottom: 12px;
 }
 
+.sync-recommendation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .sync-profile-head strong,
 .sync-profile-title {
   color: var(--text-title);
