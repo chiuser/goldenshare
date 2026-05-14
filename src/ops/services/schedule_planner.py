@@ -9,7 +9,12 @@ from src.app.exceptions import WebAppError
 
 
 SUPPORTED_SCHEDULE_TYPES = {"once", "cron"}
-SUPPORTED_CALENDAR_POLICIES = {"monthly_last_day", "monthly_window_current_month", "trigger_day_single_range"}
+SUPPORTED_CALENDAR_POLICIES = {
+    "monthly_last_day",
+    "monthly_window_current_month",
+    "trigger_day_single_range",
+    "trigger_day_point",
+}
 
 
 @dataclass(frozen=True, slots=True)

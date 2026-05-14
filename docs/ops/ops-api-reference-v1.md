@@ -348,6 +348,7 @@ data: {"schedule_updated_at":"2026-04-23T09:02:00","execution_requested_at":"202
     - `monthly_last_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_calendar_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
     - `monthly_last_trading_day`：只允许用于 `DatasetDefinition.date_model.bucket_rule=month_last_open_day` 的数据集维护动作，且不能与固定 `trade_date` 混用。
     - `monthly_window_current_month`：只允许用于 `month_window + month_window_has_data + start_end_month_window` 的数据集维护动作。运行时按计划触发时间所属月份生成 `start_month/end_month` 自然月窗口意图，`DatasetActionResolver` 再展开为自然月首尾日期；不能与固定维护日期或固定窗口混用。
+    - `trigger_day_point`：只允许用于 `news.maintain` / `major_news.maintain`。`cron_expr` 必须是 `*/N * * * *`，且 `N >= 3`。运行时按计划触发时间所在北京时间自然日生成 `time_input.mode=point + trade_date`，不能与固定维护日期或固定窗口混用。
 - 返回：`ScheduleDetailResponse`
 - 示例：
 
@@ -529,6 +530,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
   - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
   - `calendar_policy=monthly_last_trading_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在当月最后一个开市交易日（按 `core_serving.trade_calendar` 计算）。
   - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口意图在调度到点创建 TaskRun 时按计划触发时间生成，日期展开由 `DatasetActionResolver` 完成。
+  - `calendar_policy=trigger_day_point` 时，`cron_expr` 使用 `*/N * * * *` 表达日内分钟间隔；预览只返回触发时间，真正维护日期在调度到点创建 TaskRun 时按触发时间所在北京时间自然日生成。
 - 返回：`SchedulePreviewResponse`
 - 示例：
 
@@ -564,6 +566,14 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
   "http://127.0.0.1:8000/api/v1/ops/schedules/preview" \
   -d '{"schedule_type":"cron","cron_expr":"0 19 * * *","timezone":"Asia/Shanghai","calendar_policy":"monthly_last_trading_day","count":5}'
+```
+
+新闻日内高频预览示例：
+
+```bash
+curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8000/api/v1/ops/schedules/preview" \
+  -d '{"schedule_type":"cron","cron_expr":"*/3 * * * *","timezone":"Asia/Shanghai","calendar_policy":"trigger_day_point","count":5}'
 ```
 
 ---

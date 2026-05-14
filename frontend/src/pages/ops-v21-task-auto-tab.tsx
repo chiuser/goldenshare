@@ -65,14 +65,22 @@ type DatasetCatalogAction = CatalogAction & {
 type CatalogWorkflow = OpsCatalogResponse["workflows"][number];
 type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
-type RepeatMode = "daily" | "weekly" | "monthly";
+type RepeatMode = "daily" | "weekly" | "monthly" | "intraday_interval";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
 type CalendarPolicy =
   | ""
   | "monthly_last_day"
   | "monthly_last_trading_day"
   | "monthly_window_current_month"
-  | "trigger_day_single_range";
+  | "trigger_day_single_range"
+  | "trigger_day_point";
+type ParsedCronExpression = {
+  repeatMode: RepeatMode;
+  repeatTime: string;
+  repeatWeekdays: string[];
+  repeatMonthDay: string;
+  intradayIntervalMinutes: string;
+};
 
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
@@ -101,6 +109,7 @@ const emptyForm = {
   repeat_weekdays: ["1", "2", "3", "4", "5"] as string[],
   repeat_month_day: "1",
   repeat_time: "19:00",
+  intraday_interval_minutes: "3",
   trigger_mode: "schedule" as TriggerMode,
   probe_source_key: "all",
   probe_window_start: "15:30",
@@ -135,17 +144,36 @@ function buildFieldValues(paramsJson: Record<string, unknown> | undefined) {
   );
 }
 
-export function parseCronExpression(cronExpr: string | null | undefined, calendarPolicy?: string | null) {
+export function parseCronExpression(cronExpr: string | null | undefined, calendarPolicy?: string | null): ParsedCronExpression | null {
   const raw = String(cronExpr || "").trim();
-  const match = raw.match(/^(\d{1,2})\s+(\d{1,2})\s+(.+)\s+(.+)\s+(.+)$/);
+  const match = raw.match(/^(\S+)\s+(\S+)\s+(.+)\s+(.+)\s+(.+)$/);
   if (!match) {
     return null;
   }
-  const minute = Number(match[1]);
-  const hour = Number(match[2]);
+  const minuteExpr = match[1];
+  const hourExpr = match[2];
   const dayOfMonth = match[3];
   const month = match[4];
   const dayOfWeek = match[5];
+  const intervalMatch = minuteExpr.match(/^\*\/(\d+)$/);
+  if (
+    calendarPolicy === "trigger_day_point"
+    && intervalMatch
+    && hourExpr === "*"
+    && dayOfMonth === "*"
+    && month === "*"
+    && dayOfWeek === "*"
+  ) {
+    return {
+      repeatMode: "intraday_interval",
+      repeatTime: "19:00",
+      repeatWeekdays: ["1", "2", "3", "4", "5"],
+      repeatMonthDay: "1",
+      intradayIntervalMinutes: intervalMatch[1],
+    };
+  }
+  const minute = Number(minuteExpr);
+  const hour = Number(hourExpr);
   if (!Number.isFinite(minute) || !Number.isFinite(hour)) {
     return null;
   }
@@ -158,20 +186,20 @@ export function parseCronExpression(cronExpr: string | null | undefined, calenda
     || calendarPolicy === "monthly_last_trading_day"
     || calendarPolicy === "monthly_window_current_month"
   ) {
-    return { repeatMode: "monthly" as RepeatMode, repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: "1" };
+    return { repeatMode: "monthly", repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: "1", intradayIntervalMinutes: "3" };
   }
   if (dayOfMonth === "*" && dayOfWeek === "*") {
-    return { repeatMode: "daily" as RepeatMode, repeatTime: time, repeatWeekdays: ["1", "2", "3", "4", "5"], repeatMonthDay: "1" };
+    return { repeatMode: "daily", repeatTime: time, repeatWeekdays: ["1", "2", "3", "4", "5"], repeatMonthDay: "1", intradayIntervalMinutes: "3" };
   }
   if (dayOfMonth === "*" && dayOfWeek !== "*") {
     const weekdays = dayOfWeek
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    return { repeatMode: "weekly" as RepeatMode, repeatTime: time, repeatWeekdays: weekdays.length ? weekdays : ["1"], repeatMonthDay: "1" };
+    return { repeatMode: "weekly", repeatTime: time, repeatWeekdays: weekdays.length ? weekdays : ["1"], repeatMonthDay: "1", intradayIntervalMinutes: "3" };
   }
   if (dayOfWeek === "*" && /^\d{1,2}$/.test(dayOfMonth)) {
-    return { repeatMode: "monthly" as RepeatMode, repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: dayOfMonth };
+    return { repeatMode: "monthly", repeatTime: time, repeatWeekdays: ["1"], repeatMonthDay: dayOfMonth, intradayIntervalMinutes: "3" };
   }
   return null;
 }
@@ -182,7 +210,18 @@ export function buildCronExpression(
   repeatWeekdays: string[],
   repeatMonthDay: string,
   calendarPolicy: CalendarPolicy = "",
+  intradayIntervalMinutes = "3",
 ) {
+  if (repeatMode === "intraday_interval") {
+    if (calendarPolicy !== "trigger_day_point") {
+      throw new Error("日内高频策略仅支持新闻快讯和新闻通讯。");
+    }
+    const interval = Number(intradayIntervalMinutes);
+    if (!Number.isInteger(interval) || interval < 3) {
+      throw new Error("日内高频策略最小间隔为 3 分钟。");
+    }
+    return `*/${interval} * * * *`;
+  }
   const [hourRaw, minuteRaw] = repeatTime.split(":");
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw);
@@ -253,6 +292,11 @@ export function formatScheduleRule(
   }
   if (calendarPolicy === "monthly_window_current_month") {
     return `每月最后一天 ${parsed.repeatTime}，维护当月自然月窗口`;
+  }
+  if (calendarPolicy === "trigger_day_point") {
+    return parsed.repeatMode === "intraday_interval"
+      ? `每 ${parsed.intradayIntervalMinutes} 分钟，维护触发日`
+      : cronExpr || "未设置";
   }
   if (calendarPolicy === "trigger_day_single_range") {
     const base =
@@ -433,8 +477,19 @@ export function actionSupportsTriggerDaySingleRangePolicy(action: CatalogAction 
   );
 }
 
+export function actionSupportsTriggerDayPointPolicy(action: CatalogAction | null | undefined): boolean {
+  return (
+    action?.action_type === "dataset_action"
+    && (action.target_key === "news" || action.target_key === "major_news")
+  );
+}
+
 function policyGeneratesTimeInput(calendarPolicy: CalendarPolicy): boolean {
-  return calendarPolicy === "monthly_window_current_month" || calendarPolicy === "trigger_day_single_range";
+  return (
+    calendarPolicy === "monthly_window_current_month"
+    || calendarPolicy === "trigger_day_single_range"
+    || calendarPolicy === "trigger_day_point"
+  );
 }
 
 export function resolveEffectiveCalendarPolicy(args: {
@@ -442,6 +497,13 @@ export function resolveEffectiveCalendarPolicy(args: {
   repeatMode: RepeatMode;
   selectedAction: CatalogAction | null | undefined;
 }): CalendarPolicy {
+  if (
+    args.scheduleType === "cron"
+    && args.repeatMode === "intraday_interval"
+    && actionSupportsTriggerDayPointPolicy(args.selectedAction)
+  ) {
+    return "trigger_day_point";
+  }
   if (
     args.scheduleType === "cron"
     && args.repeatMode === "monthly"
@@ -669,15 +731,24 @@ export function OpsAutomationPage() {
     () => actionSupportsMonthlyWindowPolicy(selectedAction),
     [selectedAction],
   );
+  const selectedActionUsesTriggerDayPointPolicy = useMemo(
+    () => actionSupportsTriggerDayPointPolicy(selectedAction),
+    [selectedAction],
+  );
   const effectiveCalendarPolicy = useMemo(
     () =>
       resolveEffectiveCalendarPolicy({
         scheduleType: form.schedule_type,
         repeatMode: form.repeat_mode,
         selectedAction,
-      }),
+    }),
     [form.repeat_mode, form.schedule_type, selectedAction],
   );
+  useEffect(() => {
+    if (form.repeat_mode === "intraday_interval" && !selectedActionUsesTriggerDayPointPolicy) {
+      setForm((current) => ({ ...current, repeat_mode: "daily" }));
+    }
+  }, [form.repeat_mode, selectedActionUsesTriggerDayPointPolicy, setForm]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -797,6 +868,8 @@ export function OpsAutomationPage() {
         timeInput.mode = "range";
         timeInput.start_month = params.start_month;
         timeInput.end_month = params.end_month;
+      } else if (effectiveCalendarPolicy === "trigger_day_point") {
+        timeInput.mode = "point";
       } else if (policyGeneratesTimeInput(effectiveCalendarPolicy)) {
         timeInput.mode = "range";
       } else if (supportsSingleDay) {
@@ -842,10 +915,13 @@ export function OpsAutomationPage() {
         form.repeat_weekdays,
         form.repeat_month_day,
         effectiveCalendarPolicy,
+        form.intraday_interval_minutes,
       );
       const triggerDaySuffix = effectiveCalendarPolicy === "trigger_day_single_range" ? "，维护触发日" : "";
       const detail =
-        form.repeat_mode === "daily"
+        form.repeat_mode === "intraday_interval"
+          ? `每 ${form.intraday_interval_minutes} 分钟，维护触发日`
+          : form.repeat_mode === "daily"
           ? `每天 ${form.repeat_time}${triggerDaySuffix}`
             : form.repeat_mode === "weekly"
               ? `每周 ${form.repeat_weekdays.join("、")} ${form.repeat_time}${triggerDaySuffix}`
@@ -870,7 +946,7 @@ export function OpsAutomationPage() {
         cronExpr: null as string | null,
       };
     }
-  }, [effectiveCalendarPolicy, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
+  }, [effectiveCalendarPolicy, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type]);
 
   const resolvedParameterRows = useMemo(() => {
     const labelMap = new Map(selectedActionParameters.map((param) => [param.key, param.display_name]));
@@ -936,7 +1012,14 @@ export function OpsAutomationPage() {
     try {
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
-        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day, effectiveCalendarPolicy)
+        ? buildCronExpression(
+          form.repeat_mode,
+          form.repeat_time,
+          form.repeat_weekdays,
+          form.repeat_month_day,
+          effectiveCalendarPolicy,
+          form.intraday_interval_minutes,
+        )
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       return {
@@ -954,6 +1037,7 @@ export function OpsAutomationPage() {
     form.once_date,
     form.once_time,
     effectiveCalendarPolicy,
+    form.intraday_interval_minutes,
     form.repeat_mode,
     form.repeat_month_day,
     form.repeat_time,
@@ -1004,7 +1088,14 @@ export function OpsAutomationPage() {
       }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
-        ? buildCronExpression(form.repeat_mode, form.repeat_time, form.repeat_weekdays, form.repeat_month_day, effectiveCalendarPolicy)
+        ? buildCronExpression(
+          form.repeat_mode,
+          form.repeat_time,
+          form.repeat_weekdays,
+          form.repeat_month_day,
+          effectiveCalendarPolicy,
+          form.intraday_interval_minutes,
+        )
         : null;
       const nextRunAt = scheduleType === "once" ? buildOnceRunAt(form.once_date, form.once_time) : null;
       const body = {
@@ -1154,6 +1245,7 @@ export function OpsAutomationPage() {
       repeat_weekdays: parsedCron?.repeatWeekdays || ["1", "2", "3", "4", "5"],
       repeat_month_day: parsedCron?.repeatMonthDay || "1",
       repeat_time: parsedCron?.repeatTime || "19:00",
+      intraday_interval_minutes: parsedCron?.intradayIntervalMinutes || "3",
       probe_source_key: probeConfig?.source_key || "all",
       probe_window_start: probeConfig?.window_start || "15:30",
       probe_window_end: probeConfig?.window_end || "17:00",
@@ -1597,10 +1689,23 @@ export function OpsAutomationPage() {
                   { value: "daily", label: "每天" },
                   { value: "weekly", label: "每周" },
                   { value: "monthly", label: "每月" },
+                  ...(selectedActionUsesTriggerDayPointPolicy ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
                 ]}
                 value={form.repeat_mode}
                 onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
               />
+              {form.repeat_mode === "intraday_interval" ? (
+                <TextInput
+                  label="间隔分钟"
+                  description="仅新闻快讯、新闻通讯可用；最小 3 分钟。每次触发维护当天数据。"
+                  placeholder="3"
+                  type="number"
+                  min={3}
+                  value={form.intraday_interval_minutes}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, intraday_interval_minutes: event.currentTarget.value }))}
+                />
+              ) : null}
               {form.repeat_mode === "weekly" ? (
                 <MultiSelect
                   label="每周执行日"
@@ -1652,13 +1757,15 @@ export function OpsAutomationPage() {
                   />
                 )
               ) : null}
-              <TextInput
-                label="执行时间"
-                placeholder="HH:mm"
-                type="time"
-                value={form.repeat_time}
-                onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
-              />
+              {form.repeat_mode !== "intraday_interval" ? (
+                <TextInput
+                  label="执行时间"
+                  placeholder="HH:mm"
+                  type="time"
+                  value={form.repeat_time}
+                  onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
+                />
+              ) : null}
             </Stack>
           )}
           <Select

@@ -72,7 +72,8 @@
 | `monthly_last_day` | 第一期实现 | 每个自然月最后一天，在指定时间触发 | `natural_day + month_last_calendar_day` |
 | `monthly_window_current_month` | 第二期已落地 | 每个自然月最后一天触发，维护本次计划触发时间所属自然月窗口 | `month_window + month_window_has_data` |
 | `monthly_last_trading_day` | 第三期已落地 | 每月最后一个开市交易日触发 | `trade_open_day + month_last_open_day` |
-| `trigger_day_single_range` | 第四期待实现 | 按每次计划触发日生成单日区间（`start_date=end_date=触发日`） | `natural_day + ann_date_or_start_end` 且 `supported_time_modes=range` |
+| `trigger_day_single_range` | 第四期已落地 | 按每次计划触发日生成单日区间（`start_date=end_date=触发日`） | `natural_day + ann_date_or_start_end` 且 `supported_time_modes=range` |
+| `trigger_day_point` | 第五期已落地 | 按每次计划触发日生成单日 `trade_date`，支持新闻日内高频维护 | `trade_date_or_start_end` 且仅 `news` / `major_news` |
 | `fixed_day_of_month` | 后续待做 | 每月固定日号触发 | 普通固定日号自动任务 |
 | `weekly_friday` | 后续待做 | 每周自然周五触发 | `natural_day + week_friday` |
 | `weekly_last_trading_day` | 后续待做 | 每周最后一个开市交易日触发 | `trade_open_day + week_last_open_day` |
@@ -82,9 +83,10 @@
 1. 第一阶段已实现 `monthly_last_day`。
 2. 第二阶段已实现 `monthly_window_current_month`，用于 `index_weight` 这类自然月窗口数据集。
 3. 第三阶段已实现 `monthly_last_trading_day`，用于 `index_monthly` 这类交易日月末数据集。
-4. 第四阶段待实现 `trigger_day_single_range`，用于 `dividend`、`stk_holdernumber` 这类仅支持 `range` 的自然日公告数据集自动任务。
-5. 后续新增策略必须继续沿 `calendar_policy` 扩展。
-6. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
+4. 第四阶段已实现 `trigger_day_single_range`，用于 `dividend`、`stk_holdernumber` 这类仅支持 `range` 的自然日公告数据集自动任务。
+5. 第五阶段已实现 `trigger_day_point`，用于 `news`、`major_news` 日内高频自动任务。
+6. 后续新增策略必须继续沿 `calendar_policy` 扩展。
+7. 不允许回到“前端把特殊日期换算成固定 cron”的做法。
 
 ### 4.3 与 DatasetDefinition 的关系
 
@@ -706,3 +708,41 @@ calendar_policy = trigger_day_single_range
 2. 调度触发后 TaskRun 不再出现 `mode=none`。
 3. 运行链路不再报“`不支持按默认策略维护`”。
 4. 计划单元请求中可见 `ann_date=YYYYMMDD`（由 request builder 生成）。
+
+## 15. 第五期补充：`trigger_day_point`（news / major_news）
+
+### 15.1 背景与问题
+
+`news`、`major_news` 需要日内高频维护，例如每 3 分钟拉取一次当天新闻。它们的源接口最终需要当天 `00:00:00 ~ 23:59:59` 窗口，但这个源接口窗口不应该由前端或 Ops Schedule 提前拼装。
+
+### 15.2 策略语义
+
+```text
+calendar_policy = trigger_day_point
+```
+
+语义：
+
+1. 只允许 `news.maintain` / `major_news.maintain`。
+2. 只允许 `schedule_type=cron`。
+3. `cron_expr` 必须是 `*/N * * * *`，且 `N >= 3`。
+4. Schedule 到点后，TaskRun 按计划触发时间所在北京时间自然日生成：
+
+```json
+{
+  "time_input": {
+    "mode": "point",
+    "trade_date": "YYYY-MM-DD"
+  }
+}
+```
+
+5. `DatasetActionResolver` 继续按 point 任务生成计划。
+6. 新闻 request builder 再把 `trade_date` 转为源接口当天全日窗口。
+
+### 15.3 非目标
+
+1. 不引入“最近 N 分钟滚动窗口”。
+2. 不开放给其它数据集。
+3. 不在前端或 Ops 层生成源接口 `start_date/end_date`。
+4. 不引入 cursor、checkpoint、定点重跑等额外机制。

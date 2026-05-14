@@ -597,6 +597,109 @@ def test_ops_schedule_create_rejects_trigger_day_single_range_for_unsupported_da
     assert response.json()["message"] == "触发日单日区间策略只支持自然日公告区间且仅支持区间维护的数据集"
 
 
+def test_ops_schedule_create_supports_trigger_day_point_for_news_datasets(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    for target_key, display_name in (
+        ("news.maintain", "新闻快讯高频维护"),
+        ("major_news.maintain", "新闻通讯高频维护"),
+    ):
+        response = app_client.post(
+            "/api/v1/ops/schedules",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "target_type": "dataset_action",
+                "target_key": target_key,
+                "display_name": display_name,
+                "schedule_type": "cron",
+                "cron_expr": "*/3 * * * *",
+                "timezone": "Asia/Shanghai",
+                "calendar_policy": "trigger_day_point",
+                "params_json": {"time_input": {"mode": "point"}},
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["target_key"] == target_key
+        assert payload["calendar_policy"] == "trigger_day_point"
+        assert payload["cron_expr"] == "*/3 * * * *"
+
+
+def test_ops_schedule_create_rejects_trigger_day_point_below_min_interval(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "news.maintain",
+            "display_name": "新闻快讯高频维护",
+            "schedule_type": "cron",
+            "cron_expr": "*/2 * * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "trigger_day_point",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "日内高频策略最小间隔为 3 分钟"
+
+
+def test_ops_schedule_create_rejects_trigger_day_point_for_unsupported_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "daily.maintain",
+            "display_name": "股票日线自动维护",
+            "schedule_type": "cron",
+            "cron_expr": "*/3 * * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "trigger_day_point",
+            "params_json": {"time_input": {"mode": "point"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "触发日单日策略只支持新闻快讯和新闻通讯"
+
+
+def test_ops_schedule_create_rejects_trigger_day_point_with_fixed_date(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "news.maintain",
+            "display_name": "新闻快讯高频维护",
+            "schedule_type": "cron",
+            "cron_expr": "*/3 * * * *",
+            "timezone": "Asia/Shanghai",
+            "calendar_policy": "trigger_day_point",
+            "params_json": {"time_input": {"mode": "point", "trade_date": "2026-05-14"}},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "触发日单日策略不能与固定维护日期或窗口混用"
+
+
 def test_ops_schedule_create_rejects_monthly_last_day_for_trading_month_dataset(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})

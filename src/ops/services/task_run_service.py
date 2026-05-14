@@ -29,6 +29,7 @@ MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
+TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,6 +289,7 @@ class TaskRunCommandService:
             MONTHLY_LAST_TRADING_DAY_POLICY,
             MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
             TRIGGER_DAY_SINGLE_RANGE_POLICY,
+            TRIGGER_DAY_POINT_POLICY,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         if normalized_policy == MONTHLY_LAST_DAY_POLICY:
@@ -346,6 +348,22 @@ class TaskRunCommandService:
                 "mode": "range",
                 "start_date": trigger_date.isoformat(),
                 "end_date": trigger_date.isoformat(),
+            }
+        if normalized_policy == TRIGGER_DAY_POINT_POLICY:
+            if not self._supports_trigger_day_point_policy(definition):
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
+            if self._has_explicit_time_boundary(params_json):
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略不能与固定维护日期或窗口混用")
+            if scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略缺少计划触发时间")
+            trigger_date = self._natural_day_for_schedule(
+                scheduled_at=scheduled_at,
+                timezone_name=timezone_name,
+            )
+            return {
+                **dict(time_input or {}),
+                "mode": "point",
+                "trade_date": trigger_date.isoformat(),
             }
         if not self._supports_month_window_policy(definition):
             raise WebAppError(status_code=422, code="validation_error", message="自然月窗口策略只支持月窗口数据集")
@@ -499,6 +517,16 @@ class TaskRunCommandService:
             and tuple(action.supported_time_modes) == ("range",)
             and date_model.date_axis == "natural_day"
             and date_model.input_shape == "ann_date_or_start_end"
+        )
+
+    @staticmethod
+    def _supports_trigger_day_point_policy(definition: DatasetDefinition) -> bool:
+        action = definition.capabilities.get_action("maintain")
+        return bool(
+            definition.dataset_key in {"news", "major_news"}
+            and action is not None
+            and "point" in tuple(action.supported_time_modes)
+            and definition.date_model.input_shape == "trade_date_or_start_end"
         )
 
     @staticmethod

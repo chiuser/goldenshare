@@ -99,3 +99,15 @@ def test_trigger_day_single_range_policy_uses_regular_cron_occurrence() -> None:
     )
 
     assert next_run == datetime(2026, 4, 20, 11, 0, tzinfo=timezone.utc)
+
+
+def test_trigger_day_point_policy_uses_regular_intraday_cron_occurrence() -> None:
+    next_run = compute_next_run_at(
+        schedule_type="cron",
+        timezone_name="Asia/Shanghai",
+        cron_expr="*/3 * * * *",
+        calendar_policy="trigger_day_point",
+        after=datetime(2026, 5, 14, 2, 0, tzinfo=timezone.utc),
+    )
+
+    assert next_run == datetime(2026, 5, 14, 2, 3, tzinfo=timezone.utc)

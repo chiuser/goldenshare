@@ -32,11 +32,15 @@ MONTHLY_LAST_DAY_POLICY = "monthly_last_day"
 MONTHLY_LAST_TRADING_DAY_POLICY = "monthly_last_trading_day"
 MONTHLY_WINDOW_CURRENT_MONTH_POLICY = "monthly_window_current_month"
 TRIGGER_DAY_SINGLE_RANGE_POLICY = "trigger_day_single_range"
+TRIGGER_DAY_POINT_POLICY = "trigger_day_point"
+TRIGGER_DAY_POINT_TARGET_KEYS = {"news.maintain", "major_news.maintain"}
+MIN_INTRADAY_INTERVAL_MINUTES = 3
 SUPPORTED_CALENDAR_POLICIES = {
     MONTHLY_LAST_DAY_POLICY,
     MONTHLY_LAST_TRADING_DAY_POLICY,
     MONTHLY_WINDOW_CURRENT_MONTH_POLICY,
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
+    TRIGGER_DAY_POINT_POLICY,
 }
 
 
@@ -73,6 +77,7 @@ class OperationsScheduleService:
             target_type=target_type,
             target_key=target_key,
             schedule_type=schedule_type,
+            cron_expr=cron_expr,
             calendar_policy=normalized_calendar_policy,
             params_json=normalized_params,
         )
@@ -205,6 +210,7 @@ class OperationsScheduleService:
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
+            cron_expr=schedule.cron_expr,
             calendar_policy=schedule.calendar_policy,
             params_json=dict(schedule.params_json or {}),
         )
@@ -548,6 +554,7 @@ class OperationsScheduleService:
         target_type: str,
         target_key: str,
         schedule_type: str,
+        cron_expr: str | None,
         calendar_policy: str | None,
         params_json: dict,
     ) -> None:
@@ -646,6 +653,27 @@ class OperationsScheduleService:
                     message="触发日单日区间策略不能与固定维护日期或窗口混用",
                 )
             return
+        if calendar_policy == TRIGGER_DAY_POINT_POLICY:
+            if schedule_type != "cron":
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持周期执行")
+            if target_type != "dataset_action":
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持数据集维护任务")
+            if target_key not in TRIGGER_DAY_POINT_TARGET_KEYS:
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
+            try:
+                definition, action = get_dataset_definition_by_action_key(target_key)
+            except KeyError as exc:
+                raise WebAppError(status_code=422, code="validation_error", message="数据集维护动作不存在") from exc
+            if not OperationsScheduleService._supports_trigger_day_point_policy(definition=definition, action=action):
+                raise WebAppError(status_code=422, code="validation_error", message="触发日单日策略只支持新闻快讯和新闻通讯")
+            if OperationsScheduleService._has_explicit_time_boundary(params_json):
+                raise WebAppError(
+                    status_code=422,
+                    code="validation_error",
+                    message="触发日单日策略不能与固定维护日期或窗口混用",
+                )
+            OperationsScheduleService._validate_intraday_interval_cron(cron_expr)
+            return
         raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{calendar_policy}")
 
     @staticmethod
@@ -658,6 +686,39 @@ class OperationsScheduleService:
             and date_model.date_axis == "natural_day"
             and date_model.input_shape == "ann_date_or_start_end"
         )
+
+    @staticmethod
+    def _supports_trigger_day_point_policy(*, definition, action: str) -> bool:  # type: ignore[no-untyped-def]
+        maintain_action = definition.capabilities.get_action(action)
+        date_model = definition.date_model
+        return bool(
+            definition.dataset_key in {"news", "major_news"}
+            and maintain_action is not None
+            and "point" in tuple(maintain_action.supported_time_modes)
+            and date_model.input_shape == "trade_date_or_start_end"
+        )
+
+    @staticmethod
+    def _validate_intraday_interval_cron(cron_expr: str | None) -> int:
+        parts = str(cron_expr or "").split()
+        if len(parts) != 5:
+            raise WebAppError(status_code=422, code="validation_error", message="日内高频策略必须使用 */N * * * * 周期表达式")
+        minute_expr, hour_expr, day_of_month_expr, month_expr, day_of_week_expr = parts
+        if not (
+            minute_expr.startswith("*/")
+            and hour_expr == "*"
+            and day_of_month_expr == "*"
+            and month_expr == "*"
+            and day_of_week_expr == "*"
+        ):
+            raise WebAppError(status_code=422, code="validation_error", message="日内高频策略必须使用 */N * * * * 周期表达式")
+        interval_raw = minute_expr[2:]
+        if not interval_raw.isdigit():
+            raise WebAppError(status_code=422, code="validation_error", message="日内高频策略必须使用 */N * * * * 周期表达式")
+        interval_minutes = int(interval_raw)
+        if interval_minutes < MIN_INTRADAY_INTERVAL_MINUTES:
+            raise WebAppError(status_code=422, code="validation_error", message="日内高频策略最小间隔为 3 分钟")
+        return interval_minutes
 
     @staticmethod
     def _has_fixed_ann_date(params_json: dict) -> bool:

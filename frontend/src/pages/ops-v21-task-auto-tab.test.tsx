@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  actionSupportsTriggerDayPointPolicy,
   actionSupportsTriggerDaySingleRangePolicy,
   buildCronExpression,
   formatScheduleRule,
@@ -32,6 +33,17 @@ describe("自动任务日期策略", () => {
   };
   const naturalDayTradeDateAction = {
     action_type: "dataset_action",
+    target_key: "daily",
+    date_selection_rule: "calendar_day",
+    parameters: [
+      { key: "trade_date" },
+      { key: "start_date" },
+      { key: "end_date" },
+    ],
+  };
+  const newsAction = {
+    action_type: "dataset_action",
+    target_key: "news",
     date_selection_rule: "calendar_day",
     parameters: [
       { key: "trade_date" },
@@ -130,5 +142,36 @@ describe("自动任务日期策略", () => {
       repeatTime: "19:00",
     });
     expect(formatScheduleRule("cron", "0 19 * * *", null, "trigger_day_single_range")).toBe("每天 19:00，维护触发日");
+  });
+
+  it("supports trigger-day point policy only for intraday news schedules", () => {
+    expect(actionSupportsTriggerDayPointPolicy(newsAction as never)).toBe(true);
+    expect(actionSupportsTriggerDayPointPolicy(naturalDayTradeDateAction as never)).toBe(false);
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "intraday_interval",
+        selectedAction: newsAction as never,
+      }),
+    ).toBe("trigger_day_point");
+    expect(
+      resolveEffectiveCalendarPolicy({
+        scheduleType: "cron",
+        repeatMode: "intraday_interval",
+        selectedAction: naturalDayTradeDateAction as never,
+      }),
+    ).toBe("");
+  });
+
+  it("builds and formats intraday interval cron for trigger_day_point", () => {
+    expect(buildCronExpression("intraday_interval", "19:00", [], "1", "trigger_day_point", "3")).toBe("*/3 * * * *");
+    expect(parseCronExpression("*/3 * * * *", "trigger_day_point")).toMatchObject({
+      repeatMode: "intraday_interval",
+      intradayIntervalMinutes: "3",
+    });
+    expect(formatScheduleRule("cron", "*/3 * * * *", null, "trigger_day_point")).toBe("每 3 分钟，维护触发日");
+    expect(() => buildCronExpression("intraday_interval", "19:00", [], "1", "trigger_day_point", "2")).toThrow(
+      "日内高频策略最小间隔为 3 分钟。",
+    );
   });
 });
