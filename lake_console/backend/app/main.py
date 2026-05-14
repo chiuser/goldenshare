@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from lake_console.backend.app.api import command_examples, datasets, health, lake_status, overview, partitions, physical_assets, recovery
+from lake_console.backend.app.api import (
+    command_examples,
+    datasets,
+    health,
+    lake_status,
+    overview,
+    partitions,
+    physical_assets,
+    recovery,
+    sync_center,
+)
 
 
 def create_app() -> FastAPI:
@@ -15,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(partitions.router)
     app.include_router(physical_assets.router)
     app.include_router(recovery.router)
+    app.include_router(sync_center.router)
     return app
 
 

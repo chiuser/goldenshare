@@ -26,6 +26,20 @@ from lake_console.backend.app.schemas.lake import (
     LakeRecoverySnapshotSummary,
     LakeStatusResponse,
 )
+from lake_console.backend.app.schemas.sync_center import (
+    SyncCurrentRunResponse,
+    SyncLockResponse,
+    SyncPlanRequest,
+    SyncPlanResponse,
+    SyncProfileListResponse,
+    SyncProfileSummary,
+    SyncReleaseStaleLockRequest,
+    SyncReleaseStaleLockResponse,
+    SyncRunDetailResponse,
+    SyncRunEventListResponse,
+    SyncRunRequest,
+    SyncRunResponse,
+)
 
 __all__ = [
     "DiskUsageInfo",
@@ -54,4 +68,16 @@ __all__ = [
     "LakeRecoverySnapshotListResponse",
     "LakeRecoverySnapshotSummary",
     "LakeStatusResponse",
+    "SyncCurrentRunResponse",
+    "SyncLockResponse",
+    "SyncPlanRequest",
+    "SyncPlanResponse",
+    "SyncProfileListResponse",
+    "SyncProfileSummary",
+    "SyncReleaseStaleLockRequest",
+    "SyncReleaseStaleLockResponse",
+    "SyncRunDetailResponse",
+    "SyncRunEventListResponse",
+    "SyncRunRequest",
+    "SyncRunResponse",
 ]
