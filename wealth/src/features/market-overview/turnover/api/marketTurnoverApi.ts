@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketTurnoverRequest {
@@ -83,7 +84,7 @@ export async function fetchMarketTurnover(
   params: MarketTurnoverRequest = {},
   options: MarketTurnoverFetchOptions = {},
 ): Promise<MarketTurnoverResponse> {
-  const response = await fetch(buildTurnoverUrl(params), {
+  const response = await wealthFetch(buildTurnoverUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

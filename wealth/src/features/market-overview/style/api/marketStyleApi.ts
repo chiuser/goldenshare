@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export interface MarketStyleRequest {
@@ -84,7 +85,7 @@ export async function fetchMarketStyle(
   params: MarketStyleRequest = {},
   options: MarketStyleFetchOptions = {},
 ): Promise<MarketStyleResponse> {
-  const response = await fetch(buildStyleUrl(params), {
+  const response = await wealthFetch(buildStyleUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

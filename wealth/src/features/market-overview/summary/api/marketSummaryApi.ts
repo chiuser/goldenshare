@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export interface MarketSummaryRequest {
@@ -95,7 +96,7 @@ export async function fetchMarketSummary(
   params: MarketSummaryRequest = {},
   options: MarketSummaryFetchOptions = {},
 ): Promise<MarketSummaryResponse> {
-  const response = await fetch(buildSummaryUrl(params), {
+  const response = await wealthFetch(buildSummaryUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

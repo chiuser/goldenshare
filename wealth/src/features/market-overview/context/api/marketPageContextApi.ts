@@ -1,3 +1,5 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
+
 export interface MarketPageContextRequest {
   market?: "CN_A";
   tradeDate?: string;
@@ -36,7 +38,7 @@ export async function fetchMarketPageContext(
   params: MarketPageContextRequest = {},
   options: { signal?: AbortSignal } = {},
 ): Promise<MarketPageContextResponse> {
-  const response = await fetch(buildMarketPageContextUrl(params), {
+  const response = await wealthFetch(buildMarketPageContextUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

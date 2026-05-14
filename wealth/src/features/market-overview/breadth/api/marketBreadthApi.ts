@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketBreadthRequest {
@@ -79,7 +80,7 @@ export async function fetchMarketBreadth(
   params: MarketBreadthRequest = {},
   options: MarketBreadthFetchOptions = {},
 ): Promise<MarketBreadthResponse> {
-  const response = await fetch(buildBreadthUrl(params), {
+  const response = await wealthFetch(buildBreadthUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export interface MarketMajorIndicesRequest {
@@ -85,7 +86,7 @@ export async function fetchMarketMajorIndices(
   params: MarketMajorIndicesRequest = {},
   options: MarketMajorIndicesFetchOptions = {},
 ): Promise<MarketMajorIndicesResponse> {
-  const response = await fetch(buildMajorIndicesUrl(params), {
+  const response = await wealthFetch(buildMajorIndicesUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,
@@ -104,4 +105,3 @@ export async function fetchMarketMajorIndices(
   }
   return (await response.json()) as MarketMajorIndicesResponse;
 }
-

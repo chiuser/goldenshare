@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export interface MarketLimitUpRequest {
@@ -165,7 +166,7 @@ export async function fetchMarketLimitUp(
   params: MarketLimitUpRequest = {},
   options: MarketLimitUpFetchOptions = {},
 ): Promise<MarketLimitUpResponse> {
-  const response = await fetch(buildLimitUpUrl(params), {
+  const response = await wealthFetch(buildLimitUpUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

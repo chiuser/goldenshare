@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketMoneyFlowRequest {
@@ -84,7 +85,7 @@ export async function fetchMarketMoneyFlow(
   params: MarketMoneyFlowRequest = {},
   options: MarketMoneyFlowFetchOptions = {},
 ): Promise<MarketMoneyFlowResponse> {
-  const response = await fetch(buildMoneyFlowUrl(params), {
+  const response = await wealthFetch(buildMoneyFlowUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketNewsRequest {
@@ -95,7 +96,7 @@ function buildNewsUrl(path: "/briefs" | "/stocks", params: MarketNewsRequest): s
 }
 
 async function fetchJson<T>(path: "/briefs" | "/stocks", params: MarketNewsRequest, options: MarketNewsFetchOptions): Promise<T> {
-  const response = await fetch(buildNewsUrl(path, params), {
+  const response = await wealthFetch(buildNewsUrl(path, params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,

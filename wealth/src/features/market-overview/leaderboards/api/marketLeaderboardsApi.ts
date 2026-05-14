@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus, MarketDirection } from "../../../../shared/model/market";
 
 export interface MarketLeaderboardsRequest {
@@ -97,7 +98,7 @@ export async function fetchMarketLeaderboards(
   params: MarketLeaderboardsRequest = {},
   options: MarketLeaderboardsFetchOptions = {},
 ): Promise<MarketLeaderboardsResponse> {
-  const response = await fetch(buildLeaderboardsUrl(params), {
+  const response = await wealthFetch(buildLeaderboardsUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,
@@ -116,4 +117,3 @@ export async function fetchMarketLeaderboards(
   }
   return (await response.json()) as MarketLeaderboardsResponse;
 }
-

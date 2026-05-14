@@ -1,5 +1,10 @@
-import { MarketOverviewPage } from "../pages/market-overview/MarketOverviewPage";
+import { WealthRouter } from "./routes/WealthRouter";
+import { AuthProvider } from "../features/auth/model/AuthProvider";
 
 export function App() {
-  return <MarketOverviewPage />;
+  return (
+    <AuthProvider>
+      <WealthRouter />
+    </AuthProvider>
+  );
 }

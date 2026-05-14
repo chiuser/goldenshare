@@ -1,3 +1,4 @@
+import { wealthFetch } from "../../../../shared/api/wealthApiClient";
 import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketStreakLadderRequest {
@@ -115,7 +116,7 @@ export async function fetchMarketStreakLadder(
   params: MarketStreakLadderRequest = {},
   options: MarketStreakLadderFetchOptions = {},
 ): Promise<MarketStreakLadderResponse> {
-  const response = await fetch(buildStreakLadderUrl(params), {
+  const response = await wealthFetch(buildStreakLadderUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,
