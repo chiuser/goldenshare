@@ -891,7 +891,7 @@ h1 {
 }
 
 .market-news-track.scrolling {
-  animation: market-news-marquee 28s linear infinite;
+  animation: market-news-marquee var(--news-scroll-duration, 40s) linear infinite;
 }
 
 .market-news-panel:hover .market-news-track.scrolling {

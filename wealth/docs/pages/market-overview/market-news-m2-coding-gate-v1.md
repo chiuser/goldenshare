@@ -389,6 +389,7 @@ npm run build
 5. item 不得有链接、pointer、路由跳转或 toast 详情提示。
 6. hover `新闻速览` 只暂停新闻速览；hover `个股新闻` 只暂停个股新闻。
 7. 鼠标离开后当前面板恢复自动向上滚动。
+8. `queryLimit=300` 场景下滚动周期必须按条数放慢，不允许固定短周期导致扫屏；实现口径为 `max(40s, items.length * 2s)`。
 
 ---
 

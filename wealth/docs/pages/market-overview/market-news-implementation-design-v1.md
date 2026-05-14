@@ -198,7 +198,8 @@ summary-index-row
 2. `MarketNewsPanel` 对应 `.market-news-panel`，包含标题栏和 viewport。
 3. `NewsTickerList` 对应 `.market-news-viewport` + `.market-news-track`。
 4. `NewsTickerItem` 对应 `.market-news-item`，只渲染时间和标题。
-5. `PageHeader`、`TopMarketBar`、`Breadcrumb`、`ShortcutBar` 不允许承载新闻内容。
+5. `NewsTickerList` 必须按候选新闻条数设置滚动周期：`max(40s, items.length * 2s)`，避免候选池扩大到 300 条后滚动过快。
+6. `PageHeader`、`TopMarketBar`、`Breadcrumb`、`ShortcutBar` 不允许承载新闻内容。
 
 ---
 

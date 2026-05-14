@@ -53,9 +53,13 @@ interface NewsTickerListProps {
 function NewsTickerList({ items, visibleItemCount }: NewsTickerListProps) {
   const shouldScroll = items.length > visibleItemCount;
   const renderItems = shouldScroll ? [...items, ...items] : items;
+  const scrollDurationSeconds = Math.max(40, items.length * 2);
 
   return (
-    <div className={shouldScroll ? "market-news-track scrolling" : "market-news-track"}>
+    <div
+      className={shouldScroll ? "market-news-track scrolling" : "market-news-track"}
+      style={{ "--news-scroll-duration": `${scrollDurationSeconds}s` } as CSSProperties}
+    >
       {renderItems.map((item, index) => (
         <div
           className="market-news-item"
