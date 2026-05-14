@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.catalog.tushare_stk_mins import STK_MINS_FIELDS
+from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.parquet_writer import (
     read_parquet_row_count,
@@ -339,6 +340,9 @@ class StkMinsCleanService:
         reason_totals: Counter[str] = Counter()
         duplicate_totals: Counter[str] = Counter()
         samples: list[dict[str, Any]] = []
+        indicator_recalc_events = 0
+        derived_rebuild_requirements: dict[int, dict[str, Any]] = {}
+        queue_service = IndicatorRecalcQueueService(lake_root=self.lake_root)
 
         self.progress(
             f"[rebuild_stk_mins_by_date_clean_next] start run_id={run_id} "
@@ -362,6 +366,19 @@ class StkMinsCleanService:
                 partition=partition,
                 frame=build.frame,
                 expected_rows=int(stats["kept_rows"]),
+            )
+            queue_service.record_source_partition_replaced(
+                layer=str(FORMAL_CLEAN_RELATIVE_ROOT),
+                freq=partition.freq,
+                trade_date=partition.trade_date,
+                run_id=run_id,
+                written_rows=int(stats["kept_rows"]),
+            )
+            indicator_recalc_events += 1
+            _collect_derived_rebuild_requirement(
+                requirements=derived_rebuild_requirements,
+                source_freq=partition.freq,
+                trade_date=partition.trade_date,
             )
 
             total_raw_rows += int(stats["raw_rows"])
@@ -396,6 +413,9 @@ class StkMinsCleanService:
             "status": "success",
             "schema": list(FORMAL_CLEAN_STK_MINS_FIELDS),
             "samples": samples,
+            "indicator_recalc_events": indicator_recalc_events,
+            "derived_rebuild_required": bool(derived_rebuild_requirements),
+            "derived_rebuild_requirements": _format_derived_rebuild_requirements(derived_rebuild_requirements),
             "write_intent": True,
             "elapsed_seconds": round(elapsed, 3),
         }
@@ -1545,6 +1565,48 @@ def _global_audit_status(status_counts: Counter[str]) -> str:
     if status_counts.get("needs_review", 0) or status_counts.get("missing_source_or_calendar_gap", 0):
         return "needs_review"
     return "success"
+
+
+def _collect_derived_rebuild_requirement(
+    *,
+    requirements: dict[int, dict[str, Any]],
+    source_freq: int,
+    trade_date: date,
+) -> None:
+    target_freq_by_source = {30: 90, 60: 120}
+    target_freq = target_freq_by_source.get(source_freq)
+    if target_freq is None:
+        return
+    item = requirements.setdefault(
+        target_freq,
+        {
+            "source_freq": source_freq,
+            "target_freq": target_freq,
+            "start_date": trade_date,
+            "end_date": trade_date,
+        },
+    )
+    item["start_date"] = min(item["start_date"], trade_date)
+    item["end_date"] = max(item["end_date"], trade_date)
+
+
+def _format_derived_rebuild_requirements(requirements: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+    formatted: list[dict[str, Any]] = []
+    for target_freq in sorted(requirements):
+        item = dict(requirements[target_freq])
+        start_date = item["start_date"]
+        end_date = item["end_date"]
+        item["start_date"] = start_date.isoformat()
+        item["end_date"] = end_date.isoformat()
+        item["command"] = (
+            "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
+            "rebuild-stk-mins-derived-from-clean-range "
+            f"--target-freqs {target_freq} "
+            f"--start-date {start_date.isoformat()} "
+            f"--end-date {end_date.isoformat()}"
+        )
+        formatted.append(item)
+    return formatted
 
 
 def _empty_formal_clean_frame(pd: Any) -> Any:
