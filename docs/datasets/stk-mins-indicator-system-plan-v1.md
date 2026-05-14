@@ -1009,7 +1009,6 @@ bucket = stable_hash(ts_code) % 32
    - `sync-stk-mins` 全市场单日 raw 分区替换。
    - `sync-stk-mins-range` 全市场区间 raw 分区替换。
    - `derive-stk-mins` / `derive-stk-mins-range` derived 分区替换。
-   - `repair-stk-mins-from-1m` raw 修补分区写入。
 4. 第一版 queue 只记录 `pending` 并给出建议命令，不自动消费，不后台启动重 IO 任务。
 5. 手动重算完成后，通过 `mark-indicator-recalc-done` 关闭对应 queue。
 

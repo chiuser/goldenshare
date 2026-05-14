@@ -201,12 +201,12 @@ research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>
 已记录动作：
 
 1. 新增只读审计命令 `audit-stk-mins-raw-integrity`。
-2. 新增恢复命令 `recover-stk-mins-raw-from-research --dry-run/--apply`。
+2. 历史上新增过 raw 事故恢复命令，并已在事故恢复完成后下线；当前不再保留从 research 反向写 raw 的可执行入口。
 3. 完成 raw 事故恢复：
    - `freq=5`：恢复 `2010-08-27 ~ 2011-08-05` 中 `227` 个严重低行数分区。
    - `freq=1`：恢复 `2010-08-27 ~ 2025-02-14` 中 `3508` 个严重低行数分区。
    - 合计恢复严重低行数分区：`3735`。
-4. 后续单股票补数路径已改为 merge 语义：只替换指定 `ts_code` 行，不覆盖同分区其他股票。
+4. 后续单股票补数路径曾改为 merge 语义以完成事故恢复，并已在历史 source gap 处理完成后下线；当前不再保留该专项写入入口。
 
 相关记录：
 
@@ -217,13 +217,7 @@ RISK-2026-05-11-007
 
 ### 5.2 历史错误 clean 初始副本与身份映射
 
-已执行 clean bootstrap：
-
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli bootstrap-stk-mins-by-date-clean \
-  --apply \
-  --freqs 1,5,15,30,60
-```
+已执行历史 clean bootstrap。该命令入口已下线，旧 clean 路径已删除，本文只保留结果记录。
 
 历史产物：
 
@@ -270,20 +264,14 @@ identity：5837 个
 
 ### 5.3 clean 样本审计与 dry-run
 
-已记录的小窗口验证命令：
+已记录的小窗口验证动作：
 
 ```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli bootstrap-stk-mins-by-date-clean \
-  --dry-run \
-  --freqs 1 \
-  --start-date 2026-04-24 \
-  --end-date 2026-04-24
-
 lake_console/.venv/bin/python -m lake_console.backend.app.cli build-stk-mins-security-identity-map \
   --dry-run \
   --sample-limit 5
 
-lake_console/.venv/bin/python -m lake_console.backend.app.cli rebuild-stk-mins-by-date-clean-range \
+lake_console/.venv/bin/python -m lake_console.backend.app.cli rebuild-stk-mins-by-date-clean-next-range \
   --dry-run \
   --freqs 1 \
   --start-date 2026-04-24 \
@@ -423,12 +411,9 @@ A 股存在盘后交易，交易时间为：
 
 ### 6.2 `2024-10-30` 多频率混入 `1min` 专项（已执行）
 
-执行命令：
+历史执行说明：
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-current-clean-20241030-multifreq --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-current-clean-20241030-multifreq --apply
-```
+历史错误 schema clean 阶段曾使用独立专项命令完成本修复。该命令不属于当前正式 `clean_next` 链路，当前代码中已不存在。
 
 执行结果摘要：
 

@@ -6,7 +6,6 @@ from datetime import date
 from lake_console.backend.app.cli.commands.common import add_lake_root_arg, parse_freqs, parse_int_csv, print_json, settings_from_args
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
-from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
 from lake_console.backend.app.services.stk_mins_clean_next_gate_backfill_service import StkMinsCleanNextGateBackfillService
 from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
@@ -61,13 +60,6 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     derive_from_clean_range_parser.add_argument("--target-freqs", default="90,120", help="派生目标，逗号分隔，当前支持 90,120")
     derive_from_clean_range_parser.set_defaults(handler=_handle_rebuild_stk_mins_derived_from_clean_range)
 
-    repair_parser = subparsers.add_parser("repair-stk-mins-from-1m", help="用本地 1 分钟线修补已审计的 5/15 分钟 source gap")
-    add_lake_root_arg(repair_parser)
-    repair_parser.add_argument("--trade-date", required=True, type=date.fromisoformat, help="缺口交易日，格式 YYYY-MM-DD")
-    repair_parser.add_argument("--freq", required=True, type=int, choices=(5, 15), help="目标分钟周期，仅支持 5 或 15")
-    repair_parser.add_argument("--ts-code", default=None, help="只修补指定股票代码；用于目标分区已存在但该股票缺失的场景")
-    repair_parser.set_defaults(handler=_handle_repair_stk_mins_from_1m)
-
     research_parser = subparsers.add_parser("rebuild-stk-mins-research", help="把 by_date 分区重排为 by_symbol_month research 层")
     add_lake_root_arg(research_parser)
     research_parser.add_argument("--freq", required=True, type=int, choices=(1, 5, 15, 30, 60, 90, 120), help="分钟周期")
@@ -102,18 +94,6 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     audit_parser.add_argument("--patch-ts-code", default=None, help="用于检查 raw patch 行的股票代码，例如 300114.SZ")
     audit_parser.add_argument("--sample-limit", default=20, type=int, help="每个 freq 返回的样本数量上限")
     audit_parser.set_defaults(handler=_handle_audit_stk_mins_raw_integrity)
-
-    recover_parser = subparsers.add_parser("recover-stk-mins-raw-from-research", help="从 research 恢复 stk_mins raw 损坏分区")
-    add_lake_root_arg(recover_parser)
-    recover_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始日期，格式 YYYY-MM-DD")
-    recover_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束日期，格式 YYYY-MM-DD")
-    recover_parser.add_argument("--freqs", required=True, help="多个分钟周期，逗号分隔，例如 1,5")
-    recover_parser.add_argument("--patch-ts-code", required=True, help="需要从当前 raw patch 行合并回去的股票代码，例如 300114.SZ")
-    recover_mode = recover_parser.add_mutually_exclusive_group(required=True)
-    recover_mode.add_argument("--dry-run", action="store_true", help="只生成恢复预案，不写任何文件")
-    recover_mode.add_argument("--apply", action="store_true", help="执行恢复写入；会备份原 raw 分区到 _recovery")
-    recover_parser.add_argument("--sample-limit", default=20, type=int, help="每个 freq 返回的计划样本数量上限")
-    recover_parser.set_defaults(handler=_handle_recover_stk_mins_raw_from_research)
 
     identity_parser = subparsers.add_parser(
         "build-stk-mins-security-identity-map",
@@ -280,17 +260,6 @@ def _handle_rebuild_stk_mins_derived_from_clean_range(args: argparse.Namespace) 
     return 0
 
 
-def _handle_repair_stk_mins_from_1m(args: argparse.Namespace) -> int:
-    settings = settings_from_args(args)
-    summary = StkMinsGapRepairService(lake_root=settings.lake_root).repair_day(
-        trade_date=args.trade_date,
-        freq=args.freq,
-        ts_code=args.ts_code,
-    )
-    print_json(summary)
-    return 0
-
-
 def _handle_rebuild_stk_mins_research(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
     bucket_count = args.bucket_count or settings.bucket_count
@@ -325,30 +294,6 @@ def _handle_audit_stk_mins_raw_integrity(args: argparse.Namespace) -> int:
         patch_ts_code=args.patch_ts_code,
         sample_limit=args.sample_limit,
     )
-    print_json(summary)
-    return 0
-
-
-def _handle_recover_stk_mins_raw_from_research(args: argparse.Namespace) -> int:
-    settings = settings_from_args(args)
-    freqs = parse_freqs(args.freqs, fallback=None)
-    service = StkMinsRawRecoveryService(lake_root=settings.lake_root)
-    if args.dry_run:
-        summary = service.plan_recover_from_research(
-            freqs=freqs,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            patch_ts_code=args.patch_ts_code,
-            sample_limit=args.sample_limit,
-        )
-    else:
-        summary = service.apply_recover_from_research(
-            freqs=freqs,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            patch_ts_code=args.patch_ts_code,
-            sample_limit=args.sample_limit,
-        )
     print_json(summary)
     return 0
 

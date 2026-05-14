@@ -1256,34 +1256,18 @@ lake-console audit-stk-mins-raw-integrity \
 
 该命令只读统计 raw 分区状态，包括缺失分区、严重低行数分区、行数缺口估算、可从 research 恢复的分区数量和样本。
 
-```bash
-lake-console recover-stk-mins-raw-from-research \
-  --freqs 1,5 \
-  --start-date 2010-08-27 \
-  --end-date 2025-02-14 \
-  --patch-ts-code 300114.SZ \
-  --dry-run
-```
+历史说明：
 
-该命令只生成恢复预案，不写 `_tmp`、manifest 或正式 Parquet 分区。预案口径：
+事故恢复阶段曾经存在一个从 `research` 反向恢复 `raw` 的专项命令。该命令已经下线，不再作为当前可执行入口。后续如需恢复 raw，必须重新走独立评审的恢复方案，并接入当前 `raw -> affected partition -> clean_next refresh -> gate` 生命周期。
+
+历史预案口径：
 
 1. 从 `research/stk_mins_by_symbol_month` 读取对应 `freq/month`。
 2. 按 `trade_time` 过滤到目标交易日。
 3. 统计当前 raw 中 `patch_ts_code` 行数。
 4. 预估恢复时使用 `research 当日全市场行 + 当前 raw patch 行`，按 `(ts_code, freq, trade_time)` 去重。
 
-样本恢复命令：
-
-```bash
-lake-console recover-stk-mins-raw-from-research \
-  --freqs 1 \
-  --start-date 2022-01-04 \
-  --end-date 2022-01-04 \
-  --patch-ts-code 300114.SZ \
-  --apply
-```
-
-`--apply` 规则：
+历史 `apply` 规则：
 
 1. 只恢复 `missing` 或 `severely_low` 的 raw 分区，不触碰 `underfilled/ok` 分区。
 2. 每个恢复分区先写入 `_tmp`，校验行数后再替换正式分区。

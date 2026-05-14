@@ -125,12 +125,9 @@ research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=<YYYY-MM-DD>
 2. 该命令只写：
    `research/stk_mins_by_date_clean_next`
 
-3. 保留旧命令：
-   `rebuild-stk-mins-by-date-clean-range`
+3. 不保留旧错误 clean 构建命令；历史错误 clean 流程只在文档中保留结果记录，不再提供可执行入口。
 
-4. 旧命令只作为历史错误 clean 流程记录，不作为正式 clean 构建入口。
-
-5. 新增测试，断言输出字段严格等于 11 列正式 schema。
+4. 新增测试，断言输出字段严格等于 11 列正式 schema。
 
 6. 新增测试，断言输出不包含：
    `trade_date/source_ts_code/identity_id`

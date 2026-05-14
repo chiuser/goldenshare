@@ -528,7 +528,7 @@ lake-console sync-dataset index_mins --from prod-raw-db --trade-date 2026-05-08 
 
 ### 9.3 为什么不复用 `stk_mins` 的白名单修补模式
 
-`stk_mins` 当前的 `repair-stk-mins-from-1m` 只允许修补已写死的历史 source gap 日期白名单。  
+`stk_mins` 历史上曾有白名单式 1min 修补入口，只允许修补已写死的历史 source gap 日期。该入口已经下线。
 `index_mins` 不应直接照搬这个策略，原因：
 
 1. `index_mins` 是正在滚动维护的近历史分钟线数据集。

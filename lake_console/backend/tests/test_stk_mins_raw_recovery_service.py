@@ -9,7 +9,6 @@ pytest.importorskip("duckdb")
 pytest.importorskip("pyarrow")
 
 from lake_console.backend.app.services.stk_mins_raw_recovery_service import StkMinsRawRecoveryService
-from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 
 
 def test_audit_raw_integrity_detects_single_symbol_overwrite(tmp_path) -> None:
@@ -37,96 +36,9 @@ def test_audit_raw_integrity_detects_single_symbol_overwrite(tmp_path) -> None:
     assert summary["mode"] == "read_only"
     assert summary["write_intent"] is False
     assert freq_summary["severely_low_partitions"] == 1
-    assert freq_summary["recoverable_issue_partitions"] == 1
+    assert freq_summary["research_has_more_rows_issue_partitions"] == 1
     assert freq_summary["issue_samples"][0]["raw_rows"] == 1
     assert freq_summary["issue_samples"][0]["research_rows"] == 2
-
-
-def test_recover_from_research_dry_run_plans_without_writes(tmp_path) -> None:
-    _write_required_manifests(tmp_path)
-    _write_raw_partition(tmp_path, freq=1, trade_date="2026-04-24", rows=[_mins_row("300114.SZ", 1, "2026-04-24 10:00:00")])
-    _write_research_month(
-        tmp_path,
-        freq=1,
-        trade_month="2026-04",
-        rows=[
-            _mins_row("000001.SZ", 1, "2026-04-24 10:00:00"),
-            _mins_row("300114.SZ", 1, "2026-04-24 10:00:00"),
-        ],
-    )
-
-    summary = StkMinsRawRecoveryService(lake_root=tmp_path).plan_recover_from_research(
-        freqs=[1],
-        start_date=date(2026, 4, 24),
-        end_date=date(2026, 4, 24),
-        patch_ts_code="300114.SZ",
-        sample_limit=5,
-    )
-
-    sample = summary["freq_plans"][0]["planned_samples"][0]
-    assert summary["mode"] == "dry_run"
-    assert summary["write_intent"] is False
-    assert summary["planned_restore_partitions"] == 1
-    assert sample["action"] == "would_restore_from_research_and_merge_raw_patch"
-    assert sample["raw_patch_rows"] == 1
-    assert sample["estimated_final_rows"] == 2
-    assert not (tmp_path / "_tmp").exists()
-
-
-def test_recover_from_research_apply_restores_partition_and_forces_clean_next_refresh(tmp_path, monkeypatch) -> None:
-    refresh_calls = _mock_clean_next_refresh(monkeypatch)
-    _write_required_manifests(tmp_path)
-    _write_raw_partition(tmp_path, freq=1, trade_date="2026-04-24", rows=[_mins_row("300114.SZ", 1, "2026-04-24 10:00:00")])
-    _write_research_month(
-        tmp_path,
-        freq=1,
-        trade_month="2026-04",
-        rows=[
-            _mins_row("000001.SZ", 1, "2026-04-24 10:00:00"),
-            _mins_row("300114.SZ", 1, "2026-04-24 10:00:00", close=9.9),
-        ],
-    )
-
-    summary = StkMinsRawRecoveryService(lake_root=tmp_path, progress=lambda _: None).apply_recover_from_research(
-        freqs=[1],
-        start_date=date(2026, 4, 24),
-        end_date=date(2026, 4, 24),
-        patch_ts_code="300114.SZ",
-        sample_limit=5,
-    )
-
-    assert summary["mode"] == "apply"
-    assert summary["write_intent"] is True
-    assert summary["restored_partitions"] == 1
-    assert summary["clean_next_refresh"]["status"] == "passed"
-    assert len(summary["affected_partitions"]) == 1
-    assert len(refresh_calls) == 1
-    affected = refresh_calls[0][0]
-    assert affected["dataset_key"] == "stk_mins"
-    assert affected["source_key"] == "tushare"
-    assert affected["layer"] == "raw_tushare"
-    assert affected["partition_values"] == {"freq": "1", "trade_date": "2026-04-24"}
-    restored_file = tmp_path / "raw_tushare" / "stk_mins_by_date" / "freq=1" / "trade_date=2026-04-24" / "part-00000.parquet"
-    restored = pd.read_parquet(restored_file, engine="pyarrow")
-    assert set(restored["ts_code"].astype(str)) == {"000001.SZ", "300114.SZ"}
-    assert float(restored.loc[restored["ts_code"] == "300114.SZ", "close"].iloc[0]) == 10.1
-    backup_root = tmp_path / "_recovery" / summary["run_id"]
-    assert (backup_root / "raw_partition_backup" / "freq=1" / "trade_date=2026-04-24" / "part-000.parquet").exists()
-    assert (backup_root / "patch_rows" / "freq=1" / "trade_date=2026-04-24" / "part-000.parquet").exists()
-
-
-def _mock_clean_next_refresh(monkeypatch) -> list[list[dict[str, object]]]:
-    calls: list[list[dict[str, object]]] = []
-
-    def fake_refresh(self, *, affected_partitions, dry_run: bool, apply: bool) -> dict[str, object]:
-        assert dry_run is False
-        assert apply is True
-        normalized = [partition if isinstance(partition, dict) else partition.to_dict() for partition in affected_partitions]
-        calls.append(normalized)
-        return {"status": "passed", "affected_partitions": len(normalized)}
-
-    monkeypatch.setattr(CleanNextRefreshService, "refresh", fake_refresh)
-    return calls
 
 
 def _write_required_manifests(root) -> None:

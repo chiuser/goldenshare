@@ -282,9 +282,9 @@
 正式修复：
 
 1. 新增 `audit-stk-mins-raw-integrity` 只读命令，按 `freq/trade_date` 统计 raw 行数、缺失分区、严重低行数分区和 research 可恢复行数。
-2. 新增 `recover-stk-mins-raw-from-research --dry-run` 命令，只生成恢复计划，不写 `_tmp` 或正式分区。
+2. 历史上新增 raw 恢复 dry-run 命令，只生成恢复计划，不写 `_tmp` 或正式分区；该命令已在事故恢复完成后下线。
 3. dry-run 必须明确：哪些分区可从 research 恢复、哪些分区缺少 research 源、会合并多少 patch `ts_code` 行、预计恢复后的行数。
-4. `recover-stk-mins-raw-from-research --apply` 已作为 `stk_mins` 单点恢复能力落地，但后续不得继续复制新的 ad-hoc apply 路径；恢复 apply 必须逐步并轨到通用持久 backup、统一恢复账本和前端 Recovery 管理体系。
+4. 历史 raw 恢复 apply 曾作为 `stk_mins` 单点恢复能力落地；事故恢复完成后该入口已下线。后续不得继续复制新的 ad-hoc apply 路径；恢复 apply 必须重新评审，并并轨到通用持久 backup、统一恢复账本和前端 Recovery 管理体系。
 5. 恢复后必须补充 raw/research 双向校验，确认受损日期不再只有单股票行。
 6. 所有正式 Lake replace 写入必须统一接入持久 backup 机制，成功后不得立即删除旧版本。
 7. 必须新增 `manifest/write_recovery_log.jsonl` 作为恢复主索引，并允许从 `_recovery/**/metadata.json` 重建。
@@ -294,7 +294,7 @@
 关闭门禁：
 
 1. `audit-stk-mins-raw-integrity` 能稳定列出 `freq=1`、`freq=5` 的损坏分区和损失估算。
-2. `recover-stk-mins-raw-from-research --dry-run` 能对样本日期生成可恢复计划，且不写入任何 Parquet、`_tmp` 或 manifest。
+2. 历史 raw 恢复 dry-run 曾能对样本日期生成可恢复计划，且不写入任何 Parquet、`_tmp` 或 manifest；当前该入口已下线。
 3. 单股票补数路径已有测试证明不会覆盖同分区其他股票。
 4. 恢复 apply 命令完成并通过样本日期、整月和全量损坏区间校验。
 5. 风险关闭时必须记录恢复命令、恢复分区数量、恢复前后行数对比和剩余风险。
@@ -305,7 +305,7 @@
    - 范围：`2009-01-01 ~ 2026-05-08`
    - 频度：`1,5,15,30,60`
    - 结果：`severely_low_partitions=0`，`recoverable_issue_partitions=0`
-2. 已新增 `recover-stk-mins-raw-from-research --dry-run/--apply`，恢复逻辑为：
+2. 历史 raw 恢复入口曾用于事故恢复，恢复逻辑为：
    - 以 `research/stk_mins_by_symbol_month` 的当日全市场数据为主体；
    - 合并当前 raw 中 `patch_ts_code=300114.SZ` 的补数行；
    - 按 `(ts_code, freq, trade_time)` 去重；
@@ -321,7 +321,7 @@
 5. 全量复审剩余风险：
    - `2026-05-08` 在 `freq=1,5,15,30,60` 均为 missing，且 research 也无当日数据，不能通过本恢复命令修复；应作为后续普通补数任务处理。
    - 若干历史 `underfilled` 分区仍存在，属于数据完整性审计议题，不得用本次事故恢复工具硬修。
-   - 通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面尚未完成，因此本 P0 仍保持 Open，直到恢复治理能力完成或经评审拆分为后续风险项。
+   - 通用持久 backup、统一恢复账本、前端 Recovery / Write Safety 页面尚未完成，已拆分为后续治理议题；本 P0 按表格状态关闭，不再保留单点恢复命令。
 6. 已通过本地代码门禁：
    - `lake_console/.venv/bin/python -m py_compile lake_console/backend/app/services/stk_mins_raw_recovery_service.py lake_console/backend/app/cli/commands/stk_mins.py lake_console/backend/app/services/tushare_stk_mins_sync_service.py`
    - `lake_console/.venv/bin/python -m pytest -q lake_console/backend/tests/test_stk_mins_raw_recovery_service.py lake_console/backend/tests/test_tushare_stk_mins_sync_service.py`
@@ -331,21 +331,21 @@
 补充处理记录（2026-05-11）：
 
 1. 已确认 `300114.SZ` 历史分钟线补数后仅剩 `freq=5 trade_date=2010-09-02` 无源端返回数据。
-2. 该日期 `freq=1` 已存在完整 `300114.SZ` 1 分钟事实，因此采用 `repair-stk-mins-from-1m --ts-code 300114.SZ` 单股票 merge 模式修补。
+2. 该日期 `freq=1` 已存在完整 `300114.SZ` 1 分钟事实，因此历史上采用白名单 1min 修补入口的单股票 merge 模式修补。
 3. 单股票 merge 模式只允许白名单 source gap 日期，且目标分区必须已存在；写入时只替换指定 `ts_code` 行，保留同分区其他股票。
-4. 已补测试证明 `repair-stk-mins-from-1m --ts-code` 不会覆盖同分区其他股票。
+4. 当时已补测试证明单股票 merge 模式不会覆盖同分区其他股票；该历史修补入口现已下线。
 
 补充处理记录（2026-05-11，clean 层收口启动）：
 
-1. 已新增 `bootstrap-stk-mins-by-date-clean --dry-run/--apply`，用于把 `raw_tushare/stk_mins_by_date` 受控初始化到 `research/stk_mins_by_date_clean`。该命令只复制 raw 到 clean，不修改 raw；写入走 `_tmp -> 校验 -> replace`，clean 分区已存在时默认拒绝覆盖。
+1. 历史上曾新增错误 clean 初始化入口，用于把 `raw_tushare/stk_mins_by_date` 受控初始化到 `research/stk_mins_by_date_clean`。该入口对应错误 clean 口径，后续已下线。
 2. 已新增 `build-stk-mins-security-identity-map --dry-run/--apply`，用于生成 clean 层使用的 `manifest/security_identity/security_identity_map.parquet`。当前规则覆盖 `stock_basic`、`bse_mapping` 与可唯一推断的 `namechange` 重叠映射。
-3. 已新增 `audit-stk-mins-by-date-clean` 与 `rebuild-stk-mins-by-date-clean-range --dry-run`，用于只读审计当前 clean 层，以及预演 raw -> clean 真正清洗后的保留/过滤统计；本阶段不写清洗结果。
+3. 历史上曾新增错误 clean 只读审计与 dry-run rebuild 入口，用于预演 raw -> clean 真正清洗后的保留/过滤统计；这些入口对应错误 clean 口径，后续已下线。
 4. 已用真实 Lake 小窗口验证：
-   - `bootstrap-stk-mins-by-date-clean --dry-run --freqs 1 --start-date 2026-04-24 --end-date 2026-04-24`
+   - 错误 clean 初始化 dry-run 小窗口
    - `build-stk-mins-security-identity-map --dry-run --sample-limit 5`
-   - `rebuild-stk-mins-by-date-clean-range --dry-run --freqs 1 --start-date 2026-04-24 --end-date 2026-04-24`
+   - 错误 clean rebuild dry-run 小窗口
 5. 已执行完整 clean bootstrap：
-   - 命令：`bootstrap-stk-mins-by-date-clean --apply --freqs 1,5,15,30,60`
+   - 历史错误 clean 初始化 apply 曾写入全量错误 clean 副本
    - 结果：写入 `research/stk_mins_by_date_clean` 共 `21045` 个分区、`21637` 个文件、`4576237808` 行。
    - 说明：该动作只是 raw 到 clean 的完整副本初始化，不做清洗，不修改 raw。
 6. 已执行 `build-stk-mins-security-identity-map --apply --sample-limit 5`：

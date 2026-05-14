@@ -453,22 +453,26 @@ trade_date_count x freq_count x symbol_count
 request_window_count x freq_count x symbol_count x page_count
 ```
 
-旧实现里 `request_window_count` 默认约等于自然月数量；待收口目标是按 freq 定交易日窗，显著降低请求数。
+历史实现里 `request_window_count` 默认约等于自然月数量；当前已收口为按 `freq` 定交易日窗，显著降低请求数。
 
-### 5.1.1 `stk_mins` 下载窗口收口方案（待实施）
+### 5.1.1 `stk_mins` 下载窗口策略（已收口）
 
 当前代码事实：
 
-1. `sync-stk-mins-range` 仍按 `31` 天窗口并强制按自然月断窗。
-2. 在全年全市场 `1/5/15/30/60` 任务下，若股票池约为 `5511` 只，则 unit 数约为：
+1. `sync-stk-mins-range` 已按本地交易日历构造 request window，不再强制按自然月或 `31` 天断窗。
+2. request window 按 `freq` 对应的理论单日行数确定交易日跨度，目标是让单次请求行数接近但不超过 Tushare 分页阈值。
+3. checkpoint 粒度仍为 `ts_code + freq + request window`，最终正式落盘仍是 `freq + trade_date` 分区。
+4. `plan-sync stk_mins` 保留历史月窗口径与现行按 `freq` 定窗口径的对比，用于解释配额差异。
+
+历史月窗口径在全年全市场 `1/5/15/30/60` 任务下，若股票池约为 `5511` 只，则 unit 数约为：
 
 ```text
 12（月窗） x 5（freq） x 5511（股票） = 330660
 ```
 
-3. 该口径已在真实试跑中触发 `250000 次/天` 配额上限，说明月窗策略在 `stk_mins` 上不可持续。
+该口径已在真实试跑中触发 `250000 次/天` 配额上限，说明月窗策略在 `stk_mins` 上不可持续。
 
-收口目标：
+已落地约束：
 
 1. 去掉“按自然月强制断窗”。
 2. 改为“按 freq 定交易日窗”。
@@ -576,7 +580,6 @@ research/index_mins_by_symbol_month/     # 指数分钟线研究层，按月和�
 | `sync-stk-mins` | 同步单股票单日小窗口 |
 | `sync-trade-cal` | 同步本地交易日历；支持全量分页快照或显式区间刷新，供区间分钟线同步使用 |
 | `sync-stk-mins-range` | 基于本地交易日历按开市日循环同步分钟线 |
-| `repair-stk-mins-from-1m` | 用本地 `1 分钟` 正式分区修补已审计的 `5/15` 分钟 source gap |
 | `repair-index-mins-from-1m` | 用本地 `1 分钟` 正式分区修补 `index_mins` 的 `15/30/60` 分钟 source gap |
 | `derive-index-mins` | 从正式 `30/60min` 分区派生 `index_mins` 的 `90/120min` |
 | `derive-index-mins-range` | 按交易日历批量派生 `index_mins` 的 `90/120min` |
@@ -595,7 +598,6 @@ research/index_mins_by_symbol_month/     # 指数分钟线研究层，按月和�
 | `manifest_service.py` | 读取/写入 manifest |
 | `tushare_stock_basic_sync_service.py` | 从 Tushare 拉取 `stock_basic`，双写正式维表 `raw_tushare/stock_basic/current/part-000.parquet` 与执行股票池 `manifest/security_universe/tushare_stock_basic.parquet` |
 | `tushare_stk_mins_sync_service.py` | `stk_mins` 到 by_date 的最小同步 |
-| `stk_mins_gap_repair_service.py` | 用本地 `1 分钟` 正式分区修补已审计的 `5/15` 分钟 source gap |
 | `index_mins_gap_repair_service.py` | 用本地 `1 分钟` 正式分区修补 `index_mins` 的 `15/30/60` 分钟 source gap |
 | `stk_mins_derived_service.py` | 90/120 派生 |
 | `index_mins_derived_service.py` | 从正式 `30/60min` 分区派生 `index_mins` 的 `90/120min` |

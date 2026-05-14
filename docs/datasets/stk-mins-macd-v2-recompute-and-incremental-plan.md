@@ -665,38 +665,30 @@ research/stk_mins_by_date_clean_next/
 
 ### 6.9 CLI
 
-新增：
+当前正式 `clean_next` 相关 CLI：
 
 ```bash
-lake-console bootstrap-stk-mins-by-date-clean \
-  --dry-run \
-  --freqs 1,5,15,30,60
-
-lake-console bootstrap-stk-mins-by-date-clean \
-  --apply \
-  --freqs 1,5,15,30,60
-
-lake-console audit-stk-mins-by-date-clean \
+lake-console audit-stk-mins-by-date-clean-next \
   --freqs 1,5,15,30,60 \
   --start-date 2009-01-01 \
   --end-date 2026-05-07
 
-lake-console rebuild-stk-mins-by-date-clean-range \
+lake-console rebuild-stk-mins-by-date-clean-next-range \
   --dry-run \
   --freqs 1,5,15,30,60 \
   --start-date 2009-01-01 \
   --end-date 2026-05-07
 
-lake-console rebuild-stk-mins-by-date-clean-range \
+lake-console rebuild-stk-mins-by-date-clean-next-range \
   --apply \
   --freqs 1,5,15,30,60 \
   --start-date 2009-01-01 \
   --end-date 2026-05-07
 ```
 
-`audit` 只读当前 clean 层并输出违规统计；`rebuild-stk-mins-by-date-clean-range --dry-run` 只基于 raw 计算真正清洗后的保留/过滤统计，不写清洗结果。
+`audit` 只读当前正式 `clean_next` 层并输出违规统计；`rebuild-stk-mins-by-date-clean-next-range --dry-run` 只基于 raw 计算真正清洗后的保留/过滤统计，不写清洗结果。
 
-`rebuild-stk-mins-by-date-clean-range --apply` 会真实替换 `research/stk_mins_by_date_clean_next` 对应分区。它只读取 raw，只写 clean，不修改 `raw_tushare/stk_mins_by_date`。每个分区写入都必须走：
+`rebuild-stk-mins-by-date-clean-next-range --apply` 会真实替换 `research/stk_mins_by_date_clean_next` 对应分区。它只读取 raw，只写 clean，不修改 `raw_tushare/stk_mins_by_date`。每个分区写入都必须走：
 
 ```text
 raw 分区
@@ -1086,10 +1078,10 @@ compute-stk-mins-indicator-range
 
 2026-05-11 至 2026-05-12 执行状态：
 
-1. 已完成 `bootstrap-stk-mins-by-date-clean --apply --freqs 1,5,15,30,60`，将 raw 完整初始化到 clean：`21045` 个分区、`21637` 个文件、`4576237808` 行。
+1. 历史上曾完成旧 clean bootstrap，将 raw 完整初始化到错误 schema clean：`21045` 个分区、`21637` 个文件、`4576237808` 行。该旧命令已下线，旧 clean 路径已删除。
 2. 已完成 `build-stk-mins-security-identity-map --apply --sample-limit 5`，生成 `6089` 条 source code 映射、`5837` 个 identity。
 3. 样本审计显示 clean 初始副本并未通过最终审计：`2010-07-30 freq=1` 存在 `invalid_price=241`，因此必须先完成 clean rebuild，再进入 derived/research/MACD。
-4. 已完成全量 `rebuild-stk-mins-by-date-clean-range --dry-run --freqs 1,5,15,30,60 --start-date 2009-01-01 --end-date 2026-05-07`，该命令只读 raw 并计算清洗计划，没有写入 clean。
+4. 已完成全量正式 clean dry-run，该动作只读 raw 并计算清洗计划，没有写入 clean。
 5. 全量 dry-run 结果：
    - raw 行数：`4576237808`
    - 计划保留行数：`4561827979`
@@ -1099,11 +1091,11 @@ compute-stk-mins-indicator-range
    - `invalid_volume_amount`：`302`
    - `duplicate_reasons`：空，当前没有发现同一清洗主键下的重复冲突。
 6. 已完成小窗口 apply 验证：
-   - 命令：`rebuild-stk-mins-by-date-clean-range --apply --freqs 1 --start-date 2010-07-30 --end-date 2010-07-30`
+   - 命令：正式 `clean_next` 小窗口 apply。
    - 结果：raw `455972` 行，clean 写入 `455731` 行，过滤 `invalid_price=241`。
-   - 复核：`audit-stk-mins-by-date-clean --freqs 1 --start-date 2010-07-30 --end-date 2010-07-30` 返回 `status=success`，过滤原因为空。
+   - 复核：正式 `clean_next` 小窗口审计返回 `status=success`，过滤原因为空。
 7. 已完成全量受控 clean rebuild apply：
-   - 命令：`rebuild-stk-mins-by-date-clean-range --apply --freqs 1,5,15,30,60 --start-date 2009-01-01 --end-date 2026-05-07`
+   - 命令：正式 `clean_next` 全量受控 rebuild apply。
    - `run_id`：`20260511T171742Z-rebuild-stk-mins-clean`
    - 分区数：`21045`
    - raw 行数：`4576237808`
@@ -1608,20 +1600,12 @@ lake-console audit-security-identity-map
 ### 13.2 clean 输入与 research 重排
 
 ```bash
-lake-console bootstrap-stk-mins-by-date-clean \
-  --dry-run \
-  --freqs 1,5,15,30,60
-
-lake-console bootstrap-stk-mins-by-date-clean \
-  --apply \
-  --freqs 1,5,15,30,60
-
-lake-console audit-stk-mins-by-date-clean \
+lake-console audit-stk-mins-by-date-clean-next \
   --freqs 1,5,15,30,60 \
   --start-date 2009-01-01 \
   --end-date 2026-05-07
 
-lake-console rebuild-stk-mins-by-date-clean-range \
+lake-console rebuild-stk-mins-by-date-clean-next-range \
   --dry-run \
   --freqs 1,5,15,30,60 \
   --start-date 2009-01-01 \
