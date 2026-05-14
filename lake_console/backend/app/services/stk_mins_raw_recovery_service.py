@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.catalog.tushare_stk_mins import STK_MINS_FIELDS
+from lake_console.backend.app.services.affected_partition import AffectedPartition
 from lake_console.backend.app.services.lake_root_service import LakeRootService
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 
 
 MINUTE_BARS_BY_FREQ = {
@@ -222,6 +224,7 @@ class StkMinsRawRecoveryService:
         total_restored = 0
         total_blocked = 0
         total_written_rows = 0
+        affected_partitions: list[dict[str, object]] = []
         freq_results: list[dict[str, Any]] = []
         self.progress(
             f"[stk_mins_raw_recovery] apply start run_id={run_id} freqs={freqs} "
@@ -276,6 +279,7 @@ class StkMinsRawRecoveryService:
                 freq_written_rows += int(result["written_rows"])
                 total_written_rows += int(result["written_rows"])
                 restored_dates.append(item.trade_date)
+                affected_partitions.append(dict(result["affected_partition"]))
                 if len(restored_samples) < sample_limit:
                     restored_samples.append(result)
             freq_results.append(
@@ -294,6 +298,7 @@ class StkMinsRawRecoveryService:
                 f"[stk_mins_raw_recovery] freq_done freq={freq} restored={len(restored_dates)} "
                 f"blocked={len(blocked_samples)} written_rows={freq_written_rows}"
             )
+        clean_next_refresh = self._refresh_clean_next_or_raise(affected_partitions=affected_partitions)
 
         return {
             "operation": "recover_stk_mins_raw_from_research",
@@ -307,6 +312,8 @@ class StkMinsRawRecoveryService:
             "restored_partitions": total_restored,
             "blocked_partitions": total_blocked,
             "written_rows": total_written_rows,
+            "affected_partitions": affected_partitions,
+            "clean_next_refresh": clean_next_refresh,
             "freq_results": freq_results,
             "write_intent": True,
             "backup_root": str(self.lake_root / "_recovery" / run_id / "raw_partition_backup"),
@@ -514,6 +521,13 @@ class StkMinsRawRecoveryService:
                 f"written={written_rows} validated={validated_rows}"
             )
         _replace_partition_keep_backup(tmp_partition=tmp_partition, final_partition=final_partition, backup_partition=backup_partition)
+        affected_partition = self._affected_raw_partition(
+            run_id=run_id,
+            freq=freq,
+            trade_date=trade_date,
+            rows_written=written_rows,
+            final_partition=final_partition,
+        )
         return {
             "freq": freq,
             "trade_date": trade_date.isoformat(),
@@ -524,6 +538,7 @@ class StkMinsRawRecoveryService:
             "final_partition": str(final_partition),
             "backup_partition": str(backup_partition),
             "patch_backup_file": str(patch_backup_file),
+            "affected_partition": affected_partition.to_dict(),
         }
 
     def _read_research_day_frame(self, *, freq: int, trade_date: date):  # type: ignore[no-untyped-def]
@@ -598,6 +613,43 @@ class StkMinsRawRecoveryService:
     def _research_month(self, *, freq: int, trade_month: str) -> Path:
         return self.lake_root / "research" / "stk_mins_by_symbol_month" / f"freq={freq}" / f"trade_month={trade_month}"
 
+    def _affected_raw_partition(
+        self,
+        *,
+        run_id: str,
+        freq: int,
+        trade_date: date,
+        rows_written: int,
+        final_partition: Path,
+    ) -> AffectedPartition:
+        return AffectedPartition(
+            dataset_key="stk_mins",
+            source_key="tushare",
+            layer="raw_tushare",
+            partition_grain="trade_date",
+            partition_values={"freq": str(freq), "trade_date": trade_date.isoformat()},
+            partition_path=str(final_partition.relative_to(self.lake_root)),
+            source_run_id=run_id,
+            write_revision=f"{run_id}:raw_tushare:freq={freq}:trade_date={trade_date.isoformat()}",
+            rows_written=rows_written,
+            bytes_written=_directory_size(final_partition),
+        )
+
+    def _refresh_clean_next_or_raise(self, *, affected_partitions: list[dict[str, object]]) -> dict[str, Any] | None:
+        if not affected_partitions:
+            return None
+        refresh = CleanNextRefreshService(lake_root=self.lake_root, progress=self.progress).refresh(
+            affected_partitions=affected_partitions,
+            dry_run=False,
+            apply=True,
+        )
+        if refresh.get("status") != "passed":
+            raise RuntimeError(
+                "recover-stk-mins-raw-from-research raw 已写入，但 clean_next scoped audit 未通过，已阻断下游消费。"
+                f" status={refresh.get('status')} ledger={refresh.get('ledger_path')} gate={refresh.get('gate_path')}"
+            )
+        return refresh
+
 
 def _read_parquet_rows(path: Path, *, columns: list[str]) -> list[dict[str, Any]]:
     if not path.exists():
@@ -616,6 +668,14 @@ def _partition_files(partition: Path) -> list[Path]:
 def _row_count(files: list[Path]) -> int:
     pq = _require_pyarrow_parquet()
     return sum(int(pq.ParquetFile(path).metadata.num_rows) for path in files)
+
+
+def _directory_size(path: Path) -> int:
+    if not path.exists():
+        return 0
+    if path.is_file():
+        return path.stat().st_size
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
 
 
 def _merge_research_and_patch_frames(*, research_frame: Any, raw_patch_frame: Any, patch_ts_code: str):  # type: ignore[no-untyped-def]

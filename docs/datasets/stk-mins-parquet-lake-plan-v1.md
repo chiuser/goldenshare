@@ -82,38 +82,24 @@
 1. `vol` 不能使用 int32。现有 Postgres 路径已遇到过 `integer out of range`，Parquet Lake 也必须直接使用 int64。
 2. 价格是否压缩为 float32 可以后置评估。第一版优先保证数值稳定、实现简单和 DuckDB 读取可靠。
 3. `freq/exchange/vwap` 在源站文档中默认不显示，必须通过 `fields` 显式指定。Lake 写入时 `freq` 仍按既定瘦身口径保存为整数，`exchange/vwap` 保存源站返回值。
-4. 早期已下载的 raw 文件如果缺少 `exchange/vwap`，不得通过重新请求 Tushare 盲目补齐；应在后续本地 schema 迁移中统一处理缺失列，并与 `trade_time` timestamp 迁移一起评审。
+4. 早期已下载的 raw 文件如果缺少 `exchange/vwap`，不得通过重新请求 Tushare 盲目补齐；不得再使用逐文件 raw schema 迁移工具绕过 clean_next 链路。
 
-### 2.1.1 已下载 raw 文件 schema 迁移口径
+### 2.1.1 raw schema 迁移口径
 
-当前本地 Lake 已存在早期下载的 `raw_tushare/stk_mins_by_date` 文件。为避免重新请求 Tushare，已下载文件采用本地逐文件迁移：
+`migrate-stk-mins-schema` 已废弃并从代码中删除。
 
-```bash
-lake-console migrate-stk-mins-schema --dry-run
-lake-console migrate-stk-mins-schema --apply
-```
+删除原因：
 
-迁移范围只包含：
+1. 它按单个 Parquet 文件替换 raw，不是按 `freq/trade_date` 分区整体发布。
+2. 它不会生成 `AffectedPartition`，也不会强制刷新 `research/stk_mins_by_date_clean_next`。
+3. 它会制造 `raw` 已变、`clean_next/gate` 未变的口径断层。
 
-```text
-raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet
-```
+后续如果确实需要调整 raw schema，必须重新设计专项命令，并满足：
 
-迁移目标：
-
-1. `trade_time` 从字符串转为 Parquet timestamp。
-2. `freq` 统一为整数 `1/5/15/30/60`。
-3. `vol` 统一为 int64。
-4. 补齐 `exchange` 和 `vwap` 列；早期文件缺失时填空值，不伪造、不反推。
-5. 列顺序统一为 `STK_MINS_FIELDS`。
-
-执行规则：
-
-1. 先执行 `--dry-run`，确认待迁移文件数量和原因。
-2. 可用 `--freq`、`--trade-date` 缩小范围做小样本验证。
-3. `--apply` 逐个 Parquet 文件读取、转换、写入 `_tmp`、校验、原子替换。
-4. 如果某个文件无法解析 `trade_time`、行数不一致、字段不满足目标 schema，则该文件不替换。
-5. 该迁移不请求 Tushare，不访问远程数据库，不处理 `derived/research`。
+1. 按 affected partition 执行。
+2. raw 发布后强制执行 `CleanNextRefreshService`。
+3. clean_next scoped audit 未通过时必须阻断下游。
+4. 不允许再引入逐文件 raw 替换工具。
 
 ---
 

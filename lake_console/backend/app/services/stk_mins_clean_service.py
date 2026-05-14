@@ -24,7 +24,6 @@ from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupServ
 RAW_FREQS = {1, 5, 15, 30, 60}
 INTRADAY_EXPECTED_BAR_COUNT = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5}
 INTRADAY_AFTER_HOURS_BAR_COUNT = {1: 30, 5: 6, 15: 2, 30: 1, 60: 1}
-CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_completeness_issue_ledger.parquet"
 FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH = Path("manifest") / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet"
 FORMAL_ISSUE_LEDGER_SCHEMA_VERSION = 2
 ISSUE_LEDGER_FIELDS = (
@@ -74,18 +73,6 @@ FORMAL_ISSUE_LEDGER_FIELDS = (
     "seen_count",
     "superseded_by_issue_key",
 )
-CLEAN_STK_MINS_FIELDS = (
-    "ts_code",
-    "freq",
-    "trade_time",
-    "open",
-    "close",
-    "high",
-    "low",
-    "vol",
-    "amount",
-    "trade_date",
-)
 FORMAL_CLEAN_STK_MINS_FIELDS = STK_MINS_FIELDS
 FORMAL_CLEAN_RELATIVE_ROOT = Path("research") / "stk_mins_by_date_clean_next"
 
@@ -107,102 +94,11 @@ class StkMinsCleanBuildResult:
 
 
 class StkMinsCleanService:
-    """Build and audit the cleaned stk_mins by_date fact layer.
-
-    The service intentionally separates two phases:
-    - bootstrap: copy raw partitions into research/stk_mins_by_date_clean.
-    - rebuild dry-run/audit: calculate what a true cleaned partition would keep/filter.
-    """
+    """Build and audit the formal clean_next stk_mins by_date fact layer."""
 
     def __init__(self, *, lake_root: Path, progress: Callable[[str], None] | None = None) -> None:
         self.lake_root = lake_root
         self.progress = progress or (lambda message: print(message, flush=True))
-
-    def bootstrap_clean_from_raw(
-        self,
-        *,
-        freqs: list[int],
-        start_date: date | None = None,
-        end_date: date | None = None,
-        dry_run: bool,
-        apply: bool,
-        replace_existing: bool = False,
-        sample_limit: int = 20,
-    ) -> dict[str, Any]:
-        if dry_run == apply:
-            raise ValueError("bootstrap 必须且只能指定 dry_run 或 apply。")
-        _validate_freqs(freqs)
-        partitions = self._discover_partitions(layer="raw_tushare", freqs=freqs, start_date=start_date, end_date=end_date)
-        existing_targets = [
-            partition for partition in partitions if self._clean_partition(freq=partition.freq, trade_date=partition.trade_date).exists()
-        ]
-        total_rows = sum(partition.row_count for partition in partitions)
-        total_bytes = sum(partition.byte_count for partition in partitions)
-        summary: dict[str, Any] = {
-            "operation": "bootstrap_stk_mins_by_date_clean_from_raw",
-            "mode": "apply" if apply else "dry_run",
-            "lake_root": str(self.lake_root),
-            "freqs": freqs,
-            "start_date": start_date.isoformat() if start_date else None,
-            "end_date": end_date.isoformat() if end_date else None,
-            "raw_partitions": len(partitions),
-            "raw_files": sum(len(partition.files) for partition in partitions),
-            "raw_rows": total_rows,
-            "raw_bytes": total_bytes,
-            "existing_clean_partitions": len(existing_targets),
-            "replace_existing": replace_existing,
-            "samples": [_partition_summary(partition) for partition in partitions[:sample_limit]],
-            "write_intent": apply,
-        }
-        if dry_run:
-            return summary
-        if existing_targets and not replace_existing:
-            preview = ", ".join(
-                f"freq={item.freq}/trade_date={item.trade_date.isoformat()}" for item in existing_targets[:10]
-            )
-            raise RuntimeError(
-                "clean 目标分区已存在，拒绝覆盖。"
-                f" existing={len(existing_targets)} preview={preview}；"
-                "如确认要重新初始化，请显式传 --replace-existing。"
-            )
-
-        LakeRootService(self.lake_root).require_ready_for_write()
-        run_id = _run_id("bootstrap-stk-mins-clean")
-        started = time.monotonic()
-        written_partitions = 0
-        written_files = 0
-        written_rows = 0
-        self.progress(
-            f"[stk_mins_clean_bootstrap] start run_id={run_id} partitions={len(partitions)} "
-            f"files={summary['raw_files']} rows={total_rows}"
-        )
-        for index, partition in enumerate(partitions, start=1):
-            self.progress(
-                f"[stk_mins_clean_bootstrap] partition={index}/{len(partitions)} "
-                f"freq={partition.freq} trade_date={partition.trade_date.isoformat()} "
-                f"files={len(partition.files)} rows={partition.row_count}"
-            )
-            result = self._copy_raw_partition_to_clean(run_id=run_id, partition=partition)
-            written_partitions += 1
-            written_files += int(result["written_files"])
-            written_rows += int(result["written_rows"])
-
-        TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
-        elapsed = time.monotonic() - started
-        summary.update(
-            {
-                "run_id": run_id,
-                "written_partitions": written_partitions,
-                "written_files": written_files,
-                "written_rows": written_rows,
-                "elapsed_seconds": round(elapsed, 3),
-            }
-        )
-        self.progress(
-            f"[stk_mins_clean_bootstrap] done partitions={written_partitions} files={written_files} "
-            f"rows={written_rows} elapsed={round(elapsed, 1)}s"
-        )
-        return summary
 
     def build_security_identity_map(self, *, dry_run: bool, apply: bool, sample_limit: int = 20) -> dict[str, Any]:
         if dry_run == apply:
@@ -234,103 +130,6 @@ class StkMinsCleanService:
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         summary.update({"run_id": run_id, "written_rows": written, "output": str(final_file)})
         return summary
-
-    def audit_clean_layer(
-        self,
-        *,
-        freqs: list[int],
-        start_date: date | None = None,
-        end_date: date | None = None,
-        sample_limit: int = 20,
-    ) -> dict[str, Any]:
-        _validate_freqs(freqs)
-        identity_by_source, diagnostics = self._load_or_build_identity_map()
-        partitions = self._discover_partitions(
-            layer="research",
-            freqs=freqs,
-            start_date=start_date,
-            end_date=end_date,
-            include_metadata=False,
-        )
-        return self._summarize_clean_rules(
-            operation="audit_stk_mins_by_date_clean",
-            partitions=partitions,
-            identity_by_source=identity_by_source,
-            diagnostics=diagnostics,
-            sample_limit=sample_limit,
-            source_is_clean=True,
-        )
-
-    def audit_clean_completeness(
-        self,
-        *,
-        freqs: list[int],
-        start_date: date | None = None,
-        end_date: date | None = None,
-        sample_limit: int = 20,
-        write_ledger: bool = False,
-    ) -> dict[str, Any]:
-        """Audit clean partitions and optionally record issues in the G6 ledger.
-
-        The ledger is intentionally separate from clean rows: clean/derived/research
-        data must not gain explanatory columns just because audit found an issue.
-        """
-        _validate_freqs(freqs)
-        identity_by_source, diagnostics = self._load_or_build_identity_map()
-        identity_by_latest = _identity_by_latest(identity_by_source.values())
-        partitions = self._discover_partitions(
-            layer="research",
-            freqs=freqs,
-            start_date=start_date,
-            end_date=end_date,
-            include_metadata=False,
-        )
-        issue_records: list[dict[str, Any]] = []
-        issue_type_counts: Counter[str] = Counter()
-        status_counts: Counter[str] = Counter()
-        samples: list[dict[str, Any]] = []
-        self.progress(
-            f"[audit_stk_mins_clean_completeness] start partitions={len(partitions)} write_ledger={write_ledger}"
-        )
-        for index, partition in enumerate(partitions, start=1):
-            records = self._audit_clean_partition_completeness(
-                partition=partition,
-                identity_by_latest=identity_by_latest,
-            )
-            issue_records.extend(records)
-            for record in records:
-                issue_type_counts[str(record["issue_type"])] += 1
-                status_counts[str(record["status"])] += 1
-                if len(samples) < sample_limit:
-                    samples.append(record)
-            if index == 1 or index == len(partitions) or index % 250 == 0 or records:
-                self.progress(
-                    f"[audit_stk_mins_clean_completeness] partition={index}/{len(partitions)} "
-                    f"freq={partition.freq} trade_date={partition.trade_date.isoformat()} issues={len(records)}"
-                )
-
-        global_status = _global_audit_status(status_counts)
-        ledger_summary = None
-        if write_ledger:
-            ledger_summary = self._write_clean_issue_ledger(issue_records=issue_records)
-
-        return {
-            "operation": "audit_stk_mins_clean_completeness",
-            "mode": "write_ledger" if write_ledger else "read_only",
-            "lake_root": str(self.lake_root),
-            "freqs": freqs,
-            "start_date": start_date.isoformat() if start_date else None,
-            "end_date": end_date.isoformat() if end_date else None,
-            "partitions": len(partitions),
-            "issue_count": len(issue_records),
-            "issue_type_counts": dict(sorted(issue_type_counts.items())),
-            "status_counts": dict(sorted(status_counts.items())),
-            "identity_diagnostics": diagnostics,
-            "status": global_status,
-            "samples": samples,
-            "write_intent": write_ledger,
-            "ledger": ledger_summary,
-        }
 
     def audit_formal_clean_next_layer(
         self,
@@ -460,111 +259,6 @@ class StkMinsCleanService:
             "samples": samples,
             "write_intent": write_ledger,
             "ledger": ledger_summary,
-        }
-
-    def plan_rebuild_clean(
-        self,
-        *,
-        freqs: list[int],
-        start_date: date | None = None,
-        end_date: date | None = None,
-        sample_limit: int = 20,
-    ) -> dict[str, Any]:
-        _validate_freqs(freqs)
-        identity_by_source, diagnostics = self._load_or_build_identity_map()
-        partitions = self._discover_partitions(
-            layer="raw_tushare",
-            freqs=freqs,
-            start_date=start_date,
-            end_date=end_date,
-            include_metadata=False,
-        )
-        return self._summarize_clean_rules(
-            operation="rebuild_stk_mins_by_date_clean",
-            partitions=partitions,
-            identity_by_source=identity_by_source,
-            diagnostics=diagnostics,
-            sample_limit=sample_limit,
-            source_is_clean=False,
-        )
-
-    def rebuild_clean_from_raw(
-        self,
-        *,
-        freqs: list[int],
-        start_date: date | None = None,
-        end_date: date | None = None,
-        dry_run: bool,
-        apply: bool,
-        sample_limit: int = 20,
-    ) -> dict[str, Any]:
-        if dry_run == apply:
-            raise ValueError("clean rebuild 必须且只能指定 dry_run 或 apply。")
-        if dry_run:
-            return self.plan_rebuild_clean(freqs=freqs, start_date=start_date, end_date=end_date, sample_limit=sample_limit)
-
-        _validate_freqs(freqs)
-        LakeRootService(self.lake_root).require_ready_for_write()
-        identity_by_source, diagnostics = self._load_or_build_identity_map()
-        partitions = self._discover_partitions(
-            layer="raw_tushare",
-            freqs=freqs,
-            start_date=start_date,
-            end_date=end_date,
-            include_metadata=False,
-        )
-        run_id = _run_id("rebuild-stk-mins-clean")
-        started = time.monotonic()
-        total_raw_rows = 0
-        total_kept_rows = 0
-        reason_totals: Counter[str] = Counter()
-        duplicate_totals: Counter[str] = Counter()
-        samples: list[dict[str, Any]] = []
-
-        self.progress(f"[rebuild_stk_mins_by_date_clean] start run_id={run_id} partitions={len(partitions)} mode=apply")
-        for index, partition in enumerate(partitions, start=1):
-            build = self._build_clean_partition(partition=partition, identity_by_source=identity_by_source, include_frame=True)
-            stats = build.stats
-            conflict_count = int(stats["duplicate_reasons"].get("duplicate_conflict_payload", 0))
-            if conflict_count:
-                raise RuntimeError(
-                    "clean rebuild 遇到同键不同内容冲突，已停止。"
-                    f" freq={partition.freq} trade_date={partition.trade_date.isoformat()} conflicts={conflict_count}"
-                )
-            self._write_clean_partition(run_id=run_id, partition=partition, frame=build.frame, expected_rows=int(stats["kept_rows"]))
-
-            total_raw_rows += int(stats["raw_rows"])
-            total_kept_rows += int(stats["kept_rows"])
-            reason_totals.update(stats["filter_reasons"])
-            duplicate_totals.update(stats["duplicate_reasons"])
-            if len(samples) < sample_limit:
-                samples.append(stats)
-            duplicate_rows = sum(int(value) for value in stats["duplicate_reasons"].values())
-            if index == 1 or index == len(partitions) or index % 250 == 0 or stats["filtered_rows"] or duplicate_rows:
-                self.progress(
-                    f"[rebuild_stk_mins_by_date_clean] partition={index}/{len(partitions)} "
-                    f"freq={partition.freq} trade_date={partition.trade_date.isoformat()} "
-                    f"raw={stats['raw_rows']} written={stats['kept_rows']} filtered={stats['filtered_rows']}"
-                )
-
-        TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
-        elapsed = time.monotonic() - started
-        return {
-            "operation": "rebuild_stk_mins_by_date_clean",
-            "mode": "apply",
-            "run_id": run_id,
-            "lake_root": str(self.lake_root),
-            "partitions": len(partitions),
-            "raw_rows": total_raw_rows,
-            "kept_rows": total_kept_rows,
-            "filtered_rows": total_raw_rows - total_kept_rows,
-            "filter_reasons": dict(sorted(reason_totals.items())),
-            "duplicate_reasons": dict(sorted(duplicate_totals.items())),
-            "identity_diagnostics": diagnostics,
-            "status": "success",
-            "samples": samples,
-            "write_intent": True,
-            "elapsed_seconds": round(elapsed, 3),
         }
 
     def plan_rebuild_formal_clean_next(
@@ -704,87 +398,6 @@ class StkMinsCleanService:
             "samples": samples,
             "write_intent": True,
             "elapsed_seconds": round(elapsed, 3),
-        }
-
-    def _copy_raw_partition_to_clean(self, *, run_id: str, partition: StkMinsPartition) -> dict[str, Any]:
-        tmp_partition = (
-            self.lake_root
-            / "_tmp"
-            / run_id
-            / "research"
-            / "stk_mins_by_date_clean"
-            / f"freq={partition.freq}"
-            / f"trade_date={partition.trade_date.isoformat()}"
-        )
-        final_partition = self._clean_partition(freq=partition.freq, trade_date=partition.trade_date)
-        backup_partition = self.lake_root / "_tmp" / run_id / "_backup" / f"freq={partition.freq}" / f"trade_date={partition.trade_date.isoformat()}"
-        if tmp_partition.exists():
-            shutil.rmtree(tmp_partition)
-        tmp_partition.mkdir(parents=True, exist_ok=True)
-        for source_file in partition.files:
-            shutil.copy2(source_file, tmp_partition / source_file.name)
-        copied_files = _partition_files(tmp_partition)
-        copied_rows = _row_count(copied_files)
-        if copied_rows != partition.row_count:
-            raise RuntimeError(
-                f"clean bootstrap 校验失败：freq={partition.freq} trade_date={partition.trade_date.isoformat()} "
-                f"raw_rows={partition.row_count} copied_rows={copied_rows}"
-            )
-        replace_directory_atomically(tmp_dir=tmp_partition, final_dir=final_partition, backup_root=backup_partition.parent)
-        return {
-            "freq": partition.freq,
-            "trade_date": partition.trade_date.isoformat(),
-            "written_files": len(copied_files),
-            "written_rows": copied_rows,
-            "final_partition": str(final_partition),
-        }
-
-    def _summarize_clean_rules(
-        self,
-        *,
-        operation: str,
-        partitions: list[StkMinsPartition],
-        identity_by_source: dict[str, dict[str, Any]],
-        diagnostics: dict[str, Any],
-        sample_limit: int,
-        source_is_clean: bool,
-    ) -> dict[str, Any]:
-        total_raw_rows = 0
-        total_kept_rows = 0
-        reason_totals: Counter[str] = Counter()
-        duplicate_totals: Counter[str] = Counter()
-        samples: list[dict[str, Any]] = []
-        self.progress(f"[{operation}] start partitions={len(partitions)} source_is_clean={source_is_clean}")
-        for index, partition in enumerate(partitions, start=1):
-            stats = self._build_clean_partition(partition=partition, identity_by_source=identity_by_source, include_frame=False).stats
-            total_raw_rows += int(stats["raw_rows"])
-            total_kept_rows += int(stats["kept_rows"])
-            reason_totals.update(stats["filter_reasons"])
-            duplicate_totals.update(stats["duplicate_reasons"])
-            if len(samples) < sample_limit:
-                samples.append(stats)
-            duplicate_rows = sum(int(value) for value in stats["duplicate_reasons"].values())
-            if index == 1 or index == len(partitions) or index % 250 == 0 or stats["filtered_rows"] or duplicate_rows:
-                self.progress(
-                    f"[{operation}] partition={index}/{len(partitions)} freq={partition.freq} "
-                    f"trade_date={partition.trade_date.isoformat()} raw={stats['raw_rows']} kept={stats['kept_rows']} "
-                    f"filtered={stats['filtered_rows']}"
-                )
-        status = "success" if not reason_totals and not duplicate_totals else "needs_rebuild" if source_is_clean else "planned"
-        return {
-            "operation": operation,
-            "mode": "read_only" if source_is_clean else "dry_run",
-            "lake_root": str(self.lake_root),
-            "partitions": len(partitions),
-            "raw_rows": total_raw_rows,
-            "kept_rows": total_kept_rows,
-            "filtered_rows": total_raw_rows - total_kept_rows,
-            "filter_reasons": dict(sorted(reason_totals.items())),
-            "duplicate_reasons": dict(sorted(duplicate_totals.items())),
-            "identity_diagnostics": diagnostics,
-            "status": status,
-            "samples": samples,
-            "write_intent": False,
         }
 
     def _summarize_formal_clean_next_rules(
@@ -977,395 +590,6 @@ class StkMinsCleanService:
             "schema": list(FORMAL_CLEAN_STK_MINS_FIELDS),
         }
         return StkMinsCleanBuildResult(stats=stats, frame=clean_frame)
-
-    def _build_clean_partition(
-        self,
-        *,
-        partition: StkMinsPartition,
-        identity_by_source: dict[str, dict[str, Any]],
-        include_frame: bool,
-    ) -> StkMinsCleanBuildResult:
-        pd = _require_pandas()
-        frames = [pd.read_parquet(path, engine="pyarrow") for path in partition.files]
-        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=list(STK_MINS_FIELDS))
-        if frame.empty:
-            stats = {
-                "freq": partition.freq,
-                "trade_date": partition.trade_date.isoformat(),
-                "raw_rows": 0,
-                "kept_rows": 0,
-                "filtered_rows": 0,
-                "filter_reasons": {},
-                "duplicate_reasons": {},
-            }
-            return StkMinsCleanBuildResult(stats=stats, frame=_empty_clean_frame(pd) if include_frame else None)
-
-        source_ts_codes = frame["ts_code"].fillna("").astype(str).str.strip() if "ts_code" in frame.columns else pd.Series("", index=frame.index)
-        latest_ts_codes = source_ts_codes.map({key: value.get("latest_ts_code") for key, value in identity_by_source.items()})
-        list_dates = pd.to_datetime(
-            source_ts_codes.map({key: value.get("effective_list_date") for key, value in identity_by_source.items()}),
-            errors="coerce",
-        )
-        delist_dates = pd.to_datetime(
-            source_ts_codes.map({key: value.get("effective_delist_date") for key, value in identity_by_source.items()}),
-            errors="coerce",
-        )
-
-        reasons = pd.Series("", index=frame.index, dtype="object")
-        reasons.loc[latest_ts_codes.isna()] = "identity_missing"
-
-        if "trade_time" in frame.columns:
-            trade_time_values = pd.to_datetime(frame["trade_time"], errors="coerce")
-        else:
-            trade_time_values = pd.Series(pd.NaT, index=frame.index)
-        reasons.loc[reasons.eq("") & trade_time_values.isna()] = "invalid_trade_time"
-
-        open_values = _numeric_series(frame, "open", pd)
-        close_values = _numeric_series(frame, "close", pd)
-        high_values = _numeric_series(frame, "high", pd)
-        low_values = _numeric_series(frame, "low", pd)
-        invalid_price = (
-            open_values.isna()
-            | close_values.isna()
-            | high_values.isna()
-            | low_values.isna()
-            | (open_values <= 0)
-            | (close_values <= 0)
-            | (high_values <= 0)
-            | (low_values <= 0)
-            | (high_values < low_values)
-        )
-        reasons.loc[reasons.eq("") & invalid_price] = "invalid_price"
-
-        vol_values = _numeric_series(frame, "vol", pd).fillna(0)
-        amount_values = _numeric_series(frame, "amount", pd).fillna(0)
-        invalid_volume_amount = (vol_values < 0) | (amount_values < 0)
-        reasons.loc[reasons.eq("") & invalid_volume_amount] = "invalid_volume_amount"
-
-        trade_date_value = pd.Timestamp(partition.trade_date)
-        reasons.loc[reasons.eq("") & delist_dates.notna()] = "delisted_security"
-        reasons.loc[reasons.eq("") & list_dates.notna() & (trade_date_value < list_dates)] = "before_list_date"
-
-        reason_counts = Counter({str(reason): int(count) for reason, count in reasons[reasons.ne("")].value_counts().items()})
-        kept = frame.loc[reasons.eq("")].copy()
-        if kept.empty:
-            duplicate_counts = Counter()
-            kept_rows = 0
-            clean_frame = _empty_clean_frame(pd) if include_frame else None
-        else:
-            kept["__latest_ts_code"] = latest_ts_codes.loc[kept.index].astype(str)
-            key_cols = ["__latest_ts_code", "freq", "trade_time"]
-            duplicated_key_mask = kept.duplicated(subset=key_cols, keep=False)
-            if duplicated_key_mask.any():
-                duplicated_rows = kept.loc[duplicated_key_mask].copy()
-                payload_cols = [
-                    field
-                    for field in ("open", "close", "high", "low", "vol", "amount")
-                    if field in duplicated_rows.columns
-                ]
-                key_counts = duplicated_rows.groupby(key_cols, dropna=False).size().rename("key_count")
-                payload_distinct_counts = (
-                    duplicated_rows.drop_duplicates(subset=key_cols + payload_cols)
-                    .groupby(key_cols, dropna=False)
-                    .size()
-                    .rename("payload_distinct_count")
-                )
-                duplicate_frame = key_counts.to_frame().join(payload_distinct_counts, how="left").fillna({"payload_distinct_count": 0})
-                same_payload = duplicate_frame[
-                    (duplicate_frame["key_count"] > 1) & (duplicate_frame["payload_distinct_count"] == 1)
-                ]["key_count"].sum() - len(
-                    duplicate_frame[(duplicate_frame["key_count"] > 1) & (duplicate_frame["payload_distinct_count"] == 1)]
-                )
-                conflict_payload = duplicate_frame[duplicate_frame["payload_distinct_count"] > 1]["payload_distinct_count"].sum() - len(
-                    duplicate_frame[duplicate_frame["payload_distinct_count"] > 1]
-                )
-                duplicate_counts = Counter(
-                    {
-                        key: value
-                        for key, value in {
-                            "duplicate_same_payload": int(same_payload),
-                            "duplicate_conflict_payload": int(conflict_payload),
-                        }.items()
-                        if value
-                    }
-                )
-            else:
-                duplicate_counts = Counter()
-            if duplicate_counts["duplicate_conflict_payload"]:
-                clean_frame = None
-                kept_rows = len(kept) - duplicate_counts["duplicate_same_payload"] - duplicate_counts["duplicate_conflict_payload"]
-            else:
-                clean_source = kept.drop_duplicates(subset=key_cols, keep="first") if duplicate_counts["duplicate_same_payload"] else kept
-                kept_rows = len(clean_source)
-                clean_frame = self._to_clean_frame(
-                    frame=clean_source,
-                    pd=pd,
-                    partition=partition,
-                    open_values=open_values,
-                    close_values=close_values,
-                    high_values=high_values,
-                    low_values=low_values,
-                    vol_values=vol_values,
-                    amount_values=amount_values,
-                ) if include_frame else None
-        stats = {
-            "freq": partition.freq,
-            "trade_date": partition.trade_date.isoformat(),
-            "raw_rows": int(len(frame)),
-            "kept_rows": max(kept_rows, 0),
-            "filtered_rows": int(len(frame)) - max(kept_rows, 0),
-            "filter_reasons": dict(sorted(reason_counts.items())),
-            "duplicate_reasons": dict(sorted(duplicate_counts.items())),
-        }
-        return StkMinsCleanBuildResult(stats=stats, frame=clean_frame)
-
-    def _audit_clean_partition_completeness(
-        self,
-        *,
-        partition: StkMinsPartition,
-        identity_by_latest: dict[str, dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        pd = _require_pandas()
-        frames = [pd.read_parquet(path, engine="pyarrow") for path in partition.files]
-        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=list(CLEAN_STK_MINS_FIELDS))
-        records: list[dict[str, Any]] = []
-        evidence_ref = str(partition.path.relative_to(self.lake_root)) if partition.path.is_relative_to(self.lake_root) else str(partition.path)
-
-        if list(frame.columns) != list(CLEAN_STK_MINS_FIELDS):
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="schema_violation",
-                    status="failed",
-                    latest_ts_code="__partition__",
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value=",".join(CLEAN_STK_MINS_FIELDS),
-                    actual_value=",".join(str(column) for column in frame.columns),
-                    evidence_dataset="research.stk_mins_by_date_clean",
-                    evidence_ref=evidence_ref,
-                    action="block",
-                    reason="clean 分区字段不等于标准行情字段，不能通过审计。",
-                )
-            )
-
-        if frame.empty:
-            return records
-
-        ts_codes = frame["ts_code"].fillna("").astype(str).str.strip() if "ts_code" in frame.columns else pd.Series("", index=frame.index)
-        trade_time_values = (
-            pd.to_datetime(frame["trade_time"], errors="coerce") if "trade_time" in frame.columns else pd.Series(pd.NaT, index=frame.index)
-        )
-        open_values = _numeric_series(frame, "open", pd)
-        close_values = _numeric_series(frame, "close", pd)
-        high_values = _numeric_series(frame, "high", pd)
-        low_values = _numeric_series(frame, "low", pd)
-        vol_values = _numeric_series(frame, "vol", pd).fillna(0)
-        amount_values = _numeric_series(frame, "amount", pd).fillna(0)
-
-        invalid_trade_time_count = int(trade_time_values.isna().sum())
-        if invalid_trade_time_count:
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="invalid_trade_time",
-                    status="failed",
-                    latest_ts_code="__partition__",
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="trade_time parseable",
-                    actual_value=f"invalid_rows={invalid_trade_time_count}",
-                    evidence_dataset="research.stk_mins_by_date_clean",
-                    evidence_ref=evidence_ref,
-                    action="block",
-                    reason="clean 分区存在无法解析的 trade_time。",
-                )
-            )
-
-        invalid_price = (
-            open_values.isna()
-            | close_values.isna()
-            | high_values.isna()
-            | low_values.isna()
-            | (open_values <= 0)
-            | (close_values <= 0)
-            | (high_values <= 0)
-            | (low_values <= 0)
-            | (high_values < low_values)
-        )
-        invalid_price_count = int(invalid_price.sum())
-        if invalid_price_count:
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="invalid_price",
-                    status="failed",
-                    latest_ts_code="__partition__",
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="open/close/high/low > 0 and high >= low",
-                    actual_value=f"invalid_rows={invalid_price_count}",
-                    evidence_dataset="research.stk_mins_by_date_clean",
-                    evidence_ref=evidence_ref,
-                    action="exclude_from_clean",
-                    reason="clean 分区存在非法价格行，问题行必须入账后才能剔除。",
-                )
-            )
-
-        invalid_volume_amount_count = int(((vol_values < 0) | (amount_values < 0)).sum())
-        if invalid_volume_amount_count:
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="invalid_volume_amount",
-                    status="failed",
-                    latest_ts_code="__partition__",
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="vol >= 0 and amount >= 0",
-                    actual_value=f"invalid_rows={invalid_volume_amount_count}",
-                    evidence_dataset="research.stk_mins_by_date_clean",
-                    evidence_ref=evidence_ref,
-                    action="exclude_from_clean",
-                    reason="clean 分区存在非法成交量或成交额，问题行必须入账后才能剔除。",
-                )
-            )
-
-        identity_list_dates = pd.to_datetime(
-            ts_codes.map({key: value.get("effective_list_date") for key, value in identity_by_latest.items()}),
-            errors="coerce",
-        )
-        identity_delist_dates = pd.to_datetime(
-            ts_codes.map({key: value.get("effective_delist_date") for key, value in identity_by_latest.items()}),
-            errors="coerce",
-        )
-        known_latest_codes = set(identity_by_latest)
-        identity_missing_count = int((ts_codes.ne("") & ~ts_codes.isin(known_latest_codes)).sum())
-        if identity_missing_count:
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="identity_missing",
-                    status="failed",
-                    latest_ts_code="__partition__",
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="ts_code in security_identity_map.latest_ts_code",
-                    actual_value=f"missing_rows={identity_missing_count}",
-                    evidence_dataset="manifest.security_identity.security_identity_map",
-                    evidence_ref=evidence_ref,
-                    action="block",
-                    reason="clean 中存在身份账本无法解释的 ts_code。",
-                )
-            )
-
-        delisted_mask = identity_delist_dates.notna()
-        delisted_codes = sorted(set(ts_codes.loc[delisted_mask].tolist()))
-        for ts_code in delisted_codes:
-            row_count = int((delisted_mask & (ts_codes == ts_code)).sum())
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="delisted_security",
-                    status="failed",
-                    latest_ts_code=ts_code,
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="delisted security excluded from clean",
-                    actual_value=f"rows={row_count}",
-                    evidence_dataset="manifest.security_identity.security_identity_map",
-                    evidence_ref=evidence_ref,
-                    action="exclude_from_clean",
-                    reason="已退市股票整只不允许进入 clean。",
-                )
-            )
-
-        trade_date_value = pd.Timestamp(partition.trade_date)
-        before_list_mask = identity_list_dates.notna() & (trade_date_value < identity_list_dates)
-        before_list_codes = sorted(set(ts_codes.loc[before_list_mask].tolist()))
-        for ts_code in before_list_codes:
-            row_count = int((before_list_mask & (ts_codes == ts_code)).sum())
-            records.append(
-                _issue_record(
-                    gate="G5",
-                    issue_type="before_list_date",
-                    status="failed",
-                    latest_ts_code=ts_code,
-                    freq=partition.freq,
-                    trade_date=partition.trade_date,
-                    expected_value="trade_date >= effective_list_date",
-                    actual_value=f"rows={row_count}",
-                    evidence_dataset="manifest.security_identity.security_identity_map",
-                    evidence_ref=evidence_ref,
-                    action="exclude_from_clean",
-                    reason="未退市股票上市日前数据不允许进入 clean。",
-                )
-            )
-
-        if {"ts_code", "freq", "trade_time"}.issubset(frame.columns):
-            duplicate_rows = frame.loc[frame.duplicated(subset=["ts_code", "freq", "trade_time"], keep=False)].copy()
-            if not duplicate_rows.empty:
-                payload_cols = [field for field in ("open", "close", "high", "low", "vol", "amount") if field in duplicate_rows.columns]
-                grouped = duplicate_rows.groupby(["ts_code", "freq", "trade_time"], dropna=False)
-                for (ts_code, _freq, trade_time), group in grouped:
-                    payload_distinct_count = int(group.drop_duplicates(subset=payload_cols).shape[0]) if payload_cols else int(len(group))
-                    status = "duplicate_conflict_payload" if payload_distinct_count > 1 else "duplicate_same_payload"
-                    records.append(
-                        _issue_record(
-                            gate="G5",
-                            issue_type=status,
-                            status="failed" if status == "duplicate_conflict_payload" else "duplicate_same_payload",
-                            latest_ts_code=str(ts_code),
-                            freq=partition.freq,
-                            trade_date=partition.trade_date,
-                            trade_time=trade_time,
-                            expected_value="unique ts_code+freq+trade_time",
-                            actual_value=f"rows={len(group)} payload_distinct={payload_distinct_count}",
-                            evidence_dataset="research.stk_mins_by_date_clean",
-                            evidence_ref=evidence_ref,
-                            action="block" if payload_distinct_count > 1 else "repair_required",
-                            reason="clean 分区存在重复 key。",
-                        )
-                    )
-
-        if {"ts_code", "trade_time"}.issubset(frame.columns):
-            expected_bar_count = INTRADAY_EXPECTED_BAR_COUNT.get(partition.freq)
-            if expected_bar_count:
-                valid_time_mask = (
-                    trade_time_values.notna()
-                    & ~invalid_price
-                    & ~((vol_values < 0) | (amount_values < 0))
-                    & ts_codes.isin(known_latest_codes)
-                    & ~delisted_mask
-                    & ~before_list_mask
-                )
-                valid_time_frame = frame.loc[valid_time_mask].copy()
-                if not valid_time_frame.empty:
-                    valid_time_frame["__trade_time"] = trade_time_values.loc[valid_time_frame.index]
-                    bar_counts = valid_time_frame.groupby("ts_code", dropna=False).size()
-                    for ts_code, bar_count_value in bar_counts.items():
-                        bar_count = int(bar_count_value)
-                        if bar_count == expected_bar_count:
-                            continue
-                        status = "failed" if bar_count > expected_bar_count else "needs_review"
-                        issue_type = "extra_intraday_bar" if bar_count > expected_bar_count else "missing_intraday_bar"
-                        records.append(
-                            _issue_record(
-                                gate="G7",
-                                issue_type=issue_type,
-                                status=status,
-                                latest_ts_code=str(ts_code),
-                                freq=partition.freq,
-                                trade_date=partition.trade_date,
-                                expected_value=f"bar_count={expected_bar_count}",
-                                actual_value=f"bar_count={bar_count}",
-                                evidence_dataset="research.stk_mins_by_date_clean",
-                                evidence_ref=evidence_ref,
-                                action="block" if status == "failed" else "repair_required",
-                                reason="clean 分区日内 bar 数与 A 股常规交易时段不一致。",
-                            )
-                        )
-        return records
 
     def _audit_formal_clean_next_partition_basic(
         self,
@@ -1672,32 +896,6 @@ class StkMinsCleanService:
             )
         return records
 
-    def _to_clean_frame(
-        self,
-        *,
-        frame: Any,
-        pd: Any,
-        partition: StkMinsPartition,
-        open_values: Any,
-        close_values: Any,
-        high_values: Any,
-        low_values: Any,
-        vol_values: Any,
-        amount_values: Any,
-    ) -> Any:
-        clean = pd.DataFrame(index=frame.index)
-        clean["ts_code"] = frame["__latest_ts_code"].astype(str)
-        clean["freq"] = partition.freq
-        clean["trade_time"] = pd.to_datetime(frame["trade_time"], errors="coerce")
-        clean["open"] = open_values.loc[frame.index].astype("float64")
-        clean["close"] = close_values.loc[frame.index].astype("float64")
-        clean["high"] = high_values.loc[frame.index].astype("float64")
-        clean["low"] = low_values.loc[frame.index].astype("float64")
-        clean["vol"] = vol_values.loc[frame.index].astype("int64")
-        clean["amount"] = amount_values.loc[frame.index].astype("float64")
-        clean["trade_date"] = partition.trade_date
-        return clean.loc[:, list(CLEAN_STK_MINS_FIELDS)].sort_values(["ts_code", "trade_time"]).reset_index(drop=True)
-
     def _to_formal_clean_next_frame(
         self,
         *,
@@ -1724,35 +922,6 @@ class StkMinsCleanService:
         clean["exchange"] = frame["exchange"].where(frame["exchange"].notna(), None) if "exchange" in frame.columns else None
         clean["vwap"] = _numeric_series(frame, "vwap", pd).loc[frame.index] if "vwap" in frame.columns else None
         return clean.loc[:, list(FORMAL_CLEAN_STK_MINS_FIELDS)].sort_values(["ts_code", "trade_time"]).reset_index(drop=True)
-
-    def _write_clean_partition(self, *, run_id: str, partition: StkMinsPartition, frame: Any, expected_rows: int) -> None:
-        if frame is None:
-            raise RuntimeError(
-                f"clean 分区没有可写入 DataFrame：freq={partition.freq} trade_date={partition.trade_date.isoformat()}"
-            )
-        tmp_partition = (
-            self.lake_root
-            / "_tmp"
-            / run_id
-            / "research"
-            / "stk_mins_by_date_clean"
-            / f"freq={partition.freq}"
-            / f"trade_date={partition.trade_date.isoformat()}"
-        )
-        final_partition = self._clean_partition(freq=partition.freq, trade_date=partition.trade_date)
-        backup_root = self.lake_root / "_tmp" / run_id / "_backup" / "research" / "stk_mins_by_date_clean" / f"freq={partition.freq}"
-        if tmp_partition.exists():
-            shutil.rmtree(tmp_partition)
-        tmp_partition.mkdir(parents=True, exist_ok=True)
-        tmp_file = tmp_partition / "part-000.parquet"
-        frame.to_parquet(tmp_file, index=False, engine="pyarrow", compression="zstd")
-        validated = _row_count([tmp_file])
-        if validated != expected_rows:
-            raise RuntimeError(
-                f"clean rebuild 写入校验失败：freq={partition.freq} trade_date={partition.trade_date.isoformat()} "
-                f"expected={expected_rows} validated={validated}"
-            )
-        replace_directory_atomically(tmp_dir=tmp_partition, final_dir=final_partition, backup_root=backup_root)
 
     def _write_formal_clean_next_partition(self, *, run_id: str, partition: StkMinsPartition, frame: Any, expected_rows: int) -> None:
         if frame is None:
@@ -1789,14 +958,6 @@ class StkMinsCleanService:
                 f"expected={expected_rows} validated={validated}"
             )
         replace_directory_atomically(tmp_dir=tmp_partition, final_dir=final_partition, backup_root=backup_root)
-
-    def _write_clean_issue_ledger(self, *, issue_records: list[dict[str, Any]]) -> dict[str, Any]:
-        return self._write_clean_issue_ledger_to_path(
-            issue_records=issue_records,
-            ledger_relative_path=CLEAN_ISSUE_LEDGER_RELATIVE_PATH,
-            run_label="stk-mins-clean-issue-ledger",
-            audited_partition_keys=None,
-        )
 
     def _write_clean_issue_ledger_to_path(
         self,
@@ -2070,8 +1231,6 @@ class StkMinsCleanService:
             raise ValueError("end-date 不能早于 start-date。")
         if layer == "raw_tushare":
             root = self.lake_root / "raw_tushare" / "stk_mins_by_date"
-        elif layer == "research":
-            root = self.lake_root / "research" / "stk_mins_by_date_clean"
         elif layer == "formal_clean_next":
             root = self.lake_root / FORMAL_CLEAN_RELATIVE_ROOT
         else:
@@ -2101,9 +1260,6 @@ class StkMinsCleanService:
                     )
                 )
         return partitions
-
-    def _clean_partition(self, *, freq: int, trade_date: date) -> Path:
-        return self.lake_root / "research" / "stk_mins_by_date_clean" / f"freq={freq}" / f"trade_date={trade_date.isoformat()}"
 
     def _formal_clean_next_partition(self, *, freq: int, trade_date: date) -> Path:
         return self.lake_root / FORMAL_CLEAN_RELATIVE_ROOT / f"freq={freq}" / f"trade_date={trade_date.isoformat()}"
@@ -2389,10 +1545,6 @@ def _global_audit_status(status_counts: Counter[str]) -> str:
     if status_counts.get("needs_review", 0) or status_counts.get("missing_source_or_calendar_gap", 0):
         return "needs_review"
     return "success"
-
-
-def _empty_clean_frame(pd: Any) -> Any:
-    return pd.DataFrame(columns=list(CLEAN_STK_MINS_FIELDS))
 
 
 def _empty_formal_clean_frame(pd: Any) -> Any:

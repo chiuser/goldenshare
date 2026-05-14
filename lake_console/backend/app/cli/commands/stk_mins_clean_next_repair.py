@@ -3,11 +3,11 @@ from __future__ import annotations
 import argparse
 
 from lake_console.backend.app.cli.commands.common import add_lake_root_arg, print_json, settings_from_args
-from lake_console.backend.app.services.stk_mins_clean_next_20241030_multifreq_repair_service import (
-    StkMinsCleanNext20241030MultifreqRepairService,
-)
 from lake_console.backend.app.services.stk_mins_clean_next_2022_bj_freq30_repair_service import (
     StkMinsCleanNext2022BjFreq30RepairService,
+)
+from lake_console.backend.app.services.stk_mins_clean_next_20241030_multifreq_repair_service import (
+    StkMinsCleanNext20241030MultifreqRepairService,
 )
 
 
